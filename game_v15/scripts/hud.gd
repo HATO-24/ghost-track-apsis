@@ -4,21 +4,65 @@ extends Control
 const Fonts := preload("res://scripts/fonts.gd")
 const Palette := preload("res://scripts/pal.gd")
 
+# ── 栅格与四区 ──────────────────────────────────────────
+# 4px 基础格：所有矩形的位置 / 尺寸必须落在 4 的倍数上。
+# 8px 节奏格：间距、行高、控件高度优先取 8 的倍数。
+# 既有锚点例外（只落在 4 格，不改）：124 / 876 / 884 —— V1 版式与 main.gd 的 plot 已定。
+const U := 4.0
+const G := 8.0
 const TOP := Rect2(40, 40, 1840, 72)
 const TRACKS := Rect2(60, 124, 320, 752)
 const UNIT := Rect2(1540, 124, 320, 752)
 const LOG := Rect2(60, 884, 1120, 156)
 const TIME := Rect2(1200, 884, 660, 156)
 
-# 传感器条 / 下拉阵列（V2 结构，V1 薄荷语言）
-const SENSOR_RECT := Rect2(720, 136, 360, 26)
-const MENU_RECT := Rect2(720, 166, 360, 300)
+# 传感器条 / 下拉阵列（V2 结构，V1 薄荷语言）。
+# 位置规则：水平锁在地图中轴（396 + 1128 / 2 = 960），垂直贴地图上沿 +12。
+# 旧值 720 的中心是 900，既不在中轴也不在任何边缘上 —— 这就是"没对准"。
+const MAP_CX := 960.0
+const BAR_W := 360.0
+const BAR_H := 28.0
+const BAR_X := MAP_CX - BAR_W * 0.5
+const SENSOR_RECT := Rect2(BAR_X, 136, BAR_W, BAR_H)
 const MENU_HEAD := 28.0
 const MENU_ROW := 44.0
+const MENU_ROWS := 6.0
+const MENU_RECT := Rect2(BAR_X, 168, BAR_W, MENU_HEAD + MENU_ROW * MENU_ROWS)
 const MENU_FLASH := 0.14
 const MENU_FRAME := 0.12
 const MENU_QUAD_ORDER := [0, 1, 3, 2]
 const MENU_QUAD_STEP := 0.06
+
+# ── 显示名层（LORE-01 P0 审计）──────────────────────────
+# 数据层（state.gd / 未来 scenario.json）还带旧名；UI 先做显示替换，
+# **只改显示，不改 state**。数据层改名后删掉本表即可。
+# 依据：docs/10_术语表.md §12（A-01/02/06/10/11/12/13/14/15/16/19/20/24/26）。
+const DISPLAY_FIX := {
+	"听-3": "明视 IR-9",
+	"沙克尔顿租界": "永昼租界",
+	"天平动": "天市",
+	"长夜": "望楼",
+	"塔级": "安海-1",
+	"砧级": "托盘-5 改",
+	"听级": "托盘-5 改",
+	"代偿级": "传唤级",
+	"传票级": "传唤级",
+	"火力舰": "送达",
+	"送达舰": "送达",
+	"监督官分遣队": "AD 特遣群",
+	"HAMADAN": "HARMATTAN",
+	"LEEWARD": "LEE SHORE",
+	"LONGNIGHT": "WATCHTOWER",
+	"4471-K": "案卷 4471",
+	"4503-R": "案卷 4503",
+	"接管通知 4471 号": "接管通知 · 案卷 4471",
+}
+
+func _dn(s: String) -> String:
+	var out := s
+	for k in DISPLAY_FIX:
+		out = out.replace(k, DISPLAY_FIX[k])
+	return out
 
 var state
 var mono: Font
@@ -180,12 +224,18 @@ func _draw_top() -> void:
 
 	draw_line(Vector2(520, 50), Vector2(520, 102), Palette.a(Palette.LINE, 0.7), 1.0)
 
-	_txt(cjk, 548, 47, "接管通知 4471 号 / RECEIVERSHIP NOTICE", 7, Palette.a(Palette.AMBER, 0.72))
-	_txt(cjk, 548, 66, "宽限期剩余", 9, Palette.DIM)
-	_txt(mono, 626, 56, _hms(float(state.grace_left)), 24, Palette.AMBER)
+	# 07 §4：第一关顶栏是「接管通知 · 案卷 4471」，主计时是 6 分钟执行窗口；
+	# 主裁定的 216 h 宽限期另算，不压在这一关上。窗口剩余由 state.exec_left 提供。
+	var exec_left := 360.0
+	var exec_v = state.get("exec_left")
+	if exec_v != null:
+		exec_left = clampf(float(exec_v), 0.0, 360.0)
+	_txt(cjk, 548, 47, "接管通知 · 案卷 4471 / RECEIVERSHIP NOTICE", 7, Palette.a(Palette.AMBER, 0.72))
+	_txt(cjk, 548, 66, "执行窗口", 9, Palette.DIM)
+	_txt(mono, 626, 56, _hms(exec_left), 24, Palette.AMBER)
 	draw_rect(Rect2(548, 96, 420, 1), Palette.a(Palette.AMBER, 0.16))
-	draw_rect(Rect2(548, 96, 14, 1), Palette.AMBER)
-	_txt_r(mono, 968, 87, "216 h", 7, Palette.a(Palette.AMBER, 0.45))
+	draw_rect(Rect2(548, 96, 420.0 * exec_left / 360.0, 1), Palette.AMBER)
+	_txt_r(cjk, 968, 87, "EXECUTION WINDOW · 216 h 宽限期另算", 7, Palette.a(Palette.AMBER, 0.45))
 
 	draw_line(Vector2(1288, 50), Vector2(1288, 102), Palette.a(Palette.LINE, 0.7), 1.0)
 
@@ -199,47 +249,48 @@ func _draw_top() -> void:
 	_txt(cjk, 1440, 92, "AUTO-SLOW 开", 7, Palette.AMBER)
 
 	_txt(cjk, 1580, 47, "编队 Δv", 7, Palette.FAINT)
-	_txt(mono, 1580, 58, "8,420", 18, Palette.PH)
+	_txt(mono, 1580, 58, _fmt_int(int(state.fleet_dv)), 18, Palette.PH)
 	_txt(mono, 1652, 64, "m/s", 8, Palette.DIM)
 	_txt(cjk, 1580, 92, "剩余 72%", 7, Palette.FAINT)
 
-	_txt(cjk, 1730, 47, "交战规则 / ROE", 7, Palette.FAINT)
-	_txt(mono, 1730, 58, "HOLD", 12, Palette.AMBER)
-	_txt(cjk, 1730, 92, "不得先开火", 7, Palette.DIM)
+	_txt(cjk, 1720, 47, "交战规则 / ROE", 7, Palette.FAINT)
+	_txt(mono, 1720, 58, "HOLD", 12, Palette.AMBER)
+	_txt(cjk, 1720, 92, "不得先开火", 7, Palette.DIM)
 
 func _draw_tracks() -> void:
 	_panel(TRACKS)
 	_txt(cjk, 76, 134, "接触 / TRACKS", 11, Palette.TXT)
 	_txt_r(mono, 364, 134, "%02d" % state.tracks.size(), 12, Palette.PH_DIM)
 	_txt(cjk, 76, 153, "威胁排序 / THREAT ↓", 7, Palette.FAINT)
-	draw_line(Vector2(60, 170), Vector2(380, 170), Palette.a(Palette.LINE, 0.9), 1.0)
+	draw_line(Vector2(60, 168), Vector2(380, 168), Palette.a(Palette.LINE, 0.9), 1.0)
 
 	row_rects.clear()
 	for i in range(state.tracks.size()):
-		var y := 176.0 + float(i) * 82.0
-		row_rects.append(Rect2(60, y, 320, 82))
+		var y := 176.0 + float(i) * 80.0
+		row_rects.append(Rect2(60, y, 320, 80))
 		_draw_track_row(state.tracks[i], i, y)
 
-	draw_line(Vector2(60, 836), Vector2(380, 836), Palette.a(Palette.LINE, 0.9), 1.0)
-	_txt(cjk, 76, 843, "传感器 / SENSOR", 7, Palette.FAINT)
-	_chip(Rect2(76, 854, 72, 16), "IR 被动", Palette.PH, true)
-	_chip(Rect2(154, 854, 64, 16), "光学 8×", Palette.PH, true)
-	_chip(Rect2(224, 854, 62, 16), "雷达 关", Palette.FAINT, false)
+	draw_line(Vector2(60, 824), Vector2(380, 824), Palette.a(Palette.LINE, 0.9), 1.0)
+	_txt(cjk, 76, 832, "传感器 / SENSOR", 7, Palette.FAINT)
+	_chip(Rect2(76, 848, 72, 16), "IR 被动", Palette.PH, true)
+	_chip(Rect2(156, 848, 72, 16), "光学 8×", Palette.PH, true)
+	_chip(Rect2(236, 848, 72, 16), "雷达 关", Palette.FAINT, false)
 
 func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 	var col := _side_color(t)
 	var sel: bool = i == int(state.selected)
 	if sel:
-		draw_rect(Rect2(60, y, 320, 82), Palette.a(Palette.PANEL2, 0.95))
-		draw_rect(Rect2(60, y, 2, 82), col)
+		draw_rect(Rect2(60, y, 320, 80), Palette.a(Palette.PANEL2, 0.95))
+		draw_rect(Rect2(60, y, 2, 80), col)
 		draw_rect(Rect2(60, y, 320, 1), Palette.a(col, 0.22))
-	draw_line(Vector2(76, y + 81), Vector2(364, y + 81), Palette.a(Palette.LINE, 0.55), 1.0)
+	draw_line(Vector2(76, y + 79), Vector2(364, y + 79), Palette.a(Palette.LINE, 0.55), 1.0)
 
 	var dim := 0.45 if t.get("stale", false) else 1.0
-	var idf := cjk if Fonts.has_cjk(t.id) else mono
-	_txt(idf, 76, y + 12, t.id, 13, Palette.a(col, dim))
-	_txt(cjk, 160, y + 14, t.cls, 9, Palette.a(Palette.DIM, dim))
-	_draw_level(346.0, y + 12.0, t, col)
+	var disp_id := _dn(t.id)
+	var idf := cjk if Fonts.has_cjk(disp_id) else mono
+	_txt(idf, 76, y + 12, disp_id, 13, Palette.a(col, dim))
+	_txt(cjk, 160, y + 14, _dn(t.cls), 9, Palette.a(Palette.DIM, dim))
+	_draw_level(344.0, y + 12.0, t, col)
 
 	var line2 := ""
 	if t.get("own", false):
@@ -267,8 +318,8 @@ func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 	var frac := 1.0
 	if not t.get("own", false):
 		frac = clampf(1.0 - float(t.age) / 45.0 * 0.75, 0.12, 1.0)
-	draw_rect(Rect2(76, y + 66, 288, 2), Palette.a(Palette.LINE, 0.8))
-	draw_rect(Rect2(76, y + 66, 288.0 * frac, 2), Palette.a(col, 0.50 * dim))
+	draw_rect(Rect2(76, y + 64, 288, 2), Palette.a(Palette.LINE, 0.8))
+	draw_rect(Rect2(76, y + 64, 288.0 * frac, 2), Palette.a(col, 0.50 * dim))
 
 func _draw_level(x: float, y: float, t: Dictionary, col: Color) -> void:
 	var lv := "L%d" % int(t.level)
@@ -281,12 +332,25 @@ func _draw_unit() -> void:
 	# _draw_ship_watermark()
 
 	var u: Dictionary = state.unit
+	# LORE-01 兜底（A-26/A-27）：数据层若还留着旧数据（砧级炮舰 1,200 t / 68 人），
+	# 显示层补成“哈马丹号 = 托盘-5 改哨舰（300 t / 12 人）”。数据层修好后自动失效。
+	if String(u.get("name", "")) == "哈马丹":
+		u = u.duplicate()
+		if String(u.get("en", "")) == "HAMADAN":
+			u["en"] = "HARMATTAN"
+		if String(u.get("cls", "")).contains("砧") or String(u.get("role", "")) == "炮舰":
+			u["cls"] = "托盘-5 改"
+			u["role"] = "哨舰"
+		if String(u.get("mass", "")).contains("1,200"):
+			u["mass"] = "300 t"
+		if String(u.get("crew", "")) == "68":
+			u["crew"] = "12"
 	_txt(cjk, 1556, 138, "选中单位 / UNIT", 7, Palette.FAINT)
-	_txt(cjk, 1556, 150, u.name, 24, Palette.TXT)
-	_txt(mono, 1556, 181, u.en, 8, Palette.DIM)
-	_txt(cjk, 1556, 195, u.cls + " · " + u.role, 10, Palette.PH)
-	_txt(cjk, 1556, 211, u.faction, 8, Palette.DIM)
-	draw_line(Vector2(1540, 226), Vector2(1860, 226), Palette.a(Palette.LINE, 0.9), 1.0)
+	_txt(cjk, 1556, 150, _dn(u.name), 24, Palette.TXT)
+	_txt(mono, 1556, 181, _dn(u.en), 8, Palette.DIM)
+	_txt(cjk, 1556, 195, _dn(u.cls + " · " + u.role), 10, Palette.PH)
+	_txt(cjk, 1556, 211, _dn(u.faction), 8, Palette.DIM)
+	draw_line(Vector2(1540, 224), Vector2(1860, 224), Palette.a(Palette.LINE, 0.9), 1.0)
 
 	var stats := [
 		["干重 MASS", u.mass], ["编制 CREW", u.crew],
@@ -295,18 +359,23 @@ func _draw_unit() -> void:
 	]
 	for i in range(6):
 		var cx := 1556.0 + float(i % 2) * 150.0
-		var cy := 236.0 + float(i / 2) * 26.0
+		var cy := 236.0 + float(i / 2) * 24.0
 		_txt(cjk, cx, cy, stats[i][0], 8, Palette.DIM)
 		_txt(mono, cx, cy + 10.0, stats[i][1], 10, Palette.TXT)
 
+	var sys_avg := 0.0
+	for i in range(u.systems.size()):
+		sys_avg += float(u.systems[i][1])
+	if u.systems.size() > 0:
+		sys_avg /= float(u.systems.size())
 	_txt(cjk, 1556, 316, "系统 / SYSTEMS", 7, Palette.FAINT)
-	_txt_r(mono, 1860, 316, "AVG 83%", 8, Palette.DIM)
-	for i in range(5):
-		var cy := 334.0 + float(i) * 26.0
+	_txt_r(mono, 1860, 316, "AVG %d%%" % int(round(sys_avg * 100.0)), 8, Palette.DIM)
+	for i in range(mini(5, u.systems.size())):
+		var cy := 336.0 + float(i) * 24.0
 		var sname: String = u.systems[i][0]
 		var sv: float = u.systems[i][1]
 		_txt(cjk, 1556, cy, sname, 9, Palette.DIM)
-		_bar(Rect2(1636, cy + 4, 130, 4), sv, _sys_color(sv))
+		_bar(Rect2(1636, cy + 4, 128, 4), sv, _sys_color(sv))
 		_txt_r(mono, 1860, cy, "%d%%" % int(sv * 100.0), 8, Palette.TXT)
 
 	_txt(cjk, 1556, 470, "Δv 预算 / BUDGET", 7, Palette.FAINT)
@@ -314,29 +383,34 @@ func _draw_unit() -> void:
 	var dw := mono.get_string_size(u.dv, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
 	_txt(mono, 1556.0 + dw + 5.0, 502, "m/s", 9, Palette.DIM)
 	_txt(mono, 1556, 536, "/ %s 满" % u.dv_max, 8, Palette.DIM)
-	_bar(Rect2(1556, 550, 288, 5), 0.90, Palette.PH)
-	_txt(cjk, 1556, 560, "剩余 90% · 已耗 310 m/s", 7, Palette.FAINT)
+	var dv_now := _to_int(String(u.dv))
+	var dv_full := _to_int(String(u.dv_max))
+	var dv_frac := 1.0
+	if dv_full > 0:
+		dv_frac = clampf(float(dv_now) / float(dv_full), 0.0, 1.0)
+	_bar(Rect2(1556, 548, 288, 4), dv_frac, Palette.PH)
+	_txt(cjk, 1556, 560, "剩余 %d%% · 已耗 %s m/s" % [int(round(dv_frac * 100.0)), _fmt_int(maxi(dv_full - dv_now, 0))], 7, Palette.FAINT)
 
-	_txt(cjk, 1556, 580, "武器 / WEAPONS", 7, Palette.FAINT)
-	for i in range(3):
+	_txt(cjk, 1556, 580, "载荷 / LOADOUT", 7, Palette.FAINT)
+	for i in range(mini(3, u.weapons.size())):
 		var cy := 596.0 + float(i) * 20.0
 		_txt(cjk, 1556, cy, u.weapons[i][0], 9, Palette.DIM)
 		_txt_r(mono, 1860, cy, u.weapons[i][1], 8, Palette.TXT)
 
-	draw_rect(Rect2(1556, 660, 288, 34), Palette.a(Palette.AMBER, 0.05))
-	draw_rect(Rect2(1556, 660, 2, 34), Palette.a(Palette.AMBER, 0.8))
+	draw_rect(Rect2(1556, 660, 288, 32), Palette.a(Palette.AMBER, 0.05))
+	draw_rect(Rect2(1556, 660, 2, 32), Palette.a(Palette.AMBER, 0.8))
 	_txt(cjk, 1566, 665, "损管 / DAMAGE", 7, Palette.AMBER)
 	_txt(cjk, 1566, 677, u.damage + " · " + u.damage2, 8, Palette.TXT)
 
 	_txt(cjk, 1556, 706, "姿态 / ATTITUDE", 7, Palette.FAINT)
-	draw_rect(Rect2(1556, 718, 62, 58), Palette.a(Palette.LINE, 0.8), false, 1.0)
-	var c := Vector2(1587, 747)
+	draw_rect(Rect2(1556, 720, 64, 56), Palette.a(Palette.LINE, 0.8), false, 1.0)
+	var c := Vector2(1588, 748)
 	var hd := Vector2(cos(deg_to_rad(12.4)), sin(deg_to_rad(12.4))) * 24.0
 	draw_line(c - hd, c + hd, Palette.a(Palette.PH, 0.55), 1.0)
 	for k in [-2, -1, 1, 2]:
 		var o := Vector2(0, float(k) * 7.0)
 		draw_line(c + o + Vector2(-6, 0), c + o + Vector2(6, 0), Palette.a(Palette.PH_FAINT, 0.45), 1.0)
-	draw_line(Vector2(1587, 718), Vector2(1587, 724), Palette.a(Palette.PH, 0.5), 1.0)
+	draw_line(Vector2(1588, 720), Vector2(1588, 726), Palette.a(Palette.PH, 0.5), 1.0)
 	draw_circle(c, 1.4, Palette.PH)
 	_txt(mono, 1628, 720, "P +12.4°", 8, Palette.TXT)
 	_txt(mono, 1628, 732, "Y  -3.1°", 8, Palette.TXT)
@@ -388,10 +462,11 @@ func _draw_log() -> void:
 		var l: Dictionary = state.log_lines[i]
 		var y := 918.0 + float(i) * 24.0
 		_txt(mono, 76, y, "T+" + l.t, 10, Palette.a(Palette.FAINT, 0.95))
-		_txt(cjk, 150, y - 1, l.text, 11, Palette.a(Palette.TXT, 0.92))
-		var tw := cjk.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		var disp_text := _dn(l.text)
+		_txt(cjk, 150, y - 1, disp_text, 11, Palette.a(Palette.TXT, 0.92))
+		var tw := cjk.get_string_size(disp_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 		if l.arg != "":
-			_txt(mono, 150.0 + tw + 10.0, y, l.arg, 8, Palette.a(Palette.AMBER, 0.7))
+			_txt(mono, 150.0 + tw + 10.0, y, _dn(l.arg), 8, Palette.a(Palette.AMBER, 0.7))
 		if i == 0 and pending:
 			draw_rect(Rect2(150, y + 16, 930, 1), Palette.a(Palette.AMBER, 0.10))
 			draw_rect(Rect2(150, y + 16, 930.0 * (1.0 - cmd_left / 6.2), 1), Palette.a(Palette.AMBER, 0.55))
@@ -434,23 +509,23 @@ func _draw_time() -> void:
 	var scales := [1.0, 10.0, 60.0, 300.0]
 	var names := ["1×", "10×", "60×", "300×"]
 	for i in range(4):
-		var r := Rect2(1216.0 + float(i) * 46.0, 912, 40, 20)
+		var r := Rect2(1216.0 + float(i) * 48.0, 912, 40, 24)
 		time_rects.append(r)
 		var active: bool = absf(float(state.time_scale) - float(scales[i])) < 0.1
 		if active:
 			draw_rect(r, Palette.a(Palette.PH, 0.10))
 			draw_rect(r, Palette.a(Palette.PH, 0.65), false, 1.0)
-			_txt(mono, r.position.x + 8, r.position.y + 4, names[i], 9, Palette.PH)
+			_txt(mono, r.position.x + 8, r.position.y + 6, names[i], 9, Palette.PH)
 		else:
 			draw_rect(r, Palette.a(Palette.LINE, 0.5), false, 1.0)
-			_txt(mono, r.position.x + 8, r.position.y + 4, names[i], 9, Palette.a(Palette.DIM, 0.75))
-	_txt(cjk, 1404, 917, "SPACE 暂停 / 1-4 时标", 7, Palette.FAINT)
+			_txt(mono, r.position.x + 8, r.position.y + 6, names[i], 9, Palette.a(Palette.DIM, 0.75))
+	_txt(cjk, 1416, 916, "SPACE 暂停 / 1-4 时标", 7, Palette.FAINT)
 
 	var x0 := 1216.0
 	var x1 := 1844.0
 	var w := x1 - x0
-	var y := 966.0
-	draw_rect(Rect2(x0, 952, w * 0.20, 20), Palette.a(Palette.PH, 0.025))
+	var y := 964.0
+	draw_rect(Rect2(x0, 952, w * 0.20, 24), Palette.a(Palette.PH, 0.025))
 	draw_line(Vector2(x0, y), Vector2(x1, y), Palette.a(Palette.LINE2, 0.9), 1.0)
 	for i in range(13):
 		var x := x0 + w * float(i) / 12.0
@@ -462,9 +537,9 @@ func _draw_time() -> void:
 		var ex := x0 + w * float(events[i])
 		draw_line(Vector2(ex, y - 10), Vector2(ex, y + 3), Palette.a(ecols[i], 0.28), 1.0)
 		draw_circle(Vector2(ex, y), 3.0, Palette.a(ecols[i], 0.85))
-	draw_line(Vector2(x1, 950), Vector2(x1, 974), Palette.PH, 2.0)
+	draw_line(Vector2(x1, 952), Vector2(x1, 976), Palette.PH, 2.0)
 	draw_colored_polygon(PackedVector2Array([
-		Vector2(x1, 944), Vector2(x1 + 6, 950), Vector2(x1 - 6, 950)
+		Vector2(x1, 944), Vector2(x1 + 6, 952), Vector2(x1 - 6, 952)
 	]), Palette.PH)
 	_txt(mono, x0, 980, "T-60", 8, Palette.FAINT)
 	_txt(mono, x0 + w * 0.5 - 12.0, 980, "T-30", 8, Palette.FAINT)
@@ -481,14 +556,14 @@ func _draw_sensor_bar() -> void:
 	draw_rect(SENSOR_RECT, Palette.a(Palette.PH, 0.55) if menu_open else Palette.a(Palette.LINE, 0.95), false, 1.0)
 	var x0 := SENSOR_RECT.position.x
 	var y0 := SENSOR_RECT.position.y
-	_txt(mono, x0 + 10.0, y0 + 9.0, "SENSOR", 7, Palette.a(Palette.PH, 0.8))
-	draw_line(Vector2(x0 + 62.0, y0 + 6.0), Vector2(x0 + 62.0, y0 + 20.0), Palette.a(Palette.LINE, 0.85), 1.0)
+	_txt(mono, x0 + 12.0, y0 + 8.0, "SENSOR", 7, Palette.a(Palette.PH, 0.8))
+	draw_line(Vector2(x0 + 64.0, y0 + 4.0), Vector2(x0 + 64.0, y0 + 24.0), Palette.a(Palette.LINE, 0.85), 1.0)
 	var s: Dictionary = state.sensors[int(state.sensor)]
-	_glyph(x0 + 72.0, y0 + 5.0, 16.0, s.glyph, Color(s.color))
-	_txt(cjk, x0 + 96.0, y0 + 8.0, s.mfr + " · " + s.model, 9, Palette.TXT)
-	_txt_r(cjk, SENSOR_RECT.end.x - 34.0, y0 + 9.0, s.mode, 7, Palette.DIM)
+	_glyph(x0 + 72.0, y0 + 6.0, 16.0, s.glyph, Color(s.color))
+	_txt(cjk, x0 + 96.0, y0 + 8.0, _dn(s.mfr + " · " + s.model), 9, Palette.TXT)
+	_txt_r(cjk, SENSOR_RECT.end.x - 32.0, y0 + 9.0, _dn(s.mode), 7, Palette.DIM)
 	var chev := "▴" if menu_open else "▾"
-	_txt(mono, SENSOR_RECT.end.x - 17.0, y0 + 7.0, chev, 10, Palette.a(Palette.PH, 0.9 if menu_open else 0.7))
+	_txt(mono, SENSOR_RECT.end.x - 16.0, y0 + 8.0, chev, 10, Palette.a(Palette.PH, 0.9 if menu_open else 0.7))
 
 func _draw_sensor_menu() -> void:
 	menu_rects.clear()
@@ -500,7 +575,7 @@ func _draw_sensor_menu() -> void:
 	draw_rect(r, Palette.a(Palette.PANEL, 1.0))
 	draw_rect(r, Palette.a(Palette.LINE, 0.95), false, 1.0)
 	_txt(cjk, x0 + 12.0, y0 + 8.0, "SENSOR ARRAY / 传感器来源", 9, Palette.TXT)
-	_txt_r(mono, r.end.x - 12.0, y0 + 9.0, "%02d MODULES" % state.sensors.size(), 7, Palette.a(Palette.FAINT, 0.95))
+	_txt_r(mono, r.end.x - 12.0, y0 + 8.0, "%02d MODULES" % state.sensors.size(), 7, Palette.a(Palette.FAINT, 0.95))
 	draw_line(Vector2(x0, y0 + MENU_HEAD), Vector2(r.end.x, y0 + MENU_HEAD), Palette.a(Palette.LINE, 0.9), 1.0)
 
 	for i in range(state.sensors.size()):
@@ -512,10 +587,13 @@ func _draw_sensor_menu() -> void:
 			draw_rect(row, Palette.a(Palette.PANEL2, 0.95))
 			draw_rect(Rect2(row.position.x, row.position.y, 2.0, row.size.y), Palette.PH)
 		_glyph(row.position.x + 12.0, row.position.y + 10.0, 24.0, s.glyph, Color(s.color))
-		_txt(cjk, row.position.x + 48.0, row.position.y + 9.0, s.mfr, 7, Palette.DIM)
-		_txt(mono, row.position.x + 48.0, row.position.y + 20.0, s.model, 10, Palette.TXT)
-		_txt(cjk, row.position.x + 130.0, row.position.y + 22.0, s.mode, 8, Palette.DIM)
-		_txt_r(mono, row.end.x - 12.0, row.position.y + 9.0, s.sig, 7, Palette.a(Palette.FAINT, 0.95))
+		var disp_mfr := _dn(s.mfr)
+		var disp_model := _dn(s.model)
+		_txt(cjk, row.position.x + 48.0, row.position.y + 8.0, disp_mfr, 7, Palette.DIM)
+		var mf := cjk if Fonts.has_cjk(disp_model) else mono
+		_txt(mf, row.position.x + 48.0, row.position.y + 20.0, disp_model, 10, Palette.TXT)
+		_txt(cjk, row.position.x + 128.0, row.position.y + 22.0, _dn(s.mode), 8, Palette.DIM)
+		_txt_r(mono, row.end.x - 12.0, row.position.y + 8.0, s.sig, 7, Palette.a(Palette.FAINT, 0.95))
 		if not sel:
 			draw_line(Vector2(row.position.x + 12.0, row.end.y - 1.0), Vector2(row.end.x - 12.0, row.end.y - 1.0), Palette.a(Palette.LINE, 0.55), 1.0)
 
@@ -694,6 +772,24 @@ func _corners(r: Rect2, l: float, c: Color) -> void:
 func _hms(s: float) -> String:
 	var t := int(s)
 	return "%02d:%02d:%02d" % [int(t / 3600.0), int(t / 60.0) % 60, t % 60]
+
+# "1,120" / "300 t" → 1120 / 300。只用于显示数值的读取。
+func _to_int(s: String) -> int:
+	var digits := ""
+	for i in s.length():
+		var ch := s.substr(i, 1)
+		if ch >= "0" and ch <= "9":
+			digits += ch
+	return int(digits) if digits != "" else 0
+
+func _fmt_int(n: int) -> String:
+	var raw := str(absi(n))
+	var out := ""
+	for i in raw.length():
+		if i > 0 and (raw.length() - i) % 3 == 0:
+			out += ","
+		out += raw[i]
+	return ("-" if n < 0 else "") + out
 
 func _txt(f: Font, x: float, y: float, s: String, sz: int, c: Color) -> void:
 	draw_string(f, Vector2(x, y + f.get_ascent(sz)), s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, c)

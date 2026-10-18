@@ -9,3 +9,6 @@ Thumbs.db
 /tools/
 
 *.zip
+
+mockups/_*
+mockups/*.log

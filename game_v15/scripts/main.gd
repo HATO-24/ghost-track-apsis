@@ -5,6 +5,7 @@ const PlotScript := preload("res://scripts/plot.gd")
 const HudScript := preload("res://scripts/hud.gd")
 
 const BASE := Vector2i(1920, 1080)
+const PLOT_RECT := Rect2(396.0, 124.0, 1128.0, 752.0)
 
 var state = StateScript.new()
 var vp: SubViewport
@@ -14,11 +15,16 @@ var _shot_path := ""
 var _scene := ""
 var _gif_dir := ""
 var _frames := 0
+var _drag := false
 
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
 	_scene = OS.get_environment("DSH_SCENE")
 	_gif_dir = OS.get_environment("DSH_GIF")
+	# 截图/GIF 时先冻结动效，让相机不自转，画面可复现
+	if _shot_path != "" or _gif_dir != "":
+		state.capture = true
+		state.paused = true
 	print("MAIN READY shot=", _shot_path, " scene=", _scene, " gif=", _gif_dir)
 	get_window().title = "AD-FLEET // 战术显控台 — V1.5"
 	get_window().size = Vector2i(1600, 900)
@@ -72,13 +78,9 @@ func _ready() -> void:
 	root.add_child(crt)
 
 	if _shot_path != "":
-		state.capture = true
-		state.paused = true
 		state.boot_t = 2.0
 		_set_scene(_scene)
 	elif _gif_dir != "":
-		state.capture = true
-		state.paused = true
 		_capture_gif(_gif_dir)
 
 func _set_scene(sc: String) -> void:
@@ -89,16 +91,70 @@ func _set_scene(sc: String) -> void:
 		state.sensor = 2
 	elif sc == "optical":
 		state.sensor = 3
+	elif sc == "iff":
+		state.sensor = 4
+	elif sc == "elint":
+		state.sensor = 5
 	if sc == "boot":
 		state.boot_t = 1.0
 	if hud != null:
 		hud.menu_open = (sc == "menu")
 		hud.menu_t = 0.5
 	state.sensor_fx_t = -1.0
+	# 基准：DSH_DATUM=earth|moon|l1（可选）
+	var dm := OS.get_environment("DSH_DATUM")
+	if dm != "":
+		state.set_datum(dm)
+	# 传感器：DSH_SENSOR=0..5（可选，覆盖 DSH_SCENE 的图层）
+	var sn := OS.get_environment("DSH_SENSOR")
+	if sn != "":
+		state.sensor = clampi(int(sn), 0, state.sensors.size() - 1)
+		state.sensor_fx_t = -1.0
+	plot.reset_camera()
+	# 视图：flat = 正交战略图；l1 / moon = 切到对应基准的 3D 板
+	if sc == "flat" or sc == "planar":
+		plot.force_planar(true)
+	elif sc == "l1":
+		state.set_datum("L1")
+		plot.force_planar(false)
+	elif sc == "moon":
+		state.set_datum("MOON")
+		plot.force_planar(false)
+	elif sc == "l1flat":
+		state.set_datum("L1")
+		plot.force_planar(true)
+	elif sc == "moonflat":
+		state.set_datum("MOON")
+		plot.force_planar(true)
+	# 可选的相机预设：DSH_YAW / DSH_PITCH（度）/ DSH_DIST（km）
+	var ys := OS.get_environment("DSH_YAW")
+	if ys != "":
+		plot.yaw3d = deg_to_rad(float(ys))
+		plot.yaw2d = plot.yaw3d
+	var ps := OS.get_environment("DSH_PITCH")
+	if ps != "":
+		plot.pitch = deg_to_rad(clampf(float(ps), -8.0, 78.0))
+	var ds := OS.get_environment("DSH_DIST")
+	if ds != "":
+		plot.dist = clampf(float(ds) * 1000.0, 300000.0, 1400000.0)
+	# 调试/验证用：DSH_ZOOM=+n 滚轮放大 n 次，-n 缩小；DSH_FLIP=1 翻转；触发自动压平切换
+	var zs := OS.get_environment("DSH_ZOOM")
+	if zs != "":
+		var zn := int(zs)
+		for i in range(absi(zn)):
+			plot.zoom_map(0.9 if zn > 0 else 1.1)
+	if OS.get_environment("DSH_FLIP") == "1":
+		plot.flip_map()
+	print("SCENE ", sc, " datum=", state.datum, " sensor=", state.sensor, " planar=", plot.ortho)
 
 func _process(delta: float) -> void:
 	if not state.capture and state.boot_t < 2.0:
 		state.boot_t = minf(2.0, state.boot_t + delta)
+	# 执行窗口：时标锁 1×（可暂停，不可加速）；窗口按仿真时间倒计时
+	if state.exec_locked:
+		state.time_scale = 1.0
+		if not state.paused:
+			state.exec_left = maxf(0.0, state.exec_left - delta * state.time_scale)
 	if not state.paused:
 		state.clock += delta * state.time_scale
 	state.elapsed += delta
@@ -146,12 +202,41 @@ func _apply_demo(t: float) -> void:
 	if state.sensor != prev:
 		state.sensor_fx_t = 0.0
 
+func _mouse_to_base(p: Vector2) -> Vector2:
+	if size.x <= 1.0:
+		return p
+	return p * (Vector2(BASE) / size)
+
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if size.x <= 1.0:
-			return
-		var p: Vector2 = event.position * (Vector2(BASE) / size)
-		hud.click(p)
+	if event is InputEventMouseButton:
+		var p := _mouse_to_base(event.position)
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				# 先让 HUD 吃掉（传感器条 / 下拉 / 列表 / 时标）；
+				# 菜单开着时任何点击都交给 HUD，由它决定关闭。
+				if hud.consumes(p) or hud.menu_open:
+					hud.click(p)
+					accept_event()
+					return
+				if state.boot_t >= 1.7 and PLOT_RECT.has_point(p):
+					_drag = true
+					accept_event()
+					return
+				hud.click(p)
+				accept_event()
+			else:
+				if _drag:
+					_drag = false
+					accept_event()
+		elif event.pressed and (event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+			if state.boot_t >= 1.7 and PLOT_RECT.has_point(p):
+				plot.zoom_map(0.9 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.1)
+				accept_event()
+	elif event is InputEventMouseMotion and _drag:
+		var rel: Vector2 = event.relative
+		if size.x > 1.0:
+			rel *= Vector2(BASE) / size
+		plot.rotate_map(rel.x, rel.y)
 		accept_event()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -172,5 +257,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_4:
 			state.time_scale = 300.0
 			state.paused = false
+		KEY_R:
+			plot.flip_map()
+		KEY_D:
+			var d: String = state.cycle_datum()
+			print("DATUM → ", d)
+		KEY_P:
+			plot.set_planar(not plot.ortho)
 		KEY_ESCAPE:
 			get_tree().quit()
