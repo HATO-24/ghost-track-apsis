@@ -46,8 +46,9 @@ P1e 完成：底部命令面板 + 时间轴点火节点（授权/撤销）、状
 QUEUED→TRANSMITTED→EXEC→DONE、传感器开关/EMCON、`data/scenario_l1.json` 骨架。
 P1f 完成：第一关三拍串到**监督官裁决**（认证 / 第九条 / 拖程序）、开火冻结与后果页、
 报告（如实 / 伪造，伪造首次 AUDIT FLAG 01）；HUD 覆盖层，main 只保留键位转发。
-第一关默认 **local 3D**；下一步 P1g：事件/提示/执行窗口/报告落档串成完整可玩流程，
-然后重议通信舰/中继设定，再做光学窗 blockout。
+P1g 完成：事件/无线电 feed、裁决/报告/END 真正冻结、END 回执归档页、R 重开；
+main 的重复 EndPanel 已删，绘制统一交给 HUD。
+第一关默认 **local 3D**；下一步 P1h：重议通信舰/中继设定，再做文本微调与光学窗 blockout。
 
 ## 与 DIIT 项目的关系
 

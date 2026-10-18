@@ -17,6 +17,7 @@ var _scene := ""
 var _gif_dir := ""
 var _frames := 0
 var _drag := false
+var end_panel
 
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
@@ -84,6 +85,9 @@ func _ready() -> void:
 	mat.shader = load("res://shaders/crt.gdshader")
 	crt.material = mat
 	root.add_child(crt)
+
+	# P1g：END 归档页由 hud.gd 负责；main 只保留 R/Q 键位转发，避免双 EndPanel。
+	end_panel = null
 
 	if _shot_path != "":
 		state.boot_t = 2.0
@@ -190,7 +194,7 @@ func _set_scene(sc: String) -> void:
 	for c in state.commands():
 		print("CMD ", c.get("id"), " ", c.get("action"), " ", c.get("status"), " tx=", c.get("tx_t"), " exec=", c.get("exec_t"), " done=", c.get("done_t"))
 	print("SCENARIO ", state.scenario_source, " preview=", not state.cmd_model.preview_cmd.is_empty())
-	# P1f 截图钩子：DSH_SIM=decision|fire|consequence|report|reportfake|done
+	# 截图/验证钩子：DSH_SIM=decision|fire|consequence|report|reportfake|done|end|endfake|restart
 	var sim_env := OS.get_environment("DSH_SIM")
 	if sim_env != "":
 		state.clock = state.clock - state.tau() + maxf(76.0, state.decision_t + 1.0)
@@ -210,11 +214,24 @@ func _set_scene(sc: String) -> void:
 			"done":
 				state.choose_ending("ARTICLE9")
 				state.submit_report("TRUTH")
+			"end":
+				state.choose_ending("CERTIFY")
+				state.submit_report("TRUTH")
+			"endfake":
+				state.authorize_fire()
+				state.finish_consequence()
+				state.submit_report("FAKE")
+			"restart":
+				state.choose_ending("CERTIFY")
+				state.submit_report("TRUTH")
+				state.restart_demo()
 		state.refresh(state.clock)
 		print("SIM ", sim_env, " phase=", state.tut_phase, " decision=", state.decision_open,
 			" report=", state.report_open, " consequence=", state.consequence_open,
 			" outcome=", state.outcome, " audit=", state.audit_flag,
-			" perjury=", state.perjury_count, " frozen=", state.sim_frozen)
+			" perjury=", state.perjury_count, " frozen=", state.sim_frozen,
+			" end=", state.end_open, " summary_keys=", state.end_summary.size(),
+			" radio=", state.radio_feed.size(), " events=", state.event_feed.size())
 	print("SCENE ", sc, " datum=", state.datum, " sensor=", state.sensor, " planar=", plot.ortho,
 		" tau=", state.tau(), " cmds=", state.commands().size())
 
@@ -232,6 +249,8 @@ func _process(delta: float) -> void:
 	# 接触状态向量推进到当前时刻 + HUD 派生量保鲜
 	state.refresh(state.clock)
 	hud.queue_redraw()
+	if end_panel != null:
+		end_panel.queue_redraw()
 
 	_frames += 1
 	if _shot_path != "" and _frames >= 45:
@@ -318,6 +337,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.keycode == KEY_ESCAPE:
 		get_tree().quit()
 		return
+	# P1g：END 页 —— R 重开 / Q 退出
+	if state.end_open:
+		if event.keycode == KEY_R:
+			state.restart_demo()
+		elif event.keycode == KEY_Q:
+			get_tree().quit()
+		return
 	# P1f：决断 / 后果 / 报告面板优先吃键（1/2/3 与 F）
 	if state.consequence_open:
 		if event.keycode == KEY_E or event.keycode == KEY_ENTER:
@@ -376,3 +402,69 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_ESCAPE:
 			get_tree().quit()
 
+
+# ── P1g：END 归档页（只画 END；决断/报告仍由 HUD 覆盖层负责）──
+class EndPanel extends Control:
+	const P := preload("res://scripts/pal.gd")
+	const F := preload("res://scripts/fonts.gd")
+	var state
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		if state == null or not bool(state.end_open):
+			return
+		var r := Rect2(340.0, 276.0, 800.0, 470.0)
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.0, 0.0, 0.0, 0.42))
+		draw_rect(r, P.a(P.PANEL, 0.97))
+		draw_rect(r, P.a(P.PH, 0.55), false, 1.0)
+		draw_rect(Rect2(r.position, Vector2(r.size.x, 2.0)), P.a(P.PH, 0.9))
+		var cjk := F.cjk()
+		var mono := F.mono()
+		draw_string(cjk, r.position + Vector2(16.0, 24.0), "归档 / END — 第一关 · 监督交接（回执已归档）", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.PH)
+		var es: Dictionary = state.end_summary if state.end_summary is Dictionary else {}
+		var outcome := String(es.get("outcome", state.outcome))
+		var ending := String(es.get("ending", state.ending_label(outcome)))
+		var rep: Dictionary = es.get("reputation", {})
+		var rep_txt := ""
+		for k in rep.keys():
+			rep_txt += "%s %+d  " % [String(k), int(rep[k])]
+		var rep_s := "无变化" if rep_txt == "" else rep_txt
+		var y := r.position.y + 58.0
+		draw_string(mono, Vector2(r.position.x + 16.0, y), "OUTCOME %s / %s    REPORT %s    PERJURY %d    AUDIT %s" % [
+			outcome, ending, String(es.get("report_choice", state.report_choice)),
+			int(es.get("perjury_count", state.perjury_count)),
+			"TRUE" if bool(es.get("audit_flag", state.audit_flag)) else "FALSE"],
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 10, P.a(P.AMBER, 0.95))
+		y += 20.0
+		draw_string(mono, Vector2(r.position.x + 16.0, y), "声望 %s · 窗口消耗 %ds · FLAGS %s" % [
+			rep_s, int(float(es.get("window_used_s", 0.0))), _flags_str(es)],
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 9, P.a(P.FAINT, 0.95))
+		y += 26.0
+		var report := String(es.get("report_text", state.report_text))
+		for line in _wrap(report, 46):
+			draw_string(cjk, Vector2(r.position.x + 16.0, y), String(line), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.TXT)
+			y += 18.0
+		var fy := r.end.y - 52.0
+		draw_string(cjk, Vector2(r.position.x + 16.0, fy), "R 重开演示 · ESC / Q 退出", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, P.a(P.PH, 0.85))
+		draw_string(cjk, Vector2(r.position.x + 16.0, fy + 18.0), "报告文本 / flags 已写入 state.end_summary，供后续审裁与剧情读取。", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, P.a(P.FAINT, 0.9))
+
+	func _wrap(s: String, n: int) -> Array:
+		var out: Array = []
+		var line := ""
+		for i in s.length():
+			line += s[i]
+			if line.length() >= n:
+				out.append(line)
+				line = ""
+		if line != "":
+			out.append(line)
+		return out
+
+	func _flags_str(es: Dictionary) -> String:
+		var fl: Dictionary = es.get("flags", {})
+		var out := ""
+		for k in fl.keys():
+			out += "%s=%s " % [String(k), str(fl[k])]
+		return out.strip_edges()

@@ -60,6 +60,14 @@ const REPORT_TRUTH := Rect2(1056, 300, 396, 110)
 const REPORT_FAKE := Rect2(1056, 424, 396, 110)
 const CONSEQ_SUBMIT := Rect2(800, 660, 320, 40)
 
+# ── P1g：无线电 / 事件 feed、暂停指示、END 归档页 ──────────
+const FEED_ROWS := 3
+const FEED_PITCH := 13.0
+const PAUSE_RECT := Rect2(1560, 912, 284, 24)
+const END_RECT := Rect2(420, 200, 1080, 640)
+const END_RESTART := Rect2(940, 756, 260, 40)
+const END_EXIT := Rect2(1216, 756, 240, 40)
+
 # 传感器条 / 下拉阵列（V2 结构，V1 薄荷语言）。
 # 位置规则：水平锁在地图中轴（396 + 1128 / 2 = 960），垂直贴地图上沿 +12。
 # 旧值 720 的中心是 900，既不在中轴也不在任何边缘上 —— 这就是"没对准"。
@@ -300,6 +308,12 @@ var _filed_t := 0.0
 var _key_prev: Dictionary = {}
 const FILED_MOCK := ""
 
+# P1g：无线电/事件 feed、END 归档
+var _demo_end := false
+var _demo_radio := false
+var _feed_sig := ""
+var _feed_flash := 0.0
+
 func _ready() -> void:
 	mono = Fonts.mono()
 	cjk = Fonts.cjk()
@@ -318,6 +332,11 @@ func _ready() -> void:
 			_demo_consequence = true
 		"report":
 			_demo_report = true
+		"end":
+			_demo_end = true
+			_decision_done = true
+		"radio":
+			_demo_radio = true
 
 func _process(delta: float) -> void:
 	_t += delta
@@ -327,6 +346,15 @@ func _process(delta: float) -> void:
 		_fire_confirm_t = maxf(0.0, _fire_confirm_t - delta)
 	if _filed_t > 0.0:
 		_filed_t = maxf(0.0, _filed_t - delta)
+	if _feed_flash > 0.0:
+		_feed_flash = maxf(0.0, _feed_flash - delta)
+	# P1g：END 归档页的退出键 E（R 重开由 main.gd 的 END 分支处理；main 用 Q 退出）。
+	if _ov_end() and state.boot_t >= 1.7:
+		var ed := Input.is_key_pressed(KEY_E)
+		var ew := bool(_key_prev.get(KEY_E, false))
+		_key_prev[KEY_E] = ed
+		if ed and not ew:
+			_quit_demo()
 	# P1f：覆盖层键盘交给 main.gd（P1f-SIM 已在 _unhandled_input 里处理 1/2/3/F/E），
 	# HUD 只负责画与鼠标点击，避免一次按键触发两次命令。
 	# P1e：点火节点拖动（只改本地 draft，不写 state）。
@@ -357,15 +385,32 @@ func _draw() -> void:
 	if menu_open:
 		_draw_sensor_menu()
 	_draw_screen_edge()
-	# P1f：覆盖层画在最上层（含 dim），裁决/后果/报告 + 归档结果条。
-	if _ov_report():
+	# P1f/P1g：覆盖层画在最上层（含 dim）；END > 报告 > 后果 > 裁决，互斥不重复。
+	if _ov_end():
+		_draw_end_overlay()
+	elif _ov_report():
 		_draw_report_overlay()
 	elif _ov_consequence():
 		_draw_consequence_overlay()
 	elif _ov_decision():
 		_draw_decision_overlay()
-	if _filed_t > 0.0:
+	if _filed_t > 0.0 and not _ov_end():
 		_draw_filed_banner()
+	# P1g：暂停指示画在覆盖层之上（否则会被 dim 压暗），时标处常驻可见。
+	_draw_pause_badge()
+
+# P1g：decision / consequence / report / END 时，时标处显示 PAUSED · 裁决/报告/归档。
+func _draw_pause_badge() -> void:
+	var pl := _pause_label()
+	if pl == "":
+		return
+	var pr := PAUSE_RECT
+	draw_rect(pr, Color(0.02, 0.05, 0.04, 0.92))
+	draw_rect(pr, Palette.a(Palette.AMBER, 0.85), false, 1.0)
+	var pblink := 0.55 + 0.45 * sin(_t * 5.0)
+	draw_rect(Rect2(pr.position.x + 12.0, pr.position.y + 9.0, 2.0, 6.0), Palette.a(Palette.AMBER, pblink))
+	_txt(cjk, pr.position.x + 22.0, pr.position.y + 5.0, "PAUSED · " + pl, 10, Palette.a(Palette.AMBER, 0.98))
+	_txt_r(mono, pr.end.x - 12.0, pr.position.y + 6.0, "SIM FROZEN", 7, Palette.a(Palette.AMBER, 0.6))
 
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
@@ -770,28 +815,49 @@ func _draw_ship_watermark() -> void:
 
 func _draw_log() -> void:
 	_panel(LOG)
-	_txt(cjk, 76, 893, "命令日志 / COMMAND LOG", 8, Palette.TXT)
-	_txt_r(mono, 604, 893, "12 ENTRIES · NEWEST FIRST", 7, Palette.FAINT)
-	draw_line(Vector2(60, 908), Vector2(620, 908), Palette.a(Palette.LINE, 0.9), 1.0)
-
+	# P1g：无线电 / 事件 feed（最近 3 条，最新在上；新条目闪一次、不弹窗）
+	var feed := _feed_entries()
+	var sig := str(feed)
+	if sig != _feed_sig:
+		_feed_sig = sig
+		_feed_flash = 0.85
+	if _demo_radio:
+		_feed_flash = 0.85
+	var flash := clampf(_feed_flash / 0.85, 0.0, 1.0)
+	_txt(cjk, 76, 892, "无线电 / RADIO · 事件 / EVENTS", 8, Palette.TXT)
+	_txt_r(mono, 604, 892, "%d 条 · 最新在上" % feed.size(), 7, Palette.FAINT)
+	for i in range(mini(FEED_ROWS, feed.size())):
+		var e: Dictionary = feed[i]
+		var y := 904.0 + float(i) * FEED_PITCH
+		var kind := String(e.get("kind", "RADIO"))
+		var col: Color = Palette.BLUE if kind == "RADIO" else Palette.AMBER
+		if i == 0 and flash > 0.0:
+			draw_rect(Rect2(64, y - 2, 552, 12), Palette.a(col, 0.22 * flash))
+		draw_rect(Rect2(64, y - 1, 2, 10), Palette.a(col, 0.85 if i == 0 else 0.30))
+		_txt(mono, 72, y, kind, 7, Palette.a(col, 0.85))
+		_txt(cjk, 132, y - 1, _ellipsis(cjk, _dn(String(e.get("text", ""))), 8, 462.0), 8,
+			Palette.a(Palette.TXT, 0.96 if i == 0 else 0.66))
+	if feed.is_empty():
+		_txt(cjk, 76, 908, "（暂无无线电 / 事件）", 8, Palette.FAINT)
+	# 命令日志（证据）：紧凑 4 行
+	draw_line(Vector2(60, 945), Vector2(620, 945), Palette.a(Palette.LINE, 0.9), 1.0)
+	_txt(cjk, 76, 948, "命令日志 / COMMAND LOG", 7, Palette.FAINT)
+	_txt_r(mono, 604, 948, "NEWEST FIRST", 7, Palette.FAINT)
 	var cmd_left := maxf(0.0, 6.2 - float(state.elapsed))
 	var pending := cmd_left > 0.0
-	for i in range(state.log_lines.size()):
+	for i in range(mini(4, state.log_lines.size())):
 		var l: Dictionary = state.log_lines[i]
-		var y := 918.0 + float(i) * 24.0
-		_txt(mono, 76, y, "T+" + l.t, 10, Palette.a(Palette.FAINT, 0.95))
-		var disp_text := _ellipsis(cjk, _dn(l.text), 11, 330.0)
-		_txt(cjk, 150, y - 1, disp_text, 11, Palette.a(Palette.TXT, 0.92))
-		var tw := cjk.get_string_size(disp_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-		if l.arg != "":
-			_txt(mono, 150.0 + tw + 10.0, y, _dn(l.arg), 8, Palette.a(Palette.AMBER, 0.7))
-		if i == 0 and pending:
-			draw_rect(Rect2(150, y + 16, 350, 1), Palette.a(Palette.AMBER, 0.10))
-			draw_rect(Rect2(150, y + 16, 350.0 * (1.0 - cmd_left / 6.2), 1), Palette.a(Palette.AMBER, 0.55))
-		_log_status(l, i, y, cmd_left, pending)
+		var y := 958.0 + float(i) * 19.0
+		_txt(mono, 76, y, "T+" + String(l.get("t", "")), 9, Palette.a(Palette.FAINT, 0.95))
+		var disp_text := _ellipsis(cjk, _dn(String(l.get("text", ""))), 10, 300.0)
+		_txt(cjk, 140, y - 1, disp_text, 10, Palette.a(Palette.TXT, 0.92))
+		var tw := cjk.get_string_size(disp_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+		if String(l.get("arg", "")) != "":
+			_txt(mono, 140.0 + tw + 8.0, y, _dn(String(l.get("arg", ""))), 7, Palette.a(Palette.AMBER, 0.7))
+		_log_status(l, i, y - 1, cmd_left, pending)
 
 	var blink := 0.5 + 0.5 * sin(_t * 4.0)
-	draw_rect(Rect2(76, 1024, 5, 1), Palette.a(Palette.PH, 0.6 * blink))
+	draw_rect(Rect2(76, 1028, 5, 1), Palette.a(Palette.PH, 0.6 * blink))
 
 func _log_status(l: Dictionary, i: int, y: float, cmd_left: float, pending: bool) -> void:
 	var txt := ""
@@ -1104,8 +1170,234 @@ func _ov_consequence() -> bool:
 func _ov_report() -> bool:
 	return _demo_report or _flag("report_open")
 
+# P1g：END 归档（回声页）——在 report/consequence/decision 之上，互斥绘制。
+func _ov_end() -> bool:
+	return _demo_end or _flag("end_open")
+
 func _any_overlay() -> bool:
-	return _ov_report() or _ov_consequence() or _ov_decision()
+	return _ov_end() or _ov_report() or _ov_consequence() or _ov_decision()
+
+# 暂停指示文案（时标处）：decision / consequence / report / END。
+func _pause_label() -> String:
+	if _ov_end():
+		return "归档"
+	if _ov_report():
+		return "报告"
+	if _ov_consequence():
+		return "后果"
+	if _ov_decision():
+		return "裁决"
+	return ""
+
+# ── P1g：无线电 / 事件 feed ────────────────────────────
+func _norm_feed(raw, default_kind: String) -> Dictionary:
+	if raw is Dictionary:
+		var d: Dictionary = raw
+		var text := String(d.get("text", d.get("line", d.get("msg", ""))))
+		var who := String(d.get("from", d.get("speaker", d.get("src", ""))))
+		if who != "" and not text.contains("："):
+			text = who + "：" + text
+		var kind := String(d.get("kind", default_kind)).to_upper()
+		return {"kind": kind, "text": text, "t": float(d.get("t", -1.0))}
+	return {"kind": default_kind, "text": String(raw), "t": -1.0}
+
+# 最近 3 条（无线电 + 事件合并，按 t / 到达顺序取最新，最新在上）。
+# state.radio_feed / event_feed 为空时，退回 scenario 的 radio_lines / events（仅演示）。
+func _feed_entries() -> Array:
+	var radio: Array = []
+	var events: Array = []
+	if state != null:
+		var rf = state.get("radio_feed")
+		if rf is Array:
+			for raw in rf:
+				radio.append(_norm_feed(raw, "RADIO"))
+		var ef = state.get("event_feed")
+		if ef is Array:
+			for raw in ef:
+				events.append(_norm_feed(raw, "EVENT"))
+	if radio.is_empty() and events.is_empty() and state != null:
+		var story = state.get("story")
+		if story is Dictionary:
+			var rl = (story as Dictionary).get("radio_lines", [])
+			if rl is Array:
+				for raw in rl:
+					radio.append(_norm_feed(raw, "RADIO"))
+	var all: Array = []
+	all.append_array(radio)
+	all.append_array(events)
+	if all.is_empty():
+		return []
+	all.sort_custom(_feed_cmp)
+	var n := mini(FEED_ROWS, all.size())
+	var out: Array = []
+	for i in range(n):
+		out.append(all[all.size() - 1 - i])
+	return out
+
+func _feed_cmp(a, b) -> bool:
+	var ta := float((a as Dictionary).get("t", -1.0))
+	var tb := float((b as Dictionary).get("t", -1.0))
+	if ta < 0.0 and tb < 0.0:
+		return false
+	return ta < tb
+
+# ── P1g：END 归档页 ───────────────────────────────────
+func _safe_state(name: String) -> String:
+	if state == null:
+		return ""
+	var v = state.get(name)
+	return "" if v == null else String(v)
+
+func _restart_demo() -> void:
+	if state != null and state.has_method("restart_demo"):
+		state.call("restart_demo")
+		return
+	get_tree().reload_current_scene()
+
+func _quit_demo() -> void:
+	if state != null and state.has_method("quit_demo"):
+		state.call("quit_demo")
+		return
+	get_tree().quit()
+
+func _end_data() -> Dictionary:
+	var d := {"outcome": "", "label": "", "reputation": {}, "report_text": "",
+		"perjury": 0, "audit": false, "flags": {}, "report_choice": "",
+		"window_used": 0, "fire_branch": false}
+	if state != null:
+		d["outcome"] = String(state.get("outcome"))
+		if state.has_method("ending_label") and String(d["outcome"]) != "":
+			d["label"] = String(state.call("ending_label", String(d["outcome"])))
+		d["report_choice"] = _safe_state("report_choice")
+		var rv = state.get("reputation")
+		if rv is Dictionary:
+			d["reputation"] = rv
+		var pv = state.get("perjury_count")
+		if pv != null:
+			d["perjury"] = int(pv)
+		d["audit"] = bool(state.get("audit_flag"))
+		var fv = state.get("flags")
+		if fv is Dictionary:
+			d["flags"] = fv
+		d["report_text"] = _report_text()
+		# P1g-SIM 的 end_summary 字段名：outcome / ending / reputation / report_text /
+		# report_choice / flags / perjury_count / audit_flag / window_used_s
+		var es = state.get("end_summary")
+		if es is Dictionary:
+			var e: Dictionary = es
+			var pairs := [["outcome", "outcome"], ["ending", "label"], ["label", "label"],
+				["reputation", "reputation"], ["report_text", "report_text"],
+				["report_choice", "report_choice"], ["perjury", "perjury"],
+				["perjury_count", "perjury"], ["audit", "audit"],
+				["audit_flag", "audit"], ["flags", "flags"],
+				["window_used_s", "window_used"], ["fire_branch", "fire_branch"]]
+			for pair in pairs:
+				var src: String = String(pair[0])
+				var dst: String = String(pair[1])
+				if e.has(src):
+					d[dst] = e[src]
+	if String(d["outcome"]) == "" and _demo_end:
+		d["outcome"] = "ARTICLE9"
+		d["label"] = "援引第九条"
+		d["report_choice"] = "TRUTH"
+		d["reputation"] = {"斛港务": 2, "清算署": -2, "远环合作社": 0, "永昼租界": 1}
+		var tmpl := "任务报告：依据监督权第九条中止交接，谷神-2 未受损，文书已归档并抄送审裁。声望变化：{reputation}。"
+		if state != null:
+			var story = state.get("story")
+			if story is Dictionary:
+				var rt = (story as Dictionary).get("report_truth", {})
+				if rt is Dictionary and (rt as Dictionary).has("ARTICLE9"):
+					tmpl = String((rt as Dictionary)["ARTICLE9"])
+		tmpl = tmpl.replace("{decision}", "援引第九条")
+		tmpl = tmpl.replace("{reputation}", "斛港务 +2 · 清算署 −2 · 永昼 +1")
+		tmpl = tmpl.replace("{casualties}", "无")
+		d["report_text"] = tmpl
+		d["flags"] = {"article9": true, "window_closed": true}
+		d["perjury"] = 0
+		d["audit"] = false
+	return d
+
+func _end_btn(rc: Rect2, label: String, key: String, col: Color) -> void:
+	var hot := rc.has_point(_mouse_base())
+	draw_rect(rc, Palette.a(col, 0.12 if hot else 0.05))
+	draw_rect(rc, Palette.a(col, 0.85 if hot else 0.45), false, 1.0)
+	if hot:
+		draw_rect(Rect2(rc.position.x, rc.position.y, 2.0, rc.size.y), col)
+	_txt(cjk, rc.position.x + 16.0, rc.position.y + 10.0, label, 11, Palette.a(col, 0.95))
+	_txt_r(mono, rc.end.x - 14.0, rc.position.y + 12.0, "[%s]" % key, 9, Palette.a(col, 0.75))
+
+func _draw_end_overlay() -> void:
+	_overlay_dim()
+	var r := END_RECT
+	_overlay_frame(r, "回执 / AFTER-ACTION", "CASE 4471 · ARCHIVED · END")
+	var d := _end_data()
+	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, "第一关 · 环一 · 斛 — 监督交接 · 执行窗口已关闭", 8, Palette.DIM)
+	_txt_r(mono, r.end.x - 20.0, r.position.y + 56.0, "T+%05.1f s · TIME FROZEN" % float(state.tau()), 7, Palette.a(Palette.FAINT, 0.9))
+	# 结局
+	_txt(cjk, r.position.x + 24.0, r.position.y + 84.0, "结局 / OUTCOME", 7, Palette.FAINT)
+	var ol := String(d["label"])
+	if ol == "":
+		ol = "—"
+	var oc := String(d["outcome"])
+	var out_col: Color = Palette.PH if oc == "ARTICLE9" else (Palette.RED if oc == "FIRE" else Palette.PH_DIM)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 104.0, ol, 18, out_col)
+	_txt(mono, r.position.x + 24.0, r.position.y + 132.0,
+		"OUTCOME %s · REPORT %s · PHASE END" % [oc, String(d["report_choice"])], 8, Palette.DIM)
+	# 左：报告文本（带边框的内容区）+ 附注
+	var lx := r.position.x + 24.0
+	var box := Rect2(r.position.x + 16.0, r.position.y + 150.0, 648.0, 400.0)
+	draw_rect(box, Palette.a(Palette.PANEL2, 0.35))
+	draw_rect(box, Palette.a(Palette.LINE, 0.8), false, 1.0)
+	_txt(cjk, lx, r.position.y + 158.0, "报告 / REPORT TEXT", 7, Palette.FAINT)
+	var lines := _wrap_text(cjk, String(d["report_text"]), 9, 610.0)
+	for i in range(mini(lines.size(), 20)):
+		_txt(cjk, lx, r.position.y + 178.0 + float(i) * 16.0, String(lines[i]), 9, Palette.a(Palette.TXT, 0.92))
+	_txt(cjk, lx, r.position.y + 566.0, "附注 / NOTES", 7, Palette.FAINT)
+	_txt(cjk, lx, r.position.y + 582.0, "· 报告文本与 flags 已写入 end_summary，供后续审裁与剧情读取。", 7, Palette.a(Palette.FAINT, 0.95))
+	_txt(cjk, lx, r.position.y + 596.0, "· 传感器日志 / 命令队列随案卷封存（08 §3.2）；第二幕将引用本回执。", 7, Palette.a(Palette.FAINT, 0.95))
+	# 右：阵营声望 + 档案
+	var rx := r.position.x + 680.0
+	var ry := r.position.y + 150.0
+	_txt(cjk, rx, ry, "阵营声望 / STANDING", 7, Palette.FAINT)
+	var rep: Dictionary = d["reputation"]
+	var keys := ["斛港务", "清算署", "远环合作社"]
+	for k in rep.keys():
+		if not keys.has(String(k)):
+			keys.append(String(k))
+	var yy := ry + 22.0
+	for k in keys:
+		if not rep.has(k):
+			continue
+		var v := int(rep[k])
+		var c := Palette.PH if v > 0 else (Palette.RED if v < 0 else Palette.DIM)
+		_txt(cjk, rx, yy, String(k), 9, Palette.TXT)
+		_txt_r(mono, rx + 340.0, yy, "%+d" % v, 10, c)
+		draw_line(Vector2(rx, yy + 16.0), Vector2(rx + 340.0, yy + 16.0), Palette.a(Palette.LINE, 0.5), 1.0)
+		yy += 24.0
+	yy += 10.0
+	_txt(cjk, rx, yy, "档案 / RECORD", 7, Palette.FAINT)
+	yy += 20.0
+	var audit := bool(d["audit"])
+	_txt(mono, rx, yy, "PERJURY %d · AUDIT %s" % [int(d["perjury"]), "TRUE" if audit else "FALSE"], 9,
+		Palette.RED if audit else Palette.DIM)
+	yy += 20.0
+	if audit:
+		_txt(cjk, rx, yy, "AUDIT FLAG 01 · 审计已触发", 8, Palette.RED)
+		yy += 18.0
+	var flags: Dictionary = d["flags"]
+	var ftxt := ""
+	for k in flags.keys():
+		ftxt += "%s=TRUE  " % String(k)
+	_txt(mono, rx, yy, _ellipsis(mono, "FLAGS " + ftxt, 7, 340.0), 7, Palette.a(Palette.FAINT, 0.95))
+	yy += 20.0
+	_txt(cjk, rx, yy, "窗口 / WINDOW", 7, Palette.FAINT)
+	yy += 20.0
+	_txt(mono, rx, yy, "EXEC WINDOW 消耗 %ds · FIRE BRANCH %s" % [
+		int(d.get("window_used", 0)), "YES" if bool(d.get("fire_branch", false)) else "NO"], 8, Palette.DIM)
+	# 按钮
+	_end_btn(END_RESTART, "重新开始 / RESTART", "R", Palette.PH)
+	_end_btn(END_EXIT, "退出 / EXIT", "E", Palette.RED)
+	_txt_r(cjk, r.end.x - 20.0, r.end.y - 24.0, "END · 归档后进入第二幕（战役继续）", 7, Palette.a(Palette.AMBER, 0.7))
 
 func _report_text() -> String:
 	if state != null:
@@ -1208,6 +1500,12 @@ func _on_overlay_key(k: int) -> void:
 			_choose_ending("stall")
 
 func _handle_overlay_click(p: Vector2) -> void:
+	if _ov_end():
+		if END_RESTART.has_point(p):
+			_restart_demo()
+		elif END_EXIT.has_point(p):
+			_quit_demo()
+		return
 	if _ov_report():
 		if REPORT_TRUTH.has_point(p):
 			_submit_report("truth")

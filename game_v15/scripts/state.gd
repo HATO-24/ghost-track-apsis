@@ -122,6 +122,12 @@ var story: Dictionary = {}
 var story_events: Array = []
 var endings: Array[Dictionary] = []
 var flags: Dictionary = {}
+# P1g：完整流程（事件/无线电 feed、END、重开）
+var end_open := false
+var end_summary: Dictionary = {}
+var radio_feed: Array = []
+var event_feed: Array = []
+var _feed_fired: Dictionary = {}
 
 # ── P1c 传感器状态 ─────────────────────────────────────
 var racks: Dictionary = {}                 # ship_id -> [sensor...]（SensorModel）
@@ -155,6 +161,9 @@ func cycle_datum() -> String:
 	return datum
 
 func _init() -> void:
+	_bootstrap()
+
+func _bootstrap() -> void:
 	rng.seed = 4471
 	scenario = _load_scenario()
 	_apply_scenario_env()
@@ -169,6 +178,7 @@ func _init() -> void:
 	_sync_sensor_view()
 	_plan_tick(0.0)
 	_fusion_tick(0.0)
+	_pump_feeds(0.0)
 
 # ── 舰 / 架 ────────────────────────────────────────────
 
@@ -363,8 +373,15 @@ func commands() -> Array:
 func pending_commands() -> Array:
 	return cmd_model.pending() if cmd_model != null else []
 
+func _commands_locked() -> bool:
+	return tut_phase == PHASE_DECIDE or tut_phase == PHASE_REPORT or tut_phase == PHASE_END \
+		or decision_open or consequence_open or report_open or end_open
+
 func issue_command(action: String, params: Dictionary = {}, target := "") -> Dictionary:
 	if cmd_model == null:
+		return {}
+	if _commands_locked():
+		_push_log("命令不可用：已进入决断/报告阶段", "LOCKED", "HOLD")
 		return {}
 	var p := params.duplicate(true)
 	p["budget_ms"] = unit_dv_ms
@@ -376,6 +393,8 @@ func issue_command(action: String, params: Dictionary = {}, target := "") -> Dic
 func abort_command(id: String) -> Dictionary:
 	if cmd_model == null:
 		return {}
+	if _commands_locked():
+		return {}
 	var c: Dictionary = cmd_model.abort(id, tau())
 	if not c.is_empty():
 		_update_command_log(c)
@@ -384,6 +403,8 @@ func abort_command(id: String) -> Dictionary:
 	return c
 
 func abort_latest_command() -> Dictionary:
+	if _commands_locked():
+		return {}
 	for raw in pending_commands():
 		return abort_command(String((raw as Dictionary).get("id", "")))
 	return {}
@@ -545,6 +566,7 @@ func _fmt_int(v: int) -> String:
 func refresh(now: float) -> void:
 	var t := now - T0
 	_update_phase_gate(t)
+	_pump_feeds(t)
 	if sim_frozen:
 		return
 	# 命令状态机 tick：QUEUED→TRANSMITTED→EXEC→DONE
@@ -1053,20 +1075,30 @@ func _load_story() -> void:
 		reputation[String(k)] = int(rep0[k])
 
 func _update_phase_gate(t: float) -> void:
-	if tut_phase == PHASE_END:
+	if end_open:
+		tut_phase = PHASE_END
+		_update_freeze()
 		return
 	if report_open:
 		tut_phase = PHASE_REPORT
+		_update_freeze()
 		return
 	if consequence_open:
 		tut_phase = PHASE_DECIDE
+		_update_freeze()
 		return
 	if decision_open:
 		tut_phase = PHASE_DECIDE
+		_update_freeze()
 		return
 	tut_phase = PHASE_READ if t < 20.0 else PHASE_COMMAND
+	_update_freeze()
 	if t >= decision_t or (exec_locked and exec_left <= 0.0):
 		_open_decision()
+
+# P1g：决断/后果/报告/END 真正冻结仿真（main 停 clock / exec_left）
+func _update_freeze() -> void:
+	sim_frozen = decision_open or consequence_open or report_open or end_open or fire_branch
 
 func _open_decision() -> void:
 	if decision_open or report_open or consequence_open or tut_phase == PHASE_END:
@@ -1074,6 +1106,7 @@ func _open_decision() -> void:
 	decision_open = true
 	tut_phase = PHASE_DECIDE
 	decision_prompt = story_text("decision_prompt", decision_prompt)
+	_update_freeze()
 	_push_log("DECISION 窗口开启 · 三选一（或开火）", "B 拍", "EXEC")
 
 func story_text(key: String, fallback: String = "") -> String:
@@ -1176,6 +1209,7 @@ func finish_consequence() -> void:
 	report_open = true
 	tut_phase = PHASE_REPORT
 	_build_report_options()
+	_update_freeze()
 
 func _build_report_options() -> void:
 	report_options = [{"kind": "TRUTH", "label": "据实报告", "hint": "完整记录交接/裁决过程，进入审裁档案"}]
@@ -1203,8 +1237,23 @@ func submit_report(kind: String) -> Dictionary:
 	consequence_open = false
 	tut_phase = PHASE_END
 	report_text = _compose_report(truth)
+	end_open = true
+	end_summary = {
+		"outcome": outcome,
+		"ending": ending_label(outcome),
+		"reputation": reputation.duplicate(true),
+		"report_text": report_text,
+		"report_choice": report_choice,
+		"flags": flags.duplicate(true),
+		"perjury_count": perjury_count,
+		"audit_flag": audit_flag,
+		"fire_branch": fire_branch,
+		"window_used_s": maxf(0.0, 360.0 - exec_left),
+		"t": tau(),
+	}
+	_update_freeze()
 	_push_log("报告提交：%s%s" % ["据实" if truth else "伪造 · REPORT FILED — AUDIT FLAG %02d" % perjury_count, " · 例行审计" if perjury_count >= 2 and not audit_before else ""], "REPORT", "EXEC" if truth else "HOLD")
-	return {"report": report_text, "audit_flag": audit_flag, "perjury_count": perjury_count, "phase": tut_phase}
+	return {"report": report_text, "audit_flag": audit_flag, "perjury_count": perjury_count, "phase": tut_phase, "end_open": end_open, "end_summary": end_summary.duplicate(true)}
 
 func _compose_report(truth: bool) -> String:
 	var tmpl := ""
@@ -1225,6 +1274,143 @@ func _compose_report(truth: bool) -> String:
 	tmpl = tmpl.replace("{audit}", "是" if audit_flag else "否")
 	tmpl = tmpl.replace("{reputation}", _rep_text())
 	return tmpl
+
+# ── P1g：事件 / 无线电 feed、END、重开 ───────────────────
+
+# scenario 的 events / radio_lines 按 t 触发，写入 event_feed / radio_feed，只触发一次
+func _pump_feeds(t: float) -> void:
+	var evs: Array = story.get("events", [])
+	for i in range(evs.size()):
+		var key := "ev:%d" % i
+		if _feed_fired.has(key):
+			continue
+		var e: Dictionary = evs[i]
+		if float(e.get("t", 1.0e9)) > t + 1.0e-6:
+			continue
+		_feed_fired[key] = true
+		event_feed.append({
+			"t": float(e.get("t", 0.0)),
+			"type": String(e.get("type", "")),
+			"text": String(e.get("text", "")),
+		})
+	var rds: Array = story.get("radio_lines", [])
+	for i in range(rds.size()):
+		var key2 := "rd:%d" % i
+		if _feed_fired.has(key2):
+			continue
+		var raw = rds[i]
+		var rr: Dictionary
+		if raw is Dictionary:
+			rr = raw
+		else:
+			rr = {"t": 0.0, "from": "VHF", "text": String(raw)}
+		if float(rr.get("t", 1.0e9)) > t + 1.0e-6:
+			continue
+		_feed_fired[key2] = true
+		var item := {
+			"t": float(rr.get("t", 0.0)),
+			"from": String(rr.get("from", "VHF")),
+			"text": String(rr.get("text", "")),
+		}
+		radio_feed.append(item)
+		_push_log(item["text"], item["from"], "RX")
+
+func latest_radio(n: int = 1) -> Array:
+	var out: Array = []
+	var start := maxi(0, radio_feed.size() - n)
+	for i in range(start, radio_feed.size()):
+		out.append(radio_feed[i])
+	return out
+
+# 重置到 T+0 开局（重建 tracks / sensors / commands / feeds / 阶段/决断/END 全部状态）
+func restart_demo() -> void:
+	_reset_runtime()
+	_bootstrap()
+	_push_log("RESTART · 演示重置到 T+0 开局", "RESET", "EXEC")
+	cmd_note = _cmd_note()
+
+func _reset_runtime() -> void:
+	datum = "L1"
+	clock = T0
+	time_scale = 60.0
+	paused = false
+	elapsed = 0.0
+	selected = 0
+	sensor = 0
+	sensors.clear()
+	boot_t = 0.0
+	sensor_fx_t = -1.0
+	fleet_dv = 8420
+	grace_left = 62.0 * 3600.0 + 18.0 * 60.0 + 44.0
+	exec_left = 360.0
+	exec_locked = true
+	tracks.clear()
+	log_lines.clear()
+	unit = {}
+	own = {}
+	own_cur = {}
+	burn = {}
+	cmd_model = null
+	own_events = []
+	unit_dv_ms = 1120.0
+	unit_dv_max = 1260.0
+	shadow_target = ""
+	shadow_since = -1.0
+	station_hold = false
+	cmd_note = ""
+	scenario = {}
+	scenario_source = "fallback"
+	sensor_override = {}
+	emcon = {}
+	phantom_bearing = 302.0
+	radar_on_t = RADAR_ON_T
+	optical_on_t = OPTICAL_ON_T
+	iff_on_t = IFF_ON_T
+	phantom_true_t = PHANTOM_TRUE_T
+	tut_phase = PHASE_READ
+	decision_open = false
+	report_open = false
+	consequence_open = false
+	fire_branch = false
+	outcome = ""
+	report_text = ""
+	report_options.clear()
+	audit_flag = false
+	perjury_count = 0
+	reputation = {"斛港务": 0, "清算署": 0, "远环合作社": 0}
+	sim_frozen = false
+	decision_t = 75.0
+	decision_prompt = ""
+	consequence_text = ""
+	report_choice = ""
+	story = {}
+	story_events = []
+	endings.clear()
+	flags = {}
+	end_open = false
+	end_summary = {}
+	radio_feed = []
+	event_feed = []
+	_feed_fired = {}
+	tracks.clear()
+	racks = {}
+	sensor_on = {}
+	rack_ship = "harmattan"
+	emission = {}
+	fleet_emissions = []
+	elint_hits = []
+	elint_named = false
+	fusion_t = 0.0
+	fusion_count = 0
+	phantom_true = false
+	sensor_note = ""
+	rng = RandomNumberGenerator.new()
+	_seconds_on = {}
+	_last_call = {}
+	_stare = {}
+	_optical_target = ""
+	_optical_done = {}
+	_sensors_view_key = ""
 
 # ── 日志 / 单位面板 ────────────────────────────────────
 
