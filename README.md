@@ -42,7 +42,9 @@ data/     数据表（舰船、部件、传感器，JSON）
 L2 协方差、L3/L4 识别、雷达 EMIT/ELINT、光学凝视、CH-IR2 虚警教学都已生效。
 P1d 完成：HUD 按舰传感器架（哈马丹 2 模块 / 传唤级 4 模块）+ 命令队列/点火节点
 （STATION / SHADOW / BURN，望楼 8s 中继，Δv 扣减，生效前撤销）。
-第一关默认 **local 3D**；下一步 P1e：命令面板/时间轴拖拽、状态机补齐、scenario.json、传感器开关接命令层。
+P1e 完成：底部命令面板 + 时间轴点火节点（授权/撤销）、状态机
+QUEUED→TRANSMITTED→EXEC→DONE、传感器开关/EMCON、`data/scenario_l1.json` 骨架。
+第一关默认 **local 3D**；下一步 P1f：把第一关三拍串成可玩闭环（事件/报告/审裁/开火分支），再做光学窗 blockout。
 
 ## 与 DIIT 项目的关系
 

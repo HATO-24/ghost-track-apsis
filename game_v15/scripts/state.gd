@@ -34,6 +34,12 @@ const IFF_ON_T := 62.0
 const PHANTOM_TRUE_T := 12.0
 const MAX_CATCHUP_TICKS := 600
 
+# 可由 scenario 覆盖的教学时序（仿真秒，T0 起算）
+var radar_on_t := RADAR_ON_T
+var optical_on_t := OPTICAL_ON_T
+var iff_on_t := IFF_ON_T
+var phantom_true_t := PHANTOM_TRUE_T
+
 # L1 站心几何：地球 / 月球位置（km），用于视线/阴影判定
 const EARTH_LOCAL_KM := Vector3(-326000.0, 0.0, 0.0)
 const R_EARTH_KM := 6378.137
@@ -82,6 +88,12 @@ var shadow_target := ""                # SHADOW 生效目标
 var shadow_since := -1.0
 var station_hold := false
 var cmd_note := ""
+# P1e：场景 / 传感器开关 / EMCON
+var scenario: Dictionary = {}
+var scenario_source := "fallback"
+var sensor_override: Dictionary = {}   # ship -> {model: bool}（set_sensor 手动开关，优先于脚本时序）
+var emcon: Dictionary = {}             # ship -> bool（EMCON：发射类传感器强制关）
+var phantom_bearing := 302.0
 
 # ── P1c 传感器状态 ─────────────────────────────────────
 var racks: Dictionary = {}                 # ship_id -> [sensor...]（SensorModel）
@@ -116,6 +128,8 @@ func cycle_datum() -> String:
 
 func _init() -> void:
 	rng.seed = 4471
+	scenario = _load_scenario()
+	_apply_scenario_env()
 	racks = SensorModel.all_racks()
 	cmd_model = CommandModel.new()
 	_build_tracks()
@@ -210,6 +224,11 @@ func active_sensor() -> Dictionary:
 # ── 轨道 / 几何 ────────────────────────────────────────
 
 func _build_tracks() -> void:
+	if scenario.has("tracks") and (scenario.get("tracks", []) as Array).size() > 0:
+		_build_tracks_from_scenario()
+		if tracks.size() > 0:
+			burn = {}
+			return
 	# r/v 全部是 L1 站点相对（km, km/s）：+x 地月连线方向（指向月球）、
 	# +y 面内横向、+z 轨道法向。plot 里把 +y 当"北"、+x 当"东"用。
 	var own_r := Vector3(2.0, -3.0, 0.0)
@@ -244,17 +263,17 @@ func _build_phantom() -> void:
 	var ch_ir2 := SensorModel.rack_sensor("harmattan", "CH-IR2")
 	var fa := SensorModel.maybe_false_alarm(ch_ir2, {
 		"false_alarm_scale": 100.0,   # 教学：强制掷出
-		"false_bearing_deg": 302.0,
+		"false_bearing_deg": phantom_bearing,
 	})
 	var d := {
 		"id": "未识别", "en": "UNKNOWN", "cls": "CH-IR2 回波", "role": "虚警候选 · 残骸/反射",
-		"side": "unknown", "level": 1, "bearing": 302.0, "range": 0.0, "alt": 0.0,
+		"side": "unknown", "level": 1, "bearing": phantom_bearing, "range": 0.0, "alt": 0.0,
 		"closing": 0.0, "age": 0.0, "own": false, "off": Vector2(-120, -26),
 		"stale": false, "bearing_only": true, "phantom": true,
 		"r": Vector3.ZERO, "v": Vector3.ZERO, "epoch": T0,
 		"range_band": "UNKNOWN", "sources": ["CH-IR2"],
 		"no_prediction": true, "false_alarm": false, "occluded": false,
-		"obs_range_km": -1.0, "obs_bearing_deg": 302.0,
+		"obs_range_km": -1.0, "obs_bearing_deg": phantom_bearing,
 		"covariance": {}, "classification": {}, "identity": {}, "iff_status": "",
 		"notes": [String(fa.get("warning", "CH-IR2 虚警候选"))],
 	}
@@ -341,6 +360,18 @@ func abort_latest_command() -> Dictionary:
 	return {}
 
 func _seed_demo_commands() -> void:
+	var init_cmds: Array = scenario.get("initial_commands", [])
+	if init_cmds.size() > 0:
+		for raw in init_cmds:
+			var c: Dictionary = raw
+			var params: Dictionary = (c.get("params", {}) as Dictionary).duplicate(true)
+			params["budget_ms"] = unit_dv_ms
+			var cmd: Dictionary = cmd_model.issue(
+				String(c.get("unit", "哈马丹")), String(c.get("action", "")),
+				String(c.get("target", "")), params, float(c.get("issue_t", 0.0)))
+			_push_command_log(cmd)
+		cmd_note = _cmd_note()
+		return
 	# 07 §3 第一拍：哈马丹跟踪谷神-2（命令经望楼中继 8 s）
 	var shadow: Dictionary = cmd_model.issue("哈马丹", "SHADOW", "谷神-2", {"hold_km": 60.0}, 0.0)
 	# 本舰计划点火：T+6.2 s、Δv 84 m/s、BRG 340 / ELEV +20
@@ -385,6 +416,10 @@ func _update_command_log(cmd: Dictionary) -> void:
 		match st:
 			"EXEC":
 				r["status"] = "EXEC"
+			"DONE":
+				r["status"] = "EXEC"
+			"TRANSMITTED":
+				r["status"] = "RX"
 			"ABORTED":
 				r["status"] = "HOLD"
 			"REJECTED":
@@ -396,8 +431,9 @@ func _cmd_note() -> String:
 	if cmd_model == null:
 		return ""
 	var n: Dictionary = cmd_model.counted()
-	return "CMD 待%d / 执行%d / 撤销%d · Δv %.0f m/s" % [
-		int(n.get("QUEUED", 0)), int(n.get("EXEC", 0)), int(n.get("ABORTED", 0)), unit_dv_ms]
+	var q := int(n.get("QUEUED", 0)) + int(n.get("TRANSMITTED", 0))
+	return "CMD 待%d / 执行%d / 完成%d / 撤销%d · Δv %.0f m/s" % [
+		q, int(n.get("EXEC", 0)), int(n.get("DONE", 0)), int(n.get("ABORTED", 0)), unit_dv_ms]
 
 func _apply_command(cmd: Dictionary, tick_t: float) -> void:
 	var act := String(cmd.get("action", ""))
@@ -479,15 +515,21 @@ func _fmt_int(v: int) -> String:
 
 func refresh(now: float) -> void:
 	var t := now - T0
-	# 命令 tick：到期命令生效（点火按计划时刻写入 own_events，历史一致）
+	# 命令状态机 tick：QUEUED→TRANSMITTED→EXEC→DONE
 	if cmd_model != null:
-		for raw in cmd_model.tick(t):
+		var ph: Dictionary = cmd_model.tick(t)
+		for raw in ph.get("transmitted", []):
+			_update_command_log(raw as Dictionary)
+		for raw in ph.get("exec", []):
 			_apply_command(raw as Dictionary, t)
+		for raw in ph.get("done", []):
+			_update_command_log(raw as Dictionary)
+		cmd_note = _cmd_note()
 	# 本舰当前状态（含已生效点火的分段传播）
 	own_cur = own_at(t)
 	for tr in tracks:
 		if tr.get("phantom", false):
-			tr["age"] = maxf(0.0, t - PHANTOM_TRUE_T) if phantom_true else maxf(0.0, t)
+			tr["age"] = maxf(0.0, t - phantom_true_t) if phantom_true else maxf(0.0, t)
 			continue
 		var st := track_at(tr, t)
 		var rr: Vector3 = st["r"]
@@ -509,9 +551,9 @@ func _plan_tick(t: float) -> void:
 	var plan := {
 		"apsis": {
 			"MS-IR9": true,
-			"MS-OT2": t >= OPTICAL_ON_T,
-			"YW-R9": t >= RADAR_ON_T,
-			"MK-12": t >= IFF_ON_T,
+			"MS-OT2": t >= optical_on_t,
+			"YW-R9": t >= radar_on_t,
+			"MK-12": t >= iff_on_t,
 			"ELINT": true,
 		},
 		"harmattan": {"CH-IR2": true, "CH-R0": true},
@@ -522,20 +564,37 @@ func _plan_tick(t: float) -> void:
 		"summons_4471": {"YW-R9": false, "MK-12": false, "ELINT": true, "CH-R0": true},
 		"ceres_2": {"CH-R0": true},
 	}
+	# P1e：手动开关（set_sensor）与 EMCON（发射类强制关）覆盖脚本时序
 	for raw_ship in plan.keys():
 		var ship := String(raw_ship)
-		if not _seconds_on.has(ship):
-			_seconds_on[ship] = {}
-		var on_map: Dictionary = plan[ship]
-		for raw_model in on_map.keys():
+		var om: Dictionary = sensor_override.get(ship, {})
+		for raw_model in om.keys():
 			var model := String(raw_model)
-			var on := bool(on_map[model])
-			var prev := float((_seconds_on[ship] as Dictionary).get(model, 0.0))
-			(_seconds_on[ship] as Dictionary)[model] = (prev + FUSION_PERIOD_S) if on else 0.0
+			if (plan[ship] as Dictionary).has(model):
+				(plan[ship] as Dictionary)[model] = bool(om[model])
+		if bool(emcon.get(ship, false)):
+			for raw_model2 in (plan[ship] as Dictionary).keys():
+				var model2 := String(raw_model2)
+				if _sensor_exposes(ship, model2):
+					(plan[ship] as Dictionary)[model2] = false
+	for raw_ship2 in plan.keys():
+		var ship2 := String(raw_ship2)
+		if not _seconds_on.has(ship2):
+			_seconds_on[ship2] = {}
+		var on_map: Dictionary = plan[ship2]
+		for raw_model3 in on_map.keys():
+			var model3 := String(raw_model3)
+			var on := bool(on_map[model3])
+			var prev := float((_seconds_on[ship2] as Dictionary).get(model3, 0.0))
+			(_seconds_on[ship2] as Dictionary)[model3] = (prev + FUSION_PERIOD_S) if on else 0.0
 	sensor_on = plan
 	# 开机事件写日志：第一次雷达开机（EMIT）
-	if t >= RADAR_ON_T and t - FUSION_PERIOD_S < RADAR_ON_T:
+	if t >= radar_on_t and t - FUSION_PERIOD_S < radar_on_t:
 		_push_log("远地点 YW-R9 开机 · EMIT 暴露", "EXPOSE", "EXEC")
+
+func _sensor_exposes(ship: String, model: String) -> bool:
+	var s := SensorModel.rack_sensor(ship, model)
+	return bool(s.get("expose", false))
 
 func _sensor_is_on(ship: String, model: String) -> bool:
 	var m: Dictionary = sensor_on.get(ship, {})
@@ -723,14 +782,14 @@ func _apply_datalink_identity(tr: Dictionary) -> void:
 		tr["iff_status"] = "friend"
 
 func _update_phantom(t: float) -> void:
-	phantom_true = t >= PHANTOM_TRUE_T
+	phantom_true = t >= phantom_true_t
 	var ph := track_by_id("未识别")
 	if ph.is_empty():
 		return
 	ph["level"] = 1
 	ph["sources"] = ["CH-IR2"]
 	ph["range_band"] = "UNKNOWN"
-	ph["bearing"] = 302.0
+	ph["bearing"] = phantom_bearing
 	if phantom_true and not bool(ph.get("false_alarm", false)):
 		ph["false_alarm"] = true
 		ph["cls"] = "虚警 / FALSE ALARM"
@@ -820,6 +879,128 @@ func _push_log(text: String, arg: String, status: String) -> void:
 	log_lines.push_front({"t": tn, "text": text, "arg": arg, "status": status})
 	while log_lines.size() > 6:
 		log_lines.pop_back()
+
+# ── P1e：传感器开关 / EMCON / 预览 / scenario ─────────
+
+func set_sensor(ship_id: String, idx: int, on: bool) -> bool:
+	var rack := SensorModel.sensor_rack(ship_id)
+	if idx < 0 or idx >= rack.size():
+		return false
+	var model := String((rack[idx] as Dictionary).get("model", ""))
+	if not sensor_override.has(ship_id):
+		sensor_override[ship_id] = {}
+	(sensor_override[ship_id] as Dictionary)[model] = on
+	_plan_tick(tau())
+	_update_emissions(tau())
+	_push_log("%s %s %s" % [ship_id, model, "开机" if on else "关机"], "SWITCH", "EXEC")
+	return true
+
+func get_sensor_on(ship_id: String, idx: int) -> bool:
+	var rack := SensorModel.sensor_rack(ship_id)
+	if idx < 0 or idx >= rack.size():
+		return false
+	var s: Dictionary = rack[idx]
+	var model := String(s.get("model", ""))
+	var m: Dictionary = sensor_on.get(ship_id, {})
+	return bool(m.get(model, bool(s.get("on", true))))
+
+func set_emcon(ship_id: String, on: bool) -> void:
+	emcon[ship_id] = on
+	_plan_tick(tau())
+	_update_emissions(tau())
+	_push_log("%s EMCON %s" % [ship_id, "开启 · 发射类全关" if on else "解除"], "EMCON", "EXEC")
+
+func is_emcon(ship_id: String) -> bool:
+	return bool(emcon.get(ship_id, false))
+
+# 预览：返回同结构命令（status=DRAFT）但不入队、不扣 Δv，plot 画 draft 节点
+func preview_command(action: String, params: Dictionary = {}, target := "") -> Dictionary:
+	if cmd_model == null:
+		return {}
+	var p := params.duplicate(true)
+	p["budget_ms"] = unit_dv_ms
+	return cmd_model.preview("哈马丹", action, target, p, tau())
+
+func clear_preview() -> void:
+	if cmd_model != null:
+		cmd_model.clear_preview()
+
+func _load_scenario() -> Dictionary:
+	var candidates: Array = ["res://data/scenario_l1.json"]
+	var base := ProjectSettings.globalize_path("res://")
+	candidates.append(base.path_join("../data/scenario_l1.json").simplify_path())
+	for raw_path in candidates:
+		var path := String(raw_path)
+		if not FileAccess.file_exists(path):
+			continue
+		var f := FileAccess.open(path, FileAccess.READ)
+		if f == null:
+			continue
+		var txt := f.get_as_text()
+		f.close()
+		var parsed = JSON.parse_string(txt)
+		if parsed is Dictionary:
+			scenario_source = path
+			return parsed
+	scenario_source = "fallback"
+	return {}
+
+func _apply_scenario_env() -> void:
+	if scenario.is_empty():
+		return
+	if scenario.has("datum"):
+		set_datum(String(scenario.get("datum", datum)))
+	if scenario.has("timeline"):
+		var tl: Dictionary = scenario.get("timeline", {})
+		radar_on_t = float(tl.get("radar_on_t", radar_on_t))
+		optical_on_t = float(tl.get("optical_on_t", optical_on_t))
+		iff_on_t = float(tl.get("iff_on_t", iff_on_t))
+		phantom_true_t = float(tl.get("phantom_true_t", phantom_true_t))
+	if scenario.has("sensors"):
+		var sc_sensors: Dictionary = scenario.get("sensors", {})
+		for raw_ship in sc_sensors.keys():
+			var ship := String(raw_ship)
+			sensor_override[ship] = {}
+			for raw in (sc_sensors[ship] as Array):
+				var e: Dictionary = raw
+				(sensor_override[ship] as Dictionary)[String(e.get("model", ""))] = bool(e.get("on", true))
+	if scenario.has("false_alarm"):
+		var fa: Dictionary = scenario.get("false_alarm", {})
+		phantom_bearing = float(fa.get("bearing_deg", phantom_bearing))
+
+func _build_tracks_from_scenario() -> void:
+	var arr: Array = scenario.get("tracks", [])
+	tracks = []
+	var own_r := Vector3(2.0, -3.0, 0.0)
+	var own_v := Vector3(0.22, -0.12, 0.03)
+	own = {"r": own_r, "v": own_v}
+	own_cur = {"r": own_r, "v": own_v}
+	for raw in arr:
+		var d: Dictionary = raw
+		var r := _vec3_from_json(d.get("r", null), own_r)
+		var v := _vec3_from_json(d.get("v", null), Vector3.ZERO)
+		var off := _vec2_from_json(d.get("off", null), Vector2(16.0, 12.0))
+		var tr := _track(
+			String(d.get("id", "?")), String(d.get("en", "")), String(d.get("cls", "")),
+			String(d.get("role", "")), String(d.get("side", "unknown")),
+			int(d.get("level", 1)), r, v, float(d.get("age", 0.0)),
+			bool(d.get("own", false)), off, bool(d.get("bearing_only", false)))
+		tracks.append(tr)
+		if bool(d.get("own", false)):
+			own = {"r": r, "v": v}
+			own_cur = {"r": r, "v": v}
+
+func _vec3_from_json(raw, fallback: Vector3) -> Vector3:
+	if typeof(raw) == TYPE_ARRAY and (raw as Array).size() >= 3:
+		var a: Array = raw
+		return Vector3(float(a[0]), float(a[1]), float(a[2]))
+	return fallback
+
+func _vec2_from_json(raw, fallback: Vector2) -> Vector2:
+	if typeof(raw) == TYPE_ARRAY and (raw as Array).size() >= 2:
+		var a: Array = raw
+		return Vector2(float(a[0]), float(a[1]))
+	return fallback
 
 # ── 日志 / 单位面板 ────────────────────────────────────
 

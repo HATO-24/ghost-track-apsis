@@ -505,7 +505,7 @@ func _burn_screen_dir(km: Vector3, dv: Vector3) -> Vector2:
 	return d.normalized()
 
 # 点火节点：Δv 箭头 + 节点 + T+/Δv/状态标签；pending = 命令幽灵（虚线菱形）
-func _draw_burn_node(km: Vector3, cmd: Dictionary, pending: bool, remain: float) -> void:
+func _draw_burn_node(km: Vector3, cmd: Dictionary, pending: bool, remain: float, draft := false) -> void:
 	var p := _p3(km * 1000.0)
 	if not _ok(p):
 		return
@@ -514,7 +514,7 @@ func _draw_burn_node(km: Vector3, cmd: Dictionary, pending: bool, remain: float)
 	var dir := _burn_screen_dir(km, dv)
 	var perp := Vector2(-dir.y, dir.x)
 	var exec_t := float(cmd.get("exec_t", 0.0))
-	var col := Palette.PH if not pending else Palette.AMBER
+	var col := Palette.BLUE if draft else (Palette.PH if not pending else Palette.AMBER)
 	var alpha := 0.9 if not pending else (0.55 + 0.35 * sin(_t * 4.0))
 	var d := 6.0
 	var diamond_list: Array[Vector2] = [
@@ -543,9 +543,9 @@ func _draw_burn_node(km: Vector3, cmd: Dictionary, pending: bool, remain: float)
 	var lx := p.x + 16.0
 	var ly := p.y + 38.0
 	if pending:
-		_txt(cjk, lx, ly, "点火 T+%04.1fs · 待生效" % exec_t, 9, Palette.a(Palette.AMBER, 0.95))
+		_txt(cjk, lx, ly, "点火 T+%04.1fs · %s" % [exec_t, ("预览 DRAFT" if draft else "待生效")], 9, Palette.a(Palette.BLUE if draft else Palette.AMBER, 0.95))
 		_txt(mono, lx, ly + 13.0, "Δv %.0f m/s · BRG %03d° · ELEV %+02d°" % [bms, int(bbrg), int(belev)], 8, Palette.a(Palette.PH_DIM, 1.0))
-		_txt(mono, lx, ly + 26.0, "PENDING %.1fs · 生效前可撤销 / COMMAND GHOST" % maxf(0.0, remain), 7, Palette.a(Palette.AMBER, 0.85))
+		_txt(mono, lx, ly + 26.0, "%s / %s" % [state.cmd_model.phase_text(cmd, _tau_now()), "DRAFT NODE（未下注）" if draft else "COMMAND GHOST"], 7, Palette.a(Palette.BLUE if draft else Palette.AMBER, 0.85))
 	else:
 		_txt(cjk, lx, ly, "点火 T+%04.1fs · 已执行" % exec_t, 9, Palette.a(Palette.PH, 0.95))
 		_txt(mono, lx, ly + 13.0, "Δv %.0f m/s · 已扣 / EXEC" % bms, 8, Palette.a(Palette.PH_DIM, 0.95))
@@ -583,7 +583,7 @@ func _draw_shadow_commands(tau: float) -> void:
 		_draw_ghost_bracket(p, Palette.a(Palette.AMBER, 0.55))
 		var remain := float(c.get("exec_t", tau)) - tau
 		_txt(cjk, p.x + 22.0, p.y - 32.0, "SHADOW %s · 待生效" % tid, 9, Palette.a(Palette.AMBER, 0.9))
-		_txt(mono, p.x + 22.0, p.y - 20.0, "望楼中继 +8 s · PENDING %.1fs" % maxf(0.0, remain), 7, Palette.a(Palette.AMBER, 0.6))
+		_txt(mono, p.x + 22.0, p.y - 20.0, "望楼中继 +8 s · %s" % state.cmd_model.phase_text(c, tau), 7, Palette.a(Palette.AMBER, 0.6))
 	# 已生效：跟踪括号 + 连线
 	var active: Dictionary = state.cmd_model.active_shadow()
 	if active.is_empty():
@@ -663,6 +663,33 @@ func _draw_own_plan() -> void:
 			]), Palette.a(Palette.PH_DIM, 0.85), 1.0)
 			_txt_r(mono, np.x - 10.0, np.y - 4.0, "NODE B-2 · T+%ds" % int(node_rel), 7, Palette.a(Palette.PH_DIM, 0.9))
 			_txt_r(mono, np.x - 10.0, np.y + 8.0, "%.1f km" % np3.length(), 7, Palette.a(Palette.PH_FAINT, 0.9))
+	# P1e：预览命令（preview_command）→ draft 节点 / 预览线
+	var pv: Dictionary = state.cmd_model.preview_cmd
+	if not pv.is_empty():
+		var pa := String(pv.get("action", ""))
+		if pa == "BURN":
+			var pl: Dictionary = pv.get("plan", {})
+			var pburn: Array = [{"t": float(pv.get("exec_t", tau)), "dv": pl.get("dv", Vector3.ZERO), "cmd": pv}]
+			var pplan := CommandModel.plan_own(_own_now(), tau, pburn, PRED_HORIZON, PRED_STEPS)
+			_poly_km(pplan["pts"], Palette.a(Palette.BLUE, 0.55), 1.1, true)
+			var evs: Array = pplan["events"]
+			if evs.size() > 0:
+				var pe: Dictionary = evs[0]
+				_draw_burn_node(pe["km"] as Vector3, pv, true, 0.0, true)
+			else:
+				var endpoints: Array = pplan["pts"]
+				if endpoints.size() > 0:
+					var pend := _p3((endpoints[endpoints.size() - 1] as Vector3) * 1000.0)
+					if _ok(pend):
+						_txt(cjk, pend.x + 6.0, pend.y - 8.0, "DRAFT 预览（点火在 +300s 视野外）", 8, Palette.a(Palette.BLUE, 0.8))
+		elif pa == "SHADOW":
+			var ptid := String(pv.get("target", ""))
+			var pt: Dictionary = state.track_by_id(ptid)
+			if not pt.is_empty():
+				var pp := _target_marker_pos(pt)
+				if _ok(pp):
+					_draw_ghost_bracket(pp, Palette.a(Palette.BLUE, 0.6))
+					_txt(cjk, pp.x + 22.0, pp.y - 32.0, "SHADOW %s · DRAFT 预览" % ptid, 9, Palette.a(Palette.BLUE, 0.85))
 	# 命令幽灵 / 生效标记
 	_draw_shadow_commands(tau)
 	_draw_station_commands(tau)
@@ -676,7 +703,9 @@ func _draw_command_queue() -> void:
 	var start := maxi(0, cmds.size() - 5)
 	for i in range(start, cmds.size()):
 		shown.append(cmds[i])
-	var r := Rect2(size.x - 252.0, 216.0, 236.0, 26.0 + float(shown.size()) * 25.0)
+	var has_draft: bool = not state.cmd_model.preview_cmd.is_empty()
+	var rows := shown.size() + (1 if has_draft else 0)
+	var r := Rect2(size.x - 252.0, 216.0, 236.0, 26.0 + float(rows) * 25.0)
 	draw_rect(r, Palette.a(Palette.PANEL, 0.88))
 	draw_rect(r, Palette.a(Palette.LINE, 0.9), false, 1.0)
 	_txt(cjk, r.position.x + 8.0, r.position.y + 5.0, "命令队列 / COMMAND QUEUE", 7, Palette.a(Palette.PH, 0.85))
@@ -692,10 +721,16 @@ func _draw_command_queue() -> void:
 		match st:
 			"QUEUED":
 				col = Palette.AMBER
-				tail = "%.1fs" % maxf(0.0, float(c.get("exec_t", tau)) - tau)
+				tail = "tx %.1fs" % maxf(0.0, float(c.get("tx_t", tau)) - tau)
+			"TRANSMITTED":
+				col = Palette.AMBER
+				tail = "exec %.1fs" % maxf(0.0, float(c.get("exec_t", tau)) - tau)
 			"EXEC":
 				col = Palette.PH_DIM
-				tail = "EXEC"
+				tail = "ACK %.1fs" % maxf(0.0, float(c.get("done_t", tau)) - tau)
+			"DONE":
+				col = Palette.PH_FAINT
+				tail = "DONE"
 			"ABORTED":
 				col = Palette.FAINT
 				tail = "ABORT"
@@ -715,6 +750,17 @@ func _draw_command_queue() -> void:
 		if String(c.get("id", "")) == String(state.cmd_model.selected_id):
 			draw_line(Vector2(r.position.x + 4.0, y + 9.0), Vector2(r.end.x - 4.0, y + 9.0), Palette.a(Palette.PH, 0.25), 1.0)
 		y += 25.0
+	if has_draft:
+		var pv: Dictionary = state.cmd_model.preview_cmd
+		var pact := String(pv.get("action", ""))
+		var pname := pact
+		if pact == "BURN":
+			pname = "BURN T+%04.1f Δv%.0f" % [float(pv.get("exec_t", 0.0)), float((pv.get("plan", {}) as Dictionary).get("dv_ms", 0.0))]
+		elif pact == "SHADOW":
+			pname = "SHADOW " + String(pv.get("target", ""))
+		_txt(mono, r.position.x + 8.0, y, "DRAFT", 7, Palette.a(Palette.BLUE, 0.9))
+		_txt(cjk, r.position.x + 60.0, y, pname, 7, Palette.a(Palette.BLUE, 0.9))
+		_txt_r(mono, r.end.x - 8.0, y, "预览", 7, Palette.a(Palette.BLUE, 0.9))
 
 # ── 接触状态向量 / 预测轨道 ────────────────────────────
 
@@ -912,7 +958,7 @@ func _draw_phantom(t: Dictionary) -> void:
 	var o := _o()
 	var resolved := bool(t.get("false_alarm", false))
 	var col := Palette.FAINT if resolved else Palette.AMBER
-	var b := 302.0
+	var b := float(state.phantom_bearing)
 	var far := 470.0
 	var pm := _p3(_world(b, far, 0.0))
 	if not _ok(pm):
@@ -1482,7 +1528,7 @@ func _draw_planar_contact_label(t: Dictionary, pos: Vector2, col: Color) -> void
 func _draw_planar_phantom(o: Vector2, t: Dictionary) -> void:
 	var resolved := bool(t.get("false_alarm", false))
 	var col := Palette.FAINT if resolved else Palette.AMBER
-	var b := deg_to_rad(302.0)
+	var b := deg_to_rad(float(state.phantom_bearing))
 	var end := o + Vector2(sin(b), -cos(b)) * 62.0
 	draw_dashed_line(o, end, Palette.a(col, 0.35), 1.0, 5.0)
 	_txt_r(mono, end.x - 5.0, end.y - 3.0, "未识别 · L1", 7, Palette.a(col, 0.85))
@@ -1564,7 +1610,7 @@ func _draw_planar_inset() -> void:
 		if t.get("own", false) or bool(t.get("occluded", false)):
 			continue
 		if bool(t.get("phantom", false)):
-			var b := deg_to_rad(302.0)
+			var b := deg_to_rad(float(state.phantom_bearing))
 			draw_dashed_line(c, c + Vector2(sin(b), -cos(b)) * 62.0, Palette.a(Palette.FAINT, 0.30), 1.0, 4.0)
 			_txt(mono, c.x + sin(b) * 62.0 + 3.0, c.y - cos(b) * 62.0, "回波", 7, Palette.a(Palette.FAINT, 0.8))
 			continue

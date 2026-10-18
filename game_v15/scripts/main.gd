@@ -171,8 +171,25 @@ func _set_scene(sc: String) -> void:
 			})
 			state.abort_command(String(extra.get("id", "")))
 			state.cmd_model.selected_id = "CMD-03"
+		elif cmd_env == "sim":
+			# P1e：命令状态机多态 + 传感器开关/EMCON + preview draft 同屏
+			state.set_sensor("apsis", 2, true)      # YW-R9 手动开机（早于脚本时序）-> EMIT
+			state.set_sensor("harmattan", 1, false) # CH-R0 手动关闭
+			state.set_emcon("summons_4471", true)   # 敌舰 EMCON（发射类全关）
+			state.issue_command("SHADOW", {"hold_km": 40.0}, "案卷 4471")
+			var extra2: Dictionary = state.issue_command("BURN", {
+				"exec_t": state.tau() + 55.0, "dv_ms": 30.0, "brg": 120.0, "elev": 5.0,
+			})
+			state.abort_command(String(extra2.get("id", "")))
+			state.preview_command("BURN", {
+				"exec_t": state.tau() + 40.0, "dv_ms": 20.0, "brg": 90.0, "elev": 0.0,
+			})
+			state.cmd_model.selected_id = "CMD-01"
 		print("DSH_CMD ", cmd_env, " commands=", state.commands().size(), " tau=", state.tau())
 	state.refresh(state.clock)
+	for c in state.commands():
+		print("CMD ", c.get("id"), " ", c.get("action"), " ", c.get("status"), " tx=", c.get("tx_t"), " exec=", c.get("exec_t"), " done=", c.get("done_t"))
+	print("SCENARIO ", state.scenario_source, " preview=", not state.cmd_model.preview_cmd.is_empty())
 	print("SCENE ", sc, " datum=", state.datum, " sensor=", state.sensor, " planar=", plot.ortho,
 		" tau=", state.tau(), " cmds=", state.commands().size())
 

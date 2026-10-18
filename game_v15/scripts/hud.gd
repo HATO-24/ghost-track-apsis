@@ -13,8 +13,32 @@ const G := 8.0
 const TOP := Rect2(40, 40, 1840, 72)
 const TRACKS := Rect2(60, 124, 320, 752)
 const UNIT := Rect2(1540, 124, 320, 752)
-const LOG := Rect2(60, 884, 1120, 156)
+# P1e：底部「令」区拆成 日志 + 命令面板 两块（仍在同一横带内，4/8 网格不变）。
+const LOG := Rect2(60, 884, 560, 156)
+const CMD := Rect2(636, 884, 544, 156)
 const TIME := Rect2(1200, 884, 660, 156)
+
+# ── P1e：命令面板 / 点火规划（HUD 只读 state；授权才写命令）──
+const CMD_ACTIONS := ["STATION", "SHADOW", "BURN"]
+const CMD_LABELS := ["STATION 保持站位", "SHADOW 跟踪", "BURN 点火"]
+const PLAN_WINDOW_S := 30.0                 # 点火时间轴窗口：T+0 … T+30 s
+const CMD_INSET_X := 652.0
+const CMD_INNER_R := 1164.0
+const ACT_Y := 902.0                        # 动作按钮行 y
+const ACT_H := 20.0
+# 参数行（T+ / Δv / 方向），高 18
+const T_MINUS := Rect2(676, 926, 20, 18)
+const T_PLUS := Rect2(756, 926, 20, 18)
+const DV_MINUS := Rect2(824, 926, 20, 18)
+const DV_PLUS := Rect2(926, 926, 20, 18)
+const DIR_CYCLE := Rect2(1104, 926, 60, 18)
+const TIMELINE := Rect2(652, 952, 512, 24)
+# 授权 / 撤销 / 队列
+const AUTH_BTN := Rect2(652, 984, 176, 20)
+const ABORT_BTN := Rect2(836, 984, 176, 20)
+const QUEUE_Y := 1016.0
+const QUEUE_ROW_H := 12.0
+const QUEUE_ABORT_X := 1120.0
 
 # 传感器条 / 下拉阵列（V2 结构，V1 薄荷语言）。
 # 位置规则：水平锁在地图中轴（396 + 1128 / 2 = 960），垂直贴地图上沿 +12。
@@ -229,6 +253,21 @@ var menu_open := false
 var menu_t := 0.0
 var _t := 0.0
 
+# P1e 命令面板（本地 draft；授权前不写 state）
+var cmd_action := "BURN"
+var draft_t := 6.2
+var draft_dv := 84.0
+var draft_dir := 0
+const DIR_PRESETS := [
+	{"label": "BRG 340 · ELEV +20", "brg": 340.0, "elev": 20.0},
+	{"label": "顺行 000 · ELEV 0", "brg": 0.0, "elev": 0.0},
+	{"label": "逆行 180 · ELEV 0", "brg": 180.0, "elev": 0.0},
+	{"label": "法向 000 · ELEV +90", "brg": 0.0, "elev": 90.0},
+]
+var _burn_drag := false
+var _preview_dirty := false
+var _queue_abort: Array = []          # [{rect: Rect2, id: String}]（每帧重建）
+
 func _ready() -> void:
 	mono = Fonts.mono()
 	cjk = Fonts.cjk()
@@ -236,11 +275,25 @@ func _ready() -> void:
 	var ds := OS.get_environment("DSH_SELECT")
 	if ds != "" and state != null and state.tracks.size() > 0:
 		state.selected = clampi(int(ds), 0, state.tracks.size() - 1)
+	# P1e：默认 draft（BURN T+6.2 / Δv 84 / BRG340）镜像给 sim 的 preview，供 plot 画 DRAFT 节点。
+	_push_preview()
 
 func _process(delta: float) -> void:
 	_t += delta
 	if menu_open:
 		menu_t += delta
+	# P1e：点火节点拖动（只改本地 draft，不写 state）。
+	# main.gd 只把鼠标按下转发给 hud.click()，所以这里轮询鼠标位置 / 松开。
+	if _burn_drag:
+		if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			_burn_drag = false
+		else:
+			var win := get_window()
+			if win != null and win.size.x > 1:
+				var mp := win.get_mouse_position()
+				var p: Vector2 = mp * (Vector2(1920.0, 1080.0) / Vector2(win.size))
+				_set_burn_from_x(p.x)
+				_push_preview()
 
 func _draw() -> void:
 	if state.boot_t < 1.7:
@@ -251,6 +304,7 @@ func _draw() -> void:
 	_draw_tracks()
 	_draw_unit()
 	_draw_log()
+	_draw_command_panel()
 	_draw_time()
 	_draw_sensor_bar()
 	if menu_open:
@@ -259,6 +313,14 @@ func _draw() -> void:
 
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
+		return
+	# P1e：命令面板优先（面板内的点击不再落到接触列表/时标/地图）。
+	if CMD.has_point(p):
+		_handle_command_click(p)
+		if _preview_dirty:
+			_push_preview()
+			_preview_dirty = false
+		queue_redraw()
 		return
 	if SENSOR_RECT.has_point(p):
 		menu_open = not menu_open
@@ -290,6 +352,8 @@ func click(p: Vector2) -> void:
 			return
 
 func consumes(p: Vector2) -> bool:
+	if CMD.has_point(p):
+		return true
 	if SENSOR_RECT.has_point(p):
 		return true
 	if menu_open:
@@ -643,8 +707,8 @@ func _draw_ship_watermark() -> void:
 func _draw_log() -> void:
 	_panel(LOG)
 	_txt(cjk, 76, 893, "命令日志 / COMMAND LOG", 8, Palette.TXT)
-	_txt_r(mono, 1164, 893, "12 ENTRIES · NEWEST FIRST", 7, Palette.FAINT)
-	draw_line(Vector2(60, 908), Vector2(1180, 908), Palette.a(Palette.LINE, 0.9), 1.0)
+	_txt_r(mono, 604, 893, "12 ENTRIES · NEWEST FIRST", 7, Palette.FAINT)
+	draw_line(Vector2(60, 908), Vector2(620, 908), Palette.a(Palette.LINE, 0.9), 1.0)
 
 	var cmd_left := maxf(0.0, 6.2 - float(state.elapsed))
 	var pending := cmd_left > 0.0
@@ -652,14 +716,14 @@ func _draw_log() -> void:
 		var l: Dictionary = state.log_lines[i]
 		var y := 918.0 + float(i) * 24.0
 		_txt(mono, 76, y, "T+" + l.t, 10, Palette.a(Palette.FAINT, 0.95))
-		var disp_text := _dn(l.text)
+		var disp_text := _ellipsis(cjk, _dn(l.text), 11, 330.0)
 		_txt(cjk, 150, y - 1, disp_text, 11, Palette.a(Palette.TXT, 0.92))
 		var tw := cjk.get_string_size(disp_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 		if l.arg != "":
 			_txt(mono, 150.0 + tw + 10.0, y, _dn(l.arg), 8, Palette.a(Palette.AMBER, 0.7))
 		if i == 0 and pending:
-			draw_rect(Rect2(150, y + 16, 930, 1), Palette.a(Palette.AMBER, 0.10))
-			draw_rect(Rect2(150, y + 16, 930.0 * (1.0 - cmd_left / 6.2), 1), Palette.a(Palette.AMBER, 0.55))
+			draw_rect(Rect2(150, y + 16, 350, 1), Palette.a(Palette.AMBER, 0.10))
+			draw_rect(Rect2(150, y + 16, 350.0 * (1.0 - cmd_left / 6.2), 1), Palette.a(Palette.AMBER, 0.55))
 		_log_status(l, i, y, cmd_left, pending)
 
 	var blink := 0.5 + 0.5 * sin(_t * 4.0)
@@ -686,10 +750,256 @@ func _log_status(l: Dictionary, i: int, y: float, cmd_left: float, pending: bool
 		"RX":
 			txt = "已接收"
 			col = Palette.BLUE
-	var r := Rect2(1080, y - 1, 84, 15)
+	var r := Rect2(520, y - 1, 84, 15)
 	draw_rect(r, Palette.a(col, 0.06))
 	draw_rect(r, Palette.a(col, 0.40), false, 1.0)
 	_txt(cjk, r.position.x + 7, r.position.y + 2, txt, 8, col)
+
+# ── P1e：命令面板 / 点火节点 ────────────────────────────
+
+func _cmd_btn(r: Rect2, label: String, active: bool, col: Color) -> void:
+	draw_rect(r, Palette.a(col, 0.10 if active else 0.03))
+	draw_rect(r, Palette.a(col, 0.65 if active else 0.25), false, 1.0)
+	if active:
+		draw_rect(Rect2(r.position.x, r.position.y, 2.0, r.size.y), col)
+	_txt(cjk, r.position.x + 8.0, r.position.y + 4.0, label, 8, Palette.a(col, 0.95 if active else 0.55))
+
+func _mini_btn(r: Rect2, label: String) -> void:
+	draw_rect(r, Palette.a(Palette.PH, 0.05))
+	draw_rect(r, Palette.a(Palette.PH_DIM, 0.35), false, 1.0)
+	var w := cjk.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
+	_txt(cjk, r.position.x + (r.size.x - w) * 0.5, r.position.y + 2.0, label, 9, Palette.TXT)
+
+func _cmd_status_cn(st: String) -> String:
+	match st:
+		"QUEUED":
+			return "排队"
+		"TRANSMITTED":
+			return "传达中"
+		"EXEC":
+			return "执行中"
+		"DONE":
+			return "已完成"
+		"ABORTED":
+			return "已撤销"
+		"REJECTED":
+			return "已拒绝"
+		"DRAFT":
+			return "预览"
+		_:
+			return st
+
+# 命令状态机文字（等待传达 / 传达中·生效倒计时 / 执行中·回执倒计时）。
+# 优先用 CommandModel.phase_text（sim 侧唯一口径）；拿不到时退回状态名。
+func _cmd_phase(c: Dictionary) -> String:
+	if state.get("cmd_model") != null:
+		return String(state.cmd_model.phase_text(c, float(state.tau())))
+	return _cmd_status_cn(String(c.get("status", "")))
+
+# 当前 draft 的 BURN 参数（授权和预览共用）
+func _draft_params() -> Dictionary:
+	var preset: Dictionary = DIR_PRESETS[draft_dir]
+	return {
+		"exec_t": float(state.tau()) + draft_t,
+		"dv_ms": draft_dv,
+		"brg": float(preset["brg"]),
+		"elev": float(preset["elev"]),
+	}
+
+# 把本地 draft 镜像给 sim 的 preview（不入队、不扣 Δv，只给 plot 画 DRAFT 节点）。
+func _push_preview() -> void:
+	if state == null or state.get("cmd_model") == null:
+		return
+	match cmd_action:
+		"STATION":
+			state.preview_command("STATION", {})
+		"SHADOW":
+			state.preview_command("SHADOW", {"hold_km": 60.0}, "谷神-2")
+		"BURN":
+			state.preview_command("BURN", _draft_params())
+
+func _set_burn_from_x(x: float) -> void:
+	var frac := clampf((x - TIMELINE.position.x) / TIMELINE.size.x, 0.0, 1.0)
+	draft_t = clampf(snappedf(frac * PLAN_WINDOW_S, 0.1), 0.5, PLAN_WINDOW_S)
+
+# 授权：把本地 draft 变成真命令（唯一写 state 的地方）
+func _authorize() -> void:
+	state.clear_preview()
+	match cmd_action:
+		"STATION":
+			state.issue_command("STATION", {})
+		"SHADOW":
+			state.issue_command("SHADOW", {"hold_km": 60.0}, "谷神-2")
+		"BURN":
+			state.issue_command("BURN", _draft_params())
+	queue_redraw()
+
+func _handle_command_click(p: Vector2) -> void:
+	for i in range(3):
+		if Rect2(CMD_INSET_X + float(i) * 176.0, ACT_Y, 160, ACT_H).has_point(p):
+			cmd_action = CMD_ACTIONS[i]
+			_preview_dirty = true
+			return
+	if T_MINUS.has_point(p):
+		draft_t = maxf(0.5, draft_t - 1.0)
+		_preview_dirty = true
+		return
+	if T_PLUS.has_point(p):
+		draft_t = minf(PLAN_WINDOW_S, draft_t + 1.0)
+		_preview_dirty = true
+		return
+	if DV_MINUS.has_point(p):
+		draft_dv = maxf(8.0, draft_dv - 8.0)
+		_preview_dirty = true
+		return
+	if DV_PLUS.has_point(p):
+		draft_dv = minf(240.0, draft_dv + 8.0)
+		_preview_dirty = true
+		return
+	if DIR_CYCLE.has_point(p):
+		draft_dir = (draft_dir + 1) % DIR_PRESETS.size()
+		_preview_dirty = true
+		return
+	if TIMELINE.has_point(p):
+		# 拖动只改本地 draft：按下即开始，松开在 _process 里轮询结束。
+		_set_burn_from_x(p.x)
+		_burn_drag = true
+		_preview_dirty = true
+		return
+	if AUTH_BTN.has_point(p):
+		_authorize()
+		_preview_dirty = false
+		return
+	if ABORT_BTN.has_point(p):
+		state.abort_latest_command()
+		return
+	for row in _queue_abort:
+		var rr: Rect2 = row["rect"]
+		if rr.has_point(p):
+			state.abort_command(String(row["id"]))
+			return
+
+func _draw_command_panel() -> void:
+	_panel(CMD)
+	_queue_abort.clear()
+	var dv_left := 0
+	var dv_v = state.get("unit_dv_ms")
+	if dv_v != null:
+		dv_left = int(round(float(dv_v)))
+	var camds: Array = state.commands()
+	var queued := 0
+	var active := 0
+	var done := 0
+	for raw in camds:
+		var st := String((raw as Dictionary).get("status", ""))
+		if st == "QUEUED" or st == "TRANSMITTED":
+			queued += 1
+		elif st == "EXEC":
+			active += 1
+		elif st == "DONE":
+			done += 1
+
+	# header
+	_txt(cjk, CMD_INSET_X, 893, "命令 / ORDERS", 8, Palette.TXT)
+	_txt_r(cjk, CMD_INNER_R, 893, "%s · 剩余 Δv %s m/s" % [_rack_ship_name(), _fmt_int(dv_left)], 7, Palette.DIM)
+
+	# 动作选择：STATION / SHADOW 谷神-2 / BURN
+	for i in range(3):
+		var act: String = CMD_ACTIONS[i]
+		var col: Color = Palette.PH
+		if act == "SHADOW":
+			col = Palette.BLUE
+		elif act == "BURN":
+			col = Palette.AMBER
+		_cmd_btn(Rect2(CMD_INSET_X + float(i) * 176.0, ACT_Y, 160, ACT_H), CMD_LABELS[i], cmd_action == act, col)
+
+	# 参数：T+ / Δv / 方向预设（全部只改本地 draft）
+	var preset: Dictionary = DIR_PRESETS[draft_dir]
+	_txt(cjk, CMD_INSET_X, 928, "T+", 7, Palette.DIM)
+	_mini_btn(T_MINUS, "-")
+	_txt(mono, 700, 930, "%04.1f s" % draft_t, 10, Palette.TXT)
+	_mini_btn(T_PLUS, "+")
+	_txt(cjk, 796, 928, "Δv", 7, Palette.DIM)
+	_mini_btn(DV_MINUS, "-")
+	_txt(mono, 848, 930, "%03.0f m/s" % draft_dv, 10, Palette.TXT)
+	_mini_btn(DV_PLUS, "+")
+	_txt(cjk, 984, 928, "方向", 7, Palette.DIM)
+	_txt(cjk, 1016, 929, _ellipsis(cjk, String(preset["label"]), 7, 82.0), 7, Palette.TXT)
+	_cmd_btn(DIR_CYCLE, "换向 ▸", false, Palette.PH)
+
+	# 计划信息：Δv 成本 / 延迟；右侧 = draft 摘要（拖动中提示「未授权」）
+	_txt(cjk, CMD_INSET_X, 946, "Δv 成本 %.0f m/s · 生效延迟 8 s（望楼中继）" % draft_dv, 7, Palette.a(Palette.AMBER, 0.8))
+	if _burn_drag:
+		_txt_r(cjk, CMD_INNER_R, 946, "拖动中 · 未授权（松开只记 draft）", 7, Palette.a(Palette.AMBER, 0.9))
+	else:
+		_txt_r(cjk, CMD_INNER_R, 946, "DRAFT BURN T+%.1f · Δv %.0f" % [draft_t, draft_dv], 7, Palette.a(Palette.BLUE, 0.85))
+
+	# 时间轴：T+0 … T+30，节点 = draft（拖动不授权）
+	var tx := TIMELINE.position.x
+	var tw := TIMELINE.size.x
+	var axis_y := TIMELINE.position.y + 16.0
+	draw_line(Vector2(tx, axis_y), Vector2(tx + tw, axis_y), Palette.a(Palette.LINE2, 0.9), 1.0)
+	for i in range(7):
+		var sec := float(i) * 5.0
+		var x := tx + tw * sec / PLAN_WINDOW_S
+		var h := 6.0 if i % 2 == 0 else 3.0
+		draw_line(Vector2(x, axis_y - h), Vector2(x, axis_y), Palette.a(Palette.PH_DIM, 0.7), 1.0)
+		if i % 2 == 0:
+			_txt(mono, x, axis_y + 8.0, "T+%d" % int(sec), 7, Palette.a(Palette.FAINT, 0.9))
+	# 起点：NOW
+	draw_line(Vector2(tx, axis_y - 10.0), Vector2(tx, axis_y + 3.0), Palette.PH, 2.0)
+	# 点火节点（draft）：菱形压在轴上，不遮上方成本行
+	var nx := tx + tw * clampf(draft_t / PLAN_WINDOW_S, 0.0, 1.0)
+	draw_line(Vector2(nx, axis_y - 10.0), Vector2(nx, axis_y + 3.0), Palette.AMBER, 1.5)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(nx, axis_y - 12.0), Vector2(nx + 5.0, axis_y - 8.0),
+		Vector2(nx, axis_y - 4.0), Vector2(nx - 5.0, axis_y - 8.0)
+	]), Palette.AMBER)
+
+	# 授权 / 撤销
+	_cmd_btn(AUTH_BTN, "授权 / AUTHORIZE", false, Palette.PH)
+	_cmd_btn(ABORT_BTN, "撤销待生效 / ABORT", false, Palette.RED)
+	_txt_r(mono, CMD_INNER_R, 988, "QUEUE %d/%d" % [queued, camds.size()], 7, Palette.FAINT)
+
+	# 队列（读 state.commands；只显示最后 2 条；QUEUED / TRANSMITTED 可 ABORT）
+	_txt(cjk, CMD_INSET_X, 1006, "队列 / QUEUE · %d 待生效 · %d 执行 · %d 完成" % [queued, active, done], 7, Palette.FAINT)
+	var shown := 0
+	for idx in range(camds.size() - 1, -1, -1):
+		if shown >= 2:
+			break
+		var c: Dictionary = camds[idx]
+		var y := QUEUE_Y + float(shown) * QUEUE_ROW_H
+		shown += 1
+		var act := String(c.get("action", ""))
+		var st := String(c.get("status", ""))
+		var sc: Color = Palette.PH_DIM
+		match st:
+			"QUEUED":
+				sc = Palette.AMBER
+			"TRANSMITTED":
+				sc = Palette.BLUE
+			"EXEC":
+				sc = Palette.PH_DIM
+			"ABORTED":
+				sc = Palette.FAINT
+			"REJECTED":
+				sc = Palette.RED
+			_:
+				sc = Palette.PH_DIM
+		var target := String(c.get("target", ""))
+		var detail := ""
+		if act == "SHADOW" and target != "":
+			detail = " → " + _dn(target)
+		elif act == "BURN":
+			detail = " Δv %.0f" % float((c.get("plan", {}) as Dictionary).get("dv_ms", 0.0))
+		var line := "%s %s%s · %s" % [String(c.get("id", "")), act, detail, _cmd_phase(c)]
+		_txt(mono, CMD_INSET_X, y, _ellipsis(mono, line, 7, 440.0), 7, sc)
+		if st == "QUEUED" or st == "TRANSMITTED":
+			var rr := Rect2(QUEUE_ABORT_X, y - 1.0, 44, 12)
+			draw_rect(rr, Palette.a(Palette.RED, 0.06))
+			draw_rect(rr, Palette.a(Palette.RED, 0.35), false, 1.0)
+			_txt(cjk, rr.position.x + 8.0, rr.position.y + 2.0, "撤销", 7, Palette.RED)
+			_queue_abort.append({"rect": rr, "id": String(c.get("id", ""))})
 
 func _draw_time() -> void:
 	_panel(TIME)
