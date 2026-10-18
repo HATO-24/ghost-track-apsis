@@ -1640,7 +1640,7 @@ func _draw_decision_overlay() -> void:
 	_overlay_dim()
 	var r := DECISION_RECT
 	_overlay_frame(r, "监督官裁决 / SUPERVISOR DETERMINATION", "DECISION · CASE 4471 · 第一关")
-	var prompt := "执行窗口只剩最后一拍。谷神-2 的应答机是坏的，传唤级要你监督交接；选一个："
+	var prompt := "执行窗口只剩最后阶段。谷神-2 的应答机是坏的，传唤级要你监督交接；选一个："
 	var endings: Array = []
 	if state != null:
 		var pv = state.get("decision_prompt")
@@ -2164,3 +2164,4 @@ func _txt(f: Font, x: float, y: float, s: String, sz: int, c: Color) -> void:
 func _txt_r(f: Font, xr: float, y: float, s: String, sz: int, c: Color) -> void:
 	var w := f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
 	_txt(f, xr - w, y, s, sz, c)
+

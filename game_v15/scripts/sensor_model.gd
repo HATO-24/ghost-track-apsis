@@ -10,7 +10,7 @@ extends RefCounted
 ##   05_技术手册.md §3（S-01 IRST / S-02 雷达 / S-03 光学 / S-04 激光测距 /
 ##                       S-05 ELINT / S-06 IFF / S-07 航迹融合）+ §附录 A/B
 ##   06_工业与企业.md §4.3 感知 / §4.3 通信 / §4.6 配置 / §5 供应链
-##   07_第一关_监督交接.md §1 教学目标 / §2 卡斯 / §3 三拍 / §7 数据需求
+##   07_第一关_监督交接.md §1 教学目标 / §2 卡斯 / §3 Act 1 / Phase 1–3 / §7 数据需求
 ##   01_设计计划书.md §5 传感器与接触等级 / §5.3 探测概率
 ##   02_物理与轨道模型.md §8 相对几何 / §9.2 确定性
 ##   04_舰船设定.md §12 数据接口（传感器只有 ir / radar / optical；lidar 是 optical 子型）
@@ -325,12 +325,12 @@ const RACK_BLUEPRINTS := {
 		"sensors": [
 			{"model": "MS-IR9", "on": true},
 			{"model": "MS-OT2", "on": true},
-			{"model": "YW-R9", "on": false},   # 默认 EMCON；07 §3 第一拍才开机
+			{"model": "YW-R9", "on": false},   # 默认 EMCON；07 §3 Phase 1才开机
 			{"model": "MK-12", "on": false},   # 询问即暴露，按需
 			{"model": "ELINT", "on": true},
 		],
 	},
-	# 哈马丹号（托盘-5 改，车肆重工，哨舰，114）——07 第一拍：CH-IR2 + CH-R0
+	# 哈马丹号（托盘-5 改，车肆重工，哨舰，114）——07 Phase 1：CH-IR2 + CH-R0
 	"harmattan": {
 		"source": "公约 · AD 特遣群",
 		"sensors": [
@@ -362,7 +362,7 @@ const RACK_BLUEPRINTS := {
 			{"model": "CH-R0", "on": true},
 		],
 	},
-	# 案卷 4471（传唤级，清算署）——它的 ELINT 会点名玩家雷达（07 §3 第一拍）
+	# 案卷 4471（传唤级，清算署）——它的 ELINT 会点名玩家雷达（07 §3 Phase 1）
 	"summons_4471": {
 		"source": "清算署",
 		"sensors": [
@@ -667,7 +667,7 @@ static func ir_range_band(range_km: float, sensor_range_km: float,
 	return "OUT"
 
 
-## 方位漂移（度/秒），已处理 0/360 环绕。07 第一拍「一条在动、一条不动」的判定工具。
+## 方位漂移（度/秒），已处理 0/360 环绕。07 Phase 1「一条在动、一条不动」的判定工具。
 static func bearing_drift_deg_per_s(prev_bearing_deg: float, bearing_deg: float, dt_s: float) -> float:
 	if dt_s <= 0.0:
 		return 0.0
@@ -1845,3 +1845,4 @@ static func run_self_test() -> bool:
 #
 # 3) 期望末行 SENSOR SELFTEST PASS；退出码 0。
 # ═══════════════════════════════════════════════════════════════════
+

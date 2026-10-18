@@ -95,7 +95,7 @@ var sensor_override: Dictionary = {}   # ship -> {model: bool}（set_sensor 手�
 var emcon: Dictionary = {}             # ship -> bool（EMCON：发射类传感器强制关）
 var phantom_bearing := 302.0
 
-# ── P1f 第一关闭环：三拍 → 决断 → 报告 ─────────────────
+# ── P1f 第一关闭环：三个阶段 → 决断 → 报告 ─────────────────
 const PHASE_READ := "READ"
 const PHASE_COMMAND := "COMMAND"
 const PHASE_DECIDE := "DECIDE"
@@ -296,7 +296,7 @@ func _build_tracks() -> void:
 		"label": "点火（BURN）哈马丹 → 节点 B-2"
 	}
 
-# CH-IR2 虚警（07 §3 第一拍「两条回波」：真目标是案卷 4471，另一条是残骸/反射）。
+# CH-IR2 虚警（07 §3 Phase 1「两条回波」：真目标是案卷 4471，另一条是残骸/反射）。
 # 没有真实实体：无 r/v、不发射、不预测；只有一条方位线。
 func _build_phantom() -> void:
 	var ch_ir2 := SensorModel.rack_sensor("harmattan", "CH-IR2")
@@ -422,7 +422,7 @@ func _seed_demo_commands() -> void:
 			_push_command_log(cmd)
 		cmd_note = _cmd_note()
 		return
-	# 07 §3 第一拍：哈马丹跟踪谷神-2（命令经望楼中继 8 s）
+	# 07 §3 Phase 1：哈马丹跟踪谷神-2（命令经望楼中继 8 s）
 	var shadow: Dictionary = cmd_model.issue("哈马丹", "SHADOW", "谷神-2", {"hold_km": 60.0}, 0.0)
 	# 本舰计划点火：T+6.2 s、Δv 84 m/s、BRG 340 / ELEV +20
 	var dv := CommandModel.dv_vector(340.0, 20.0, 84.0)
@@ -1066,14 +1066,14 @@ func _vec2_from_json(raw, fallback: Vector2) -> Vector2:
 		return Vector2(float(a[0]), float(a[1]))
 	return fallback
 
-# ── P1f：第一关闭环（三拍 / 决断 / 报告）─────────────────
+# ── P1f：第一关闭环（三个阶段 / 决断 / 报告）─────────────────
 
 func _load_story() -> void:
 	story = scenario.get("story", {})
 	if typeof(story) != TYPE_DICTIONARY:
 		story = {}
 	decision_t = float(story.get("decision_t", 75.0))
-	decision_prompt = String(story.get("decision_prompt", "执行窗口进入最后一拍：交接 / 阻止 / 拖程序，选一个。"))
+	decision_prompt = String(story.get("decision_prompt", "执行窗口进入最后阶段：交接 / 阻止 / 拖程序，选一个。"))
 	consequence_text = String(story.get("consequence_fire", "谷神-2 被击毁（民用船）。ROE 违规。"))
 	story_events = story.get("events", [])
 	endings = []
@@ -1117,7 +1117,7 @@ func _open_decision() -> void:
 	tut_phase = PHASE_DECIDE
 	decision_prompt = story_text("decision_prompt", decision_prompt)
 	_update_freeze()
-	_push_log("决断窗口开启 · 三选一（或武器释放）", "B 拍", "EXEC")
+	_push_log("决断窗口开启 · 三选一（或武器释放）", "Phase 3", "EXEC")
 
 func story_text(key: String, fallback: String = "") -> String:
 	var v = story.get(key, fallback)
@@ -1139,11 +1139,11 @@ func ending_label(kind: String) -> String:
 func phase_label() -> String:
 	match tut_phase:
 		PHASE_READ:
-			return "第一拍 · 读"
+			return "Phase 1 · 读"
 		PHASE_COMMAND:
-			return "第二拍 · 令"
+			return "Phase 2 · 令"
 		PHASE_DECIDE:
-			return "第三拍 · 赌"
+			return "Phase 3 · 赌"
 		PHASE_REPORT:
 			return "报告"
 		PHASE_END:
@@ -1444,3 +1444,4 @@ func _build_unit() -> void:
 		"weapons": [["CH-IR2 红外", "1 · 被动"], ["CH-R0 无线电", "1 · 4s"], ["武器释放", "无"]],
 		"damage": "红外虚警偏高", "damage2": "· CH-IR2 校准中"
 	}
+
