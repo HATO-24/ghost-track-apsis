@@ -638,61 +638,143 @@ func _draw_track_motion(t: Dictionary, p: Vector2, col: Color) -> void:
 		_cov_ellipse(q300, Orbit.sigma_km(t, PRED_HORIZON), pxk, sdir, col, 0.26)
 
 
-# ── 接触 ────────────────────────────────────────────────
+# ── 接触（P1c：按传感器等级画）──────────────────────────
 
 func _contact_pos3(t: Dictionary) -> Vector2:
 	return _track_pos(t)
+
+func _lvl(t: Dictionary) -> int:
+	return clampi(int(t.get("level", 1)), 0, 4)
 
 func _draw_contacts() -> void:
 	for t in state.tracks:
 		if t.get("own", false):
 			continue
-		if t.get("bearing_only", false):
-			_draw_bearing_only(t)
+		if bool(t.get("occluded", false)):
+			continue   # 遮蔽不画（05 §S-02/S-03 对抗）
+		if bool(t.get("phantom", false)):
+			_draw_phantom(t)
+			continue
+		var col := _side_color(t)
+		if _lvl(t) <= 1:
+			_draw_bearing_contact(t, col)
 			continue
 		var km := _track_km(t, _tau_now())
 		var p := _p3(km * 1000.0)
 		if not _ok(p):
 			continue
-		var col := _side_color(t)
+		# 存储/预测轨道只有 L2+（有距离解）才画
 		_draw_track_motion(t, p, col)
-		# 高度垂线（高度来自状态向量的 z 分量）
 		var base := _p3(Vector3(km.x, km.y, 0.0) * 1000.0)
 		if absf(km.z) > 3.0 and _ok(base):
 			draw_dashed_line(base, p, Palette.a(col, 0.30), 1.0, 2.0)
 			draw_circle(base, 1.4, Palette.a(col, 0.35))
-		_draw_error_ellipse(p, t, col)
+		_draw_covariance(p, t, col)
 		_draw_symbol(p, t, col)
 		_draw_track_label(t, p, col)
 
-func _draw_bearing_only(t: Dictionary) -> void:
+# L1：只有方位线（无点、无距离、无预测）
+func _draw_bearing_contact(t: Dictionary, col: Color) -> void:
 	var o := _o()
-	var b := deg_to_rad(float(t.bearing))
-	var half := deg_to_rad(1.7)
-	var far := 460.0
-	var p1 := _p3(_world(rad_to_deg(b - half), far, 0.0))
-	var p2 := _p3(_world(rad_to_deg(b + half), far, 0.0))
+	var b := float(t.get("obs_bearing_deg", t.get("bearing", 0.0)))
+	if b < 0.0:
+		b = float(t.get("bearing", 0.0))
+	var half := 1.2
+	var far := 470.0
+	var p1 := _p3(_world(b - half, far, 0.0))
+	var p2 := _p3(_world(b + half, far, 0.0))
 	if _ok(p1) and _ok(p2):
-		draw_colored_polygon(PackedVector2Array([o, p1, p2]), Palette.a(Palette.AMBER, 0.035))
-		draw_dashed_line(o, p1, Palette.a(Palette.AMBER, 0.30), 1.0, 3.0)
-		draw_dashed_line(o, p2, Palette.a(Palette.AMBER, 0.30), 1.0, 3.0)
-	var arc: Array[Vector3] = []
-	for i in range(0, 21):
-		var bb := rad_to_deg(b - half) + rad_to_deg(2.0 * half) * float(i) / 20.0
-		arc.append(_world(bb, 340.0, 0.0))
-	_poly3(arc, Palette.a(Palette.AMBER, 0.38), 1.0, true)
-	var mid := _p3(_world(float(t.bearing), 340.0, 0.0))
+		draw_colored_polygon(PackedVector2Array([o, p1, p2]), Palette.a(col, 0.030))
+		draw_dashed_line(o, p1, Palette.a(col, 0.26), 1.0, 4.0)
+		draw_dashed_line(o, p2, Palette.a(col, 0.26), 1.0, 4.0)
+	var mid := _p3(_world(b, 300.0, 0.0))
 	if _ok(mid):
-		_txt(cjk, mid.x - 112.0, mid.y - 34.0, "方位 %03d°" % int(t.bearing), 9, Palette.AMBER)
-		_txt(cjk, mid.x - 112.0, mid.y - 21.0, "距离未知 · 陈旧 %ds" % int(t.age), 8, Palette.a(Palette.AMBER, 0.65))
-		_txt(mono, mid.x - 112.0, mid.y - 8.0, "BEARING ONLY · NO PREDICTION", 7, Palette.a(Palette.AMBER, 0.4))
+		var off: Vector2 = t.get("off", Vector2(16, 12))
+		var lx := mid.x + off.x * 0.35
+		var ly := mid.y + off.y * 0.35
+		var idf := cjk if Fonts.has_cjk(String(t.get("id", ""))) else mono
+		_txt(idf, lx, ly - 16.0, String(t.get("id", "")), 10, Palette.a(col, 0.85))
+		var band := String(t.get("range_band", ""))
+		if band == "":
+			band = "NO RANGE"
+		_txt(mono, lx, ly - 4.0, "L1 · 仅方位 · %s" % band, 7, Palette.a(col, 0.62))
+		_txt(mono, lx, ly + 8.0, "BEARING ONLY · NO PREDICTION", 7, Palette.a(col, 0.36))
+		draw_line(mid + Vector2(-3, 0), mid + Vector2(3, 0), Palette.a(col, 0.7), 1.0)
+		draw_line(mid + Vector2(0, -3), mid + Vector2(0, 3), Palette.a(col, 0.7), 1.0)
 
-func _draw_error_ellipse(p: Vector2, t: Dictionary, col: Color) -> void:
-	var tau := _tau_now()
-	var km := _track_km(t, tau)
-	var vel := _track_vel(t, tau)
-	var sigma := Orbit.sigma_km(t, 0.0)
-	_cov_ellipse(p, sigma, _px_per_km(km), _screen_dir(km, vel), col, 0.30)
+# CH-IR2 虚警：没有实体，只有一条方位线；交叉确认后标「虚警 / FALSE ALARM」
+func _draw_phantom(t: Dictionary) -> void:
+	var o := _o()
+	var resolved := bool(t.get("false_alarm", false))
+	var col := Palette.FAINT if resolved else Palette.AMBER
+	var b := 302.0
+	var far := 470.0
+	var pm := _p3(_world(b, far, 0.0))
+	if not _ok(pm):
+		return
+	draw_dashed_line(o, pm, Palette.a(col, 0.28 if not resolved else 0.16), 1.0, 6.0)
+	var mid := _p3(_world(b, 315.0, 0.0))
+	if not _ok(mid):
+		return
+	# 回波符号：空心菱形（不是实体船）
+	var d := 5.0
+	draw_polyline(PackedVector2Array([
+		mid + Vector2(0, -d), mid + Vector2(d, 0), mid + Vector2(0, d),
+		mid + Vector2(-d, 0), mid + Vector2(0, -d)
+	]), Palette.a(col, 0.8), 1.0)
+	_txt(mono, mid.x + 10.0, mid.y - 20.0, "CH-IR2 回波", 8, Palette.a(col, 0.75))
+	if resolved:
+		var blink := 0.55 + 0.45 * sin(_t * 4.0)
+		_txt(cjk, mid.x + 10.0, mid.y - 8.0, "虚警 / FALSE ALARM", 10, Palette.a(Palette.AMBER, blink))
+		_txt(mono, mid.x + 10.0, mid.y + 5.0, "MS-IR9 交叉确认 · 残骸/反射", 7, Palette.a(Palette.FAINT, 0.95))
+		draw_line(mid + Vector2(-6, -6), mid + Vector2(6, 6), Palette.a(Palette.AMBER, 0.55), 1.0)
+		draw_line(mid + Vector2(-6, 6), mid + Vector2(6, -6), Palette.a(Palette.AMBER, 0.55), 1.0)
+	else:
+		_txt(mono, mid.x + 10.0, mid.y - 8.0, "L1 · 仅方位 · 待交叉确认", 8, Palette.a(col, 0.62))
+		_txt(mono, mid.x + 10.0, mid.y + 5.0, "NO ENTITY · NO EMISSION", 7, Palette.a(col, 0.38))
+
+# 协方差椭圆（来自 SensorModel.covariance：径向 / 横向 σ，单位 km）
+func _draw_covariance(p: Vector2, t: Dictionary, col: Color) -> void:
+	var cov: Dictionary = t.get("covariance", {})
+	if cov.is_empty():
+		return
+	var cross := float(cov.get("cross_sigma_km", 0.0))
+	var radial := float(cov.get("radial_sigma_km", 0.0))
+	if cross <= 0.01 and radial <= 0.01:
+		return
+	var km := _track_km(t, _tau_now())
+	var pxk := _px_per_km(km)
+	if pxk <= 1.0e-6:
+		return
+	var dir3 := km
+	if dir3.length() < 1.0:
+		dir3 = Vector3(0.0, 1.0, 0.0)
+	dir3 = dir3.normalized()
+	var q := _p3((km + dir3 * 10.0) * 1000.0)
+	var rdir := q - p
+	if rdir.length() < 0.001:
+		rdir = Vector2(0.0, -1.0)
+	else:
+		rdir = rdir.normalized()
+	var cdir := Vector2(-rdir.y, rdir.x)
+	var rx := clampf(radial * pxk, 4.0, 120.0)
+	var ry := clampf(cross * pxk, 2.5, 120.0)
+	if rx < 1.4 and ry < 1.4:
+		return
+	var e: Array[Vector2] = []
+	for i in range(0, 361, 10):
+		var a := deg_to_rad(float(i))
+		e.append(p + rdir * (sin(a) * rx) + cdir * (cos(a) * ry))
+	_dashed_polyline(e, Palette.a(col, 0.38), 1.0, 3.0)
+
+func _draw_level_badge(p: Vector2, t: Dictionary, col: Color) -> void:
+	var lv := _lvl(t)
+	if lv <= 0:
+		return
+	var txt := "L%d" % lv
+	draw_rect(Rect2(p.x + 10.0, p.y - 22.0, 17.0, 11.0), Palette.a(col, 0.10))
+	draw_rect(Rect2(p.x + 10.0, p.y - 22.0, 17.0, 11.0), Palette.a(col, 0.45), false, 1.0)
+	_txt(mono, p.x + 13.0, p.y - 21.0, txt, 7, Palette.a(col, 0.9))
 
 func _draw_symbol(p: Vector2, t: Dictionary, col: Color) -> void:
 	if t.get("ghost", false):
@@ -731,21 +813,39 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 	var off: Vector2 = t.get("off", Vector2(16, 12))
 	var lx := p.x + off.x
 	var ly := p.y + off.y
-	var idf := cjk if Fonts.has_cjk(t.id) else mono
-	var dim := 0.5 if t.get("stale", false) else 1.0
-	if t.side == "friend":
-		_txt(idf, lx, ly, t.id + " · " + t.cls, 11, Palette.a(col, dim))
-	else:
-		_txt(idf, lx, ly, t.id, 11, Palette.a(col, dim))
-	var sub := "%03d° · %d km" % [int(t.bearing), int(t.range)]
-	if t.get("ghost", false):
-		sub = "未归档 · 方位 %03d°" % int(t.bearing)
-	_txt(mono, lx, ly + 12.0, sub, 8, Palette.a(col, 0.60 * dim))
-	if int(t.level) > 0:
-		var lv := "L%d" % int(t.level)
-		draw_rect(Rect2(p.x + 10.0, p.y - 22.0, 17.0, 11.0), Palette.a(col, 0.10))
-		draw_rect(Rect2(p.x + 10.0, p.y - 22.0, 17.0, 11.0), Palette.a(col, 0.45), false, 1.0)
-		_txt(mono, p.x + 13.0, p.y - 21.0, lv, 7, Palette.a(col, 0.9))
+	var lv := _lvl(t)
+	var dim := 0.55 if t.get("stale", false) else 1.0
+	var idf := cjk if Fonts.has_cjk(String(t.get("id", ""))) else mono
+	var stale_tag := " · 陈旧" if t.get("stale", false) else ""
+	var rng_label := _fmt_km(float(t.get("obs_range_km", -1.0)) if float(t.get("obs_range_km", -1.0)) >= 0.0 else float(t.get("range", 0.0)))
+	var sig := float((t.get("covariance", {}) as Dictionary).get("pos_sigma_km", 0.0))
+	match lv:
+		2:
+			_txt(idf, lx, ly, String(t.get("id", "")), 11, Palette.a(col, dim))
+			_txt(mono, lx, ly + 12.0, "%03d° · %s km · σ%.1f%s" % [int(t.get("bearing", 0)), rng_label, sig, stale_tag], 8, Palette.a(col, 0.62 * dim))
+		3:
+			var cls: Dictionary = t.get("classification", {})
+			_txt(cjk, lx, ly, String(cls.get("ship_class", t.get("id", ""))), 11, Palette.a(col, dim))
+			_txt(cjk, lx, ly + 12.0, "%s · %s" % [String(cls.get("builder", "—")), String(cls.get("faction", "—"))], 8, Palette.a(col, 0.66 * dim))
+			_txt(mono, lx, ly + 24.0, "L3 CLASSIFIED · %s km%s" % [rng_label, stale_tag], 7, Palette.a(col, 0.45 * dim))
+		4:
+			var ident: Dictionary = t.get("identity", {})
+			var nm := String(ident.get("name", t.get("id", "")))
+			var hull := String(ident.get("hull", ""))
+			var title := nm if hull == "" else "%s · %s" % [nm, hull]
+			_txt(cjk, lx, ly, title, 11, Palette.a(col, dim))
+			var iff := String(t.get("iff_status", ""))
+			_txt(mono, lx, ly + 12.0, "%s · IFF %s%s" % [String(ident.get("faction", "—")), iff.to_upper(), stale_tag], 8, Palette.a(col, 0.66 * dim))
+			# IFF：友军打勾；谷神-2 应答机故障 → 不明 ≠ 敌意
+			if iff == "friend" or String(ident.get("via", "")) == "datalink":
+				draw_line(Vector2(lx, ly + 24.0), Vector2(lx + 4.0, ly + 28.0), Palette.a(Palette.PH, 0.8), 1.0)
+				draw_line(Vector2(lx + 4.0, ly + 28.0), Vector2(lx + 11.0, ly + 19.0), Palette.a(Palette.PH, 0.8), 1.0)
+				_txt(mono, lx + 14.0, ly + 26.0, "IDENTIFIED", 7, Palette.a(Palette.PH, 0.5))
+			elif iff == "faulty_transponder":
+				_txt(cjk, lx, ly + 26.0, "IFF 应答机故障 · 不明 ≠ 敌意", 7, Palette.a(Palette.AMBER, 0.85))
+			elif iff != "":
+				_txt(cjk, lx, ly + 26.0, "IFF 无应答 · 不明 ≠ 敌意", 7, Palette.a(Palette.AMBER, 0.7))
+	_draw_level_badge(p, t, col)
 
 func _draw_own() -> void:
 	var p := _o()
@@ -775,48 +875,79 @@ func _draw_own() -> void:
 	else:
 		_txt(mono, p.x + 16.0, p.y + 21.0, "OWN · 400 km", 7, Palette.a(Palette.PH_DIM, 0.9))
 
-# ── 传感器图层（3D） ───────────────────────────────────
+# ── 传感器规则图层（P1c）───────────────────────────────
+
+func _fleet_on(ship: String, model: String) -> bool:
+	var m: Dictionary = state.sensor_on.get(ship, {})
+	return bool(m.get(model, false))
 
 func _draw_sensor() -> void:
-	var sid := int(state.sensor)
-	if sid == 0:
-		return
-	match sid:
-		1:
-			_sensor_ir()
-		2:
-			_sensor_radar()
-		3:
-			_sensor_optical()
-		4:
-			_sensor_iff()
-		5:
-			_sensor_elint()
+	var o := _o()
+	var s: Dictionary = state.active_sensor()
+	var typ := String(s.get("type", ""))
+	# 1) 被动红外常开：L1 目标已有方位线，这里补脉动端点（仅方位、无距离）
+	if _fleet_on("harmattan", "CH-IR2") or _fleet_on("apsis", "MS-IR9"):
+		for t in state.tracks:
+			if t.get("own", false) or t.get("phantom", false):
+				continue
+			if _lvl(t) > 1:
+				continue
+			var b := float(t.get("obs_bearing_deg", t.get("bearing", 0.0)))
+			var q := _p3(_world(b, 430.0, 0.0))
+			if _ok(q):
+				var pulse := 0.5 + 0.5 * sin(_t * 1.6 + b)
+				draw_circle(q, 1.6 + pulse * 1.6, Palette.a(Palette.AMBER, 0.45))
+	# 2) 主动雷达：开机 → 扇扫 + EMIT 环（开机即暴露）
+	if _fleet_on("apsis", "YW-R9"):
+		_draw_radar_sweep(o)
+		_draw_emit_ring(o)
+	# 3) 光学凝视：进度环（遮蔽/阴影不画）
+	for t in state.tracks:
+		if t.get("own", false) or t.get("phantom", false):
+			continue
+		if String(t.get("side", "")) == "friend":
+			continue
+		if bool(t.get("occluded", false)):
+			continue
+		var st: Dictionary = t.get("stare", {})
+		if st.is_empty():
+			continue
+		var prog := clampf(float(st.get("progress", 0.0)), 0.0, 1.0)
+		if prog <= 0.01:
+			continue
+		var p := _contact_pos3(t)
+		if not _ok(p):
+			continue
+		draw_arc(p, 17.0, -PI * 0.5, -PI * 0.5 + TAU * prog, 40, Palette.a(Palette.BLUE, 0.75), 1.5, true)
+		draw_arc(p, 17.0, -PI * 0.5, -PI * 0.5 + TAU, 40, Palette.a(Palette.BLUE, 0.14), 1.0, true)
+		_txt(mono, p.x + 21.0, p.y - 6.0, "STARE %.0f/%.0f s" % [float(st.get("stare_s", 0.0)), float(st.get("required_s", 0.0))], 7, Palette.a(Palette.BLUE, 0.7))
+	# 4) IFF 询问标签（L3+）
+	for t in state.tracks:
+		if t.get("own", false) or t.get("phantom", false) or _lvl(t) < 3:
+			continue
+		var p2 := _contact_pos3(t)
+		if not _ok(p2):
+			continue
+		var iff := String(t.get("iff_status", ""))
+		var tag := "F" if iff == "friend" else ("?" if iff == "faulty_transponder" or iff == "no_reply" else "H")
+		var icol := Palette.PH if tag == "F" else Palette.AMBER
+		draw_rect(Rect2(p2.x + 9.0, p2.y - 35.0, 12.0, 11.0), Palette.a(icol, 0.10))
+		draw_rect(Rect2(p2.x + 9.0, p2.y - 35.0, 12.0, 11.0), Palette.a(icol, 0.5), false, 1.0)
+		_txt(mono, p2.x + 11.0, p2.y - 34.0, tag, 7, Palette.a(icol, 0.9))
+	# 5) ELINT 点名（对方截获我方发射）
+	if bool(state.elint_named):
+		_draw_elint_named(o)
+	# 6) 选中的通信模块：链路
+	if typ == "radio" or typ == "lasercom":
+		_draw_comm_links(o)
+	_draw_sensor_label(s, typ)
 
 func _layer_label(txt: String, col: Color, sub := "") -> void:
 	_txt(cjk, 24.0, 96.0, txt, 8, col)
 	if sub != "":
 		_txt(mono, 24.0, 108.0, sub, 7, Palette.a(col, 0.40))
 
-func _sensor_ir() -> void:
-	var o := _o()
-	for t in state.tracks:
-		if t.get("own", false):
-			continue
-		var p := _contact_pos3(t)
-		if not _ok(p):
-			continue
-		var pulse := 0.5 + 0.5 * sin(_t * 1.6 + float(t.bearing))
-		for k in range(2):
-			draw_arc(p, 9.0 + float(k) * 7.0 + pulse * 3.0, 0, TAU, 28, Palette.a(Palette.AMBER, 0.18 - float(k) * 0.05), 1.0, true)
-		if t.side == "hostile":
-			var b := _p3(_world(float(t.bearing), 520.0, 0.0))
-			if _ok(b):
-				draw_dashed_line(o, b, Palette.a(Palette.AMBER, 0.18), 1.0, 4.0)
-	_layer_label("IRST 明视 IR-9 / 被动红外", Palette.a(Palette.AMBER, 0.8), "NO RANGING · BEARING ONLY")
-
-func _sensor_radar() -> void:
-	var o := _o()
+func _draw_radar_sweep(o: Vector2) -> void:
 	var sweep := fmod(_t * 0.9, TAU)
 	var r := 420.0
 	var poly: Array[Vector2] = [o]
@@ -829,83 +960,86 @@ func _sensor_radar() -> void:
 			break
 		poly.append(q)
 	if fan_ok and poly.size() > 3:
-		draw_colored_polygon(PackedVector2Array(poly), Palette.a(Palette.PH, 0.09))
+		draw_colored_polygon(PackedVector2Array(poly), Palette.a(Palette.PH, 0.07))
 	var tip := _p3(_world(rad_to_deg(sweep), r, 0.0))
 	if _ok(tip):
-		draw_line(o, tip, Palette.a(Palette.PH, 0.85), 1.4)
+		draw_line(o, tip, Palette.a(Palette.PH, 0.75), 1.3)
 	for rr in [100.0, 200.0, 400.0]:
 		var arc: Array[Vector3] = []
 		for i in range(0, 25):
 			var a := sweep - 0.55 + 1.10 * float(i) / 24.0
 			arc.append(_world(rad_to_deg(a), rr, 0.0))
-		_poly3(arc, Palette.a(Palette.PH, 0.38), 1.0)
-	_layer_label("远望 R-9 SWEEP / 主动雷达", Palette.a(Palette.PH, 0.8), "EMIT · BEARING + RANGE")
+		_poly3(arc, Palette.a(Palette.PH, 0.30), 1.0)
 
-func _sensor_optical() -> void:
-	# 光学凝视：取当前最值得盯的接触（优先敌对），画屏幕对齐的取景框
-	var target: Dictionary = {}
-	for t in state.tracks:
-		if t.get("own", false):
-			continue
-		if t.side == "hostile":
-			target = t
-			break
-		if target.is_empty():
-			target = t
-	if target.is_empty():
+# EMIT：我方发射器的暴露环（示意半径；真实截获距离见标签）
+func _draw_emit_ring(o: Vector2) -> void:
+	var ems: Array = state.emission.get("emitters", [])
+	if ems.is_empty():
 		return
-	var p := _contact_pos3(target)
-	if not _ok(p):
-		return
-	var r := Rect2(p - Vector2(120.0, 78.0), Vector2(240.0, 156.0))
-	draw_rect(r, Palette.a(Palette.BLUE, 0.025))
-	draw_rect(r, Palette.a(Palette.BLUE, 0.55), false, 1.0)
-	var cp := r.get_center()
-	draw_line(cp - Vector2(140, 0), cp + Vector2(140, 0), Palette.a(Palette.BLUE, 0.18), 1.0)
-	draw_line(cp - Vector2(0, 100), cp + Vector2(0, 100), Palette.a(Palette.BLUE, 0.18), 1.0)
-	# 取景框四角
-	for q in [r.position, Vector2(r.end.x, r.position.y), Vector2(r.position.x, r.end.y), r.end]:
-		var sx := 1.0 if q.x < cp.x else -1.0
-		var sy := 1.0 if q.y < cp.y else -1.0
-		draw_line(q, q + Vector2(10.0 * sx, 0), Palette.a(Palette.BLUE, 0.8), 1.0)
-		draw_line(q, q + Vector2(0, 10.0 * sy), Palette.a(Palette.BLUE, 0.8), 1.0)
-	_txt(mono, r.position.x + 8.0, r.position.y + 5.0, "MS-IR9 / STARE 12.4s", 7, Palette.a(Palette.BLUE, 0.8))
-	_txt_r(mono, r.end.x - 8.0, r.position.y + 5.0, "MAG 8×", 7, Palette.a(Palette.BLUE, 0.55))
-	_txt(cjk, r.position.x + 8.0, r.end.y - 12.0, "锁定 " + String(target.id), 7, Palette.a(Palette.BLUE, 0.65))
-	_layer_label("MS-IR9 光学凝视", Palette.a(Palette.BLUE, 0.8), "STARE 12.4s · 受光照/阴影")
+	var best: Dictionary = ems[0]
+	for raw in ems:
+		var e: Dictionary = raw
+		if float(e.get("weight", 0.0)) > float(best.get("weight", 0.0)):
+			best = e
+	var rr := 150.0
+	draw_arc(o, rr, 0, TAU, 90, Palette.a(Palette.AMBER, 0.16), 1.0, true)
+	var a0 := fmod(_t * 0.8, TAU)
+	draw_arc(o, rr, a0, a0 + 0.7, 16, Palette.a(Palette.AMBER, 0.55), 1.0, true)
+	var elint_r := float(best.get("elint_range_km", 0.0))
+	_txt(mono, o.x - 150.0, o.y - rr - 8.0, "EMIT · %s（%s）· ELINT 截获 %s km" % [
+		String(best.get("model", "")), String(best.get("owner", "")).to_upper(), _fmt_km(elint_r)], 7, Palette.a(Palette.AMBER, 0.8))
+	if bool(state.elint_named):
+		_txt(cjk, o.x - 150.0, o.y - rr + 4.0, "开机即暴露 · 已被 ELINT 点名", 7, Palette.a(Palette.RED, 0.85))
 
-func _sensor_iff() -> void:
-	var o := _o()
-	for k in range(3):
-		var rr := fmod(_t * 70.0 + float(k) * 130.0, 380.0)
-		var circle: Array[Vector3] = []
-		for i in range(0, 49):
-			var a := TAU * float(i) / 48.0
-			circle.append(Vector3(cos(a) * rr * 1000.0, sin(a) * rr * 1000.0, 0.0))
-		_poly3(circle, Palette.a(Palette.PH, 0.10 * (1.0 - rr / 380.0)), 1.0)
+# 敌方 ELINT 点名：从传唤级指向本舰的虚线 + 截获环
+func _draw_elint_named(o: Vector2) -> void:
+	var hostile: Dictionary = state.track_by_id("案卷 4471")
+	var from := o
+	if not hostile.is_empty() and _lvl(hostile) >= 2:
+		from = _contact_pos3(hostile)
+	else:
+		var b := float(hostile.get("bearing", 41.0)) if not hostile.is_empty() else 41.0
+		from = _p3(_world(b, 430.0, 0.0))
+	if not _ok(from):
+		return
+	draw_dashed_line(from, o, Palette.a(Palette.RED, 0.30), 1.0, 6.0)
+	draw_arc(from, 26.0, 0, TAU, 40, Palette.a(Palette.RED, 0.22), 1.0, true)
+	_txt_r(cjk, from.x - 8.0, from.y + 24.0, "ELINT 点名", 8, Palette.a(Palette.RED, 0.8))
+
+func _draw_comm_links(o: Vector2) -> void:
 	for t in state.tracks:
-		if t.get("own", false):
+		if t.get("own", false) or String(t.get("side", "")) != "friend":
 			continue
 		var p := _contact_pos3(t)
 		if not _ok(p):
 			continue
-		var tag := "F" if t.side == "friend" else ("H" if t.side == "hostile" else "?")
-		draw_rect(Rect2(p.x + 7, p.y - 18, 11, 10), Palette.a(Palette.PH, 0.10))
-		_txt(mono, p.x + 9, p.y - 17, tag, 7, Palette.a(Palette.PH, 0.85))
-	_layer_label("MK-12 IFF / 敌我识别", Palette.a(Palette.PH, 0.75))
+		draw_dashed_line(o, p, Palette.a(Palette.PH_DIM, 0.30), 1.0, 5.0)
+	_txt(mono, o.x + 10.0, o.y + 36.0, "LINK · LASER 0.5s / CH-R0 4.0s", 7, Palette.a(Palette.PH_DIM, 0.75))
 
-func _sensor_elint() -> void:
-	var o := _o()
-	for t in state.tracks:
-		if t.get("own", false):
-			continue
-		var p := _contact_pos3(t)
-		if not _ok(p):
-			continue
-		draw_dashed_line(o, p, Palette.a(Palette.AMBER, 0.16), 1.0, 5.0)
-		if t.side == "hostile":
-			_txt(mono, p.x + 10.0, p.y + 18.0, "EMIT", 7, Palette.a(Palette.AMBER, 0.6))
-	_layer_label("ELINT / 通信截听", Palette.a(Palette.AMBER, 0.8), "PASSIVE · SIGNAL FINGERPRINT")
+func _draw_sensor_label(s: Dictionary, typ: String) -> void:
+	var model := String(s.get("model", "—"))
+	var mode := String(s.get("mode", typ))
+	var src := String(s.get("source", "—"))
+	var col := Palette.PH
+	var sub := ""
+	match typ:
+		"ir":
+			col = Palette.AMBER
+			sub = "PASSIVE · L1 方位线 · 无距离"
+		"radar":
+			sub = "ACTIVE · L2 距离+方位 · 开机即暴露"
+		"optical":
+			col = Palette.BLUE
+			sub = "STARE → L3 分类 · 阴影不可见"
+		"iff":
+			sub = "INTERROGATE → L4 · 不明 ≠ 敌意"
+		"elint":
+			col = Palette.AMBER
+			sub = "PASSIVE · 信号不是接触"
+		"radio", "lasercom":
+			col = Palette.DIM
+			sub = "LINK · 通话即暴露"
+	_layer_label("%s / %s · %s" % [model, mode, src], col, sub)
 
 # ── 压平战略图（V2 地月图 · 薄荷绿重绘） ───────────────
 
@@ -1060,38 +1194,57 @@ func _body_planar(pos_km: Vector2, radius_km: float, label: String, col: Color, 
 	_txt(mono, lx, ly, label, 9, Palette.a(col, 0.90 if is_ref else 0.75))
 	_txt(mono, lx, ly + 11.0, sub, 7, Palette.a(col, 0.45))
 
+func _draw_planar_contact_title(t: Dictionary) -> String:
+	var lv := _lvl(t)
+	if lv <= 1:
+		return String(t.get("id", "")) + " · L1 仅方位"
+	if lv == 2:
+		return String(t.get("id", "")) + " · L2"
+	if lv == 3:
+		var cls: Dictionary = t.get("classification", {})
+		return String(cls.get("ship_class", t.get("id", ""))) + " · L3"
+	var ident: Dictionary = t.get("identity", {})
+	return String(ident.get("name", t.get("id", ""))) + " · L4"
+
 func _draw_planar_contacts() -> void:
 	var o := _o()
 	var cluster: Array[Dictionary] = []
 	var friends := 0
 	var total := 0
+	var lv_counts := [0, 0, 0, 0, 0]
 	for t in state.tracks:
 		if t.get("own", false):
 			continue
 		total += 1
+		if bool(t.get("occluded", false)):
+			continue
+		if bool(t.get("phantom", false)):
+			lv_counts[1] += 1
+			_draw_planar_phantom(o, t)
+			continue
+		var lvl := _lvl(t)
+		lv_counts[lvl] += 1
 		var km := _track_km(t, _tau_now())
 		var pos := _p2(km)
 		var col := _side_color(t)
-		if t.get("bearing_only", false):
-			var b := deg_to_rad(float(t.bearing))
-			var half := deg_to_rad(2.2)
-			var d1 := Vector2(sin(b - half), -cos(b - half))
-			var d2 := Vector2(sin(b + half), -cos(b + half))
-			draw_colored_polygon(PackedVector2Array([o, o + d1 * 90.0, o + d2 * 90.0]), Palette.a(Palette.AMBER, 0.05))
-			draw_dashed_line(o, o + Vector2(sin(b), -cos(b)) * 90.0, Palette.a(Palette.AMBER, 0.35), 1.0, 3.0)
-			cluster.append({"t": t, "col": col})
+		if lvl <= 1:
+			# L1 仅方位：战略图上从中心出发的方位线
+			var b := deg_to_rad(float(t.get("obs_bearing_deg", t.get("bearing", 0.0))))
+			draw_dashed_line(o, o + Vector2(sin(b), -cos(b)) * 66.0, Palette.a(col, 0.32), 1.0, 4.0)
+			cluster.append({"t": t, "col": col, "lvl": lvl})
 			continue
 		if pos.distance_to(o) < 26.0:
 			if t.side == "friend":
 				friends += 1
 			else:
-				cluster.append({"t": t, "col": col})
+				cluster.append({"t": t, "col": col, "lvl": lvl})
 		else:
 			_draw_symbol(pos, t, col)
-			_draw_track_label(t, pos, col)
+			_draw_planar_contact_label(t, pos, col)
 	# 战略尺度上近场接触 < 1px：用编队框 + 引线拉出来
 	draw_rect(Rect2(o - Vector2(22, 22), Vector2(44, 44)), Palette.a(Palette.PH, 0.30), false, 1.0)
-	_txt(mono, o.x - 150.0, o.y + 58.0, "LOCAL TRACKS ×%d · 编队 ×%d" % [total, friends], 7, Palette.a(Palette.PH, 0.70))
+	_txt(mono, o.x - 150.0, o.y + 58.0, "LOCAL ×%d · L4 %d/L3 %d/L2 %d/L1 %d" % [
+		total, lv_counts[4], lv_counts[3], lv_counts[2], lv_counts[1]], 7, Palette.a(Palette.PH, 0.70))
 	if cluster.size() > 0:
 		var fan := [-158.0, -110.0, 165.0, -134.0, 148.0, -178.0]
 		for i in range(cluster.size()):
@@ -1103,11 +1256,33 @@ func _draw_planar_contacts() -> void:
 			var q := o + dir * (44.0 + float(i) * 30.0)
 			draw_line(o + dir * 30.0, q, Palette.a(c, 0.35), 1.0)
 			_draw_symbol(q, tt, c)
-			var idf := cjk if Fonts.has_cjk(tt.id) else mono
+			var title := _draw_planar_contact_title(tt)
+			var idf := cjk if Fonts.has_cjk(title) else mono
 			if cos(ang) < -0.2:
-				_txt_r(idf, q.x - 8.0, q.y + 2.0, tt.id, 8, Palette.a(c, 0.9))
+				_txt_r(idf, q.x - 8.0, q.y + 2.0, title, 8, Palette.a(c, 0.9))
 			else:
-				_txt(idf, q.x + 8.0, q.y + 2.0, tt.id, 8, Palette.a(c, 0.9))
+				_txt(idf, q.x + 8.0, q.y + 2.0, title, 8, Palette.a(c, 0.9))
+
+func _draw_planar_contact_label(t: Dictionary, pos: Vector2, col: Color) -> void:
+	var title := _draw_planar_contact_title(t)
+	var idf := cjk if Fonts.has_cjk(title) else mono
+	_txt(idf, pos.x + 7.0, pos.y + 2.0, title, 8, Palette.a(col, 0.9))
+	var lv := _lvl(t)
+	if lv == 4:
+		var ident: Dictionary = t.get("identity", {})
+		var hull := String(ident.get("hull", ""))
+		if hull != "":
+			_txt(mono, pos.x + 7.0, pos.y + 13.0, "#" + hull, 7, Palette.a(col, 0.55))
+
+func _draw_planar_phantom(o: Vector2, t: Dictionary) -> void:
+	var resolved := bool(t.get("false_alarm", false))
+	var col := Palette.FAINT if resolved else Palette.AMBER
+	var b := deg_to_rad(302.0)
+	var end := o + Vector2(sin(b), -cos(b)) * 62.0
+	draw_dashed_line(o, end, Palette.a(col, 0.35), 1.0, 5.0)
+	_txt_r(mono, end.x - 5.0, end.y - 3.0, "未识别 · L1", 7, Palette.a(col, 0.85))
+	if resolved:
+		_txt_r(cjk, end.x - 5.0, end.y + 10.0, "虚警 / FALSE ALARM", 8, Palette.a(Palette.AMBER, 0.85))
 
 func _draw_planar_own() -> void:
 	var o := _o()
@@ -1127,54 +1302,36 @@ func _draw_planar_own() -> void:
 	_txt(mono, o.x + 20.0, o.y + 79.0, "OWN · FLAGSHIP · CENTER LOCK", 7, Palette.a(Palette.PH, 0.55))
 
 func _draw_planar_sensor() -> void:
-	var sid := int(state.sensor)
-	if sid == 0:
-		return
 	var o := _o()
-	match sid:
-		1:
-			for t in state.tracks:
-				if t.get("own", false) or t.get("bearing_only", false):
-					continue
-				var pos := _p2(_track_km(t, _tau_now()))
-				var pulse := 0.5 + 0.5 * sin(_t * 1.6 + float(t.bearing))
-				for k in range(2):
-					draw_arc(pos, 10.0 + float(k) * 8.0 + pulse * 3.0, 0, TAU, 32, Palette.a(Palette.AMBER, 0.18 - float(k) * 0.05), 1.0, true)
-			_layer_label("IRST 明视 IR-9 / 被动红外", Palette.a(Palette.AMBER, 0.8), "NO RANGING · BEARING ONLY")
-		2:
-			var sweep := fmod(_t * 0.9, TAU)
-			var poly: Array[Vector2] = [o]
-			for i in range(0, 25):
-				var a := sweep - 0.55 + 1.10 * float(i) / 24.0
-				poly.append(o + Vector2(sin(a), -cos(a)) * 120.0)
-			draw_colored_polygon(PackedVector2Array(poly), Palette.a(Palette.PH, 0.09))
-			draw_line(o, o + Vector2(sin(sweep), -cos(sweep)) * 120.0, Palette.a(Palette.PH, 0.85), 1.4)
-			for rr in [40.0, 80.0, 120.0]:
-				draw_arc(o, rr, 0, TAU, 48, Palette.a(Palette.PH, 0.16), 1.0, true)
-			_layer_label("远望 R-9 SWEEP / 主动雷达", Palette.a(Palette.PH, 0.8), "EMIT · STRATEGIC SCOPE")
-		3:
-			var moon := _moon_km()
-			var mp := _p2(Vector3(moon.x, moon.y, 0.0))
-			var r := Rect2(mp - Vector2(110, 72), Vector2(220, 144))
-			draw_rect(r, Palette.a(Palette.BLUE, 0.025))
-			draw_rect(r, Palette.a(Palette.BLUE, 0.55), false, 1.0)
-			var cp := r.get_center()
-			draw_line(cp - Vector2(140, 0), cp + Vector2(140, 0), Palette.a(Palette.BLUE, 0.18), 1.0)
-			draw_line(cp - Vector2(0, 100), cp + Vector2(0, 100), Palette.a(Palette.BLUE, 0.18), 1.0)
-			_txt(mono, r.position.x + 8.0, r.position.y + 5.0, "MS-IR9 / STARE 12.4s", 7, Palette.a(Palette.BLUE, 0.8))
-			_layer_label("MS-IR9 光学凝视", Palette.a(Palette.BLUE, 0.8), "LONG-RANGE STARE")
-		4:
-			for k in range(3):
-				var rr := fmod(_t * 70.0 + float(k) * 130.0, 390.0)
-				draw_arc(o, rr, 0, TAU, 64, Palette.a(Palette.PH, 0.10 * (1.0 - rr / 390.0)), 1.0, true)
-			_layer_label("MK-12 IFF / 敌我识别", Palette.a(Palette.PH, 0.75))
-		5:
-			for t in state.tracks:
-				if t.get("own", false):
-					continue
-				var pos2 := _p2(_track_km(t, _tau_now()))
-				draw_dashed_line(o, pos2, Palette.a(Palette.AMBER, 0.16), 1.0, 5.0)
-			_layer_label("ELINT / 通信截听", Palette.a(Palette.AMBER, 0.8), "PASSIVE · SIGNAL FINGERPRINT")
+	# EMIT：真实比例暴露环（ELINT 截获距离 × 平面比例尺）
+	if bool(state.emission.get("exposed", false)):
+		var ems: Array = state.emission.get("emitters", [])
+		if not ems.is_empty():
+			var best: Dictionary = ems[0]
+			for raw in ems:
+				var e: Dictionary = raw
+				if float(e.get("weight", 0.0)) > float(best.get("weight", 0.0)):
+					best = e
+			var rr := float(best.get("elint_range_km", 0.0)) * _planar_scale
+			if rr > 6.0 and rr < size.x:
+				draw_arc(o, rr, 0, TAU, 96, Palette.a(Palette.AMBER, 0.22), 1.0, true)
+				_txt(mono, o.x + rr * 0.72, o.y - rr * 0.72, "EMIT · ELINT %s km" % _fmt_km(float(best.get("elint_range_km", 0.0))), 7, Palette.a(Palette.AMBER, 0.7))
+	# ELINT 点名：从传唤级指向本舰
+	if bool(state.elint_named):
+		var hostile: Dictionary = state.track_by_id("案卷 4471")
+		var from := o
+		if not hostile.is_empty():
+			var km := _track_km(hostile, _tau_now())
+			from = _p2(km)
+			if from.distance_to(o) < 6.0:
+				var b := deg_to_rad(float(hostile.get("bearing", 41.0)))
+				from = o + Vector2(sin(b), -cos(b)) * 34.0
+		draw_dashed_line(from, o, Palette.a(Palette.RED, 0.35), 1.0, 6.0)
+		_txt_r(cjk, from.x - 4.0, from.y + 12.0, "ELINT 点名", 7, Palette.a(Palette.RED, 0.8))
+	# 当前选中模块的标签（架来自选中舰，显示在左上）
+	var s: Dictionary = state.active_sensor()
+	if not s.is_empty():
+		_layer_label("%s / %s · %s" % [String(s.get("model", "—")), String(s.get("mode", "")), String(s.get("source", ""))], Palette.PH, "FLEET FUSION · 1 Hz · L1 方位线在 LOCAL PATCH 外圈")
 
 func _inset_pts(pts: Array, c: Vector2, sc: float) -> Array[Vector2]:
 	var out: Array[Vector2] = []
@@ -1197,9 +1354,16 @@ func _draw_planar_inset() -> void:
 		var d := Vector2(sin(deg_to_rad(float(bb))), -cos(deg_to_rad(float(bb))))
 		draw_line(c + d * 4.0, c + d * 6.0, Palette.a(Palette.GRID, 0.6), 1.0)
 	var tau := _tau_now()
-	# 历史 / 预测（战略图上看不见的 300 s 位移，在局部小图里可见）
+	# 历史 / 预测（战略图上看不见的 300 s 位移，在局部小图里可见；仅 L2+ 有位置才画）
 	for t in state.tracks:
-		if t.get("own", false) or t.get("bearing_only", false):
+		if t.get("own", false) or bool(t.get("occluded", false)):
+			continue
+		if bool(t.get("phantom", false)):
+			var b := deg_to_rad(302.0)
+			draw_dashed_line(c, c + Vector2(sin(b), -cos(b)) * 62.0, Palette.a(Palette.FAINT, 0.30), 1.0, 4.0)
+			_txt(mono, c.x + sin(b) * 62.0 + 3.0, c.y - cos(b) * 62.0, "回波", 7, Palette.a(Palette.FAINT, 0.8))
+			continue
+		if _lvl(t) < 2:
 			continue
 		var data := _pred_data(t)
 		var col := _side_color(t)
@@ -1211,7 +1375,9 @@ func _draw_planar_inset() -> void:
 	# 预测刻度：+60/+120/+300 的采样点
 	for tick in PRED_TICKS:
 		for t in state.tracks:
-			if t.get("own", false) or t.get("bearing_only", false):
+			if t.get("own", false) or bool(t.get("phantom", false)) or bool(t.get("occluded", false)):
+				continue
+			if _lvl(t) < 2:
 				continue
 			var km2 := _track_km(t, tau + float(tick))
 			var q2 := c + Vector2(km2.x, -km2.y) * sc
@@ -1253,7 +1419,8 @@ func _chrome_3d() -> void:
 	_txt(cjk, 16.0, 41.0, "STATION FRAME · 局部 ±400 km · PRED +300 s" if String(state.datum) == "L1" else "LVLH · ±400 km · PRED +300 s", 8, Palette.FAINT)
 	_txt(mono, 16.0, 53.0, "DATUM %s · 3D ORBIT · %.0f km" % [String(state.datum), dist / 1000.0], 8, Palette.a(Palette.PH, 0.75))
 	_txt(mono, 16.0, 65.0, "EXEC WINDOW %s · 1× LOCK" % _hms(state.exec_left), 7, Palette.a(Palette.AMBER, 0.70))
-	_txt(mono, 16.0, 77.0, "STATE VECTOR r/v · HIST -60 s · PRED +60/+120/+300 s", 7, Palette.a(Palette.PH_FAINT, 0.95))
+	_txt(mono, 16.0, 77.0, String(state.sensor_note), 7, Palette.a(Palette.PH, 0.80))
+	_txt(mono, 16.0, 89.0, "RACK %s · %d MODULES · 融合 1 Hz" % [String(state.rack_ship).to_upper(), state.sensors.size()], 7, Palette.a(Palette.PH_FAINT, 0.95))
 	var blink := 0.55 + 0.45 * sin(_t * 3.2)
 	draw_circle(Vector2(8.0, 16.0), 2.2, Palette.a(Palette.PH, blink * 0.8))
 	_draw_legend()
@@ -1267,7 +1434,8 @@ func _chrome_planar() -> void:
 	_txt(cjk, 16.0, 41.0, "ORTHOGRAPHIC · GRID 50,000 km", 8, Palette.FAINT)
 	_txt(mono, 16.0, 53.0, "DATUM %s · PLANAR ×%.2f" % [String(state.datum), planar_zoom], 8, Palette.a(Palette.PH, 0.75))
 	_txt(mono, 16.0, 65.0, "EXEC WINDOW %s · 1× LOCK" % _hms(state.exec_left), 7, Palette.a(Palette.AMBER, 0.70))
-	_txt(mono, 16.0, 77.0, "HIST -60 s · PRED +60/+120/+300 s → LOCAL PATCH", 7, Palette.a(Palette.PH_FAINT, 0.95))
+	_txt(mono, 16.0, 77.0, String(state.sensor_note), 7, Palette.a(Palette.PH, 0.80))
+	_txt(mono, 16.0, 89.0, "RACK %s · 融合 1 Hz · 等级由证据时间戳决定" % String(state.rack_ship).to_upper(), 7, Palette.a(Palette.PH_FAINT, 0.95))
 	var blink := 0.55 + 0.45 * sin(_t * 3.2)
 	draw_circle(Vector2(8.0, 16.0), 2.2, Palette.a(Palette.PH, blink * 0.8))
 	_corners(Rect2(6.0, 6.0, size.x - 12.0, size.y - 12.0), 14.0, Palette.a(Palette.PH, 0.40))
@@ -1324,7 +1492,7 @@ func _draw_legend() -> void:
 	# 只方位：两道收敛的虚线（无距离）
 	draw_dashed_line(Vector2(234, y + 12), Vector2(248, y + 2), Palette.a(Palette.AMBER, 0.8), 1.0, 3.0)
 	draw_dashed_line(Vector2(234, y + 12), Vector2(248, y + 8), Palette.a(Palette.AMBER, 0.8), 1.0, 3.0)
-	_txt(cjk, 252.0, y, "只方位", 8, Palette.DIM)
+	_txt(cjk, 252.0, y, "回波", 8, Palette.DIM)
 	var y2 := 704.0
 	draw_line(Vector2(16, y2 + 5), Vector2(34, y2 + 5), Palette.a(Palette.PH_DIM, 0.55), 1.0)
 	_txt(cjk, 40.0, y2, "历史", 7, Palette.DIM)
@@ -1332,11 +1500,9 @@ func _draw_legend() -> void:
 	_txt(cjk, 106.0, y2, "预测", 7, Palette.DIM)
 	draw_dashed_line(Vector2(148, y2 + 5), Vector2(166, y2 + 5), Palette.a(Palette.PH, 0.35), 1.0, 2.0)
 	_txt(cjk, 172.0, y2, "1σ 误差", 7, Palette.DIM)
-	# 预测刻度说明
-	draw_line(Vector2(16, 724.0), Vector2(26, 724.0), Palette.a(Palette.PH, 0.75), 1.0)
-	draw_line(Vector2(18, 719.0), Vector2(18, 729.0), Palette.a(Palette.PH, 0.55), 1.0)
-	draw_line(Vector2(23, 719.0), Vector2(23, 729.0), Palette.a(Palette.PH, 0.55), 1.0)
-	_txt(mono, 34.0, 717.0, "T+60 / T+120 / T+300 = 预测刻度", 7, Palette.a(Palette.PH_FAINT, 0.95))
+	# 等级与刻度说明（P1c）
+	_txt(mono, 16.0, 718.0, "L1 方位线 · L2 定位+协方差 · L3 分类 · L4 舰名/IFF", 7, Palette.a(Palette.PH, 0.65))
+	_txt(mono, 16.0, 731.0, "T+60 / T+120 / T+300 = 预测刻度 · EMIT = 开机即暴露", 7, Palette.a(Palette.PH_FAINT, 0.95))
 
 func _draw_optical() -> void:
 	var r := Rect2(size.x - 252.0, 76.0, 236.0, 132.0)
