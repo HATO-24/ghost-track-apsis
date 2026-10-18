@@ -20,6 +20,14 @@ extends Control
 
 const Fonts := preload("res://scripts/fonts.gd")
 const Palette := preload("res://scripts/pal.gd")
+const Orbit := preload("res://scripts/orbit_model.gd")
+
+# P1a：历史 / 预测窗口（秒）与采样
+const PRED_HORIZON := 300.0
+const PRED_STEPS := 60
+const HIST_HORIZON := 60.0
+const HIST_STEPS := 24
+const PRED_TICKS := [60.0, 120.0, 300.0]
 
 # ── 相机 / 模式 ────────────────────────────────────────
 const DIST_DEFAULT := 520000.0
@@ -256,8 +264,7 @@ func _draw_3d() -> void:
 	_draw_stars()
 	_draw_datum_backing()
 	_draw_grid()
-	_draw_orbits()
-	_draw_burn_plan()
+	_draw_own_plan()
 	_draw_contacts()
 	_draw_own()
 	_draw_sensor()
@@ -455,58 +462,186 @@ func _draw_grid() -> void:
 	if _ok(al):
 		_txt(mono, al.x + 3.0, al.y - 10.0, "ALT +40", 7, Palette.a(Palette.PH_FAINT, 0.9))
 
-func _draw_orbits() -> void:
-	# 本舰轨道（滑行段）：局部水平面里的一条浅弧
-	var pts: Array[Vector3] = []
-	for i in range(0, 100):
-		var x := -440.0 + 880.0 * float(i) / 99.0
-		pts.append(Vector3(x, 0.00025 * x * x, 0.0) * 1000.0)
-	_poly3(pts, Palette.a(Palette.PH_DIM, 0.30), 1.2)
-	var lp := _p3(Vector3(120.0, 0.00025 * 120.0 * 120.0, 0.0) * 1000.0)
-	if _ok(lp):
-		var ol := "L1 · 站点保持" if String(state.datum) == "L1" else "轨道 400 km · 顺行"
-		_txt(cjk, lp.x, lp.y - 16.0, ol, 8, Palette.a(Palette.DIM, 0.75))
-	# 敌方轨道：另一个平面，斜穿画面
-	var epts: Array[Vector3] = []
-	for i in range(0, 90):
-		var s := -460.0 + 920.0 * float(i) / 89.0
-		epts.append(Vector3(s, 300.0 - 0.36 * s, -0.10 * s + 0.00012 * s * s) * 1000.0)
-	_poly3(epts, Palette.a(Palette.RED, 0.20), 1.0, true)
-	var ep := _p3(Vector3(360.0, 300.0 - 0.36 * 360.0, -0.10 * 360.0 + 0.00012 * 360.0 * 360.0) * 1000.0)
-	if _ok(ep):
-		var el := "敌方接近 · 方位 047°" if String(state.datum) == "L1" else "敌方轨道 · i 51.6°"
-		_txt(cjk, ep.x, ep.y - 14.0, el, 8, Palette.a(Palette.RED, 0.55))
+# ── 本舰：历史 / 点火计划（同一套 L1 相对运动模型）─────
 
-func _draw_burn_plan() -> void:
-	var o := _o()
-	var p1 := _p3(_world(340.0, 70.0, 60.0))
-	if _ok(p1):
-		draw_line(o, p1, Palette.a(Palette.PH, 0.50), 1.3, true)
-		var dir := (p1 - o)
-		if dir.length() > 0.001:
+func _draw_own_plan() -> void:
+	var tau := _tau_now()
+	var own: Dictionary = state.own
+	# 历史（-60..0 s）：实线暗
+	var hist := Orbit.own_history(own, tau, -HIST_HORIZON, HIST_STEPS)
+	_poly_km(hist["pts"], Palette.a(Palette.PH_DIM, 0.30), 1.2, false)
+	# 计划（0..+300 s；T+6.2 s 点火，Δv 84 m/s）
+	var burn_t := float(state.burn.get("t", 6.2))
+	var dv: Vector3 = state.burn.get("dv", Vector3.ZERO)
+	var plan := Orbit.own_plan(own, tau, burn_t, dv, PRED_HORIZON, PRED_STEPS)
+	_poly_km(plan["pts"], Palette.a(Palette.PH, 0.65), 1.3, true)
+	var pts: Array = plan["pts"]
+	var bi := int(plan["burn_index"])
+	if bi >= 0 and bi < pts.size():
+		var bp3: Vector3 = pts[bi]
+		var bp := _p3(bp3 * 1000.0)
+		var bq := _p3((bp3 + dv * 90.0) * 1000.0)
+		if _ok(bp) and _ok(bq):
+			var dir := bq - bp
+			if dir.length() > 0.01:
+				dir = dir.normalized()
+				var perp := Vector2(-dir.y, dir.x)
+				draw_line(bp - dir * 5.0, bp + dir * 26.0, Palette.a(Palette.PH, 0.8), 1.2)
+				draw_colored_polygon(PackedVector2Array([
+					bp + dir * 34.0, bp + dir * 24.0 + perp * 4.5, bp + dir * 24.0 - perp * 4.5
+				]), Palette.a(Palette.PH, 0.85))
+				draw_arc(bp, 7.0, 0, TAU, 24, Palette.a(Palette.PH, 0.45), 1.0, true)
+			var bms := float(state.burn.get("dv_ms", 84.0))
+			var bbrg := float(state.burn.get("brg", 340.0))
+			var belev := float(state.burn.get("elev", 20.0))
+			_txt(cjk, bp.x + 16.0, bp.y + 38.0, "点火 T+%04.1fs" % burn_t, 9, Palette.PH)
+			_txt(mono, bp.x + 16.0, bp.y + 51.0, "Δv %.0f m/s · BRG %03d° · ELEV %+02d°" % [bms, int(bbrg), int(belev)], 8, Palette.a(Palette.PH_DIM, 1.0))
+			_txt(mono, bp.x + 16.0, bp.y + 64.0, "PLAN BURN / 计划点火", 7, Palette.a(Palette.PH_FAINT, 1.0))
+	# 计划终点
+	var end_idx := pts.size() - 1
+	if end_idx >= 0 and end_idx < pts.size():
+		var ep3: Vector3 = pts[end_idx]
+		var ep := _p3(ep3 * 1000.0)
+		if _ok(ep):
+			_txt(mono, ep.x + 6.0, ep.y + 10.0, "PLAN +300 s", 7, Palette.a(Palette.PH_FAINT, 0.8))
+	# 计划节点 B-2（点火后 +120 s 的计划位置）
+	var node_rel := 120.0
+	var node_idx := int(round(node_rel / PRED_HORIZON * float(PRED_STEPS)))
+	if node_idx >= 0 and node_idx < pts.size():
+		var np3: Vector3 = pts[node_idx]
+		var np := _p3(np3 * 1000.0)
+		if _ok(np):
+			draw_polyline(PackedVector2Array([
+				np + Vector2(0, -6), np + Vector2(6, 0), np + Vector2(0, 6),
+				np + Vector2(-6, 0), np + Vector2(0, -6)
+			]), Palette.a(Palette.PH_DIM, 0.85), 1.0)
+			_txt_r(mono, np.x - 10.0, np.y - 4.0, "NODE B-2 · T+%ds" % int(node_rel), 7, Palette.a(Palette.PH_DIM, 0.9))
+			_txt_r(mono, np.x - 10.0, np.y + 8.0, "%.1f km" % np3.length(), 7, Palette.a(Palette.PH_FAINT, 0.9))
+
+# ── 接触状态向量 / 预测轨道 ────────────────────────────
+
+var _pred_cache: Dictionary = {}
+
+func _tau_now() -> float:
+	return state.tau()
+
+func _track_km(t: Dictionary, tau: float) -> Vector3:
+	return Orbit.local_separation(t, state.own, tau)
+
+func _track_vel(t: Dictionary, tau: float) -> Vector3:
+	return Orbit.local_velocity(t, state.own, tau)
+
+func _track_pos(t: Dictionary) -> Vector2:
+	return _p3(_track_km(t, _tau_now()) * 1000.0)
+
+# 历史（-60 s）+ 预测（+300 s）折线，带误差 sigma；按 id 缓存 0.25 s
+func _pred_data(t: Dictionary) -> Dictionary:
+	var tau := _tau_now()
+	var key := String(t.get("id", "?"))
+	var cached: Dictionary = _pred_cache.get(key, {})
+	if not cached.is_empty() and absf(float(cached.get("tau", -1.0e9)) - tau) < 0.25:
+		return cached
+	var hist := Orbit.predict_polyline(t, state.own, tau - HIST_HORIZON, tau, HIST_STEPS)
+	var pred := Orbit.predict_polyline(t, state.own, tau, tau + PRED_HORIZON, PRED_STEPS)
+	var out := {"tau": tau, "hist": hist, "pred": pred}
+	_pred_cache[key] = out
+	return out
+
+# 局部板 km 折线 → 屏幕（自动裁掉相机后面的点）
+func _poly_km(pts: Array, color: Color, width := 1.0, dashed := false) -> void:
+	var run: Array[Vector2] = []
+	for p in pts:
+		var v: Vector3 = p
+		var q := _p3(v * 1000.0)
+		if _ok(q):
+			run.append(q)
+		else:
+			_flush(run, color, width, dashed)
+			run.clear()
+	_flush(run, color, width, dashed)
+
+func _px_per_km(km: Vector3) -> float:
+	var a := _p3(km * 1000.0)
+	var dir := km
+	if dir.length() < 1.0:
+		dir = Vector3(0.0, 0.0, 1.0)
+	dir = dir.normalized()
+	var b := _p3((km + dir * 10.0) * 1000.0)
+	if not _ok(a) or not _ok(b):
+		return 0.0
+	return a.distance_to(b) / 10.0
+
+func _screen_dir(km: Vector3, vel: Vector3) -> Vector2:
+	if vel.length() < 1.0e-6:
+		return Vector2(0.0, -1.0)
+	var a := _p3(km * 1000.0)
+	var b := _p3((km + vel.normalized() * 10.0) * 1000.0)
+	if not _ok(a) or not _ok(b):
+		return Vector2(0.0, -1.0)
+	var d := b - a
+	if d.length() < 0.001:
+		return Vector2(0.0, -1.0)
+	return d.normalized()
+
+# 位置协方差（各向异性：沿航迹大、横向小）画成虚线椭圆；随时间单调变大
+func _cov_ellipse(p: Vector2, sigma: float, pxk: float, dir: Vector2, col: Color, alpha := 0.28) -> void:
+	if sigma < 0.05 or pxk < 1.0e-4:
+		return
+	var rx := minf(sigma * 1.4 * pxk, 44.0)
+	var ry := minf(sigma * 0.55 * pxk, 18.0)
+	if rx < 1.6:
+		return
+	var rot := dir.angle() if dir.length() > 0.001 else 0.0
+	var e: Array[Vector2] = []
+	for i in range(0, 361, 12):
+		var a := deg_to_rad(float(i))
+		e.append(p + Vector2(cos(a) * rx, sin(a) * ry).rotated(rot))
+	_dashed_polyline(e, Palette.a(col, alpha), 1.0, 3.0)
+
+# 历史（实线暗）/ 预测（虚线）/ +60 +120 +300 刻度 / 随时间变大的误差椭圆
+func _draw_track_motion(t: Dictionary, p: Vector2, col: Color) -> void:
+	var data := _pred_data(t)
+	_poly_km(data["hist"]["pts"], Palette.a(col, 0.24), 1.0, false)
+	_poly_km(data["pred"]["pts"], Palette.a(col, 0.60), 1.0, true)
+	var tau := _tau_now()
+	var km0 := _track_km(t, tau)
+	var vel0 := _track_vel(t, tau)
+	var pxk := _px_per_km(km0)
+	var sdir := _screen_dir(km0, vel0)
+	# 当前误差椭圆
+	_cov_ellipse(p, Orbit.sigma_km(t, 0.0), pxk, sdir, col, 0.22)
+	var labels := String(t.get("side", "")) != "friend"
+	for tick in PRED_TICKS:
+		var km := _track_km(t, tau + float(tick))
+		var q := _p3(km * 1000.0)
+		if not _ok(q):
+			continue
+		var ahead := _track_km(t, tau + float(tick) + 8.0)
+		var qa := _p3(ahead * 1000.0)
+		var dir := (qa - q)
+		if dir.length() < 0.001:
+			dir = sdir
+		else:
 			dir = dir.normalized()
-			var perp := Vector2(-dir.y, dir.x)
-			draw_colored_polygon(PackedVector2Array([
-				p1, p1 - dir * 9.0 + perp * 4.0, p1 - dir * 9.0 - perp * 4.0
-			]), Palette.a(Palette.PH, 0.75))
-		draw_circle(o, 3.0, Palette.a(Palette.PH, 0.9))
-		draw_arc(o, 16.0, 0, TAU, 32, Palette.a(Palette.PH, 0.22), 1.0, true)
-		_txt(cjk, p1.x - 128.0, p1.y - 14.0, "点火 T+06.2s", 9, Palette.PH)
-		_txt(mono, p1.x - 128.0, p1.y - 1.0, "Δv 84 m/s · BRG 340", 8, Palette.a(Palette.PH_DIM, 1.0))
-		_txt(mono, p1.x - 128.0, p1.y + 12.0, "PLANE CHANGE +60 km", 7, Palette.a(Palette.PH_FAINT, 1.0))
-	# 目标节点
-	var wp := _p3(_world(18.0, 392.0, 34.0))
-	if _ok(wp):
-		draw_polyline(PackedVector2Array([
-			wp + Vector2(0, -6), wp + Vector2(6, 0), wp + Vector2(0, 6),
-			wp + Vector2(-6, 0), wp + Vector2(0, -6)
-		]), Palette.a(Palette.PH_DIM, 0.7), 1.0)
-		_txt(mono, wp.x + 10.0, wp.y - 6.0, "NODE B-2", 7, Palette.a(Palette.PH_DIM, 0.9))
+		var perp := Vector2(-dir.y, dir.x)
+		var sigma := Orbit.sigma_km(t, float(tick))
+		var half := minf(maxf(sigma * 1.2 * pxk, 3.0), 44.0)
+		# 刻度：垂直航迹的误差条（随预测时间变长）
+		draw_line(q - perp * half, q + perp * half, Palette.a(col, 0.45), 1.0)
+		draw_line(q - dir * 3.0, q + dir * 3.0, Palette.a(col, 0.75), 1.0)
+		if labels:
+			_txt(mono, q.x + 7.0, q.y - 3.0, "+%ds" % int(tick), 7, Palette.a(col, 0.60))
+	# +300 s 处画一个完整的误差椭圆（生长终点）
+	var km300 := _track_km(t, tau + PRED_HORIZON)
+	var q300 := _p3(km300 * 1000.0)
+	if _ok(q300):
+		_cov_ellipse(q300, Orbit.sigma_km(t, PRED_HORIZON), pxk, sdir, col, 0.26)
+
 
 # ── 接触 ────────────────────────────────────────────────
 
 func _contact_pos3(t: Dictionary) -> Vector2:
-	return _p3(_world(float(t.bearing), float(t.range), float(t.alt)))
+	return _track_pos(t)
 
 func _draw_contacts() -> void:
 	for t in state.tracks:
@@ -515,16 +650,18 @@ func _draw_contacts() -> void:
 		if t.get("bearing_only", false):
 			_draw_bearing_only(t)
 			continue
-		var p := _contact_pos3(t)
+		var km := _track_km(t, _tau_now())
+		var p := _p3(km * 1000.0)
 		if not _ok(p):
 			continue
 		var col := _side_color(t)
-		var base := _p3(_world(float(t.bearing), float(t.range), 0.0))
-		if absf(float(t.alt)) > 3.0 and _ok(base):
+		_draw_track_motion(t, p, col)
+		# 高度垂线（高度来自状态向量的 z 分量）
+		var base := _p3(Vector3(km.x, km.y, 0.0) * 1000.0)
+		if absf(km.z) > 3.0 and _ok(base):
 			draw_dashed_line(base, p, Palette.a(col, 0.30), 1.0, 2.0)
 			draw_circle(base, 1.4, Palette.a(col, 0.35))
-		if int(t.level) <= 2:
-			_draw_error_ellipse(p, t, col)
+		_draw_error_ellipse(p, t, col)
 		_draw_symbol(p, t, col)
 		_draw_track_label(t, p, col)
 
@@ -548,24 +685,14 @@ func _draw_bearing_only(t: Dictionary) -> void:
 	if _ok(mid):
 		_txt(cjk, mid.x - 112.0, mid.y - 34.0, "方位 %03d°" % int(t.bearing), 9, Palette.AMBER)
 		_txt(cjk, mid.x - 112.0, mid.y - 21.0, "距离未知 · 陈旧 %ds" % int(t.age), 8, Palette.a(Palette.AMBER, 0.65))
-		_txt(mono, mid.x - 112.0, mid.y - 8.0, "BEARING ONLY / MEMORY", 7, Palette.a(Palette.AMBER, 0.4))
+		_txt(mono, mid.x - 112.0, mid.y - 8.0, "BEARING ONLY · NO PREDICTION", 7, Palette.a(Palette.AMBER, 0.4))
 
 func _draw_error_ellipse(p: Vector2, t: Dictionary, col: Color) -> void:
-	var big := int(t.level) <= 1
-	var rx := 34.0 if big else 17.0
-	var ry := 15.0 if big else 8.0
-	var b := deg_to_rad(float(t.bearing))
-	var c3 := _world(float(t.bearing), float(t.range), float(t.alt))
-	var q := _p3(c3 + Vector3(sin(b), cos(b), 0.0) * 20000.0)
-	var dir := q - p
-	if dir.length() < 0.001:
-		dir = Vector2(0.0, -1.0)
-	var rot := dir.normalized().angle()
-	var pts: Array[Vector2] = []
-	for i in range(0, 361, 10):
-		var a := deg_to_rad(float(i))
-		pts.append(p + Vector2(cos(a) * rx, sin(a) * ry).rotated(rot))
-	_dashed_polyline(pts, Palette.a(col, 0.38), 1.0, 3.0)
+	var tau := _tau_now()
+	var km := _track_km(t, tau)
+	var vel := _track_vel(t, tau)
+	var sigma := Orbit.sigma_km(t, 0.0)
+	_cov_ellipse(p, sigma, _px_per_km(km), _screen_dir(km, vel), col, 0.30)
 
 func _draw_symbol(p: Vector2, t: Dictionary, col: Color) -> void:
 	if t.get("ghost", false):
@@ -942,11 +1069,11 @@ func _draw_planar_contacts() -> void:
 		if t.get("own", false):
 			continue
 		total += 1
-		var b := deg_to_rad(float(t.bearing))
-		var rng_km := float(t.range)
-		var pos := _p2(Vector3(sin(b) * rng_km, cos(b) * rng_km, 0.0))
+		var km := _track_km(t, _tau_now())
+		var pos := _p2(km)
 		var col := _side_color(t)
 		if t.get("bearing_only", false):
+			var b := deg_to_rad(float(t.bearing))
 			var half := deg_to_rad(2.2)
 			var d1 := Vector2(sin(b - half), -cos(b - half))
 			var d2 := Vector2(sin(b + half), -cos(b + half))
@@ -1009,7 +1136,7 @@ func _draw_planar_sensor() -> void:
 			for t in state.tracks:
 				if t.get("own", false) or t.get("bearing_only", false):
 					continue
-				var pos := _p2(Vector3(sin(deg_to_rad(float(t.bearing))) * float(t.range), cos(deg_to_rad(float(t.bearing))) * float(t.range), 0.0))
+				var pos := _p2(_track_km(t, _tau_now()))
 				var pulse := 0.5 + 0.5 * sin(_t * 1.6 + float(t.bearing))
 				for k in range(2):
 					draw_arc(pos, 10.0 + float(k) * 8.0 + pulse * 3.0, 0, TAU, 32, Palette.a(Palette.AMBER, 0.18 - float(k) * 0.05), 1.0, true)
@@ -1045,39 +1172,69 @@ func _draw_planar_sensor() -> void:
 			for t in state.tracks:
 				if t.get("own", false):
 					continue
-				var pos2 := _p2(Vector3(sin(deg_to_rad(float(t.bearing))) * float(t.range), cos(deg_to_rad(float(t.bearing))) * float(t.range), 0.0))
+				var pos2 := _p2(_track_km(t, _tau_now()))
 				draw_dashed_line(o, pos2, Palette.a(Palette.AMBER, 0.16), 1.0, 5.0)
 			_layer_label("ELINT / 通信截听", Palette.a(Palette.AMBER, 0.8), "PASSIVE · SIGNAL FINGERPRINT")
 
+func _inset_pts(pts: Array, c: Vector2, sc: float) -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	for p in pts:
+		var v: Vector3 = p
+		out.append(c + Vector2(v.x, -v.y) * sc)
+	return out
+
 func _draw_planar_inset() -> void:
-	var r := Rect2(size.x - 268.0, 64.0, 252.0, 156.0)
+	var r := Rect2(size.x - 316.0, 60.0, 300.0, 214.0)
 	draw_rect(r, Palette.a(Palette.PANEL, 0.85))
 	draw_rect(r, Palette.a(Palette.LINE, 0.9), false, 1.0)
 	_txt(cjk, r.position.x + 8.0, r.position.y + 5.0, "局部 / LOCAL PATCH", 7, Palette.a(Palette.PH, 0.8))
-	_txt_r(mono, r.end.x - 8.0, r.position.y + 5.0, "×0.11 px/km", 7, Palette.a(Palette.FAINT, 0.9))
-	var c := r.position + Vector2(86.0, 74.0)
-	var sc := 0.105
+	_txt_r(mono, r.end.x - 8.0, r.position.y + 5.0, "PRED +300 s · ×0.10 px/km", 7, Palette.a(Palette.PH, 0.55))
+	var c := r.position + Vector2(150.0, 104.0)
+	var sc := 0.100
 	for rr in [100.0, 200.0, 400.0]:
 		draw_arc(c, rr * sc, 0, TAU, 64, Palette.a(Palette.GRID, 0.9 if rr < 400.0 else 0.6), 1.0, true)
 	for bb in range(0, 360, 30):
 		var d := Vector2(sin(deg_to_rad(float(bb))), -cos(deg_to_rad(float(bb))))
 		draw_line(c + d * 4.0, c + d * 6.0, Palette.a(Palette.GRID, 0.6), 1.0)
+	var tau := _tau_now()
+	# 历史 / 预测（战略图上看不见的 300 s 位移，在局部小图里可见）
 	for t in state.tracks:
-		if t.get("own", false):
+		if t.get("own", false) or t.get("bearing_only", false):
 			continue
-		var d2 := Vector2(sin(deg_to_rad(float(t.bearing))), -cos(deg_to_rad(float(t.bearing)))) * float(t.range) * sc
-		var q := c + d2
-		if q.x < r.position.x + 3.0 or q.x > r.end.x - 3.0 or q.y < r.position.y + 14.0 or q.y > r.end.y - 20.0:
-			continue
+		var data := _pred_data(t)
 		var col := _side_color(t)
-		if t.get("bearing_only", false):
-			draw_dashed_line(c, q, Palette.a(Palette.AMBER, 0.5), 1.0, 3.0)
-		else:
-			_draw_symbol(q, t, col)
+		_dashed_polyline(_inset_pts(data["hist"]["pts"], c, sc), Palette.a(col, 0.16), 1.0, 2.0)
+		_dashed_polyline(_inset_pts(data["pred"]["pts"], c, sc), Palette.a(col, 0.45), 1.0, 3.0)
+		var km := _track_km(t, tau)
+		var q := c + Vector2(km.x, -km.y) * sc
+		_draw_symbol(q, t, col)
+	# 预测刻度：+60/+120/+300 的采样点
+	for tick in PRED_TICKS:
+		for t in state.tracks:
+			if t.get("own", false) or t.get("bearing_only", false):
+				continue
+			var km2 := _track_km(t, tau + float(tick))
+			var q2 := c + Vector2(km2.x, -km2.y) * sc
+			if not r.grow(-4.0).has_point(q2):
+				continue
+			draw_circle(q2, 1.2, Palette.a(_side_color(t), 0.65))
+	# 本舰点火计划（同一模型）
+	var burn_t := float(state.burn.get("t", 6.2))
+	var dv: Vector3 = state.burn.get("dv", Vector3.ZERO)
+	var plan := Orbit.own_plan(state.own, tau, burn_t, dv, PRED_HORIZON, PRED_STEPS)
+	_dashed_polyline(_inset_pts(plan["pts"], c, sc), Palette.a(Palette.PH, 0.65), 1.0, 3.0)
+	var node_idx := int(round(120.0 / PRED_HORIZON * float(PRED_STEPS)))
+	var ppt: Array = plan["pts"]
+	if node_idx >= 0 and node_idx < ppt.size():
+		var np3: Vector3 = ppt[node_idx]
+		var nq := c + Vector2(np3.x, -np3.y) * sc
+		draw_polyline(PackedVector2Array([
+			nq + Vector2(0, -3), nq + Vector2(3, 0), nq + Vector2(0, 3), nq + Vector2(-3, 0), nq + Vector2(0, -3)
+		]), Palette.a(Palette.PH, 0.85), 1.0)
 	draw_circle(c, 1.6, Palette.PH)
 	draw_arc(c, 5.0, 0, TAU, 20, Palette.a(Palette.PH, 0.6), 1.0, true)
-	_txt(mono, r.position.x + 8.0, r.end.y - 22.0, "3D BOARD → ORTHO SNAPSHOT", 7, Palette.a(Palette.FAINT, 0.75))
-	_txt(mono, r.position.x + 8.0, r.end.y - 10.0, "%s / %s" % [String(state.datum), String(state.unit.get("name", "OWN"))], 7, Palette.a(Palette.PH, 0.55))
+	_txt(mono, r.position.x + 8.0, r.end.y - 22.0, "HIST -60 s · PRED +300 s", 7, Palette.a(Palette.FAINT, 0.8))
+	_txt(mono, r.position.x + 8.0, r.end.y - 10.0, "%s / 环一·斛 · 3D→ORTHO" % String(state.datum), 7, Palette.a(Palette.PH, 0.55))
 
 # ── 界面装饰 ────────────────────────────────────────────
 
@@ -1093,12 +1250,15 @@ func _draw_chrome() -> void:
 func _chrome_3d() -> void:
 	_txt(cjk, 16.0, 10.0, "战术态势", 14, Palette.PH)
 	_txt(mono, 16.0, 29.0, "TACTICAL PLOT", 8, Palette.DIM)
-	_txt(cjk, 16.0, 41.0, "LVLH · 半径 400 km · 高度 ×1" if String(state.datum) != "L1" else "STATION FRAME · 局部 400 km · 高度 ×1", 8, Palette.FAINT)
+	_txt(cjk, 16.0, 41.0, "STATION FRAME · 局部 ±400 km · PRED +300 s" if String(state.datum) == "L1" else "LVLH · ±400 km · PRED +300 s", 8, Palette.FAINT)
 	_txt(mono, 16.0, 53.0, "DATUM %s · 3D ORBIT · %.0f km" % [String(state.datum), dist / 1000.0], 8, Palette.a(Palette.PH, 0.75))
 	_txt(mono, 16.0, 65.0, "EXEC WINDOW %s · 1× LOCK" % _hms(state.exec_left), 7, Palette.a(Palette.AMBER, 0.70))
+	_txt(mono, 16.0, 77.0, "STATE VECTOR r/v · HIST -60 s · PRED +60/+120/+300 s", 7, Palette.a(Palette.PH_FAINT, 0.95))
 	var blink := 0.55 + 0.45 * sin(_t * 3.2)
 	draw_circle(Vector2(8.0, 16.0), 2.2, Palette.a(Palette.PH, blink * 0.8))
 	_draw_legend()
+	# 右下：模型 / 历元状态（与基准 REF 标签叠一列）
+	_txt_r(mono, size.x - 24.0, size.y - 92.0, "EPOCH T0+%06.1fs · PRED %d pts" % [_tau_now(), PRED_STEPS + 1], 7, Palette.a(Palette.PH_FAINT, 0.9))
 	_txt(mono, 16.0, size.y - 14.0, "拖动旋转 · 滚轮缩放 · R 翻转 · D 基准", 7, Palette.a(Palette.FAINT, 0.75))
 
 func _chrome_planar() -> void:
@@ -1107,6 +1267,7 @@ func _chrome_planar() -> void:
 	_txt(cjk, 16.0, 41.0, "ORTHOGRAPHIC · GRID 50,000 km", 8, Palette.FAINT)
 	_txt(mono, 16.0, 53.0, "DATUM %s · PLANAR ×%.2f" % [String(state.datum), planar_zoom], 8, Palette.a(Palette.PH, 0.75))
 	_txt(mono, 16.0, 65.0, "EXEC WINDOW %s · 1× LOCK" % _hms(state.exec_left), 7, Palette.a(Palette.AMBER, 0.70))
+	_txt(mono, 16.0, 77.0, "HIST -60 s · PRED +60/+120/+300 s → LOCAL PATCH", 7, Palette.a(Palette.PH_FAINT, 0.95))
 	var blink := 0.55 + 0.45 * sin(_t * 3.2)
 	draw_circle(Vector2(8.0, 16.0), 2.2, Palette.a(Palette.PH, blink * 0.8))
 	_corners(Rect2(6.0, 6.0, size.x - 12.0, size.y - 12.0), 14.0, Palette.a(Palette.PH, 0.40))
@@ -1165,12 +1326,17 @@ func _draw_legend() -> void:
 	draw_dashed_line(Vector2(234, y + 12), Vector2(248, y + 8), Palette.a(Palette.AMBER, 0.8), 1.0, 3.0)
 	_txt(cjk, 252.0, y, "只方位", 8, Palette.DIM)
 	var y2 := 704.0
-	draw_line(Vector2(16, y2 + 5), Vector2(34, y2 + 5), Palette.a(Palette.PH, 0.8), 1.0)
-	_txt(cjk, 40.0, y2, "现时", 7, Palette.DIM)
-	draw_dashed_line(Vector2(82, y2 + 5), Vector2(100, y2 + 5), Palette.a(Palette.PH, 0.7), 1.0, 4.0)
-	_txt(cjk, 106.0, y2, "计划", 7, Palette.DIM)
-	draw_dashed_line(Vector2(148, y2 + 5), Vector2(166, y2 + 5), Palette.a(Palette.RED, 0.5), 1.0, 2.0)
-	_txt(cjk, 172.0, y2, "预测", 7, Palette.DIM)
+	draw_line(Vector2(16, y2 + 5), Vector2(34, y2 + 5), Palette.a(Palette.PH_DIM, 0.55), 1.0)
+	_txt(cjk, 40.0, y2, "历史", 7, Palette.DIM)
+	draw_dashed_line(Vector2(82, y2 + 5), Vector2(100, y2 + 5), Palette.a(Palette.PH, 0.8), 1.0, 4.0)
+	_txt(cjk, 106.0, y2, "预测", 7, Palette.DIM)
+	draw_dashed_line(Vector2(148, y2 + 5), Vector2(166, y2 + 5), Palette.a(Palette.PH, 0.35), 1.0, 2.0)
+	_txt(cjk, 172.0, y2, "1σ 误差", 7, Palette.DIM)
+	# 预测刻度说明
+	draw_line(Vector2(16, 724.0), Vector2(26, 724.0), Palette.a(Palette.PH, 0.75), 1.0)
+	draw_line(Vector2(18, 719.0), Vector2(18, 729.0), Palette.a(Palette.PH, 0.55), 1.0)
+	draw_line(Vector2(23, 719.0), Vector2(23, 729.0), Palette.a(Palette.PH, 0.55), 1.0)
+	_txt(mono, 34.0, 717.0, "T+60 / T+120 / T+300 = 预测刻度", 7, Palette.a(Palette.PH_FAINT, 0.95))
 
 func _draw_optical() -> void:
 	var r := Rect2(size.x - 252.0, 76.0, 236.0, 132.0)

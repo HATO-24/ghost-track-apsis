@@ -3,6 +3,7 @@ extends Control
 const StateScript := preload("res://scripts/state.gd")
 const PlotScript := preload("res://scripts/plot.gd")
 const HudScript := preload("res://scripts/hud.gd")
+const Orbit := preload("res://scripts/orbit_model.gd")
 
 const BASE := Vector2i(1920, 1080)
 const PLOT_RECT := Rect2(396.0, 124.0, 1128.0, 752.0)
@@ -26,6 +27,13 @@ func _ready() -> void:
 		state.capture = true
 		state.paused = true
 	print("MAIN READY shot=", _shot_path, " scene=", _scene, " gif=", _gif_dir)
+	var st := Orbit.selftest()
+	print("ORBIT SELFTEST period_s=", st.period_s,
+		" two_body_pos_err_m=", st.two_body_pos_err_m,
+		" two_body_vel_err_mps=", st.two_body_vel_err_mps,
+		" local_err_300s_m=", st.local_err_300s_m,
+		" local_err_2000s_m=", st.local_err_2000s_m)
+	print("L1 TIDAL kx=", st.kx, " ky=", st.ky, " kz=", st.kz, " n=", st.n_lunar)
 	get_window().title = "AD-FLEET // 战术显控台 — V1.5"
 	get_window().size = Vector2i(1600, 900)
 	var screen := DisplayServer.screen_get_size()
@@ -145,7 +153,13 @@ func _set_scene(sc: String) -> void:
 			plot.zoom_map(0.9 if zn > 0 else 1.1)
 	if OS.get_environment("DSH_FLIP") == "1":
 		plot.flip_map()
-	print("SCENE ", sc, " datum=", state.datum, " sensor=", state.sensor, " planar=", plot.ortho)
+	# 调试/验证用：DSH_CLOCK 直接设定仿真时刻（秒），用来看预测/历史随时间推进
+	var ck := OS.get_environment("DSH_CLOCK")
+	if ck != "":
+		state.clock = float(ck)
+	state.refresh(state.clock)
+	print("SCENE ", sc, " datum=", state.datum, " sensor=", state.sensor, " planar=", plot.ortho,
+		" tau=", state.tau())
 
 func _process(delta: float) -> void:
 	if not state.capture and state.boot_t < 2.0:
@@ -158,6 +172,8 @@ func _process(delta: float) -> void:
 	if not state.paused:
 		state.clock += delta * state.time_scale
 	state.elapsed += delta
+	# 接触状态向量推进到当前时刻 + HUD 派生量保鲜
+	state.refresh(state.clock)
 	hud.queue_redraw()
 
 	_frames += 1
