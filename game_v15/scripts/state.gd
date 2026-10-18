@@ -189,6 +189,8 @@ func _bootstrap() -> void:
 	_sync_sensor_view()
 	_plan_tick(0.0)
 	_fusion_tick(0.0)
+	_update_identity(0.0)
+	_update_threat(0.0)
 	_pump_feeds(0.0)
 
 # ── 舰 / 架 ────────────────────────────────────────────
@@ -324,7 +326,7 @@ func _build_phantom() -> void:
 		"false_bearing_deg": phantom_bearing,
 	})
 	var d := {
-		"id": "9002", "batch": "9002", "name": "CH-IR2 虚警", "en": "UNKNOWN CONTACT", "cls": "CH-IR2 虚警候选", "role": "虚警候选 · 残骸/反射", "identity": "pending",
+		"id": "9002", "batch": "9002", "name": "不明接触", "en": "UNKNOWN CONTACT", "cls": "CH-IR2 回波候选", "role": "待交叉确认", "identity": "pending", "threat": "pending", "threat_label": "待判定",
 		"side": "unknown", "level": 1, "bearing": phantom_bearing, "range": 0.0, "alt": 0.0,
 		"closing": 0.0, "age": 0.0, "own": false, "off": Vector2(-120, -26),
 		"stale": false, "bearing_only": true, "phantom": true,
@@ -358,6 +360,7 @@ func _track(id: String, en: String, cls: String, role: String, side: String, lev
 		# P1c 融合字段
 		"sensor_track": {}, "level_evidence": {}, "covariance": {},
 		"sources": [], "classification": {}, "id_info": {}, "iff_status": "",
+		"threat": "pending", "threat_label": "待判定",
 		"range_band": "", "obs_range_km": -1.0, "obs_bearing_deg": -1.0,
 		"occluded": false, "stare": {}, "notes": [],
 	}
@@ -621,6 +624,7 @@ func refresh(now: float) -> void:
 		steps += 1
 	_sync_sensor_view()
 	_update_identity(t)
+	_update_threat(t)
 
 # ── 传感器融合 ─────────────────────────────────────────
 
@@ -885,17 +889,23 @@ func _update_phantom(t: float) -> void:
 	ph["range_band"] = "UNKNOWN"
 	ph["bearing"] = phantom_bearing
 	if phantom_true and not bool(ph.get("false_alarm", false)):
-		ph["false_alarm"] = true
-		ph["cls"] = "虚警 / FALSE ALARM"
-		ph["role"] = "残骸/反射 · 无实体"
+		ph["false_alarm"] = true   # 内部仍记 false_alarm；对外主标签改为“无威胁目标”
+		ph["name"] = "无威胁目标"
+		ph["cls"] = "已交叉确认 · 无威胁"
+		ph["role"] = "残骸/反射"
+		ph["threat"] = "none"
+		ph["threat_label"] = "无威胁"
 		ph["notes"] = [
 			"MS-IR9 交叉确认：该方位无回波",
-			"CH-IR2 虚警（06 §4.3：虚警多，常把残骸当敌舰）",
+			"残骸/反射 · 无实体 · 无威胁",
 		]
-		_push_log("交叉确认：CH-IR2 虚警 · 方位 302°", "FALSE ALARM", "EXEC")
+		_push_log("交叉确认：9002 无威胁目标 · 残骸/反射 · 方位 302°", "NO THREAT", "EXEC")
 	elif not phantom_true:
-		ph["cls"] = "CH-IR2 虚警候选"
-		ph["role"] = "虚警候选 · 残骸/反射"
+		ph["name"] = "不明接触"
+		ph["cls"] = "CH-IR2 回波候选"
+		ph["role"] = "待交叉确认"
+		ph["threat"] = "pending"
+		ph["threat_label"] = "待判定"
 
 func _update_emissions(t: float) -> void:
 	var merged := {
@@ -1593,6 +1603,54 @@ func _update_identity(t: float) -> void:
 				tr["identity"] = "pending"
 			_:
 				pass
+
+# ── P1k：威胁等级 ───────────────────────────────────────
+# threat: none / low / medium / high / hostile / pending
+func threat_text(kind: String) -> String:
+	match kind:
+		"none":
+			return "无威胁"
+		"low":
+			return "低"
+		"medium":
+			return "中"
+		"high":
+			return "高"
+		"hostile":
+			return "敌对"
+		"pending":
+			return "待判定"
+		_:
+			return kind
+
+# 威胁映射（P1k）：友军/9001 = none；2001 = high；9002 = none（交叉确认后）；未判定 = pending
+func _update_threat(t: float) -> void:
+	for tr in tracks:
+		var id := String(tr.get("id", ""))
+		var ident := String(tr.get("identity", ""))
+		var threat := "pending"
+		if bool(tr.get("own", false)) or ident == "friend":
+			threat = "none"
+		elif bool(tr.get("phantom", false)):
+			threat = "none" if bool(tr.get("false_alarm", false)) else "pending"
+		elif id == "2001":
+			# 按身份走：Unknown 时待判定，光学分类成 Suspect 后才高威胁
+			threat = "high" if (ident == "suspect" or ident == "hostile") else "pending"
+		elif id == "9001":
+			threat = "none"
+		elif ident == "neutral":
+			threat = "none"
+		elif ident == "suspect":
+			threat = "high"
+		elif ident == "hostile":
+			threat = "hostile"
+		elif ident == "assumed_friend":
+			threat = "low"
+		var prev := String(tr.get("threat", ""))
+		tr["threat"] = threat
+		tr["threat_label"] = threat_text(threat)
+		if prev != "" and prev != threat and (id == "2001" or id == "9002"):
+			_push_log("威胁更新：[%s] %s → %s" % [id, threat_text(prev), threat_text(threat)], "THREAT", "RX")
 
 # ── 日志 / 单位面板 ────────────────────────────────────
 

@@ -30,5 +30,13 @@ static var ID_NEUTRAL := Color("#93A98F")      # 中立：灰绿
 static var ID_SUSPECT := Color("#E8843B")      # 可疑：橙
 static var ID_HOSTILE := Color("#E2564A")      # 敌方：红
 
+# P1k：威胁等级图例色（无威胁/低/中/高/确认敌对/待判定）。
+static var THR_NONE := Color("#93A98F")        # 无威胁：灰绿
+static var THR_LOW := Color("#7FB6C9")         # 低：冰蓝
+static var THR_MED := Color("#E8A34B")         # 中：琥珀
+static var THR_HIGH := Color("#E8843B")        # 高：橙
+static var THR_HOSTILE := Color("#E2564A")     # 确认敌对：红
+static var THR_PENDING := Color("#8B9A92")     # 待判定：灰
+
 static func a(c: Color, alpha: float) -> Color:
 	return Color(c.r, c.g, c.b, alpha)

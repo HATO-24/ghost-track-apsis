@@ -62,7 +62,7 @@ const CONSEQ_SUBMIT := Rect2(800, 660, 320, 40)
 
 # ── P1g：无线电 / 事件 feed、暂停指示、END 归档页 ──────────
 const FEED_ROWS := 3
-const FEED_PITCH := 13.0
+const FEED_PITCH := 12.0
 const PAUSE_RECT := Rect2(1560, 912, 284, 24)
 const END_RECT := Rect2(420, 200, 1080, 640)
 const END_RESTART := Rect2(940, 756, 260, 40)
@@ -92,6 +92,16 @@ const ID_EN := {
 const ID_SHORT := {
 	"pending": "待定", "unknown": "未知", "assumed_friend": "假定", "friend": "友方",
 	"neutral": "中立", "suspect": "可疑", "hostile": "敌方",
+}
+# ── P1k：威胁等级图例（无威胁/低/中/高/确认敌对/待判定）──
+const THR_ORDER := ["none", "low", "med", "high", "hostile", "pending"]
+const THR_CN := {
+	"none": "无威胁", "low": "低", "med": "中", "high": "高",
+	"hostile": "确认敌对", "pending": "待判定",
+}
+const THR_EN := {
+	"none": "NONE", "low": "LOW", "med": "MED", "high": "HIGH",
+	"hostile": "HOSTILE", "pending": "PENDING",
 }
 const NOTICE_CLICK := Rect2(540, 42, 380, 22)
 const NOTICE_RECT := Rect2(480, 250, 960, 480)
@@ -308,7 +318,8 @@ func _dn(s: String) -> String:
 func _track_display_id(t: Dictionary) -> String:
 	var cls := String(t.get("cls", ""))
 	if cls.contains("虚警") or bool(t.get("false_alarm", false)):
-		return "虚警"
+		# P1k：9002 = 已交叉确认的无威胁目标，不再用「虚警」当主标签。
+		return "已交叉确认"
 	var raw_id := String(t.get("id", ""))
 	var nm := String(t.get("name", ""))
 	if nm == "" or nm == raw_id:
@@ -498,6 +509,90 @@ func _identity_legend_chip(rc: Rect2, key: String) -> void:
 	draw_rect(rc, Palette.a(col, 0.22), false, 1.0)
 	_identity_shape(Vector2(rc.position.x + 9.0, rc.position.y + 8.0), 8.0, key, Palette.a(col, 0.9))
 	_txt(cjk, rc.position.x + 17.0, rc.position.y + 3.0, label, 7, Palette.a(col, 0.9))
+
+# ── P1k：威胁等级（无威胁/低/中/高/确认敌对/待判定）────────
+# 优先读 track.threat / threat_level；否则按身份/批号推断第一关（不新增数据）。
+func _track_threat(t: Dictionary) -> String:
+	var raw := ""
+	if t.has("threat"):
+		raw = String(t.get("threat", ""))
+	elif t.has("threat_level"):
+		raw = String(t.get("threat_level", ""))
+	raw = raw.to_lower().replace("-", "_").replace(" ", "_")
+	var alias := {
+		"none": "none", "no_threat": "none", "无威胁": "none",
+		"low": "low", "低": "low",
+		"med": "med", "medium": "med", "中": "med",
+		"high": "high", "高": "high",
+		"hostile": "hostile", "confirmed_hostile": "hostile", "确认敌对": "hostile",
+		"pending": "pending", "unknown": "pending", "待判定": "pending",
+	}
+	if alias.has(raw):
+		return String(alias[raw])
+	if t.get("false_alarm", false) or String(t.get("cls", "")).contains("虚警"):
+		return "none"
+	if t.get("own", false):
+		return "none"
+	var ident := _track_identity(t)
+	match ident:
+		"friend":
+			return "none"
+		"neutral":
+			return "low"
+		"suspect":
+			return "high"
+		"hostile":
+			return "hostile"
+		"pending", "unknown":
+			return "pending"
+		_:
+			return "pending"
+
+func _threat_color(key: String) -> Color:
+	match key:
+		"none":
+			return Palette.THR_NONE
+		"low":
+			return Palette.THR_LOW
+		"med":
+			return Palette.THR_MED
+		"high":
+			return Palette.THR_HIGH
+		"hostile":
+			return Palette.THR_HOSTILE
+		_:
+			return Palette.THR_PENDING
+
+# 威胁形状：无威胁 空心圆 / 低 实心小圆 / 中 菱形框 / 高 三角框 / 确认敌对 实心菱形 / 待判定 虚线框。
+func _threat_shape(c: Vector2, s: float, key: String, col: Color) -> void:
+	var h := s * 0.5
+	match key:
+		"none":
+			draw_arc(c, h, 0, TAU, 16, col, 1.0, true)
+		"low":
+			draw_circle(c, h * 0.55, col)
+		"med":
+			draw_polyline(PackedVector2Array([
+				c + Vector2(0, -h), c + Vector2(h, 0), c + Vector2(0, h), c + Vector2(-h, 0), c + Vector2(0, -h)
+			]), col, 1.0, true)
+		"high":
+			draw_polyline(PackedVector2Array([
+				c + Vector2(0, -h), c + Vector2(h, h), c + Vector2(-h, h), c + Vector2(0, -h)
+			]), col, 1.0, true)
+		"hostile":
+			draw_colored_polygon(PackedVector2Array([
+				c + Vector2(0, -h), c + Vector2(h, 0), c + Vector2(0, h), c + Vector2(-h, 0)
+			]), col)
+		_:
+			_corners(Rect2(c - Vector2(h, h), Vector2(s, s)), h * 0.45, col)
+
+func _threat_legend_chip(rc: Rect2, key: String) -> void:
+	var col := _threat_color(key)
+	draw_rect(rc, Palette.a(col, 0.04))
+	draw_rect(rc, Palette.a(col, 0.22), false, 1.0)
+	_threat_shape(Vector2(rc.position.x + 8.0, rc.position.y + 8.0), 8.0, key, Palette.a(col, 0.95))
+	_txt(cjk, rc.position.x + 16.0, rc.position.y + 2.0, String(THR_CN.get(key, "待判定")), 7, Palette.a(col, 0.95))
+	_txt(mono, rc.position.x + 16.0, rc.position.y + 11.0, String(THR_EN.get(key, "PENDING")), 6, Palette.a(col, 0.6))
 
 # 通信流：19 §1 格式 [发信者至收信者]-[LD/LR/RDO/IR/VIS]-[内容]
 func _comms_mode_short(mode: String) -> String:
@@ -1104,12 +1199,13 @@ func _draw_tracks() -> void:
 		_draw_track_row(state.tracks[i], i, y)
 
 	draw_line(Vector2(60, 824), Vector2(380, 824), Palette.a(Palette.LINE, 0.9), 1.0)
-	# P1j：图例 = 六级身份 + 四位数批号（颜色 + 形状双通道，19 §2.5）
-	_txt(cjk, 76, 832, "身份 / IDENTITY · 批号 4 位", 7, Palette.FAINT)
+	# P1k：底部小栏 = 威胁等级图例（身份图标仍留在接触行）。
+	# 4/8 基线：标题 832、图例条 844（高 16），每格 46（6 级 = 276，76…352）。
+	_txt(cjk, 76, 832, "威胁图例 / THREAT", 7, Palette.FAINT)
 	var lx := 76.0
-	for key in ID_ORDER:
-		_identity_legend_chip(Rect2(lx, 846, 40, 16), String(key))
-		lx += 40.0
+	for key in THR_ORDER:
+		_threat_legend_chip(Rect2(lx, 844, 46, 16), String(key))
+		lx += 46.0
 
 func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 	var col := _side_color(t)
@@ -1123,15 +1219,15 @@ func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 	var dim := 0.45 if t.get("stale", false) else 1.0
 	var disp_id := _track_display_id(t)
 	var idf := cjk if Fonts.has_cjk(disp_id) else mono
-	# P1j：四位数批号 + 六级身份（L1–L4 独立，放在最右）。
+	# P1k：列基线统一到 y+12（4px 网格），列 x：76 / 112 / 192 / 240 / 344。
 	var batch := _track_batch(t)
-	_txt(mono, 76, y + 14, "%04d" % batch if batch > 0 else "----", 8, Palette.a(Palette.FAINT, dim))
+	_txt(mono, 76, y + 12, "%04d" % batch if batch > 0 else "----", 8, Palette.a(Palette.FAINT, dim))
 	_txt(idf, 112, y + 12, _ellipsis(idf, disp_id, 12, 74.0), 12, Palette.a(col, dim))
 	var disp_cls := _dn(String(t.get("cls", "")))
-	if disp_id == "虚警":
-		disp_cls = "交叉确认 · 不再当目标"
-	_txt(cjk, 190, y + 14, disp_cls, 9, Palette.a(Palette.DIM, dim))
-	_identity_chip(Rect2(238, y + 11, 100, 14), _track_identity(t), dim)
+	if disp_id == "已交叉确认":
+		disp_cls = "无威胁"
+	_txt(cjk, 192, y + 12, disp_cls, 9, Palette.a(Palette.DIM, dim))
+	_identity_chip(Rect2(240, y + 12, 96, 14), _track_identity(t), dim)
 	_draw_level(344.0, y + 12.0, t, col)
 
 	var line2 := ""
@@ -1141,7 +1237,7 @@ func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 		line2 = "方位 302° · 距离未知"
 	else:
 		line2 = "方位 %03d° · %d km" % [int(t.bearing), int(t.range)]
-	_txt(mono, 76, y + 35, line2, 8, Palette.a(Palette.DIM, dim))
+	_txt(mono, 76, y + 36, line2, 8, Palette.a(Palette.DIM, dim))
 
 	var cl := "编队内"
 	if t.side == "hostile":
@@ -1149,14 +1245,14 @@ func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 		cl = "接近率 %+.1f km/s" % float(t.closing)
 	elif t.get("own", false):
 		cl = "—"
-	_txt_r(mono, 364, y + 35, cl, 8, Palette.a(col, 0.8 * dim))
+	_txt_r(mono, 364, y + 36, cl, 8, Palette.a(col, 0.8 * dim))
 
 	var age_s := "实时"
 	if t.get("stale", false):
 		age_s = "陈旧 %ds" % int(t.age)
 	elif not t.get("own", false):
 		age_s = "更新 %02ds" % int(t.age)
-	_txt(cjk, 76, y + 53, age_s, 8, Palette.a(Palette.AMBER if t.get("stale", false) else Palette.FAINT, dim))
+	_txt(cjk, 76, y + 52, age_s, 8, Palette.a(Palette.AMBER if t.get("stale", false) else Palette.FAINT, dim))
 
 	var frac := 1.0
 	if not t.get("own", false):
@@ -1190,14 +1286,14 @@ func _draw_unit() -> void:
 			u["crew"] = "12"
 	_txt(cjk, 1556, 138, "选中舰 / SELECTED SHIP", 7, Palette.FAINT)
 	_txt(cjk, 1556, 150, _dn(u.name), 24, Palette.TXT)
-	_txt(mono, 1556, 181, _dn(u.en), 8, Palette.DIM)
-	_txt(cjk, 1556, 195, _dn(u.cls + " · " + u.role), 10, Palette.PH)
-	_txt(cjk, 1556, 211, _dn(u.faction), 8, Palette.DIM)
+	_txt(mono, 1556, 180, _dn(u.en), 8, Palette.DIM)
+	_txt(cjk, 1556, 196, _dn(u.cls + " · " + u.role), 10, Palette.PH)
+	_txt(cjk, 1556, 212, _dn(u.faction), 8, Palette.DIM)
 	# P1j：右区显示选中舰的四位数批号 + 身份（19 §2/§2.5）。
 	var own_tr := {"id": _dn(String(u.get("name", ""))), "cls": String(u.get("cls", "")), "level": 4, "own": true}
 	var sel_batch := _track_batch(own_tr)
 	var sel_id := _track_identity(own_tr)
-	_txt_r(cjk, 1844, 211, "[%04d] %s" % [sel_batch, _identity_cn(sel_id)], 7, _id_color(sel_id))
+	_txt_r(cjk, 1844, 212, "[%04d] %s" % [sel_batch, _identity_cn(sel_id)], 7, _id_color(sel_id))
 	draw_line(Vector2(1540, 224), Vector2(1860, 224), Palette.a(Palette.LINE, 0.9), 1.0)
 
 	var stats := [
@@ -1209,7 +1305,7 @@ func _draw_unit() -> void:
 		var cx := 1556.0 + float(i % 2) * 150.0
 		var cy := 236.0 + float(i / 2) * 24.0
 		_txt(cjk, cx, cy, stats[i][0], 8, Palette.DIM)
-		_txt(mono, cx, cy + 10.0, stats[i][1], 10, Palette.TXT)
+		_txt(mono, cx, cy + 12.0, stats[i][1], 10, Palette.TXT)
 
 	var sys_avg := 0.0
 	for i in range(u.systems.size()):
@@ -1217,14 +1313,14 @@ func _draw_unit() -> void:
 	if u.systems.size() > 0:
 		sys_avg /= float(u.systems.size())
 	_txt(cjk, 1556, 316, "系统 / SYSTEMS", 7, Palette.FAINT)
-	_txt_r(mono, 1860, 316, "AVG %d%%" % int(round(sys_avg * 100.0)), 8, Palette.DIM)
+	_txt_r(mono, 1844, 316, "AVG %d%%" % int(round(sys_avg * 100.0)), 8, Palette.DIM)
 	for i in range(mini(5, u.systems.size())):
 		var cy := 336.0 + float(i) * 24.0
 		var sname: String = u.systems[i][0]
 		var sv: float = u.systems[i][1]
 		_txt(cjk, 1556, cy, sname, 9, Palette.DIM)
 		_bar(Rect2(1636, cy + 4, 128, 4), sv, _sys_color(sv))
-		_txt_r(mono, 1860, cy, "%d%%" % int(sv * 100.0), 8, Palette.TXT)
+		_txt_r(mono, 1844, cy, "%d%%" % int(sv * 100.0), 8, Palette.TXT)
 
 	_txt(cjk, 1556, 470, "Δv 预算 / BUDGET", 7, Palette.FAINT)
 	_txt(mono, 1556, 482, u.dv, 30, Palette.PH)
@@ -1294,7 +1390,7 @@ func _draw_unit() -> void:
 
 	draw_line(Vector2(1540, 820), Vector2(1860, 820), Palette.a(Palette.LINE, 0.9), 1.0)
 	_txt(cjk, 1556, 828, "损管队列 2 项", 8, Palette.AMBER)
-	_txt_r(cjk, 1860, 828, "舰体 HULL 100%", 8, Palette.DIM)
+	_txt_r(cjk, 1844, 828, "舰体 HULL 100%", 8, Palette.DIM)
 	# P1j：副官建议（一次性 UI）与教学手册（可反复查）两个独立入口 —— 不混进通信流。
 	_cmd_btn(ADVISOR_BTN, "副官建议 · 已读" if _advisor_read else "副官建议 / ADJUTANT", false, Palette.BLUE)
 	_cmd_btn(MANUAL_BTN, "手册 / MANUAL", false, Palette.PH)
@@ -1356,14 +1452,14 @@ func _draw_log() -> void:
 	if feed.is_empty():
 		_txt(cjk, 76, 908, "（暂无通信 / 事件）", 8, Palette.FAINT)
 	# 命令日志（证据）：紧凑 4 行
-	draw_line(Vector2(60, 945), Vector2(620, 945), Palette.a(Palette.LINE, 0.9), 1.0)
+	draw_line(Vector2(60, 944), Vector2(620, 944), Palette.a(Palette.LINE, 0.9), 1.0)
 	_txt(cjk, 76, 948, "命令日志 / COMMAND LOG", 7, Palette.FAINT)
 	_txt_r(mono, 604, 948, "NEWEST FIRST", 7, Palette.FAINT)
 	var cmd_left := maxf(0.0, 6.2 - float(state.elapsed))
 	var pending := cmd_left > 0.0
 	for i in range(mini(4, state.log_lines.size())):
 		var l: Dictionary = state.log_lines[i]
-		var y := 958.0 + float(i) * 19.0
+		var y := 956.0 + float(i) * 20.0
 		_txt(mono, 76, y, "T+" + String(l.get("t", "")), 9, Palette.a(Palette.FAINT, 0.95))
 		var disp_text := _ellipsis(cjk, _dn(String(l.get("text", ""))), 10, 300.0)
 		_txt(cjk, 140, y - 1, disp_text, 10, Palette.a(Palette.TXT, 0.92))
@@ -1549,8 +1645,8 @@ func _draw_command_panel() -> void:
 			done += 1
 
 	# header
-	_txt(cjk, CMD_INSET_X, 893, "命令 / ORDERS", 8, Palette.TXT)
-	_txt_r(cjk, CMD_INNER_R, 893, "%s · 剩余 Δv %s m/s" % [_rack_ship_name(), _fmt_int(dv_left)], 7, Palette.DIM)
+	_txt(cjk, CMD_INSET_X, 892, "命令 / ORDERS", 8, Palette.TXT)
+	_txt_r(cjk, CMD_INNER_R, 892, "%s · 剩余 Δv %s m/s" % [_rack_ship_name(), _fmt_int(dv_left)], 7, Palette.DIM)
 
 	# 动作选择：STATION / SHADOW 谷神-2 / BURN
 	for i in range(3):
@@ -2307,8 +2403,8 @@ func _draw_filed_banner() -> void:
 
 func _draw_time() -> void:
 	_panel(TIME)
-	_txt(cjk, 1216, 893, "态势回放 / REPLAY", 8, Palette.TXT)
-	_txt_r(cjk, 1844, 893, "60 秒缓冲 / BUFFER", 7, Palette.FAINT)
+	_txt(cjk, 1216, 892, "态势回放 / REPLAY", 8, Palette.TXT)
+	_txt_r(cjk, 1844, 892, "60 秒缓冲 / BUFFER", 7, Palette.FAINT)
 
 	time_rects.clear()
 	var scales := [1.0, 10.0, 60.0, 300.0]

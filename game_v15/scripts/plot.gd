@@ -977,30 +977,30 @@ func _draw_phantom(t: Dictionary) -> void:
 	var resolved := bool(t.get("false_alarm", false))
 	var col := Palette.FAINT if resolved else Palette.AMBER
 	var b := float(state.phantom_bearing)
-	var far := 470.0
-	var pm := _p3(_world(b, far, 0.0))
+	var pm := _p3(_world(b, 470.0, 0.0))
 	if not _ok(pm):
 		return
-	draw_dashed_line(o, pm, Palette.a(col, 0.28 if not resolved else 0.16), 1.0, 6.0)
+	draw_dashed_line(o, pm, Palette.a(col, 0.16 if resolved else 0.28), 1.0, 6.0)
 	var mid := _p3(_world(b, 315.0, 0.0))
 	if not _ok(mid):
 		return
-	# 回波符号：空心菱形（不是实体船）
-	var d := 5.0
-	draw_polyline(PackedVector2Array([
-		mid + Vector2(0, -d), mid + Vector2(d, 0), mid + Vector2(0, d),
-		mid + Vector2(-d, 0), mid + Vector2(0, -d)
-	]), Palette.a(col, 0.8), 1.0)
-	_txt(mono, mid.x + 10.0, mid.y - 20.0, "[9002] CH-IR2 虚警候选", 8, Palette.a(col, 0.75))
 	if resolved:
-		var blink := 0.55 + 0.45 * sin(_t * 4.0)
-		_txt(cjk, mid.x + 10.0, mid.y - 8.0, "虚警 / FALSE ALARM", 10, Palette.a(Palette.AMBER, blink))
-		_txt(mono, mid.x + 10.0, mid.y + 5.0, "MS-IR9 交叉确认 · 残骸/反射", 7, Palette.a(Palette.FAINT, 0.95))
-		draw_line(mid + Vector2(-6, -6), mid + Vector2(6, 6), Palette.a(Palette.AMBER, 0.55), 1.0)
-		draw_line(mid + Vector2(-6, 6), mid + Vector2(6, -6), Palette.a(Palette.AMBER, 0.55), 1.0)
+		# 无威胁目标：灰阶方框 + 斜杠（无实体，已交叉确认）
+		draw_rect(Rect2(mid - Vector2(5, 5), Vector2(10, 10)), Palette.a(Palette.FAINT, 0.10))
+		draw_rect(Rect2(mid - Vector2(5, 5), Vector2(10, 10)), Palette.a(Palette.FAINT, 0.85), false, 1.0)
+		draw_line(mid + Vector2(-6, -6), mid + Vector2(6, 6), Palette.a(Palette.FAINT, 0.55), 1.0)
+		_txt(mono, mid.x + 10.0, mid.y - 20.0, "[9002] 无威胁目标", 8, Palette.a(Palette.FAINT, 0.9))
+		_txt(cjk, mid.x + 10.0, mid.y - 8.0, "已交叉确认 · 无威胁", 9, Palette.a(Palette.DIM, 0.95))
+		_txt(mono, mid.x + 10.0, mid.y + 5.0, "残骸/反射 · 无实体 · 无威胁", 7, Palette.a(Palette.FAINT, 0.9))
 	else:
-		_txt(mono, mid.x + 10.0, mid.y - 8.0, "L1 · 仅方位 · 待交叉确认", 8, Palette.a(col, 0.62))
-		_txt(mono, mid.x + 10.0, mid.y + 5.0, "无实体 · 无辐射", 7, Palette.a(col, 0.38))
+		var d := 5.0
+		draw_polyline(PackedVector2Array([
+			mid + Vector2(0, -d), mid + Vector2(d, 0), mid + Vector2(0, d),
+			mid + Vector2(-d, 0), mid + Vector2(0, -d)
+		]), Palette.a(col, 0.8), 1.0)
+		_txt(mono, mid.x + 10.0, mid.y - 20.0, "[9002] 不明接触", 8, Palette.a(col, 0.8))
+		_txt(mono, mid.x + 10.0, mid.y - 8.0, "CH-IR2 回波候选 · L1 仅方位", 8, Palette.a(col, 0.62))
+		_txt(mono, mid.x + 10.0, mid.y + 5.0, "待交叉确认 · 无实体 · 无辐射", 7, Palette.a(col, 0.4))
 
 # 协方差椭圆（来自 SensorModel.covariance：径向 / 横向 σ，单位 km）
 func _draw_covariance(p: Vector2, t: Dictionary, col: Color) -> void:
@@ -1157,6 +1157,10 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 	var batch := String(t.get("batch", t.get("id", "")))
 	var nm := String(t.get("name", t.get("id", "")))
 	var ident := _identity_label(_ident(t))
+	var threat := String(t.get("threat", ""))
+	var th_tag := ""
+	if threat == "high" or threat == "hostile":
+		th_tag = " · 威胁 %s" % String(t.get("threat_label", threat))
 	var idf := cjk if Fonts.has_cjk(nm) else mono
 	var stale_tag := " · 陈旧" if t.get("stale", false) else ""
 	var rng_label := _fmt_km(float(t.get("obs_range_km", -1.0)) if float(t.get("obs_range_km", -1.0)) >= 0.0 else float(t.get("range", 0.0)))
@@ -1164,11 +1168,11 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 	match lv:
 		2:
 			_txt(idf, lx, ly, "[%s] %s" % [batch, nm], 11, Palette.a(col, dim))
-			_txt(mono, lx, ly + 12.0, "%s · L2 · %03d° · %s km · σ%.1f%s" % [ident, int(t.get("bearing", 0)), rng_label, sig, stale_tag], 8, Palette.a(col, 0.62 * dim))
+			_txt(mono, lx, ly + 12.0, "%s%s · L2 · %03d° · %s km · σ%.1f%s" % [ident, th_tag, int(t.get("bearing", 0)), rng_label, sig, stale_tag], 8, Palette.a(col, 0.62 * dim))
 		3:
 			var cls: Dictionary = t.get("classification", {})
 			_txt(idf, lx, ly, "[%s] %s" % [batch, nm], 11, Palette.a(col, dim))
-			_txt(cjk, lx, ly + 12.0, "%s · L3 · %s · %s · %s" % [ident, String(cls.get("ship_class", "—")), String(cls.get("builder", "—")), String(cls.get("faction", "—"))], 8, Palette.a(col, 0.66 * dim))
+			_txt(cjk, lx, ly + 12.0, "%s%s · L3 · %s · %s · %s" % [ident, th_tag, String(cls.get("ship_class", "—")), String(cls.get("builder", "—")), String(cls.get("faction", "—"))], 8, Palette.a(col, 0.66 * dim))
 			_txt(mono, lx, ly + 24.0, "L3 已分类 · %s km%s" % [rng_label, stale_tag], 7, Palette.a(col, 0.45 * dim))
 		4:
 			var info: Dictionary = t.get("id_info", {})
@@ -1179,7 +1183,7 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 				title += " · %s" % hull
 			_txt(idf, lx, ly, title, 11, Palette.a(col, dim))
 			var iff := String(t.get("iff_status", ""))
-			_txt(mono, lx, ly + 12.0, "%s · L4 · %s · 敌我识别 %s%s" % [ident, String(info.get("faction", "—")), _iff_text(iff), stale_tag], 8, Palette.a(col, 0.66 * dim))
+			_txt(mono, lx, ly + 12.0, "%s%s · L4 · %s · 敌我识别 %s%s" % [ident, th_tag, String(info.get("faction", "—")), _iff_text(iff), stale_tag], 8, Palette.a(col, 0.66 * dim))
 			if iff == "friend" or String(info.get("via", "")) == "datalink":
 				draw_line(Vector2(lx, ly + 24.0), Vector2(lx + 4.0, ly + 28.0), Palette.a(Palette.PH, 0.8), 1.0)
 				draw_line(Vector2(lx + 4.0, ly + 28.0), Vector2(lx + 11.0, ly + 19.0), Palette.a(Palette.PH, 0.8), 1.0)
@@ -1626,9 +1630,9 @@ func _draw_planar_phantom(o: Vector2, t: Dictionary) -> void:
 	var b := deg_to_rad(float(state.phantom_bearing))
 	var end := o + Vector2(sin(b), -cos(b)) * 62.0
 	draw_dashed_line(o, end, Palette.a(col, 0.35), 1.0, 5.0)
-	_txt_r(mono, end.x - 5.0, end.y - 3.0, "[9002] 虚警候选 · L1", 7, Palette.a(col, 0.85))
+	_txt_r(mono, end.x - 5.0, end.y - 3.0, "[9002] 不明接触", 7, Palette.a(col, 0.85))
 	if resolved:
-		_txt_r(cjk, end.x - 5.0, end.y + 10.0, "虚警 / FALSE ALARM", 8, Palette.a(Palette.AMBER, 0.85))
+		_txt_r(cjk, end.x - 5.0, end.y + 10.0, "无威胁目标 · 已交叉确认", 8, Palette.a(Palette.FAINT, 0.85))
 
 func _draw_planar_own() -> void:
 	var o := _o()
@@ -1846,6 +1850,7 @@ func _draw_compass() -> void:
 
 func _draw_legend() -> void:
 	_txt(cjk, 16.0, 648.0, "图例 / LEGEND · 身份 / IDENTITY", 7, Palette.a(Palette.FAINT, 0.9))
+	_txt(mono, 424.0, 648.0, "威胁：待判定 · 无威胁 · 低 · 中 · 高 · 敌对", 7, Palette.a(Palette.PH_DIM, 0.9))
 	var row1 := [["pending", "待定"], ["unknown", "未知"], ["assumed_friend", "假定友好"], ["friend", "友方"]]
 	var row2 := [["neutral", "中立"], ["suspect", "可疑"], ["hostile", "敌方"]]
 	var x := 22.0
@@ -1858,9 +1863,9 @@ func _draw_legend() -> void:
 		_symbol_at(Vector2(x, 681.0), String(it[0]), _identity_color(String(it[0])), 1)
 		_txt(cjk, x + 13.0, 684.0, String(it[1]), 7, Palette.DIM)
 		x += 96.0
-	draw_line(Vector2(x - 4.0, 675.0), Vector2(x + 6.0, 687.0), Palette.a(Palette.AMBER, 0.85), 1.0)
-	draw_line(Vector2(x + 6.0, 675.0), Vector2(x - 4.0, 687.0), Palette.a(Palette.AMBER, 0.85), 1.0)
-	_txt(cjk, x + 13.0, 684.0, "虚警", 7, Palette.DIM)
+	draw_rect(Rect2(Vector2(x - 2.0, 676.0), Vector2(8, 8)), Palette.a(Palette.FAINT, 0.85), false, 1.0)
+	draw_line(Vector2(x - 3.0, 675.0), Vector2(x + 7.0, 687.0), Palette.a(Palette.FAINT, 0.65), 1.0)
+	_txt(cjk, x + 13.0, 684.0, "无威胁", 7, Palette.DIM)
 	var y2 := 700.0
 	draw_line(Vector2(16, y2 + 5), Vector2(34, y2 + 5), Palette.a(Palette.PH_DIM, 0.55), 1.0)
 	_txt(cjk, 40.0, y2, "历史", 7, Palette.DIM)
