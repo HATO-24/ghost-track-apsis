@@ -20,7 +20,7 @@ const TIME := Rect2(1200, 884, 660, 156)
 
 # ── P1e：命令面板 / 点火规划（HUD 只读 state；授权才写命令）──
 const CMD_ACTIONS := ["STATION", "SHADOW", "BURN"]
-const CMD_LABELS := ["STATION 保持站位", "SHADOW 跟踪", "BURN 点火"]
+const CMD_LABELS := ["STATION 保持站位", "SHADOW 跟踪伴飞", "BURN 脉冲点火"]
 const PLAN_WINDOW_S := 30.0                 # 点火时间轴窗口：T+0 … T+30 s
 const CMD_INSET_X := 652.0
 const CMD_INNER_R := 1164.0
@@ -131,7 +131,7 @@ func _rack_ship_name() -> String:
 	var tr := _rack_track()
 	if tr.is_empty():
 		return "—"
-	return _dn(String(tr.get("id", "—")))
+	return _track_display_id(tr)
 
 func _rack_track() -> Dictionary:
 	var idx := clampi(int(state.selected), 0, maxi(0, state.tracks.size() - 1))
@@ -270,6 +270,66 @@ func _dn(s: String) -> String:
 	for k in DISPLAY_FIX:
 		out = out.replace(k, DISPLAY_FIX[k])
 	return out
+
+# ── TEXT-02：接触口径（12 军语 P0-1）──
+# 未识别是状态词：确认前 = 不明接触；成航迹（L2+）实体仍未识别 = 不明目标；确认虚警 = 虚警。
+func _track_display_id(t: Dictionary) -> String:
+	var cls := String(t.get("cls", ""))
+	if cls.contains("虚警") or bool(t.get("false_alarm", false)):
+		return "虚警"
+	var id := _dn(String(t.get("id", "—")))
+	if id == "不明接触" and int(t.get("level", 1)) >= 2:
+		return "不明目标"
+	return id
+
+# ── TEXT-02：链路标签（14 通信与中继 §3：激光直接 → 激光中继 → 无线电 → 红外 → 可见光）──
+# state 有 link_* 字段时按其显示；第一关缺省是「激光中继（望楼号 / 8 s）」。
+func _link_mode_cn() -> String:
+	var raw := ""
+	if state != null:
+		var v = state.get("link_mode")
+		if v == null:
+			v = state.get("link_label")
+		if v != null:
+			raw = String(v)
+	match raw.to_lower():
+		"laser_direct", "laser-direct", "direct", "laser":
+			return "激光直接"
+		"laser_relay", "laser-relay", "relay":
+			return "激光中继"
+		"radio", "wireless":
+			return "无线电"
+		"ir", "infrared":
+			return "红外"
+		"visual", "visible", "light":
+			return "可见光"
+	if raw != "":
+		return _dn(raw)
+	return "激光中继"
+
+func _link_latency() -> String:
+	if state != null:
+		var v = state.get("link_latency_s")
+		if v != null:
+			return "%.1f s" % float(v)
+	match _link_mode_cn():
+		"激光直接":
+			return "0.4 s"
+		"激光中继", "无线电", "红外":
+			return "8 s"
+		"可见光":
+			return "分钟级"
+	return "8 s"
+
+# 中继损失：14 §3「8 s → 45 s，HUD 显示 LINK DEGRADED」。
+func _link_degraded() -> bool:
+	if state == null:
+		return false
+	for k in ["link_degraded", "relay_lost", "relay_destroyed"]:
+		var v = state.get(k)
+		if v != null and bool(v):
+			return true
+	return false
 
 var state
 var mono: Font
@@ -562,7 +622,7 @@ func _draw_top() -> void:
 	var exec_v = state.get("exec_left")
 	if exec_v != null:
 		exec_left = clampf(float(exec_v), 0.0, 360.0)
-	_txt(cjk, 548, 47, "接管通知 · 案卷 4471 / RECEIVERSHIP NOTICE", 7, Palette.a(Palette.AMBER, 0.72))
+	_txt(cjk, 548, 47, "接管通知 · 案卷 4471（传唤级）/ RECEIVERSHIP NOTICE", 7, Palette.a(Palette.AMBER, 0.72))
 	_txt(cjk, 548, 66, "执行窗口", 9, Palette.DIM)
 	_txt(mono, 626, 56, _hms(exec_left), 24, Palette.AMBER)
 	draw_rect(Rect2(548, 96, 420, 1), Palette.a(Palette.AMBER, 0.16))
@@ -572,18 +632,22 @@ func _draw_top() -> void:
 	draw_line(Vector2(1288, 50), Vector2(1288, 102), Palette.a(Palette.LINE, 0.7), 1.0)
 
 	_txt(cjk, 1300, 47, "链路 / LINK", 7, Palette.FAINT)
-	_txt(mono, 1300, 58, "LASER 0.4s", 11, Palette.PH)
+	# TEXT-02：链路按五级口径显示；中继损失显示 LINK DEGRADED（14 §3）。
+	if _link_degraded():
+		_txt(mono, 1300, 58, "LINK DEGRADED", 9, Palette.RED)
+	else:
+		_txt(cjk, 1300, 58, "%s %s" % [_link_mode_cn(), _link_latency()], 10, Palette.PH)
 	for i in range(4):
 		draw_rect(Rect2(1300.0 + float(i) * 10.0, 92, 7, 3), Palette.a(Palette.PH, 0.70 if i < 3 else 0.14))
 
 	_txt(cjk, 1440, 47, "时标 / TIMESCALE", 7, Palette.FAINT)
 	_txt(mono, 1440, 58, "×%d" % int(state.time_scale), 18, Palette.PH)
-	_txt(cjk, 1440, 92, "AUTO-SLOW 开", 7, Palette.AMBER)
+	_txt(cjk, 1440, 92, "自动降速 开", 7, Palette.AMBER)
 
 	_txt(cjk, 1580, 47, "编队 Δv", 7, Palette.FAINT)
 	_txt(mono, 1580, 58, _fmt_int(int(state.fleet_dv)), 18, Palette.PH)
 	_txt(mono, 1652, 64, "m/s", 8, Palette.DIM)
-	_txt(cjk, 1580, 92, "剩余 72%", 7, Palette.FAINT)
+	_txt(cjk, 1580, 92, "Δv 余量 72%", 7, Palette.FAINT)
 
 	# 12 军语 P0-4/P0-5：同一行 ROE 不再用一个 HOLD 混三种含义；
 	# 顶栏 = 仅自卫（不得首先开火），日志的暂缓另用「暂缓执行」。
@@ -597,7 +661,7 @@ func _draw_tracks() -> void:
 	# 12 军语 P0-2：TRACKS = 航迹；本面板是接触列表，所以中文取「接触」、英文取 CONTACTS。
 	_txt(cjk, 76, 134, "接触 / CONTACTS", 11, Palette.TXT)
 	_txt_r(mono, 364, 134, "%02d" % state.tracks.size(), 12, Palette.PH_DIM)
-	_txt(cjk, 76, 153, "威胁排序 / THREAT ↓", 7, Palette.FAINT)
+	_txt(cjk, 76, 153, "威胁排序 / THREAT RANKING", 7, Palette.FAINT)
 	draw_line(Vector2(60, 168), Vector2(380, 168), Palette.a(Palette.LINE, 0.9), 1.0)
 
 	row_rects.clear()
@@ -622,15 +686,18 @@ func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 	draw_line(Vector2(76, y + 79), Vector2(364, y + 79), Palette.a(Palette.LINE, 0.55), 1.0)
 
 	var dim := 0.45 if t.get("stale", false) else 1.0
-	var disp_id := _dn(t.id)
+	var disp_id := _track_display_id(t)
 	var idf := cjk if Fonts.has_cjk(disp_id) else mono
 	_txt(idf, 76, y + 12, disp_id, 13, Palette.a(col, dim))
-	_txt(cjk, 160, y + 14, _dn(t.cls), 9, Palette.a(Palette.DIM, dim))
+	var disp_cls := _dn(String(t.get("cls", "")))
+	if disp_id == "虚警":
+		disp_cls = "交叉确认 · 不再当目标"
+	_txt(cjk, 160, y + 14, disp_cls, 9, Palette.a(Palette.DIM, dim))
 	_draw_level(344.0, y + 12.0, t, col)
 
 	var line2 := ""
 	if t.get("own", false):
-		line2 = "基准 / REFERENCE"
+		line2 = "基准 / DATUM"
 	elif t.get("bearing_only", false):
 		line2 = "方位 302° · 距离未知"
 	else:
@@ -682,7 +749,7 @@ func _draw_unit() -> void:
 			u["mass"] = "300 t"
 		if String(u.get("crew", "")) == "68":
 			u["crew"] = "12"
-	_txt(cjk, 1556, 138, "选中单位 / UNIT", 7, Palette.FAINT)
+	_txt(cjk, 1556, 138, "选中舰 / SELECTED SHIP", 7, Palette.FAINT)
 	_txt(cjk, 1556, 150, _dn(u.name), 24, Palette.TXT)
 	_txt(mono, 1556, 181, _dn(u.en), 8, Palette.DIM)
 	_txt(cjk, 1556, 195, _dn(u.cls + " · " + u.role), 10, Palette.PH)
@@ -690,8 +757,8 @@ func _draw_unit() -> void:
 	draw_line(Vector2(1540, 224), Vector2(1860, 224), Palette.a(Palette.LINE, 0.9), 1.0)
 
 	var stats := [
-		["干重 MASS", u.mass], ["编制 CREW", u.crew],
-		["加速度 ACCEL", u.accel], ["轨道 ORBIT", u.orbit],
+		["干重 MASS", u.mass], ["舰员 CREW", u.crew],
+		["加速度 ACCEL", u.accel], ["站位 STATION", u.orbit],
 		["倾角 INC", u.inc], ["周期 PERIOD", u.period]
 	]
 	for i in range(6):
@@ -779,11 +846,11 @@ func _draw_unit() -> void:
 	_txt(mono, 1628, 732, "Y  -3.1°", 8, Palette.TXT)
 	_txt(mono, 1628, 744, "R  +0.8°", 8, Palette.TXT)
 	_txt(mono, 1628, 756, "ω  0.02°/s", 7, Palette.DIM)
-	_txt(cjk, 1628, 768, "RCS 就绪", 7, Palette.PH_DIM)
+	_txt(cjk, 1628, 768, "姿控 RCS 就绪", 7, Palette.PH_DIM)
 
 	draw_line(Vector2(1540, 820), Vector2(1860, 820), Palette.a(Palette.LINE, 0.9), 1.0)
 	_txt(cjk, 1556, 828, "损管队列 2 项", 8, Palette.AMBER)
-	_txt_r(mono, 1860, 828, "HULL 100%", 8, Palette.DIM)
+	_txt_r(cjk, 1860, 828, "舰体 HULL 100%", 8, Palette.DIM)
 
 func _draw_ship_watermark() -> void:
 	var col := Palette.a(Palette.PH, 0.10)
@@ -1060,8 +1127,12 @@ func _draw_command_panel() -> void:
 	_txt(cjk, 1016, 929, _ellipsis(cjk, String(preset["label"]), 7, 82.0), 7, Palette.TXT)
 	_cmd_btn(DIR_CYCLE, "换向 ▸", false, Palette.PH)
 
-	# P1f：把「链路」与「机动」拆两行 —— 望楼中继只花时间与暴露，不烧 Δv。
-	_txt(cjk, CMD_INSET_X, 946, "链路：望楼中继 +8 s（传达 / 回执，不消耗 Δv）", 7, Palette.a(Palette.BLUE, 0.85))
+	# P1f：把「链路」与「机动」拆两行 —— 中继只花时间与暴露，不烧 Δv。
+	# TEXT-02：链路标签按 14 §3 五级口径；中继损失显示 LINK DEGRADED。
+	var link_line := "链路：%s（望楼号中继）%s · 传达 / 回执，不消耗 Δv" % [_link_mode_cn(), _link_latency()]
+	if _link_degraded():
+		link_line = "链路：LINK DEGRADED · 回退 45 s（中继损失，不消耗 Δv）"
+	_txt(cjk, CMD_INSET_X, 946, link_line, 7, Palette.a(Palette.BLUE if not _link_degraded() else Palette.RED, 0.85))
 	_txt(cjk, CMD_INSET_X, 954, "机动：Δv %.0f m/s · 剩余 %s m/s" % [draft_dv, _fmt_int(dv_left)], 7, Palette.a(Palette.AMBER, 0.85))
 	if _burn_drag:
 		_txt_r(cjk, CMD_INNER_R, 954, "拖动中 · 未授权（松开只记 draft）", 7, Palette.a(Palette.AMBER, 0.9))
@@ -1093,17 +1164,17 @@ func _draw_command_panel() -> void:
 	# 授权 / 撤销 / 武器释放
 	_cmd_btn(AUTH_BTN, "授权 / AUTHORIZE", false, Palette.PH)
 	_cmd_btn(ABORT_BTN, "撤销待生效 / ABORT", false, Palette.RED)
-	# P1f：武器释放（二次确认；仅裁决前可用）
+	# P1f：武器释放授权（二次确认；仅裁决前可用）
 	var fire_col := Palette.RED
-	var fire_label := "武器释放 / RELEASE"
+	var fire_label := "武器释放授权 / RELEASE"
 	var fire_ready := _fire_available()
 	if _flag("fire_branch"):
-		fire_label = "已授权 / RELEASED"
+		fire_label = "已授权 / AUTHORIZED"
 		fire_col = Palette.FAINT
 	elif _fire_confirm_t > 0.0:
-		fire_label = "确认释放？%.0fs" % ceil(_fire_confirm_t)
+		fire_label = "确认释放授权？%.0fs" % ceil(_fire_confirm_t)
 	elif not fire_ready:
-		fire_label = "武器释放（不可用）"
+		fire_label = "武器释放授权（不可用）"
 		fire_col = Palette.FAINT
 	_cmd_btn(FIRE_BTN, fire_label, _fire_confirm_t > 0.0, fire_col)
 
@@ -1604,14 +1675,14 @@ func _draw_decision_overlay() -> void:
 		_txt_r(mono, row.end.x - 18.0, row.position.y + 50.0, "[%d]" % (i + 1), 8, Palette.a(Palette.FAINT, 0.9))
 	var fy := r.end.y - 36.0
 	draw_line(Vector2(r.position.x + 20.0, fy - 6.0), Vector2(r.end.x - 20.0, fy - 6.0), Palette.a(Palette.LINE, 0.8), 1.0)
-	_txt(cjk, r.position.x + 20.0, fy + 2.0, "1 / 2 / 3 或点击行 · 裁决前仍可武器释放（需二次确认）", 7, Palette.FAINT)
+	_txt(cjk, r.position.x + 20.0, fy + 2.0, "1 / 2 / 3 或点击行 · 裁决前仍可武器释放授权（需二次确认）", 7, Palette.FAINT)
 	_txt_r(cjk, r.end.x - 20.0, fy + 2.0, "ROE：仅自卫 · 不得首先开火", 7, Palette.a(Palette.AMBER, 0.7))
 
 func _draw_consequence_overlay() -> void:
 	_overlay_dim()
 	var r := CONSEQ_RECT
 	_overlay_frame(r, "后果 / CONSEQUENCE", "FIRE BRANCH · CASE 4471 · SIM FROZEN")
-	var ctext := "火控解锁。谷神-2 是民用船——12 人无人生还。ROE 违规写进黑匣子。"
+	var ctext := "武器释放授权已执行。谷神-2 是民用船——12 人无人生还。ROE 违规写进黑匣子。"
 	if state != null:
 		var cv = state.get("consequence_text")
 		if cv != null and String(cv) != "":
@@ -1730,7 +1801,7 @@ func _draw_filed_banner() -> void:
 func _draw_time() -> void:
 	_panel(TIME)
 	_txt(cjk, 1216, 893, "态势回放 / REPLAY", 8, Palette.TXT)
-	_txt_r(mono, 1844, 893, "60s BUFFER", 7, Palette.FAINT)
+	_txt_r(cjk, 1844, 893, "60 秒缓冲 / BUFFER", 7, Palette.FAINT)
 
 	time_rects.clear()
 	var scales := [1.0, 10.0, 60.0, 300.0]
@@ -1928,9 +1999,9 @@ func _draw_boot() -> void:
 	var lines := [
 		"DATUM CCS / COLD START",
 		"MOUNT CISLUNAR GRID ........ OK",
-		"LINK APSIS ................. 0.4s",
+		"LINK APSIS .......... LASER DIRECT 0.4s",
 		"SENSOR ARRAY ............... 06",
-		"RECEIVERSHIP NOTICE 4471 ... RX",
+		"CASE 4471 SUMMONS ....... RX",
 		"SUPERVISOR AUTHORITY ....... GRANTED"
 	]
 	for i in range(lines.size()):
@@ -1938,7 +2009,7 @@ func _draw_boot() -> void:
 			_txt(mono, 120.0, 300.0 + float(i) * 30.0, lines[i], 11, Palette.a(Palette.PH, 0.85))
 
 	# 右侧总线读数
-	var st := ["LINK 0.4s", "ARRAY 06", "NOTICE 4471", "APSIS 192,000 km", "ROE 仅自卫"]
+	var st := ["LINK DIRECT 0.4s", "ARRAY 06", "CASE 4471", "APSIS 192,000 km", "ROE 仅自卫"]
 	for i in range(st.size()):
 		if t * 6.0 > float(i):
 			_txt_r(mono, 1800.0, 300.0 + float(i) * 24.0, st[i], 9, Palette.a(Palette.DIM, 0.8))

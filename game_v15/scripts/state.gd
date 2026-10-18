@@ -188,7 +188,7 @@ const TRACK_SHIP := {
 	"望楼号": "watchtower",
 	"案卷 4471": "summons_4471",
 	"谷神-2": "ceres_2",
-	"未识别": "harmattan",
+	"不明接触": "harmattan",
 }
 
 func _ship_id_for_track(track_id: String) -> String:
@@ -217,11 +217,11 @@ func _hud_sensor(s: Dictionary) -> Dictionary:
 		_:
 			glyph = "ring"
 			col = "#7FA995"
-	var sig := "REFRESH %.0fs" % float(s.get("refresh_s", 1.0))
+	var sig := "刷新 %.0f s" % float(s.get("refresh_s", 1.0))
 	if t == "radio" or t == "lasercom":
-		sig = "LAT %.1fs" % float(s.get("latency_s", 4.0))
+		sig = "时延 %.1f s" % float(s.get("latency_s", 4.0))
 	if bool(s.get("expose", false)):
-		sig += " · EMIT"
+		sig += " · 辐射"
 	return {
 		"mfr": String(s.get("source", "—")),
 		"model": String(s.get("model", "?")),
@@ -281,9 +281,9 @@ func _build_tracks() -> void:
 			_rel(332.0, 68.0, -4.0), Vector3(-0.0607, -0.0775, 0.0074), 1.0, false, Vector2(-72, -20)),
 		_track("望楼号", "WATCHTOWER", "安海-1", "中继舰", "friend", 4,
 			_rel(12.0, 96.0, 38.0), Vector3(-0.1174, 0.0250, 0.0200), 1.0, false, Vector2(16, -18)),
-		_track("案卷 4471", "SUMMONS", "传唤级", "送达舰", "hostile", 1,
+		_track("案卷 4471", "SUMMONS", "传唤级", "送达", "hostile", 1,
 			_rel(41.0, 318.0, 12.0), Vector3(-1.1683, -0.5067, -0.0634), 2.0, false, Vector2(-86, -38)),
-		_track("谷神-2", "CERES-2", "谷神改", "民用 · 应答机故障", "unknown", 1,
+		_track("谷神-2", "CERES-2", "谷神改", "民用工作船", "unknown", 1,
 			_rel(118.0, 260.0, -6.0), Vector3(0.0505, 0.0524, -0.0005), 12.0, false, Vector2(16, 12)),
 	]
 	# 点火计划：T+6.2 s、Δv 84 m/s、方位 340°、仰角 +20°（含离面分量）。
@@ -293,7 +293,7 @@ func _build_tracks() -> void:
 		"elev": 20.0,
 		"dv_ms": 84.0,
 		"dv": _dv_vec(340.0, 20.0, 0.084),
-		"label": "TRANSFER 哈马丹 → 节点 B-2"
+		"label": "点火（BURN）哈马丹 → 节点 B-2"
 	}
 
 # CH-IR2 虚警（07 §3 第一拍「两条回波」：真目标是案卷 4471，另一条是残骸/反射）。
@@ -305,7 +305,7 @@ func _build_phantom() -> void:
 		"false_bearing_deg": phantom_bearing,
 	})
 	var d := {
-		"id": "未识别", "en": "UNKNOWN", "cls": "CH-IR2 回波", "role": "虚警候选 · 残骸/反射",
+		"id": "不明接触", "en": "UNKNOWN CONTACT", "cls": "CH-IR2 虚警候选", "role": "虚警候选 · 残骸/反射",
 		"side": "unknown", "level": 1, "bearing": phantom_bearing, "range": 0.0, "alt": 0.0,
 		"closing": 0.0, "age": 0.0, "own": false, "off": Vector2(-120, -26),
 		"stale": false, "bearing_only": true, "phantom": true,
@@ -431,8 +431,8 @@ func _seed_demo_commands() -> void:
 		"budget_ms": unit_dv_ms,
 	}, 0.0)
 	# HUD 日志首两行 = 真实命令（状态随命令机更新）
-	log_lines[0] = {"t": "T+00.0", "text": "BURN 哈马丹 · 节点 B-2", "arg": "T+06.2s", "status": "PENDING", "_cmd": String(burn_cmd.get("id", ""))}
-	log_lines[1] = {"t": "T+00.0", "text": "SHADOW 哈马丹 → 谷神-2", "arg": "中继 8s", "status": "PENDING", "_cmd": String(shadow.get("id", ""))}
+	log_lines[0] = {"t": "T+00.0", "text": "点火（BURN）哈马丹 · 节点 B-2", "arg": "T+06.2s", "status": "PENDING", "_cmd": String(burn_cmd.get("id", ""))}
+	log_lines[1] = {"t": "T+00.0", "text": "跟踪（SHADOW）哈马丹 → 谷神-2", "arg": "中继 8s", "status": "PENDING", "_cmd": String(shadow.get("id", ""))}
 	cmd_note = _cmd_note()
 
 func _push_command_log(cmd: Dictionary) -> void:
@@ -442,9 +442,9 @@ func _push_command_log(cmd: Dictionary) -> void:
 	var stat := String(cmd.get("status", ""))
 	var txt := "%s 哈马丹" % act
 	if act == "SHADOW":
-		txt = "SHADOW 哈马丹 → %s" % String(cmd.get("target", ""))
+		txt = "跟踪（SHADOW）哈马丹 → %s" % String(cmd.get("target", ""))
 	elif act == "BURN":
-		txt = "BURN 哈马丹 · Δv %.0f" % float((cmd.get("plan", {}) as Dictionary).get("dv_ms", 0.0))
+		txt = "点火（BURN）哈马丹 · Δv %.0f" % float((cmd.get("plan", {}) as Dictionary).get("dv_ms", 0.0))
 	log_lines.push_front({
 		"t": "T+%05.1f" % float(cmd.get("issue_t", 0.0)),
 		"text": txt,
@@ -497,14 +497,14 @@ func _apply_command(cmd: Dictionary, tick_t: float) -> void:
 			unit_dv_ms = maxf(0.0, unit_dv_ms - dv_ms)
 			fleet_dv = maxi(0, fleet_dv - int(round(dv_ms)))
 			unit["dv"] = _fmt_int(int(round(unit_dv_ms)))
-			_push_log("BURN 哈马丹 · Δv %.0f m/s" % dv_ms, "T+%04.1fs" % float(cmd.get("exec_t", 0.0)), "EXEC")
+			_push_log("点火（BURN）哈马丹 · Δv %.0f m/s" % dv_ms, "T+%04.1fs" % float(cmd.get("exec_t", 0.0)), "EXEC")
 		"SHADOW":
 			shadow_target = String(cmd.get("target", ""))
 			shadow_since = float(cmd.get("exec_t", tick_t))
 			station_hold = false
 			if _optical_target == "" and not _optical_done.has(shadow_target):
 				_optical_target = shadow_target
-			_push_log("SHADOW 生效：哈马丹 → %s" % shadow_target, "望楼中继", "EXEC")
+			_push_log("跟踪（SHADOW）生效：哈马丹 → %s" % shadow_target, "望楼号中继", "EXEC")
 		"STATION":
 			station_hold = true
 			for raw in cmd_model.pending():
@@ -512,7 +512,7 @@ func _apply_command(cmd: Dictionary, tick_t: float) -> void:
 				if String(other.get("action", "")) == "BURN":
 					cmd_model.abort(String(other.get("id", "")), tick_t)
 					_update_command_log(other)
-			_push_log("STATION 哈马丹 · 保持站位", "小修正", "EXEC")
+			_push_log("保持站位（STATION）· 哈马丹", "小修正", "EXEC")
 	_update_command_log(cmd)
 	cmd_note = _cmd_note()
 
@@ -644,7 +644,7 @@ func _plan_tick(t: float) -> void:
 	sensor_on = plan
 	# 开机事件写日志：第一次雷达开机（EMIT）
 	if t >= radar_on_t and t - FUSION_PERIOD_S < radar_on_t:
-		_push_log("远地点 YW-R9 开机 · EMIT 暴露", "EXPOSE", "EXEC")
+		_push_log("远地点号 YW-R9 开机 · 辐射暴露", "EXPOSE", "EXEC")
 
 func _sensor_exposes(ship: String, model: String) -> bool:
 	var s := SensorModel.rack_sensor(ship, model)
@@ -837,7 +837,7 @@ func _apply_datalink_identity(tr: Dictionary) -> void:
 
 func _update_phantom(t: float) -> void:
 	phantom_true = t >= phantom_true_t
-	var ph := track_by_id("未识别")
+	var ph := track_by_id("不明接触")
 	if ph.is_empty():
 		return
 	ph["level"] = 1
@@ -854,7 +854,7 @@ func _update_phantom(t: float) -> void:
 		]
 		_push_log("交叉确认：CH-IR2 虚警 · 方位 302°", "FALSE ALARM", "EXEC")
 	elif not phantom_true:
-		ph["cls"] = "CH-IR2 回波"
+		ph["cls"] = "CH-IR2 虚警候选"
 		ph["role"] = "虚警候选 · 残骸/反射"
 
 func _update_emissions(t: float) -> void:
@@ -922,9 +922,9 @@ func _sensor_note(t: float) -> String:
 			continue
 		var l := clampi(int(tr.get("level", 1)), 0, 4)
 		lv[l] += 1
-	return "FUSION %d Hz · L4 %d / L3 %d / L2 %d / L1 %d · %s" % [
+	return "融合 %d Hz · L4 %d / L3 %d / L2 %d / L1 %d · %s" % [
 		1, lv[4], lv[3], lv[2], lv[1],
-		("EMIT " + ("点名" if elint_named else "暴露")) if bool(emission.get("exposed", false)) else "EMCON",
+		("辐射 " + ("已点名" if elint_named else "暴露")) if bool(emission.get("exposed", false)) else "电磁管制",
 	]
 
 func _push_log(text: String, arg: String, status: String) -> void:
@@ -1022,6 +1022,16 @@ func _apply_scenario_env() -> void:
 		var fa: Dictionary = scenario.get("false_alarm", {})
 		phantom_bearing = float(fa.get("bearing_deg", phantom_bearing))
 
+# 职责文案归一（role 只放职责；状态另放 notes/iff_status，见 docs/12 P0-9）
+func _role_text(role: String) -> String:
+	match role:
+		"送达舰":
+			return "送达"
+		"民用 · 应答机故障":
+			return "民用工作船"
+		_:
+			return role
+
 func _build_tracks_from_scenario() -> void:
 	var arr: Array = scenario.get("tracks", [])
 	tracks = []
@@ -1036,7 +1046,7 @@ func _build_tracks_from_scenario() -> void:
 		var off := _vec2_from_json(d.get("off", null), Vector2(16.0, 12.0))
 		var tr := _track(
 			String(d.get("id", "?")), String(d.get("en", "")), String(d.get("cls", "")),
-			String(d.get("role", "")), String(d.get("side", "unknown")),
+			String(_role_text(String(d.get("role", "")))), String(d.get("side", "unknown")),
 			int(d.get("level", 1)), r, v, float(d.get("age", 0.0)),
 			bool(d.get("own", false)), off, bool(d.get("bearing_only", false)))
 		tracks.append(tr)
@@ -1107,7 +1117,7 @@ func _open_decision() -> void:
 	tut_phase = PHASE_DECIDE
 	decision_prompt = story_text("decision_prompt", decision_prompt)
 	_update_freeze()
-	_push_log("DECISION 窗口开启 · 三选一（或开火）", "B 拍", "EXEC")
+	_push_log("决断窗口开启 · 三选一（或武器释放）", "B 拍", "EXEC")
 
 func story_text(key: String, fallback: String = "") -> String:
 	var v = story.get(key, fallback)
@@ -1197,7 +1207,7 @@ func authorize_fire() -> Dictionary:
 	reputation["斛港务"] = int(reputation.get("斛港务", 0)) - 5
 	reputation["远环合作社"] = int(reputation.get("远环合作社", 0)) - 3
 	consequence_text = story_text("consequence_fire", consequence_text)
-	_push_log("授权开火 → 谷神-2（民用）· ROE 违规", "FIRE", "HOLD")
+	_push_log("武器释放授权 → 谷神-2（民用）· ROE 违规", "FIRE", "HOLD")
 	_push_log("时间冻结 · 审裁证据已封存", "CONSEQ", "HOLD")
 	return {"fire_branch": true, "consequence_open": true, "frozen": true}
 
@@ -1416,10 +1426,10 @@ func _reset_runtime() -> void:
 
 func _build_log() -> void:
 	log_lines = [
-		{"t": "12:31.4", "text": "TRANSFER 哈马丹 → 节点 B-2", "arg": "Δv 84", "status": "PENDING"},
-		{"t": "12:28.0", "text": "EMCON 静默 · 雷达关机", "arg": "", "status": "EXEC"},
-		{"t": "12:19.3", "text": "火控请求 → 案卷 4471", "arg": "ROE 拒绝", "status": "HOLD"},
-		{"t": "12:04.8", "text": "传感器：被动红外 / 光学", "arg": "", "status": "EXEC"},
+		{"t": "12:31.4", "text": "点火（BURN）哈马丹 → 节点 B-2", "arg": "Δv 84", "status": "PENDING"},
+		{"t": "12:28.0", "text": "电磁管制 · 雷达关机", "arg": "", "status": "EXEC"},
+		{"t": "12:19.3", "text": "武器释放授权请求 → 案卷 4471", "arg": "ROE 拒绝", "status": "HOLD"},
+		{"t": "12:04.8", "text": "传感器：红外 / 光学", "arg": "", "status": "EXEC"},
 		{"t": "11:52.1", "text": "接收 接管通知 · 案卷 4471", "arg": "", "status": "RX"}
 	]
 
@@ -1428,9 +1438,9 @@ func _build_unit() -> void:
 		"name": "哈马丹", "en": "HARMATTAN", "cls": "托盘-5 改", "role": "哨舰",
 		"faction": "公约 · AD 特遣群",
 		"mass": "300 t", "crew": "12", "accel": "0.15 g",
-		"orbit": "L1 · 斛站", "inc": "—", "period": "—",
+		"orbit": "L1 · 站位 斛", "inc": "—", "period": "—",
 		"dv": _fmt_int(int(round(unit_dv_ms))), "dv_max": _fmt_int(int(round(unit_dv_max))),
 		"systems": [["传感器", 0.74], ["火控", 0.42], ["推进", 0.66], ["通信", 0.82], ["反应堆", 0.95]],
-		"weapons": [["CH-IR2 红外", "1 · 被动"], ["CH-R0 无线电", "1 · 4s"], ["武器", "无"]],
+		"weapons": [["CH-IR2 红外", "1 · 被动"], ["CH-R0 无线电", "1 · 4s"], ["武器释放", "无"]],
 		"damage": "红外虚警偏高", "damage2": "· CH-IR2 校准中"
 	}
