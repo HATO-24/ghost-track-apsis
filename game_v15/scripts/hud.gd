@@ -32,13 +32,33 @@ const T_PLUS := Rect2(756, 926, 20, 18)
 const DV_MINUS := Rect2(824, 926, 20, 18)
 const DV_PLUS := Rect2(926, 926, 20, 18)
 const DIR_CYCLE := Rect2(1104, 926, 60, 18)
-const TIMELINE := Rect2(652, 952, 512, 24)
-# 授权 / 撤销 / 队列
-const AUTH_BTN := Rect2(652, 984, 176, 20)
-const ABORT_BTN := Rect2(836, 984, 176, 20)
-const QUEUE_Y := 1016.0
+# P1f：命令面板把「链路」与「机动」拆两行（y 946 / 954），时间轴下移收紧。
+const TIMELINE := Rect2(652, 962, 512, 16)
+# 授权 / 撤销 / 武器释放
+const AUTH_BTN := Rect2(652, 980, 176, 20)
+const ABORT_BTN := Rect2(836, 980, 176, 20)
+const FIRE_BTN := Rect2(1020, 980, 144, 20)
+const QUEUE_Y := 1012.0
 const QUEUE_ROW_H := 12.0
 const QUEUE_ABORT_X := 1120.0
+
+# ── P1f：裁决 / 后果 / 报告覆盖层（居中面板，V1.5 仪表风）──
+const DECISION_RECT := Rect2(480, 250, 960, 560)
+const CONSEQ_RECT := Rect2(560, 300, 800, 440)
+const REPORT_RECT := Rect2(440, 210, 1040, 660)
+const FILED_RECT := Rect2(700, 468, 520, 120)
+const DECISION_KINDS := ["certify", "article9", "stall"]
+const DECISION_NAMES := ["认证交接 / CERTIFY", "援引第九条 / ARTICLE 9", "拖程序 / STALL"]
+const DECISION_CONSEQ := [
+	"按程序签字，储罐交给清算署 · 公约 +1 / 天市 −1 / 清算署 +1（第二幕港务冷淡）",
+	"以「迫切且不可逆之损害」阻止交接 · 公约 −1 / 天市 +2 / 清算署 −2 / 永昼 +1（第二幕开场即审裁）",
+	"要求文书复核，拖过执行窗口 · 天市 +1 短 / −1 长 · 清算署 −1（储罐可能断供）",
+]
+const DECISION_RUBRIC := ["回执 · 合法", "回执 · 越权", "回执 · 拖延"]
+# 报告覆盖层按钮
+const REPORT_TRUTH := Rect2(1056, 300, 396, 110)
+const REPORT_FAKE := Rect2(1056, 424, 396, 110)
+const CONSEQ_SUBMIT := Rect2(800, 660, 320, 40)
 
 # 传感器条 / 下拉阵列（V2 结构，V1 薄荷语言）。
 # 位置规则：水平锁在地图中轴（396 + 1128 / 2 = 960），垂直贴地图上沿 +12。
@@ -268,6 +288,18 @@ var _burn_drag := false
 var _preview_dirty := false
 var _queue_abort: Array = []          # [{rect: Rect2, id: String}]（每帧重建）
 
+# P1f：覆盖层 / 武器释放（优先读 state 字段；缺失时用 DSH_UI 的本地演示态）
+var _demo_decision := false
+var _demo_consequence := false
+var _demo_report := false
+var _decision_done := false
+var _fire_confirm_t := 0.0
+var _filed_text := ""
+var _filed_col := Color(1, 1, 1, 1)
+var _filed_t := 0.0
+var _key_prev: Dictionary = {}
+const FILED_MOCK := ""
+
 func _ready() -> void:
 	mono = Fonts.mono()
 	cjk = Fonts.cjk()
@@ -277,11 +309,26 @@ func _ready() -> void:
 		state.selected = clampi(int(ds), 0, state.tracks.size() - 1)
 	# P1e：默认 draft（BURN T+6.2 / Δv 84 / BRG340）镜像给 sim 的 preview，供 plot 画 DRAFT 节点。
 	_push_preview()
+	# P1f 截图/调试钩子：DSH_UI=decision|consequence|report 打开对应覆盖层。
+	# state 侧字段（decision_open / …）一旦存在，以 state 为准；这里只是 HUD 本地演示。
+	match OS.get_environment("DSH_UI"):
+		"decision":
+			_demo_decision = true
+		"consequence":
+			_demo_consequence = true
+		"report":
+			_demo_report = true
 
 func _process(delta: float) -> void:
 	_t += delta
 	if menu_open:
 		menu_t += delta
+	if _fire_confirm_t > 0.0:
+		_fire_confirm_t = maxf(0.0, _fire_confirm_t - delta)
+	if _filed_t > 0.0:
+		_filed_t = maxf(0.0, _filed_t - delta)
+	# P1f：覆盖层键盘交给 main.gd（P1f-SIM 已在 _unhandled_input 里处理 1/2/3/F/E），
+	# HUD 只负责画与鼠标点击，避免一次按键触发两次命令。
 	# P1e：点火节点拖动（只改本地 draft，不写 state）。
 	# main.gd 只把鼠标按下转发给 hud.click()，所以这里轮询鼠标位置 / 松开。
 	if _burn_drag:
@@ -310,9 +357,23 @@ func _draw() -> void:
 	if menu_open:
 		_draw_sensor_menu()
 	_draw_screen_edge()
+	# P1f：覆盖层画在最上层（含 dim），裁决/后果/报告 + 归档结果条。
+	if _ov_report():
+		_draw_report_overlay()
+	elif _ov_consequence():
+		_draw_consequence_overlay()
+	elif _ov_decision():
+		_draw_decision_overlay()
+	if _filed_t > 0.0:
+		_draw_filed_banner()
 
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
+		return
+	# P1f：覆盖层吃掉一切点击。
+	if _any_overlay():
+		_handle_overlay_click(p)
+		queue_redraw()
 		return
 	# P1e：命令面板优先（面板内的点击不再落到接触列表/时标/地图）。
 	if CMD.has_point(p):
@@ -352,6 +413,9 @@ func click(p: Vector2) -> void:
 			return
 
 func consumes(p: Vector2) -> bool:
+	# P1f：覆盖层打开时吞掉所有指针输入（防止点穿到地图/面板）。
+	if _any_overlay():
+		return true
 	if CMD.has_point(p):
 		return true
 	if SENSOR_RECT.has_point(p):
@@ -873,6 +937,9 @@ func _handle_command_click(p: Vector2) -> void:
 	if ABORT_BTN.has_point(p):
 		state.abort_latest_command()
 		return
+	if FIRE_BTN.has_point(p):
+		_handle_fire_click()
+		return
 	for row in _queue_abort:
 		var rr: Rect2 = row["rect"]
 		if rr.has_point(p):
@@ -927,42 +994,56 @@ func _draw_command_panel() -> void:
 	_txt(cjk, 1016, 929, _ellipsis(cjk, String(preset["label"]), 7, 82.0), 7, Palette.TXT)
 	_cmd_btn(DIR_CYCLE, "换向 ▸", false, Palette.PH)
 
-	# 计划信息：Δv 成本 / 延迟；右侧 = draft 摘要（拖动中提示「未授权」）
-	_txt(cjk, CMD_INSET_X, 946, "Δv 成本 %.0f m/s · 生效延迟 8 s（望楼中继）" % draft_dv, 7, Palette.a(Palette.AMBER, 0.8))
+	# P1f：把「链路」与「机动」拆两行 —— 望楼中继只花时间与暴露，不烧 Δv。
+	_txt(cjk, CMD_INSET_X, 946, "链路：望楼中继 +8 s（传达 / 回执，不消耗 Δv）", 7, Palette.a(Palette.BLUE, 0.85))
+	_txt(cjk, CMD_INSET_X, 954, "机动：Δv %.0f m/s · 剩余 %s m/s" % [draft_dv, _fmt_int(dv_left)], 7, Palette.a(Palette.AMBER, 0.85))
 	if _burn_drag:
-		_txt_r(cjk, CMD_INNER_R, 946, "拖动中 · 未授权（松开只记 draft）", 7, Palette.a(Palette.AMBER, 0.9))
+		_txt_r(cjk, CMD_INNER_R, 954, "拖动中 · 未授权（松开只记 draft）", 7, Palette.a(Palette.AMBER, 0.9))
 	else:
-		_txt_r(cjk, CMD_INNER_R, 946, "DRAFT BURN T+%.1f · Δv %.0f" % [draft_t, draft_dv], 7, Palette.a(Palette.BLUE, 0.85))
+		_txt_r(cjk, CMD_INNER_R, 954, "DRAFT BURN T+%.1f" % draft_t, 7, Palette.a(Palette.BLUE, 0.8))
 
 	# 时间轴：T+0 … T+30，节点 = draft（拖动不授权）
 	var tx := TIMELINE.position.x
 	var tw := TIMELINE.size.x
-	var axis_y := TIMELINE.position.y + 16.0
+	var axis_y := TIMELINE.position.y + 12.0
 	draw_line(Vector2(tx, axis_y), Vector2(tx + tw, axis_y), Palette.a(Palette.LINE2, 0.9), 1.0)
 	for i in range(7):
 		var sec := float(i) * 5.0
 		var x := tx + tw * sec / PLAN_WINDOW_S
-		var h := 6.0 if i % 2 == 0 else 3.0
+		var h := 5.0 if i % 2 == 0 else 3.0
 		draw_line(Vector2(x, axis_y - h), Vector2(x, axis_y), Palette.a(Palette.PH_DIM, 0.7), 1.0)
-		if i % 2 == 0:
-			_txt(mono, x, axis_y + 8.0, "T+%d" % int(sec), 7, Palette.a(Palette.FAINT, 0.9))
+	_txt(mono, tx + 3.0, TIMELINE.position.y + 1.0, "T+0", 7, Palette.a(Palette.FAINT, 0.9))
+	_txt_r(mono, CMD_INNER_R - 3.0, TIMELINE.position.y + 1.0, "T+30", 7, Palette.a(Palette.FAINT, 0.9))
 	# 起点：NOW
-	draw_line(Vector2(tx, axis_y - 10.0), Vector2(tx, axis_y + 3.0), Palette.PH, 2.0)
-	# 点火节点（draft）：菱形压在轴上，不遮上方成本行
+	draw_line(Vector2(tx, axis_y - 8.0), Vector2(tx, axis_y + 2.0), Palette.PH, 2.0)
+	# 点火节点（draft）
 	var nx := tx + tw * clampf(draft_t / PLAN_WINDOW_S, 0.0, 1.0)
-	draw_line(Vector2(nx, axis_y - 10.0), Vector2(nx, axis_y + 3.0), Palette.AMBER, 1.5)
+	draw_line(Vector2(nx, axis_y - 8.0), Vector2(nx, axis_y + 2.0), Palette.AMBER, 1.5)
 	draw_colored_polygon(PackedVector2Array([
-		Vector2(nx, axis_y - 12.0), Vector2(nx + 5.0, axis_y - 8.0),
-		Vector2(nx, axis_y - 4.0), Vector2(nx - 5.0, axis_y - 8.0)
+		Vector2(nx, axis_y - 10.0), Vector2(nx + 5.0, axis_y - 6.0),
+		Vector2(nx, axis_y - 2.0), Vector2(nx - 5.0, axis_y - 6.0)
 	]), Palette.AMBER)
 
-	# 授权 / 撤销
+	# 授权 / 撤销 / 武器释放
 	_cmd_btn(AUTH_BTN, "授权 / AUTHORIZE", false, Palette.PH)
 	_cmd_btn(ABORT_BTN, "撤销待生效 / ABORT", false, Palette.RED)
-	_txt_r(mono, CMD_INNER_R, 988, "QUEUE %d/%d" % [queued, camds.size()], 7, Palette.FAINT)
+	# P1f：武器释放（二次确认；仅裁决前可用）
+	var fire_col := Palette.RED
+	var fire_label := "武器释放 / RELEASE"
+	var fire_ready := _fire_available()
+	if _flag("fire_branch"):
+		fire_label = "已授权 / RELEASED"
+		fire_col = Palette.FAINT
+	elif _fire_confirm_t > 0.0:
+		fire_label = "确认释放？%.0fs" % ceil(_fire_confirm_t)
+	elif not fire_ready:
+		fire_label = "武器释放（不可用）"
+		fire_col = Palette.FAINT
+	_cmd_btn(FIRE_BTN, fire_label, _fire_confirm_t > 0.0, fire_col)
 
 	# 队列（读 state.commands；只显示最后 2 条；QUEUED / TRANSMITTED 可 ABORT）
-	_txt(cjk, CMD_INSET_X, 1006, "队列 / QUEUE · %d 待生效 · %d 执行 · %d 完成" % [queued, active, done], 7, Palette.FAINT)
+	_txt(cjk, CMD_INSET_X, 1002, "队列 / QUEUE · %d 待生效 · %d 执行 · %d 完成" % [queued, active, done], 7, Palette.FAINT)
+	_txt_r(mono, CMD_INNER_R, 1002, "QUEUE %d/%d" % [queued, camds.size()], 7, Palette.FAINT)
 	var shown := 0
 	for idx in range(camds.size() - 1, -1, -1):
 		if shown >= 2:
@@ -1000,6 +1081,353 @@ func _draw_command_panel() -> void:
 			draw_rect(rr, Palette.a(Palette.RED, 0.35), false, 1.0)
 			_txt(cjk, rr.position.x + 8.0, rr.position.y + 2.0, "撤销", 7, Palette.RED)
 			_queue_abort.append({"rect": rr, "id": String(c.get("id", ""))})
+
+# ══ P1f：裁决 / 后果 / 报告覆盖层 ══════════════════════
+# 原则：读 state 字段（decision_open / report_open / consequence_open / fire_branch /
+# audit_flag / report_text / …）与调 state 方法（choose_ending / authorize_fire /
+# submit_report）；字段/方法不存在时退回 HUD 本地演示态（DSH_UI 截图钩子用）。
+
+const MOCK_REPORT := "第一关 · 环一 · 斛 — 监督官报告（草案）\n\nT+00:12:40 执行窗口开始。传唤级 · 案卷 4471 送达接管通知；本舰未首先开火。\n\n哈马丹 CH-IR2 报出两条回波：一条为案卷 4471（主动机动），一条为残骸反射。经远地点号 MS-IR9 交叉确认，302° 回波为 CH-IR2 虚警；谷神-2（民用工作船，应答机故障）位于方位 118°、距离 260 km。\n\nSHADOW 命令经望楼号中继，8 s 后生效；BURN 计划 T+6.2 s、Δv 84 m/s、BRG 340 / ELEV +20。\n\n结论：未发生未经授权开火。建议处置：认证交接（CERTIFY）。"
+
+func _flag(name: String) -> bool:
+	if state == null:
+		return false
+	var v = state.get(name)
+	return v != null and bool(v)
+
+func _ov_decision() -> bool:
+	return _demo_decision or _flag("decision_open")
+
+func _ov_consequence() -> bool:
+	return _demo_consequence or _flag("consequence_open")
+
+func _ov_report() -> bool:
+	return _demo_report or _flag("report_open")
+
+func _any_overlay() -> bool:
+	return _ov_report() or _ov_consequence() or _ov_decision()
+
+func _report_text() -> String:
+	if state != null:
+		var v = state.get("report_text")
+		if v != null and String(v) != "":
+			return String(v)
+		# 还没有提交过报告：用 scenario 的 report_truth 模板做“草案”预览（不写 state）。
+		var story = state.get("story")
+		if story is Dictionary and (story as Dictionary).has("report_truth"):
+			var rt: Dictionary = (story as Dictionary)["report_truth"]
+			var outcome := String(state.get("outcome"))
+			if outcome == "":
+				outcome = "CERTIFY"
+			if rt.has(outcome):
+				var tmpl := String(rt[outcome])
+				var decision := "认证交接"
+				if state.has_method("ending_label"):
+					decision = String(state.call("ending_label", outcome))
+				tmpl = tmpl.replace("{decision}", decision).replace("{reputation}", "—").replace("{casualties}", "无")
+				return "（报告草案 / DRAFT · 未提交）\n" + tmpl
+	return MOCK_REPORT
+
+# 武器释放：仅裁决前可用；二次确认。
+func _fire_available() -> bool:
+	if _any_overlay():
+		return false
+	if _flag("fire_branch") or _decision_done:
+		return false
+	return true
+
+func _handle_fire_click() -> void:
+	if not _fire_available():
+		return
+	if _fire_confirm_t <= 0.0:
+		_fire_confirm_t = 3.0
+		return
+	_do_authorize_fire()
+
+func _do_authorize_fire() -> void:
+	_fire_confirm_t = 0.0
+	if state != null and state.has_method("authorize_fire"):
+		state.call("authorize_fire")
+		return
+	# HUD 本地演示：直接进入后果分支。
+	_demo_consequence = true
+
+func _choose_ending(kind: String) -> void:
+	_decision_done = true
+	if state != null and state.has_method("choose_ending"):
+		state.call("choose_ending", kind)
+		return
+	_demo_decision = false
+	_demo_report = true
+
+func _open_report() -> void:
+	if state != null and state.has_method("open_report"):
+		state.call("open_report")
+	elif state != null and state.get("report_open") != null:
+		state.set("consequence_open", false)
+		state.set("report_open", true)
+	else:
+		_demo_consequence = false
+		_demo_report = true
+
+func _submit_report(kind: String) -> void:
+	_demo_report = false
+	if state != null and state.has_method("submit_report"):
+		state.call("submit_report", kind)
+	if kind == "fake":
+		_filed_text = "REPORT FILED — AUDIT FLAG 01"
+		_filed_col = Palette.RED
+	else:
+		_filed_text = "REPORT FILED — CASE 4471"
+		_filed_col = Palette.PH
+	_filed_t = 6.0
+
+func _poll_overlay_keys() -> void:
+	for k in [KEY_1, KEY_2, KEY_3, KEY_ENTER, KEY_SPACE]:
+		var down := Input.is_key_pressed(k)
+		var was := bool(_key_prev.get(k, false))
+		_key_prev[k] = down
+		if down and not was:
+			_on_overlay_key(k)
+
+func _on_overlay_key(k: int) -> void:
+	if _ov_report():
+		if k == KEY_1:
+			_submit_report("truth")
+		elif k == KEY_2:
+			_submit_report("fake")
+	elif _ov_consequence():
+		if k == KEY_1 or k == KEY_ENTER or k == KEY_SPACE:
+			_open_report()
+	elif _ov_decision():
+		if k == KEY_1:
+			_choose_ending("certify")
+		elif k == KEY_2:
+			_choose_ending("article9")
+		elif k == KEY_3:
+			_choose_ending("stall")
+
+func _handle_overlay_click(p: Vector2) -> void:
+	if _ov_report():
+		if REPORT_TRUTH.has_point(p):
+			_submit_report("truth")
+		elif REPORT_FAKE.has_point(p):
+			_submit_report("fake")
+		return
+	if _ov_consequence():
+		if CONSEQ_SUBMIT.has_point(p):
+			_open_report()
+		return
+	if _ov_decision():
+		for i in range(3):
+			if _decision_row_rect(i).has_point(p):
+				_choose_ending(DECISION_KINDS[i])
+				return
+
+func _mouse_base() -> Vector2:
+	var win := get_window()
+	if win == null or win.size.x <= 1:
+		return Vector2(-1.0, -1.0)
+	return win.get_mouse_position() * (Vector2(1920.0, 1080.0) / Vector2(win.size))
+
+func _wrap_text(f: Font, text: String, sz: int, max_w: float) -> Array:
+	var out: Array = []
+	for para in text.split("\n"):
+		if String(para) == "":
+			out.append("")
+			continue
+		var cur := ""
+		for i in String(para).length():
+			var ch := String(para).substr(i, 1)
+			if cur != "" and f.get_string_size(cur + ch, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x > max_w:
+				out.append(cur)
+				cur = ch
+			else:
+				cur += ch
+		out.append(cur)
+	return out
+
+func _decision_row_rect(i: int) -> Rect2:
+	var r := DECISION_RECT
+	return Rect2(r.position.x + 28.0, r.position.y + 112.0 + float(i) * 124.0, r.size.x - 56.0, 112.0)
+
+func _overlay_dim() -> void:
+	# 全屏压暗：V1.5 的「一次性」覆盖层，不做动画。
+	draw_rect(Rect2(0, 0, 1920, 1080), Color(0.008, 0.030, 0.024, 0.84))
+	for i in range(0, 1080, 4):
+		draw_rect(Rect2(0.0, float(i), 1920.0, 1.0), Color(0, 0, 0, 0.045))
+
+func _overlay_frame(r: Rect2, title: String, kicker: String) -> void:
+	draw_rect(r, Palette.a(Palette.PANEL, 0.985))
+	draw_rect(r, Palette.a(Palette.PH, 0.85), false, 1.0)
+	draw_rect(Rect2(r.position + Vector2(4, 4), r.size - Vector2(8, 8)), Palette.a(Palette.LINE, 0.85), false, 1.0)
+	_corners(Rect2(r.position - Vector2(10, 10), r.size + Vector2(20, 20)), 26.0, Palette.a(Palette.PH, 0.5))
+	draw_rect(Rect2(r.position, Vector2(r.size.x, 44.0)), Palette.a(Palette.PANEL2, 1.0))
+	draw_line(Vector2(r.position.x, r.position.y + 44.0), Vector2(r.end.x, r.position.y + 44.0), Palette.a(Palette.PH, 0.5), 1.0)
+	_txt(cjk, r.position.x + 20.0, r.position.y + 12.0, title, 13, Palette.PH)
+	_txt_r(mono, r.end.x - 20.0, r.position.y + 16.0, kicker, 7, Palette.a(Palette.FAINT, 0.95))
+
+func _draw_decision_overlay() -> void:
+	_overlay_dim()
+	var r := DECISION_RECT
+	_overlay_frame(r, "监督官裁决 / SUPERVISOR DETERMINATION", "DECISION · CASE 4471 · 第一关")
+	var prompt := "执行窗口只剩最后一拍。谷神-2 的应答机是坏的，传唤级要你监督交接；选一个："
+	var endings: Array = []
+	if state != null:
+		var pv = state.get("decision_prompt")
+		if pv != null and String(pv) != "":
+			prompt = String(pv)
+		var ev = state.get("endings")
+		if ev is Array:
+			endings = ev
+	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, "第一关 · 环一 · 斛 — 监督交接 · 执行窗口 00:06:00", 8, Palette.DIM)
+	_txt_r(cjk, r.end.x - 20.0, r.position.y + 56.0, "记录进案卷 · 不可撤回", 7, Palette.a(Palette.AMBER, 0.7))
+	_txt(cjk, r.position.x + 20.0, r.position.y + 76.0, _ellipsis(cjk, prompt, 8, r.size.x - 40.0), 8, Palette.a(Palette.TXT, 0.86))
+	var mp := _mouse_base()
+	for i in range(3):
+		var row := _decision_row_rect(i)
+		var hot := row.has_point(mp)
+		draw_rect(row, Palette.a(Palette.PANEL2, 0.95) if hot else Palette.a(Palette.PANEL, 0.55))
+		draw_rect(row, Palette.a(Palette.PH, 0.8 if hot else 0.30), false, 1.0)
+		if hot:
+			draw_rect(Rect2(row.position.x, row.position.y, 2.0, row.size.y), Palette.PH)
+		var label: String = String(DECISION_NAMES[i])
+		var hint: String = String(DECISION_CONSEQ[i])
+		var tag: String = String(DECISION_RUBRIC[i])
+		if i < endings.size():
+			var e: Dictionary = endings[i]
+			label = "%s / %s" % [String(e.get("label", label)), String(e.get("code", ""))]
+			hint = String(e.get("hint", hint))
+			tag = String(e.get("code", tag))
+		_txt(mono, row.position.x + 18.0, row.position.y + 14.0, "0%d" % (i + 1), 22, Palette.a(Palette.PH, 0.9))
+		_txt(cjk, row.position.x + 74.0, row.position.y + 16.0, label, 13, Palette.PH if hot else Palette.TXT)
+		_txt(cjk, row.position.x + 74.0, row.position.y + 48.0, _ellipsis(cjk, hint, 8, row.size.x - 300.0), 8, Palette.DIM)
+		_txt_r(cjk, row.end.x - 18.0, row.position.y + 16.0, tag, 7, Palette.a(Palette.AMBER, 0.65))
+		_txt_r(mono, row.end.x - 18.0, row.position.y + 50.0, "[%d]" % (i + 1), 8, Palette.a(Palette.FAINT, 0.9))
+	var fy := r.end.y - 36.0
+	draw_line(Vector2(r.position.x + 20.0, fy - 6.0), Vector2(r.end.x - 20.0, fy - 6.0), Palette.a(Palette.LINE, 0.8), 1.0)
+	_txt(cjk, r.position.x + 20.0, fy + 2.0, "1 / 2 / 3 或点击行 · 裁决前仍可武器释放（需二次确认）", 7, Palette.FAINT)
+	_txt_r(cjk, r.end.x - 20.0, fy + 2.0, "ROE：仅自卫 · 不得首先开火", 7, Palette.a(Palette.AMBER, 0.7))
+
+func _draw_consequence_overlay() -> void:
+	_overlay_dim()
+	var r := CONSEQ_RECT
+	_overlay_frame(r, "后果 / CONSEQUENCE", "FIRE BRANCH · CASE 4471 · SIM FROZEN")
+	var ctext := "火控解锁。谷神-2 是民用船——12 人无人生还。ROE 违规写进黑匣子。"
+	if state != null:
+		var cv = state.get("consequence_text")
+		if cv != null and String(cv) != "":
+			ctext = String(cv)
+	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, "开火之后不是战斗，是报告（08 §4）。仿真时间已冻结。", 8, Palette.DIM)
+	var lines := _wrap_text(cjk, ctext, 9, r.size.x - 48.0)
+	for i in range(mini(lines.size(), 4)):
+		_txt(cjk, r.position.x + 24.0, r.position.y + 80.0 + float(i) * 18.0, String(lines[i]), 9, Palette.a(Palette.TXT, 0.92))
+	var rows := [
+		["民用伤亡 / CIVILIAN CASUALTY", "谷神-2 全损 · 民用 12 人 · 遥测仅剩应急信标"],
+		["ROE 违规 / ROE VIOLATION", "未经授权的武器释放 · 违反「仅自卫 / WEAPONS HOLD」"],
+		["时间 / SIMULATION", "FROZEN · 命令队列冻结，仅剩报告流程"],
+		["案卷 / CASE FILE", "新增条目：武器释放（WEAPONS RELEASE）· 审裁证据封存"],
+	]
+	for i in range(rows.size()):
+		var y := r.position.y + 176.0 + float(i) * 42.0
+		_txt(cjk, r.position.x + 24.0, y, rows[i][0], 7, Palette.FAINT)
+		_txt(cjk, r.position.x + 250.0, y - 3.0, rows[i][1], 9, Palette.TXT)
+		draw_line(Vector2(r.position.x + 24.0, y + 19.0), Vector2(r.end.x - 24.0, y + 19.0), Palette.a(Palette.LINE, 0.5), 1.0)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 352.0, "回执 / 上级将收到案卷与传感器日志（08 §3.2）", 7, Palette.a(Palette.AMBER, 0.6))
+	_cmd_btn(CONSEQ_SUBMIT, "提交报告 / SUBMIT REPORT", false, Palette.PH)
+	_txt_r(cjk, r.end.x - 20.0, r.end.y - 22.0, "E / Enter 或点击按钮", 7, Palette.FAINT)
+
+func _draw_report_overlay() -> void:
+	_overlay_dim()
+	var r := REPORT_RECT
+	_overlay_frame(r, "报告 / REPORT", "CASE 4471 · FILED BY SUPERVISOR")
+	var header := "第一关 · 监督交接 — 监督官报告（草案）"
+	if state != null:
+		var oc := String(state.get("outcome"))
+		if oc != "" and state.has_method("ending_label"):
+			header = "裁决：%s · 报告（草案）" % String(state.call("ending_label", oc))
+	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, header, 8, Palette.DIM)
+	# 左：报告正文
+	var lx := r.position.x + 28.0
+	var ly := r.position.y + 76.0
+	_txt(cjk, lx, ly, "报告正文 / REPORT TEXT", 7, Palette.FAINT)
+	var lines := _wrap_text(cjk, _report_text(), 9, 560.0)
+	for i in range(mini(lines.size(), 22)):
+		_txt(cjk, lx, ly + 20.0 + float(i) * 16.0, lines[i], 9, Palette.a(Palette.TXT, 0.92))
+	# 左下：证据链（08 §3.2）
+	var ey := r.position.y + 460.0
+	draw_line(Vector2(lx, ey - 12.0), Vector2(lx + 560.0, ey - 12.0), Palette.a(Palette.LINE, 0.8), 1.0)
+	_txt(cjk, lx, ey, "证据 / EVIDENCE", 7, Palette.FAINT)
+	var evidence := [
+		"· 传感器日志：MS-IR9 / CH-IR2 / ELINT 记录（谁在何时开机、看到什么）",
+		"· 命令队列：SHADOW / BURN / 撤销记录（谁下令、几秒生效）",
+		"· 应答机 / 通信：谷神-2 故障、传唤级接管通告、回执",
+		"· 船员证词：后续系统（第一关不做）",
+	]
+	for i in range(evidence.size()):
+		_txt(cjk, lx, ey + 22.0 + float(i) * 18.0, evidence[i], 8, Palette.DIM)
+	# 右：处置（如实 / 伪造）；选项文字优先用 state.report_options
+	var truth_label := "如实 / TRUTH"
+	var truth_hint := "无伪证 · 记录进案卷"
+	var fake_label := "伪造 / FALSIFY"
+	var fake_hint := "perjury_count +1 · 第三次触发最坏结局"
+	var fake_avail := true
+	if state != null:
+		var ro = state.get("report_options")
+		if ro is Array and (ro as Array).size() > 0:
+			var o0: Dictionary = (ro as Array)[0]
+			truth_label = String(o0.get("label", truth_label))
+			truth_hint = String(o0.get("hint", truth_hint))
+			if (ro as Array).size() > 1:
+				var o1: Dictionary = (ro as Array)[1]
+				fake_label = String(o1.get("label", fake_label))
+				fake_hint = String(o1.get("hint", fake_hint))
+			else:
+				fake_avail = false
+	var rx := r.position.x + 616.0
+	_txt(cjk, rx, ly, "处置 / FILING", 7, Palette.FAINT)
+	_report_option_card(REPORT_TRUTH, 0, truth_label, "REPORT FILED — CASE 4471", truth_hint, Palette.PH)
+	if fake_avail:
+		_report_option_card(REPORT_FAKE, 1, fake_label, "AUDIT FLAG 01", fake_hint, Palette.RED)
+	else:
+		draw_rect(REPORT_FAKE, Palette.a(Palette.FAINT, 0.03))
+		draw_rect(REPORT_FAKE, Palette.a(Palette.FAINT, 0.25), false, 1.0)
+		_txt(cjk, REPORT_FAKE.position.x + 16.0, REPORT_FAKE.position.y + 12.0, "%s（本轮不可用）" % fake_label, 11, Palette.FAINT)
+		_txt(cjk, REPORT_FAKE.position.x + 16.0, REPORT_FAKE.position.y + 40.0, "只有出现不良后果，才有淡化 / 伪造选项（08 §3.1）。", 8, Palette.DIM)
+	_section_note(rx, REPORT_FAKE.end.y + 16.0)
+	var pj := 0
+	var pjv = state.get("perjury_count") if state != null else null
+	if pjv != null:
+		pj = int(pjv)
+	_txt(mono, rx, REPORT_FAKE.end.y + 78.0, "perjury_count = %d" % pj, 8, Palette.DIM)
+	if state != null and bool(state.get("audit_flag")):
+		_txt(mono, rx, REPORT_FAKE.end.y + 94.0, "AUDIT FLAG 01 已置位", 8, Palette.RED)
+	_txt_r(cjk, r.end.x - 20.0, r.end.y - 40.0, "1 如实 · 2 伪造 · 点击卡片提交（提交后不可更改）", 7, Palette.FAINT)
+
+func _section_note(x: float, y: float) -> void:
+	_txt(cjk, x, y, "只有出现不良后果，才有淡化 / 伪造选项（08 §3.1）。", 7, Palette.a(Palette.AMBER, 0.7))
+	_txt(cjk, x, y + 14.0, "造假会累积；制度最擅长等。", 7, Palette.a(Palette.FAINT, 0.9))
+
+func _report_option_card(rc: Rect2, idx: int, title: String, big: String, sub: String, col: Color) -> void:
+	var hot := rc.has_point(_mouse_base())
+	draw_rect(rc, Palette.a(col, 0.10 if hot else 0.04))
+	draw_rect(rc, Palette.a(col, 0.75 if hot else 0.35), false, 1.0)
+	if hot:
+		draw_rect(Rect2(rc.position.x, rc.position.y, 2.0, rc.size.y), col)
+	_txt(cjk, rc.position.x + 16.0, rc.position.y + 12.0, title, 11, col)
+	_txt(mono, rc.position.x + 16.0, rc.position.y + 40.0, big, 9, Palette.TXT)
+	_txt(cjk, rc.position.x + 16.0, rc.position.y + 62.0, sub, 7, Palette.DIM)
+	_txt_r(mono, rc.end.x - 16.0, rc.position.y + 12.0, "[%d]" % (idx + 1), 8, Palette.a(Palette.FAINT, 0.9))
+
+func _draw_filed_banner() -> void:
+	var a := clampf(_filed_t / 1.2, 0.0, 1.0)
+	draw_rect(Rect2(0, 0, 1920, 1080), Color(0.008, 0.030, 0.024, 0.5 * a))
+	var r := FILED_RECT
+	draw_rect(r, Palette.a(Palette.PANEL, 1.0))
+	draw_rect(r, Palette.a(_filed_col, 0.85), false, 1.0)
+	_txt(mono, r.position.x + 24.0, r.position.y + 22.0, _filed_text, 15, _filed_col)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 54.0, "报告已归档 · 记录进案卷（demo 结束）", 8, Palette.DIM)
+	_txt_r(mono, r.end.x - 24.0, r.position.y + 54.0, "FILED", 8, Palette.a(_filed_col, 0.7))
 
 func _draw_time() -> void:
 	_panel(TIME)

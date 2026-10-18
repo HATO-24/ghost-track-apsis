@@ -190,18 +190,43 @@ func _set_scene(sc: String) -> void:
 	for c in state.commands():
 		print("CMD ", c.get("id"), " ", c.get("action"), " ", c.get("status"), " tx=", c.get("tx_t"), " exec=", c.get("exec_t"), " done=", c.get("done_t"))
 	print("SCENARIO ", state.scenario_source, " preview=", not state.cmd_model.preview_cmd.is_empty())
+	# P1f 截图钩子：DSH_SIM=decision|fire|consequence|report|reportfake|done
+	var sim_env := OS.get_environment("DSH_SIM")
+	if sim_env != "":
+		state.clock = state.clock - state.tau() + maxf(76.0, state.decision_t + 1.0)
+		state.exec_left = maxf(0.0, 360.0 - state.tau())
+		state.refresh(state.clock)
+		match sim_env:
+			"decision":
+				pass
+			"fire", "consequence":
+				state.authorize_fire()
+			"report":
+				state.choose_ending("CERTIFY")
+			"reportfake":
+				state.authorize_fire()
+				state.finish_consequence()
+				state.submit_report("FAKE")
+			"done":
+				state.choose_ending("ARTICLE9")
+				state.submit_report("TRUTH")
+		state.refresh(state.clock)
+		print("SIM ", sim_env, " phase=", state.tut_phase, " decision=", state.decision_open,
+			" report=", state.report_open, " consequence=", state.consequence_open,
+			" outcome=", state.outcome, " audit=", state.audit_flag,
+			" perjury=", state.perjury_count, " frozen=", state.sim_frozen)
 	print("SCENE ", sc, " datum=", state.datum, " sensor=", state.sensor, " planar=", plot.ortho,
 		" tau=", state.tau(), " cmds=", state.commands().size())
 
 func _process(delta: float) -> void:
 	if not state.capture and state.boot_t < 2.0:
 		state.boot_t = minf(2.0, state.boot_t + delta)
-	# 执行窗口：时标锁 1×（可暂停，不可加速）；窗口按仿真时间倒计时
+	# 执行窗口：时标锁 1×（可暂停，不可加速）；开火后时间冻结
 	if state.exec_locked:
 		state.time_scale = 1.0
-		if not state.paused:
+		if not state.paused and not state.sim_frozen:
 			state.exec_left = maxf(0.0, state.exec_left - delta * state.time_scale)
-	if not state.paused:
+	if not state.paused and not state.sim_frozen:
 		state.clock += delta * state.time_scale
 	state.elapsed += delta
 	# 接触状态向量推进到当前时刻 + HUD 派生量保鲜
@@ -290,6 +315,31 @@ func _gui_input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
+	if event.keycode == KEY_ESCAPE:
+		get_tree().quit()
+		return
+	# P1f：决断 / 后果 / 报告面板优先吃键（1/2/3 与 F）
+	if state.consequence_open:
+		if event.keycode == KEY_E or event.keycode == KEY_ENTER:
+			state.finish_consequence()
+		return
+	if state.decision_open:
+		match event.keycode:
+			KEY_1:
+				state.choose_ending("CERTIFY")
+			KEY_2:
+				state.choose_ending("ARTICLE9")
+			KEY_3:
+				state.choose_ending("STALL")
+			KEY_F:
+				state.authorize_fire()
+		return
+	if state.report_open:
+		if event.keycode == KEY_1:
+			state.submit_report("TRUTH")
+		elif event.keycode == KEY_2:
+			state.submit_report("FAKE")
+		return
 	match event.keycode:
 		KEY_SPACE:
 			state.paused = not state.paused
@@ -325,3 +375,4 @@ func _unhandled_input(event: InputEvent) -> void:
 			plot.set_planar(not plot.ortho)
 		KEY_ESCAPE:
 			get_tree().quit()
+

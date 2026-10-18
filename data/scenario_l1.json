@@ -20,54 +20,363 @@
     "note": "CH-IR2 虚警；需 MS-IR9 交叉确认"
   },
   "ships": [
-    {"id": "harmattan", "name": "哈马丹", "ship_class": "托盘-5 改", "role": "哨舰", "builder": "车肆重工", "faction": "公约 · AD 特遣群", "rack": "harmattan", "own": true},
-    {"id": "apsis", "name": "远地点", "ship_class": "远地点级", "role": "船坞舰", "builder": "泉州重工", "faction": "公约 · AD 特遣群", "rack": "apsis"},
-    {"id": "ferry", "name": "渡口", "ship_class": "赤铁-6 改", "role": "炮舰", "builder": "永昼机械", "faction": "公约 · AD 特遣群", "rack": "ferry"},
-    {"id": "watchtower", "name": "望楼", "ship_class": "安海-1", "role": "中继舰", "builder": "泉州重工", "faction": "公约 · AD 特遣群", "rack": "watchtower"},
-    {"id": "deepwell", "name": "深井", "ship_class": "月港-4", "role": "油船", "builder": "泉州重工", "faction": "公约 · AD 特遣群", "rack": "deepwell"},
-    {"id": "summons_4471", "name": "案卷 4471", "ship_class": "传唤级", "role": "送达舰", "builder": "清算署改装", "faction": "清算署", "rack": "summons_4471"},
-    {"id": "ceres_2", "name": "谷神-2", "ship_class": "谷神改", "role": "民用 · 应答机故障", "builder": "远环合作社", "faction": "民用", "rack": "ceres_2"}
+    {
+      "id": "harmattan",
+      "name": "哈马丹",
+      "ship_class": "托盘-5 改",
+      "role": "哨舰",
+      "builder": "车肆重工",
+      "faction": "公约 · AD 特遣群",
+      "rack": "harmattan",
+      "own": true
+    },
+    {
+      "id": "apsis",
+      "name": "远地点",
+      "ship_class": "远地点级",
+      "role": "船坞舰",
+      "builder": "泉州重工",
+      "faction": "公约 · AD 特遣群",
+      "rack": "apsis"
+    },
+    {
+      "id": "ferry",
+      "name": "渡口",
+      "ship_class": "赤铁-6 改",
+      "role": "炮舰",
+      "builder": "永昼机械",
+      "faction": "公约 · AD 特遣群",
+      "rack": "ferry"
+    },
+    {
+      "id": "watchtower",
+      "name": "望楼",
+      "ship_class": "安海-1",
+      "role": "中继舰",
+      "builder": "泉州重工",
+      "faction": "公约 · AD 特遣群",
+      "rack": "watchtower"
+    },
+    {
+      "id": "deepwell",
+      "name": "深井",
+      "ship_class": "月港-4",
+      "role": "油船",
+      "builder": "泉州重工",
+      "faction": "公约 · AD 特遣群",
+      "rack": "deepwell"
+    },
+    {
+      "id": "summons_4471",
+      "name": "案卷 4471",
+      "ship_class": "传唤级",
+      "role": "送达舰",
+      "builder": "清算署改装",
+      "faction": "清算署",
+      "rack": "summons_4471"
+    },
+    {
+      "id": "ceres_2",
+      "name": "谷神-2",
+      "ship_class": "谷神改",
+      "role": "民用 · 应答机故障",
+      "builder": "远环合作社",
+      "faction": "民用",
+      "rack": "ceres_2"
+    }
   ],
   "tracks": [
-    {"id": "哈马丹", "en": "HARMATTAN", "cls": "托盘-5 改", "role": "哨舰", "side": "friend", "level": 4, "own": true, "r": [2.0, -3.0, 0.0], "v": [0.22, -0.12, 0.03], "age": 0.0, "off": [16.0, 14.0]},
-    {"id": "渡口号", "en": "FERRY", "cls": "赤铁-6 改", "role": "炮舰", "side": "friend", "level": 4, "r": [-31.914, 60.045, -4.0], "v": [-0.0607, -0.0775, 0.0074], "age": 1.0, "off": [-72.0, -20.0]},
-    {"id": "望楼号", "en": "WATCHTOWER", "cls": "安海-1", "role": "中继舰", "side": "friend", "level": 4, "r": [19.957, 93.902, 38.0], "v": [-0.1174, 0.025, 0.02], "age": 1.0, "off": [16.0, -18.0]},
-    {"id": "案卷 4471", "en": "SUMMONS", "cls": "传唤级", "role": "送达舰", "side": "hostile", "level": 1, "r": [208.602, 240.0, 12.0], "v": [-1.1683, -0.5067, -0.0634], "age": 2.0, "off": [-86.0, -38.0]},
-    {"id": "谷神-2", "en": "CERES-2", "cls": "谷神改", "role": "民用 · 应答机故障", "side": "unknown", "level": 1, "r": [229.598, -122.086, -6.0], "v": [0.0505, 0.0524, -0.0005], "age": 12.0, "off": [16.0, 12.0]}
+    {
+      "id": "哈马丹",
+      "en": "HARMATTAN",
+      "cls": "托盘-5 改",
+      "role": "哨舰",
+      "side": "friend",
+      "level": 4,
+      "own": true,
+      "r": [
+        2.0,
+        -3.0,
+        0.0
+      ],
+      "v": [
+        0.22,
+        -0.12,
+        0.03
+      ],
+      "age": 0.0,
+      "off": [
+        16.0,
+        14.0
+      ]
+    },
+    {
+      "id": "渡口号",
+      "en": "FERRY",
+      "cls": "赤铁-6 改",
+      "role": "炮舰",
+      "side": "friend",
+      "level": 4,
+      "r": [
+        -31.914,
+        60.045,
+        -4.0
+      ],
+      "v": [
+        -0.0607,
+        -0.0775,
+        0.0074
+      ],
+      "age": 1.0,
+      "off": [
+        -72.0,
+        -20.0
+      ]
+    },
+    {
+      "id": "望楼号",
+      "en": "WATCHTOWER",
+      "cls": "安海-1",
+      "role": "中继舰",
+      "side": "friend",
+      "level": 4,
+      "r": [
+        19.957,
+        93.902,
+        38.0
+      ],
+      "v": [
+        -0.1174,
+        0.025,
+        0.02
+      ],
+      "age": 1.0,
+      "off": [
+        16.0,
+        -18.0
+      ]
+    },
+    {
+      "id": "案卷 4471",
+      "en": "SUMMONS",
+      "cls": "传唤级",
+      "role": "送达舰",
+      "side": "hostile",
+      "level": 1,
+      "r": [
+        208.602,
+        240.0,
+        12.0
+      ],
+      "v": [
+        -1.1683,
+        -0.5067,
+        -0.0634
+      ],
+      "age": 2.0,
+      "off": [
+        -86.0,
+        -38.0
+      ]
+    },
+    {
+      "id": "谷神-2",
+      "en": "CERES-2",
+      "cls": "谷神改",
+      "role": "民用 · 应答机故障",
+      "side": "unknown",
+      "level": 1,
+      "r": [
+        229.598,
+        -122.086,
+        -6.0
+      ],
+      "v": [
+        0.0505,
+        0.0524,
+        -0.0005
+      ],
+      "age": 12.0,
+      "off": [
+        16.0,
+        12.0
+      ]
+    }
   ],
   "sensors": {
     "apsis": [
-      {"model": "MS-IR9", "on": true},
-      {"model": "MS-OT2", "on": true},
-      {"model": "YW-R9", "on": false},
-      {"model": "MK-12", "on": false},
-      {"model": "ELINT", "on": true}
+      {
+        "model": "MS-IR9",
+        "on": true
+      },
+      {
+        "model": "MS-OT2",
+        "on": true
+      },
+      {
+        "model": "YW-R9",
+        "on": false
+      },
+      {
+        "model": "MK-12",
+        "on": false
+      },
+      {
+        "model": "ELINT",
+        "on": true
+      }
     ],
     "harmattan": [
-      {"model": "CH-IR2", "on": true},
-      {"model": "CH-R0", "on": true}
+      {
+        "model": "CH-IR2",
+        "on": true
+      },
+      {
+        "model": "CH-R0",
+        "on": true
+      }
     ],
     "ferry": [
-      {"model": "CH-IR2", "on": true},
-      {"model": "LR-4", "on": false},
-      {"model": "CH-R0", "on": true}
+      {
+        "model": "CH-IR2",
+        "on": true
+      },
+      {
+        "model": "LR-4",
+        "on": false
+      },
+      {
+        "model": "CH-R0",
+        "on": true
+      }
     ],
     "watchtower": [
-      {"model": "MS-L2", "on": true},
-      {"model": "CH-R0", "on": true}
+      {
+        "model": "MS-L2",
+        "on": true
+      },
+      {
+        "model": "CH-R0",
+        "on": true
+      }
     ],
     "summons_4471": [
-      {"model": "YW-R9", "on": false},
-      {"model": "MK-12", "on": false},
-      {"model": "ELINT", "on": true},
-      {"model": "CH-R0", "on": true}
+      {
+        "model": "YW-R9",
+        "on": false
+      },
+      {
+        "model": "MK-12",
+        "on": false
+      },
+      {
+        "model": "ELINT",
+        "on": true
+      },
+      {
+        "model": "CH-R0",
+        "on": true
+      }
     ],
     "ceres_2": [
-      {"model": "CH-R0", "on": true}
+      {
+        "model": "CH-R0",
+        "on": true
+      }
     ]
   },
   "initial_commands": [
-    {"unit": "哈马丹", "action": "SHADOW", "target": "谷神-2", "issue_t": 0.0, "params": {"hold_km": 60.0}},
-    {"unit": "哈马丹", "action": "BURN", "issue_t": 0.0, "params": {"exec_t": 6.2, "dv_ms": 84.0, "brg": 340.0, "elev": 20.0}}
-  ]
+    {
+      "unit": "哈马丹",
+      "action": "SHADOW",
+      "target": "谷神-2",
+      "issue_t": 0.0,
+      "params": {
+        "hold_km": 60.0
+      }
+    },
+    {
+      "unit": "哈马丹",
+      "action": "BURN",
+      "issue_t": 0.0,
+      "params": {
+        "exec_t": 6.2,
+        "dv_ms": 84.0,
+        "brg": 340.0,
+        "elev": 20.0
+      }
+    }
+  ],
+  "story": {
+    "decision_t": 75.0,
+    "decision_prompt": "执行窗口只剩最后一拍。谷神-2 的应答机是坏的，传唤级要你「监督交接」；深井的储罐还堵在航道，斛港务的人还在等。选一个：",
+    "reputation": {
+      "斛港务": 0,
+      "清算署": 0,
+      "远环合作社": 0
+    },
+    "endings": [
+      {
+        "kind": "CERTIFY",
+        "code": "A",
+        "label": "认证交接",
+        "hint": "按清算署文书放行：干净、合法；储罐仍扣在斛港务手里，清算署记你一分。"
+      },
+      {
+        "kind": "ARTICLE9",
+        "code": "B",
+        "label": "援引第九条",
+        "hint": "以监督权中止交接：道义上站得住，但越权；斛港务感激你，清算署开始查你。"
+      },
+      {
+        "kind": "STALL",
+        "code": "C",
+        "label": "拖程序 / 文书复核",
+        "hint": "要求复核、拖到下一窗口：两边都不得罪，储罐的居民继续等。"
+      }
+    ],
+    "consequence_fire": "火控解锁。MK-12 双发命中。谷神-2 是民用船，应答机故障不等于敌对——12 人无人生还，遥测里只剩应急信标。ROE 违规写进黑匣子，审裁会问你为什么开火。",
+    "report_truth": {
+      "CERTIFY": "任务报告 / AFTER-ACTION：[{decision}] 完成监督交接。谷神-2 身份核验为民事（应答机故障），未采取敌意行动；交接文件已由传唤级签收。声望变化：{reputation}。",
+      "ARTICLE9": "任务报告：依据监督权第九条中止交接，谷神-2 未受损，文书已归档并抄送审裁。声望变化：{reputation}。",
+      "STALL": "任务报告：要求文书复核，交接暂缓至下一窗口；无人员伤亡，储罐滞留航道。声望变化：{reputation}。",
+      "FIRE": "任务报告：案卷 4471 交接过程中发生武器事件，谷神-2 全损，民用伤亡 12 人。开火依据已记录，ROE 审查启动。声望变化：{reputation}。"
+    },
+    "report_fake": {
+      "FIRE": "任务报告：谷神-2 因自身推进故障解体，与本次监督行动无关；无武器使用记录。声望变化：{reputation}。（此文本与黑匣子不一致——复核时会被打出来。）"
+    },
+    "events": [
+      {
+        "t": 20.0,
+        "type": "radar_on",
+        "text": "远地点 YW-R9 开机 · EMIT 暴露"
+      },
+      {
+        "t": 46.0,
+        "type": "optical",
+        "text": "MS-OT2 光学凝视 → L3 分类"
+      },
+      {
+        "t": 62.0,
+        "type": "iff",
+        "text": "MK-12 IFF 应答 → 友军 L4 / 谷神-2 故障"
+      },
+      {
+        "t": 75.0,
+        "type": "decision",
+        "text": "执行窗口最后一拍 · 决断"
+      },
+      {
+        "t": 360.0,
+        "type": "window_end",
+        "text": "执行窗口关闭"
+      }
+    ],
+    "radio_lines": [
+      "传唤级：交接程序已启动，请监督官确认。",
+      "斛港务：储罐再拖下去，环一的人要断供了。",
+      "远地点：谷神-2 应答机无回复，光学分类为民用船。",
+      "审裁：任何开火授权都会进入 ROE 审查，请慎用。"
+    ]
+  }
 }

@@ -95,6 +95,34 @@ var sensor_override: Dictionary = {}   # ship -> {model: bool}（set_sensor 手�
 var emcon: Dictionary = {}             # ship -> bool（EMCON：发射类传感器强制关）
 var phantom_bearing := 302.0
 
+# ── P1f 第一关闭环：三拍 → 决断 → 报告 ─────────────────
+const PHASE_READ := "READ"
+const PHASE_COMMAND := "COMMAND"
+const PHASE_DECIDE := "DECIDE"
+const PHASE_REPORT := "REPORT"
+const PHASE_END := "END"
+
+var tut_phase := PHASE_READ
+var decision_open := false
+var report_open := false
+var consequence_open := false
+var fire_branch := false
+var outcome := ""
+var report_text := ""
+var report_options: Array[Dictionary] = []
+var audit_flag := false
+var perjury_count := 0
+var reputation: Dictionary = {"斛港务": 0, "清算署": 0, "远环合作社": 0}
+var sim_frozen := false
+var decision_t := 75.0
+var decision_prompt := ""
+var consequence_text := ""
+var report_choice := ""
+var story: Dictionary = {}
+var story_events: Array = []
+var endings: Array[Dictionary] = []
+var flags: Dictionary = {}
+
 # ── P1c 传感器状态 ─────────────────────────────────────
 var racks: Dictionary = {}                 # ship_id -> [sensor...]（SensorModel）
 var sensor_on: Dictionary = {}             # ship_id -> {model: bool}（当前融合计划）
@@ -130,6 +158,7 @@ func _init() -> void:
 	rng.seed = 4471
 	scenario = _load_scenario()
 	_apply_scenario_env()
+	_load_story()
 	racks = SensorModel.all_racks()
 	cmd_model = CommandModel.new()
 	_build_tracks()
@@ -515,6 +544,9 @@ func _fmt_int(v: int) -> String:
 
 func refresh(now: float) -> void:
 	var t := now - T0
+	_update_phase_gate(t)
+	if sim_frozen:
+		return
 	# 命令状态机 tick：QUEUED→TRANSMITTED→EXEC→DONE
 	if cmd_model != null:
 		var ph: Dictionary = cmd_model.tick(t)
@@ -1001,6 +1033,198 @@ func _vec2_from_json(raw, fallback: Vector2) -> Vector2:
 		var a: Array = raw
 		return Vector2(float(a[0]), float(a[1]))
 	return fallback
+
+# ── P1f：第一关闭环（三拍 / 决断 / 报告）─────────────────
+
+func _load_story() -> void:
+	story = scenario.get("story", {})
+	if typeof(story) != TYPE_DICTIONARY:
+		story = {}
+	decision_t = float(story.get("decision_t", 75.0))
+	decision_prompt = String(story.get("decision_prompt", "执行窗口进入最后一拍：交接 / 阻止 / 拖程序，选一个。"))
+	consequence_text = String(story.get("consequence_fire", "谷神-2 被击毁（民用船）。ROE 违规。"))
+	story_events = story.get("events", [])
+	endings = []
+	for raw in story.get("endings", []):
+		var e: Dictionary = raw
+		endings.append(e)
+	var rep0: Dictionary = story.get("reputation", {})
+	for k in rep0.keys():
+		reputation[String(k)] = int(rep0[k])
+
+func _update_phase_gate(t: float) -> void:
+	if tut_phase == PHASE_END:
+		return
+	if report_open:
+		tut_phase = PHASE_REPORT
+		return
+	if consequence_open:
+		tut_phase = PHASE_DECIDE
+		return
+	if decision_open:
+		tut_phase = PHASE_DECIDE
+		return
+	tut_phase = PHASE_READ if t < 20.0 else PHASE_COMMAND
+	if t >= decision_t or (exec_locked and exec_left <= 0.0):
+		_open_decision()
+
+func _open_decision() -> void:
+	if decision_open or report_open or consequence_open or tut_phase == PHASE_END:
+		return
+	decision_open = true
+	tut_phase = PHASE_DECIDE
+	decision_prompt = story_text("decision_prompt", decision_prompt)
+	_push_log("DECISION 窗口开启 · 三选一（或开火）", "B 拍", "EXEC")
+
+func story_text(key: String, fallback: String = "") -> String:
+	var v = story.get(key, fallback)
+	return String(v)
+
+func ending_label(kind: String) -> String:
+	match kind:
+		"CERTIFY":
+			return "认证交接"
+		"ARTICLE9":
+			return "援引第九条"
+		"STALL":
+			return "拖程序 / 文书复核"
+		"FIRE":
+			return "开火击毁"
+		_:
+			return kind
+
+func phase_label() -> String:
+	match tut_phase:
+		PHASE_READ:
+			return "第一拍 · 读"
+		PHASE_COMMAND:
+			return "第二拍 · 令"
+		PHASE_DECIDE:
+			return "第三拍 · 赌"
+		PHASE_REPORT:
+			return "报告"
+		PHASE_END:
+			return "归档"
+		_:
+			return tut_phase
+
+func _rep_text() -> String:
+	var parts: Array = []
+	for k in reputation.keys():
+		var v := int(reputation[k])
+		if v != 0:
+			parts.append("%s %+d" % [String(k), v])
+	if parts.is_empty():
+		return "无变化"
+	return " · ".join(parts)
+
+# 三种结局：写 outcome / 阵营声望 / 案卷 flag，打开报告
+func choose_ending(kind: String) -> Dictionary:
+	if not decision_open or report_open or consequence_open:
+		return {}
+	var k := kind.to_upper()
+	match k:
+		"CERTIFY", "A":
+			outcome = "CERTIFY"
+			flags["certify"] = true
+			reputation["斛港务"] = int(reputation.get("斛港务", 0)) - 2
+			reputation["清算署"] = int(reputation.get("清算署", 0)) + 2
+		"ARTICLE9", "B":
+			outcome = "ARTICLE9"
+			flags["article9"] = true
+			reputation["斛港务"] = int(reputation.get("斛港务", 0)) + 2
+			reputation["清算署"] = int(reputation.get("清算署", 0)) - 2
+		"STALL", "C":
+			outcome = "STALL"
+			flags["stall"] = true
+			reputation["斛港务"] = int(reputation.get("斛港务", 0)) + 1
+			reputation["清算署"] = int(reputation.get("清算署", 0)) - 1
+		_:
+			return {}
+	decision_open = false
+	report_open = true
+	tut_phase = PHASE_REPORT
+	_build_report_options()
+	decision_prompt = ""
+	_push_log("裁决：%s · 声望 %s" % [ending_label(outcome), _rep_text()], "OUTCOME", "EXEC")
+	return {"outcome": outcome, "reputation": reputation.duplicate(true), "report_open": true}
+
+# 开火分支：冻结时间、consequence、民用伤亡 / ROE 违规
+func authorize_fire() -> Dictionary:
+	if not decision_open or fire_branch:
+		return {}
+	fire_branch = true
+	decision_open = false
+	consequence_open = true
+	sim_frozen = true
+	outcome = "FIRE"
+	flags["fire"] = true
+	flags["roe_violation"] = true
+	flags["civilian_casualties"] = true
+	reputation["斛港务"] = int(reputation.get("斛港务", 0)) - 5
+	reputation["远环合作社"] = int(reputation.get("远环合作社", 0)) - 3
+	consequence_text = story_text("consequence_fire", consequence_text)
+	_push_log("授权开火 → 谷神-2（民用）· ROE 违规", "FIRE", "HOLD")
+	_push_log("时间冻结 · 审裁证据已封存", "CONSEQ", "HOLD")
+	return {"fire_branch": true, "consequence_open": true, "frozen": true}
+
+# 看完后果后进入报告（main 按 E 调）
+func finish_consequence() -> void:
+	if not consequence_open:
+		return
+	consequence_open = false
+	report_open = true
+	tut_phase = PHASE_REPORT
+	_build_report_options()
+
+func _build_report_options() -> void:
+	report_options = [{"kind": "TRUTH", "label": "据实报告", "hint": "完整记录交接/裁决过程，进入审裁档案"}]
+	if fire_branch:
+		report_options.append({"kind": "FAKE", "label": "淡化 / 伪造", "hint": "只在不希望被追责时可选 · perjury+1"})
+
+# 报告：truth / fake；fake 增 perjury，第二次审计触发 audit_flag
+func submit_report(kind: String) -> Dictionary:
+	if not report_open:
+		return {}
+	var k := kind.to_upper()
+	var truth := k != "FAKE"
+	if not truth and not fire_branch:
+		return {}
+	var audit_before := audit_flag
+	if not truth:
+		perjury_count += 1
+		flags["perjury"] = true
+		audit_flag = true
+		flags["audit_flag_%02d" % perjury_count] = true
+		if perjury_count >= 2:
+			flags["routine_audit"] = true
+	report_choice = "TRUTH" if truth else "FAKE"
+	report_open = false
+	consequence_open = false
+	tut_phase = PHASE_END
+	report_text = _compose_report(truth)
+	_push_log("报告提交：%s%s" % ["据实" if truth else "伪造 · REPORT FILED — AUDIT FLAG %02d" % perjury_count, " · 例行审计" if perjury_count >= 2 and not audit_before else ""], "REPORT", "EXEC" if truth else "HOLD")
+	return {"report": report_text, "audit_flag": audit_flag, "perjury_count": perjury_count, "phase": tut_phase}
+
+func _compose_report(truth: bool) -> String:
+	var tmpl := ""
+	if truth:
+		tmpl = String((story.get("report_truth", {}) as Dictionary).get(outcome, ""))
+	else:
+		tmpl = String((story.get("report_fake", {}) as Dictionary).get(outcome, ""))
+	if tmpl == "":
+		if truth:
+			tmpl = "任务报告：裁决「{decision}」。声望变化：{reputation}。"
+		else:
+			tmpl = "任务报告：未发现异常。声望变化：{reputation}。（与黑匣子不一致）"
+	var casualties := "无" if not fire_branch else "谷神-2 全损 · 民用 12 人"
+	tmpl = tmpl.replace("{decision}", ending_label(outcome))
+	tmpl = tmpl.replace("{outcome}", outcome)
+	tmpl = tmpl.replace("{casualties}", casualties)
+	tmpl = tmpl.replace("{perjury}", str(perjury_count))
+	tmpl = tmpl.replace("{audit}", "是" if audit_flag else "否")
+	tmpl = tmpl.replace("{reputation}", _rep_text())
+	return tmpl
 
 # ── 日志 / 单位面板 ────────────────────────────────────
 
