@@ -959,12 +959,14 @@ func _draw_bearing_contact(t: Dictionary, col: Color) -> void:
 		var off: Vector2 = t.get("off", Vector2(16, 12))
 		var lx := mid.x + off.x * 0.35
 		var ly := mid.y + off.y * 0.35
-		var idf := cjk if Fonts.has_cjk(String(t.get("id", ""))) else mono
-		_txt(idf, lx, ly - 16.0, String(t.get("id", "")), 10, Palette.a(col, 0.85))
+		var bname := String(t.get("name", t.get("id", "")))
+		var bbatch := String(t.get("batch", t.get("id", "")))
+		var idf := cjk if Fonts.has_cjk(bname) else mono
+		_txt(idf, lx, ly - 16.0, "[%s] %s" % [bbatch, bname], 10, Palette.a(col, 0.85))
 		var band := String(t.get("range_band", ""))
 		if band == "":
 			band = "距离不明"
-		_txt(mono, lx, ly - 4.0, "L1 · 仅方位 · %s" % band, 7, Palette.a(col, 0.62))
+		_txt(mono, lx, ly - 4.0, "%s · L1 · 仅方位 · %s" % [_identity_label(_ident(t)), band], 7, Palette.a(col, 0.62))
 		_txt(mono, lx, ly + 8.0, "仅方位 · 无预测 / BEARING ONLY", 7, Palette.a(col, 0.36))
 		draw_line(mid + Vector2(-3, 0), mid + Vector2(3, 0), Palette.a(col, 0.7), 1.0)
 		draw_line(mid + Vector2(0, -3), mid + Vector2(0, 3), Palette.a(col, 0.7), 1.0)
@@ -989,7 +991,7 @@ func _draw_phantom(t: Dictionary) -> void:
 		mid + Vector2(0, -d), mid + Vector2(d, 0), mid + Vector2(0, d),
 		mid + Vector2(-d, 0), mid + Vector2(0, -d)
 	]), Palette.a(col, 0.8), 1.0)
-	_txt(mono, mid.x + 10.0, mid.y - 20.0, "不明接触 · CH-IR2 虚警候选", 8, Palette.a(col, 0.75))
+	_txt(mono, mid.x + 10.0, mid.y - 20.0, "[9002] CH-IR2 虚警候选", 8, Palette.a(col, 0.75))
 	if resolved:
 		var blink := 0.55 + 0.45 * sin(_t * 4.0)
 		_txt(cjk, mid.x + 10.0, mid.y - 8.0, "虚警 / FALSE ALARM", 10, Palette.a(Palette.AMBER, blink))
@@ -1043,6 +1045,98 @@ func _draw_level_badge(p: Vector2, t: Dictionary, col: Color) -> void:
 	draw_rect(Rect2(p.x + 10.0, p.y - 22.0, 17.0, 11.0), Palette.a(col, 0.45), false, 1.0)
 	_txt(mono, p.x + 13.0, p.y - 21.0, txt, 7, Palette.a(col, 0.9))
 
+# ── P1j：身份（19 §2.5）——形状 + 颜色双编码 ───────────────
+func _ident(t: Dictionary) -> String:
+	var v := String(t.get("identity", ""))
+	if v != "":
+		return v
+	var side := String(t.get("side", ""))
+	if side == "friend":
+		return "friend"
+	if side == "hostile":
+		return "hostile"
+	return "pending"
+
+func _identity_color(kind: String) -> Color:
+	match kind:
+		"pending":
+			return Palette.FAINT
+		"unknown":
+			return Palette.AMBER
+		"assumed_friend":
+			return Palette.BLUE
+		"friend":
+			return Palette.PH
+		"neutral":
+			return Palette.DIM
+		"suspect":
+			return Palette.AMBER
+		"hostile":
+			return Palette.RED
+		_:
+			return Palette.TXT
+
+func _identity_label(kind: String) -> String:
+	if state != null and state.has_method("identity_label"):
+		return String(state.call("identity_label", kind))
+	return kind
+
+# 身份符号：不只靠颜色（待定虚线框 / 未知菱形 / 假定友好虚线圆 / 友方实心圆 /
+# 中立方形 / 可疑三角 / 敌方实心菱形）
+func _symbol_at(p: Vector2, kind: String, col: Color, level := 1) -> void:
+	match kind:
+		"pending":
+			var sq: Array[Vector2] = [
+				p + Vector2(-5, -5), p + Vector2(5, -5), p + Vector2(5, 5),
+				p + Vector2(-5, 5), p + Vector2(-5, -5)
+			]
+			_dashed_polyline(sq, Palette.a(col, 0.85), 1.0, 3.0)
+			_txt(mono, p.x - 2.0, p.y + 3.0, "?", 7, Palette.a(col, 0.9))
+		"unknown":
+			var dm := PackedVector2Array([
+				p + Vector2(0, -7), p + Vector2(7, 0), p + Vector2(0, 7),
+				p + Vector2(-7, 0), p + Vector2(0, -7)
+			])
+			draw_polyline(dm, Palette.a(col, 0.85), 1.2)
+			draw_circle(p, 1.0, Palette.a(col, 0.7))
+		"assumed_friend":
+			var c: Array[Vector2] = []
+			for i in range(0, 25):
+				var a := TAU * float(i) / 24.0
+				c.append(p + Vector2(cos(a), sin(a)) * 7.0)
+			_dashed_polyline(c, Palette.a(col, 0.85), 1.0, 3.0)
+			draw_circle(p, 1.2, Palette.a(col, 0.8))
+		"friend":
+			draw_circle(p, 3.2, col)
+			draw_arc(p, 8.0, 0, TAU, 28, Palette.a(col, 0.55), 1.0, true)
+			draw_line(p + Vector2(8, 0), p + Vector2(13, 0), Palette.a(col, 0.6), 1.0)
+		"neutral":
+			draw_rect(Rect2(p - Vector2(5.5, 5.5), Vector2(11, 11)), Palette.a(col, 0.12))
+			draw_rect(Rect2(p - Vector2(5.5, 5.5), Vector2(11, 11)), Palette.a(col, 0.85), false, 1.1)
+		"suspect":
+			var tri := PackedVector2Array([
+				p + Vector2(0, -8), p + Vector2(7.5, 5.5), p + Vector2(-7.5, 5.5), p + Vector2(0, -8)
+			])
+			draw_colored_polygon(PackedVector2Array([
+				p + Vector2(0, -8), p + Vector2(7.5, 5.5), p + Vector2(-7.5, 5.5)
+			]), Palette.a(col, 0.12))
+			draw_polyline(tri, Palette.a(col, 0.9), 1.2)
+			draw_circle(p + Vector2(0, 0.5), 1.2, Palette.a(col, 0.85))
+		"hostile":
+			var d := PackedVector2Array([
+				p + Vector2(0, -7), p + Vector2(7, 0), p + Vector2(0, 7),
+				p + Vector2(-7, 0), p + Vector2(0, -7)
+			])
+			draw_colored_polygon(PackedVector2Array([
+				p + Vector2(0, -7), p + Vector2(7, 0), p + Vector2(0, 7), p + Vector2(-7, 0)
+			]), Palette.a(col, 0.16))
+			draw_polyline(d, col, 1.3, true)
+			if level >= 3:
+				for q in [Vector2(-12, -12), Vector2(12, -12), Vector2(-12, 12), Vector2(12, 12)]:
+					draw_line(p + q, p + q * 0.72, Palette.a(col, 0.55), 1.0)
+		_:
+			draw_circle(p, 2.5, col)
+
 func _draw_symbol(p: Vector2, t: Dictionary, col: Color) -> void:
 	if t.get("ghost", false):
 		var g: Array[Vector2] = [
@@ -1052,29 +1146,7 @@ func _draw_symbol(p: Vector2, t: Dictionary, col: Color) -> void:
 		_dashed_polyline(g, Palette.a(col, 0.55), 1.0, 2.0)
 		draw_polyline(PackedVector2Array([p + Vector2(-9, 0), p + Vector2(9, 0)]), Palette.a(col, 0.22), 1.0)
 		return
-	match t.side:
-		"friend":
-			draw_circle(p, 3.2, col)
-			draw_arc(p, 8.0, 0, TAU, 28, Palette.a(col, 0.55), 1.0, true)
-			draw_line(p + Vector2(8, 0), p + Vector2(13, 0), Palette.a(col, 0.6), 1.0)
-		"hostile":
-			var d := PackedVector2Array([
-				p + Vector2(0, -7), p + Vector2(7, 0), p + Vector2(0, 7),
-				p + Vector2(-7, 0), p + Vector2(0, -7)
-			])
-			draw_colored_polygon(PackedVector2Array([
-				p + Vector2(0, -7), p + Vector2(7, 0), p + Vector2(0, 7), p + Vector2(-7, 0)
-			]), Palette.a(col, 0.12))
-			draw_polyline(d, col, 1.3, true)
-			if int(t.level) >= 3:
-				for q in [Vector2(-12, -12), Vector2(12, -12), Vector2(-12, 12), Vector2(12, 12)]:
-					draw_line(p + q, p + q * 0.72, Palette.a(col, 0.55), 1.0)
-		"unknown":
-			draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), Palette.a(col, 0.10))
-			draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), Palette.a(col, 0.8), false, 1.0)
-			draw_circle(p, 1.0, col)
-		_:
-			draw_circle(p, 2.5, col)
+	_symbol_at(p, _ident(t), Palette.a(col, 0.95), int(t.get("level", 1)))
 
 func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 	var off: Vector2 = t.get("off", Vector2(16, 12))
@@ -1082,29 +1154,33 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 	var ly := p.y + off.y
 	var lv := _lvl(t)
 	var dim := 0.55 if t.get("stale", false) else 1.0
-	var idf := cjk if Fonts.has_cjk(String(t.get("id", ""))) else mono
+	var batch := String(t.get("batch", t.get("id", "")))
+	var nm := String(t.get("name", t.get("id", "")))
+	var ident := _identity_label(_ident(t))
+	var idf := cjk if Fonts.has_cjk(nm) else mono
 	var stale_tag := " · 陈旧" if t.get("stale", false) else ""
 	var rng_label := _fmt_km(float(t.get("obs_range_km", -1.0)) if float(t.get("obs_range_km", -1.0)) >= 0.0 else float(t.get("range", 0.0)))
 	var sig := float((t.get("covariance", {}) as Dictionary).get("pos_sigma_km", 0.0))
 	match lv:
 		2:
-			_txt(idf, lx, ly, String(t.get("id", "")), 11, Palette.a(col, dim))
-			_txt(mono, lx, ly + 12.0, "%03d° · %s km · σ%.1f%s" % [int(t.get("bearing", 0)), rng_label, sig, stale_tag], 8, Palette.a(col, 0.62 * dim))
+			_txt(idf, lx, ly, "[%s] %s" % [batch, nm], 11, Palette.a(col, dim))
+			_txt(mono, lx, ly + 12.0, "%s · L2 · %03d° · %s km · σ%.1f%s" % [ident, int(t.get("bearing", 0)), rng_label, sig, stale_tag], 8, Palette.a(col, 0.62 * dim))
 		3:
 			var cls: Dictionary = t.get("classification", {})
-			_txt(cjk, lx, ly, "%s · %s" % [String(t.get("id", "")), String(cls.get("ship_class", "—"))], 11, Palette.a(col, dim))
-			_txt(cjk, lx, ly + 12.0, "%s · %s · %s" % [String(cls.get("builder", "—")), String(cls.get("faction", "—")), String(t.get("role", ""))], 8, Palette.a(col, 0.66 * dim))
+			_txt(idf, lx, ly, "[%s] %s" % [batch, nm], 11, Palette.a(col, dim))
+			_txt(cjk, lx, ly + 12.0, "%s · L3 · %s · %s · %s" % [ident, String(cls.get("ship_class", "—")), String(cls.get("builder", "—")), String(cls.get("faction", "—"))], 8, Palette.a(col, 0.66 * dim))
 			_txt(mono, lx, ly + 24.0, "L3 已分类 · %s km%s" % [rng_label, stale_tag], 7, Palette.a(col, 0.45 * dim))
 		4:
-			var ident: Dictionary = t.get("identity", {})
-			var nm := String(ident.get("name", t.get("id", "")))
-			var hull := String(ident.get("hull", ""))
-			var title := nm if hull == "" else "%s · %s" % [nm, hull]
-			_txt(cjk, lx, ly, title, 11, Palette.a(col, dim))
+			var info: Dictionary = t.get("id_info", {})
+			var nm4 := String(info.get("name", nm))
+			var hull := String(info.get("hull", ""))
+			var title := "[%s] %s" % [batch, nm4]
+			if hull != "":
+				title += " · %s" % hull
+			_txt(idf, lx, ly, title, 11, Palette.a(col, dim))
 			var iff := String(t.get("iff_status", ""))
-			_txt(mono, lx, ly + 12.0, "%s · 敌我识别 %s%s" % [String(ident.get("faction", "—")), _iff_text(iff), stale_tag], 8, Palette.a(col, 0.66 * dim))
-			# IFF：友军打勾；谷神-2 应答机故障 → 不明 ≠ 敌意
-			if iff == "friend" or String(ident.get("via", "")) == "datalink":
+			_txt(mono, lx, ly + 12.0, "%s · L4 · %s · 敌我识别 %s%s" % [ident, String(info.get("faction", "—")), _iff_text(iff), stale_tag], 8, Palette.a(col, 0.66 * dim))
+			if iff == "friend" or String(info.get("via", "")) == "datalink":
 				draw_line(Vector2(lx, ly + 24.0), Vector2(lx + 4.0, ly + 28.0), Palette.a(Palette.PH, 0.8), 1.0)
 				draw_line(Vector2(lx + 4.0, ly + 28.0), Vector2(lx + 11.0, ly + 19.0), Palette.a(Palette.PH, 0.8), 1.0)
 				_txt(mono, lx + 14.0, ly + 26.0, "已确认", 7, Palette.a(Palette.PH, 0.5))
@@ -1165,7 +1241,7 @@ func _draw_sensor() -> void:
 				var pulse := 0.5 + 0.5 * sin(_t * 1.6 + b)
 				draw_circle(q, 1.6 + pulse * 1.6, Palette.a(Palette.AMBER, 0.45))
 	# 2) 主动雷达：开机 → 扇扫 + EMIT 环（开机即暴露）
-	if _fleet_on("apsis", "YW-R9"):
+	if _fleet_on("harmattan", "YW-R9"):
 		_draw_radar_sweep(o)
 		_draw_emit_ring(o)
 	# 3) 光学凝视：进度环（遮蔽/阴影不画）
@@ -1260,7 +1336,7 @@ func _draw_emit_ring(o: Vector2) -> void:
 
 # 敌方 ELINT 点名：从传唤级指向本舰的虚线 + 截获环
 func _draw_elint_named(o: Vector2) -> void:
-	var hostile: Dictionary = state.track_by_id("案卷 4471")
+	var hostile: Dictionary = state.track_by_id("2001")
 	var from := o
 	if not hostile.is_empty() and _lvl(hostile) >= 2:
 		from = _contact_pos3(hostile)
@@ -1463,15 +1539,18 @@ func _body_planar(pos_km: Vector2, radius_km: float, label: String, col: Color, 
 
 func _draw_planar_contact_title(t: Dictionary) -> String:
 	var lv := _lvl(t)
+	var batch := String(t.get("batch", t.get("id", "")))
+	var nm := String(t.get("name", t.get("id", "")))
+	var ident := _identity_label(_ident(t))
 	if lv <= 1:
-		return String(t.get("id", "")) + " · L1 仅方位"
+		return "[%s] %s · %s · L1 仅方位" % [batch, nm, ident]
 	if lv == 2:
-		return String(t.get("id", "")) + " · L2"
+		return "[%s] %s · %s · L2" % [batch, nm, ident]
 	if lv == 3:
 		var cls: Dictionary = t.get("classification", {})
-		return String(t.get("id", "")) + " · " + String(cls.get("ship_class", "—")) + " · L3"
-	var ident: Dictionary = t.get("identity", {})
-	return String(ident.get("name", t.get("id", ""))) + " · L4"
+		return "[%s] %s · %s · L3" % [batch, nm, String(cls.get("ship_class", ident))]
+	var info: Dictionary = t.get("id_info", {})
+	return "[%s] %s · %s · L4" % [batch, String(info.get("name", nm)), ident]
 
 func _draw_planar_contacts() -> void:
 	var o := _o()
@@ -1547,7 +1626,7 @@ func _draw_planar_phantom(o: Vector2, t: Dictionary) -> void:
 	var b := deg_to_rad(float(state.phantom_bearing))
 	var end := o + Vector2(sin(b), -cos(b)) * 62.0
 	draw_dashed_line(o, end, Palette.a(col, 0.35), 1.0, 5.0)
-	_txt_r(mono, end.x - 5.0, end.y - 3.0, "不明接触 · L1", 7, Palette.a(col, 0.85))
+	_txt_r(mono, end.x - 5.0, end.y - 3.0, "[9002] 虚警候选 · L1", 7, Palette.a(col, 0.85))
 	if resolved:
 		_txt_r(cjk, end.x - 5.0, end.y + 10.0, "虚警 / FALSE ALARM", 8, Palette.a(Palette.AMBER, 0.85))
 
@@ -1585,7 +1664,7 @@ func _draw_planar_sensor() -> void:
 				_txt(mono, o.x + rr * 0.72, o.y - rr * 0.72, "辐射 · 通信截听 %s km" % _fmt_km(float(best.get("elint_range_km", 0.0))), 7, Palette.a(Palette.AMBER, 0.7))
 	# ELINT 点名：从传唤级指向本舰
 	if bool(state.elint_named):
-		var hostile: Dictionary = state.track_by_id("案卷 4471")
+		var hostile: Dictionary = state.track_by_id("2001")
 		var from := o
 		if not hostile.is_empty():
 			var km := _track_km(hostile, _tau_now())
@@ -1766,29 +1845,31 @@ func _draw_compass() -> void:
 		_txt(cjk, c.x - 90.0, c.y - 5.0, "帧 LVLH", 7, Palette.a(Palette.FAINT, 0.9))
 
 func _draw_legend() -> void:
-	_txt(cjk, 16.0, 664.0, "图例 / LEGEND", 7, Palette.a(Palette.FAINT, 0.9))
-	var y := 682.0
-	draw_circle(Vector2(22.0, y + 5.0), 3.0, Palette.PH)
-	_txt(cjk, 32.0, y, "友军", 8, Palette.DIM)
-	draw_rect(Rect2(84.0, y + 1.0, 8.0, 8.0), Palette.a(Palette.AMBER, 0.8), false, 1.0)
-	_txt(cjk, 96.0, y, "不明", 8, Palette.DIM)
-	var d := PackedVector2Array([Vector2(158, y + 5), Vector2(163, y + 0), Vector2(168, y + 5), Vector2(163, y + 10), Vector2(158, y + 5)])
-	draw_polyline(d, Palette.RED, 1.0)
-	_txt(cjk, 174.0, y, "敌对", 8, Palette.DIM)
-	# 只方位：两道收敛的虚线（无距离）
-	draw_dashed_line(Vector2(234, y + 12), Vector2(248, y + 2), Palette.a(Palette.AMBER, 0.8), 1.0, 3.0)
-	draw_dashed_line(Vector2(234, y + 12), Vector2(248, y + 8), Palette.a(Palette.AMBER, 0.8), 1.0, 3.0)
-	_txt(cjk, 252.0, y, "虚警", 8, Palette.DIM)
-	var y2 := 704.0
+	_txt(cjk, 16.0, 648.0, "图例 / LEGEND · 身份 / IDENTITY", 7, Palette.a(Palette.FAINT, 0.9))
+	var row1 := [["pending", "待定"], ["unknown", "未知"], ["assumed_friend", "假定友好"], ["friend", "友方"]]
+	var row2 := [["neutral", "中立"], ["suspect", "可疑"], ["hostile", "敌方"]]
+	var x := 22.0
+	for it in row1:
+		_symbol_at(Vector2(x, 665.0), String(it[0]), _identity_color(String(it[0])), 1)
+		_txt(cjk, x + 13.0, 668.0, String(it[1]), 7, Palette.DIM)
+		x += 96.0
+	x = 22.0
+	for it in row2:
+		_symbol_at(Vector2(x, 681.0), String(it[0]), _identity_color(String(it[0])), 1)
+		_txt(cjk, x + 13.0, 684.0, String(it[1]), 7, Palette.DIM)
+		x += 96.0
+	draw_line(Vector2(x - 4.0, 675.0), Vector2(x + 6.0, 687.0), Palette.a(Palette.AMBER, 0.85), 1.0)
+	draw_line(Vector2(x + 6.0, 675.0), Vector2(x - 4.0, 687.0), Palette.a(Palette.AMBER, 0.85), 1.0)
+	_txt(cjk, x + 13.0, 684.0, "虚警", 7, Palette.DIM)
+	var y2 := 700.0
 	draw_line(Vector2(16, y2 + 5), Vector2(34, y2 + 5), Palette.a(Palette.PH_DIM, 0.55), 1.0)
 	_txt(cjk, 40.0, y2, "历史", 7, Palette.DIM)
 	draw_dashed_line(Vector2(82, y2 + 5), Vector2(100, y2 + 5), Palette.a(Palette.PH, 0.8), 1.0, 4.0)
 	_txt(cjk, 106.0, y2, "预测", 7, Palette.DIM)
 	draw_dashed_line(Vector2(148, y2 + 5), Vector2(166, y2 + 5), Palette.a(Palette.PH, 0.35), 1.0, 2.0)
 	_txt(cjk, 172.0, y2, "1σ 误差", 7, Palette.DIM)
-	# 等级与刻度说明（P1c）
-	_txt(mono, 16.0, 718.0, "航迹：批号 · L1 方位线 · L2 定位+协方差 · L3 分类 · L4 舰名/敌我识别", 7, Palette.a(Palette.PH, 0.65))
-	_txt(mono, 16.0, 731.0, "T+60/120/300 = 预测刻度 · 辐射 = 开机即暴露 · 链路降级 = LINK DEGRADED", 7, Palette.a(Palette.PH_FAINT, 0.95))
+	_txt(mono, 16.0, 714.0, "航迹：批号 · L1 方位线 · L2 定位+协方差 · L3 分类 · L4 舰名/敌我识别", 7, Palette.a(Palette.PH, 0.65))
+	_txt(mono, 16.0, 727.0, "T+60/120/300 = 预测刻度 · 辐射 = 开机即暴露 · LINK DEGRADED", 7, Palette.a(Palette.PH_FAINT, 0.95))
 
 func _draw_optical() -> void:
 	var r := Rect2(size.x - 252.0, 76.0, 236.0, 132.0)
@@ -1811,7 +1892,7 @@ func _draw_optical() -> void:
 	draw_line(cp - Vector2(0, 24), cp + Vector2(0, 24), Palette.a(Palette.LINE2, 0.35), 0.8)
 	_txt(cjk, r.position.x + 6.0, r.position.y + 5.0, "可见光通道 / OPTICAL", 7, Palette.a(Palette.BLUE, 0.75))
 	_txt(mono, r.end.x - 42.0, r.position.y + 5.0, "MS-OT2 8×", 7, Palette.a(Palette.BLUE, 0.55))
-	_txt(mono, r.position.x + 6.0, r.end.y - 12.0, "案卷 4471 +2.1", 7, Palette.a(Palette.BLUE, 0.55))
+	_txt(mono, r.position.x + 6.0, r.end.y - 12.0, "[9001] 谷神-2 +2.1", 7, Palette.a(Palette.BLUE, 0.55))
 
 func _draw_sweep() -> void:
 	var y := fmod(_t * 27.0, size.y)
@@ -1857,17 +1938,9 @@ func _draw_mode_cut() -> void:
 # ── 工具 ────────────────────────────────────────────────
 
 func _side_color(t: Dictionary) -> Color:
-	match t.side:
-		"friend":
-			return Palette.PH
-		"hostile":
-			return Palette.RED
-		"unknown":
-			return Palette.AMBER
-		"ghost":
-			return Palette.PH_FAINT
-		_:
-			return Palette.TXT
+	if t.get("ghost", false):
+		return Palette.PH_FAINT
+	return _identity_color(_ident(t))
 
 func _poly3(pts: Array[Vector3], color: Color, width := 1.0, dashed := false) -> void:
 	var run: Array[Vector2] = []

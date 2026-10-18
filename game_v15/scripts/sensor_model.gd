@@ -325,16 +325,18 @@ const RACK_BLUEPRINTS := {
 		"sensors": [
 			{"model": "MS-IR9", "on": true},
 			{"model": "MS-OT2", "on": true},
-			{"model": "YW-R9", "on": false},   # 默认 EMCON；07 §3 Phase 1才开机
 			{"model": "MK-12", "on": false},   # 询问即暴露，按需
 			{"model": "ELINT", "on": true},
 		],
 	},
-	# 哈马丹号（托盘-5 改，车肆重工，哨舰，114）——07 Phase 1：CH-IR2 + CH-R0
+	# 哈马丹号（托盘-5 改，车肆重工，哨舰，114）——舰队 AWACS/EWR 节点（19 §6）
 	"harmattan": {
 		"source": "公约 · AD 特遣群",
 		"sensors": [
+			{"model": "YW-R9", "on": false},   # 默认 EMCON；第一关由命令哈马丹开机
+			{"model": "MS-OT2", "on": true},
 			{"model": "CH-IR2", "on": true},
+			{"model": "ELINT", "on": true},
 			{"model": "CH-R0", "on": true},
 		],
 	},
@@ -362,7 +364,7 @@ const RACK_BLUEPRINTS := {
 			{"model": "CH-R0", "on": true},
 		],
 	},
-	# 案卷 4471（传唤级，清算署）——它的 ELINT 会点名玩家雷达（07 §3 Phase 1）
+	# AV-4412 传唤者（2001，传唤级，清算署）——它的 ELINT 会点名玩家雷达（07 §3 Phase 1）
 	"summons_4471": {
 		"source": "清算署",
 		"sensors": [
@@ -1588,8 +1590,8 @@ static func run_self_test() -> bool:
 	if not errors.is_empty():
 		for e in errors:
 			print("[SCHEMA] ", e)
-	ok = _check(ok, rack_models("harmattan") == ["CH-IR2", "CH-R0"],
-		"07 rack: 哈马丹 = CH-IR2 + CH-R0", str(rack_models("harmattan")))
+	ok = _check(ok, rack_models("harmattan") == ["YW-R9", "MS-OT2", "CH-IR2", "ELINT", "CH-R0"],
+		"19 §6 rack: 哈马丹 = YW-R9 + MS-OT2 + CH-IR2 + ELINT + CH-R0", str(rack_models("harmattan")))
 	ok = _check(ok, rack_models("apsis").has("MS-IR9"),
 		"07 rack: 远地点带 MS-IR9", str(rack_models("apsis")))
 	ok = _check(ok, rack_models("watchtower").has("MS-L2"),
@@ -1623,7 +1625,7 @@ static func run_self_test() -> bool:
 
 	# ── 3. 雷达：距离 + 方位 → L2 + 开机暴露（05 §S-02）───────────
 	var summons := target_from_ship("summons_4471", 8000.0, 41.0, {"rcs_m2": 10.0})
-	var radar_obs := detect_radar(rack_sensor("apsis", "YW-R9"), summons, ctx)
+	var radar_obs := detect_radar(rack_sensor("harmattan", "YW-R9"), summons, ctx)
 	ok = _check(ok, bool(radar_obs.get("detected", false))
 		and int(radar_obs.get("level_support", 0)) == LEVEL_TRACK,
 		"雷达 → L2（距离+方位）", "range=%.0f km σr=%.2f km stable=%s" % [
@@ -1632,10 +1634,10 @@ static func run_self_test() -> bool:
 			str(radar_obs.get("stable_track", false))])
 	ok = _check(ok, bool(radar_obs.get("stable_track", false)),
 		"8,000 km < 15,000 km 稳定跟踪（05 §S-02）")
-	var em_radar := emission_for(rack_sensor("apsis", "YW-R9"))
+	var em_radar := emission_for(rack_sensor("harmattan", "YW-R9"))
 	ok = _check(ok, bool(radar_obs.get("expose_self", {}).size() > 0) and not em_radar.is_empty(),
 		"雷达开机即暴露：observation 带 expose_self", "ELINT %.0f km" % float(em_radar.get("elint_range_km", 0.0)))
-	var far_obs := detect_radar(rack_sensor("apsis", "YW-R9"),
+	var far_obs := detect_radar(rack_sensor("harmattan", "YW-R9"),
 		target_from_ship("summons_4471", 20000.0, 41.0, {"rcs_m2": 10.0}), ctx)
 	ok = _check(ok, bool(far_obs.get("detected", false)) and not bool(far_obs.get("stable_track", true)),
 		"20,000 km 探测到但无稳定跟踪（05 §S-02）")
@@ -1667,7 +1669,7 @@ static func run_self_test() -> bool:
 		"kind=%s weight=%.2f" % [String(em_lidar.get("kind", "")), float(em_lidar.get("weight", 0.0))])
 	var kd := _make_sensor({"model": "KD-R6"}, "测试")
 	var em_kd := emission_for(kd)
-	var em_yw := emission_for(rack_sensor("apsis", "YW-R9"))
+	var em_yw := emission_for(rack_sensor("harmattan", "YW-R9"))
 	ok = _check(ok, float(em_kd.get("elint_range_km", 0.0)) < float(em_yw.get("elint_range_km", 0.0))
 		and float(em_kd.get("fix_after_s", 0.0)) > float(em_yw.get("fix_after_s", 0.0)),
 		"KD-R6 低截获概率：更难被定位（06 §4.3）",
@@ -1675,7 +1677,7 @@ static func run_self_test() -> bool:
 			float(em_kd.get("elint_range_km", 0.0)), float(em_kd.get("fix_after_s", 0.0))])
 
 	# ── 4. 暴露 / EMCON（05 §S-02 / §S-06 / §C-02）────────────────
-	var ex_on := emission_state("apsis", {
+	var ex_on := emission_state("harmattan", {
 		"on": {"YW-R9": true, "MS-IR9": false, "MS-OT2": false, "MK-12": false, "ELINT": false},
 		"seconds_on": {"YW-R9": 25.0},
 	})
@@ -1748,7 +1750,7 @@ static func run_self_test() -> bool:
 	var ferry := target_from_ship("ferry", 8000.0, 332.0, {"rcs_m2": 10.0})
 	var tr := update_track({}, [detect_ir(ms_ir9, ferry, ctx)], 0.0, {"track_id": "T-1"})
 	var lv1 := int(tr.get("level", 0))
-	tr = update_track(tr, [detect_radar(rack_sensor("apsis", "YW-R9"), ferry, ctx)], 10.0)
+	tr = update_track(tr, [detect_radar(rack_sensor("harmattan", "YW-R9"), ferry, ctx)], 10.0)
 	var lv2 := int(tr.get("level", 0))
 	var octx2: Dictionary = ctx.duplicate(true)
 	octx2["stare_s"] = 40.0
@@ -1802,7 +1804,7 @@ static func run_self_test() -> bool:
 
 	# ── 11. REPORT：证明 API 能返回 等级 / 暴露 / 误差 ─────────────
 	var report_track: Dictionary = update_track(tr, [
-		detect_radar(rack_sensor("apsis", "YW-R9"), ferry, ctx),
+		detect_radar(rack_sensor("harmattan", "YW-R9"), ferry, ctx),
 		interrogate_iff(iff, target_from_ship("ferry", 1800.0, 332.0), ctx),
 	], 40.0)
 	print("[REPORT] level: %d · %s · caps=%s" % [

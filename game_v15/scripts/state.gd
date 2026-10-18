@@ -128,6 +128,16 @@ var end_summary: Dictionary = {}
 var radio_feed: Array = []
 var event_feed: Array = []
 var _feed_fired: Dictionary = {}
+# P1j：通信格式 / 身份 / 通知
+var notice: Dictionary = {}
+var decision_replies: Dictionary = {}
+var report_unit := "AD 特遣群监督官"
+var report_event := "斛 · 第七号裁定接管通知"
+var report_evidence := "黑匣子、通信流、传感器日志与光学分类记录。"
+var report_bodies: Dictionary = {}
+var report_recommend: Dictionary = {}
+var link_mode := "LD"
+var scenario_sensor_init: Dictionary = {}   # scenario 传感器初始开关（非时序项）
 
 # ── P1c 传感器状态 ─────────────────────────────────────
 var racks: Dictionary = {}                 # ship_id -> [sensor...]（SensorModel）
@@ -175,6 +185,7 @@ func _bootstrap() -> void:
 	_build_log()
 	_build_unit()
 	_seed_demo_commands()
+	selected = _own_track_index()
 	_sync_sensor_view()
 	_plan_tick(0.0)
 	_fusion_tick(0.0)
@@ -183,13 +194,21 @@ func _bootstrap() -> void:
 # ── 舰 / 架 ────────────────────────────────────────────
 
 const TRACK_SHIP := {
-	"哈马丹": "harmattan",
-	"渡口号": "ferry",
-	"望楼号": "watchtower",
-	"案卷 4471": "summons_4471",
-	"谷神-2": "ceres_2",
-	"不明接触": "harmattan",
+	"1000": "apsis",
+	"1001": "harmattan",
+	"1002": "ferry",
+	"1003": "watchtower",
+	"1004": "deepwell",
+	"2001": "summons_4471",
+	"9001": "ceres_2",
+	"9002": "harmattan",
 }
+
+func _own_track_index() -> int:
+	for i in range(tracks.size()):
+		if bool((tracks[i] as Dictionary).get("own", false)):
+			return i
+	return 0
 
 func _ship_id_for_track(track_id: String) -> String:
 	return String(TRACK_SHIP.get(track_id, "harmattan"))
@@ -305,7 +324,7 @@ func _build_phantom() -> void:
 		"false_bearing_deg": phantom_bearing,
 	})
 	var d := {
-		"id": "不明接触", "en": "UNKNOWN CONTACT", "cls": "CH-IR2 虚警候选", "role": "虚警候选 · 残骸/反射",
+		"id": "9002", "batch": "9002", "name": "CH-IR2 虚警", "en": "UNKNOWN CONTACT", "cls": "CH-IR2 虚警候选", "role": "虚警候选 · 残骸/反射", "identity": "pending",
 		"side": "unknown", "level": 1, "bearing": phantom_bearing, "range": 0.0, "alt": 0.0,
 		"closing": 0.0, "age": 0.0, "own": false, "off": Vector2(-120, -26),
 		"stale": false, "bearing_only": true, "phantom": true,
@@ -313,7 +332,7 @@ func _build_phantom() -> void:
 		"range_band": "UNKNOWN", "sources": ["CH-IR2"],
 		"no_prediction": true, "false_alarm": false, "occluded": false,
 		"obs_range_km": -1.0, "obs_bearing_deg": phantom_bearing,
-		"covariance": {}, "classification": {}, "identity": {}, "iff_status": "",
+		"covariance": {}, "classification": {}, "id_info": {}, "iff_status": "",
 		"notes": [String(fa.get("warning", "CH-IR2 虚警候选"))],
 	}
 	tracks.append(d)
@@ -329,7 +348,8 @@ func _dv_vec(bearing: float, elev: float, dv_kms: float) -> Vector3:
 
 func _track(id: String, en: String, cls: String, role: String, side: String, level: int,
 		r: Vector3, v: Vector3, age: float, is_own := false,
-		off := Vector2(16, 12), bearing_only := false) -> Dictionary:
+		off := Vector2(16, 12), bearing_only := false,
+		name := "", identity := "") -> Dictionary:
 	var d := {
 		"id": id, "en": en, "cls": cls, "role": role, "side": side, "level": level,
 		"r": r, "v": v, "epoch": T0, "age": age,
@@ -337,10 +357,13 @@ func _track(id: String, en: String, cls: String, role: String, side: String, lev
 		"stale": age > 30.0,
 		# P1c 融合字段
 		"sensor_track": {}, "level_evidence": {}, "covariance": {},
-		"sources": [], "classification": {}, "identity": {}, "iff_status": "",
+		"sources": [], "classification": {}, "id_info": {}, "iff_status": "",
 		"range_band": "", "obs_range_km": -1.0, "obs_bearing_deg": -1.0,
 		"occluded": false, "stare": {}, "notes": [],
 	}
+	d["batch"] = id
+	d["name"] = name if name != "" else id
+	d["identity"] = identity if identity != "" else _default_identity(side)
 	_derive(d, r, v)
 	return d
 
@@ -423,7 +446,7 @@ func _seed_demo_commands() -> void:
 		cmd_note = _cmd_note()
 		return
 	# 07 §3 Phase 1：哈马丹跟踪谷神-2（命令经望楼中继 8 s）
-	var shadow: Dictionary = cmd_model.issue("哈马丹", "SHADOW", "谷神-2", {"hold_km": 60.0}, 0.0)
+	var shadow: Dictionary = cmd_model.issue("哈马丹", "SHADOW", "9001", {"hold_km": 60.0}, 0.0)
 	# 本舰计划点火：T+6.2 s、Δv 84 m/s、BRG 340 / ELEV +20
 	var dv := CommandModel.dv_vector(340.0, 20.0, 84.0)
 	var burn_cmd: Dictionary = cmd_model.issue("哈马丹", "BURN", "", {
@@ -432,7 +455,7 @@ func _seed_demo_commands() -> void:
 	}, 0.0)
 	# HUD 日志首两行 = 真实命令（状态随命令机更新）
 	log_lines[0] = {"t": "T+00.0", "text": "点火（BURN）哈马丹 · 节点 B-2", "arg": "T+06.2s", "status": "PENDING", "_cmd": String(burn_cmd.get("id", ""))}
-	log_lines[1] = {"t": "T+00.0", "text": "跟踪（SHADOW）哈马丹 → 谷神-2", "arg": "中继 8s", "status": "PENDING", "_cmd": String(shadow.get("id", ""))}
+	log_lines[1] = {"t": "T+00.0", "text": "跟踪（SHADOW）哈马丹 → 9001", "arg": "中继 8s", "status": "PENDING", "_cmd": String(shadow.get("id", ""))}
 	cmd_note = _cmd_note()
 
 func _push_command_log(cmd: Dictionary) -> void:
@@ -597,6 +620,7 @@ func refresh(now: float) -> void:
 		_fusion_tick(fusion_t)
 		steps += 1
 	_sync_sensor_view()
+	_update_identity(t)
 
 # ── 传感器融合 ─────────────────────────────────────────
 
@@ -606,11 +630,10 @@ func _plan_tick(t: float) -> void:
 		"apsis": {
 			"MS-IR9": true,
 			"MS-OT2": t >= optical_on_t,
-			"YW-R9": t >= radar_on_t,
 			"MK-12": t >= iff_on_t,
 			"ELINT": true,
 		},
-		"harmattan": {"CH-IR2": true, "CH-R0": true},
+		"harmattan": {"YW-R9": t >= radar_on_t, "MS-OT2": t >= optical_on_t, "CH-IR2": true, "ELINT": true, "CH-R0": true},
 		"ferry": {"CH-IR2": true, "LR-4": false, "CH-R0": true},
 		"watchtower": {"MS-L2": true, "CH-R0": true},
 		"deepwell": {"CH-R0": true},
@@ -618,6 +641,20 @@ func _plan_tick(t: float) -> void:
 		"summons_4471": {"YW-R9": false, "MK-12": false, "ELINT": true, "CH-R0": true},
 		"ceres_2": {"CH-R0": true},
 	}
+	# scenario 传感器初始开关：对非时序项生效（雷达/光学/IFF 由剧情时序控制）
+	var tl_models := {"apsis": ["MK-12", "MS-OT2"], "harmattan": ["YW-R9", "MS-OT2"]}
+	for raw_ship_s in scenario_sensor_init.keys():
+		var ship_s := String(raw_ship_s)
+		if not plan.has(ship_s):
+			continue
+		var skip: Array = tl_models.get(ship_s, [])
+		var init_map: Dictionary = scenario_sensor_init[ship_s]
+		for raw_model_s in init_map.keys():
+			var model_s := String(raw_model_s)
+			if skip.has(model_s):
+				continue
+			if (plan[ship_s] as Dictionary).has(model_s):
+				(plan[ship_s] as Dictionary)[model_s] = bool(init_map[model_s])
 	# P1e：手动开关（set_sensor）与 EMCON（发射类强制关）覆盖脚本时序
 	for raw_ship in plan.keys():
 		var ship := String(raw_ship)
@@ -644,7 +681,7 @@ func _plan_tick(t: float) -> void:
 	sensor_on = plan
 	# 开机事件写日志：第一次雷达开机（EMIT）
 	if t >= radar_on_t and t - FUSION_PERIOD_S < radar_on_t:
-		_push_log("远地点号 YW-R9 开机 · 辐射暴露", "EXPOSE", "EXEC")
+		_push_log("远地点号 → 哈马丹：YW-R9 搜索雷达开机（EMIT 暴露）", "COMMAND", "EXEC")
 
 func _sensor_exposes(ship: String, model: String) -> bool:
 	var s := SensorModel.rack_sensor(ship, model)
@@ -748,6 +785,8 @@ func _fusion_tick(t: float) -> void:
 			var s: Dictionary = (raw as Dictionary).get("sensor", {})
 			var model := String(s.get("model", ""))
 			var s_type := String(s.get("type", ""))
+			if s_type == "elint":
+				continue   # 05 §S-05：ELINT 出信号不出接触，不并入航迹融合（P1j）
 			var is_telescope := s_type == "optical" and String(s.get("subtype", "")) != "lidar"
 			if is_telescope and String(tr.get("id", "")) != _optical_target:
 				continue
@@ -806,7 +845,7 @@ func _sync_track_from_sensor(tr: Dictionary, st: Dictionary) -> void:
 		tr["classification"] = cls.duplicate(true)
 	var ident: Dictionary = st.get("identity", {})
 	if not ident.is_empty():
-		tr["identity"] = ident.duplicate(true)
+		tr["id_info"] = ident.duplicate(true)
 	var sig: Dictionary = st.get("signal", {})
 	if not sig.is_empty():
 		tr["signal"] = sig.duplicate(true)
@@ -819,7 +858,8 @@ func _apply_datalink_identity(tr: Dictionary) -> void:
 	var ship := _ship_id_for_track(String(tr.get("id", "")))
 	var info := SensorModel.ship_info(ship)
 	if not info.is_empty():
-		tr["identity"] = {
+		tr["identity"] = "friend"
+		tr["id_info"] = {
 			"name": String(info.get("name", tr.id)),
 			"hull": String(info.get("hull", "")),
 			"faction": String(info.get("faction", "")),
@@ -837,7 +877,7 @@ func _apply_datalink_identity(tr: Dictionary) -> void:
 
 func _update_phantom(t: float) -> void:
 	phantom_true = t >= phantom_true_t
-	var ph := track_by_id("不明接触")
+	var ph := track_by_id("9002")
 	if ph.is_empty():
 		return
 	ph["level"] = 1
@@ -886,7 +926,7 @@ func _update_emissions(t: float) -> void:
 	elint_hits = []
 	elint_named = false
 	if bool(merged.get("exposed", false)) and _sensor_is_on("summons_4471", "ELINT"):
-		var hostile := track_by_id("案卷 4471")
+		var hostile := track_by_id("2001")
 		# 几何占位：APSI 后方位置不在局部板内，用"对方 ELINT 距离足够近"的保守值
 		var distance_km := 318.0
 		if not hostile.is_empty():
@@ -899,7 +939,7 @@ func _update_emissions(t: float) -> void:
 			var itc := SensorModel.elint_intercept(em, distance_km, float(em.get("seconds_on", 0.0)))
 			if bool(itc.get("detected", false)):
 				var hit := {
-					"from": "案卷 4471",
+					"from": "2001",
 					"owner": String(em.get("owner", "")),
 					"model": String(em.get("model", "")),
 					"distance_km": distance_km,
@@ -909,9 +949,9 @@ func _update_emissions(t: float) -> void:
 				elint_hits.append(hit)
 				elint_named = true
 				if elint_hits.size() == 1:
-					_push_log("ELINT 截获：%s 点名我方雷达" % String(em.get("model", "")), "EXPOSED", "RX")
+					_push_log("AV-4412 传唤者 ELINT 截获：%s 点名我方雷达" % String(em.get("model", "")), "EXPOSED", "RX")
 	if elint_named:
-		(merged["warnings"] as Array).append("传唤级 ELINT 已点名：我方雷达开机即暴露（07 §3）")
+		(merged["warnings"] as Array).append("AV-4412 传唤者 ELINT 已点名：我方雷达开机即暴露（07 §3）")
 	emission = merged
 
 func _sensor_note(t: float) -> String:
@@ -1014,10 +1054,11 @@ func _apply_scenario_env() -> void:
 		var sc_sensors: Dictionary = scenario.get("sensors", {})
 		for raw_ship in sc_sensors.keys():
 			var ship := String(raw_ship)
-			sensor_override[ship] = {}
+			if not scenario_sensor_init.has(ship):
+				scenario_sensor_init[ship] = {}
 			for raw in (sc_sensors[ship] as Array):
 				var e: Dictionary = raw
-				(sensor_override[ship] as Dictionary)[String(e.get("model", ""))] = bool(e.get("on", true))
+				(scenario_sensor_init[ship] as Dictionary)[String(e.get("model", ""))] = bool(e.get("on", true))
 	if scenario.has("false_alarm"):
 		var fa: Dictionary = scenario.get("false_alarm", {})
 		phantom_bearing = float(fa.get("bearing_deg", phantom_bearing))
@@ -1048,7 +1089,8 @@ func _build_tracks_from_scenario() -> void:
 			String(d.get("id", "?")), String(d.get("en", "")), String(d.get("cls", "")),
 			String(_role_text(String(d.get("role", "")))), String(d.get("side", "unknown")),
 			int(d.get("level", 1)), r, v, float(d.get("age", 0.0)),
-			bool(d.get("own", false)), off, bool(d.get("bearing_only", false)))
+			bool(d.get("own", false)), off, bool(d.get("bearing_only", false)),
+			String(d.get("name", "")), String(d.get("identity", "")))
 		tracks.append(tr)
 		if bool(d.get("own", false)):
 			own = {"r": r, "v": v}
@@ -1083,6 +1125,13 @@ func _load_story() -> void:
 	var rep0: Dictionary = story.get("reputation", {})
 	for k in rep0.keys():
 		reputation[String(k)] = int(rep0[k])
+	notice = (story.get("notice", {}) as Dictionary).duplicate(true)
+	decision_replies = story.get("decision_replies", {})
+	report_unit = String(story.get("report_unit", "AD 特遣群监督官"))
+	report_event = String(story.get("report_event", "斛 · 第七号裁定接管通知"))
+	report_evidence = String(story.get("report_evidence", "黑匣子、通信流、传感器日志。"))
+	report_bodies = story.get("report_bodies", {})
+	report_recommend = story.get("report_recommend", {})
 
 func _update_phase_gate(t: float) -> void:
 	if end_open:
@@ -1099,6 +1148,7 @@ func _update_phase_gate(t: float) -> void:
 		return
 	if decision_open:
 		tut_phase = PHASE_DECIDE
+		decision_prompt = _fmt_decision_prompt()
 		_update_freeze()
 		return
 	tut_phase = PHASE_READ if t < 20.0 else PHASE_COMMAND
@@ -1115,7 +1165,7 @@ func _open_decision() -> void:
 		return
 	decision_open = true
 	tut_phase = PHASE_DECIDE
-	decision_prompt = story_text("decision_prompt", decision_prompt)
+	decision_prompt = _fmt_decision_prompt()
 	_update_freeze()
 	_push_log("决断窗口开启 · 三选一（或武器释放）", "裁决", "EXEC")
 
@@ -1188,6 +1238,10 @@ func choose_ending(kind: String) -> Dictionary:
 	report_open = true
 	tut_phase = PHASE_REPORT
 	_build_report_options()
+	var reply: Dictionary = (decision_replies.get(outcome, {}) as Dictionary)
+	if not reply.is_empty():
+		_append_radio(String(reply.get("from", "远地点")), String(reply.get("to", "署方")),
+			String(reply.get("mode", "LD")), String(reply.get("text", "")), tau())
 	decision_prompt = ""
 	_push_log("裁决：%s · 声望 %s" % [ending_label(outcome), _rep_text()], "OUTCOME", "EXEC")
 	return {"outcome": outcome, "reputation": reputation.duplicate(true), "report_open": true}
@@ -1266,24 +1320,37 @@ func submit_report(kind: String) -> Dictionary:
 	return {"report": report_text, "audit_flag": audit_flag, "perjury_count": perjury_count, "phase": tut_phase, "end_open": end_open, "end_summary": end_summary.duplicate(true)}
 
 func _compose_report(truth: bool) -> String:
-	var tmpl := ""
+	var body := ""
+	var rec := ""
 	if truth:
-		tmpl = String((story.get("report_truth", {}) as Dictionary).get(outcome, ""))
+		body = String((report_bodies as Dictionary).get(outcome, ""))
+		if body == "":
+			body = String((story.get("report_truth", {}) as Dictionary).get(outcome, ""))
+		rec = String((report_recommend as Dictionary).get(outcome, ""))
 	else:
-		tmpl = String((story.get("report_fake", {}) as Dictionary).get(outcome, ""))
-	if tmpl == "":
-		if truth:
-			tmpl = "任务报告：裁决「{decision}」。声望变化：{reputation}。"
-		else:
-			tmpl = "任务报告：未发现异常。声望变化：{reputation}。（与黑匣子不一致）"
-	var casualties := "无" if not fire_branch else "谷神-2 全损 · 民用 12 人"
-	tmpl = tmpl.replace("{decision}", ending_label(outcome))
-	tmpl = tmpl.replace("{outcome}", outcome)
-	tmpl = tmpl.replace("{casualties}", casualties)
-	tmpl = tmpl.replace("{perjury}", str(perjury_count))
-	tmpl = tmpl.replace("{audit}", "是" if audit_flag else "否")
-	tmpl = tmpl.replace("{reputation}", _rep_text())
-	return tmpl
+		body = String((story.get("report_fake", {}) as Dictionary).get(outcome, ""))
+		if body == "":
+			body = "未发现异常。"
+		rec = "建议维持现有记录。"
+	body = body.replace("{decision}", ending_label(outcome))
+	var lines: Array[String] = [
+		"舰队内部事后报告 / INTERNAL AFTER-ACTION",
+		"报告单位：%s" % report_unit,
+		"事件：%s" % report_event,
+		"裁决：%s" % ending_label(outcome),
+		"经过：%s" % body,
+		"证据：%s" % report_evidence,
+		"声望：%s" % _rep_text(),
+		"建议：%s" % (rec if rec != "" else "—"),
+	]
+	if fire_branch:
+		lines.append("备注：武器释放已执行；民用船只损失，ROE 审查启动。")
+	if not truth:
+		lines.append("备注：内部版本与黑匣子记录不一致（perjury=%d）。" % perjury_count)
+	var out := ""
+	for ln in lines:
+		out += ("\n" if out != "" else "") + ln
+	return out
 
 # ── P1g：事件 / 无线电 feed、END、重开 ───────────────────
 
@@ -1319,11 +1386,21 @@ func _pump_feeds(t: float) -> void:
 		_feed_fired[key2] = true
 		var item := {
 			"t": float(rr.get("t", 0.0)),
-			"from": String(rr.get("from", "VHF")),
+			"from": String(rr.get("from", "—")),
+			"to": String(rr.get("to", "—")),
+			"mode": String(rr.get("mode", "RDO")),
 			"text": String(rr.get("text", "")),
 		}
 		radio_feed.append(item)
-		_push_log(item["text"], item["from"], "RX")
+		link_mode = String(item["mode"])
+		_push_log("[%s至%s]-[%s]-[%s]" % [item["from"], item["to"], item["mode"], item["text"]], String(item["mode"]), "RX")
+		if String(item.get("from", "")).begins_with("AV-4412"):
+			notice = {
+				"title": "接管通知 · AV-4412 传唤者",
+				"body": "[%s至%s]-[%s]-[%s]" % [item["from"], item["to"], item["mode"], item["text"]],
+				"from": String(item["from"]), "to": String(item["to"]),
+				"mode": String(item["mode"]), "t": float(item["t"]),
+			}
 
 func latest_radio(n: int = 1) -> Array:
 	var out: Array = []
@@ -1402,6 +1479,15 @@ func _reset_runtime() -> void:
 	radio_feed = []
 	event_feed = []
 	_feed_fired = {}
+	notice = {}
+	decision_replies = {}
+	report_unit = "AD 特遣群监督官"
+	report_event = "斛 · 第七号裁定接管通知"
+	report_evidence = "黑匣子、通信流、传感器日志与光学分类记录。"
+	report_bodies = {}
+	report_recommend = {}
+	link_mode = "LD"
+	scenario_sensor_init = {}
 	tracks.clear()
 	racks = {}
 	sensor_on = {}
@@ -1422,15 +1508,101 @@ func _reset_runtime() -> void:
 	_optical_done = {}
 	_sensors_view_key = ""
 
+# ── P1j：身份 / 通信格式 / 动态裁决提示 ─────────────────
+
+func _default_identity(side: String) -> String:
+	match side:
+		"friend":
+			return "friend"
+		"hostile":
+			return "unknown"
+		_:
+			return "pending"
+
+# 六级身份中文（plot / hud 共用）
+func identity_label(kind: String) -> String:
+	match kind:
+		"pending":
+			return "待定"
+		"unknown":
+			return "未知"
+		"assumed_friend":
+			return "假定友好"
+		"friend":
+			return "友方"
+		"neutral":
+			return "中立"
+		"suspect":
+			return "可疑"
+		"hostile":
+			return "敌方"
+		_:
+			return kind
+
+func _fmt_mmss(sec: float) -> String:
+	var s := int(maxf(0.0, sec))
+	return "%02d:%02d" % [s / 60, s % 60]
+
+func _fmt_decision_prompt() -> String:
+	var tmpl := story_text("decision_prompt", decision_prompt)
+	if tmpl.contains("{mm:ss}"):
+		tmpl = tmpl.replace("{mm:ss}", _fmt_mmss(exec_left))
+	return tmpl
+
+# 通信：统一 [发信者至收信者]-[LD/LR/RDO/IR/VIS]-[内容] 四字段
+func _append_radio(from_s: String, to_s: String, mode: String, text: String, t: float) -> void:
+	link_mode = mode
+	radio_feed.append({
+		"t": t, "from": from_s, "to": to_s, "mode": mode, "text": text,
+	})
+	_push_log("[%s至%s]-[%s]-[%s]" % [from_s, to_s, mode, text], mode, "RX")
+
+func _has_source(tr: Dictionary, model: String) -> bool:
+	return (tr.get("sources", []) as Array).has(model)
+
+# 身份迁移（19 §2.5）：敌方 2001 Unknown→Suspect（光学分类）；9001 Pending→Neutral（IFF/光学）；
+# 9002 Pending→虚警；友军恒 Friend。IFF 不自动判敌。
+func _update_identity(t: float) -> void:
+	for tr in tracks:
+		var id := String(tr.get("id", ""))
+		var side := String(tr.get("side", ""))
+		if bool(tr.get("own", false)) or side == "friend":
+			tr["identity"] = "friend"
+			continue
+		if bool(tr.get("phantom", false)):
+			tr["identity"] = "pending"
+			continue
+		var lvl := int(tr.get("level", 1))
+		var cls: Dictionary = tr.get("classification", {})
+		match id:
+			"2001":
+				if _has_source(tr, "MS-OT2"):
+					if String(tr.get("identity", "")) != "suspect":
+						tr["identity"] = "suspect"
+						_push_log("身份更新：[2001] 未知 → 可疑（光学分类完成）", "IDENTITY", "RX")
+				elif String(tr.get("identity", "")) != "unknown":
+					tr["identity"] = "unknown"
+			"9001":
+				if _has_source(tr, "MS-OT2") or String(tr.get("iff_status", "")) != "":
+					if String(tr.get("identity", "")) != "neutral":
+						tr["identity"] = "neutral"
+						_push_log("身份更新：[9001] 待定 → 中立（光学/IFF 确认）", "IDENTITY", "RX")
+				elif String(tr.get("identity", "")) != "pending":
+					tr["identity"] = "pending"
+			"9002":
+				tr["identity"] = "pending"
+			_:
+				pass
+
 # ── 日志 / 单位面板 ────────────────────────────────────
 
 func _build_log() -> void:
 	log_lines = [
 		{"t": "12:31.4", "text": "点火（BURN）哈马丹 → 节点 B-2", "arg": "Δv 84", "status": "PENDING"},
 		{"t": "12:28.0", "text": "电磁管制 · 雷达关机", "arg": "", "status": "EXEC"},
-		{"t": "12:19.3", "text": "武器释放授权请求 → 案卷 4471", "arg": "ROE 拒绝", "status": "HOLD"},
+		{"t": "12:19.3", "text": "武器释放授权请求 → AV-4412 传唤者（2001）", "arg": "ROE 拒绝", "status": "HOLD"},
 		{"t": "12:04.8", "text": "传感器：红外 / 光学", "arg": "", "status": "EXEC"},
-		{"t": "11:52.1", "text": "接收 接管通知 · 案卷 4471", "arg": "", "status": "RX"}
+		{"t": "11:52.1", "text": "接收 接管通知 · AV-4412 传唤者（2001）", "arg": "", "status": "RX"}
 	]
 
 func _build_unit() -> void:

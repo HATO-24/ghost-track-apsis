@@ -68,6 +68,38 @@ const END_RECT := Rect2(420, 200, 1080, 640)
 const END_RESTART := Rect2(940, 756, 260, 40)
 const END_EXIT := Rect2(1216, 756, 240, 40)
 
+# ── P1j：身份分类 / 可点开接管通知 / 副官建议 / 手册 ─────────
+# 19 §2.5：六级身份（待定 + 六级分类里的 6 类）。颜色 + 形状双通道。
+const ID_FALLBACK := {
+	"哈马丹": "friend", "哈马丹号": "friend", "渡口": "friend", "渡口号": "friend",
+	"望楼": "friend", "望楼号": "friend", "深井": "friend", "深井号": "friend",
+	"远地点": "friend", "远地点号": "friend",
+}
+const BATCH_OF := {
+	"远地点": 1000, "远地点号": 1000, "哈马丹": 1001, "哈马丹号": 1001,
+	"渡口": 1002, "渡口号": 1002, "望楼": 1003, "望楼号": 1003, "深井": 1004, "深井号": 1004,
+	"案卷 4471": 2001, "AV-4412 传唤者": 2001, "谷神-2": 9001, "未识别": 9002,
+}
+const ID_ORDER := ["pending", "unknown", "assumed_friend", "friend", "neutral", "suspect", "hostile"]
+const ID_CN := {
+	"pending": "待定", "unknown": "未知", "assumed_friend": "假定友好", "friend": "友方",
+	"neutral": "中立", "suspect": "可疑", "hostile": "敌方",
+}
+const ID_EN := {
+	"pending": "PENDING", "unknown": "UNKNOWN", "assumed_friend": "ASSUMED FRIEND",
+	"friend": "FRIEND", "neutral": "NEUTRAL", "suspect": "SUSPECT", "hostile": "HOSTILE",
+}
+const ID_SHORT := {
+	"pending": "待定", "unknown": "未知", "assumed_friend": "假定", "friend": "友方",
+	"neutral": "中立", "suspect": "可疑", "hostile": "敌方",
+}
+const NOTICE_CLICK := Rect2(540, 42, 380, 22)
+const NOTICE_RECT := Rect2(480, 250, 960, 480)
+const ADVISOR_BTN := Rect2(1556, 848, 140, 20)
+const MANUAL_BTN := Rect2(1704, 848, 140, 20)
+const ADVISOR_RECT := Rect2(560, 280, 800, 400)
+const MANUAL_RECT := Rect2(440, 190, 1040, 660)
+
 # 传感器条 / 下拉阵列（V2 结构，V1 薄荷语言）。
 # 位置规则：水平锁在地图中轴（396 + 1128 / 2 = 960），垂直贴地图上沿 +12。
 # 旧值 720 的中心是 900，既不在中轴也不在任何边缘上 —— 这就是"没对准"。
@@ -277,10 +309,17 @@ func _track_display_id(t: Dictionary) -> String:
 	var cls := String(t.get("cls", ""))
 	if cls.contains("虚警") or bool(t.get("false_alarm", false)):
 		return "虚警"
-	var id := _dn(String(t.get("id", "—")))
-	if id == "不明接触" and int(t.get("level", 1)) >= 2:
+	var raw_id := String(t.get("id", ""))
+	var nm := String(t.get("name", ""))
+	if nm == "" or nm == raw_id:
+		nm = raw_id
+	var disp := _dn(nm)
+	if disp.is_valid_int():
+		# P1j：批号（1000/2001/9001）不是实体名；没有 name 时退回「不明接触」。
+		disp = "不明接触"
+	if disp == "不明接触" and int(t.get("level", 1)) >= 2:
 		return "不明目标"
-	return id
+	return disp
 
 # ── TEXT-02：链路标签（14 通信与中继 §3：激光直接 → 激光中继 → 无线电 → 红外 → 可见光）──
 # state 有 link_* 字段时按其显示；第一关缺省是「激光中继（望楼号 / 8 s）」。
@@ -293,15 +332,15 @@ func _link_mode_cn() -> String:
 		if v != null:
 			raw = String(v)
 	match raw.to_lower():
-		"laser_direct", "laser-direct", "direct", "laser":
-			return "激光直接"
-		"laser_relay", "laser-relay", "relay":
+		"laser_direct", "laser-direct", "direct", "laser", "ld", "激光直连", "激光直接":
+			return "激光直连"
+		"laser_relay", "laser-relay", "relay", "lr", "激光中继":
 			return "激光中继"
-		"radio", "wireless":
+		"radio", "wireless", "rdo", "无线电":
 			return "无线电"
-		"ir", "infrared":
+		"ir", "infrared", "红外":
 			return "红外"
-		"visual", "visible", "light":
+		"visual", "visible", "light", "vis", "可见光":
 			return "可见光"
 	if raw != "":
 		return _dn(raw)
@@ -313,7 +352,7 @@ func _link_latency() -> String:
 		if v != null:
 			return "%.1f s" % float(v)
 	match _link_mode_cn():
-		"激光直接":
+		"激光直连":
 			return "0.4 s"
 		"激光中继", "无线电", "红外":
 			return "8 s"
@@ -330,6 +369,344 @@ func _link_degraded() -> bool:
 		if v != null and bool(v):
 			return true
 	return false
+
+# ── P1j：四位数批号 + 六级身份（19 §2 / §2.5）────────────
+func _track_batch(t: Dictionary) -> int:
+	var v = t.get("batch")
+	if v == null:
+		v = t.get("designation")
+	if v != null and int(v) > 0:
+		return int(v)
+	var id := String(t.get("id", ""))
+	var key := String(t.get("name", ""))
+	if BATCH_OF.has(key):
+		return int(BATCH_OF[key])
+	if BATCH_OF.has(id):
+		return int(BATCH_OF[id])
+	if String(t.get("cls", "")).contains("虚警") or id.contains("未识别"):
+		return 9002
+	return 0
+
+# 身份：state.track.identity（dict/string）优先；否则按第一关初值（19 §2.5/§3）推断。
+func _track_identity(t: Dictionary) -> String:
+	var raw = t.get("identity")
+	var key := ""
+	if raw is Dictionary:
+		var d: Dictionary = raw
+		key = String(d.get("key", d.get("class", d.get("id", ""))))
+	elif raw != null:
+		key = String(raw)
+	key = key.to_lower().replace("-", "_").replace(" ", "_")
+	var aliases := {
+		"assumed": "assumed_friend", "assumedfriend": "assumed_friend", "friend": "friend",
+		"neutral": "neutral", "suspect": "suspect", "hostile": "hostile",
+		"unknown": "unknown", "pending": "pending",
+	}
+	if aliases.has(key):
+		return String(aliases[key])
+	if ID_CN.has(key):
+		return key
+	var id := String(t.get("id", ""))
+	var cls := String(t.get("cls", ""))
+	var lv := int(t.get("level", 1))
+	if cls.contains("虚警") or id.contains("虚警"):
+		return "pending"
+	if ID_FALLBACK.has(id):
+		return "friend"
+	if id == "谷神-2":
+		return "neutral" if lv >= 3 else "unknown"
+	if id == "案卷 4471" or cls.contains("传唤"):
+		return "suspect" if lv >= 3 else "unknown"
+	match String(t.get("side", "")):
+		"friend":
+			return "friend"
+		"hostile":
+			return "suspect"
+	return "unknown"
+
+# 六级身份中文：优先用 state.identity_label（数据层单一来源），缺失时用 HUD 表。
+func _identity_cn(key: String) -> String:
+	if state != null and state.has_method("identity_label"):
+		var s := String(state.call("identity_label", key))
+		if s != "":
+			return s
+	return String(ID_CN.get(key, "待定"))
+
+func _id_color(key: String) -> Color:
+	match key:
+		"pending":
+			return Palette.ID_PENDING
+		"unknown":
+			return Palette.ID_UNKNOWN
+		"assumed_friend":
+			return Palette.ID_ASSUMED
+		"friend":
+			return Palette.ID_FRIEND
+		"neutral":
+			return Palette.ID_NEUTRAL
+		"suspect":
+			return Palette.ID_SUSPECT
+		"hostile":
+			return Palette.ID_HOSTILE
+		_:
+			return Palette.DIM
+
+# 19 §2.5：形状不只靠颜色（色盲友好）。
+# 待定虚线方框 / 未知菱形 / 假定友好虚线圆 / 友方实心圆 / 中立方形 / 可疑三角 / 敌方实心菱形
+func _identity_shape(c: Vector2, s: float, key: String, col: Color) -> void:
+	var h := s * 0.5
+	match key:
+		"pending":
+			var r := Rect2(c - Vector2(h, h), Vector2(s, s))
+			_corners(r, h * 0.45, col)
+		"unknown":
+			draw_polyline(PackedVector2Array([
+				c + Vector2(0, -h), c + Vector2(h, 0), c + Vector2(0, h), c + Vector2(-h, 0), c + Vector2(0, -h)
+			]), col, 1.0, true)
+		"assumed_friend":
+			for i in range(8):
+				var a0 := TAU * float(i) / 8.0
+				var a1 := a0 + TAU / 16.0
+				draw_arc(c, h, a0, a1, 4, col, 1.0, true)
+		"friend":
+			draw_circle(c, h, col)
+		"neutral":
+			draw_rect(Rect2(c - Vector2(h, h), Vector2(s, s)), col, false, 1.0)
+		"suspect":
+			draw_polyline(PackedVector2Array([
+				c + Vector2(0, -h), c + Vector2(h, h), c + Vector2(-h, h), c + Vector2(0, -h)
+			]), col, 1.0, true)
+		"hostile":
+			draw_colored_polygon(PackedVector2Array([
+				c + Vector2(0, -h), c + Vector2(h, 0), c + Vector2(0, h), c + Vector2(-h, 0)
+			]), col)
+		_:
+			draw_circle(c, h * 0.6, col)
+
+func _identity_chip(rc: Rect2, key: String, dim := 1.0, short := false) -> void:
+	var col := _id_color(key)
+	var label := String(ID_SHORT.get(key, "待定")) if short else _identity_cn(key)
+	var w := cjk.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 7).x
+	var tx := rc.end.x - w
+	_txt(cjk, tx, rc.position.y, label, 7, Palette.a(col, 0.95 * dim))
+	_identity_shape(Vector2(tx - 9.0, rc.position.y + 5.0), 8.0, key, Palette.a(col, dim))
+
+func _identity_legend_chip(rc: Rect2, key: String) -> void:
+	var col := _id_color(key)
+	var label := String(ID_SHORT.get(key, "待定"))
+	draw_rect(rc, Palette.a(col, 0.04))
+	draw_rect(rc, Palette.a(col, 0.22), false, 1.0)
+	_identity_shape(Vector2(rc.position.x + 9.0, rc.position.y + 8.0), 8.0, key, Palette.a(col, 0.9))
+	_txt(cjk, rc.position.x + 17.0, rc.position.y + 3.0, label, 7, Palette.a(col, 0.9))
+
+# 通信流：19 §1 格式 [发信者至收信者]-[LD/LR/RDO/IR/VIS]-[内容]
+func _comms_mode_short(mode: String) -> String:
+	match mode.to_lower():
+		"laser_direct", "laser-direct", "ld", "激光直连", "激光直接":
+			return "LD"
+		"laser_relay", "laser-relay", "lr", "激光中继":
+			return "LR"
+		"radio", "rdo", "无线电":
+			return "RDO"
+		"ir", "infrared", "红外":
+			return "IR"
+		"visual", "visible", "vis", "可见光":
+			return "VIS"
+		_:
+			return mode.to_upper() if mode != "" else "LD"
+
+func _comms_format(e: Dictionary) -> String:
+	var text := String(e.get("text", ""))
+	var from := String(e.get("from", ""))
+	var to := String(e.get("to", ""))
+	var mode := String(e.get("mode", ""))
+	if from == "":
+		return text
+	# 缺字段时从文本推断（兼容旧 radio_lines：from + text，链路写在文本里）
+	if to == "":
+		to = "全体" if text.begins_with("全队") or text.contains("全队。") else "远地点"
+	if mode == "":
+		if text.contains("公开频道") or text.contains("法律广播"):
+			mode = "RDO"
+		elif text.contains("经望楼中继") or text.contains("激光中继"):
+			mode = "LR"
+		elif text.contains("激光直连") or text.contains("激光直接"):
+			mode = "LD"
+		elif text.contains("红外"):
+			mode = "IR"
+		else:
+			mode = "LD"
+	return "[%s至%s]-[%s]-[%s]" % [_dn(from), _dn(to), _comms_mode_short(mode), _dn(text)]
+
+func _mmss(seconds: float) -> String:
+	var s := maxi(0, int(seconds))
+	return "%02d:%02d" % [s / 60, s % 60]
+
+# ── P1j：模态窗口（通知 / 副官建议 / 手册）─────────────────
+func _open_modal(kind: String) -> void:
+	if state == null or state.boot_t < 1.7:
+		return
+	if _any_overlay():
+		return
+	_modal = kind
+	_modal_prev_paused = bool(state.paused)
+	state.paused = true
+	queue_redraw()
+
+func _close_modal() -> void:
+	if _modal == "advisor":
+		_advisor_read = true
+	_modal = ""
+	if state != null:
+		state.paused = _modal_prev_paused
+	queue_redraw()
+
+func _draw_modal_overlay() -> void:
+	match _modal:
+		"notice":
+			_draw_notice_overlay()
+		"advisor":
+			_draw_advisor_overlay()
+		"manual":
+			_draw_manual_overlay()
+
+func _handle_modal_click(p: Vector2) -> void:
+	# 点面板外或关闭按钮关闭。
+	var r := NOTICE_RECT
+	if _modal == "advisor":
+		r = ADVISOR_RECT
+	elif _modal == "manual":
+		r = MANUAL_RECT
+	if not r.has_point(p):
+		_close_modal()
+		return
+	var close_rect := Rect2(r.end.x - 200.0, r.end.y - 44.0, 184.0, 28.0)
+	if close_rect.has_point(p):
+		_close_modal()
+
+func _notice_parts() -> Dictionary:
+	var title := "接管通知 · AV-4412 传唤者"
+	var body := ""
+	var from := "AV-4412 传唤者"
+	var to := "远地点"
+	var mode := "RDO"
+	if state != null:
+		# P1j-SIM：state.notice = {title, body, from, to, mode, t}
+		var nv = state.get("notice")
+		if nv is Dictionary and not (nv as Dictionary).is_empty():
+			var nd: Dictionary = nv
+			title = String(nd.get("title", title))
+			body = String(nd.get("body", ""))
+			from = String(nd.get("from", from))
+			to = String(nd.get("to", to))
+			mode = String(nd.get("mode", mode))
+	if body == "" and state != null:
+		var rl = state.get("radio_feed")
+		if rl is Array:
+			for raw in (rl as Array):
+				if not (raw is Dictionary):
+					continue
+				var rd: Dictionary = raw
+				var rf := String(rd.get("from", ""))
+				if rf == "案卷 4471" or rf.begins_with("AV-4412"):
+					from = rf
+					to = String(rd.get("to", to))
+					mode = String(rd.get("mode", mode))
+					var text := String(rd.get("text", ""))
+					body = "[%s至%s]-[%s]-[%s]" % [rf, to, _comms_mode_short(mode), text]
+					break
+	if body == "":
+		body = "[AV-4412 传唤者至远地点]-[RDO]-[监督官。公开频道。案卷 4471，传唤级·送达。依据《标高公约》第九条附则及第七号裁定，现送达接管通知。本通知不构成威胁。完毕。]"
+	return {"title": title, "body": body, "from": from, "to": to,
+		"mode": _comms_mode_short(mode), "t": 0.0}
+
+func _draw_notice_overlay() -> void:
+	_overlay_dim()
+	var r := NOTICE_RECT
+	var info := _notice_parts()
+	var body := String(info["body"])
+	var lines := _wrap_text(cjk, body, 10, r.size.x - 48.0)
+	var base := r.position.y + 226.0 + float(mini(lines.size(), 8)) * 18.0 + 12.0
+	r.size.y = clampf(base + 96.0 - r.position.y, 360.0, 600.0)
+	_overlay_frame(r, "接管通知 / NOTICE", "2001 · AV-4412 · %s · 法律广播" % String(info["mode"]))
+	_txt(cjk, r.position.x + 24.0, r.position.y + 56.0, String(info["title"]), 13, Palette.AMBER)
+	_txt_r(cjk, r.end.x - 24.0, r.position.y + 56.0, "公开频道 · 非战术链路", 7, Palette.FAINT)
+	# 元数据
+	var meta := [
+		["发信 / FROM", "%s（清算署 · 传唤级·送达）" % String(info["from"])],
+		["收信 / TO", "%s · AD 特遣群监督官" % String(info["to"])],
+		["通信方式", "%s 无线电 · 公开频道（法律广播）" % String(info["mode"])],
+		["批号 / 身份", "[2001] %s → %s（光学分类后）" % ["未知", "可疑"]],
+	]
+	for i in range(meta.size()):
+		var y := r.position.y + 88.0 + float(i) * 24.0
+		_txt(cjk, r.position.x + 24.0, y, meta[i][0], 7, Palette.FAINT)
+		_txt(cjk, r.position.x + 200.0, y - 2.0, meta[i][1], 9, Palette.TXT)
+	# 正文（已是 19 §1 格式的通信记录）
+	draw_line(Vector2(r.position.x + 24.0, r.position.y + 196.0), Vector2(r.end.x - 24.0, r.position.y + 196.0), Palette.a(Palette.AMBER, 0.4), 1.0)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 204.0, "正文 / BODY", 7, Palette.FAINT)
+	for i in range(mini(lines.size(), 8)):
+		_txt(cjk, r.position.x + 24.0, r.position.y + 226.0 + float(i) * 18.0, String(lines[i]), 10, Palette.a(Palette.TXT, 0.95))
+	# 程序
+	_txt(cjk, r.position.x + 24.0, base, "程序 / PROCEDURE", 7, Palette.FAINT)
+	_txt(cjk, r.position.x + 24.0, base + 18.0, "· 第七号裁定 · 216 h 宽限期另算；本关为执行窗口 6 分钟。", 8, Palette.DIM)
+	_txt(cjk, r.position.x + 24.0, base + 34.0, "· 处置在「裁决」面板（认证交接 / 援引第九条 / 拖程序），本通知只读。", 8, Palette.DIM)
+	_txt(cjk, r.position.x + 24.0, base + 50.0, "· 打开本通知时模拟暂停；关闭后恢复原时标。", 8, Palette.DIM)
+	# 关闭按钮
+	var close_rect := Rect2(r.end.x - 200.0, r.end.y - 44.0, 184.0, 28.0)
+	_cmd_btn(close_rect, "关闭 / CLOSE", false, Palette.PH)
+	_txt_r(cjk, r.end.x - 24.0, r.end.y - 22.0, "点击面板外或 ESC/关闭 返回", 7, Palette.FAINT)
+
+func _advisor_text() -> String:
+	if state != null:
+		var v = state.get("advisor_text")
+		if v != null and String(v) != "":
+			return String(v)
+	return "长官，三条建议：\n· 接触先看批号与身份：未知不等于敌意；IFF 无应答只能到「未知/可疑」，判敌需要证据与 ROE。\n· 跟踪/变轨走链路：激光直连最快，激光中继 8 s；中继不烧 Δv，机动才烧 Δv。\n· 裁决前可随时撤销待生效命令；执行窗口锁 1×，下令前先看倒计时。"
+
+func _manual_sections() -> Array:
+	if state != null:
+		var v = state.get("manual_sections")
+		if v is Array and (v as Array).size() > 0:
+			return v
+	return [
+		["指挥 / COMMAND", "选择舰 → 下意图（保持站位 / 跟踪伴飞 / 脉冲点火）；命令经链路延迟生效，生效前可撤销。"],
+		["变轨 / BURN", "时间轴点火节点只记 draft；授权才执行。Δv 是预算，烧完不可退。"],
+		["目标识别 / ID", "L1–L4 是看得多清；身份是政治上是谁，两者分开显示（批号 + 六级身份）。"],
+		["交战 / ROE", "仅自卫 / WEAPONS HOLD；武器释放授权需二次确认；开火后进入审裁。"],
+		["辐射控制 / EMCON", "开机即暴露：主动雷达/IFF 会被 ELINT 截获；被动模块 24 h 开机不付代价。"],
+		["损管 / DAMAGE CONTROL", "战损与传感器状态分开记录；损管队列按优先级排。"],
+	]
+
+func _draw_advisor_overlay() -> void:
+	_overlay_dim()
+	var r := ADVISOR_RECT
+	_overlay_frame(r, "副官建议 / ADJUTANT", "一次性 · 不进通信流（19 §7）")
+	var lines := _wrap_text(cjk, _advisor_text(), 10, r.size.x - 48.0)
+	for i in range(mini(lines.size(), 12)):
+		_txt(cjk, r.position.x + 24.0, r.position.y + 64.0 + float(i) * 22.0, String(lines[i]), 10, Palette.a(Palette.TXT, 0.95))
+	_txt(cjk, r.position.x + 24.0, r.end.y - 62.0, "该建议只在第一次遇到相应机制时出现；之后可在「手册」里复查。", 8, Palette.DIM)
+	var close_rect := Rect2(r.end.x - 200.0, r.end.y - 44.0, 184.0, 28.0)
+	_cmd_btn(close_rect, "知道了 / GOT IT", false, Palette.PH)
+
+func _draw_manual_overlay() -> void:
+	_overlay_dim()
+	var r := MANUAL_RECT
+	_overlay_frame(r, "教学手册 / MANUAL", "章节可反复查阅 · 不进通信流")
+	var secs := _manual_sections()
+	for i in range(mini(secs.size(), 6)):
+		var row: Array = secs[i]
+		var y := r.position.y + 64.0 + float(i) * 92.0
+		var title := String(row[0]) if row.size() > 0 else "—"
+		var text := String(row[1]) if row.size() > 1 else ""
+		draw_rect(Rect2(r.position.x + 20.0, y - 8.0, r.size.x - 40.0, 80.0), Palette.a(Palette.PANEL2, 0.35))
+		draw_rect(Rect2(r.position.x + 20.0, y - 8.0, 2.0, 80.0), Palette.a(Palette.PH, 0.5))
+		_txt(cjk, r.position.x + 34.0, y + 2.0, "%02d %s" % [i + 1, title], 10, Palette.PH)
+		var lines := _wrap_text(cjk, _dn(text), 8, r.size.x - 90.0)
+		for k in range(mini(lines.size(), 3)):
+			_txt(cjk, r.position.x + 34.0, y + 22.0 + float(k) * 15.0, String(lines[k]), 8, Palette.a(Palette.TXT, 0.9))
+	var close_rect := Rect2(r.end.x - 200.0, r.end.y - 44.0, 184.0, 28.0)
+	_cmd_btn(close_rect, "关闭 / CLOSE", false, Palette.PH)
 
 var state
 var mono: Font
@@ -374,6 +751,14 @@ var _demo_radio := false
 var _feed_sig := ""
 var _feed_flash := 0.0
 
+# P1j：模态窗口（通知 / 副官建议 / 手册）与裁决回复
+var _modal := ""                       # "" | "notice" | "advisor" | "manual"
+var _modal_prev_paused := false
+var _advisor_read := false
+var _local_comms: Array = []           # 裁决回复（本地追加到通信流）
+var _reply_added_for := ""             # 已追加回复的裁决（避免重复）
+var _demo_modal := ""                  # DSH_UI 截图钩子（等 boot 完成后再开）
+
 func _ready() -> void:
 	mono = Fonts.mono()
 	cjk = Fonts.cjk()
@@ -397,9 +782,28 @@ func _ready() -> void:
 			_decision_done = true
 		"radio":
 			_demo_radio = true
+		"notice":
+			_demo_modal = "notice"
+		"advisor":
+			_demo_modal = "advisor"
+		"manual":
+			_demo_modal = "manual"
 
 func _process(delta: float) -> void:
 	_t += delta
+	if _demo_modal != "" and state.boot_t >= 1.7 and _modal == "":
+		var m := _demo_modal
+		_demo_modal = ""
+		_open_modal(m)
+	# P1j：裁决回复进通信流 —— 无论裁决来自 HUD 点击还是 main 的 1/2/3 键（后者直调 state），
+	# 都在这里按 state.outcome 补一次（幂等）。
+	if state != null:
+		if float(state.tau()) < 1.0 and _reply_added_for != "":
+			_reply_added_for = ""
+			_local_comms.clear()
+		var oc := String(state.get("outcome"))
+		if oc != "" and _reply_added_for != oc:
+			_append_decision_reply(oc)
 	if menu_open:
 		menu_t += delta
 	if _fire_confirm_t > 0.0:
@@ -456,6 +860,9 @@ func _draw() -> void:
 		_draw_decision_overlay()
 	if _filed_t > 0.0 and not _ov_end():
 		_draw_filed_banner()
+	# P1j：通知 / 副官建议 / 手册（模态，打开时暂停）。
+	if _modal != "":
+		_draw_modal_overlay()
 	# P1g：暂停指示画在覆盖层之上（否则会被 dim 压暗），时标处常驻可见。
 	_draw_pause_badge()
 
@@ -474,6 +881,21 @@ func _draw_pause_badge() -> void:
 
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
+		return
+	# P1j：模态窗口（通知 / 副官建议 / 手册）优先吃点击。
+	if _modal != "":
+		_handle_modal_click(p)
+		queue_redraw()
+		return
+	# P1j：可点开的接管通知 + 副官建议 / 手册入口。
+	if NOTICE_CLICK.has_point(p):
+		_open_modal("notice")
+		return
+	if ADVISOR_BTN.has_point(p):
+		_open_modal("manual" if _advisor_read else "advisor")
+		return
+	if MANUAL_BTN.has_point(p):
+		_open_modal("manual")
 		return
 	# P1f：覆盖层吃掉一切点击。
 	if _any_overlay():
@@ -518,6 +940,11 @@ func click(p: Vector2) -> void:
 			return
 
 func consumes(p: Vector2) -> bool:
+	# P1j：模态窗口打开时吞掉所有指针输入。
+	if _modal != "":
+		return true
+	if NOTICE_CLICK.has_point(p) or ADVISOR_BTN.has_point(p) or MANUAL_BTN.has_point(p):
+		return true
 	# P1f：覆盖层打开时吞掉所有指针输入（防止点穿到地图/面板）。
 	if _any_overlay():
 		return true
@@ -622,7 +1049,13 @@ func _draw_top() -> void:
 	var exec_v = state.get("exec_left")
 	if exec_v != null:
 		exec_left = clampf(float(exec_v), 0.0, 360.0)
-	_txt(cjk, 548, 47, "接管通知 · 案卷 4471（传唤级）/ RECEIVERSHIP NOTICE", 7, Palette.a(Palette.AMBER, 0.72))
+	# P1j：接管通知做成可点开窗口（打开时暂停）；19 §2 批号 2001 / AV-4412 传唤者。
+	var notice_hot := NOTICE_CLICK.has_point(_mouse_base())
+	_txt(cjk, 548, 47, "接管通知 · AV-4412 传唤者 / RECEIVERSHIP NOTICE", 7,
+		Palette.a(Palette.AMBER, 0.95 if notice_hot else 0.72))
+	var notice_line_c: Color = Palette.a(Palette.AMBER, 0.55 if notice_hot else 0.22)
+	draw_line(Vector2(548.0, 60.0), Vector2(880.0, 60.0), notice_line_c, 1.0)
+	_txt(mono, 884, 47, "▸", 7, Palette.a(Palette.AMBER, 0.9 if notice_hot else 0.5))
 	_txt(cjk, 548, 66, "执行窗口", 9, Palette.DIM)
 	_txt(mono, 626, 56, _hms(exec_left), 24, Palette.AMBER)
 	draw_rect(Rect2(548, 96, 420, 1), Palette.a(Palette.AMBER, 0.16))
@@ -671,10 +1104,12 @@ func _draw_tracks() -> void:
 		_draw_track_row(state.tracks[i], i, y)
 
 	draw_line(Vector2(60, 824), Vector2(380, 824), Palette.a(Palette.LINE, 0.9), 1.0)
-	_txt(cjk, 76, 832, "传感器 / SENSOR", 7, Palette.FAINT)
-	_chip(Rect2(76, 848, 72, 16), "IR 被动", Palette.PH, true)
-	_chip(Rect2(156, 848, 72, 16), "光学 8×", Palette.PH, true)
-	_chip(Rect2(236, 848, 72, 16), "雷达 关", Palette.FAINT, false)
+	# P1j：图例 = 六级身份 + 四位数批号（颜色 + 形状双通道，19 §2.5）
+	_txt(cjk, 76, 832, "身份 / IDENTITY · 批号 4 位", 7, Palette.FAINT)
+	var lx := 76.0
+	for key in ID_ORDER:
+		_identity_legend_chip(Rect2(lx, 846, 40, 16), String(key))
+		lx += 40.0
 
 func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 	var col := _side_color(t)
@@ -688,11 +1123,15 @@ func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 	var dim := 0.45 if t.get("stale", false) else 1.0
 	var disp_id := _track_display_id(t)
 	var idf := cjk if Fonts.has_cjk(disp_id) else mono
-	_txt(idf, 76, y + 12, disp_id, 13, Palette.a(col, dim))
+	# P1j：四位数批号 + 六级身份（L1–L4 独立，放在最右）。
+	var batch := _track_batch(t)
+	_txt(mono, 76, y + 14, "%04d" % batch if batch > 0 else "----", 8, Palette.a(Palette.FAINT, dim))
+	_txt(idf, 112, y + 12, _ellipsis(idf, disp_id, 12, 74.0), 12, Palette.a(col, dim))
 	var disp_cls := _dn(String(t.get("cls", "")))
 	if disp_id == "虚警":
 		disp_cls = "交叉确认 · 不再当目标"
-	_txt(cjk, 160, y + 14, disp_cls, 9, Palette.a(Palette.DIM, dim))
+	_txt(cjk, 190, y + 14, disp_cls, 9, Palette.a(Palette.DIM, dim))
+	_identity_chip(Rect2(238, y + 11, 100, 14), _track_identity(t), dim)
 	_draw_level(344.0, y + 12.0, t, col)
 
 	var line2 := ""
@@ -754,6 +1193,11 @@ func _draw_unit() -> void:
 	_txt(mono, 1556, 181, _dn(u.en), 8, Palette.DIM)
 	_txt(cjk, 1556, 195, _dn(u.cls + " · " + u.role), 10, Palette.PH)
 	_txt(cjk, 1556, 211, _dn(u.faction), 8, Palette.DIM)
+	# P1j：右区显示选中舰的四位数批号 + 身份（19 §2/§2.5）。
+	var own_tr := {"id": _dn(String(u.get("name", ""))), "cls": String(u.get("cls", "")), "level": 4, "own": true}
+	var sel_batch := _track_batch(own_tr)
+	var sel_id := _track_identity(own_tr)
+	_txt_r(cjk, 1844, 211, "[%04d] %s" % [sel_batch, _identity_cn(sel_id)], 7, _id_color(sel_id))
 	draw_line(Vector2(1540, 224), Vector2(1860, 224), Palette.a(Palette.LINE, 0.9), 1.0)
 
 	var stats := [
@@ -851,6 +1295,9 @@ func _draw_unit() -> void:
 	draw_line(Vector2(1540, 820), Vector2(1860, 820), Palette.a(Palette.LINE, 0.9), 1.0)
 	_txt(cjk, 1556, 828, "损管队列 2 项", 8, Palette.AMBER)
 	_txt_r(cjk, 1860, 828, "舰体 HULL 100%", 8, Palette.DIM)
+	# P1j：副官建议（一次性 UI）与教学手册（可反复查）两个独立入口 —— 不混进通信流。
+	_cmd_btn(ADVISOR_BTN, "副官建议 · 已读" if _advisor_read else "副官建议 / ADJUTANT", false, Palette.BLUE)
+	_cmd_btn(MANUAL_BTN, "手册 / MANUAL", false, Palette.PH)
 
 func _draw_ship_watermark() -> void:
 	var col := Palette.a(Palette.PH, 0.10)
@@ -891,21 +1338,23 @@ func _draw_log() -> void:
 	if _demo_radio:
 		_feed_flash = 0.85
 	var flash := clampf(_feed_flash / 0.85, 0.0, 1.0)
-	_txt(cjk, 76, 892, "无线电 / RADIO · 事件 / EVENTS", 8, Palette.TXT)
+	_txt(cjk, 76, 892, "通信流 / COMMS · 事件 / EVENTS", 8, Palette.TXT)
 	_txt_r(mono, 604, 892, "%d 条 · 最新在上" % feed.size(), 7, Palette.FAINT)
 	for i in range(mini(FEED_ROWS, feed.size())):
 		var e: Dictionary = feed[i]
 		var y := 904.0 + float(i) * FEED_PITCH
 		var kind := String(e.get("kind", "RADIO"))
-		var col: Color = Palette.BLUE if kind == "RADIO" else Palette.AMBER
+		var mode := String(e.get("mode", ""))
+		var tag := "EVENT" if kind == "EVENT" else (mode if mode != "" else "COM")
+		var col: Color = Palette.AMBER if kind == "EVENT" else _mode_color(mode)
 		if i == 0 and flash > 0.0:
 			draw_rect(Rect2(64, y - 2, 552, 12), Palette.a(col, 0.22 * flash))
 		draw_rect(Rect2(64, y - 1, 2, 10), Palette.a(col, 0.85 if i == 0 else 0.30))
-		_txt(mono, 72, y, kind, 7, Palette.a(col, 0.85))
+		_txt(mono, 72, y, tag, 7, Palette.a(col, 0.85))
 		_txt(cjk, 132, y - 1, _ellipsis(cjk, _dn(String(e.get("text", ""))), 8, 462.0), 8,
 			Palette.a(Palette.TXT, 0.96 if i == 0 else 0.66))
 	if feed.is_empty():
-		_txt(cjk, 76, 908, "（暂无无线电 / 事件）", 8, Palette.FAINT)
+		_txt(cjk, 76, 908, "（暂无通信 / 事件）", 8, Palette.FAINT)
 	# 命令日志（证据）：紧凑 4 行
 	draw_line(Vector2(60, 945), Vector2(620, 945), Palette.a(Palette.LINE, 0.9), 1.0)
 	_txt(cjk, 76, 948, "命令日志 / COMMAND LOG", 7, Palette.FAINT)
@@ -1249,7 +1698,14 @@ func _any_overlay() -> bool:
 	return _ov_end() or _ov_report() or _ov_consequence() or _ov_decision()
 
 # 暂停指示文案（时标处）：decision / consequence / report / END。
+# P1g：decision / consequence / report / END 时，时标处显示 PAUSED · 裁决/报告/归档。
 func _pause_label() -> String:
+	if _modal == "notice":
+		return "通知"
+	if _modal == "advisor":
+		return "副官建议"
+	if _modal == "manual":
+		return "手册"
 	if _ov_end():
 		return "归档"
 	if _ov_report():
@@ -1264,13 +1720,35 @@ func _pause_label() -> String:
 func _norm_feed(raw, default_kind: String) -> Dictionary:
 	if raw is Dictionary:
 		var d: Dictionary = raw
-		var text := String(d.get("text", d.get("line", d.get("msg", ""))))
-		var who := String(d.get("from", d.get("speaker", d.get("src", ""))))
-		if who != "" and not text.contains("："):
-			text = who + "：" + text
 		var kind := String(d.get("kind", default_kind)).to_upper()
-		return {"kind": kind, "text": text, "t": float(d.get("t", -1.0))}
-	return {"kind": default_kind, "text": String(raw), "t": -1.0}
+		var text := String(d.get("text", d.get("line", d.get("msg", ""))))
+		if kind == "EVENT" or d.has("type"):
+			return {"kind": "EVENT", "text": text, "t": float(d.get("t", -1.0)), "mode": ""}
+		# P1j：19 §1 通信格式 [发信者至收信者]-[LD/LR/RDO/IR/VIS]-[内容]
+		var e := {
+			"from": String(d.get("from", d.get("speaker", d.get("src", "")))),
+			"to": String(d.get("to", d.get("dst", ""))),
+			"mode": String(d.get("mode", d.get("via", ""))),
+			"text": text,
+		}
+		var mode_s := _comms_mode_short(String(e["mode"])) if String(e["mode"]) != "" else ""
+		return {"kind": "RADIO", "text": _comms_format(e), "t": float(d.get("t", -1.0)), "mode": mode_s}
+	if default_kind == "EVENT":
+		return {"kind": "EVENT", "text": String(raw), "t": -1.0, "mode": ""}
+	return {"kind": "RADIO", "text": _comms_format({"from": "VHF", "text": String(raw)}), "t": -1.0, "mode": ""}
+
+func _mode_color(mode: String) -> Color:
+	match mode:
+		"LD", "LR":
+			return Palette.BLUE
+		"RDO":
+			return Palette.PH_DIM
+		"IR":
+			return Palette.AMBER
+		"VIS":
+			return Palette.FAINT
+		_:
+			return Palette.PH_DIM
 
 # 最近 3 条（无线电 + 事件合并，按 t / 到达顺序取最新，最新在上）。
 # state.radio_feed / event_feed 为空时，退回 scenario 的 radio_lines / events（仅演示）。
@@ -1293,6 +1771,9 @@ func _feed_entries() -> Array:
 			if rl is Array:
 				for raw in rl:
 					radio.append(_norm_feed(raw, "RADIO"))
+	# P1j：裁决回复（本地追加）进通信流；state 侧若已推同一句可无感叠加。
+	for raw in _local_comms:
+		radio.append(_norm_feed(raw, "RADIO"))
 	var all: Array = []
 	all.append_array(radio)
 	all.append_array(events)
@@ -1515,8 +1996,26 @@ func _do_authorize_fire() -> void:
 	# HUD 本地演示：直接进入后果分支。
 	_demo_consequence = true
 
+func _append_decision_reply(kind_raw: String) -> void:
+	var kind := kind_raw.to_lower()
+	var replies := {
+		"certify": "至署方，接管通知已核验，请开始交接程序。完毕。",
+		"article9": "至署方，依据《标高公约》第九条附则，现中止交接，请等待我方审裁。完毕。",
+		"stall": "至署方，文书仍需复核，请提供附件三。完毕。",
+	}
+	if not replies.has(kind) or _reply_added_for == kind_raw:
+		return
+	_reply_added_for = kind_raw
+	_local_comms.append({
+		"from": "远地点", "to": "署方", "mode": "LD",
+		"text": String(replies[kind]),
+		"t": float(state.tau()) if state != null else 0.0,
+	})
+
 func _choose_ending(kind: String) -> void:
 	_decision_done = true
+	# P1j：19 §5 T1-12 —— 裁决选完后，玩家向署方的回复进入通信流（不进裁决提示/报告正文）。
+	_append_decision_reply(kind)
 	if state != null and state.has_method("choose_ending"):
 		state.call("choose_ending", kind)
 		return
@@ -1642,6 +2141,7 @@ func _draw_decision_overlay() -> void:
 	_overlay_frame(r, "监督官裁决 / SUPERVISOR DETERMINATION", "DECISION · 接管通知")
 	var prompt := "执行窗口剩余。谷神-2 应答机故障；通报舰 4412 要求监督交接。请裁决："
 	var endings: Array = []
+	var exec_left := 360.0
 	if state != null:
 		var pv = state.get("decision_prompt")
 		if pv != null and String(pv) != "":
@@ -1649,9 +2149,16 @@ func _draw_decision_overlay() -> void:
 		var ev = state.get("endings")
 		if ev is Array:
 			endings = ev
-	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, "第一关 · 环一 · 斛 — 监督交接 · 执行窗口 00:06:00", 8, Palette.DIM)
+		var xl = state.get("exec_left")
+		if xl != null:
+			exec_left = clampf(float(xl), 0.0, 360.0)
+	var mmss := _mmss(exec_left)
+	prompt = prompt.replace("{mm:ss}", mmss)
+	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, "第一关 · 环一 · 斛 — 监督交接 · 执行窗口 %s" % mmss, 8, Palette.DIM)
 	_txt_r(cjk, r.end.x - 20.0, r.position.y + 56.0, "记录进案卷 · 不可撤回", 7, Palette.a(Palette.AMBER, 0.7))
 	_txt(cjk, r.position.x + 20.0, r.position.y + 76.0, _ellipsis(cjk, prompt, 8, r.size.x - 40.0), 8, Palette.a(Palette.TXT, 0.86))
+	# P1j：19 §5 T1-11 副官简报里的动态倒计时（读 state.exec_left，mm:ss）。
+	_txt(mono, r.position.x + 20.0, r.position.y + 94.0, "EXECUTION WINDOW %s · 1× LOCK · 到点自动打开裁决" % mmss, 7, Palette.a(Palette.AMBER, 0.8))
 	var mp := _mouse_base()
 	for i in range(3):
 		var row := _decision_row_rect(i)
