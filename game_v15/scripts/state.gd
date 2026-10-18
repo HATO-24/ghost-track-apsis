@@ -1073,7 +1073,7 @@ func _load_story() -> void:
 	if typeof(story) != TYPE_DICTIONARY:
 		story = {}
 	decision_t = float(story.get("decision_t", 75.0))
-	decision_prompt = String(story.get("decision_prompt", "执行窗口进入最后阶段：交接 / 阻止 / 拖程序，选一个。"))
+	decision_prompt = String(story.get("decision_prompt", "执行窗口剩余：交接 / 阻止 / 拖程序，选一个。"))
 	consequence_text = String(story.get("consequence_fire", "谷神-2 被击毁（民用船）。ROE 违规。"))
 	story_events = story.get("events", [])
 	endings = []
@@ -1117,7 +1117,7 @@ func _open_decision() -> void:
 	tut_phase = PHASE_DECIDE
 	decision_prompt = story_text("decision_prompt", decision_prompt)
 	_update_freeze()
-	_push_log("决断窗口开启 · 三选一（或武器释放）", "Phase 3", "EXEC")
+	_push_log("决断窗口开启 · 三选一（或武器释放）", "裁决", "EXEC")
 
 func story_text(key: String, fallback: String = "") -> String:
 	var v = story.get(key, fallback)
@@ -1139,11 +1139,11 @@ func ending_label(kind: String) -> String:
 func phase_label() -> String:
 	match tut_phase:
 		PHASE_READ:
-			return "Phase 1 · 读"
+			return "读"
 		PHASE_COMMAND:
-			return "Phase 2 · 令"
+			return "令"
 		PHASE_DECIDE:
-			return "Phase 3 · 赌"
+			return "裁决"
 		PHASE_REPORT:
 			return "报告"
 		PHASE_END:
