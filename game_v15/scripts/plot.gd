@@ -59,6 +59,8 @@ var cjk: Font
 var yaw3d := deg_to_rad(-16.0)
 var pitch := deg_to_rad(26.0)
 var dist := DIST_DEFAULT
+var roll3d := 0.0
+var roll_unlocked := false
 # 压平战略图
 var ortho := false
 var yaw2d := 0.0
@@ -118,6 +120,8 @@ func reset_camera() -> void:
 	yaw3d = deg_to_rad(-16.0)
 	pitch = deg_to_rad(26.0)
 	dist = DIST_DEFAULT
+	roll3d = 0.0
+	roll_unlocked = false
 	planar_zoom = 1.0
 	ortho = false
 	mode_fx_t = -1.0
@@ -152,8 +156,20 @@ func rotate_map(dx: float, dy: float) -> void:
 	if ortho:
 		yaw2d -= dx * 0.006
 	else:
-		yaw3d -= dx * 0.006
-		pitch = clampf(pitch + dy * 0.004, deg_to_rad(PITCH_MIN), deg_to_rad(PITCH_MAX))
+		# 无限制 XY：yaw 任意，pitch 也不再夹在 -8..78 度之间
+		yaw3d = fposmod(yaw3d - dx * 0.006, TAU)
+		pitch = fposmod(pitch + dy * 0.004, TAU)
+
+func toggle_roll_unlock() -> bool:
+	roll_unlocked = not roll_unlocked
+	auto_rotate = false
+	return roll_unlocked
+
+func rotate_roll(d: float) -> void:
+	if not roll_unlocked:
+		return
+	roll3d = fposmod(roll3d + d, TAU)
+	auto_rotate = false
 
 func zoom_map(f: float) -> void:
 	if f <= 0.0:
@@ -196,6 +212,13 @@ func _update_camera() -> void:
 		r = Vector3.RIGHT
 	_right = r.normalized()
 	_up = _right.cross(_fwd).normalized()
+	if absf(roll3d) > 0.00001:
+		var cr := cos(roll3d)
+		var sr := sin(roll3d)
+		var rr := _right * cr + _up * sr
+		var uu := _up * cr - _right * sr
+		_right = rr
+		_up = uu
 	_focal = (size.y * 0.5 / tan(deg_to_rad(FOV_Y * 0.5))) * CAM_FACTOR
 
 func _o() -> Vector2:
@@ -213,7 +236,12 @@ func _p2(km: Vector3) -> Vector2:
 	var s := sin(yaw2d)
 	var x := km.x * c + km.y * s
 	var y := km.x * s - km.y * c
-	return size * 0.5 + Vector2(x, y) * _planar_scale
+	var px := Vector2(x, y) * _planar_scale
+	if absf(roll3d) > 0.00001:
+		var cr := cos(roll3d)
+		var sr := sin(roll3d)
+		px = Vector2(px.x * cr - px.y * sr, px.x * sr + px.y * cr)
+	return size * 0.5 + px
 
 func _ok(p: Vector2) -> bool:
 	return p.x > -1.0e8 and p.x > -260.0 and p.x < size.x + 260.0 and p.y > -260.0 and p.y < size.y + 260.0
@@ -1794,7 +1822,7 @@ func _chrome_3d() -> void:
 	_txt_r(mono, size.x - 24.0, size.y - 116.0, String(state.cmd_note), 7, Palette.a(Palette.AMBER, 0.85))
 	_txt_r(mono, size.x - 24.0, size.y - 104.0, "1 保持站位 STATION · 2 跟踪 SHADOW · 3 点火 BURN · 4 撤销", 7, Palette.a(Palette.PH, 0.65))
 	_txt_r(mono, size.x - 24.0, size.y - 92.0, "历元 T0+%06.1fs · 预测 %d 点" % [_tau_now(), PRED_STEPS + 1], 7, Palette.a(Palette.PH_FAINT, 0.9))
-	_txt(mono, 16.0, size.y - 14.0, "拖动旋转 · 滚轮缩放 · R 翻转 · D 基准", 7, Palette.a(Palette.FAINT, 0.75))
+	_txt(mono, 16.0, size.y - 14.0, "拖动旋转 · 滚轮缩放 · R 翻转 · D 基准 · Z 横滚锁 · Q/E 横滚", 7, Palette.a(Palette.FAINT, 0.75))
 
 func _chrome_planar() -> void:
 	_txt(cjk, 16.0, 10.0, "压平态势", 14, Palette.PH)
@@ -1818,7 +1846,7 @@ func _chrome_planar() -> void:
 	draw_line(Vector2(sx + px, sy - 4.0), Vector2(sx + px, sy + 2.0), Palette.a(Palette.TXT, 0.6), 1.0)
 	_txt(mono, sx, sy - 12.0, "100,000 km", 7, Palette.a(Palette.DIM, 0.8))
 	_txt_r(mono, size.x - 16.0, size.y - 104.0, String(state.cmd_note), 7, Palette.a(Palette.AMBER, 0.85))
-	_txt(mono, size.x - 16.0, size.y - 14.0, "拖动旋转 · 滚轮缩放 · R 翻转 · D 基准", 7, Palette.a(Palette.FAINT, 0.75))
+	_txt(mono, size.x - 16.0, size.y - 14.0, "拖动旋转 · 滚轮缩放 · R 翻转 · D 基准 · Z 横滚锁 · Q/E 横滚", 7, Palette.a(Palette.FAINT, 0.75))
 
 func _draw_compass() -> void:
 	var c := Vector2(size.x - 48.0, 46.0) if not ortho else Vector2(size.x - 62.0, size.y - 74.0)
@@ -2045,3 +2073,4 @@ func _txt(f: Font, x: float, y: float, s: String, sz: int, c: Color) -> void:
 func _txt_r(f: Font, xr: float, y: float, s: String, sz: int, c: Color) -> void:
 	var w := f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
 	_txt(f, xr - w, y, s, sz, c)
+

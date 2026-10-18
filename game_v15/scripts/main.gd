@@ -145,10 +145,16 @@ func _set_scene(sc: String) -> void:
 		plot.yaw2d = plot.yaw3d
 	var ps := OS.get_environment("DSH_PITCH")
 	if ps != "":
-		plot.pitch = deg_to_rad(clampf(float(ps), -8.0, 78.0))
+		plot.pitch = deg_to_rad(float(ps))
 	var ds := OS.get_environment("DSH_DIST")
 	if ds != "":
 		plot.dist = clampf(float(ds) * 1000.0, 300000.0, 1400000.0)
+	var rs := OS.get_environment("DSH_ROLL")
+	if rs != "":
+		plot.roll3d = deg_to_rad(float(rs))
+		plot.roll_unlocked = true
+	if OS.get_environment("DSH_ROLL_UNLOCK") == "1":
+		plot.roll_unlocked = true
 	# 调试/验证用：DSH_ZOOM=+n 滚轮放大 n 次，-n 缩小；DSH_FLIP=1 翻转；触发自动压平切换
 	var zs := OS.get_environment("DSH_ZOOM")
 	if zs != "":
@@ -399,6 +405,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			print("DATUM → ", d)
 		KEY_P:
 			plot.set_planar(not plot.ortho)
+		KEY_Z:
+			var ru: bool = plot.toggle_roll_unlock()
+			print("ROLL UNLOCK → ", ru)
+		KEY_Q:
+			plot.rotate_roll(deg_to_rad(-5.0))
+		KEY_E:
+			plot.rotate_roll(deg_to_rad(5.0))
 		KEY_ESCAPE:
 			get_tree().quit()
 
@@ -468,3 +481,4 @@ class EndPanel extends Control:
 		for k in fl.keys():
 			out += "%s=%s " % [String(k), str(fl[k])]
 		return out.strip_edges()
+
