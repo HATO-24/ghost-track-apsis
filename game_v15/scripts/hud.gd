@@ -1362,7 +1362,7 @@ func _draw_unit() -> void:
 	if rack.size() > 2:
 		_txt_r(mono, 1844, 632.0, "+%d" % (rack.size() - 2), 7, Palette.FAINT)
 	var exp_short := "EMIT 暴露" if bool(em.get("exposed", false)) else "EMCON 静默"
-	var exp_hint := "ELINT 已点名" if bool(state.get("elint_named")) else "开机即暴露"
+	var exp_hint := "开机即暴露"
 	var exp_col: Color = Palette.RED if bool(state.get("elint_named")) else (Palette.AMBER if bool(em.get("exposed", false)) else Palette.FAINT)
 	_txt(cjk, 1556, 636, "%s · 等级 L%d · %s" % [exp_short, lv, exp_hint], 7, exp_col)
 
@@ -2548,8 +2548,8 @@ func _draw_sensor_menu() -> void:
 	_txt(cjk, x0 + 116.0, foot_y + 8.0, line1, 8, line1_col)
 	_txt(cjk, x0 + 12.0, foot_y + 26.0, "等级 / LEVEL", 7, Palette.FAINT)
 	_txt(cjk, x0 + 116.0, foot_y + 26.0, "L%d · %s" % [lv, _level_desc(lv)], 8, Palette.a(Palette.PH, 0.85))
-	_txt_r(cjk, r.end.x - 12.0, foot_y + 9.0, "ELINT 已点名" if named else "开机即暴露", 7,
-		Palette.RED if named else Palette.a(Palette.AMBER, 0.65))
+	_txt_r(cjk, r.end.x - 12.0, foot_y + 9.0, "开机即暴露", 7,
+		Palette.a(Palette.AMBER, 0.65))
 	var warn := ""
 	var warns: Array = em.get("warnings", [])
 	if not warns.is_empty():

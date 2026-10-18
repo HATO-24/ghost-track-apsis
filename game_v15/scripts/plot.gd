@@ -1333,10 +1333,10 @@ func _draw_emit_ring(o: Vector2) -> void:
 	var a0 := fmod(_t * 0.8, TAU)
 	draw_arc(o, rr, a0, a0 + 0.7, 16, Palette.a(Palette.AMBER, 0.55), 1.0, true)
 	var elint_r := float(best.get("elint_range_km", 0.0))
-	_txt(mono, o.x - 150.0, o.y - rr - 8.0, "辐射 · %s（%s）· 通信截听截获 %s km" % [
-		String(best.get("model", "")), String(best.get("owner", "")).to_upper(), _fmt_km(elint_r)], 7, Palette.a(Palette.AMBER, 0.8))
+	_txt(mono, o.x - 150.0, o.y - rr - 8.0, "辐射 · %s（%s）" % [
+		String(best.get("model", "")), String(best.get("owner", "")).to_upper()], 7, Palette.a(Palette.AMBER, 0.8))
 	if bool(state.elint_named):
-		_txt(cjk, o.x - 150.0, o.y - rr + 4.0, "开机即暴露 · 已被通信截听点名", 7, Palette.a(Palette.RED, 0.85))
+		_txt(cjk, o.x - 150.0, o.y - rr + 4.0, "开机即暴露", 7, Palette.a(Palette.RED, 0.85))
 
 # 敌方 ELINT 点名：从传唤级指向本舰的虚线 + 截获环
 func _draw_elint_named(o: Vector2) -> void:
@@ -1351,7 +1351,7 @@ func _draw_elint_named(o: Vector2) -> void:
 		return
 	draw_dashed_line(from, o, Palette.a(Palette.RED, 0.30), 1.0, 6.0)
 	draw_arc(from, 26.0, 0, TAU, 40, Palette.a(Palette.RED, 0.22), 1.0, true)
-	_txt_r(cjk, from.x - 8.0, from.y + 24.0, "通信截听点名", 8, Palette.a(Palette.RED, 0.8))
+	# 不再写“通信截听点名”文字：只保留连线与环，减少信息量。
 
 func _draw_comm_links(o: Vector2) -> void:
 	for t in state.tracks:
@@ -1677,7 +1677,7 @@ func _draw_planar_sensor() -> void:
 				var b := deg_to_rad(float(hostile.get("bearing", 41.0)))
 				from = o + Vector2(sin(b), -cos(b)) * 34.0
 		draw_dashed_line(from, o, Palette.a(Palette.RED, 0.35), 1.0, 6.0)
-		_txt_r(cjk, from.x - 4.0, from.y + 12.0, "通信截听点名", 7, Palette.a(Palette.RED, 0.8))
+		# 不再写“通信截听点名”文字：只保留连线，减少信息量。
 	# 当前选中模块的标签（架来自选中舰，显示在左上）
 	var s: Dictionary = state.active_sensor()
 	if not s.is_empty():
