@@ -464,7 +464,8 @@ func _draw_orbits() -> void:
 	_poly3(pts, Palette.a(Palette.PH_DIM, 0.30), 1.2)
 	var lp := _p3(Vector3(120.0, 0.00025 * 120.0 * 120.0, 0.0) * 1000.0)
 	if _ok(lp):
-		_txt(cjk, lp.x, lp.y - 16.0, "轨道 400 km · 顺行", 8, Palette.a(Palette.DIM, 0.75))
+		var ol := "L1 · 站点保持" if String(state.datum) == "L1" else "轨道 400 km · 顺行"
+		_txt(cjk, lp.x, lp.y - 16.0, ol, 8, Palette.a(Palette.DIM, 0.75))
 	# 敌方轨道：另一个平面，斜穿画面
 	var epts: Array[Vector3] = []
 	for i in range(0, 90):
@@ -473,7 +474,8 @@ func _draw_orbits() -> void:
 	_poly3(epts, Palette.a(Palette.RED, 0.20), 1.0, true)
 	var ep := _p3(Vector3(360.0, 300.0 - 0.36 * 360.0, -0.10 * 360.0 + 0.00012 * 360.0 * 360.0) * 1000.0)
 	if _ok(ep):
-		_txt(cjk, ep.x, ep.y - 14.0, "敌方轨道 · i 51.6°", 8, Palette.a(Palette.RED, 0.55))
+		var el := "敌方接近 · 方位 047°" if String(state.datum) == "L1" else "敌方轨道 · i 51.6°"
+		_txt(cjk, ep.x, ep.y - 14.0, el, 8, Palette.a(Palette.RED, 0.55))
 
 func _draw_burn_plan() -> void:
 	var o := _o()
@@ -1091,7 +1093,7 @@ func _draw_chrome() -> void:
 func _chrome_3d() -> void:
 	_txt(cjk, 16.0, 10.0, "战术态势", 14, Palette.PH)
 	_txt(mono, 16.0, 29.0, "TACTICAL PLOT", 8, Palette.DIM)
-	_txt(cjk, 16.0, 41.0, "LVLH · 半径 400 km · 高度 ×1" if String(state.datum) != "L1" else "STATION FRAME · 半径 400 km · 高度 ×1", 8, Palette.FAINT)
+	_txt(cjk, 16.0, 41.0, "LVLH · 半径 400 km · 高度 ×1" if String(state.datum) != "L1" else "STATION FRAME · 局部 400 km · 高度 ×1", 8, Palette.FAINT)
 	_txt(mono, 16.0, 53.0, "DATUM %s · 3D ORBIT · %.0f km" % [String(state.datum), dist / 1000.0], 8, Palette.a(Palette.PH, 0.75))
 	_txt(mono, 16.0, 65.0, "EXEC WINDOW %s · 1× LOCK" % _hms(state.exec_left), 7, Palette.a(Palette.AMBER, 0.70))
 	var blink := 0.55 + 0.45 * sin(_t * 3.2)
