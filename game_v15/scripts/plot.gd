@@ -21,6 +21,7 @@ extends Control
 const Fonts := preload("res://scripts/fonts.gd")
 const Palette := preload("res://scripts/pal.gd")
 const Orbit := preload("res://scripts/orbit_model.gd")
+const CommandModel := preload("res://scripts/command_model.gd")
 
 # P1a：历史 / 预测窗口（秒）与采样
 const PRED_HORIZON := 300.0
@@ -269,6 +270,7 @@ func _draw_3d() -> void:
 	_draw_own()
 	_draw_sensor()
 	_draw_chrome()
+	_draw_command_queue()
 
 func _draw_planar() -> void:
 	_draw_stars()
@@ -462,46 +464,190 @@ func _draw_grid() -> void:
 	if _ok(al):
 		_txt(mono, al.x + 3.0, al.y - 10.0, "ALT +40", 7, Palette.a(Palette.PH_FAINT, 0.9))
 
-# ── 本舰：历史 / 点火计划（同一套 L1 相对运动模型）─────
+# ── 本舰：历史 / 点火计划 / 命令幽灵（P1d）─────────────
+
+func _own_now() -> Dictionary:
+	return state.own_at(_tau_now())
+
+func _own_history_pts() -> Array[Vector3]:
+	var tau := _tau_now()
+	var cur: Vector3 = (_own_now()["r"] as Vector3)
+	var pts: Array[Vector3] = []
+	for i in range(HIST_STEPS + 1):
+		var tt := -HIST_HORIZON + HIST_HORIZON * float(i) / float(HIST_STEPS)
+		var st: Dictionary = state.own_at(tau + tt)
+		pts.append((st["r"] as Vector3) - cur)
+	return pts
+
+# 本舰计划：从当前实际状态出发，应用所有 PENDING BURN（命令模型 plan）
+func _own_plan_data() -> Dictionary:
+	var tau := _tau_now()
+	var st := _own_now()
+	var burns: Array = []
+	for raw in state.pending_commands():
+		var c: Dictionary = raw
+		if String(c.get("action", "")) != "BURN":
+			continue
+		if float(c.get("exec_t", tau)) < tau:
+			continue
+		var pl: Dictionary = c.get("plan", {})
+		burns.append({"t": float(c.get("exec_t", tau)), "dv": pl.get("dv", Vector3.ZERO), "cmd": c})
+	return CommandModel.plan_own(st, tau, burns, PRED_HORIZON, PRED_STEPS)
+
+func _burn_screen_dir(km: Vector3, dv: Vector3) -> Vector2:
+	var a := _p3(km * 1000.0)
+	var b := _p3((km + dv * 90.0) * 1000.0)
+	if not _ok(a) or not _ok(b):
+		return Vector2(0.0, -1.0)
+	var d := b - a
+	if d.length() < 0.01:
+		return Vector2(0.0, -1.0)
+	return d.normalized()
+
+# 点火节点：Δv 箭头 + 节点 + T+/Δv/状态标签；pending = 命令幽灵（虚线菱形）
+func _draw_burn_node(km: Vector3, cmd: Dictionary, pending: bool, remain: float) -> void:
+	var p := _p3(km * 1000.0)
+	if not _ok(p):
+		return
+	var pl: Dictionary = cmd.get("plan", {})
+	var dv: Vector3 = pl.get("dv", Vector3.ZERO)
+	var dir := _burn_screen_dir(km, dv)
+	var perp := Vector2(-dir.y, dir.x)
+	var exec_t := float(cmd.get("exec_t", 0.0))
+	var col := Palette.PH if not pending else Palette.AMBER
+	var alpha := 0.9 if not pending else (0.55 + 0.35 * sin(_t * 4.0))
+	var d := 6.0
+	var diamond_list: Array[Vector2] = [
+		p + Vector2(0, -d), p + Vector2(d, 0), p + Vector2(0, d),
+		p + Vector2(-d, 0), p + Vector2(0, -d)
+	]
+	var diamond := PackedVector2Array(diamond_list)
+	if pending:
+		_dashed_polyline(diamond_list, Palette.a(col, alpha), 1.0, 3.0)
+		_txt(mono, p.x + 10.0, p.y - 20.0, "GHOST", 7, Palette.a(col, alpha))
+	else:
+		draw_colored_polygon(PackedVector2Array([
+			p + Vector2(0, -d), p + Vector2(d, 0), p + Vector2(0, d), p + Vector2(-d, 0)
+		]), Palette.a(col, 0.45))
+		draw_polyline(diamond, Palette.a(col, 0.9), 1.0)
+	draw_arc(p, 15.0, 0, TAU, 32, Palette.a(col, 0.18), 1.0, true)
+	# Δv 箭头
+	draw_line(p - dir * 6.0, p + dir * 30.0, Palette.a(Palette.PH if not pending else Palette.PH_DIM, 0.85), 1.2)
+	draw_colored_polygon(PackedVector2Array([
+		p + dir * 36.0, p + dir * 26.0 + perp * 4.0, p + dir * 26.0 - perp * 4.0
+	]), Palette.a(Palette.PH if not pending else Palette.PH_DIM, 0.85))
+	# 标签
+	var bms := float(pl.get("dv_ms", 0.0))
+	var bbrg := float(pl.get("brg", 0.0))
+	var belev := float(pl.get("elev", 0.0))
+	var lx := p.x + 16.0
+	var ly := p.y + 38.0
+	if pending:
+		_txt(cjk, lx, ly, "点火 T+%04.1fs · 待生效" % exec_t, 9, Palette.a(Palette.AMBER, 0.95))
+		_txt(mono, lx, ly + 13.0, "Δv %.0f m/s · BRG %03d° · ELEV %+02d°" % [bms, int(bbrg), int(belev)], 8, Palette.a(Palette.PH_DIM, 1.0))
+		_txt(mono, lx, ly + 26.0, "PENDING %.1fs · 生效前可撤销 / COMMAND GHOST" % maxf(0.0, remain), 7, Palette.a(Palette.AMBER, 0.85))
+	else:
+		_txt(cjk, lx, ly, "点火 T+%04.1fs · 已执行" % exec_t, 9, Palette.a(Palette.PH, 0.95))
+		_txt(mono, lx, ly + 13.0, "Δv %.0f m/s · 已扣 / EXEC" % bms, 8, Palette.a(Palette.PH_DIM, 0.95))
+
+func _target_marker_pos(t: Dictionary) -> Vector2:
+	if _lvl(t) >= 2:
+		return _contact_pos3(t)
+	var b := float(t.get("obs_bearing_deg", t.get("bearing", 0.0)))
+	if b < 0.0:
+		b = float(t.get("bearing", 0.0))
+	return _p3(_world(b, 330.0, 0.0))
+
+func _draw_ghost_bracket(p: Vector2, col: Color) -> void:
+	var br := 18.0
+	var rect: Array[Vector2] = [
+		p + Vector2(-br, -br), p + Vector2(br, -br),
+		p + Vector2(br, br), p + Vector2(-br, br), p + Vector2(-br, -br)
+	]
+	_dashed_polyline(rect, col, 1.0, 4.0)
+	_txt(mono, p.x - br, p.y - br - 10.0, "GHOST", 7, col)
+
+func _draw_shadow_commands(tau: float) -> void:
+	# 待生效：目标处的命令幽灵
+	for raw in state.pending_commands():
+		var c: Dictionary = raw
+		if String(c.get("action", "")) != "SHADOW":
+			continue
+		var tid := String(c.get("target", ""))
+		var t: Dictionary = state.track_by_id(tid)
+		if t.is_empty():
+			continue
+		var p := _target_marker_pos(t)
+		if not _ok(p):
+			continue
+		_draw_ghost_bracket(p, Palette.a(Palette.AMBER, 0.55))
+		var remain := float(c.get("exec_t", tau)) - tau
+		_txt(cjk, p.x + 22.0, p.y - 32.0, "SHADOW %s · 待生效" % tid, 9, Palette.a(Palette.AMBER, 0.9))
+		_txt(mono, p.x + 22.0, p.y - 20.0, "望楼中继 +8 s · PENDING %.1fs" % maxf(0.0, remain), 7, Palette.a(Palette.AMBER, 0.6))
+	# 已生效：跟踪括号 + 连线
+	var active: Dictionary = state.cmd_model.active_shadow()
+	if active.is_empty():
+		return
+	var tid2 := String(active.get("target", ""))
+	var t2: Dictionary = state.track_by_id(tid2)
+	if t2.is_empty():
+		return
+	var p2 := _target_marker_pos(t2)
+	if not _ok(p2):
+		return
+	draw_dashed_line(_o(), p2, Palette.a(Palette.PH, 0.16), 1.0, 6.0)
+	var br := 14.0
+	for corner in [[-1, -1], [1, -1], [-1, 1], [1, 1]]:
+		var q := p2 + Vector2(float(corner[0]) * br, float(corner[1]) * br)
+		draw_line(q, q - Vector2(float(corner[0]) * 7.0, 0.0), Palette.a(Palette.PH, 0.8), 1.0)
+		draw_line(q, q - Vector2(0.0, float(corner[1]) * 7.0), Palette.a(Palette.PH, 0.8), 1.0)
+	_txt(cjk, p2.x + 20.0, p2.y + 2.0, "SHADOW · %s" % tid2, 8, Palette.a(Palette.PH, 0.85))
+	_txt(mono, p2.x + 20.0, p2.y + 14.0, "ACTIVE / 望楼中继", 7, Palette.a(Palette.PH_DIM, 0.8))
+
+func _draw_station_commands(tau: float) -> void:
+	for raw in state.pending_commands():
+		var c: Dictionary = raw
+		if String(c.get("action", "")) != "STATION":
+			continue
+		var p := _o()
+		var remain := float(c.get("exec_t", tau)) - tau
+		_draw_ghost_bracket(p - Vector2(46.0, 0.0), Palette.a(Palette.AMBER, 0.5))
+		_txt(cjk, p.x - 90.0, p.y - 34.0, "STATION · 待生效 %.1fs" % maxf(0.0, remain), 8, Palette.a(Palette.AMBER, 0.8))
+	if state.station_hold:
+		_txt(mono, _o().x + 16.0, _o().y + 34.0, "STATION · 保持站位", 7, Palette.a(Palette.PH_DIM, 0.9))
 
 func _draw_own_plan() -> void:
 	var tau := _tau_now()
-	var own: Dictionary = state.own
+	var cur_r: Vector3 = _own_now()["r"]
 	# 历史（-60..0 s）：实线暗
-	var hist := Orbit.own_history(own, tau, -HIST_HORIZON, HIST_STEPS)
-	_poly_km(hist["pts"], Palette.a(Palette.PH_DIM, 0.30), 1.2, false)
-	# 计划（0..+300 s；T+6.2 s 点火，Δv 84 m/s）
-	var burn_t := float(state.burn.get("t", 6.2))
-	var dv: Vector3 = state.burn.get("dv", Vector3.ZERO)
-	var plan := Orbit.own_plan(own, tau, burn_t, dv, PRED_HORIZON, PRED_STEPS)
-	_poly_km(plan["pts"], Palette.a(Palette.PH, 0.65), 1.3, true)
+	_poly_km(_own_history_pts(), Palette.a(Palette.PH_DIM, 0.32), 1.2, false)
+	# 已执行点火：节点（实心）
+	for raw in state.own_events:
+		var ev: Dictionary = raw
+		var et := float(ev.get("t", 0.0))
+		if et > tau:
+			continue
+		var ev_st: Dictionary = state.own_at(et)
+		var ev_km := (ev_st["r"] as Vector3) - cur_r
+		var dv: Vector3 = ev.get("dv", Vector3.ZERO)
+		var brg := rad_to_deg(atan2(dv.x, dv.y))
+		var elev := rad_to_deg(asin(clampf(dv.z / maxf(dv.length(), 1.0e-9), -1.0, 1.0)))
+		var fake := {
+			"exec_t": et,
+			"plan": {"dv_ms": dv.length() * 1000.0, "dv": dv, "brg": brg, "elev": elev},
+		}
+		_draw_burn_node(ev_km, fake, false, 0.0)
+	# 计划（0..+300 s）：虚线 + 待生效点火节点（命令幽灵）
+	var plan := _own_plan_data()
+	_poly_km(plan["pts"], Palette.a(Palette.PH, 0.60), 1.3, true)
+	for raw in plan["events"]:
+		var ev: Dictionary = raw
+		var cmd: Dictionary = ev.get("cmd", {})
+		_draw_burn_node(ev["km"] as Vector3, cmd, true, float(cmd.get("exec_t", 0.0)) - tau)
 	var pts: Array = plan["pts"]
-	var bi := int(plan["burn_index"])
-	if bi >= 0 and bi < pts.size():
-		var bp3: Vector3 = pts[bi]
-		var bp := _p3(bp3 * 1000.0)
-		var bq := _p3((bp3 + dv * 90.0) * 1000.0)
-		if _ok(bp) and _ok(bq):
-			var dir := bq - bp
-			if dir.length() > 0.01:
-				dir = dir.normalized()
-				var perp := Vector2(-dir.y, dir.x)
-				draw_line(bp - dir * 5.0, bp + dir * 26.0, Palette.a(Palette.PH, 0.8), 1.2)
-				draw_colored_polygon(PackedVector2Array([
-					bp + dir * 34.0, bp + dir * 24.0 + perp * 4.5, bp + dir * 24.0 - perp * 4.5
-				]), Palette.a(Palette.PH, 0.85))
-				draw_arc(bp, 7.0, 0, TAU, 24, Palette.a(Palette.PH, 0.45), 1.0, true)
-			var bms := float(state.burn.get("dv_ms", 84.0))
-			var bbrg := float(state.burn.get("brg", 340.0))
-			var belev := float(state.burn.get("elev", 20.0))
-			_txt(cjk, bp.x + 16.0, bp.y + 38.0, "点火 T+%04.1fs" % burn_t, 9, Palette.PH)
-			_txt(mono, bp.x + 16.0, bp.y + 51.0, "Δv %.0f m/s · BRG %03d° · ELEV %+02d°" % [bms, int(bbrg), int(belev)], 8, Palette.a(Palette.PH_DIM, 1.0))
-			_txt(mono, bp.x + 16.0, bp.y + 64.0, "PLAN BURN / 计划点火", 7, Palette.a(Palette.PH_FAINT, 1.0))
 	# 计划终点
-	var end_idx := pts.size() - 1
-	if end_idx >= 0 and end_idx < pts.size():
-		var ep3: Vector3 = pts[end_idx]
-		var ep := _p3(ep3 * 1000.0)
+	if pts.size() > 0:
+		var ep := _p3((pts[pts.size() - 1] as Vector3) * 1000.0)
 		if _ok(ep):
 			_txt(mono, ep.x + 6.0, ep.y + 10.0, "PLAN +300 s", 7, Palette.a(Palette.PH_FAINT, 0.8))
 	# 计划节点 B-2（点火后 +120 s 的计划位置）
@@ -517,6 +663,58 @@ func _draw_own_plan() -> void:
 			]), Palette.a(Palette.PH_DIM, 0.85), 1.0)
 			_txt_r(mono, np.x - 10.0, np.y - 4.0, "NODE B-2 · T+%ds" % int(node_rel), 7, Palette.a(Palette.PH_DIM, 0.9))
 			_txt_r(mono, np.x - 10.0, np.y + 8.0, "%.1f km" % np3.length(), 7, Palette.a(Palette.PH_FAINT, 0.9))
+	# 命令幽灵 / 生效标记
+	_draw_shadow_commands(tau)
+	_draw_station_commands(tau)
+
+# 命令队列面板（右上，光学小窗下方；不占 HUD）
+func _draw_command_queue() -> void:
+	var cmds: Array = state.commands()
+	if cmds.is_empty():
+		return
+	var shown: Array = []
+	var start := maxi(0, cmds.size() - 5)
+	for i in range(start, cmds.size()):
+		shown.append(cmds[i])
+	var r := Rect2(size.x - 252.0, 216.0, 236.0, 26.0 + float(shown.size()) * 25.0)
+	draw_rect(r, Palette.a(Palette.PANEL, 0.88))
+	draw_rect(r, Palette.a(Palette.LINE, 0.9), false, 1.0)
+	_txt(cjk, r.position.x + 8.0, r.position.y + 5.0, "命令队列 / COMMAND QUEUE", 7, Palette.a(Palette.PH, 0.85))
+	_txt_r(mono, r.end.x - 8.0, r.position.y + 5.0, "%02d" % cmds.size(), 7, Palette.a(Palette.FAINT, 0.9))
+	var tau := _tau_now()
+	var y := r.position.y + 15.0
+	for raw in shown:
+		var c: Dictionary = raw
+		var act := String(c.get("action", ""))
+		var st := String(c.get("status", ""))
+		var col := Palette.PH
+		var tail := ""
+		match st:
+			"QUEUED":
+				col = Palette.AMBER
+				tail = "%.1fs" % maxf(0.0, float(c.get("exec_t", tau)) - tau)
+			"EXEC":
+				col = Palette.PH_DIM
+				tail = "EXEC"
+			"ABORTED":
+				col = Palette.FAINT
+				tail = "ABORT"
+			_:
+				col = Palette.RED
+				tail = "REJECT"
+		var name := act
+		if act == "SHADOW":
+			name = "SHADOW " + String(c.get("target", ""))
+		elif act == "BURN":
+			name = "BURN T+%04.1f Δv%.0f" % [float(c.get("exec_t", 0.0)), float((c.get("plan", {}) as Dictionary).get("dv_ms", 0.0))]
+		elif act == "STATION":
+			name = "STATION"
+		_txt(mono, r.position.x + 8.0, y, String(c.get("id", "")), 7, Palette.a(Palette.FAINT, 0.9))
+		_txt(cjk, r.position.x + 60.0, y, name, 7, Palette.a(col, 0.92))
+		_txt_r(mono, r.end.x - 8.0, y, tail, 7, Palette.a(col, 0.85))
+		if String(c.get("id", "")) == String(state.cmd_model.selected_id):
+			draw_line(Vector2(r.position.x + 4.0, y + 9.0), Vector2(r.end.x - 4.0, y + 9.0), Palette.a(Palette.PH, 0.25), 1.0)
+		y += 25.0
 
 # ── 接触状态向量 / 预测轨道 ────────────────────────────
 
@@ -526,24 +724,31 @@ func _tau_now() -> float:
 	return state.tau()
 
 func _track_km(t: Dictionary, tau: float) -> Vector3:
-	return Orbit.local_separation(t, state.own, tau)
+	return state.board_pos(t, tau)
 
 func _track_vel(t: Dictionary, tau: float) -> Vector3:
-	return Orbit.local_velocity(t, state.own, tau)
+	return state.board_vel(t, tau)
 
 func _track_pos(t: Dictionary) -> Vector2:
 	return _p3(_track_km(t, _tau_now()) * 1000.0)
 
-# 历史（-60 s）+ 预测（+300 s）折线，带误差 sigma；按 id 缓存 0.25 s
+# 历史（-60 s）+ 预测（+300 s）折线；按 id 缓存 0.25 s
+# 注意：本舰点火会改变局部板原点，所以这里用 state.board_pos（含已生效点火）
 func _pred_data(t: Dictionary) -> Dictionary:
 	var tau := _tau_now()
 	var key := String(t.get("id", "?"))
 	var cached: Dictionary = _pred_cache.get(key, {})
 	if not cached.is_empty() and absf(float(cached.get("tau", -1.0e9)) - tau) < 0.25:
 		return cached
-	var hist := Orbit.predict_polyline(t, state.own, tau - HIST_HORIZON, tau, HIST_STEPS)
-	var pred := Orbit.predict_polyline(t, state.own, tau, tau + PRED_HORIZON, PRED_STEPS)
-	var out := {"tau": tau, "hist": hist, "pred": pred}
+	var hist_pts: Array[Vector3] = []
+	for i in range(HIST_STEPS + 1):
+		var tt := -HIST_HORIZON + HIST_HORIZON * float(i) / float(HIST_STEPS)
+		hist_pts.append(state.board_pos(t, tau + tt))
+	var pred_pts: Array[Vector3] = []
+	for i in range(PRED_STEPS + 1):
+		var tt2 := PRED_HORIZON * float(i) / float(PRED_STEPS)
+		pred_pts.append(state.board_pos(t, tau + tt2))
+	var out := {"tau": tau, "hist": {"pts": hist_pts}, "pred": {"pts": pred_pts}}
 	_pred_cache[key] = out
 	return out
 
@@ -1384,11 +1589,27 @@ func _draw_planar_inset() -> void:
 			if not r.grow(-4.0).has_point(q2):
 				continue
 			draw_circle(q2, 1.2, Palette.a(_side_color(t), 0.65))
-	# 本舰点火计划（同一模型）
-	var burn_t := float(state.burn.get("t", 6.2))
-	var dv: Vector3 = state.burn.get("dv", Vector3.ZERO)
-	var plan := Orbit.own_plan(state.own, tau, burn_t, dv, PRED_HORIZON, PRED_STEPS)
+	# 本舰点火计划（P1d：命令模型 plan，含 PENDING BURN）
+	var plan := _own_plan_data()
 	_dashed_polyline(_inset_pts(plan["pts"], c, sc), Palette.a(Palette.PH, 0.65), 1.0, 3.0)
+	for raw in plan["events"]:
+		var ev: Dictionary = raw
+		var ekm: Vector3 = ev.get("km", Vector3.ZERO)
+		var eq := c + Vector2(ekm.x, -ekm.y) * sc
+		if r.grow(-4.0).has_point(eq):
+			draw_circle(eq, 2.0, Palette.a(Palette.AMBER, 0.8))
+	for raw in state.own_events:
+		var ev2: Dictionary = raw
+		var et := float(ev2.get("t", 0.0))
+		if et > tau:
+			continue
+		var st: Dictionary = state.own_at(et)
+		var cur: Dictionary = state.own_at(tau)
+		var ekm2 := (st["r"] as Vector3) - (cur["r"] as Vector3)
+		var eq2 := c + Vector2(ekm2.x, -ekm2.y) * sc
+		if r.grow(-4.0).has_point(eq2):
+			draw_circle(eq2, 1.8, Palette.a(Palette.PH, 0.9))
+	# 旧节点 B-2 标记
 	var node_idx := int(round(120.0 / PRED_HORIZON * float(PRED_STEPS)))
 	var ppt: Array = plan["pts"]
 	if node_idx >= 0 and node_idx < ppt.size():
@@ -1424,7 +1645,9 @@ func _chrome_3d() -> void:
 	var blink := 0.55 + 0.45 * sin(_t * 3.2)
 	draw_circle(Vector2(8.0, 16.0), 2.2, Palette.a(Palette.PH, blink * 0.8))
 	_draw_legend()
-	# 右下：模型 / 历元状态（与基准 REF 标签叠一列）
+	# 右下：命令 / 模型 / 历元状态（与基准 REF 标签叠一列）
+	_txt_r(mono, size.x - 24.0, size.y - 116.0, String(state.cmd_note), 7, Palette.a(Palette.AMBER, 0.85))
+	_txt_r(mono, size.x - 24.0, size.y - 104.0, "1 STATION · 2 SHADOW 谷神-2 · 3 BURN · 4 撤销待生效", 7, Palette.a(Palette.PH, 0.65))
 	_txt_r(mono, size.x - 24.0, size.y - 92.0, "EPOCH T0+%06.1fs · PRED %d pts" % [_tau_now(), PRED_STEPS + 1], 7, Palette.a(Palette.PH_FAINT, 0.9))
 	_txt(mono, 16.0, size.y - 14.0, "拖动旋转 · 滚轮缩放 · R 翻转 · D 基准", 7, Palette.a(Palette.FAINT, 0.75))
 
@@ -1449,6 +1672,7 @@ func _chrome_planar() -> void:
 	draw_line(Vector2(sx, sy - 4.0), Vector2(sx, sy + 2.0), Palette.a(Palette.TXT, 0.6), 1.0)
 	draw_line(Vector2(sx + px, sy - 4.0), Vector2(sx + px, sy + 2.0), Palette.a(Palette.TXT, 0.6), 1.0)
 	_txt(mono, sx, sy - 12.0, "100,000 km", 7, Palette.a(Palette.DIM, 0.8))
+	_txt_r(mono, size.x - 16.0, size.y - 104.0, String(state.cmd_note), 7, Palette.a(Palette.AMBER, 0.85))
 	_txt(mono, size.x - 16.0, size.y - 14.0, "拖动旋转 · 滚轮缩放 · R 翻转 · D 基准", 7, Palette.a(Palette.FAINT, 0.75))
 
 func _draw_compass() -> void:

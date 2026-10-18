@@ -157,9 +157,24 @@ func _set_scene(sc: String) -> void:
 	var ck := OS.get_environment("DSH_CLOCK")
 	if ck != "":
 		state.clock = float(ck)
+	# P1d 截图钩子：DSH_CMD=demo 显示脚本化演示（BURN 待生效 + SHADOW 待生效）
+	#                  DSH_CMD=queue 额外叠一条待生效命令 + 一条已撤销命令
+	var cmd_env := OS.get_environment("DSH_CMD")
+	if cmd_env != "":
+		if ck == "":
+			state.clock = state.clock - state.tau() + 3.2
+		state.refresh(state.clock)
+		if cmd_env == "queue":
+			state.issue_command("SHADOW", {"hold_km": 40.0}, "案卷 4471")
+			var extra: Dictionary = state.issue_command("BURN", {
+				"exec_t": state.tau() + 16.8, "dv_ms": 30.0, "brg": 120.0, "elev": 5.0,
+			})
+			state.abort_command(String(extra.get("id", "")))
+			state.cmd_model.selected_id = "CMD-03"
+		print("DSH_CMD ", cmd_env, " commands=", state.commands().size(), " tau=", state.tau())
 	state.refresh(state.clock)
 	print("SCENE ", sc, " datum=", state.datum, " sensor=", state.sensor, " planar=", plot.ortho,
-		" tau=", state.tau())
+		" tau=", state.tau(), " cmds=", state.commands().size())
 
 func _process(delta: float) -> void:
 	if not state.capture and state.boot_t < 2.0:
@@ -261,16 +276,27 @@ func _unhandled_input(event: InputEvent) -> void:
 	match event.keycode:
 		KEY_SPACE:
 			state.paused = not state.paused
+		# P1d：1/2/3 预设命令，4 撤销最新待生效（时标锁 1×，时标键移到 5-8）
 		KEY_1:
+			state.issue_command("STATION", {})
+		KEY_2:
+			state.issue_command("SHADOW", {"hold_km": 60.0}, "谷神-2")
+		KEY_3:
+			state.issue_command("BURN", {
+				"exec_t": state.tau() + 6.2, "dv_ms": 84.0, "brg": 340.0, "elev": 20.0,
+			})
+		KEY_4:
+			state.abort_latest_command()
+		KEY_5:
 			state.time_scale = 1.0
 			state.paused = false
-		KEY_2:
+		KEY_6:
 			state.time_scale = 10.0
 			state.paused = false
-		KEY_3:
+		KEY_7:
 			state.time_scale = 60.0
 			state.paused = false
-		KEY_4:
+		KEY_8:
 			state.time_scale = 300.0
 			state.paused = false
 		KEY_R:

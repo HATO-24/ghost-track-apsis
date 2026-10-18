@@ -25,13 +25,19 @@ const BAR_H := 28.0
 const BAR_X := MAP_CX - BAR_W * 0.5
 const SENSOR_RECT := Rect2(BAR_X, 136, BAR_W, BAR_H)
 const MENU_HEAD := 28.0
-const MENU_ROW := 44.0
-const MENU_ROWS := 6.0
-const MENU_RECT := Rect2(BAR_X, 168, BAR_W, MENU_HEAD + MENU_ROW * MENU_ROWS)
+# P1d：下拉不再是固定 6 项全局传感器，而是「选中舰的按舰架」——
+# 行高 52（两行：型号 / 来源·厂商·类型·距离·刷新），高度随架子模块数变化。
+const MENU_ROW := 52.0
+const MENU_FOOT := 58.0
 const MENU_FLASH := 0.14
 const MENU_FRAME := 0.12
 const MENU_QUAD_ORDER := [0, 1, 3, 2]
 const MENU_QUAD_STEP := 0.06
+
+# P1d：下拉的最终矩形 = header + N 行 + 暴露/等级 footer。
+func _menu_rect() -> Rect2:
+	var n := clampi(_rack_rows().size(), 1, 6)
+	return Rect2(BAR_X, 168, BAR_W, MENU_HEAD + float(n) * MENU_ROW + MENU_FOOT)
 
 # ── 显示名层（LORE-01 P0 审计）──────────────────────────
 # 数据层（state.gd / 未来 scenario.json）还带旧名；UI 先做显示替换，
@@ -56,7 +62,156 @@ const DISPLAY_FIX := {
 	"4471-K": "案卷 4471",
 	"4503-R": "案卷 4503",
 	"接管通知 4471 号": "接管通知 · 案卷 4471",
+	# 12 军语 P0（显示层）：未识别是状态词，不能当实体名；火控/weapons free 的正式说法。
+	"未识别": "不明接触",
+	"火控请求": "火力请求",
+	"weapons free": "武器释放授权",
+	"WEAPONS FREE": "武器释放授权",
 }
+
+# ── P1d：按舰传感器架（只读 state.racks / sensor_on / fleet_emissions）──
+# UI 只读，不写 state：ON/OFF 是占位显示（当前融合计划），开关由命令层决定。
+func _rack_ship() -> String:
+	var v = state.get("rack_ship")
+	return String(v) if v != null else "harmattan"
+
+func _rack_ship_name() -> String:
+	var tr := _rack_track()
+	if tr.is_empty():
+		return "—"
+	return _dn(String(tr.get("id", "—")))
+
+func _rack_track() -> Dictionary:
+	var idx := clampi(int(state.selected), 0, maxi(0, state.tracks.size() - 1))
+	if idx >= 0 and idx < state.tracks.size():
+		return state.tracks[idx]
+	return {}
+
+# 选中舰的完整传感器架：优先读 state.racks（含 maker / type / range_km / refresh_s / expose），
+# 退化时读 state.sensors（HUD 视图，字段不全）。
+func _rack_rows() -> Array:
+	var racks = state.get("racks")
+	if racks is Dictionary:
+		var ship := _rack_ship()
+		if (racks as Dictionary).has(ship):
+			var rows: Array = []
+			for raw in (racks as Dictionary)[ship]:
+				rows.append((raw as Dictionary).duplicate())
+			return rows
+	var out: Array = []
+	for s in state.sensors:
+		out.append({
+			"model": String(s.get("model", "—")), "source": String(s.get("mfr", "—")),
+			"maker": "—", "type": "", "mode": String(s.get("mode", "")),
+			"range_km": 0.0, "refresh_s": 0.0,
+			"expose": bool(s.get("expose", false)), "on": bool(s.get("on", true)),
+		})
+	return out
+
+# 当前融合计划里的开 / 关（只读；没有计划时退回架子默认值）
+func _rack_on(ship: String, model: String, fallback: bool) -> bool:
+	var so = state.get("sensor_on")
+	if so is Dictionary and (so as Dictionary).has(ship):
+		var m = (so as Dictionary)[ship]
+		if m is Dictionary and (m as Dictionary).has(model):
+			return bool((m as Dictionary)[model])
+	return fallback
+
+# 选中舰的暴露态：优先 state.fleet_emissions；不在融合编成里的船按架子自算。
+func _rack_emission() -> Dictionary:
+	var ship := _rack_ship()
+	var fe = state.get("fleet_emissions")
+	if fe is Array:
+		for raw in (fe as Array):
+			if raw is Dictionary and String((raw as Dictionary).get("ship_id", "")) == ship:
+				return raw
+	var ems: Array = []
+	var exposed := false
+	for s in _rack_rows():
+		var model := String(s.get("model", ""))
+		if not bool(s.get("expose", false)) or not _rack_on(ship, model, bool(s.get("on", true))):
+			continue
+		# 无线电 / 激光通信只在「正在发射」时计入暴露；融合层没有发射记录时不冒充暴露。
+		var typ := String(s.get("type", ""))
+		if typ == "radio" or typ == "lasercom":
+			continue
+		exposed = true
+		ems.append({"model": model, "elint_range_km": float(s.get("range_km", 0.0))})
+	return {"ship_id": ship, "emitters": ems, "exposed": exposed, "emcon": not exposed,
+		"emission_level": 0.0, "warnings": []}
+
+func _rack_glyph(t: String) -> String:
+	match t:
+		"ir":
+			return "web"
+		"radar":
+			return "hex"
+		"optical":
+			return "frame"
+		"iff":
+			return "gate"
+		"elint":
+			return "jag"
+		_:
+			return "ring"
+
+func _rack_color(t: String) -> Color:
+	match t:
+		"ir":
+			return Palette.AMBER
+		"radar", "iff":
+			return Palette.PH
+		"optical":
+			return Palette.BLUE
+		"elint":
+			return Palette.RED
+		_:
+			return Palette.PH_DIM
+
+func _rack_type_cn(s: Dictionary) -> String:
+	var mode := String(s.get("mode", ""))
+	if mode != "":
+		return mode
+	match String(s.get("type", "")):
+		"ir":
+			return "被动红外"
+		"radar":
+			return "主动雷达"
+		"optical":
+			return "光学"
+		"iff":
+			return "敌我识别"
+		"elint":
+			return "通信截听"
+		"radio":
+			return "无线电"
+		"lasercom":
+			return "激光通信"
+		_:
+			return "—"
+
+func _level_desc(lv: int) -> String:
+	match lv:
+		0:
+			return "无接触"
+		1:
+			return "仅方位"
+		2:
+			return "定位 / 无舰种"
+		3:
+			return "舰级分类"
+		4:
+			return "具体识别"
+		_:
+			return "—"
+
+func _ellipsis(f: Font, s: String, sz: int, max_w: float) -> String:
+	if f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x <= max_w:
+		return s
+	var out := s
+	while out.length() > 1 and f.get_string_size(out + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x > max_w:
+		out = out.substr(0, out.length() - 1)
+	return out + "…"
 
 func _dn(s: String) -> String:
 	var out := s
@@ -77,6 +232,10 @@ var _t := 0.0
 func _ready() -> void:
 	mono = Fonts.mono()
 	cjk = Fonts.cjk()
+	# 截图/调试用：DSH_SELECT=n 选中第 n 条接触（只动 HUD 的选中索引，不改 sim 状态）。
+	var ds := OS.get_environment("DSH_SELECT")
+	if ds != "" and state != null and state.tracks.size() > 0:
+		state.selected = clampi(int(ds), 0, state.tracks.size() - 1)
 
 func _process(delta: float) -> void:
 	_t += delta
@@ -114,7 +273,7 @@ func click(p: Vector2) -> void:
 				menu_open = false
 				queue_redraw()
 				return
-		if not MENU_RECT.has_point(p):
+		if not _menu_rect().has_point(p):
 			menu_open = false
 			queue_redraw()
 			return
@@ -134,7 +293,7 @@ func consumes(p: Vector2) -> bool:
 	if SENSOR_RECT.has_point(p):
 		return true
 	if menu_open:
-		if MENU_RECT.has_point(p):
+		if _menu_rect().has_point(p):
 			return true
 		for r in menu_rects:
 			if r.has_point(p):
@@ -253,13 +412,17 @@ func _draw_top() -> void:
 	_txt(mono, 1652, 64, "m/s", 8, Palette.DIM)
 	_txt(cjk, 1580, 92, "剩余 72%", 7, Palette.FAINT)
 
+	# 12 军语 P0-4/P0-5：同一行 ROE 不再用一个 HOLD 混三种含义；
+	# 顶栏 = 仅自卫（不得首先开火），日志的暂缓另用「暂缓执行」。
 	_txt(cjk, 1720, 47, "交战规则 / ROE", 7, Palette.FAINT)
-	_txt(mono, 1720, 58, "HOLD", 12, Palette.AMBER)
-	_txt(cjk, 1720, 92, "不得先开火", 7, Palette.DIM)
+	_txt(cjk, 1720, 57, "仅自卫", 12, Palette.AMBER)
+	_txt(cjk, 1720, 80, "WEAPONS HOLD", 7, Palette.a(Palette.AMBER, 0.75))
+	_txt(cjk, 1720, 92, "不得首先开火", 7, Palette.DIM)
 
 func _draw_tracks() -> void:
 	_panel(TRACKS)
-	_txt(cjk, 76, 134, "接触 / TRACKS", 11, Palette.TXT)
+	# 12 军语 P0-2：TRACKS = 航迹；本面板是接触列表，所以中文取「接触」、英文取 CONTACTS。
+	_txt(cjk, 76, 134, "接触 / CONTACTS", 11, Palette.TXT)
 	_txt_r(mono, 364, 134, "%02d" % state.tracks.size(), 12, Palette.PH_DIM)
 	_txt(cjk, 76, 153, "威胁排序 / THREAT ↓", 7, Palette.FAINT)
 	draw_line(Vector2(60, 168), Vector2(380, 168), Palette.a(Palette.LINE, 0.9), 1.0)
@@ -301,9 +464,10 @@ func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 		line2 = "方位 %03d° · %d km" % [int(t.bearing), int(t.range)]
 	_txt(mono, 76, y + 35, line2, 8, Palette.a(Palette.DIM, dim))
 
-	var cl := "编队"
+	var cl := "编队内"
 	if t.side == "hostile":
-		cl = "%+.1f km/s" % float(t.closing)
+		# 12 军语 P0-11：光一个 km/s 不知道是接近率还是速度。
+		cl = "接近率 %+.1f km/s" % float(t.closing)
 	elif t.get("own", false):
 		cl = "—"
 	_txt_r(mono, 364, y + 35, cl, 8, Palette.a(col, 0.8 * dim))
@@ -391,15 +555,41 @@ func _draw_unit() -> void:
 	_bar(Rect2(1556, 548, 288, 4), dv_frac, Palette.PH)
 	_txt(cjk, 1556, 560, "剩余 %d%% · 已耗 %s m/s" % [int(round(dv_frac * 100.0)), _fmt_int(maxi(dv_full - dv_now, 0))], 7, Palette.FAINT)
 
-	_txt(cjk, 1556, 580, "载荷 / LOADOUT", 7, Palette.FAINT)
-	for i in range(mini(3, u.weapons.size())):
-		var cy := 596.0 + float(i) * 20.0
-		_txt(cjk, 1556, cy, u.weapons[i][0], 9, Palette.DIM)
-		_txt_r(mono, 1860, cy, u.weapons[i][1], 8, Palette.TXT)
+	# P1d：右区传感器块 = 选中舰的按舰架摘要（只读；完整字段见顶部「架」下拉）。
+	# ON/OFF 只显示当前融合计划，不可点 —— 开关属于命令层。
+	var rack := _rack_rows()
+	var rack_ship := _rack_ship()
+	var em := _rack_emission()
+	var tr := _rack_track()
+	var lv := clampi(int(tr.get("level", 0)), 0, 4)
+	_txt(cjk, 1556, 580, "传感器架 / SENSOR RACK", 7, Palette.FAINT)
+	_txt_r(cjk, 1844, 580, "%s · %02d 模块" % [_rack_ship_name(), rack.size()], 7, Palette.DIM)
+	for i in range(mini(2, rack.size())):
+		var s2: Dictionary = rack[i]
+		var cy := 596.0 + float(i) * 18.0
+		var model := String(s2.get("model", "—"))
+		var on := _rack_on(rack_ship, model, bool(s2.get("on", true)))
+		_txt(mono, 1556, cy, model, 9, Palette.TXT)
+		var mw := mono.get_string_size(model, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
+		_txt(cjk, 1556.0 + mw + 8.0, cy + 1.0,
+			"%s · %s" % [String(s2.get("maker", "—")), _rack_type_cn(s2)], 7, Palette.DIM)
+		if bool(s2.get("expose", false)):
+			_txt_r(cjk, 1808, cy + 1.0, "会暴露", 7, Palette.AMBER)
+		else:
+			_txt_r(cjk, 1808, cy + 1.0, "被动", 7, Palette.FAINT)
+		_txt_r(mono, 1844, cy + 1.0, "开" if on else "关", 7,
+			Palette.PH if on else Palette.FAINT)
+	if rack.size() > 2:
+		_txt_r(mono, 1844, 632.0, "+%d" % (rack.size() - 2), 7, Palette.FAINT)
+	var exp_short := "EMIT 暴露" if bool(em.get("exposed", false)) else "EMCON 静默"
+	var exp_hint := "ELINT 已点名" if bool(state.get("elint_named")) else "开机即暴露"
+	var exp_col: Color = Palette.RED if bool(state.get("elint_named")) else (Palette.AMBER if bool(em.get("exposed", false)) else Palette.FAINT)
+	_txt(cjk, 1556, 636, "%s · 等级 L%d · %s" % [exp_short, lv, exp_hint], 7, exp_col)
 
 	draw_rect(Rect2(1556, 660, 288, 32), Palette.a(Palette.AMBER, 0.05))
 	draw_rect(Rect2(1556, 660, 2, 32), Palette.a(Palette.AMBER, 0.8))
-	_txt(cjk, 1566, 665, "损管 / DAMAGE", 7, Palette.AMBER)
+	# 12 军语 P0-3：damage 是战损/损坏，不是损管；损管英文是 DAMAGE CONTROL。
+	_txt(cjk, 1566, 665, "损管 / DAMAGE CONTROL", 7, Palette.AMBER)
 	_txt(cjk, 1566, 677, u.damage + " · " + u.damage2, 8, Palette.TXT)
 
 	_txt(cjk, 1556, 706, "姿态 / ATTITUDE", 7, Palette.FAINT)
@@ -490,7 +680,8 @@ func _log_status(l: Dictionary, i: int, y: float, cmd_left: float, pending: bool
 			txt = "已执行"
 			col = Palette.PH_DIM
 		"HOLD":
-			txt = "暂缓 · ROE"
+			# 12 军语 P0-4：日志里的 HOLD 是「命令暂缓」，不是 ROE。
+			txt = "暂缓执行"
 			col = Palette.AMBER
 		"RX":
 			txt = "已接收"
@@ -552,50 +743,113 @@ func _draw_time() -> void:
 # ── 传感器条 / 阵列下拉 ────────────────────────────────
 
 func _draw_sensor_bar() -> void:
+	# P1d：条显示「选中舰 · 当前模块」，而不是全局来源；右边带只读暴露标记。
+	var em_bar := _rack_emission()
+	var exposed := bool(em_bar.get("exposed", false))
+	var border: Color = Palette.a(Palette.PH, 0.55) if menu_open else (
+		Palette.a(Palette.AMBER, 0.55) if exposed else Palette.a(Palette.LINE, 0.95))
 	draw_rect(SENSOR_RECT, Palette.a(Palette.PANEL, 1.0))
-	draw_rect(SENSOR_RECT, Palette.a(Palette.PH, 0.55) if menu_open else Palette.a(Palette.LINE, 0.95), false, 1.0)
+	draw_rect(SENSOR_RECT, border, false, 1.0)
 	var x0 := SENSOR_RECT.position.x
 	var y0 := SENSOR_RECT.position.y
 	_txt(mono, x0 + 12.0, y0 + 8.0, "SENSOR", 7, Palette.a(Palette.PH, 0.8))
 	draw_line(Vector2(x0 + 64.0, y0 + 4.0), Vector2(x0 + 64.0, y0 + 24.0), Palette.a(Palette.LINE, 0.85), 1.0)
-	var s: Dictionary = state.sensors[int(state.sensor)]
-	_glyph(x0 + 72.0, y0 + 6.0, 16.0, s.glyph, Color(s.color))
-	_txt(cjk, x0 + 96.0, y0 + 8.0, _dn(s.mfr + " · " + s.model), 9, Palette.TXT)
-	_txt_r(cjk, SENSOR_RECT.end.x - 32.0, y0 + 9.0, _dn(s.mode), 7, Palette.DIM)
+	var s: Dictionary = state.sensors[clampi(int(state.sensor), 0, state.sensors.size() - 1)]
+	_glyph(x0 + 72.0, y0 + 6.0, 16.0, String(s.get("glyph", "ring")), Color(s.get("color", "#8CF0C0")))
+	var model := _dn(String(s.get("model", "—")))
+	_txt(cjk, x0 + 96.0, y0 + 8.0, "%s · %s" % [_rack_ship_name(), model], 9, Palette.TXT)
+	var tag := "会暴露" if bool(s.get("expose", false)) else "被动"
+	var tag_col: Color = Palette.AMBER if bool(s.get("expose", false)) else Palette.FAINT
+	_txt_r(cjk, SENSOR_RECT.end.x - 32.0, y0 + 9.0, "%s · %s" % [_dn(String(s.get("mode", ""))), tag], 7, tag_col)
 	var chev := "▴" if menu_open else "▾"
 	_txt(mono, SENSOR_RECT.end.x - 16.0, y0 + 8.0, chev, 10, Palette.a(Palette.PH, 0.9 if menu_open else 0.7))
 
 func _draw_sensor_menu() -> void:
+	# P1d：展开态 = 选中舰的按舰传感器架（只读）。
+	# 行：model / source·maker·type·range·refresh / 暴露 + 只读 ON/OFF；
+	# footer：暴露（EMCON / EMIT）、接触等级证据、开机即暴露提示。
 	menu_rects.clear()
-	var r := MENU_RECT
+	var r := _menu_rect()
 	var x0 := r.position.x
 	var y0 := r.position.y
+	var rack := _rack_rows()
+	var em := _rack_emission()
+	var tr := _rack_track()
+	var lv := clampi(int(tr.get("level", 0)), 0, 4)
+	var ship := _rack_ship()
 
 	# 面板本体（开场时压在 BG 贴片下面）
 	draw_rect(r, Palette.a(Palette.PANEL, 1.0))
 	draw_rect(r, Palette.a(Palette.LINE, 0.95), false, 1.0)
-	_txt(cjk, x0 + 12.0, y0 + 8.0, "SENSOR ARRAY / 传感器来源", 9, Palette.TXT)
-	_txt_r(mono, r.end.x - 12.0, y0 + 8.0, "%02d MODULES" % state.sensors.size(), 7, Palette.a(Palette.FAINT, 0.95))
+	var head := "传感器架 / SENSOR RACK"
+	_txt(cjk, x0 + 12.0, y0 + 8.0, head, 9, Palette.TXT)
+	var hw := cjk.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
+	_txt(cjk, x0 + 12.0 + hw + 8.0, y0 + 9.0, "ON/OFF 只读", 7, Palette.a(Palette.FAINT, 0.95))
+	_txt_r(cjk, r.end.x - 12.0, y0 + 8.0, "%s · %02d 模块" % [_rack_ship_name(), rack.size()], 7, Palette.a(Palette.FAINT, 0.95))
 	draw_line(Vector2(x0, y0 + MENU_HEAD), Vector2(r.end.x, y0 + MENU_HEAD), Palette.a(Palette.LINE, 0.9), 1.0)
 
-	for i in range(state.sensors.size()):
-		var s: Dictionary = state.sensors[i]
+	var foot_y := y0 + MENU_HEAD + float(rack.size()) * MENU_ROW
+	for i in range(rack.size()):
+		var s: Dictionary = rack[i]
 		var row := Rect2(x0, y0 + MENU_HEAD + float(i) * MENU_ROW, r.size.x, MENU_ROW)
 		menu_rects.append(row)
-		var sel := i == int(state.sensor)
+		var sel := i == clampi(int(state.sensor), 0, rack.size() - 1)
 		if sel:
 			draw_rect(row, Palette.a(Palette.PANEL2, 0.95))
 			draw_rect(Rect2(row.position.x, row.position.y, 2.0, row.size.y), Palette.PH)
-		_glyph(row.position.x + 12.0, row.position.y + 10.0, 24.0, s.glyph, Color(s.color))
-		var disp_mfr := _dn(s.mfr)
-		var disp_model := _dn(s.model)
-		_txt(cjk, row.position.x + 48.0, row.position.y + 8.0, disp_mfr, 7, Palette.DIM)
-		var mf := cjk if Fonts.has_cjk(disp_model) else mono
-		_txt(mf, row.position.x + 48.0, row.position.y + 20.0, disp_model, 10, Palette.TXT)
-		_txt(cjk, row.position.x + 128.0, row.position.y + 22.0, _dn(s.mode), 8, Palette.DIM)
-		_txt_r(mono, row.end.x - 12.0, row.position.y + 8.0, s.sig, 7, Palette.a(Palette.FAINT, 0.95))
+		var typ := String(s.get("type", ""))
+		var col := _rack_color(typ)
+		_glyph(row.position.x + 12.0, row.position.y + 14.0, 22.0, _rack_glyph(typ), col)
+		var model := String(s.get("model", "—"))
+		var mf := cjk if Fonts.has_cjk(model) else mono
+		_txt(mf, row.position.x + 46.0, row.position.y + 8.0, model, 10, Palette.TXT)
+		# 暴露：能力标记（只读）——「会暴露」是能力，不等于此刻正在发射。
+		var expose := bool(s.get("expose", false))
+		_txt_r(cjk, row.end.x - 52.0, row.position.y + 9.0, "会暴露" if expose else "被动", 7,
+			Palette.AMBER if expose else Palette.FAINT)
+		# ON/OFF：只读占位（显示当前融合计划，不可点）
+		var on := _rack_on(ship, model, bool(s.get("on", true)))
+		var chip_col: Color = Palette.PH if on else Palette.FAINT
+		var chip := Rect2(row.end.x - 44.0, row.position.y + 6.0, 32, 16)
+		draw_rect(chip, Palette.a(chip_col, 0.05))
+		draw_rect(chip, Palette.a(chip_col, 0.30), false, 1.0)
+		var on_s := "开" if on else "关"
+		var on_w := cjk.get_string_size(on_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 7).x
+		_txt(cjk, chip.position.x + (chip.size.x - on_w) * 0.5, chip.position.y + 3.0, on_s, 7, chip_col)
+		# 第二行：source · maker · type · range · refresh
+		var line2 := "%s · %s · %s · %s · 刷新 %.0fs" % [
+			_dn(String(s.get("source", "—"))), String(s.get("maker", "—")),
+			_rack_type_cn(s), _km(float(s.get("range_km", 0.0))),
+			float(s.get("refresh_s", 0.0))]
+		_txt(cjk, row.position.x + 46.0, row.position.y + 30.0,
+			_ellipsis(cjk, line2, 7, row.size.x - 66.0), 7, Palette.DIM)
 		if not sel:
-			draw_line(Vector2(row.position.x + 12.0, row.end.y - 1.0), Vector2(row.end.x - 12.0, row.end.y - 1.0), Palette.a(Palette.LINE, 0.55), 1.0)
+			draw_line(Vector2(row.position.x + 12.0, row.end.y - 1.0),
+				Vector2(row.end.x - 12.0, row.end.y - 1.0), Palette.a(Palette.LINE, 0.55), 1.0)
+
+	# footer：暴露 / 等级 / 警告（全部只读）
+	draw_line(Vector2(x0, foot_y), Vector2(r.end.x, foot_y), Palette.a(Palette.LINE, 0.9), 1.0)
+	var emitters: Array = em.get("emitters", [])
+	var exposed := bool(em.get("exposed", false))
+	var named := bool(state.get("elint_named"))
+	var line1 := ("%d 个发射器 · 已暴露" % emitters.size()) if exposed else "无主动发射 · 电磁静默"
+	var line1_col: Color = Palette.RED if named else (Palette.AMBER if exposed else Palette.PH_DIM)
+	_txt(cjk, x0 + 12.0, foot_y + 8.0, "暴露 / EXPOSURE", 7, Palette.FAINT)
+	_txt(cjk, x0 + 116.0, foot_y + 8.0, line1, 8, line1_col)
+	_txt(cjk, x0 + 12.0, foot_y + 26.0, "等级 / LEVEL", 7, Palette.FAINT)
+	_txt(cjk, x0 + 116.0, foot_y + 26.0, "L%d · %s" % [lv, _level_desc(lv)], 8, Palette.a(Palette.PH, 0.85))
+	_txt_r(cjk, r.end.x - 12.0, foot_y + 9.0, "ELINT 已点名" if named else "开机即暴露", 7,
+		Palette.RED if named else Palette.a(Palette.AMBER, 0.65))
+	var warn := ""
+	var warns: Array = em.get("warnings", [])
+	if not warns.is_empty():
+		warn = String(warns[0]).replace("（05 §S-02）", "").replace("（05 §S-04）", "")
+	elif exposed:
+		warn = "主动模块开机即暴露：ELINT 可截获（05 §S-02）"
+	else:
+		warn = "被动模块 24 h 开机不付代价（05 §S-01）"
+	_txt(cjk, x0 + 12.0, foot_y + 44.0, _ellipsis(cjk, warn, 7, r.size.x - 24.0), 7,
+		Palette.a(Palette.AMBER, 0.55))
 
 	# 开场与 V2 同拍：准星闪 <0.14s → 1px PH 细框 0.12s 淡入 → 1-2-4-3 象限硬切
 	for k in range(4):
@@ -648,7 +902,7 @@ func _draw_boot() -> void:
 			_txt(mono, 120.0, 300.0 + float(i) * 30.0, lines[i], 11, Palette.a(Palette.PH, 0.85))
 
 	# 右侧总线读数
-	var st := ["LINK 0.4s", "ARRAY 06", "NOTICE 4471", "APSIS 192,000 km", "ROE HOLD"]
+	var st := ["LINK 0.4s", "ARRAY 06", "NOTICE 4471", "APSIS 192,000 km", "ROE 仅自卫"]
 	for i in range(st.size()):
 		if t * 6.0 > float(i):
 			_txt_r(mono, 1800.0, 300.0 + float(i) * 24.0, st[i], 9, Palette.a(Palette.DIM, 0.8))
@@ -790,6 +1044,12 @@ func _fmt_int(n: int) -> String:
 			out += ","
 		out += raw[i]
 	return ("-" if n < 0 else "") + out
+
+# 传感器距离显示：60,000 km / 2,000 km
+func _km(v: float) -> String:
+	if v >= 1000.0:
+		return _fmt_int(int(round(v))) + " km"
+	return "%d km" % int(round(v))
 
 func _txt(f: Font, x: float, y: float, s: String, sz: int, c: Color) -> void:
 	draw_string(f, Vector2(x, y + f.get_ascent(sz)), s, HORIZONTAL_ALIGNMENT_LEFT, -1, sz, c)

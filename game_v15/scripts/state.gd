@@ -22,6 +22,7 @@ extends RefCounted
 
 const Orbit := preload("res://scripts/orbit_model.gd")
 const SensorModel := preload("res://scripts/sensor_model.gd")
+const CommandModel := preload("res://scripts/command_model.gd")
 
 const T0 := 760.8
 
@@ -72,6 +73,16 @@ var own: Dictionary = {}
 var own_cur: Dictionary = {}
 var burn: Dictionary = {}
 
+# ── P1d 命令 / 点火 ────────────────────────────────────
+var cmd_model                          # CommandModel（命令队列）
+var own_events: Array = []             # 已生效点火 [{t: 绝对 tau, dv: Vector3}]
+var unit_dv_ms := 1120.0               # 本舰剩余 Δv（m/s）
+var unit_dv_max := 1260.0
+var shadow_target := ""                # SHADOW 生效目标
+var shadow_since := -1.0
+var station_hold := false
+var cmd_note := ""
+
 # ── P1c 传感器状态 ─────────────────────────────────────
 var racks: Dictionary = {}                 # ship_id -> [sensor...]（SensorModel）
 var sensor_on: Dictionary = {}             # ship_id -> {model: bool}（当前融合计划）
@@ -106,10 +117,12 @@ func cycle_datum() -> String:
 func _init() -> void:
 	rng.seed = 4471
 	racks = SensorModel.all_racks()
+	cmd_model = CommandModel.new()
 	_build_tracks()
 	_build_phantom()
 	_build_log()
 	_build_unit()
+	_seed_demo_commands()
 	_sync_sensor_view()
 	_plan_tick(0.0)
 	_fusion_tick(0.0)
@@ -294,18 +307,192 @@ func track_by_id(id: String) -> Dictionary:
 
 # 把每条 track 推进到 now（相对 T0 的秒），并刷新派生量；
 # 按仿真时间补齐融合 tick（1 Hz）。捕获/截图时 clock 不动，这里幂等。
+# ── 命令 / 点火（P1d）──────────────────────────────────
+
+func commands() -> Array:
+	return cmd_model.commands if cmd_model != null else []
+
+func pending_commands() -> Array:
+	return cmd_model.pending() if cmd_model != null else []
+
+func issue_command(action: String, params: Dictionary = {}, target := "") -> Dictionary:
+	if cmd_model == null:
+		return {}
+	var p := params.duplicate(true)
+	p["budget_ms"] = unit_dv_ms
+	var cmd: Dictionary = cmd_model.issue("哈马丹", action, target, p, tau())
+	_push_command_log(cmd)
+	cmd_note = _cmd_note()
+	return cmd
+
+func abort_command(id: String) -> Dictionary:
+	if cmd_model == null:
+		return {}
+	var c: Dictionary = cmd_model.abort(id, tau())
+	if not c.is_empty():
+		_update_command_log(c)
+		_push_log("撤销 %s %s" % [String(c.get("id", "")), CommandModel.action_label(String(c.get("action", "")))], "ABORT", "HOLD")
+		cmd_note = _cmd_note()
+	return c
+
+func abort_latest_command() -> Dictionary:
+	for raw in pending_commands():
+		return abort_command(String((raw as Dictionary).get("id", "")))
+	return {}
+
+func _seed_demo_commands() -> void:
+	# 07 §3 第一拍：哈马丹跟踪谷神-2（命令经望楼中继 8 s）
+	var shadow: Dictionary = cmd_model.issue("哈马丹", "SHADOW", "谷神-2", {"hold_km": 60.0}, 0.0)
+	# 本舰计划点火：T+6.2 s、Δv 84 m/s、BRG 340 / ELEV +20
+	var dv := CommandModel.dv_vector(340.0, 20.0, 84.0)
+	var burn_cmd: Dictionary = cmd_model.issue("哈马丹", "BURN", "", {
+		"exec_t": 6.2, "dv_ms": 84.0, "brg": 340.0, "elev": 20.0, "dv": dv,
+		"budget_ms": unit_dv_ms,
+	}, 0.0)
+	# HUD 日志首两行 = 真实命令（状态随命令机更新）
+	log_lines[0] = {"t": "T+00.0", "text": "BURN 哈马丹 · 节点 B-2", "arg": "T+06.2s", "status": "PENDING", "_cmd": String(burn_cmd.get("id", ""))}
+	log_lines[1] = {"t": "T+00.0", "text": "SHADOW 哈马丹 → 谷神-2", "arg": "中继 8s", "status": "PENDING", "_cmd": String(shadow.get("id", ""))}
+	cmd_note = _cmd_note()
+
+func _push_command_log(cmd: Dictionary) -> void:
+	if cmd.is_empty():
+		return
+	var act := String(cmd.get("action", ""))
+	var stat := String(cmd.get("status", ""))
+	var txt := "%s 哈马丹" % act
+	if act == "SHADOW":
+		txt = "SHADOW 哈马丹 → %s" % String(cmd.get("target", ""))
+	elif act == "BURN":
+		txt = "BURN 哈马丹 · Δv %.0f" % float((cmd.get("plan", {}) as Dictionary).get("dv_ms", 0.0))
+	log_lines.push_front({
+		"t": "T+%05.1f" % float(cmd.get("issue_t", 0.0)),
+		"text": txt,
+		"arg": CommandModel.status_label(stat),
+		"status": ("PENDING" if stat == "QUEUED" else "RX"),
+		"_cmd": String(cmd.get("id", "")),
+	})
+	while log_lines.size() > 6:
+		log_lines.pop_back()
+
+func _update_command_log(cmd: Dictionary) -> void:
+	var id := String(cmd.get("id", ""))
+	var st := String(cmd.get("status", ""))
+	for raw in log_lines:
+		var r: Dictionary = raw
+		if String(r.get("_cmd", "")) != id:
+			continue
+		r["arg"] = CommandModel.status_label(st)
+		match st:
+			"EXEC":
+				r["status"] = "EXEC"
+			"ABORTED":
+				r["status"] = "HOLD"
+			"REJECTED":
+				r["status"] = "HOLD"
+			_:
+				r["status"] = "PENDING"
+
+func _cmd_note() -> String:
+	if cmd_model == null:
+		return ""
+	var n: Dictionary = cmd_model.counted()
+	return "CMD 待%d / 执行%d / 撤销%d · Δv %.0f m/s" % [
+		int(n.get("QUEUED", 0)), int(n.get("EXEC", 0)), int(n.get("ABORTED", 0)), unit_dv_ms]
+
+func _apply_command(cmd: Dictionary, tick_t: float) -> void:
+	var act := String(cmd.get("action", ""))
+	match act:
+		"BURN":
+			var plan: Dictionary = cmd.get("plan", {})
+			var dv: Vector3 = plan.get("dv", Vector3.ZERO)
+			var dv_ms := float(plan.get("dv_ms", 0.0))
+			own_events.append({"t": float(cmd.get("exec_t", tick_t)), "dv": dv})
+			own_events.sort_custom(func(a, b): return float((a as Dictionary).get("t", 0.0)) < float((b as Dictionary).get("t", 0.0)))
+			unit_dv_ms = maxf(0.0, unit_dv_ms - dv_ms)
+			fleet_dv = maxi(0, fleet_dv - int(round(dv_ms)))
+			unit["dv"] = _fmt_int(int(round(unit_dv_ms)))
+			_push_log("BURN 哈马丹 · Δv %.0f m/s" % dv_ms, "T+%04.1fs" % float(cmd.get("exec_t", 0.0)), "EXEC")
+		"SHADOW":
+			shadow_target = String(cmd.get("target", ""))
+			shadow_since = float(cmd.get("exec_t", tick_t))
+			station_hold = false
+			if _optical_target == "" and not _optical_done.has(shadow_target):
+				_optical_target = shadow_target
+			_push_log("SHADOW 生效：哈马丹 → %s" % shadow_target, "望楼中继", "EXEC")
+		"STATION":
+			station_hold = true
+			for raw in cmd_model.pending():
+				var other: Dictionary = raw
+				if String(other.get("action", "")) == "BURN":
+					cmd_model.abort(String(other.get("id", "")), tick_t)
+					_update_command_log(other)
+			_push_log("STATION 哈马丹 · 保持站位", "小修正", "EXEC")
+	_update_command_log(cmd)
+	cmd_note = _cmd_note()
+
+# ── 本舰状态（含已生效点火的分段传播）────────────────────
+
+func own_at(tau_abs: float) -> Dictionary:
+	var r: Vector3 = own.r
+	var v: Vector3 = own.v
+	var cur := 0.0
+	for raw in own_events:
+		var ev: Dictionary = raw
+		var et := float(ev.get("t", 0.0))
+		if et > tau_abs + 1.0e-9:
+			break
+		var st := Orbit.local_propagate(r, v, et - cur)
+		r = st["r"]
+		v = st["v"] + (ev.get("dv", Vector3.ZERO) as Vector3)
+		cur = et
+	var st2 := Orbit.local_propagate(r, v, tau_abs - cur)
+	return {"r": st2["r"], "v": st2["v"]}
+
+func own_vel_at(tau_abs: float) -> Vector3:
+	var st := own_at(tau_abs)
+	return st["v"]
+
+func track_at(tr: Dictionary, tau_abs: float) -> Dictionary:
+	var ep := float(tr.get("epoch", T0)) - T0
+	return Orbit.local_propagate(tr["r"], tr["v"], tau_abs - ep)
+
+# 目标相对本舰（局部板坐标，km）
+func board_pos(tr: Dictionary, tau_abs: float) -> Vector3:
+	var st := track_at(tr, tau_abs)
+	var ow := own_at(tau_abs)
+	return (st["r"] as Vector3) - (ow["r"] as Vector3)
+
+func board_vel(tr: Dictionary, tau_abs: float) -> Vector3:
+	var st := track_at(tr, tau_abs)
+	return (st["v"] as Vector3) - own_vel_at(tau_abs)
+
+func _fmt_int(v: int) -> String:
+	var s := str(absi(v))
+	var out := ""
+	var c := 0
+	for i in range(s.length() - 1, -1, -1):
+		out = s[i] + out
+		c += 1
+		if c % 3 == 0 and i > 0:
+			out = "," + out
+	return out
+
 func refresh(now: float) -> void:
 	var t := now - T0
+	# 命令 tick：到期命令生效（点火按计划时刻写入 own_events，历史一致）
+	if cmd_model != null:
+		for raw in cmd_model.tick(t):
+			_apply_command(raw as Dictionary, t)
+	# 本舰当前状态（含已生效点火的分段传播）
+	own_cur = own_at(t)
 	for tr in tracks:
 		if tr.get("phantom", false):
 			tr["age"] = maxf(0.0, t - PHANTOM_TRUE_T) if phantom_true else maxf(0.0, t)
 			continue
-		var st := Orbit.local_propagate(tr["r"], tr["v"], t)
+		var st := track_at(tr, t)
 		var rr: Vector3 = st["r"]
 		var vv: Vector3 = st["v"]
 		_derive(tr, rr, vv)
-		if tr.get("own", false):
-			own_cur = {"r": rr, "v": vv}
 	# 融合 tick 补齐
 	var steps := 0
 	while fusion_t + FUSION_PERIOD_S <= t + 1.0e-6 and steps < MAX_CATCHUP_TICKS:
@@ -424,6 +611,9 @@ func _fusion_tick(t: float) -> void:
 				continue
 			due.append({"ship": det, "sensor": s})
 	# 光学一次只凝视一个目标（05 §S-04：望远镜单目标；07 §3 先推一条到 L3）
+	# SHADOW 生效时优先凝视被跟踪目标。
+	if _optical_target == "" and shadow_target != "" and not _optical_done.has(shadow_target):
+		_optical_target = shadow_target
 	if _optical_target == "":
 		for tr in tracks:
 			if tr.get("own", false) or bool(tr.get("phantom", false)):
@@ -648,7 +838,7 @@ func _build_unit() -> void:
 		"faction": "公约 · AD 特遣群",
 		"mass": "300 t", "crew": "12", "accel": "0.15 g",
 		"orbit": "L1 · 斛站", "inc": "—", "period": "—",
-		"dv": "1,120", "dv_max": "1,260",
+		"dv": _fmt_int(int(round(unit_dv_ms))), "dv_max": _fmt_int(int(round(unit_dv_max))),
 		"systems": [["传感器", 0.74], ["火控", 0.42], ["推进", 0.66], ["通信", 0.82], ["反应堆", 0.95]],
 		"weapons": [["CH-IR2 红外", "1 · 被动"], ["CH-R0 无线电", "1 · 4s"], ["武器", "无"]],
 		"damage": "红外虚警偏高", "damage2": "· CH-IR2 校准中"
