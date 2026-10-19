@@ -2,10 +2,14 @@ config_version=5
 
 [application]
 
-config/name="AD-FLEET // 战术显控台"
-run/main_scene="res://main.tscn"
+config/name="GHOST TRACK // APSIS"
+run/main_scene="res://intro.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/show_image=false
+
+[autoload]
+
+Audio="*res://scripts/audio.gd"
 
 [display]
 

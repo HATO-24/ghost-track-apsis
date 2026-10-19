@@ -18,6 +18,9 @@ var _gif_dir := ""
 var _frames := 0
 var _drag := false
 var end_panel
+var _last_decision := false
+var _last_consequence := false
+var _last_report := false
 
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
@@ -35,7 +38,7 @@ func _ready() -> void:
 		" local_err_300s_m=", st.local_err_300s_m,
 		" local_err_2000s_m=", st.local_err_2000s_m)
 	print("L1 TIDAL kx=", st.kx, " ky=", st.ky, " kz=", st.kz, " n=", st.n_lunar)
-	get_window().title = "AD-FLEET // 战术显控台 — V1.5"
+	get_window().title = "GHOST TRACK // APSIS — DEMO"
 	get_window().size = Vector2i(1600, 900)
 	var screen := DisplayServer.screen_get_size()
 	get_window().position = Vector2i((screen.x - 1600) / 2, (screen.y - 900) / 2)
@@ -94,6 +97,35 @@ func _ready() -> void:
 		_set_scene(_scene)
 	elif _gif_dir != "":
 		_capture_gif(_gif_dir)
+	_play_bgm("game")
+
+func _audio() -> Node:
+	return get_node_or_null("/root/Audio")
+
+func _play_bgm(name: String) -> void:
+	if state.capture:
+		return
+	var a := _audio()
+	if a != null:
+		a.call("play_bgm", name)
+
+func _sfx(name: String) -> void:
+	if state.capture:
+		return
+	var a := _audio()
+	if a != null:
+		a.call("sfx", name)
+
+func _audio_cues() -> void:
+	if state.decision_open and not _last_decision:
+		_sfx("alarm")
+	if state.consequence_open and not _last_consequence:
+		_sfx("fire")
+	if state.report_open and not _last_report:
+		_sfx("ui_confirm")
+	_last_decision = state.decision_open
+	_last_consequence = state.consequence_open
+	_last_report = state.report_open
 
 func _set_scene(sc: String) -> void:
 	state.sensor = 0
@@ -257,6 +289,7 @@ func _process(delta: float) -> void:
 	state.elapsed += delta
 	# 接触状态向量推进到当前时刻 + HUD 派生量保鲜
 	state.refresh(state.clock)
+	_audio_cues()
 	hud.queue_redraw()
 	if end_panel != null:
 		end_panel.queue_redraw()

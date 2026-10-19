@@ -1192,6 +1192,10 @@ func _draw_pause_badge() -> void:
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
 		return
+	if not state.capture:
+		var audio := get_node_or_null("/root/Audio")
+		if audio != null:
+			audio.call("sfx", "ui_hover")
 	# P3c：前置航行覆盖层最优先吃点击（开局阻挡）。
 	if _ov_prelude():
 		_handle_prelude_click(p)

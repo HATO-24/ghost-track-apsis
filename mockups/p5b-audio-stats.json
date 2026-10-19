@@ -1,0 +1,64 @@
+{
+  "menu_ambient": {
+    "seconds": 30.0,
+    "peak_dbfs": -1.51,
+    "rms_dbfs": -11.73,
+    "bytes": 2646044,
+    "seam_abs_diff": 0.0
+  },
+  "game_ambient": {
+    "seconds": 32.0,
+    "peak_dbfs": -1.51,
+    "rms_dbfs": -13.83,
+    "bytes": 2822444,
+    "seam_abs_diff": 0.0
+  },
+  "ui_hover": {
+    "seconds": 0.07,
+    "peak_dbfs": -1.51,
+    "rms_dbfs": -12.91,
+    "bytes": 6218
+  },
+  "ui_confirm": {
+    "seconds": 0.2,
+    "peak_dbfs": -1.51,
+    "rms_dbfs": -11.93,
+    "bytes": 17684
+  },
+  "ui_back": {
+    "seconds": 0.16,
+    "peak_dbfs": -1.51,
+    "rms_dbfs": -10.84,
+    "bytes": 14156
+  },
+  "ui_error": {
+    "seconds": 0.28,
+    "peak_dbfs": -1.51,
+    "rms_dbfs": -12.88,
+    "bytes": 24740
+  },
+  "alarm": {
+    "seconds": 1.2,
+    "peak_dbfs": -1.51,
+    "rms_dbfs": -8.25,
+    "bytes": 105884
+  },
+  "fire": {
+    "seconds": 0.9,
+    "peak_dbfs": -1.51,
+    "rms_dbfs": -11.5,
+    "bytes": 79424
+  },
+  "hard_cut": {
+    "seconds": 0.1,
+    "peak_dbfs": -1.51,
+    "rms_dbfs": -21.9,
+    "bytes": 8864
+  },
+  "boot": {
+    "seconds": 2.2,
+    "peak_dbfs": -1.51,
+    "rms_dbfs": -11.84,
+    "bytes": 194084
+  }
+}
