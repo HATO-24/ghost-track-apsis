@@ -21,6 +21,10 @@ var _gif_dir := ""
 var _frames := 0
 var _drag := false
 var end_panel
+var svc: SubViewportContainer
+var _vp_rect := Rect2()
+var _window_restore_size := Vector2i(1600, 900)
+var _last_win_size := Vector2i.ZERO
 var _last_decision := false
 var _last_consequence := false
 var _last_report := false
@@ -57,11 +61,12 @@ func _ready() -> void:
 		get_window().size = Vector2i(1920, 1080)
 		get_window().position = Vector2i(0, 0)
 
-	var svc := SubViewportContainer.new()
+	svc = SubViewportContainer.new()
 	svc.stretch = true
 	svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	svc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(svc)
+	_layout_viewport()
+	get_window().size_changed.connect(_layout_viewport)
 
 	vp = SubViewport.new()
 	vp.size = BASE
@@ -132,6 +137,90 @@ func _ready() -> void:
 	elif _gif_dir != "":
 		_capture_gif(_gif_dir)
 	_play_bgm("game")
+	if OS.get_environment("DSH_WINDOW_TEST") == "1":
+		_window_selftest.call_deferred()
+
+func _window_selftest() -> void:
+	await get_tree().process_frame
+	print("WIN TEST size=", get_window().size, " rect=", _vp_rect, " base_scale=", _vp_rect.size / Vector2(BASE))
+	var keep := get_window().size
+	get_window().size = Vector2i(1280, 900)
+	await get_tree().process_frame
+	_layout_viewport()
+	print("WIN TEST non16x9 size=", get_window().size, " rect=", _vp_rect, " scale=", _vp_rect.size / Vector2(BASE), " offset=", _vp_rect.position)
+	get_window().size = keep
+	await get_tree().process_frame
+	_layout_viewport()
+	var b0 := get_window().borderless
+	_toggle_borderless()
+	await get_tree().process_frame
+	print("WIN TEST F10 borderless=", get_window().borderless, " rect=", _vp_rect)
+	_toggle_borderless()
+	await get_tree().process_frame
+	_toggle_exclusive_fullscreen()
+	await get_tree().process_frame
+	print("WIN TEST F11 mode=", get_window().mode, " size=", get_window().size, " rect=", _vp_rect)
+	_toggle_exclusive_fullscreen()
+	await get_tree().process_frame
+	print("WIN TEST restored borderless=", b0, " size=", get_window().size, " rect=", _vp_rect)
+	# 相机轴测试：横拖只改 yaw，竖拖只改 pitch；Q/E 横滚生效
+	var y0: float = plot.yaw3d
+	var p0: float = plot.pitch
+	plot.rotate_map(120.0, 0.0)
+	print("CAM TEST yaw_delta=", plot.yaw3d - y0, " pitch_delta=", plot.pitch - p0)
+	var y1: float = plot.yaw3d
+	var p1: float = plot.pitch
+	plot.rotate_map(0.0, 120.0)
+	print("CAM TEST pitch_delta=", plot.pitch - p1, " yaw_delta=", plot.yaw3d - y1)
+	if not plot.roll_unlocked:
+		plot.toggle_roll_unlock()
+	var r0: float = plot.roll3d
+	plot.rotate_roll(deg_to_rad(5.0))
+	print("CAM TEST roll_effective=", absf(plot.roll3d - r0) > 0.001)
+	print("WIN TEST DONE")
+
+# P9a：16:9 letterbox。SubViewport 固定 1920×1080，容器按窗口可用区域等比居中缩放；
+# 鼠标坐标按容器实际矩形映射回 1920×1080，letterbox 黑边不接收点击。
+func _layout_viewport() -> void:
+	var win := Vector2(get_window().size)
+	if win.x < 2.0 or win.y < 2.0:
+		return
+	var sc := minf(win.x / float(BASE.x), win.y / float(BASE.y))
+	var vp_size := Vector2(BASE) * sc
+	var vp_pos := (win - vp_size) * 0.5
+	_vp_rect = Rect2(vp_pos, vp_size)
+	if svc != null:
+		svc.position = vp_pos
+		svc.size = vp_size
+	if vp != null:
+		vp.size = BASE
+	_last_win_size = get_window().size
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_layout_viewport()
+
+func _toggle_exclusive_fullscreen() -> void:
+	var w := get_window()
+	if w.mode == Window.MODE_EXCLUSIVE_FULLSCREEN:
+		w.mode = Window.MODE_WINDOWED
+		w.size = _window_restore_size
+		var scr := DisplayServer.screen_get_size()
+		w.position = Vector2i((scr.x - w.size.x) / 2, (scr.y - w.size.y) / 2)
+	else:
+		_window_restore_size = w.size
+		w.mode = Window.MODE_EXCLUSIVE_FULLSCREEN
+	_layout_viewport()
+	print("WINDOW MODE ", w.mode, " size=", w.size, " borderless=", w.borderless)
+
+func _toggle_borderless() -> void:
+	var w := get_window()
+	if w.mode == Window.MODE_EXCLUSIVE_FULLSCREEN:
+		w.mode = Window.MODE_WINDOWED
+		w.size = _window_restore_size
+	w.borderless = not w.borderless
+	_layout_viewport()
+	print("WINDOW BORDERLESS ", w.borderless, " size=", w.size)
 
 func _audio() -> Node:
 	return get_node_or_null("/root/Audio")
@@ -268,7 +357,7 @@ func _set_scene(sc: String) -> void:
 			state.clock = state.clock - state.tau() + 3.2
 		state.refresh(state.clock)
 		if cmd_env == "queue":
-			state.issue_command("SHADOW", {"hold_km": 40.0}, "案卷 4471")
+			state.issue_command("SHADOW", {"hold_km": 40.0}, "AV-4412 传唤者")
 			var extra: Dictionary = state.issue_command("BURN", {
 				"exec_t": state.tau() + 16.8, "dv_ms": 30.0, "brg": 120.0, "elev": 5.0,
 			})
@@ -279,7 +368,7 @@ func _set_scene(sc: String) -> void:
 			state.set_sensor("apsis", 2, true)      # YW-R9 手动开机（早于脚本时序）-> EMIT
 			state.set_sensor("harmattan", 1, false) # CH-R0 手动关闭
 			state.set_emcon("summons_4471", true)   # 敌舰 EMCON（发射类全关）
-			state.issue_command("SHADOW", {"hold_km": 40.0}, "案卷 4471")
+			state.issue_command("SHADOW", {"hold_km": 40.0}, "AV-4412 传唤者")
 			var extra2: Dictionary = state.issue_command("BURN", {
 				"exec_t": state.tau() + 55.0, "dv_ms": 30.0, "brg": 120.0, "elev": 5.0,
 			})
@@ -334,10 +423,24 @@ func _set_scene(sc: String) -> void:
 			" perjury=", state.perjury_count, " frozen=", state.sim_frozen,
 			" end=", state.end_open, " summary_keys=", state.end_summary.size(),
 			" radio=", state.radio_feed.size(), " events=", state.event_feed.size())
+	# P9a 截图/验证钩子：DSH_MAST=down|up 收放哈马丹桅杆；DSH_SELECT=<batch> 选中舰/目标
+	var mast_env := OS.get_environment("DSH_MAST")
+	if mast_env != "":
+		state.set_mast("harmattan", mast_env != "down")
+		print("MAST ", mast_env, " deployed=", state.is_mast_deployed("harmattan"))
+	var sel_env := OS.get_environment("DSH_SELECT")
+	if sel_env != "":
+		for i in state.tracks.size():
+			if String((state.tracks[i] as Dictionary).get("batch", "")) == sel_env:
+				state.selected = i
+				break
+		print("SELECTED ", sel_env, " idx=", state.selected, " info=", state.selected_info())
 	print("SCENE ", sc, " datum=", state.datum, " sensor=", state.sensor, " planar=", plot.ortho,
 		" tau=", state.tau(), " cmds=", state.commands().size())
 
 func _process(delta: float) -> void:
+	if get_window().size != _last_win_size:
+		_layout_viewport()
 	if not state.capture and state.boot_t < 2.0:
 		state.boot_t = minf(2.0, state.boot_t + delta)
 	# 执行窗口：时标锁 1×（可暂停，不可加速）；开火后时间冻结
@@ -398,12 +501,17 @@ func _apply_demo(t: float) -> void:
 		state.sensor_fx_t = 0.0
 
 func _mouse_to_base(p: Vector2) -> Vector2:
-	if size.x <= 1.0:
+	if _vp_rect.size.x <= 1.0 or _vp_rect.size.y <= 1.0:
 		return p
-	return p * (Vector2(BASE) / size)
+	return (p - _vp_rect.position) * (Vector2(BASE) / _vp_rect.size)
+
+func _in_viewport(p: Vector2) -> bool:
+	return _vp_rect.size.x > 1.0 and _vp_rect.has_point(p)
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
+		if not _in_viewport(event.position):
+			return
 		var p := _mouse_to_base(event.position)
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
@@ -429,13 +537,19 @@ func _gui_input(event: InputEvent) -> void:
 				accept_event()
 	elif event is InputEventMouseMotion and _drag:
 		var rel: Vector2 = event.relative
-		if size.x > 1.0:
-			rel *= Vector2(BASE) / size
+		if _vp_rect.size.x > 1.0:
+			rel *= Vector2(BASE) / _vp_rect.size
 		plot.rotate_map(rel.x, rel.y)
 		accept_event()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if event.keycode == KEY_F11:
+		_toggle_exclusive_fullscreen()
+		return
+	if event.keycode == KEY_F10:
+		_toggle_borderless()
 		return
 	if event.keycode == KEY_ESCAPE:
 		get_tree().quit()
@@ -506,8 +620,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			var ru: bool = plot.toggle_roll_unlock()
 			print("ROLL UNLOCK → ", ru)
 		KEY_Q:
+			if not plot.roll_unlocked:
+				plot.toggle_roll_unlock()
 			plot.rotate_roll(deg_to_rad(-5.0))
 		KEY_E:
+			if not plot.roll_unlocked:
+				plot.toggle_roll_unlock()
 			plot.rotate_roll(deg_to_rad(5.0))
 		KEY_ESCAPE:
 			get_tree().quit()
@@ -532,7 +650,7 @@ class EndPanel extends Control:
 		draw_rect(Rect2(r.position, Vector2(r.size.x, 2.0)), P.a(P.PH, 0.9))
 		var cjk := F.cjk()
 		var mono := F.mono()
-		draw_string(cjk, r.position + Vector2(16.0, 24.0), "归档 / END — 第一关 · 监督交接（回执已归档）", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.PH)
+		draw_string(cjk, r.position + Vector2(16.0, 24.0), "归档 / END — 第一关 · 越权回收（内部报告已归档）", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, P.PH)
 		var es: Dictionary = state.end_summary if state.end_summary is Dictionary else {}
 		var outcome := String(es.get("outcome", state.outcome))
 		var ending := String(es.get("ending", state.ending_label(outcome)))

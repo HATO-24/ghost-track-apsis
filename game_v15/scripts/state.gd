@@ -157,7 +157,11 @@ var prelude_route := ""
 var prelude_window := ""
 var prelude_dv := 0.0
 var prelude_data: Dictionary = {}
-
+# ── P9a：选中舰数据 / 传感器桅杆 / 导航页 ─────────────
+var mast_deployed: Dictionary = {}      # ship_id -> bool（默认伸出）
+var mast_note := ""
+var nav_data: Dictionary = {}
+var _adjutant_choices: Array = []
 # ── P1c 传感器状态 ─────────────────────────────────────
 var racks: Dictionary = {}                 # ship_id -> [sensor...]（SensorModel）
 var sensor_on: Dictionary = {}             # ship_id -> {model: bool}（当前融合计划）
@@ -199,6 +203,7 @@ func _bootstrap() -> void:
 	scenario = _load_scenario()
 	_apply_scenario_env()
 	_load_story()
+	_init_mast()
 	racks = SensorModel.all_racks()
 	cmd_model = CommandModel.new()
 	_build_tracks()
@@ -284,7 +289,7 @@ func _sync_sensor_view() -> void:
 	if idx >= 0 and idx < tracks.size():
 		tid = String(tracks[idx].get("id", "哈马丹"))
 	var ship := _ship_id_for_track(tid)
-	var key := "%s#%s" % [ship, str(racks.get(ship, []))]
+	var key := "%s#%s#%s" % [ship, str(racks.get(ship, [])), str(is_mast_deployed(ship))]
 	if key == _sensors_view_key and not sensors.is_empty():
 		return
 	_sensors_view_key = key
@@ -405,6 +410,11 @@ func _derive(d: Dictionary, r: Vector3, v: Vector3) -> void:
 	d["range"] = rng_km
 	d["bearing"] = fposmod(rad_to_deg(atan2(r.x, r.y)), 360.0)
 	d["alt"] = r.z
+	d["az_deg"] = d["bearing"]
+	var horiz := sqrt(r.x * r.x + r.y * r.y)
+	d["el_deg"] = rad_to_deg(atan2(r.z, maxf(horiz, 1.0e-6)))
+	d["range_3d_km"] = rng_km
+	d["speed_mps"] = v.length() * 1000.0
 	d["closing"] = (-r.dot(v) / rng_km) if rng_km > 1.0e-6 else 0.0
 
 func tau() -> float:
@@ -711,6 +721,12 @@ func _plan_tick(t: float) -> void:
 				var model2 := String(raw_model2)
 				if _sensor_exposes(ship, model2):
 					(plan[ship] as Dictionary)[model2] = false
+	# P9a：桅杆收起时整架不可用（主动/被动全部关断）
+	for raw_ship_m in plan.keys():
+		var ship_m := String(raw_ship_m)
+		if not is_mast_deployed(ship_m):
+			for raw_model_m in (plan[ship_m] as Dictionary).keys():
+				(plan[ship_m] as Dictionary)[String(raw_model_m)] = false
 	for raw_ship2 in plan.keys():
 		var ship2 := String(raw_ship2)
 		if not _seconds_on.has(ship2):
@@ -731,6 +747,8 @@ func _sensor_exposes(ship: String, model: String) -> bool:
 	return bool(s.get("expose", false))
 
 func _sensor_is_on(ship: String, model: String) -> bool:
+	if not is_mast_deployed(ship):
+		return false
 	var m: Dictionary = sensor_on.get(ship, {})
 	return bool(m.get(model, false))
 
@@ -1029,6 +1047,9 @@ func set_sensor(ship_id: String, idx: int, on: bool) -> bool:
 	var rack := SensorModel.sensor_rack(ship_id)
 	if idx < 0 or idx >= rack.size():
 		return false
+	if not is_mast_deployed(ship_id):
+		_push_log("传感器桅杆已收起：%s 不可操作" % ship_id, "MAST", "HOLD")
+		return false
 	var model := String((rack[idx] as Dictionary).get("model", ""))
 	if not sensor_override.has(ship_id):
 		sensor_override[ship_id] = {}
@@ -1041,6 +1062,8 @@ func set_sensor(ship_id: String, idx: int, on: bool) -> bool:
 func get_sensor_on(ship_id: String, idx: int) -> bool:
 	var rack := SensorModel.sensor_rack(ship_id)
 	if idx < 0 or idx >= rack.size():
+		return false
+	if not is_mast_deployed(ship_id):
 		return false
 	var s: Dictionary = rack[idx]
 	var model := String(s.get("model", ""))
@@ -1182,6 +1205,7 @@ func _load_story() -> void:
 	evidence_tasks_def = story.get("evidence_tasks", {})
 	adjutant_request = (story.get("adjutant_request", {}) as Dictionary).duplicate(true)
 	prelude_data = (story.get("prelude", {}) as Dictionary).duplicate(true)
+	nav_data = (story.get("navigation", {}) as Dictionary).duplicate(true)
 
 func _update_phase_gate(t: float) -> void:
 	if end_open:
@@ -1599,6 +1623,10 @@ func _reset_runtime() -> void:
 	prelude_window = ""
 	prelude_dv = 0.0
 	prelude_data = {}
+	mast_deployed = {}
+	mast_note = ""
+	nav_data = {}
+	_adjutant_choices = []
 	tracks.clear()
 	racks = {}
 	sensor_on = {}
@@ -1890,8 +1918,6 @@ func _advance_tasks(t: float) -> void:
 func ack_adjutant(choice: String) -> Dictionary:
 	if not adjutant_request_open:
 		return {}
-	adjutant_request_open = false
-	adjutant_request_seen = true
 	var c := choice.to_lower()
 	var task: Dictionary = {}
 	match c:
@@ -1902,10 +1928,18 @@ func ack_adjutant(choice: String) -> Dictionary:
 		"evacuate":
 			task = start_evacuation()
 		"decline":
+			adjutant_request_open = false
+			adjutant_request_seen = true
 			_push_log("副官申请：暂不处理", "ADJUTANT", "HOLD")
+			return {"choice": c, "task": task, "adjutant_request_open": false}
 		_:
 			return {}
-	return {"choice": c, "task": task, "adjutant_request_open": false}
+	_adjutant_choices.append(c)
+	# P9a：非 decline 保留申请，允许连续选择（遥测可与穿梭机任务并行）
+	adjutant_request_open = true
+	adjutant_request_seen = true
+	return {"choice": c, "task": task, "adjutant_request_open": true,
+		"choices": _adjutant_choices.duplicate()}
 
 # 截图演示：按时间线预置“遥测已完成 + 黑匣子进行中”，供 p2b-sim 截图
 func _seed_demo_tasks(t: float) -> void:
@@ -2039,6 +2073,132 @@ func prelude_skip() -> Dictionary:
 	flags["prelude_skipped"] = true
 	return {"ok": true, "open": false, "skipped": true,
 		"route": prelude_route, "window": prelude_window}
+
+# ── P9a：桅杆 / 选中舰 / 相对轨道读数 / 导航页 ─────────
+
+func _init_mast() -> void:
+	mast_deployed = {}
+	for raw_ship in SensorModel.all_racks().keys():
+		mast_deployed[String(raw_ship)] = true
+	mast_note = "桅杆：全部伸出"
+
+func is_mast_deployed(ship_id: String) -> bool:
+	return bool(mast_deployed.get(ship_id, true))
+
+func set_mast(ship_id: String, deployed: bool) -> bool:
+	if not SensorModel.all_racks().has(ship_id):
+		return false
+	if bool(mast_deployed.get(ship_id, true)) == deployed:
+		return true
+	mast_deployed[ship_id] = deployed
+	if not deployed:
+		# 收起：清掉手动覆盖，_plan_tick 会整架强制关断；伸出后恢复脚本时序
+		sensor_override.erase(ship_id)
+	mast_note = "桅杆：%s %s" % [ship_id, "伸出" if deployed else "收起 · 传感器不可用"]
+	_plan_tick(tau())
+	_update_emissions(tau())
+	_sync_sensor_view()
+	_push_log("传感器桅杆 %s：%s" % [ship_id, "伸出" if deployed else "收起"], "MAST", "EXEC")
+	return true
+
+func toggle_mast(ship_id: String) -> bool:
+	return set_mast(ship_id, not is_mast_deployed(ship_id))
+
+func selected_track() -> Dictionary:
+	if tracks.is_empty():
+		return {}
+	var idx := clampi(int(selected), 0, tracks.size() - 1)
+	return tracks[idx]
+
+func datum_note() -> String:
+	var tr := selected_track()
+	if tr.is_empty() or bool(tr.get("own", false)):
+		return "基准锁本舰 / OWN FRAME"
+	return "基准锁本舰（选中舰只读）/ OWN FRAME · SELECTED READ-ONLY"
+
+func selected_info() -> Dictionary:
+	var tr := selected_track()
+	if tr.is_empty():
+		return {}
+	var id := String(tr.get("id", ""))
+	var closing_ms := float(tr.get("closing", 0.0)) * 1000.0
+	return {
+		"id": id,
+		"batch": String(tr.get("batch", id)),
+		"name": String(tr.get("name", id)),
+		"own": bool(tr.get("own", false)),
+		"identity": identity_label(String(tr.get("identity", "pending"))),
+		"threat": threat_text(String(tr.get("threat", "none"))),
+		"az_deg": float(tr.get("az_deg", tr.get("bearing", 0.0))),
+		"el_deg": float(tr.get("el_deg", 0.0)),
+		"range_km": float(tr.get("range_3d_km", tr.get("range", 0.0))),
+		"speed_mps": float(tr.get("speed_mps", 0.0)),
+		"closing_mps": closing_ms,
+		"orbit": orbit_readout(id),
+	}
+
+# 相对轨道读数：以本舰为原点的运动学估算；不是地心根数（绝对根数需星历，第二批）
+func orbit_readout(id: String) -> Dictionary:
+	var tr := track_by_id(id)
+	if tr.is_empty():
+		return {"available": false, "note": "无该批号"}
+	if bool(tr.get("own", false)):
+		return {"available": false, "scheme": "station", "label": "本舰 · 基准",
+			"note": "本舰是基准舰；绝对轨道根数由外部星历提供（第二批）"}
+	var r: Vector3 = tr.get("cur_r", Vector3.ZERO)
+	var v: Vector3 = tr.get("cur_v", Vector3.ZERO)
+	var rng := r.length()
+	if rng <= 0.001:
+		return {"available": false, "note": "无位置解（L1 方位线）"}
+	var spd := v.length()
+	var radial := r.dot(v) / maxf(rng, 1.0e-6)
+	var tang := sqrt(maxf(spd * spd - radial * radial, 0.0))
+	var period_est := (TAU * rng / tang) if tang > 1.0e-6 else 0.0
+	var h := r.cross(v)
+	var inc := 0.0
+	if h.length() > 1.0e-9:
+		inc = rad_to_deg(asin(clampf(h.normalized().z, -1.0, 1.0)))
+	return {
+		"available": true,
+		"scheme": "relative",
+		"label": "相对轨道（本舰为原点；非地心根数）",
+		"semi_major_km": rng,
+		"period_s": period_est,
+		"inc_deg": absf(inc),
+		"speed_mps": spd * 1000.0,
+		"radial_mps": radial * 1000.0,
+		"tangential_mps": tang * 1000.0,
+		"closing_mps": -radial * 1000.0,
+		"note": "运动学估算；绝对轨道根数需星历（第二批）",
+	}
+
+func navigation_open() -> bool:
+	return prelude_open
+
+func navigation_step() -> int:
+	return prelude_step
+
+func navigation_stage() -> String:
+	match prelude_step:
+		0:
+			return "目的地 / DESTINATION"
+		1:
+			return "变轨窗口 / WINDOW"
+		2:
+			return "点火确认 / CONFIRM"
+		3:
+			return "航行 / TRANSIT"
+		_:
+			return "—"
+
+func navigation_steps() -> Array:
+	var st = nav_data.get("stages", null)
+	if st is Array:
+		return st
+	return ["目的地", "变轨窗口", "点火确认", "航行"]
+
+func navigation_tutorial() -> String:
+	return String(nav_data.get("tutorial", ""))
 
 # ── 日志 / 单位面板 ────────────────────────────────────
 

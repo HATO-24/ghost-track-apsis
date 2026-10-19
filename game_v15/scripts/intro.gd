@@ -61,6 +61,12 @@ var _demo_started := false
 var _sfx_stage := 0
 var _cg_event_stage := 0
 
+# ── 设置：终端风音量条（P9a）──────────────────────────
+const VOL_SEGS := 20
+const VOL_BAR := Rect2(900, 402, 300, 12)
+const VOL_HIT := Rect2(886, 392, 328, 32)
+var _drag_volume := false
+
 # ── 确定性视觉素材 ────────────────────────────────────
 var _stars: Array = []         # [{p:Vector2, a:float, s:int}]
 var _noise: Array = []         # [{p:Vector2, a:float}]
@@ -165,6 +171,16 @@ func _parse_env() -> void:
 		"menu":
 			_state = "menu"
 			_menu_t = 1.0
+		"options":
+			# P9a 截图：直接打开 OPTIONS，并可选把鼠标停在音量条上。
+			_state = "options"
+			_menu_t = 1.0
+			_options_sel = 0
+			if OS.get_environment("DSH_VOL_HOVER") != "":
+				_mouse = Vector2(1000.0, 408.0)
+				if OS.get_environment("DSH_VOL_DRAG") != "":
+					_drag_volume = true
+					_master = 0.6
 		"cg1":
 			_state = "cg"
 			_sample_t = 1.70
@@ -240,12 +256,36 @@ func _input(event: InputEvent) -> void:
 			_handle_key(ke.keycode)
 	elif event is InputEventMouseMotion:
 		_mouse = _to_design((event as InputEventMouseMotion).position)
+		if _drag_volume:
+			_set_volume_from_x(_mouse.x)
 		queue_redraw()
 	elif event is InputEventMouseButton:
 		var me := event as InputEventMouseButton
-		if me.pressed and me.button_index == MOUSE_BUTTON_LEFT:
-			_mouse = _to_design(me.position)
+		if me.button_index != MOUSE_BUTTON_LEFT:
+			return
+		_mouse = _to_design(me.position)
+		if me.pressed:
+			# P9a：音量条可直接点/拖；点击行本身只选中，不改音量。
+			if _state == "options" and VOL_HIT.has_point(_mouse):
+				_options_sel = 0
+				_drag_volume = true
+				_set_volume_from_x(_mouse.x)
+				queue_redraw()
+				return
 			_handle_click(_mouse)
+		elif _drag_volume:
+			_drag_volume = false
+			_save_settings()
+			queue_redraw()
+
+func _set_volume_from_x(x: float) -> void:
+	var raw := clampf((x - VOL_BAR.position.x) / VOL_BAR.size.x, 0.0, 1.0)
+	# 分段终端风：20 段，5% 一档（0–100% 连续可点/拖）。
+	var v := roundf(raw * float(VOL_SEGS)) / float(VOL_SEGS)
+	if not is_equal_approx(v, _master):
+		_master = v
+		_apply_audio()
+		_audio("sfx", "ui_confirm")
 
 func _handle_key(k: int) -> void:
 	if _state == "cg":
@@ -982,12 +1022,36 @@ func _draw_options() -> void:
 			draw_rect(Rect2(rc.position.x, rc.position.y, 2.0, rc.size.y), Palette.PH)
 		if i == 0:
 			_txt(cjk, rc.position.x + 20.0, rc.position.y + 30.0, "主音量 / MASTER", 12, Palette.PH if sel else Palette.TXT)
-			var bar := Rect2(rc.position.x + 340.0, rc.position.y + 24.0, 300.0, 8.0)
-			draw_rect(bar, Palette.a(Palette.LINE, 0.9))
-			draw_rect(Rect2(bar.position, Vector2(bar.size.x * _master, bar.size.y)), Palette.a(Palette.PH, 0.95))
-			var knob_x := bar.position.x + bar.size.x * _master
-			draw_rect(Rect2(knob_x - 2.0, bar.position.y - 4.0, 4.0, 16.0), Palette.PH)
-			_txt_r(mono, rc.end.x - 20.0, rc.position.y + 30.0, "%d%%" % int(round(_master * 100.0)), 11, Palette.a(Palette.TXT, 0.95))
+			# P9a：终端风分段刻度 + 方形指针；点击/拖动 VOL_HIT 直接设置 0–100%。
+			var seg_w := VOL_BAR.size.x / float(VOL_SEGS)
+			var fill_n := int(round(_master * float(VOL_SEGS)))
+			var seg_hover := -1
+			if VOL_HIT.has_point(_mouse):
+				seg_hover = clampi(int((_mouse.x - VOL_BAR.position.x) / seg_w), 0, VOL_SEGS - 1)
+			for s in range(VOL_SEGS):
+				var filled := s < fill_n
+				var sr := Rect2(VOL_BAR.position.x + float(s) * seg_w + 1.0, VOL_BAR.position.y,
+					seg_w - 2.0, VOL_BAR.size.y)
+				var ba: float = 0.9 if filled else (0.24 if s == seg_hover else 0.10)
+				draw_rect(sr, Palette.a(Palette.PH, ba))
+				draw_rect(sr, Palette.a(Palette.PH, 0.55 if (filled or s == seg_hover) else 0.18), false, 1.0)
+			# 5 段一格长刻度 + 0/50/100 标签
+			for s in range(0, VOL_SEGS + 1, 5):
+				var tx0 := VOL_BAR.position.x + float(s) * seg_w
+				draw_line(Vector2(tx0, VOL_BAR.position.y - 5.0), Vector2(tx0, VOL_BAR.position.y - 1.0),
+					Palette.a(Palette.PH_DIM, 0.55), 1.0)
+			for lab in [[0, "0"], [10, "50"], [20, "100"]]:
+				var lx0 := VOL_BAR.position.x + float(int(lab[0])) * seg_w
+				_txt(mono, lx0 - 3.0, VOL_BAR.position.y + 26.0, String(lab[1]), 7, Palette.a(Palette.FAINT, 0.85))
+			# 方形指针
+			var px := VOL_BAR.position.x + VOL_BAR.size.x * _master
+			draw_rect(Rect2(px - 4.0, VOL_BAR.position.y - 8.0, 8.0, 28.0), Palette.PH)
+			draw_rect(Rect2(px - 1.0, VOL_BAR.position.y - 13.0, 2.0, 5.0), Palette.a(Palette.PH, 0.85))
+			_txt_r(mono, rc.end.x - 20.0, rc.position.y + 30.0, "%d%%" % int(round(_master * 100.0)), 12,
+				Palette.a(Palette.TXT, 0.95))
+			if _drag_volume or VOL_HIT.has_point(_mouse):
+				_txt(cjk, VOL_BAR.position.x, VOL_HIT.position.y - 6.0, "点击 / 拖动设置", 7,
+					Palette.a(Palette.PH_DIM, 0.95))
 		elif i == 1:
 			_txt(cjk, rc.position.x + 20.0, rc.position.y + 30.0, "静音 / MUTE", 12, Palette.PH if sel else Palette.TXT)
 			_txt_r(mono, rc.end.x - 20.0, rc.position.y + 30.0, "ON" if _muted else "OFF", 12, Palette.AMBER if _muted else Palette.a(Palette.DIM, 0.95))

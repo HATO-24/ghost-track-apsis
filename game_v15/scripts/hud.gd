@@ -24,21 +24,21 @@ const CMD_LABELS := ["STATION 保持站位", "SHADOW 跟踪伴飞", "BURN 脉冲
 const PLAN_WINDOW_S := 30.0                 # 点火时间轴窗口：T+0 … T+30 s
 const CMD_INSET_X := 652.0
 const CMD_INNER_R := 1164.0
-const ACT_Y := 902.0                        # 动作按钮行 y
+const ACT_Y := 910.0                        # 动作按钮行 y（与标题拉开 18px）
 const ACT_H := 20.0
-# 参数行（T+ / Δv / 方向），高 18
-const T_MINUS := Rect2(676, 926, 20, 18)
-const T_PLUS := Rect2(756, 926, 20, 18)
-const DV_MINUS := Rect2(824, 926, 20, 18)
-const DV_PLUS := Rect2(926, 926, 20, 18)
-const DIR_CYCLE := Rect2(1104, 926, 60, 18)
-# P1f：命令面板把「链路」与「机动」拆两行（y 946 / 954），时间轴下移收紧。
-const TIMELINE := Rect2(652, 962, 512, 16)
+# 参数行（T+ / Δv / 方向），高 16
+const T_MINUS := Rect2(676, 930, 20, 16)
+const T_PLUS := Rect2(756, 930, 20, 16)
+const DV_MINUS := Rect2(824, 930, 20, 16)
+const DV_PLUS := Rect2(926, 930, 20, 16)
+const DIR_CYCLE := Rect2(1104, 930, 60, 16)
+# P1f：链路 / 机动两行；时间轴收紧（14px），队列详情移到左下标签页。
+const TIMELINE := Rect2(652, 976, 512, 14)
 # 授权 / 撤销 / 武器释放
-const AUTH_BTN := Rect2(652, 980, 176, 20)
-const ABORT_BTN := Rect2(836, 980, 176, 20)
-const FIRE_BTN := Rect2(1020, 980, 144, 20)
-const QUEUE_Y := 1012.0
+const AUTH_BTN := Rect2(652, 994, 176, 20)
+const ABORT_BTN := Rect2(836, 994, 176, 20)
+const FIRE_BTN := Rect2(1020, 994, 144, 20)
+const QUEUE_Y := 1020.0
 const QUEUE_ROW_H := 12.0
 const QUEUE_ABORT_X := 1120.0
 
@@ -74,6 +74,22 @@ const REP_ALIAS := {
 const REPORT_TRUTH := Rect2(1056, 300, 396, 110)
 const REPORT_FAKE := Rect2(1056, 424, 396, 110)
 const CONSEQ_SUBMIT := Rect2(800, 660, 320, 40)
+
+# ── P9a：右区选中舰 / 完整传感器架 / 损管卡 / 日志标签 / 航行准备长按 ──
+const UNIT_X := 1556.0
+const RACK_HEADER_Y := 512.0
+const RACK_ROW_Y := 528.0
+const RACK_ROW_PITCH := 16.0
+const RACK_ROWS_MAX := 5
+const MAST_BTN := Rect2(1620, 496, 224, 14)
+const RACK_PAGE_BTN := Rect2(1796, 514, 48, 16)
+const DAMAGE_CARD := Rect2(1556, 614, 288, 74)
+const DAMAGE_BTN := Rect2(1556, 668, 120, 16)
+const DAMAGE_POPUP := Rect2(1556, 470, 288, 190)
+const LOG_TAB_COMMS := Rect2(64, 888, 168, 18)
+const LOG_TAB_QUEUE := Rect2(240, 888, 168, 18)
+const PRELUDE_HOLD_S := 3.0
+const PRELUDE_CONFIRM_PROGRESS := Rect2(468, 592, 480, 30)
 
 # ── P3a：窗口硬切 / 文本乱码解码（V2 一次性动效在 V1.5 的延伸；docs/09 §4.2）──
 const UI_CUT_DUR := 0.32        # 80px 黑块硬切揭示（6 步硬切，无插值）
@@ -986,6 +1002,15 @@ var _ui_sample_t := -1.0               # DSH_UI_T：截图时冻结到该时刻�
 var _ui_cut_sample_t := -1.0           # DSH_UI_CUT：只冻结硬切（截图解码中间态时跳过硬切）
 var _evid_anim_t := 0.0                # 证据面板 n/3 与任务行的解码计时
 var _evid_sig := ""
+# P9a：右区/日志/损管/航行准备本地 UI 状态
+var _rack_page := 0
+var _damage_open := false
+var _log_tab := 0                      # 0 = 通信流/事件 · 1 = 命令队列
+var _log_abort_rects: Array = []       # [{rect, id}]
+var _prelude_hold := 0.0
+var _prelude_hold_done := false
+var _prelude_hold_seen := false
+var _last_sel := -1
 
 func _ready() -> void:
 	mono = Fonts.mono()
@@ -1044,6 +1069,20 @@ func _ready() -> void:
 		"clean":
 			# P4 截图：正常 HUD 默认态，仅抑制 capture 时自动弹出的副官申请窗口。
 			_demo_suppress_adjutant = true
+	# P9a 截图钩子：日志/队列页签、损管详情、航行准备长按已充能。
+	var ltab := OS.get_environment("DSH_LOG_TAB")
+	if ltab != "":
+		_log_tab = clampi(int(ltab), 0, 1)
+	if OS.get_environment("DSH_DAMAGE") != "":
+		_damage_open = true
+	if OS.get_environment("DSH_PRELUDE_HOLD") != "":
+		_prelude_hold_done = true
+		_prelude_hold = PRELUDE_HOLD_S
+	if OS.get_environment("DSH_SELECT") != "":
+		_rack_page = 0
+	# 记录初始选中，避免第一帧 _process 把 DSH_DAMAGE 等截图状态复位。
+	if state != null:
+		_last_sel = int(state.selected)
 	# P3a：截图时把动效冻结到指定时刻（秒），用于逐帧截取硬切/解码中间态。
 	var ut := OS.get_environment("DSH_UI_T")
 	if ut != "":
@@ -1069,6 +1108,38 @@ func _process(delta: float) -> void:
 		_evid_anim_t = 0.0
 	else:
 		_evid_anim_t = minf(_evid_anim_t + delta, 6.0)
+	# P9a：选中舰变化 → 传感器架翻页/损管详情复位。
+	if state != null and int(state.selected) != _last_sel:
+		_last_sel = int(state.selected)
+		_rack_page = 0
+		_damage_open = false
+		_evidence_menu_open = false
+	# P9a：航行准备 Step 2 —— 左按钮长按 3s 解锁执行（松开取消）。
+	if _ov_prelude():
+		var pd := _prelude_data()
+		if int(pd["step"]) == 2:
+			var held := Input.is_key_pressed(KEY_ENTER) or Input.is_key_pressed(KEY_SPACE) \
+				or (Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and PRELUDE_CONFIRM.has_point(_mouse_base()))
+			if _prelude_hold_done:
+				_prelude_hold = PRELUDE_HOLD_S
+			elif held:
+				_prelude_hold = minf(PRELUDE_HOLD_S, _prelude_hold + delta)
+				if _prelude_hold >= PRELUDE_HOLD_S:
+					_prelude_hold_done = true
+					_sfx("ui_confirm")
+			else:
+				_prelude_hold = 0.0
+		else:
+			_prelude_hold = 0.0
+			_prelude_hold_done = false
+	# P9a：左下日志/队列标签（Tab）。
+	if not _any_overlay() and _modal == "" and not _ov_prelude() and not _ov_adjutant():
+		var tdn := Input.is_key_pressed(KEY_TAB)
+		var twas := bool(_key_prev.get(KEY_TAB, false))
+		_key_prev[KEY_TAB] = tdn
+		if tdn and not twas:
+			_log_tab = 1 - _log_tab
+			_sfx("ui_click")
 	if _demo_modal != "" and state.boot_t >= 1.7 and _modal == "":
 		var m := _demo_modal
 		_demo_modal = ""
@@ -1091,6 +1162,8 @@ func _process(delta: float) -> void:
 	if _prelude_was_open and not _ov_prelude():
 		_prelude_close_t = UI_CUT_DUR
 		_prelude_hint_text = ""
+		_prelude_hold = 0.0
+		_prelude_hold_done = false
 	_prelude_was_open = _ov_prelude()
 	if _prelude_close_t > 0.0:
 		_prelude_close_t = maxf(0.0, _prelude_close_t - delta)
@@ -1104,6 +1177,13 @@ func _process(delta: float) -> void:
 		elif not adj_now and _adj_was_open:
 			state.paused = _adj_prev_paused
 			_adj_was_open = false
+	# P9a：副官申请可连续选择（ENG 已让 ack 后保持打开）；ESC = 暂不处理关闭。
+	if _ov_adjutant() and state != null and state.boot_t >= 1.7:
+		var esc_down := Input.is_key_pressed(KEY_ESCAPE)
+		var esc_was := bool(_key_prev.get(KEY_ESCAPE, false))
+		_key_prev[KEY_ESCAPE] = esc_down
+		if esc_down and not esc_was:
+			_ack_adjutant("decline")
 	# P1j/P2a：裁决回复进通信流 —— 无论裁决来自 HUD 点击/按键还是 main 的 1/2/3 键（后者直调 state），
 	# 都按 state.outcome 的 D2 视图补一次（幂等）。
 	if state != null:
@@ -1246,6 +1326,18 @@ func click(p: Vector2) -> void:
 	if _handle_evidence_click(p):
 		queue_redraw()
 		return
+	# P9a：右区传感器架翻页 / 损管详情；左下日志/队列标签。
+	if _handle_unit_click(p):
+		queue_redraw()
+		return
+	if _handle_log_click(p):
+		queue_redraw()
+		return
+	# P9a：传感器桅杆收放（右侧架摘要上方）
+	if MAST_BTN.has_point(p):
+		_toggle_mast()
+		queue_redraw()
+		return
 	# P1e：命令面板优先（面板内的点击不再落到接触列表/时标/地图）。
 	if CMD.has_point(p):
 		_handle_command_click(p)
@@ -1298,6 +1390,15 @@ func consumes(p: Vector2) -> bool:
 		return true
 	if EVID_SHUTTLE.has_point(p) or EVID_EVAC.has_point(p):
 		return true
+	if RACK_PAGE_BTN.has_point(p) or DAMAGE_BTN.has_point(p):
+		return true
+	if DAMAGE_POPUP.has_point(p) and _damage_open:
+		return true
+	if LOG_TAB_COMMS.has_point(p) or LOG_TAB_QUEUE.has_point(p):
+		return true
+	for lb in _log_abort_rects:
+		if (lb["rect"] as Rect2).has_point(p):
+			return true
 	if _evidence_menu_open:
 		for i in range(3):
 			if Rect2(1556.0 + float(i) * 96.0, EVID_MENU_Y, 92.0, 20.0).has_point(p):
@@ -1763,23 +1864,27 @@ func _draw_evidence_panel() -> void:
 	draw_rect(EVID_BAR, Palette.a(Palette.LINE, 0.85))
 	draw_rect(Rect2(EVID_BAR.position, Vector2(EVID_BAR.size.x * frac, EVID_BAR.size.y)),
 		Palette.PH if expose_ok else Palette.AMBER)
-	var task := _shuttle_task()
-	var evac := _evac_task()
-	var tline := "任务空闲 · 穿梭机同一时间仅可派出一架"
+	var running := _running_evidence_tasks()
+	var shuttle_busy := _shuttle_busy()
+	var tline := "任务空闲 · 遥测可并行 · 穿梭机同时仅 1 架"
 	var tcol: Color = Palette.FAINT
-	if bool(evac["active"]):
-		tline = "人员撤离：进行中 · 剩余 %.0fs" % float(evac["remain"])
-		tcol = Palette.AMBER
-	elif bool(task["active"]):
-		tline = "%s：%s · 剩余 %.0fs" % ["穿梭机" if bool(task["shuttle"]) else "任务", String(task["label"]), float(task["remain"])]
-		tcol = Palette.BLUE
-	elif bool(task["done"]):
-		tline = "任务完成 · %s" % String(task["label"])
-		tcol = Palette.PH
-	elif bool(evac["done"]):
+	if not running.is_empty():
+		var parts := ""
+		for i in range(running.size()):
+			var r: Dictionary = running[i]
+			if parts != "":
+				parts += " · "
+			parts += "%s %.0fs" % [String(r["label"]), float(r["remain"])]
+		tline = "并行任务：" + parts
+		if running.size() > 1:
+			tcol = Palette.PH
+		else:
+			tcol = Palette.AMBER if bool((running[0] as Dictionary).get("shuttle", false)) else Palette.BLUE
+	elif bool(_evac_task()["done"]):
 		tline = "人员撤离：已完成"
 		tcol = Palette.PH
-	_txt(cjk, 1556, EVID_TASK_Y, _ellipsis(cjk, _evid_dtext(tline), 7, 288.0), 6, tcol)
+	var dn := _evid_dtext(tline)
+	_txt(cjk, 1556, EVID_TASK_Y, _ellipsis(cjk, dn, 7, 288.0), 6, tcol)
 	if _evidence_menu_open:
 		for i in range(3):
 			var mr := Rect2(1556.0 + float(i) * 96.0, EVID_MENU_Y, 92.0, 20.0)
@@ -1790,10 +1895,19 @@ func _draw_evidence_panel() -> void:
 				_dtext("遥测" if i == 0 else ("黑匣子" if i == 1 else "特征码"), float(i) * 0.01), 7, Palette.TXT)
 		# P3a：证据菜单窗口的 80px 硬切揭示（仅菜单小窗，窗口外不受影响）
 		_draw_window_cut(Rect2(1556.0, EVID_MENU_Y, 288.0, EVID_MENU_ROW))
-	var shuttle_busy := _shuttle_busy()
-	_cmd_btn(EVID_SHUTTLE, "派穿梭机前往取证 / SHUTTLE", _evidence_menu_open, Palette.FAINT if shuttle_busy else Palette.BLUE)
-	_cmd_btn(EVID_EVAC, "撤出居民 / EVACUATE", false,
-		Palette.FAINT if (shuttle_busy or bool(evac["done"])) else Palette.AMBER)
+	var evac := _evac_task()
+	var slabel := "派穿梭机取证 / SHUTTLE"
+	if shuttle_busy:
+		slabel = "穿梭机占用中 / BUSY"
+	_cmd_btn(EVID_SHUTTLE, slabel, _evidence_menu_open, Palette.FAINT if shuttle_busy else Palette.BLUE)
+	var elabel := "撤出居民 / EVACUATE"
+	var ecol: Color = Palette.AMBER
+	if bool(evac["done"]):
+		elabel = "人员已撤离 / DONE"
+		ecol = Palette.FAINT
+	elif shuttle_busy:
+		ecol = Palette.FAINT
+	_cmd_btn(EVID_EVAC, elabel, false, ecol)
 
 # ── P2b：副官申请（独立 UI；state.adjutant_request_open / ack_adjutant）──
 func _ov_adjutant() -> bool:
@@ -1851,25 +1965,32 @@ func _draw_adjutant_overlay() -> void:
 	var r := ADJUTANT_RECT
 	var info := _adj_data()
 	_overlay_frame(r, _dtext("副官建议 / ADJUTANT REQUEST"), "")
-	_txt(cjk, r.position.x + 24.0, r.position.y + 56.0, "副官（独立 UI）· 请求指示：", 8, Palette.DIM)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 56.0, "副官 · 请求指示：", 8, Palette.DIM)
 	_txt_r(cjk, r.end.x - 24.0, r.position.y + 56.0, "打开时暂停执行窗口", 7, Palette.a(Palette.AMBER, 0.9))
 	var lines := _wrap_text(cjk, String(info["body"]), 9, r.size.x - 48.0)
 	var dlines := _dlines(lines)
 	for i in range(mini(dlines.size(), 4)):
 		_txt(cjk, r.position.x + 24.0, r.position.y + 80.0 + float(i) * 18.0, String(dlines[i]), 9, Palette.a(Palette.TXT, 0.95))
 	var opts: Array = info["options"]
+	var shuttle_busy_now := _shuttle_busy()
 	for i in range(mini(opts.size(), 4)):
 		var rc := _adj_opt_rect(i)
 		var o: Dictionary = opts[i]
-		var hot := rc.has_point(_mouse_base())
+		var kind := String(o.get("kind", o.get("key", "")))
+		var blocked := shuttle_busy_now and (kind == "blackbox" or kind == "evacuate")
+		var hot := rc.has_point(_mouse_base()) and not blocked
 		draw_rect(rc, Palette.a(Palette.PANEL2, 0.95) if hot else Palette.a(Palette.PANEL, 0.6))
-		draw_rect(rc, Palette.a(Palette.PH, 0.75 if hot else 0.3), false, 1.0)
-		_txt(mono, rc.position.x + 14.0, rc.position.y + 16.0, "0%d" % (i + 1), 14, Palette.a(Palette.PH, 0.9))
+		draw_rect(rc, Palette.a(Palette.PH, 0.75 if hot else (0.16 if blocked else 0.3)), false, 1.0)
+		_txt(mono, rc.position.x + 14.0, rc.position.y + 16.0, "0%d" % (i + 1), 14,
+			Palette.a(Palette.PH, 0.35 if blocked else 0.9))
 		_txt(cjk, rc.position.x + 44.0, rc.position.y + 16.0, _dtext(String(o.get("label", "")), float(i) * 0.01),
-			10, Palette.PH if hot else Palette.TXT)
+			10, Palette.FAINT if blocked else (Palette.PH if hot else Palette.TXT))
 		_txt(cjk, rc.position.x + 44.0, rc.position.y + 44.0,
 			_ellipsis(cjk, _dtext(String(o.get("hint", "")), float(i) * 0.01), 7, 330.0), 7, Palette.DIM)
-	_txt(cjk, r.position.x + 24.0, r.end.y - 24.0, "选择会写入命令", 7, Palette.FAINT)
+		if blocked:
+			_txt_r(cjk, rc.end.x - 12.0, rc.position.y + 16.0, "穿梭机占用", 7, Palette.a(Palette.AMBER, 0.9))
+	_txt(cjk, r.position.x + 24.0, r.end.y - 24.0, "选择会写入命令/真实通话 · 遥测可与穿梭机任务并行，穿梭机同一时间仅派出 1 架",
+		7, Palette.FAINT)
 	_draw_window_cut(r)
 
 func _handle_adjutant_click(p: Vector2) -> void:
@@ -1881,122 +2002,300 @@ func _handle_adjutant_click(p: Vector2) -> void:
 			_ack_adjutant(String(o.get("key", o.get("kind", "later"))))
 			return
 
+func _fmt_period(sec: float) -> String:
+	if sec <= 1.0 or not is_finite(sec):
+		return "—"
+	var m := int(round(sec / 60.0))
+	if m >= 60:
+		return "T %dh%02dm" % [m / 60, m % 60]
+	return "T %dm" % m
+
+func _toggle_mast() -> void:
+	if state == null or not state.has_method("toggle_mast"):
+		return
+	state.call("toggle_mast", _rack_ship())
+	_sfx("ui_toggle_on" if not _mast_down() else "ui_toggle_off")
+
+func _mast_down() -> bool:
+	if state == null:
+		return false
+	if state.has_method("is_mast_deployed"):
+		return not bool(state.call("is_mast_deployed", _rack_ship()))
+	var md = state.get("mast_deployed")
+	if md is Dictionary:
+		return not bool((md as Dictionary).get(_rack_ship(), true))
+	return false
+
+func _selected_ship_view() -> Dictionary:
+	# P9a：右区数据跟随 state.selected；缺失字段显示「—」，不伪造。
+	var tr := _rack_track()
+	var u: Dictionary = state.unit
+	var own := tr.is_empty() or bool(tr.get("own", false))
+	var v := {
+		"name": _dn(String(u.get("name", "—"))), "en": _dn(String(u.get("en", ""))),
+		"cls": _dn(String(u.get("cls", ""))), "role": _dn(String(u.get("role", ""))),
+		"faction": _dn(String(u.get("faction", ""))), "batch": 1001, "identity": "friend",
+		"mass": "—", "crew": "—", "accel": "—", "inc": "—", "period": "—",
+		"att": "—", "range": "—", "closing": "—",
+	}
+	if not tr.is_empty():
+		v["name"] = _dn(_track_display_id(tr))
+		v["en"] = _dn(String(tr.get("en", "")))
+		v["batch"] = _track_batch(tr)
+		v["identity"] = _track_identity(tr)
+		if String(tr.get("cls", "")) != "":
+			v["cls"] = _dn(String(tr.get("cls", "")))
+		if String(tr.get("role", "")) != "":
+			v["role"] = _dn(String(tr.get("role", "")))
+		var idi = tr.get("id_info", {})
+		var cla = tr.get("classification", {})
+		var fac := ""
+		if idi is Dictionary:
+			fac = String((idi as Dictionary).get("faction", ""))
+		if fac == "" and cla is Dictionary:
+			fac = String((cla as Dictionary).get("faction", ""))
+		if fac == "":
+			match String(tr.get("side", "")):
+				"friend": fac = "OCUVF · ID13"
+				"hostile": fac = "UEG 第33舰队"
+				_: fac = "身份待定 / UNKNOWN"
+		v["faction"] = _dn(fac)
+		# P9a：优先用 ENG 提供的 state.selected_info() / orbit_readout() 兜底姿态与轨道周期。
+		if state != null and state.has_method("selected_info"):
+			var si = state.call("selected_info")
+			if si is Dictionary:
+				var sd: Dictionary = si
+				if not bool(sd.get("own", false)):
+					var orb = sd.get("orbit", {})
+					if orb is Dictionary and bool((orb as Dictionary).get("available", false)):
+						var od: Dictionary = orb
+						v["period"] = _fmt_period(float(od.get("period_s", 0.0)))
+						if od.get("inc_deg") != null:
+							v["inc"] = "%04.1f°" % float(od["inc_deg"])
+				if sd.get("range_km") != null:
+					v["range"] = _km(float(sd["range_km"]))
+				if sd.get("closing_mps") != null:
+					var cm := float(sd["closing_mps"]) / 1000.0
+					v["closing"] = "接近率 %+.1f km/s" % cm
+		if bool(tr.get("own", false)):
+			v["mass"] = _dn(String(u.get("mass", "—")))
+			v["crew"] = _dn(String(u.get("crew", "—")))
+			v["accel"] = _dn(String(u.get("accel", "—")))
+			v["inc"] = _dn(String(u.get("inc", "—")))
+			v["period"] = _dn(String(u.get("period", "—")))
+			if String(v["period"]) == "—":
+				v["period"] = "本舰基准"
+		# 姿态：由状态矢量估计（航向 / 俯仰）；横滚无数据不显示。
+		var vv = tr.get("v")
+		if vv is Vector3 and (vv as Vector3).length() > 1.0e-6:
+			var vel: Vector3 = vv
+			var hdg := fposmod(rad_to_deg(atan2(vel.x, vel.y)), 360.0)
+			var pit := rad_to_deg(asin(clampf(vel.z / vel.length(), -1.0, 1.0)))
+			v["att"] = "H %03.0f° / P %+04.1f°" % [hdg, pit]
+	return v
+
+func _running_evidence_tasks() -> Array:
+	var out: Array = []
+	if state != null:
+		var tasks = state.get("evidence_tasks")
+		if tasks is Array:
+			for raw in (tasks as Array):
+				if not (raw is Dictionary):
+					continue
+				var tk: Dictionary = raw
+				if String(tk.get("status", "")) != "RUNNING":
+					continue
+				var dur := maxf(1.0, float(tk.get("duration", 30.0)))
+				out.append({
+					"label": String(tk.get("label", _evid_label(String(tk.get("kind", ""))))),
+					"shuttle": bool(tk.get("shuttle", false)),
+					"remain": maxf(0.0, dur * (1.0 - clampf(float(tk.get("progress", 0.0)), 0.0, 1.0))),
+				})
+	if out.is_empty() and _demo_evidence and not _demo_task.is_empty() and not bool(_demo_task.get("done", false)):
+		out.append({"label": String(_demo_task.get("label", "")), "shuttle": true,
+			"remain": maxf(0.0, float(_demo_task.get("duration_s", 0.0)) - _t)})
+	if out.is_empty() and _demo_evidence and not _demo_evac.is_empty() and not bool(_demo_evac.get("done", false)):
+		out.append({"label": "人员撤离", "shuttle": true,
+			"remain": maxf(0.0, float(_demo_evac.get("duration_s", 0.0)) - _t)})
+	return out
+
+func _draw_damage_card() -> void:
+	draw_rect(DAMAGE_CARD, Palette.a(Palette.AMBER, 0.045))
+	draw_rect(DAMAGE_CARD, Palette.a(Palette.AMBER, 0.34), false, 1.0)
+	var u: Dictionary = state.unit
+	_txt(cjk, UNIT_X + 10.0, 624.0, "损管 / DAMAGE CONTROL", 7, Palette.AMBER)
+	_txt_r(mono, 1844, 624.0, "QUEUE 2", 7, Palette.a(Palette.FAINT, 0.95))
+	var dmg := _dn(String(u.get("damage", "—")))
+	var dmg2 := _dn(String(u.get("damage2", "")))
+	_txt(cjk, UNIT_X + 10.0, 641.0, _ellipsis(cjk, "%s%s" % [dmg, (" · " + dmg2) if dmg2 != "" else ""], 8, 268.0),
+		8, Palette.TXT)
+	_txt(cjk, UNIT_X + 10.0, 655.0, "队列 2 项 · HULL 100% · 优先：CH-IR2 校准", 7, Palette.DIM)
+	_cmd_btn(DAMAGE_BTN, "损管详情 / DETAILS", _damage_open, Palette.AMBER)
+
+func _draw_damage_popup() -> void:
+	var r := DAMAGE_POPUP
+	draw_rect(r, Palette.a(Palette.PANEL, 0.99))
+	draw_rect(r, Palette.a(Palette.AMBER, 0.75), false, 1.0)
+	_txt(cjk, r.position.x + 12.0, r.position.y + 18.0, "损管队列 / DAMAGE QUEUE", 9, Palette.AMBER)
+	_txt_r(mono, r.end.x - 12.0, r.position.y + 18.0, "LOCAL RECORD", 7, Palette.a(Palette.FAINT, 0.9))
+	draw_line(Vector2(r.position.x + 12.0, r.position.y + 26.0), Vector2(r.end.x - 12.0, r.position.y + 26.0),
+		Palette.a(Palette.AMBER, 0.3), 1.0)
+	var u: Dictionary = state.unit
+	var rows := [
+		["01", String(u.get("damage2", "传感器 / 校准")), "进行中 · 优先 1", Palette.AMBER],
+		["02", String(u.get("damage", "战损记录")), "监测 · 优先 2", Palette.DIM],
+		["03", "反应堆 / 冷却回路", "正常 · 监测", Palette.PH_DIM],
+	]
+	for i in range(rows.size()):
+		var row: Array = rows[i]
+		var y := r.position.y + 44.0 + float(i) * 30.0
+		_txt(mono, r.position.x + 12.0, y, String(row[0]), 10, Palette.a(Palette.AMBER, 0.8))
+		_txt(cjk, r.position.x + 38.0, y, _ellipsis(cjk, String(row[1]), 8, 130.0), 8, Palette.TXT)
+		_txt_r(cjk, r.end.x - 12.0, y, String(row[2]), 7, row[3])
+		draw_line(Vector2(r.position.x + 12.0, y + 8.0), Vector2(r.end.x - 12.0, y + 8.0),
+			Palette.a(Palette.LINE, 0.5), 1.0)
+	_txt(cjk, r.position.x + 12.0, r.end.y - 12.0, "点击 DETAILS 或面板外关闭 · 优先级可调（后续接入损管 API）", 7,
+		Palette.a(Palette.FAINT, 0.9))
+
 func _draw_unit() -> void:
 	_panel(UNIT)
-	# _draw_ship_watermark()
-
-	var u: Dictionary = state.unit
-	# LORE-01 兜底（A-26/A-27）：数据层若还留着旧数据（砧级炮舰 1,200 t / 68 人），
-	# 显示层补成“哈马丹号 = 托盘-5 改哨舰（300 t / 12 人）”。数据层修好后自动失效。
-	if String(u.get("name", "")) == "哈马丹":
-		u = u.duplicate()
-		if String(u.get("en", "")) == "HAMADAN":
-			u["en"] = "HARMATTAN"
-		if String(u.get("cls", "")).contains("砧") or String(u.get("role", "")) == "炮舰":
-			u["cls"] = "托盘-5 改"
-			u["role"] = "哨舰"
-		if String(u.get("mass", "")).contains("1,200"):
-			u["mass"] = "300 t"
-		if String(u.get("crew", "")) == "68":
-			u["crew"] = "12"
-	_txt(cjk, 1556, 138, "选中舰 / SELECTED SHIP", 7, Palette.FAINT)
-	_txt(cjk, 1556, 150, _dn(u.name), 24, Palette.TXT)
-	_txt(mono, 1556, 180, _dn(u.en), 8, Palette.DIM)
-	_txt(cjk, 1556, 196, _dn(u.cls + " · " + u.role), 10, Palette.PH)
-	_txt(cjk, 1556, 212, _dn(u.faction), 8, Palette.DIM)
-	# P1j：右区显示选中舰的四位数批号 + 身份（19 §2/§2.5）。
-	var own_tr := {"id": _dn(String(u.get("name", ""))), "cls": String(u.get("cls", "")), "level": 4, "own": true}
-	var sel_batch := _track_batch(own_tr)
-	var sel_id := _track_identity(own_tr)
-	_txt_r(cjk, 1844, 212, "[%04d] %s" % [sel_batch, _identity_cn(sel_id)], 7, _id_color(sel_id))
-	draw_line(Vector2(1540, 224), Vector2(1860, 224), Palette.a(Palette.LINE, 0.9), 1.0)
-
-	var stats := [
-		["干重 MASS", u.mass], ["舰员 CREW", u.crew],
-		["加速度 ACCEL", u.accel], ["站位 STATION", u.orbit],
-		["倾角 INC", u.inc], ["周期 PERIOD", u.period]
-	]
-	for i in range(6):
-		var cx := 1556.0 + float(i % 2) * 150.0
-		var cy := 236.0 + float(i / 2) * 24.0
-		_txt(cjk, cx, cy, stats[i][0], 8, Palette.DIM)
-		_txt(mono, cx, cy + 12.0, stats[i][1], 10, Palette.TXT)
-
-	var sys_avg := 0.0
-	for i in range(u.systems.size()):
-		sys_avg += float(u.systems[i][1])
-	if u.systems.size() > 0:
-		sys_avg /= float(u.systems.size())
-	_txt(cjk, 1556, 316, "系统 / SYSTEMS", 7, Palette.FAINT)
-	_txt_r(mono, 1844, 316, "AVG %d%%" % int(round(sys_avg * 100.0)), 8, Palette.DIM)
-	for i in range(mini(5, u.systems.size())):
-		var cy := 336.0 + float(i) * 24.0
-		var sname: String = u.systems[i][0]
-		var sv: float = u.systems[i][1]
-		_txt(cjk, 1556, cy, sname, 9, Palette.DIM)
-		_bar(Rect2(1636, cy + 4, 128, 4), sv, _sys_color(sv))
-		_txt_r(mono, 1844, cy, "%d%%" % int(sv * 100.0), 8, Palette.TXT)
-
-	_txt(cjk, 1556, 470, "Δv 预算 / BUDGET", 7, Palette.FAINT)
-	_txt(mono, 1556, 482, u.dv, 30, Palette.PH)
-	var dw := mono.get_string_size(u.dv, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
-	_txt(mono, 1556.0 + dw + 5.0, 502, "m/s", 9, Palette.DIM)
-	_txt(mono, 1556, 536, "/ %s 满" % u.dv_max, 8, Palette.DIM)
-	var dv_now := _to_int(String(u.dv))
-	var dv_full := _to_int(String(u.dv_max))
-	var dv_frac := 1.0
-	if dv_full > 0:
-		dv_frac = clampf(float(dv_now) / float(dv_full), 0.0, 1.0)
-	_bar(Rect2(1556, 548, 288, 4), dv_frac, Palette.PH)
-	_txt(cjk, 1556, 560, "剩余 %d%% · 已耗 %s m/s" % [int(round(dv_frac * 100.0)), _fmt_int(maxi(dv_full - dv_now, 0))], 7, Palette.FAINT)
-
-	# P1d：右区传感器块 = 选中舰的按舰架摘要（只读；完整字段见顶部「架」下拉）。
-	# ON/OFF 只显示当前融合计划，不可点 —— 开关属于命令层。
+	var v := _selected_ship_view()
+	var tr := _rack_track()
 	var rack := _rack_rows()
 	var rack_ship := _rack_ship()
 	var em := _rack_emission()
-	var tr := _rack_track()
 	var lv := clampi(int(tr.get("level", 0)), 0, 4)
-	_txt(cjk, 1556, 580, "传感器架 / SENSOR RACK", 7, Palette.FAINT)
-	_txt_r(cjk, 1844, 580, "%s · %02d 模块" % [_rack_ship_name(), rack.size()], 7, Palette.DIM)
-	for i in range(mini(2, rack.size())):
-		var s2: Dictionary = rack[i]
-		var cy := 596.0 + float(i) * 18.0
+	# 抬头：跟随 state.selected
+	_txt(cjk, UNIT_X, 138, "选中舰 / SELECTED SHIP", 7, Palette.FAINT)
+	_txt(cjk, UNIT_X, 152, String(v["name"]), 22, Palette.TXT)
+	_txt(mono, UNIT_X, 178, String(v["en"]), 8, Palette.DIM)
+	_txt(cjk, UNIT_X, 194, _ellipsis(cjk, "%s · %s" % [String(v["cls"]), String(v["role"])], 10, 288.0),
+		10, Palette.PH)
+	_txt(cjk, UNIT_X, 210, _ellipsis(cjk, String(v["faction"]), 8, 200.0), 8, Palette.DIM)
+	_txt_r(cjk, 1844, 210, "[%04d] %s" % [int(v["batch"]), _identity_cn(String(v["identity"]))], 7,
+		_id_color(String(v["identity"])))
+	draw_line(Vector2(1540, 224), Vector2(1860, 224), Palette.a(Palette.LINE, 0.9), 1.0)
+
+	# 数据区：干重/舰员/加速度/距离 + 倾角/周期/姿态/接近率（缺失 = —）
+	var stats := [
+		["干重 MASS", String(v["mass"]), "倾角 INC", String(v["inc"])],
+		["舰员 CREW", String(v["crew"]), "周期 PERIOD", String(v["period"])],
+		["加速度 ACCEL", String(v["accel"]), "姿态 ATTITUDE", String(v["att"])],
+		["距离 RANGE", String(v["range"]), "接近率 CLOSING", String(v["closing"])],
+	]
+	for i in range(4):
+		var y := 236.0 + float(i) * 22.0
+		_txt(cjk, UNIT_X, y, String(stats[i][0]), 7, Palette.DIM)
+		_txt(mono, UNIT_X, y + 10.0, String(stats[i][1]), 9, Palette.TXT)
+		_txt(cjk, UNIT_X + 150.0, y, String(stats[i][2]), 7, Palette.DIM)
+		var rv := String(stats[i][3])
+		var rf: Font = cjk if Fonts.has_cjk(rv) else mono
+		_txt(rf, UNIT_X + 150.0, y + 10.0, _ellipsis(rf, rv, 9, 132.0), 9, Palette.TXT)
+
+	# 系统（紧凑 16px 行）
+	var u: Dictionary = state.unit
+	var u_sys: Array = u.get("systems", [])
+	var sys_avg := 0.0
+	for raw in u_sys:
+		sys_avg += float((raw as Array)[1])
+	if not u_sys.is_empty():
+		sys_avg /= float(u_sys.size())
+	_txt(cjk, UNIT_X, 328, "系统 / SYSTEMS", 7, Palette.FAINT)
+	_txt_r(mono, 1844, 328, "AVG %d%%" % int(round(sys_avg * 100.0)), 8, Palette.DIM)
+	for i in range(mini(5, u_sys.size())):
+		var r: Array = u_sys[i]
+		var y := 340.0 + float(i) * 16.0
+		_txt(cjk, UNIT_X, y, String(r[0]), 8, Palette.DIM)
+		var sv := float(r[1])
+		_bar(Rect2(1640, y - 5.0, 150, 3), sv, _sys_color(sv))
+		_txt_r(mono, 1844, y, "%d%%" % int(round(sv * 100.0)), 7, Palette.TXT)
+
+	# Δv（紧凑）
+	var dv_s := String(u.get("dv", "—"))
+	var dv_max := String(u.get("dv_max", "—"))
+	_txt(cjk, UNIT_X, 424, "Δv 预算 / BUDGET", 7, Palette.FAINT)
+	_txt(mono, UNIT_X, 450, dv_s, 24, Palette.PH)
+	var dvw := mono.get_string_size(dv_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
+	_txt(mono, UNIT_X + dvw + 5.0, 450, "m/s", 8, Palette.DIM)
+	_txt_r(mono, 1844, 450, "/ %s 满" % dv_max, 8, Palette.DIM)
+	var dv_now := _to_int(dv_s)
+	var dv_full := _to_int(dv_max)
+	var dv_frac := 1.0
+	if dv_full > 0:
+		dv_frac = clampf(float(dv_now) / float(dv_full), 0.0, 1.0)
+	_bar(Rect2(UNIT_X, 460, 288, 3), dv_frac, Palette.PH)
+	_txt(cjk, UNIT_X, 474, "剩余 %d%% · 已耗 %s m/s" % [int(round(dv_frac * 100.0)), _fmt_int(maxi(dv_full - dv_now, 0))],
+		7, Palette.FAINT)
+
+	# 完整传感器架：每页最多 5 行，超过则分页（点击右上翻页），不截断
+	_txt(cjk, UNIT_X, RACK_HEADER_Y, "传感器架 / SENSOR RACK", 7, Palette.FAINT)
+	var pages := maxi(1, int(ceil(float(rack.size()) / float(RACK_ROWS_MAX))))
+	_rack_page = clampi(_rack_page, 0, pages - 1)
+	var page_info := "%02d 模块" % rack.size()
+	if pages > 1:
+		page_info += " · %d/%d ▸" % [_rack_page + 1, pages]
+	var mast_down := _mast_down()
+	if mast_down:
+		page_info += " · MAST DOWN"
+	_txt_r(cjk, 1844, RACK_HEADER_Y, page_info, 7, Palette.AMBER if mast_down else Palette.DIM)
+	var start := _rack_page * RACK_ROWS_MAX
+	for i in range(mini(RACK_ROWS_MAX, rack.size() - start)):
+		var s2: Dictionary = rack[start + i]
 		var model := String(s2.get("model", "—"))
 		var on := _rack_on(rack_ship, model, bool(s2.get("on", true)))
-		_txt(mono, 1556, cy, model, 9, Palette.TXT)
+		var cy := RACK_ROW_Y + float(i) * RACK_ROW_PITCH
+		_txt(mono, UNIT_X, cy, model, 9, Palette.TXT)
 		var mw := mono.get_string_size(model, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
-		_txt(cjk, 1556.0 + mw + 8.0, cy + 1.0,
+		_txt(cjk, UNIT_X + mw + 8.0, cy + 1.0,
 			"%s · %s" % [String(s2.get("maker", "—")), _rack_type_cn(s2)], 7, Palette.DIM)
-		if bool(s2.get("expose", false)):
-			_txt_r(cjk, 1808, cy + 1.0, "暴露风险", 7, Palette.AMBER)
-		else:
-			_txt_r(cjk, 1808, cy + 1.0, "被动", 7, Palette.FAINT)
-		_txt_r(mono, 1844, cy + 1.0, "开" if on else "关", 7,
-			Palette.PH if on else Palette.FAINT)
-	if rack.size() > 2:
-		_txt_r(mono, 1844, 632.0, "+%d" % (rack.size() - 2), 7, Palette.FAINT)
+		var expose := bool(s2.get("expose", false))
+		_txt_r(cjk, 1808, cy, "暴露风险" if expose else "被动", 7, Palette.AMBER if expose else Palette.FAINT)
+		_txt_r(mono, 1844, cy, "开" if on else "关", 7, Palette.PH if on else Palette.FAINT)
+
+	# 桅杆收放（P9a）
+	var mast_label := "放桅 / MAST UP" if mast_down else "收桅 / MAST DOWN"
+	_cmd_btn(MAST_BTN, mast_label, mast_down, Palette.AMBER if mast_down else Palette.PH)
+	# 暴露/EMCON（桅杆收起时整个架不可用）
 	var exposed := bool(em.get("exposed", false))
-	# P4：底行精确文案（不再写「开机即暴露」）：EMIT/暴露 · 等级L4 · 开机暴露风险。
 	var exp_short := "EMIT/暴露" if exposed else "EMCON/静默"
 	var exp_col: Color = Palette.RED if bool(state.get("elint_named")) else (Palette.AMBER if exposed else Palette.FAINT)
-	_txt(cjk, 1556, 636, "%s · 等级L%d · 开机暴露风险" % [exp_short, lv], 7, exp_col)
+	if mast_down:
+		_txt(cjk, UNIT_X, 602, "MAST DOWN · 桅杆收起 · 传感器架不可用（含主动阵列）", 7, Palette.AMBER)
+	else:
+		_txt(cjk, UNIT_X, 602, "%s · 等级L%d · 开机暴露风险" % [exp_short, lv], 7, exp_col)
 
-	draw_rect(Rect2(1556, 660, 288, 32), Palette.a(Palette.AMBER, 0.05))
-	draw_rect(Rect2(1556, 660, 2, 32), Palette.a(Palette.AMBER, 0.8))
-	# 12 军语 P0-3：damage 是战损/损坏，不是损管；损管英文是 DAMAGE CONTROL。
-	_txt(cjk, 1566, 665, "损管 / DAMAGE CONTROL", 7, Palette.AMBER)
-	_txt(cjk, 1566, 677, u.damage + " · " + u.damage2, 8, Palette.TXT)
+	# 损管卡（独立状态卡；副官/手册按钮不在此卡内）
+	_draw_damage_card()
 
-	# P2b：右区改为「证据面板 + 取证/撤人按钮」（原姿态块为装饰，移出以腾出操作位）。
+	# 证据面板（P2b）
 	_draw_evidence_panel()
+	if _damage_open:
+		_draw_damage_popup()
 
+	# 底栏：战备 + 工具按钮归位（不与损管队列混排）
 	draw_line(Vector2(1540, 820), Vector2(1860, 820), Palette.a(Palette.LINE, 0.9), 1.0)
-	_txt(cjk, 1556, 828, "损管队列 2 项", 8, Palette.AMBER)
+	_txt(cjk, UNIT_X, 828, "战备 / READINESS · NOMINAL", 8, Palette.PH_DIM)
 	_txt_r(cjk, 1844, 828, "舰体 HULL 100%", 8, Palette.DIM)
-	# P1j：副官建议（一次性 UI）与教学手册（可反复查）两个独立入口 —— 不混进通信流。
 	_cmd_btn(ADVISOR_BTN, "副官建议 · 已读" if _advisor_read else "副官建议 / ADJUTANT", false, Palette.BLUE)
 	_cmd_btn(MANUAL_BTN, "手册 / MANUAL", false, Palette.PH)
+
+func _handle_unit_click(p: Vector2) -> bool:
+	if RACK_PAGE_BTN.has_point(p):
+		var rack := _rack_rows()
+		var pages := maxi(1, int(ceil(float(rack.size()) / float(RACK_ROWS_MAX))))
+		if pages > 1:
+			_rack_page = (_rack_page + 1) % pages
+			_sfx("ui_click")
+		return true
+	if DAMAGE_BTN.has_point(p):
+		_damage_open = not _damage_open
+		_sfx("ui_open" if _damage_open else "ui_close")
+		return true
+	if _damage_open:
+		_damage_open = false
+		return true
+	return false
+
 
 func _draw_ship_watermark() -> void:
 	var col := Palette.a(Palette.PH, 0.10)
@@ -2026,50 +2325,128 @@ func _draw_ship_watermark() -> void:
 		draw_line(Vector2(cx - 22, yy), Vector2(cx - 17, yy), col, 1.0)
 		draw_line(Vector2(cx + 17, yy), Vector2(cx + 22, yy), col, 1.0)
 
+func _handle_log_click(p: Vector2) -> bool:
+	if LOG_TAB_COMMS.has_point(p):
+		_log_tab = 0
+		_sfx("ui_click")
+		return true
+	if LOG_TAB_QUEUE.has_point(p):
+		_log_tab = 1
+		_sfx("ui_click")
+		return true
+	if _log_tab == 1:
+		for row in _log_abort_rects:
+			var rr: Rect2 = row["rect"]
+			if rr.has_point(p):
+				state.abort_command(String(row["id"]))
+				_sfx("ui_confirm")
+				return true
+	return false
+
 func _draw_log() -> void:
 	_panel(LOG)
-	# P1g：无线电 / 事件 feed（最近 3 条，最新在上；新条目闪一次、不弹窗）
-	var feed := _feed_entries()
-	var sig := str(feed)
-	if sig != _feed_sig:
-		_feed_sig = sig
-		_feed_flash = 0.85
-	if _demo_radio:
-		_feed_flash = 0.85
-	var flash := clampf(_feed_flash / 0.85, 0.0, 1.0)
-	_txt(cjk, 76, 892, "通信流 / COMMS · 事件 / EVENTS", 8, Palette.TXT)
-	_txt_r(mono, 604, 892, "%d 条 · 最新在上" % feed.size(), 7, Palette.FAINT)
-	for i in range(mini(FEED_ROWS, feed.size())):
-		var e: Dictionary = feed[i]
-		var y := 904.0 + float(i) * FEED_PITCH
-		var kind := String(e.get("kind", "RADIO"))
-		var mode := String(e.get("mode", ""))
-		var tag := "EVENT" if kind == "EVENT" else (mode if mode != "" else "COM")
-		var col: Color = Palette.AMBER if kind == "EVENT" else _mode_color(mode)
-		if i == 0 and flash > 0.0:
-			draw_rect(Rect2(64, y - 2, 552, 12), Palette.a(col, 0.22 * flash))
-		draw_rect(Rect2(64, y - 1, 2, 10), Palette.a(col, 0.85 if i == 0 else 0.30))
-		_txt(mono, 72, y, tag, 7, Palette.a(col, 0.85))
-		_txt(cjk, 132, y - 1, _ellipsis(cjk, _dn(String(e.get("text", ""))), 8, 462.0), 8,
-			Palette.a(Palette.TXT, 0.96 if i == 0 else 0.66))
-	if feed.is_empty():
-		_txt(cjk, 76, 908, "（暂无通信 / 事件）", 8, Palette.FAINT)
-	# 命令日志（证据）：紧凑 4 行
-	draw_line(Vector2(60, 944), Vector2(620, 944), Palette.a(Palette.LINE, 0.9), 1.0)
-	_txt(cjk, 76, 948, "命令日志 / COMMAND LOG", 7, Palette.FAINT)
-	_txt_r(mono, 604, 948, "NEWEST FIRST", 7, Palette.FAINT)
-	var cmd_left := maxf(0.0, 6.2 - float(state.elapsed))
-	var pending := cmd_left > 0.0
-	for i in range(mini(4, state.log_lines.size())):
-		var l: Dictionary = state.log_lines[i]
-		var y := 956.0 + float(i) * 20.0
-		_txt(mono, 76, y, "T+" + String(l.get("t", "")), 9, Palette.a(Palette.FAINT, 0.95))
-		var disp_text := _ellipsis(cjk, _dn(String(l.get("text", ""))), 10, 300.0)
-		_txt(cjk, 140, y - 1, disp_text, 10, Palette.a(Palette.TXT, 0.92))
-		var tw := cjk.get_string_size(disp_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-		if String(l.get("arg", "")) != "":
-			_txt(mono, 140.0 + tw + 8.0, y, _dn(String(l.get("arg", ""))), 7, Palette.a(Palette.AMBER, 0.7))
-		_log_status(l, i, y - 1, cmd_left, pending)
+	_log_abort_rects.clear()
+	# P9a：顶部标签「通信流 / 事件」↔「命令队列」（Tab 或点击切换）
+	var tabs := [["通信流 / 事件 · COMMS", LOG_TAB_COMMS], ["命令队列 / QUEUE", LOG_TAB_QUEUE]]
+	for i in range(2):
+		var tr: Rect2 = tabs[i][1]
+		var sel := i == _log_tab
+		var hot := tr.has_point(_mouse_base())
+		draw_rect(tr, Palette.a(Palette.PANEL2, 0.95 if (sel or hot) else 0.35))
+		draw_rect(tr, Palette.a(Palette.PH, 0.75 if (sel or hot) else 0.25), false, 1.0)
+		if sel:
+			draw_rect(Rect2(tr.position.x, tr.position.y, 2.0, tr.size.y), Palette.PH)
+		_txt(cjk, tr.position.x + 8.0, tr.position.y + 4.0, String(tabs[i][0]), 8,
+			Palette.PH if sel else Palette.DIM)
+	_txt_r(mono, 604, 892, "TAB 切换", 7, Palette.a(Palette.FAINT, 0.8))
+	draw_line(Vector2(64, 908), Vector2(616, 908), Palette.a(Palette.LINE, 0.9), 1.0)
+
+	if _log_tab == 0:
+		# 通信流 / 事件（最近 3 条）
+		var feed := _feed_entries()
+		var sig := str(feed)
+		if sig != _feed_sig:
+			_feed_sig = sig
+			_feed_flash = 0.85
+		if _demo_radio:
+			_feed_flash = 0.85
+		var flash := clampf(_feed_flash / 0.85, 0.0, 1.0)
+		for i in range(mini(FEED_ROWS, feed.size())):
+			var e: Dictionary = feed[i]
+			var y := 920.0 + float(i) * FEED_PITCH
+			var kind := String(e.get("kind", "RADIO"))
+			var mode := String(e.get("mode", ""))
+			var tag := "EVENT" if kind == "EVENT" else (mode if mode != "" else "COM")
+			var col: Color = Palette.AMBER if kind == "EVENT" else _mode_color(mode)
+			if i == 0 and flash > 0.0:
+				draw_rect(Rect2(64, y - 2, 552, 12), Palette.a(col, 0.22 * flash))
+			draw_rect(Rect2(64, y - 1, 2, 10), Palette.a(col, 0.85 if i == 0 else 0.30))
+			_txt(mono, 72, y, tag, 7, Palette.a(col, 0.85))
+			_txt(cjk, 132, y - 1, _ellipsis(cjk, _dn(String(e.get("text", ""))), 8, 462.0), 8,
+				Palette.a(Palette.TXT, 0.96 if i == 0 else 0.66))
+		if feed.is_empty():
+			_txt(cjk, 76, 924, "（暂无通信 / 事件）", 8, Palette.FAINT)
+		# 命令日志（证据）：紧凑 3 行
+		draw_line(Vector2(60, 964), Vector2(620, 964), Palette.a(Palette.LINE, 0.9), 1.0)
+		_txt(cjk, 76, 972, "命令日志 / COMMAND LOG", 7, Palette.FAINT)
+		_txt_r(mono, 604, 972, "NEWEST FIRST", 7, Palette.FAINT)
+		var cmd_left := maxf(0.0, 6.2 - float(state.elapsed))
+		var pending := cmd_left > 0.0
+		for i in range(mini(3, state.log_lines.size())):
+			var l: Dictionary = state.log_lines[i]
+			var y := 984.0 + float(i) * 18.0
+			_txt(mono, 76, y, "T+" + String(l.get("t", "")), 9, Palette.a(Palette.FAINT, 0.95))
+			var disp_text := _ellipsis(cjk, _dn(String(l.get("text", ""))), 10, 300.0)
+			_txt(cjk, 140, y - 1, disp_text, 10, Palette.a(Palette.TXT, 0.92))
+			var tw := cjk.get_string_size(disp_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+			if String(l.get("arg", "")) != "":
+				_txt(mono, 140.0 + tw + 8.0, y, _dn(String(l.get("arg", ""))), 7, Palette.a(Palette.AMBER, 0.7))
+			_log_status(l, i, y - 1, cmd_left, pending)
+	else:
+		# 命令队列（当前队列可见，可撤销 QUEUED/TRANSMITTED）
+		var cmds: Array = state.commands()
+		_txt(cjk, 76, 918, "命令队列 / ORDER QUEUE · %d 项" % cmds.size(), 8, Palette.TXT)
+		_txt_r(mono, 604, 918, "STATUS / ABORT", 7, Palette.a(Palette.FAINT, 0.8))
+		if cmds.is_empty():
+			_txt(cjk, 76, 940, "（队列为空）", 8, Palette.FAINT)
+		var shown := 0
+		for idx in range(cmds.size() - 1, -1, -1):
+			if shown >= 4:
+				break
+			var c: Dictionary = cmds[idx]
+			var y := 938.0 + float(shown) * 22.0
+			shown += 1
+			var act := String(c.get("action", ""))
+			var st := String(c.get("status", ""))
+			var sc: Color = Palette.PH_DIM
+			match st:
+				"QUEUED":
+					sc = Palette.AMBER
+				"TRANSMITTED":
+					sc = Palette.BLUE
+				"EXEC":
+					sc = Palette.PH_DIM
+				"ABORTED":
+					sc = Palette.FAINT
+				"REJECTED":
+					sc = Palette.RED
+			var target := String(c.get("target", ""))
+			var detail := ""
+			if act == "SHADOW" and target != "":
+				detail = " → " + _dn(target)
+			elif act == "BURN":
+				detail = " Δv %.0f" % float((c.get("plan", {}) as Dictionary).get("dv_ms", 0.0))
+			_txt(mono, 76, y, String(c.get("id", "")), 8, Palette.a(Palette.FAINT, 0.9))
+			_txt(cjk, 112, y, _ellipsis(cjk, "%s%s" % [act, detail], 8, 260.0), 8, Palette.TXT)
+			_txt_r(cjk, 520, y, _cmd_phase(c), 7, sc)
+			if st == "QUEUED" or st == "TRANSMITTED":
+				var rr := Rect2(536, y - 6.0, 80, 16)
+				draw_rect(rr, Palette.a(Palette.RED, 0.07))
+				draw_rect(rr, Palette.a(Palette.RED, 0.38), false, 1.0)
+				_txt(cjk, rr.position.x + 14.0, rr.position.y + 3.0, "撤销 / ABORT", 7, Palette.RED)
+				_log_abort_rects.append({"rect": rr, "id": String(c.get("id", ""))})
+			draw_line(Vector2(76, y + 8.0), Vector2(604, y + 8.0), Palette.a(Palette.LINE, 0.35), 1.0)
+		_txt(cjk, 76, 1028, "点击撤销待生效命令 · Tab 切回通信流", 7, Palette.FAINT)
 
 	var blink := 0.5 + 0.5 * sin(_t * 4.0)
 	draw_rect(Rect2(76, 1028, 5, 1), Palette.a(Palette.PH, 0.6 * blink))
@@ -2130,7 +2507,7 @@ func _cmd_status_cn(st: String) -> String:
 		"REJECTED":
 			return "已拒绝"
 		"DRAFT":
-			return "预览"
+			return "预命令"
 		_:
 			return st
 
@@ -2264,16 +2641,16 @@ func _draw_command_panel() -> void:
 
 	# 参数：T+ / Δv / 方向预设（全部只改本地 draft）
 	var preset: Dictionary = DIR_PRESETS[draft_dir]
-	_txt(cjk, CMD_INSET_X, 928, "T+", 7, Palette.DIM)
+	_txt(cjk, CMD_INSET_X, 930, "T+", 7, Palette.DIM)
 	_mini_btn(T_MINUS, "-")
-	_txt(mono, 700, 930, "%04.1f s" % draft_t, 10, Palette.TXT)
+	_txt(mono, 700, 932, "%04.1f s" % draft_t, 10, Palette.TXT)
 	_mini_btn(T_PLUS, "+")
-	_txt(cjk, 796, 928, "Δv", 7, Palette.DIM)
+	_txt(cjk, 796, 930, "Δv", 7, Palette.DIM)
 	_mini_btn(DV_MINUS, "-")
-	_txt(mono, 848, 930, "%03.0f m/s" % draft_dv, 10, Palette.TXT)
+	_txt(mono, 848, 932, "%03.0f m/s" % draft_dv, 10, Palette.TXT)
 	_mini_btn(DV_PLUS, "+")
-	_txt(cjk, 984, 928, "方向", 7, Palette.DIM)
-	_txt(cjk, 1016, 929, _ellipsis(cjk, String(preset["label"]), 7, 82.0), 7, Palette.TXT)
+	_txt(cjk, 984, 930, "方向", 7, Palette.DIM)
+	_txt(cjk, 1016, 931, _ellipsis(cjk, String(preset["label"]), 7, 82.0), 7, Palette.TXT)
 	_cmd_btn(DIR_CYCLE, "换向 ▸", false, Palette.PH)
 
 	# P1f：把「链路」与「机动」拆两行 —— 中继只花时间与暴露，不烧 Δv。
@@ -2281,12 +2658,12 @@ func _draw_command_panel() -> void:
 	var link_line := "链路：%s（望楼号中继）%s · 传达 / 确认，不消耗 Δv" % [_link_mode_cn(), _link_latency()]
 	if _link_degraded():
 		link_line = "链路：LINK DEGRADED · 回退 45 s（中继损失，不消耗 Δv）"
-	_txt(cjk, CMD_INSET_X, 946, link_line, 7, Palette.a(Palette.BLUE if not _link_degraded() else Palette.RED, 0.85))
-	_txt(cjk, CMD_INSET_X, 954, "机动：Δv %.0f m/s · 剩余 %s m/s" % [draft_dv, _fmt_int(dv_left)], 7, Palette.a(Palette.AMBER, 0.85))
+	_txt(cjk, CMD_INSET_X, 954, link_line, 7, Palette.a(Palette.BLUE if not _link_degraded() else Palette.RED, 0.85))
+	_txt(cjk, CMD_INSET_X, 962, "机动：Δv %.0f m/s · 剩余 %s m/s" % [draft_dv, _fmt_int(dv_left)], 7, Palette.a(Palette.AMBER, 0.85))
 	if _burn_drag:
-		_txt_r(cjk, CMD_INNER_R, 954, "拖动中 · 未授权", 7, Palette.a(Palette.AMBER, 0.9))
+		_txt_r(cjk, CMD_INNER_R, 962, "拖动中 · 未授权", 7, Palette.a(Palette.AMBER, 0.9))
 	else:
-		_txt_r(cjk, CMD_INNER_R, 954, "DRAFT BURN T+%.1f" % draft_t, 7, Palette.a(Palette.BLUE, 0.8))
+		_txt_r(cjk, CMD_INNER_R, 962, "轨道预览 BURN T+%.1f" % draft_t, 7, Palette.a(Palette.BLUE, 0.8))
 
 	# 时间轴：T+0 … T+30，节点 = draft（拖动不授权）
 	var tx := TIMELINE.position.x
@@ -2327,46 +2704,9 @@ func _draw_command_panel() -> void:
 		fire_col = Palette.FAINT
 	_cmd_btn(FIRE_BTN, fire_label, _fire_confirm_t > 0.0, fire_col)
 
-	# 队列（读 state.commands；只显示最后 2 条；QUEUED / TRANSMITTED 可 ABORT）
-	_txt(cjk, CMD_INSET_X, 1002, "队列 / QUEUE · %d 待生效 · %d 执行 · %d 完成" % [queued, active, done], 7, Palette.FAINT)
-	_txt_r(mono, CMD_INNER_R, 1002, "QUEUE %d/%d" % [queued, camds.size()], 7, Palette.FAINT)
-	var shown := 0
-	for idx in range(camds.size() - 1, -1, -1):
-		if shown >= 2:
-			break
-		var c: Dictionary = camds[idx]
-		var y := QUEUE_Y + float(shown) * QUEUE_ROW_H
-		shown += 1
-		var act := String(c.get("action", ""))
-		var st := String(c.get("status", ""))
-		var sc: Color = Palette.PH_DIM
-		match st:
-			"QUEUED":
-				sc = Palette.AMBER
-			"TRANSMITTED":
-				sc = Palette.BLUE
-			"EXEC":
-				sc = Palette.PH_DIM
-			"ABORTED":
-				sc = Palette.FAINT
-			"REJECTED":
-				sc = Palette.RED
-			_:
-				sc = Palette.PH_DIM
-		var target := String(c.get("target", ""))
-		var detail := ""
-		if act == "SHADOW" and target != "":
-			detail = " → " + _dn(target)
-		elif act == "BURN":
-			detail = " Δv %.0f" % float((c.get("plan", {}) as Dictionary).get("dv_ms", 0.0))
-		var line := "%s %s%s · %s" % [String(c.get("id", "")), act, detail, _cmd_phase(c)]
-		_txt(mono, CMD_INSET_X, y, _ellipsis(mono, line, 7, 440.0), 7, sc)
-		if st == "QUEUED" or st == "TRANSMITTED":
-			var rr := Rect2(QUEUE_ABORT_X, y - 1.0, 44, 12)
-			draw_rect(rr, Palette.a(Palette.RED, 0.06))
-			draw_rect(rr, Palette.a(Palette.RED, 0.35), false, 1.0)
-			_txt(cjk, rr.position.x + 8.0, rr.position.y + 2.0, "撤销", 7, Palette.RED)
-			_queue_abort.append({"rect": rr, "id": String(c.get("id", ""))})
+	# P9a：命令面板只留队列摘要；完整队列/撤销在左下「命令队列」标签页。
+	_txt(cjk, CMD_INSET_X, 1020, "队列 / QUEUE · %d 待生效 · %d 执行 · %d 完成 · 详情见左下标签页" % [queued, active, done], 7, Palette.FAINT)
+	_txt_r(mono, CMD_INNER_R, 1020, "QUEUE %d/%d" % [queued, camds.size()], 7, Palette.FAINT)
 
 # ══ P1f：裁决 / 后果 / 报告覆盖层 ══════════════════════
 # 原则：读 state 字段（decision_open / report_open / consequence_open / fire_branch /
@@ -2646,9 +2986,8 @@ func _on_prelude_key(k: int) -> void:
 		elif k == KEY_2 and wins.size() > 1:
 			_prelude_choose("window", wins[1])
 	elif st == 2:
-		if k == KEY_ENTER or k == KEY_SPACE or k == KEY_1:
-			_prelude_confirm()
-		elif k == KEY_2:
+		# P9a：Enter/Space 为长按（进程轮询蓄力）；只有满 3s 后按 Enter/点击才执行。
+		if _prelude_hold_done and (k == KEY_ENTER or k == KEY_SPACE or k == KEY_2):
 			_prelude_execute()
 
 func _prelude_opt_rect(i: int) -> Rect2:
@@ -2665,10 +3004,10 @@ func _handle_prelude_click(p: Vector2) -> void:
 				_prelude_choose("route" if st == 0 else "window", opts[i])
 				return
 	elif st == 2:
+		# P9a：左键按住 3s 充能确认（松开取消），右侧执行按钮解锁后点击执行。
 		if PRELUDE_CONFIRM.has_point(p):
-			_prelude_confirm()
 			return
-		if PRELUDE_EXECUTE.has_point(p):
+		if PRELUDE_EXECUTE.has_point(p) and _prelude_hold_done:
 			_prelude_execute()
 			return
 	if PRELUDE_SKIP.has_point(p):
@@ -2754,14 +3093,31 @@ func _draw_prelude_overlay() -> void:
 			_ellipsis(cjk, _dtext(ctext), 9, 420.0), 9, Palette.a(Palette.TXT, 0.9))
 		_txt(cjk, r.position.x + 560.0, PRELUDE_OPT_Y + 92.0,
 			"执行后：点火 → 巡航 → 抵达 Meridian；本阶段不计入 6:00 执行窗口。", 8, Palette.DIM)
-		_cmd_btn(PRELUDE_CONFIRM, "确认并点火 / CONFIRM & BURN", false, Palette.PH)
-		_cmd_btn(PRELUDE_EXECUTE, "执行点火 / EXECUTE", false, Palette.AMBER)
+		# P9a：左 = 长按 3s 确认（进度填充，松开取消）；右 = 解锁后执行点火。
+		var hold_frac := clampf(_prelude_hold / PRELUDE_HOLD_S, 0.0, 1.0)
+		var ccol: Color = Palette.PH if _prelude_hold_done else Palette.PH_DIM
+		draw_rect(PRELUDE_CONFIRM, Palette.a(ccol, 0.10))
+		draw_rect(PRELUDE_CONFIRM, Palette.a(ccol, 0.80 if _prelude_hold_done else 0.35), false, 1.0)
+		if hold_frac > 0.0:
+			draw_rect(Rect2(PRELUDE_CONFIRM.position, Vector2(PRELUDE_CONFIRM.size.x * hold_frac, PRELUDE_CONFIRM.size.y)),
+				Palette.a(Palette.PH, 0.22))
+		var clabel := "已确认 / CONFIRMED" if _prelude_hold_done else \
+			"按住 3s 确认并点火（%.1fs）" % maxf(0.0, PRELUDE_HOLD_S - _prelude_hold)
+		_txt(cjk, PRELUDE_CONFIRM.position.x + 16.0, PRELUDE_CONFIRM.position.y + 15.0, clabel, 10,
+			Palette.PH if _prelude_hold_done else Palette.a(Palette.TXT, 0.9))
+		_txt_r(mono, PRELUDE_CONFIRM.end.x - 14.0, PRELUDE_CONFIRM.position.y + 15.0,
+			"HOLD" if not _prelude_hold_done else "ARMED", 7, Palette.a(Palette.PH_DIM, 0.9))
+		_cmd_btn(PRELUDE_EXECUTE, "执行点火 / EXECUTE", _prelude_hold_done,
+			Palette.AMBER if _prelude_hold_done else Palette.FAINT)
+		if not _prelude_hold_done:
+			_txt_r(cjk, PRELUDE_EXECUTE.end.x - 16.0, PRELUDE_EXECUTE.end.y - 4.0,
+				"需先长按确认", 7, Palette.a(Palette.FAINT, 0.9))
 	else:
 		_txt(cjk, r.position.x + 48.0, PRELUDE_OPT_Y + 24.0, "点火命令已下达 · 正在硬切揭场…", 14, Palette.PH)
 	# 跳过 / 键位提示
 	_cmd_btn(PRELUDE_SKIP, "跳过 / SKIP（S）", false, Palette.FAINT)
 	_txt(cjk, r.position.x + 48.0, r.end.y - 44.0,
-		"1 / 2 选择 · Enter 确认 / 点火 · S 跳过（或 DSH_SKIP_PRELUDE=1）", 7, Palette.FAINT)
+		"1 / 2 选择 · Step 2 按住左键或 Enter 3s 确认 → 点击执行点火 · S 跳过", 7, Palette.FAINT)
 	# P3a：80px 硬切揭示 + 文本解码（窗口 id = prelude）
 	_draw_window_cut(r)
 

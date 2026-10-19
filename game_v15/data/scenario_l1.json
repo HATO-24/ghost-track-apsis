@@ -641,14 +641,14 @@
         "label": "撤出 Chronos 人员",
         "duration": 60.0,
         "shuttle": true,
-        "risk": "派出穿梭机往返；不能与黑匣子任务同时进行。",
+        "risk": "派出穿梭机往返；与黑匣子共用穿梭机，需先后安排。",
         "start_text": "派穿梭机撤出 Chronos 值守人员与家属。",
         "done_text": "Chronos 值守人员与家属已撤离（civilians_evacuated）。"
       }
     },
     "adjutant_request": {
       "title": "副官建议 · 取证与撤离",
-      "body": "指挥官，港务遥测数据可远程拉取请求；核查组黑匣子与撤人需要派遣穿梭机，同一时间只能执行一项。",
+      "body": "指挥官，港务遥测数据可远程并行拉取；核查组黑匣子与撤人共用一架穿梭机，需按顺序安排。",
       "options": [
         {
           "kind": "telemetry",
@@ -728,6 +728,17 @@
           "mode": "LD",
           "text": "航线已设定：L4 Hammer → L1 Meridian。执行变轨后进入巡航。抵达 Meridian 前完成态势感知准备。完毕。"
         }
+      ]
+    },
+    "navigation": {
+      "title": "航行准备 / NAVIGATION",
+      "body": "L4-02 Hammer → L1 Meridian。目的地 → 变轨窗口 → 点火确认 → 航行；执行前不推进仿真。",
+      "tutorial": "1) 选择目的地：Meridian 正确；Karman 是错误方向，会提示并停留在当前步骤。2) 选择变轨窗口：T+18:00 正确；T+02:00 错误，提示后停留。3) 确认点火：扣除 Δv，进入航行。4) 航行开始后进入 Chronos 执行窗口。",
+      "stages": [
+        "目的地 / DESTINATION",
+        "变轨窗口 / WINDOW",
+        "点火确认 / CONFIRM",
+        "航行 / TRANSIT"
       ]
     }
   }

@@ -41,8 +41,10 @@ func _segment_prelude() -> void:
 	_caption("01 / 航行准备 · L4 HAMMER → L1 MERIDIAN")
 	await _wait(1.4)
 	st.prelude_choose_route("meridian")
+	_caption("01 / 航行准备 · " + st.navigation_stage())
 	await _wait(0.9)
 	st.prelude_choose_window("t1800")
+	_caption("01 / 航行准备 · " + st.navigation_stage())
 	await _wait(0.9)
 	st.prelude_confirm()
 	await _wait(1.6)
@@ -60,6 +62,14 @@ func _segment_sensors_and_orders() -> void:
 	st.set_sensor("harmattan", 0, true)
 	await _wait(0.8)
 	hu.menu_open = false
+	_caption("02b / 传感器桅杆 · 收放（收起时整架不可用）")
+	st.set_mast("harmattan", false)
+	await _wait(1.4)
+	st.set_mast("harmattan", true)
+	await _wait(0.8)
+	_caption("02c / 选中舰 · 三维方位 / 相对轨道读数")
+	st.selected = 1
+	await _wait(1.2)
 	_caption("03 / 命令 · 站位 / 跟踪 / 点火")
 	await _wait(0.8)
 	st.issue_command("STATION", {}, "远地点号")
@@ -68,11 +78,14 @@ func _segment_sensors_and_orders() -> void:
 
 func _segment_evidence() -> void:
 	var st = _st()
-	_caption("04 / 副官申请 · 取证与撤离")
+	_caption("04 / 副官申请 · 遥测与穿梭机任务可并行")
 	st.clock = st.T0 + 21.0
 	st.refresh(st.clock)
 	await _wait(2.2)
 	st.ack_adjutant("telemetry")
+	await _wait(0.8)
+	st.ack_adjutant("blackbox")
+	_caption("04b / 遥测（远程）不占穿梭机 · 黑匣子已排队")
 	await _wait(1.6)
 	st.clock = st.T0 + 55.0
 	st.refresh(st.clock)
