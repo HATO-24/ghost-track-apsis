@@ -18,6 +18,7 @@ extends RefCounted
 const ScenarioScript := preload("res://framework/core/scenario.gd")
 const WorldScript := preload("res://framework/core/world.gd")
 const MissionScript := preload("res://framework/core/mission.gd")
+const NavigationScript := preload("res://framework/core/navigation_model.gd")
 
 const DEFAULT_SCENARIO := "res://framework/content/scenario_l1_v2.json"
 
@@ -31,6 +32,8 @@ var errors: Array[String] = []
 var tutorial: Dictionary = {}
 var flow: Dictionary = {}
 var damage: Dictionary = {}
+var damage_full: Dictionary = {}
+var damage_model_ready := false
 var replay: Dictionary = {}
 var contacts: Array = []
 var actions: Array = []
@@ -40,6 +43,12 @@ var exec_window_s := 360.0
 var exec_left := 360.0
 var exec_pct := 0.0
 var decision_reason := ""
+# —— R4-CORE-2：导航/交通管制/机动规划（V2NavigationModel；只读快照）——
+var nav = null                      # V2NavigationModel（未就绪为 null）
+var nav_ready := false
+var nav_snapshot: Dictionary = {}   # vm_navigation() 只读快照
+var nav_summary: Dictionary = {}
+var nav_last: Dictionary = {}       # 最近一次导航写操作结果
 
 # —— 运行时元数据 ——
 var sync_count := 0
@@ -60,6 +69,11 @@ func boot(scenario_path := DEFAULT_SCENARIO) -> bool:
 		errors.append_array(world.errors)
 	mission = MissionScript.from_scenario(scenario)
 	world.attach_mission(mission)
+	# R4-CORE-2：导航/交通管制/机动规划（独立模型；失败不阻塞世界桥）
+	nav = NavigationScript.new()
+	nav_ready = bool(nav.setup())
+	if not nav_ready:
+		errors.append("navigation: " + str(nav.errors))
 	ready = ok
 	# V15 自己有 PRELUDE 覆盖层；默认跳过 V2 prelude，避免“执行前冻结”双门控。
 	if ready and OS.get_environment("DSH_V2_PRELUDE") != "1":
@@ -75,6 +89,8 @@ func sync(dt: float) -> void:
 	var step := maxf(0.0, dt)
 	if step > 0.0:
 		world.advance(step)
+		if nav_ready and nav != null:
+			nav.step(step)
 	sync_count += 1
 	synced_t = float(world.t)
 	refresh()
@@ -86,8 +102,11 @@ func refresh() -> void:
 	tutorial = world.vm_tutorial()
 	flow = world.vm_flow()
 	damage = world.vm_damage()
+	damage_full = world.vm_damage_full() if world.has_method("vm_damage_full") else {}
+	damage_model_ready = not damage_full.is_empty()
 	_refresh_replay()
 	contacts = world.vm_contacts()
+	_refresh_nav()
 	tutorial_ready = bool(tutorial.get("ready", false))
 	exec_window_s = float(world.exec_window_s)
 	exec_left = world.exec_left()
@@ -95,6 +114,27 @@ func refresh() -> void:
 	decision_reason = _compute_decision_reason()
 	if actions_target != "":
 		actions = world.vm_actions(actions_target)
+
+## 只刷新导航只读快照（导航写操作后调用，避免整桥 refresh 的成本）。
+func _refresh_nav() -> void:
+	if nav_ready and nav != null:
+		nav_snapshot = nav.vm_navigation()
+		nav_summary = nav.summary()
+	else:
+		nav_snapshot = {}
+		nav_summary = {}
+
+## 当前导航 vm（只读；未就绪返回空字典）。
+func navigation_view() -> Dictionary:
+	return nav_snapshot
+
+func navigation_summary() -> Dictionary:
+	return nav_summary
+
+## 完整损管模型 vm（R2-DAMAGE-2 接入；旧 damage_view() 保留 legacy 字段）。
+func damage_full_view() -> Dictionary:
+	return damage_full
+
 
 ## 只刷新回放快照并返回（HUD 调试钩子直接操作 world.replay_* 后可调用，避免读到旧帧列表）。
 func replay_view_fresh() -> Dictionary:
@@ -214,10 +254,15 @@ func bridge_state() -> Dictionary:
 		"decision_reason": decision_reason,
 		"flow": flow.duplicate(true),
 		"damage": damage.duplicate(true),
+		"damage_full": damage_full.duplicate(true),
+		"damage_model_ready": damage_model_ready,
 		"replay": replay.duplicate(true),
 		"contacts": contacts.duplicate(true),
 		"actions": actions.duplicate(true),
 		"actions_target": actions_target,
+		"nav": nav_snapshot.duplicate(true),
+		"nav_summary": nav_summary.duplicate(true),
+		"nav_ready": nav_ready,
 		"exec_window_s": exec_window_s,
 		"exec_left": exec_left,
 		"exec_pct": exec_pct,
@@ -340,6 +385,103 @@ func replay_clear() -> void:
 		world.replay_clear()
 		refresh()
 
+# ── R4-CORE-2：导航/交通管制/机动规划 wrapper（只转发；不自动执行/不自动授权）──
+
+func _nav_call(method: String, args: Array = []) -> Dictionary:
+	if not ready:
+		return {"ok": false, "reason": "framework 未就绪"}
+	if not nav_ready or nav == null:
+		return {"ok": false, "reason": "navigation 未就绪"}
+	var r = nav.callv(method, args)
+	nav_last = (r as Dictionary).duplicate(true) if r is Dictionary else {}
+	_refresh_nav()
+	return r if r is Dictionary else {}
+
+func nav_plan_routes(from_id: String, to_id: String, constraints := {}) -> Dictionary:
+	return _nav_call("plan_routes", [from_id, to_id, constraints])
+
+func nav_select_route(route_arg = null) -> Dictionary:
+	return _nav_call("select_route", [route_arg])
+
+func nav_request_clearance(route_arg = null, window = null, priority := 3) -> Dictionary:
+	return _nav_call("request_clearance", [route_arg, window, priority])
+
+func nav_grant_clearance(request_id: String) -> Dictionary:
+	return _nav_call("grant_clearance", [request_id])
+
+func nav_deny_clearance(request_id: String, reason := "authority_denied") -> Dictionary:
+	return _nav_call("deny_clearance", [request_id, reason])
+
+func nav_hold_clearance(request_id: String, until_t := -1.0) -> Dictionary:
+	return _nav_call("hold_clearance", [request_id, until_t])
+
+# 任务要求的短别名
+func nav_grant(request_id: String) -> Dictionary:
+	return nav_grant_clearance(request_id)
+
+func nav_deny(request_id: String, reason := "authority_denied") -> Dictionary:
+	return nav_deny_clearance(request_id, reason)
+
+func nav_hold(request_id: String, until_t := -1.0) -> Dictionary:
+	return nav_hold_clearance(request_id, until_t)
+
+func nav_plan_maneuver(kind: String, target := "", opts := {}) -> Dictionary:
+	return _nav_call("plan_maneuver", [kind, target, opts])
+
+func nav_authorize_maneuver(plan_id: String) -> Dictionary:
+	return _nav_call("authorize_maneuver", [plan_id])
+
+func nav_queue_maneuver(plan_id: String, clearance_id := "") -> Dictionary:
+	return _nav_call("queue_maneuver", [plan_id, clearance_id])
+
+func nav_execute_maneuver(plan_id: String) -> Dictionary:
+	return _nav_call("execute_maneuver", [plan_id])
+
+func nav_abort_maneuver(plan_id: String, reason := "commander_abort") -> Dictionary:
+	return _nav_call("abort_maneuver", [plan_id, reason])
+
+# 任务要求的短别名
+func nav_authorize(plan_id: String) -> Dictionary:
+	return nav_authorize_maneuver(plan_id)
+
+func nav_execute(plan_id: String) -> Dictionary:
+	return nav_execute_maneuver(plan_id)
+
+func nav_abort(plan_id: String, reason := "commander_abort") -> Dictionary:
+	return nav_abort_maneuver(plan_id, reason)
+
+# ── 完整损管模型写 API（只转发到 world/entity.damage；不自动命中/不生成武器）──
+
+func damage_apply_hit(section: String, energy: float, penetration := 0.5,
+		direction := "fore", source := "bridge", entity_id := "") -> Dictionary:
+	if not ready:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = world.damage_apply_hit(section, energy, penetration, direction,
+		source, entity_id)
+	refresh()
+	return r
+
+func damage_assign_repair(section: String, priority := 2, entity_id := "") -> Dictionary:
+	if not ready:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = world.damage_assign_repair(section, priority, entity_id)
+	refresh()
+	return r
+
+func damage_cancel_repair(section: String, entity_id := "") -> Dictionary:
+	if not ready:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = world.damage_cancel_repair(section, entity_id)
+	refresh()
+	return r
+
+func damage_set_priority(section: String, priority: int, entity_id := "") -> Dictionary:
+	if not ready:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = world.damage_set_priority(section, priority, entity_id)
+	refresh()
+	return r
+
 func restart() -> Dictionary:
 	if not ready:
 		return {"ok": false, "reason": "framework 未就绪"}
@@ -348,6 +490,8 @@ func restart() -> Dictionary:
 	if OS.get_environment("DSH_V2_PRELUDE") != "1":
 		var pre := world.prelude_skip()
 		skipped_v2_prelude = bool(pre.get("ok", false))
+	if nav_ready and nav != null:
+		nav.reset()
 	refresh()
 	return r
 

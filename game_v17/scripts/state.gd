@@ -18,6 +18,13 @@ var fw_decision_deferred := false
 var fw_sync_count := 0
 var fw_t := 0.0
 var fw_last_action: Dictionary = {}
+# —— R4-CORE-2：导航/交通管制/机动规划（V2NavigationModel 只读快照）——
+var fw_nav: Dictionary = {}
+var fw_nav_ready := false
+var fw_nav_summary: Dictionary = {}
+# —— R2-DAMAGE-2：完整损管模型只读暴露（旧 fw_damage 保持 legacy）——
+var fw_damage_model := false          # 完整损管模型是否就绪
+var fw_damage_full: Dictionary = {}   # world.vm_damage_full() 只读快照
 
 # 演示用状态。真实 sim 会接管 clock / tracks / commands，
 # 这里的数值只服务于"把 GUI 长相对出来"。
@@ -1741,6 +1748,12 @@ func _reset_runtime() -> void:
 	_optical_target = ""
 	_optical_done = {}
 	_sensors_view_key = ""
+	# R4-CORE-2 / R2-DAMAGE-2：桥接派生字段复位（framework 由 fw_restart 重建快照）
+	fw_nav = {}
+	fw_nav_ready = false
+	fw_nav_summary = {}
+	fw_damage_model = false
+	fw_damage_full = {}
 
 # ── P1j：身份 / 通信格式 / 动态裁决提示 ─────────────────
 
@@ -2706,6 +2719,11 @@ func _fw_pull() -> void:
 		fw_contacts = []
 		fw_actions = []
 		fw_t = 0.0
+		fw_nav = {}
+		fw_nav_ready = false
+		fw_nav_summary = {}
+		fw_damage_model = false
+		fw_damage_full = {}
 		return
 	fw_ready = true
 	fw_tutorial = (framework.tutorial_view() as Dictionary).duplicate(true)
@@ -2717,6 +2735,12 @@ func _fw_pull() -> void:
 	fw_t = float(framework.synced_t)
 	fw_sync_count += 1
 	fw_decision_reason = String(framework.decision_gate_reason())
+	# R4-CORE-2 / R2-DAMAGE-2：导航与完整损管只读快照
+	fw_nav_ready = bool(framework.nav_ready)
+	fw_nav = (framework.navigation_view() as Dictionary).duplicate(true)
+	fw_nav_summary = (framework.navigation_summary() as Dictionary).duplicate(true)
+	fw_damage_model = bool(framework.damage_model_ready)
+	fw_damage_full = (framework.damage_full_view() as Dictionary).duplicate(true)
 
 ## V2 教学门控是否放行 V15 决策（截图/自动化/演示时自动放行）。
 func fw_tutorial_allows() -> bool:
@@ -2855,6 +2879,84 @@ func fw_replay_frame() -> Dictionary:
 		return {}
 	return framework.replay_frame()
 
+# ── R4-CORE-2：导航/交通管制/机动规划包装（只转发；不自动执行/不自动授权）──
+
+func _fw_nav_call(method: String, args: Array = []) -> Dictionary:
+	if framework == null or not bool(framework.ready) or not bool(framework.nav_ready):
+		return {"ok": false, "reason": "navigation 未就绪"}
+	var r = framework.callv(method, args)
+	_fw_pull()
+	return r as Dictionary if r is Dictionary else {}
+
+func fw_nav_plan_routes(from_id: String, to_id: String, constraints := {}) -> Dictionary:
+	return _fw_nav_call("nav_plan_routes", [from_id, to_id, constraints])
+
+func fw_nav_select_route(route_arg = null) -> Dictionary:
+	return _fw_nav_call("nav_select_route", [route_arg])
+
+func fw_nav_request_clearance(route_arg = null, window = null, priority := 3) -> Dictionary:
+	return _fw_nav_call("nav_request_clearance", [route_arg, window, priority])
+
+func fw_nav_grant(request_id: String) -> Dictionary:
+	return _fw_nav_call("nav_grant_clearance", [request_id])
+
+func fw_nav_deny(request_id: String, reason := "authority_denied") -> Dictionary:
+	return _fw_nav_call("nav_deny_clearance", [request_id, reason])
+
+func fw_nav_hold(request_id: String, until_t := -1.0) -> Dictionary:
+	return _fw_nav_call("nav_hold_clearance", [request_id, until_t])
+
+func fw_nav_plan_maneuver(kind: String, target := "", opts := {}) -> Dictionary:
+	return _fw_nav_call("nav_plan_maneuver", [kind, target, opts])
+
+func fw_nav_authorize(plan_id: String) -> Dictionary:
+	return _fw_nav_call("nav_authorize", [plan_id])
+
+func fw_nav_queue_maneuver(plan_id: String, clearance_id := "") -> Dictionary:
+	return _fw_nav_call("nav_queue_maneuver", [plan_id, clearance_id])
+
+func fw_nav_execute(plan_id: String) -> Dictionary:
+	return _fw_nav_call("nav_execute", [plan_id])
+
+func fw_nav_abort(plan_id: String, reason := "commander_abort") -> Dictionary:
+	return _fw_nav_call("nav_abort", [plan_id, reason])
+
+# ── R2-DAMAGE-2：完整损管模型写 API（仅转发；不自动生成命中）──
+
+func fw_damage_apply_hit(section: String, energy: float, penetration := 0.5,
+		direction := "fore", source := "state", entity_id := "") -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = framework.damage_apply_hit(section, energy, penetration, direction,
+		source, entity_id)
+	_fw_pull()
+	return r
+
+func fw_damage_assign_repair(section: String, priority := 2, entity_id := "") -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = framework.damage_assign_repair(section, priority, entity_id)
+	_fw_pull()
+	return r
+
+func fw_damage_cancel_repair(section: String, entity_id := "") -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = framework.damage_cancel_repair(section, entity_id)
+	_fw_pull()
+	return r
+
+func fw_damage_set_priority(section: String, priority: int, entity_id := "") -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = framework.damage_set_priority(section, priority, entity_id)
+	_fw_pull()
+	return r
+
+## 完整损管模型是否就绪（fw_damage_model 字段的 getter 版）。
+func fw_damage_model_ready() -> bool:
+	return fw_damage_model
+
 func fw_restart() -> void:
 	fw_decision_deferred = false
 	fw_decision_reason = ""
@@ -2880,6 +2982,11 @@ func fw_bridge_state() -> Dictionary:
 		"contacts": fw_contacts.duplicate(true),
 		"actions": fw_actions.duplicate(true),
 		"actions_target": fw_actions_target,
+		"nav": fw_nav.duplicate(true),
+		"nav_ready": fw_nav_ready,
+		"nav_summary": fw_nav_summary.duplicate(true),
+		"damage_full": fw_damage_full.duplicate(true),
+		"damage_model": fw_damage_model,
 		"exec_window_s": float(fw_flow.get("exec_window_s", 360.0)),
 		"exec_left": float(fw_flow.get("exec_left", 0.0)),
 		"exec_pct": float(fw_flow.get("exec_pct", 0.0)),

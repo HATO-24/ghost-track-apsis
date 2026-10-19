@@ -109,6 +109,37 @@ const DAMAGE_PAGE_CLOSE := Rect2(1360, 188, 120, 28)
 const DAMAGE_PAGE_ROW0 := 300.0
 const DAMAGE_PAGE_ROW_H := 74.0
 const DAMAGE_PAGE_FIX := Vector2(116, 24)
+# ── R4-UI-2：导航页（独立页）/ 完整损管页 ─────────────────
+const NAV_HEADER := Rect2(40, 40, 1840, 72)
+const NAV_LEFT := Rect2(60, 124, 320, 752)
+const NAV_MAP := Rect2(396, 124, 1128, 752)
+const NAV_RIGHT := Rect2(1540, 124, 320, 752)
+const NAV_BOT := Rect2(60, 884, 1120, 156)
+# 上层页签（顶栏中部）
+const NAV_TAB_ROUTES := Rect2(520, 72, 128, 18)
+const NAV_TAB_TRAFFIC := Rect2(656, 72, 128, 18)
+const NAV_TAB_MANEUVER := Rect2(792, 72, 128, 18)
+const NAV_BACK := Rect2(1744, 68, 108, 22)
+# 右栏动作（真实 state.fw_nav_* 接口；未接时置灰）
+const NAV_GEN_BTN := Rect2(1556, 716, 136, 24)
+const NAV_REQ_BTN := Rect2(1704, 716, 140, 24)
+const NAV_AUTH_BTN := Rect2(1556, 748, 136, 24)
+const NAV_ABORT_BTN := Rect2(1704, 748, 140, 24)
+const NAV_RETURN_BTN := Rect2(1704, 784, 140, 20)
+const NAV_MODE_HOLD := Rect2(1556, 612, 138, 20)
+const NAV_MODE_AUTO := Rect2(1704, 612, 140, 20)
+const NAV_ROW0 := 184.0
+const NAV_ROW_H := 58.0
+const NAV_ROW_MAX := 9
+# 主 HUD 入口（左下面板标题空位，不压既有标签）
+const NAV_OPEN_BTN := Rect2(420, 886, 68, 16)
+# 完整损管页
+const DAMAGE_FULL_SECTION := Rect2(440, 262, 470, 388)
+const DAMAGE_FULL_RIGHT := Rect2(930, 262, 550, 388)
+const DAMAGE_FULL_BOTTOM := Rect2(440, 662, 1040, 150)
+const DF_ROW_H := 54.0
+const DF_FIX := Vector2(74, 18)
+const DF_PRI := Vector2(50, 18)
 const LOG_TAB_COMMS := Rect2(64, 888, 168, 18)
 const LOG_TAB_QUEUE := Rect2(240, 888, 168, 18)
 const PRELUDE_HOLD_S := 3.0
@@ -1115,6 +1146,17 @@ var _comms_last_click_y := -1.0
 var _damage_page := false
 var _damage_fix_rects: Array = []
 var _damage_page_close_hover := false
+var _nav_page_open := false
+var _nav_mode := "routes"        # routes / traffic / maneuver
+var _nav_selected := 0
+var _nav_from_id := "l1"
+var _nav_to_id := ""
+var _nav_prev_paused := false
+var _nav_open_on_ready := ""
+var _nav_rows: Array = []        # [{rect,id,kind}]
+var _nav_candidate_sel := 0
+var _damage_full_demo := false
+var _damage_full_action_rects: Array = []  # [{rect,action,section,priority}]
 var _comms_abort_rect := Rect2()
 var _replay_dragging := false
 var _replay_drag_t := 0.0
@@ -1194,6 +1236,20 @@ func _ready() -> void:
 			_demo_suppress_adjutant = true
 			_damage_page = true
 			_damage_open = false
+		"damage_full":
+			# R4-UI-2 截图：完整损管页（优先 state.fw_damage_full / fw_damage_model；无则回退 vm_damage）
+			_demo_suppress_adjutant = true
+			_damage_page = true
+			_damage_open = false
+			_damage_full_demo = true
+		"nav_page":
+			# R4-UI-2 截图：导航页（ROUTES）
+			_demo_suppress_adjutant = true
+			_nav_open_on_ready = "routes"
+		"nav_traffic":
+			# R4-UI-2 截图：导航页（TRAFFIC）
+			_demo_suppress_adjutant = true
+			_nav_open_on_ready = "traffic"
 		"fw_replay_drag":
 			# V17-UI-2 截图：回放时间轴拖动中
 			_demo_suppress_adjutant = true
@@ -1245,7 +1301,17 @@ func _ready() -> void:
 		_replay_dragging = true
 		_replay_drag_t = _replay_frac_to_t(0.42)
 	_refresh_fw()
-	# P9a 截图钩子：日志/队列页签、损管详情、航行准备长按已充能。
+	# R4-UI-2 截图/演示钩子（真实 core API；不伪造数值/许可）
+	if _damage_full_demo:
+		_damage_full_seed()
+		_damage_page = true
+		_damage_open = false
+		_fw_pull_state()
+		_refresh_fw()
+	if _nav_open_on_ready != "":
+		_open_nav_page(_nav_open_on_ready)
+		_nav_open_on_ready = ""
+	# P9a 截图钩子：日志/队列页签、损管详情/航行准备长按已充能。
 	var ltab := OS.get_environment("DSH_LOG_TAB")
 	if ltab != "":
 		_log_tab = clampi(int(ltab), 0, 1)
@@ -1284,7 +1350,7 @@ func _process(delta: float) -> void:
 	if not state.capture and state.boot_t >= 1.7:
 		_poll_right_click()
 	# P10a：暂停/覆盖层优先——打开时关掉战术弹窗，避免层级打架。
-	if pause_open or _any_overlay() or _modal != "" or _ov_prelude() or _ov_adjutant() \
+	if pause_open or _nav_page_open or _any_overlay() or _modal != "" or _ov_prelude() or _ov_adjutant() \
 			or _ov_decision() or _ov_report() or _ov_consequence() or _ov_end():
 		_ctx_open = false
 		_ctx_actions.clear()
@@ -1427,6 +1493,9 @@ func _draw() -> void:
 		_draw_boot()
 		return
 	_draw_bezel()
+	if _nav_page_open:
+		_draw_nav_page()
+		return
 	_draw_top()
 	_draw_tracks()
 	_draw_unit()
@@ -1549,8 +1618,16 @@ func _sfx(n: String) -> void:
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
 		return
+	if _nav_page_open:
+		_handle_nav_click(p)
+		queue_redraw()
+		return
 	if pause_open:
 		_handle_pause_click(p)
+		return
+	# R4-UI-2：导航页入口（主 HUD 左下面板标题行）
+	if NAV_OPEN_BTN.has_point(p):
+		toggle_nav_page()
 		return
 	# P11b：独立损管页 / 通信流展开为模态
 	if _damage_page:
@@ -1689,9 +1766,13 @@ func click(p: Vector2) -> void:
 			return
 
 func consumes(p: Vector2) -> bool:
+	if _nav_page_open:
+		return true
 	if pause_open:
 		return true
 	if _damage_page or _comms_expanded:
+		return true
+	if NAV_OPEN_BTN.has_point(p):
 		return true
 	# P10a：战术弹窗打开时吞掉所有点击（由 click 处理关闭/选择）。
 	if _ctx_open or _optical_open or _layers_open or _queue_detail_id != "":
@@ -3337,7 +3418,822 @@ func _close_damage_page() -> void:
 	_sfx("ui_back")
 
 
+
+# ═══════════════════════════════════════════════════════════════
+# R4-UI-2：完整损管页（优先 state.fw_damage_full / fw_damage_model）
+# ═══════════════════════════════════════════════════════════════
+
+func _damage_full() -> Dictionary:
+	if state != null:
+		for k in ["fw_damage_full", "fw_damage_model"]:
+			var v = state.get(k)
+			if v is Dictionary and not (v as Dictionary).is_empty():
+				var vd: Dictionary = v
+				var secs0: Array = vd.get("sections", []) if vd.get("sections", []) is Array else []
+				if secs0.size() >= 7:
+					return vd
+				var vm0: Dictionary = vd.get("model", {}) if vd.get("model", {}) is Dictionary else {}
+				var secs1: Array = vm0.get("sections", []) if vm0.get("sections", []) is Array else []
+				if secs1.size() >= 7:
+					return vm0
+	if _fw_dmg is Dictionary:
+		var m: Dictionary = _fw_dmg.get("model", {}) if _fw_dmg.get("model", {}) is Dictionary else {}
+		var ms: Array = m.get("sections", []) if m.get("sections", []) is Array else []
+		if ms.size() >= 7:
+			return m
+		if bool(_fw_dmg.get("has_full_model", false)):
+			var secs2: Array = _fw_dmg.get("sections", []) if _fw_dmg.get("sections", []) is Array else []
+			if secs2.size() >= 7:
+				return _fw_dmg
+	return {}
+
+
+func _damage_full_sections() -> Array:
+	var d := _damage_full()
+	return d.get("sections", []) if d.get("sections", []) is Array else []
+
+
+func _damage_full_events() -> Array:
+	var d := _damage_full()
+	return d.get("events", []) if d.get("events", []) is Array else []
+
+
+func _damage_full_resources() -> Dictionary:
+	var d := _damage_full()
+	return d.get("resources", {}) if d.get("resources", {}) is Dictionary else {}
+
+
+func _damage_full_queue() -> Array:
+	var d := _damage_full()
+	return d.get("queue", []) if d.get("queue", []) is Array else []
+
+
+func _damage_full_summary() -> Dictionary:
+	var d := _damage_full()
+	var sm: Dictionary = d.get("summary", {}) if d.get("summary", {}) is Dictionary else {}
+	return sm if not sm.is_empty() else _fw_dmg_summary()
+
+
+func _damage_full_state_cn(st: String) -> String:
+	match st:
+		"degraded":
+			return "降级 DEGRADED"
+		"damaged":
+			return "受损 DAMAGED"
+		"critical":
+			return "严重 CRITICAL"
+		"destroyed":
+			return "损毁 DESTROYED"
+		_:
+			return "正常 NOMINAL"
+
+
+func _damage_full_color(st: String) -> Color:
+	match st:
+		"degraded":
+			return Palette.AMBER
+		"damaged", "critical", "destroyed":
+			return Palette.RED
+		_:
+			return Palette.PH
+
+
+func _damage_full_seed() -> void:
+	# 仅截图/演示：调真实 world.damage_* API 制造可见事件/队列；不直接伪造 vm。
+	if state == null:
+		return
+	var fw = state.get("framework")
+	if fw == null or fw.world == null:
+		return
+	var w = fw.world
+	if w.has_method("damage_apply_hit"):
+		w.call("damage_apply_hit", "tanks", 0.46, 0.30, "aft", "hud_demo")
+		w.call("damage_apply_hit", "sensors", 0.28, 0.10, "fore", "hud_demo")
+	if w.has_method("damage_assign_repair"):
+		w.call("damage_assign_repair", "tanks", 1)
+		w.call("damage_assign_repair", "sensors", 2)
+	if fw.has_method("refresh"):
+		fw.call("refresh")
+	_fw_pull_state()
+
+
+func _damage_full_action(section: String, action: String, priority := 2) -> void:
+	if section == "":
+		return
+	var r: Dictionary = {}
+	var w = null
+	if state != null:
+		var fw = state.get("framework")
+		if fw != null:
+			w = fw.world
+		var method_names: Array = {
+			"fix": ["fw_damage_assign_repair", "fw_damage_repair"],
+			"cancel": ["fw_damage_cancel_repair"],
+			"priority": ["fw_damage_set_priority"],
+		}.get(action, [])
+		for m in method_names:
+			if state.has_method(String(m)):
+				var raw = state.call(String(m), section, priority)
+				if raw is Dictionary:
+					r = raw
+				break
+	if r.is_empty() and w != null:
+		if action == "fix" and w.has_method("damage_assign_repair"):
+			var raw = w.call("damage_assign_repair", section, priority)
+			if raw is Dictionary:
+				r = raw
+		elif action == "cancel" and w.has_method("damage_cancel_repair"):
+			var raw = w.call("damage_cancel_repair", section)
+			if raw is Dictionary:
+				r = raw
+		elif action == "priority" and w.has_method("damage_set_priority"):
+			var raw = w.call("damage_set_priority", section, priority)
+			if raw is Dictionary:
+				r = raw
+		if state != null:
+			var fw2 = state.get("framework")
+			if fw2 != null and fw2.has_method("refresh"):
+				fw2.call("refresh")
+		_fw_pull_state()
+	var ok := bool(r.get("ok", w != null))
+	var label: String = String({"fix": "FIX", "cancel": "取消", "priority": "优先级 %d" % priority}.get(action, action))
+	_toast("损管：%s %s%s" % [section, label, "" if ok else " · " + String(r.get("reason", "CORE 未接"))])
+
+
+func _draw_damage_full_page(df: Dictionary) -> void:
+	var r := DAMAGE_PAGE
+	var sm := _damage_full_summary()
+	draw_rect(Rect2(0, 0, 1920, 1080), Color(0, 0, 0, 0.55))
+	draw_rect(r, Palette.a(Palette.PANEL, 0.997))
+	draw_rect(r, Palette.a(Palette.AMBER, 0.75), false, 1.0)
+	_txt(cjk, r.position.x + 20.0, r.position.y + 18.0, "损管 / DAMAGE CONTROL · 完整损管页", 12, Palette.AMBER)
+	_txt_r(mono, r.end.x - 150.0, r.position.y + 18.0, "CORE V2DamageModel", 7, Palette.a(Palette.PH_DIM, 0.9))
+	draw_rect(DAMAGE_PAGE_CLOSE, Palette.a(Palette.AMBER, 0.08))
+	draw_rect(DAMAGE_PAGE_CLOSE, Palette.a(Palette.AMBER, 0.55), false, 1.0)
+	_txt(cjk, DAMAGE_PAGE_CLOSE.position.x + 14.0, DAMAGE_PAGE_CLOSE.position.y + 7.0, "返回 HUD / CLOSE", 8, Palette.AMBER)
+	_txt(cjk, r.position.x + 20.0, r.position.y + 40.0,
+		"7 分区 · 受损 %d · 降级 %d · 严重 %d · 火灾 %d · 失压 %d · 断电 %d · 维修中 %d · 队列 %d" % [
+			int(sm.get("damaged", 0)), int(sm.get("degraded", 0)), int(sm.get("critical", 0)),
+			int(sm.get("on_fire", 0)), int(sm.get("decompressed", 0)), int(sm.get("unpowered", 0)),
+			int(sm.get("repairing", 0)), int(sm.get("queued", 0))], 8, Palette.TXT)
+	draw_line(Vector2(r.position.x + 16.0, r.position.y + 52.0), Vector2(r.end.x - 16.0, r.position.y + 52.0),
+		Palette.a(Palette.LINE, 0.9), 1.0)
+
+	var lx := DAMAGE_FULL_SECTION.position.x
+	_txt(cjk, lx, DAMAGE_FULL_SECTION.position.y - 16.0, "分区 / SECTIONS · 7", 9, Palette.PH)
+	_damage_fix_rects.clear()
+	_damage_full_action_rects.clear()
+	var secs := _damage_full_sections()
+	for i in range(mini(7, secs.size())):
+		var sec: Dictionary = secs[i]
+		var y := DAMAGE_FULL_SECTION.position.y + float(i) * DF_ROW_H
+		var st := String(sec.get("state", "nominal"))
+		var col := _damage_full_color(st)
+		var integ := float(sec.get("integrity_pct", -1.0))
+		if integ < 0.0:
+			integ = float(sec.get("integrity", 0.0)) * 100.0
+		var row := Rect2(lx, y, DAMAGE_FULL_SECTION.size.x, DF_ROW_H - 4.0)
+		draw_rect(row, Palette.a(col, 0.04))
+		draw_line(Vector2(row.position.x, row.end.y), Vector2(row.end.x, row.end.y), Palette.a(Palette.LINE, 0.45), 1.0)
+		_txt(mono, row.position.x + 6.0, y + 3.0, "%02d" % (i + 1), 12, Palette.a(Palette.AMBER, 0.8))
+		_txt(cjk, row.position.x + 36.0, y + 3.0, _ellipsis(cjk, String(sec.get("label", "—")), 9, 180.0), 9, Palette.TXT)
+		_txt_r(cjk, row.end.x - 156.0, y + 3.0, _damage_full_state_cn(st), 8, col)
+		_bar(Rect2(row.position.x + 36.0, y + 17.0, 156.0, 3.0), clampf(integ / 100.0, 0.0, 1.0), col)
+		_txt(mono, row.position.x + 198.0, y + 15.0, "%.0f%%" % clampf(integ, 0.0, 100.0), 8, Palette.TXT)
+		var fire: Dictionary = sec.get("fire", {}) if sec.get("fire", {}) is Dictionary else {}
+		var dec: Dictionary = sec.get("decompression", {}) if sec.get("decompression", {}) is Dictionary else {}
+		var flags: Array = []
+		if bool(fire.get("active", false)):
+			flags.append("火灾")
+		if bool(dec.get("active", false)):
+			flags.append("失压")
+		if !bool(sec.get("powered", true)):
+			flags.append("断电")
+		var rep: Dictionary = sec.get("repair", {}) if sec.get("repair", {}) is Dictionary else {}
+		var rep_st := String(rep.get("status", ""))
+		var rep_txt := "维修 —"
+		if rep_st == "repairing":
+			rep_txt = "维修 %.0f%% · %.0fs" % [float(rep.get("progress_s", 0.0)) / maxf(1.0, float(rep.get("required_s", 1.0))) * 100.0, float(rep.get("remaining_s", 0.0))]
+		elif rep_st == "queued":
+			rep_txt = "排队 PRI %d" % int(rep.get("priority", 2))
+		elif rep_st == "done":
+			rep_txt = "修复 DONE"
+		elif rep_st == "cancelled":
+			rep_txt = "取消 CANCELLED"
+		var flag_txt := " · ".join(flags) if !flags.is_empty() else "无异常"
+		_txt(cjk, row.position.x + 36.0, y + 29.0, _ellipsis(cjk, "%s · 电力 %s · %s" % [flag_txt, "ON" if bool(sec.get("powered", true)) else "OFF", rep_txt], 7, 280.0), 7, Palette.a(col, 0.95))
+		_txt(mono, row.position.x + 300.0, y + 29.0, "REQ %.0fs" % float(rep.get("required_s", 0.0)), 7, Palette.FAINT)
+		var fix := Rect2(row.end.x - 154.0, y + 26.0, DF_FIX.x, DF_FIX.y)
+		var needs_fix := st != "nominal" or integ < 99.5 or bool(fire.get("active", false)) or bool(dec.get("active", false))
+		if rep_st == "repairing" or rep_st == "queued":
+			_damage_full_action_rects.append({"rect": fix, "action": "cancel", "section": String(sec.get("id", "")), "priority": 2})
+			draw_rect(fix, Palette.a(Palette.RED, 0.08))
+			draw_rect(fix, Palette.a(Palette.RED, 0.45), false, 1.0)
+			_txt(cjk, fix.position.x + 6.0, fix.position.y + 3.0, "取消 / X", 7, Palette.RED)
+		elif needs_fix:
+			_damage_fix_rects.append({"rect": fix, "id": String(sec.get("id", ""))})
+			_damage_full_action_rects.append({"rect": fix, "action": "fix", "section": String(sec.get("id", "")), "priority": 2})
+			draw_rect(fix, Palette.a(Palette.AMBER, 0.10))
+			draw_rect(fix, Palette.a(Palette.AMBER, 0.55), false, 1.0)
+			_txt(cjk, fix.position.x + 6.0, fix.position.y + 3.0, "维修 / FIX", 7, Palette.AMBER)
+		else:
+			_txt(cjk, fix.position.x + 18.0, fix.position.y + 3.0, "— 正常", 7, Palette.FAINT)
+		var pri := Rect2(row.end.x - 74.0, y + 26.0, DF_PRI.x, DF_PRI.y)
+		var prio := int(rep.get("priority", 2))
+		_damage_full_action_rects.append({"rect": pri, "action": "priority", "section": String(sec.get("id", "")), "priority": (prio % 3) + 1})
+		draw_rect(pri, Palette.a(Palette.BLUE, 0.08))
+		draw_rect(pri, Palette.a(Palette.BLUE, 0.45), false, 1.0)
+		_txt(mono, pri.position.x + 4.0, pri.position.y + 3.0, "PRI %d" % prio, 7, Palette.BLUE)
+
+	var rx := DAMAGE_FULL_RIGHT.position.x
+	var ry := DAMAGE_FULL_RIGHT.position.y
+	var rw := DAMAGE_FULL_RIGHT.size.x
+	_txt(cjk, rx, ry - 16.0, "事件 / EVENTS · 最近 64", 9, Palette.PH)
+	var evs := _damage_full_events()
+	var show_ev := mini(6, evs.size())
+	if show_ev == 0:
+		_txt(cjk, rx + 8.0, ry + 8.0, "（暂无事件；命中/火灾/失压/维修事件由 core 写入）", 8, Palette.FAINT)
+	else:
+		for i in range(show_ev):
+			var e: Dictionary = evs[evs.size() - show_ev + i]
+			_txt(mono, rx + 2.0, ry + 2.0 + float(i) * 13.0, "T+%.0f" % float(e.get("t", 0.0)), 7, Palette.FAINT)
+			var etype := String(e.get("type", ""))
+			var etext := "%s %s · %s" % [etype, String(e.get("section", "")), String(e.get("text", ""))]
+			_txt(cjk, rx + 52.0, ry + 2.0 + float(i) * 13.0, _ellipsis(cjk, etext, 7, rw - 56.0), 7,
+				Palette.RED if etype.begins_with("fire") or etype == "destroyed" else Palette.TXT)
+	var res := _damage_full_resources()
+	var resy := ry + 94.0
+	_txt(cjk, rx, resy - 14.0, "资源 / RESOURCES", 9, Palette.PH)
+	var team_t := int(res.get("teams_total", 0))
+	var team_b := int(res.get("teams_busy", 0))
+	var spares := int(res.get("spares", 0))
+	var sp_used := int(res.get("spares_used", 0))
+	var pw := float(res.get("power", 0.0))
+	var pw_max := maxf(1.0, float(res.get("power_max", 1.0)))
+	var pers := int(res.get("personnel", 0))
+	var pers_used := int(res.get("personnel_used", 0))
+	_txt(cjk, rx + 2.0, resy + 2.0, "维修队 %d/%d" % [team_b, team_t], 7, Palette.DIM)
+	_bar(Rect2(rx + 140.0, resy - 2.0, 120.0, 3.0), float(team_b) / maxf(1.0, float(team_t)), Palette.BLUE)
+	_txt(cjk, rx + 2.0, resy + 16.0, "备件 %d/%d" % [sp_used, spares], 7, Palette.DIM)
+	_bar(Rect2(rx + 140.0, resy + 12.0, 120.0, 3.0), float(sp_used) / maxf(1.0, float(spares)), Palette.AMBER)
+	_txt(cjk, rx + 2.0, resy + 30.0, "电力 %.0f/%.0f" % [pw, pw_max], 7, Palette.DIM)
+	_bar(Rect2(rx + 140.0, resy + 26.0, 120.0, 3.0), pw / pw_max, Palette.PH)
+	_txt(cjk, rx + 2.0, resy + 44.0, "人员 %d/%d" % [pers_used, pers], 7, Palette.DIM)
+	_bar(Rect2(rx + 140.0, resy + 40.0, 120.0, 3.0), float(pers_used) / maxf(1.0, float(pers)), Palette.PH_DIM)
+	var qy := resy + 62.0
+	_txt(cjk, rx, qy - 12.0, "维修队列 / QUEUE", 9, Palette.PH)
+	var q := _damage_full_queue()
+	if q.is_empty():
+		_txt(cjk, rx + 8.0, qy + 2.0, "（队列为空）", 7, Palette.FAINT)
+	else:
+		for i in range(mini(5, q.size())):
+			var e2: Dictionary = q[i]
+			var qsec := String(e2.get("section", e2.get("section_id", "")))
+			var qst := String(e2.get("status", ""))
+			var qpri := int(e2.get("priority", 2))
+			var qpct := float(e2.get("progress_pct", 0.0))
+			_txt(mono, rx + 2.0, qy + 2.0 + float(i) * 13.0, "P%d" % qpri, 7, Palette.AMBER)
+			_txt(cjk, rx + 34.0, qy + 2.0 + float(i) * 13.0, _ellipsis(cjk, "%s · %s" % [qsec, qst], 7, 160.0), 7, Palette.TXT)
+			_bar(Rect2(rx + 220.0, qy - 2.0 + float(i) * 13.0, 100.0, 3.0), clampf(qpct / 100.0, 0.0, 1.0), Palette.BLUE)
+			_txt(mono, rx + 328.0, qy + 2.0 + float(i) * 13.0, "%.0f%%" % qpct, 7, Palette.BLUE)
+
+	var bx := DAMAGE_FULL_BOTTOM.position.x
+	var by := DAMAGE_FULL_BOTTOM.position.y
+	draw_line(Vector2(bx, by - 12.0), Vector2(bx + DAMAGE_FULL_BOTTOM.size.x, by - 12.0), Palette.a(Palette.LINE, 0.55), 1.0)
+	_txt(cjk, bx, by, "维修策略 / REPAIR POLICY", 9, Palette.PH)
+	var lines := [
+		"FIX → 优先 state.fw_damage_full / fw_damage_model；未接 state 接口时回退 world.damage_assign_repair(section, priority)（真实 core API，不伪造进度）。",
+		"优先级 PRI 1/2/3：点击循环 → world.damage_set_priority；内容 repair 配置决定队位与备件。",
+		"进度由 core world.advance + state.fw_sync(dt) 推进；本页只显示，不自行推进。",
+		"数据：state.fw_damage.full.model / vm_damage.full：7 分区 + events + resources + queue + effects；旧 3 分区字段保留回退。",
+		"截图钩子 DSH_UI=damage_full：仅用真实 damage_apply_hit/assign_repair 制造可见事件/队列（演示，不伪造数值）。",
+	]
+	for i in range(lines.size()):
+		_txt(cjk, bx + 8.0, by + 20.0 + float(i) * 14.0, _ellipsis(cjk, String(lines[i]), 7, DAMAGE_FULL_BOTTOM.size.x - 16.0), 7, Palette.a(Palette.DIM, 0.95))
+	_txt(cjk, r.position.x + 20.0, r.end.y - 22.0, "FIX / PRI 调 state.fw_damage_full 或 world.damage_*（真实 core）· ESC/CLOSE 返回", 7, Palette.a(Palette.FAINT, 0.9))
+	_txt_r(cjk, r.end.x - 20.0, r.end.y - 22.0, "完整损管 · 7 分区", 7, Palette.a(Palette.PH_DIM, 0.85))
+
+
+
+# ═══════════════════════════════════════════════════════════════
+# R4-UI-2：导航页（独立页；优先 state.fw_nav_*，未就绪则只读骨架）
+# ═══════════════════════════════════════════════════════════════
+
+func _fw_nav() -> Dictionary:
+	if state != null:
+		for k in ["fw_nav", "fw_navigation", "fw_nav_state"]:
+			var v = state.get(k)
+			if v is Dictionary and not (v as Dictionary).is_empty():
+				return v
+		var fw = state.get("framework")
+		if fw != null:
+			for m in ["nav_view", "navigation_view"]:
+				if fw.has_method(String(m)):
+					var raw = fw.call(String(m))
+					if raw is Dictionary:
+						return raw
+			var nv = fw.get("nav")
+			if nv is Dictionary:
+				return nv
+	return {}
+
+
+func _nav_has_core() -> bool:
+	var n := _fw_nav()
+	if n.is_empty():
+		return false
+	var nodes: Array = n.get("nodes", []) if n.get("nodes", []) is Array else []
+	var cands: Array = n.get("candidates", []) if n.get("candidates", []) is Array else []
+	return not nodes.is_empty() or not cands.is_empty()
+
+
+func _nav_candidates() -> Array:
+	var n := _fw_nav()
+	var cs: Array = n.get("routes", []) if n.get("routes", []) is Array else []
+	if cs.is_empty():
+		cs = n.get("candidates", []) if n.get("candidates", []) is Array else []
+	if not cs.is_empty():
+		return cs
+	var plan: Dictionary = n.get("plan", {}) if n.get("plan", {}) is Dictionary else {}
+	var cs2: Array = plan.get("candidates", []) if plan.get("candidates", []) is Array else []
+	return cs2
+
+
+func _nav_clearance() -> Dictionary:
+	var n := _fw_nav()
+	var c: Dictionary = n.get("clearance", {}) if n.get("clearance", {}) is Dictionary else {}
+	if not c.is_empty():
+		return c
+	var tr: Dictionary = n.get("traffic", {}) if n.get("traffic", {}) is Dictionary else {}
+	var c2: Dictionary = tr.get("clearance", {}) if tr.get("clearance", {}) is Dictionary else {}
+	return c2
+
+
+func _nav_story() -> Dictionary:
+	if state != null:
+		var nd = state.get("nav_data")
+		if nd is Dictionary:
+			return nd
+	return {}
+
+
+func _nav_known_objects() -> Array:
+	var out: Array = []
+	if state == null:
+		return out
+	var nv := _fw_nav()
+	if not nv.is_empty() and nv.get("nodes") is Array and not (nv.get("nodes") as Array).is_empty():
+		for raw_node in (nv.get("nodes") as Array):
+			var nd: Dictionary = raw_node
+			out.append({"id": String(nd.get("id", "")), "batch": String(nd.get("id", "")),
+				"name": String(nd.get("name", "")), "kind": String(nd.get("kind", "节点")),
+				"range": 0.0, "bearing": 0.0, "own": false, "fixed": true})
+		return out
+	var trs: Array = state.tracks if state.tracks is Array else []
+	for raw in trs:
+		var t: Dictionary = raw
+		if not bool(t.get("own", false)):
+			continue
+		out.append({"id": String(t.get("id", "")), "batch": String(t.get("batch", "")),
+			"name": String(t.get("name", t.get("en", "本舰"))), "own": true, "fixed": false,
+			"range": 0.0, "bearing": 0.0, "kind": "本舰"})
+	var fcs: Array = state.get("fw_contacts") if state.get("fw_contacts") is Array else []
+	for raw in fcs:
+		var c: Dictionary = raw
+		if not (bool(c.get("fixed", false)) or String(c.get("kind", "")) in ["station", "tank", "port"]):
+			continue
+		out.append({"id": String(c.get("track_id", c.get("entity_id", ""))),
+			"batch": String(c.get("batch", "")), "name": String(c.get("entity_name", c.get("name", ""))),
+			"own": false, "fixed": true,
+			"range": float(c.get("range_km", 0.0)), "bearing": float(c.get("bearing_deg", 0.0)),
+			"kind": "站体/港口"})
+	return out
+
+
+func _nav_log_text(raw: Variant) -> String:
+	if raw is Dictionary:
+		var d: Dictionary = raw
+		var tt := float(d.get("T", d.get("t", 0.0)))
+		var tag := String(d.get("tag", d.get("source", d.get("kind", ""))))
+		var text := String(d.get("text", d.get("line", "")))
+		if tag != "":
+			return "T+%.0f  %s · %s" % [tt, tag, text]
+		return "T+%.0f  %s" % [tt, text]
+	return String(raw)
+
+
+func _nav_obj_label() -> String:
+	if _nav_to_id == "":
+		return "未选终点 / SELECT TARGET"
+	for raw in _nav_known_objects():
+		var o: Dictionary = raw
+		if String(o.get("id", "")) == _nav_to_id:
+			return "%s [%s]" % [String(o.get("name", "")), String(o.get("batch", ""))]
+	return _nav_to_id
+
+
+func _nav_exec_s() -> float:
+	if state != null:
+		var fl = state.get("fw_flow")
+		if fl is Dictionary:
+			return float((fl as Dictionary).get("exec_window_s", 360.0))
+	return 360.0
+
+
+func _nav_dv_text() -> String:
+	if state == null:
+		return "—"
+	var dv = state.get("dv")
+	if dv is Dictionary:
+		return "%.0f / %.0f" % [float((dv as Dictionary).get("current", 0.0)), float((dv as Dictionary).get("max", 0.0))]
+	return "1,120 / 1,260"
+
+
+func _open_nav_page(mode := "routes") -> void:
+	if state == null:
+		return
+	if pause_open or _any_overlay() or _modal != "" or _ov_prelude() or _ov_adjutant() \
+			or _ov_decision() or _ov_report() or _ov_consequence() or _ov_end():
+		_toast("导航页：当前有覆盖层/暂停菜单，关闭后再打开")
+		return
+	_nav_prev_paused = bool(state.paused)
+	state.paused = true
+	_nav_page_open = true
+	_nav_mode = mode
+	_nav_selected = 0
+	_nav_from_id = "1001"
+	_nav_to_id = ""
+	_nav_candidate_sel = 0
+	_damage_page = false
+	_comms_expanded = false
+	_tut_open = false
+	_ctx_open = false
+	_optical_open = false
+	_layers_open = false
+	_queue_detail_id = ""
+	_sfx("ui_open")
+
+
+func _close_nav_page() -> void:
+	if !_nav_page_open:
+		return
+	_nav_page_open = false
+	if state != null:
+		state.paused = _nav_prev_paused
+	_sfx("ui_back")
+
+
+func toggle_nav_page() -> void:
+	if _nav_page_open:
+		_close_nav_page()
+	else:
+		_open_nav_page("routes")
+
+
+func is_nav_page_open() -> bool:
+	return _nav_page_open
+
+
+func _nav_panel(rect: Rect2, cn: String, en: String, note := "") -> void:
+	_panel(rect)
+	_txt(cjk, rect.position.x + 12.0, rect.position.y + 8.0, cn, 9, Palette.PH)
+	_txt(mono, rect.position.x + rect.size.x - 12.0, rect.position.y + 8.0, en, 7, Palette.a(Palette.FAINT, 0.95))
+	if note != "":
+		_txt(cjk, rect.position.x + 12.0, rect.position.y + 22.0, _ellipsis(cjk, note, 7, rect.size.x - 24.0), 7, Palette.a(Palette.DIM, 0.9))
+
+
+func _draw_nav_page() -> void:
+	var nav := _fw_nav()
+	var core := !nav.is_empty()
+	var objs := _nav_known_objects()
+	draw_rect(Rect2(0, 0, 1920, 1080), Color(0, 0, 0, 0.32))
+	_panel(NAV_HEADER)
+	_txt(cjk, NAV_HEADER.position.x + 20.0, NAV_HEADER.position.y + 10.0, "导航 / NAVIGATION", 12, Palette.PH)
+	_txt(cjk, NAV_HEADER.position.x + 20.0, NAV_HEADER.position.y + 30.0, "ROUTE & TRAFFIC CONTROL · L1 MERIDIAN", 7, Palette.a(Palette.DIM, 0.95))
+	var tabs := [["航线 / ROUTES", NAV_TAB_ROUTES, "routes"], ["交通 / TRAFFIC", NAV_TAB_TRAFFIC, "traffic"], ["机动 / MANEUVER", NAV_TAB_MANEUVER, "maneuver"]]
+	for raw in tabs:
+		var item: Array = raw
+		var tr: Rect2 = item[1]
+		var sel := _nav_mode == String(item[2])
+		draw_rect(tr, Palette.a(Palette.PANEL2, 0.9 if sel else 0.3))
+		draw_rect(tr, Palette.a(Palette.PH, 0.75 if sel else 0.25), false, 1.0)
+		if sel:
+			draw_rect(Rect2(tr.position.x, tr.end.y - 2.0, tr.size.x, 2.0), Palette.PH)
+		_txt(cjk, tr.position.x + 10.0, tr.position.y + 3.0, String(item[0]), 8, Palette.PH if sel else Palette.DIM)
+	_txt(mono, NAV_HEADER.end.x - 300.0, NAV_HEADER.position.y + 10.0, "T+%.0f · EXEC %.0f s · Δv %s" % [
+		float(state.clock), _nav_exec_s(), _nav_dv_text()], 8, Palette.a(Palette.TXT, 0.95))
+	_txt(cjk, NAV_HEADER.end.x - 300.0, NAV_HEADER.position.y + 30.0, "PAUSED / 规划中 · 关闭恢复", 7, Palette.a(Palette.AMBER, 0.9))
+	draw_rect(NAV_BACK, Palette.a(Palette.AMBER, 0.10))
+	draw_rect(NAV_BACK, Palette.a(Palette.AMBER, 0.6), false, 1.0)
+	_txt(cjk, NAV_BACK.position.x + 10.0, NAV_BACK.position.y + 4.0, "返回 / BACK (ESC)", 8, Palette.AMBER)
+
+	_nav_panel(NAV_LEFT, "对象 / OBJECTS", "STATE TRACKS · READ-ONLY", "节点/站点列表：选中设终点；NAV CORE 未接时只读")
+	_nav_rows.clear()
+	var y := NAV_ROW0 + 18.0
+	var shown := 0
+	for raw in objs:
+		if shown >= NAV_ROW_MAX:
+			break
+		var o: Dictionary = raw
+		var rid := String(o.get("id", ""))
+		var rr := Rect2(64.0, y, 312.0, 44.0)
+		var sel := rid == _nav_to_id or (_nav_to_id == "" and shown == 0)
+		draw_rect(rr, Palette.a(Palette.PANEL2, 0.6 if sel else 0.20))
+		draw_rect(rr, Palette.a(Palette.PH, 0.45 if sel else 0.18), false, 1.0)
+		_txt(mono, rr.position.x + 8.0, rr.position.y + 6.0, String(o.get("batch", "")), 8, Palette.PH if sel else Palette.DIM)
+		_txt(cjk, rr.position.x + 66.0, rr.position.y + 5.0, _ellipsis(cjk, String(o.get("name", "")), 9, 230.0), 9, Palette.TXT)
+		_txt(cjk, rr.position.x + 8.0, rr.position.y + 24.0, "%s · %.0f km / %.0f°" % [String(o.get("kind", "")), float(o.get("range", 0.0)), float(o.get("bearing", 0.0))], 7, Palette.a(Palette.DIM, 0.95))
+		_nav_rows.append({"rect": rr, "id": rid})
+		y += 48.0
+		shown += 1
+	if shown == 0:
+		_txt(cjk, 76.0, NAV_ROW0 + 22.0, "（无接触/节点数据；等待 state.fw_nav_* core）", 8, Palette.FAINT)
+	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 122.0, "选中 / SELECTED", 8, Palette.PH)
+	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 104.0, _ellipsis(cjk, _nav_obj_label(), 9, 296.0), 9, Palette.TXT)
+	var cr := _nav_clearance()
+	var cst := String(cr.get("status", "")) if !cr.is_empty() else ""
+	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 84.0, "许可 / CLEARANCE：%s" % (cst if cst != "" else "NO DATA · CORE 未接"), 8, Palette.PH if cst == "granted" else Palette.AMBER)
+	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 64.0, "起点 / FROM：%s" % "1001 本舰", 7, Palette.DIM)
+	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 46.0, "数据源：%s" % ("state.fw_nav_*" if core else "CORE 未接 · 只读骨架"), 7, Palette.FAINT)
+
+	_nav_panel(NAV_MAP, "地月图 / CELESTIAL CHART", "V1 WIREFRAME · ABSTRACT", "示意图；位置/路线候选取自 core；未接时明确标注")
+	_nav_draw_chart(objs, nav)
+	_nav_panel(NAV_RIGHT, "航线计划 / ROUTE PLAN", "STATE API", "")
+	_nav_draw_plan(nav)
+	_nav_panel(NAV_BOT, "规划 / 交通 / 命令日志", "READ-ONLY", "")
+	for i in range(3):
+		var lab: String = ["规划日志 / PLAN", "交通 / TRAFFIC", "命令队列 / QUEUE"][i]
+		var tabr := Rect2(NAV_BOT.position.x + 12.0 + float(i) * 132.0, NAV_BOT.position.y + 28.0, 124.0, 16.0)
+		draw_rect(tabr, Palette.a(Palette.PANEL2, 0.7 if i == 0 else 0.25))
+		draw_rect(tabr, Palette.a(Palette.PH, 0.5 if i == 0 else 0.2), false, 1.0)
+		_txt(cjk, tabr.position.x + 4.0, tabr.position.y + 3.0, lab, 7, Palette.PH if i == 0 else Palette.DIM)
+	var logs: Array = state.get("log_lines") if state.get("log_lines") is Array else []
+	var ly := NAV_BOT.position.y + 54.0
+	for i in range(mini(4, logs.size())):
+		var text := _nav_log_text(logs[logs.size() - 1 - i])
+		_txt(cjk, NAV_BOT.position.x + 12.0, ly, _ellipsis(cjk, text, 8, NAV_BOT.size.x - 24.0), 8, Palette.a(Palette.TXT, 0.9))
+		ly += 16.0
+	_txt(cjk, NAV_BOT.position.x + 12.0, NAV_BOT.end.y - 18.0, "交通许可/拒绝原因：CLEARANCE %s · 规划页只读骨架（未接 fw_nav_* 时不伪造许可/候选）" % (cst if cst != "" else "NO DATA"), 7, Palette.FAINT)
+
+	_nav_draw_timeline()
+	_txt(cjk, 60.0, 1052.0, "N / ESC 返回 HUD · 规划页暂停仿真 · 完整页独立（V1 四区骨架）", 7, Palette.FAINT)
+	_txt_r(cjk, 1860.0, 1052.0, "R4-UI-2 · NAV / DAMAGE", 7, Palette.FAINT)
+
+
+func _nav_draw_chart(objs: Array, nav: Dictionary) -> void:
+	var r := NAV_MAP
+	var cx := 960.0
+	var cy := 510.0
+	for gx in range(int(r.position.x + 24.0), int(r.end.x - 24.0), 96):
+		draw_line(Vector2(gx, r.position.y + 40.0), Vector2(gx, r.end.y - 62.0), Palette.a(Palette.LINE, 0.22), 1.0)
+	for gy in range(int(r.position.y + 40.0), int(r.end.y - 62.0), 96):
+		draw_line(Vector2(r.position.x + 24.0, gy), Vector2(r.end.x - 24.0, gy), Palette.a(Palette.LINE, 0.22), 1.0)
+	_txt(mono, r.position.x + 24.0, r.position.y + 40.0, "FRAME LOCAL · SCHEMATIC · RANGE ~±600 km", 7, Palette.a(Palette.FAINT, 0.95))
+	draw_arc(Vector2(cx - 300.0, cy + 40.0), 48.0, 0, TAU, 64, Palette.a(Palette.PH_DIM, 0.8), 1.0)
+	draw_arc(Vector2(cx - 300.0, cy + 40.0), 64.0, 0, TAU, 64, Palette.a(Palette.PH_DIM, 0.25), 1.0)
+	_txt(mono, cx - 334.0, cy + 96.0, "EARTH · SCHEMATIC", 7, Palette.a(Palette.PH_DIM, 0.8))
+	draw_arc(Vector2(cx + 330.0, cy - 190.0), 16.0, 0, TAU, 32, Palette.a(Palette.DIM, 0.8), 1.0)
+	_txt(mono, cx + 354.0, cy - 198.0, "MOON · SCHEMATIC", 7, Palette.a(Palette.DIM, 0.8))
+	draw_arc(Vector2(cx, cy), 10.0, 0, TAU, 24, Palette.PH, 2.0)
+	draw_line(Vector2(cx - 18.0, cy), Vector2(cx + 18.0, cy), Palette.PH, 1.0)
+	draw_line(Vector2(cx, cy - 18.0), Vector2(cx, cy + 18.0), Palette.PH, 1.0)
+	_txt(cjk, cx + 14.0, cy - 14.0, "本舰 / OWN · 1001", 8, Palette.PH)
+	for raw in objs:
+		var o: Dictionary = raw
+		if bool(o.get("own", false)):
+			continue
+		var ang := deg_to_rad(float(o.get("bearing", 0.0)))
+		var rad := clampf(float(o.get("range", 0.0)) * 0.55, 32.0, 420.0)
+		var px := cx + sin(ang) * rad
+		var py := cy - cos(ang) * rad
+		var col := Palette.AMBER if String(o.get("kind", "")).begins_with("站") else Palette.BLUE
+		draw_line(Vector2(cx, cy), Vector2(px, py), Palette.a(col, 0.22), 1.0)
+		draw_rect(Rect2(px - 5.0, py - 5.0, 10.0, 10.0), Palette.a(col, 0.7), false, 1.0)
+		_txt(cjk, px + 10.0, py - 8.0, _ellipsis(cjk, "%s [%s]" % [String(o.get("name", "")), String(o.get("batch", ""))], 7, 220.0), 7, col)
+	var cands := _nav_candidates()
+	if cands.is_empty():
+		draw_dashed_line(Vector2(cx + 20.0, cy + 30.0), Vector2(cx + 300.0, cy - 130.0), Palette.a(Palette.AMBER, 0.28), 1.0, 6.0)
+		_txt(mono, cx + 36.0, cy + 36.0, "CANDIDATES: 尚未生成 · 点 GEN" if _nav_has_core() else "CANDIDATES: CORE NOT WIRED · 不伪造 A/B/C", 7, Palette.a(Palette.AMBER, 0.8))
+	else:
+		for i in range(mini(3, cands.size())):
+			var c: Dictionary = cands[i]
+			var pts: Array = c.get("preview_points", []) if c.get("preview_points", []) is Array else []
+			var col: Color = [Palette.PH, Palette.AMBER, Palette.BLUE][i]
+			var prev := Vector2(cx, cy)
+			for rawp in pts:
+				var pp: Dictionary = rawp
+				var arr = pp.get("pos_km", [0, 0, 0])
+				if arr is Array and (arr as Array).size() >= 2:
+					var np := Vector2(cx + float(arr[0]) * 0.55, cy - float(arr[1]) * 0.55)
+					draw_line(prev, np, Palette.a(col, 0.8), 1.0)
+					prev = np
+			_txt(mono, cx + 20.0, cy + 52.0 + float(i) * 14.0, "%s · %s · Δv %.0f m/s" % [String(c.get("profile_label", c.get("candidate_id", c.get("id", "—")))), String(c.get("kind", "")), float(c.get("dv_mps", 0.0))], 7, col)
+	if _nav_mode == "traffic":
+		draw_arc(Vector2(cx, cy), 140.0, 0, TAU, 64, Palette.a(Palette.RED, 0.35), 1.0)
+		_txt(mono, cx - 62.0, cy - 154.0, "TRAFFIC OVERLAY · CORE PENDING", 7, Palette.a(Palette.RED, 0.85))
+	draw_line(Vector2(r.position.x + 24.0, r.end.y - 76.0), Vector2(r.position.x + 144.0, r.end.y - 76.0), Palette.a(Palette.TXT, 0.8), 1.0)
+	draw_line(Vector2(r.position.x + 24.0, r.end.y - 82.0), Vector2(r.position.x + 24.0, r.end.y - 70.0), Palette.a(Palette.TXT, 0.8), 1.0)
+	draw_line(Vector2(r.position.x + 144.0, r.end.y - 82.0), Vector2(r.position.x + 144.0, r.end.y - 70.0), Palette.a(Palette.TXT, 0.8), 1.0)
+	_txt(mono, r.position.x + 24.0, r.end.y - 66.0, "100 km · ABSTRACT / 示意", 7, Palette.a(Palette.FAINT, 0.95))
+	_txt_r(cjk, r.end.x - 24.0, r.end.y - 66.0, "地月图：V1 线框；R6 接真实位置/轨道/遮挡", 7, Palette.a(Palette.FAINT, 0.9))
+
+
+func _nav_draw_plan(nav: Dictionary) -> void:
+	var r := NAV_RIGHT
+	var y := r.position.y + 52.0
+	_txt(cjk, r.position.x + 12.0, y, "FROM / TO", 7, Palette.FAINT)
+	y += 14.0
+	_txt(cjk, r.position.x + 12.0, y, "FROM  %s" % _nav_from_id, 8, Palette.TXT)
+	y += 14.0
+	_txt(cjk, r.position.x + 12.0, y, "TO    %s" % _nav_obj_label(), 8, Palette.TXT if _nav_to_id != "" else Palette.DIM)
+	y += 18.0
+	draw_line(Vector2(r.position.x + 12.0, y), Vector2(r.end.x - 12.0, y), Palette.a(Palette.LINE, 0.7), 1.0)
+	y += 10.0
+	_txt(cjk, r.position.x + 12.0, y, "CONSTRAINTS / 约束", 7, Palette.PH)
+	y += 14.0
+	var cons := [["最早出发", "T+18:00"], ["最晚到达", "T+48:00"], ["Δv 上限", _nav_dv_text()], ["暴露", "低 / LOW"], ["EMCON", "需要"], ["优先级", "普通"]]
+	for c in cons:
+		_txt(cjk, r.position.x + 12.0, y, String(c[0]), 7, Palette.DIM)
+		_txt(mono, r.end.x - 12.0, y, String(c[1]), 7, Palette.TXT)
+		y += 12.0
+	y += 4.0
+	_txt(cjk, r.position.x + 12.0, y, "CANDIDATES / 候选", 7, Palette.PH)
+	y += 14.0
+	var cands := _nav_candidates()
+	if cands.is_empty():
+		for i in range(3):
+			var rr := Rect2(r.position.x + 12.0, y + float(i) * 40.0, r.size.x - 24.0, 34.0)
+			draw_rect(rr, Palette.a(Palette.PANEL2, 0.35))
+			draw_rect(rr, Palette.a(Palette.LINE, 0.5), false, 1.0)
+			_txt(mono, rr.position.x + 8.0, rr.position.y + 6.0, "%s · —" % ["ABC"[i]], 9, Palette.DIM)
+			_txt(cjk, rr.position.x + 42.0, rr.position.y + 5.0, "点击 GEN 生成候选 / NO PLAN" if _nav_has_core() else "等待 NAV CORE 候选 API", 7, Palette.FAINT)
+			_txt(cjk, rr.position.x + 8.0, rr.position.y + 19.0, "Δv — · 时间 — · 暴露 — · 许可 —", 7, Palette.FAINT)
+	else:
+		for i in range(mini(3, cands.size())):
+			var c: Dictionary = cands[i]
+			var rr := Rect2(r.position.x + 12.0, y + float(i) * 44.0, r.size.x - 24.0, 38.0)
+			draw_rect(rr, Palette.a(Palette.PANEL2, 0.6))
+			draw_rect(rr, Palette.a(Palette.PH if i == _nav_candidate_sel else Palette.LINE, 0.6), false, 1.0)
+			_txt(mono, rr.position.x + 8.0, rr.position.y + 6.0, String(c.get("profile_label", c.get("candidate_id", c.get("id", "—")))), 8, Palette.PH if i == _nav_candidate_sel else Palette.DIM)
+			var clr: Dictionary = c.get("clearance", {}) if c.get("clearance", {}) is Dictionary else {}
+			_txt(cjk, rr.position.x + 8.0, rr.position.y + 19.0, "Δv %.0f · 暴露 %.2f · 许可 %s" % [float(c.get("dv_ms", 0.0)), float(c.get("exposure", 0.0)), String(clr.get("status", "—"))], 7, Palette.TXT)
+			_nav_rows.append({"rect": rr, "id": "cand%d" % i})
+	y += 126.0
+	_txt(cjk, r.position.x + 12.0, y, "PLAN SUMMARY / 摘要", 7, Palette.PH)
+	y += 14.0
+	var cr := _nav_clearance()
+	var cst := String(cr.get("status", "")) if !cr.is_empty() else "NO DATA"
+	var req := String(cr.get("reason", "")) if !cr.is_empty() else "尚未请求许可 / NO CLEARANCE" if _nav_has_core() else "NAV CORE 未接：不伪造许可/候选/轨迹"
+	_txt(cjk, r.position.x + 12.0, y, "Δv 需要 / 剩余：— / %s" % _nav_dv_text(), 7, Palette.TXT)
+	y += 12.0
+	_txt(cjk, r.position.x + 12.0, y, "CLEARANCE：%s" % cst, 7, Palette.PH if cst == "granted" else Palette.AMBER)
+	if _nav_mode == "traffic":
+		y += 12.0
+		_txt(cjk, r.position.x + 12.0, y, "TRAFFIC AUTH：— / CORE 未接", 7, Palette.a(Palette.AMBER, 0.85))
+		y += 12.0
+		_txt(cjk, r.position.x + 12.0, y, "拒绝原因码：窗口冲突 / 优先级 / 管制区 / 走廊关闭 / Δv 不足 / 通信超时 / 身份不明 / ROE", 7, Palette.FAINT)
+	y += 12.0
+	_txt(cjk, r.position.x + 12.0, y, _ellipsis(cjk, req, 7, r.size.x - 24.0), 7, Palette.FAINT)
+	var modes := [["SEMI", "半自动"], ["AUTO", "自动"], ["BATTLE", "战斗机动"]]
+	for i in range(3):
+		var mr := Rect2(r.position.x + 12.0 + float(i) * 96.0, 672.0, 88.0, 20.0)
+		var sel := (_nav_mode == "maneuver" and i == 2) or (_nav_mode == "routes" and i == 0)
+		draw_rect(mr, Palette.a(Palette.PANEL2, 0.6 if sel else 0.3))
+		draw_rect(mr, Palette.a(Palette.PH if sel else Palette.LINE, 0.5), false, 1.0)
+		_txt(cjk, mr.position.x + 5.0, mr.position.y + 3.0, "%s %s" % [modes[i][0], modes[i][1]], 7, Palette.PH if sel else Palette.DIM)
+		_nav_rows.append({"rect": mr, "id": "mode%d" % i})
+	var btns := [["生成候选 / GEN", NAV_GEN_BTN], ["请求许可 / REQUEST", NAV_REQ_BTN], ["授权执行 / AUTHORIZE", NAV_AUTH_BTN], ["中断 / ABORT", NAV_ABORT_BTN], ["返回 / RETURN", NAV_RETURN_BTN]]
+	for raw in btns:
+		var b: Array = raw
+		var br: Rect2 = b[1]
+		var enabled := _nav_has_core() or String(b[0]).begins_with("返回")
+		draw_rect(br, Palette.a(Palette.AMBER if enabled else Palette.LINE, 0.10 if enabled else 0.04))
+		draw_rect(br, Palette.a(Palette.AMBER if enabled else Palette.LINE, 0.55 if enabled else 0.25), false, 1.0)
+		_txt(cjk, br.position.x + 6.0, br.position.y + 4.0, String(b[0]), 7, Palette.AMBER if enabled else Palette.FAINT)
+		_nav_rows.append({"rect": br, "id": "btn_" + String(b[0]).split(" ")[0]})
+	_txt(cjk, r.position.x + 12.0, r.end.y - 34.0, "CORE READY：候选/许可来自 state.fw_nav_*；未生成时不伪造轨迹。" if _nav_has_core() else "CORE 未接：只读骨架；按钮不伪造许可/轨迹/Δv。", 7, Palette.FAINT)
+	_txt(cjk, r.position.x + 12.0, r.end.y - 20.0, "N / ESC 返回主 HUD；页面打开=暂停。", 7, Palette.a(Palette.FAINT, 0.9))
+
+
+func _nav_draw_timeline() -> void:
+	var r := TIME
+	_nav_panel(r, "时间轴 / TIMELINE", "READ-ONLY", "")
+	var x0 := r.position.x + 16.0
+	var x1 := r.end.x - 16.0
+	var ty := r.position.y + 70.0
+	draw_line(Vector2(x0, ty), Vector2(x1, ty), Palette.a(Palette.LINE, 0.9), 1.0)
+	var total := 720.0
+	for i in range(9):
+		var x := x0 + (x1 - x0) * float(i) / 8.0
+		draw_line(Vector2(x, ty - 6.0), Vector2(x, ty), Palette.a(Palette.PH_DIM, 0.7), 1.0)
+		_txt(mono, x - 12.0, ty + 12.0, "T+%.0f" % (total * float(i) / 8.0), 7, Palette.FAINT)
+	var ex0 := x0 + (x1 - x0) * (total - _nav_exec_s()) / total
+	draw_rect(Rect2(ex0, ty - 8.0, x1 - ex0, 8.0), Palette.a(Palette.AMBER, 0.18))
+	draw_rect(Rect2(ex0, ty - 8.0, x1 - ex0, 8.0), Palette.a(Palette.AMBER, 0.55), false, 1.0)
+	_txt(mono, ex0 + 4.0, ty - 20.0, "EXEC %.0f s" % _nav_exec_s(), 7, Palette.AMBER)
+	var nowx := x0 + (x1 - x0) * clampf(float(state.clock) / total, 0.0, 1.0)
+	draw_line(Vector2(nowx, ty - 12.0), Vector2(nowx, ty + 4.0), Palette.PH, 2.0)
+	_txt(mono, nowx + 4.0, ty + 22.0, "NOW T+%.0f" % float(state.clock), 7, Palette.PH)
+	_txt(cjk, x0, ty + 34.0, "规划页只读预览；仿真时钟由主 HUD/暂停控制，执行按命令队列推进。", 7, Palette.a(Palette.FAINT, 0.95))
+
+
+func _handle_nav_click(p: Vector2) -> void:
+	if NAV_BACK.has_point(p):
+		_close_nav_page()
+		return
+	if NAV_TAB_ROUTES.has_point(p):
+		_nav_mode = "routes"
+		_sfx("ui_click")
+		return
+	if NAV_TAB_TRAFFIC.has_point(p):
+		_nav_mode = "traffic"
+		_sfx("ui_click")
+		return
+	if NAV_TAB_MANEUVER.has_point(p):
+		_nav_mode = "maneuver"
+		_sfx("ui_click")
+		return
+	for raw in _nav_rows:
+		var d: Dictionary = raw
+		var rr: Rect2 = d["rect"]
+		if not rr.has_point(p):
+			continue
+		var rid := String(d.get("id", ""))
+		if rid.begins_with("cand"):
+			_nav_candidate_sel = int(rid.substr(4))
+			_sfx("ui_click")
+			return
+		if rid.begins_with("mode"):
+			var m := int(rid.substr(4))
+			_nav_mode = "maneuver" if m == 2 else "routes"
+			if _nav_has_core() and state != null and state.has_method("fw_nav_set_mode"):
+				state.call("fw_nav_set_mode", ["semi", "auto", "maneuver"][m])
+			else:
+				_toast("导航：模式 %s（CORE 未接，仅页面切换）" % ["半自动", "自动", "战斗机动"][m])
+			return
+		if rid.begins_with("btn_"):
+			_nav_action(rid.substr(4))
+			return
+		if rid != "":
+			_nav_to_id = rid
+			_sfx("ui_click")
+			return
+	if not (NAV_HEADER.has_point(p) or NAV_LEFT.has_point(p) or NAV_MAP.has_point(p) or NAV_RIGHT.has_point(p) or NAV_BOT.has_point(p) or TIME.has_point(p)):
+		_close_nav_page()
+
+
+func _nav_action(action: String) -> void:
+	if action.begins_with("返回"):
+		_close_nav_page()
+		return
+	if !_nav_has_core():
+		_toast("NAV CORE 未接：%s 不可用（state.fw_nav_* 未就绪）" % action)
+		return
+	if state == null:
+		return
+	var planid := ""
+	var cands := _nav_candidates()
+	if !cands.is_empty():
+		var c: Dictionary = cands[clampi(_nav_candidate_sel, 0, cands.size() - 1)]
+		planid = String(c.get("id", ""))
+	var maps := {
+		"生成候选": ["fw_nav_plan_routes", "fw_nav_generate"],
+		"请求许可": ["fw_nav_request_clearance", "fw_nav_request"],
+		"授权执行": ["fw_nav_authorize", "fw_nav_authorize_plan"],
+		"中断": ["fw_nav_abort", "fw_nav_abort_plan"],
+	}
+	if action == "生成候选":
+		if state.has_method("fw_nav_plan_routes"):
+			var raw = state.call("fw_nav_plan_routes", _nav_from_id, _nav_to_id, {})
+			if raw is Dictionary:
+				_toast("导航：候选生成 · %s" % String((raw as Dictionary).get("ok", "")))
+			return
+	elif action == "请求许可":
+		var cid := String(planid)
+		if cid == "" and state.has_method("fw_nav_select_route"):
+			var ncs := _nav_candidates()
+			if not ncs.is_empty():
+				cid = String((ncs[_nav_candidate_sel] as Dictionary).get("candidate_id", ""))
+		if cid != "" and state.has_method("fw_nav_select_route"):
+			state.call("fw_nav_select_route", cid)
+		if cid != "" and state.has_method("fw_nav_request_clearance"):
+			var raw2 = state.call("fw_nav_request_clearance", cid, null, 3)
+			if raw2 is Dictionary:
+				_toast("导航：请求许可 · %s" % String((raw2 as Dictionary).get("status", (raw2 as Dictionary).get("ok", ""))))
+			return
+	elif action == "中断":
+		if state.has_method("fw_nav_abort"):
+			var raw3 = state.call("fw_nav_abort", planid)
+			if raw3 is Dictionary:
+				_toast("导航：中断 · %s" % String((raw3 as Dictionary).get("status", (raw3 as Dictionary).get("ok", ""))))
+			return
+	_toast("导航：%s API 未接（state.fw_nav_*）" % action)
+
 func _draw_damage_page() -> void:
+	var full := _damage_full()
+	if not full.is_empty():
+		_draw_damage_full_page(full)
+		return
 	var r := DAMAGE_PAGE
 	draw_rect(Rect2(0, 0, 1920, 1080), Color(0, 0, 0, 0.52))
 	draw_rect(r, Palette.a(Palette.PANEL, 0.995))
@@ -3444,6 +4340,15 @@ func _draw_damage_page() -> void:
 func _handle_damage_page_click(p: Vector2) -> bool:
 	if DAMAGE_PAGE_CLOSE.has_point(p):
 		_close_damage_page()
+		return true
+	if not _damage_full().is_empty():
+		for raw in _damage_full_action_rects:
+			var d: Dictionary = raw
+			if (d["rect"] as Rect2).has_point(p):
+				_damage_full_action(String(d.get("section", "")), String(d.get("action", "fix")), int(d.get("priority", 2)))
+				return true
+		if not DAMAGE_PAGE.has_point(p):
+			_close_damage_page()
 		return true
 	for raw in _damage_fix_rects:
 		var d: Dictionary = raw
@@ -3611,6 +4516,11 @@ func _draw_log() -> void:
 			draw_rect(Rect2(tr.position.x, tr.position.y, 2.0, tr.size.y), Palette.PH)
 		_txt(cjk, tr.position.x + 8.0, tr.position.y + 4.0, String(tabs[i][0]), 8,
 			Palette.PH if sel else Palette.DIM)
+	var hot_nav := NAV_OPEN_BTN.has_point(_mouse_base())
+	draw_rect(NAV_OPEN_BTN, Palette.a(Palette.PANEL2, 0.9 if hot_nav else 0.35))
+	draw_rect(NAV_OPEN_BTN, Palette.a(Palette.AMBER, 0.62 if hot_nav else 0.28), false, 1.0)
+	_txt(cjk, NAV_OPEN_BTN.position.x + 8.0, NAV_OPEN_BTN.position.y + 4.0, "NAV 导航", 7,
+		Palette.AMBER if hot_nav else Palette.DIM)
 	var hot_ex := LOG_EXPAND_BTN.has_point(_mouse_base())
 	draw_rect(LOG_EXPAND_BTN, Palette.a(Palette.PANEL2, 0.9 if hot_ex else 0.4))
 	draw_rect(LOG_EXPAND_BTN, Palette.a(Palette.PH, 0.65 if hot_ex else 0.3), false, 1.0)
@@ -5838,6 +6748,9 @@ func _draw_layers_panel() -> void:
 
 # ── Esc 层级：先关战术弹窗，再交给暂停菜单 ────────────
 func _close_top_popup() -> bool:
+	if _nav_page_open:
+		_close_nav_page()
+		return true
 	if _damage_page:
 		_close_damage_page()
 		return true

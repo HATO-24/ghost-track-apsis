@@ -680,6 +680,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.keycode == KEY_F10:
 		_toggle_borderless()
 		return
+	# R4-UI-2：导航页独立页（V1 硬切；N 开关，ESC 返回；页面打开时独占输入）
+	if event.keycode == KEY_N:
+		if hud.has_method("toggle_nav_page"):
+			hud.call("toggle_nav_page")
+		return
+	if hud.has_method("is_nav_page_open") and bool(hud.call("is_nav_page_open")):
+		if event.keycode == KEY_ESCAPE and hud.has_method("close_nav_page"):
+			hud.call("close_nav_page")
+		return
 	if event.keycode == KEY_ESCAPE:
 		if hud.pause_open:
 			hud.close_pause()

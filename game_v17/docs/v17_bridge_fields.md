@@ -157,3 +157,57 @@ HUD 现有损管卡无需改动：
 `world.advance(dt)` 会推进完整模型并返回 `damage_events`；事件同时进 `world.events` 与
 `world.damage_events_log`。旧 `apply_damage/start_repair/advance_damage` 行为不变，且不驱动完整模型。
 详见 `game_v17/docs/damage_model.md §9`。
+### 10.1　R4-CORE-2 追加：完整损管暴露
+
+- bridge：`bridge.damage_full` / `bridge.damage_full_view()`（= `world.vm_damage_full()`，7 分区完整 vm）、
+  `bridge.damage_model_ready`；旧 `bridge.damage`（legacy 3 项）不变。
+- state：`state.fw_damage_model`（bool，完整模型就绪）、`state.fw_damage_full`（Dictionary，完整 vm）；
+  旧 `state.fw_damage` 保持 legacy 3 项不变。`fw_bridge_state()` 含 `damage_full/damage_model`。
+- state 写 API（只转发、不自动命中）：`fw_damage_apply_hit(section, energy, pen=0.5, dir="fore",
+  source="state", entity_id="")`、`fw_damage_assign_repair(section, priority=2)`、
+  `fw_damage_cancel_repair(section)`、`fw_damage_set_priority(section, priority)`；
+  对应 bridge：`damage_apply_hit/damage_assign_repair/damage_cancel_repair/damage_set_priority`。
+
+## 11　导航/交通管制/机动规划字段（R4-CORE-2）
+
+模型：`framework/core/navigation_model.gd`（`V2NavigationModel`）+ `framework/content/navigation_l1.json`。
+bridge boot 时创建并加载内容；`bridge.sync(dt)` 中 `nav.step(dt)`（dt=0 暂停时不推进）。
+**规划抽象模型**：不做真实轨道积分；节点/边成本/交通规则来自内容（8 节点 / 15 边）。
+
+### 11.1 state / bridge 只读
+
+| 位置 | 字段 | 说明 |
+| --- | --- | --- |
+| state | `fw_nav_ready` | 导航模型是否就绪（bool） |
+| state | `fw_nav` | `vm_navigation()`：schema/id/ready/t/nodes[8]/routes/selected/clearance/clearances/queue/planned_maneuvers/budget/limits/events/summary |
+| state | `fw_nav_summary` | `summary()`：nodes/edges/routes/selected/requests/queue/pending/hold/granted/denied/maneuvers/maneuver_states/budget |
+| bridge | `nav_ready` / `nav_snapshot` / `nav_summary` | 同上（bridge 内部 `nav` 为模型实例，`navigation_view()` 返回快照） |
+| bridge | `navigation_view()` / `navigation_summary()` | 只读 vm/summary |
+| 两者 | `budget` 键 | `dv_total_ms/dv_reserve_ms/dv_used_ms/dv_committed_ms/dv_available_ms/used_ratio/warning/exhausted` |
+
+### 11.2 写 API（只转发；不自动执行/不自动授权）
+
+| state | bridge | 说明 |
+| --- | --- | --- |
+| `fw_nav_plan_routes(from,to,constraints={})` | `nav_plan_routes` | 返回 3 类候选（fast/economy/covert），含 dv/duration/exposure/feasible/recommended |
+| `fw_nav_select_route(route_arg)` | `nav_select_route` | 选中候选（candidate_id/dict） |
+| `fw_nav_request_clearance(route,window,priority=3)` | `nav_request_clearance` | 交通许可；返回 granted/hold/denied + reason |
+| `fw_nav_grant/deny/hold(request_id[,reason/until_t])` | `nav_grant/nav_deny/nav_hold`（全名 `*_clearance`） | 管制员放行/拒绝/保持；不执行机动 |
+| `fw_nav_plan_maneuver(kind,target="",opts={})` | `nav_plan_maneuver` | hold/approach/retreat/evade/point/burn；买 Δv 由预算检查 |
+| `fw_nav_authorize(plan_id)` | `nav_authorize`（全名 `nav_authorize_maneuver`） | PRE_ORDER→AUTHORIZED（预留 Δv） |
+| `fw_nav_queue_maneuver(plan_id,clearance_id="")` | `nav_queue_maneuver` | AUTHORIZED→QUEUED（需许可的机动校验许可） |
+| `fw_nav_execute(plan_id)` | `nav_execute`（全名 `nav_execute_maneuver`） | QUEUED→EXECUTING；之后 `bridge.sync(dt)` 推进进度 |
+| `fw_nav_abort(plan_id[,reason])` | `nav_abort`（全名 `nav_abort_maneuver`） | 中断；EXECUTING 按进度消耗部分 Δv |
+
+**不自动执行**：规划/许可/授权都不会自动进入 EXECUTING；只有显式 `execute` 后由 `step(dt)` 推进，
+`AUTHORIZED` 计划即使 sync 也不会自动执行（probe 断言）。
+
+## 12　R4-CORE-2 测试
+
+`tests/v17_nav_integration_probe.gd` → `PASS=182 FAIL=0`（headless exit 0）覆盖：
+bridge boot/nav vm 字段/预算；路线候选/选择/规划不消耗 Δv；许可 hold→grant、economy 自动批准、
+deny/hold、优先级与时间窗拒绝原因；机动 plan→authorize→queue→execute→step→DONE，无许可 approach
+拒绝、执行中 abort 部分 Δv；授权后同步不自动执行；bridge/state 完整损管 full（7 分区）+ 旧 legacy
+（3 项）兼容、写 API 转发、无档案实体拒绝；state fw_nav_* 全链路、fw_damage_* 包装、restart 复位、
+fw_bridge_state JSON 可回读。回归：`v17_bridge_probe` 138/0（旧字段不变）、`damage_integration_probe`
+204/0、`nav_probe` 372/0、boot/main headless exit 0。
