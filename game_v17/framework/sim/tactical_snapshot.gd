@@ -37,10 +37,10 @@ extends RefCounted
 ##
 ## 数据口径：docs/34 §8; 05 §S-01…S-07; 01 §5; docs/v2_core_interface.md（world 只读 API）。
 
-const Types := preload("res://sim/sensor_types.gd")
-const RadarModel := preload("res://sim/radar.gd")
-const TwsModel := preload("res://sim/tws.gd")
-const OpticalModel := preload("res://sim/optical.gd")
+const Types := preload("res://framework/sim/sensor_types.gd")
+const RadarModel := preload("res://framework/sim/radar.gd")
+const TwsModel := preload("res://framework/sim/tws.gd")
+const OpticalModel := preload("res://framework/sim/optical.gd")
 ## v15 复用的轨道模型（无 class_name，按路径 preload）：
 ## local_propagate = L1 局部相对运动二阶梯泰勒；local_propagate_rk4 = ≤5 s 步长 RK4。
 const Orbit := preload("res://scripts/orbit_model.gd")

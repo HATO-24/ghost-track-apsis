@@ -81,11 +81,19 @@ const RACK_HEADER_Y := 512.0
 const RACK_ROW_Y := 528.0
 const RACK_ROW_PITCH := 16.0
 const RACK_ROWS_MAX := 5
-const MAST_BTN := Rect2(1704, 490, 140, 14)
+const MAST_BTN := Rect2(1730, 486, 114, 14)
 const RACK_PAGE_BTN := Rect2(1796, 514, 48, 16)
 const DAMAGE_CARD := Rect2(1556, 614, 288, 74)
 const DAMAGE_BTN := Rect2(1556, 668, 120, 16)
 const DAMAGE_POPUP := Rect2(1556, 470, 288, 190)
+# ── P11a：fw 教学/损管/回放增量（V17-UI-1；严格放在右区既有坐标空位/复用弹窗）──
+const TUT_STRIP := Rect2(1556, 486, 170, 14)       # Δv 与传感器架之间，左半；右半留给桅杆键
+const TUT_STRIP_HIT := Rect2(1556, 482, 170, 22)
+const TUT_POPUP := Rect2(1556, 470, 288, 190)      # 复用 DAMAGE_POPUP 区域，同屏互斥
+const TUT_DEC_CHIP := Rect2(1556, 600, 288, 24)    # 弹窗内「裁决入口」置灰/解锁行
+const REPLAY_PLAY := Rect2(1768, 886, 44, 12)
+const REPLAY_SEEK_BAND := Rect2(1216, 944, 628, 40)
+const REPLAY_STATUS := Rect2(1496, 886, 336, 12)
 const LOG_TAB_COMMS := Rect2(64, 888, 168, 18)
 const LOG_TAB_QUEUE := Rect2(240, 888, 168, 18)
 const PRELUDE_HOLD_S := 3.0
@@ -1076,6 +1084,14 @@ var _log_row_rects: Array = []
 var _rclick_prev := false
 var _toast_text := ""
 var _toast_t := 0.0
+# P11a：fw_* 增量缓存（core vm_tutorial/vm_damage/vm_replay 经 state.fw_* 或 bridge 只读）
+var _fw_tut: Dictionary = {}
+var _fw_dmg: Dictionary = {}
+var _fw_rep: Dictionary = {}
+var _fw_refresh_t := 0.0
+var _tut_open := false
+var _dmg_repair_rects: Array = []
+var _fw_ready_shown := false
 
 func _ready() -> void:
 	mono = Fonts.mono()
@@ -1131,6 +1147,17 @@ func _ready() -> void:
 			var demo_step := OS.get_environment("DSH_PRELUDE_STEP")
 			if demo_step != "":
 				_demo_pre_step = clampi(int(demo_step), 0, 2)
+		"fw_tutorial":
+			# V17-UI-1 截图：右区教学门控条 + 小卡（数据 state.fw_tutorial / bridge）
+			_demo_suppress_adjutant = true
+			_tut_open = true
+		"fw_damage":
+			# V17-UI-1 截图：损管卡 + 详情（数据 state.fw_damage / bridge）
+			_demo_suppress_adjutant = true
+			_damage_open = true
+		"fw_replay":
+			# V17-UI-1 截图：REPLAY 区接 state.fw_replay（真实帧；调试钩子只读展示）
+			_demo_suppress_adjutant = true
 		"clean":
 			# P4 截图：正常 HUD 默认态，仅抑制 capture 时自动弹出的副官申请窗口。
 			_demo_suppress_adjutant = true
@@ -1163,6 +1190,11 @@ func _ready() -> void:
 		"pause":
 			pause_open = true
 			_demo_suppress_adjutant = true
+	# V17-UI-1：fw_* 截图/调试准备（真实 bridge 数据；DSH_UI=fw_* 时执行一次，不伪造数据）
+	var dsh_ui := OS.get_environment("DSH_UI")
+	if dsh_ui == "fw_tutorial" or dsh_ui == "fw_damage" or dsh_ui == "fw_replay":
+		_fw_demo_prepare(dsh_ui)
+	_refresh_fw()
 	# P9a 截图钩子：日志/队列页签、损管详情、航行准备长按已充能。
 	var ltab := OS.get_environment("DSH_LOG_TAB")
 	if ltab != "":
@@ -1191,6 +1223,10 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	_fw_refresh_t += delta
+	if _fw_refresh_t >= 0.25:
+		_fw_refresh_t = 0.0
+		_refresh_fw()
 	if _toast_t > 0.0:
 		_toast_t = maxf(0.0, _toast_t - delta)
 	if _optical_open and _optical_stare < 1.0 and not state.capture and not (state != null and state.has_method("channel_status")):
@@ -1515,6 +1551,10 @@ func click(p: Vector2) -> void:
 		_handle_overlay_click(p)
 		queue_redraw()
 		return
+	# P11a：fw 教学条/弹窗、损管维修 chip、回放播放/seek
+	if _handle_fw_click(p):
+		queue_redraw()
+		return
 	# P2b：右区证据面板（派穿梭机取证 / 撤出居民 / 三项菜单）。
 	if _handle_evidence_click(p):
 		queue_redraw()
@@ -1594,6 +1634,17 @@ func consumes(p: Vector2) -> bool:
 	if _ov_prelude():
 		return true
 	if _ov_adjutant():
+		return true
+	# P11a：fw 教学/损管/回放控件（打开时吞点击，避免点穿）
+	if TUT_STRIP_HIT.has_point(p) or REPLAY_PLAY.has_point(p):
+		return true
+	if _tut_open and TUT_POPUP.has_point(p):
+		return true
+	if _damage_open:
+		for dr in _dmg_repair_rects:
+			if (dr["rect"] as Rect2).has_point(p):
+				return true
+	if not _fw_rep.is_empty() and REPLAY_SEEK_BAND.has_point(p):
 		return true
 	if EVID_SHUTTLE.has_point(p) or EVID_EVAC.has_point(p):
 		return true
@@ -2373,8 +2424,30 @@ func _running_evidence_tasks() -> Array:
 func _draw_damage_card() -> void:
 	draw_rect(DAMAGE_CARD, Palette.a(Palette.AMBER, 0.045))
 	draw_rect(DAMAGE_CARD, Palette.a(Palette.AMBER, 0.34), false, 1.0)
-	var u: Dictionary = state.unit
 	_txt(cjk, UNIT_X + 10.0, 624.0, "损管 / DAMAGE CONTROL", 7, Palette.AMBER)
+	if not _fw_dmg.is_empty():
+		# P11a：接 state.fw_damage（core vm_damage）；保持 V15 卡片坐标/字号
+		var sm := _fw_dmg_summary()
+		var sections := _fw_dmg_sections()
+		var queue := _fw_dmg_queue()
+		var top := "全部系统正常 / NOMINAL"
+		var top_state := "nominal"
+		for raw in sections:
+			var sec: Dictionary = raw
+			if String(sec.get("state", "nominal")) != "nominal" and String(sec.get("state", "")) != "repaired":
+				top = String(sec.get("label", "—"))
+				top_state = String(sec.get("state", "degraded"))
+				break
+		_txt_r(mono, 1844, 624.0, "QUEUE %d" % queue.size(), 7, Palette.a(Palette.FAINT, 0.95))
+		_txt(cjk, UNIT_X + 10.0, 641.0, _ellipsis(cjk, top, 8, 268.0), 8,
+			_fw_dmg_color(top_state) if top_state != "nominal" else Palette.PH)
+		_txt(cjk, UNIT_X + 10.0, 655.0, "受损 %d · 降级 %d · 维修中 %d · 总 %d · CORE" % [
+			int(sm.get("damaged", 0)), int(sm.get("degraded", 0)),
+			int(sm.get("repairing", 0)), int(sm.get("total", sections.size()))], 7, Palette.DIM)
+		_cmd_btn(DAMAGE_BTN, "损管详情 / DETAILS", _damage_open, Palette.AMBER)
+		return
+	# 兜底：state.fw_damage 未就绪时保持 V15 原卡（不伪造新数据）
+	var u: Dictionary = state.unit
 	_txt_r(mono, 1844, 624.0, "QUEUE 2", 7, Palette.a(Palette.FAINT, 0.95))
 	var dmg := _dn(String(u.get("damage", "—")))
 	var dmg2 := _dn(String(u.get("damage2", "")))
@@ -2387,10 +2460,75 @@ func _draw_damage_popup() -> void:
 	var r := DAMAGE_POPUP
 	draw_rect(r, Palette.a(Palette.PANEL, 0.99))
 	draw_rect(r, Palette.a(Palette.AMBER, 0.75), false, 1.0)
-	_txt(cjk, r.position.x + 12.0, r.position.y + 18.0, "损管队列 / DAMAGE QUEUE", 9, Palette.AMBER)
-	_txt_r(mono, r.end.x - 12.0, r.position.y + 18.0, "LOCAL RECORD", 7, Palette.a(Palette.FAINT, 0.9))
+	_txt(cjk, r.position.x + 12.0, r.position.y + 18.0, "损管 / DAMAGE CONTROL", 9, Palette.AMBER)
 	draw_line(Vector2(r.position.x + 12.0, r.position.y + 26.0), Vector2(r.end.x - 12.0, r.position.y + 26.0),
 		Palette.a(Palette.AMBER, 0.3), 1.0)
+	_dmg_repair_rects.clear()
+	if not _fw_dmg.is_empty():
+		# P11a：分系统/严重度/维修进度/队列；维修 chip 调 state.fw_start_repair(id)
+		_txt_r(mono, r.end.x - 12.0, r.position.y + 18.0, "CORE vm_damage", 7, Palette.a(Palette.PH_DIM, 0.9))
+		var sections := _fw_dmg_sections()
+		for i in range(mini(3, sections.size())):
+			var sec: Dictionary = sections[i]
+			var st := String(sec.get("state", "nominal"))
+			var col := _fw_dmg_color(st)
+			var y := r.position.y + 44.0 + float(i) * 30.0
+			_txt(mono, r.position.x + 12.0, y, "0%d" % (i + 1), 10, Palette.a(Palette.AMBER, 0.8))
+			_txt(cjk, r.position.x + 38.0, y, _ellipsis(cjk, String(sec.get("label", "—")), 8, 142.0), 8,
+				Palette.TXT if st != "nominal" else Palette.DIM)
+			_txt_r(cjk, r.end.x - 74.0, y, _fw_dmg_state_cn(st), 6, col)
+			var sev := float(sec.get("severity", 0.0))
+			draw_rect(Rect2(r.position.x + 38.0, y + 8.0, 120.0, 2.0), Palette.a(Palette.LINE, 0.6))
+			draw_rect(Rect2(r.position.x + 38.0, y + 8.0, 120.0 * clampf(sev, 0.0, 1.0), 2.0), col)
+			if st == "repairing":
+				var prog := float(sec.get("progress", 0.0))
+				var remain := float(sec.get("repair_remaining_s", 0.0))
+				_txt_r(cjk, r.end.x - 74.0, y + 9.0, "%.0f%% · %.0fs" % [prog * 100.0, remain], 6,
+					Palette.a(Palette.BLUE, 0.9))
+			elif st != "nominal" and bool(sec.get("can_repair", true)):
+				var btn := Rect2(r.end.x - 64.0, y - 9.0, 54.0, 16.0)
+				_dmg_repair_rects.append({"rect": btn, "id": String(sec.get("id", ""))})
+				draw_rect(btn, Palette.a(Palette.AMBER, 0.10))
+				draw_rect(btn, Palette.a(Palette.AMBER, 0.55), false, 1.0)
+				_txt(cjk, btn.position.x + 5.0, btn.position.y + 3.0, "维修 / FIX", 6, Palette.AMBER)
+		var queue := _fw_dmg_queue()
+		var qline := "队列：—"
+		if not queue.is_empty():
+			var parts := ""
+			for raw_q in queue:
+				# core vm_damage queue 为 section id 字符串数组（也兼容 dict）
+				var qid := ""
+				var qlabel := ""
+				var qremain := 0.0
+				if raw_q is Dictionary:
+					var q: Dictionary = raw_q
+					qid = String(q.get("id", q.get("section_id", "")))
+					qlabel = String(q.get("label", ""))
+					qremain = float(q.get("repair_remaining_s", 0.0))
+				else:
+					qid = String(raw_q)
+				for raw_s in _fw_dmg_sections():
+					var sec_scan: Dictionary = raw_s
+					if String(sec_scan.get("id", "")) == qid:
+						if qlabel == "":
+							qlabel = String(sec_scan.get("label", qid))
+						if qremain <= 0.0:
+							qremain = float(sec_scan.get("repair_remaining_s", 0.0))
+						break
+				if qlabel == "":
+					qlabel = qid
+				if parts != "":
+					parts += " · "
+				parts += "%s %.0fs" % [qlabel, qremain]
+			qline = "队列：" + parts
+		_txt(cjk, r.position.x + 12.0, r.position.y + 150.0, _ellipsis(cjk, qline, 7, 264.0), 7,
+			Palette.a(Palette.TXT, 0.9))
+		_txt(cjk, r.position.x + 12.0, r.end.y - 10.0,
+			"点击 维修 / FIX · state.fw_start_repair(id) · 进度由 core world.advance 推进", 6,
+			Palette.a(Palette.FAINT, 0.9))
+		return
+	# 兜底：state.fw_damage 未就绪时保持 V15 演示队列（不伪造新数据）
+	_txt_r(mono, r.end.x - 12.0, r.position.y + 18.0, "LOCAL RECORD", 7, Palette.a(Palette.FAINT, 0.9))
 	var u: Dictionary = state.unit
 	var rows := [
 		["01", String(u.get("damage2", "传感器 / 校准")), "进行中 · 优先 1", Palette.AMBER],
@@ -2521,6 +2659,8 @@ func _draw_unit() -> void:
 
 	# 损管卡（独立状态卡；副官/手册按钮不在此卡内）
 	_draw_damage_card()
+	# P11a：教学门控条（无 state.fw_tutorial 数据时完全不画、不占位）
+	_draw_tut_strip()
 
 	if not own_sel:
 		_draw_target_panel(v, tr, accent)
@@ -2528,6 +2668,8 @@ func _draw_unit() -> void:
 	_draw_evidence_panel()
 	if _damage_open:
 		_draw_damage_popup()
+	if _tut_open:
+		_draw_tut_popup()
 
 	# 底栏：战备 + 工具按钮归位（不与损管队列混排）
 	draw_line(Vector2(1540, 820), Vector2(1860, 820), Palette.a(Palette.LINE, 0.9), 1.0)
@@ -2537,6 +2679,9 @@ func _draw_unit() -> void:
 	_cmd_btn(MANUAL_BTN, "手册 / MANUAL", false, Palette.PH)
 
 func _handle_unit_click(p: Vector2) -> bool:
+	# P11a：教学弹窗外点击关闭（不吞掉该点击）
+	if _tut_open and not TUT_POPUP.has_point(p) and not TUT_STRIP_HIT.has_point(p):
+		_tut_open = false
 	if RACK_PAGE_BTN.has_point(p):
 		var rack := _rack_rows()
 		var pages := maxi(1, int(ceil(float(rack.size()) / float(RACK_ROWS_MAX))))
@@ -2545,6 +2690,7 @@ func _handle_unit_click(p: Vector2) -> bool:
 			_sfx("ui_click")
 		return true
 	if DAMAGE_BTN.has_point(p):
+		_tut_open = false
 		_damage_open = not _damage_open
 		_sfx("ui_open" if _damage_open else "ui_close")
 		return true
@@ -2552,6 +2698,368 @@ func _handle_unit_click(p: Vector2) -> bool:
 		_damage_open = false
 		return true
 	return false
+
+
+# ══ P11a：fw_* 只读数据（教学 / 损管 / 回放；无数据时隐藏不占位）════════════
+
+func _fw_source(name: String) -> Dictionary:
+	if state == null:
+		return {}
+	var fw = state.get("framework")
+	# bridge 归一化快照（tutorial/damage/replay 只读属性）比 state.fw_* 新时优先
+	if fw != null:
+		var bsync := int(fw.get("sync_count")) if fw.get("sync_count") != null else 0
+		var ssync := int(state.get("fw_sync_count")) if state.get("fw_sync_count") != null else 0
+		var prop = fw.get(name)
+		if bsync > ssync and prop is Dictionary and not (prop as Dictionary).is_empty():
+			return prop
+	var raw = state.get("fw_" + name)
+	if raw is Dictionary and not (raw as Dictionary).is_empty():
+		return raw
+	if fw != null:
+		var prop2 = fw.get(name)
+		if prop2 is Dictionary and not (prop2 as Dictionary).is_empty():
+			return prop2
+		if fw.has_method(name):
+			var r = fw.call(name)
+			if r is Dictionary:
+				return r
+	return {}
+
+
+func _refresh_fw() -> void:
+	_fw_tut = _fw_source("tutorial")
+	_fw_dmg = _fw_source("damage")
+	_fw_rep = _fw_source("replay")
+
+
+func _fw_pull_state() -> void:
+	if state != null and state.has_method("_fw_pull"):
+		state.call("_fw_pull")
+	_refresh_fw()
+
+
+func _fw_demo_prepare(ui: String) -> void:
+	if state == null:
+		return
+	var fw = state.get("framework")
+	if fw == null or fw.world == null:
+		return
+	if ui == "fw_replay":
+		# 截图调试：用真实 world 录 18 帧后暂停在 60% 帧（只读回放，不伪造帧）
+		fw.world.replay_start()
+		for i in range(18):
+			fw.world.advance(1.0)
+		fw.world.replay_pause()
+		# 直接操作 world 后 bridge 缓存还是旧快照，必须先 refresh（V17-CORE-1 建议）
+		if fw.has_method("refresh"):
+			fw.call("refresh")
+		var rep: Dictionary = fw.get("replay") if fw.get("replay") is Dictionary else {}
+		var frames: Array = rep.get("frames", []) if rep.get("frames", []) is Array else []
+		if frames.size() > 2:
+			var seek_idx := int(float(frames.size()) * 0.6)
+			# 优先 bridge replay_seek_index；否则 world.replay_seek_index / seek(t)
+			if fw.has_method("replay_seek_index"):
+				fw.call("replay_seek_index", seek_idx)
+			elif fw.world.has_method("replay_seek_index"):
+				fw.world.replay_seek_index(seek_idx)
+			else:
+				var target: Dictionary = frames[seek_idx]
+				fw.world.replay_seek(float(target.get("t", 0.0)))
+		if fw.has_method("refresh"):
+			fw.call("refresh")
+	elif ui == "fw_damage":
+		# 截图调试：真实 start_repair 启动第一项，让截图能看到 queue/进度
+		var dmg: Dictionary = fw.get("damage") if fw.get("damage") is Dictionary else {}
+		var secs: Array = dmg.get("sections", []) if dmg.get("sections", []) is Array else []
+		for raw in secs:
+			var sec: Dictionary = raw
+			if String(sec.get("state", "nominal")) != "nominal" and bool(sec.get("can_repair", true)):
+				if fw.has_method("start_repair"):
+					fw.call("start_repair", String(sec.get("id", "")))
+				break
+		if fw.has_method("refresh"):
+			fw.call("refresh")
+	_fw_pull_state()
+	_refresh_fw()
+	# 调试/验收日志（截图/headless 可 grep）
+	var log_tut: Dictionary = _fw_tut.get("progress", {}) if _fw_tut.get("progress", {}) is Dictionary else {}
+	var log_dmg: Dictionary = _fw_dmg.get("summary", {}) if _fw_dmg.get("summary", {}) is Dictionary else {}
+	var log_rep: Dictionary = _fw_rep
+	print("V17 HUD FW ui=%s tutorial=%d/%d damage=%s replay_total=%d replay_t=%.1f fw_ready=%s" % [
+		ui, int(log_tut.get("done", 0)), int(log_tut.get("need", 0)),
+		JSON.stringify(log_dmg), int(log_rep.get("total", 0)), float(log_rep.get("t", 0.0)),
+		str(state.fw_ready) if state != null else "false"])
+
+
+# ── 教学状态辅助 ─────────────────────────────────────────
+
+func _fw_tut_enabled() -> bool:
+	return bool(_fw_tut.get("enabled", true))
+
+
+func _fw_tut_ready() -> bool:
+	return bool(_fw_tut.get("ready", false))
+
+
+func _fw_tut_actions() -> Array:
+	return _fw_tut.get("actions", []) if _fw_tut.get("actions", []) is Array else []
+
+
+func _fw_tut_progress() -> Vector2i:
+	var p: Dictionary = _fw_tut.get("progress", {}) if _fw_tut.get("progress", {}) is Dictionary else {}
+	return Vector2i(int(p.get("done", 0)), maxi(1, int(p.get("need", 1))))
+
+
+func _fw_tut_gate_reason() -> String:
+	if state != null:
+		var r = state.get("fw_decision_reason")
+		if r is String and String(r) != "":
+			return String(r)
+	var prog := _fw_tut_progress()
+	if _fw_tut_ready():
+		return String(_fw_tut.get("done_text", "识别链完成，决策权限已解锁。"))
+	var hint := String(_fw_tut.get("hint", ""))
+	hint = hint.replace("{need}", str(prog.y)).replace("{done}", str(prog.x))
+	if hint == "":
+		hint = "教学门控：识别不足（%d/%d）" % [prog.x, prog.y]
+	return hint
+
+
+func _fw_step_glyph(act: Dictionary) -> String:
+	if bool(act.get("done", false)):
+		return "✓"
+	if bool(act.get("available", true)):
+		return "●"
+	return "✕"
+
+
+func _fw_step_cn(act: Dictionary) -> String:
+	if bool(act.get("done", false)):
+		return "完成"
+	if bool(act.get("available", true)):
+		return "可执行"
+	return "未解锁"
+
+
+func _fw_step_color(act: Dictionary) -> Color:
+	if bool(act.get("done", false)):
+		return Palette.PH
+	if bool(act.get("available", true)):
+		return Palette.AMBER
+	return Palette.FAINT
+
+
+func _draw_tut_strip() -> void:
+	if _fw_tut.is_empty() or not _fw_tut_enabled():
+		return
+	var prog := _fw_tut_progress()
+	var ready := _fw_tut_ready()
+	var col: Color = Palette.PH if ready else Palette.AMBER
+	draw_rect(TUT_STRIP, Palette.a(col, 0.05))
+	draw_rect(TUT_STRIP, Palette.a(col, 0.30), false, 1.0)
+	_txt(cjk, TUT_STRIP.position.x + 6.0, TUT_STRIP.position.y + 10.0, "教学 / TUTORIAL", 7, col)
+	_txt(mono, TUT_STRIP.position.x + 84.0, TUT_STRIP.position.y + 10.0, "%d/%d" % [prog.x, prog.y], 7,
+		Palette.PH if ready else Palette.AMBER)
+	# 详情放弹出卡；条上只留门控状态，避免和桅杆键抢宽度。
+	_txt_r(cjk, TUT_STRIP.end.x - 4.0, TUT_STRIP.position.y + 10.0,
+		"READY" if ready else "门控", 6, Palette.PH if ready else Palette.AMBER)
+
+
+func _draw_tut_popup() -> void:
+	if _fw_tut.is_empty() or not _fw_tut_enabled():
+		return
+	var r := TUT_POPUP
+	draw_rect(r, Palette.a(Palette.PANEL, 0.99))
+	draw_rect(r, Palette.a(Palette.AMBER if not _fw_tut_ready() else Palette.PH, 0.75), false, 1.0)
+	var prog := _fw_tut_progress()
+	_txt(cjk, r.position.x + 12.0, r.position.y + 18.0, "教学门控 / TUTORIAL", 9, Palette.AMBER)
+	_txt_r(mono, r.end.x - 12.0, r.position.y + 18.0, "%d/%d" % [prog.x, prog.y], 8,
+		Palette.PH if _fw_tut_ready() else Palette.AMBER)
+	draw_line(Vector2(r.position.x + 12.0, r.position.y + 26.0), Vector2(r.end.x - 12.0, r.position.y + 26.0),
+		Palette.a(Palette.AMBER, 0.3), 1.0)
+	var acts := _fw_tut_actions()
+	for i in range(mini(4, acts.size())):
+		var act: Dictionary = acts[i]
+		var y := r.position.y + 44.0 + float(i) * 20.0
+		var acol := _fw_step_color(act)
+		_txt(mono, r.position.x + 12.0, y, _fw_step_glyph(act), 10, acol)
+		_txt(cjk, r.position.x + 28.0, y, _ellipsis(cjk, String(act.get("label", act.get("id", ""))), 8, 150.0),
+			8, Palette.TXT if bool(act.get("done", false)) or bool(act.get("available", true)) else Palette.DIM)
+		_txt_r(cjk, r.end.x - 12.0, y, _fw_step_cn(act), 7, acol)
+		var reason := String(act.get("reason", ""))
+		if reason != "" and not bool(act.get("available", true)):
+			_txt(cjk, r.position.x + 28.0, y + 9.0, _ellipsis(cjk, reason, 6, 248.0), 6,
+				Palette.a(Palette.FAINT, 0.9))
+	# 门控原因
+	_txt(cjk, r.position.x + 12.0, r.position.y + 130.0,
+		_ellipsis(cjk, _fw_tut_gate_reason(), 6, 264.0), 6,
+		Palette.a(Palette.AMBER, 0.9) if not _fw_tut_ready() else Palette.PH)
+	# 裁决入口（未完成 → 置灰 + 原因；完成 → 解锁）
+	var ready := _fw_tut_ready()
+	var dec_col: Color = Palette.PH if ready else Palette.FAINT
+	draw_rect(TUT_DEC_CHIP, Palette.a(dec_col, 0.06 if not ready else 0.12))
+	draw_rect(TUT_DEC_CHIP, Palette.a(dec_col, 0.55 if ready else 0.28), false, 1.0)
+	_txt(cjk, TUT_DEC_CHIP.position.x + 10.0, TUT_DEC_CHIP.position.y + 8.0,
+		"裁决入口 / DECISION", 8, dec_col)
+	if ready:
+		_txt_r(cjk, TUT_DEC_CHIP.end.x - 10.0, TUT_DEC_CHIP.position.y + 8.0, "已解锁 / READY", 7, Palette.PH)
+		_txt(cjk, TUT_DEC_CHIP.position.x + 10.0, TUT_DEC_CHIP.position.y + 18.0,
+			"识别链完成，执行窗口到点自动开启裁决", 6, Palette.a(Palette.PH_DIM, 0.95))
+	else:
+		_txt_r(cjk, TUT_DEC_CHIP.end.x - 10.0, TUT_DEC_CHIP.position.y + 8.0,
+			"置灰 · 识别不足 %d/%d" % [prog.x, prog.y], 7, Palette.AMBER)
+		_txt(cjk, TUT_DEC_CHIP.position.x + 10.0, TUT_DEC_CHIP.position.y + 18.0,
+			_ellipsis(cjk, _fw_tut_gate_reason(), 6, 268.0), 6, Palette.a(Palette.AMBER, 0.9))
+	_txt(cjk, r.end.x - 12.0, r.end.y - 10.0, "点击条/面板外关闭 · state.fw_tutorial", 6,
+		Palette.a(Palette.FAINT, 0.9))
+
+
+func _handle_fw_click(p: Vector2) -> bool:
+	# 教学条 / 弹窗
+	if TUT_STRIP_HIT.has_point(p):
+		_tut_open = not _tut_open
+		if _tut_open:
+			_damage_open = false
+		_sfx("ui_open" if _tut_open else "ui_close")
+		return true
+	if _tut_open:
+		if TUT_POPUP.has_point(p) or TUT_DEC_CHIP.has_point(p):
+			return true
+	# 损管维修 chip
+	if _damage_open:
+		for raw in _dmg_repair_rects:
+			var d: Dictionary = raw
+			if (d["rect"] as Rect2).has_point(p):
+				_fw_start_repair(String(d["id"]))
+				return true
+	# 回放：播放/暂停 + 时间轴 seek
+	if not _fw_rep.is_empty():
+		if REPLAY_PLAY.has_point(p):
+			_fw_replay_toggle()
+			return true
+		if REPLAY_SEEK_BAND.has_point(p):
+			_fw_replay_seek_x(p.x)
+			return true
+	return false
+
+
+# ── 损管 fw 辅助 ─────────────────────────────────────────
+
+func _fw_dmg_summary() -> Dictionary:
+	return _fw_dmg.get("summary", {}) if _fw_dmg.get("summary", {}) is Dictionary else {}
+
+
+func _fw_dmg_sections() -> Array:
+	return _fw_dmg.get("sections", []) if _fw_dmg.get("sections", []) is Array else []
+
+
+func _fw_dmg_queue() -> Array:
+	return _fw_dmg.get("queue", []) if _fw_dmg.get("queue", []) is Array else []
+
+
+func _fw_dmg_state_cn(s: String) -> String:
+	match s:
+		"damaged":
+			return "受损 DAMAGED"
+		"degraded":
+			return "降级 DEGRADED"
+		"repairing":
+			return "维修中 REPAIRING"
+		_:
+			return "正常 NOMINAL"
+
+
+func _fw_dmg_color(s: String) -> Color:
+	match s:
+		"damaged":
+			return Palette.RED
+		"degraded":
+			return Palette.AMBER
+		"repairing":
+			return Palette.BLUE
+		_:
+			return Palette.PH
+
+
+func _fw_start_repair(id: String) -> void:
+	if id == "":
+		return
+	var r: Dictionary = {}
+	if state != null:
+		for m in ["fw_start_repair", "fw_repair_start"]:
+			if state.has_method(m):
+				var raw = state.call(m, id)
+				if raw is Dictionary:
+					r = raw
+				break
+	if r.is_empty():
+		var fw = state.get("framework") if state != null else null
+		if fw != null and fw.has_method("start_repair"):
+			var raw2 = fw.call("start_repair", id)
+			if raw2 is Dictionary:
+				r = raw2
+			if fw.has_method("refresh"):
+				fw.call("refresh")
+	_fw_pull_state()
+	_refresh_fw()
+	var ok := bool(r.get("ok", true)) and String(r.get("reason", "")) == ""
+	_toast_text = "损管：%s %s" % [id, "启动维修 · QUEUE" if ok else String(r.get("reason", "不可用"))]
+	_toast_t = 2.2
+
+
+# ── 回放 fw 辅助 ─────────────────────────────────────────
+
+func _fw_replay_playing() -> bool:
+	return bool(_fw_rep.get("playing", false))
+
+
+func _fw_call_fw(methods: Array, args: Array = []) -> Dictionary:
+	if state != null:
+		for m in methods:
+			if state.has_method(m):
+				var raw = state.callv(m, args)
+				return raw as Dictionary if raw is Dictionary else {}
+	var fw = state.get("framework") if state != null else null
+	if fw != null:
+		for m in methods:
+			if fw.has_method(m):
+				var raw2 = fw.callv(m, args)
+				if fw.has_method("refresh"):
+					fw.call("refresh")
+				return raw2 as Dictionary if raw2 is Dictionary else {}
+	return {}
+
+
+func _fw_replay_toggle() -> void:
+	var playing := _fw_replay_playing()
+	var methods := ["fw_replay_pause", "replay_pause"] if playing else ["fw_replay_start", "replay_start"]
+	var r := _fw_call_fw(methods)
+	if r.is_empty():
+		# 最后兜底：bridge replay_view 的暂停/开始
+		var fw = state.get("framework") if state != null else null
+		if fw != null:
+			if playing and fw.has_method("replay_pause"):
+				fw.call("replay_pause")
+			elif not playing and fw.has_method("replay_start"):
+				fw.call("replay_start")
+	_toast_text = "回放：%s" % ("暂停（仿真冻结）" if not playing else "播放")
+	_toast_t = 1.8
+	_fw_pull_state()
+	_refresh_fw()
+
+
+func _fw_replay_seek_x(x: float) -> void:
+	var frames: Array = _fw_rep.get("frames", []) if _fw_rep.get("frames", []) is Array else []
+	if frames.is_empty():
+		return
+	var t0 := float((frames[0] as Dictionary).get("t", 0.0))
+	var t1 := float((frames[frames.size() - 1] as Dictionary).get("t", t0))
+	var frac := clampf((x - REPLAY_SEEK_BAND.position.x) / maxf(1.0, REPLAY_SEEK_BAND.size.x), 0.0, 1.0)
+	var t := t0 + (t1 - t0) * frac
+	_fw_call_fw(["fw_replay_seek", "replay_seek"], [t])
+	_fw_pull_state()
+	_refresh_fw()
 
 
 func _draw_ship_watermark() -> void:
@@ -4844,6 +5352,9 @@ func _draw_layers_panel() -> void:
 
 # ── Esc 层级：先关战术弹窗，再交给暂停菜单 ────────────
 func _close_top_popup() -> bool:
+	if _tut_open:
+		_tut_open = false
+		return true
 	if _ctx_open:
 		_close_ctx()
 		return true
@@ -4862,7 +5373,27 @@ func _close_top_popup() -> bool:
 func _draw_time() -> void:
 	_panel(TIME)
 	_txt(cjk, 1216, 892, "态势回放 / REPLAY", 8, Palette.TXT)
-	_txt_r(cjk, 1844, 892, "60 秒缓冲 / BUFFER", 7, Palette.FAINT)
+	var has_rep := not _fw_rep.is_empty()
+	var rep := _fw_rep
+	var rtotal := int(rep.get("total", 0)) if has_rep else 0
+	var ridx := int(rep.get("index", 0)) if has_rep else 0
+	var rt := float(rep.get("t", 0.0)) if has_rep else 0.0
+	var frame_t := 0.0
+	var rplaying := bool(rep.get("playing", false)) if has_rep else false
+	if has_rep:
+		var rs := "REC · %d 帧" % rtotal
+		if rplaying:
+			rs = "REPLAY ▶ · 帧 %d/%d" % [ridx + 1, rtotal]
+		elif bool(rep.get("paused", false)):
+			rs = "REPLAY ❚❚ · 帧 %d/%d" % [ridx + 1, rtotal]
+		_txt_r(mono, 1758, 892, rs, 7, Palette.AMBER if rplaying else Palette.a(Palette.PH, 0.9))
+		# ▶/❚❚ 播放暂停（state.fw_replay）
+		draw_rect(REPLAY_PLAY, Palette.a(Palette.PANEL2, 0.9))
+		draw_rect(REPLAY_PLAY, Palette.a(Palette.BLUE if not rplaying else Palette.PH, 0.55), false, 1.0)
+		_txt(mono, REPLAY_PLAY.position.x + 14.0, REPLAY_PLAY.position.y + 10.0, "▶" if not rplaying else "❚❚",
+			8, Palette.PH if not rplaying else Palette.BLUE)
+	else:
+		_txt_r(cjk, 1844, 892, "60 秒缓冲 / BUFFER", 7, Palette.FAINT)
 
 	time_rects.clear()
 	var scales := [1.0, 10.0, 60.0, 300.0]
@@ -4884,29 +5415,76 @@ func _draw_time() -> void:
 	var x1 := 1844.0
 	var w := x1 - x0
 	var y := 964.0
-	draw_rect(Rect2(x0, 952, w * 0.20, 24), Palette.a(Palette.PH, 0.025))
 	draw_line(Vector2(x0, y), Vector2(x1, y), Palette.a(Palette.LINE2, 0.9), 1.0)
 	for i in range(13):
 		var x := x0 + w * float(i) / 12.0
 		var h := 9.0 if i % 3 == 0 else 4.0
 		draw_line(Vector2(x, y - h), Vector2(x, y), Palette.a(Palette.PH_DIM, 0.70), 1.0)
-	var events := [0.18, 0.42, 0.66, 0.86]
-	var ecols := [Palette.AMBER, Palette.PH, Palette.AMBER, Palette.BLUE]
-	for i in range(events.size()):
-		var ex := x0 + w * float(events[i])
-		draw_line(Vector2(ex, y - 10), Vector2(ex, y + 3), Palette.a(ecols[i], 0.28), 1.0)
-		draw_circle(Vector2(ex, y), 3.0, Palette.a(ecols[i], 0.85))
-	draw_line(Vector2(x1, 952), Vector2(x1, 976), Palette.PH, 2.0)
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(x1, 944), Vector2(x1 + 6, 952), Vector2(x1 - 6, 952)
-	]), Palette.PH)
-	_txt(mono, x0, 980, "T-60", 8, Palette.FAINT)
-	_txt(mono, x0 + w * 0.5 - 12.0, 980, "T-30", 8, Palette.FAINT)
-	_txt_r(mono, x1, 980, "NOW", 8, Palette.PH)
+	if has_rep:
+		# P11a：state.fw_replay 真实帧 → 时间轴（帧 change 标记 + 播放头）
+		var frames: Array = rep.get("frames", []) if rep.get("frames", []) is Array else []
+		var t0 := 0.0
+		var t1 := 0.0
+		if not frames.is_empty():
+			t0 = float((frames[0] as Dictionary).get("t", 0.0))
+			t1 = float((frames[frames.size() - 1] as Dictionary).get("t", t0))
+		if t1 <= t0:
+			t1 = t0 + 1.0
+		draw_rect(Rect2(x0, 952, w, 24), Palette.a(Palette.BLUE, 0.025))
+		var last_sig := ""
+		for fi in range(frames.size()):
+			var fr: Dictionary = frames[fi]
+			var sig := "%s|%s|%s|%s" % [String(fr.get("phase", "")), String(fr.get("kind", "")),
+				str(bool(fr.get("decision_made", false))), str(bool(fr.get("ended", false)))]
+			var changed := fi == 0 or sig != last_sig
+			if not changed:
+				continue
+			last_sig = sig
+			var fx := x0 + w * (float(fr.get("t", t0)) - t0) / (t1 - t0)
+			var ecol: Color = Palette.BLUE
+			if bool(fr.get("decision_made", false)) or bool(fr.get("ended", false)):
+				ecol = Palette.AMBER
+			elif String(fr.get("phase", "")) == "command":
+				ecol = Palette.PH
+			draw_line(Vector2(fx, y - 9), Vector2(fx, y + 3), Palette.a(ecol, 0.30), 1.0)
+			draw_circle(Vector2(fx, y), 2.5, Palette.a(ecol, 0.85))
+		# 播放头按帧索引定位（core replay_seek 改 index；首末帧 t 仅作标签）
+		frame_t = rt
+		if ridx >= 0 and ridx < frames.size():
+			frame_t = float((frames[ridx] as Dictionary).get("t", rt))
+		var px := x0 + w * clampf(float(ridx) / maxf(1.0, float(rtotal - 1)), 0.0, 1.0)
+		draw_line(Vector2(px, 948), Vector2(px, 980), Palette.PH, 2.0)
+		draw_colored_polygon(PackedVector2Array([
+			Vector2(px, 940), Vector2(px + 5, 948), Vector2(px - 5, 948)
+		]), Palette.PH)
+		_txt(mono, x0, 980, "T+%.0f" % t0, 8, Palette.FAINT)
+		_txt(mono, x0 + w * 0.5 - 16.0, 980, "T+%.0f" % ((t0 + t1) * 0.5), 8, Palette.FAINT)
+		_txt_r(mono, x1, 980, "帧 %d/%d" % [ridx + 1, rtotal], 8, Palette.PH)
+	else:
+		# 兜底：state.fw_replay 未就绪时保持 V15 基线时间轴
+		draw_rect(Rect2(x0, 952, w * 0.20, 24), Palette.a(Palette.PH, 0.025))
+		var events := [0.18, 0.42, 0.66, 0.86]
+		var ecols := [Palette.AMBER, Palette.PH, Palette.AMBER, Palette.BLUE]
+		for i in range(events.size()):
+			var ex := x0 + w * float(events[i])
+			draw_line(Vector2(ex, y - 10), Vector2(ex, y + 3), Palette.a(ecols[i], 0.28), 1.0)
+			draw_circle(Vector2(ex, y), 3.0, Palette.a(ecols[i], 0.85))
+		draw_line(Vector2(x1, 952), Vector2(x1, 976), Palette.PH, 2.0)
+		draw_colored_polygon(PackedVector2Array([
+			Vector2(x1, 944), Vector2(x1 + 6, 952), Vector2(x1 - 6, 952)
+		]), Palette.PH)
+		_txt(mono, x0, 980, "T-60", 8, Palette.FAINT)
+		_txt(mono, x0 + w * 0.5 - 12.0, 980, "T-30", 8, Palette.FAINT)
+		_txt_r(mono, x1, 980, "NOW", 8, Palette.PH)
 
 	draw_line(Vector2(1200, 996), Vector2(1860, 996), Palette.a(Palette.LINE, 0.5), 1.0)
-	_txt(cjk, 1216, 1004, "记忆衰减 60s · 事件已标记", 7, Palette.FAINT)
-	_txt_r(mono, 1844, 1004, "CURSOR T+12:31.4", 7, Palette.a(Palette.AMBER, 0.55))
+	if has_rep:
+		var notes := "回放：帧 %d/%d · T+%.1f · 仿真冻结（state 控制）" % [ridx + 1, rtotal, frame_t]
+		_txt(cjk, 1216, 1004, notes, 7, Palette.a(Palette.PH_DIM, 0.95))
+		_txt_r(cjk, 1844, 1004, "点击时间轴 seek · ▶/❚❚ 播放暂停", 7, Palette.a(Palette.AMBER, 0.75))
+	else:
+		_txt(cjk, 1216, 1004, "记忆衰减 60s · 事件已标记", 7, Palette.FAINT)
+		_txt_r(mono, 1844, 1004, "CURSOR T+12:31.4", 7, Palette.a(Palette.AMBER, 0.55))
 
 # ── 传感器条 / 阵列下拉 ────────────────────────────────
 

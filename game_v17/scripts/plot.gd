@@ -22,6 +22,7 @@ const Fonts := preload("res://scripts/fonts.gd")
 const Palette := preload("res://scripts/pal.gd")
 const Orbit := preload("res://scripts/orbit_model.gd")
 const CommandModel := preload("res://scripts/command_model.gd")
+const TWSBridge := preload("res://scripts/tws_bridge.gd")
 
 # P1a：历史 / 预测窗口（秒）与采样
 const PRED_HORIZON := 300.0
@@ -29,6 +30,9 @@ const PRED_STEPS := 60
 const HIST_HORIZON := 60.0
 const HIST_STEPS := 24
 const PRED_TICKS := [60.0, 120.0, 300.0]
+
+# V17-SENSOR-1：TWS 状态环半径（px）
+const TWS_RING_R := 21.0
 
 # ── 相机 / 模式 ────────────────────────────────────────
 const DIST_DEFAULT := 520000.0
@@ -78,6 +82,12 @@ var _tile_pos: Array[Vector2] = []
 var _cut_delay: Array[float] = []
 var _mode_cut_delay: Array[float] = []
 
+# V17-SENSOR-1：TWS / 球形雷达桥（只读 state；plot 只拿数据画 V15 1px 线框）
+var _tws_bridge = null
+var _tws_step: Dictionary = {}
+var _tws_warned := false
+var _v17_env_done := false
+
 # 由 _update_camera() 推导
 var _cam_pos := Vector3.ZERO
 var _fwd := Vector3.FORWARD
@@ -106,6 +116,7 @@ func _process(delta: float) -> void:
 		if mode_fx_t > MODE_CUT:
 			mode_fx_t = -1.0
 	_update_mode()
+	_v17_tws_tick()
 	queue_redraw()
 
 func _update_mode() -> void:
@@ -319,8 +330,12 @@ func _draw_3d() -> void:
 				var cp := _contact_pos3(tt)
 				if _ok(cp):
 					_label_rects.append(Rect2(cp + Vector2(10, -38), Vector2(250, 56)).grow(4.0))
+	if _layer_on("radar"):
+		_draw_radar_sphere()
 	if _layer_on("contacts"):
 		_draw_contacts()
+	if _layer_on("stations"):
+		_draw_fixed_assets(false)
 	_draw_own()
 	_draw_interaction_overlays()
 	for it in _pending_contact_labels:
@@ -341,8 +356,12 @@ func _draw_planar() -> void:
 	if _layer_on("stations"):
 		_draw_planar_rings()
 		_draw_planar_bodies()
+	if _layer_on("radar"):
+		_draw_radar_sphere()
 	if _layer_on("contacts"):
 		_draw_planar_contacts()
+	if _layer_on("stations"):
+		_draw_fixed_assets(true)
 	_draw_planar_own()
 	_draw_interaction_overlays()
 	if _layer_on("radar"):
@@ -1457,6 +1476,194 @@ func _draw_own() -> void:
 	else:
 		_txt(mono, p.x + 16.0, p.y + 21.0, "本舰 · 400 km", 7, Palette.a(Palette.PH_DIM, 0.9))
 
+# ══ V17-SENSOR-1：V2 TWS / 球形雷达（只读 state.tracks / sensor_on）══
+
+func _v17_tws_ensure() -> void:
+	if _tws_bridge != null or state == null:
+		return
+	# 截图/演示钩子：DSH_V17_RADAR=1 提前手动开 YW-R9（不改 state.gd；走公开 set_sensor）
+	if not _v17_env_done:
+		_v17_env_done = true
+		if OS.get_environment("DSH_V17_RADAR") == "1" and state.has_method("set_sensor"):
+			if not bool(state.call("get_sensor_on", "harmattan", 0)):
+				state.call("set_sensor", "harmattan", 0, true)
+	_tws_bridge = TWSBridge.new(state, {
+		"ship": "harmattan", "radar_model": "YW-R9",
+		"optical_model": "MS-OT2", "ir_model": "CH-IR2",
+	})
+	if _tws_bridge == null and not _tws_warned:
+		print("[V17 SENSOR] tws_bridge 创建失败")
+		_tws_warned = true
+
+func _v17_tws_tick() -> void:
+	_v17_tws_ensure()
+	if _tws_bridge == null:
+		return
+	# dt<0：按 state.tau() 差值追帧（DSH_CLOCK 截图时一次补齐）；V2 模型只读 state
+	var out: Dictionary = _tws_bridge.step(-1.0)
+	if bool(out.get("ok", false)):
+		_tws_step = out
+
+func _v17_tws_step_now() -> Dictionary:
+	if not _tws_step.is_empty():
+		return _tws_step
+	_v17_tws_tick()
+	return _tws_step
+
+func _v17_radar_sphere() -> Dictionary:
+	var v = _v17_tws_step_now().get("sphere", {})
+	return v if v is Dictionary else {}
+
+func _v17_tws_channels() -> Array:
+	var v = _v17_tws_step_now().get("channels", [])
+	return v if v is Array else []
+
+func _v17_tws_visible() -> bool:
+	return OS.get_environment("DSH_V17_TWS") != "0"
+
+
+func _v17_exposure_line() -> String:
+	if _tws_bridge == null:
+		return "球面搜索 · V2 传感器模型未装配"
+	return String(_tws_bridge.exposure_line())
+
+func _v17_own_track() -> Dictionary:
+	for raw in state.tracks:
+		if raw is Dictionary and bool((raw as Dictionary).get("own", false)):
+			return raw
+	return {}
+
+func _v17_fmt_km(km: float) -> String:
+	var n := int(roundf(km))
+	if n >= 1000:
+		return "%d,%03d" % [n / 1000, n % 1000]
+	if n >= 100:
+		return "%d" % n
+	return "%.1f" % km
+
+func _tws_ellipse(c: Vector2, rx: float, ry: float, rot: float) -> Array[Vector2]:
+	var pts: Array[Vector2] = []
+	for i in range(0, 73, 3):
+		var a := deg_to_rad(float(i))
+		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry).rotated(rot))
+	return pts
+
+## 球形搜索范围：V2 R_eff 按当前地图投影（3D 透视 / 平面比例尺）。1px 线 + 球壳经线。
+## 不是扇形、不是示意圆：半径直接来自 bridge.radar_sphere().effective_radius_km。
+func _draw_radar_sphere() -> void:
+	_v17_tws_ensure()
+	if _tws_bridge == null:
+		return
+	var sph := _v17_radar_sphere()
+	if sph.is_empty() or not bool(sph.get("available", false)):
+		return
+	if not bool(sph.get("active", false)):
+		return   # 关闭 / EMCON：不画
+	var own := _v17_own_track()
+	if own.is_empty():
+		return
+	var km := _track_km(own, _tau_now())
+	var c := _p2(km) if ortho else _p3(km * 1000.0)
+	if not _ok(c):
+		return
+	var eff := float(sph.get("effective_radius_km", 0.0))
+	if eff <= 0.0:
+		return
+	var true_px := eff * _planar_scale
+	if not ortho:
+		true_px = eff * _px_per_km(km)
+	var max_r := minf(size.x, size.y) * 0.46
+	var clamped := true_px > max_r
+	var r := clampf(true_px, 8.0, max_r)
+	var alpha := 0.30
+	# 外轮廓（球体投影圆）+ 球壳经线（1px；不是扇形）
+	draw_arc(c, r, 0, TAU, 96, Palette.a(Palette.PH, alpha), 1.0, true)
+	_polyline(_tws_ellipse(c, r, r * 0.42, 0.0), Palette.a(Palette.PH, alpha * 0.42), 1.0)
+	_polyline(_tws_ellipse(c, r, r * 0.42, PI * 0.5), Palette.a(Palette.PH, alpha * 0.42), 1.0)
+	draw_arc(c, r * 0.42, 0, TAU, 48, Palette.a(Palette.PH, alpha * 0.30), 1.0, true)
+	# 中心十字 + 半径刻度（V2 R_eff 真实值标注）
+	draw_line(c - Vector2(9.0, 0.0), c + Vector2(9.0, 0.0), Palette.a(Palette.PH, 0.60), 1.0)
+	draw_line(c - Vector2(0.0, 9.0), c + Vector2(0.0, 9.0), Palette.a(Palette.PH, 0.60), 1.0)
+	draw_line(c + Vector2(r, 0.0), c + Vector2(r + 7.0, 0.0), Palette.a(Palette.PH, 0.55), 1.0)
+	# 标注固定在右下角（1px 引线指向球壳），避免压住本舰/点火/命令注记
+	var anchor := Vector2(size.x - 272.0, size.y - 260.0)
+	var dirv := anchor - c
+	if dirv.length() > r + 2.0:
+		draw_line(c + dirv.normalized() * r, anchor, Palette.a(Palette.PH, 0.26), 1.0)
+	# 弱底衬保证 7pt 标注可读（V15 面板风；1px 边框，不抢主标签）
+	var tws_vis := _v17_tws_visible()
+	var line_n := 3 if tws_vis else 2
+	draw_rect(Rect2(anchor - Vector2(4.0, 10.0), Vector2(258.0, 8.0 + 11.0 * line_n)),
+		Palette.a(Palette.BG, 0.64))
+	draw_rect(Rect2(anchor - Vector2(4.0, 10.0), Vector2(258.0, 8.0 + 11.0 * line_n)),
+		Palette.a(Palette.LINE, 0.35), false, 1.0)
+	var label := "SPHERICAL SEARCH · R_eff %s km" % _v17_fmt_km(eff)
+	_txt(mono, anchor.x, anchor.y, label, 7, Palette.a(Palette.PH, 0.92))
+	var sub := "球面搜索 · V2 球体半径（非扇形）"
+	if clamped:
+		sub += " · 视界外按视界压缩"
+	if ortho:
+		sub += " · 平面比例尺"
+	_txt(mono, anchor.x, anchor.y + 11.0, sub, 7, Palette.a(Palette.PH, 0.62))
+	if tws_vis:
+		var chans := _v17_tws_channels()
+		if not chans.is_empty():
+			var act := 0
+			for raw in chans:
+				if raw is Dictionary and bool((raw as Dictionary).get("active", false)):
+					act += 1
+			_txt(mono, anchor.x, anchor.y + 22.0, "TWS %d CH · %d ACTIVE · 状态环在接触旁" % [chans.size(), act], 7, Palette.a(Palette.BLUE, 0.80))
+
+## TWS 通道状态环 + 短标签（蓝 = SEARCH..STARE，琥珀 = FIRE_CONTROL；不抢主标签）。
+func _draw_tws_channels() -> void:
+	if _tws_bridge == null or not _v17_tws_visible():
+		return
+	var sph := _v17_radar_sphere()
+	if sph.is_empty() or not bool(sph.get("active", false)):
+		return
+	for raw in _v17_tws_channels():
+		if not (raw is Dictionary):
+			continue
+		var ch: Dictionary = raw
+		var tid := String(ch.get("target_track_id", ""))
+		var tr: Dictionary = state.track_by_id(tid)
+		if tr.is_empty() or bool(tr.get("own", false)):
+			continue
+		var p := _track_pos(tr)
+		if not _ok(p):
+			continue
+		_draw_tws_ring(p, ch)
+
+func _draw_tws_ring(p: Vector2, ch: Dictionary) -> void:
+	var st := String(ch.get("state", "SEARCH"))
+	var idx := int(ch.get("state_index", -1))
+	var q := clampf(float(ch.get("quality", 0.0)), 0.0, 1.0)
+	var fire := st == "FIRE_CONTROL"
+	var col: Color = Palette.AMBER if fire else Palette.BLUE
+	var dim := 0.22 if bool(ch.get("active", false)) else 0.10
+	var rr := TWS_RING_R
+	draw_arc(p, rr, 0, TAU, 40, Palette.a(col, dim), 1.0, true)
+	# quality 弧（12 点起顺时针）
+	if q > 0.005:
+		draw_arc(p, rr - 3.5, -PI * 0.5, -PI * 0.5 + TAU * q, 40, Palette.a(col, 0.48), 1.0, true)
+	# 六态刻度：当前态高亮短弧，其余弱刻度
+	for i in range(6):
+		var a := -PI * 0.5 + TAU * float(i) / 6.0
+		var d := Vector2(cos(a), sin(a))
+		if i == idx:
+			draw_arc(p, rr, a - 0.11, a + 0.11, 6, Palette.a(col, 0.95), 2.0, true)
+			draw_line(p + d * (rr + 2.0), p + d * (rr + 5.0), Palette.a(col, 0.90), 1.0)
+		else:
+			draw_line(p + d * rr, p + d * (rr + 2.5), Palette.a(col, 0.20), 1.0)
+	# 短标签：接触左下方，避让 V15 主标签（主标签在右上/off 方向）
+	var txt := "%s %d%%" % [String(ch.get("short", st)), int(round(q * 100.0))]
+	if fire:
+		txt += " · FC"
+	var la := 0.86 if bool(ch.get("active", false)) else 0.45
+	var tw := 10.0 + float(txt.length()) * 4.2
+	draw_rect(Rect2(p.x - 63.0, p.y + 18.0, tw, 11.0), Palette.a(Palette.BG, 0.55))
+	_txt(mono, p.x - 62.0, p.y + 27.0, txt, 7, Palette.a(col, la))
+
 # ── 传感器规则图层（P1c）───────────────────────────────
 
 func _fleet_on(ship: String, model: String) -> bool:
@@ -1521,6 +1728,8 @@ func _draw_sensor() -> void:
 	# 6) 选中的通信模块：链路
 	if typ == "radio" or typ == "lasercom":
 		_draw_comm_links(o)
+	# 7) V2 TWS 通道状态环 / 短标签（球形雷达开启时；不抢主标签）
+	_draw_tws_channels()
 	_draw_sensor_label(s, typ)
 
 func _layer_label(txt: String, col: Color, sub := "") -> void:
@@ -1529,8 +1738,8 @@ func _layer_label(txt: String, col: Color, sub := "") -> void:
 	if sub != "":
 		_txt(mono, size.x - 252.0, 228.0, sub, 7, Palette.a(col, 0.40))
 
-# EMIT 暴露状态：只标真实含义（主动传感器开机 → 可能被对方 ELINT 截获）；
-# 截获半径/扫描范围未建模，不画示意圆或扇形。
+# EMIT 暴露状态：主动传感器开机 → 可能被对方 ELINT 截获；
+# 截获/球面搜索范围由 V2 tws_bridge 提供（球形 R_eff），不再画示意圆/扇形。
 func _draw_emit_status(o: Vector2) -> void:
 	var ems: Array = state.emission.get("emitters", [])
 	var s := "EMIT 暴露 · 主动传感器开机"
@@ -1544,7 +1753,7 @@ func _draw_emit_status(o: Vector2) -> void:
 				best = e
 		s += " · %s（%s）" % [String(best.get("model", "")), String(best.get("owner", "")).to_upper()]
 	_txt(mono, o.x - 150.0, o.y - 22.0, s, 7, Palette.a(Palette.AMBER, 0.85))
-	_txt(mono, o.x - 150.0, o.y - 10.0, "截获半径/扫描范围未建模（第二批 TWS）", 7, Palette.a(Palette.FAINT, 0.75))
+	_txt(mono, o.x - 150.0, o.y - 10.0, _v17_exposure_line(), 7, Palette.a(Palette.FAINT, 0.80))
 
 # 敌方 ELINT 点名：从传唤级指向本舰的虚线 + 截获环
 func _draw_elint_named(o: Vector2) -> void:
@@ -1558,7 +1767,9 @@ func _draw_elint_named(o: Vector2) -> void:
 	if not _ok(from):
 		return
 	draw_dashed_line(from, o, Palette.a(Palette.RED, 0.30), 1.0, 6.0)
-	_txt(mono, o.x + 14.0, o.y + 34.0, "ELINT 截获我方发射（示意连线，范围未建模）", 7, Palette.a(Palette.RED, 0.75))
+	var sph_e := _v17_radar_sphere()
+	var elint_r := float((sph_e.get("exposure", {}) as Dictionary).get("elint_intercept_range_km", 0.0))
+	_txt(mono, o.x + 14.0, o.y + 34.0, "ELINT 截获我方发射（V2 暴露模型 · 截获 %s km）" % _v17_fmt_km(elint_r), 7, Palette.a(Palette.RED, 0.75))
 
 func _draw_comm_links(o: Vector2) -> void:
 	for t in state.tracks:
@@ -1910,7 +2121,7 @@ func _draw_planar_sensor() -> void:
 			var rr := float(best.get("elint_range_km", 0.0)) * _planar_scale
 			if rr > 6.0 and rr < size.x:
 				draw_arc(o, rr, 0, TAU, 96, Palette.a(Palette.AMBER, 0.22), 1.0, true)
-				_txt(mono, o.x + rr * 0.72, o.y - rr * 0.72, "EMIT 暴露 · 对方 ELINT 截获半径 %s km（按比例）" % _fmt_km(float(best.get("elint_range_km", 0.0))), 7, Palette.a(Palette.AMBER, 0.7))
+				_txt(mono, o.x + rr * 0.72, o.y - rr * 0.72, "EMIT 暴露 · 对方 ELINT 截获半径 %s km（V2 模型 · 平面比例）" % _fmt_km(float(best.get("elint_range_km", 0.0))), 7, Palette.a(Palette.AMBER, 0.7))
 	# ELINT 点名：从传唤级指向本舰
 	if bool(state.elint_named):
 		var hostile: Dictionary = state.track_by_id("2001")
@@ -2016,6 +2227,45 @@ func _draw_planar_inset() -> void:
 	_txt(mono, r.position.x + 8.0, r.end.y - 10.0, "%s / Chronos · 3D→ORTHO" % String(state.datum), 7, Palette.a(Palette.PH, 0.55))
 
 # ── 界面装饰 ────────────────────────────────────────────
+
+func _draw_fixed_assets(planar_view: bool) -> void:
+	var list = state.fw_contacts if state != null and state.get("fw_contacts") != null else []
+	if not (list is Array):
+		return
+	for raw in list:
+		var c: Dictionary = raw
+		if not bool(c.get("fixed", false)):
+			continue
+		var kind := String(c.get("display_kind", c.get("kind", "")))
+		if kind != "站体" and kind != "储罐" and String(c.get("kind", "")) not in ["station", "tank"]:
+			continue
+		var b := float(c.get("bearing_deg", 0.0))
+		var rkm := float(c.get("range_km", 0.0))
+		if rkm <= 0.0:
+			continue
+		var wp := _world(b, rkm, 0.0)
+		var p := _p2(wp) if planar_view else _p3(wp)
+		if not _ok(p):
+			continue
+		var col: Color = Palette.PH_DIM if String(c.get("side", "friend")) == "friend" else Palette.AMBER
+		var batch := String(c.get("batch", c.get("track_id", "")))
+		var name := String(c.get("name", ""))
+		var sz := clampf(8.0 + log(1.0 + float(c.get("size_km", 1.0)) * 6.0) * 3.6, 10.0, 30.0)
+		if String(c.get("kind", "")) == "tank":
+			# 储罐组：三个短线矩形，尺寸随 size_km。
+			for ti in range(3):
+				var tr := Rect2(p.x - sz * 0.5 + float(ti) * sz * 0.38, p.y - sz * 0.35, sz * 0.28, sz * 0.7)
+				draw_rect(tr, Palette.a(col, 0.10))
+				draw_rect(tr, Palette.a(col, 0.55), false, 1.0)
+			_txt(mono, p.x + sz * 0.7, p.y + 2.0, "[%s] %s" % [batch, "储罐组" if name == "" else name], 7, Palette.a(col, 0.9))
+		else:
+			var sr := Rect2(p.x - sz * 0.7, p.y - sz * 0.42, sz * 1.4, sz * 0.84)
+			draw_rect(sr, Palette.a(col, 0.08))
+			draw_rect(sr, Palette.a(col, 0.58), false, 1.0)
+			draw_line(Vector2(sr.position.x, sr.position.y + sr.size.y * 0.5), Vector2(sr.end.x, sr.position.y + sr.size.y * 0.5), Palette.a(col, 0.45), 1.0)
+			draw_line(Vector2(p.x, sr.position.y), Vector2(p.x, sr.end.y), Palette.a(col, 0.35), 1.0)
+			draw_circle(p, 1.5, Palette.a(col, 0.85))
+			_txt(mono, p.x + sz * 0.8, p.y + 2.0, "[%s] %s" % [batch, "站体" if name == "" else name], 7, Palette.a(col, 0.9))
 
 func _draw_chrome() -> void:
 	if ortho:
@@ -2227,7 +2477,7 @@ func _draw_legend() -> void:
 	draw_dashed_line(Vector2(148, y2 + 5), Vector2(166, y2 + 5), Palette.a(Palette.PH, 0.35), 1.0, 2.0)
 	_txt(cjk, 172.0, y2, "1σ 误差", 7, Palette.DIM)
 	_txt(mono, 16.0, 720.0, "航迹：批号 · L1 方位线 · L2 定位+协方差 · L3 分类 · L4 舰名/敌我识别", 7, Palette.a(Palette.PH, 0.65))
-	_txt(mono, 16.0, 734.0, "T+60/120/300 = 预测刻度 · 辐射 = 主动传感器开机即暴露（截获半径未建模） · LINK DEGRADED", 7, Palette.a(Palette.PH_FAINT, 0.95))
+	_txt(mono, 16.0, 734.0, "T+60/120/300 = 预测刻度 · 辐射 = 主动传感器开机即暴露（球面搜索 / TWS 通道见战术图） · LINK DEGRADED", 7, Palette.a(Palette.PH_FAINT, 0.95))
 	_txt(mono, 16.0, 748.0, "标记三层：身份（符号）· L级（L1–L4 识别等级）· 威胁（处置优先级，非身份）", 7, Palette.a(Palette.AMBER, 0.8))
 
 func _draw_optical() -> void:

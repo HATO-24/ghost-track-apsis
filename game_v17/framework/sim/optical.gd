@@ -22,7 +22,7 @@ extends RefCounted
 ## （光学/IR 均为 -1：不给距离解，避免伪造测量）。
 
 const SM := preload("res://scripts/sensor_model.gd")
-const Types := preload("res://sim/sensor_types.gd")
+const Types := preload("res://framework/sim/sensor_types.gd")
 
 const CH_OPTICAL := "optical"     # 可见光凝视
 const CH_IR := "ir"               # 红外凝视通道

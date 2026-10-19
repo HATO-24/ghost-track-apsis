@@ -4,6 +4,21 @@ extends RefCounted
 # V17：V1 HUD 仍读本类字段；V2 数据桥可选接入（未接入时为 null）。
 var framework = null
 
+# —— V17-CORE-1：V2 数据桥归一字段（HUD/plot 只读；V15 原有字段不变）——
+var fw_ready := false
+var fw_tutorial: Dictionary = {}
+var fw_flow: Dictionary = {}
+var fw_damage: Dictionary = {}
+var fw_replay: Dictionary = {}
+var fw_actions: Array = []
+var fw_contacts: Array = []
+var fw_actions_target := ""
+var fw_decision_reason := ""
+var fw_decision_deferred := false
+var fw_sync_count := 0
+var fw_t := 0.0
+var fw_last_action: Dictionary = {}
+
 # 演示用状态。真实 sim 会接管 clock / tracks / commands，
 # 这里的数值只服务于"把 GUI 长相对出来"。
 #
@@ -1260,11 +1275,27 @@ func _update_freeze() -> void:
 func _open_decision() -> void:
 	if decision_open or report_open or consequence_open or tut_phase == PHASE_END:
 		return
+	# V17：V2 教学门控 —— 关键识别未完成时阻塞 V15 决策，不自动完成识别；
+	# 玩家用 fw_perform_action/目标动作补完后，fw_sync 会自动打开（见 fw_sync）。
+	if not fw_tutorial_allows():
+		if not fw_decision_deferred:
+			fw_decision_deferred = true
+			fw_decision_reason = fw_decision_gate_reason()
+			if fw_decision_reason == "":
+				fw_decision_reason = "教学门控：关键识别未完成"
+			_push_log(fw_decision_reason, "教学门控", "WARN")
+		return
 	decision_open = true
+	fw_decision_deferred = false
+	fw_decision_reason = ""
 	tut_phase = PHASE_DECIDE
 	decision_prompt = _fmt_decision_prompt()
 	_update_freeze()
 	_push_log("决断窗口开启", "抉择", "EXEC")
+	# V17：同步到 V2 数据后端（教学门控已通过；失败不阻塞 V15）
+	if framework != null and bool(framework.ready):
+		framework.open_decision()
+		_fw_pull()
 
 func story_text(key: String, fallback: String = "") -> String:
 	var v = story.get(key, fallback)
@@ -1367,6 +1398,7 @@ func choose_ending(kind: String) -> Dictionary:
 			String(reply.get("mode", "LD")), String(reply.get("text", "")), tau())
 	decision_prompt = ""
 	_push_log("抉择：%s · 声望 %s" % [ending_label(outcome), _rep_text()], "OUTCOME", "EXEC")
+	_fw_mirror_choice(outcome)
 	return {
 		"outcome": outcome,
 		"reputation": reputation.duplicate(true),
@@ -1403,6 +1435,7 @@ func authorize_fire() -> Dictionary:
 			String(reply.get("mode", "LD")), String(reply.get("text", "")), tau())
 	_push_log("武器释放授权 → 2001 · 灾难分支", "FIRE", "HOLD")
 	_push_log("时间冻结 · 记录封存", "CONSEQ", "HOLD")
+	_fw_mirror_choice("FIRE")
 	return {"fire_branch": true, "consequence_open": true, "frozen": true, "standing": reputation.duplicate(true)}
 
 # 看完后果后进入报告（main 按 E 调）
@@ -1460,6 +1493,7 @@ func submit_report(kind: String) -> Dictionary:
 	}
 	_update_freeze()
 	_push_log("报告提交：%s%s" % ["据实" if truth else "伪造 · REPORT FILED — AUDIT FLAG %02d" % perjury_count, " · 例行审计" if perjury_count >= 2 and not audit_before else ""], "REPORT", "EXEC" if truth else "HOLD")
+	_fw_mirror_report(truth)
 	return {"report": report_text, "audit_flag": audit_flag, "perjury_count": perjury_count, "phase": tut_phase, "end_open": end_open, "end_summary": end_summary.duplicate(true)}
 
 func _compose_report(truth: bool) -> String:
@@ -1559,6 +1593,7 @@ func latest_radio(n: int = 1) -> Array:
 func restart_demo() -> void:
 	_reset_runtime()
 	_bootstrap()
+	fw_restart()
 	_push_log("RESTART · 演示重置到 T+0 开局", "RESET", "EXEC")
 	cmd_note = _cmd_note()
 
@@ -2384,6 +2419,17 @@ func perform_target_action(track_id: String, action: String) -> Dictionary:
 			return {"ok": false, "status": "unsupported", "track_id": track_id, "action": action, "message": "未实现"}
 	flags["action_%s_%s" % [action, track_id]] = true
 	_push_log("目标动作 %s → [%s]：%s" % [action, track_id, msg], "ACTION", "EXEC")
+	# V17：同一动作镜像到 V2 数据桥，教学门控/任务状态以 V2 为准；
+	# V15 自己的视觉/日志仍保留。武器类在 V15 已 unsupported，不会到这里。
+	if framework != null and bool(framework.ready):
+		var fw_action := action
+		if fw_action == "missile_path":
+			fw_action = "missile_solve"
+		elif fw_action == "armed_standby":
+			fw_action = "weapons_hold"
+		var fw_res: Dictionary = fw_perform_action(fw_action, track_id)
+		fw_last_action = fw_res
+		fw_sync(0.0)
 	return {"ok": true, "status": "ok", "track_id": track_id, "action": action, "message": msg,
 		"level": track_level(track_id), "actions": acts}
 
@@ -2579,3 +2625,254 @@ func _build_unit() -> void:
 		"damage": "红外虚警偏高", "damage2": "· CH-IR2 校准中"
 	}
 
+# ═══════════════════════════════════════════════════════════════════
+# V17-CORE-1：V2 数据桥归一字段 / 封装（HUD/plot 只读；V15 原有流程不变）
+#
+# 归一字段（每帧 fw_sync 刷新）：
+#   fw_ready        bool            framework 就绪
+#   fw_tutorial     Dictionary      world.vm_tutorial()（教学门控）
+#   fw_flow         Dictionary      world.vm_flow()（prelude/decision/report/end/exec/reputation/damage/replay）
+#   fw_damage       Dictionary      world.vm_damage()（损管 sections/queue/summary）
+#   fw_replay       Dictionary      world.vm_replay()（回放帧列表，只读）
+#   fw_contacts     Array           10 条接触（V2 归一；V15 tracks 仍独立保留）
+#   fw_actions      Array           当前选中目标可用动作（available/reason/reason_code）
+#   fw_actions_target String        当前 fw_actions 对应批号
+#   fw_decision_reason String       V15 决策被教学门控阻塞的原因（"" = 未阻塞）
+#   fw_decision_deferred bool       决策已到点但被门控挂起
+#   fw_t / fw_sync_count             V2 世界时间 / 同步次数
+#
+# 写操作（HUD 只调这些，不要直接改 V2 world）：
+#   fw_perform_action / fw_start_repair / fw_apply_damage
+#   fw_open_decision / fw_choose_ending / fw_submit_report / fw_evidence_start
+#   fw_replay_start / fw_replay_pause / fw_replay_stop / fw_replay_seek / fw_replay_frame
+#   fw_restart / fw_sync
+# ═══════════════════════════════════════════════════════════════════
+
+## 每帧由 main._process 在 state.refresh() 之后调用；dt 为真实帧时间。
+func fw_sync(dt: float) -> void:
+	if framework == null:
+		fw_ready = false
+		return
+	var step := 0.0
+	if not paused and not sim_frozen and not capture:
+		step = maxf(0.0, dt) * maxf(0.0, time_scale)
+	framework.sync(step)
+	_fw_pull()
+	# 决策挂起：V15 决策窗口已到但教学未完成 → 完成后自动打开（不自动完成识别）
+	if fw_decision_deferred and not decision_open and not report_open and not consequence_open \
+			and fw_tutorial_allows():
+		fw_decision_deferred = false
+		fw_decision_reason = ""
+		_open_decision()
+	# 选中目标变化时刷新 fw_actions
+	var batch := fw_selected_batch()
+	if batch != fw_actions_target:
+		fw_actions_target = batch
+		framework.set_actions_target(batch)
+		fw_actions = (framework.actions as Array).duplicate(true)
+
+func _fw_pull() -> void:
+	if framework == null or not bool(framework.ready):
+		fw_ready = false
+		fw_tutorial = {}
+		fw_flow = {}
+		fw_damage = {}
+		fw_replay = {}
+		fw_contacts = []
+		fw_actions = []
+		fw_t = 0.0
+		return
+	fw_ready = true
+	fw_tutorial = (framework.tutorial_view() as Dictionary).duplicate(true)
+	fw_flow = (framework.flow_view() as Dictionary).duplicate(true)
+	fw_damage = (framework.damage_view() as Dictionary).duplicate(true)
+	fw_replay = (framework.replay_view() as Dictionary).duplicate(true)
+	fw_contacts = (framework.contacts_view() as Array).duplicate(true)
+	fw_actions = (framework.actions as Array).duplicate(true)
+	fw_t = float(framework.synced_t)
+	fw_sync_count += 1
+	fw_decision_reason = String(framework.decision_gate_reason())
+
+## V2 教学门控是否放行 V15 决策（截图/自动化/演示时自动放行）。
+func fw_tutorial_allows() -> bool:
+	if framework == null or not bool(framework.ready):
+		return true
+	if capture:
+		return true
+	if OS.get_environment("DSH_SKIP_TUTORIAL") == "1":
+		return true
+	if OS.get_environment("DSH_SIM") != "" or OS.get_environment("DSH_SHOT") != "":
+		return true
+	return bool(framework.tutorial_allowed())
+
+## 教学门控原因（"" = 未阻塞）。
+func fw_decision_gate_reason() -> String:
+	if framework == null or not bool(framework.ready):
+		return ""
+	return String(framework.decision_gate_reason())
+
+## V2 教程是否 ready（未接入时 true）。
+func fw_tutorial_ready() -> bool:
+	return bool(fw_tutorial.get("ready", true))
+
+## 当前选中 V15 航迹的批号（fw_actions 目标）。
+func fw_selected_batch() -> String:
+	if tracks.is_empty():
+		return ""
+	var idx := clampi(int(selected), 0, tracks.size() - 1)
+	var tr: Dictionary = tracks[idx]
+	return String(tr.get("batch", tr.get("id", "")))
+
+## 指定目标的 V2 可用动作（HUD 右键菜单可直接渲染 available/reason）。
+func fw_actions_for(track_id: String) -> Array:
+	if framework == null or not bool(framework.ready):
+		return []
+	return framework.actions_for(track_id)
+
+## 执行 V2 识别动作（教学门控的关键路径）。返回 V2 结果：
+## {ok, action, level, level_name, identity, actor_id, actor_name, reason, reason_code, detail, ...}
+func fw_perform_action(action_id: String, target_id := "") -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {"ok": false, "reason": "framework 未就绪"}
+	var tid := target_id if target_id != "" else fw_selected_batch()
+	var r: Dictionary = framework.perform_action(action_id, tid)
+	fw_last_action = r.duplicate(true)
+	_fw_pull()
+	# 动作可能满足教学门控 → 立即尝试解除挂起的决策
+	if fw_decision_deferred and fw_tutorial_allows() and not decision_open \
+			and not report_open and not consequence_open:
+		fw_decision_deferred = false
+		fw_decision_reason = ""
+		_open_decision()
+	return r
+
+func fw_start_repair(section_id: String) -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = framework.start_repair(section_id)
+	_fw_pull()
+	return r
+
+func fw_apply_damage(id: String, severity := 0.5, label := "") -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = framework.apply_damage(id, severity, label)
+	_fw_pull()
+	return r
+
+func fw_open_decision() -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = framework.open_decision()
+	_fw_pull()
+	return r
+
+func fw_choose_ending(kind: String) -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = framework.choose_ending(kind)
+	_fw_pull()
+	return r
+
+func fw_submit_report(truth := true) -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = framework.submit_report(truth)
+	_fw_pull()
+	return r
+
+func fw_evidence_start(id: String) -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {"ok": false, "reason": "framework 未就绪"}
+	var r: Dictionary = framework.evidence_start(id)
+	_fw_pull()
+	return r
+
+# —— 回放（只读帧；回放定位不推进世界）——
+func fw_replay_start() -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {}
+	var r: Dictionary = framework.replay_start()
+	_fw_pull()
+	return r
+
+func fw_replay_pause() -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {}
+	var r: Dictionary = framework.replay_pause()
+	_fw_pull()
+	return r
+
+func fw_replay_stop() -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {}
+	var r: Dictionary = framework.replay_stop()
+	_fw_pull()
+	return r
+
+func fw_replay_seek(t_s: float) -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {}
+	var r: Dictionary = framework.replay_seek(t_s)
+	_fw_pull()
+	return r
+
+## 按帧号精确 seek（HUD 播放头/回放拖动可用；seek 后固定查看头，录制追加帧不移动）。
+func fw_replay_seek_index(index: int) -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {}
+	var r: Dictionary = framework.replay_seek_index(index)
+	_fw_pull()
+	return r
+
+func fw_replay_frame() -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {}
+	return framework.replay_frame()
+
+func fw_restart() -> void:
+	fw_decision_deferred = false
+	fw_decision_reason = ""
+	if framework == null:
+		return
+	framework.restart()
+	_fw_pull()
+
+## HUD 一帧总览（其余字段仍可按需读 state.fw_*）。
+func fw_bridge_state() -> Dictionary:
+	return {
+		"ready": fw_ready,
+		"t": fw_t,
+		"sync_count": fw_sync_count,
+		"tutorial": fw_tutorial.duplicate(true),
+		"tutorial_ready": fw_tutorial_ready(),
+		"tutorial_allowed": fw_tutorial_allows(),
+		"decision_reason": fw_decision_reason,
+		"decision_deferred": fw_decision_deferred,
+		"flow": fw_flow.duplicate(true),
+		"damage": fw_damage.duplicate(true),
+		"replay": fw_replay.duplicate(true),
+		"contacts": fw_contacts.duplicate(true),
+		"actions": fw_actions.duplicate(true),
+		"actions_target": fw_actions_target,
+		"exec_window_s": float(fw_flow.get("exec_window_s", 360.0)),
+		"exec_left": float(fw_flow.get("exec_left", 0.0)),
+		"exec_pct": float(fw_flow.get("exec_pct", 0.0)),
+		"reputation": (fw_flow.get("reputation", {}) as Dictionary).duplicate(true),
+		"reputation_settled": bool(fw_flow.get("reputation_settled", false)),
+		"last_action": fw_last_action.duplicate(true),
+	}
+
+# —— V15 → V2 流程镜像（best effort；V2 端拒绝不影响 V15 流程）——
+
+func _fw_mirror_choice(kind: String) -> void:
+	if framework == null or not bool(framework.ready):
+		return
+	framework.choose_ending(kind)
+	_fw_pull()
+
+func _fw_mirror_report(truth: bool) -> void:
+	if framework == null or not bool(framework.ready):
+		return
+	framework.submit_report(truth)
+	_fw_pull()

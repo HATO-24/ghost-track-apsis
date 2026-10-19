@@ -24,7 +24,7 @@ extends RefCounted
 ## 不修改 core 状态：只读 snapshot，输出新 Dictionary。
 
 const SM := preload("res://scripts/sensor_model.gd")
-const Types := preload("res://sim/sensor_types.gd")
+const Types := preload("res://framework/sim/sensor_types.gd")
 
 const JAMMED_RANGE_FACTOR := 0.30   # 05 §E-01：干扰可把探测距离压到 30%
 const LPI_INTERCEPT_MULT := 0.5     # 06 KD-R6：低截获概率

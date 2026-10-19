@@ -58,7 +58,16 @@ func _ready() -> void:
 	framework = FrameworkBridge.new()
 	var fw_ok: bool = framework.boot()
 	state.framework = framework
-	print("V17 FRAMEWORK ok=", fw_ok, " summary=", framework.summary())
+	state.fw_sync(0.0)
+	var fw_sum: Dictionary = framework.summary()
+	print("V17 FRAMEWORK ok=", fw_ok, " summary=", fw_sum)
+	print("V17 BRIDGE ready=", state.fw_ready,
+		" contacts=", state.fw_contacts.size(),
+		" tutorial=", state.fw_tutorial.get("progress", {}),
+		" phase=", String(fw_sum.get("phase", "")),
+		" exec_window_s=", state.fw_flow.get("exec_window_s", 0.0),
+		" skip_v2_prelude=", bool(fw_sum.get("skipped_v2_prelude", false)),
+		" errors=", framework.errors)
 	get_window().title = "GHOST TRACK // APSIS — V17"
 	get_window().size = Vector2i(1600, 900)
 	var screen := DisplayServer.screen_get_size()
@@ -502,6 +511,8 @@ func _process(delta: float) -> void:
 	state.elapsed += delta
 	# 接触状态向量推进到当前时刻 + HUD 派生量保鲜
 	state.refresh(state.clock)
+	# V17：V2 数据桥同步（教学门控/损管/回放/动作/接触；暂停/冻结/截图时 dt 传 0）
+	state.fw_sync(delta)
 	_audio_cues()
 	hud.queue_redraw()
 	if end_panel != null:

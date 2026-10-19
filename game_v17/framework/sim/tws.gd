@@ -24,8 +24,8 @@ extends RefCounted
 ##   tws.set_enabled(false)                       # EMCON
 ##   tws.to_dict() / tws.channel("2001")
 
-const Types := preload("res://sim/sensor_types.gd")
-const RadarModel := preload("res://sim/radar.gd")
+const Types := preload("res://framework/sim/sensor_types.gd")
+const RadarModel := preload("res://framework/sim/radar.gd")
 
 # ── 状态机（docs/34 §4）───────────────────────────────────────────
 const STATE_SEARCH := "SEARCH"
