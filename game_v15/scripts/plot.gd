@@ -68,6 +68,8 @@ var planar_zoom := 1.0
 # 自动缓慢自转；用户一动手就停
 var auto_rotate := true
 # 模式硬切：-1 = 不动画，0..0.44 = 进行中
+var _label_rects: Array[Rect2] = []
+var _pending_contact_labels: Array = []
 var mode_fx_t := -1.0
 
 var _t := 0.0
@@ -278,6 +280,8 @@ func _heading_dir() -> Vector2:
 # ── 画布 ────────────────────────────────────────────────
 
 func _draw() -> void:
+	_label_rects.clear()
+	_pending_contact_labels.clear()
 	_update_camera()
 	draw_rect(Rect2(Vector2.ZERO, size), Palette.BG)
 	_draw_dots()
@@ -294,8 +298,23 @@ func _draw_3d() -> void:
 	_draw_datum_backing()
 	_draw_grid()
 	_draw_own_plan()
+	# P4d：先把本舰中心与点火/站位注记区当作保留区，接触标签绕开。
+	var oo := _o()
+	_label_rects.append(Rect2(oo - Vector2(150, 90), Vector2(300, 180)).grow(4.0))
+	_label_rects.append(Rect2(oo + Vector2(0, 22), Vector2(300, 86)).grow(4.0))
+	for raw in state.pending_commands():
+		var c2: Dictionary = raw
+		var tgt := String(c2.get("target", ""))
+		if tgt != "":
+			var tt: Dictionary = state.track_by_id(tgt)
+			if not tt.is_empty() and _lvl(tt) >= 2:
+				var cp := _contact_pos3(tt)
+				if _ok(cp):
+					_label_rects.append(Rect2(cp + Vector2(10, -38), Vector2(250, 56)).grow(4.0))
 	_draw_contacts()
 	_draw_own()
+	for it in _pending_contact_labels:
+		_draw_track_label(it["t"], it["p"], it["col"])
 	_draw_sensor()
 	_draw_tasks()
 	_draw_chrome()
@@ -968,7 +987,7 @@ func _draw_contacts() -> void:
 			draw_circle(base, 1.4, Palette.a(col, 0.35))
 		_draw_covariance(p, t, col)
 		_draw_symbol(p, t, col)
-		_draw_track_label(t, p, col)
+		_pending_contact_labels.append({"t": t, "p": p, "col": col})
 
 # L1：只有方位线（无点、无距离、无预测）
 func _draw_bearing_contact(t: Dictionary, col: Color) -> void:
@@ -1178,11 +1197,71 @@ func _draw_symbol(p: Vector2, t: Dictionary, col: Color) -> void:
 		return
 	_symbol_at(p, _ident(t), Palette.a(col, 0.95), int(t.get("level", 1)))
 
+func _is_selected_track(t: Dictionary) -> bool:
+	if state == null or state.tracks.is_empty():
+		return false
+	var idx := clampi(int(state.selected), 0, state.tracks.size() - 1)
+	return state.tracks[idx] == t
+
+func _label_free(r: Rect2) -> bool:
+	for u in _label_rects:
+		if u.intersects(r):
+			return false
+	return true
+
 func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
-	var off: Vector2 = t.get("off", Vector2(16, 12))
-	var lx := p.x + off.x
-	var ly := p.y + off.y
 	var lv := _lvl(t)
+	# P4d：标签碰撞规避。未选中接触只显示一行，选中项展开多行。
+	var compact := not _is_selected_track(t)
+	var label_w := 190.0 if compact else 250.0
+	var label_h := 20.0 if compact else 46.0
+	var base_off: Vector2 = t.get("off", Vector2(16, 12))
+	var candidates: Array[Vector2] = [
+		base_off,
+		Vector2(16, 12),
+		Vector2(16, -label_h - 8.0),
+		Vector2(-label_w - 8.0, 12),
+		Vector2(-label_w - 8.0, -label_h - 8.0),
+		Vector2(16, label_h + 12.0),
+		Vector2(16, -label_h * 2.0 - 4.0),
+		Vector2(-label_w - 8.0, label_h + 12.0),
+		Vector2(label_w + 24.0, 12),
+		Vector2(label_w + 24.0, -label_h - 8.0),
+	]
+	var chosen := base_off
+	var found := false
+	for c in candidates:
+		var r := Rect2(p + c, Vector2(label_w, label_h)).grow(2.0)
+		if r.position.x < 6.0 or r.position.y < 6.0:
+			continue
+		if r.end.x > size.x - 6.0 or r.end.y > size.y - 6.0:
+			continue
+		if _label_free(r):
+			chosen = c
+			found = true
+			break
+	if not found:
+		# 兜底：在点周围搜索 40px 网格，找第一个空白区；最后才退回基准偏移。
+		for dy in range(-360, 361, 40):
+			for dx in [-300, -220, -140, -60, 60, 140, 220, 300]:
+				var c2 := Vector2(float(dx), float(dy))
+				var r2 := Rect2(p + c2, Vector2(label_w, label_h)).grow(2.0)
+				if r2.position.x < 6.0 or r2.position.y < 6.0 or r2.end.x > size.x - 6.0 or r2.end.y > size.y - 6.0:
+					continue
+				if _label_free(r2):
+					chosen = c2
+					found = true
+					break
+			if found:
+				break
+		if not found:
+			chosen = base_off
+	var lr := Rect2(p + chosen, Vector2(label_w, label_h))
+	_label_rects.append(lr.grow(2.0))
+	var lx := p.x + chosen.x
+	var ly := p.y + chosen.y
+	if chosen.length() > 40.0:
+		draw_line(p, lr.position + Vector2(0, 8), Palette.a(col, 0.22), 1.0, 3.0)
 	var dim := 0.55 if t.get("stale", false) else 1.0
 	var batch := String(t.get("batch", t.get("id", "")))
 	var nm := String(t.get("name", t.get("id", "")))
@@ -1198,10 +1277,14 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 	match lv:
 		2:
 			_txt(idf, lx, ly, "[%s] %s" % [batch, nm], 11, Palette.a(col, dim))
+			if compact:
+				return
 			_txt(mono, lx, ly + 12.0, "%s%s · L2 · %03d° · %s km · σ%.1f%s" % [ident, th_tag, int(t.get("bearing", 0)), rng_label, sig, stale_tag], 8, Palette.a(col, 0.62 * dim))
 		3:
 			var cls: Dictionary = t.get("classification", {})
 			_txt(idf, lx, ly, "[%s] %s" % [batch, nm], 11, Palette.a(col, dim))
+			if compact:
+				return
 			_txt(cjk, lx, ly + 12.0, "%s%s · L3 · %s · %s · %s" % [ident, th_tag, String(cls.get("ship_class", "—")), String(cls.get("builder", "—")), String(cls.get("faction", "—"))], 8, Palette.a(col, 0.66 * dim))
 			_txt(mono, lx, ly + 24.0, "L3 已分类 · %s km%s" % [rng_label, stale_tag], 7, Palette.a(col, 0.45 * dim))
 		4:
@@ -1212,6 +1295,8 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 			if hull != "":
 				title += " · %s" % hull
 			_txt(idf, lx, ly, title, 11, Palette.a(col, dim))
+			if compact:
+				return
 			var iff := String(t.get("iff_status", ""))
 			_txt(mono, lx, ly + 12.0, "%s%s · L4 · %s · 敌我识别 %s%s" % [ident, th_tag, String(info.get("faction", "—")), _iff_text(iff), stale_tag], 8, Palette.a(col, 0.66 * dim))
 			if iff == "friend" or String(info.get("via", "")) == "datalink":

@@ -54,6 +54,9 @@ var _mouse := Vector2(-1.0, -1.0)
 var _master := 0.8
 var _muted := false
 var _cfg := ConfigFile.new()
+var _demo := false
+var _demo_started := false
+var _sfx_stage := 0
 
 # ── 确定性视觉素材 ────────────────────────────────────
 var _stars: Array = []         # [{p:Vector2, a:float, s:int}]
@@ -71,6 +74,7 @@ func _ready() -> void:
 	_load_settings()
 	_build_visuals()
 	_parse_env()
+	_demo = OS.get_environment("DSH_DEMO") == "1"
 	queue_redraw()
 
 func _load_settings() -> void:
@@ -194,8 +198,23 @@ func _process(delta: float) -> void:
 	_menu_t += delta
 	if _state == "cg":
 		var ct := _cg_time()
+		if ct >= 0.06 and _sfx_stage < 1:
+			_sfx_stage = 1
+			_audio("sfx", "boot")
+		if ct >= 3.16 and _sfx_stage < 2:
+			_sfx_stage = 2
+			_audio("sfx", "hard_cut")
+		if ct >= 6.46 and _sfx_stage < 3:
+			_sfx_stage = 3
+			_audio("sfx", "hard_cut")
+		if ct >= 6.57 and _sfx_stage < 4:
+			_sfx_stage = 4
+			_audio("sfx", "hard_cut")
 		if ct >= CG_TOTAL:
 			_enter_menu()
+	elif _state == "menu" and _demo and not _demo_started and _menu_t >= 2.8:
+		_demo_started = true
+		_activate_menu(0)
 	if _shot_path != "" and not _capture_started:
 		_shot_frames += 1
 		if _shot_frames >= SHOT_FRAMES:

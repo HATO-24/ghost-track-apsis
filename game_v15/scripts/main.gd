@@ -4,6 +4,9 @@ const StateScript := preload("res://scripts/state.gd")
 const PlotScript := preload("res://scripts/plot.gd")
 const HudScript := preload("res://scripts/hud.gd")
 const Orbit := preload("res://scripts/orbit_model.gd")
+const Palette := preload("res://scripts/pal.gd")
+const UiFonts := preload("res://scripts/fonts.gd")
+const DemoDirector := preload("res://scripts/demo_director.gd")
 
 const BASE := Vector2i(1920, 1080)
 const PLOT_RECT := Rect2(396.0, 124.0, 1128.0, 752.0)
@@ -21,6 +24,8 @@ var end_panel
 var _last_decision := false
 var _last_consequence := false
 var _last_report := false
+var _demo_caption: Label
+var _demo_director
 
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
@@ -91,6 +96,30 @@ func _ready() -> void:
 
 	# P1g：END 归档页由 hud.gd 负责；main 只保留 R/Q 键位转发，避免双 EndPanel。
 	end_panel = null
+
+	# P6：自动演示导演（仅 DSH_DEMO=1；录屏/回归用）。
+	if OS.get_environment("DSH_DEMO") == "1":
+		var cap_bg := ColorRect.new()
+		cap_bg.position = Vector2(48, 1002)
+		cap_bg.size = Vector2(1500, 38)
+		cap_bg.color = Palette.a(Palette.BG, 0.82)
+		cap_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(cap_bg)
+		_demo_caption = Label.new()
+		_demo_caption.position = Vector2(60, 1009)
+		_demo_caption.size = Vector2(1476, 28)
+		_demo_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_demo_caption.add_theme_font_override("font", UiFonts.cjk())
+		_demo_caption.add_theme_font_size_override("font_size", 18)
+		_demo_caption.add_theme_color_override("font_color", Palette.PH)
+		_demo_caption.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+		_demo_caption.add_theme_constant_override("shadow_offset_x", 2)
+		_demo_caption.add_theme_constant_override("shadow_offset_y", 2)
+		root.add_child(_demo_caption)
+		_demo_director = DemoDirector.new()
+		_demo_director.main_ref = self
+		add_child(_demo_director)
+		_demo_director.call_deferred("start")
 
 	if _shot_path != "":
 		state.boot_t = 2.0

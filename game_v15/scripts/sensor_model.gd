@@ -274,17 +274,17 @@ const SENSOR_LIBRARY := {
 const SIGNATURE_DB := {
 	"YW-R9": {
 		"signature": "search-radar", "class_hint": "R-9 搜索雷达",
-		"platform_hint": "签约国 / 清算署标准雷达", "faction_hint": "签约国 / 清算署",
+		"platform_hint": "UEG 第33舰队 / 搜索雷达", "faction_hint": "UEG 第33舰队 / 清算者",
 		"level_support": 3, "confidence": 0.8, "ref": "05 §S-05（示例：R-9 雷达只有清算级装）；06 §4.3",
 	},
 	"KD-R6": {
 		"signature": "lpi-radar", "class_hint": "红隼低截获雷达",
-		"platform_hint": "高端分遣队舰", "faction_hint": "签约国 / 公约",
+		"platform_hint": "UEG 第33舰队 / 高端分遣队舰", "faction_hint": "UEG 第33舰队 / 清算者",
 		"level_support": 3, "confidence": 0.7, "ref": "06 §4.3（低截获概率）",
 	},
 	"MS-R4": {
 		"signature": "search-radar", "class_hint": "明视 R-4 雷达",
-		"platform_hint": "签约国舰", "faction_hint": "签约国",
+		"platform_hint": "OCUVF / 联合轨道军舰", "faction_hint": "OCUVF",
 		"level_support": 3, "confidence": 0.6, "ref": "06 §4.3",
 	},
 	"SC-R2": {
@@ -294,12 +294,12 @@ const SIGNATURE_DB := {
 	},
 	"CH-R0": {
 		"signature": "radio", "class_hint": "车肆无线电",
-		"platform_hint": "车肆改装船 / 民用", "faction_hint": "民用 / 公约",
+		"platform_hint": "车肆改装船 / 民用", "faction_hint": "民用",
 		"level_support": 2, "confidence": 0.4, "ref": "06 §4.3（易被测向）",
 	},
 	"MK-12": {
 		"signature": "iff-interrogator", "class_hint": "MK-12 询问",
-		"platform_hint": "公约 / 签约国标准件", "faction_hint": "公约 / 签约国",
+		"platform_hint": "联合轨道军 / 标准件", "faction_hint": "联合轨道军",
 		"level_support": 2, "confidence": 0.5, "ref": "05 §S-06",
 	},
 	"MS-L2": {
@@ -321,7 +321,7 @@ const SIGNATURE_DB := {
 const RACK_BLUEPRINTS := {
 	# 远地点号（刺桐-2M，泉州重工，船坞舰，001）——旗舰，后方；07 §2
 	"apsis": {
-		"source": "公约 · AD 特遣群",
+		"source": "OCUVF-ID13",
 		"sensors": [
 			{"model": "MS-IR9", "on": true},
 			{"model": "MS-OT2", "on": true},
@@ -331,7 +331,7 @@ const RACK_BLUEPRINTS := {
 	},
 	# 哈马丹号（托盘-5 改，车肆重工，哨舰，114）——舰队 AWACS/EWR 节点（19 §6）
 	"harmattan": {
-		"source": "公约 · AD 特遣群",
+		"source": "OCUVF-ID13",
 		"sensors": [
 			{"model": "YW-R9", "on": false},   # 默认 EMCON；第一关由命令哈马丹开机
 			{"model": "MS-OT2", "on": true},
@@ -342,7 +342,7 @@ const RACK_BLUEPRINTS := {
 	},
 	# 渡口号（赤铁-6 改，永昼机械，炮舰）——传感器差，但有火控级 LR-4
 	"ferry": {
-		"source": "公约 · AD 特遣群",
+		"source": "OCUVF-ID13",
 		"sensors": [
 			{"model": "CH-IR2", "on": true},
 			{"model": "LR-4", "on": false},
@@ -351,22 +351,22 @@ const RACK_BLUEPRINTS := {
 	},
 	# 深井号（月港-4，泉州重工，油船）——只有无线电
 	"deepwell": {
-		"source": "公约 · AD 特遣群",
+		"source": "OCUVF-ID13",
 		"sensors": [
 			{"model": "CH-R0", "on": true},
 		],
 	},
 	# 望楼号（安海-1，泉州重工，中继舰）——07 §7：望楼的激光通信
 	"watchtower": {
-		"source": "公约 · AD 特遣群",
+		"source": "OCUVF-ID13",
 		"sensors": [
 			{"model": "MS-L2", "on": true},
 			{"model": "CH-R0", "on": true},
 		],
 	},
-	# AV-4412 传唤者（2001，传唤级，清算署）——它的 ELINT 会点名玩家雷达（07 §3 Phase 1）
+	# AV-4412 传唤者（2001，传唤级，UEG 第33舰队）——它的 ELINT 会点名玩家雷达（07 §3 Phase 1）
 	"summons_4471": {
-		"source": "清算署",
+		"source": "UEG 第33舰队 / 清算者",
 		"sensors": [
 			{"model": "YW-R9", "on": false},
 			{"model": "MK-12", "on": false},
@@ -388,37 +388,37 @@ const RACK_BLUEPRINTS := {
 const SHIPS := {
 	"apsis": {
 		"name": "远地点", "name_en": "APSIS", "hull": "001", "ship_class": "远地点级",
-		"builder": "泉州重工", "role": "船坞舰", "faction": "公约", "side": "friend",
+		"builder": "泉州重工", "role": "船坞舰", "faction": "OCUVF-ID13", "side": "friend",
 		"transponder": "ok", "iff_code": "CMP-001",
 		"rcs_m2": 12000.0, "temp_k": 320.0, "area_m2": 9000.0,
 	},
 	"harmattan": {
 		"name": "哈马丹", "name_en": "HARMATTAN", "hull": "114", "ship_class": "托盘-5 改",
-		"builder": "车肆重工", "role": "哨舰", "faction": "公约", "side": "friend",
+		"builder": "车肆重工", "role": "哨舰", "faction": "OCUVF-ID13", "side": "friend",
 		"transponder": "ok", "iff_code": "CMP-114",
 		"rcs_m2": 300.0, "temp_k": 305.0, "area_m2": 700.0,
 	},
 	"ferry": {
 		"name": "渡口号", "name_en": "FERRY", "hull": "207", "ship_class": "赤铁-6 改",
-		"builder": "永昼机械", "role": "炮舰", "faction": "公约", "side": "friend",
+		"builder": "永昼机械", "role": "炮舰", "faction": "OCUVF-ID13", "side": "friend",
 		"transponder": "ok", "iff_code": "CMP-207",
 		"rcs_m2": 1200.0, "temp_k": 310.0, "area_m2": 1800.0,
 	},
 	"deepwell": {
 		"name": "深井", "name_en": "DEEPWELL", "hull": "503", "ship_class": "月港-4",
-		"builder": "泉州重工", "role": "油船", "faction": "公约", "side": "friend",
+		"builder": "泉州重工", "role": "油船", "faction": "OCUVF-ID13", "side": "friend",
 		"transponder": "ok", "iff_code": "CMP-503",
 		"rcs_m2": 4000.0, "temp_k": 300.0, "area_m2": 4600.0,
 	},
 	"watchtower": {
 		"name": "望楼", "name_en": "WATCHTOWER", "hull": "311", "ship_class": "安海-1",
-		"builder": "泉州重工", "role": "中继舰", "faction": "公约", "side": "friend",
+		"builder": "泉州重工", "role": "中继舰", "faction": "OCUVF-ID13", "side": "friend",
 		"transponder": "ok", "iff_code": "CMP-311",
 		"rcs_m2": 1500.0, "temp_k": 300.0, "area_m2": 1200.0,
 	},
 	"summons_4471": {
 		"name": "案卷 4471", "name_en": "SUMMONS", "hull": "4471", "ship_class": "传唤级",
-		"builder": "清算署改装", "role": "送达舰", "faction": "清算署", "side": "hostile",
+		"builder": "UEG 第33舰队改装", "role": "送达舰", "faction": "UEG 第33舰队", "side": "hostile",
 		"transponder": "ok", "iff_code": "RCV-4471",
 		"rcs_m2": 1400.0, "temp_k": 310.0, "area_m2": 1600.0,
 	},
