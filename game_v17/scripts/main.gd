@@ -37,6 +37,7 @@ var _last_done_n := 0
 var _last_civ := false
 var _last_radio_n := -1
 var _last_cmd_n := 0
+var _hud_drag := false   # V17-UI-2：回放时间轴拖动（HUD 报告是否开始拖动）
 var _roll_vel := 0.0
 
 func _ready() -> void:
@@ -602,19 +603,33 @@ func _gui_input(event: InputEvent) -> void:
 		var p := _mouse_to_base(event.position)
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
+				# V17-UI-2：先问 HUD 是否开始回放时间轴拖动（允许 main 只做拖动转发）
+				var hud_drag := false
+				if hud.has_method("drag_begin"):
+					hud_drag = bool(hud.call("drag_begin", p))
 				# 先让 HUD 吃掉（传感器条 / 下拉 / 列表 / 时标）；
 				# 菜单开着时任何点击都交给 HUD，由它决定关闭。
 				if hud.consumes(p) or hud.menu_open:
 					hud.click(p)
+					if hud_drag:
+						_hud_drag = true
 					accept_event()
 					return
-				if state.boot_t >= 1.7 and PLOT_RECT.has_point(p):
+				if state.boot_t >= 1.7 and PLOT_RECT.has_point(p) and not hud_drag:
 					_drag = true
 					accept_event()
 					return
 				hud.click(p)
+				if hud_drag:
+					_hud_drag = true
 				accept_event()
 			else:
+				if _hud_drag:
+					_hud_drag = false
+					if hud.has_method("drag_end"):
+						hud.call("drag_end", p)
+					accept_event()
+					return
 				if _drag:
 					_drag = false
 					accept_event()
@@ -632,6 +647,12 @@ func _gui_input(event: InputEvent) -> void:
 					state.close_target_menu()
 				accept_event()
 				return
+	elif event is InputEventMouseMotion and _hud_drag:
+		# V17-UI-2：HUD 回放拖动（只转发 motion，不参与 plot 旋转）
+		var ph := _mouse_to_base(event.position)
+		if hud.has_method("drag_move"):
+			hud.call("drag_move", ph)
+		accept_event()
 	elif event is InputEventMouseMotion and _drag:
 		var rel: Vector2 = event.relative
 		if _vp_rect.size.x > 1.0:
