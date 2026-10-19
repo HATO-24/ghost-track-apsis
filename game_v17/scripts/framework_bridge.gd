@@ -50,10 +50,14 @@ var nav_ready := false
 var nav_snapshot: Dictionary = {}   # vm_navigation() 只读快照
 var nav_summary: Dictionary = {}
 var nav_last: Dictionary = {}       # 最近一次导航写操作结果
-# —— R6-SHADOW-1：CR3BP/RK4 物理 shadow（只读；authoritative=false）——
+# —— R6-SHADOW-1 / R6-AUTH-1：CR3BP/RK4 物理（shadow / authoritative 适配层）——
 var physics = null
-var physics_mode := "off"           # shadow / off（V17_PHYSICS=off 关闭）
+var physics_requested_mode := "shadow"  # V17_PHYSICS 请求：shadow/authoritative/off
+var physics_mode := "off"               # 有效模式（authoritative 失败时回落 shadow）
 var physics_ready := false
+var physics_fallback_reason := ""
+var physics_authoritative_view_data: Dictionary = {}
+var physics_adapter_last: Dictionary = {}
 var physics_view_data: Dictionary = {}
 var physics_summary_data: Dictionary = {}
 var physics_entity_sources: Dictionary = {}
@@ -61,6 +65,7 @@ var physics_jacobi0: Dictionary = {}
 var physics_warnings: Array = []
 const PHYSICS_STEP_S := 60.0
 const MAX_PHYSICS_WARNINGS := 32
+const COMPARE_THRESHOLDS := {"range_km": 5.0, "bearing_deg": 5.0, "position_km": 50.0}
 
 # —— 运行时元数据 ——
 var sync_count := 0
@@ -291,6 +296,10 @@ func bridge_state() -> Dictionary:
 		"physics_summary": physics_summary_data.duplicate(true),
 		"physics_ready": physics_ready,
 		"physics_mode": physics_mode,
+		"physics_requested_mode": physics_requested_mode,
+		"physics_fallback_reason": physics_fallback_reason,
+		"physics_authoritative": physics_authoritative_view_data.duplicate(true),
+		"physics_adapter": physics_adapter_last.duplicate(true),
 		"exec_window_s": exec_window_s,
 		"exec_left": exec_left,
 		"exec_pct": exec_pct,
@@ -539,20 +548,45 @@ func advance(dt: float) -> void:
 func _init_physics_shadow() -> void:
 	physics = null
 	physics_ready = false
+	physics_fallback_reason = ""
 	physics_view_data = {}
 	physics_summary_data = {}
+	physics_authoritative_view_data = {}
+	physics_adapter_last = {}
 	physics_entity_sources.clear()
 	physics_jacobi0.clear()
 	physics_warnings.clear()
 	var env_mode := OS.get_environment("V17_PHYSICS").to_lower()
-	physics_mode = "off" if env_mode == "off" else "shadow"
+	if env_mode == "off":
+		physics_requested_mode = "off"
+	elif env_mode == "authoritative" or env_mode == "auth":
+		physics_requested_mode = "authoritative"
+	else:
+		physics_requested_mode = "shadow"
+	physics_mode = physics_requested_mode
 	if physics_mode == "off":
+		_refresh_authoritative_view()
+		return
+	# 调试钩子：模拟 authoritative 初始化失败以验证回落（probe 用；不影响正常流程）
+	if OS.get_environment("V17_PHYSICS_FORCE_FAIL") == "1":
+		physics = null
+		physics_ready = false
+		if physics_requested_mode == "authoritative":
+			physics_mode = "shadow"
+			physics_fallback_reason = "authoritative 初始化失败（V17_PHYSICS_FORCE_FAIL=1 调试）→ 回落 shadow"
+			_note_physics_warning(physics_fallback_reason)
+		_refresh_authoritative_view()
 		return
 	physics = PhysicsScript.new({"step_s": PHYSICS_STEP_S})
 	var l1_state: Dictionary = PhysicsScript.lagrange_state("L1")
 	if l1_state.is_empty():
 		errors.append("physics: L1 初始化失败")
 		physics = null
+		if physics_requested_mode == "authoritative":
+			physics_mode = "shadow"
+			physics_fallback_reason = "authoritative 初始化失败（L1 不可用）→ 回落 shadow"
+			_note_physics_warning(physics_fallback_reason)
+		_refresh_authoritative_view()
 		return
 	for raw in world.entities:
 		var e: V2Entity = raw
@@ -566,7 +600,14 @@ func _init_physics_shadow() -> void:
 			_note_physics_warning("实体 %s 物理初始化失败：%s" % [e.id, str(add_res.get("errors", []))])
 	physics_ready = not physics.entity_ids().is_empty() and physics.errors.is_empty()
 	if physics_ready:
-		_note_physics_warning("shadow 物理：实体初始状态来自 V2 场景 L1 局部近似/固定占位（非 JPL 星历）；authoritative=false")
+		_note_physics_warning("物理：实体初始状态来自 V2 场景 L1 局部近似/固定占位（非 JPL 星历）")
+	if physics_requested_mode == "authoritative" and not physics_ready:
+		physics_mode = "shadow"
+		physics_fallback_reason = "authoritative 初始化失败（实体为空/含错误）→ 回落 shadow"
+		_note_physics_warning(physics_fallback_reason)
+	elif physics_mode == "authoritative" and physics_ready:
+		_note_physics_warning("authoritative 适配层就绪：显示层尚未切换（不写 V15 tracks/HUD）；准备切换。")
+	_refresh_authoritative_view()
 
 ## 从 V2 实体 orbit 构造 barycenter rotating 初始状态；缺失/未知状态使用明确默认并标注。
 func _physics_state_for_entity(e: V2Entity, l1_state: Dictionary) -> Dictionary:
@@ -592,7 +633,7 @@ func _physics_state_for_entity(e: V2Entity, l1_state: Dictionary) -> Dictionary:
 
 ## 固定步长 shadow 推进；收集 warnings（去重/限长）。
 func _step_physics_shadow(dt: float) -> void:
-	if physics_mode != "shadow" or not physics_ready or physics == null:
+	if not (physics_mode in ["shadow", "authoritative"]) or not physics_ready or physics == null:
 		return
 	var res: Dictionary = physics.propagate(dt)
 	if not bool(res.get("ok", true)):
@@ -609,10 +650,13 @@ func _note_physics_warning(text: String) -> void:
 		physics_warnings.pop_front()
 
 func _refresh_physics() -> void:
-	if physics_mode != "shadow" or physics == null:
+	if not (physics_mode in ["shadow", "authoritative"]) or physics == null:
 		physics_view_data = {}
-		physics_summary_data = {"ready": false, "mode": physics_mode, "authoritative": false,
-			"t": 0.0, "entities": 0, "warnings": 0}
+		physics_summary_data = {"ready": false, "mode": physics_mode,
+			"requested_mode": physics_requested_mode, "authoritative": false,
+			"fallback_reason": physics_fallback_reason, "display_switched": false,
+			"t": 0.0, "entities": 0, "warnings": physics_warnings.size()}
+		_refresh_authoritative_view()
 		return
 	var t_now := float(physics.t)
 	var entities: Array = []
@@ -628,32 +672,41 @@ func _refresh_physics() -> void:
 		s["source"] = String(physics_entity_sources.get(eid, "V2 场景实体（非星历）"))
 		entities.append(s)
 	var refs := _physics_reference(t_now)
+	var is_auth := physics_mode == "authoritative"
 	physics_view_data = {
 		"schema": "cislunar_physics.v1",
 		"model": "cr3bp_rk4_circular",
-		"authoritative": false,
-		"mode": "shadow",
+		"authoritative": is_auth,
+		"mode": physics_mode,
+		"requested_mode": physics_requested_mode,
+		"fallback_reason": physics_fallback_reason,
+		"display_switched": false,
 		"ready": physics_ready,
-		"v15_orbit_source": "unchanged（V15 轨道/sensor_model/plot 仍是权威；shadow 只读）",
+		"v15_orbit_source": "unchanged（V15 轨道/sensor_model/plot 仍是权威；物理适配层不写 V15）",
 		"t": t_now,
 		"step_s": float(physics.config.get("step_s", PHYSICS_STEP_S)),
 		"config": physics.config.duplicate(true),
 		"entities": entities,
 		"reference": refs,
 		"warnings": physics_warnings.duplicate(),
-		"note": "CR3BP/RK4 shadow：只读影子；实体初始状态为 V2 场景 L1 局部近似/固定占位（非 JPL 星历）；R6 才替换 V15 位置源。",
+		"note": "CR3BP/RK4 物理：shadow/authoritative 适配层；显示层尚未切换；实体初始状态为 V2 场景 L1 局部近似/固定占位（非 JPL 星历）。",
 	}
 	physics_summary_data = {
 		"ready": physics_ready,
-		"mode": "shadow",
-		"authoritative": false,
+		"mode": physics_mode,
+		"requested_mode": physics_requested_mode,
+		"authoritative": is_auth,
+		"fallback_reason": physics_fallback_reason,
+		"display_switched": false,
 		"t": t_now,
 		"entities": entities.size(),
 		"frames": ["bary_rot", "earth_rot", "earth_eci"],
 		"warnings": physics_warnings.size(),
 		"max_jacobi_drift": max_drift,
-		"nav_position_provider": bool(nav_ready and physics_ready),
+		"nav_position_provider": bool(nav_ready and physics_ready
+			and (physics_mode in ["shadow", "authoritative"])),
 		"v15_orbit_source": "unchanged",
+		"compare_thresholds": COMPARE_THRESHOLDS.duplicate(true),
 		"reference": {
 			"lagrange": (refs.get("lagrange", {}) as Dictionary).size(),
 			"geo": (refs.get("geo", {}) as Dictionary).size(),
@@ -661,6 +714,7 @@ func _refresh_physics() -> void:
 			"moon": (refs.get("moon", {}) as Dictionary).size(),
 		},
 	}
+	_refresh_authoritative_view()
 
 ## L1–L5 / GEO / LLO / 月球 静态参考采样（读时按 shadow t 生成；不改任何状态）。
 func _physics_reference(t_now: float) -> Dictionary:
@@ -733,7 +787,7 @@ func _vec_arr(v: Vector3) -> Array:
 
 func _bind_nav_position_provider() -> void:
 	if nav_ready and nav != null:
-		if physics_mode == "shadow":
+		if (physics_mode in ["shadow", "authoritative"]) and physics_ready:
 			nav.bind_position_provider(Callable(self, "_nav_shadow_position"))
 		else:
 			nav.clear_position_provider()
@@ -741,7 +795,7 @@ func _bind_nav_position_provider() -> void:
 ## provider 签名：func(position_source:String, node_id:String) -> Array|Vector3|Dictionary。
 ## 返回地心旋转系 km（与 navigation 内容 abstract_pos_km 同系）；未知/off 返回 [] 让 nav 回退抽象坐标。
 func _nav_shadow_position(position_source: String, node_id: String) -> Array:
-	if physics_mode != "shadow":
+	if not (physics_mode in ["shadow", "authoritative"]) or not physics_ready:
 		return []
 	var t_now := float(physics.t) if physics != null else 0.0
 	var src := position_source
@@ -796,3 +850,277 @@ func _nav_lagrange_pos(lid: String) -> Array:
 func _nav_eci_pos(eci_state: Dictionary, t_now: float) -> Array:
 	var erot := _physics_eci_to_earth_rot(PhysicsScript.as_state(eci_state), t_now)
 	return _vec_arr(PhysicsScript.to_vec3(erot.get("r", Vector3.ZERO), Vector3.ZERO))
+
+# ═══════════════════════════════════════════════════════════════════
+# R6-AUTH-1：authoritative 物理适配层（只读；显示层尚未切换）
+#   - V17_PHYSICS=shadow|authoritative|off；authoritative 时 bridge 仍不写 V15 tracks；
+#   - physics_authoritative_view()：own/flagship/targets 的 ECI + 相对 board_r/board_v、
+#     range/bearing/elevation、age、warnings（地心旋转系 → 局部板）；
+#   - physics_adapter_compare(v15_own, v15_tracks)：物理相对状态 vs V15 board 差异（只读）；
+#   - authoritative 初始化失败回落 shadow，不崩溃；display_switched 恒 false。
+# ═══════════════════════════════════════════════════════════════════
+
+func physics_authoritative_view() -> Dictionary:
+	return physics_authoritative_view_data
+
+## 物理相对状态 vs V15 board 差异（只读；用于切换阈值评估；不写 V15 tracks/HUD）。
+## v15_own：state.own_at() 返回 {r,v}；v15_tracks：[{track_id/entity_id, board_r, board_v}]
+func physics_adapter_compare(v15_own, v15_tracks: Array) -> Dictionary:
+	var view := physics_authoritative_view()
+	var out := {
+		"ok": false,
+		"schema": "v17_physics_adapter_compare.v1",
+		"mode": physics_mode,
+		"requested_mode": physics_requested_mode,
+		"authoritative_ready": bool(view.get("ready", false)),
+		"display_switched": false,
+		"source": "adapter_compare（只读；不写 V15 tracks/HUD）",
+		"frame_mismatch_note": "V15 board=L1 局部差；physics board=地心旋转系差（未切换）；range 直接可比，bearing/位置误差含坐标系旋转差异，仅作阈值参考。",
+		"thresholds": COMPARE_THRESHOLDS.duplicate(true),
+		"own": {},
+		"tracks": [],
+		"summary": {},
+		"warnings": [],
+	}
+	if not bool(view.get("ready", false)):
+		out["reason"] = String(view.get("error", "authoritative 未就绪"))
+		physics_adapter_last = out.duplicate(true)
+		return out
+	var own_row: Dictionary = view.get("own", {})
+	var v15_own_r := Vector3.ZERO
+	if v15_own is Dictionary:
+		v15_own_r = _variant_vec3((v15_own as Dictionary).get("r", null), Vector3.ZERO)
+	out["own"] = {
+		"physics_earth_rot_r": ((own_row.get("state_earth_rot", {}) as Dictionary).get("r", []) as Array).duplicate(),
+		"v15_r": _vec_arr(v15_own_r),
+		"note": "own 参考点：V15 own_at() vs physics earth_rot（坐标系未切换）",
+	}
+	var target_map := {}
+	for raw in (view.get("targets", []) as Array):
+		target_map[String((raw as Dictionary).get("entity_id", ""))] = raw
+	var rows: Array = []
+	var max_range_err := 0.0
+	var max_bearing_err := 0.0
+	var max_pos_err := 0.0
+	var compared := 0
+	for raw in v15_tracks:
+		if not (raw is Dictionary):
+			continue
+		var t15: Dictionary = raw
+		var eid := _v15_track_entity_id(t15)
+		if eid == "" or not target_map.has(eid):
+			continue
+		var prow: Dictionary = target_map.get(eid, {})
+		var v15_board := _variant_vec3(t15.get("board_r", t15.get("r", null)), Vector3.ZERO)
+		var v15_board_v := _variant_vec3(t15.get("board_v", t15.get("v", null)), Vector3.ZERO)
+		var v15_rng := v15_board.length()
+		var v15_bearing := fposmod(rad_to_deg(atan2(v15_board.x, v15_board.y)), 360.0)
+		var v15_horiz := sqrt(v15_board.x * v15_board.x + v15_board.y * v15_board.y)
+		var v15_el := rad_to_deg(atan2(v15_board.z, maxf(v15_horiz, 1.0e-6)))
+		var phys_board := _variant_vec3(prow.get("board_r", null), Vector3.ZERO)
+		var phys_rng := float(prow.get("range_km", 0.0))
+		var phys_bearing := float(prow.get("bearing_deg", 0.0))
+		var range_err := absf(phys_rng - v15_rng)
+		var bearing_err := absf(fposmod(phys_bearing - v15_bearing + 180.0, 360.0) - 180.0)
+		var pos_err := (phys_board - v15_board).length()
+		max_range_err = maxf(max_range_err, range_err)
+		max_bearing_err = maxf(max_bearing_err, bearing_err)
+		max_pos_err = maxf(max_pos_err, pos_err)
+		compared += 1
+		rows.append({
+			"track_id": String(t15.get("id", t15.get("track_id", ""))),
+			"entity_id": eid,
+			"role": String(prow.get("role", "target")),
+			"physics": {
+				"range_km": phys_rng,
+				"bearing_deg": phys_bearing,
+				"elevation_deg": float(prow.get("elevation_deg", 0.0)),
+				"board_r": _vec_arr(phys_board),
+			},
+			"v15": {
+				"range_km": v15_rng,
+				"bearing_deg": v15_bearing,
+				"elevation_deg": v15_el,
+				"board_r": _vec_arr(v15_board),
+				"board_v": _vec_arr(v15_board_v),
+			},
+			"errors": {"range_km": range_err, "bearing_deg": bearing_err,
+				"position_km": pos_err},
+		})
+	var th: Dictionary = COMPARE_THRESHOLDS
+	out["tracks"] = rows
+	out["summary"] = {
+		"tracks_input": v15_tracks.size(),
+		"compared": compared,
+		"skipped": maxi(0, v15_tracks.size() - compared),
+		"max_range_err_km": max_range_err,
+		"max_bearing_err_deg": max_bearing_err,
+		"max_position_err_km": max_pos_err,
+		"within_threshold": bool(compared > 0
+			and max_range_err <= float(th.get("range_km", 5.0))
+			and max_bearing_err <= float(th.get("bearing_deg", 5.0))
+			and max_pos_err <= float(th.get("position_km", 50.0))),
+	}
+	out["ok"] = compared > 0
+	physics_adapter_last = out.duplicate(true)
+	return out
+
+func _refresh_authoritative_view() -> void:
+	physics_authoritative_view_data = _build_authoritative_view()
+
+func _build_authoritative_view() -> Dictionary:
+	var out := {
+		"schema": "v17_physics_authoritative.v1",
+		"requested_mode": physics_requested_mode,
+		"mode": physics_mode,
+		"authoritative": physics_mode == "authoritative",
+		"ready": bool(physics_mode == "authoritative" and physics_ready and physics != null),
+		"display_switched": false,
+		"display_note": "显示层尚未切换：V15 tracks/HUD/plot 仍用 V15 数据；本视图只读。",
+		"fallback_reason": physics_fallback_reason,
+		"source": "cr3bp_rk4_circular · 实体初始 V2 L1 局部近似/固定占位（非 JPL 星历）",
+		"frame": {
+			"inertial": "earth_eci",
+			"rotating": "earth_rot",
+			"board": "earth_rot 相对本舰（+x/+y 面内、+z 法向；bearing=atan2(x,y)、elevation=atan2(z,horiz)，与 V15 _derive 同式）",
+		},
+		"t": 0.0,
+		"own": {},
+		"flagship": {},
+		"targets": [],
+		"flags": {},
+		"warnings": physics_warnings.duplicate(),
+		"error": "",
+	}
+	if physics == null or not physics_ready:
+		out["error"] = "physics 未就绪（mode=%s requested=%s）" % [physics_mode, physics_requested_mode]
+		out["flags"] = {"authoritative_ready": false, "display_switched": false,
+			"fallback_reason": physics_fallback_reason}
+		return out
+	if physics_mode != "authoritative":
+		out["error"] = "authoritative 未启用（mode=%s；shadow 只读）" % physics_mode
+		out["flags"] = {"authoritative_ready": false, "display_switched": false,
+			"fallback_reason": physics_fallback_reason}
+		return out
+	var rows := {}
+	for raw in (physics_view_data.get("entities", []) as Array):
+		var row: Dictionary = raw
+		rows[String(row.get("id", ""))] = row
+	var own_id := String(world.own_id)
+	if not rows.has(own_id):
+		out["error"] = "own 实体物理状态缺失：" + own_id
+		return out
+	var own_row: Dictionary = rows[own_id]
+	out["t"] = float(physics.t)
+	out["own"] = _auth_relative_row(own_row, own_row, own_id, "own")
+	var flagship_id := _pick_flagship_id(own_id)
+	if flagship_id != "" and rows.has(flagship_id):
+		out["flagship"] = _auth_relative_row(rows[flagship_id], own_row, flagship_id, "flagship")
+	var targets: Array = []
+	var target_ids: Array = []
+	for raw in world.entities:
+		var e: V2Entity = raw
+		if e.id == own_id or e.id == flagship_id:
+			continue
+		if e.kind != "ship":
+			continue
+		if not rows.has(e.id):
+			continue
+		var trow := _auth_relative_row(rows[e.id], own_row, e.id, "target")
+		trow["side"] = String(e.side)
+		trow["name"] = e.display_name()
+		targets.append(trow)
+		target_ids.append(e.id)
+	out["targets"] = targets
+	out["flags"] = {
+		"authoritative_ready": true,
+		"display_switched": false,
+		"own_id": own_id,
+		"flagship_id": flagship_id,
+		"target_ids": target_ids,
+		"fallback_reason": physics_fallback_reason,
+	}
+	return out
+
+func _auth_relative_row(row: Dictionary, own_row: Dictionary, entity_id: String, role: String) -> Dictionary:
+	var erot: Dictionary = row.get("state_earth_rot", {}) if row.get("state_earth_rot") is Dictionary else {}
+	var eci: Dictionary = row.get("state_earth_eci", {}) if row.get("state_earth_eci") is Dictionary else {}
+	var orot: Dictionary = own_row.get("state_earth_rot", {}) if own_row.get("state_earth_rot") is Dictionary else {}
+	var tr := _variant_vec3(erot.get("r", null), Vector3.ZERO)
+	var tv := _variant_vec3(erot.get("v", null), Vector3.ZERO)
+	var orr := _variant_vec3(orot.get("r", null), Vector3.ZERO)
+	var ov := _variant_vec3(orot.get("v", null), Vector3.ZERO)
+	var metrics := _board_metrics(tr - orr, tv - ov)
+	var out := {
+		"entity_id": entity_id,
+		"role": role,
+		"source": String(physics_entity_sources.get(entity_id, "V2 场景实体（非星历）")),
+		"age_s": 0.0,
+		"age_note": "physics 当前步（shadow/authoritative 同步时间）",
+		"state_earth_eci": eci.duplicate(true),
+		"state_earth_rot": erot.duplicate(true),
+		"finite": bool(row.get("finite", false)),
+		"earth_distance_km": float(row.get("earth_distance_km", 0.0)),
+		"moon_distance_km": float(row.get("moon_distance_km", 0.0)),
+		"jacobi_drift": float(row.get("jacobi_drift", 0.0)),
+	}
+	for k in metrics.keys():
+		out[k] = metrics[k]
+	return out
+
+func _board_metrics(dr: Vector3, dv: Vector3) -> Dictionary:
+	var rng := dr.length()
+	var range_rate := 0.0
+	if rng > 1.0e-9:
+		range_rate = dr.dot(dv) / rng
+	var horiz := sqrt(dr.x * dr.x + dr.y * dr.y)
+	return {
+		"board_r": _vec_arr(dr),
+		"board_v": _vec_arr(dv),
+		"range_km": rng,
+		"range_rate_kmps": range_rate,
+		"closing_kmps": -range_rate,
+		"bearing_deg": fposmod(rad_to_deg(atan2(dr.x, dr.y)), 360.0),
+		"elevation_deg": rad_to_deg(atan2(dr.z, maxf(horiz, 1.0e-6))),
+	}
+
+func _pick_flagship_id(own_id: String) -> String:
+	if own_id != "apsis" and world != null and world.by_id.has("apsis"):
+		return "apsis"
+	for raw in world.entities:
+		var e: V2Entity = raw
+		if e.id != own_id and e.kind == "ship" and e.side == "friend":
+			return e.id
+	return ""
+
+func _v15_track_entity_id(track: Dictionary) -> String:
+	var direct := String(track.get("entity_id", ""))
+	if direct != "":
+		return direct
+	var batch := String(track.get("batch", ""))
+	var tid := String(track.get("id", track.get("track_id", "")))
+	if batch != "" or tid != "":
+		for raw in contacts:
+			var c: Dictionary = raw
+			if (batch != "" and String(c.get("batch", "")) == batch) \
+					or (tid != "" and String(c.get("track_id", "")) == tid):
+				return String(c.get("entity_id", ""))
+	if batch != "" and world != null:
+		for raw in world.entities:
+			var e: V2Entity = raw
+			if String(e.batch) == batch:
+				return e.id
+	return ""
+
+func _variant_vec3(value: Variant, fallback: Vector3) -> Vector3:
+	if value is Vector3:
+		return value
+	if value is Array and (value as Array).size() >= 3:
+		var a: Array = value
+		return Vector3(float(a[0]), float(a[1]), float(a[2]))
+	if value is Dictionary:
+		var d: Dictionary = value
+		for k in ["r", "pos", "position", "board_r"]:
+			if d.has(k):
+				return _variant_vec3(d.get(k), fallback)
+	return fallback

@@ -98,6 +98,11 @@ var _up := Vector3.UP
 var _focal := 700.0
 var _planar_scale := 0.0014
 var _cam_env_done := false
+# R3-V17-GEO-1：可见站体/舰船线框几何层
+var geo_on := true
+var _geo_flash_t := 0.0
+var _geo_close := false
+var _geo_close_done := false
 
 func _ready() -> void:
 	mono = Fonts.mono()
@@ -108,6 +113,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	if _geo_flash_t > 0.0:
+		_geo_flash_t = maxf(0.0, _geo_flash_t - delta)
 	if state.sensor_fx_t >= 0.0:
 		state.sensor_fx_t += delta
 		if state.sensor_fx_t > 0.38:
@@ -230,12 +237,22 @@ func _update_camera() -> void:
 		var env_dist := OS.get_environment("DSH_PLOT_DIST")
 		if env_dist != "":
 			dist = clampf(float(env_dist), DIST_MIN, DIST_MAX)
+	if not _geo_close_done:
+		_geo_close_done = true
+		if OS.get_environment("DSH_UI") == "geo_close":
+			_geo_close = true
+			camera_subject_id = ""
+			dist = 330000.0
 	_planar_scale = (size.x * 0.86) / PLANAR_SPAN_KM * planar_zoom
 	var cd := _cam_dist()
 	var cp := cos(pitch)
 	var sp := sin(pitch)
 	_focus_km = _focus_offset_km()   # 局部板坐标（km，planar 用）
 	var focus_m := _focus_km * 1000.0 # 3D 相机/接触都用米；主体必须偏移到中心
+	if _geo_close:
+		var ca := _geo_close_anchor()
+		if ca.length() > 1.0:
+			focus_m = ca
 	var orbit := Vector3(cp * sin(yaw3d), -cp * cos(yaw3d), sp) * cd
 	_cam_pos = focus_m + orbit
 	var to_target := focus_m - _cam_pos
@@ -353,12 +370,18 @@ func _draw_3d() -> void:
 	if _layer_on("contacts"):
 		_draw_contacts()
 	if _layer_on("stations"):
+		if not _geo_close:
+			_draw_geo_layer()
 		_draw_fixed_assets(false)
+		if _geo_close:
+			_draw_geo_layer()
+		_draw_geo_panel()
 	_draw_own()
 	_draw_subject_marker()
 	_draw_interaction_overlays()
-	for it in _pending_contact_labels:
-		_draw_track_label(it["t"], it["p"], it["col"])
+	if not _geo_close:
+		for it in _pending_contact_labels:
+			_draw_track_label(it["t"], it["p"], it["col"])
 	if _layer_on("radar"):
 		_draw_sensor()
 	_draw_tasks()
@@ -2354,6 +2377,349 @@ func _draw_planar_inset() -> void:
 
 # ── 界面装饰 ────────────────────────────────────────────
 
+# ═══════════════════════════════════════════════════════════════
+# R3-V17-GEO-1：可见站体/舰船几何（V1 线框；G 切换；不写 state）
+# ═══════════════════════════════════════════════════════════════
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if event.keycode == KEY_G:
+		geo_on = not geo_on
+		_geo_flash_t = 2.0
+		queue_redraw()
+		accept_event()
+
+
+func _geo_fixed_contacts() -> Array:
+	var out: Array = []
+	if state == null:
+		return out
+	var list = state.get("fw_contacts")
+	if list is Array:
+		for raw in list:
+			var c: Dictionary = raw
+			if bool(c.get("fixed", false)):
+				out.append(c)
+	return out
+
+
+func _geo_fixed_anchor(c: Dictionary) -> Vector3:
+	return _world(float(c.get("bearing_deg", 0.0)), float(c.get("range_km", 0.0)), 0.0)
+
+
+func _geo_close_anchor() -> Vector3:
+	for c in _geo_fixed_contacts():
+		var cd: Dictionary = c
+		if String(cd.get("kind", "")) == "station" or String(cd.get("display_kind", "")) == "站体":
+			return _geo_fixed_anchor(cd)
+	if not _geo_fixed_contacts().is_empty():
+		return _geo_fixed_anchor(_geo_fixed_contacts()[0])
+	return Vector3.ZERO
+
+
+func _geo_scale_px() -> float:
+	if _geo_close:
+		return 3.8
+	return clampf(1000000.0 / maxf(1.0, dist), 1.1, 2.4)
+
+
+func _geo_detail() -> bool:
+	return _geo_close or dist <= 700000.0
+
+
+func _gp(a: Vector2, u: float, x: float, y: float, z: float) -> Vector2:
+	return a + Vector2(x * u + z * u * 0.45, -y * u - z * u * 0.25)
+
+
+func _gl(a: Vector2, u: float, p1: Vector3, p2: Vector3, col: Color, alpha: float) -> void:
+	draw_line(_gp(a, u, p1.x, p1.y, p1.z), _gp(a, u, p2.x, p2.y, p2.z), Palette.a(col, alpha), 1.0)
+
+
+func _gbox(a: Vector2, u: float, c: Vector3, sz: Vector3, col: Color, alpha: float) -> void:
+	var h := sz * 0.5
+	var vs: Array = []
+	for sx in [-1.0, 1.0]:
+		for sy in [-1.0, 1.0]:
+			for sz2 in [-1.0, 1.0]:
+				vs.append(c + Vector3(sx * h.x, sy * h.y, sz2 * h.z))
+	var edges := [[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]]
+	for e in edges:
+		_gl(a, u, vs[e[0]], vs[e[1]], col, alpha)
+
+
+func _g_axis(axis: String, t: float) -> Vector3:
+	match axis:
+		"x":
+			return Vector3(t, 0.0, 0.0)
+		"y":
+			return Vector3(0.0, t, 0.0)
+		_:
+			return Vector3(0.0, 0.0, t)
+
+
+func _g_ring(a: Vector2, u: float, c: Vector3, axis: String, r: float, col: Color, alpha: float, seg := 12) -> void:
+	for i in range(seg):
+		var t1 := TAU * float(i) / float(seg)
+		var t2 := TAU * float(i + 1) / float(seg)
+		var p1 := c
+		var p2 := c
+		if axis == "z":
+			p1 += Vector3(cos(t1) * r, sin(t1) * r, 0.0)
+			p2 += Vector3(cos(t2) * r, sin(t2) * r, 0.0)
+		elif axis == "x":
+			p1 += Vector3(0.0, cos(t1) * r, sin(t1) * r)
+			p2 += Vector3(0.0, cos(t2) * r, sin(t2) * r)
+		else:
+			p1 += Vector3(cos(t1) * r, 0.0, sin(t1) * r)
+			p2 += Vector3(cos(t2) * r, 0.0, sin(t2) * r)
+		_gl(a, u, p1, p2, col, alpha)
+
+
+func _gcyl(a: Vector2, u: float, c: Vector3, axis: String, length: float, r: float, col: Color, alpha: float) -> void:
+	var half := length * 0.5
+	var ax := _g_axis(axis, 1.0)
+	_g_ring(a, u, c + ax * (-half), axis, r, col, alpha)
+	_g_ring(a, u, c + ax * half, axis, r, col, alpha)
+	for i in range(4):
+		var t := TAU * float(i) / 4.0
+		var radial := Vector3.ZERO
+		if axis == "z":
+			radial = Vector3(cos(t) * r, sin(t) * r, 0.0)
+		elif axis == "x":
+			radial = Vector3(0.0, cos(t) * r, sin(t) * r)
+		else:
+			radial = Vector3(cos(t) * r, 0.0, sin(t) * r)
+		_gl(a, u, c - ax * half + radial, c + ax * half + radial, col, alpha * 0.8)
+
+
+func _g_panel(a: Vector2, u: float, c: Vector3, plane: String, w: float, h: float,
+		gx: int, gy: int, col: Color, alpha: float) -> void:
+	var p := func(dx: float, dy: float) -> Vector3:
+		if plane == "yz":
+			return c + Vector3(0.0, dx, dy)
+		return c + Vector3(dx, 0.0, dy)
+	for i in range(gx + 1):
+		var x := -w * 0.5 + w * float(i) / float(gx)
+		_gl(a, u, p.call(x, -h * 0.5), p.call(x, h * 0.5), col, alpha)
+	for j in range(gy + 1):
+		var y := -h * 0.5 + h * float(j) / float(gy)
+		_gl(a, u, p.call(-w * 0.5, y), p.call(w * 0.5, y), col, alpha)
+
+
+func _g_marker(a: Vector2, u: float, col: Color, alpha: float) -> void:
+	draw_line(a + Vector2(-4, 0), a + Vector2(4, 0), Palette.a(col, alpha), 1.0)
+	draw_line(a + Vector2(0, -4), a + Vector2(0, 4), Palette.a(col, alpha), 1.0)
+
+
+func _geo_station(a: Vector2, u: float, detail: bool) -> void:
+	var col := Palette.PH_DIM
+	_g_marker(a, u, col, 0.8)
+	if not detail:
+		_gbox(a, u, Vector3.ZERO, Vector3(3.0, 1.2, 1.8), col, 0.7)
+		_gl(a, u, Vector3(-1.6, 0.3, 0), Vector3(1.6, 0.3, 0), col, 0.6)
+		_gl(a, u, Vector3(0, 0.3, 0), Vector3(0, 1.5, 0), col, 0.6)
+		return
+	# 核心舱 + 肋环
+	_gcyl(a, u, Vector3.ZERO, "z", 2.1, 0.22, col, 0.8)
+	_g_ring(a, u, Vector3(0, 0, 0.0), "z", 0.24, col, 0.5)
+	# 居住舱 ×2
+	for side in [-1.0, 1.0]:
+		_gcyl(a, u, Vector3(side * 0.55, 0.04, 0.0), "z", 0.82, 0.24, col, 0.7)
+		_gbox(a, u, Vector3(side * 0.32, 0.04, 0.0), Vector3(0.16, 0.14, 0.22), col, 0.55)
+	# 推进储罐 ×2（上方）
+	for side2 in [-1.0, 1.0]:
+		_gcyl(a, u, Vector3(side2 * 0.34, 0.55, -0.25), "z", 0.5, 0.19, Palette.AMBER, 0.6)
+	# 对接桁架
+	for y in [-0.11, 0.11]:
+		_gl(a, u, Vector3(-1.35, y, 0.45), Vector3(1.35, y, 0.45), col, 0.65)
+	for i in range(5):
+		var x := -1.35 + 2.7 * float(i) / 4.0
+		_gl(a, u, Vector3(x, -0.11, 0.45), Vector3(x, 0.11, 0.45), col, 0.55)
+	# 太阳翼 ×2
+	for side3 in [-1.0, 1.0]:
+		for z in [0.15, 0.78]:
+			_g_panel(a, u, Vector3(side3 * 1.65, 0.45, z), "yz", 0.45, 0.55, 2, 2, col, 0.58)
+		_gl(a, u, Vector3(side3 * 1.35, 0.45, 0.45), Vector3(side3 * 1.65, 0.45, 0.45), col, 0.5)
+	# 散热板 ×2
+	for side4 in [-1.0, 1.0]:
+		_g_panel(a, u, Vector3(side4 * 0.42, 1.02, 0.05), "xz", 0.6, 0.42, 2, 2, Palette.BLUE, 0.48)
+		_gl(a, u, Vector3(side4 * 0.42, 0.55, 0.0), Vector3(side4 * 0.42, 0.95, 0.05), col, 0.5)
+	# 通信桅杆 + 天线
+	_gl(a, u, Vector3(0, 0.2, 0.15), Vector3(0, 1.35, 0.15), col, 0.75)
+	_g_ring(a, u, Vector3(0, 1.42, 0.15), "x", 0.2, col, 0.55, 8)
+	_gl(a, u, Vector3(0, 1.33, 0.15), Vector3(0, 1.52, 0.15), col, 0.5)
+	# 对接环 ×2
+	for end in [-1.0, 1.0]:
+		_g_ring(a, u, Vector3(0, 0, end * 1.16), "z", 0.28, Palette.AMBER, 0.65)
+		_g_ring(a, u, Vector3(0, 0, end * 1.24), "z", 0.15, Palette.AMBER, 0.55, 8)
+	# 停泊小舱段
+	_gbox(a, u, Vector3(0, 0, 1.42), Vector3(0.2, 0.18, 0.3), col, 0.55)
+
+
+
+func _geo_module_labels(a: Vector2, u: float) -> void:
+	var marks := [["CORE", Vector3(0, 0.32, 0.0), 18.0, -26.0], ["HAB", Vector3(-0.55, 0.35, 0.0), -120.0, -26.0],
+		["TANK", Vector3(0.34, 0.9, -0.25), 64.0, -70.0], ["SOLAR", Vector3(1.65, 0.75, 0.8), 116.0, -34.0],
+		["COMMS", Vector3(0.0, 1.55, 0.15), 44.0, -118.0], ["DOCK", Vector3(0, 0, 1.52), 30.0, 46.0]]
+	for raw in marks:
+		var m: Array = raw
+		var pp := _gp(a, u, (m[1] as Vector3).x, (m[1] as Vector3).y, (m[1] as Vector3).z)
+		var tx := pp.x + float(m[2])
+		var ty := pp.y + float(m[3])
+		var tw := 8.0 + 4.2 * float(String(m[0]).length())
+		draw_rect(Rect2(tx - 3.0, ty - 2.0, tw, 12.0), Palette.a(Palette.BG, 0.9))
+		draw_rect(Rect2(tx - 3.0, ty - 2.0, tw, 12.0), Palette.a(Palette.PH_DIM, 0.4), false, 1.0)
+		draw_line(pp, Vector2(tx, ty + 5.0), Palette.a(Palette.PH_DIM, 0.5), 1.0)
+		_txt(mono, tx, ty, String(m[0]), 7, Palette.a(Palette.PH_DIM, 0.95))
+
+
+func _geo_tank_cluster(a: Vector2, u: float, detail: bool) -> void:
+	if not detail:
+		_gbox(a, u, Vector3.ZERO, Vector3(1.6, 0.8, 1.0), Palette.AMBER, 0.65)
+		return
+	for i in range(3):
+		_gcyl(a, u, Vector3(-0.75 + 0.75 * float(i), 0.0, 0.0), "z", 1.2, 0.22, Palette.AMBER, 0.6)
+	_gbox(a, u, Vector3(0, 0.45, 0), Vector3(2.1, 0.12, 1.2), Palette.AMBER, 0.5)
+	_g_marker(a, u, Palette.AMBER, 0.75)
+
+
+func _geo_port(a: Vector2, u: float, earth: bool, detail: bool) -> void:
+	var col := Palette.PH_DIM if earth else Palette.BLUE
+	_g_marker(a, u, col, 0.8)
+	if not detail:
+		_g_ring(a, u, Vector3.ZERO, "y", 1.2, col, 0.7, 16)
+		_gl(a, u, Vector3.ZERO, Vector3(0, 1.2, 0), col, 0.65)
+		return
+	_g_ring(a, u, Vector3.ZERO, "y", 1.15, col, 0.75, 20)
+	_g_ring(a, u, Vector3.ZERO, "y", 0.44, col, 0.55, 12)
+	for i in range(8):
+		var ang := TAU * float(i) / 8.0
+		var d := Vector3(cos(ang) * 1.15, 0.0, sin(ang) * 1.15)
+		_gl(a, u, Vector3(cos(ang) * 0.44, 0.0, sin(ang) * 0.44), d, col, 0.5)
+	_gcyl(a, u, Vector3(0, 0.65, 0), "y", 1.3, 0.12, col, 0.7)
+	_gbox(a, u, Vector3(0, 1.35, 0), Vector3(0.2, 0.16, 0.2), col, 0.8)
+	for side in [-1.0, 1.0]:
+		_gcyl(a, u, Vector3(side * 0.8, 0.25, 0), "y", 0.5, 0.2, Palette.AMBER, 0.5)
+		_gl(a, u, Vector3(side * 1.05, 0.15, 0), Vector3(side * 1.55, 0.15, 0.35), col, 0.6)
+		_g_ring(a, u, Vector3(side * 1.55, 0.15, 0.35), "z", 0.18, Palette.AMBER, 0.55, 8)
+
+
+func _geo_ship(a: Vector2, u: float, label: String, col: Color, detail: bool) -> void:
+	if not detail:
+		_gbox(a, u, Vector3.ZERO, Vector3(0.45, 0.3, 1.8), col, 0.75)
+		_gl(a, u, Vector3(0, 0.15, 0), Vector3(0, 0.9, 0), col, 0.65)
+		return
+	# 舰体
+	_gbox(a, u, Vector3.ZERO, Vector3(0.5, 0.28, 1.9), col, 0.7)
+	_gl(a, u, Vector3(-0.25, 0.14, 1.0), Vector3(0, 0.14, 1.35), col, 0.55)
+	_gl(a, u, Vector3(0.25, 0.14, 1.0), Vector3(0, 0.14, 1.35), col, 0.55)
+	_gl(a, u, Vector3(-0.25, -0.14, 1.0), Vector3(0, -0.14, 1.35), col, 0.5)
+	_gl(a, u, Vector3(0.25, -0.14, 1.0), Vector3(0, -0.14, 1.35), col, 0.5)
+	# 双推进段 + 喷管
+	for side in [-1.0, 1.0]:
+		_gbox(a, u, Vector3(side * 0.24, -0.02, -0.95), Vector3(0.18, 0.2, 0.55), Palette.AMBER, 0.65)
+		_g_ring(a, u, Vector3(side * 0.24, -0.02, -1.25), "z", 0.12, Palette.AMBER, 0.55, 8)
+	# 舰桥 / 任务舱
+	_gbox(a, u, Vector3(0, 0.25, 0.45), Vector3(0.3, 0.22, 0.55), col, 0.75)
+	# 桅杆 + 天线
+	_gl(a, u, Vector3(0, 0.3, 0.45), Vector3(0, 1.0, 0.45), col, 0.75)
+	_g_ring(a, u, Vector3(0, 1.05, 0.45), "x", 0.14, col, 0.55, 8)
+	# 侧散热板
+	for side2 in [-1.0, 1.0]:
+		_g_panel(a, u, Vector3(side2 * 0.42, 0.18, -0.25), "xz", 0.45, 0.75, 1, 2, Palette.BLUE, 0.45)
+		_gl(a, u, Vector3(0, 0.1, -0.25), Vector3(side2 * 0.42, 0.18, -0.25), col, 0.5)
+	# 舰体重心十字（不替代现有本舰标记）
+	draw_line(a + Vector2(-2, 0), a + Vector2(2, 0), Palette.a(col, 0.9), 1.0)
+	draw_line(a + Vector2(0, -2), a + Vector2(0, 2), Palette.a(col, 0.9), 1.0)
+	if _geo_close:
+		_txt(mono, a.x + 14.0, a.y - 34.0, label, 7, Palette.a(col, 0.85))
+
+
+func _draw_geo_layer() -> void:
+	if not geo_on or state == null:
+		return
+	if not _layer_on("stations"):
+		return
+	var s := _geo_scale_px()
+	var detail := _geo_detail()
+	if _geo_close:
+		var c0 := _geo_close_anchor()
+		var cp := _p3(c0)
+		if _ok(cp):
+			draw_rect(Rect2(cp - Vector2(330.0, 250.0), Vector2(660.0, 440.0)), Palette.a(Palette.BG, 0.52))
+			draw_rect(Rect2(cp - Vector2(330.0, 250.0), Vector2(660.0, 440.0)), Palette.a(Palette.PH_DIM, 0.22), false, 1.0)
+	for raw in _geo_fixed_contacts():
+		var c: Dictionary = raw
+		var a := _p3(_geo_fixed_anchor(c))
+		if not _ok(a):
+			continue
+		var kind := String(c.get("kind", ""))
+		if kind == "tank":
+			_geo_tank_cluster(a, 18.0 * s, detail)
+		else:
+			_geo_station(a, 18.0 * s, detail)
+	# 地球港 / 月球港：L1 基准时放在既有 EARTH/MOON 方向标记处（示意，不是实体坐标）
+	if String(state.datum) == "L1":
+		var ep := _p3(_world(270.0, 300.0, 0.0))
+		var mp := _p3(_world(90.0, 300.0, 0.0))
+		if _ok(ep):
+			_geo_port(ep, 14.0 * s, true, detail)
+			_txt(mono, ep.x + 14.0, ep.y + 16.0, "EARTH PORT · 示意", 7, Palette.a(Palette.PH_DIM, 0.55))
+		if _ok(mp):
+			_geo_port(mp, 14.0 * s, false, detail)
+			_txt(mono, mp.x + 14.0, mp.y + 16.0, "LUNAR PORT · 示意", 7, Palette.a(Palette.BLUE, 0.55))
+	# 本舰 / 旗舰低模舰体（只读 position；不替代本舰标记）
+	if state.has_method("track_by_id"):
+		var fh: Dictionary = state.track_by_id("1000")
+		if not fh.is_empty():
+			var fp := _contact_pos3(fh)
+			if _ok(fp):
+				_geo_ship(fp, 13.0 * s, "FLAGSHIP 1000 · LOW-POLY", Palette.PH_DIM, detail)
+	var own_tr := _own_track()
+	if not own_tr.is_empty():
+		var op := _p3(Vector3.ZERO)
+		if _ok(op):
+			_geo_ship(op, 13.0 * s, "OWN 1001 · LOW-POLY", Palette.PH, detail)
+	if _geo_close:
+		_txt(mono, 16.0, size.y - 44.0, "GEO CLOSE-UP · L1 CHRONOS · 视觉线框 / 非实体尺寸 · G 切换", 7, Palette.a(Palette.PH_DIM, 0.85))
+	if _geo_flash_t > 0.0:
+		_txt_r(mono, size.x - 16.0, size.y - 44.0, "GEO LAYER %s · G" % ("ON" if geo_on else "OFF"), 7, Palette.AMBER)
+
+
+func _draw_geo_panel() -> void:
+	if not geo_on or state == null or ortho:
+		return
+	var fixed := _geo_fixed_contacts()
+	if fixed.is_empty():
+		return
+	var c: Dictionary = fixed[0]
+	var title := String(c.get("name", "站体"))
+	if title == "":
+		title = String(c.get("entity_name", "站体"))
+	var r := Rect2(16.0, 360.0, 236.0, 92.0)
+	draw_rect(r, Palette.a(Palette.PANEL, 0.92))
+	draw_rect(r, Palette.a(Palette.PH, 0.35), false, 1.0)
+	_txt(cjk, r.position.x + 8.0, r.position.y + 8.0, "%s · 站体几何" % title.substr(0, 12), 8, Palette.PH)
+	_txt(mono, r.position.x + r.size.x - 8.0, r.position.y + 8.0, "GEO / G", 7, Palette.a(Palette.FAINT, 0.85))
+	_txt(mono, r.position.x + 8.0, r.position.y + 24.0, "MOD CORE · HAB×2 · TANK×2", 7, Palette.a(Palette.TXT, 0.9))
+	_txt(mono, r.position.x + 8.0, r.position.y + 36.0, "TRUSS · SOLAR×2 · RADIATOR×2", 7, Palette.a(Palette.TXT, 0.9))
+	_txt(mono, r.position.x + 8.0, r.position.y + 48.0, "COMMS · DOCK×2 · PORTS DOCK-A/B", 7, Palette.a(Palette.TXT, 0.9))
+	_txt(mono, r.position.x + 8.0, r.position.y + 64.0, "STATUS %s · 视觉线框（非实体尺寸）" % String(c.get("status", "—")), 7, Palette.a(Palette.PH_DIM, 0.9))
+	if _geo_close:
+		var a0 := _p3(_geo_close_anchor())
+		if _ok(a0):
+			_geo_module_labels(a0, 18.0 * _geo_scale_px())
+	var sel_note := "选中：旗舰 APSIS · HULL/ENGINE×2/MAST"
+	if state != null and state.tracks is Array and int(state.selected) >= 0 and int(state.selected) < state.tracks.size():
+		var tr: Dictionary = state.tracks[int(state.selected)]
+		if bool(tr.get("own", false)):
+			sel_note = "选中：本舰 %s · HULL/ENGINE×2/MAST" % String(tr.get("name", ""))
+		else:
+			sel_note = "选中：[%s] %s · 舰体/推进/桅杆" % [String(tr.get("batch", "")), String(tr.get("name", ""))]
+	_txt(mono, r.position.x + 8.0, r.position.y + 80.0, sel_note, 7, Palette.a(Palette.FAINT, 0.85))
+
+
 func _draw_fixed_assets(planar_view: bool) -> void:
 	var list = state.fw_contacts if state != null and state.get("fw_contacts") != null else []
 	if not (list is Array):
@@ -2526,7 +2892,7 @@ func _chrome_3d() -> void:
 	_txt_r(mono, size.x - 24.0, size.y - 92.0, "历元 T0+%06.1fs · 预测 %d 点" % [_tau_now(), PRED_STEPS + 1], 7, Palette.a(Palette.PH_FAINT, 0.9))
 	# P11c：底部提示收成两行，全部右对齐在 plot 边界内（最后一字距右边缘 16px）
 	_txt_r(mono, size.x - 16.0, size.y - 26.0, "拖动 横=Yaw / 竖=Pitch · 滚轮缩放 · R 翻转 · D 基准", 7, Palette.a(Palette.FAINT, 0.75))
-	_txt_r(mono, size.x - 16.0, size.y - 12.0, "C 主体 · Q/E 横滚 · F10 无边框 · F11 独占全屏 · P 已停用", 7, Palette.a(Palette.FAINT, 0.75))
+	_txt_r(mono, size.x - 16.0, size.y - 12.0, "G 几何 · C 主体 · Q/E 横滚 · F10 无边框 · F11 独占全屏 · P 已停用", 7, Palette.a(Palette.FAINT, 0.75))
 
 func _chrome_planar() -> void:
 	_txt(cjk, 16.0, 10.0, "导航图 / NAV CHART", 14, Palette.PH)

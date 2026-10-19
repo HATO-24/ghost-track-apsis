@@ -233,3 +233,26 @@ moon_port 到月≈1,737.4、lunar_leo 绕月≈1,837.4 km；off 时 l1 回退 a
 
 `bridge.sync(dt)` 内固定步长（≤60s）推进 shadow；`sync(0)` 暂停不推进；不自动执行导航机动。
 详见 `game_v17/docs/v17_physics_shadow.md`；测试 `tests/v17_physics_shadow_probe.gd`（277/0）。
+## 14　authoritative 物理适配层（R6-AUTH-1）
+
+`V17_PHYSICS=shadow|authoritative|off`（默认 shadow）。authoritative 仍**不写 V15 tracks/HUD**；
+`display_switched=false`，为下一步切换准备。
+
+| 位置 | 字段 / API | 说明 |
+| --- | --- | --- |
+| bridge | `physics_requested_mode` / `physics_mode` / `physics_fallback_reason` | 请求/有效模式/回落原因（authoritative 初始化失败 → mode=shadow） |
+| bridge | `physics_authoritative_view()` | own/flagship/targets 的 `state_earth_eci`/`state_earth_rot` + 相对 own 的 `board_r/board_v`、`range_km/bearing_deg/elevation_deg/range_rate/closing`、`age_s`、`source`、`warnings`、`flags{authoritative_ready,display_switched,own_id,flagship_id,target_ids}` |
+| bridge | `physics_adapter_compare(v15_own, v15_tracks)` | 物理 vs V15 board 只读对比：rows{physics,v15,errors{range_km,bearing_deg,position_km}} + summary{compared,max_*_err,within_threshold} + thresholds{5km,5°,50km} + frame_mismatch_note |
+| bridge | `physics_summary()` / `bridge_state()` | 增 requested_mode/authoritative/fallback_reason/display_switched；bridge_state 增 physics_authoritative/physics_adapter |
+| state | `fw_physics_authoritative` | authoritative 视图深拷贝（`fw_physics_authoritative_view()`） |
+| state | `fw_physics_adapter` | 每帧 `fw_sync` 用 V15 `own_at/board_pos/board_vel` 自动对比（只读） |
+| state | `fw_bridge_state()` | 增 physics_authoritative/physics_adapter |
+
+- 坐标系：相对板 `board_r = earth_rot(target) − earth_rot(own)`；bearing=atan2(x,y)，
+  elevation=atan2(z,horiz)（与 V15 `_derive` 同式）；`frame.inertial=earth_eci`、
+  `frame.rotating=earth_rot`。
+- 导航：shadow/authoritative 且物理 ready 时 provider=物理位置（L1≈326,381 等）；off 回退 abstract；
+  成本仍抽象、不自动执行。
+- 边界：V15 board（L1 局部差）与 physics board（earth_rot 差）坐标系未统一，compare 的
+  bearing/位置误差含旋转差异，range 可直接比；thresholds 仅供切换评估。详见
+  `game_v17/docs/v17_physics_authoritative.md`；测试 `tests/v17_physics_authoritative_probe.gd`（154/0）。

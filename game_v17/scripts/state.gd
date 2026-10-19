@@ -30,6 +30,9 @@ var fw_physics: Dictionary = {}
 var fw_physics_ready := false
 var fw_physics_summary: Dictionary = {}
 var fw_physics_mode := "off"
+# —— R6-AUTH-1：authoritative 物理适配层只读视图 / V15 对比 ——
+var fw_physics_authoritative: Dictionary = {}
+var fw_physics_adapter: Dictionary = {}
 
 # 演示用状态。真实 sim 会接管 clock / tracks / commands，
 # 这里的数值只服务于"把 GUI 长相对出来"。
@@ -1763,6 +1766,8 @@ func _reset_runtime() -> void:
 	fw_physics_ready = false
 	fw_physics_summary = {}
 	fw_physics_mode = "off"
+	fw_physics_authoritative = {}
+	fw_physics_adapter = {}
 
 # ── P1j：身份 / 通信格式 / 动态裁决提示 ─────────────────
 
@@ -2705,6 +2710,7 @@ func fw_sync(dt: float) -> void:
 		step = maxf(0.0, dt) * maxf(0.0, time_scale)
 	framework.sync(step)
 	_fw_pull()
+	_fw_update_physics_adapter()
 	# 决策挂起：V15 决策窗口已到但教学未完成 → 完成后自动打开（不自动完成识别）
 	if fw_decision_deferred and not decision_open and not report_open and not consequence_open \
 			and fw_tutorial_allows():
@@ -2737,6 +2743,8 @@ func _fw_pull() -> void:
 		fw_physics_ready = false
 		fw_physics_summary = {}
 		fw_physics_mode = "off"
+		fw_physics_authoritative = {}
+		fw_physics_adapter = {}
 		return
 	fw_ready = true
 	fw_tutorial = (framework.tutorial_view() as Dictionary).duplicate(true)
@@ -2759,6 +2767,42 @@ func _fw_pull() -> void:
 	fw_physics_mode = String(framework.physics_mode)
 	fw_physics = (framework.physics_view() as Dictionary).duplicate(true)
 	fw_physics_summary = (framework.physics_summary() as Dictionary).duplicate(true)
+	fw_physics_authoritative = (framework.physics_authoritative_view() as Dictionary).duplicate(true)
+
+## R6-AUTH-1：用当前 V15 board 数据生成物理对比（只读；显示层尚未切换）。
+## 未就绪/关闭时清空，不报错、不写 V15。
+func _fw_update_physics_adapter() -> void:
+	fw_physics_adapter = {}
+	if framework == null or not bool(framework.ready):
+		return
+	if not bool(framework.physics_ready):
+		return
+	if not (String(framework.physics_mode) in ["shadow", "authoritative"]):
+		return
+	var t_now := tau()
+	var own_state: Dictionary = own_at(t_now)
+	var rows: Array = []
+	for raw in tracks:
+		var tr: Dictionary = raw
+		if bool(tr.get("own", false)):
+			continue
+		var bpos: Vector3 = board_pos(tr, t_now)
+		var bvel: Vector3 = board_vel(tr, t_now)
+		rows.append({
+			"track_id": String(tr.get("id", "")),
+			"entity_id": String(tr.get("entity_id", "")),
+			"board_r": [bpos.x, bpos.y, bpos.z],
+			"board_v": [bvel.x, bvel.y, bvel.z],
+		})
+	fw_physics_adapter = framework.physics_adapter_compare(own_state, rows)
+
+## 当前 authoritative 只读视图（HUD 后续接 [未切换]）。
+func fw_physics_authoritative_view() -> Dictionary:
+	return fw_physics_authoritative
+
+## 最近一次物理 vs V15 对比（只读）。
+func fw_physics_adapter_view() -> Dictionary:
+	return fw_physics_adapter
 
 ## V2 教学门控是否放行 V15 决策（截图/自动化/演示时自动放行）。
 func fw_tutorial_allows() -> bool:
@@ -2982,6 +3026,7 @@ func fw_restart() -> void:
 		return
 	framework.restart()
 	_fw_pull()
+	_fw_update_physics_adapter()
 
 ## HUD 一帧总览（其余字段仍可按需读 state.fw_*）。
 func fw_bridge_state() -> Dictionary:
@@ -3009,6 +3054,8 @@ func fw_bridge_state() -> Dictionary:
 		"physics_ready": fw_physics_ready,
 		"physics_summary": fw_physics_summary.duplicate(true),
 		"physics_mode": fw_physics_mode,
+		"physics_authoritative": fw_physics_authoritative.duplicate(true),
+		"physics_adapter": fw_physics_adapter.duplicate(true),
 		"exec_window_s": float(fw_flow.get("exec_window_s", 360.0)),
 		"exec_left": float(fw_flow.get("exec_left", 0.0)),
 		"exec_pct": float(fw_flow.get("exec_pct", 0.0)),
