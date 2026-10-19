@@ -203,8 +203,8 @@ const DISPLAY_FIX := {
 	"WEAPONS FREE": "武器释放授权",
 }
 
-# ── P1d：按舰传感器架（只读 state.racks / sensor_on / fleet_emissions）──
-# UI 只读，不写 state：ON/OFF 是占位显示（当前融合计划），开关由命令层决定。
+# ── P1d：按舰传感器架（读 state.racks / sensor_on / fleet_emissions）──
+# P3b：每行 ON/OFF chip 可操作（调 state.set_sensor）；行点击仍只切换当前模块。
 func _rack_ship() -> String:
 	var v = state.get("rack_ship")
 	return String(v) if v != null else "harmattan"
@@ -250,6 +250,35 @@ func _rack_on(ship: String, model: String, fallback: bool) -> bool:
 		if m is Dictionary and (m as Dictionary).has(model):
 			return bool((m as Dictionary)[model])
 	return fallback
+
+# ── P3b：ON/OFF chip 可操作（state.set_sensor；无 API 时禁用）──
+func _sensor_toggle_available() -> bool:
+	return state != null and state.has_method("set_sensor")
+
+func _toggle_sensor(idx: int) -> void:
+	if not _sensor_toggle_available():
+		return
+	var rack := _rack_rows()
+	if idx < 0 or idx >= rack.size():
+		return
+	var s: Dictionary = rack[idx]
+	var model := String(s.get("model", ""))
+	var on := _rack_on(_rack_ship(), model, bool(s.get("on", true)))
+	# 只调 state API（内部刷新 plan / emissions）；不改 state 字段。
+	state.call("set_sensor", _rack_ship(), idx, not on)
+	queue_redraw()
+
+# 截图钩子用：把第一个「可暴露且当前关」的模块开机（用于展示「开机即暴露」）。
+func _demo_toggle_first_expose() -> void:
+	if not _sensor_toggle_available():
+		return
+	var rack := _rack_rows()
+	for i in range(rack.size()):
+		var s: Dictionary = rack[i]
+		var model := String(s.get("model", ""))
+		if bool(s.get("expose", false)) and not _rack_on(_rack_ship(), model, bool(s.get("on", true))):
+			_toggle_sensor(i)
+			return
 
 # 选中舰的暴露态：优先 state.fleet_emissions；不在融合编成里的船按架子自算。
 func _rack_emission() -> Dictionary:
@@ -863,6 +892,9 @@ var menu_rects: Array[Rect2] = []
 var menu_open := false
 var menu_t := 0.0
 var _t := 0.0
+var _rack_chip_rects: Array = []      # P3b：[{rect, idx, model}]（每帧重建）
+var _demo_sensor_menu := false
+var _demo_sensor_toggle := false
 
 # P1e 命令面板（本地 draft；授权前不写 state）
 var cmd_action := "BURN"
@@ -965,6 +997,11 @@ func _ready() -> void:
 			_evidence_menu_open = true
 		"adjutant":
 			_demo_adjutant = true
+		"sensor_menu":
+			# P3b 截图：展开传感器架菜单；DSH_SENSOR_TOGGLE=1 时把第一个可暴露模块开机。
+			_demo_sensor_menu = true
+			_demo_suppress_adjutant = true
+			_demo_sensor_toggle = OS.get_environment("DSH_SENSOR_TOGGLE") != ""
 	# P3a：截图时把动效冻结到指定时刻（秒），用于逐帧截取硬切/解码中间态。
 	var ut := OS.get_environment("DSH_UI_T")
 	if ut != "":
@@ -994,6 +1031,14 @@ func _process(delta: float) -> void:
 		var m := _demo_modal
 		_demo_modal = ""
 		_open_modal(m)
+	# P3b 截图钩子：boot 结束后展开传感器架菜单（一次性）。
+	if _demo_sensor_menu and state.boot_t >= 1.7 and not menu_open:
+		menu_open = true
+		menu_t = 0.0
+		_demo_sensor_menu = false
+		if _demo_sensor_toggle:
+			_demo_sensor_toggle = false
+			_demo_toggle_first_expose()
 	# P2b：副官申请打开时暂停（记录原 paused，关掉恢复）。
 	if state != null and state.boot_t >= 1.7:
 		var adj_now := _ov_adjutant()
@@ -1139,6 +1184,13 @@ func click(p: Vector2) -> void:
 		queue_redraw()
 		return
 	if menu_open:
+		# P3b：先判 ON/OFF chip（命中则只切开关，不误触发行选择、不关菜单）。
+		for c in _rack_chip_rects:
+			var cr: Rect2 = c["rect"]
+			if cr.has_point(p):
+				if bool(c.get("enabled", false)):
+					_toggle_sensor(int(c["idx"]))
+				return
 		for i in range(menu_rects.size()):
 			if menu_rects[i].has_point(p):
 				state.sensor = i
@@ -3314,10 +3366,12 @@ func _draw_sensor_bar() -> void:
 	_txt(mono, SENSOR_RECT.end.x - 16.0, y0 + 8.0, chev, 10, Palette.a(Palette.PH, 0.9 if menu_open else 0.7))
 
 func _draw_sensor_menu() -> void:
-	# P1d：展开态 = 选中舰的按舰传感器架（只读）。
-	# 行：model / source·maker·type·range·refresh / 暴露 + 只读 ON/OFF；
+	# P1d：展开态 = 选中舰的按舰传感器架。
+	# P3b：行右侧 ON/OFF chip 可操作（state.set_sensor）；行点击仍只切换当前模块。
+	# 行：model / source·maker·type·range·refresh / 暴露 + ON/OFF；
 	# footer：暴露（EMCON / EMIT）、接触等级证据、开机即暴露提示。
 	menu_rects.clear()
+	_rack_chip_rects.clear()
 	var r := _menu_rect()
 	var x0 := r.position.x
 	var y0 := r.position.y
@@ -3326,6 +3380,7 @@ func _draw_sensor_menu() -> void:
 	var tr := _rack_track()
 	var lv := clampi(int(tr.get("level", 0)), 0, 4)
 	var ship := _rack_ship()
+	var can_toggle := _sensor_toggle_available()
 
 	# 面板本体（开场时压在 BG 贴片下面）
 	draw_rect(r, Palette.a(Palette.PANEL, 1.0))
@@ -3333,7 +3388,9 @@ func _draw_sensor_menu() -> void:
 	var head := "传感器架 / SENSOR RACK"
 	_txt(cjk, x0 + 12.0, y0 + 8.0, head, 9, Palette.TXT)
 	var hw := cjk.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
-	_txt(cjk, x0 + 12.0 + hw + 8.0, y0 + 9.0, "ON/OFF 只读", 7, Palette.a(Palette.FAINT, 0.95))
+	_txt(cjk, x0 + 12.0 + hw + 8.0, y0 + 9.0,
+		"ON/OFF 可操作" if can_toggle else "ON/OFF 只读（不可用）", 7,
+		Palette.a(Palette.PH if can_toggle else Palette.FAINT, 0.95))
 	_txt_r(cjk, r.end.x - 12.0, y0 + 8.0, "%s · %02d 模块" % [_rack_ship_name(), rack.size()], 7, Palette.a(Palette.FAINT, 0.95))
 	draw_line(Vector2(x0, y0 + MENU_HEAD), Vector2(r.end.x, y0 + MENU_HEAD), Palette.a(Palette.LINE, 0.9), 1.0)
 
@@ -3352,19 +3409,34 @@ func _draw_sensor_menu() -> void:
 		var model := String(s.get("model", "—"))
 		var mf := cjk if Fonts.has_cjk(model) else mono
 		_txt(mf, row.position.x + 46.0, row.position.y + 8.0, model, 10, Palette.TXT)
-		# 暴露：能力标记（只读）——「会暴露」是能力，不等于此刻正在发射。
+		# 暴露 / 主动辐射：开启的主动雷达/IFF 直接标「开机即暴露」。
 		var expose := bool(s.get("expose", false))
-		_txt_r(cjk, row.end.x - 52.0, row.position.y + 9.0, "会暴露" if expose else "被动", 7,
-			Palette.AMBER if expose else Palette.FAINT)
-		# ON/OFF：只读占位（显示当前融合计划，不可点）
 		var on := _rack_on(ship, model, bool(s.get("on", true)))
-		var chip_col: Color = Palette.PH if on else Palette.FAINT
+		var named := bool(state.get("elint_named"))
+		var tag := "被动"
+		var tag_col: Color = Palette.FAINT
+		if expose:
+			if on:
+				tag = "开机即暴露"
+				tag_col = Palette.RED if named else Palette.AMBER
+			else:
+				tag = "会暴露 · 已关"
+				tag_col = Palette.a(Palette.AMBER, 0.65)
+		_txt_r(cjk, row.end.x - 52.0, row.position.y + 9.0, tag, 7, tag_col)
+		# P3b：ON/OFF chip 可操作（点 chip 只切开关，不选模块、不关菜单）
 		var chip := Rect2(row.end.x - 44.0, row.position.y + 6.0, 32, 16)
-		draw_rect(chip, Palette.a(chip_col, 0.05))
-		draw_rect(chip, Palette.a(chip_col, 0.30), false, 1.0)
-		var on_s := "开" if on else "关"
-		var on_w := cjk.get_string_size(on_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 7).x
-		_txt(cjk, chip.position.x + (chip.size.x - on_w) * 0.5, chip.position.y + 3.0, on_s, 7, chip_col)
+		var chip_hot := can_toggle and chip.has_point(_mouse_base())
+		var chip_col: Color = Palette.PH if on else Palette.FAINT
+		if can_toggle:
+			_rack_chip_rects.append({"rect": chip, "idx": i, "model": model, "enabled": true})
+		else:
+			_rack_chip_rects.append({"rect": chip, "idx": i, "model": model, "enabled": false})
+		draw_rect(chip, Palette.a(chip_col, 0.14 if chip_hot else 0.05))
+		draw_rect(chip, Palette.a(chip_col, 0.85 if chip_hot else (0.30 if can_toggle else 0.16)), false, 1.0)
+		var on_s := "ON" if on else "OFF"
+		var on_w := mono.get_string_size(on_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 7).x
+		_txt(mono, chip.position.x + (chip.size.x - on_w) * 0.5, chip.position.y + 3.0, on_s, 7,
+			Palette.a(chip_col, 1.0 if can_toggle else 0.55))
 		# 第二行：source · maker · type · range · refresh
 		var line2 := "%s · %s · %s · %s · 刷新 %.0fs" % [
 			_dn(String(s.get("source", "—"))), String(s.get("maker", "—")),
