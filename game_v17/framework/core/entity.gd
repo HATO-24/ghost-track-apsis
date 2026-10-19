@@ -36,6 +36,43 @@ var threat := ""
 var damage_sections: Array = []   # [{id,label,state,severity,repair_eta_s,repair_progress_s,started_t}]
 var damage_queue: Array = []      # 维修队列（section id 顺序）
 
+# —— R2-DAMAGE-2 完整损管模型（可选；V2DamageModel 实例）——
+# 仅当实体在 damage_l1.json 有档案时初始化；其他实体保持 null（懒加载/默认空）。
+const DamageModelScript := preload("res://framework/core/damage_model.gd")
+var damage = null
+
+## 初始化完整损管模型；内容缺省从 damage_l1.json 读取。返回成功与否。
+func init_damage(content := {}, ship_id := "") -> bool:
+	var c: Dictionary = content if content is Dictionary else {}
+	if c.is_empty():
+		c = DamageModelScript.load_content()
+	var m = DamageModelScript.new()
+	var sid := ship_id if String(ship_id) != "" else id
+	if not m.setup(c, sid):
+		damage = null
+		return false
+	damage = m
+	return true
+
+## 懒加载：仅当内容里有本实体档案时才建模型；否则返回 null（不伪造损管数据）。
+func ensure_damage(content := {}, ship_id := ""):
+	if damage != null:
+		return damage
+	var c: Dictionary = content if content is Dictionary else {}
+	if c.is_empty():
+		c = DamageModelScript.load_content()
+	var ships: Dictionary = c.get("ships", {}) if c.get("ships") is Dictionary else {}
+	var sid := ship_id if String(ship_id) != "" else id
+	if not ships.has(sid):
+		return null
+	if init_damage(c, sid):
+		return damage
+	return null
+
+func has_damage_model() -> bool:
+	return damage != null
+
+
 static func from_dict(d: Dictionary) -> V2Entity:
 	var e := V2Entity.new()
 	e.id = String(d.get("id", ""))
@@ -135,4 +172,5 @@ func to_dict() -> Dictionary:
 		"fixed": is_fixed(), "icon": icon(), "size_km": size_km(),
 		"damage_sections": damage_sections.duplicate(true),
 		"damage_queue": damage_queue.duplicate(),
+		"damage_ready": damage != null,
 	}

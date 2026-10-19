@@ -129,3 +129,31 @@ seek/pause/stop、只读）/ state.fw_* 归一字段 / V15 决策挂起→自动
   未接 bridge 时 v2_ready=false；接 `state.framework` 后提供 V2 接触数，但 authority 不变。
 - 不切换权威、不伪造；plot 的 TWS/球形雷达演示只能作为 advisory 叠加，不得回写
   `state.tracks/level`。详见 `game_v17/docs/v17_radio_sensor.md`。
+## 10　损管字段映射（R2-DAMAGE-2 world 接入）
+
+`state.fw_damage` 仍来自 `bridge.damage_view()` → `world.vm_damage()`；**旧字段完全兼容**，
+HUD 现有损管卡无需改动：
+
+| 字段 | 说明 |
+| --- | --- |
+| `sections` | legacy 3 项（sensor_cal / ir_false_alarm / thermal），含 `state/severity_pct/repair_remaining_s/progress/can_repair` |
+| `queue` | legacy 维修队列（section id 数组） |
+| `summary` | legacy `{total,damaged,degraded,repairing,repaired,needs_attention}` |
+| `repair_rate_s` / `entity_id` / `entity_name` | 同上 |
+| `damage_sections` / `damage_queue` | 旧字段别名（内容相同） |
+
+新增完整损管模型只读字段（同一 `vm_damage()` 返回，HUD 新损管页可用）：
+
+| 字段 | 说明 |
+| --- | --- |
+| `has_full_model` | 本实体是否初始化完整模型（harmattan/summons 为 true；其他舰 false） |
+| `model` | 完整 `V2DamageModel.vm_damage()`：sections=7（hull/power/propulsion/sensors/comms/tanks/docking，含 integrity/state/fire/decompression/powered/repair）、events（最近 64 条）、queue、resources、summary、effects、units |
+| `events` / `resources` / `effects` / `summary_full` / `units` | 从 `model` 提升的快捷只读字段 |
+| `note` | 兼容说明 |
+
+写操作（只读 bridge 不调用；剧情/调试/后续武器系统用 `world` API）：
+`world.damage_apply_hit(...)` / `damage_assign_repair(...)` / `damage_cancel_repair(...)` /
+`damage_set_priority(...)`；转发到 `entity.damage`，不自动命中、不生成武器。
+`world.advance(dt)` 会推进完整模型并返回 `damage_events`；事件同时进 `world.events` 与
+`world.damage_events_log`。旧 `apply_damage/start_repair/advance_damage` 行为不变，且不驱动完整模型。
+详见 `game_v17/docs/damage_model.md §9`。

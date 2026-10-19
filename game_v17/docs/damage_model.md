@@ -5,8 +5,8 @@
 > 探针：`game_v17/tests/damage_probe.gd`。本文档说明 API、状态图、效果表、边界与 V17 接入建议。
 >
 > **边界先说**：本模型**不含武器系统**，不判断命中/射程/制导；只接受外部伤害输入
-> `apply_hit(section, energy, penetration, direction, source)`。这是完整损管的权威模型，
-> 但尚未替换 V17 现有 legacy 简版 damage（接入建议见 §9）。
+> `apply_hit(section, energy, penetration, direction, source)`。R2-DAMAGE-2 已把它接入
+> V17 world（`entity.damage` + advance + vm 合并，legacy 字段保持兼容），详见 §9。
 
 ## 1　文件与运行
 
@@ -14,13 +14,20 @@
 | --- | --- |
 | `framework/core/damage_model.gd` | 新模块 `V2DamageModel`（分区/命中/火灾/失压/断电/维修队列/资源/vm_damage） |
 | `framework/content/damage_l1.json` | 内容：7 分区 × 本舰/敌舰、状态阈值、火灾/失压/断电/维修/效果参数 |
-| `tests/damage_probe.gd` | headless 探针（219 断言，PASS/FAIL） |
+| `tests/damage_probe.gd` | headless 探针（独立模型，219 断言，PASS/FAIL） |
+| `tests/damage_integration_probe.gd` | world 接入探针（204 断言，PASS/FAIL） |
+| `framework/core/entity.gd` | R2-DAMAGE-2 接入：`entity.damage` + init/ensure（最小改动） |
+| `framework/core/world.gd` | R2-DAMAGE-2 接入：初始化/advance/vm 合并/转发 API（最小改动） |
 | `docs/damage_model.md` | 本文件 |
 
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/damage_probe.gd
 # DAMAGE PROBE RESULT: PASS=219 FAIL=0（exit 0）
+
+.\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
+    --path .\game_v17 --script res://tests/damage_integration_probe.gd
+# DAMAGE INTEGRATION PROBE RESULT: PASS=204 FAIL=0（exit 0）
 ```
 
 未改 `hud.gd/plot.gd/main.gd/state.gd/project.godot`，未改 V15 视觉，未 commit。
@@ -196,25 +203,48 @@ DamageModel.load_content() / DamageModel.list_ships(content)
 每个分区必须有 `id/label/kind/adjacent/repair_s`；`adjacent` 决定穿透/火灾/失压扩散候选。
 修改内容即可改变阈值/资源/火势速度（probe §13 验证）。
 
-## 9　V17 接入建议（未执行，避免破坏现有 boot/probe）
+## 9　V17 world 接入（R2-DAMAGE-2，已执行）
 
-当前 V17 的 `state.fw_damage` / `world.vm_damage()` 仍是 V2-CORE-3 的 legacy 简版
-（本舰 3 项 `damage_sections`，供 HUD 损管卡）。本模型是独立完整版，建议按以下顺序接入：
+接入点（只改 `framework/core/entity.gd`、`framework/core/world.gd`；未改 `damage_model.gd`
+与 `damage_l1.json` 参数；未改 HUD/plot/main/state/project）：
 
-1. `entity.gd` 加最小字段 `var damage_model = null`；`world.gd` 装载场景时为可损坏实体
-   `entity.damage_model = V2DamageModel.new(); setup(content, ship_id)`。
-2. `world.advance()` 中 `damage_model.step(dt)`；`world.vm_damage()` 优先返回
-   `damage_model.vm_damage()`（保留旧字段作为 fallback，避免旧 probe/HUD 破裂）。
-3. bridge/state 侧把 `state.fw_damage` 指向新 vm；旧 HUD 读取的 `sections[].state/severity` 需
-   做一次兼容映射（R2-UI 任务负责，本任务不改 HUD）。
-4. 命中入口：由剧情/武器系统调用 `apply_hit`（本任务不实现武器；AAR/剧情脚本是唯一来源）。
-5. 战斗结算/END 建议读 `summary/is_operational()/effects`，不直接读内部字段。
+- `V2Entity`：`damage_sections`/`damage_queue`（legacy）保留；新增可选 `var damage = null`
+  （V2DamageModel 实例）与 `init_damage(content, ship_id)` / `ensure_damage(content, ship_id)`；
+  只有内容有档案的实体（harmattan / summons_4471）初始化，其他实体保持 null（懒加载不伪造）。
+  `to_dict()` 增 `damage_ready`。
+- `V2World.load_scenario()`：`_init_damage_models(s)` 读 `damage_l1.json`（全场景只读一次），
+  为有档案实体建模型；内容缺失时 warning 并保留 legacy 损管。
+- `V2World.advance(dt)`：legacy `advance_damage(dt)` 保持；另 `_advance_damage_models(dt)` 对
+  每个实体 `damage.step(dt)`（火灾/失压/断电/维修队列）；新事件写 `world.events`（kind=damage）
+  与 `world.damage_events_log`（按 entity_id+seq 去重，含 entity_id，最多 128 条）；
+  advance 返回值新增 `damage_events`（旧 `damage` 字段保留）。
+- `V2World.vm_damage()`：**legacy 字段不变**（`entity_id/entity_name/sections/queue/repair_rate_s/
+  summary`，v17 bridge probe 与 V17 HUD 损管卡契约）；追加：
+  `damage_sections`/`damage_queue`（旧字段别名）、`has_full_model`、`model`（完整模型 vm）、
+  `events`、`resources`、`effects`、`summary_full`、`units`、`note`。
+- 只读入口：`world.vm_damage_full(entity_id = own)`、`world.damage_model_for(entity_id)`、
+  `world.damage_events(limit := 64)`。
 
-在接入前，本模块可被任意脚本独立实例化（probe 即如此），不影响现有 boot/probe。
+便捷 API（只转发到 `entity.damage`；**不自动命中、不生成武器**）：
+
+| API | 说明 |
+| --- | --- |
+| `damage_apply_hit(section, energy, penetration=0.5, direction="fore", source="script", entity_id=own)` | 剧情/调试/未来武器系统调用；写日志+事件 |
+| `damage_assign_repair(section, priority=2, entity_id=own)` | 指派维修（1 最高） |
+| `damage_cancel_repair(section, entity_id=own)` | 取消维修（active 释放维修队） |
+| `damage_set_priority(section, priority, entity_id=own)` | 调整优先级 |
+
+兼容策略：legacy 3 项（sensor_cal/ir_false_alarm/thermal）是**独立投影**，供旧 HUD/bridge probe；
+完整模型是权威数据但**不反向覆盖 legacy 行**；legacy `apply_damage/start_repair/advance_damage`
+行为不变且不推进完整模型。后续独立损管页读 `vm_damage()["model"]` 或 `vm_damage_full()`；
+`state.fw_damage` 字段映射见 `game_v17/docs/v17_bridge_fields.md §10`。
+
+未做：HUD 损管页接线（R2-UI 任务）、真实命中几何/武器、按场景指定 damage 内容路径
+（`scenario.gd` 未改；world 使用 `damage_l1.json` 默认路径，可后续在场景 schema 加可选字段）。
 
 ## 10　验证与覆盖
 
-`tests/damage_probe.gd`（219 断言，PASS=219 FAIL=0）覆盖：
+`tests/damage_probe.gd`（219 断言，PASS=219 FAIL=0，独立模型）覆盖：
 
 - 内容 JSON：schema、双舰档案、7 分区、阈值/维修/火灾/失压参数存在；
 - 初始化与 `vm_damage` 结构（sections/events/queue/resources/summary/effects/units/note）；
@@ -228,6 +258,23 @@ DamageModel.load_content() / DamageModel.list_ships(content)
 - 双舰档案、vm JSON stringify/parse 回读、无 weapons 字段；
 - 确定性（同输入序列 → 相同 vm JSON）；内容驱动（覆盖 spares/teams/火势/阈值生效）。
 
+`tests/damage_integration_probe.gd`（204 断言，PASS=204 FAIL=0，world 接入）覆盖：
+
+- world 初始化：damage_l1 装载、harmattan/summons_4471 有模型、其他实体 null（懒加载不伪造）；
+- 旧字段兼容：vm_damage 的 sections=3/summary.total=3/queue/repair_rate_s 与 bridge probe 契约一致，
+  别名 damage_sections/damage_queue 可用；model/events/resources/effects/summary_full 存在；
+- 完整模型 vm：schema/model/entity/sections=7/queue/resources/effects；敌舰 7 分区；无档案实体空；
+- `damage_apply_hit` → hit 事件、完整模型完整度下降、legacy 字段不变；
+  `world.advance` 返回 damage_events 并推进模型 t；火灾事件/统一事件日志（entity_id）；
+- 损管 API：assign/set_priority/cancel 转发完整模型；advance 后修复完成；
+- legacy 维修链路（start_repair/advance_damage）保持原行为且不污染完整模型；
+- 敌舰可受击且不影响本舰；无档案实体命中被拒绝（原因明确）；
+- HUD 旧读取字段齐全（不崩）、完整损管页字段齐全、vm JSON 可回读、无 weapons；
+- V17 bridge `damage_view()` 保留 legacy sections=3 并暴露 has_full_model/model。
+
+回归（同一任务内）：`damage_probe` 219/0、`v17_core3_probe` 171/0、`v17_bridge_probe` 138/0、
+`plot_tws_probe` 59/0、boot exit 0、`DSH_SKIP_INTRO=1 --quit-after 10` exit 0。
+
 ## 11　边界（明确不做 / 不假装）
 
 - **无武器系统/命中判定**：不做射程、制导、弹种、命中概率；`apply_hit` 是唯一伤害入口。
@@ -238,5 +285,7 @@ DamageModel.load_content() / DamageModel.list_ships(content)
 - 维修资源是全局池（每实例一套）；尚未按舰覆盖（内容支持后续扩展 `ships.<id>.repair`）。
 - 电力回充简化（电力区未毁坏即按固定速率回充）；不建模配电网络拓扑。
 - 无人物伤亡/舱室人员模型；`personnel` 只作为维修人力限制。
-- 未接入 world/bridge/HUD（见 §9）；不改 V15 视觉与既有流程。
+- world 接入已完成（§9），但**未接 HUD 损管页、未接真实命中几何/武器**；legacy 3 项与完整
+  模型是两套独立投影（不互相驱动）。`scenario.gd` 未改：damage 内容路径固定默认，后续可加
+  可选场景字段。
 - 未 commit。

@@ -69,6 +69,13 @@ var damage_repair_rate_s := 120.0
 var replay: Dictionary = {}          # 回放入口（只读帧，不推进世界）
 var _last_replay_t := -1.0
 
+# —— R2-DAMAGE-2：完整损管模型接入（entity.damage = V2DamageModel）——
+const DamageModelScript := preload("res://framework/core/damage_model.gd")
+const MAX_DAMAGE_EVENTS := 128
+var damage_content: Dictionary = {}      # damage_l1.json（本舰/敌舰档案；只读参数来自内容）
+var damage_events_log: Array = []        # 统一损管事件（只读；含 entity_id）
+var _damage_last_seq: Dictionary = {}    # entity_id -> 已记录事件 seq（去重）
+
 # ── 场景装载 ─────────────────────────────────────────────────────
 
 func load_scenario(s: V2Scenario) -> bool:
@@ -90,6 +97,7 @@ func load_scenario(s: V2Scenario) -> bool:
 	_load_orders(s)
 	_load_evidence(s)
 	_init_flow(s)
+	_init_damage_models(s)
 	# 自动化钩子（headless 探针/截图）：DSH_SKIP_PRELUDE=1 时跳过前置航行，时间立即可流动。
 	if OS.get_environment("DSH_SKIP_PRELUDE") == "1" and prelude_open():
 		prelude_skip()
@@ -351,6 +359,7 @@ func advance(dt: float) -> Dictionary:
 	out["radio"] = _tick_timeline_radio()
 	out["tasks"] = _tick_evidence_tasks()
 	out["damage"] = advance_damage(dt)
+	out["damage_events"] = _advance_damage_models(dt)
 	if orders != null:
 		out["orders"] = orders.tick(t)
 	if tracks != null:
@@ -2067,7 +2076,7 @@ func vm_damage_summary() -> Dictionary:
 		"repairing": repairing, "repaired": repaired,
 		"needs_attention": damaged + degraded + repairing > 0}
 
-## 损管面板 view-model（右栏 section / 独立面板）。
+## 损管面板 view-model（旧字段保持兼容；完整损管模型见 model/events/resources/effects）。
 func vm_damage() -> Dictionary:
 	var e := _damage_entity()
 	var rows: Array = []
@@ -2081,14 +2090,165 @@ func vm_damage() -> Dictionary:
 		d["severity_pct"] = float(d.get("severity", 0.0)) * 100.0
 		d["can_repair"] = st in ["degraded", "damaged"]
 		rows.append(d)
-	return {
+	var full := vm_damage_full()
+	var vm := {
 		"entity_id": e.id if e != null else "",
 		"entity_name": e.display_name() if e != null else "",
 		"sections": rows,
 		"queue": (e.damage_queue.duplicate() if e != null else []),
 		"repair_rate_s": damage_repair_rate_s,
 		"summary": vm_damage_summary(),
+		# —— 兼容旧字段别名（V17 HUD / state.fw_damage 现有调用）——
+		"damage_sections": rows.duplicate(true),
+		"damage_queue": (e.damage_queue.duplicate() if e != null else []),
+		# —— R2-DAMAGE-2：完整损管模型只读 vm（权威数据）——
+		"has_full_model": not full.is_empty(),
+		"model": full,
+		"events": (full.get("events", []) as Array).duplicate(true),
+		"resources": (full.get("resources", {}) as Dictionary).duplicate(true),
+		"effects": (full.get("effects", {}) as Dictionary).duplicate(true),
+		"summary_full": (full.get("summary", {}) as Dictionary).duplicate(true),
+		"units": (full.get("units", {}) as Dictionary).duplicate(true),
+		"note": "legacy 字段（sections/queue/summary）保持兼容；完整损管模型见 model/events/resources/effects/summary_full（只读，无武器）。",
 	}
+	return vm
+
+# ═══════════════════════════════════════════════════════════════════
+# R2-DAMAGE-2：完整损管模型接入
+#   - entity.damage（V2DamageModel）由 damage_l1.json 档案初始化（harmattan/summons）；
+#   - world.advance 推进 step(dt)，事件写入 events/damage_events_log（只读）；
+#   - vm_damage() 同时返回 legacy 兼容字段 + 完整 model vm；
+#   - damage_apply_hit/assign_repair/cancel_repair 只转发，不自动命中/不生成武器。
+# ═══════════════════════════════════════════════════════════════════
+
+func _init_damage_models(_s: V2Scenario) -> void:
+	damage_content = DamageModelScript.load_content()
+	damage_events_log.clear()
+	_damage_last_seq.clear()
+	if damage_content.is_empty():
+		warnings.append("损管模型内容未就绪：framework/content/damage_l1.json（保留 legacy 损管）")
+		return
+	var ships: Dictionary = damage_content.get("ships", {}) if damage_content.get("ships") is Dictionary else {}
+	var initialized := 0
+	for raw in entities:
+		var e: V2Entity = raw
+		if not ships.has(e.id):
+			continue
+		if e.init_damage(damage_content, e.id):
+			initialized += 1
+			_damage_last_seq[e.id] = e.damage.events.size()
+		else:
+			warnings.append("损管模型初始化失败：" + e.id)
+	if initialized > 0:
+		push_log("damage", "完整损管模型已接入：%d 艘实体（内容 %s）" % [
+			initialized, String(damage_content.get("id", ""))])
+
+func _damage_entity_by_id(entity_id := "") -> V2Entity:
+	var eid := String(entity_id) if String(entity_id) != "" else own_id
+	if eid == "":
+		return null
+	return by_id.get(eid)
+
+## 完整损管模型实例（懒加载：仅内容有该实体档案时返回，否则 null）。
+func damage_model_for(entity_id := ""):
+	var e := _damage_entity_by_id(entity_id)
+	if e == null:
+		return null
+	if e.damage == null:
+		e.ensure_damage(damage_content, e.id)
+	return e.damage
+
+## 完整损管只读 vm（直接取模型权威 view-model；无模型返回空字典）。
+func vm_damage_full(entity_id := "") -> Dictionary:
+	var m = damage_model_for(entity_id)
+	if m == null:
+		return {}
+	return m.vm_damage()
+
+## 统一损管事件（只读；最近 limit 条，含 entity_id）。
+func damage_events(limit := 64) -> Array:
+	var n := maxi(0, mini(int(limit), damage_events_log.size()))
+	var start := damage_events_log.size() - n
+	return damage_events_log.slice(start, damage_events_log.size()).duplicate(true)
+
+func _record_damage_event(entity_id: String, ev: Dictionary) -> Dictionary:
+	var rec: Dictionary = ev.duplicate(true)
+	rec["entity_id"] = entity_id
+	var seq := int(rec.get("seq", 0))
+	if seq <= int(_damage_last_seq.get(entity_id, 0)):
+		return {}
+	_damage_last_seq[entity_id] = seq
+	damage_events_log.append(rec)
+	while damage_events_log.size() > MAX_DAMAGE_EVENTS:
+		damage_events_log.pop_front()
+	push_log("damage", "损管事件：%s · %s" % [entity_id, String(rec.get("text", ""))])
+	return rec
+
+## 推进所有已初始化的完整损管模型（火灾/失压/断电/维修队列）。返回新事件。
+func _advance_damage_models(dt: float) -> Array:
+	var out: Array = []
+	if dt <= 0.0:
+		return out
+	for raw in entities:
+		var e: V2Entity = raw
+		if e.damage == null:
+			continue
+		e.damage.step(dt)
+		for ev in e.damage.events:
+			var seq := int((ev as Dictionary).get("seq", 0))
+			if seq > int(_damage_last_seq.get(e.id, 0)):
+				var rec := _record_damage_event(e.id, ev as Dictionary)
+				if not rec.is_empty():
+					out.append(rec)
+	return out
+
+## 伤害输入转发（剧情/调试/未来武器系统调用；本世界不自动生成命中）。
+func damage_apply_hit(section: String, energy: float, penetration := 0.5,
+		direction := "fore", source := "script", entity_id := "") -> Dictionary:
+	var e := _damage_entity_by_id(entity_id)
+	if e == null:
+		return {"ok": false, "reason": "无实体可施加伤害"}
+	if e.damage == null:
+		return {"ok": false, "reason": "实体无完整损管模型（content 无档案）：" + e.id}
+	var r: Dictionary = e.damage.apply_hit(section, energy, penetration, direction, source)
+	for raw in (r.get("events", []) as Array):
+		_record_damage_event(e.id, raw as Dictionary)
+	if bool(r.get("ok", false)):
+		push_log("damage", "损管命中：%s · %s · energy=%.2f pen=%.2f" % [
+			e.id, section, energy, penetration])
+		_replay_capture(true)
+		state_changed.emit("damage")
+		flow_changed.emit("damage")
+	return r
+
+## 维修指派转发（priority 1 最高）。
+func damage_assign_repair(section: String, priority := 2, entity_id := "") -> Dictionary:
+	var e := _damage_entity_by_id(entity_id)
+	if e == null or e.damage == null:
+		return {"ok": false, "reason": "实体无完整损管模型"}
+	var r: Dictionary = e.damage.assign_repair(section, priority)
+	if bool(r.get("ok", false)):
+		push_log("damage", "损管指派：%s · %s（优先级 %d）" % [e.id, section, int(priority)])
+		_replay_capture(true)
+		state_changed.emit("damage")
+		flow_changed.emit("damage")
+	return r
+
+func damage_cancel_repair(section: String, entity_id := "") -> Dictionary:
+	var e := _damage_entity_by_id(entity_id)
+	if e == null or e.damage == null:
+		return {"ok": false, "reason": "实体无完整损管模型"}
+	var r: Dictionary = e.damage.cancel_repair(section)
+	if bool(r.get("ok", false)):
+		push_log("damage", "损管取消：%s · %s" % [e.id, section])
+		state_changed.emit("damage")
+	return r
+
+func damage_set_priority(section: String, priority: int, entity_id := "") -> Dictionary:
+	var e := _damage_entity_by_id(entity_id)
+	if e == null or e.damage == null:
+		return {"ok": false, "reason": "实体无完整损管模型"}
+	return e.damage.set_priority(section, priority)
 
 # ═══════════════════════════════════════════════════════════════════
 # V2-CORE-3：回放（只读帧；不推进世界、不伪造）

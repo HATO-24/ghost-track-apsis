@@ -1,0 +1,409 @@
+{
+  "schema": "navigation.v1",
+  "id": "navigation_l1",
+  "title": "第一关 · 地月导航 / 交通管制 / 机动规划（V17 R4-NAV-CORE-1）",
+  "units": {
+    "distance": "km",
+    "time": "s",
+    "dv": "m/s",
+    "exposure": "0..1（抽象暴露风险，不是传感器实测概率）",
+    "risk": "0..1（抽象航线风险）"
+  },
+  "boundary": {
+    "model_kind": "planning_abstract",
+    "authoritative": false,
+    "note": "规划模型：边成本为抽象转移成本，不改轨道物理；R6 接真实积分后 schema 不变，只替换 dv/duration 来源。"
+  },
+  "nodes": {
+    "earth_port": {
+      "name": "地球港 / EARTH PORT",
+      "kind": "port",
+      "position_source": "cislunar:earth_port",
+      "abstract_pos_km": [6378.137, 0.0, 0.0],
+      "authority": "EARTH PORT CONTROL",
+      "traffic_class": "earth",
+      "capacity": 2,
+      "notes": "地球近地轨道港，进出港第一道闸；抽象坐标。"
+    },
+    "geo": {
+      "name": "GEO 环 / GEO",
+      "kind": "orbit_ring",
+      "position_source": "cislunar:geo_ring",
+      "abstract_pos_km": [42164.0, 0.0, 0.0],
+      "authority": "EARTH ORBITAL CONTROL",
+      "traffic_class": "earth_orbit",
+      "capacity": 4,
+      "notes": "地球同步轨道转运环；高推力/低能转移分界。"
+    },
+    "l1": {
+      "name": "L1 Meridian 站",
+      "kind": "station",
+      "position_source": "cislunar:l1_station",
+      "abstract_pos_km": [326283.0, 0.0, 0.0],
+      "authority": "MERIDIAN TRAFFIC CONTROL",
+      "traffic_class": "l1",
+      "capacity": 3,
+      "notes": "第一关港群；交通咽喉 Sextant 在此节点管辖。"
+    },
+    "l2": {
+      "name": "L2 Karman 站",
+      "kind": "station",
+      "position_source": "cislunar:l2_station",
+      "abstract_pos_km": [448000.0, 0.0, 0.0],
+      "authority": "KARMAN TRAFFIC CONTROL",
+      "traffic_class": "l2",
+      "capacity": 2,
+      "notes": "月背中继/观测港群；抽象坐标。"
+    },
+    "l4": {
+      "name": "L4 Anvil 站",
+      "kind": "station",
+      "position_source": "cislunar:l4_station",
+      "abstract_pos_km": [192200.0, 333000.0, 0.0],
+      "authority": "ANVIL TRAFFIC CONTROL",
+      "traffic_class": "l4",
+      "capacity": 3,
+      "notes": "重工业/船坞港群；隐蔽航线枢纽。"
+    },
+    "l5": {
+      "name": "L5 New Lagos 站",
+      "kind": "station",
+      "position_source": "cislunar:l5_station",
+      "abstract_pos_km": [192200.0, -333000.0, 0.0],
+      "authority": "NEW LAGOS TRAFFIC CONTROL",
+      "traffic_class": "l5",
+      "capacity": 2,
+      "notes": "居住/轻工业港群；抽象坐标。"
+    },
+    "moon_port": {
+      "name": "月球港 / LUNAR PORT",
+      "kind": "port",
+      "position_source": "cislunar:lunar_port",
+      "abstract_pos_km": [382600.0, 0.0, 0.0],
+      "authority": "LUNAR PORT CONTROL",
+      "traffic_class": "moon",
+      "capacity": 2,
+      "notes": "月球近地面港口；进近走廊需许可。"
+    },
+    "lunar_leo": {
+      "name": "月球低轨站 / LUNAR LEO",
+      "kind": "station",
+      "position_source": "cislunar:lunar_leo",
+      "abstract_pos_km": [384500.0, 0.0, 0.0],
+      "authority": "LUNAR ORBIT CONTROL",
+      "traffic_class": "moon_orbit",
+      "capacity": 1,
+      "notes": "月球低轨站；月港下游节点。"
+    }
+  },
+  "edges": [
+    {
+      "id": "e_ep_geo_fast",
+      "from": "earth_port",
+      "to": "geo",
+      "bidirectional": true,
+      "transfer_type": "high_thrust",
+      "dv_ms": 3800.0,
+      "duration_s": 5400.0,
+      "exposure": 0.55,
+      "risk": 0.20,
+      "traffic_required": true,
+      "corridor": "EP-GEO-A",
+      "notes": "化学高推力快速爬升；暴露高。"
+    },
+    {
+      "id": "e_ep_geo_econ",
+      "from": "earth_port",
+      "to": "geo",
+      "bidirectional": true,
+      "transfer_type": "low_energy",
+      "dv_ms": 2600.0,
+      "duration_s": 432000.0,
+      "exposure": 0.25,
+      "risk": 0.05,
+      "traffic_required": false,
+      "corridor": "EP-GEO-C",
+      "notes": "低能电推/货运窗口；5 天级。"
+    },
+    {
+      "id": "e_geo_l1_fast",
+      "from": "geo",
+      "to": "l1",
+      "bidirectional": true,
+      "transfer_type": "high_thrust",
+      "dv_ms": 900.0,
+      "duration_s": 10800.0,
+      "exposure": 0.35,
+      "risk": 0.10,
+      "traffic_required": true,
+      "corridor": "GEO-L1-A",
+      "notes": "GEO → L1 快速转移。"
+    },
+    {
+      "id": "e_geo_l1_econ",
+      "from": "geo",
+      "to": "l1",
+      "bidirectional": true,
+      "transfer_type": "low_energy",
+      "dv_ms": 700.0,
+      "duration_s": 864000.0,
+      "exposure": 0.10,
+      "risk": 0.03,
+      "traffic_required": false,
+      "corridor": "GEO-L1-C",
+      "notes": "低能流形转移；10 天级。"
+    },
+    {
+      "id": "e_l1_moon_fast",
+      "from": "l1",
+      "to": "moon_port",
+      "bidirectional": true,
+      "transfer_type": "high_thrust",
+      "dv_ms": 820.0,
+      "duration_s": 14400.0,
+      "exposure": 0.45,
+      "risk": 0.15,
+      "traffic_required": true,
+      "corridor": "L1-MOON-A",
+      "notes": "L1 → 月港快速下降。"
+    },
+    {
+      "id": "e_l1_moon_econ",
+      "from": "l1",
+      "to": "moon_port",
+      "bidirectional": true,
+      "transfer_type": "low_energy",
+      "dv_ms": 260.0,
+      "duration_s": 172800.0,
+      "exposure": 0.08,
+      "risk": 0.02,
+      "traffic_required": false,
+      "corridor": "L1-MOON-C",
+      "notes": "低能月港转移；2 天级。"
+    },
+    {
+      "id": "e_moon_leo",
+      "from": "moon_port",
+      "to": "lunar_leo",
+      "bidirectional": true,
+      "transfer_type": "high_thrust",
+      "dv_ms": 180.0,
+      "duration_s": 1800.0,
+      "exposure": 0.20,
+      "risk": 0.05,
+      "traffic_required": false,
+      "corridor": "MOON-LEO-A",
+      "notes": "月港 → 月球低轨。"
+    },
+    {
+      "id": "e_ep_moon_direct",
+      "from": "earth_port",
+      "to": "moon_port",
+      "bidirectional": true,
+      "transfer_type": "high_thrust",
+      "dv_ms": 3900.0,
+      "duration_s": 259200.0,
+      "exposure": 0.70,
+      "risk": 0.30,
+      "traffic_required": true,
+      "corridor": "EP-MOON-D",
+      "notes": "直接地月转移；3 天级，暴露/风险最高。"
+    },
+    {
+      "id": "e_ep_l4_cover",
+      "from": "earth_port",
+      "to": "l4",
+      "bidirectional": true,
+      "transfer_type": "covert",
+      "dv_ms": 4050.0,
+      "duration_s": 345600.0,
+      "exposure": 0.08,
+      "risk": 0.10,
+      "traffic_required": false,
+      "corridor": "EP-L4-X",
+      "notes": "隐蔽绕行（静默货道）；4 天级。"
+    },
+    {
+      "id": "e_l4_l2_cover",
+      "from": "l4",
+      "to": "l2",
+      "bidirectional": true,
+      "transfer_type": "covert",
+      "dv_ms": 620.0,
+      "duration_s": 172800.0,
+      "exposure": 0.05,
+      "risk": 0.04,
+      "traffic_required": false,
+      "corridor": "L4-L2-X",
+      "notes": "L4 → L2 隐蔽转运。"
+    },
+    {
+      "id": "e_l2_moon_cover",
+      "from": "l2",
+      "to": "moon_port",
+      "bidirectional": true,
+      "transfer_type": "covert",
+      "dv_ms": 780.0,
+      "duration_s": 216000.0,
+      "exposure": 0.06,
+      "risk": 0.05,
+      "traffic_required": false,
+      "corridor": "L2-MOON-X",
+      "notes": "L2 → 月港隐蔽接近。"
+    },
+    {
+      "id": "e_geo_l2_trail",
+      "from": "geo",
+      "to": "l2",
+      "bidirectional": true,
+      "transfer_type": "high_thrust",
+      "dv_ms": 550.0,
+      "duration_s": 28800.0,
+      "exposure": 0.30,
+      "risk": 0.08,
+      "traffic_required": true,
+      "corridor": "GEO-L2-A",
+      "notes": "GEO → L2 军用快线。"
+    },
+    {
+      "id": "e_l1_l2_relay",
+      "from": "l1",
+      "to": "l2",
+      "bidirectional": true,
+      "transfer_type": "high_thrust",
+      "dv_ms": 500.0,
+      "duration_s": 21600.0,
+      "exposure": 0.20,
+      "risk": 0.06,
+      "traffic_required": true,
+      "corridor": "L1-L2-R",
+      "notes": "L1 ↔ L2 中继线。"
+    },
+    {
+      "id": "e_ep_l5_cover",
+      "from": "earth_port",
+      "to": "l5",
+      "bidirectional": true,
+      "transfer_type": "covert",
+      "dv_ms": 4200.0,
+      "duration_s": 360000.0,
+      "exposure": 0.07,
+      "risk": 0.12,
+      "traffic_required": false,
+      "corridor": "EP-L5-X",
+      "notes": "隐蔽绕行 L5。"
+    },
+    {
+      "id": "e_l5_l4_trail",
+      "from": "l5",
+      "to": "l4",
+      "bidirectional": true,
+      "transfer_type": "low_energy",
+      "dv_ms": 300.0,
+      "duration_s": 120000.0,
+      "exposure": 0.15,
+      "risk": 0.06,
+      "traffic_required": false,
+      "corridor": "L5-L4-C",
+      "notes": "L5 → L4 低速转运。"
+    }
+  ],
+  "route_limits": {
+    "max_hops": 3,
+    "max_paths": 200,
+    "profiles": ["fast", "economy", "covert"],
+    "profile_weights": {
+      "fast": {"dv": 0.20, "time": 0.70, "exposure": 0.10, "risk": 0.00},
+      "economy": {"dv": 0.70, "time": 0.20, "exposure": 0.10, "risk": 0.00},
+      "covert": {"dv": 0.10, "time": 0.20, "exposure": 0.55, "risk": 0.15}
+    },
+    "profile_labels": {"fast": "快速", "economy": "经济", "covert": "隐蔽"},
+    "constraints_default": {
+      "max_dv_ms": 0.0,
+      "max_duration_s": 0.0,
+      "max_exposure": 1.0,
+      "avoid_traffic": false,
+      "exclude_transfer_types": [],
+      "max_hops": 0
+    }
+  },
+  "traffic": {
+    "authority_default": "MERIDIAN TRAFFIC CONTROL",
+    "max_queue": 6,
+    "priority_range": [1, 5],
+    "priority_labels": {
+      "1": "EMERGENCY",
+      "2": "MILITARY",
+      "3": "NORMAL",
+      "4": "CIVILIAN",
+      "5": "LOW"
+    },
+    "min_lead_s": 30.0,
+    "window_slot_s": 3600.0,
+    "validity_s": 1800.0,
+    "hold_s": 600.0,
+    "hold_exposure_threshold": 0.35,
+    "auto_grant": false,
+    "auto_execute": false,
+    "deny_reasons": {
+      "unknown_route": "路线不存在或未选择",
+      "route_infeasible": "路线不满足约束",
+      "dv_budget": "Δv 预算不足",
+      "window_in_past": "时间窗已过期",
+      "window_closed": "时间窗早于最小提前量",
+      "priority_range": "优先级超出 1–5",
+      "queue_full": "交通等待队列已满",
+      "authority_denied": "管制员拒绝",
+      "clearance_required": "需要交通许可",
+      "stale_clearance": "许可已过期"
+    }
+  },
+  "maneuvers": {
+    "state_order": ["PRE_ORDER", "AUTHORIZED", "QUEUED", "EXECUTING", "DONE", "ABORTED"],
+    "terminal_states": ["DONE", "ABORTED"],
+    "kinds": {
+      "hold": {
+        "label": "保持站位",
+        "dv_ms": 40.0, "duration_s": 120.0, "exposure": 0.05, "risk": 0.00,
+        "requires_target": false, "requires_clearance": false,
+        "notes": "小修正保持相对站位。"
+      },
+      "approach": {
+        "label": "接近 / 交会",
+        "dv_ms": 420.0, "duration_s": 900.0, "exposure": 0.35, "risk": 0.20,
+        "requires_target": true, "requires_clearance": true,
+        "notes": "接近目标到指定距离；需交通许可。"
+      },
+      "retreat": {
+        "label": "脱离 / 规避",
+        "dv_ms": 360.0, "duration_s": 720.0, "exposure": 0.30, "risk": 0.10,
+        "requires_target": false, "requires_clearance": false,
+        "notes": "远离威胁方向。"
+      },
+      "evade": {
+        "label": "战术规避",
+        "dv_ms": 520.0, "duration_s": 300.0, "exposure": 0.50, "risk": 0.35,
+        "requires_target": false, "requires_clearance": true,
+        "notes": "高过载规避；需即时许可。"
+      },
+      "point": {
+        "label": "姿态 / 指向",
+        "dv_ms": 5.0, "duration_s": 60.0, "exposure": 0.02, "risk": 0.00,
+        "requires_target": true, "requires_clearance": false,
+        "notes": "姿态/传感器指向；消耗极小 Δv。"
+      },
+      "burn": {
+        "label": "脉冲点火 / 变轨",
+        "dv_ms": 84.0, "duration_s": 90.0, "exposure": 0.40, "risk": 0.15,
+        "requires_target": false, "requires_clearance": true,
+        "notes": "抽象脉冲点火；实际 Δv 可由 opts.dv_ms 覆盖。"
+      }
+    }
+  },
+  "budget": {
+    "dv_total_ms": 1600.0,
+    "dv_reserve_ms": 100.0,
+    "warn_ratio": 0.75,
+    "initial_fuel_kg": 1200.0
+  }
+}
