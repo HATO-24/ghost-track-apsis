@@ -99,10 +99,19 @@ func _to_command(w: V2World) -> void:
 	w.advance(0.01)
 	w.advance(0.01)
 
-## 推进到 DECISION（COMMAND 阶段打开决策后 advance 一次）。
+## 完成教学门控要求（2 项关键识别：crossfix + model_ident，均为对 2001 的真实动作）。
+func _satisfy_tutorial(w: V2World) -> void:
+	for aid in ["crossfix", "radar_illum", "model_ident", "iff_query"]:
+		if w.tutorial_ready():
+			return
+		w.perform_action(aid, "2001")
+
+## 推进到 DECISION（完成教学门控 → 打开决策 → advance 进入 DECISION）。
 func _to_decision(w: V2World) -> void:
 	_to_command(w)
-	w.open_decision()
+	_satisfy_tutorial(w)
+	if not bool(w.flow.get("decision_open", false)):
+		w.open_decision()
 	w.advance(0.01)
 
 func _timeline_events(w: V2World) -> Array:
@@ -331,9 +340,14 @@ func _test_decision_report_restart() -> void:
 	var m: V2Mission = sess["mission"]
 	_to_command(w)
 
-	# 决策未打开时拒绝
+	# 决策未打开时拒绝；教学门控未满足时 open_decision 拒绝
 	_eq(bool(w.choose_ending("HOLD").get("ok", true)), false, "决策未打开时 choose_ending 被拒绝")
-	w.open_decision()
+	var gated := w.open_decision()
+	_eq(bool(gated.get("ok", true)), false, "教学门控未满足时 open_decision 被拒绝")
+	_ok(String(gated.get("reason", "")).contains("教学"), "门控原因明确", String(gated.get("reason", "")))
+	_satisfy_tutorial(w)
+	if not bool(w.flow.get("decision_open", false)):
+		w.open_decision()
 	_eq(bool(w.flow.get("decision_open", false)), true, "open_decision 打开决策")
 	w.advance(0.01)
 	_eq(m.kind, "DECISION", "mission 进入 DECISION")
@@ -383,7 +397,7 @@ func _test_decision_report_restart() -> void:
 	_eq(w.evidence_count(), 0, "重开证据复位 0")
 	_eq(w.audit_count, 0, "重开 audit_count=0")
 	_eq(w.entities.size(), before_entities, "重开实体数不变")
-	_eq(w.tracks.count(), 8, "重开航迹 8")
+	_eq(w.tracks.count(), 10, "重开航迹 10")
 	_eq(bool(w.prelude_open()), true, "重开前置航行重新打开")
 	_eq(m.phase, "prelude", "重开 mission 回到 prelude")
 	_eq(m.has_flag("report_submitted"), false, "重开 mission flags 清空")
@@ -478,8 +492,12 @@ func _test_timeline_and_mission() -> void:
 	var m: V2Mission = sess["mission"]
 	_to_command(w)
 	_eq(m.kind, "COMMAND", "进入 COMMAND")
+	_satisfy_tutorial(w)
+	_eq(w.tutorial_ready(), true, "教学门控在时间线推进前已满足")
 	var tr: V2Track = w.track_for("2001")
-	_eq(tr.observation_count, 0, "时间线不自动产生观测")
+	var obs_before := tr.observation_count
+	var level_before := tr.level
+	_ok(obs_before >= 2, "教学动作产生观测（玩家动作）", "obs=%d" % obs_before)
 	# 推进时间到决策事件（story.events t=75,type=decision）
 	for i in range(6):
 		w.advance(10.0)
@@ -499,8 +517,8 @@ func _test_timeline_and_mission() -> void:
 			"timeline:optical", "timeline:iff", "timeline:decision"]:
 		_ok(t in ev_types, "时间线事件: " + t)
 	_ok(w.radio.size() >= 5, "时间线通信写入 radio", "radio=%d" % w.radio.size())
-	_eq(tr.observation_count, 0, "全程不自动做识别动作（观测计数仍 0）")
-	_eq(tr.level, 1, "2001 等级仍 L1（只能由玩家动作推进）")
+	_eq(tr.observation_count, obs_before, "全程不自动做识别动作（观测计数不变）")
+	_eq(tr.level, level_before, "2001 等级不被时间线推进（只由玩家动作）")
 	_eq(w.track_for("9001").level, 1, "9001 等级仍 L1")
 
 	# mission snapshot / vm_flow

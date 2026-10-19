@@ -119,6 +119,38 @@
       "orbit": {"frame": "L1", "r": [229.598, -122.086, -6.0], "v": [0.0505, 0.0524, -0.0005]},
       "tags": ["civilian"],
       "meta": {"sensors": ["CH-R0"]}
+    },
+    {
+      "id": "chronos_station",
+      "batch": "0100",
+      "kind": "station",
+      "side": "neutral",
+      "name": "Chronos 加注站",
+      "name_en": "CHRONOS DEPOT",
+      "class": "加注站",
+      "role": "加注/储罐/港务",
+      "faction": "Chronos 港务",
+      "capabilities": ["comms.radio"],
+      "signatures": {},
+      "orbit": {"frame": "L1", "r": [180.0, 210.0, 8.0], "v": [0.0, 0.0, 0.0]},
+      "tags": ["station", "fixed"],
+      "meta": {"icon": "station", "size_km": 1.2, "role": "Chronos 加注站", "fixed": true}
+    },
+    {
+      "id": "tank_farm",
+      "batch": "0101",
+      "kind": "tank",
+      "side": "neutral",
+      "name": "Chronos 储罐群",
+      "name_en": "CHRONOS TANK FARM",
+      "class": "储罐群",
+      "role": "推进剂储罐",
+      "faction": "Chronos 港务",
+      "capabilities": [],
+      "signatures": {},
+      "orbit": {"frame": "L1", "r": [182.0, 214.0, 8.0], "v": [0.0, 0.0, 0.0]},
+      "tags": ["tank", "fixed"],
+      "meta": {"icon": "tank", "size_km": 0.8, "role": "储罐群", "tanks": 3, "fixed": true}
     }
   ],
   "tracks": [
@@ -129,7 +161,9 @@
     {"id": "1004", "entity_id": "deepwell", "level": 4, "identity": "friend", "threat": "none", "age_s": 1.0},
     {"id": "2001", "entity_id": "summons_4471", "level": 1, "identity": "unknown", "threat": "pending", "age_s": 2.0},
     {"id": "9001", "entity_id": "ceres_2", "level": 1, "identity": "pending", "threat": "pending", "age_s": 12.0},
-    {"id": "9002", "entity_id": "", "level": 1, "identity": "pending", "threat": "none", "bearing_only": true, "bearing_deg": 302.0, "age_s": 0.0, "sources": ["CH-IR2"], "tags": ["phantom", "false_alarm"], "notes": ["CH-IR2 回波候选：残骸/反射，目视交叉确认后无威胁"]}
+    {"id": "9002", "entity_id": "", "level": 1, "identity": "pending", "threat": "none", "bearing_only": true, "bearing_deg": 302.0, "age_s": 0.0, "sources": ["CH-IR2"], "tags": ["phantom", "false_alarm"], "notes": ["CH-IR2 回波候选：残骸/反射，目视交叉确认后无威胁"]},
+    {"id": "0100", "entity_id": "chronos_station", "level": 4, "identity": "neutral", "threat": "none", "age_s": 0.0, "tags": ["station", "fixed"]},
+    {"id": "0101", "entity_id": "tank_farm", "level": 4, "identity": "neutral", "threat": "none", "age_s": 0.0, "tags": ["tank", "fixed"]}
   ],
   "phases": [
     {
@@ -207,5 +241,16 @@
     "exec_delay_s": 0.0,
     "id_prefix": "ORD",
     "id_pad": 4
+  },
+  "exec_window": {
+    "duration_s": 360.0
+  },
+  "damage": {
+    "repair_rate_s": 120.0,
+    "initial": [
+      {"id": "sensor_cal", "label": "传感器校准漂移", "state": "degraded", "severity": 0.35, "repair_eta_s": 120.0},
+      {"id": "ir_false_alarm", "label": "CH-IR2 虚警率偏高", "state": "degraded", "severity": 0.2, "repair_eta_s": 60.0},
+      {"id": "thermal", "label": "热控回路温度偏高", "state": "damaged", "severity": 0.5, "repair_eta_s": 180.0}
+    ]
   }
 }

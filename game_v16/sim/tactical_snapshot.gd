@@ -41,6 +41,9 @@ const Types := preload("res://sim/sensor_types.gd")
 const RadarModel := preload("res://sim/radar.gd")
 const TwsModel := preload("res://sim/tws.gd")
 const OpticalModel := preload("res://sim/optical.gd")
+## v15 复用的轨道模型（无 class_name，按路径 preload）：
+## local_propagate = L1 局部相对运动二阶梯泰勒；local_propagate_rk4 = ≤5 s 步长 RK4。
+const Orbit := preload("res://scripts/orbit_model.gd")
 
 const SCHEMA_BUILD := "tactical_snapshot.v1"
 const SCHEMA_STEP := "tactical_step.v1"
@@ -56,6 +59,29 @@ const MIN_SCALE_PX_PER_KM := 1.0e-6
 const EDGE_MARGIN_PX := 14.0
 const ACTIVE_TWS_STATES := ["ACQUIRE", "TRACK", "STARE", "FIRE_CONTROL"]
 const OPTICAL_KINDS := ["optical", "ir"]
+
+# ── V2-SENSOR-3：真实轨道（L1 局部相对运动）与可视化元数据 ────────
+const ORBIT_SOURCE := "local_propagate"           # 位置/预测来源标注（需求 §3）
+const ORBIT_SOURCE_STATIC := "static_r"           # 只有 r、无 v 的站体：不伪造速度轨迹
+const ORBIT_SOURCE_FIXED := "static_fixed"        # tags 含 fixed 的固定设施：不推进（站体/储罐）
+const ORBIT_SOURCE_NONE := "none"                 # 无 r/v（如纯方位回波）
+const PROPAGATOR_RK4 := "rk4"
+const PROPAGATOR_TAYLOR := "taylor"
+const DEFAULT_PROPAGATOR := PROPAGATOR_RK4
+const PREDICTION_HORIZONS_S := [30.0, 60.0, 120.0]   # 预测点列（秒）
+const MAX_PREDICTION_HORIZON_S := 600.0
+
+## 实体 kind → 可视化元数据建议（UI 画符号/尺寸用；本层不做渲染）。
+## size_km = 符号建议直径（不是真实包围盒；站体/储罐可用 meta.radius_km 覆盖）。
+const ICON_CATALOG := {
+	"ship": {"shape": "chevron", "glyph": "ship", "label_cn": "舰船", "size_km": 0.6, "has_orbit": true},
+	"station": {"shape": "hexagon", "glyph": "station", "label_cn": "站点", "size_km": 0.8, "has_orbit": false},
+	"tank": {"shape": "cylinder", "glyph": "tank", "label_cn": "储罐", "size_km": 0.3, "has_orbit": false},
+	"wreck": {"shape": "cross", "glyph": "wreck", "label_cn": "残骸", "size_km": 0.5, "has_orbit": false},
+	"contact": {"shape": "circle", "glyph": "contact", "label_cn": "接触", "size_km": 0.4, "has_orbit": false},
+	"unknown": {"shape": "diamond", "glyph": "unknown", "label_cn": "未知", "size_km": 0.4, "has_orbit": false},
+}
+
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -137,6 +163,197 @@ static func set_radar_enabled(sim_state: Dictionary, on: bool) -> void:
 	sim_state["enabled"] = en
 
 
+# ═══════════════════════════════════════════════════════════════════
+# 1.5 轨道传播（Orbit.local_propagate / RK4）与可视化元数据
+# ═══════════════════════════════════════════════════════════════════
+
+## L1 局部相对运动传播（km / km/s）。mode: "rk4"（默认，步长 ≤5 s）| "taylor"（二阶梯）。
+## 返回 JSON 友好字典：{r:[x,y,z], v:[x,y,z], source:"local_propagate", propagator, dt_s}。
+static func propagate_local(r_km, v_kmps, dt_s: float,
+		mode: String = DEFAULT_PROPAGATOR) -> Dictionary:
+	var r := Types.to_vec3(r_km)
+	var v := Types.to_vec3(v_kmps)
+	var dt := clampf(dt_s, -MAX_PREDICTION_HORIZON_S, MAX_PREDICTION_HORIZON_S)
+	var out: Dictionary
+	if mode == PROPAGATOR_TAYLOR:
+		out = Orbit.local_propagate(r, v, dt)
+	else:
+		out = Orbit.local_propagate_rk4(r, v, dt)
+	var rr: Vector3 = out.get("r", r)
+	var vv: Vector3 = out.get("v", v)
+	return {
+		"r": _vec_array(rr),
+		"v": _vec_array(vv),
+		"source": ORBIT_SOURCE,
+		"propagator": PROPAGATOR_TAYLOR if mode == PROPAGATOR_TAYLOR else PROPAGATOR_RK4,
+		"dt_s": dt,
+	}
+
+
+## 实体 kind → 符号/尺寸元数据目录（UI 画符号用；本层不渲染）。
+static func icon_catalog() -> Dictionary:
+	return ICON_CATALOG.duplicate(true)
+
+
+## kind + meta/tags → 单个实体的可视化元数据：
+##   {kind, shape, glyph, label_cn, size_km, has_orbit, fixed, is_station/is_tank/is_wreck}
+## meta 可覆盖：icon（形状名）、size_km、radius_km、radius_m。
+static func visual_metadata(kind: String, meta: Dictionary = {}, tags: Array = []) -> Dictionary:
+	var k := kind if ICON_CATALOG.has(kind) else "unknown"
+	var base: Dictionary = (ICON_CATALOG[k] as Dictionary).duplicate(true)
+	var size_km := float(base.get("size_km", 0.4))
+	if meta.has("size_km"):
+		size_km = maxf(0.01, float(meta.get("size_km", size_km)))
+	elif meta.has("radius_km"):
+		size_km = maxf(0.01, float(meta.get("radius_km", 0.0)) * 2.0)
+	elif meta.has("radius_m"):
+		size_km = maxf(0.01, float(meta.get("radius_m", 0.0)) * 2.0 / 1000.0)
+	var shape := String(base.get("shape", k))
+	if meta.has("icon") and String(meta.get("icon", "")) != "":
+		shape = String(meta.get("icon", shape))
+	var fixed := tags.has("fixed")
+	return {
+		"kind": k,
+		"shape": shape,
+		"glyph": String(base.get("glyph", k)),
+		"label_cn": String(base.get("label_cn", "")),
+		"size_km": size_km,
+		"has_orbit": bool(base.get("has_orbit", false)),
+		"fixed": fixed,
+		"is_station": k == "station",
+		"is_tank": k == "tank",
+		"is_wreck": k == "wreck",
+	}
+
+
+## V2Entity / 实体字典 → 可视化元数据（probe 与 UI 复用）。
+static func entity_visual(entity) -> Dictionary:
+	if entity == null:
+		return visual_metadata("unknown")
+	if entity is Dictionary:
+		var d: Dictionary = entity
+		return visual_metadata(String(d.get("kind", "unknown")),
+			_as_dict(d.get("meta", {})), _as_array(d.get("tags", [])))
+	return visual_metadata(String(entity.kind), _as_dict(entity.meta), _as_array(entity.tags))
+
+
+## 读取实体轨道状态（只读；不伪造：无 r 即无位置，无 v 或 fixed 则不推进）。
+static func _entity_orbit_state(entity) -> Dictionary:
+	var out: Dictionary = {
+		"has_r": false, "r0": Vector3.ZERO, "has_v": false, "v0": Vector3.ZERO,
+		"fixed": false, "kind": "unknown", "meta": {}, "tags": [],
+	}
+	if entity == null:
+		return out
+	var orbit: Dictionary = {}
+	var meta: Dictionary = {}
+	var tags: Array = []
+	var kind := "unknown"
+	if entity is Dictionary:
+		var d: Dictionary = entity
+		kind = String(d.get("kind", "unknown"))
+		meta = _as_dict(d.get("meta", {}))
+		tags = _as_array(d.get("tags", []))
+		orbit = _as_dict(d.get("orbit", {}))
+		if orbit.is_empty() and (d.has("r") or d.has("v")):
+			orbit = d
+	else:
+		kind = String(entity.kind)
+		meta = _as_dict(entity.meta)
+		tags = _as_array(entity.tags)
+		orbit = _as_dict(entity.orbit)
+	if orbit.has("r") and orbit.get("r") != null:
+		out["has_r"] = true
+		out["r0"] = Types.to_vec3(orbit.get("r", []))
+	if orbit.has("v") and orbit.get("v") != null:
+		out["has_v"] = true
+		out["v0"] = Types.to_vec3(orbit.get("v", []))
+	out["fixed"] = tags.has("fixed")
+	out["kind"] = kind
+	out["meta"] = meta
+	out["tags"] = tags
+	return out
+
+
+## 实体在 time_s 时刻的 L1 局部状态：
+##   {has_position, r, v, source(local_propagate/static_fixed/static_r/none), propagator,
+##    fixed, epoch_r, epoch_v}
+static func _entity_state(entity, time_s: float, mode: String) -> Dictionary:
+	var st := _entity_orbit_state(entity)
+	var out: Dictionary = {
+		"has_position": false,
+		"r": Vector3.ZERO,
+		"v": Vector3.ZERO,
+		"source": ORBIT_SOURCE_NONE,
+		"propagator": mode,
+		"fixed": bool(st.get("fixed", false)),
+		"epoch_r": null,
+		"epoch_v": null,
+	}
+	if not bool(st.get("has_r", false)):
+		return out
+	var r0: Vector3 = st.get("r0", Vector3.ZERO)
+	out["has_position"] = true
+	out["epoch_r"] = _vec_array(r0)
+	if bool(st.get("fixed", false)) or not bool(st.get("has_v", false)):
+		out["r"] = r0
+		out["v"] = Vector3.ZERO
+		out["source"] = ORBIT_SOURCE_FIXED if bool(st.get("fixed", false)) else ORBIT_SOURCE_STATIC
+		out["propagator"] = "none"
+		if bool(st.get("has_v", false)):
+			out["epoch_v"] = _vec_array(st.get("v0", Vector3.ZERO))
+		return out
+	var v0: Vector3 = st.get("v0", Vector3.ZERO)
+	out["epoch_v"] = _vec_array(v0)
+	var prop := propagate_local(r0, v0, time_s, mode)
+	out["r"] = Types.to_vec3(prop.get("r", []))
+	out["v"] = Types.to_vec3(prop.get("v", []))
+	out["source"] = ORBIT_SOURCE
+	out["propagator"] = String(prop.get("propagator", mode))
+	return out
+
+
+## 位置预测：30/60/120 s 点列（L1 局部 km，绝对坐标；view/screen 由投影层补）。
+static func _prediction_for(state: Dictionary, time_s: float, mode: String,
+		level: int, age: float) -> Dictionary:
+	if not bool(state.get("has_position", false)):
+		return {}
+	var source := String(state.get("source", ORBIT_SOURCE_NONE))
+	if source == ORBIT_SOURCE_NONE:
+		return {}
+	var fixed := bool(state.get("fixed", false))
+	var r_now: Vector3 = state.get("r", Vector3.ZERO)
+	var v_now: Vector3 = state.get("v", Vector3.ZERO)
+	var epoch_r: Vector3 = Types.to_vec3(state.get("epoch_r", []))
+	var epoch_v: Vector3 = Types.to_vec3(state.get("epoch_v", []))
+	var points: Array = []
+	for h_raw in PREDICTION_HORIZONS_S:
+		var h := float(h_raw)
+		var point: Dictionary = {"dt_s": h, "t_s": time_s + h, "fixed": fixed}
+		if fixed or source != ORBIT_SOURCE:
+			point["local_r_km"] = _vec_array(r_now)
+			point["sigma_km"] = 0.0
+		else:
+			var prop := propagate_local(epoch_r, epoch_v, time_s + h, mode)
+			point["local_r_km"] = prop.get("r", _vec_array(r_now))
+			point["sigma_km"] = float(Orbit.sigma_km({"level": level, "age": age}, h))
+		points.append(point)
+	return {
+		"source": source,
+		"propagator": String(state.get("propagator", mode)),
+		"fixed": fixed,
+		"horizons_s": PREDICTION_HORIZONS_S.duplicate(),
+		"points": points,
+	}
+
+
+## 快照时间基准：默认 world.t；cfg.time_s 可覆盖（测试/回放/外部时钟适配）。
+static func _snapshot_time(world, cfg: Dictionary) -> float:
+	if cfg.has("time_s"):
+		return float(cfg.get("time_s", 0.0))
+	return _world_time(world)
+
+
 static func _pick_model(rack: Array, signatures: Dictionary, kind: String, fallback: String) -> String:
 	for raw in rack:
 		var model := String(raw)
@@ -176,14 +393,22 @@ static func _has_radar_capability(own) -> bool:
 # ═══════════════════════════════════════════════════════════════════
 
 ## 构建战术快照（只读 world + 读取 sim_state 当前状态；不推进任何模型）。
+## 位置/预测来自 Orbit.local_propagate_rk4（L1 局部相对运动），不再是 r+v·t 线性外推。
 static func build(world, sim_state: Dictionary = {}, cfg: Dictionary = {}) -> Dictionary:
 	var sim: Dictionary = sim_state if sim_state != null else {}
+	var time_s := _snapshot_time(world, cfg)
+	var mode := String(cfg.get("propagator", DEFAULT_PROPAGATOR))
+	if mode != PROPAGATOR_TAYLOR:
+		mode = PROPAGATOR_RK4
 	var own = _own_entity(world)
 	var own_id := String(own.id) if own != null else String(_world_field(world, "own_id", ""))
+	var own_state := _entity_state(own, time_s, mode)
 	var own_local := _entity_pos(own)
+	if bool(own_state.get("has_position", false)):
+		own_local = own_state.get("r", own_local)
 	var camera := camera_from(cfg)
 	var own_view := _own_view(own_local, camera)
-	var contacts := _build_contacts(world, sim, cfg, camera, own_local)
+	var contacts := _build_contacts(world, sim, cfg, camera, own_local, time_s, mode)
 	_resolve_auto_scale(camera, contacts, own_local)
 	_project_contacts(contacts, camera, own_local, own_view)
 
@@ -193,12 +418,17 @@ static func build(world, sim_state: Dictionary = {}, cfg: Dictionary = {}) -> Di
 	var layers := _read_layers(world)
 	var snap := {
 		"schema": SCHEMA_BUILD,
-		"version": 2,
+		"version": 3,
 		"drawable": false,   # 本文件不做渲染
 		"t": _world_time(world),
+		"time_s": time_s,
 		"datum": _scenario_datum(world),
 		"scenario_id": _scenario_field(world, "id", ""),
-		"own": _own_section(own, own_id, own_local, camera, own_view),
+		"orbit_source": ORBIT_SOURCE,
+		"propagator": mode,
+		"prediction_horizons_s": PREDICTION_HORIZONS_S.duplicate(),
+		"icon_catalog": icon_catalog(),
+		"own": _own_section(own, own_id, own_local, own_state, camera, own_view, time_s, mode),
 		"contacts": contacts,
 		"radar": radar_section,
 		"tws": tws_section,
@@ -212,6 +442,9 @@ static func build(world, sim_state: Dictionary = {}, cfg: Dictionary = {}) -> Di
 			"no_entity": contacts.size() - _count_entities(contacts),
 			"bearing_only": _count_bearing_only(contacts),
 			"in_radar_sphere": _count_in_radar_sphere(contacts),
+			"stations": _count_kind(contacts, "station"),
+			"tanks": _count_kind(contacts, "tank"),
+			"predicted": _count_predicted(contacts),
 			"tws_channels": tws_section.get("channel_count", 0),
 			"tws_active": tws_section.get("active_count", 0),
 			"optical_locked": optical_section.get("locked_count", 0),
@@ -221,10 +454,10 @@ static func build(world, sim_state: Dictionary = {}, cfg: Dictionary = {}) -> Di
 	return _json_ready(snap)
 
 
-# ── 2.1 接触行（世界 8 条航迹，含无实体回波 9002）─────────────────
+# ── 2.1 接触行（世界航迹，含无实体回波 9002 与固定站体/储罐）────────
 
 static func _build_contacts(world, sim: Dictionary, cfg: Dictionary, camera: Dictionary,
-		own_local: Vector3) -> Array:
+		own_local: Vector3, time_s: float, mode: String) -> Array:
 	var rows: Array = []
 	if world != null and world.has_method("vm_contacts"):
 		rows = _as_array(world.vm_contacts())
@@ -236,13 +469,14 @@ static func _build_contacts(world, sim: Dictionary, cfg: Dictionary, camera: Dic
 		if not (raw is Dictionary):
 			continue
 		var row: Dictionary = raw
-		var entry := _contact_entry(world, row, sim, cfg, camera, own_local, radar_rec)
+		var entry := _contact_entry(world, row, sim, cfg, camera, own_local, time_s, mode, radar_rec)
 		out.append(entry)
 	return out
 
 
 static func _contact_entry(world, row: Dictionary, sim: Dictionary, cfg: Dictionary,
-		camera: Dictionary, own_local: Vector3, radar_rec) -> Dictionary:
+		camera: Dictionary, own_local: Vector3, time_s: float, mode: String,
+		radar_rec) -> Dictionary:
 	var track_id := String(row.get("track_id", row.get("id", "")))
 	var entity_id := String(row.get("entity_id", ""))
 	var has_entity := bool(row.get("has_entity", entity_id != ""))
@@ -255,10 +489,17 @@ static func _contact_entry(world, row: Dictionary, sim: Dictionary, cfg: Diction
 	var level := int(row.get("level", _track_field(tr, "level", 0)))
 	var identity := String(row.get("identity", _track_field(tr, "identity_kind", "unknown")))
 	var threat := String(row.get("threat", _track_field(tr, "threat", "pending")))
+	var kind := String(row.get("kind", "contact"))
+	if entity != null and not (entity is Dictionary):
+		kind = String(entity.kind)
+	elif entity != null and entity is Dictionary:
+		kind = String((entity as Dictionary).get("kind", kind))
+	var visual := entity_visual(entity) if has_entity else visual_metadata("unknown")
+	var entity_state := _entity_state(entity, time_s, mode) if has_entity else {}
 	var bearing_deg := float(row.get("bearing_deg", _track_field(tr, "bearing_deg", -1.0)))
 	var range_km := float(row.get("range_km", _track_field(tr, "range_km", -1.0)))
-	if has_entity and entity != null:
-		var pos := _entity_pos(entity)
+	if has_entity and entity != null and bool(entity_state.get("has_position", false)):
+		var pos: Vector3 = entity_state.get("r", Vector3.ZERO)
 		var geom := Types.geometry_km(own_local, pos)
 		bearing_deg = float(geom.get("bearing_deg", bearing_deg))
 		range_km = float(geom.get("range_km", range_km))
@@ -278,7 +519,14 @@ static func _contact_entry(world, row: Dictionary, sim: Dictionary, cfg: Diction
 		"role": String(row.get("role", "")),
 		"side": String(row.get("side", "unknown")),
 		"faction": String(row.get("faction", "")),
-		"kind": String(row.get("kind", "contact")),
+		"kind": kind,
+		"icon": visual.get("shape", "unknown"),
+		"icon_meta": visual,
+		"size_km": float(visual.get("size_km", 0.4)),
+		"is_station": bool(visual.get("is_station", false)),
+		"is_tank": bool(visual.get("is_tank", false)),
+		"is_wreck": bool(visual.get("is_wreck", false)),
+		"fixed": bool(visual.get("fixed", false)),
 		"has_entity": has_entity,
 		"is_own": _is_own_row(world, row, entity_id),
 		"selected": bool(row.get("selected", false)),
@@ -300,24 +548,34 @@ static func _contact_entry(world, row: Dictionary, sim: Dictionary, cfg: Diction
 		"range_km": range_km,
 		"range_band": range_band,
 		"bearing_only": bearing_only,
-		"tags": _as_array(row.get("tags", [])),
+		"tags": _as_array(row.get("tags", _track_field(tr, "tags", []))),
 		"notes": _as_array(row.get("notes", [])),
+		"orbit_source": String(entity_state.get("source", ORBIT_SOURCE_NONE)) if has_entity else ORBIT_SOURCE_NONE,
+		"propagator": String(entity_state.get("propagator", "none")) if has_entity else "none",
+		"epoch_r_km": entity_state.get("epoch_r", null) if has_entity else null,
+		"epoch_v_kmps": entity_state.get("epoch_v", null) if has_entity else null,
+		"local_v_kmps": _vec_array(entity_state.get("v", Vector3.ZERO)) if has_entity else null,
 		"position_source": "none",
 		"local_r_km": null,
 		"view_r_km": null,
 		"screen": {},
 		"bearing_line": {},
-		"marker": _marker_for(has_entity, bearing_only),
+		"prediction": {},
+		"marker": _marker_for(has_entity, bearing_only, visual),
 	}
 	if bool(entry["is_own"]):
-		entry["marker"] = {"shape": "own", "bearing_only": false, "emphasis": true}
+		entry["marker"] = {
+			"shape": "own", "bearing_only": false, "emphasis": true,
+			"kind": kind, "icon": visual.get("shape", "chevron"),
+			"size_km": float(visual.get("size_km", 0.6)), "fixed": bool(visual.get("fixed", false)),
+		}
 	# 位置显示规则：L1/纯方位接触只给方位线（不泄露实体真位置）；L2+ 才显示位置解。
 	var own_row := bool(entry["is_own"])
 	var position_known := own_row or (level >= 2 and (has_entity or range_km >= 0.0))
-	if position_known and has_entity and entity != null:
-		var pos := _entity_pos(entity)
+	if position_known and has_entity and entity != null and bool(entity_state.get("has_position", false)):
+		var pos: Vector3 = entity_state.get("r", Vector3.ZERO)
 		var view := pos - own_local
-		entry["position_source"] = "entity_orbit"   # 友军协同/融合位置
+		entry["position_source"] = "fixed_orbit" if String(entity_state.get("source", "")) == ORBIT_SOURCE_FIXED else "propagated_orbit"
 		entry["local_r_km"] = _vec_array(pos)
 		entry["view_r_km"] = _vec_array(view)
 		entry["range_km"] = float(view.length())
@@ -327,6 +585,9 @@ static func _contact_entry(world, row: Dictionary, sim: Dictionary, cfg: Diction
 			entry["radar_effective_radius_km"] = eff
 			entry["in_radar_sphere"] = view.length() <= eff + 1.0e-6
 			entry["rcs_m2"] = rcs
+		# 轨道预测点列（30/60/120 s）：固定设施不推进（points 为同一点，fixed=true）。
+		entry["prediction"] = _prediction_for(entity_state, time_s, mode, level,
+			float(entry.get("age_s", 0.0)))
 	elif position_known and range_km >= 0.0:
 		# L2+ 无实体（交叉定位等）：由航迹方位/距离解重建位置，不读实体真值。
 		var br := deg_to_rad(bearing_deg)
@@ -334,6 +595,7 @@ static func _contact_entry(world, row: Dictionary, sim: Dictionary, cfg: Diction
 		entry["position_source"] = "track_solution"
 		entry["local_r_km"] = _vec_array(pos)
 		entry["view_r_km"] = _vec_array(pos - own_local)
+		entry["orbit_source"] = "track_solution"
 		if radar_rec != null:
 			var eff2 := RadarModel.effective_radius_km(radar_rec, 10.0, float(cfg.get("jamming", 0.0)))
 			entry["radar_effective_radius_km"] = eff2
@@ -341,6 +603,7 @@ static func _contact_entry(world, row: Dictionary, sim: Dictionary, cfg: Diction
 	else:
 		# L1 纯方位 / 无实体回波（9002）：只给方位线 + 距离档，不给伪造位置。
 		entry["position_source"] = "bearing_line"
+		entry["orbit_source"] = ORBIT_SOURCE_NONE
 		entry["bearing_line"] = _bearing_line(own_local, bearing_deg, sigma_b, cfg)
 		if not (entry["bearing_line"] as Dictionary).is_empty():
 			var end_local := Types.to_vec3((entry["bearing_line"] as Dictionary).get("endpoint_local_km", []))
@@ -357,12 +620,28 @@ static func _contact_entry(world, row: Dictionary, sim: Dictionary, cfg: Diction
 	return entry
 
 
-static func _marker_for(has_entity: bool, bearing_only: bool) -> Dictionary:
+static func _marker_for(has_entity: bool, bearing_only: bool, visual: Dictionary = {}) -> Dictionary:
+	var shape := "contact"
 	if not has_entity:
-		return {"shape": "phantom", "bearing_only": bearing_only, "emphasis": false}
-	if bearing_only:
-		return {"shape": "bearing", "bearing_only": true, "emphasis": false}
-	return {"shape": "contact", "bearing_only": false, "emphasis": true}
+		shape = "phantom"
+	elif bearing_only:
+		shape = "bearing"
+	elif bool(visual.get("is_station", false)):
+		shape = "station"
+	elif bool(visual.get("is_tank", false)):
+		shape = "tank"
+	elif bool(visual.get("is_wreck", false)):
+		shape = "wreck"
+	return {
+		"shape": shape,
+		"bearing_only": bearing_only,
+		"emphasis": has_entity and not bearing_only,
+		"kind": String(visual.get("kind", "unknown")),
+		"icon": String(visual.get("shape", "unknown")),
+		"size_km": float(visual.get("size_km", 0.4)),
+		"fixed": bool(visual.get("fixed", false)),
+	}
+
 
 
 static func _bearing_line(own_local: Vector3, bearing_deg: float, sigma_deg: float,
@@ -511,6 +790,23 @@ static func _project_contacts(contacts: Array, camera: Dictionary, own_local: Ve
 			var end_local = bl.get("endpoint_local_km", null)
 			bl["endpoint_screen"] = project_local(end_local, camera, own_local) if end_local != null else {}
 			c["bearing_line"] = bl
+		# 轨道预测点列（30/60/120 s）：补 view_r_km 与屏幕投影建议。
+		var pred: Dictionary = _as_dict(c.get("prediction", {}))
+		if not pred.is_empty():
+			var points: Array = _as_array(pred.get("points", []))
+			for i in range(points.size()):
+				var point: Dictionary = points[i]
+				var plat = point.get("local_r_km", null)
+				if plat == null:
+					continue
+				var pv: Vector3 = Types.to_vec3(plat) - own_local
+				point["view_r_km"] = _vec_array(pv)
+				point["screen"] = project_local(plat, camera, own_local)
+				points[i] = point
+			pred["points"] = points
+			c["prediction"] = pred
+		c["screen"] = c.get("screen", {})
+
 
 
 static func _own_view(own_local: Vector3, camera: Dictionary) -> Dictionary:
@@ -667,11 +963,26 @@ static func _optical_section(sim: Dictionary) -> Dictionary:
 	}
 
 
-static func _own_section(own, own_id: String, own_local: Vector3, camera: Dictionary,
-		own_view: Dictionary) -> Dictionary:
+static func _own_section(own, own_id: String, own_local: Vector3, own_state: Dictionary,
+		camera: Dictionary, own_view: Dictionary, time_s: float, mode: String) -> Dictionary:
+	var visual := entity_visual(own)
+	var view := own_local - own_local
+	var prediction := _prediction_for(own_state, time_s, mode, 4, 0.0)
+	if not prediction.is_empty():
+		var points: Array = _as_array(prediction.get("points", []))
+		for i in range(points.size()):
+			var point: Dictionary = points[i]
+			var plat = point.get("local_r_km", null)
+			if plat == null:
+				continue
+			point["view_r_km"] = _vec_array(Types.to_vec3(plat) - own_local)
+			point["screen"] = project_local(plat, camera, own_local)
+			points[i] = point
+		prediction["points"] = points
 	if own == null:
 		return {"id": own_id, "available": false, "local_r_km": _vec_array(own_local),
-			"screen": own_view}
+			"screen": own_view, "orbit_source": String(own_state.get("source", ORBIT_SOURCE_NONE)),
+			"prediction": prediction, "view_r_km": _vec_array(view)}
 	return {
 		"id": String(own.id),
 		"available": true,
@@ -681,12 +992,24 @@ static func _own_section(own, own_id: String, own_local: Vector3, camera: Dictio
 		"class": String(own.cls),
 		"role": String(own.role),
 		"side": String(own.side),
+		"kind": String(own.kind),
+		"icon": visual.get("shape", "chevron"),
+		"icon_meta": visual,
+		"size_km": float(visual.get("size_km", 0.6)),
 		"tags": _as_array(own.tags),
 		"capabilities": _as_array(own.capabilities),
+		"orbit_source": String(own_state.get("source", ORBIT_SOURCE_NONE)),
+		"propagator": String(own_state.get("propagator", mode)),
+		"fixed": bool(own_state.get("fixed", false)),
 		"local_r_km": _vec_array(own_local),
-		"view_r_km": _vec_array(own_local - own_local),
+		"view_r_km": _vec_array(view),
+		"local_v_kmps": _vec_array(own_state.get("v", Vector3.ZERO)),
+		"epoch_r_km": own_state.get("epoch_r", null),
+		"epoch_v_kmps": own_state.get("epoch_v", null),
+		"prediction": prediction,
 		"screen": own_view,
 	}
+
 
 
 # ── 2.4 辅助 ─────────────────────────────────────────────────────
@@ -731,9 +1054,13 @@ static func _sim_radar_record(sim: Dictionary) -> Variant:
 
 
 static func _build_notes(sim: Dictionary) -> Array:
-	var notes: Array = ["build() 只读 world；不做渲染；screen 为投影建议（UI 可覆盖）"]
+	var notes: Array = [
+		"build() 只读 world；不做渲染；screen 为投影建议（UI 可覆盖）",
+		"位置/预测：Orbit.local_propagate_rk4（L1 局部相对运动）；预测点列 30/60/120 s；固定设施不推进",
+	]
 	notes.append_array(_as_array(sim.get("notes", [])))
 	return notes
+
 
 
 static func _own_entity(world):
@@ -831,6 +1158,25 @@ static func _count_in_radar_sphere(contacts: Array) -> int:
 		if raw is Dictionary and bool((raw as Dictionary).get("in_radar_sphere", false)):
 			n += 1
 	return n
+
+
+static func _count_kind(contacts: Array, kind: String) -> int:
+	var n := 0
+	for raw in contacts:
+		if raw is Dictionary and String((raw as Dictionary).get("kind", "")) == kind:
+			n += 1
+	return n
+
+
+static func _count_predicted(contacts: Array) -> int:
+	var n := 0
+	for raw in contacts:
+		if raw is Dictionary:
+			var pred: Dictionary = _as_dict((raw as Dictionary).get("prediction", {}))
+			if not pred.is_empty():
+				n += 1
+	return n
+
 
 
 static func _read_layers(world) -> Dictionary:
@@ -1050,18 +1396,31 @@ static func _suggested_calls(sim_state: Dictionary, obs_count: int, tws_count: i
 # ═══════════════════════════════════════════════════════════════════
 
 ## 从 world 实体组装 world_snapshot（见 docs/34 §8.2）；目标 id 用航迹 id。
+## 位置用 Orbit.local_propagate(_rk4) 传播到快照时间（world.t，可由 cfg.time_s 覆盖）。
 ## cfg["sim_targets"] 可覆盖目标行（测试/适配钩子，例如传 [] 验证失锁）。
 static func build_world_snapshot(world, sim_state: Dictionary = {}, cfg: Dictionary = {}) -> Dictionary:
+	var time_s := _snapshot_time(world, cfg)
+	var mode := String(cfg.get("propagator", DEFAULT_PROPAGATOR))
+	if mode != PROPAGATOR_TAYLOR:
+		mode = PROPAGATOR_RK4
 	var own = _own_entity(world)
+	var own_state := _entity_state(own, time_s, mode)
 	var own_local := _entity_pos(own)
+	if bool(own_state.get("has_position", false)):
+		own_local = own_state.get("r", own_local)
 	var observer_id := String(own.id) if own != null else String(sim_state.get("observer_id", ""))
 	var aux: Dictionary = _as_dict(sim_state)
 	var sim_time := float(aux.get("time", _world_time(world)))
 	var snap: Dictionary = {
-		"t": sim_time,
+		"t": time_s,
+		"sim_time": sim_time,
+		"orbit_source": ORBIT_SOURCE,
+		"propagator": mode,
 		"observer": {
 			"id": observer_id,
 			"pos_km": _vec_array(own_local),
+			"v_kmps": _vec_array(own_state.get("v", Vector3.ZERO)),
+			"orbit_source": String(own_state.get("source", ORBIT_SOURCE_NONE)),
 			"maneuver_g": float(cfg.get("maneuver_g", 0.0)),
 		},
 		"targets": [],
@@ -1082,7 +1441,7 @@ static func build_world_snapshot(world, sim_state: Dictionary = {}, cfg: Diction
 		var tr = null
 		if world.has_method("track_for"):
 			tr = world.track_for(String(e.id))
-		var row: Dictionary = _target_row(e, tr)
+		var row: Dictionary = _target_row(e, tr, time_s, mode)
 		# sim 目标标识用航迹 id（与 V2ObservationBridge.target_row 字段对齐）；缺航迹时退回实体 id。
 		if String(row.get("id", "")) == "":
 			row["id"] = String(e.id)
@@ -1098,7 +1457,9 @@ static func build_world_snapshot(world, sim_state: Dictionary = {}, cfg: Diction
 # ═══════════════════════════════════════════════════════════════════
 
 ## 与 V2ObservationBridge.target_row() 字段对齐的 sim 输入目标行（core 侧为权威定义）。
-static func _target_row(entity, track) -> Dictionary:
+## 传播态写 `r`/`v`（传感器模型用当前时刻位置），epoch 原值写 `epoch_r`/`epoch_v`。
+static func _target_row(entity, track, time_s: float = 0.0,
+		mode: String = DEFAULT_PROPAGATOR) -> Dictionary:
 	var row: Dictionary = {
 		"id": String(track.id) if track != null else (String(entity.batch) if entity != null else ""),
 		"track_id": String(track.id) if track != null else "",
@@ -1125,13 +1486,21 @@ static func _target_row(entity, track) -> Dictionary:
 		if not orbit.is_empty():
 			row["orbit"] = orbit
 			if orbit.has("r"):
-				row["r"] = _as_array(orbit.get("r", []))
+				row["epoch_r"] = _as_array(orbit.get("r", []))
 			if orbit.has("v"):
-				row["v"] = _as_array(orbit.get("v", []))
+				row["epoch_v"] = _as_array(orbit.get("v", []))
+		var state := _entity_state(entity, time_s, mode)
+		row["orbit_source"] = String(state.get("source", ORBIT_SOURCE_NONE))
+		row["propagator"] = String(state.get("propagator", "none"))
+		row["fixed"] = bool(state.get("fixed", false))
+		if bool(state.get("has_position", false)):
+			row["r"] = _vec_array(state.get("r", Vector3.ZERO))
+			row["v"] = _vec_array(state.get("v", Vector3.ZERO))
 	if track != null:
 		row["range_km"] = float(track.range_km)
 		row["bearing_deg"] = float(track.bearing_deg)
 	return row
+
 
 
 ## 雷达扫描观测 → core 观测建议（只保留 detected；target_id → track_id）。

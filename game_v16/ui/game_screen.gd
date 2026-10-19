@@ -19,6 +19,7 @@ const SectionPanel := preload("res://ui/widgets/section_panel.gd")
 const ActionMenu := preload("res://ui/widgets/action_menu.gd")
 const TacticalView := preload("res://ui/tactical_view.gd")
 const Overlays := preload("res://ui/overlays.gd")
+const DamagePanel := preload("res://ui/damage_panel.gd")
 
 const BUILD_TAG := "V2-3 · FIRST LEVEL · TACTICAL UI"
 
@@ -31,6 +32,18 @@ var _orders = null
 var _actions_inline = null
 var _menu = null
 var _overlays = null
+var _damage_panel = null
+var _bottom_tab := "mission"          # mission | damage
+var _replay_frames: Array = []
+var _replay_open := false
+var _replay_playing := false
+var _replay_cursor := 0
+var _replay_accum := 0.0
+var _replay_vm: Dictionary = {}
+var _replay_core := false
+var _replay_buttons: Array = []
+var _replay_dragging := false
+var _replay_record_started := false
 
 var _headless := false
 var _shot_path := ""
@@ -184,6 +197,11 @@ func _build_children() -> void:
 	_sections.position = L.RIGHT.position
 	_sections.size = L.RIGHT.size
 	add_child(_sections)
+	# 教学 section 置顶（来自 data_source.tutorial_state()；core vm_tutorial 或 UI 兜底）
+	_sections.register_section({
+		"id": "tutorial", "when": Callable(self, "_when_tutorial"),
+		"build": Callable(self, "_build_tutorial_section"),
+	}, true)
 
 	_events = ListView.new()
 	_events.position = L.LOG.position
@@ -217,6 +235,12 @@ func _build_children() -> void:
 	add_child(_actions_inline)
 	_actions_inline.visible = true
 
+	_damage_panel = DamagePanel.new()
+	_damage_panel.position = L.PROBE.position
+	_damage_panel.size = L.PROBE.size
+	_damage_panel.visible = false
+	add_child(_damage_panel)
+
 	_menu = ActionMenu.new()
 	_menu.mode = ActionMenu.MODE_POPUP
 	_menu.position = Vector2.ZERO
@@ -243,9 +267,26 @@ func _process(delta: float) -> void:
 		return
 	if _is_paused():
 		return
+	if _replay_open:
+		if _replay_playing and _replay_frames.size() > 1:
+			_replay_accum += delta
+			while _replay_accum >= 0.2:
+				_replay_accum -= 0.2
+				if _replay_cursor < _replay_frames.size() - 1:
+					_replay_cursor += 1
+					_replay_apply()
+				else:
+					_replay_playing = false
+					break
+			queue_redraw()
+		return
 	var dt := delta * _time_scale
 	data.advance_world(dt)
 	_tactical_tick(dt)
+	_replay_accum += delta
+	if _replay_accum >= 1.0:
+		_replay_accum = 0.0
+		_record_frame()
 	_refresh_accum += delta
 	if _refresh_accum >= 0.20:
 		_refresh_accum = 0.0
@@ -254,6 +295,8 @@ func _process(delta: float) -> void:
 
 
 func _is_paused() -> bool:
+	if _replay_open:
+		return true
 	if _overlays == null:
 		return false
 	if _overlays.is_open():
@@ -292,6 +335,10 @@ func _warm(seconds: float, chunk := 0.5) -> void:
 		var dt := minf(chunk, remain)
 		data.advance_world(dt)
 		_tactical_tick(dt)
+		_replay_accum += dt
+		if _replay_accum >= 1.0:
+			_replay_accum = 0.0
+			_record_frame()
 		remain -= dt
 	data.refresh()
 	_refresh_all()
@@ -305,6 +352,10 @@ func _sync_flow(force := false) -> void:
 	var decision: Dictionary = flow.get("decision", {}) if flow.get("decision", {}) is Dictionary else {}
 	var report: Dictionary = flow.get("report", {}) if flow.get("report", {}) is Dictionary else {}
 	var end: Dictionary = flow.get("end", {}) if flow.get("end", {}) is Dictionary else {}
+	var mission_kind := String((flow.get("mission", {}) as Dictionary).get("kind", "")) if flow.get("mission", {}) is Dictionary else ""
+	if mission_kind == "COMMAND" and not _replay_record_started and data.has_core():
+		data.replay_start()   # core V2-CORE-3：COMMAND 起自动录制回放帧（只读帧）
+		_replay_record_started = true
 	var mode := "none"
 	if bool(prelude.get("open", false)) and not bool(prelude.get("executed", false)):
 		mode = "prelude"
@@ -366,7 +417,7 @@ func _prelude_payload() -> Dictionary:
 func _decision_payload() -> Dictionary:
 	var d: Dictionary = data.vm_decision()
 	var prompt := String(d.get("prompt", ""))
-	var countdown: float = data.decision_countdown()
+	var countdown: float = data.exec_left()
 	prompt = prompt.replace("{mm:ss}", _fmt_countdown(countdown))
 	var opts: Array = d.get("options", []) if d.get("options", []) is Array else []
 	var ev_count := int(d.get("evidence_count", 0))
@@ -494,6 +545,7 @@ func _on_end_restart() -> void:
 	print("V2-3 END RESTART ok=", r.get("ok"), " reason=", r.get("reason"))
 	_ui_log("FLOW", "任务重开（core restart）")
 	_flow_hint = ""
+	_replay_record_started = false
 	_tactical.reset_view()
 	_refresh_all()
 	_sync_flow(true)
@@ -576,6 +628,7 @@ func _refresh_all() -> void:
 	_refresh_sections()
 	_refresh_actions()
 	_refresh_mission()
+	_refresh_bottom_tab()
 	queue_redraw()
 
 
@@ -698,14 +751,263 @@ func _refresh_mission() -> void:
 		_mission_buttons.append({"rect": rect, "action": "evidence", "id": String(ev.get("id", "")),
 			"enabled": String(ev.get("state", "")) == "unknown" and not _overlays.is_open()})
 		y += 20.0
+	var tut0: Dictionary = data.tutorial_state()
 	var drect := Rect2(panel.position.x + 300.0, panel.end.y - 34.0, 216.0, 24.0)
 	_mission_buttons.append({"rect": drect, "action": "decision", "id": "",
-		"enabled": not _overlays.is_open() and _phase_kind() != "" and _phase_kind() != "END"})
+		"enabled": not _overlays.is_open() and _phase_kind() != "" and _phase_kind() != "END"
+			and bool(tut0.get("complete", true)),
+		"reason": "教学门控未完成：%s" % String(tut0.get("gate_reason", ""))})
 	# 裁决是否已打开/已完成
 	if bool((_flow.get("decision", {}) as Dictionary).get("open", false)):
 		for b in _mission_buttons:
 			if String((b as Dictionary).get("action", "")) == "decision":
 				(b as Dictionary)["enabled"] = false
+
+
+func _when_tutorial(_vm: Dictionary) -> bool:
+	return true
+
+
+## 教学 section：来自 data.tutorial_state()（core vm_tutorial 或 UI 兜底），只读展示。
+func _build_tutorial_section(_vm: Dictionary) -> Dictionary:
+	var tut: Dictionary = data.tutorial_state()
+	var done := int(tut.get("done_count", 0))
+	var total := int(tut.get("total", 4))
+	var rows: Array = []
+	if bool(tut.get("complete", false)):
+		rows.append({"label": "状态 / STATUS", "value": "识别完成 / READY", "color": T.PH})
+	else:
+		rows.append({"label": "门控 / GATE", "value": "识别不足 %d/%d" % [done, total], "color": T.AMBER})
+	var steps: Array = tut.get("steps", []) if tut.get("steps", []) is Array else []
+	for raw in steps:
+		var st: Dictionary = raw
+		if st.is_empty():
+			continue
+		var ok := bool(st.get("done", false))
+		var avail := bool(st.get("available", true))
+		var stext := "完成" if ok else ("可执行" if avail else "未解锁")
+		rows.append({
+			"label": String(st.get("label", st.get("id", ""))),
+			"value": stext,
+			"color": T.PH if ok else (T.AMBER if avail else T.FAINT),
+		})
+		if not ok and not avail and String(st.get("hint", "")) != "":
+			rows.append({"label": "  · 原因", "value": String(st.get("hint", ""))})
+	var gate := String(tut.get("gate_reason", ""))
+	if gate != "":
+		rows.append({"label": "原因 / REASON", "value": gate})
+	var hint := String(tut.get("hint", tut.get("reason", "")))
+	if hint != "" and bool(tut.get("fallback", false)):
+		rows.append({"label": "数据源 / SOURCE", "value": hint})
+	return {"id": "tutorial", "title": "教学 / TUTORIAL", "count": "%d/%d" % [done, total], "rows": rows}
+
+
+func _refresh_bottom_tab() -> void:
+	if _damage_panel != null:
+		_damage_panel.visible = _bottom_tab == "damage" and not _overlays.is_open() and not _replay_open
+		if _damage_panel.visible:
+			_damage_panel.bind(data)
+
+
+# ── 回放（core vm_replay 可用时用 core 帧索引；否则 UI 本地帧兜底）─────
+
+func _record_frame() -> void:
+	if _tactical_snapshot.is_empty() or _phase_kind() != "COMMAND":
+		return
+	var frame: Dictionary = {"t": data.world_time(), "contacts": []}
+	for raw in (_tactical_snapshot.get("contacts", []) as Array):
+		var c: Dictionary = raw
+		if bool(c.get("is_own", false)):
+			continue
+		var scr: Dictionary = c.get("screen", {}) if c.get("screen", {}) is Dictionary else {}
+		if scr.is_empty():
+			continue
+		(frame["contacts"] as Array).append({
+			"track_id": String(c.get("track_id", "")),
+			"batch": String(c.get("batch", "")),
+			"name": String(c.get("name", "")),
+			"level": int(c.get("level", 0)),
+			"identity": String(c.get("identity", "unknown")),
+			"side": String(c.get("side", "unknown")),
+			"kind": String(c.get("kind", "ship")),
+			"x": float(scr.get("x", 0.0)), "y": float(scr.get("y", 0.0)),
+			"inside": bool(scr.get("inside", true)),
+		})
+	_replay_frames.append(frame)
+	if _replay_frames.size() > 240:
+		_replay_frames.pop_front()
+
+
+func _replay_total() -> int:
+	if _replay_core:
+		return int(_replay_vm.get("total", 0))
+	return _replay_frames.size()
+
+
+func _open_replay() -> void:
+	_replay_vm = data.vm_replay()
+	var core_like := bool(_replay_vm.get("available", false)) or (_replay_vm.has("recording") and _replay_vm.has("total"))
+	_replay_core = core_like and int(_replay_vm.get("total", 0)) > 1
+	if not _replay_core and _replay_frames.is_empty():
+		_ui_log("REPLAY", "回放帧为空：先在 COMMAND 阶段运行一段时间（core vm_replay 或 UI 本地帧）")
+		return
+	if _replay_core:
+		data.replay_pause()
+	_replay_open = true
+	_replay_playing = false
+	_replay_cursor = maxi(0, int(float(_replay_total() - 1) * 0.6))
+	_apply_log_tab()
+	_replay_apply()
+	_ui_log("REPLAY", "进入回放：%d 帧（%s）" % [_replay_total(),
+		"core vm_replay" if _replay_core else "UI 本地帧兜底：core 无 vm_replay()"])
+	_refresh_bottom_tab()
+	_refresh_events()
+	queue_redraw()
+
+
+func _close_replay() -> void:
+	if not _replay_open:
+		return
+	_replay_open = false
+	_replay_playing = false
+	if _tactical != null:
+		_tactical.clear_replay_frame()
+	if _replay_core:
+		data.replay_stop()
+	_apply_log_tab()
+	_refresh_bottom_tab()
+	_ui_log("REPLAY", "退出回放，恢复仿真")
+	queue_redraw()
+
+
+func _replay_apply() -> void:
+	var total := _replay_total()
+	if total <= 0:
+		return
+	_replay_cursor = clampi(_replay_cursor, 0, total - 1)
+	if _replay_core:
+		var frames_meta: Array = _replay_vm.get("frames", []) if _replay_vm.get("frames", []) is Array else []
+		if _replay_cursor >= 0 and _replay_cursor < frames_meta.size():
+			data.replay_seek(float((frames_meta[_replay_cursor] as Dictionary).get("t", 0.0)))
+		else:
+			data.replay_seek(_replay_cursor)
+		var frame: Dictionary = data.replay_frame()
+		if frame.is_empty():
+			return
+		var ghost: Dictionary = {"t": float(frame.get("t", _replay_vm.get("t", 0.0))), "contacts": []}
+		for raw in (frame.get("contacts", []) as Array):
+			if not (raw is Dictionary):
+				continue
+			var c: Dictionary = raw
+			var eid := String(c.get("entity_id", ""))
+			if eid == data.own_entity_id:
+				continue
+			var tid := String(c.get("track_id", ""))
+			var meta: Dictionary = data.contact(tid)
+			var p: Vector2 = _tactical.project_bearing_range_local(float(c.get("bearing_deg", 0.0)),
+				float(c.get("range_km", 0.0)))
+			(ghost["contacts"] as Array).append({
+				"track_id": tid, "batch": String(meta.get("batch", c.get("batch", tid))),
+				"name": String(meta.get("name", c.get("name", ""))), "level": int(c.get("level", 0)),
+				"identity": String(c.get("identity", meta.get("identity", "unknown"))),
+				"side": String(meta.get("side", "unknown")), "kind": String(meta.get("kind", "ship")),
+				"x": p.x + L.MAP.position.x, "y": p.y + L.MAP.position.y, "inside": true,
+			})
+		if _tactical != null:
+			_tactical.set_replay_frame(ghost)
+		return
+	if _replay_frames.is_empty():
+		return
+	if _tactical != null:
+		_tactical.set_replay_frame(_replay_frames[_replay_cursor])
+
+
+func _replay_step(dir: int) -> void:
+	_replay_cursor = clampi(_replay_cursor + dir, 0, maxi(0, _replay_total() - 1))
+	_replay_apply()
+	queue_redraw()
+
+
+func _replay_timeline_rect() -> Rect2:
+	return Rect2(L.LOG.position.x + 16.0, L.LOG.position.y + 84.0, L.LOG.size.x - 32.0, 10.0)
+
+
+func _draw_replay_panel() -> void:
+	var panel := L.LOG
+	T.panel(self, panel, 0.97, 0.85)
+	_replay_buttons.clear()
+	T.text(self, panel.position.x + 12.0, panel.position.y + 8.0, "回放 / REPLAY", T.F9, T.TXT)
+	var total := _replay_total()
+	var t := 0.0
+	if _replay_core:
+		t = float(_replay_vm.get("t", 0.0))
+	elif total > 0:
+		t = float((_replay_frames[_replay_cursor] as Dictionary).get("t", 0.0))
+	var src := "CORE vm_replay" if _replay_core else "UI 本地帧兜底（core 无 vm_replay）"
+	T.text_r(self, panel.end.x - 12.0, panel.position.y + 8.0,
+		"%s · 帧 %d/%d · T+%s" % [src, _replay_cursor + 1, total, T.hms(t)], T.F7,
+		T.a(T.BLUE, 0.9), false)
+	T.hline(self, panel.position.x + 10.0, panel.position.y + 26.0, panel.end.x - 10.0, T.a(T.LINE, 0.65))
+	# 控制按钮
+	var bx := panel.position.x + 12.0
+	var controls := [
+		["⏮", "prev"], ["▶ / ❚❚", "play"], ["⏭", "next"], ["退出 / EXIT", "exit"],
+	]
+	for raw in controls:
+		var rec: Array = raw
+		var w := 64.0 if String(rec[1]) != "exit" else 120.0
+		if String(rec[1]) == "play":
+			w = 90.0
+		var r := Rect2(bx, panel.position.y + 36.0, w, 22.0)
+		_replay_buttons.append({"rect": r, "action": String(rec[1])})
+		draw_rect(r, T.a(T.PANEL2, 0.8))
+		draw_rect(r, T.a(T.BLUE if String(rec[1]) != "exit" else T.AMBER, 0.6), false, 1.0)
+		var label := String(rec[0])
+		if String(rec[1]) == "play":
+			label = "暂停 / PAUSE" if _replay_playing else "播放 / PLAY"
+		T.text_c(self, r.get_center().x, r.position.y + 5.0, label, T.F8,
+			T.a(T.BLUE if String(rec[1]) != "exit" else T.AMBER, 0.95))
+		bx = r.end.x + 8.0
+	# 时间轴
+	var tr := _replay_timeline_rect()
+	draw_rect(Rect2(tr.position.x, tr.position.y - 4.0, tr.size.x, tr.size.y + 8.0), T.a(T.PANEL2, 0.8))
+	draw_rect(tr, T.a(T.LINE, 0.6))
+	if total > 1:
+		for i in range(0, total, maxi(1, total / 12)):
+			var fx := tr.position.x + tr.size.x * float(i) / float(total - 1)
+			draw_line(Vector2(fx, tr.position.y - 3.0), Vector2(fx, tr.position.y + tr.size.y + 3.0),
+				T.a(T.PH_FAINT, 0.5), 1.0)
+		var px := tr.position.x + tr.size.x * float(_replay_cursor) / float(total - 1)
+		draw_rect(Rect2(tr.position.x, tr.position.y + tr.size.y + 4.0,
+			px - tr.position.x, 2.0), T.a(T.BLUE, 0.8))
+		draw_rect(Rect2(px - 2.0, tr.position.y - 6.0, 4.0, tr.size.y + 12.0), T.BLUE)
+		var t0 := 0.0
+		var t1 := 0.0
+		if _replay_core:
+			var frames_core: Array = _replay_vm.get("frames", []) if _replay_vm.get("frames", []) is Array else []
+			if not frames_core.is_empty():
+				t0 = float((frames_core[0] as Dictionary).get("t", 0.0))
+				t1 = float((frames_core[frames_core.size() - 1] as Dictionary).get("t", 0.0))
+		else:
+			t0 = float((_replay_frames[0] as Dictionary).get("t", 0.0))
+			t1 = float((_replay_frames[total - 1] as Dictionary).get("t", 0.0))
+		T.text(self, tr.position.x, tr.position.y + tr.size.y + 22.0,
+			"T+%s" % T.hms(t0), T.F7, T.a(T.FAINT, 0.9), false)
+		T.text_r(self, tr.end.x, tr.position.y + tr.size.y + 22.0,
+			"T+%s" % T.hms(t1), T.F7, T.a(T.FAINT, 0.9), false)
+	T.text(self, panel.position.x + 12.0, panel.end.y - 44.0,
+		"回放时仿真冻结（不调用 world.advance）；拖动时间轴 / ←→ 逐帧 / SPACE 播放暂停 / ESC 退出",
+		T.F7, T.a(T.FAINT, 0.85))
+	T.text_fit(self, panel.position.x + 12.0, panel.end.y - 28.0,
+		String(_replay_vm.get("reason", "")), T.F7, T.a(T.AMBER if not _replay_core else T.PH_DIM, 0.85),
+		panel.size.x - 24.0)
+
+
+func _apply_log_tab() -> void:
+	if _events != null:
+		_events.visible = _tab == "events" and not _replay_open
+	if _orders != null:
+		_orders.visible = _tab == "orders" and not _replay_open
 
 
 func _ui_log(kind: String, text: String) -> void:
@@ -755,7 +1057,10 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, L.DESIGN), T.BG)
 	_draw_bezel()
 	_draw_top_bar()
-	_draw_mission_panel()
+	if _bottom_tab == "mission":
+		_draw_mission_panel()
+	if _replay_open:
+		_draw_replay_panel()
 	_draw_footer()
 
 
@@ -791,8 +1096,8 @@ func _draw_top_bar() -> void:
 	T.text_fit(self, 500.0, 56.0, data.title, T.F11, T.TXT, 520.0)
 	T.text(self, 500.0, 80.0, "PHASE %s · %s" % [kind, _phase_title()], T.F8, T.a(T.AMBER, 0.9))
 	var frozen: bool = bool(_flow.get("time_frozen", false))
-	T.text(self, 500.0, 96.0, "T+%s · 决策倒计时 %s · TIME ×%d%s" % [
-		T.hms(data.world_time()), _fmt_countdown(data.decision_countdown()), int(_time_scale),
+	T.text(self, 500.0, 96.0, "T+%s · 执行窗口 %s · TIME ×%d%s" % [
+		T.hms(data.world_time()), _fmt_countdown(data.exec_left()), int(_time_scale),
 		" · 时间冻结" if frozen else ""], T.F8, T.DIM, false)
 	var counts: Dictionary = _tactical_snapshot.get("counts", {}) if _tactical_snapshot.get("counts", {}) is Dictionary else {}
 	var radar: Dictionary = _tactical_snapshot.get("radar", {}) if _tactical_snapshot.get("radar", {}) is Dictionary else {}
@@ -849,12 +1154,19 @@ func _draw_mission_panel() -> void:
 			status = "%.0fs" % float(ev.get("remain_s", 0.0))
 		T.text_r(self, rect.end.x + 214.0, rect.position.y + 2.0, status, T.F7, T.a(col, 0.85))
 		y += 20.0
+	var tut: Dictionary = data.tutorial_state()
+	var tut_ready := bool(tut.get("complete", true))
 	var drect := Rect2(panel.position.x + 300.0, panel.end.y - 34.0, 216.0, 24.0)
-	var can_decide: bool = not _overlays.is_open() and _phase_kind() != "END" and _phase_kind() != ""
+	var can_decide: bool = not _overlays.is_open() and _phase_kind() != "END" and _phase_kind() != "" and tut_ready and not _replay_open
 	draw_rect(drect, T.a(T.AMBER if can_decide else T.LINE, 0.10 if can_decide else 0.03))
 	draw_rect(drect, T.a(T.AMBER if can_decide else T.LINE, 0.7 if can_decide else 0.3), false, 1.0)
 	T.text_c(self, drect.get_center().x, drect.position.y + 6.0, "打开裁决 / DECISION", T.F8,
 		T.a(T.AMBER, 0.95) if can_decide else T.a(T.FAINT, 0.8))
+	if not tut_ready:
+		T.text(self, panel.position.x + 12.0, panel.end.y - 48.0,
+			"教学未完成 %d/%d：完成交叉定位+雷达/型号识别后解锁裁决" % [
+				int(tut.get("done_count", 0)), int(tut.get("total", 4))],
+			T.F7, T.a(T.AMBER, 0.9))
 	T.text(self, panel.position.x + 12.0, panel.end.y - 28.0,
 		"证据：点任务行开始 · 时间线 T+75 自动裁决", T.F7, T.a(T.FAINT, 0.8))
 	T.text(self, panel.position.x + 12.0, panel.end.y - 14.0,
@@ -862,7 +1174,7 @@ func _draw_mission_panel() -> void:
 
 
 func _draw_footer() -> void:
-	var hint := "↑↓ 选择 · 右键目标动作 · 1/2/3 时间倍率 · L 事件/命令 · R 战术图复位 · TAB 调试推进 · Q 退出"
+	var hint := "↑↓ 选择 · 右键目标动作 · 1/2/3 时间倍率 · L 事件/命令 · D 损管 · V 回放 · R 复位 · TAB 调试推进 · Q 退出"
 	if _overlays != null and _overlays.is_open():
 		hint = "覆盖层：1–4 选择 · ENTER 确认 · R 重开 · Q 退出"
 	T.text(self, 60.0, 1002.0, hint, T.F8, T.FAINT)
@@ -882,6 +1194,18 @@ func _input(event: InputEvent) -> void:
 		if _overlays.handle_key(key.keycode):
 			accept_event()
 		return
+	if _replay_open:
+		match key.keycode:
+			KEY_ESCAPE, KEY_V, KEY_Q:
+				_close_replay()
+			KEY_SPACE:
+				_replay_playing = not _replay_playing
+			KEY_LEFT:
+				_replay_step(-1)
+			KEY_RIGHT:
+				_replay_step(1)
+		accept_event()
+		return
 	match key.keycode:
 		KEY_ESCAPE, KEY_Q:
 			if _menu.is_open():
@@ -896,9 +1220,11 @@ func _input(event: InputEvent) -> void:
 			_sync_flow(true)
 			accept_event()
 		KEY_L:
-			_tab = "orders" if _tab == "events" else "events"
-			_events.visible = _tab == "events"
-			_orders.visible = _tab == "orders"
+			if _replay_open:
+				_close_replay()
+			else:
+				_tab = "orders" if _tab == "events" else "events"
+				_apply_log_tab()
 			accept_event()
 		KEY_1:
 			_time_scale = 1.0
@@ -912,6 +1238,17 @@ func _input(event: InputEvent) -> void:
 		KEY_R:
 			_tactical.reset_view()
 			accept_event()
+		KEY_D:
+			_bottom_tab = "damage" if _bottom_tab == "mission" else "mission"
+			_refresh_bottom_tab()
+			queue_redraw()
+			accept_event()
+		KEY_V:
+			if _replay_open:
+				_close_replay()
+			else:
+				_open_replay()
+			accept_event()
 		KEY_UP, KEY_DOWN:
 			if not _menu.is_open():
 				_step_selection(-1 if key.keycode == KEY_UP else 1)
@@ -923,6 +1260,9 @@ func _input(event: InputEvent) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
+	if _replay_open:
+		_handle_replay_input(event)
+		return
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed and not _menu.is_open() and not _overlays.is_open():
@@ -941,6 +1281,47 @@ func _gui_input(event: InputEvent) -> void:
 			queue_redraw()
 
 
+func _handle_replay_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index != MOUSE_BUTTON_LEFT:
+			return
+		if not mb.pressed:
+			_replay_dragging = false
+			return
+		for i in range(_replay_buttons.size()):
+			var b: Dictionary = _replay_buttons[i]
+			if not (b["rect"] as Rect2).has_point(mb.position):
+				continue
+			match String(b.get("action", "")):
+				"prev":
+					_replay_step(-1)
+				"play":
+					_replay_playing = not _replay_playing
+				"next":
+					_replay_step(1)
+				"exit":
+					_close_replay()
+			accept_event()
+			return
+		var tr := _replay_timeline_rect()
+		if Rect2(tr.position - Vector2(0.0, 8.0), Vector2(tr.size.x, tr.size.y + 16.0)).has_point(mb.position):
+			_replay_dragging = true
+			_seek_replay_x(mb.position.x)
+			accept_event()
+	elif event is InputEventMouseMotion and _replay_dragging:
+		_seek_replay_x((event as InputEventMouseMotion).position.x)
+		accept_event()
+
+
+func _seek_replay_x(x: float) -> void:
+	var tr := _replay_timeline_rect()
+	var frac := clampf((x - tr.position.x) / maxf(1.0, tr.size.x), 0.0, 1.0)
+	_replay_cursor = int(round(frac * float(maxi(0, _replay_total() - 1))))
+	_replay_apply()
+	queue_redraw()
+
+
 func _mission_button_at(pos: Vector2) -> int:
 	for i in range(_mission_buttons.size()):
 		if (_mission_buttons[i]["rect"] as Rect2).has_point(pos):
@@ -954,6 +1335,9 @@ func _handle_mission_click(pos: Vector2) -> bool:
 		return false
 	var b: Dictionary = _mission_buttons[idx]
 	if not bool(b.get("enabled", true)):
+		var why := String(b.get("reason", "不可用"))
+		if why != "":
+			_ui_log("MISSION", why)
 		return true
 	match String(b.get("action", "")):
 		"evidence":
@@ -962,7 +1346,11 @@ func _handle_mission_click(pos: Vector2) -> bool:
 			_refresh_all()
 		"decision":
 			var r2: Dictionary = data.open_decision()
-			_ui_log("DECISION", "打开裁决：%s" % (String(r2.get("reason", "")) if not bool(r2.get("ok", false)) else "ok"))
+			if not bool(r2.get("ok", false)):
+				_flow_hint = String(r2.get("reason", "裁决被门控"))
+				_ui_log("DECISION", "裁决未打开：%s" % _flow_hint)
+			else:
+				_ui_log("DECISION", "打开裁决 ok")
 			_refresh_all()
 			_sync_flow(true)
 	return true
@@ -1010,6 +1398,30 @@ func _apply_shot_view() -> void:
 			data.open_decision()
 			data.choose_ending("HOLD")
 			data.submit_report(true)
+		"tutorial":
+			_debug_to_command()
+			data.select("2001")
+			_refresh_all()
+			_warm(maxf(6.0, _warm_s))
+			_sections.scroll_to_section("tutorial")
+		"damage":
+			_debug_to_command()
+			_bottom_tab = "damage"
+			_refresh_bottom_tab()
+			if _damage_panel != null:
+				_damage_panel.bind(data)
+				_damage_panel.repair("sensor_align")
+				_damage_panel.tick(7.0)
+		"replay":
+			_debug_to_command()
+			data.replay_start()
+			_replay_record_started = true
+			_warm(maxf(26.0, _warm_s))
+			_open_replay()
+			if _replay_frames.size() > 2:
+				_replay_cursor = int(float(_replay_frames.size()) * 0.6)
+				_replay_apply()
+			_replay_playing = false
 		_:
 			_debug_to_command()
 	_refresh_all()
@@ -1080,6 +1492,64 @@ func _run_self_check() -> void:
 		var ar: Dictionary = data.perform_action(String(pick.get("id", "")), target)
 		_check(bool(ar.get("ok", false)), "core perform_action ok")
 		_check(int(ar.get("level", -1)) >= 1, "perform_action returns evidence level")
+	# 4a) 完成教学门控（core 记录 action；UI 不直接改航迹等级/身份）
+	for aid_t in ["crossfix", "radar_illum"]:
+		var rt: Dictionary = data.perform_action(String(aid_t), "2001")
+		print("V2-4 TUTORIAL ACTION ", aid_t, " ok=", rt.get("ok"), " reason=", rt.get("reason"))
+	_refresh_all()
+	var tut_done: Dictionary = data.tutorial_state()
+	_check(int(tut_done.get("done_count", 0)) >= int(tut_done.get("total", 2)), "tutorial gate completed via actions")
+	_check(bool(tut_done.get("complete", false)), "tutorial ready after required actions")
+	_check(bool((data.vm_flow().get("tutorial_ready", false))), "core flow tutorial_ready true")
+	# 4b) 教学步骤/门控（core vm_tutorial 或 UI 派生；只读，不自动完成识别）
+	var tut: Dictionary = data.tutorial_state()
+	_check((tut.get("steps", []) as Array).size() >= 3, "tutorial steps present")
+	_check(int(tut.get("total", 0)) > 0, "tutorial total > 0")
+	var tut_steps: Array = tut.get("steps", []) if tut.get("steps", []) is Array else []
+	var tut_first: Dictionary = tut_steps[0] if not tut_steps.is_empty() else {}
+	_check(not bool(tut_first.get("done", true)) or data.action_log().size() > 0, "tutorial not auto-completed without evidence/action")
+	_refresh_mission()
+	var decision_gate_ok := true
+	for raw_b in _mission_buttons:
+		var btn: Dictionary = raw_b
+		if String(btn.get("action", "")) == "decision":
+			var should_enable := bool(tut.get("complete", true)) and _phase_kind() == "COMMAND"
+			decision_gate_ok = bool(btn.get("enabled", false)) == should_enable
+	_check(decision_gate_ok, "decision entry gated by tutorial")
+	# 4c) 损管面板（core vm_damage 或 UI 本地兜底）
+	_damage_panel.bind(data)
+	var dmg: Dictionary = data.vm_damage()
+	_check(dmg.has("reason") or dmg.has("sections"), "damage vm returns reason/sections")
+	var dmg_sections: Array = dmg.get("sections", []) if dmg.get("sections", []) is Array else []
+	var dmg_pick := ""
+	for raw_ds in dmg_sections:
+		var dsx: Dictionary = raw_ds
+		if String(dsx.get("state", "nominal")) != "nominal" and String(dsx.get("state", "")) != "repaired":
+			dmg_pick = String(dsx.get("id", ""))
+			break
+	if dmg_pick == "" and not dmg_sections.is_empty():
+		dmg_pick = String((dmg_sections[0] as Dictionary).get("id", ""))
+	var rep: Dictionary = _damage_panel.repair(dmg_pick)
+	_check(dmg_pick != "" and (bool(rep.get("ok", false)) or String(rep.get("reason", "")) != ""),
+		"damage repair callable (%s)" % dmg_pick)
+	var dmg_after: Dictionary = data.vm_damage()
+	var q_after: int = (dmg_after.get("queue", []) as Array).size() if dmg_after.get("queue", []) is Array else 0
+	_check(q_after >= 0, "damage queue/summary readable")
+	_damage_panel.tick(28.0)
+	_check(not bool(_damage_panel.fallback) or _damage_panel.summary.get("queue", 0) >= 0, "damage panel summary")
+	# 4d) 回放（core vm_replay 或 UI 本地帧兜底）
+	_record_frame()
+	_record_frame()
+	_check(_replay_frames.size() >= 2, "replay frames recorded")
+	_open_replay()
+	_check(_replay_open and _tactical.is_replaying(), "replay opens and freezes sim")
+	_replay_step(-1)
+	_close_replay()
+	_check(not _replay_open and not _tactical.is_replaying(), "replay closes and resumes sim")
+	# 4e) 站体/储罐图标
+	_check(_tactical.kind_marker_shape("station") == "station_marker", "station marker shape")
+	_check(_tactical.kind_marker_shape("tank") == "tank_marker", "tank marker shape")
+	_check(_tactical.kind_marker_shape("wreck") == "wreck_marker", "wreck marker shape")
 	# 5) 传感器 step → 观测注入 core；TWS/光学通道
 	_warm(26.0)
 	var snap2: Dictionary = data.tactical_build(_tactical.camera_cfg())
@@ -1101,6 +1571,14 @@ func _run_self_check() -> void:
 		if String((raw_e as Dictionary).get("state", "")) == "done":
 			done += 1
 	_check(done >= 1, "evidence auto-completed by world.advance")
+	# 6b) 教学完成后决策入口不再置灰
+	_refresh_mission()
+	var gate_enabled := false
+	for raw_gb in _mission_buttons:
+		var gb: Dictionary = raw_gb
+		if String(gb.get("action", "")) == "decision":
+			gate_enabled = bool(gb.get("enabled", false))
+	_check(gate_enabled, "decision entry enabled after tutorial ready")
 	# 7) DECISION：EXPOSE 门槛来自 core vm_decision
 	var od: Dictionary = data.open_decision()
 	_check(bool(od.get("ok", false)), "open_decision")

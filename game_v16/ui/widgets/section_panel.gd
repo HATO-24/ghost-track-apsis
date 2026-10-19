@@ -56,9 +56,13 @@ func _build_registry() -> void:
 	]
 
 
-## V2-3 业务屏扩展：追加一个 section builder。
-func register_section(entry: Dictionary) -> void:
-	if entry.has("id") and entry.has("when") and entry.has("build"):
+## 业务屏扩展：追加一个 section builder；front=true 插到最前（教学/损管等优先显示）。
+func register_section(entry: Dictionary, front := false) -> void:
+	if not (entry.has("id") and entry.has("when") and entry.has("build")):
+		return
+	if front:
+		_registry.push_front(entry)
+	else:
 		_registry.append(entry)
 
 

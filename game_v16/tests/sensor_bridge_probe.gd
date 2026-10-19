@@ -72,8 +72,12 @@ func _run() -> void:
 	check(not bool(w.vm_state().get("time_frozen", true)),
 		"prelude_skip：世界时间可推进（V2-CORE-2 行为）",
 		"prelude_open=%s" % str(w.vm_state().get("prelude_open", false)))
-	check(String(w.own_id) == "harmattan" and w.entities.size() == 7,
-		"world：7 实体 / own=harmattan", "entities=%d own=%s" % [w.entities.size(), str(w.own_id)])
+	var expected_entities: int = w.entities.size()
+	var expected_targets: int = expected_entities - 1
+	var expected_tws: int = mini(6, expected_targets)
+	check(String(w.own_id) == "harmattan" and expected_entities == 9,
+		"world：9 实体 / own=harmattan（含 fixed 站体/储罐）",
+		"entities=%d own=%s" % [expected_entities, str(w.own_id)])
 
 	var observer = w.by_id.get("harmattan")
 	check(observer != null, "观察平台实体存在")
@@ -95,8 +99,9 @@ func _run() -> void:
 		if row.has("r") or row.has("orbit"):
 			(snapshot["targets"] as Array).append(row)
 		entity_ids.append(String(e.id))
-	check((snapshot["targets"] as Array).size() == 6,
-		"world→snapshot：6 个目标行", "ids=%s" % str(entity_ids))
+	check((snapshot["targets"] as Array).size() == expected_targets,
+		"world→snapshot：目标行 = 实体数 - 本舰（%d）" % expected_targets,
+		"ids=%s" % str(entity_ids))
 	var sample_row: Dictionary = (snapshot["targets"] as Array)[0]
 	check(sample_row.has("r") and sample_row.has("batch"),
 		"target_row 带轨道航迹要素（r/batch）", JSON.stringify({"r": sample_row.get("r", []), "batch": sample_row.get("batch", "")}))
@@ -115,16 +120,20 @@ func _run() -> void:
 	var radar = RadarModel.new(radar_rec, {"id": "harmattan"})
 	var scan: Dictionary = radar.scan_now(snapshot)
 	var observations: Array = scan.get("observations", [])
-	check(observations.size() == 6, "雷达扫描 6 个目标", "obs=%d" % observations.size())
+	check(observations.size() == expected_targets,
+		"雷达扫描 %d 个目标（含站体/储罐）" % expected_targets,
+		"obs=%d" % observations.size())
 	var detected_count := 0
 	for raw in observations:
 		if raw is Dictionary and bool((raw as Dictionary).get("detected", false)):
 			detected_count += 1
-	check(detected_count == 6, "6 个目标全部落在球形范围（L1 局部几何）",
+	check(detected_count == expected_targets,
+		"%d 个目标全部落在球形范围（L1 局部几何）" % expected_targets,
 		"detected=%d" % detected_count)
 	var ingested: Array = Bridge.ingest_scan(w, scan,
 		{"source": "harmattan", "entity_ids": entity_ids})
-	check(ingested.size() == 6, "bridge.ingest_scan 向 world 注入 6 条观测",
+	check(ingested.size() == expected_targets,
+		"bridge.ingest_scan 向 world 注入 %d 条观测" % expected_targets,
 		"tracks=%d" % ingested.size())
 	var tr_2001 = w.track_for("summons_4471")
 	check(tr_2001 != null, "core 找到 2001 航迹（entity_id 映射）")
@@ -195,10 +204,12 @@ func _run() -> void:
 		"level=%d q=%.2f" % [int(tr_after_tws.level) if tr_after_tws != null else -1,
 			float(tr_after_tws.quality) if tr_after_tws != null else 0.0])
 	var multi_obs: Array = Bridge.tws_channels_to_observations(tws.channels_export(), tws_opts)
-	check(multi_obs.size() == 6, "bridge.tws_channels_to_observations：6 个可跟踪通道全部可注入",
+	check(multi_obs.size() == expected_tws,
+		"bridge.tws_channels_to_observations：%d 个可跟踪通道全部可注入" % expected_tws,
 		"n=%d" % multi_obs.size())
 	var multi_ingested: Array = Bridge.ingest_tws_channels(w, tws.channels_export(), tws_opts)
-	check(multi_ingested.size() == 6, "bridge.ingest_tws_channels → world 注入 6 条观测",
+	check(multi_ingested.size() == expected_tws,
+		"bridge.ingest_tws_channels → world 注入 %d 条观测" % expected_tws,
 		"tracks=%d" % multi_ingested.size())
 	print("[REPORT] TWS 火控解算字段: ", JSON.stringify(tws_ch.get("fire_control", {})))
 

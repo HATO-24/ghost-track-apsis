@@ -32,6 +32,10 @@ var track_level := 0
 var identity := "unknown"
 var threat := ""
 
+# —— V2-CORE-3 损管（本舰/受损实体；world 提供 API 操作）——
+var damage_sections: Array = []   # [{id,label,state,severity,repair_eta_s,repair_progress_s,started_t}]
+var damage_queue: Array = []      # 维修队列（section id 顺序）
+
 static func from_dict(d: Dictionary) -> V2Entity:
 	var e := V2Entity.new()
 	e.id = String(d.get("id", ""))
@@ -84,6 +88,35 @@ func is_friend() -> bool:
 func is_hostile() -> bool:
 	return side == "hostile"
 
+## 固定设施（站体/储罐）：tags 含 fixed，或轨道速度≈0。UI/sim 据此不画推进/预测。
+func is_fixed() -> bool:
+	if "fixed" in tags:
+		return true
+	var v = orbit.get("v", null)
+	if v is Array and (v as Array).size() >= 3:
+		return absf(float((v as Array)[0])) < 1.0e-9 and absf(float((v as Array)[1])) < 1.0e-9 \
+			and absf(float((v as Array)[2])) < 1.0e-9
+	return false
+
+func display_kind() -> String:
+	match kind:
+		"station":
+			return "站体"
+		"tank":
+			return "储罐"
+		"wreck":
+			return "残骸"
+		"ship":
+			return "舰船"
+		_:
+			return kind
+
+func icon() -> String:
+	return String(meta.get("icon", kind))
+
+func size_km() -> float:
+	return float(meta.get("size_km", 0.0))
+
 func display_name() -> String:
 	return name if name != "" else ("[%s]" % (batch if batch != "" else id))
 
@@ -99,4 +132,7 @@ func to_dict() -> Dictionary:
 		"orbit": orbit.duplicate(true), "tags": tags.duplicate(),
 		"meta": meta.duplicate(true), "ui": ui.duplicate(true),
 		"track_level": track_level, "identity": identity, "threat": threat,
+		"fixed": is_fixed(), "icon": icon(), "size_km": size_km(),
+		"damage_sections": damage_sections.duplicate(true),
+		"damage_queue": damage_queue.duplicate(),
 	}

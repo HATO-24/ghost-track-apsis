@@ -74,6 +74,7 @@ var _core_events: Array = []
 var _scenario_entities: Dictionary = {}
 var _story: Dictionary = {}
 var _bridge_script: Variant = null
+var _action_log: Array = []
 
 
 # ══ 启动 ═════════════════════════════════════════════════════════════════
@@ -1192,6 +1193,10 @@ func perform_action(action_id: String, target_id: String) -> Dictionary:
 	elif _core_world.has_method("issue_order"):
 		raw = _core_world.call("issue_order", action_id, target_id, {})
 	var out: Dictionary = (raw as Dictionary).duplicate(true) if raw is Dictionary else {"ok": false, "reason": "动作调用返回异常"}
+	if bool(out.get("ok", false)):
+		_action_log.append({"id": action_id, "target_id": target_id, "t": world_time()})
+		while _action_log.size() > 200:
+			_action_log.pop_front()
 	refresh()
 	return out
 
@@ -1406,6 +1411,301 @@ func geometry_of(id: String) -> Dictionary:
 
 func own_geometry() -> Dictionary:
 	return geometry_of(own_id)
+
+
+# ══ V2-4 UI API：教学 / 损管 / 回放 的只读兜底 ═══════════════════════════
+#    core V2-CORE-3 若提供 vm_tutorial/vm_damage/vm_replay/start_repair，则直接转发；
+#    未提供时 UI 用可观测证据 + 本地状态兜底，并在返回值里标注 fallback/reason（不硬改 core）。
+
+func action_log() -> Array:
+	return _action_log.duplicate(true)
+
+
+func action_done(action_id: String, target_id := "") -> bool:
+	for raw in _action_log:
+		var r: Dictionary = raw
+		if String(r.get("id", "")) != action_id:
+			continue
+		if target_id == "" or String(r.get("target_id", "")) == target_id:
+			return true
+	return false
+
+
+## 航迹证据只读快照（用于教学步骤派生；core 无 vm_tutorial 时的兜底）。
+func track_evidence(id: String) -> Dictionary:
+	var c := contact(id)
+	if c.is_empty():
+		return {}
+	var out: Dictionary = {
+		"target_id": String(c.get("id", "")),
+		"batch": String(c.get("batch", "")),
+		"name": String(c.get("name", "")),
+		"level": int(c.get("level", 0)),
+		"identity": String(c.get("identity", "unknown")),
+		"sources": (c.get("sources", []) as Array).duplicate(),
+		"classification": {},
+		"iff_status": "",
+		"has_entity": bool(c.get("has_entity", false)),
+	}
+	if _core_world != null and _core_world.has_method("track_for"):
+		var tr: Variant = _core_world.call("track_for", String(c.get("track_id", c.get("id", ""))))
+		if tr != null:
+			out["level"] = int(_field(tr, "level", out["level"]))
+			out["identity"] = String(_field(tr, "identity_kind", out["identity"]))
+			out["sources"] = _strings(_field(tr, "sources", out["sources"]))
+			var cls: Variant = _field(tr, "classification", {})
+			out["classification"] = (cls as Dictionary).duplicate(true) if cls is Dictionary else {}
+			out["iff_status"] = String(_field(tr, "iff_status", ""))
+	return out
+
+
+## 教学步骤（4 步：交叉定位 → 雷达照射 → 型号识别 → IFF/光学）。
+## 有 core vm_tutorial() 时转发；否则按「UI 动作日志 + core 航迹证据」派生（只读，不自动完成识别）。
+func tutorial_state() -> Dictionary:
+	if _core_world != null and _core_world.has_method("vm_tutorial"):
+		var raw: Variant = _core_world.call("vm_tutorial")
+		if raw is Dictionary and not (raw as Dictionary).is_empty():
+			return _normalize_core_tutorial(raw)
+
+	# 目标：当前选中（非己方）→ 否则第一个有实体的非己方接触
+	var target_id := ""
+	if selected_id != "" and not bool(contact(selected_id).get("is_own", false)):
+		target_id = selected_id
+	if target_id == "":
+		for raw2 in all_contacts():
+			var c: Dictionary = raw2
+			if bool(c.get("is_own", false)) or not bool(c.get("has_entity", true)):
+				continue
+			target_id = String(c.get("id", ""))
+			break
+	var ev: Dictionary = track_evidence(target_id) if target_id != "" else {}
+	var level := int(ev.get("level", 0))
+	var identity := String(ev.get("identity", "unknown"))
+	var sources: Array = ev.get("sources", []) if ev.get("sources", []) is Array else []
+	var cls: Dictionary = ev.get("classification", {}) if ev.get("classification", {}) is Dictionary else {}
+	var radar_source := false
+	for src in sources:
+		var s2 := String(src)
+		if s2.contains("R") and (s2.begins_with("YW") or s2.begins_with("KD") or s2.contains("R9") or s2.contains("R6")):
+			radar_source = true
+	var steps: Array = [
+		{
+			"id": "crossfix", "label": "交叉定位 / CROSSFIX",
+			"hint": "用两路方位线交叉出位置（L1 → L2）",
+			"done": action_done("crossfix", target_id) or (level >= 2 and not radar_source),
+			"via": "动作日志/航迹等级",
+		},
+		{
+			"id": "radar_illum", "label": "雷达照射识别 / RADAR ILLUM",
+			"hint": "主动雷达照射拿距离+方位（L2；开机即暴露）",
+			"done": action_done("radar_illum", target_id) or action_done("radar_track", target_id) or radar_source,
+			"via": "动作日志/来源型号",
+		},
+		{
+			"id": "model_ident", "label": "型号识别 / MODEL IDENT",
+			"hint": "光学凝视 + 数据库比对（L2 → L3 分类）",
+			"done": action_done("model_ident", target_id) or level >= 3,
+			"via": "动作日志/航迹等级",
+		},
+		{
+			"id": "iff_optical", "label": "IFF / 光学通道 / IFF OR OPTICAL",
+			"hint": "IFF 问答或光学/红外通道确认身份（IFF 无应答 ≠ 敌意）",
+			"done": action_done("iff_query", target_id) or action_done("optical_channel", target_id)
+				or action_done("ir_channel", target_id) or level >= 4
+				or (identity != "unknown" and identity != "pending"),
+			"via": "动作日志/身份",
+		},
+	]
+	var done_count := 0
+	var missing: Array = []
+	for raw3 in steps:
+		var st: Dictionary = raw3
+		if bool(st.get("done", false)):
+			done_count += 1
+		else:
+			missing.append(String(st.get("label", "")))
+	var gate_reason := ""
+	if done_count < steps.size():
+		gate_reason = "教学步骤未完成 %d/%d：%s" % [done_count, steps.size(), ", ".join(PackedStringArray(missing))]
+	return {
+		"fallback": true,
+		"reason": "core 无 vm_tutorial()：按 UI 动作日志 + core 航迹证据派生（只读，不自动完成识别）",
+		"target_id": target_id,
+		"target_name": String(ev.get("name", target_id)),
+		"steps": steps,
+		"done_count": done_count,
+		"total": steps.size(),
+		"complete": done_count >= steps.size(),
+		"gate_reason": gate_reason,
+	}
+
+
+func _action_label(action_id: String) -> String:
+	match action_id:
+		"crossfix":
+			return "交叉定位 / CROSSFIX"
+		"radar_illum", "radar_track":
+			return "雷达照射识别 / RADAR ILLUM"
+		"model_ident":
+			return "型号识别 / MODEL IDENT"
+		"iff_query":
+			return "IFF 问答 / IFF QUERY"
+		"optical_channel":
+			return "光学通道 / OPTICAL CHANNEL"
+		"ir_channel":
+			return "红外通道 / IR CHANNEL"
+		_:
+			return action_id
+
+
+## core V2-CORE-3 vm_tutorial() shape → UI 统一 shape（steps/done_count/gate_reason）。
+func _normalize_core_tutorial(raw: Dictionary) -> Dictionary:
+	var prog: Dictionary = raw.get("progress", {}) if raw.get("progress", {}) is Dictionary else {}
+	var done_count := int(prog.get("done", 0))
+	var need := int(prog.get("need", maxi(1, (raw.get("required_actions", []) as Array).size() if raw.get("required_actions", []) is Array else 1)))
+	var ready := bool(raw.get("ready", done_count >= need))
+	var steps: Array = []
+	var actions: Array = raw.get("actions", []) if raw.get("actions", []) is Array else []
+	for raw_a in actions:
+		if not (raw_a is Dictionary):
+			continue
+		var a: Dictionary = raw_a
+		steps.append({
+			"id": String(a.get("id", "")),
+			"label": String(a.get("label", a.get("id", ""))),
+			"hint": String(a.get("reason", "")),
+			"done": bool(a.get("done", false)),
+			"available": bool(a.get("available", true)),
+			"via": "core vm_tutorial",
+		})
+	var missing: Array = raw.get("missing", []) if raw.get("missing", []) is Array else []
+	var missing_labels: Array = []
+	for m in missing:
+		if m is Dictionary:
+			missing_labels.append(String((m as Dictionary).get("label", m.get("id", ""))))
+		else:
+			missing_labels.append(String(m))
+	var hint := String(raw.get("hint", ""))
+	hint = hint.replace("{need}", str(need)).replace("{done}", str(done_count))
+	var reason := ""
+	if not ready:
+		reason = hint if hint != "" else "教学门控：识别不足（%d/%d）" % [done_count, need]
+		if not missing_labels.is_empty():
+			reason += " · 缺 " + ", ".join(PackedStringArray(missing_labels))
+	else:
+		reason = String(raw.get("done_text", "识别链完成，决策权限已解锁。"))
+	return {
+		"fallback": false,
+		"reason": hint,
+		"title": String(raw.get("title", "教学门控 / TUTORIAL")),
+		"target_id": "", "target_name": "",
+		"steps": steps, "done_count": done_count, "total": need,
+		"complete": ready, "ready": ready,
+		"gate_reason": "" if ready else reason,
+		"done_text": String(raw.get("done_text", "")),
+		"decision_pending": bool(raw.get("decision_pending", false)),
+	}
+
+
+## 执行窗口剩余秒：core V2-CORE-3 有 exec_left()/vm_flow().exec_left 时优先，否则用 content.decision_t 兜底。
+func exec_left() -> float:
+	if _core_world != null and _core_world.has_method("exec_left"):
+		var v: Variant = _core_world.call("exec_left")
+		if v is float or v is int:
+			return maxf(0.0, float(v))
+	var flow: Dictionary = vm_flow()
+	if flow.get("exec_left", null) is float or flow.get("exec_left", null) is int:
+		return maxf(0.0, float(flow.get("exec_left")))
+	return maxf(0.0, float(story_get("decision_t", 300.0)) - world_time())
+
+
+func exec_pct() -> float:
+	var flow: Dictionary = vm_flow()
+	if flow.get("exec_pct", null) is float or flow.get("exec_pct", null) is int:
+		return clampf(float(flow.get("exec_pct")), 0.0, 1.0)
+	var total := maxf(1.0, float(flow.get("exec_window_s", story_get("decision_t", 300.0))))
+	return clampf(exec_left() / total, 0.0, 1.0)
+
+
+# ── 回放控制（core V2-CORE-3 可用时转发；否则 UI 本地帧兜底）──────────
+
+func replay_start() -> Dictionary:
+	return _flow_call("replay_start", [])
+
+
+func replay_pause() -> Dictionary:
+	return _flow_call("replay_pause", [])
+
+
+func replay_seek(t_or_index: Variant) -> Dictionary:
+	return _flow_call("replay_seek", [t_or_index])
+
+
+func replay_seek_index(index: int) -> Dictionary:
+	if _core_world == null:
+		return {"ok": false, "reason": "core 未就绪"}
+	if _core_world.has_method("seek_index"):
+		return _flow_call("seek_index", [index])
+	if _core_world.has_method("replay_seek_index"):
+		return _flow_call("replay_seek_index", [index])
+	return _flow_call("replay_seek", [index])
+
+
+func replay_clear() -> Dictionary:
+	return _flow_call("replay_clear", [])
+
+
+func replay_stop() -> Dictionary:
+	return _flow_call("replay_stop", [])
+
+
+func replay_frame() -> Dictionary:
+	if _core_world == null:
+		return {}
+	for method in ["replay_frame", "frame"]:
+		if _core_world.has_method(method):
+			var raw: Variant = _core_world.call(method)
+			if raw is Dictionary:
+				return (raw as Dictionary).duplicate(true)
+	return {}
+
+
+## 损管 view-model：core 有 vm_damage() 时转发；否则返回未就绪（UI 本地损管兜底）。
+func vm_damage() -> Dictionary:
+	if _core_world != null and _core_world.has_method("vm_damage"):
+		var raw: Variant = _core_world.call("vm_damage")
+		if raw is Dictionary:
+			var out: Dictionary = (raw as Dictionary).duplicate(true)
+			out["fallback"] = false
+			return out
+	return {
+		"available": false, "fallback": true,
+		"reason": "core 无 vm_damage()/start_repair() API；本面板为 UI 本地损管兜底（契约见 docs/09 §32）",
+		"sections": [], "queue": [],
+	}
+
+
+func start_repair(section_id: String) -> Dictionary:
+	if _core_world != null and _core_world.has_method("start_repair"):
+		var raw: Variant = _core_world.call("start_repair", section_id)
+		return (raw as Dictionary).duplicate(true) if raw is Dictionary else {"ok": bool(raw)}
+	return {"ok": false, "fallback": true, "reason": "core 无 start_repair()；由 UI 本地损管兜底"}
+
+
+## 回放帧：core 有 vm_replay() 时转发；否则返回未就绪（UI 本地帧记录兜底）。
+func vm_replay() -> Dictionary:
+	if _core_world != null and _core_world.has_method("vm_replay"):
+		var raw: Variant = _core_world.call("vm_replay")
+		if raw is Dictionary:
+			var out: Dictionary = (raw as Dictionary).duplicate(true)
+			out["fallback"] = false
+			out["available"] = true
+			return out
+	return {
+		"available": false, "fallback": true,
+		"reason": "core 无 vm_replay() API；回放使用 UI 本地帧记录（契约见 docs/09 §32）",
+		"frames": [],
+	}
 
 
 # ══ 截图/压测用 synthetic 实体 ═══════════════════════════════════════════

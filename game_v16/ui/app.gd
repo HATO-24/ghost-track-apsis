@@ -11,6 +11,7 @@ extends Control
 const L := preload("res://ui/layout.gd")
 const GameScreen := preload("res://ui/game_screen.gd")
 const FrameworkDemo := preload("res://ui/framework_demo.gd")
+const IntroScreen := preload("res://ui/intro.gd")
 
 const LEGACY_VIEWS := [
 	"framework", "target", "menu", "scroll", "layout", "empty", "fallback", "local",
@@ -20,7 +21,10 @@ const LEGACY_VIEWS := [
 func _ready() -> void:
 	var view := OS.get_environment("DSH_V2_VIEW")
 	var screen: Control
-	if view in LEGACY_VIEWS:
+	if view == "intro" or view == "menu":
+		screen = IntroScreen.new()
+		print("V2 ROUTER → intro (DSH_V2_VIEW=%s)" % view)
+	elif view in LEGACY_VIEWS:
 		screen = FrameworkDemo.new()
 		print("V2 ROUTER → framework_demo (DSH_V2_VIEW=%s)" % view)
 	else:

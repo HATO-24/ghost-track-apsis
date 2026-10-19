@@ -59,6 +59,16 @@ var story_radio_data: Array = []    # 时间线通信（story.radio_lines）
 var _fired_events: Dictionary = {}
 var _fired_radio: Dictionary = {}
 
+# —— V2-CORE-3 系统 ——
+var tutorial: Dictionary = {}        # 教学门控（story.tutorial）
+var exec_window_s := 360.0           # 执行窗口（秒）
+var exec_frozen_left := -1.0         # 决策后冻结的剩余时间
+var reputation: Dictionary = {}      # 运行时声望（story.reputation 基线 + 结局差量）
+var damage: Array = []               # 引用 own.damage_sections（本舰损管项）
+var damage_repair_rate_s := 120.0
+var replay: Dictionary = {}          # 回放入口（只读帧，不推进世界）
+var _last_replay_t := -1.0
+
 # ── 场景装载 ─────────────────────────────────────────────────────
 
 func load_scenario(s: V2Scenario) -> bool:
@@ -189,6 +199,66 @@ func _init_flow(s: V2Scenario) -> void:
 	}
 	if mission != null:
 		phase_context = String(mission.kind)
+	_init_systems(s)
+
+## V2-CORE-3：教学门控 / 损坏 / 执行窗口 / 声望 / 回放（全部来自场景与 story 数据）。
+func _init_systems(s: V2Scenario) -> void:
+	# 教学门控
+	tutorial = {"enabled": false, "title": "", "hint": "", "required_actions": [],
+		"min_required": 0, "labels": {}, "done_text": "", "completed": {}}
+	var tut = s.story.get("tutorial", null)
+	if tut is Dictionary and bool((tut as Dictionary).get("enabled", false)):
+		var td: Dictionary = tut
+		tutorial["enabled"] = true
+		tutorial["title"] = String(td.get("title", "教学 / TUTORIAL"))
+		tutorial["hint"] = String(td.get("hint", ""))
+		tutorial["required_actions"] = (td.get("required_actions", []) as Array).duplicate()
+		tutorial["min_required"] = int(td.get("min_required", 0))
+		tutorial["labels"] = (td.get("step_labels", {}) as Dictionary).duplicate(true)
+		tutorial["done_text"] = String(td.get("done_text", ""))
+	if OS.get_environment("DSH_SKIP_TUTORIAL") == "1":
+		tutorial["enabled"] = false
+	# 执行窗口
+	exec_window_s = float(s.exec_window_config.get("duration_s", 360.0))
+	if exec_window_s <= 0.0:
+		exec_window_s = 360.0
+	exec_frozen_left = -1.0
+	# 声望基线（五方）
+	reputation = s.reputation_base()
+	for k in ["ocu", "meridian", "ueg_doves", "outer", "reclaimers"]:
+		if not reputation.has(k):
+			reputation[k] = 0
+	flow["reputation"] = reputation.duplicate(true)
+	flow["reputation_settled"] = false
+	flow["decision_pending"] = false
+	# 损管：初始化本舰 damage_sections / damage_queue（数据来自 content damage.initial）
+	damage = []
+	var own_e := own()
+	if own_e != null:
+		own_e.damage_sections.clear()
+		own_e.damage_queue.clear()
+		damage = own_e.damage_sections
+	damage_repair_rate_s = float(s.damage_config.get("repair_rate_s", 120.0))
+	for raw in (s.damage_config.get("initial", []) as Array):
+		if not (raw is Dictionary):
+			continue
+		var d: Dictionary = (raw as Dictionary).duplicate(true)
+		var sev := clampf(float(d.get("severity", 0.0)), 0.0, 1.0)
+		var state := String(d.get("state", "degraded"))
+		if not (state in ["ok", "degraded", "damaged", "repairing", "repaired"]):
+			state = "degraded"
+		damage.append({
+			"id": String(d.get("id", "")),
+			"label": String(d.get("label", d.get("id", ""))),
+			"state": state, "severity": sev,
+			"repair_eta_s": float(d.get("repair_eta_s", maxf(15.0, sev * damage_repair_rate_s))),
+			"repair_progress_s": 0.0, "started_t": -1.0, "entity_id": own_id,
+		})
+	# 回放
+	replay = {"recording": true, "playing": false, "paused": false, "index": 0,
+		"interval_s": 1.0, "buffer": []}
+	_last_replay_t = -1.0
+	_replay_capture(true)
 
 func _on_order_changed(order_data: Dictionary) -> void:
 	order_changed.emit(order_data)
@@ -265,10 +335,11 @@ func track_for(id: String) -> V2Track:
 
 # ── 时间推进 / 图层 / 日志 ───────────────────────────────────────
 
-## 推进世界时间：自动时间线 + 证据任务 + 命令队列 + 航迹衰减 + 任务阶段。
+## 推进世界时间：自动时间线 + 证据任务 + 损管 + 命令队列 + 航迹衰减 + 任务阶段 + 执行窗口。
 ## 前置航行未完成 / 任务已结束时冻结时间（dt 被忽略，返回 frozen=true）。
 func advance(dt: float) -> Dictionary:
-	var out := {"orders": [], "tracks": [], "events": [], "radio": [], "tasks": [], "phase": {}, "frozen": false}
+	var out := {"orders": [], "tracks": [], "events": [], "radio": [], "tasks": [],
+		"damage": [], "phase": {}, "frozen": false}
 	if dt <= 0.0:
 		return out
 	var frozen := _time_frozen()
@@ -279,6 +350,7 @@ func advance(dt: float) -> Dictionary:
 	out["events"] = _tick_timeline_events()
 	out["radio"] = _tick_timeline_radio()
 	out["tasks"] = _tick_evidence_tasks()
+	out["damage"] = advance_damage(dt)
 	if orders != null:
 		out["orders"] = orders.tick(t)
 	if tracks != null:
@@ -289,10 +361,42 @@ func advance(dt: float) -> Dictionary:
 		track_changed.emit(String(tr.get("track_id", "")), "decay")
 		push_log("track", "航迹 %s 等级衰减 L%d → L%d" % [
 			String(tr.get("track_id", "")), int(tr.get("from", 0)), int(tr.get("to", 0))])
+	# 执行窗口结束仍无决策 → 打开决策（教学门控未满足时挂起 pending）
+	_tick_exec_window()
+	# 教学门控 pending：玩家补完识别后自动打开决策
+	_try_open_pending_decision()
 	if mission_auto:
 		out["phase"] = _advance_mission_once()
+	_replay_capture()
 	state_changed.emit("tick")
 	return out
+
+# —— V2-CORE-3：执行窗口 ——
+
+func exec_left() -> float:
+	if not (flow.get("decision", {}) as Dictionary).is_empty() and exec_frozen_left >= 0.0:
+		return exec_frozen_left
+	if bool(prelude.get("executed", false)):
+		return maxf(0.0, exec_window_s - t)
+	return exec_window_s
+
+func exec_pct() -> float:
+	if exec_window_s <= 0.0:
+		return 0.0
+	return clampf(1.0 - exec_left() / exec_window_s, 0.0, 1.0)
+
+func _tick_exec_window() -> void:
+	if not bool(prelude.get("executed", false)):
+		return
+	if bool(flow.get("ended", false)):
+		return
+	if not (flow.get("decision", {}) as Dictionary).is_empty():
+		return
+	if bool(flow.get("decision_open", false)) or bool(flow.get("decision_pending", false)):
+		return
+	if t >= exec_window_s:
+		push_log("decision", "执行窗口结束（%s s）" % str(exec_window_s))
+		open_decision()
 
 ## 任务/前置航行是否冻结世界时间。
 func _time_frozen() -> bool:
@@ -538,6 +642,7 @@ func evidence_complete(id: String) -> bool:
 		_set_flag(String(raw_flag), true)
 	evidence_change_emit(id, "done")
 	push_log("evidence", "证据取得：%s" % String(d.get("label", id)))
+	_replay_capture(true)
 	flow_changed.emit("evidence_done")
 	return true
 
@@ -628,6 +733,15 @@ func vm_state() -> Dictionary:
 		"layers": layers.duplicate(true),
 		"migrated": scenario.migrated if scenario != null else false,
 		"flags": flow_flags.duplicate(true),
+		# V2-CORE-3
+		"tutorial_ready": tutorial_ready(),
+		"tutorial_pending_decision": bool(flow.get("decision_pending", false)),
+		"exec_window_s": exec_window_s,
+		"exec_left": exec_left(),
+		"exec_pct": exec_pct(),
+		"replay_recording": bool(replay.get("recording", false)),
+		"damage_damaged": int((vm_damage_summary()).get("damaged", 0)),
+		"damage_repairing": int((vm_damage_summary()).get("repairing", 0)),
 		"errors": errors.duplicate(), "warnings": warnings.duplicate(),
 	}
 
@@ -671,6 +785,14 @@ func _contact_row(tr: V2Track, e: V2Entity) -> Dictionary:
 		row["faction"] = e.faction
 		row["kind"] = e.kind
 		row["has_entity"] = true
+		# 站体/储罐/固定设施（V2-CORE-3；UI 画标记用，不做渲染）
+		row["fixed"] = e.is_fixed()
+		row["icon"] = e.icon()
+		row["size_km"] = e.size_km()
+		row["display_kind"] = e.display_kind()
+		row["entity_tags"] = e.tags.duplicate()
+		if bool(e.is_fixed()):
+			row["orbit_source"] = "fixed"
 	else:
 		row["name"] = "无实体接触"
 		row["name_en"] = ""
@@ -680,6 +802,11 @@ func _contact_row(tr: V2Track, e: V2Entity) -> Dictionary:
 		row["faction"] = ""
 		row["kind"] = "contact"
 		row["has_entity"] = false
+		row["fixed"] = false
+		row["icon"] = "contact"
+		row["size_km"] = 0.0
+		row["display_kind"] = "接触"
+		row["entity_tags"] = []
 	return row
 
 func vm_selected() -> Dictionary:
@@ -1029,15 +1156,41 @@ func open_decision() -> Dictionary:
 		return {"ok": false, "reason": "已作出决策"}
 	if bool(prelude.get("open", false)) and not bool(prelude.get("executed", false)):
 		return {"ok": false, "reason": "前置航行未完成"}
+	# 教学门控（V2-CORE-3）：识别不足时拒绝打开；挂起 pending，完成关键识别后自动打开。
+	if not tutorial_ready():
+		flow["decision_pending"] = true
+		var tut := vm_tutorial()
+		var reason := "教学门控：识别不足（%d/%d）— %s" % [
+			int((tut.get("progress", {}) as Dictionary).get("done", 0)),
+			int((tut.get("progress", {}) as Dictionary).get("need", 0)),
+			String(tut.get("hint", ""))]
+		push_log("tutorial", reason)
+		flow_changed.emit("tutorial_gate")
+		return {"ok": false, "reason": reason, "gated": true, "tutorial": tut,
+			"evidence_count": evidence_count(), "can_expose": can_expose()}
 	flow["decision_open"] = true
+	flow["decision_pending"] = false
 	flow["decision_t"] = t
 	_set_flag("decision_open")
-	push_log("decision", "决策打开：执行窗口剩余，证据 %d/%d" % [evidence_count(), evidence.size()])
+	push_log("decision", "决策打开：执行窗口剩余 %.0f s，证据 %d/%d" % [
+		exec_left(), evidence_count(), evidence.size()])
 	flow_changed.emit("decision_open")
 	state_changed.emit("decision")
 	return {"ok": true, "prompt": scenario.decision_prompt() if scenario != null else "",
 		"evidence_count": evidence_count(), "can_expose": can_expose(),
+		"exec_window_s": exec_window_s, "exec_left": exec_left(),
 		"time_frozen": _time_frozen()}
+
+## 教学门控满足后，若决策曾被挂起则自动打开。
+func _try_open_pending_decision() -> void:
+	if not bool(flow.get("decision_pending", false)):
+		return
+	if bool(flow.get("decision_open", false)) or not (flow.get("decision", {}) as Dictionary).is_empty():
+		return
+	if not tutorial_ready():
+		return
+	flow["decision_pending"] = false
+	open_decision()
 
 ## 决策选项（UI 覆盖层用）：来自 story.endings + story.fire_option/FIRE 灾难分支。
 func vm_decision() -> Dictionary:
@@ -1086,6 +1239,14 @@ func choose_ending(kind: String) -> Dictionary:
 	var ending: Dictionary = {}
 	if k == "FIRE":
 		ending = {"kind": "FIRE", "code": "F", "label": "武器释放 / FIRE"}
+		if scenario != null:
+			var fire_raw = scenario.story.get("fire_option", null)
+			if fire_raw is Dictionary:
+				var fr: Dictionary = fire_raw
+				ending["label"] = String(fr.get("label", ending["label"]))
+				ending["hint"] = String(fr.get("hint", ""))
+				if fr.get("reputation") is Dictionary:
+					ending["reputation"] = (fr.get("reputation") as Dictionary).duplicate(true)
 	else:
 		if scenario == null:
 			return {"ok": false, "reason": "无场景数据", "kind": k}
@@ -1099,13 +1260,22 @@ func choose_ending(kind: String) -> Dictionary:
 	var reply: Dictionary = {}
 	if scenario != null:
 		reply = (scenario.decision_replies().get(k, {}) as Dictionary).duplicate(true)
+	# 声望（V2-CORE-3）：结局差量来自 story；缺数据时保持基线并标 settled=false。
+	var rep_delta = ending.get("reputation", null)
+	var rep_settled := rep_delta is Dictionary
+	if rep_delta is Dictionary:
+		_apply_reputation(rep_delta)
+	exec_frozen_left = exec_left()
 	flow["decision"] = {
 		"kind": k, "code": String(ending.get("code", "")), "label": String(ending.get("label", k)),
 		"hint": String(ending.get("hint", "")), "chosen_t": t, "ending": ending.duplicate(true),
-		"reply": reply.duplicate(true),
+		"reply": reply.duplicate(true), "reputation": reputation.duplicate(true),
+		"reputation_settled": rep_settled, "exec_left": exec_frozen_left,
 	}
 	flow["ending"] = ending.duplicate(true)
 	flow["decision_open"] = false
+	flow["reputation_settled"] = rep_settled
+	flow["reputation"] = reputation.duplicate(true)
 	_set_flag("decision_made")
 	if k == "FIRE":
 		flow["fire_release"] = true
@@ -1115,11 +1285,22 @@ func choose_ending(kind: String) -> Dictionary:
 		var line: Dictionary = reply.duplicate(true)
 		line["t"] = t
 		push_radio(line)
-	push_log("decision", "指挥官决策：%s%s" % [k, "（武器释放/灾难分支）" if k == "FIRE" else ""])
+	push_log("decision", "指挥官决策：%s%s · 执行窗口冻结 %.0f s" % [
+		k, "（武器释放/灾难分支）" if k == "FIRE" else "", exec_frozen_left])
+	_replay_capture(true)
 	flow_changed.emit("decision")
 	state_changed.emit("decision")
 	return {"ok": true, "kind": k, "ending": ending, "reply": reply,
-		"fire_release": bool(flow.get("fire_release", false)), "consequence": String(flow.get("consequence", ""))}
+		"fire_release": bool(flow.get("fire_release", false)), "consequence": String(flow.get("consequence", "")),
+		"reputation": reputation.duplicate(true), "reputation_settled": rep_settled,
+		"exec_left": exec_frozen_left}
+
+## 应用结局声望差量（-100..100）。
+func _apply_reputation(delta: Dictionary) -> void:
+	for k in delta.keys():
+		var key := String(k)
+		var cur := int(reputation.get(key, 0))
+		reputation[key] = clampi(cur + int(delta[k]), -100, 100)
 
 func report_state() -> Dictionary:
 	var dec: Dictionary = (flow.get("decision", {}) as Dictionary)
@@ -1175,6 +1356,7 @@ func submit_report(truth := true) -> Dictionary:
 	advance_mission(3)
 	push_log("report", "内部事后报告提交（%s）%s" % [
 		"如实" if truth else "伪造", " · AUDIT FLAG" if audit else ""])
+	_replay_capture(true)
 	flow_changed.emit("report")
 	state_changed.emit("report")
 	return {"ok": true, "report": report.duplicate(true), "audit_flag": audit,
@@ -1184,6 +1366,10 @@ func end_summary() -> Dictionary:
 	var dec: Dictionary = (flow.get("decision", {}) as Dictionary)
 	var kind := String(dec.get("kind", ""))
 	var report: Dictionary = (flow.get("report", {}) as Dictionary).duplicate(true)
+	var rep_settled := bool(flow.get("reputation_settled", false))
+	var rep: Dictionary = (flow.get("reputation", {}) as Dictionary).duplicate(true)
+	if rep.is_empty():
+		rep = reputation.duplicate(true)
 	var data := {
 		"ok": not report.is_empty(),
 		"t": t,
@@ -1200,11 +1386,17 @@ func end_summary() -> Dictionary:
 		"civilians_evacuated": civilians_evacuated,
 		"fire_release": bool(flow.get("fire_release", false)),
 		"consequence": String(flow.get("consequence", "")),
-		"reputation": (flow.get("reputation", {}) as Dictionary).duplicate(true),
+		"reputation": rep,
+		"reputation_settled": rep_settled,
+		"reputation_base": scenario.reputation_base() if scenario != null else {},
+		"exec_window_s": exec_window_s,
+		"exec_left": exec_frozen_left if exec_frozen_left >= 0.0 else exec_left(),
 		"recommend": String(report.get("recommend", "")),
 		"flags": flow_flags.duplicate(true),
 		"mission_phase": String(mission.phase) if mission != null else "",
 		"mission_kind": String(mission.kind) if mission != null else "",
+		"damage": vm_damage(),
+		"tutorial": vm_tutorial(),
 	}
 	if civilians_evacuated and scenario != null:
 		var dock = scenario.story.get("av4412_dock", null)
@@ -1310,16 +1502,20 @@ func perform_action(action_id: String, target_id: String, params: Dictionary = {
 	var tr3: V2Track = tr2 if tr2 != null else tr
 	var level_after := int(tr3.level) if tr3 != null else level_before
 	var order := _record_action_done(action_id, target_id, tr3, actor)
+	# 教学门控记录（成功的识别动作才计入；不自动完成任何识别）
+	_record_tutorial_action(action_id)
 	push_log("action", "动作：%s → %s · L%d %s · %s（执行：%s）" % [
 		String(eval.get("label", action_id)), target_id, level_after,
 		tr3.level_name() if tr3 != null else "", String(result.get("detail", "")),
 		actor.display_name()])
+	_replay_capture(true)
 	flow_changed.emit("action")
 	state_changed.emit("action")
 	return {
 		"ok": true, "action": action_id, "action_label": String(eval.get("label", action_id)),
 		"target_id": target_id, "level": level_after,
 		"actor_id": actor.id, "actor_name": actor.display_name(),
+		"tutorial": vm_tutorial(),
 		"level_name": tr3.level_name() if tr3 != null else "",
 		"identity": tr3.identity_kind if tr3 != null else "",
 		"identity_label": tr3.identity_label() if tr3 != null else "",
@@ -1606,6 +1802,7 @@ func vm_end() -> Dictionary:
 	return end_summary()
 
 ## 流程总览：UI 根据 prelude.open/decision.open/report.submitted/ended 决定显示哪层。
+## V2-CORE-3 追加：tutorial / exec 窗口 / reputation / damage / replay 摘要。
 func vm_flow() -> Dictionary:
 	return {
 		"t": t,
@@ -1618,7 +1815,421 @@ func vm_flow() -> Dictionary:
 		"flags": flow_flags.duplicate(true),
 		"civilians_evacuated": civilians_evacuated,
 		"audit_count": audit_count,
+		"tutorial": vm_tutorial(),
+		"tutorial_ready": tutorial_ready(),
+		"exec_window_s": exec_window_s,
+		"exec_left": exec_left(),
+		"exec_pct": exec_pct(),
+		"reputation": reputation.duplicate(true),
+		"reputation_settled": bool(flow.get("reputation_settled", false)),
+		"damage": vm_damage(),
+		"replay": {"recording": bool(replay.get("recording", false)),
+			"playing": bool(replay.get("playing", false)),
+			"paused": bool(replay.get("paused", false)),
+			"total": (replay.get("buffer", []) as Array).size()},
 	}
+# ═══════════════════════════════════════════════════════════════════
+# V2-CORE-3：教学门控（story.tutorial 数据驱动）
+#   DECISION 前必须完成 required_actions 中至少 min_required 项关键识别；
+#   未满足时 open_decision 返回 reason 并挂起 pending，玩家补完后自动打开。
+#   不自动完成任何识别动作。
+# ═══════════════════════════════════════════════════════════════════
+
+func tutorial_ready() -> bool:
+	if not bool(tutorial.get("enabled", false)):
+		return true
+	var req: Array = tutorial.get("required_actions", [])
+	var completed: Dictionary = tutorial.get("completed", {})
+	var done := 0
+	for raw in req:
+		if completed.has(String(raw)):
+			done += 1
+	return done >= _tutorial_need()
+
+func _tutorial_need() -> int:
+	if not bool(tutorial.get("enabled", false)):
+		return 0
+	var req: Array = tutorial.get("required_actions", [])
+	var min_req := int(tutorial.get("min_required", 0))
+	if min_req <= 0:
+		return req.size()
+	return mini(min_req, req.size())
+
+func _tutorial_label(action_id: String) -> String:
+	var labels: Dictionary = tutorial.get("labels", {})
+	return String(labels.get(action_id, action_id))
+
+func _tutorial_done_count() -> int:
+	var req: Array = tutorial.get("required_actions", [])
+	var completed: Dictionary = tutorial.get("completed", {})
+	var done := 0
+	for raw in req:
+		if completed.has(String(raw)):
+			done += 1
+	return done
+
+func _record_tutorial_action(action_id: String) -> void:
+	if not bool(tutorial.get("enabled", false)):
+		return
+	if not (action_id in (tutorial.get("required_actions", []) as Array)):
+		return
+	var completed: Dictionary = tutorial.get("completed", {})
+	if completed.has(action_id):
+		return
+	completed[action_id] = t
+	tutorial["completed"] = completed
+	push_log("tutorial", "教学：完成 %s（%d/%d）" % [
+		_tutorial_label(action_id), _tutorial_done_count(), _tutorial_need()])
+	if tutorial_ready():
+		_set_flag("tutorial_ready", true)
+		push_log("tutorial", String(tutorial.get("done_text", "识别链完成，决策权限已解锁。")))
+	flow_changed.emit("tutorial")
+	_try_open_pending_decision()
+
+func vm_tutorial() -> Dictionary:
+	var req: Array = tutorial.get("required_actions", [])
+	var completed: Dictionary = tutorial.get("completed", {})
+	var done_rows: Array = []
+	var missing: Array = []
+	var done := 0
+	for raw in req:
+		var aid := String(raw)
+		if completed.has(aid):
+			done += 1
+			done_rows.append({"id": aid, "label": _tutorial_label(aid), "at": float(completed[aid])})
+		else:
+			missing.append({"id": aid, "label": _tutorial_label(aid)})
+	return {
+		"enabled": bool(tutorial.get("enabled", false)),
+		"ready": tutorial_ready(),
+		"title": String(tutorial.get("title", "")),
+		"hint": String(tutorial.get("hint", "")),
+		"done_text": String(tutorial.get("done_text", "")),
+		"required_actions": req.duplicate(),
+		"min_required": int(tutorial.get("min_required", 0)),
+		"completed": done_rows,
+		"missing": missing,
+		"progress": {"done": done, "need": _tutorial_need()},
+		"decision_pending": bool(flow.get("decision_pending", false)),
+		"actions": _tutorial_actions_view(),
+	}
+
+## 教学步骤清单（含动作是否可用/原因），UI 可直接渲染。
+func _tutorial_actions_view() -> Array:
+	var out: Array = []
+	var actor := own()
+	var target: V2Entity = by_id.get("2001")
+	var tr := track_for("2001")
+	if target == null and tr != null and tr.entity_id != "":
+		target = by_id.get(tr.entity_id)
+	var ctx := {"phase": phase_context, "flags": flow_flags.duplicate()}
+	for raw in (tutorial.get("required_actions", []) as Array):
+		var aid := String(raw)
+		var row := {"id": aid, "label": _tutorial_label(aid),
+			"done": (tutorial.get("completed", {}) as Dictionary).has(aid),
+			"at": float((tutorial.get("completed", {}) as Dictionary).get(aid, -1.0)),
+			"available": false, "reason": ""}
+		if actor != null and (target != null or tr != null):
+			var ev := V2Actions.available_one(aid, actor, target, tr, ctx)
+			row["available"] = bool(ev.get("available", false))
+			row["reason"] = String(ev.get("reason", ""))
+		out.append(row)
+	return out
+
+# ═══════════════════════════════════════════════════════════════════
+# V2-CORE-3：损管模型
+#   damage_sections / damage_queue 挂在实体上（本舰默认 3 项，来自 content damage.initial）；
+#   state: degraded / damaged / repairing / repaired；只做状态与进度，不伪造战斗结果。
+# ═══════════════════════════════════════════════════════════════════
+
+func _damage_entity() -> V2Entity:
+	if own_id != "" and by_id.has(own_id):
+		return by_id.get(own_id)
+	return null
+
+func _damage_sections() -> Array:
+	var e := _damage_entity()
+	if e != null:
+		return e.damage_sections
+	return damage
+
+func _damage_item(id: String) -> Dictionary:
+	for raw in _damage_sections():
+		if String((raw as Dictionary).get("id", "")) == id:
+			return raw
+	return {}
+
+## 施加/加重损伤（剧情/调试用）。severity 0–1；已有项取较大值。
+func apply_damage(id: String, severity := 0.5, label := "", entity_id := "") -> Dictionary:
+	var e := _damage_entity()
+	if entity_id != "" and by_id.has(entity_id):
+		e = by_id.get(entity_id)
+	if e == null:
+		return {"ok": false, "reason": "无实体可施加损管"}
+	if e.id != own_id:
+		# 非本舰实体也维护自己的 damage_sections（不进入 vm_damage）
+		pass
+	var d := _damage_item_on(e, id)
+	if d.is_empty():
+		d = {"id": id, "label": (label if label != "" else id), "state": "degraded",
+			"severity": 0.0, "repair_eta_s": 0.0, "repair_progress_s": 0.0,
+			"started_t": -1.0, "entity_id": e.id}
+		e.damage_sections.append(d)
+	var sev := clampf(float(severity), 0.0, 1.0)
+	d["severity"] = maxf(float(d.get("severity", 0.0)), sev)
+	d["state"] = "damaged" if float(d["severity"]) >= 0.5 else "degraded"
+	if label != "":
+		d["label"] = label
+	d["repair_progress_s"] = 0.0
+	d["repair_eta_s"] = float(d.get("repair_eta_s", 0.0))
+	if float(d["repair_eta_s"]) <= 0.0:
+		d["repair_eta_s"] = maxf(15.0, float(d["severity"]) * damage_repair_rate_s)
+	e.damage_queue.erase(id)
+	if e.id == own_id:
+		damage = e.damage_sections
+	push_log("damage", "损管：%s 受损（严重度 %.0f%%）" % [
+		String(d.get("label", id)), float(d["severity"]) * 100.0])
+	_replay_capture(true)
+	state_changed.emit("damage")
+	flow_changed.emit("damage")
+	return {"ok": true, "section": d.duplicate(true)}
+
+func _damage_item_on(e: V2Entity, id: String) -> Dictionary:
+	for raw in e.damage_sections:
+		if String((raw as Dictionary).get("id", "")) == id:
+			return raw
+	return {}
+
+## 开始维修（一次一项；进度随 advance_damage 推进）。
+func start_repair(id: String) -> Dictionary:
+	var d := _damage_item(id)
+	if d.is_empty():
+		return {"ok": false, "reason": "未知损管项: " + id}
+	var state := String(d.get("state", ""))
+	if state == "repaired":
+		return {"ok": false, "reason": "已修复: " + String(d.get("label", id))}
+	if state == "repairing":
+		return {"ok": false, "reason": "正在维修: " + String(d.get("label", id))}
+	d["state"] = "repairing"
+	d["repair_progress_s"] = 0.0
+	d["started_t"] = t
+	var e := _damage_entity()
+	if e != null and not (id in e.damage_queue):
+		e.damage_queue.append(id)
+	push_log("damage", "损管：开始维修 %s（预计 %.0f s）" % [
+		String(d.get("label", id)), float(d.get("repair_eta_s", 0.0))])
+	_replay_capture(true)
+	state_changed.emit("damage")
+	return {"ok": true, "section": d.duplicate(true)}
+
+## 推进维修进度；到点置 repaired。返回本次完成列表。
+func advance_damage(dt: float) -> Array:
+	var done: Array = []
+	if dt <= 0.0:
+		return done
+	var e := _damage_entity()
+	var sections: Array = e.damage_sections if e != null else damage
+	for raw in sections:
+		var d: Dictionary = raw
+		if String(d.get("state", "")) != "repairing":
+			continue
+		d["repair_progress_s"] = float(d.get("repair_progress_s", 0.0)) + dt
+		if float(d["repair_progress_s"]) >= float(d.get("repair_eta_s", 0.0)):
+			d["state"] = "repaired"
+			d["severity"] = 0.0
+			if e != null:
+				e.damage_queue.erase(String(d.get("id", "")))
+			done.append({"id": String(d.get("id", "")), "label": String(d.get("label", "")),
+				"t": t})
+			push_log("damage", "损管：完成维修 %s" % String(d.get("label", "")))
+	if not done.is_empty():
+		state_changed.emit("damage")
+		flow_changed.emit("damage")
+	return done
+
+func vm_damage_summary() -> Dictionary:
+	var damaged := 0
+	var degraded := 0
+	var repairing := 0
+	var repaired := 0
+	for raw in _damage_sections():
+		var st := String((raw as Dictionary).get("state", ""))
+		match st:
+			"damaged":
+				damaged += 1
+			"degraded":
+				degraded += 1
+			"repairing":
+				repairing += 1
+			"repaired":
+				repaired += 1
+	return {"total": _damage_sections().size(), "damaged": damaged, "degraded": degraded,
+		"repairing": repairing, "repaired": repaired,
+		"needs_attention": damaged + degraded + repairing > 0}
+
+## 损管面板 view-model（右栏 section / 独立面板）。
+func vm_damage() -> Dictionary:
+	var e := _damage_entity()
+	var rows: Array = []
+	for raw in _damage_sections():
+		var d: Dictionary = (raw as Dictionary).duplicate(true)
+		var eta := float(d.get("repair_eta_s", 0.0))
+		var prog := float(d.get("repair_progress_s", 0.0))
+		var st := String(d.get("state", ""))
+		d["repair_remaining_s"] = maxf(0.0, eta - prog) if st == "repairing" else (0.0 if st == "repaired" else eta)
+		d["progress"] = clampf(prog / maxf(0.001, eta), 0.0, 1.0)
+		d["severity_pct"] = float(d.get("severity", 0.0)) * 100.0
+		d["can_repair"] = st in ["degraded", "damaged"]
+		rows.append(d)
+	return {
+		"entity_id": e.id if e != null else "",
+		"entity_name": e.display_name() if e != null else "",
+		"sections": rows,
+		"queue": (e.damage_queue.duplicate() if e != null else []),
+		"repair_rate_s": damage_repair_rate_s,
+		"summary": vm_damage_summary(),
+	}
+
+# ═══════════════════════════════════════════════════════════════════
+# V2-CORE-3：回放（只读帧；不推进世界、不伪造）
+#   每 interval_s（默认 1s）或关键事件写一帧；帧含 t/own/contacts/events/orders/
+#   evidence/flow/damage/exec 摘要。回放期间 UI 不应调用 advance。
+# ═══════════════════════════════════════════════════════════════════
+
+func _replay_capture(force := false) -> void:
+	if not bool(replay.get("recording", false)):
+		return
+	var interval := float(replay.get("interval_s", 1.0))
+	if not force and _last_replay_t >= 0.0 and t - _last_replay_t < interval - 1.0e-9:
+		return
+	var buffer: Array = replay.get("buffer", [])
+	var frame := _replay_make_frame()
+	buffer.append(frame)
+	while buffer.size() > 900:
+		buffer.pop_front()
+	replay["buffer"] = buffer
+	replay["index"] = buffer.size() - 1
+	_last_replay_t = t
+
+func _replay_make_frame() -> Dictionary:
+	var contacts: Array = []
+	if tracks != null:
+		for raw in tracks.tracks:
+			var tr: V2Track = raw
+			contacts.append({"track_id": tr.id, "entity_id": tr.entity_id,
+				"level": tr.level, "identity": tr.identity_kind,
+				"range_km": tr.range_km, "bearing_deg": tr.bearing_deg,
+				"stale": tr.stale})
+			if contacts.size() >= 16:
+				break
+	var ord_sum := orders.summary() if orders != null else {}
+	var own_e := own()
+	return {
+		"t": t,
+		"own_id": own_id,
+		"own": {"id": own_id, "name": own_e.display_name() if own_e != null else "",
+			"damage": vm_damage_summary()},
+		"contacts": contacts,
+		"events_count": events.size(),
+		"last_event": (events[events.size() - 1] as Dictionary).duplicate(true) if events.size() > 0 else {},
+		"orders": {"total": int(ord_sum.get("total", 0)),
+			"counts": (ord_sum.get("counts", {}) as Dictionary).duplicate(true)},
+		"evidence": {"done": evidence_count(), "total": evidence.size()},
+		"flow": {"phase": String(mission.phase) if mission != null else "",
+			"phase_kind": String(mission.kind) if mission != null else "",
+			"prelude_executed": bool(prelude.get("executed", false)),
+			"decision_open": bool(flow.get("decision_open", false)),
+			"decision_made": not (flow.get("decision", {}) as Dictionary).is_empty(),
+			"report_submitted": not (flow.get("report", {}) as Dictionary).is_empty(),
+			"ended": bool(flow.get("ended", false))},
+		"exec_left": exec_left(),
+		"damage": vm_damage_summary(),
+	}
+
+func replay_start() -> Dictionary:
+	replay["recording"] = bool(replay.get("recording", true))
+	replay["playing"] = true
+	replay["paused"] = false
+	replay["index"] = 0
+	state_changed.emit("replay")
+	return vm_replay()
+
+func replay_pause() -> Dictionary:
+	replay["playing"] = false
+	replay["paused"] = true
+	state_changed.emit("replay")
+	return vm_replay()
+
+func replay_stop() -> Dictionary:
+	replay["playing"] = false
+	replay["paused"] = false
+	var buffer: Array = replay.get("buffer", [])
+	replay["index"] = maxi(0, buffer.size() - 1)
+	state_changed.emit("replay")
+	return vm_replay()
+
+## 按时间（秒）定位最近一帧。
+func replay_seek(t_s: float) -> Dictionary:
+	var buffer: Array = replay.get("buffer", [])
+	var best := 0
+	for i in range(buffer.size()):
+		if float((buffer[i] as Dictionary).get("t", 0.0)) <= t_s + 1.0e-9:
+			best = i
+		else:
+			break
+	replay["index"] = clampi(best, 0, maxi(0, buffer.size() - 1))
+	replay["playing"] = false
+	replay["paused"] = true
+	state_changed.emit("replay")
+	return vm_replay()
+
+## 按帧下标定位。
+func replay_seek_index(index: int) -> Dictionary:
+	var buffer: Array = replay.get("buffer", [])
+	replay["index"] = clampi(index, 0, maxi(0, buffer.size() - 1))
+	replay["playing"] = false
+	replay["paused"] = true
+	state_changed.emit("replay")
+	return vm_replay()
+
+func replay_frame() -> Dictionary:
+	var buffer: Array = replay.get("buffer", [])
+	if buffer.is_empty():
+		return {}
+	var idx := clampi(int(replay.get("index", 0)), 0, buffer.size() - 1)
+	return (buffer[idx] as Dictionary).duplicate(true)
+
+func replay_clear() -> void:
+	replay["buffer"] = []
+	replay["index"] = 0
+	replay["playing"] = false
+	replay["paused"] = false
+	_last_replay_t = -1.0
+	state_changed.emit("replay")
+
+func vm_replay() -> Dictionary:
+	var buffer: Array = replay.get("buffer", [])
+	var frames: Array = []
+	var start := maxi(0, buffer.size() - 600)
+	for i in range(start, buffer.size()):
+		var f: Dictionary = buffer[i]
+		var fl: Dictionary = (f.get("flow", {}) as Dictionary)
+		frames.append({"index": i, "t": float(f.get("t", 0.0)),
+			"phase": String(fl.get("phase", "")), "kind": String(fl.get("phase_kind", "")),
+			"decision_made": bool(fl.get("decision_made", false)),
+			"ended": bool(fl.get("ended", false))})
+	return {
+		"recording": bool(replay.get("recording", false)),
+		"playing": bool(replay.get("playing", false)),
+		"paused": bool(replay.get("paused", false)),
+		"index": clampi(int(replay.get("index", 0)), 0, maxi(0, buffer.size() - 1)),
+		"total": buffer.size(),
+		"interval_s": float(replay.get("interval_s", 1.0)),
+		"t": t,
+		"current": replay_frame(),
+		"frames": frames,
+	}
+
 
 
 func _with(d: Dictionary, key: String, value) -> Dictionary:

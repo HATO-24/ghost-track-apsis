@@ -34,6 +34,7 @@ var _drag_moved := false
 var _drag_yaw := 0.0
 var _drag_pitch := 60.0
 var _fit_margin := 0.82
+var _replay_frame: Dictionary = {}
 
 
 func _ready() -> void:
@@ -94,6 +95,40 @@ func _snapshot_from_camera() -> void:
 func set_selected(id: String) -> void:
 	_selected_id = id
 	queue_redraw()
+
+
+func set_replay_frame(frame: Dictionary) -> void:
+	_replay_frame = frame.duplicate(true)
+	queue_redraw()
+
+
+func clear_replay_frame() -> void:
+	_replay_frame = {}
+	queue_redraw()
+
+
+func is_replaying() -> bool:
+	return not _replay_frame.is_empty()
+
+
+## 站体/储罐/残骸图标的纯函数（供自检/图例；真实绘制在 _draw_kind_marker）。
+## 把 core vm_replay 帧的 bearing/range 投到控件局部坐标（回放幽灵用）。
+func project_bearing_range_local(bearing_deg: float, range_km: float) -> Vector2:
+	var brg := deg_to_rad(bearing_deg)
+	var rel := Vector3(sin(brg) * range_km, cos(brg) * range_km, 0.0)
+	return _plane_to_local(rel, _scale())
+
+
+func kind_marker_shape(kind: String) -> String:
+	match kind:
+		"station":
+			return "station_marker"
+		"tank":
+			return "tank_marker"
+		"wreck":
+			return "wreck_marker"
+		_:
+			return "ship_marker"
 
 
 func selected_id() -> String:
@@ -180,6 +215,9 @@ func _draw() -> void:
 	_draw_bearing_lines()
 	_draw_contacts(body)
 	_draw_own()
+	_draw_kind_legend(body)
+	if not _replay_frame.is_empty():
+		_draw_replay_ghosts(body)
 	_draw_footer()
 
 
@@ -220,6 +258,8 @@ func _draw_header() -> void:
 		T.text(self, size.x - 420.0, 24.0, "ELINT 截获 %.0f km · 定位 %.0f%%" % [
 			float(exp.get("elint_intercept_range_km", 0.0)), float(exp.get("fix_progress", 0.0)) * 100.0],
 			T.F7, T.a(T.AMBER, 0.8), false)
+	if not _replay_frame.is_empty():
+		T.text_r(self, size.x - 14.0, 8.0, "REPLAY MODE", T.F7, T.a(T.BLUE, 0.95))
 	T.hline(self, 12.0, HEADER_H, size.x - 12.0, T.a(T.LINE, 0.85))
 
 
@@ -316,9 +356,8 @@ func _draw_radar(body: Rect2) -> void:
 
 
 
-## 轨道预测（虚线）：core 当前没有轨道传播，快照也没有传播接口；
-## 这里用实体 orbit r + v 做 120 s 线性外推（短弧近似），只用于显示，
-## 不写回 core、不当作观测。v15 orbit_model 的完整传播留给后续 V2-CORE 扩展。
+## 轨道预测（虚线）：优先消费 sim/tactical_snapshot 的 prediction{propagator=rk4, points[3]}；
+## 旧快照无 prediction 时才退回实体 orbit r+v×t 的线性外推（明确不写回 core）。
 func _draw_predictions() -> void:
 	if _data == null or _snapshot.is_empty():
 		return
@@ -333,8 +372,39 @@ func _draw_predictions() -> void:
 		if bool(c.get("is_own", false)):
 			continue
 		var marker: Dictionary = c.get("marker", {}) if c.get("marker", {}) is Dictionary else {}
-		if String(marker.get("shape", "")) != "contact":
+		var mshape := String(marker.get("shape", "contact"))
+		if mshape == "bearing" or mshape == "phantom" or mshape == "station" or mshape == "tank" or mshape == "wreck":
 			continue
+		var accent: Color = T.side_color(String(c.get("side", "unknown")))
+		var pred: Dictionary = c.get("prediction", {}) if c.get("prediction", {}) is Dictionary else {}
+		if not pred.is_empty() and not bool(pred.get("fixed", false)):
+			var points: Array = pred.get("points", []) if pred.get("points", []) is Array else []
+			var base_scr: Dictionary = c.get("screen", {}) if c.get("screen", {}) is Dictionary else {}
+			if base_scr.is_empty():
+				continue
+			var prev := _to_local(float(base_scr.get("x", 0.0)), float(base_scr.get("y", 0.0)))
+			var drew := false
+			for rpt in points:
+				if not (rpt is Dictionary):
+					continue
+				var pt: Dictionary = rpt
+				var scr2: Dictionary = pt.get("screen", {}) if pt.get("screen", {}) is Dictionary else {}
+				if scr2.is_empty():
+					continue
+				var sp := _to_local(float(scr2.get("x", 0.0)), float(scr2.get("y", 0.0)))
+				if not body.grow(40.0).has_point(sp) and not drew:
+					break
+				draw_dashed_line(prev, sp, T.a(accent, 0.24), 1.0, 5.0)
+				draw_circle(sp, 1.6, T.a(accent, 0.5))
+				prev = sp
+				drew = true
+			if drew:
+				var horizons: Array = pred.get("horizons_s", [30.0, 60.0, 120.0])
+				T.text(self, prev.x + 4.0, prev.y + 10.0,
+					"+%ss（%s 传播）" % [str(int(horizons[horizons.size() - 1])) if not horizons.is_empty() else "120",
+						String(pred.get("propagator", "rk4"))], T.F7, T.a(accent, 0.42), false)
+			continue
+		# ── 旧快照兜底：orbit r+v×t 线性外推 ──
 		var tid := String(c.get("track_id", ""))
 		var g: Dictionary = _data.geometry_of(tid)
 		if g.is_empty():
@@ -345,20 +415,18 @@ func _draw_predictions() -> void:
 			continue
 		if (v as Vector3).length() < 1.0e-4:
 			continue
-		var accent: Color = T.side_color(String(c.get("side", "unknown")))
-		var prev := _to_local_from_rel((r as Vector3) - (own_r as Vector3), scale)
-		var drew := false
+		var prev2 := _to_local_from_rel((r as Vector3) - (own_r as Vector3), scale)
+		var drew2 := false
 		for tf in [30.0, 60.0, 120.0]:
-			var p: Vector3 = (r as Vector3) + (v as Vector3) * tf
-			var sp := _to_local_from_rel(p - (own_r as Vector3), scale)
-			if not body.grow(30.0).has_point(sp) and not drew:
+			var p2: Vector3 = (r as Vector3) + (v as Vector3) * tf
+			var sp2 := _to_local_from_rel(p2 - (own_r as Vector3), scale)
+			if not body.grow(30.0).has_point(sp2) and not drew2:
 				break
-			draw_dashed_line(prev, sp, T.a(accent, 0.26), 1.0, 5.0)
-			prev = sp
-			drew = true
-		if drew:
-			T.text(self, prev.x + 4.0, prev.y + 10.0, "+120s（线性外推）", T.F7, T.a(accent, 0.42), false)
-
+			draw_dashed_line(prev2, sp2, T.a(accent, 0.26), 1.0, 5.0)
+			prev2 = sp2
+			drew2 = true
+		if drew2:
+			T.text(self, prev2.x + 4.0, prev2.y + 10.0, "+120s（线性外推）", T.F7, T.a(accent, 0.42), false)
 
 func _to_local_from_rel(rel: Vector3, scale: float) -> Vector2:
 	return _map_center() + Vector2(_plane_project(rel, scale))
@@ -432,6 +500,11 @@ func _draw_contacts(body: Rect2) -> void:
 		elif hovered:
 			draw_arc(sp, 12.0, 0.0, TAU, 24, T.a(T.TXT, 0.55), 1.0, true)
 		T.identity_glyph(self, sp, 6.5, identity, T.a(T.identity_color(identity), 0.95))
+		var mshape2 := String(marker.get("shape", ""))
+		var kind2 := String(c.get("kind", "ship"))
+		if mshape2 == "station" or mshape2 == "tank" or mshape2 == "wreck":
+			kind2 = mshape2
+		_draw_kind_marker(sp, kind2, accent)
 		T.badge(self, Rect2(sp + Vector2(9.0, -18.0), Vector2(20.0, 12.0)),
 			T.level_name(level), T.identity_color(identity), T.F7)
 		# TWS 通道环（snapshot.contacts[i].tws）
@@ -511,6 +584,74 @@ func _draw_contacts(body: Rect2) -> void:
 			info += " · 陈旧 %.0fs" % float(c.get("age_s", 0.0))
 		T.text_fit(self, label_pos.x + 4.0, label_pos.y + 16.0, info, T.F7, T.a(T.DIM, 0.95),
 			label_size.x - 8.0, false)
+
+
+func _draw_kind_marker(sp: Vector2, kind: String, col: Color) -> void:
+	# 站体 / 储罐 / 残骸用线条/矩形标记（无贴图）；舰船沿用身份符号。
+	var c2 := T.a(col, 0.9)
+	match kind:
+		"station":
+			var r := Rect2(sp + Vector2(-9.0, 8.0), Vector2(18.0, 8.0))
+			draw_rect(r, T.a(col, 0.10))
+			draw_rect(r, c2, false, 1.0)
+			draw_line(Vector2(r.position.x + 2.0, r.end.y - 2.0), Vector2(r.end.x - 2.0, r.end.y - 2.0), c2, 1.0)
+			draw_line(Vector2(sp.x, r.position.y), Vector2(sp.x, r.end.y), T.a(col, 0.55), 1.0)
+			draw_rect(Rect2(sp + Vector2(-1.0, 11.0), Vector2(2.0, 2.0)), c2)
+		"tank":
+			var r2 := Rect2(sp + Vector2(-9.0, 8.0), Vector2(18.0, 7.0))
+			draw_rect(r2, T.a(col, 0.08))
+			draw_rect(r2, c2, false, 1.0)
+			draw_line(Vector2(r2.position.x + 3.0, r2.position.y), Vector2(r2.position.x + 3.0, r2.end.y), T.a(col, 0.65), 1.0)
+			draw_line(Vector2(r2.end.x - 3.0, r2.position.y), Vector2(r2.end.x - 3.0, r2.end.y), T.a(col, 0.65), 1.0)
+		"wreck":
+			draw_line(sp + Vector2(-8.0, 8.0), sp + Vector2(8.0, 12.0), T.a(col, 0.7), 1.0)
+			draw_line(sp + Vector2(-8.0, 12.0), sp + Vector2(8.0, 8.0), T.a(col, 0.7), 1.0)
+			draw_line(sp + Vector2(-5.0, 10.0), sp + Vector2(-1.0, 9.0), c2, 1.0)
+		_:
+			pass
+
+
+func _draw_kind_legend(body: Rect2) -> void:
+	var box := Rect2(body.end.x - 238.0, body.end.y - 78.0, 228.0, 68.0)
+	draw_rect(box, T.a(T.PANEL, 0.82))
+	draw_rect(box, T.a(T.LINE, 0.6), false, 1.0)
+	T.text(self, box.position.x + 8.0, box.position.y + 5.0, "类型图例 / KIND", T.F7, T.a(T.PH_DIM, 0.9))
+	var kinds := [["ship", "舰船"], ["station", "站体"], ["tank", "储罐"], ["wreck", "残骸"]]
+	var catalog: Variant = _snapshot.get("icon_catalog", null)
+	if catalog is Dictionary:
+		var cat: Dictionary = catalog
+		if cat.get("station", null) is Dictionary:
+			kinds = [["ship", "舰船"], ["station", String((cat.get("station", {}) as Dictionary).get("label", "站体"))],
+				["tank", String((cat.get("tank", {}) as Dictionary).get("label", "储罐"))],
+				["wreck", String((cat.get("wreck", {}) as Dictionary).get("label", "残骸"))]]
+	for i in range(kinds.size()):
+		var col := i % 2
+		var row := i / 2
+		var p := box.position + Vector2(12.0 + float(col) * 108.0, 24.0 + float(row) * 20.0)
+		var kind := String(kinds[i][0])
+		draw_circle(p + Vector2(6.0, 6.0), 3.0, T.a(T.PH, 0.7))
+		_draw_kind_marker(p + Vector2(6.0, -2.0), kind, T.PH_DIM)
+		T.text(self, p.x + 18.0, p.y, String(kinds[i][1]), T.F7, T.a(T.DIM, 0.95))
+
+
+func _draw_replay_ghosts(body: Rect2) -> void:
+	draw_rect(body, Color(0.01, 0.02, 0.02, 0.45))
+	var t := float(_replay_frame.get("t", 0.0))
+	T.chip(self, Rect2(body.position.x + 10.0, body.position.y + 8.0, 200.0, 18.0),
+		"回放 / REPLAY · T+%s" % T.hms(t), T.BLUE, true, T.F7)
+	T.text(self, body.position.x + 12.0, body.position.y + 32.0,
+		"历史帧（只读；仿真已冻结）", T.F7, T.a(T.BLUE, 0.85))
+	for raw in (_replay_frame.get("contacts", []) as Array):
+		var c: Dictionary = raw
+		var sp := _to_local(float(c.get("x", 0.0)), float(c.get("y", 0.0)))
+		if not body.grow(16.0).has_point(sp):
+			continue
+		var accent: Color = T.side_color(String(c.get("side", "unknown")))
+		var identity := String(c.get("identity", "unknown"))
+		draw_arc(sp, 9.0, 0.0, TAU, 20, T.a(accent, 0.35), 1.0, true)
+		T.identity_glyph(self, sp, 5.0, identity, T.a(T.identity_color(identity), 0.55))
+		T.text(self, sp.x + 8.0, sp.y - 10.0, "[%s] L%d" % [String(c.get("batch", "")),
+			int(c.get("level", 0))], T.F7, T.a(accent, 0.65), false)
 
 
 func _draw_edge_marker(scr: Dictionary, c: Dictionary) -> void:

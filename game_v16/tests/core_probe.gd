@@ -148,8 +148,8 @@ func _test_scenario_v2() -> void:
 	_sc_v2 = s
 	_eq(s.errors.size(), 0, "V2 场景校验无错误", str(s.errors))
 	_eq(s.migrated, false, "V2 场景不是迁移路径")
-	_eq(s.entities.size(), 7, "V2 场景实体数 7")
-	_eq(s.initial_tracks.size(), 8, "V2 场景初始航迹 8（含无实体回波）")
+	_eq(s.entities.size(), 9, "V2 场景实体数 9（7 舰 + 站体 + 储罐）")
+	_eq(s.initial_tracks.size(), 10, "V2 场景初始航迹 10（8 + 站体/储罐）")
 	_eq(s.phases.size(), 7, "V2 场景阶段数 7")
 	_eq(s.phase_kinds(), ["PRELUDE", "READ", "COMMAND", "DECISION", "CONSEQUENCE", "REPORT", "END"],
 		"阶段 kind 序列来自场景数据")
@@ -675,13 +675,13 @@ func _test_world_and_view_model() -> void:
 	_ok(w.load_scenario(_sc_v2), "装载 V2 场景", str(w.errors))
 	w.prelude_skip()
 	var st := w.vm_state()
-	_eq(int(st.get("entity_count", 0)), 7, "vm_state entity_count")
-	_eq(int(st.get("track_count", 0)), 8, "vm_state track_count")
+	_eq(int(st.get("entity_count", 0)), 9, "vm_state entity_count")
+	_eq(int(st.get("track_count", 0)), 10, "vm_state track_count")
 	_eq(String(st.get("own_id", "")), "harmattan", "own 实体")
 	_eq(int(st.get("evidence_total", 0)), 4, "证据容器 4 项")
 
 	var contacts: Array = w.vm_contacts()
-	_eq(contacts.size(), 8, "vm_contacts 8 行")
+	_eq(contacts.size(), 10, "vm_contacts 10 行")
 	var row: Dictionary = {}
 	for raw in contacts:
 		if String((raw as Dictionary).get("track_id", "")) == "2001":

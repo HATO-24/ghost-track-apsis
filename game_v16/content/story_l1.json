@@ -3,10 +3,25 @@
   "_comment": "第一关文本/叙事数据（自 scenario_l1.json 的 story 拆出，供 V2 场景引用）。",
   "story": {
     "decision_t": 300.0,
+    "tutorial": {
+      "enabled": true,
+      "title": "识别流程教学 / TUTORIAL",
+      "hint": "决策打开前至少完成 {need} 项关键识别：交叉定位 / 雷达照射 / 型号识别 / 敌我识别问答。",
+      "required_actions": ["crossfix", "radar_illum", "model_ident", "iff_query"],
+      "min_required": 2,
+      "step_labels": {
+        "crossfix": "交叉定位",
+        "radar_illum": "雷达照射识别",
+        "model_ident": "型号识别",
+        "iff_query": "敌我识别问答"
+      },
+      "done_text": "识别链完成，决策权限已解锁。"
+    },
     "fire_option": {
       "kind": "FIRE",
       "label": "武器释放 / FIRE",
-      "hint": "授权对 2001 实施轨道炮射击：灾难分支，将造成 Chronos 储罐区二次火灾与平民伤亡。"
+      "hint": "授权对 2001 实施轨道炮射击：灾难分支，将造成 Chronos 储罐区二次火灾与平民伤亡。",
+      "reputation": {"ocu": -20, "meridian": -15, "ueg_doves": -30, "outer": -25, "reclaimers": -5}
     },
     "decision_prompt": "指挥官，执行窗口剩余 {mm:ss}。清算者正要求接管 Chronos 储罐与航道；Chronos 港务正请求先撤出人员；渡口号已请求武器释放授权。注意 ID13 没有执法权，但必须在窗口结束前作出决定。请下令。",
     "notice": {
@@ -29,19 +44,22 @@
         "kind": "HOLD",
         "code": "A",
         "label": "坚守 / HOLD",
-        "hint": "保持位置，拒绝让出储罐区与航道，将接管程序拖入 UEG 复核。"
+        "hint": "保持位置，拒绝让出储罐区与航道，将接管程序拖入 UEG 复核。",
+        "reputation": {"ocu": 8, "meridian": 15, "ueg_doves": 4, "outer": 6, "reclaimers": -12}
       },
       {
         "kind": "EVACUATE",
         "code": "B",
         "label": "人员撤离 / EVACUATE",
-        "hint": "撤出 Chronos 人员与可移动储罐，保留记录，允许清算者接管空间站。"
+        "hint": "撤出 Chronos 人员与可移动储罐，保留记录，允许清算者接管空间站。",
+        "reputation": {"ocu": 4, "meridian": 8, "ueg_doves": 6, "outer": 10, "reclaimers": 0}
       },
       {
         "kind": "EXPOSE",
         "code": "C",
         "label": "曝光 / EXPOSE",
-        "hint": "向 OCJC 监察与 UEG 轨道事务委员会提交证据，请求联合调查。"
+        "hint": "向 OCJC 监察与 UEG 轨道事务委员会提交证据，请求联合调查。",
+        "reputation": {"ocu": 12, "meridian": 6, "ueg_doves": 12, "outer": 8, "reclaimers": -18}
       }
     ],
     "decision_replies": {

@@ -27,6 +27,8 @@ const ENTER_KEYS := ["always", "min_t", "max_t", "flags_all", "flags_any", "flag
 const SIDES := ["friend", "hostile", "neutral", "unknown"]
 const DEFAULT_EVIDENCE_POLICY := {"min_for_expose": 2}
 const DEFAULT_ORDERS_CONFIG := {"tx_delay_s": 8.0, "exec_delay_s": 0.0}
+const DEFAULT_EXEC_WINDOW := {"duration_s": 360.0}
+const DEFAULT_DAMAGE := {"repair_rate_s": 120.0, "initial": []}
 
 var raw: Dictionary = {}
 var source_path := ""
@@ -44,6 +46,8 @@ var phases: Array = []
 var evidence_defs: Dictionary = {}
 var evidence_policy: Dictionary = DEFAULT_EVIDENCE_POLICY.duplicate(true)
 var orders_config: Dictionary = DEFAULT_ORDERS_CONFIG.duplicate(true)
+var exec_window_config: Dictionary = DEFAULT_EXEC_WINDOW.duplicate(true)
+var damage_config: Dictionary = DEFAULT_DAMAGE.duplicate(true)
 var story: Dictionary = {}
 var endings: Array = []
 var timeline: Dictionary = {}
@@ -305,6 +309,10 @@ func _build_v2() -> void:
 			for k in (raw.get("orders") as Dictionary).keys():
 				orders_config[k] = (raw.get("orders") as Dictionary)[k]
 
+	# —— 执行窗口 / 损管配置（V2-CORE-3）——
+	_build_exec_window(raw.get("exec_window", {}))
+	_build_damage(raw.get("damage", {}))
+
 	# —— 文本 ——
 	if raw.has("story") and not (raw.get("story") is Dictionary):
 		errors.append("story: 必须是对象")
@@ -385,8 +393,56 @@ func _load_story_file(path: String) -> void:
 	if endings.is_empty() and story.has("endings"):
 		endings = (story.get("endings", []) as Array).duplicate(true)
 
-func _validate_enter(cond: Dictionary, path: String) -> void:
-	for raw_key in cond.keys():
+## 执行窗口配置（V2-CORE-3）：{"duration_s": 360.0}。
+func _build_exec_window(raw_ew) -> void:
+	exec_window_config = DEFAULT_EXEC_WINDOW.duplicate(true)
+	if raw_ew == null:
+		return
+	if not (raw_ew is Dictionary):
+		errors.append("exec_window: 必须是对象")
+		return
+	var ew: Dictionary = raw_ew
+	for k in ew.keys():
+		exec_window_config[k] = ew[k]
+	if float(exec_window_config.get("duration_s", 0.0)) <= 0.0:
+		errors.append("exec_window.duration_s: 必须 > 0（当前 %s）" % str(exec_window_config.get("duration_s")))
+
+## 损管配置（V2-CORE-3）：{"repair_rate_s":..., "initial":[{id,label,state,severity,repair_eta_s}]}。
+func _build_damage(raw_dmg) -> void:
+	damage_config = DEFAULT_DAMAGE.duplicate(true)
+	if raw_dmg == null:
+		return
+	if not (raw_dmg is Dictionary):
+		errors.append("damage: 必须是对象")
+		return
+	var dm: Dictionary = raw_dmg
+	for k in dm.keys():
+		if k == "initial":
+			continue
+		damage_config[k] = dm[k]
+	var items: Array = []
+	var raw_items = dm.get("initial", [])
+	if not (raw_items is Array):
+		errors.append("damage.initial: 必须是数组")
+	else:
+		for i in range((raw_items as Array).size()):
+			var it = (raw_items as Array)[i]
+			if not (it is Dictionary):
+				errors.append("damage.initial[%d]: 必须是对象" % i)
+				continue
+			var d: Dictionary = (it as Dictionary).duplicate(true)
+			if String(d.get("id", "")) == "":
+				errors.append("damage.initial[%d].id: 不能为空" % i)
+				continue
+			if not d.has("label"):
+				d["label"] = String(d.get("id", ""))
+			var sev := float(d.get("severity", 0.0))
+			if sev < 0.0 or sev > 1.0:
+				errors.append("damage.initial[%d] (%s).severity: 必须在 0–1" % [i, String(d.get("id", ""))])
+			items.append(d)
+	damage_config["initial"] = items
+
+func _validate_enter(cond: Dictionary, path: String) -> void:	for raw_key in cond.keys():
 		var key := String(raw_key)
 		if not (key in ENTER_KEYS):
 			errors.append(path + "." + key + ": 未知进入条件（允许 %s）" % ", ".join(ENTER_KEYS))

@@ -1,9 +1,10 @@
 # V2 core 接口契约（UI / sim 对接用）
 
-> 状态：V2-CORE-1（task-44）+ V2-CORE-2（task-47，第一关端到端流程）实现完成。
+> 状态：V2-CORE-1（task-44）+ V2-CORE-2（task-47，第一关端到端流程）+
+> V2-CORE-3（task-50：教学门控/损管/回放/执行窗口/声望/站体储罐）实现完成。
 > 文件：`game_v16/core/*`、`content/*.json`、`sim/observation_bridge.gd`、
-> `tests/core_probe.gd`、`tests/flow_probe.gd`。
-> 本文件是 UI（V2-3）与 sim（V2-SENSOR）对接 core 的唯一接口说明。
+> `tests/core_probe.gd`、`tests/flow_probe.gd`、`tests/systems_probe.gd`。
+> 本文件是 UI（V2-4）与 sim（V2-SENSOR）对接 core 的唯一接口说明。
 > 原则：UI 只读 view-model / 明确命令方法；core 不引用 UI、不做传感器数学、不模拟武器。
 
 ## 0　装载流程（UI 启动）
@@ -23,11 +24,16 @@ var out := world.advance(delta)   # 时间线 + 证据任务 + 命令队列 + �
 # mission 也可由 world.advance_mission(n) 显式推进；mission_auto=false 关闭自动推进。
 ```
 
-- `world.advance()` 返回 `{orders, tracks, events, radio, tasks, phase, frozen}`；
+- `world.advance()` 返回 `{orders, tracks, events, radio, tasks, damage, phase, frozen}`；
   `frozen=true` 时世界不推进（前置航行未完成 / 任务已结束）。
 - **前置航行门控**：`world.vm_state().prelude_open==true` 时时间冻结，需先走
   `prelude_choose_route/window → prelude_confirm → prelude_execute`（或 `prelude_skip()`）。
   自动化/截图钩子：环境变量 `DSH_SKIP_PRELUDE=1` 会在装载时自动跳过并置 `prelude_executed`。
+- **教学门控（V2-CORE-3）**：`world.vm_tutorial()`；DECISION 打开前需完成
+  `story.tutorial.required_actions` 中至少 `min_required` 项关键识别。未满足时
+  `world.open_decision()` 返回 `{ok:false, reason, gated:true}` 并挂起 pending，
+  玩家 `perform_action` 补完后自动打开。自动化/截图钩子：`DSH_SKIP_TUTORIAL=1` 禁用门控
+  （此时 `vm_tutorial().enabled=false`）。
 - `world.errors` 是致命问题（场景/内容/规则校验失败），`world.warnings` 是迁移默认值等提示。
 - `V2Mission.new()` 仍可用（无场景的 7 阶段骨架，只保证 V2-0 app.gd 的 TAB 兼容）；
   正式流程必须用 `V2Mission.from_scenario()` + `world.attach_mission()`。
@@ -331,3 +337,103 @@ fire_release / report_submitted / audit_flag / civilians_evacuated`。
 
 UI 读取：`world.recent_events(n)` / `world.recent_radio(n)` / `world.vm_state()`（含
 phase/phase_kind/prelude_open/decision_open/report_submitted/ended/time_frozen/audit_flag）。
+
+## 11　V2-CORE-3：教学门控 / 损管 / 回放 / 执行窗口 / 声望 / 站体储罐
+
+### 11.1　教学门控（story.tutorial）
+
+内容（`content/story_l1.json` → `story.tutorial`）：
+
+```json
+{"enabled": true, "required_actions": ["crossfix", "radar_illum", "model_ident", "iff_query"],
+ "min_required": 2, "title": "...", "hint": "...", "done_text": "...",
+ "step_labels": {"crossfix": "交叉定位", "...": "..."}}
+```
+
+- `world.vm_tutorial()` →
+  `{enabled, ready, title, hint, done_text, required_actions, min_required,
+    completed:[{id,label,at}], missing:[{id,label}], progress:{done,need},
+    decision_pending, actions:[{id,label,done,at,available,reason}]}`
+- `world.tutorial_ready()`：门控满足返回 true（未启用时恒 true）。
+- `perform_action` 成功时自动记录命中的 required action（不自动完成任何识别）。
+- `open_decision()` 在未满足时返回 `{ok:false, reason:"教学门控：识别不足（x/y）…",
+  gated:true, tutorial:{...}}` 并写入日志、置 `flow.decision_pending=true`；
+  玩家补完识别后自动打开决策（`flow.decision_pending=false`）。
+- 自动化/截图：`DSH_SKIP_TUTORIAL=1` 禁用门控（`vm_tutorial().enabled=false`）。
+- UI：决策入口按 `ready` 置灰 + 显示 reason；教学清单用 `actions/completed/missing`。
+
+### 11.2　损管（entity.damage_sections / damage_queue）
+
+内容（`content/scenario_l1_v2.json` → `damage`）：
+
+```json
+{"repair_rate_s": 120.0,
+ "initial": [{"id":"sensor_cal","label":"传感器校准漂移","state":"degraded","severity":0.35,"repair_eta_s":120},
+             {"id":"ir_false_alarm","label":"CH-IR2 虚警率偏高","state":"degraded","severity":0.2,"repair_eta_s":60},
+             {"id":"thermal","label":"热控回路温度偏高","state":"damaged","severity":0.5,"repair_eta_s":180}]}
+```
+
+- `world.vm_damage()` →
+  `{entity_id, entity_name, repair_rate_s,
+    sections:[{id,label,state,severity,severity_pct,repair_eta_s,repair_remaining_s,
+               progress,can_repair,started_t,entity_id}],
+    queue:[id...], summary:{total,damaged,degraded,repairing,repaired,needs_attention}}`
+- `world.start_repair(id)` → `{ok,reason,section}`（一次一项；重复/已修复会拒绝）。
+- `world.apply_damage(id, severity, label="", entity_id="")`：剧情/调试施加或加重损伤
+  （severity 0–1；已有项取较大值；repair_eta 按 severity×repair_rate 估算）。
+- `world.advance_damage(dt)`：推进维修（`world.advance` 已自动调用，返回 `out.damage` 完成列表）。
+- 实体侧：`entity.damage_sections / damage_queue`；`vm_entity(id)` 含这两项。
+- 只做状态/进度，不伪造战斗结果、不影响火控（无武器）。
+
+### 11.3　回放（只读帧；不推进世界）
+
+- `world.vm_replay()` →
+  `{recording, playing, paused, index, total, interval_s, t,
+    current:{帧}, frames:[{index,t,phase,kind,decision_made,ended}]}`
+- 帧字段：`t / own{id,name,damage}/ contacts[{track_id,entity_id,level,identity,range_km,bearing_deg,stale}] /
+  events_count / last_event / orders{total,counts} / evidence{done,total} /
+  flow{phase,phase_kind,prelude_executed,decision_open,decision_made,report_submitted,ended} /
+  exec_left / damage{summary}`；**不含武器数据**。
+- 写入策略：每 `interval_s`（默认 1s）或关键事件（动作/决策/报告/取证/损管）写一帧；
+  buffer 上限 900 帧。
+- `replay_start() / replay_pause() / replay_stop() / replay_seek(t_s) /
+  replay_seek_index(i) / replay_frame() / replay_clear()`；回放定位不改 `world.t`。
+- UI：回放期间请冻结仿真（不要调用 `world.advance`），退出回放恢复。
+
+### 11.4　执行窗口 / 声望
+
+- 内容：`scenario_l1_v2.json` → `exec_window: {"duration_s": 360}`；`story.endings[].reputation`
+  与 `story.fire_option.reputation` 为五方差量。
+- `world.exec_window_s` / `world.exec_left()` / `world.exec_pct()`；`vm_flow()` 与
+  `vm_state()` 均提供 `exec_window_s / exec_left / exec_pct`。
+- 决策前倒计时；`choose_ending` 时冻结剩余（`flow.decision.exec_left`）。
+- 声望五方：`ocu / meridian / ueg_doves / outer / reclaimers`，基线来自 `story.reputation`，
+  `choose_ending` 应用结局差量（-100..100），`reputation_settled=true`；
+  结局缺 reputation 数据时返回基线并 `reputation_settled=false`。
+- `end_summary()` 新增：`reputation, reputation_settled, reputation_base, exec_window_s,
+  exec_left, damage, tutorial`。
+
+### 11.5　Chronos 站体 / 储罐数据（固定设施，不伪造推进）
+
+内容 `scenario_l1_v2.json` 新增（entities 7→9，tracks 8→10，contacts 10）：
+
+| 实体 | kind | track id | side | orbit | meta |
+| --- | --- | --- | --- | --- | --- |
+| `chronos_station` | `station` | `0100` | neutral | r=[180,210,8] v=[0,0,0] | icon=station, size_km=1.2 |
+| `tank_farm` | `tank` | `0101` | neutral | r=[182,214,8] v=[0,0,0] | icon=tank, size_km=0.8, tanks=3 |
+
+- `V2Entity.is_fixed()`（tags 含 fixed 或 v≈0）/ `icon()` / `size_km()` / `display_kind()`。
+- `vm_contacts()` 行新增：`kind / display_kind / icon / size_km / fixed / entity_tags /
+  orbit_source="fixed"`（UI 画站体/储罐标记用；sim 侧按 fixed 不画推进）。
+
+### 11.6　测试
+
+```powershell
+tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless --path game_v16 --quit
+tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless --path game_v16 --script res://tests/core_probe.gd
+# V2-1 CORE PROBE RESULT: PASS=277 FAIL=0
+tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless --path game_v16 --script res://tests/flow_probe.gd
+# V2-CORE-2 FLOW PROBE RESULT: PASS=182 FAIL=0
+tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless --path game_v16 --script res://tests/systems_probe.gd
+# V2-CORE-3 SYSTEMS PROBE RESULT: PASS=114 FAIL=0
+```
