@@ -1,0 +1,734 @@
+{
+  "schema": "scenario.v0",
+  "id": "l1_supervision",
+  "title": "第一关 · 越权回收 · L1 Meridian-05 Chronos",
+  "_comment": "P2a（D2）：四位数批号 + 身份/威胁 + 第七号令 + OCJC/OCUVF 内部事后报告；单位 L1 站心 km/km/s；几何/传感器/时间线沿用 P1j。",
+  "epoch": 760.8,
+  "datum": "L1",
+  "own_ship": "harmattan",
+  "timeline": {
+    "radar_on_t": 20.0,
+    "optical_on_t": 46.0,
+    "iff_on_t": 62.0,
+    "phantom_true_t": 12.0
+  },
+  "false_alarm": {
+    "sensor": "CH-IR2",
+    "owner": "harmattan",
+    "bearing_deg": 302.0,
+    "batch": "9002",
+    "kind": "残骸/反射",
+    "note": "已交叉确认 · 无威胁（残骸/反射）"
+  },
+  "ships": [
+    {
+      "id": "apsis",
+      "batch": "1000",
+      "name": "远地点",
+      "name_en": "APSIS",
+      "ship_class": "远地点级",
+      "role": "船坞舰",
+      "builder": "泉州重工",
+      "faction": "OCUVF · ID13",
+      "rack": "apsis"
+    },
+    {
+      "id": "harmattan",
+      "batch": "1001",
+      "name": "哈马丹",
+      "name_en": "HARMATTAN",
+      "ship_class": "托盘-5 改",
+      "role": "哨舰",
+      "builder": "车肆重工",
+      "faction": "OCUVF · ID13",
+      "rack": "harmattan",
+      "own": true
+    },
+    {
+      "id": "ferry",
+      "batch": "1002",
+      "name": "渡口",
+      "name_en": "FERRY",
+      "ship_class": "赤铁-6 改",
+      "role": "炮舰",
+      "builder": "永昼机械",
+      "faction": "OCUVF · ID13",
+      "rack": "ferry"
+    },
+    {
+      "id": "watchtower",
+      "batch": "1003",
+      "name": "望楼",
+      "name_en": "WATCHTOWER",
+      "ship_class": "安海-1",
+      "role": "中继舰",
+      "builder": "泉州重工",
+      "faction": "OCUVF · ID13",
+      "rack": "watchtower"
+    },
+    {
+      "id": "deepwell",
+      "batch": "1004",
+      "name": "深井",
+      "name_en": "DEEPWELL",
+      "ship_class": "月港-4",
+      "role": "油船",
+      "builder": "泉州重工",
+      "faction": "OCUVF · ID13",
+      "rack": "deepwell"
+    },
+    {
+      "id": "summons_4471",
+      "batch": "2001",
+      "name": "AV-4412 传唤者",
+      "name_en": "AV-4412",
+      "ship_class": "传唤级",
+      "role": "通报舰",
+      "builder": "第33舰队改装",
+      "faction": "UEG 第33舰队",
+      "rack": "summons_4471"
+    },
+    {
+      "id": "ceres_2",
+      "batch": "9001",
+      "name": "谷神-2",
+      "name_en": "CERES-2",
+      "ship_class": "谷神改",
+      "role": "民用工作船",
+      "builder": "远环合作社",
+      "faction": "民用",
+      "rack": "ceres_2"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "1000",
+      "batch": "1000",
+      "name": "远地点",
+      "en": "APSIS",
+      "cls": "远地点级",
+      "role": "船坞舰",
+      "side": "friend",
+      "identity": "friend",
+      "level": 4,
+      "own": false,
+      "r": [
+        -190.0,
+        255.0,
+        62.0
+      ],
+      "v": [
+        -0.05,
+        -0.06,
+        0.01
+      ],
+      "age": 1.0,
+      "off": [
+        10.0,
+        -30.0
+      ],
+      "threat": "none"
+    },
+    {
+      "id": "1001",
+      "batch": "1001",
+      "name": "哈马丹",
+      "en": "HARMATTAN",
+      "cls": "托盘-5 改",
+      "role": "哨舰",
+      "side": "friend",
+      "identity": "friend",
+      "level": 4,
+      "own": true,
+      "r": [
+        2.0,
+        -3.0,
+        0.0
+      ],
+      "v": [
+        0.22,
+        -0.12,
+        0.03
+      ],
+      "age": 0.0,
+      "off": [
+        16.0,
+        14.0
+      ],
+      "threat": "none"
+    },
+    {
+      "id": "1002",
+      "batch": "1002",
+      "name": "渡口号",
+      "en": "FERRY",
+      "cls": "赤铁-6 改",
+      "role": "炮舰",
+      "side": "friend",
+      "identity": "friend",
+      "level": 4,
+      "r": [
+        -31.914,
+        60.045,
+        -4.0
+      ],
+      "v": [
+        -0.0607,
+        -0.0775,
+        0.0074
+      ],
+      "age": 1.0,
+      "off": [
+        -72.0,
+        -20.0
+      ],
+      "threat": "none"
+    },
+    {
+      "id": "1003",
+      "batch": "1003",
+      "name": "望楼号",
+      "en": "WATCHTOWER",
+      "cls": "安海-1",
+      "role": "中继舰",
+      "side": "friend",
+      "identity": "friend",
+      "level": 4,
+      "r": [
+        19.957,
+        93.902,
+        38.0
+      ],
+      "v": [
+        -0.1174,
+        0.025,
+        0.02
+      ],
+      "age": 1.0,
+      "off": [
+        16.0,
+        -18.0
+      ],
+      "threat": "none"
+    },
+    {
+      "id": "1004",
+      "batch": "1004",
+      "name": "深井号",
+      "en": "DEEPWELL",
+      "cls": "月港-4",
+      "role": "油船",
+      "side": "friend",
+      "identity": "friend",
+      "level": 4,
+      "r": [
+        205.0,
+        -270.0,
+        -26.0
+      ],
+      "v": [
+        0.045,
+        0.06,
+        -0.005
+      ],
+      "age": 1.0,
+      "off": [
+        14.0,
+        12.0
+      ],
+      "threat": "none"
+    },
+    {
+      "id": "2001",
+      "batch": "2001",
+      "name": "AV-4412 传唤者",
+      "en": "AV-4412",
+      "cls": "传唤级",
+      "role": "通报舰",
+      "side": "hostile",
+      "identity": "unknown",
+      "level": 1,
+      "r": [
+        208.602,
+        240.0,
+        12.0
+      ],
+      "v": [
+        -1.1683,
+        -0.5067,
+        -0.0634
+      ],
+      "age": 2.0,
+      "off": [
+        26.0,
+        -40.0
+      ],
+      "threat": "pending"
+    },
+    {
+      "id": "9001",
+      "batch": "9001",
+      "name": "谷神-2",
+      "en": "CERES-2",
+      "cls": "谷神改",
+      "role": "民用工作船",
+      "side": "unknown",
+      "identity": "pending",
+      "level": 1,
+      "r": [
+        229.598,
+        -122.086,
+        -6.0
+      ],
+      "v": [
+        0.0505,
+        0.0524,
+        -0.0005
+      ],
+      "age": 12.0,
+      "off": [
+        16.0,
+        12.0
+      ],
+      "threat": "none"
+    }
+  ],
+  "sensors": {
+    "apsis": [
+      {
+        "model": "MS-IR9",
+        "on": true
+      },
+      {
+        "model": "MS-OT2",
+        "on": true
+      },
+      {
+        "model": "MK-12",
+        "on": false
+      },
+      {
+        "model": "ELINT",
+        "on": true
+      }
+    ],
+    "harmattan": [
+      {
+        "model": "YW-R9",
+        "on": false
+      },
+      {
+        "model": "MS-OT2",
+        "on": true
+      },
+      {
+        "model": "CH-IR2",
+        "on": true
+      },
+      {
+        "model": "ELINT",
+        "on": true
+      },
+      {
+        "model": "CH-R0",
+        "on": true
+      }
+    ],
+    "ferry": [
+      {
+        "model": "CH-IR2",
+        "on": true
+      },
+      {
+        "model": "LR-4",
+        "on": false
+      },
+      {
+        "model": "CH-R0",
+        "on": true
+      }
+    ],
+    "watchtower": [
+      {
+        "model": "MS-L2",
+        "on": true
+      },
+      {
+        "model": "CH-R0",
+        "on": true
+      }
+    ],
+    "summons_4471": [
+      {
+        "model": "YW-R9",
+        "on": false
+      },
+      {
+        "model": "MK-12",
+        "on": false
+      },
+      {
+        "model": "ELINT",
+        "on": true
+      },
+      {
+        "model": "CH-R0",
+        "on": true
+      }
+    ],
+    "ceres_2": [
+      {
+        "model": "CH-R0",
+        "on": true
+      }
+    ],
+    "deepwell": [
+      {
+        "model": "CH-R0",
+        "on": true
+      }
+    ]
+  },
+  "initial_commands": [
+    {
+      "unit": "哈马丹",
+      "action": "SHADOW",
+      "target": "9001",
+      "issue_t": 0.0,
+      "params": {
+        "hold_km": 60.0
+      }
+    },
+    {
+      "unit": "哈马丹",
+      "action": "BURN",
+      "issue_t": 0.0,
+      "params": {
+        "exec_t": 6.2,
+        "dv_ms": 84.0,
+        "brg": 340.0,
+        "elev": 20.0
+      }
+    }
+  ],
+  "story": {
+    "decision_t": 300.0,
+    "decision_prompt": "指挥官，执行窗口剩余 {mm:ss}。清算者正要求接管 Chronos 储罐与航道；Chronos 港务正请求先撤出人员；渡口号已请求武器释放授权。注意 ID13 没有执法权，但必须在窗口结束前作出决定。请下令。",
+    "notice": {
+      "title": "第七号令接管声明 · AV-4412 传唤者",
+      "body": "本舰受第33轨道特别独立舰队指派，依据《轨道宪章》与第七号轨道紧急托管令，将执行接管 Chronos 加注站、储罐群与进港航道作业。请 ID13 立即撤出检查边界，不得妨碍执行。本声明不构成威胁。完毕。",
+      "from": "AV-4412 传唤者",
+      "to": "远地点号",
+      "mode": "RDO",
+      "t": 0.0
+    },
+    "reputation": {
+      "ocu": 0,
+      "meridian": 0,
+      "ueg_doves": 0,
+      "outer": 0,
+      "reclaimers": 0
+    },
+    "endings": [
+      {
+        "kind": "HOLD",
+        "code": "A",
+        "label": "坚守 / HOLD",
+        "hint": "保持位置，拒绝让出储罐区与航道，将接管程序拖入 UEG 复核。"
+      },
+      {
+        "kind": "EVACUATE",
+        "code": "B",
+        "label": "人员撤离 / EVACUATE",
+        "hint": "撤出 Chronos 人员与可移动储罐，保留记录，允许清算者接管空间站。"
+      },
+      {
+        "kind": "EXPOSE",
+        "code": "C",
+        "label": "曝光 / EXPOSE",
+        "hint": "向 OCJC 监察与 UEG 轨道事务委员会提交证据，请求联合调查。"
+      }
+    ],
+    "decision_replies": {
+      "HOLD": {
+        "from": "远地点号",
+        "to": "接管官 科尔",
+        "mode": "LD",
+        "text": "依据 OCJC 授权，ID13 要求暂停 Chronos 接管程序，并等待轨道事务委员会复核。ID13 不会首先开火，但不会让出储罐区。完毕。"
+      },
+      "EVACUATE": {
+        "from": "远地点号",
+        "to": "Chronos 港务 / 全港",
+        "mode": "RDO",
+        "text": "Chronos 各岗位注意，ID13 已组织人员与可移动储罐撤离；请港务按名单引导，优先处理伤员与家属撤离。ID13 不阻碍对空间站的接管。完毕。"
+      },
+      "EXPOSE": {
+        "from": "远地点号",
+        "to": "OCJC 监察 / UEG 轨道事务委员会",
+        "mode": "LD",
+        "text": "ID13 已取得 Chronos 爆炸遥测与核查组记录副本，并记录到与第33舰队公开记录不符的未登记特征码。请求展开联合调查。原始记录已保存，可随时移交。完毕。"
+      },
+      "FIRE": {
+        "from": "远地点号",
+        "to": "全队",
+        "mode": "LD",
+        "text": "授权武器释放，目标 2001；确认交战规则状态。完毕。"
+      }
+    },
+    "consequence_fire": "武器释放授权已下达。渡口号对 2001 实施两发轨道炮射击。交火导致 Chronos 储罐区二次火灾，站体与储罐受损，平民伤亡 12 人。第33舰队正式宣布 ID13 为未登记武装并请求增援；UEG 中央安全委员会将事件定性为对联合政府的武装袭击。武器释放记录、传感器日志与通信记录已封存。",
+    "report_unit": "OCUVF-ID13 指挥官",
+    "report_event": "L1 Meridian-05 Chronos · 第七号轨道紧急托管令（第九天）",
+    "report_evidence": "传感器日志、命令队列、通信记录、港务与核查组黑匣子。",
+    "report_bodies": {
+      "HOLD": "ID13 于执行窗口内保持对 Chronos 储罐区与进港航道的卡位，未让出检查边界，未首先开火。清算者的最终接管程序未完成；ID13 依据 OCJC 授权要求轨道事务委员会复核第七号令。",
+      "EVACUATE": "ID13 于执行窗口内组织 Chronos 值守人员、家属与可移动储罐撤离；撤离过程中未发生交火。储罐区现已由清算者接管，ID13 已保留人员与资产记录。",
+      "EXPOSE": "ID13 在执行窗口内取得 Chronos 港务遥测、核查组记录副本与未登记特征码，已向 OCJC 监察与 UEG 轨道事务委员会提交联合调查请求。ID13 并未首先开火；储罐区已移交清算者控制。",
+      "FIRE": "ID13 在执行窗口内授权对 2001 实施武器释放。射击引发 Chronos 储罐区二次火灾，站体与储罐受损，平民伤亡 12 人。第33舰队将 ID13 定性为未登记武装；联合政府宣布事件为武装攻击。"
+    },
+    "report_recommend": {
+      "HOLD": "建议保存通信与命令记录，准备复核材料。",
+      "EVACUATE": "建议核对撤离名单，建立人道记录。",
+      "EXPOSE": "建议保存原始证据，准备听证材料。",
+      "FIRE": "建议封存武器释放记录与传感器日志，等待审查。"
+    },
+    "report_fake": {
+      "FIRE": "ID13 在执行窗口内未实施武器释放。Chronos 储罐区损伤系第七号令发布当日爆炸的后续影响；谷神-2（9001）因自身推进系统故障解体，未发现外部武器作用痕迹。ID13 已完成人员撤离并提交记录。建议按程序归档。"
+    },
+    "events": [
+      {
+        "t": 0.0,
+        "type": "notice",
+        "text": "第七号令接管声明送达 · AV-4412 传唤者（2001）"
+      },
+      {
+        "t": 12.0,
+        "type": "false_alarm",
+        "text": "MS-IR9 交叉确认：302° 回波为 9002 无威胁目标（残骸/反射）"
+      },
+      {
+        "t": 20.0,
+        "type": "radar_on",
+        "text": "命令：远地点号 → 哈马丹号，YW-R9 搜索雷达开机（辐射暴露）"
+      },
+      {
+        "t": 46.0,
+        "type": "optical",
+        "text": "光学分类完成：[2001] 传唤级 · 第33舰队 · 可疑；[9001] 谷神-2 · 民用工作船 · 中立"
+      },
+      {
+        "t": 62.0,
+        "type": "iff",
+        "text": "MK-12 敌我识别：[9001] 登记谷神-2 · 无应答状态"
+      },
+      {
+        "t": 75.0,
+        "type": "decision",
+        "text": "执行窗口即将关闭 · 请做出抉择"
+      }
+    ],
+    "radio_lines": [
+      {
+        "t": 0.0,
+        "from": "Greenwich 海关官",
+        "to": "全港",
+        "mode": "RDO",
+        "text": "第七号轨道紧急托管令现予公告：凡失能、受威胁或被敌方渗透的加注站、储罐、船坞与航道，可由联合政府指定部队接管，直至紧急状态结束。Chronos 加注站及储罐区现处于紧急状态范围，将按托管令接受托管。完毕。"
+      },
+      {
+        "t": 0.0,
+        "from": "Sextant 进港调度",
+        "to": "ID13",
+        "mode": "RDO",
+        "text": "Chronos 储罐区与进港航道已划为管制区。请 ID13 于 50 km 检查边界外待命，不得擅自进入。完毕。"
+      },
+      {
+        "t": 0.0,
+        "from": "远地点号",
+        "to": "全队",
+        "mode": "LD",
+        "text": "我部已抵达 Meridian。当前任务：保护 Chronos 储罐区人员与可移动资产。遵守 ROE，不得首先开火。完毕。"
+      },
+      {
+        "t": 0.0,
+        "from": "AV-4412 传唤者",
+        "to": "远地点号",
+        "mode": "RDO",
+        "text": "本舰受第33轨道特别独立舰队指派，依据《轨道宪章》与第七号轨道紧急托管令，将执行接管 Chronos 加注站、储罐群与进港航道作业。请 ID13 立即撤出检查边界，不得妨碍执行。本声明不构成威胁。完毕。"
+      },
+      {
+        "t": 12.0,
+        "from": "哈马丹号",
+        "to": "远地点号",
+        "mode": "LD",
+        "text": "[9001] 敌我识别未应答，须进一步确认。完毕。"
+      },
+      {
+        "t": 20.0,
+        "from": "远地点号",
+        "to": "哈马丹号",
+        "mode": "LD",
+        "text": "使用雷达与光学识别 [9001]。完毕。"
+      },
+      {
+        "t": 21.0,
+        "from": "哈马丹号",
+        "to": "远地点号",
+        "mode": "LD",
+        "text": "收到，正在进行识别，等待数据返回。完毕。"
+      },
+      {
+        "t": 30.0,
+        "from": "接管官 科尔",
+        "to": "远地点号",
+        "mode": "RDO",
+        "text": "ID13 指挥官，我是第33舰队前线接管官科尔。执行程序已经开始。ID13 不在联合政府登记名册内，本舰队不承认 ID13 的执法权。请在执行窗口结束前离开管制区。完毕。"
+      },
+      {
+        "t": 40.0,
+        "from": "Chronos 港务",
+        "to": "远地点号",
+        "mode": "RDO",
+        "text": "储罐区仍有值守人员与家属；三号罐仍在持续泄漏，我方暂时无法进行接送。请求 ID13 先协助无关人员撤离，不要拖走储罐。完毕。"
+      },
+      {
+        "t": 46.0,
+        "from": "远地点号",
+        "to": "全体",
+        "mode": "LR",
+        "text": "光学分类完成：[2001] 传唤级，第33舰队所属，可疑；[9001] 谷神-2，民用工作船，应答机故障，中立。注意交战规则，不得首先开火。完毕。"
+      },
+      {
+        "t": 60.0,
+        "from": "渡口号",
+        "to": "远地点号",
+        "mode": "LD",
+        "text": "[2001] 仍不应答。按交战规则属潜在威胁目标。请求武器释放授权。完毕。"
+      },
+      {
+        "t": 62.0,
+        "from": "远地点号",
+        "to": "全体",
+        "mode": "LD",
+        "text": "MK-12 敌我识别：[9001] 识别结果 · 谷神-2 · 无应答状态。"
+      }
+    ],
+    "evidence_tasks": {
+      "port_telemetry": {
+        "label": "港务遥测",
+        "duration": 30.0,
+        "shuttle": false,
+        "risk": "由港务值班组远程发送；通信链路受 Sextant 管制。",
+        "start_text": "RDO 请求 Chronos 港务发送港务遥测副本。",
+        "done_text": "已收到 Chronos 港务遥测副本（证据：port_telemetry）。"
+      },
+      "inspection_blackbox": {
+        "label": "核查组黑匣子",
+        "duration": 75.0,
+        "shuttle": true,
+        "risk": "穿梭机需进入清算者管制区，有被驱逐或扣押风险。",
+        "start_text": "派穿梭机/登舰小队前往 Chronos 取核查组记录黑匣子。",
+        "done_text": "取得 UEG 核查组记录黑匣子（证据：inspection_blackbox）。"
+      },
+      "elint_signature": {
+        "label": "异常 ELINT 特征码",
+        "duration": 45.0,
+        "shuttle": false,
+        "risk": "需哈马丹号保持被动监听，期间不能关机。",
+        "start_text": "命令哈马丹号收集异常 ELINT 特征码。",
+        "done_text": "哈马丹号记录到无法归档的异常特征码（证据：elint_signature）。"
+      },
+      "evacuation": {
+        "label": "撤出 Chronos 人员",
+        "duration": 60.0,
+        "shuttle": true,
+        "risk": "派出穿梭机往返；不能与黑匣子任务同时进行。",
+        "start_text": "派穿梭机撤出 Chronos 值守人员与家属。",
+        "done_text": "Chronos 值守人员与家属已撤离（civilians_evacuated）。"
+      }
+    },
+    "adjutant_request": {
+      "title": "副官建议 · 取证与撤离",
+      "body": "指挥官，港务遥测数据可远程拉取请求；核查组黑匣子与撤人需要派遣穿梭机，同一时间只能执行一项。",
+      "options": [
+        {
+          "kind": "telemetry",
+          "label": "请求港务遥测（30 s）",
+          "hint": "RDO；无穿梭机风险"
+        },
+        {
+          "kind": "blackbox",
+          "label": "取回核查组黑匣子（75 s）",
+          "hint": "派穿梭机进入管制区；有风险"
+        },
+        {
+          "kind": "evacuate",
+          "label": "撤出 Chronos 人员（60 s）",
+          "hint": "派穿梭机撤出人员；降低平民伤亡"
+        },
+        {
+          "kind": "decline",
+          "label": "暂不处理",
+          "hint": "继续观察"
+        }
+      ]
+    },
+    "prelude": {
+      "title": "前置航行 · L4-02 Hammer → L1 Meridian",
+      "body": "ID13 在母港 L4-02 Hammer 完成交接，接到 OCUVF 本部命令前往 L1 Meridian 作为谈判主力介入 Chronos 事件。设定目的地并选择变轨窗口；执行前不会推进仿真时间。",
+      "routes": [
+        {
+          "id": "meridian",
+          "label": "L1 Meridian（Chronos 现场）",
+          "ok": true,
+          "dv_ms": 120.0,
+          "hint": "OCUVF 本部命令的目标；Chronos 现场需要 ID13 的存在进行谈判。"
+        },
+        {
+          "id": "karman",
+          "label": "L2 Karman（中继方向）",
+          "ok": false,
+          "dv_ms": 140.0,
+          "hint": "Karman 是港群中继/观测方向，与 Chronos 现场不符；本部要求前往 Meridian。"
+        }
+      ],
+      "windows": [
+        {
+          "id": "t1800",
+          "label": "T+18:00 变轨窗口",
+          "ok": true,
+          "dv_ms": 0.0,
+          "hint": "最优窗口；Δv 消耗低，可在清算者部队执行接管前抵达 Meridian 外缘。"
+        },
+        {
+          "id": "t0200",
+          "label": "T+02:00 变轨窗口",
+          "ok": false,
+          "dv_ms": 30.0,
+          "hint": "窗口过紧，需额外 Δv 且抵达时间不可控；不建议。"
+        }
+      ],
+      "confirm_text": "目的地与变轨窗口已选择；确认后执行点火，Δv 将从预算中扣除。",
+      "execute_text": "点火已执行。ID13 正离开 L4-02 Hammer，进入 L1 Meridian 转移轨道；抵达后开始执行介入任务。",
+      "done_comm": [
+        {
+          "from": "Hammer 港务调度",
+          "to": "ID13",
+          "mode": "RDO",
+          "text": "离港许可已签发；转移轨道已净空。一路顺风。完毕。"
+        },
+        {
+          "from": "OCUVF 本部",
+          "to": "ID13",
+          "mode": "LD",
+          "text": "你已被任命为第13独立分遣群指挥官。现命令 ID13 立即前往 Meridian，作为谈判主力介入 Chronos 储罐爆炸事件。OCJC 授权：遵守ROE，不得首先开火。完毕。"
+        },
+        {
+          "from": "远地点号",
+          "to": "全队",
+          "mode": "LD",
+          "text": "航线已设定：L4 Hammer → L1 Meridian。执行变轨后进入巡航。抵达 Meridian 前完成态势感知准备。完毕。"
+        }
+      ]
+    }
+  }
+}

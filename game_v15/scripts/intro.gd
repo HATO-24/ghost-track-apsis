@@ -59,6 +59,7 @@ var _cfg := ConfigFile.new()
 var _demo := false
 var _demo_started := false
 var _sfx_stage := 0
+var _cg_event_stage := 0
 
 # ── 确定性视觉素材 ────────────────────────────────────
 var _stars: Array = []         # [{p:Vector2, a:float, s:int}]
@@ -77,8 +78,8 @@ func _ready() -> void:
 	_build_visuals()
 	_parse_env()
 	_demo = OS.get_environment("DSH_DEMO") == "1"
-	if _state == "cg" and _style == "marathon":
-		_audio("play_bgm", "game")
+	if _state == "cg":
+		_audio("sfx", "cg_ambience")
 	queue_redraw()
 
 func _load_settings() -> void:
@@ -191,6 +192,7 @@ func _forward_to_main() -> void:
 	get_tree().change_scene_to_file("res://main.tscn")
 
 func _enter_menu_audio_only() -> void:
+	_audio("stop_sfx", "cg_ambience")
 	_audio("play_bgm", "menu")
 
 func _enter_menu() -> void:
@@ -209,6 +211,14 @@ func _process(delta: float) -> void:
 			if ct >= float(marks[i]) and _sfx_stage <= i:
 				_sfx_stage = i + 1
 				_audio("sfx", "boot" if i == 0 else "hard_cut")
+				break
+		# 底层环境里再点几处遥测/截获，避免只有硬切声。
+		var ev_marks := [1.2, 4.4, 6.6, 8.1] if _style == "terminal" else [1.0, 4.5, 7.4, 10.8, 14.2]
+		var ev_names := ["sys_comms_rx", "sys_radar_ping", "sys_elint", "sys_cmd_exec", "sys_comms_rx"]
+		for i in range(ev_marks.size()):
+			if ct >= float(ev_marks[i]) and _cg_event_stage <= i:
+				_cg_event_stage = i + 1
+				_audio("sfx", ev_names[i % ev_names.size()])
 				break
 		if ct >= _cg_total():
 			_enter_menu()

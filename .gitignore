@@ -12,3 +12,5 @@ Thumbs.db
 
 mockups/_*
 mockups/*.log
+
+/build/

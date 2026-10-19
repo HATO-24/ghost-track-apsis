@@ -37,7 +37,7 @@ const SFX_NAMES := [
 	"sys_boot", "sys_sensor_on", "sys_sensor_off", "sys_radar_ping", "sys_elint",
 	"sys_comms_rx", "sys_cmd_queued", "sys_cmd_tx", "sys_cmd_exec",
 	"sys_evidence_start", "sys_evidence_done", "sys_evac_start", "sys_evac_done",
-	"sys_clock_tick", "alarm", "alarm_decision", "alarm_lock", "alarm_fire", "alarm_damage",
+	"sys_clock_tick", "cg_ambience", "alarm", "alarm_decision", "alarm_lock", "alarm_fire", "alarm_damage",
 	"fire", "hard_cut", "boot",
 ]
 
@@ -124,6 +124,19 @@ func _load_assets() -> void:
 
 func _load_wav(name: String, loop: bool) -> AudioStreamWAV:
 	var path := BGM_DIR + name + ".wav"
+	# 导出后 .wav 会变成导入资源；优先 load，编辑器/headless 下再回退到原始 PCM 解析。
+	if ResourceLoader.exists(path):
+		var res = load(path)
+		if res is AudioStreamWAV:
+			var st0: AudioStreamWAV = res
+			if loop:
+				st0.loop_mode = AudioStreamWAV.LOOP_FORWARD
+				st0.loop_begin = 0
+				var ch := 2 if st0.stereo else 1
+				st0.loop_end = st0.data.size() / (2 * ch)
+			else:
+				st0.loop_mode = AudioStreamWAV.LOOP_DISABLED
+			return st0
 	if not FileAccess.file_exists(path):
 		return null
 	var f := FileAccess.open(path, FileAccess.READ)
@@ -232,6 +245,17 @@ func sfx(name: String) -> bool:
 	p.stream = _sfx_streams[key]
 	p.play()
 	return true
+
+
+func stop_sfx(name: String) -> void:
+	_setup()
+	var key := name.to_lower()
+	if not _sfx_streams.has(key):
+		return
+	var st: AudioStream = _sfx_streams[key]
+	for p in _sfx_pool:
+		if p.stream == st:
+			p.stop()
 
 
 # ── 音量 / 静音 ────────────────────────────────────────
