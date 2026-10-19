@@ -182,7 +182,10 @@ func _window_selftest() -> void:
 # P9a：16:9 letterbox。SubViewport 固定 1920×1080，容器按窗口可用区域等比居中缩放；
 # 鼠标坐标按容器实际矩形映射回 1920×1080，letterbox 黑边不接收点击。
 func _layout_viewport() -> void:
-	var win := Vector2(get_window().size)
+	# 用 Control 的逻辑尺寸，而不是 window 物理尺寸；否则窗口缩放后鼠标事件坐标会被错算。
+	var win := size
+	if win.x < 2.0 or win.y < 2.0:
+		win = Vector2(get_window().size)
 	if win.x < 2.0 or win.y < 2.0:
 		return
 	var sc := minf(win.x / float(BASE.x), win.y / float(BASE.y))

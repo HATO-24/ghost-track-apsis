@@ -288,6 +288,18 @@ func _set_volume_from_x(x: float) -> void:
 		_audio("sfx", "ui_confirm")
 
 func _handle_key(k: int) -> void:
+	if k == KEY_F11:
+		var w := get_window()
+		if w.mode == Window.MODE_EXCLUSIVE_FULLSCREEN:
+			w.mode = Window.MODE_WINDOWED
+			w.size = Vector2i(1600, 900)
+		else:
+			w.mode = Window.MODE_EXCLUSIVE_FULLSCREEN
+		return
+	if k == KEY_F10:
+		var w2 := get_window()
+		w2.borderless = not w2.borderless
+		return
 	if _state == "cg":
 		_enter_menu()
 		return
@@ -931,6 +943,8 @@ func _draw_skip_btn() -> void:
 
 # ── 主菜单 ────────────────────────────────────────────
 func _draw_menu() -> void:
+	# F10/F11 显示模式提示（固定右下）
+	_txt_r(mono, DW - 96.0, DH - 42.0, "F10 无边框 · F11 独占全屏", 7, Palette.a(Palette.FAINT, 0.75))
 	_draw_grid_bg(0.35)
 	_draw_stars(_cg_time())
 	_draw_noise(_cg_time())

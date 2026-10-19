@@ -81,7 +81,7 @@ const RACK_HEADER_Y := 512.0
 const RACK_ROW_Y := 528.0
 const RACK_ROW_PITCH := 16.0
 const RACK_ROWS_MAX := 5
-const MAST_BTN := Rect2(1620, 496, 224, 14)
+const MAST_BTN := Rect2(1556, 480, 120, 14)
 const RACK_PAGE_BTN := Rect2(1796, 514, 48, 16)
 const DAMAGE_CARD := Rect2(1556, 614, 288, 74)
 const DAMAGE_BTN := Rect2(1556, 668, 120, 16)
@@ -173,6 +173,7 @@ const EVID_ITEMS := [
 	["elint", "elint_signature", "异常特征码 / ELINT"],
 ]
 const ADJUTANT_RECT := Rect2(520, 280, 880, 420)
+const ADJUTANT_CLOSE := Rect2(1300, 292, 76, 18)
 const ADJUTANT_OPT := Rect2(520, 280, 880, 420)  # 选项网格从 r.y+176 起算
 const ADVISOR_RECT := Rect2(560, 280, 800, 400)
 const MANUAL_RECT := Rect2(440, 190, 1040, 660)
@@ -1965,6 +1966,7 @@ func _draw_adjutant_overlay() -> void:
 	var r := ADJUTANT_RECT
 	var info := _adj_data()
 	_overlay_frame(r, _dtext("副官建议 / ADJUTANT REQUEST"), "")
+	_cmd_btn(ADJUTANT_CLOSE, "关闭 / CLOSE", false, Palette.PH)
 	_txt(cjk, r.position.x + 24.0, r.position.y + 56.0, "副官 · 请求指示：", 8, Palette.DIM)
 	_txt_r(cjk, r.end.x - 24.0, r.position.y + 56.0, "打开时暂停执行窗口", 7, Palette.a(Palette.AMBER, 0.9))
 	var lines := _wrap_text(cjk, String(info["body"]), 9, r.size.x - 48.0)
@@ -1977,7 +1979,9 @@ func _draw_adjutant_overlay() -> void:
 		var rc := _adj_opt_rect(i)
 		var o: Dictionary = opts[i]
 		var kind := String(o.get("kind", o.get("key", "")))
-		var blocked := shuttle_busy_now and (kind == "blackbox" or kind == "evacuate")
+		var chosen_now: Array = state.get("_adjutant_choices") if state != null else []
+		var used := kind in chosen_now
+		var blocked := used or (shuttle_busy_now and (kind == "blackbox" or kind == "evacuate"))
 		var hot := rc.has_point(_mouse_base()) and not blocked
 		draw_rect(rc, Palette.a(Palette.PANEL2, 0.95) if hot else Palette.a(Palette.PANEL, 0.6))
 		draw_rect(rc, Palette.a(Palette.PH, 0.75 if hot else (0.16 if blocked else 0.3)), false, 1.0)
@@ -1988,18 +1992,27 @@ func _draw_adjutant_overlay() -> void:
 		_txt(cjk, rc.position.x + 44.0, rc.position.y + 44.0,
 			_ellipsis(cjk, _dtext(String(o.get("hint", "")), float(i) * 0.01), 7, 330.0), 7, Palette.DIM)
 		if blocked:
-			_txt_r(cjk, rc.end.x - 12.0, rc.position.y + 16.0, "穿梭机占用", 7, Palette.a(Palette.AMBER, 0.9))
+			_txt_r(cjk, rc.end.x - 12.0, rc.position.y + 16.0, "已请求" if used else "穿梭机占用", 7, Palette.a(Palette.AMBER, 0.9))
 	_txt(cjk, r.position.x + 24.0, r.end.y - 24.0, "选择会写入命令/真实通话 · 遥测可与穿梭机任务并行，穿梭机同一时间仅派出 1 架",
 		7, Palette.FAINT)
 	_draw_window_cut(r)
 
 func _handle_adjutant_click(p: Vector2) -> void:
+	if ADJUTANT_CLOSE.has_point(p):
+		_ack_adjutant("decline")
+		return
 	var info := _adj_data()
 	var opts: Array = info["options"]
+	var chosen_now: Array = state.get("_adjutant_choices") if state != null else []
 	for i in range(mini(opts.size(), 4)):
 		if _adj_opt_rect(i).has_point(p):
 			var o: Dictionary = opts[i]
-			_ack_adjutant(String(o.get("key", o.get("kind", "later"))))
+			var kind := String(o.get("kind", o.get("key", "later")))
+			if kind in chosen_now:
+				return
+			if _shuttle_busy() and (kind == "blackbox" or kind == "evacuate"):
+				return
+			_ack_adjutant(kind)
 			return
 
 func _fmt_period(sec: float) -> String:
@@ -2359,7 +2372,7 @@ func _draw_log() -> void:
 		_txt(cjk, tr.position.x + 8.0, tr.position.y + 4.0, String(tabs[i][0]), 8,
 			Palette.PH if sel else Palette.DIM)
 	_txt_r(mono, 604, 892, "TAB 切换", 7, Palette.a(Palette.FAINT, 0.8))
-	draw_line(Vector2(64, 908), Vector2(616, 908), Palette.a(Palette.LINE, 0.9), 1.0)
+	draw_line(Vector2(64, 914), Vector2(616, 914), Palette.a(Palette.LINE, 0.9), 1.0)
 
 	if _log_tab == 0:
 		# 通信流 / 事件（最近 3 条）
