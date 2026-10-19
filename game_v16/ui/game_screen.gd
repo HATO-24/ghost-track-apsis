@@ -88,8 +88,52 @@ func _ready() -> void:
 		_finish_headless()
 	elif _shot_path != "":
 		_capture.call_deferred()
+	elif OS.get_environment("DSH_V2_AUTOPLAY") == "1":
+		_autoplay.call_deferred()
 	else:
 		set_process(true)
+
+func _autoplay() -> void:
+	# 演示视频用自动流程；只调用 core 公开方法，不伪造状态。
+	var w := get_window()
+	w.borderless = true
+	w.size = Vector2i(1920, 1080)
+	w.position = Vector2i(0, 0)
+	await get_tree().create_timer(1.2).timeout
+	data.select("2001")
+	_refresh_all(); _sync_flow(true)
+	await get_tree().create_timer(1.8).timeout
+	data.prelude_choose_route("meridian")
+	data.prelude_choose_window("t1800")
+	_refresh_all(); _sync_flow(true)
+	await get_tree().create_timer(1.8).timeout
+	data.prelude_execute()
+	data.advance_mission(3)
+	_refresh_all(); _sync_flow(true)
+	await get_tree().create_timer(2.0).timeout
+	data.perform_action("crossfix", "2001")
+	_refresh_all()
+	await get_tree().create_timer(1.6).timeout
+	data.perform_action("radar_illum", "2001")
+	_refresh_all()
+	await get_tree().create_timer(1.6).timeout
+	data.start_evidence("port_telemetry")
+	_refresh_all()
+	await get_tree().create_timer(1.6).timeout
+	data.perform_action("optical_channel", "2001")
+	_refresh_all()
+	await get_tree().create_timer(4.0).timeout
+	data.open_decision()
+	_refresh_all(); _sync_flow(true)
+	await get_tree().create_timer(4.6).timeout
+	data.choose_ending("HOLD")
+	_refresh_all(); _sync_flow(true)
+	await get_tree().create_timer(3.4).timeout
+	data.submit_report(true)
+	_refresh_all(); _sync_flow(true)
+	await get_tree().create_timer(5.0).timeout
+	# 保持 END 画面给录屏收尾
+	set_process(true)
 
 
 func _finish_headless() -> void:
