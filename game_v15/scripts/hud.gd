@@ -75,6 +75,13 @@ const REPORT_TRUTH := Rect2(1056, 300, 396, 110)
 const REPORT_FAKE := Rect2(1056, 424, 396, 110)
 const CONSEQ_SUBMIT := Rect2(800, 660, 320, 40)
 
+# ── P3a：窗口硬切 / 文本乱码解码（V2 一次性动效在 V1.5 的延伸；docs/09 §4.2）──
+const UI_CUT_DUR := 0.32        # 80px 黑块硬切揭示（6 步硬切，无插值）
+const UI_CUT_STEPS := 6
+const UI_CUT_SEED := 4471
+const UI_DECODE_DUR := 0.42     # 乱码→完整文本（逐字；行间错峰 ≤0.08）
+const UI_DECODE_MAX_STAGGER := 0.08
+
 # ── P1g：无线电 / 事件 feed、暂停指示、END 归档页 ──────────
 const FEED_ROWS := 3
 const FEED_PITCH := 12.0
@@ -760,8 +767,8 @@ func _draw_notice_overlay() -> void:
 	var lines := _wrap_text(cjk, body, 10, r.size.x - 48.0)
 	var base := r.position.y + 238.0 + float(mini(lines.size(), 8)) * 18.0 + 12.0
 	r.size.y = clampf(base + 96.0 - r.position.y, 380.0, 620.0)
-	_overlay_frame(r, "接管声明 / ORDER 7 NOTICE", "2001 · AV-4412 · %s · 法律广播" % String(info["mode"]))
-	_txt(cjk, r.position.x + 24.0, r.position.y + 56.0, String(info["title"]), 13, Palette.AMBER)
+	_overlay_frame(r, _dtext("接管声明 / ORDER 7 NOTICE"), "2001 · AV-4412 · %s · 法律广播" % String(info["mode"]))
+	_txt(cjk, r.position.x + 24.0, r.position.y + 56.0, _dtext(String(info["title"])), 13, Palette.AMBER)
 	_txt_r(cjk, r.end.x - 24.0, r.position.y + 56.0, "Greenwich · L1-01 · UEG 海关", 7, Palette.FAINT)
 	_txt(cjk, r.position.x + 24.0, r.position.y + 74.0, "第七号轨道紧急托管令（Order 7）· 发布第 9 天 · L1 Meridian-05 Chronos", 8, Palette.DIM)
 	# 元数据
@@ -778,8 +785,9 @@ func _draw_notice_overlay() -> void:
 	# 正文（19 §1 格式的通信记录）
 	draw_line(Vector2(r.position.x + 24.0, r.position.y + 200.0), Vector2(r.end.x - 24.0, r.position.y + 200.0), Palette.a(Palette.AMBER, 0.4), 1.0)
 	_txt(cjk, r.position.x + 24.0, r.position.y + 208.0, "正文 / BODY", 7, Palette.FAINT)
-	for i in range(mini(lines.size(), 8)):
-		_txt(cjk, r.position.x + 24.0, r.position.y + 228.0 + float(i) * 18.0, String(lines[i]), 10, Palette.a(Palette.TXT, 0.95))
+	var dlines := _dlines(lines)
+	for i in range(mini(dlines.size(), 8)):
+		_txt(cjk, r.position.x + 24.0, r.position.y + 228.0 + float(i) * 18.0, String(dlines[i]), 10, Palette.a(Palette.TXT, 0.95))
 	# 程序
 	_txt(cjk, r.position.x + 24.0, base, "程序 / PROCEDURE", 7, Palette.FAINT)
 	_txt(cjk, r.position.x + 24.0, base + 18.0, "· 第七号轨道紧急托管令（Order 7）· 第九天；本关为 6 分钟执行窗口。", 8, Palette.DIM)
@@ -789,6 +797,7 @@ func _draw_notice_overlay() -> void:
 	var close_rect := Rect2(r.end.x - 200.0, r.end.y - 44.0, 184.0, 28.0)
 	_cmd_btn(close_rect, "关闭 / CLOSE", false, Palette.PH)
 	_txt_r(cjk, r.end.x - 24.0, r.end.y - 22.0, "点击面板外或 ESC/关闭 返回", 7, Palette.FAINT)
+	_draw_window_cut(r)
 
 func _advisor_text() -> String:
 	if state != null:
@@ -814,18 +823,20 @@ func _manual_sections() -> Array:
 func _draw_advisor_overlay() -> void:
 	_overlay_dim()
 	var r := ADVISOR_RECT
-	_overlay_frame(r, "副官建议 / ADJUTANT", "一次性 · 不进通信流（19 §7）")
+	_overlay_frame(r, _dtext("副官建议 / ADJUTANT"), "一次性 · 不进通信流（19 §7）")
 	var lines := _wrap_text(cjk, _advisor_text(), 10, r.size.x - 48.0)
-	for i in range(mini(lines.size(), 12)):
-		_txt(cjk, r.position.x + 24.0, r.position.y + 64.0 + float(i) * 22.0, String(lines[i]), 10, Palette.a(Palette.TXT, 0.95))
+	var dlines := _dlines(lines)
+	for i in range(mini(dlines.size(), 12)):
+		_txt(cjk, r.position.x + 24.0, r.position.y + 64.0 + float(i) * 22.0, String(dlines[i]), 10, Palette.a(Palette.TXT, 0.95))
 	_txt(cjk, r.position.x + 24.0, r.end.y - 62.0, "该建议只在第一次遇到相应机制时出现；之后可在「手册」里复查。", 8, Palette.DIM)
 	var close_rect := Rect2(r.end.x - 200.0, r.end.y - 44.0, 184.0, 28.0)
 	_cmd_btn(close_rect, "知道了 / GOT IT", false, Palette.PH)
+	_draw_window_cut(r)
 
 func _draw_manual_overlay() -> void:
 	_overlay_dim()
 	var r := MANUAL_RECT
-	_overlay_frame(r, "教学手册 / MANUAL", "章节可反复查阅 · 不进通信流")
+	_overlay_frame(r, _dtext("教学手册 / MANUAL"), "章节可反复查阅 · 不进通信流")
 	var secs := _manual_sections()
 	for i in range(mini(secs.size(), 6)):
 		var row: Array = secs[i]
@@ -834,12 +845,14 @@ func _draw_manual_overlay() -> void:
 		var text := String(row[1]) if row.size() > 1 else ""
 		draw_rect(Rect2(r.position.x + 20.0, y - 8.0, r.size.x - 40.0, 80.0), Palette.a(Palette.PANEL2, 0.35))
 		draw_rect(Rect2(r.position.x + 20.0, y - 8.0, 2.0, 80.0), Palette.a(Palette.PH, 0.5))
-		_txt(cjk, r.position.x + 34.0, y + 2.0, "%02d %s" % [i + 1, title], 10, Palette.PH)
+		_txt(cjk, r.position.x + 34.0, y + 2.0, _dtext("%02d %s" % [i + 1, title]), 10, Palette.PH)
 		var lines := _wrap_text(cjk, _dn(text), 8, r.size.x - 90.0)
-		for k in range(mini(lines.size(), 3)):
-			_txt(cjk, r.position.x + 34.0, y + 22.0 + float(k) * 15.0, String(lines[k]), 8, Palette.a(Palette.TXT, 0.9))
+		var dlines := _dlines(lines)
+		for k in range(mini(dlines.size(), 3)):
+			_txt(cjk, r.position.x + 34.0, y + 22.0 + float(k) * 15.0, String(dlines[k]), 8, Palette.a(Palette.TXT, 0.9))
 	var close_rect := Rect2(r.end.x - 200.0, r.end.y - 44.0, 184.0, 28.0)
 	_cmd_btn(close_rect, "关闭 / CLOSE", false, Palette.PH)
+	_draw_window_cut(r)
 
 var state
 var mono: Font
@@ -902,6 +915,13 @@ var _demo_evac: Dictionary = {}        # {"t0","duration_s","done"}
 var _adj_was_open := false
 var _adj_prev_paused := false
 var _demo_suppress_adjutant := false   # 仅 DSH_UI 截图：state 自动弹副官时临时隐藏
+# P3a：窗口硬切 / 文本解码（独立一次性计时器；不许拿全局 _t 当计时器）
+var _ui_id := ""                       # 当前顶层窗口标识（"" = 无）
+var _ui_t := 0.0                       # 自窗口打开计时（窗口变化重置）
+var _ui_sample_t := -1.0               # DSH_UI_T：截图时冻结到该时刻（<0 表示实时）
+var _ui_cut_sample_t := -1.0           # DSH_UI_CUT：只冻结硬切（截图解码中间态时跳过硬切）
+var _evid_anim_t := 0.0                # 证据面板 n/3 与任务行的解码计时
+var _evid_sig := ""
 
 func _ready() -> void:
 	mono = Fonts.mono()
@@ -917,13 +937,17 @@ func _ready() -> void:
 	match OS.get_environment("DSH_UI"):
 		"decision":
 			_demo_decision = true
+			_demo_suppress_adjutant = true
 		"consequence":
 			_demo_consequence = true
+			_demo_suppress_adjutant = true
 		"report":
 			_demo_report = true
+			_demo_suppress_adjutant = true
 		"end":
 			_demo_end = true
 			_decision_done = true
+			_demo_suppress_adjutant = true
 		"radio":
 			_demo_radio = true
 		"notice":
@@ -941,9 +965,31 @@ func _ready() -> void:
 			_evidence_menu_open = true
 		"adjutant":
 			_demo_adjutant = true
+	# P3a：截图时把动效冻结到指定时刻（秒），用于逐帧截取硬切/解码中间态。
+	var ut := OS.get_environment("DSH_UI_T")
+	if ut != "":
+		_ui_sample_t = maxf(0.0, float(ut))
+	var ct := OS.get_environment("DSH_UI_CUT")
+	if ct != "":
+		_ui_cut_sample_t = maxf(0.0, float(ct))
 
 func _process(delta: float) -> void:
 	_t += delta
+	# P3a：窗口硬切/解码计时 —— 窗口标识变化时重置（一次性；与全局 _t 无关）。
+	var wid := _window_id()
+	if wid != _ui_id:
+		_ui_id = wid
+		_ui_t = 0.0
+	elif _ui_id != "":
+		_ui_t = minf(_ui_t + delta, 6.0)
+	# P3a：证据面板 n/3 / 任务行：内容变化时重新乱码→解码（剩余秒数连续变化，不参与判定）。
+	var ev_task := _shuttle_task()
+	var esig := "%d|%s|%s" % [_evidence_count(), String(ev_task.get("label", "")), str(bool(ev_task.get("active", false)))]
+	if esig != _evid_sig:
+		_evid_sig = esig
+		_evid_anim_t = 0.0
+	else:
+		_evid_anim_t = minf(_evid_anim_t + delta, 6.0)
 	if _demo_modal != "" and state.boot_t >= 1.7 and _modal == "":
 		var m := _demo_modal
 		_demo_modal = ""
@@ -1569,15 +1615,15 @@ func _draw_evidence_panel() -> void:
 	var got := _evidence_got()
 	var n := _evidence_count()
 	var expose_ok := _can_expose()
-	_txt(cjk, 1556, EVID_TITLE_Y, "证据 / EXPOSE（需 2/3）", 7, Palette.FAINT)
-	_txt_r(mono, 1844, EVID_TITLE_Y, "%d/3" % n, 8, Palette.PH if expose_ok else Palette.AMBER)
+	_txt(cjk, 1556, EVID_TITLE_Y, _evid_dtext("证据 / EXPOSE（需 2/3）"), 7, Palette.FAINT)
+	_txt_r(mono, 1844, EVID_TITLE_Y, _evid_dtext("%d/3" % n), 8, Palette.PH if expose_ok else Palette.AMBER)
 	for i in range(3):
 		var row: Array = EVID_ITEMS[i]
 		var y := EVID_ROW_Y + float(i) * EVID_ROW_H
 		var g := bool(got[String(row[0])])
 		var col: Color = Palette.PH if g else Palette.FAINT
 		_txt(mono, 1556, y, "✓" if g else "○", 8, col)
-		_txt(cjk, 1572, y, String(row[2]), 7, Palette.TXT if g else Palette.DIM)
+		_txt(cjk, 1572, y, _evid_dtext(String(row[2]), float(i) * 0.01), 7, Palette.TXT if g else Palette.DIM)
 	var frac := float(n) / 3.0
 	draw_rect(EVID_BAR, Palette.a(Palette.LINE, 0.85))
 	draw_rect(Rect2(EVID_BAR.position, Vector2(EVID_BAR.size.x * frac, EVID_BAR.size.y)),
@@ -1598,7 +1644,7 @@ func _draw_evidence_panel() -> void:
 	elif bool(evac["done"]):
 		tline = "撤人：已完成"
 		tcol = Palette.PH
-	_txt(cjk, 1556, EVID_TASK_Y, _ellipsis(cjk, tline, 7, 288.0), 6, tcol)
+	_txt(cjk, 1556, EVID_TASK_Y, _ellipsis(cjk, _evid_dtext(tline), 7, 288.0), 6, tcol)
 	if _evidence_menu_open:
 		for i in range(3):
 			var mr := Rect2(1556.0 + float(i) * 96.0, EVID_MENU_Y, 92.0, 20.0)
@@ -1606,7 +1652,9 @@ func _draw_evidence_panel() -> void:
 			draw_rect(mr, Palette.a(Palette.PH, 0.12 if hot else 0.05))
 			draw_rect(mr, Palette.a(Palette.PH, 0.6 if hot else 0.3), false, 1.0)
 			_txt(cjk, mr.position.x + 5.0, mr.position.y + 4.0,
-				"遥测" if i == 0 else ("黑匣子" if i == 1 else "特征码"), 7, Palette.TXT)
+				_dtext("遥测" if i == 0 else ("黑匣子" if i == 1 else "特征码"), float(i) * 0.01), 7, Palette.TXT)
+		# P3a：证据菜单窗口的 80px 硬切揭示（仅菜单小窗，窗口外不受影响）
+		_draw_window_cut(Rect2(1556.0, EVID_MENU_Y, 288.0, EVID_MENU_ROW))
 	var shuttle_busy := _shuttle_busy()
 	_cmd_btn(EVID_SHUTTLE, "派穿梭机取证 / SHUTTLE", _evidence_menu_open, Palette.FAINT if shuttle_busy else Palette.BLUE)
 	_cmd_btn(EVID_EVAC, "撤出居民 / EVACUATE", false,
@@ -1667,12 +1715,13 @@ func _draw_adjutant_overlay() -> void:
 	_overlay_dim()
 	var r := ADJUTANT_RECT
 	var info := _adj_data()
-	_overlay_frame(r, "副官建议 / ADJUTANT REQUEST", "独立 UI · 不进通信流 · 19 §7")
+	_overlay_frame(r, _dtext("副官建议 / ADJUTANT REQUEST"), "独立 UI · 不进通信流 · 19 §7")
 	_txt(cjk, r.position.x + 24.0, r.position.y + 56.0, "副官（独立 UI）· 请求指示：", 8, Palette.DIM)
 	_txt_r(cjk, r.end.x - 24.0, r.position.y + 56.0, "打开时暂停执行窗口", 7, Palette.a(Palette.AMBER, 0.9))
 	var lines := _wrap_text(cjk, String(info["body"]), 9, r.size.x - 48.0)
-	for i in range(mini(lines.size(), 4)):
-		_txt(cjk, r.position.x + 24.0, r.position.y + 80.0 + float(i) * 18.0, String(lines[i]), 9, Palette.a(Palette.TXT, 0.95))
+	var dlines := _dlines(lines)
+	for i in range(mini(dlines.size(), 4)):
+		_txt(cjk, r.position.x + 24.0, r.position.y + 80.0 + float(i) * 18.0, String(dlines[i]), 9, Palette.a(Palette.TXT, 0.95))
 	var opts: Array = info["options"]
 	for i in range(mini(opts.size(), 4)):
 		var rc := _adj_opt_rect(i)
@@ -1681,9 +1730,12 @@ func _draw_adjutant_overlay() -> void:
 		draw_rect(rc, Palette.a(Palette.PANEL2, 0.95) if hot else Palette.a(Palette.PANEL, 0.6))
 		draw_rect(rc, Palette.a(Palette.PH, 0.75 if hot else 0.3), false, 1.0)
 		_txt(mono, rc.position.x + 14.0, rc.position.y + 16.0, "0%d" % (i + 1), 14, Palette.a(Palette.PH, 0.9))
-		_txt(cjk, rc.position.x + 44.0, rc.position.y + 16.0, String(o.get("label", "")), 10, Palette.PH if hot else Palette.TXT)
-		_txt(cjk, rc.position.x + 44.0, rc.position.y + 44.0, _ellipsis(cjk, String(o.get("hint", "")), 7, 330.0), 7, Palette.DIM)
+		_txt(cjk, rc.position.x + 44.0, rc.position.y + 16.0, _dtext(String(o.get("label", "")), float(i) * 0.01),
+			10, Palette.PH if hot else Palette.TXT)
+		_txt(cjk, rc.position.x + 44.0, rc.position.y + 44.0,
+			_ellipsis(cjk, _dtext(String(o.get("hint", "")), float(i) * 0.01), 7, 330.0), 7, Palette.DIM)
 	_txt(cjk, r.position.x + 24.0, r.end.y - 24.0, "选择会写入命令 / 真实通话；本窗口本身不进通信流", 7, Palette.FAINT)
+	_draw_window_cut(r)
 
 func _handle_adjutant_click(p: Vector2) -> void:
 	var info := _adj_data()
@@ -2391,9 +2443,9 @@ func _end_btn(rc: Rect2, label: String, key: String, col: Color) -> void:
 func _draw_end_overlay() -> void:
 	_overlay_dim()
 	var r := END_RECT
-	_overlay_frame(r, "内部事后报告 / INTERNAL AFTER-ACTION", "CHRONOS · ORDER 7 · ARCHIVED")
+	_overlay_frame(r, _dtext("内部事后报告 / INTERNAL AFTER-ACTION"), "CHRONOS · ORDER 7 · ARCHIVED")
 	var d := _end_data()
-	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, "L1 Meridian-05 Chronos · 第七号轨道紧急托管令 · 执行窗口已关闭", 8, Palette.DIM)
+	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, _dtext("L1 Meridian-05 Chronos · 第七号轨道紧急托管令 · 执行窗口已关闭"), 8, Palette.DIM)
 	_txt_r(mono, r.end.x - 20.0, r.position.y + 56.0, "T+%05.1f s · TIME FROZEN" % float(state.tau()), 7, Palette.a(Palette.FAINT, 0.9))
 	# 结局
 	_txt(cjk, r.position.x + 24.0, r.position.y + 84.0, "结局 / OUTCOME", 7, Palette.FAINT)
@@ -2402,7 +2454,7 @@ func _draw_end_overlay() -> void:
 		ol = "—"
 	var oc := String(d["outcome"])
 	var out_col: Color = Palette.RED if oc == "FIRE" else (Palette.PH if oc == "EXPOSE" else Palette.PH_DIM)
-	_txt(cjk, r.position.x + 24.0, r.position.y + 104.0, ol, 18, out_col)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 104.0, _dtext(ol), 18, out_col)
 	_txt(mono, r.position.x + 24.0, r.position.y + 132.0,
 		"OUTCOME %s · REPORT %s · 内部归档" % [oc, String(d["report_choice"])], 8, Palette.DIM)
 	# 左：报告文本（带边框的内容区）+ 附注
@@ -2412,11 +2464,12 @@ func _draw_end_overlay() -> void:
 	draw_rect(box, Palette.a(Palette.LINE, 0.8), false, 1.0)
 	_txt(cjk, lx, r.position.y + 158.0, "报告正文 / REPORT TEXT", 7, Palette.FAINT)
 	var lines := _wrap_text(cjk, String(d["report_text"]), 9, 610.0)
-	for i in range(mini(lines.size(), 20)):
-		_txt(cjk, lx, r.position.y + 178.0 + float(i) * 16.0, String(lines[i]), 9, Palette.a(Palette.TXT, 0.92))
+	var dlines := _dlines(lines)
+	for i in range(mini(dlines.size(), 20)):
+		_txt(cjk, lx, r.position.y + 178.0 + float(i) * 16.0, String(dlines[i]), 9, Palette.a(Palette.TXT, 0.92))
 	_txt(cjk, lx, r.position.y + 566.0, "附注 / NOTES", 7, Palette.FAINT)
-	_txt(cjk, lx, r.position.y + 582.0, "· 报告文本与 flags 已写入内部归档，供 OCJC / OCUVF 后续引用。", 7, Palette.a(Palette.FAINT, 0.95))
-	_txt(cjk, lx, r.position.y + 596.0, "· 传感器日志 / 命令队列 / 通信记录随案封存（08 §4）；下一幕将引用本记录。", 7, Palette.a(Palette.FAINT, 0.95))
+	_txt(cjk, lx, r.position.y + 582.0, _dtext("· 报告文本与 flags 已写入内部归档，供 OCJC / OCUVF 后续引用。"), 7, Palette.a(Palette.FAINT, 0.95))
+	_txt(cjk, lx, r.position.y + 596.0, _dtext("· 传感器日志 / 命令队列 / 通信记录随案封存（08 §4）；下一幕将引用本记录。"), 7, Palette.a(Palette.FAINT, 0.95))
 	# 右：五键声望 + 档案（08 §2）
 	var rx := r.position.x + 680.0
 	var ry := r.position.y + 150.0
@@ -2460,6 +2513,7 @@ func _draw_end_overlay() -> void:
 	_end_btn(END_RESTART, "重新开始 / RESTART", "R", Palette.PH)
 	_end_btn(END_EXIT, "退出 / EXIT", "E", Palette.RED)
 	_txt_r(cjk, r.end.x - 20.0, r.end.y - 24.0, "END · 归档后进入下一幕（战役继续）", 7, Palette.a(Palette.AMBER, 0.7))
+	_draw_window_cut(r)
 
 func _rep_summary() -> String:
 	var rep: Dictionary = {}
@@ -2720,6 +2774,118 @@ func _overlay_frame(r: Rect2, title: String, kicker: String) -> void:
 	_txt(cjk, r.position.x + 20.0, r.position.y + 12.0, title, 13, Palette.PH)
 	_txt_r(mono, r.end.x - 20.0, r.position.y + 16.0, kicker, 7, Palette.a(Palette.FAINT, 0.95))
 
+# ── P3a：窗口硬切 / 文本乱码解码（一次性动效；docs/09 §4.2 #6/#7）──
+func _window_id() -> String:
+	# 与绘制顺序一致：越后画的窗口优先级越高。
+	if _ov_adjutant():
+		return "adjutant"
+	if _modal != "":
+		return "modal_" + _modal
+	if _evidence_menu_open:
+		return "evidence_menu"
+	if _ov_end():
+		return "end"
+	if _ov_report():
+		return "report"
+	if _ov_consequence():
+		return "consequence"
+	if _ov_decision():
+		return "decision"
+	return ""
+
+func _ui_anim_time() -> float:
+	if _ui_sample_t >= 0.0:
+		return _ui_sample_t
+	return _ui_t
+
+# 80px 格黑块；固定 seed 4471 的洗牌顺序；只覆盖窗口矩形（窗口外不受影响）。
+func _cut_order(cells: int) -> Array:
+	var arr: Array = []
+	for i in range(cells):
+		arr.append(i)
+	var st := UI_CUT_SEED
+	for i in range(cells - 1, 0, -1):
+		st = (st * 1103515245 + 12345) & 0x7fffffff
+		var j := st % (i + 1)
+		var tmp = arr[i]
+		arr[i] = arr[j]
+		arr[j] = tmp
+	return arr
+
+func _draw_window_cut(rect: Rect2) -> void:
+	var t := _ui_cut_sample_t if _ui_cut_sample_t >= 0.0 else _ui_anim_time()
+	if UI_CUT_DUR <= 0.0 or t >= UI_CUT_DUR:
+		return
+	var step := int(floor(t / (UI_CUT_DUR / float(UI_CUT_STEPS))))
+	var x0: float = floor(rect.position.x / 80.0) * 80.0
+	var y0: float = floor(rect.position.y / 80.0) * 80.0
+	var cols := int(ceil((rect.end.x - x0) / 80.0))
+	var rows := int(ceil((rect.end.y - y0) / 80.0))
+	var cells := maxi(1, cols * rows)
+	var order := _cut_order(cells)
+	var keep := cells - int(round(float(cells) * float(step + 1) / float(UI_CUT_STEPS)))
+	for k in range(mini(keep, order.size())):
+		var idx := int(order[k])
+		var c := idx % cols
+		var r := idx / cols
+		var block := Rect2(x0 + float(c) * 80.0, y0 + float(r) * 80.0, 80.0, 80.0)
+		var clipped := block.intersection(rect)
+		if clipped.size.x > 0.0 and clipped.size.y > 0.0:
+			draw_rect(clipped, Palette.BEZEL)
+
+func _garble_char(ch: String, idx: int) -> String:
+	if ch == "" or ch == " " or ch == "\n" or ch == "\t":
+		return ch
+	var code := ch.unicode_at(0)
+	# 标点 / 全角标点 / 制表符保留（要求：空格、标点保留）
+	if code >= 0x3000 and code <= 0x303F:
+		return ch
+	if code >= 0xFF00 and code <= 0xFF65:
+		return ch
+	var h := (idx * 15731 + UI_CUT_SEED * 789221 + code * 1376312589) & 0x7fffffff
+	if code < 128:
+		if (code >= 48 and code <= 57) or (code >= 65 and code <= 90) or (code >= 97 and code <= 122):
+			var pool := "#@%&?!/\\<>[]{}0123456789"
+			return pool.substr(h % pool.length(), 1)
+		return ch
+	# 中文/其他宽字符 → 等宽块字符，保持行长一致（不抖动）
+	var blocks := "█▓▒░"
+	return blocks.substr(h % blocks.length(), 1)
+
+func _decode_at(s: String, elapsed: float, stagger := 0.0) -> String:
+	if s == "":
+		return s
+	var d := clampf((elapsed - stagger) / UI_DECODE_DUR, 0.0, 1.0)
+	if d >= 1.0:
+		return s
+	var n := s.length()
+	var reveal := int(round(float(n) * d))
+	var out := ""
+	for i in range(n):
+		if i < reveal:
+			out += s.substr(i, 1)
+		else:
+			out += _garble_char(s.substr(i, 1), i)
+	return out
+
+# 按行解码：行内错峰很小（≤0.08s），保证整段 0.35–0.50s 内解完。
+func _dlines(lines: Array) -> Array:
+	var anim := _ui_anim_time()
+	var out: Array = []
+	var n := lines.size()
+	for i in range(n):
+		var stagger := 0.0
+		if n > 1:
+			stagger = minf(UI_DECODE_MAX_STAGGER, float(i) / float(n - 1) * UI_DECODE_MAX_STAGGER)
+		out.append(_decode_at(String(lines[i]), anim, stagger))
+	return out
+
+func _dtext(s: String, stagger := 0.0) -> String:
+	return _decode_at(s, _ui_anim_time(), stagger)
+
+func _evid_dtext(s: String, stagger := 0.0) -> String:
+	return _decode_at(s, _evid_anim_t, stagger)
+
 # ── P2a：D2 文案层（state 新字段未就绪时兜底；旧值只在显示层归一）──
 func _is_old_text(s: String) -> bool:
 	for w in ["监督官", "案卷", "清算署", "署方", "第九条", "回执", "斛港务", "远环合作社", "第七号裁定", "监督交接", "认证交接", "援引第九条", "拖程序", "CERTIFY", "ARTICLE9", "STALL"]:
@@ -2875,7 +3041,7 @@ func _d2_outcome(outcome: String, label_in := "") -> Dictionary:
 func _draw_decision_overlay() -> void:
 	_overlay_dim()
 	var r := DECISION_RECT
-	_overlay_frame(r, "指挥官决策 / COMMANDER DETERMINATION", "DECISION · 第七号令 · 接管声明")
+	_overlay_frame(r, _dtext("指挥官决策 / COMMANDER DETERMINATION"), "DECISION · 第七号令 · 接管声明")
 	var prompt := "指挥官，执行窗口剩余 {mm:ss}。清算者要求接管 Chronos 储罐与航道；Chronos 港务请求先撤人；渡口号请求武器释放授权。ID13 没有执法权，但必须在窗口结束前作出决定。请裁决。"
 	var exec_left := 360.0
 	if state != null:
@@ -2891,11 +3057,11 @@ func _draw_decision_overlay() -> void:
 		prompt = _d2_text(prompt)
 	var endings := _endings_d2()
 	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0,
-		"L1 Meridian-05 Chronos · 第七号轨道紧急托管令 · 执行窗口 %s" % mmss, 8, Palette.DIM)
+		_dtext("L1 Meridian-05 Chronos · 第七号轨道紧急托管令 · 执行窗口 %s" % mmss), 8, Palette.DIM)
 	_txt_r(cjk, r.end.x - 20.0, r.position.y + 56.0, "记录进内部报告 · 不可撤回", 7, Palette.a(Palette.AMBER, 0.7))
-	_txt(cjk, r.position.x + 20.0, r.position.y + 76.0, _ellipsis(cjk, prompt, 8, r.size.x - 40.0), 8, Palette.a(Palette.TXT, 0.86))
+	_txt(cjk, r.position.x + 20.0, r.position.y + 76.0, _ellipsis(cjk, _dtext(prompt), 8, r.size.x - 40.0), 8, Palette.a(Palette.TXT, 0.86))
 	# P2a：动态倒计时（读 state.exec_left；{mm:ss} 已替换）
-	_txt(mono, r.position.x + 20.0, r.position.y + 94.0, "EXECUTION WINDOW %s · 1× LOCK · OCUVF-ID13" % mmss, 7, Palette.a(Palette.AMBER, 0.8))
+	_txt(mono, r.position.x + 20.0, r.position.y + 94.0, _dtext("EXECUTION WINDOW %s · 1× LOCK · OCUVF-ID13" % mmss), 7, Palette.a(Palette.AMBER, 0.8))
 	var mp := _mouse_base()
 	for i in range(3):
 		var row := _decision_row_rect(i)
@@ -2916,12 +3082,13 @@ func _draw_decision_overlay() -> void:
 			rubric = "EXPOSE 不可用"
 		_txt(mono, row.position.x + 18.0, row.position.y + 14.0, "0%d" % (i + 1), 22,
 			Palette.a(Palette.PH, 0.9 if enabled else 0.35))
-		_txt(cjk, row.position.x + 74.0, row.position.y + 16.0, label, 13,
+		_txt(cjk, row.position.x + 74.0, row.position.y + 16.0, _dtext(label, float(i) * 0.01), 13,
 			(Palette.PH if hot else Palette.TXT) if enabled else Palette.FAINT)
-		_txt(cjk, row.position.x + 74.0, row.position.y + 48.0, _ellipsis(cjk, hint, 8, row.size.x - 300.0), 8,
+		_txt(cjk, row.position.x + 74.0, row.position.y + 48.0,
+			_ellipsis(cjk, _dtext(hint, float(i) * 0.01), 8, row.size.x - 300.0), 8,
 			Palette.DIM if enabled else Palette.FAINT)
 		_txt_r(cjk, row.end.x - 18.0, row.position.y + 16.0, tag, 7, Palette.a(Palette.AMBER, 0.65 if enabled else 0.3))
-		_txt_r(cjk, row.end.x - 18.0, row.position.y + 50.0, rubric, 7,
+		_txt_r(cjk, row.end.x - 18.0, row.position.y + 50.0, _dtext(rubric), 7,
 			Palette.a(Palette.AMBER if not enabled else Palette.FAINT, 0.9 if not enabled else 0.9))
 		_txt(mono, row.position.x + 74.0, row.position.y + 78.0, "键位 [%d]" % (i + 1), 7,
 			Palette.a(Palette.FAINT, 0.85 if enabled else 0.35))
@@ -2945,6 +3112,7 @@ func _draw_decision_overlay() -> void:
 	draw_line(Vector2(r.position.x + 20.0, fy - 6.0), Vector2(r.end.x - 20.0, fy - 6.0), Palette.a(Palette.LINE, 0.8), 1.0)
 	_txt(cjk, r.position.x + 20.0, fy + 2.0, "1 / 2 / 3 或点击行 · HOLD / EVACUATE / EXPOSE；FIRE 需二次确认", 7, Palette.FAINT)
 	_txt_r(cjk, r.end.x - 20.0, fy + 2.0, "ROE：仅自卫 · 不得首先开火", 7, Palette.a(Palette.AMBER, 0.7))
+	_draw_window_cut(r)
 
 func _draw_consequence_overlay() -> void:
 	_overlay_dim()
@@ -2975,24 +3143,26 @@ func _draw_consequence_overlay() -> void:
 	_txt(cjk, r.position.x + 24.0, r.position.y + 352.0, "内部事后报告 / 上级将收到记录与传感器日志（08 §3.2）", 7, Palette.a(Palette.AMBER, 0.6))
 	_cmd_btn(CONSEQ_SUBMIT, "进入内部报告 / SUBMIT REPORT", false, Palette.PH)
 	_txt_r(cjk, r.end.x - 20.0, r.end.y - 22.0, "E / Enter 或点击按钮", 7, Palette.FAINT)
+	_draw_window_cut(r)
 
 func _draw_report_overlay() -> void:
 	_overlay_dim()
 	var r := REPORT_RECT
-	_overlay_frame(r, "内部事后报告 / INTERNAL AFTER-ACTION", "OCJC / OCUVF · CHRONOS · ORDER 7")
+	_overlay_frame(r, _dtext("内部事后报告 / INTERNAL AFTER-ACTION"), "OCJC / OCUVF · CHRONOS · ORDER 7")
 	var header := "OCJC / OCUVF 内部事后报告 · 报告单位：OCUVF-ID13 指挥官"
 	if state != null:
 		var oc := String(state.get("outcome"))
 		if oc != "":
 			header = "裁决：%s · 内部报告（草案）" % _d2_kind_label(oc)
-	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, header, 8, Palette.DIM)
+	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, _dtext(header), 8, Palette.DIM)
 	# 左：报告正文
 	var lx := r.position.x + 28.0
 	var ly := r.position.y + 76.0
 	_txt(cjk, lx, ly, "经过 / AFTER-ACTION TEXT", 7, Palette.FAINT)
 	var lines := _wrap_text(cjk, _report_text(), 9, 560.0)
-	for i in range(mini(lines.size(), 22)):
-		_txt(cjk, lx, ly + 20.0 + float(i) * 16.0, lines[i], 9, Palette.a(Palette.TXT, 0.92))
+	var dlines := _dlines(lines)
+	for i in range(mini(dlines.size(), 22)):
+		_txt(cjk, lx, ly + 20.0 + float(i) * 16.0, String(dlines[i]), 9, Palette.a(Palette.TXT, 0.92))
 	# 左下：证据链（08 §3.3）
 	var ey := r.position.y + 460.0
 	draw_line(Vector2(lx, ey - 12.0), Vector2(lx + 560.0, ey - 12.0), Palette.a(Palette.LINE, 0.8), 1.0)
@@ -3003,8 +3173,9 @@ func _draw_report_overlay() -> void:
 		"· 通信记录：Chronos 港务、AV-4412 传唤者、OCJC 监察（LR / RDO）",
 		"· Chronos 港务遥测 / 核查组记录：EXPOSE 证据链（三取二）",
 	]
-	for i in range(evidence.size()):
-		_txt(cjk, lx, ey + 22.0 + float(i) * 18.0, evidence[i], 8, Palette.DIM)
+	var dev := _dlines(evidence)
+	for i in range(dev.size()):
+		_txt(cjk, lx, ey + 22.0 + float(i) * 18.0, String(dev[i]), 8, Palette.DIM)
 	# 右：处置（如实 / 伪造）；选项文字优先用 state.report_options
 	var truth_label := "如实 / TRUTH"
 	var truth_hint := "无伪证 · 写入 OCJC / OCUVF 内部记录"
@@ -3025,9 +3196,9 @@ func _draw_report_overlay() -> void:
 				fake_avail = false
 	var rx := r.position.x + 616.0
 	_txt(cjk, rx, ly, "处置 / FILING", 7, Palette.FAINT)
-	_report_option_card(REPORT_TRUTH, 0, truth_label, "REPORT FILED — CHRONOS / ORDER 7", truth_hint, Palette.PH)
+	_report_option_card(REPORT_TRUTH, 0, _dtext(truth_label), _dtext("REPORT FILED — CHRONOS / ORDER 7"), _dtext(truth_hint), Palette.PH)
 	if fake_avail:
-		_report_option_card(REPORT_FAKE, 1, fake_label, "REPORT FILED — AUDIT FLAG 01", fake_hint, Palette.RED)
+		_report_option_card(REPORT_FAKE, 1, _dtext(fake_label), _dtext("REPORT FILED — AUDIT FLAG 01"), _dtext(fake_hint), Palette.RED)
 	else:
 		draw_rect(REPORT_FAKE, Palette.a(Palette.FAINT, 0.03))
 		draw_rect(REPORT_FAKE, Palette.a(Palette.FAINT, 0.25), false, 1.0)
@@ -3042,6 +3213,7 @@ func _draw_report_overlay() -> void:
 	if state != null and bool(state.get("audit_flag")):
 		_txt(mono, rx, REPORT_FAKE.end.y + 94.0, "AUDIT FLAG 01 已置位", 8, Palette.RED)
 	_txt_r(cjk, r.end.x - 20.0, r.end.y - 40.0, "1 如实 · 2 伪造 · 点击卡片提交（提交后不可更改）", 7, Palette.FAINT)
+	_draw_window_cut(r)
 
 func _section_note(x: float, y: float) -> void:
 	_txt(cjk, x, y, "只有出现不良后果，才有淡化 / 伪造选项（08 §3.1）。", 7, Palette.a(Palette.AMBER, 0.7))
