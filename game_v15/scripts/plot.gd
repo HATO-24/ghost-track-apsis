@@ -1945,29 +1945,46 @@ func _draw_tasks() -> void:
 		_txt(mono, p.x + 8.0, p.y + 2.0, ("穿梭机 · " if shuttle else "哈马丹 · ") + String(tk2.get("label", "")), 7, Palette.a(c, 0.8))
 
 func _chrome_3d() -> void:
-	# P4e：左上角改为有层级的状态块：标题 / 视图 / 基准 / 窗口 / 传感器。
+	# P6b：回到终端行排版；层级靠字号/颜色/标签/分隔线，不靠表格式状态块。
 	var x0 := 16.0
-	var y := 20.0
-	draw_rect(Rect2(8.0, 12.0, 360.0, 112.0), Palette.a(Palette.BG, 0.72))
-	draw_rect(Rect2(8.0, 12.0, 2.0, 112.0), Palette.a(Palette.PH, 0.55))
-	_txt(cjk, x0, y, "战术态势", 14, Palette.PH)
-	_txt(mono, x0, y + 18.0, "TACTICAL PLOT · L1 MERIDIAN-05", 8, Palette.DIM)
-	var lx := x0
-	var vx := x0 + 84.0
-	var rows := [
-		["基准 / DATUM", "%s · 站点基准" % String(state.datum)],
-		["视图 / VIEW", "3D · DIST %s km" % _fmt_km(dist / 1000.0)],
-		["窗口 / WINDOW", "%s · 1×" % _hms(state.exec_left)],
-		["融合 / FUSION", "1 Hz · %d 接触" % state.tracks.size()],
-	]
-	var yy := y + 36.0
-	for row in rows:
-		draw_rect(Rect2(x0, yy - 1.0, 78.0, 1.0), Palette.a(Palette.LINE, 0.35))
-		_txt(cjk, lx, yy + 2.0, String(row[0]), 7, Palette.a(Palette.FAINT, 0.95))
-		_txt(mono, vx, yy + 2.0, String(row[1]), 7, Palette.a(Palette.PH, 0.82))
-		yy += 18.0
+	_txt(cjk, x0, 20.0, "战术态势", 14, Palette.PH)
+	_txt(mono, x0, 38.0, "TACTICAL PLOT · L1 MERIDIAN-05", 8, Palette.DIM)
+	draw_line(Vector2(x0, 50.0), Vector2(x0 + 340.0, 50.0), Palette.a(Palette.LINE, 0.55), 1.0)
+	var vx := x0 + 58.0
+	# FRAME：基准/视图/距离，静态结构 + 动态距离。
+	_txt(mono, x0, 58.0, "FRAME", 7, Palette.FAINT)
+	_txt(mono, vx, 58.0, "%s · 3D LVLH · ±400 km · DIST %s km" % [String(state.datum), _fmt_km(dist / 1000.0)], 7, Palette.a(Palette.PH, 0.80))
+	# CLOCK：T+ / 窗口 / 锁定 / LIVE；数值用琥珀色。
+	_txt(mono, x0, 74.0, "CLOCK", 7, Palette.FAINT)
+	_txt(mono, vx, 74.0, "T+%s · WINDOW %s · 1×" % [_hms(_tau_now()), _hms(state.exec_left)], 7, Palette.a(Palette.AMBER, 0.86))
+	var live_col: Color = Palette.a(Palette.PH, 0.95) if not state.paused else Palette.a(Palette.AMBER, 0.95)
+	var blink := 0.45 + 0.55 * absf(sin(_t * 3.2))
+	draw_circle(Vector2(x0 + 342.0, 77.0), 2.0, Palette.a(live_col, blink))
+	_txt(mono, x0 + 350.0, 74.0, "LIVE" if not state.paused else "PAUSED", 7, live_col)
+	# SENSOR：当前传感器架/模式；随选中模块变化。
+	_txt(mono, x0, 90.0, "SENSOR", 7, Palette.FAINT)
+	_txt(mono, vx, 90.0, String(state.sensor_note).substr(0, 38), 7, Palette.a(Palette.PH, 0.72))
+	# TASK：EXPOSE 进度 / 当前穿梭机任务；琥珀色为动作态。
+	var tasks: Array = state.evidence_tasks if state.evidence_tasks is Array else []
+	var task_s := "穿梭机待命"
+	for raw in tasks:
+		var tk: Dictionary = raw
+		if String(tk.get("status", "")) == "RUNNING":
+			task_s = "%s %d%%" % [String(tk.get("label", "任务")), int(round(float(tk.get("progress", 0.0)) * 100.0))]
+			break
+	var ev_n := int(state.evidence_count()) if state.has_method("evidence_count") else 0
+	var task_col: Color = Palette.a(Palette.AMBER, 0.88) if task_s != "穿梭机待命" else Palette.a(Palette.PH_DIM, 0.85)
+	_txt(mono, x0, 106.0, "TASK", 7, Palette.FAINT)
+	_txt(cjk, vx, 106.0, "EXPOSE %d/3 · %s" % [ev_n, task_s], 7, task_col)
+	# 取证明细：一行，作为状态补充；不重复任务块。
+	var ev: Dictionary = state.evidence if state.evidence is Dictionary else {}
+	var bits: Array[String] = []
+	if bool(ev.get("port_telemetry", false)): bits.append("TEL")
+	if bool(ev.get("inspection_blackbox", false)): bits.append("REC")
+	if bool(ev.get("elint_signature", false)): bits.append("ELINT")
+	if bits.size() > 0:
+		_txt(mono, x0, 122.0, "EVIDENCE  " + " / ".join(bits), 7, Palette.a(Palette.PH, 0.55))
 	_draw_legend()
-	# 右下：命令 / 模型 / 历元状态（保留）
 	_txt_r(mono, size.x - 24.0, size.y - 116.0, String(state.cmd_note), 7, Palette.a(Palette.AMBER, 0.85))
 	_txt_r(mono, size.x - 24.0, size.y - 104.0, "1 保持站位 STATION · 2 跟踪 SHADOW · 3 点火 BURN · 4 撤销", 7, Palette.a(Palette.PH, 0.65))
 	_txt_r(mono, size.x - 24.0, size.y - 92.0, "历元 T0+%06.1fs · 预测 %d 点" % [_tau_now(), PRED_STEPS + 1], 7, Palette.a(Palette.PH_FAINT, 0.9))
