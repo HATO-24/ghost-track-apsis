@@ -146,7 +146,7 @@ func _build_visuals() -> void:
 
 func _parse_env() -> void:
 	_style = OS.get_environment("DSH_INTRO_STYLE")
-	if _style == "": _style = "marathon"
+	if _style == "": _style = "terminal"
 	var intro := OS.get_environment("DSH_INTRO")
 	var shot := OS.get_environment("DSH_SHOT")
 	var skip := OS.get_environment("DSH_SKIP_INTRO")
