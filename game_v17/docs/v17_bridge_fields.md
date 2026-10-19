@@ -211,3 +211,25 @@ deny/hold、优先级与时间窗拒绝原因；机动 plan→authorize→queue�
 （3 项）兼容、写 API 转发、无档案实体拒绝；state fw_nav_* 全链路、fw_damage_* 包装、restart 复位、
 fw_bridge_state JSON 可回读。回归：`v17_bridge_probe` 138/0（旧字段不变）、`damage_integration_probe`
 204/0、`nav_probe` 372/0、boot/main headless exit 0。
+## 13　物理 shadow 字段（R6-SHADOW-1）
+
+物理核心 `framework/sim/cislunar_physics.gd`（CR3BP/RK4）以 **shadow 只读**方式接入：
+`authoritative=false`，不修改 V15 轨道/sensor_model/plot/HUD，也不修改 V2 world 实体轨道。
+
+| 位置 | 字段 / API | 说明 |
+| --- | --- | --- |
+| bridge | `physics_mode` / `physics_ready` | `"shadow"`（默认）/`"off"`；`V17_PHYSICS=off` 关闭 |
+| bridge | `physics_view()` / `physics_summary()` | 只读 vm（entities/reference/warnings/t/config）与摘要（t/entities/warnings/max_jacobi_drift/nav_position_provider） |
+| bridge | `bridge_state()` | 增 `physics/physics_summary/physics_ready/physics_mode` |
+| state | `fw_physics` / `fw_physics_ready` / `fw_physics_summary` / `fw_physics_mode` | 只读快照（浅 JSON 深拷贝） |
+| navigation | `nav.bind_position_provider(_nav_shadow_position)` | 节点位置替换为 shadow/地月模型的地心旋转系位置；off 时回退 abstract；不影响路线成本/执行 |
+
+`physics_view()` 实体行：`id/t/state_rot/state_earth_eci/state_earth_rot/jacobi/jacobi0/
+jacobi_drift/energy/finite/earth_distance_km/moon_distance_km/source`（9 个 V2 实体；
+source 标注 L1 局部近似/固定占位/缺失默认，非 JPL 星历）。
+`reference`：`lagrange{L1..L5}`、`geo`、`lunar_leo`、`moon`（含 earth_rot 位置/ECI 状态/距离/周期）。
+导航节点位置（provider）：L1≈326,381 km、L2≈448,915、L4/L5≈384,400、GEO=42,164、
+moon_port 到月≈1,737.4、lunar_leo 绕月≈1,837.4 km；off 时 l1 回退 abstract 326,283 km。
+
+`bridge.sync(dt)` 内固定步长（≤60s）推进 shadow；`sync(0)` 暂停不推进；不自动执行导航机动。
+详见 `game_v17/docs/v17_physics_shadow.md`；测试 `tests/v17_physics_shadow_probe.gd`（277/0）。

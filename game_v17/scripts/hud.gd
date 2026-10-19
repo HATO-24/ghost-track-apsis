@@ -1155,6 +1155,9 @@ var _nav_prev_paused := false
 var _nav_open_on_ready := ""
 var _nav_rows: Array = []        # [{rect,id,kind}]
 var _nav_candidate_sel := 0
+var _nav_planned_demo := false
+var _nav_last_action: Dictionary = {}
+var _nav_maneuver_plan_id := ""
 var _damage_full_demo := false
 var _damage_full_action_rects: Array = []  # [{rect,action,section,priority}]
 var _comms_abort_rect := Rect2()
@@ -1250,6 +1253,11 @@ func _ready() -> void:
 			# R4-UI-2 截图：导航页（TRAFFIC）
 			_demo_suppress_adjutant = true
 			_nav_open_on_ready = "traffic"
+		"nav_planned":
+			# R4-NAV-QA-1 截图：真实 state.fw_nav_* 规划/选路/许可后打开导航页
+			_demo_suppress_adjutant = true
+			_nav_open_on_ready = "routes"
+			_nav_planned_demo = true
 		"fw_replay_drag":
 			# V17-UI-2 截图：回放时间轴拖动中
 			_demo_suppress_adjutant = true
@@ -1311,6 +1319,8 @@ func _ready() -> void:
 	if _nav_open_on_ready != "":
 		_open_nav_page(_nav_open_on_ready)
 		_nav_open_on_ready = ""
+		if _nav_planned_demo:
+			_nav_planned_prepare()
 	# P9a 截图钩子：日志/队列页签、损管详情/航行准备长按已充能。
 	var ltab := OS.get_environment("DSH_LOG_TAB")
 	if ltab != "":
@@ -3716,120 +3726,134 @@ func _draw_damage_full_page(df: Dictionary) -> void:
 
 
 # ═══════════════════════════════════════════════════════════════
-# R4-UI-2：导航页（独立页；优先 state.fw_nav_*，未就绪则只读骨架）
+# R4-NAV-QA-1：导航页真实 state.fw_nav_* 绑定（V2NavigationModel 只读快照）
 # ═══════════════════════════════════════════════════════════════
 
 func _fw_nav() -> Dictionary:
 	if state != null:
-		for k in ["fw_nav", "fw_navigation", "fw_nav_state"]:
-			var v = state.get(k)
-			if v is Dictionary and not (v as Dictionary).is_empty():
-				return v
+		var v = state.get("fw_nav")
+		if v is Dictionary and not (v as Dictionary).is_empty():
+			return v
 		var fw = state.get("framework")
 		if fw != null:
-			for m in ["nav_view", "navigation_view"]:
+			for m in ["navigation_view", "nav_view"]:
 				if fw.has_method(String(m)):
 					var raw = fw.call(String(m))
-					if raw is Dictionary:
+					if raw is Dictionary and not (raw as Dictionary).is_empty():
 						return raw
-			var nv = fw.get("nav")
-			if nv is Dictionary:
-				return nv
 	return {}
 
 
+func _nav_ready() -> bool:
+	if state != null and bool(state.get("fw_nav_ready")):
+		return true
+	var n := _fw_nav()
+	return bool(n.get("ready", false))
+
+
 func _nav_has_core() -> bool:
+	return _nav_ready()
+
+
+func _nav_nodes() -> Array:
 	var n := _fw_nav()
+	return n.get("nodes", []) if n.get("nodes", []) is Array else []
+
+
+func _nav_node(node_id: String) -> Dictionary:
+	for raw in _nav_nodes():
+		var n: Dictionary = raw
+		if String(n.get("id", "")) == node_id:
+			return n
+	return {}
+
+
+func _nav_node_name(node_id: String) -> String:
+	var n := _nav_node(node_id)
 	if n.is_empty():
-		return false
-	var nodes: Array = n.get("nodes", []) if n.get("nodes", []) is Array else []
-	var cands: Array = n.get("candidates", []) if n.get("candidates", []) is Array else []
-	return not nodes.is_empty() or not cands.is_empty()
+		return node_id
+	return String(n.get("name", node_id))
 
 
-func _nav_candidates() -> Array:
+func _nav_node_label(node_id: String) -> String:
+	var n := _nav_node(node_id)
+	if n.is_empty():
+		return node_id
+	return "%s / %s" % [node_id, _ellipsis(cjk, String(n.get("name", node_id)), 8, 150.0)]
+
+
+func _nav_routes() -> Array:
 	var n := _fw_nav()
-	var cs: Array = n.get("routes", []) if n.get("routes", []) is Array else []
-	if cs.is_empty():
-		cs = n.get("candidates", []) if n.get("candidates", []) is Array else []
-	if not cs.is_empty():
-		return cs
-	var plan: Dictionary = n.get("plan", {}) if n.get("plan", {}) is Dictionary else {}
-	var cs2: Array = plan.get("candidates", []) if plan.get("candidates", []) is Array else []
-	return cs2
+	var r: Array = n.get("routes", []) if n.get("routes", []) is Array else []
+	return r
 
 
-func _nav_clearance() -> Dictionary:
+func _nav_selected_route() -> Dictionary:
+	var n := _fw_nav()
+	return n.get("selected", {}) if n.get("selected", {}) is Dictionary else {}
+
+
+func _nav_clearances() -> Array:
+	var n := _fw_nav()
+	return n.get("clearances", []) if n.get("clearances", []) is Array else []
+
+
+func _nav_active_clearance() -> Dictionary:
 	var n := _fw_nav()
 	var c: Dictionary = n.get("clearance", {}) if n.get("clearance", {}) is Dictionary else {}
 	if not c.is_empty():
 		return c
-	var tr: Dictionary = n.get("traffic", {}) if n.get("traffic", {}) is Dictionary else {}
-	var c2: Dictionary = tr.get("clearance", {}) if tr.get("clearance", {}) is Dictionary else {}
-	return c2
+	var cs := _nav_clearances()
+	return (cs[0] as Dictionary) if not cs.is_empty() else {}
 
 
-func _nav_story() -> Dictionary:
-	if state != null:
-		var nd = state.get("nav_data")
-		if nd is Dictionary:
-			return nd
+func _nav_route_clearance(cid: String) -> Dictionary:
+	for raw in _nav_clearances():
+		var c: Dictionary = raw
+		if String(c.get("route_id", "")) == cid:
+			return c
+	var ac := _nav_active_clearance()
+	if not ac.is_empty() and String(ac.get("route_id", "")) == cid:
+		return ac
 	return {}
 
 
-func _nav_known_objects() -> Array:
-	var out: Array = []
-	if state == null:
-		return out
-	var nv := _fw_nav()
-	if not nv.is_empty() and nv.get("nodes") is Array and not (nv.get("nodes") as Array).is_empty():
-		for raw_node in (nv.get("nodes") as Array):
-			var nd: Dictionary = raw_node
-			out.append({"id": String(nd.get("id", "")), "batch": String(nd.get("id", "")),
-				"name": String(nd.get("name", "")), "kind": String(nd.get("kind", "节点")),
-				"range": 0.0, "bearing": 0.0, "own": false, "fixed": true})
-		return out
-	var trs: Array = state.tracks if state.tracks is Array else []
-	for raw in trs:
-		var t: Dictionary = raw
-		if not bool(t.get("own", false)):
-			continue
-		out.append({"id": String(t.get("id", "")), "batch": String(t.get("batch", "")),
-			"name": String(t.get("name", t.get("en", "本舰"))), "own": true, "fixed": false,
-			"range": 0.0, "bearing": 0.0, "kind": "本舰"})
-	var fcs: Array = state.get("fw_contacts") if state.get("fw_contacts") is Array else []
-	for raw in fcs:
-		var c: Dictionary = raw
-		if not (bool(c.get("fixed", false)) or String(c.get("kind", "")) in ["station", "tank", "port"]):
-			continue
-		out.append({"id": String(c.get("track_id", c.get("entity_id", ""))),
-			"batch": String(c.get("batch", "")), "name": String(c.get("entity_name", c.get("name", ""))),
-			"own": false, "fixed": true,
-			"range": float(c.get("range_km", 0.0)), "bearing": float(c.get("bearing_deg", 0.0)),
-			"kind": "站体/港口"})
-	return out
+func _nav_budget() -> Dictionary:
+	var n := _fw_nav()
+	return n.get("budget", {}) if n.get("budget", {}) is Dictionary else {}
 
 
-func _nav_log_text(raw: Variant) -> String:
-	if raw is Dictionary:
-		var d: Dictionary = raw
-		var tt := float(d.get("T", d.get("t", 0.0)))
-		var tag := String(d.get("tag", d.get("source", d.get("kind", ""))))
-		var text := String(d.get("text", d.get("line", "")))
-		if tag != "":
-			return "T+%.0f  %s · %s" % [tt, tag, text]
-		return "T+%.0f  %s" % [tt, text]
-	return String(raw)
+func _nav_limits() -> Dictionary:
+	var n := _fw_nav()
+	return n.get("limits", {}) if n.get("limits", {}) is Dictionary else {}
+
+
+func _nav_from_label() -> String:
+	return "%s / %s" % [_nav_from_id, _nav_node_name(_nav_from_id)]
+
+
+func _nav_to_label() -> String:
+	if _nav_to_id == "":
+		return "未选终点 / SELECT TARGET"
+	return "%s / %s" % [_nav_to_id, _nav_node_name(_nav_to_id)]
 
 
 func _nav_obj_label() -> String:
-	if _nav_to_id == "":
-		return "未选终点 / SELECT TARGET"
-	for raw in _nav_known_objects():
-		var o: Dictionary = raw
-		if String(o.get("id", "")) == _nav_to_id:
-			return "%s [%s]" % [String(o.get("name", "")), String(o.get("batch", ""))]
-	return _nav_to_id
+	return "%s → %s" % [_nav_from_id, _nav_to_id if _nav_to_id != "" else "—"]
+
+
+func _nav_dur_text(seconds: float) -> String:
+	var s := maxf(0.0, seconds)
+	if s >= 3600.0:
+		return "%.1f h" % (s / 3600.0)
+	return "%.0f s" % s
+
+
+func _nav_dv_text() -> String:
+	var b := _nav_budget()
+	if b.is_empty():
+		return "—"
+	return "%.0f / %.0f m/s" % [float(b.get("dv_available_ms", 0.0)), float(b.get("dv_total_ms", 0.0))]
 
 
 func _nav_exec_s() -> float:
@@ -3840,13 +3864,105 @@ func _nav_exec_s() -> float:
 	return 360.0
 
 
-func _nav_dv_text() -> String:
+func _nav_log_text(raw: Variant) -> String:
+	if raw is Dictionary:
+		var d: Dictionary = raw
+		var tt := float(d.get("T", d.get("t", 0.0)))
+		var tag := String(d.get("tag", d.get("source", d.get("kind", ""))))
+		var text := String(d.get("text", d.get("line", "")))
+		return "T+%.0f  %s · %s" % [tt, tag, text] if tag != "" else "T+%.0f  %s" % [tt, text]
+	if state != null:
+		return String(raw)
+	return String(raw)
+
+
+func _nav_result(r: Dictionary, label: String) -> void:
+	_nav_last_action = r.duplicate(true)
+	print("V17 NAV ACTION %s ok=%s status=%s reason=%s plan=%s" % [label, str(r.get("ok", false)),
+		String(r.get("status", "")), String(r.get("reason", "")), String(r.get("plan_id", ""))])
+	_fw_pull_state()
+	var st := String(r.get("status", ""))
+	if st == "":
+		st = "OK" if bool(r.get("ok", false)) else String(r.get("reason", "失败"))
+	var reason := String(r.get("reason_text", r.get("reason", "")))
+	_toast("导航：%s · %s%s" % [label, st, (" · " + reason) if reason != "" else ""])
+
+
+func _nav_current_candidate() -> Dictionary:
+	var routes := _nav_routes()
+	if routes.is_empty():
+		return {}
+	var sel := _nav_selected_route()
+	if not sel.is_empty():
+		var cid := String(sel.get("candidate_id", ""))
+		for raw in routes:
+			var c: Dictionary = raw
+			if String(c.get("candidate_id", "")) == cid:
+				return c
+	return routes[clampi(_nav_candidate_sel, 0, routes.size() - 1)]
+
+
+func _nav_pick_candidate(idx: int, select_api := true) -> void:
+	var routes := _nav_routes()
+	if routes.is_empty():
+		return
+	_nav_candidate_sel = clampi(idx, 0, routes.size() - 1)
+	var c: Dictionary = routes[_nav_candidate_sel]
+	if select_api and state != null and state.has_method("fw_nav_select_route"):
+		var raw = state.call("fw_nav_select_route", c)
+		if raw is Dictionary:
+			_nav_last_action = raw
+
+
+func _nav_planned_prepare() -> void:
+	# 仅截图/回归：真实调用 state.fw_nav_*；失败保留原因，不伪造。
 	if state == null:
-		return "—"
-	var dv = state.get("dv")
-	if dv is Dictionary:
-		return "%.0f / %.0f" % [float((dv as Dictionary).get("current", 0.0)), float((dv as Dictionary).get("max", 0.0))]
-	return "1,120 / 1,260"
+		return
+	_nav_from_id = "l1"
+	_nav_to_id = "geo"
+	var plan: Dictionary = {}
+	if state.has_method("fw_nav_plan_routes"):
+		var raw = state.call("fw_nav_plan_routes", "l1", "geo", {})
+		if raw is Dictionary:
+			plan = raw
+	var cands: Array = plan.get("candidates", []) if plan.get("candidates", []) is Array else []
+	if cands.is_empty():
+		_nav_last_action = plan
+		_fw_pull_state()
+		return
+	var idx := 0
+	var rec := String(plan.get("recommended", ""))
+	for i in range(cands.size()):
+		var c: Dictionary = cands[i]
+		if rec != "" and String(c.get("candidate_id", "")) == rec:
+			idx = i
+			break
+	var step := OS.get_environment("DSH_NAV_STEP")
+	if step == "clearance":
+		# 选低暴露/经济候选，真实请求许可；结果可能是 granted/hold/denied，不伪造
+		for i in range(cands.size()):
+			var c2: Dictionary = cands[i]
+			if String(c2.get("profile", "")) == "economy" and bool(c2.get("feasible", true)):
+				idx = i
+				break
+	_nav_candidate_sel = idx
+	var pick: Dictionary = cands[idx]
+	if state.has_method("fw_nav_select_route"):
+		state.call("fw_nav_select_route", pick)
+	# task-74：nav_planned 必须真实请求许可（默认 recommended；DSH_NAV_STEP=clearance 选 economy）
+	if state.has_method("fw_nav_request_clearance"):
+		var cr = state.call("fw_nav_request_clearance", pick, null, 3)
+		if cr is Dictionary:
+			_nav_last_action = cr
+	if _nav_last_action.is_empty():
+		_nav_last_action = plan
+	_fw_pull_state()
+	# QA 调试动作（不用于正式截图）：验证 AUTHORIZE / ABORT 按钮路径
+	if step == "authorize":
+		_nav_action("授权执行")
+	elif step == "abort":
+		_nav_action("授权执行")
+		_nav_action("中断")
 
 
 func _open_nav_page(mode := "routes") -> void:
@@ -3861,9 +3977,11 @@ func _open_nav_page(mode := "routes") -> void:
 	_nav_page_open = true
 	_nav_mode = mode
 	_nav_selected = 0
-	_nav_from_id = "1001"
+	_nav_from_id = "l1"
 	_nav_to_id = ""
 	_nav_candidate_sel = 0
+	_nav_maneuver_plan_id = ""
+	_nav_last_action = {}
 	_damage_page = false
 	_comms_expanded = false
 	_tut_open = false
@@ -3903,9 +4021,9 @@ func _nav_panel(rect: Rect2, cn: String, en: String, note := "") -> void:
 
 
 func _draw_nav_page() -> void:
-	var nav := _fw_nav()
-	var core := !nav.is_empty()
-	var objs := _nav_known_objects()
+	var ready := _nav_ready()
+	var routes := _nav_routes()
+	var nodes := _nav_nodes()
 	draw_rect(Rect2(0, 0, 1920, 1080), Color(0, 0, 0, 0.32))
 	_panel(NAV_HEADER)
 	_txt(cjk, NAV_HEADER.position.x + 20.0, NAV_HEADER.position.y + 10.0, "导航 / NAVIGATION", 12, Palette.PH)
@@ -3920,180 +4038,253 @@ func _draw_nav_page() -> void:
 		if sel:
 			draw_rect(Rect2(tr.position.x, tr.end.y - 2.0, tr.size.x, 2.0), Palette.PH)
 		_txt(cjk, tr.position.x + 10.0, tr.position.y + 3.0, String(item[0]), 8, Palette.PH if sel else Palette.DIM)
-	_txt(mono, NAV_HEADER.end.x - 300.0, NAV_HEADER.position.y + 10.0, "T+%.0f · EXEC %.0f s · Δv %s" % [
-		float(state.clock), _nav_exec_s(), _nav_dv_text()], 8, Palette.a(Palette.TXT, 0.95))
+	_txt(mono, NAV_HEADER.end.x - 300.0, NAV_HEADER.position.y + 10.0, "DATA state.fw_nav · %s · T+%.0f" % ["READY" if ready else "NOT READY", float(state.get("fw_t"))], 8, Palette.PH if ready else Palette.AMBER)
 	_txt(cjk, NAV_HEADER.end.x - 300.0, NAV_HEADER.position.y + 30.0, "PAUSED / 规划中 · 关闭恢复", 7, Palette.a(Palette.AMBER, 0.9))
 	draw_rect(NAV_BACK, Palette.a(Palette.AMBER, 0.10))
 	draw_rect(NAV_BACK, Palette.a(Palette.AMBER, 0.6), false, 1.0)
 	_txt(cjk, NAV_BACK.position.x + 10.0, NAV_BACK.position.y + 4.0, "返回 / BACK (ESC)", 8, Palette.AMBER)
 
-	_nav_panel(NAV_LEFT, "对象 / OBJECTS", "STATE TRACKS · READ-ONLY", "节点/站点列表：选中设终点；NAV CORE 未接时只读")
+	# ── 左：8 节点 ──
+	_nav_panel(NAV_LEFT, "节点 / NODES", "state.fw_nav.nodes", "8 节点；点击设终点；FROM 固定 l1（任务起点）")
 	_nav_rows.clear()
-	var y := NAV_ROW0 + 18.0
-	var shown := 0
-	for raw in objs:
-		if shown >= NAV_ROW_MAX:
-			break
-		var o: Dictionary = raw
-		var rid := String(o.get("id", ""))
-		var rr := Rect2(64.0, y, 312.0, 44.0)
-		var sel := rid == _nav_to_id or (_nav_to_id == "" and shown == 0)
-		draw_rect(rr, Palette.a(Palette.PANEL2, 0.6 if sel else 0.20))
-		draw_rect(rr, Palette.a(Palette.PH, 0.45 if sel else 0.18), false, 1.0)
-		_txt(mono, rr.position.x + 8.0, rr.position.y + 6.0, String(o.get("batch", "")), 8, Palette.PH if sel else Palette.DIM)
-		_txt(cjk, rr.position.x + 66.0, rr.position.y + 5.0, _ellipsis(cjk, String(o.get("name", "")), 9, 230.0), 9, Palette.TXT)
-		_txt(cjk, rr.position.x + 8.0, rr.position.y + 24.0, "%s · %.0f km / %.0f°" % [String(o.get("kind", "")), float(o.get("range", 0.0)), float(o.get("bearing", 0.0))], 7, Palette.a(Palette.DIM, 0.95))
-		_nav_rows.append({"rect": rr, "id": rid})
-		y += 48.0
-		shown += 1
-	if shown == 0:
-		_txt(cjk, 76.0, NAV_ROW0 + 22.0, "（无接触/节点数据；等待 state.fw_nav_* core）", 8, Palette.FAINT)
-	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 122.0, "选中 / SELECTED", 8, Palette.PH)
-	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 104.0, _ellipsis(cjk, _nav_obj_label(), 9, 296.0), 9, Palette.TXT)
-	var cr := _nav_clearance()
-	var cst := String(cr.get("status", "")) if !cr.is_empty() else ""
-	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 84.0, "许可 / CLEARANCE：%s" % (cst if cst != "" else "NO DATA · CORE 未接"), 8, Palette.PH if cst == "granted" else Palette.AMBER)
-	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 64.0, "起点 / FROM：%s" % "1001 本舰", 7, Palette.DIM)
-	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 46.0, "数据源：%s" % ("state.fw_nav_*" if core else "CORE 未接 · 只读骨架"), 7, Palette.FAINT)
+	var y := 176.0
+	if nodes.is_empty():
+		_txt(cjk, 76.0, y + 12.0, "（fw_nav.nodes 为空 · navigation 未就绪）", 8, Palette.FAINT)
+	else:
+		for raw in nodes:
+			var n: Dictionary = raw
+			var nid := String(n.get("id", ""))
+			var rr := Rect2(64.0, y, 312.0, 44.0)
+			var is_to := nid == _nav_to_id
+			var is_from := nid == _nav_from_id
+			draw_rect(rr, Palette.a(Palette.PANEL2, 0.65 if is_to else 0.25))
+			draw_rect(rr, Palette.a(Palette.AMBER if is_from else Palette.PH, 0.55 if (is_to or is_from) else 0.2), false, 1.0)
+			_txt(mono, rr.position.x + 8.0, rr.position.y + 5.0, nid, 9, Palette.PH if (is_to or is_from) else Palette.DIM)
+			_txt(cjk, rr.position.x + 106.0, rr.position.y + 4.0, _ellipsis(cjk, String(n.get("name", "")), 9, 196.0), 9, Palette.TXT)
+			_txt(cjk, rr.position.x + 8.0, rr.position.y + 23.0, "%s · %s · %s" % [
+				String(n.get("kind", "")), String(n.get("traffic_class", "")), String(n.get("authority", ""))], 7, Palette.a(Palette.DIM, 0.95))
+			_nav_rows.append({"rect": rr, "id": nid})
+			y += 48.0
+	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 122.0, "FROM / TO", 8, Palette.PH)
+	_txt(mono, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 104.0, "FROM  %s" % _nav_from_id, 8, Palette.AMBER)
+	_txt(mono, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 86.0, "TO    %s" % (_nav_to_id if _nav_to_id != "" else "—"), 8, Palette.TXT if _nav_to_id != "" else Palette.DIM)
+	if _nav_to_id != "":
+		_txt(cjk, NAV_LEFT.position.x + 78.0, NAV_LEFT.end.y - 86.0, _ellipsis(cjk, _nav_node_name(_nav_to_id), 7, 280.0), 7, Palette.DIM)
+	var ac := _nav_active_clearance()
+	var ast := String(ac.get("status", "")) if not ac.is_empty() else ""
+	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 62.0, "许可 / CLEARANCE：%s" % (ast if ast != "" else "NONE"), 8, Palette.PH if ast == "granted" else Palette.AMBER)
+	var budget := _nav_budget()
+	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 42.0, "Δv 可用 %s" % ("%.0f m/s" % float(budget.get("dv_available_ms", 0.0)) if not budget.is_empty() else "—"), 7, Palette.DIM)
+	_txt(cjk, NAV_LEFT.position.x + 12.0, NAV_LEFT.end.y - 24.0, "数据源：%s" % ("state.fw_nav（ready）" if ready else "fw_nav 未就绪 · 只读骨架"), 7, Palette.FAINT)
 
-	_nav_panel(NAV_MAP, "地月图 / CELESTIAL CHART", "V1 WIREFRAME · ABSTRACT", "示意图；位置/路线候选取自 core；未接时明确标注")
-	_nav_draw_chart(objs, nav)
-	_nav_panel(NAV_RIGHT, "航线计划 / ROUTE PLAN", "STATE API", "")
-	_nav_draw_plan(nav)
-	_nav_panel(NAV_BOT, "规划 / 交通 / 命令日志", "READ-ONLY", "")
+	# ── 中：地月图（真实节点/候选路径）──
+	_nav_panel(NAV_MAP, "地月图 / CELESTIAL CHART", "V1 WIREFRAME · ABSTRACT", "节点抽象坐标 from state.fw_nav；R6 接真实位置")
+	_nav_draw_chart(nodes, routes)
+	# ── 右：计划 ──
+	_nav_panel(NAV_RIGHT, "航线计划 / ROUTE PLAN", "state.fw_nav", "")
+	_nav_draw_plan(ready, routes, ac)
+	# ── 下左：事件/日志 ──
+	_nav_panel(NAV_BOT, "规划 / 交通 / 命令日志", "state.fw_nav.events", "")
 	for i in range(3):
 		var lab: String = ["规划日志 / PLAN", "交通 / TRAFFIC", "命令队列 / QUEUE"][i]
 		var tabr := Rect2(NAV_BOT.position.x + 12.0 + float(i) * 132.0, NAV_BOT.position.y + 28.0, 124.0, 16.0)
 		draw_rect(tabr, Palette.a(Palette.PANEL2, 0.7 if i == 0 else 0.25))
 		draw_rect(tabr, Palette.a(Palette.PH, 0.5 if i == 0 else 0.2), false, 1.0)
 		_txt(cjk, tabr.position.x + 4.0, tabr.position.y + 3.0, lab, 7, Palette.PH if i == 0 else Palette.DIM)
-	var logs: Array = state.get("log_lines") if state.get("log_lines") is Array else []
+	var evs: Array = _fw_nav().get("events", []) if _fw_nav().get("events", []) is Array else []
 	var ly := NAV_BOT.position.y + 54.0
-	for i in range(mini(4, logs.size())):
-		var text := _nav_log_text(logs[logs.size() - 1 - i])
-		_txt(cjk, NAV_BOT.position.x + 12.0, ly, _ellipsis(cjk, text, 8, NAV_BOT.size.x - 24.0), 8, Palette.a(Palette.TXT, 0.9))
-		ly += 16.0
-	_txt(cjk, NAV_BOT.position.x + 12.0, NAV_BOT.end.y - 18.0, "交通许可/拒绝原因：CLEARANCE %s · 规划页只读骨架（未接 fw_nav_* 时不伪造许可/候选）" % (cst if cst != "" else "NO DATA"), 7, Palette.FAINT)
-
+	if not evs.is_empty():
+		for i in range(mini(4, evs.size())):
+			var ev: Dictionary = evs[evs.size() - 1 - i]
+			var text := "T+%.0f  %s · %s" % [float(ev.get("t", 0.0)), String(ev.get("kind", "")), String(ev.get("text", ""))]
+			_txt(cjk, NAV_BOT.position.x + 12.0, ly, _ellipsis(cjk, text, 8, NAV_BOT.size.x - 24.0), 8, Palette.a(Palette.TXT, 0.9))
+			ly += 16.0
+	else:
+		var logs: Array = state.get("log_lines") if state.get("log_lines") is Array else []
+		for i in range(mini(3, logs.size())):
+			var text := _nav_log_text(logs[logs.size() - 1 - i])
+			_txt(cjk, NAV_BOT.position.x + 12.0, ly, _ellipsis(cjk, text, 8, NAV_BOT.size.x - 24.0), 8, Palette.a(Palette.TXT, 0.9))
+			ly += 16.0
+	_txt(cjk, NAV_BOT.position.x + 12.0, NAV_BOT.end.y - 18.0, "交通许可/拒绝原因：%s" % (String(ac.get("reason_text", ac.get("reason", ""))) if not ac.is_empty() else "无活动许可"), 7, Palette.FAINT)
 	_nav_draw_timeline()
-	_txt(cjk, 60.0, 1052.0, "N / ESC 返回 HUD · 规划页暂停仿真 · 完整页独立（V1 四区骨架）", 7, Palette.FAINT)
-	_txt_r(cjk, 1860.0, 1052.0, "R4-UI-2 · NAV / DAMAGE", 7, Palette.FAINT)
+	_txt(cjk, 60.0, 1052.0, "N / ESC 返回 HUD · 规划页暂停仿真 · 候选/许可/路径全部来自 state.fw_nav", 7, Palette.FAINT)
+	_txt_r(cjk, 1860.0, 1052.0, "R4-NAV-QA-1 · REAL BINDING", 7, Palette.FAINT)
 
 
-func _nav_draw_chart(objs: Array, nav: Dictionary) -> void:
+func _nav_node_projector(nodes: Array) -> Dictionary:
+	var minx := 1.0e30
+	var maxx := -1.0e30
+	var miny := 1.0e30
+	var maxy := -1.0e30
+	var posmap: Dictionary = {}
+	for raw in nodes:
+		var n: Dictionary = raw
+		var p = n.get("pos_km", [])
+		if not (p is Array) or (p as Array).size() < 2:
+			continue
+		var px := float((p as Array)[0])
+		var py := float((p as Array)[1])
+		minx = minf(minx, px); maxx = maxf(maxx, px)
+		miny = minf(miny, py); maxy = maxf(maxy, py)
+		posmap[String(n.get("id", ""))] = [px, py]
+	if posmap.is_empty():
+		return {}
+	# 抽象节点坐标：V1 示意图采用 X/Y 非等比例投影（R6 再换真实等比例地图）
+	return {"minx": minx, "maxx": maxx, "miny": miny, "maxy": maxy,
+		"rect": Rect2(440.0, 205.0, 1040.0, 540.0), "pos": posmap}
+
+
+func _nav_projector_point(pr: Dictionary, node_id: String) -> Vector2:
+	var pos: Dictionary = pr.get("pos", {}) if pr.get("pos", {}) is Dictionary else {}
+	if not pos.has(node_id):
+		return Vector2(-1000.0, -1000.0)
+	var p: Array = pos[node_id]
+	var rect: Rect2 = pr.get("rect", Rect2(440.0, 205.0, 1040.0, 540.0))
+	var minx := float(pr.get("minx", 0.0))
+	var maxx := float(pr.get("maxx", 1.0))
+	var miny := float(pr.get("miny", 0.0))
+	var maxy := float(pr.get("maxy", 1.0))
+	var nx := (float(p[0]) - minx) / maxf(1.0, maxx - minx)
+	var ny := (float(p[1]) - miny) / maxf(1.0, maxy - miny)
+	return Vector2(rect.position.x + nx * rect.size.x, rect.position.y + (1.0 - ny) * rect.size.y)
+
+
+func _nav_draw_chart(nodes: Array, routes: Array) -> void:
 	var r := NAV_MAP
-	var cx := 960.0
-	var cy := 510.0
 	for gx in range(int(r.position.x + 24.0), int(r.end.x - 24.0), 96):
 		draw_line(Vector2(gx, r.position.y + 40.0), Vector2(gx, r.end.y - 62.0), Palette.a(Palette.LINE, 0.22), 1.0)
 	for gy in range(int(r.position.y + 40.0), int(r.end.y - 62.0), 96):
 		draw_line(Vector2(r.position.x + 24.0, gy), Vector2(r.end.x - 24.0, gy), Palette.a(Palette.LINE, 0.22), 1.0)
-	_txt(mono, r.position.x + 24.0, r.position.y + 40.0, "FRAME LOCAL · SCHEMATIC · RANGE ~±600 km", 7, Palette.a(Palette.FAINT, 0.95))
-	draw_arc(Vector2(cx - 300.0, cy + 40.0), 48.0, 0, TAU, 64, Palette.a(Palette.PH_DIM, 0.8), 1.0)
-	draw_arc(Vector2(cx - 300.0, cy + 40.0), 64.0, 0, TAU, 64, Palette.a(Palette.PH_DIM, 0.25), 1.0)
-	_txt(mono, cx - 334.0, cy + 96.0, "EARTH · SCHEMATIC", 7, Palette.a(Palette.PH_DIM, 0.8))
-	draw_arc(Vector2(cx + 330.0, cy - 190.0), 16.0, 0, TAU, 32, Palette.a(Palette.DIM, 0.8), 1.0)
-	_txt(mono, cx + 354.0, cy - 198.0, "MOON · SCHEMATIC", 7, Palette.a(Palette.DIM, 0.8))
-	draw_arc(Vector2(cx, cy), 10.0, 0, TAU, 24, Palette.PH, 2.0)
-	draw_line(Vector2(cx - 18.0, cy), Vector2(cx + 18.0, cy), Palette.PH, 1.0)
-	draw_line(Vector2(cx, cy - 18.0), Vector2(cx, cy + 18.0), Palette.PH, 1.0)
-	_txt(cjk, cx + 14.0, cy - 14.0, "本舰 / OWN · 1001", 8, Palette.PH)
-	for raw in objs:
-		var o: Dictionary = raw
-		if bool(o.get("own", false)):
+	_txt(mono, r.position.x + 24.0, r.position.y + 40.0, "FRAME: ABSTRACT L1/ECI · SOURCE state.fw_nav · ROUTES %d" % routes.size(), 7, Palette.a(Palette.PH_DIM, 0.95))
+	var pr := _nav_node_projector(nodes)
+	if pr.is_empty():
+		_txt(cjk, r.position.x + 24.0, r.position.y + 72.0, "（节点位置为空）", 8, Palette.FAINT)
+		return
+	# 所有节点
+	for i in range(nodes.size()):
+		var raw: Dictionary = nodes[i]
+		var n: Dictionary = raw
+		var nid := String(n.get("id", ""))
+		var p := _nav_projector_point(pr, nid)
+		var kind := String(n.get("kind", ""))
+		var col := Palette.PH if kind == "station" else (Palette.AMBER if kind == "port" else Palette.BLUE)
+		if kind == "station":
+			draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), Palette.a(col, 0.8), false, 1.0)
+		elif kind == "orbit_ring":
+			draw_arc(p, 8.0, 0, TAU, 24, Palette.a(col, 0.8), 1.0)
+		else:
+			draw_arc(p, 5.0, 0, TAU, 16, Palette.a(col, 0.8), 1.0)
+		var is_to := nid == _nav_to_id
+		var is_from := nid == _nav_from_id
+		var right_side := p.x < 900.0
+		var tx := p.x + (10.0 if right_side else -160.0)
+		var ty := p.y - 10.0 - float(i % 3) * 11.0
+		_txt(mono, tx, ty, nid, 8, Palette.AMBER if (is_to or is_from) else Palette.a(Palette.TXT, 0.9))
+		_txt(cjk, tx, ty + 11.0, _ellipsis(cjk, String(n.get("name", "")), 7, 150.0), 7, col)
+	# 候选路径
+	var sel := _nav_selected_route()
+	var sel_id := String(sel.get("candidate_id", ""))
+	for i in range(routes.size()):
+		var c: Dictionary = routes[i]
+		var path: Array = c.get("path", []) if c.get("path", []) is Array else []
+		if path.size() < 2:
 			continue
-		var ang := deg_to_rad(float(o.get("bearing", 0.0)))
-		var rad := clampf(float(o.get("range", 0.0)) * 0.55, 32.0, 420.0)
-		var px := cx + sin(ang) * rad
-		var py := cy - cos(ang) * rad
-		var col := Palette.AMBER if String(o.get("kind", "")).begins_with("站") else Palette.BLUE
-		draw_line(Vector2(cx, cy), Vector2(px, py), Palette.a(col, 0.22), 1.0)
-		draw_rect(Rect2(px - 5.0, py - 5.0, 10.0, 10.0), Palette.a(col, 0.7), false, 1.0)
-		_txt(cjk, px + 10.0, py - 8.0, _ellipsis(cjk, "%s [%s]" % [String(o.get("name", "")), String(o.get("batch", ""))], 7, 220.0), 7, col)
-	var cands := _nav_candidates()
-	if cands.is_empty():
-		draw_dashed_line(Vector2(cx + 20.0, cy + 30.0), Vector2(cx + 300.0, cy - 130.0), Palette.a(Palette.AMBER, 0.28), 1.0, 6.0)
-		_txt(mono, cx + 36.0, cy + 36.0, "CANDIDATES: 尚未生成 · 点 GEN" if _nav_has_core() else "CANDIDATES: CORE NOT WIRED · 不伪造 A/B/C", 7, Palette.a(Palette.AMBER, 0.8))
-	else:
-		for i in range(mini(3, cands.size())):
-			var c: Dictionary = cands[i]
-			var pts: Array = c.get("preview_points", []) if c.get("preview_points", []) is Array else []
-			var col: Color = [Palette.PH, Palette.AMBER, Palette.BLUE][i]
-			var prev := Vector2(cx, cy)
-			for rawp in pts:
-				var pp: Dictionary = rawp
-				var arr = pp.get("pos_km", [0, 0, 0])
-				if arr is Array and (arr as Array).size() >= 2:
-					var np := Vector2(cx + float(arr[0]) * 0.55, cy - float(arr[1]) * 0.55)
-					draw_line(prev, np, Palette.a(col, 0.8), 1.0)
-					prev = np
-			_txt(mono, cx + 20.0, cy + 52.0 + float(i) * 14.0, "%s · %s · Δv %.0f m/s" % [String(c.get("profile_label", c.get("candidate_id", c.get("id", "—")))), String(c.get("kind", "")), float(c.get("dv_mps", 0.0))], 7, col)
-	if _nav_mode == "traffic":
-		draw_arc(Vector2(cx, cy), 140.0, 0, TAU, 64, Palette.a(Palette.RED, 0.35), 1.0)
-		_txt(mono, cx - 62.0, cy - 154.0, "TRAFFIC OVERLAY · CORE PENDING", 7, Palette.a(Palette.RED, 0.85))
-	draw_line(Vector2(r.position.x + 24.0, r.end.y - 76.0), Vector2(r.position.x + 144.0, r.end.y - 76.0), Palette.a(Palette.TXT, 0.8), 1.0)
-	draw_line(Vector2(r.position.x + 24.0, r.end.y - 82.0), Vector2(r.position.x + 24.0, r.end.y - 70.0), Palette.a(Palette.TXT, 0.8), 1.0)
-	draw_line(Vector2(r.position.x + 144.0, r.end.y - 82.0), Vector2(r.position.x + 144.0, r.end.y - 70.0), Palette.a(Palette.TXT, 0.8), 1.0)
-	_txt(mono, r.position.x + 24.0, r.end.y - 66.0, "100 km · ABSTRACT / 示意", 7, Palette.a(Palette.FAINT, 0.95))
-	_txt_r(cjk, r.end.x - 24.0, r.end.y - 66.0, "地月图：V1 线框；R6 接真实位置/轨道/遮挡", 7, Palette.a(Palette.FAINT, 0.9))
+		var col := Palette.AMBER if String(c.get("profile", "")) == "economy" else (Palette.BLUE if String(c.get("profile", "")) == "covert" else Palette.PH)
+		var is_sel := String(c.get("candidate_id", "")) == sel_id or i == _nav_candidate_sel
+		var prev := _nav_projector_point(pr, String(path[0]))
+		for j in range(1, path.size()):
+			var np := _nav_projector_point(pr, String(path[j]))
+			if prev.x > -500.0 and np.x > -500.0:
+				draw_line(prev, np, Palette.a(col, 0.9 if is_sel else 0.35), 2.0 if is_sel else 1.0)
+			prev = np
+		var mid := _nav_projector_point(pr, String(path[path.size() / 2]))
+		_txt(mono, mid.x + 8.0, mid.y + 12.0 + float(i) * 10.0, String(c.get("profile_label", c.get("profile", ""))), 7, col)
+	if routes.is_empty():
+		draw_dashed_line(Vector2(r.position.x + 500.0, r.position.y + 360.0), Vector2(r.end.x - 500.0, r.position.y + 260.0), Palette.a(Palette.AMBER, 0.25), 1.0, 6.0)
+		_txt(cjk, r.position.x + 24.0, r.position.y + 72.0, "尚未生成候选：右栏「生成候选 / GEN」调用 state.fw_nav_plan_routes(l1,to,{})", 8, Palette.a(Palette.AMBER, 0.85))
+	# 抽象坐标图例（非等比例，避免假装真实比例）
+	var sx := r.position.x + 24.0
+	var sy := r.end.y - 76.0
+	_txt(mono, sx, sy, "ABSTRACT X/Y · NODES 8 · NOT TO SCALE", 7, Palette.a(Palette.FAINT, 0.95))
+	_txt(cjk, sx, sy + 14.0, "节点位置来自 navigation_l1.json abstract_pos_km；X/Y 分别归一化", 7, Palette.a(Palette.FAINT, 0.9))
+	_txt_r(cjk, r.end.x - 24.0, sy + 14.0, "V1 线框；R6 替换真实位置/轨道/遮挡", 7, Palette.a(Palette.FAINT, 0.9))
 
 
-func _nav_draw_plan(nav: Dictionary) -> void:
+func _nav_draw_plan(ready: bool, routes: Array, ac: Dictionary) -> void:
 	var r := NAV_RIGHT
 	var y := r.position.y + 52.0
 	_txt(cjk, r.position.x + 12.0, y, "FROM / TO", 7, Palette.FAINT)
 	y += 14.0
-	_txt(cjk, r.position.x + 12.0, y, "FROM  %s" % _nav_from_id, 8, Palette.TXT)
+	_txt(mono, r.position.x + 12.0, y, "FROM  %s" % _nav_from_id, 8, Palette.AMBER)
+	_txt(cjk, r.position.x + 78.0, y, _nav_node_name(_nav_from_id), 8, Palette.TXT)
 	y += 14.0
-	_txt(cjk, r.position.x + 12.0, y, "TO    %s" % _nav_obj_label(), 8, Palette.TXT if _nav_to_id != "" else Palette.DIM)
+	_txt(mono, r.position.x + 12.0, y, "TO    %s" % (_nav_to_id if _nav_to_id != "" else "—"), 8, Palette.TXT if _nav_to_id != "" else Palette.DIM)
+	if _nav_to_id != "":
+		_txt(cjk, r.position.x + 78.0, y, _nav_node_name(_nav_to_id), 8, Palette.TXT)
 	y += 18.0
 	draw_line(Vector2(r.position.x + 12.0, y), Vector2(r.end.x - 12.0, y), Palette.a(Palette.LINE, 0.7), 1.0)
-	y += 10.0
+	y += 8.0
 	_txt(cjk, r.position.x + 12.0, y, "CONSTRAINTS / 约束", 7, Palette.PH)
-	y += 14.0
-	var cons := [["最早出发", "T+18:00"], ["最晚到达", "T+48:00"], ["Δv 上限", _nav_dv_text()], ["暴露", "低 / LOW"], ["EMCON", "需要"], ["优先级", "普通"]]
+	y += 13.0
+	var lim := _nav_limits()
+	var budget := _nav_budget()
+	var cons := [["max_hops", str(int(lim.get("max_hops", 3)))], ["Δv 可用", _nav_dv_text()],
+		["总 Δv", "%.0f m/s" % float(budget.get("dv_total_ms", 0.0))], ["已用", "%.0f m/s" % float(budget.get("dv_used_ms", 0.0))],
+		["预留", "%.0f m/s" % float(budget.get("dv_reserve_ms", 0.0))], ["优先级范围", "%s" % str(lim.get("priority_range", "—"))]]
 	for c in cons:
 		_txt(cjk, r.position.x + 12.0, y, String(c[0]), 7, Palette.DIM)
 		_txt(mono, r.end.x - 12.0, y, String(c[1]), 7, Palette.TXT)
 		y += 12.0
 	y += 4.0
-	_txt(cjk, r.position.x + 12.0, y, "CANDIDATES / 候选", 7, Palette.PH)
-	y += 14.0
-	var cands := _nav_candidates()
-	if cands.is_empty():
-		for i in range(3):
-			var rr := Rect2(r.position.x + 12.0, y + float(i) * 40.0, r.size.x - 24.0, 34.0)
-			draw_rect(rr, Palette.a(Palette.PANEL2, 0.35))
-			draw_rect(rr, Palette.a(Palette.LINE, 0.5), false, 1.0)
-			_txt(mono, rr.position.x + 8.0, rr.position.y + 6.0, "%s · —" % ["ABC"[i]], 9, Palette.DIM)
-			_txt(cjk, rr.position.x + 42.0, rr.position.y + 5.0, "点击 GEN 生成候选 / NO PLAN" if _nav_has_core() else "等待 NAV CORE 候选 API", 7, Palette.FAINT)
-			_txt(cjk, rr.position.x + 8.0, rr.position.y + 19.0, "Δv — · 时间 — · 暴露 — · 许可 —", 7, Palette.FAINT)
-	else:
-		for i in range(mini(3, cands.size())):
-			var c: Dictionary = cands[i]
-			var rr := Rect2(r.position.x + 12.0, y + float(i) * 44.0, r.size.x - 24.0, 38.0)
-			draw_rect(rr, Palette.a(Palette.PANEL2, 0.6))
-			draw_rect(rr, Palette.a(Palette.PH if i == _nav_candidate_sel else Palette.LINE, 0.6), false, 1.0)
-			_txt(mono, rr.position.x + 8.0, rr.position.y + 6.0, String(c.get("profile_label", c.get("candidate_id", c.get("id", "—")))), 8, Palette.PH if i == _nav_candidate_sel else Palette.DIM)
-			var clr: Dictionary = c.get("clearance", {}) if c.get("clearance", {}) is Dictionary else {}
-			_txt(cjk, rr.position.x + 8.0, rr.position.y + 19.0, "Δv %.0f · 暴露 %.2f · 许可 %s" % [float(c.get("dv_ms", 0.0)), float(c.get("exposure", 0.0)), String(clr.get("status", "—"))], 7, Palette.TXT)
-			_nav_rows.append({"rect": rr, "id": "cand%d" % i})
-	y += 126.0
-	_txt(cjk, r.position.x + 12.0, y, "PLAN SUMMARY / 摘要", 7, Palette.PH)
-	y += 14.0
-	var cr := _nav_clearance()
-	var cst := String(cr.get("status", "")) if !cr.is_empty() else "NO DATA"
-	var req := String(cr.get("reason", "")) if !cr.is_empty() else "尚未请求许可 / NO CLEARANCE" if _nav_has_core() else "NAV CORE 未接：不伪造许可/候选/轨迹"
-	_txt(cjk, r.position.x + 12.0, y, "Δv 需要 / 剩余：— / %s" % _nav_dv_text(), 7, Palette.TXT)
-	y += 12.0
-	_txt(cjk, r.position.x + 12.0, y, "CLEARANCE：%s" % cst, 7, Palette.PH if cst == "granted" else Palette.AMBER)
 	if _nav_mode == "traffic":
-		y += 12.0
-		_txt(cjk, r.position.x + 12.0, y, "TRAFFIC AUTH：— / CORE 未接", 7, Palette.a(Palette.AMBER, 0.85))
-		y += 12.0
-		_txt(cjk, r.position.x + 12.0, y, "拒绝原因码：窗口冲突 / 优先级 / 管制区 / 走廊关闭 / Δv 不足 / 通信超时 / 身份不明 / ROE", 7, Palette.FAINT)
+		_nav_draw_traffic_block(r, y, ac)
+		return
+	_txt(cjk, r.position.x + 12.0, y, "CANDIDATES / 候选 · state.fw_nav.routes", 7, Palette.PH)
+	y += 13.0
+	if routes.is_empty():
+		_txt(cjk, r.position.x + 12.0, y, "尚未规划；点击「生成候选 / GEN」" if ready else "navigation 未就绪", 7, Palette.FAINT)
+		y += 18.0
+	else:
+		for i in range(mini(3, routes.size())):
+			var c: Dictionary = routes[i]
+			var rr := Rect2(r.position.x + 12.0, y, r.size.x - 24.0, 38.0)
+			var sel := i == _nav_candidate_sel or String(c.get("candidate_id", "")) == String(_nav_selected_route().get("candidate_id", ""))
+			draw_rect(rr, Palette.a(Palette.PANEL2, 0.65 if sel else 0.3))
+			draw_rect(rr, Palette.a(Palette.PH if sel else Palette.LINE, 0.65 if sel else 0.3), false, 1.0)
+			var ptag := String(c.get("profile_label", c.get("profile", "")))
+			_txt(mono, rr.position.x + 6.0, rr.position.y + 4.0, "%s" % ("ABC"[i]), 9, Palette.PH if sel else Palette.DIM)
+			_txt(cjk, rr.position.x + 26.0, rr.position.y + 3.0, _ellipsis(cjk, ptag, 8, 160.0), 8, Palette.TXT)
+			_txt(mono, rr.position.x + 196.0, rr.position.y + 4.0, "Δv %.0f · %s" % [float(c.get("dv_ms", 0.0)), _nav_dur_text(float(c.get("duration_s", 0.0)))], 7, Palette.TXT)
+			var rc := _nav_route_clearance(String(c.get("candidate_id", "")))
+			var rcst := String(rc.get("status", "")) if not rc.is_empty() else "no clearance"
+			_txt(cjk, rr.position.x + 6.0, rr.position.y + 20.0, "暴露 %.2f · 风险 %.2f · 可行 %s · 许可 %s" % [
+				float(c.get("exposure", 0.0)), float(c.get("risk", 0.0)), "Y" if bool(c.get("feasible", false)) else "N", rcst],
+				7, Palette.a(Palette.PH if bool(c.get("feasible", false)) else Palette.RED, 0.9))
+			_nav_rows.append({"rect": rr, "id": "cand%d" % i})
+			y += 44.0
+	_txt(cjk, r.position.x + 12.0, y, "CLEARANCE / 交通许可", 7, Palette.PH)
+	y += 13.0
+	if ac.is_empty():
+		_txt(cjk, r.position.x + 12.0, y, "无活动许可 · 请求「REQUEST」", 7, Palette.FAINT)
+		y += 14.0
+	else:
+		var st := String(ac.get("status", ""))
+		_txt(cjk, r.position.x + 12.0, y, "%s · %s" % [st.to_upper(), String(ac.get("authority", ""))], 8, Palette.PH if st == "granted" else Palette.AMBER)
+		y += 13.0
+		_txt(cjk, r.position.x + 12.0, y, _ellipsis(cjk, "原因：%s" % String(ac.get("reason_text", ac.get("reason", ""))), 7, r.size.x - 24.0), 7, Palette.FAINT)
+		y += 13.0
+	_txt(cjk, r.position.x + 12.0, y, "PLAN SUMMARY / 摘要", 7, Palette.PH)
+	y += 13.0
+	var csel := _nav_current_candidate()
+	if csel.is_empty():
+		_txt(cjk, r.position.x + 12.0, y, "候选 — · 选中 —", 7, Palette.FAINT)
+	else:
+		_txt(cjk, r.position.x + 12.0, y, "候选 %s · Δv %.0f m/s · %s" % [String(csel.get("candidate_id", "")), float(csel.get("dv_ms", 0.0)), _nav_dur_text(float(csel.get("duration_s", 0.0)))], 7, Palette.TXT)
 	y += 12.0
-	_txt(cjk, r.position.x + 12.0, y, _ellipsis(cjk, req, 7, r.size.x - 24.0), 7, Palette.FAINT)
+	var last := _nav_last_action
+	if not last.is_empty():
+		_txt(cjk, r.position.x + 12.0, y, _ellipsis(cjk, "最近：%s %s" % [String(last.get("status", last.get("reason", ""))), String(last.get("reason_text", ""))], 7, r.size.x - 24.0), 7, Palette.a(Palette.PH_DIM, 0.9))
+	# 模式 chips
 	var modes := [["SEMI", "半自动"], ["AUTO", "自动"], ["BATTLE", "战斗机动"]]
 	for i in range(3):
 		var mr := Rect2(r.position.x + 12.0 + float(i) * 96.0, 672.0, 88.0, 20.0)
@@ -4102,17 +4293,49 @@ func _nav_draw_plan(nav: Dictionary) -> void:
 		draw_rect(mr, Palette.a(Palette.PH if sel else Palette.LINE, 0.5), false, 1.0)
 		_txt(cjk, mr.position.x + 5.0, mr.position.y + 3.0, "%s %s" % [modes[i][0], modes[i][1]], 7, Palette.PH if sel else Palette.DIM)
 		_nav_rows.append({"rect": mr, "id": "mode%d" % i})
-	var btns := [["生成候选 / GEN", NAV_GEN_BTN], ["请求许可 / REQUEST", NAV_REQ_BTN], ["授权执行 / AUTHORIZE", NAV_AUTH_BTN], ["中断 / ABORT", NAV_ABORT_BTN], ["返回 / RETURN", NAV_RETURN_BTN]]
+	# 按钮
+	var btns := [["生成候选 / GEN", NAV_GEN_BTN, true], ["请求许可 / REQUEST", NAV_REQ_BTN, true],
+		["授权执行 / AUTHORIZE", NAV_AUTH_BTN, true], ["中断 / ABORT", NAV_ABORT_BTN, true], ["返回 / RETURN", NAV_RETURN_BTN, true]]
 	for raw in btns:
 		var b: Array = raw
 		var br: Rect2 = b[1]
-		var enabled := _nav_has_core() or String(b[0]).begins_with("返回")
+		var enabled := ready or String(b[0]).begins_with("返回")
 		draw_rect(br, Palette.a(Palette.AMBER if enabled else Palette.LINE, 0.10 if enabled else 0.04))
 		draw_rect(br, Palette.a(Palette.AMBER if enabled else Palette.LINE, 0.55 if enabled else 0.25), false, 1.0)
 		_txt(cjk, br.position.x + 6.0, br.position.y + 4.0, String(b[0]), 7, Palette.AMBER if enabled else Palette.FAINT)
 		_nav_rows.append({"rect": br, "id": "btn_" + String(b[0]).split(" ")[0]})
-	_txt(cjk, r.position.x + 12.0, r.end.y - 34.0, "CORE READY：候选/许可来自 state.fw_nav_*；未生成时不伪造轨迹。" if _nav_has_core() else "CORE 未接：只读骨架；按钮不伪造许可/轨迹/Δv。", 7, Palette.FAINT)
-	_txt(cjk, r.position.x + 12.0, r.end.y - 20.0, "N / ESC 返回主 HUD；页面打开=暂停。", 7, Palette.a(Palette.FAINT, 0.9))
+	_txt(cjk, r.position.x + 12.0, r.end.y - 32.0, "授权=建 BURN 机动计划并 AUTHORIZE；不会自动执行。", 7, Palette.FAINT)
+	_txt(cjk, r.position.x + 12.0, r.end.y - 18.0, "N/ESC 返回；失败原因显示在 toast + 最近结果。", 7, Palette.a(Palette.FAINT, 0.9))
+
+
+func _nav_draw_traffic_block(r: Rect2, y0: float, ac: Dictionary) -> void:
+	_txt(cjk, r.position.x + 12.0, y0, "TRAFFIC / 交通管制 · state.fw_nav.clearances", 7, Palette.PH)
+	var yy := y0 + 14.0
+	var cs := _nav_clearances()
+	if cs.is_empty():
+		_txt(cjk, r.position.x + 12.0, yy, "无许可请求；生成候选后点「请求许可」", 7, Palette.FAINT)
+		yy += 16.0
+	else:
+		for i in range(mini(4, cs.size())):
+			var c: Dictionary = cs[i]
+			var st := String(c.get("status", ""))
+			_txt(mono, r.position.x + 12.0, yy, String(c.get("id", "")), 7, Palette.DIM)
+			_txt(cjk, r.position.x + 86.0, yy, "%s · %s" % [String(c.get("route_profile", "")), st.to_upper()], 7, Palette.PH if st == "granted" else Palette.AMBER)
+			_txt(cjk, r.position.x + 12.0, yy + 11.0, _ellipsis(cjk, String(c.get("reason_text", c.get("reason", ""))), 7, r.size.x - 24.0), 7, Palette.FAINT)
+			yy += 28.0
+	if not ac.is_empty():
+		_txt(cjk, r.position.x + 12.0, yy + 4.0, "ACTIVE：%s · %s" % [String(ac.get("id", "")), String(ac.get("authority", ""))], 7, Palette.PH)
+		yy += 18.0
+	_txt(cjk, r.position.x + 12.0, yy + 4.0, "拒绝原因：%s" % String(ac.get("reason_text", ac.get("reason", "—"))), 7, Palette.AMBER)
+	# 复用按钮行（与 ROUTES 同一坐标，保证命中稳定）
+	var btns := [["请求许可 / REQUEST", NAV_REQ_BTN], ["授权执行 / AUTHORIZE", NAV_AUTH_BTN], ["中断 / ABORT", NAV_ABORT_BTN], ["返回 / RETURN", NAV_RETURN_BTN]]
+	for raw in btns:
+		var b: Array = raw
+		var br: Rect2 = b[1]
+		draw_rect(br, Palette.a(Palette.AMBER, 0.10))
+		draw_rect(br, Palette.a(Palette.AMBER, 0.55), false, 1.0)
+		_txt(cjk, br.position.x + 6.0, br.position.y + 4.0, String(b[0]), 7, Palette.AMBER)
+		_nav_rows.append({"rect": br, "id": "btn_" + String(b[0]).split(" ")[0]})
 
 
 func _nav_draw_timeline() -> void:
@@ -4134,7 +4357,11 @@ func _nav_draw_timeline() -> void:
 	var nowx := x0 + (x1 - x0) * clampf(float(state.clock) / total, 0.0, 1.0)
 	draw_line(Vector2(nowx, ty - 12.0), Vector2(nowx, ty + 4.0), Palette.PH, 2.0)
 	_txt(mono, nowx + 4.0, ty + 22.0, "NOW T+%.0f" % float(state.clock), 7, Palette.PH)
-	_txt(cjk, x0, ty + 34.0, "规划页只读预览；仿真时钟由主 HUD/暂停控制，执行按命令队列推进。", 7, Palette.a(Palette.FAINT, 0.95))
+	var sel := _nav_selected_route()
+	if not sel.is_empty():
+		_txt(cjk, x0, ty + 34.0, "SELECTED %s · Δv %.0f m/s · %s" % [String(sel.get("candidate_id", "")), float(sel.get("dv_ms", 0.0)), _nav_dur_text(float(sel.get("duration_s", 0.0)))], 7, Palette.a(Palette.PH_DIM, 0.9))
+	else:
+		_txt(cjk, x0, ty + 34.0, "尚无选中路线；规划页只读预览，执行按命令队列推进。", 7, Palette.a(Palette.FAINT, 0.95))
 
 
 func _handle_nav_click(p: Vector2) -> void:
@@ -4160,74 +4387,98 @@ func _handle_nav_click(p: Vector2) -> void:
 			continue
 		var rid := String(d.get("id", ""))
 		if rid.begins_with("cand"):
-			_nav_candidate_sel = int(rid.substr(4))
+			_nav_pick_candidate(int(rid.substr(4)), true)
 			_sfx("ui_click")
 			return
 		if rid.begins_with("mode"):
 			var m := int(rid.substr(4))
 			_nav_mode = "maneuver" if m == 2 else "routes"
-			if _nav_has_core() and state != null and state.has_method("fw_nav_set_mode"):
-				state.call("fw_nav_set_mode", ["semi", "auto", "maneuver"][m])
-			else:
-				_toast("导航：模式 %s（CORE 未接，仅页面切换）" % ["半自动", "自动", "战斗机动"][m])
+			_toast("导航：模式 %s（仅页面/浏览；规划 API 不变）" % ["半自动", "自动", "战斗机动"][m])
 			return
 		if rid.begins_with("btn_"):
 			_nav_action(rid.substr(4))
 			return
-		if rid != "":
-			_nav_to_id = rid
-			_sfx("ui_click")
-			return
-	if not (NAV_HEADER.has_point(p) or NAV_LEFT.has_point(p) or NAV_MAP.has_point(p) or NAV_RIGHT.has_point(p) or NAV_BOT.has_point(p) or TIME.has_point(p)):
-		_close_nav_page()
+		var nodes := _nav_nodes()
+		for raw_n in nodes:
+			var n: Dictionary = raw_n
+			if String(n.get("id", "")) == rid:
+				if rid == _nav_from_id:
+					_toast("导航：终点不能与起点 l1 相同")
+				else:
+					_nav_to_id = rid
+					_sfx("ui_click")
+				return
+	return
 
 
 func _nav_action(action: String) -> void:
 	if action.begins_with("返回"):
 		_close_nav_page()
 		return
-	if !_nav_has_core():
-		_toast("NAV CORE 未接：%s 不可用（state.fw_nav_* 未就绪）" % action)
+	if not _nav_ready():
+		_nav_result({"ok": false, "reason": "navigation_ready=false", "reason_text": "state.fw_nav 未就绪"}, action)
 		return
 	if state == null:
 		return
-	var planid := ""
-	var cands := _nav_candidates()
-	if !cands.is_empty():
-		var c: Dictionary = cands[clampi(_nav_candidate_sel, 0, cands.size() - 1)]
-		planid = String(c.get("id", ""))
-	var maps := {
-		"生成候选": ["fw_nav_plan_routes", "fw_nav_generate"],
-		"请求许可": ["fw_nav_request_clearance", "fw_nav_request"],
-		"授权执行": ["fw_nav_authorize", "fw_nav_authorize_plan"],
-		"中断": ["fw_nav_abort", "fw_nav_abort_plan"],
-	}
 	if action == "生成候选":
-		if state.has_method("fw_nav_plan_routes"):
-			var raw = state.call("fw_nav_plan_routes", _nav_from_id, _nav_to_id, {})
-			if raw is Dictionary:
-				_toast("导航：候选生成 · %s" % String((raw as Dictionary).get("ok", "")))
+		var r = state.call("fw_nav_plan_routes", _nav_from_id, _nav_to_id, {})
+		if r is Dictionary:
+			_nav_result(r, "规划")
+			if bool(r.get("ok", false)):
+				var cands: Array = r.get("candidates", []) if r.get("candidates", []) is Array else []
+				var rec := String(r.get("recommended", ""))
+				for i in range(cands.size()):
+					var c: Dictionary = cands[i]
+					if rec != "" and String(c.get("candidate_id", "")) == rec:
+						_nav_pick_candidate(i, true)
+						break
+		return
+	if action == "请求许可":
+		var c := _nav_current_candidate()
+		if c.is_empty():
+			_nav_result({"ok": false, "reason": "unknown_route", "reason_text": "先规划并选择候选"}, "请求许可")
 			return
-	elif action == "请求许可":
-		var cid := String(planid)
-		if cid == "" and state.has_method("fw_nav_select_route"):
-			var ncs := _nav_candidates()
-			if not ncs.is_empty():
-				cid = String((ncs[_nav_candidate_sel] as Dictionary).get("candidate_id", ""))
-		if cid != "" and state.has_method("fw_nav_select_route"):
-			state.call("fw_nav_select_route", cid)
-		if cid != "" and state.has_method("fw_nav_request_clearance"):
-			var raw2 = state.call("fw_nav_request_clearance", cid, null, 3)
-			if raw2 is Dictionary:
-				_toast("导航：请求许可 · %s" % String((raw2 as Dictionary).get("status", (raw2 as Dictionary).get("ok", ""))))
+		var sel = state.call("fw_nav_select_route", c)
+		var r = state.call("fw_nav_request_clearance", c, null, 3)
+		if r is Dictionary:
+			_nav_result(r, "请求许可")
+		return
+	if action == "授权执行":
+		var c2 := _nav_current_candidate()
+		if c2.is_empty():
+			_nav_result({"ok": false, "reason": "unknown_route", "reason_text": "先规划并选择候选"}, "授权执行")
 			return
-	elif action == "中断":
-		if state.has_method("fw_nav_abort"):
-			var raw3 = state.call("fw_nav_abort", planid)
-			if raw3 is Dictionary:
-				_toast("导航：中断 · %s" % String((raw3 as Dictionary).get("status", (raw3 as Dictionary).get("ok", ""))))
+		var opts := {"dv_ms": float(c2.get("dv_ms", 0.0)), "duration_s": float(c2.get("duration_s", 0.0))}
+		var rp = state.call("fw_nav_plan_maneuver", "burn", _nav_to_id, opts)
+		if not (rp is Dictionary) or not bool(rp.get("ok", false)):
+			_nav_result(rp if rp is Dictionary else {"ok": false, "reason": "plan_failed"}, "授权执行")
 			return
-	_toast("导航：%s API 未接（state.fw_nav_*）" % action)
+		var pid := String((rp as Dictionary).get("plan_id", ""))
+		if pid == "":
+			var plan: Dictionary = (rp as Dictionary).get("plan", {}) if (rp as Dictionary).get("plan", {}) is Dictionary else {}
+			pid = String(plan.get("id", ""))
+		if pid == "":
+			_nav_result({"ok": false, "reason": "plan_id_missing", "reason_text": "机动计划无 id"}, "授权执行")
+			return
+		_nav_maneuver_plan_id = pid
+		var ra = state.call("fw_nav_authorize", pid)
+		if ra is Dictionary:
+			_nav_result(ra, "授权执行")
+		return
+	if action == "中断":
+		var pid2 := _nav_maneuver_plan_id
+		if pid2 == "":
+			var mans: Array = _fw_nav().get("planned_maneuvers", []) if _fw_nav().get("planned_maneuvers", []) is Array else []
+			if not mans.is_empty():
+				var lastm: Dictionary = mans[mans.size() - 1]
+				pid2 = String(lastm.get("id", ""))
+		if pid2 == "":
+			_nav_result({"ok": false, "reason": "no_plan", "reason_text": "暂无机动计划可中断"}, "中断")
+			return
+		var rab = state.call("fw_nav_abort", pid2)
+		if rab is Dictionary:
+			_nav_result(rab, "中断")
+		return
 
 func _draw_damage_page() -> void:
 	var full := _damage_full()

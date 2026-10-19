@@ -25,6 +25,11 @@ var fw_nav_summary: Dictionary = {}
 # —— R2-DAMAGE-2：完整损管模型只读暴露（旧 fw_damage 保持 legacy）——
 var fw_damage_model := false          # 完整损管模型是否就绪
 var fw_damage_full: Dictionary = {}   # world.vm_damage_full() 只读快照
+# —— R6-SHADOW-1：CR3BP/RK4 物理 shadow 只读快照（authoritative=false）——
+var fw_physics: Dictionary = {}
+var fw_physics_ready := false
+var fw_physics_summary: Dictionary = {}
+var fw_physics_mode := "off"
 
 # 演示用状态。真实 sim 会接管 clock / tracks / commands，
 # 这里的数值只服务于"把 GUI 长相对出来"。
@@ -1754,6 +1759,10 @@ func _reset_runtime() -> void:
 	fw_nav_summary = {}
 	fw_damage_model = false
 	fw_damage_full = {}
+	fw_physics = {}
+	fw_physics_ready = false
+	fw_physics_summary = {}
+	fw_physics_mode = "off"
 
 # ── P1j：身份 / 通信格式 / 动态裁决提示 ─────────────────
 
@@ -2724,6 +2733,10 @@ func _fw_pull() -> void:
 		fw_nav_summary = {}
 		fw_damage_model = false
 		fw_damage_full = {}
+		fw_physics = {}
+		fw_physics_ready = false
+		fw_physics_summary = {}
+		fw_physics_mode = "off"
 		return
 	fw_ready = true
 	fw_tutorial = (framework.tutorial_view() as Dictionary).duplicate(true)
@@ -2741,6 +2754,11 @@ func _fw_pull() -> void:
 	fw_nav_summary = (framework.navigation_summary() as Dictionary).duplicate(true)
 	fw_damage_model = bool(framework.damage_model_ready)
 	fw_damage_full = (framework.damage_full_view() as Dictionary).duplicate(true)
+	# R6-SHADOW-1：物理 shadow 只读快照
+	fw_physics_ready = bool(framework.physics_ready)
+	fw_physics_mode = String(framework.physics_mode)
+	fw_physics = (framework.physics_view() as Dictionary).duplicate(true)
+	fw_physics_summary = (framework.physics_summary() as Dictionary).duplicate(true)
 
 ## V2 教学门控是否放行 V15 决策（截图/自动化/演示时自动放行）。
 func fw_tutorial_allows() -> bool:
@@ -2987,6 +3005,10 @@ func fw_bridge_state() -> Dictionary:
 		"nav_summary": fw_nav_summary.duplicate(true),
 		"damage_full": fw_damage_full.duplicate(true),
 		"damage_model": fw_damage_model,
+		"physics": fw_physics.duplicate(true),
+		"physics_ready": fw_physics_ready,
+		"physics_summary": fw_physics_summary.duplicate(true),
+		"physics_mode": fw_physics_mode,
 		"exec_window_s": float(fw_flow.get("exec_window_s", 360.0)),
 		"exec_left": float(fw_flow.get("exec_left", 0.0)),
 		"exec_pct": float(fw_flow.get("exec_pct", 0.0)),
