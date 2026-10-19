@@ -1,6 +1,9 @@
 class_name WarState
 extends RefCounted
 
+# V17：V1 HUD 仍读本类字段；V2 数据桥可选接入（未接入时为 null）。
+var framework = null
+
 # 演示用状态。真实 sim 会接管 clock / tracks / commands，
 # 这里的数值只服务于"把 GUI 长相对出来"。
 #

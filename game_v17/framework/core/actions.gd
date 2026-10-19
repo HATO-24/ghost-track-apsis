@@ -15,7 +15,7 @@ extends RefCounted
 #   本框架不模拟武器：L4 武器类动作在内容里 supported=false，永远 available=false。
 # ═══════════════════════════════════════════════════════════════════
 
-const DEFAULT_PATH := "res://content/actions.json"
+const DEFAULT_PATH := "res://framework/content/actions.json"
 
 static var definitions: Array = []
 static var errors: Array[String] = []

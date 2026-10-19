@@ -7,11 +7,13 @@ const Orbit := preload("res://scripts/orbit_model.gd")
 const Palette := preload("res://scripts/pal.gd")
 const UiFonts := preload("res://scripts/fonts.gd")
 const DemoDirector := preload("res://scripts/demo_director.gd")
+const FrameworkBridge := preload("res://scripts/framework_bridge.gd")
 
 const BASE := Vector2i(1920, 1080)
 const PLOT_RECT := Rect2(396.0, 124.0, 1128.0, 752.0)
 
 var state = StateScript.new()
+var framework = null
 var vp: SubViewport
 var plot
 var hud
@@ -52,7 +54,12 @@ func _ready() -> void:
 		" local_err_300s_m=", st.local_err_300s_m,
 		" local_err_2000s_m=", st.local_err_2000s_m)
 	print("L1 TIDAL kx=", st.kx, " ky=", st.ky, " kz=", st.kz, " n=", st.n_lunar)
-	get_window().title = "GHOST TRACK // APSIS — DEMO"
+	# V17：先把 V2 数据桥接起来；视觉仍由 V15 HUD/plot 全权负责。
+	framework = FrameworkBridge.new()
+	var fw_ok: bool = framework.boot()
+	state.framework = framework
+	print("V17 FRAMEWORK ok=", fw_ok, " summary=", framework.summary())
+	get_window().title = "GHOST TRACK // APSIS — V17"
 	get_window().size = Vector2i(1600, 900)
 	var screen := DisplayServer.screen_get_size()
 	get_window().position = Vector2i((screen.x - 1600) / 2, (screen.y - 900) / 2)

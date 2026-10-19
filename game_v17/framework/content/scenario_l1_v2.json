@@ -6,7 +6,7 @@
   "epoch": 760.8,
   "datum": "L1",
   "own_entity": "harmattan",
-  "story_file": "res://content/story_l1.json",
+  "story_file": "res://framework/content/story_l1.json",
   "entities": [
     {
       "id": "apsis",

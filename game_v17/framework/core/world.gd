@@ -22,7 +22,7 @@ signal order_changed(order_data: Dictionary)
 signal evidence_changed(id: String, state: String)
 signal flow_changed(reason: String)
 
-const TRACK_RULES_PATH := "res://content/track_rules.json"
+const TRACK_RULES_PATH := "res://framework/content/track_rules.json"
 const MAX_EVENT_LOG := 256
 
 var scenario: V2Scenario = null
