@@ -122,10 +122,7 @@ func _process(delta: float) -> void:
 func _update_mode() -> void:
 	if mode_fx_t >= 0.0:
 		return
-	if not ortho and dist > PLANAR_IN:
-		set_planar(true)
-	elif ortho and dist < PLANAR_OUT:
-		set_planar(false)
+	# V17：压平态势停用，资产迁往独立导航页；不再自动切换。
 
 # ── 相机 ────────────────────────────────────────────────
 
@@ -142,6 +139,9 @@ func reset_camera() -> void:
 	auto_rotate = not (state != null and state.capture)
 
 func force_planar(on: bool) -> void:
+	# 仅保留内部实现，不再开放入口。
+	if not OS.get_environment("DSH_ALLOW_PLANAR") == "1":
+		return
 	ortho = on
 	mode_fx_t = -1.0
 	if on:
@@ -153,6 +153,8 @@ func force_planar(on: bool) -> void:
 		yaw3d = yaw2d
 
 func set_planar(on: bool) -> void:
+	# V17：压平模式已下线（导航页迁移后由独立页面接管）。
+	return
 	if ortho == on:
 		return
 	ortho = on
@@ -722,14 +724,15 @@ func _draw_burn_node(km: Vector3, cmd: Dictionary, pending: bool, remain: float,
 	var bbrg := float(pl.get("brg", 0.0))
 	var belev := float(pl.get("elev", 0.0))
 	var lx := p.x + 16.0
-	var ly := p.y + 38.0
+	# 点火标签与下方黄色“待生效/命令幽灵”分开行距，避免 9pt/8pt 行叠字。
+	var ly := p.y + 42.0
 	if pending:
 		_txt(cjk, lx, ly, "点火 T+%04.1fs · %s" % [exec_t, ("轨道预览 / 未点火" if draft else "待生效")], 9, Palette.a(Palette.BLUE if draft else Palette.AMBER, 0.95))
-		_txt(mono, lx, ly + 13.0, "Δv %.0f m/s · BRG %03d° · ELEV %+02d°" % [bms, int(bbrg), int(belev)], 8, Palette.a(Palette.PH_DIM, 1.0))
-		_txt(mono, lx, ly + 26.0, "%s / %s" % [state.cmd_model.phase_text(cmd, _tau_now()), "未点火" if draft else "命令幽灵"], 7, Palette.a(Palette.BLUE if draft else Palette.AMBER, 0.85))
+		_txt(mono, lx, ly + 17.0, "Δv %.0f m/s · BRG %03d° · ELEV %+02d°" % [bms, int(bbrg), int(belev)], 8, Palette.a(Palette.PH_DIM, 1.0))
+		_txt(mono, lx, ly + 33.0, "%s / %s" % [state.cmd_model.phase_text(cmd, _tau_now()), "未点火" if draft else "命令幽灵"], 7, Palette.a(Palette.BLUE if draft else Palette.AMBER, 0.85))
 	else:
 		_txt(cjk, lx, ly, "点火 T+%04.1fs · 已执行" % exec_t, 9, Palette.a(Palette.PH, 0.95))
-		_txt(mono, lx, ly + 13.0, "Δv %.0f m/s · 已扣 · 已执行" % bms, 8, Palette.a(Palette.PH_DIM, 0.95))
+		_txt(mono, lx, ly + 17.0, "Δv %.0f m/s · 已扣 · 已执行" % bms, 8, Palette.a(Palette.PH_DIM, 0.95))
 
 func _target_marker_pos(t: Dictionary) -> Vector2:
 	if _lvl(t) >= 2:

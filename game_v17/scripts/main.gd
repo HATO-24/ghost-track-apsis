@@ -37,6 +37,7 @@ var _last_done_n := 0
 var _last_civ := false
 var _last_radio_n := -1
 var _last_cmd_n := 0
+var _roll_vel := 0.0
 
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
@@ -511,6 +512,17 @@ func _process(delta: float) -> void:
 	state.elapsed += delta
 	# 接触状态向量推进到当前时刻 + HUD 派生量保鲜
 	state.refresh(state.clock)
+	# V17：Q/E 长按连续横滚，带平滑与 ±60° 限制；轻点仍有解锁反馈。
+	var roll_dir := 0.0
+	if Input.is_physical_key_pressed(KEY_Q):
+		roll_dir -= 1.0
+	if Input.is_physical_key_pressed(KEY_E):
+		roll_dir += 1.0
+	if roll_dir != 0.0 and plot.roll_unlocked and not plot.ortho:
+		_roll_vel = lerpf(_roll_vel, roll_dir * 1.25, clampf(delta * 10.0, 0.0, 1.0))
+		plot.roll3d = clampf(plot.roll3d + _roll_vel * delta, -deg_to_rad(60.0), deg_to_rad(60.0))
+	else:
+		_roll_vel = lerpf(_roll_vel, 0.0, clampf(delta * 8.0, 0.0, 1.0))
 	# V17：V2 数据桥同步（教学门控/损管/回放/动作/接触；暂停/冻结/截图时 dt 传 0）
 	state.fw_sync(delta)
 	_audio_cues()
@@ -713,18 +725,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			var d: String = state.cycle_datum()
 			print("DATUM → ", d)
 		KEY_P:
-			plot.set_planar(not plot.ortho)
+			print("V17 PLANAR DISABLED — navigation page migration pending")
 		KEY_Z:
 			var ru: bool = plot.toggle_roll_unlock()
 			print("ROLL UNLOCK → ", ru)
-		KEY_Q:
+		KEY_Q, KEY_E:
 			if not plot.roll_unlocked:
 				plot.toggle_roll_unlock()
-			plot.rotate_roll(deg_to_rad(-5.0))
-		KEY_E:
-			if not plot.roll_unlocked:
-				plot.toggle_roll_unlock()
-			plot.rotate_roll(deg_to_rad(5.0))
 		KEY_ESCAPE:
 			get_tree().quit()
 
