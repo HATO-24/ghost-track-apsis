@@ -1937,26 +1937,26 @@ func _draw_legend() -> void:
 	var row2 := [["neutral", "中立"], ["suspect", "可疑"], ["hostile", "敌方"]]
 	var x := 22.0
 	for it in row1:
-		_symbol_at(Vector2(x, 665.0), String(it[0]), _identity_color(String(it[0])), 1)
-		_txt(cjk, x + 13.0, 668.0, String(it[1]), 7, Palette.DIM)
+		_symbol_at(Vector2(x, 666.0), String(it[0]), _identity_color(String(it[0])), 1)
+		_txt(cjk, x + 13.0, 669.0, String(it[1]), 7, Palette.DIM)
 		x += 108.0
 	x = 22.0
 	for it in row2:
-		_symbol_at(Vector2(x, 681.0), String(it[0]), _identity_color(String(it[0])), 1)
-		_txt(cjk, x + 13.0, 684.0, String(it[1]), 7, Palette.DIM)
+		_symbol_at(Vector2(x, 684.0), String(it[0]), _identity_color(String(it[0])), 1)
+		_txt(cjk, x + 13.0, 687.0, String(it[1]), 7, Palette.DIM)
 		x += 108.0
-	draw_rect(Rect2(Vector2(x - 2.0, 676.0), Vector2(8, 8)), Palette.a(Palette.FAINT, 0.85), false, 1.0)
-	draw_line(Vector2(x - 3.0, 675.0), Vector2(x + 7.0, 687.0), Palette.a(Palette.FAINT, 0.65), 1.0)
-	_txt(cjk, x + 13.0, 684.0, "无威胁", 7, Palette.DIM)
-	var y2 := 700.0
+	draw_rect(Rect2(Vector2(x - 2.0, 679.0), Vector2(8, 8)), Palette.a(Palette.FAINT, 0.85), false, 1.0)
+	draw_line(Vector2(x - 3.0, 678.0), Vector2(x + 7.0, 690.0), Palette.a(Palette.FAINT, 0.65), 1.0)
+	_txt(cjk, x + 13.0, 687.0, "无威胁", 7, Palette.DIM)
+	var y2 := 704.0
 	draw_line(Vector2(16, y2 + 5), Vector2(34, y2 + 5), Palette.a(Palette.PH_DIM, 0.55), 1.0)
 	_txt(cjk, 40.0, y2, "历史", 7, Palette.DIM)
 	draw_dashed_line(Vector2(82, y2 + 5), Vector2(100, y2 + 5), Palette.a(Palette.PH, 0.8), 1.0, 4.0)
 	_txt(cjk, 106.0, y2, "预测", 7, Palette.DIM)
 	draw_dashed_line(Vector2(148, y2 + 5), Vector2(166, y2 + 5), Palette.a(Palette.PH, 0.35), 1.0, 2.0)
 	_txt(cjk, 172.0, y2, "1σ 误差", 7, Palette.DIM)
-	_txt(mono, 16.0, 714.0, "航迹：批号 · L1 方位线 · L2 定位+协方差 · L3 分类 · L4 舰名/敌我识别", 7, Palette.a(Palette.PH, 0.65))
-	_txt(mono, 16.0, 727.0, "T+60/120/300 = 预测刻度 · 辐射 = 开机即暴露 · LINK DEGRADED", 7, Palette.a(Palette.PH_FAINT, 0.95))
+	_txt(mono, 16.0, 720.0, "航迹：批号 · L1 方位线 · L2 定位+协方差 · L3 分类 · L4 舰名/敌我识别", 7, Palette.a(Palette.PH, 0.65))
+	_txt(mono, 16.0, 734.0, "T+60/120/300 = 预测刻度 · 辐射 = 开机即暴露 · LINK DEGRADED", 7, Palette.a(Palette.PH_FAINT, 0.95))
 
 func _draw_optical() -> void:
 	var r := Rect2(size.x - 252.0, 76.0, 236.0, 132.0)

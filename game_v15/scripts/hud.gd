@@ -1402,17 +1402,12 @@ func _draw_top() -> void:
 	var notice_line_c: Color = Palette.a(Palette.AMBER, 0.55 if notice_hot else 0.22)
 	draw_line(Vector2(548.0, 60.0), Vector2(800.0, 60.0), notice_line_c, 1.0)
 	_txt(mono, 804, 46, "▸", 7, Palette.a(Palette.AMBER, 0.9 if notice_hot else 0.5))
-	# P4b：执行窗口组水平居中；数字与进度条以 960 为轴。
-	var exec_s := _hms(exec_left)
-	var exec_w := mono.get_string_size(exec_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
-	var exec_x := 960.0 - exec_w * 0.5
-	var exec_lab := "执行窗口"
-	var exec_lab_w := cjk.get_string_size(exec_lab, HORIZONTAL_ALIGNMENT_LEFT, -1, 9).x
-	_txt(cjk, 960.0 - exec_lab_w * 0.5, 52.0, exec_lab, 9, Palette.DIM)
-	_txt(mono, exec_x, 68.0, exec_s, 24, Palette.AMBER)
-	draw_rect(Rect2(750, 106, 420, 1), Palette.a(Palette.AMBER, 0.16))
-	draw_rect(Rect2(750, 106, 420.0 * exec_left / 360.0, 1), Palette.AMBER)
-	_txt_r(cjk, 1170, 68, "1× LOCK · OCUVF-ID13", 7, Palette.a(Palette.AMBER, 0.45))
+	# P4c：倒计时恢复原水平位置；只做垂直居中（数字 64..88，顶栏 40..112）。
+	_txt(cjk, 548, 70, "执行窗口", 9, Palette.DIM)
+	_txt(mono, 596, 64, _hms(exec_left), 24, Palette.AMBER)
+	draw_rect(Rect2(548, 106, 420, 1), Palette.a(Palette.AMBER, 0.16))
+	draw_rect(Rect2(548, 106, 420.0 * exec_left / 360.0, 1), Palette.AMBER)
+	_txt_r(cjk, 968, 70, "1× LOCK · OCUVF-ID13", 7, Palette.a(Palette.AMBER, 0.45))
 
 	draw_line(Vector2(1288, 50), Vector2(1288, 102), Palette.a(Palette.LINE, 0.7), 1.0)
 
