@@ -740,6 +740,12 @@
         "点火确认 / CONFIRM",
         "航行 / TRANSIT"
       ]
+    },
+    "av4412_dock": {
+      "approach_after_s": 45.0,
+      "approach_text": "2001 AV-4412 传唤者进入 Chronos 对接航道；ID13 撤离后的储罐区由清算者接管。",
+      "docked_text": "2001 AV-4412 传唤者已与 Chronos 对接，接管程序完成；ID13 保留记录。",
+      "report_line": "2001 AV-4412 传唤者已与 Chronos 对接（接管完成；ID13 已撤离人员并保留记录）。"
     }
   }
 }

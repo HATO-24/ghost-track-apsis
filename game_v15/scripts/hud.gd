@@ -91,6 +91,44 @@ const LOG_TAB_QUEUE := Rect2(240, 888, 168, 18)
 const PRELUDE_HOLD_S := 3.0
 const PRELUDE_CONFIRM_PROGRESS := Rect2(468, 592, 480, 30)
 
+# ── P10a：右键目标菜单 / 光学通道 / 图层开关 / 队列完整文本 ─────────
+const CTX_W := 360.0
+const CTX_HEAD_H := 64.0
+const CTX_ROW_H := 22.0
+const CTX_GROUP_H := 19.0
+const CTX_FOOT_H := 26.0
+# tier = 需要的识别等级 L 级；opt/ir 为通道动作；locked 由目标当前 level 决定。
+const TGT_TIERS := [
+	[1, "L1 · 方位 / 交叉定位"],
+	[2, "L2 · 距离 / 型号识别"],
+	[3, "L3 · IFF / 成像通道"],
+	[4, "L4 · 火控 / 武器解算"],
+]
+const TGT_ACTIONS := [
+	[1, "cross_fix", "交叉定位 / CROSS-FIX"],
+	[1, "radar_paint", "雷达照射识别 / RADAR ID"],
+	[2, "classify", "型号识别 / CLASSIFY"],
+	[2, "fire_solution", "火控解算 / FIRE SOLUTION"],
+	[3, "iff_challenge", "IFF 问答 / CHALLENGE"],
+	[3, "radar_track", "雷达跟踪 / TRACK"],
+	[3, "optical", "建立光学通道 / OPTICAL"],
+	[3, "ir", "建立红外通道 / IR"],
+	[4, "missile_path", "导弹路径解算 / MISSILE"],
+	[4, "weapons_standby", "武装待命 / WEAPONS STANDBY"],
+]
+const OPTICAL_RECT := Rect2(560, 220, 800, 600)
+const OPT_TAB_VIS := Rect2(588, 276, 160, 24)
+const OPT_TAB_IR := Rect2(752, 276, 160, 24)
+const OPT_STARE_BTN := Rect2(588, 712, 200, 32)
+const OPT_STOP_BTN := Rect2(800, 712, 200, 32)
+const OPT_CLOSE_BTN := Rect2(1128, 712, 200, 32)
+const LAYERS_RECT := Rect2(620, 300, 680, 420)
+# P10a-ENG 图层键：contacts/labels/predictions/radar/stations/grid
+const LAYER_KEYS := ["contacts", "labels", "predictions", "radar", "stations", "grid"]
+const LAYER_NAMES := ["接触/符号 / CONTACTS", "标签文本 / LABELS", "历史·预测·轨道 / PREDICTIONS",
+	"雷达/传感器层 / RADAR", "站点/基准 / STATIONS", "网格 / GRID"]
+const QUEUE_DETAIL_H := 118.0
+
 # ── P3a：窗口硬切 / 文本乱码解码（V2 一次性动效在 V1.5 的延伸；docs/09 §4.2）──
 const UI_CUT_DUR := 0.32        # 80px 黑块硬切揭示（6 步硬切，无插值）
 const UI_CUT_STEPS := 6
@@ -1018,6 +1056,26 @@ var _prelude_hold := 0.0
 var _prelude_hold_done := false
 var _prelude_hold_seen := false
 var _last_sel := -1
+# P10a：右键菜单 / 光学通道 / 图层 / 队列完整文本
+var _ctx_open := false
+var _ctx_pos := Vector2(900.0, 360.0)
+var _ctx_track_id := ""
+var _ctx_hint := ""
+var _optical_open := false
+var _optical_kind := "VIS"
+var _optical_target := ""
+var _optical_stare := 0.0
+var _optical_state_note := ""
+var _layers_open := false
+var _layer_state := {"contacts": true, "labels": true, "predictions": true,
+	"radar": true, "stations": true, "grid": true}
+var _ctx_actions: Array = []
+var _queue_detail_id := ""
+var _queue_detail_abort_rect := Rect2()
+var _log_row_rects: Array = []
+var _rclick_prev := false
+var _toast_text := ""
+var _toast_t := 0.0
 
 func _ready() -> void:
 	mono = Fonts.mono()
@@ -1076,6 +1134,32 @@ func _ready() -> void:
 		"clean":
 			# P4 截图：正常 HUD 默认态，仅抑制 capture 时自动弹出的副官申请窗口。
 			_demo_suppress_adjutant = true
+		"ctx":
+			# P10a 截图：右键目标菜单（默认 L1 目标；DSH_SELECT 可切目标）。
+			_demo_suppress_adjutant = true
+			_ctx_open = true
+			_ctx_pos = Vector2(820, 320)
+			_ctx_actions.clear()
+			_ctx_track_id = ""
+		"optical":
+			# P10a 截图：光学通道（凝视中）。
+			_demo_suppress_adjutant = true
+			_optical_open = true
+			_optical_kind = OS.get_environment("DSH_OPT_KIND")
+			if _optical_kind == "":
+				_optical_kind = "VIS"
+			_optical_target = ""
+			_optical_stare = 0.42
+			_optical_state_note = "截图演示：channel_status() 进度；真实接口 start_optical_track/start_ir_track"
+		"layers":
+			# P10a 截图：图层/元素开关面板。
+			_demo_suppress_adjutant = true
+			_layers_open = true
+		"queue_detail":
+			# P10a 截图：命令队列行展开完整文本。
+			_demo_suppress_adjutant = true
+			_log_tab = 1
+			_queue_detail_id = "CMD-01"
 		"pause":
 			pause_open = true
 			_demo_suppress_adjutant = true
@@ -1093,6 +1177,10 @@ func _ready() -> void:
 	# 记录初始选中，避免第一帧 _process 把 DSH_DAMAGE 等截图状态复位。
 	if state != null:
 		_last_sel = int(state.selected)
+		# P10a-ENG：图层初始状态从 state 读取（plot 已按同名键跳过绘制）。
+		if state.has_method("is_layer_visible"):
+			for k in LAYER_KEYS:
+				_layer_state[k] = bool(state.call("is_layer_visible", String(k)))
 	# P3a：截图时把动效冻结到指定时刻（秒），用于逐帧截取硬切/解码中间态。
 	var ut := OS.get_environment("DSH_UI_T")
 	if ut != "":
@@ -1103,6 +1191,19 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	if _toast_t > 0.0:
+		_toast_t = maxf(0.0, _toast_t - delta)
+	if _optical_open and _optical_stare < 1.0 and not state.capture and not (state != null and state.has_method("channel_status")):
+		_optical_stare = minf(1.0, _optical_stare + delta / 2.5)
+	if not state.capture and state.boot_t >= 1.7:
+		_poll_right_click()
+	# P10a：暂停/覆盖层优先——打开时关掉战术弹窗，避免层级打架。
+	if pause_open or _any_overlay() or _modal != "" or _ov_prelude() or _ov_adjutant() \
+			or _ov_decision() or _ov_report() or _ov_consequence() or _ov_end():
+		_ctx_open = false
+		_ctx_actions.clear()
+		_optical_open = false
+		_layers_open = false
 	# P3a：窗口硬切/解码计时 —— 窗口标识变化时重置（一次性；与全局 _t 无关）。
 	var wid := _window_id()
 	if wid != _ui_id:
@@ -1250,6 +1351,15 @@ func _draw() -> void:
 	if menu_open:
 		_draw_sensor_menu()
 	_draw_screen_edge()
+	# P10a：战术弹窗（右键菜单 / 光学通道 / 图层开关）画在 HUD 之上、覆盖层之下。
+	if _ctx_open:
+		_draw_ctx_menu()
+	if _layers_open:
+		_draw_layers_panel()
+	if _optical_open:
+		_draw_optical_overlay()
+	if _toast_t > 0.0:
+		_draw_toast()
 	# P1f/P1g：覆盖层画在最上层（含 dim）；END > 报告 > 后果 > 裁决，互斥不重复。
 	if _ov_end():
 		_draw_end_overlay()
@@ -1291,6 +1401,9 @@ func _draw_pause_badge() -> void:
 	_txt_r(mono, pr.end.x - 12.0, pr.position.y + 6.0, "SIM FROZEN", 7, Palette.a(Palette.AMBER, 0.6))
 
 func open_pause() -> void:
+	# P10a：Esc 层级——先关战术弹窗（右键菜单 / 光学 / 图层 / 队列展开），再开暂停。
+	if _close_top_popup():
+		return
 	if pause_open:
 		return
 	pause_open = true
@@ -1348,6 +1461,26 @@ func click(p: Vector2) -> void:
 	if pause_open:
 		_handle_pause_click(p)
 		return
+	# P10a：战术弹窗优先吃点击（右键菜单 / 光学通道 / 图层 / 队列展开）。
+	if _ctx_open:
+		_handle_ctx_click(p)
+		queue_redraw()
+		return
+	if _optical_open:
+		_handle_optical_click(p)
+		queue_redraw()
+		return
+	if _layers_open:
+		_handle_layers_click(p)
+		queue_redraw()
+		return
+	if _queue_detail_id != "":
+		if LOG.has_point(p):
+			_handle_log_click(p)
+		else:
+			_queue_detail_id = ""
+		queue_redraw()
+		return
 	if not state.capture:
 		var audio := get_node_or_null("/root/Audio")
 		if audio != null:
@@ -1398,6 +1531,14 @@ func click(p: Vector2) -> void:
 		_toggle_mast()
 		queue_redraw()
 		return
+	# P10a：左侧接触行优先（避免点接触时误触传感器条/菜单）。
+	for i in row_rects.size():
+		if row_rects[i].has_point(p):
+			state.selected = i
+			menu_open = false
+			_queue_detail_id = ""
+			queue_redraw()
+			return
 	# P1e：命令面板优先（面板内的点击不再落到接触列表/时标/地图）。
 	if CMD.has_point(p):
 		_handle_command_click(p)
@@ -1406,7 +1547,8 @@ func click(p: Vector2) -> void:
 			_preview_dirty = false
 		queue_redraw()
 		return
-	if SENSOR_RECT.has_point(p):
+	if SENSOR_RECT.has_point(p) and not (TRACKS.has_point(p) or UNIT.has_point(p)
+			or LOG.has_point(p) or TIME.has_point(p) or CMD.has_point(p) or TOP.has_point(p)):
 		menu_open = not menu_open
 		menu_t = 0.0
 		queue_redraw()
@@ -1444,6 +1586,9 @@ func click(p: Vector2) -> void:
 
 func consumes(p: Vector2) -> bool:
 	if pause_open:
+		return true
+	# P10a：战术弹窗打开时吞掉所有点击（由 click 处理关闭/选择）。
+	if _ctx_open or _optical_open or _layers_open or _queue_detail_id != "":
 		return true
 	# P3c：前置航行 / P2b 副官申请优先吞输入。
 	if _ov_prelude():
@@ -2409,11 +2554,24 @@ func _handle_log_click(p: Vector2) -> bool:
 		_sfx("ui_click")
 		return true
 	if _log_tab == 1:
+		if _queue_detail_id != "":
+			if _queue_detail_abort_rect.has_point(p):
+				state.abort_command(_queue_detail_id)
+				_queue_detail_id = ""
+				_sfx("ui_confirm")
+				return true
+			_queue_detail_id = ""
+			return true
 		for row in _log_abort_rects:
 			var rr: Rect2 = row["rect"]
 			if rr.has_point(p):
 				state.abort_command(String(row["id"]))
 				_sfx("ui_confirm")
+				return true
+		for row2 in _log_row_rects:
+			if (row2["rect"] as Rect2).has_point(p):
+				_queue_detail_id = String(row2["id"])
+				_sfx("ui_click")
 				return true
 	return false
 
@@ -2477,53 +2635,110 @@ func _draw_log() -> void:
 				_txt(mono, 140.0 + tw + 8.0, y, _dn(String(l.get("arg", ""))), 7, Palette.a(Palette.AMBER, 0.7))
 			_log_status(l, i, y - 1, cmd_left, pending)
 	else:
-		# 命令队列（当前队列可见，可撤销 QUEUED/TRANSMITTED）
-		var cmds: Array = state.commands()
-		_txt(cjk, 76, 918, "命令队列 / ORDER QUEUE · %d 项" % cmds.size(), 8, Palette.TXT)
-		_txt_r(mono, 604, 918, "STATUS / ABORT", 7, Palette.a(Palette.FAINT, 0.8))
-		if cmds.is_empty():
-			_txt(cjk, 76, 940, "（队列为空）", 8, Palette.FAINT)
-		var shown := 0
-		for idx in range(cmds.size() - 1, -1, -1):
-			if shown >= 4:
-				break
-			var c: Dictionary = cmds[idx]
-			var y := 938.0 + float(shown) * 22.0
-			shown += 1
-			var act := String(c.get("action", ""))
-			var st := String(c.get("status", ""))
-			var sc: Color = Palette.PH_DIM
-			match st:
-				"QUEUED":
-					sc = Palette.AMBER
-				"TRANSMITTED":
-					sc = Palette.BLUE
-				"EXEC":
-					sc = Palette.PH_DIM
-				"ABORTED":
-					sc = Palette.FAINT
-				"REJECTED":
-					sc = Palette.RED
-			var target := String(c.get("target", ""))
-			var detail := ""
-			if act == "SHADOW" and target != "":
-				detail = " → " + _dn(target)
-			elif act == "BURN":
-				detail = " Δv %.0f" % float((c.get("plan", {}) as Dictionary).get("dv_ms", 0.0))
-			_txt(mono, 76, y, String(c.get("id", "")), 8, Palette.a(Palette.FAINT, 0.9))
-			_txt(cjk, 112, y, _ellipsis(cjk, "%s%s" % [act, detail], 8, 260.0), 8, Palette.TXT)
-			_txt_r(cjk, 520, y, _cmd_phase(c), 7, sc)
-			if st == "QUEUED" or st == "TRANSMITTED":
-				var rr := Rect2(536, y - 6.0, 80, 16)
-				draw_rect(rr, Palette.a(Palette.RED, 0.07))
-				draw_rect(rr, Palette.a(Palette.RED, 0.38), false, 1.0)
-				_txt(cjk, rr.position.x + 14.0, rr.position.y + 3.0, "撤销 / ABORT", 7, Palette.RED)
-				_log_abort_rects.append({"rect": rr, "id": String(c.get("id", ""))})
-			draw_line(Vector2(76, y + 8.0), Vector2(604, y + 8.0), Palette.a(Palette.LINE, 0.35), 1.0)
-		_txt(cjk, 76, 1028, "点击撤销待生效命令 · Tab 切回通信流", 7, Palette.FAINT)
+		# 命令队列（当前队列可见，可撤销 QUEUED/TRANSMITTED；点击行展开完整文本）
+		_log_row_rects.clear()
+		_queue_detail_abort_rect = Rect2()
+		if _queue_detail_id != "":
+			_draw_queue_detail()
+		else:
+			var cmds: Array = state.commands()
+			_txt(cjk, 76, 918, "命令队列 / ORDER QUEUE · %d 项 · 点击行看全文" % cmds.size(), 8, Palette.TXT)
+			_txt_r(mono, 604, 918, "STATUS / ABORT", 7, Palette.a(Palette.FAINT, 0.8))
+			if cmds.is_empty():
+				_txt(cjk, 76, 940, "（队列为空）", 8, Palette.FAINT)
+			var shown := 0
+			for idx in range(cmds.size() - 1, -1, -1):
+				if shown >= 4:
+					break
+				var c: Dictionary = cmds[idx]
+				var y := 938.0 + float(shown) * 22.0
+				shown += 1
+				var act := String(c.get("action", ""))
+				var st := String(c.get("status", ""))
+				var sc: Color = Palette.PH_DIM
+				match st:
+					"QUEUED":
+						sc = Palette.AMBER
+					"TRANSMITTED":
+						sc = Palette.BLUE
+					"EXEC":
+						sc = Palette.PH_DIM
+					"ABORTED":
+						sc = Palette.FAINT
+					"REJECTED":
+						sc = Palette.RED
+				var target := String(c.get("target", ""))
+				var detail := ""
+				if act == "SHADOW" and target != "":
+					detail = " → " + _dn(target)
+				elif act == "BURN":
+					detail = " Δv %.0f" % float((c.get("plan", {}) as Dictionary).get("dv_ms", 0.0))
+				_txt(mono, 76, y, String(c.get("id", "")), 8, Palette.a(Palette.FAINT, 0.9))
+				_txt(cjk, 112, y, _ellipsis(cjk, "%s%s" % [act, detail], 8, 260.0), 8, Palette.TXT)
+				_txt_r(cjk, 520, y, _cmd_phase(c), 7, sc)
+				_log_row_rects.append({"rect": Rect2(72, y - 12.0, 460, 20), "id": String(c.get("id", ""))})
+				if st == "QUEUED" or st == "TRANSMITTED":
+					var rr := Rect2(536, y - 6.0, 80, 16)
+					draw_rect(rr, Palette.a(Palette.RED, 0.07))
+					draw_rect(rr, Palette.a(Palette.RED, 0.38), false, 1.0)
+					_txt(cjk, rr.position.x + 14.0, rr.position.y + 3.0, "撤销 / ABORT", 7, Palette.RED)
+					_log_abort_rects.append({"rect": rr, "id": String(c.get("id", ""))})
+				draw_line(Vector2(76, y + 8.0), Vector2(604, y + 8.0), Palette.a(Palette.LINE, 0.35), 1.0)
+			_txt(cjk, 76, 1028, "点击行看完整命令 · 撤销待生效 · Tab 切回通信流", 7, Palette.FAINT)
 
 	var blink := 0.5 + 0.5 * sin(_t * 4.0)
 	draw_rect(Rect2(76, 1028, 5, 1), Palette.a(Palette.PH, 0.6 * blink))
+
+func _draw_queue_detail() -> void:
+	var cmd := {}
+	for raw in state.commands():
+		var c: Dictionary = raw
+		if String(c.get("id", "")) == _queue_detail_id:
+			cmd = c
+			break
+	if cmd.is_empty():
+		_queue_detail_id = ""
+		return
+	_txt(cjk, 76, 920, "命令全文 / ORDER TEXT · %s" % _queue_detail_id, 9, Palette.PH)
+	_txt_r(mono, 604, 920, "ESC / 点击返回", 7, Palette.a(Palette.FAINT, 0.85))
+	draw_line(Vector2(64, 930), Vector2(616, 930), Palette.a(Palette.LINE, 0.8), 1.0)
+	var act := String(cmd.get("action", ""))
+	var st := String(cmd.get("status", ""))
+	var col: Color = Palette.PH_DIM
+	if st == "QUEUED":
+		col = Palette.AMBER
+	elif st == "TRANSMITTED":
+		col = Palette.BLUE
+	elif st == "REJECTED":
+		col = Palette.RED
+	elif st == "ABORTED":
+		col = Palette.FAINT
+	var rows := [
+		["单位 UNIT", String(cmd.get("unit", "—"))],
+		["动作 ACTION", act + " / " + _cmd_phase(cmd)],
+		["目标 TARGET", String(cmd.get("target", "—"))],
+		["状态 STATUS", st + " · " + _cmd_phase(cmd)],
+	]
+	for i in range(rows.size()):
+		var y := 944.0 + float(i) * 17.0
+		_txt(cjk, 76, y, String(rows[i][0]), 7, Palette.FAINT)
+		_txt(cjk, 180, y, _ellipsis(cjk, String(rows[i][1]), 8, 430.0), 8,
+			col if i == 3 else Palette.TXT)
+	# 参数 / 计划全文（不省略，按行展开）
+	var params: Dictionary = cmd.get("params", {})
+	var plan: Dictionary = cmd.get("plan", {})
+	var full := "PARAMS %s · PLAN %s" % [str(params), str(plan)]
+	var lines := _wrap_text(mono, full, 7, 540.0)
+	for i in range(mini(lines.size(), 3)):
+		_txt(mono, 76, 1018.0 - 36.0 + float(i) * 12.0, String(lines[i]), 7, Palette.a(Palette.DIM, 0.95))
+	if st == "QUEUED" or st == "TRANSMITTED":
+		var rr := Rect2(520, 1002, 96, 18)
+		draw_rect(rr, Palette.a(Palette.RED, 0.07))
+		draw_rect(rr, Palette.a(Palette.RED, 0.45), false, 1.0)
+		_txt(cjk, rr.position.x + 16.0, rr.position.y + 4.0, "撤销 / ABORT", 7, Palette.RED)
+		_queue_detail_abort_rect = rr
+	else:
+		_queue_detail_abort_rect = Rect2()
 
 func _log_status(l: Dictionary, i: int, y: float, cmd_left: float, pending: bool) -> void:
 	var txt := ""
@@ -4159,6 +4374,452 @@ func _draw_filed_banner() -> void:
 	_txt(mono, r.position.x + 24.0, r.position.y + 22.0, _filed_text, 15, _filed_col)
 	_txt(cjk, r.position.x + 24.0, r.position.y + 54.0, "报告已归档 · 已写入 OCJC / OCUVF 内部记录（demo 结束）", 8, Palette.DIM)
 	_txt_r(mono, r.end.x - 24.0, r.position.y + 54.0, "FILED", 8, Palette.a(_filed_col, 0.7))
+
+# ══ P10a：右键目标菜单 / 光学通道 / 图层开关 / 队列完整文本 ═════════
+# 右键/动作/光学接口未就绪时只做 UI 骨架与本地演示，不写 state。
+func _mouse_in_base() -> Vector2:
+	var win := get_window()
+	if win == null:
+		return Vector2.ZERO
+	var wsz := Vector2(win.size)
+	var sc := minf(wsz.x / 1920.0, wsz.y / 1080.0)
+	if sc <= 0.0:
+		return Vector2.ZERO
+	var off := (wsz - Vector2(1920.0, 1080.0) * sc) * 0.5
+	return (win.get_mouse_position() - off) / sc
+
+func _target_track() -> Dictionary:
+	if state == null or state.tracks.is_empty():
+		return {}
+	var i := clampi(int(state.selected), 0, state.tracks.size() - 1)
+	return state.tracks[i]
+
+func _target_track_id() -> String:
+	var tr := _target_track()
+	return String(tr.get("id", ""))
+
+func _target_level() -> int:
+	var tr := _target_track()
+	return clampi(int(tr.get("level", 0)), 0, 4)
+
+func _target_name() -> String:
+	var tr := _target_track()
+	return _dn(_track_display_id(tr)) if not tr.is_empty() else "—"
+
+func _toast(msg: String) -> void:
+	_toast_text = msg
+	_toast_t = 2.4
+	_sfx("ui_error")
+
+func _draw_toast() -> void:
+	if _toast_t <= 0.0 or _toast_text == "":
+		return
+	var a := clampf(_toast_t / 0.4, 0.0, 1.0)
+	var w := cjk.get_string_size(_toast_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x + 28.0
+	var rc := Rect2(960.0 - w * 0.5, 168.0, w, 24.0)
+	draw_rect(rc, Color(0.02, 0.05, 0.04, 0.92))
+	draw_rect(rc, Palette.a(Palette.AMBER, 0.75 * a), false, 1.0)
+	_txt(cjk, rc.position.x + 14.0, rc.position.y + 5.0, _ellipsis(cjk, _toast_text, 8, 760.0), 8,
+		Palette.a(Palette.AMBER, a))
+
+# ── 右键目标菜单 ─────────────────────────────────────
+func _target_actions_for(track_id: String) -> Array:
+	if state != null and state.has_method("target_actions"):
+		var res = state.call("target_actions", track_id)
+		if res is Array and (res as Array).size() > 0:
+			return res
+	var out: Array = []
+	var lvl := _target_level()
+	for a in TGT_ACTIONS:
+		out.append({"id": String(a[1]), "label": String(a[2]), "min_level": int(a[0]),
+			"available": lvl >= int(a[0]), "unsupported": false,
+			"reason": "" if lvl >= int(a[0]) else "需 L%d（当前 L%d）" % [int(a[0]), lvl]})
+	return out
+
+func _poll_right_click() -> void:
+	var down := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	var edge := down and not _rclick_prev
+	_rclick_prev = down
+	if not edge:
+		return
+	if state == null or state.boot_t < 1.7 or state.capture:
+		return
+	if pause_open or _any_overlay() or _modal != "" or _ov_prelude() or _ov_adjutant() \
+			or _ov_decision() or _ov_report() or _ov_consequence() or _ov_end():
+		return
+	# ENG main 已实现右键→plot.pick_track→HUD.open_target_menu；此处只做无该接口时的兜底。
+	if state.has_method("open_target_menu") and not state.has_method("target_menu_open"):
+		return
+	var p := _mouse_in_base()
+	if not (Rect2(396, 124, 1128, 752).has_point(p) or TRACKS.has_point(p)):
+		return
+	for i in row_rects.size():
+		if row_rects[i].has_point(p):
+			state.selected = i
+			break
+	_open_ctx_menu(p)
+
+# ENG 主流程接口：main 右键 → HUD.open_target_menu(track_id, actions)
+func open_target_menu(track_id: String, actions: Array) -> void:
+	_ctx_open = true
+	_ctx_track_id = track_id
+	_ctx_actions = actions.duplicate(true)
+	_ctx_pos = _mouse_in_base()
+	_ctx_hint = ""
+	menu_open = false
+	if state != null:
+		for i in state.tracks.size():
+			if String((state.tracks[i] as Dictionary).get("id", "")) == track_id:
+				state.selected = i
+				break
+	_sfx("ui_open")
+
+func _open_ctx_menu(pos: Vector2) -> void:
+	_ctx_pos = pos
+	var id := _target_track_id()
+	var acts := _target_actions_for(id)
+	if state != null and state.has_method("open_target_menu"):
+		state.call("open_target_menu", id)
+	open_target_menu(id, acts)
+
+func _ctx_rows() -> Array:
+	if _ctx_track_id == "":
+		_ctx_track_id = _target_track_id()
+	var rows: Array = []
+	var actions: Array = _ctx_actions
+	if actions.is_empty():
+		actions = _target_actions_for(String(_ctx_track_id))
+	var by_tier := {}
+	for raw in actions:
+		if not (raw is Dictionary):
+			continue
+		var al: Dictionary = raw
+		var tier := int(al.get("min_level", 1))
+		if not by_tier.has(tier):
+			by_tier[tier] = []
+		(by_tier[tier] as Array).append(al)
+	for tier_def in TGT_TIERS:
+		var tier := int(tier_def[0])
+		if not by_tier.has(tier):
+			continue
+		rows.append({"group": true, "label": String(tier_def[1]), "tier": tier})
+		for raw2 in by_tier[tier]:
+			var al: Dictionary = raw2
+			rows.append({"action": String(al.get("id", "")),
+				"label": String(al.get("label", al.get("id", ""))), "tier": tier,
+				"locked": not bool(al.get("available", true)),
+				"unsupported": bool(al.get("unsupported", false)),
+				"reason": String(al.get("reason", ""))})
+	return rows
+
+func _ctx_rect() -> Rect2:
+	var rows := _ctx_rows()
+	var h := CTX_HEAD_H + CTX_FOOT_H
+	for r in rows:
+		h += CTX_GROUP_H if bool(r.get("group", false)) else CTX_ROW_H
+	var x := clampf(_ctx_pos.x + 10.0, 44.0, 1920.0 - CTX_W - 44.0)
+	var y := clampf(_ctx_pos.y + 10.0, 124.0, 1040.0 - h - 8.0)
+	return Rect2(x, y, CTX_W, h)
+
+func _close_ctx() -> void:
+	_ctx_open = false
+	_ctx_actions.clear()
+	if state != null and state.has_method("close_target_menu"):
+		state.call("close_target_menu")
+
+func _handle_ctx_click(p: Vector2) -> void:
+	var rc := _ctx_rect()
+	if not rc.has_point(p):
+		_close_ctx()
+		return
+	var y := rc.position.y + CTX_HEAD_H
+	for r in _ctx_rows():
+		var row_h := CTX_GROUP_H if bool(r.get("group", false)) else CTX_ROW_H
+		var rr := Rect2(rc.position.x, y, rc.size.x, row_h)
+		if rr.has_point(p) and not bool(r.get("group", false)):
+			var act := String(r.get("action", ""))
+			if bool(r.get("locked", false)) or bool(r.get("unsupported", false)):
+				var why := String(r.get("reason", ""))
+				_ctx_hint = why if why != "" else "该动作当前不可用"
+				return
+			_ctx_open = false
+			_ctx_actions.clear()
+			_perform_target_action(String(_ctx_track_id), act)
+			return
+		y += row_h
+
+func _perform_target_action(track_id: String, act: String) -> void:
+	if state != null and state.has_method("perform_target_action"):
+		var res = state.call("perform_target_action", track_id, act)
+		_sfx("ui_confirm")
+		if res is Dictionary:
+			var d: Dictionary = res
+			var ok := bool(d.get("ok", false))
+			var msg := String(d.get("message", d.get("status", "")))
+			if ok:
+				_toast("目标动作：%s" % (msg if msg != "" else act))
+				if act == "optical_channel" or act == "ir_channel":
+					_open_optical("VIS" if act == "optical_channel" else "IR", track_id, false)
+			else:
+				_toast(msg if msg != "" else "动作不可用：%s" % act)
+		return
+	_toast("接口未就绪：state.perform_target_action(track_id, action) · 演示动作 %s" % act)
+
+func _draw_ctx_menu() -> void:
+	var rc := _ctx_rect()
+	draw_rect(rc, Color(0.015, 0.04, 0.032, 0.97))
+	draw_rect(rc, Palette.a(Palette.PH, 0.75), false, 1.0)
+	var tr := _target_track()
+	if state != null and state.has_method("track_by_id"):
+		var t3 = state.call("track_by_id", String(_ctx_track_id))
+		if t3 is Dictionary and not (t3 as Dictionary).is_empty():
+			tr = t3
+	_txt(cjk, rc.position.x + 12.0, rc.position.y + 20.0,
+		"[%s] %s · L%d · %s" % [String(tr.get("batch", "----")), _dn(_track_display_id(tr)) if not tr.is_empty() else "—",
+			clampi(int(tr.get("level", 0)), 0, 4), _identity_cn(_track_identity(tr)) if not tr.is_empty() else "—"],
+		9, Palette.TXT)
+	_txt(cjk, rc.position.x + 12.0, rc.position.y + 42.0, "右键目标 · 分级操作 / TARGET ACTIONS", 7, Palette.a(Palette.PH, 0.8))
+	draw_line(Vector2(rc.position.x, rc.position.y + CTX_HEAD_H),
+		Vector2(rc.end.x, rc.position.y + CTX_HEAD_H), Palette.a(Palette.LINE, 0.8), 1.0)
+	var y := rc.position.y + CTX_HEAD_H
+	for r in _ctx_rows():
+		if bool(r.get("group", false)):
+			_txt(mono, rc.position.x + 12.0, y + 13.0, String(r.get("label", "")), 7,
+				Palette.a(Palette.AMBER, 0.72))
+			draw_line(Vector2(rc.position.x + 8.0, y + CTX_GROUP_H - 2.0),
+				Vector2(rc.end.x - 8.0, y + CTX_GROUP_H - 2.0), Palette.a(Palette.LINE, 0.35), 1.0)
+		else:
+			var hot := Rect2(rc.position.x, y, rc.size.x, CTX_ROW_H).has_point(_mouse_base())
+			var locked := bool(r.get("locked", false))
+			var col: Color = Palette.FAINT if locked else (Palette.PH if hot else Palette.TXT)
+			if hot and not locked:
+				draw_rect(Rect2(rc.position.x + 1.0, y, rc.size.x - 2.0, CTX_ROW_H), Palette.a(Palette.PH, 0.08))
+			_txt(mono, rc.position.x + 26.0, y + 15.0, "▸" if not locked else "·", 8, Palette.a(col, 0.8))
+			_txt(cjk, rc.position.x + 44.0, y + 15.0, String(r.get("label", "")), 8, col)
+			if locked:
+				_txt_r(mono, rc.end.x - 12.0, y + 15.0, "L%d" % int(r.get("tier", 1)), 7, Palette.a(Palette.FAINT, 0.8))
+		y += CTX_GROUP_H if bool(r.get("group", false)) else CTX_ROW_H
+	var fy := rc.end.y - CTX_FOOT_H
+	draw_line(Vector2(rc.position.x, fy), Vector2(rc.end.x, fy), Palette.a(Palette.LINE, 0.7), 1.0)
+	if _ctx_hint != "":
+		_txt(cjk, rc.position.x + 12.0, fy + 16.0, _ellipsis(cjk, _ctx_hint, 7, rc.size.x - 24.0), 7, Palette.AMBER)
+	else:
+		_txt_r(mono, rc.end.x - 12.0, fy + 16.0, "ESC / 右击关闭", 7, Palette.a(Palette.FAINT, 0.8))
+
+# ── 光学 / 红外通道 ───────────────────────────────────
+func _channel_progress() -> float:
+	if state != null and state.has_method("channel_status"):
+		var cs = state.call("channel_status", String(_optical_target))
+		if cs is Dictionary:
+			var ch = (cs as Dictionary).get("channels", {})
+			if ch is Dictionary:
+				var key := "optical" if _optical_kind == "VIS" else "ir"
+				var oc = (ch as Dictionary).get(key)
+				if oc is Dictionary:
+					return clampf(float((oc as Dictionary).get("progress", 0.0)), 0.0, 1.0)
+	return clampf(_optical_stare, 0.0, 1.0)
+
+func _optical_status_text() -> String:
+	if state != null and state.has_method("channel_status"):
+		var cs = state.call("channel_status", String(_optical_target))
+		if cs is Dictionary:
+			var ch = (cs as Dictionary).get("channels", {})
+			if ch is Dictionary:
+				var key := "optical" if _optical_kind == "VIS" else "ir"
+				var oc = (ch as Dictionary).get(key)
+				if oc is Dictionary:
+					var st := String((oc as Dictionary).get("status", ""))
+					return {"running": "跟踪中 / RUNNING", "locked": "已锁定 / LOCKED"}.get(st, st)
+	return "UI 演示 / DEMO"
+
+func _open_optical(kind: String, target_id: String, start_it := true) -> void:
+	_optical_open = true
+	_optical_kind = kind
+	_optical_target = target_id
+	_optical_stare = 0.0
+	_optical_state_note = ""
+	if start_it and state != null:
+		var meth := "start_optical_track" if kind == "VIS" else "start_ir_track"
+		if state.has_method(meth):
+			var res = state.call(meth, target_id)
+			if res is Dictionary:
+				_optical_state_note = String((res as Dictionary).get("message", ""))
+		elif state.has_method("start_optical" if kind == "VIS" else "start_ir"):
+			state.call("start_optical" if kind == "VIS" else "start_ir", target_id)
+		else:
+			_optical_state_note = "接口未就绪：需 state.%s(track_id)；当前为 UI 演示" % meth
+	_sfx("sys_sensor_on")
+
+func _handle_optical_click(p: Vector2) -> void:
+	if OPT_CLOSE_BTN.has_point(p):
+		_optical_open = false
+		_sfx("ui_back")
+		return
+	if OPT_TAB_VIS.has_point(p):
+		_optical_kind = "VIS"
+		return
+	if OPT_TAB_IR.has_point(p):
+		_optical_kind = "IR"
+		return
+	if OPT_STARE_BTN.has_point(p):
+		_optical_stare = 0.0
+		if state != null:
+			var meth := "start_optical_track" if _optical_kind == "VIS" else "start_ir_track"
+			if state.has_method(meth):
+				state.call(meth, String(_optical_target))
+			else:
+				for m2 in ["stare_optical", "start_optical_stare", "stare_target"]:
+					if state.has_method(m2):
+						state.call(m2, String(_optical_target))
+						break
+		return
+	if OPT_STOP_BTN.has_point(p):
+		if state != null:
+			if state.has_method("stop_track"):
+				state.call("stop_track")
+			else:
+				for meth in ["stop_optical", "stop_ir", "stop_stare"]:
+					if state.has_method(meth):
+						state.call(meth)
+						break
+		_optical_stare = 0.0
+		return
+
+func _draw_optical_overlay() -> void:
+	if _optical_target == "":
+		_optical_target = _target_track_id()
+	draw_rect(Rect2(Vector2.ZERO, Vector2(1920, 1080)), Color(0.01, 0.03, 0.024, 0.62))
+	var r := OPTICAL_RECT
+	draw_rect(r, Palette.a(Palette.PANEL, 0.99))
+	draw_rect(r, Palette.a(Palette.PH, 0.65), false, 1.0)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 32.0, "光学/红外通道 / OPTICAL CHANNEL", 16, Palette.PH)
+	var ot := _target_track()
+	if String(_optical_target) != "" and not ot.is_empty() and String(ot.get("id", "")) != String(_optical_target):
+		if state != null:
+			var t2 = state.call("track_by_id", String(_optical_target)) if state.has_method("track_by_id") else null
+			if t2 is Dictionary and not (t2 as Dictionary).is_empty():
+				ot = t2
+	var olabel := "[%s] %s · %s" % [String(ot.get("batch", "----")), _dn(_track_display_id(ot)) if not ot.is_empty() else "—",
+		_identity_cn(_track_identity(ot)) if not ot.is_empty() else "—"]
+	_txt_r(mono, r.end.x - 24.0, r.position.y + 32.0,
+		"%s · %s" % [_optical_kind, olabel], 8, Palette.a(Palette.FAINT, 0.95))
+	draw_line(Vector2(r.position.x, r.position.y + 48.0), Vector2(r.end.x, r.position.y + 48.0),
+		Palette.a(Palette.PH, 0.28), 1.0)
+	for i in range(2):
+		var trc: Rect2 = OPT_TAB_VIS if i == 0 else OPT_TAB_IR
+		var sel := (_optical_kind == "VIS") == (i == 0)
+		draw_rect(trc, Palette.a(Palette.PANEL2, 0.95 if sel else 0.4))
+		draw_rect(trc, Palette.a(Palette.PH, 0.75 if sel else 0.22), false, 1.0)
+		_txt(cjk, trc.position.x + 12.0, trc.position.y + 16.0,
+			"可见光 / VIS" if i == 0 else "红外 / IR", 9, Palette.PH if sel else Palette.DIM)
+	# 传感器窗（程序化星点/十字线，无外部贴图）
+	var win := Rect2(588, 316, 744, 300)
+	draw_rect(win, Color(0.005, 0.012, 0.01, 1.0))
+	draw_rect(win, Palette.a(Palette.LINE, 0.9), false, 1.0)
+	for i in range(90):
+		var h := (i * 1103515245 + 12345) & 0x7fffffff
+		var px := win.position.x + float(h % 700) + 14.0
+		var py := win.position.y + float((h / 700) % 280) + 10.0
+		draw_rect(Rect2(px, py, 1, 1), Palette.a(Palette.TXT, 0.06 + 0.05 * float(i % 3)))
+	var c := win.get_center()
+	draw_circle(c, 2.2 if _optical_kind == "VIS" else 2.8, Palette.BLUE if _optical_kind == "VIS" else Palette.AMBER)
+	draw_line(c - Vector2(24, 0), c + Vector2(24, 0), Palette.a(Palette.PH, 0.55), 1.0)
+	draw_line(c - Vector2(0, 24), c + Vector2(0, 24), Palette.a(Palette.PH, 0.55), 1.0)
+	draw_arc(c, 42.0, 0, TAU, 48, Palette.a(Palette.PH_FAINT, 0.5), 1.0, true)
+	_txt(mono, win.position.x + 10.0, win.position.y + 16.0,
+		"%s · %s" % ["VIS" if _optical_kind == "VIS" else "IR", _optical_status_text()], 7,
+		Palette.a(Palette.PH, 0.8))
+	# 数据与进度
+	var info := {}
+	if state != null and state.has_method("selected_info"):
+		var si = state.call("selected_info")
+		if si is Dictionary:
+			info = si
+	_txt(mono, 588, 646, "TARGET %s" % String(_optical_target), 8, Palette.TXT)
+	_txt(mono, 588, 664, "RANGE %s · REFRESH %.1fs" % [
+		"%.0f km" % float(info.get("range_km", 0.0)) if not info.is_empty() else "—",
+		float(_target_track().get("refresh_s", 8.0))], 7, Palette.DIM)
+	_txt(mono, 588, 682, "STARE", 7, Palette.FAINT)
+	var ch_prog := _channel_progress()
+	draw_rect(Rect2(644, 676, 360, 6), Palette.a(Palette.LINE, 0.9))
+	draw_rect(Rect2(644, 676, 360.0 * ch_prog, 6),
+		Palette.a(Palette.PH if _optical_kind == "VIS" else Palette.AMBER, 0.9))
+	_txt_r(mono, 1128, 682, "%d%%" % int(round(ch_prog * 100.0)), 8, Palette.TXT)
+	_cmd_btn(OPT_STARE_BTN, "开始凝视 / STARE", false, Palette.PH)
+	_cmd_btn(OPT_STOP_BTN, "停止 / STOP", false, Palette.AMBER)
+	_cmd_btn(OPT_CLOSE_BTN, "关闭 / CLOSE", false, Palette.RED)
+	var note := _optical_state_note
+	if note == "":
+		note = "接口：start_optical_track/start_ir_track(track_id) · stop_track() · channel_status()"
+	_txt(cjk, r.position.x + 24.0, r.end.y - 38.0, _ellipsis(cjk, note, 7, 420.0), 7, Palette.a(Palette.AMBER, 0.7))
+	_txt_r(cjk, r.end.x - 24.0, r.end.y - 38.0, "ESC / CLOSE 返回", 7, Palette.a(Palette.FAINT, 0.9))
+
+# ── 图层 / 元素开关 ───────────────────────────────────
+func _toggle_layer(key: String, on: bool) -> void:
+	_layer_state[key] = on
+	if state != null and state.has_method("set_layer_visible"):
+		state.call("set_layer_visible", key, on)
+		_toast("图层 %s · %s" % [key, "显示" if on else "隐藏"])
+	else:
+		_toast("图层开关接口未就绪：需 state.set_layer_visible(name,on) + plot 读取；当前仅 HUD 本地保存")
+	_sfx("ui_click")
+
+func _handle_layers_click(p: Vector2) -> void:
+	var r := LAYERS_RECT
+	if Rect2(r.end.x - 120.0, r.end.y - 48.0, 96.0, 28.0).has_point(p):
+		_layers_open = false
+		return
+	for i in range(LAYER_KEYS.size()):
+		var rr := Rect2(r.position.x + 24.0, r.position.y + 92.0 + float(i) * 38.0, r.size.x - 48.0, 32.0)
+		if rr.has_point(p):
+			var k := String(LAYER_KEYS[i])
+			_toggle_layer(k, not bool(_layer_state.get(k, true)))
+			return
+	if not r.has_point(p):
+		_layers_open = false
+
+func _draw_layers_panel() -> void:
+	var r := LAYERS_RECT
+	draw_rect(r, Palette.a(Palette.PANEL, 0.99))
+	draw_rect(r, Palette.a(Palette.PH, 0.6), false, 1.0)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 32.0, "图层 / 元素开关 / LAYERS", 15, Palette.PH)
+	_txt_r(mono, r.end.x - 24.0, r.position.y + 32.0, "STATE · PLOT · 已接", 7, Palette.a(Palette.PH_FAINT, 0.85))
+	draw_line(Vector2(r.position.x, r.position.y + 48.0), Vector2(r.end.x, r.position.y + 48.0),
+		Palette.a(Palette.PH, 0.28), 1.0)
+	for i in range(LAYER_KEYS.size()):
+		var k := String(LAYER_KEYS[i])
+		var rr := Rect2(r.position.x + 24.0, r.position.y + 92.0 + float(i) * 38.0, r.size.x - 48.0, 32.0)
+		var on := bool(_layer_state.get(k, true))
+		var hot := rr.has_point(_mouse_base())
+		draw_rect(rr, Palette.a(Palette.PANEL2, 0.85 if hot else 0.35))
+		draw_rect(rr, Palette.a(Palette.PH, 0.35 if on else 0.18), false, 1.0)
+		_txt(mono, rr.position.x + 12.0, rr.position.y + 21.0, "[x]" if on else "[ ]", 12,
+			Palette.PH if on else Palette.FAINT)
+		_txt(cjk, rr.position.x + 52.0, rr.position.y + 21.0, String(LAYER_NAMES[i]), 9,
+			Palette.TXT if on else Palette.FAINT)
+		_txt_r(mono, rr.end.x - 12.0, rr.position.y + 21.0, "ON" if on else "OFF", 8,
+			Palette.PH if on else Palette.FAINT)
+	_cmd_btn(Rect2(r.end.x - 120.0, r.end.y - 48.0, 96.0, 28.0), "关闭 / CLOSE", false, Palette.PH)
+	_txt(cjk, r.position.x + 24.0, r.end.y - 24.0,
+		"可隐藏接触/标签/预测/雷达/站点/网格；plot 按 state 图层键跳过绘制（已接 set_layer_visible）", 7,
+		Palette.a(Palette.PH_FAINT, 0.9))
+
+# ── Esc 层级：先关战术弹窗，再交给暂停菜单 ────────────
+func _close_top_popup() -> bool:
+	if _ctx_open:
+		_close_ctx()
+		return true
+	if _optical_open:
+		_optical_open = false
+		_sfx("ui_back")
+		return true
+	if _layers_open:
+		_layers_open = false
+		return true
+	if _queue_detail_id != "":
+		_queue_detail_id = ""
+		return true
+	return false
 
 func _draw_time() -> void:
 	_panel(TIME)

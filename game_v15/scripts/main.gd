@@ -438,6 +438,45 @@ func _set_scene(sc: String) -> void:
 				state.selected = i
 				break
 		print("SELECTED ", sel_env, " idx=", state.selected, " info=", state.selected_info())
+	# P10a 钩子：右键命中 / 动作 / 图层 / 光学通道 / 撤出后对接
+	var rc_env := OS.get_environment("DSH_RCLICK")
+	if rc_env != "":
+		var hit := ""
+		for tr in state.tracks:
+			if String((tr as Dictionary).get("batch", "")) == rc_env:
+				var q: Vector2 = plot._track_screen(tr)
+				hit = String(plot.pick_track(q))
+				break
+		if hit == "":
+			hit = rc_env
+		_open_target_menu(hit)
+		print("RCLICK ", rc_env, " hit=", hit, " open=", state.target_menu_open, " actions=", state.target_menu_actions.size())
+	var act_env := OS.get_environment("DSH_TARGET_ACTION")
+	if act_env != "":
+		var parts := act_env.split(":")
+		if parts.size() >= 2:
+			var r := state.perform_target_action(parts[0], parts[1])
+			print("TARGET ACTION ", parts[0], ":", parts[1], " status=", r.get("status"), " ok=", r.get("ok"), " msg=", r.get("message"))
+	var lay_env := OS.get_environment("DSH_LAYER")
+	if lay_env != "":
+		var lp := lay_env.split(":")
+		if lp.size() >= 2:
+			state.set_layer_visible(lp[0], lp[1] != "0")
+			print("LAYER ", lp[0], "=", state.is_layer_visible(lp[0]), " all=", state.layer_visible)
+	var opt_env := OS.get_environment("DSH_OPTICAL")
+	if opt_env != "":
+		var ro := state.start_optical_track(opt_env, 5.0)
+		state.refresh(state.clock)
+		print("OPTICAL ", opt_env, " status=", state.channel_status(opt_env))
+	var ir_env := OS.get_environment("DSH_IR")
+	if ir_env != "":
+		var ri := state.start_ir_track(ir_env, 2.0)
+		state.refresh(state.clock)
+		print("IR ", ir_env, " status=", state.channel_status(ir_env))
+	var dock_env := OS.get_environment("DSH_DOCK")
+	if dock_env == "1":
+		var d := state.force_av4412_dock()
+		print("DOCK ", d, " report_ok=", true)
 	print("SCENE ", sc, " datum=", state.datum, " sensor=", state.sensor, " planar=", plot.ortho,
 		" tau=", state.tau(), " cmds=", state.commands().size())
 
@@ -503,6 +542,21 @@ func _apply_demo(t: float) -> void:
 	if state.sensor != prev:
 		state.sensor_fx_t = 0.0
 
+func _open_target_menu(track_id: String) -> void:
+	if state == null or track_id == "":
+		return
+	var acts: Array = state.open_target_menu(track_id)
+	var handled := false
+	if hud != null and hud.has_method("open_target_menu"):
+		hud.call("open_target_menu", track_id, acts)
+		handled = true
+	state.target_menu_hud_handled = handled
+	_sfx("ui_confirm")
+	print("TARGET MENU ", track_id, " level=", state.track_level(track_id), " actions=", acts.size(), " hud_handled=", handled)
+	for raw in acts:
+		var a: Dictionary = raw
+		print("  ACT ", a.get("id"), " label=", a.get("label"), " avail=", a.get("available"), " unsupported=", a.get("unsupported"), " reason=", a.get("reason"))
+
 func _mouse_to_base(p: Vector2) -> Vector2:
 	if _vp_rect.size.x <= 1.0 or _vp_rect.size.y <= 1.0:
 		return p
@@ -538,6 +592,16 @@ func _gui_input(event: InputEvent) -> void:
 			if state.boot_t >= 1.7 and PLOT_RECT.has_point(p):
 				plot.zoom_map(0.9 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.1)
 				accept_event()
+		elif event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+			# P10a：右键目标命中 → 目标动作菜单（不进入左键拖拽）
+			if state.boot_t >= 1.7 and PLOT_RECT.has_point(p):
+				var hit: String = String(plot.pick_track(p))
+				if hit != "":
+					_open_target_menu(hit)
+				else:
+					state.close_target_menu()
+				accept_event()
+				return
 	elif event is InputEventMouseMotion and _drag:
 		var rel: Vector2 = event.relative
 		if _vp_rect.size.x > 1.0:

@@ -300,9 +300,12 @@ func _draw() -> void:
 
 func _draw_3d() -> void:
 	_draw_stars()
-	_draw_datum_backing()
-	_draw_grid()
-	_draw_own_plan()
+	if _layer_on("stations"):
+		_draw_datum_backing()
+	if _layer_on("grid"):
+		_draw_grid()
+	if _layer_on("predictions"):
+		_draw_own_plan()
 	# P4d：先把本舰中心与点火/站位注记区当作保留区，接触标签绕开。
 	var oo := _o()
 	_label_rects.append(Rect2(oo - Vector2(150, 90), Vector2(300, 180)).grow(4.0))
@@ -316,27 +319,39 @@ func _draw_3d() -> void:
 				var cp := _contact_pos3(tt)
 				if _ok(cp):
 					_label_rects.append(Rect2(cp + Vector2(10, -38), Vector2(250, 56)).grow(4.0))
-	_draw_contacts()
+	if _layer_on("contacts"):
+		_draw_contacts()
 	_draw_own()
+	_draw_interaction_overlays()
 	for it in _pending_contact_labels:
 		_draw_track_label(it["t"], it["p"], it["col"])
-	_draw_sensor()
+	if _layer_on("radar"):
+		_draw_sensor()
 	_draw_tasks()
 	_draw_chrome()
+	_draw_target_menu()
 	_draw_command_queue()
 
 func _draw_planar() -> void:
 	_draw_stars()
-	_draw_planar_grid()
-	_draw_planar_orbits()
-	_draw_planar_rings()
-	_draw_planar_bodies()
-	_draw_planar_contacts()
+	if _layer_on("grid"):
+		_draw_planar_grid()
+	if _layer_on("predictions"):
+		_draw_planar_orbits()
+	if _layer_on("stations"):
+		_draw_planar_rings()
+		_draw_planar_bodies()
+	if _layer_on("contacts"):
+		_draw_planar_contacts()
 	_draw_planar_own()
-	_draw_planar_sensor()
+	_draw_interaction_overlays()
+	if _layer_on("radar"):
+		_draw_planar_sensor()
 	_draw_tasks()
-	_draw_planar_inset()
+	if _layer_on("predictions"):
+		_draw_planar_inset()
 	_draw_chrome()
+	_draw_target_menu()
 
 # ── 背景 ────────────────────────────────────────────────
 
@@ -349,6 +364,101 @@ func _make_stars() -> void:
 			rng.randf_range(0.0, size.y),
 			rng.randf_range(0.08, 0.42)
 		))
+
+func _layer_on(name: String) -> bool:
+	if state != null and state.has_method("is_layer_visible"):
+		return bool(state.call("is_layer_visible", name))
+	return true
+
+func _track_screen(t: Dictionary) -> Vector2:
+	if ortho:
+		if _lvl(t) <= 1:
+			var b1 := deg_to_rad(float(t.get("obs_bearing_deg", t.get("bearing", 0.0))))
+			return _p2(Vector3(sin(b1), cos(b1), 0.0) * 300.0)
+		return _p2(_track_km(t, _tau_now()))
+	if _lvl(t) <= 1:
+		var b2 := deg_to_rad(float(t.get("obs_bearing_deg", t.get("bearing", 0.0))))
+		return _p3(_world(rad_to_deg(b2), 300.0, 0.0))
+	return _contact_pos3(t)
+
+# 右键命中：返回 track id（屏幕坐标，14px 半径；L1 方位线取 300km 处中点）
+func pick_track(p: Vector2) -> String:
+	if state == null:
+		return ""
+	var best := ""
+	var best_d := 18.0
+	for t in state.tracks:
+		if t.get("own", false) or bool(t.get("occluded", false)) or bool(t.get("phantom", false)):
+			continue
+		var q := _track_screen(t)
+		if not _ok(q):
+			continue
+		var d := p.distance_to(q)
+		if d < best_d:
+			best_d = d
+			best = String(t.get("id", t.get("batch", "")))
+	return best
+
+# 目标选中括号 / 通道进度 / 对接状态（地图交互层）
+func _draw_interaction_overlays() -> void:
+	if state == null:
+		return
+	if bool(state.get("target_menu_open")) and String(state.get("target_menu_track")) != "":
+		var tid := String(state.target_menu_track)
+		var tr: Dictionary = state.track_by_id(tid)
+		if not tr.is_empty():
+			var q := _track_screen(tr)
+			if _ok(q):
+				draw_rect(Rect2(q - Vector2(14, 14), Vector2(28, 28)), Palette.a(Palette.AMBER, 0.85), false, 1.0)
+				for a in [Vector2(-14, -14), Vector2(14, -14), Vector2(-14, 14), Vector2(14, 14)]:
+					draw_line(q + a, q + a * 0.7, Palette.a(Palette.AMBER, 0.9), 1.0)
+	# 光学 / 红外通道：目标环 + 进度
+	var chs: Dictionary = state.get("track_channels") if state.get("track_channels") is Dictionary else {}
+	for raw_id in chs.keys():
+		var tid2 := String(raw_id)
+		var tr2: Dictionary = state.track_by_id(tid2)
+		if tr2.is_empty():
+			continue
+		var q2 := _track_screen(tr2)
+		if not _ok(q2):
+			continue
+		var cd: Dictionary = chs[tid2]
+		var yy := -24.0
+		for kind in cd.keys():
+			var e: Dictionary = cd[kind]
+			var st := String(e.get("status", ""))
+			if st == "stopped":
+				continue
+			var prog := clampf(float(e.get("progress", 0.0)), 0.0, 1.0)
+			var col := Palette.BLUE if String(kind) == "optical" else Palette.AMBER
+			draw_arc(q2, 20.0, -PI * 0.5, -PI * 0.5 + TAU * (1.0 if st == "locked" else prog), 40, Palette.a(col, 0.8), 1.2, true)
+			_txt(mono, q2.x + 24.0, q2.y + yy, "%s %s %d%%" % ["OPT" if String(kind) == "optical" else "IR", "锁定" if st == "locked" else "跟踪", int(round(prog * 100.0))], 7, Palette.a(col, 0.85))
+			yy += 12.0
+
+# 目标菜单 fallback（HUD 未接管时由 plot 绘制；HUD 接管后不画）
+func _draw_target_menu() -> void:
+	if state == null or not bool(state.get("target_menu_open")) or bool(state.get("target_menu_hud_handled")):
+		return
+	var acts: Array = state.get("target_menu_actions") if state.get("target_menu_actions") is Array else []
+	if acts.is_empty():
+		return
+	var tid := String(state.get("target_menu_track"))
+	var tr: Dictionary = state.track_by_id(tid)
+	var sx := size.x - 252.0
+	var sy := 454.0
+	var h := 34.0 + float(acts.size()) * 13.0
+	draw_rect(Rect2(sx - 6.0, sy - 14.0, 244.0, h), Palette.a(Palette.PANEL, 0.9))
+	draw_rect(Rect2(sx - 6.0, sy - 14.0, 244.0, h), Palette.a(Palette.AMBER, 0.35), false, 1.0)
+	_txt(cjk, sx, sy, "目标动作 / [%s] %s" % [String(tr.get("batch", tid)), String(tr.get("name", ""))], 8, Palette.AMBER)
+	var yy := sy + 15.0
+	for raw in acts:
+		var a: Dictionary = raw
+		var avail := bool(a.get("available", false))
+		var unsup := bool(a.get("unsupported", false))
+		var col := Palette.PH if avail else (Palette.FAINT if not unsup else Palette.DIM)
+		var tail := "" if avail else ("未实现" if unsup else "需 L%d" % int(a.get("min_level", 1)))
+		_txt(mono, sx, yy, "%s  %s" % [String(a.get("label", a.get("id", ""))), tail], 7, Palette.a(col, 0.85))
+		yy += 13.0
 
 func _draw_stars() -> void:
 	for s in _stars:
@@ -1213,6 +1323,8 @@ func _label_free(r: Rect2) -> bool:
 	return true
 
 func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
+	if not _layer_on("labels"):
+		return
 	var lv := _lvl(t)
 	# P4d：标签碰撞规避。未选中接触只显示一行，选中项展开多行。
 	var compact := not _is_selected_track(t)
@@ -1268,6 +1380,9 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 	var dim := 0.55 if t.get("stale", false) else 1.0
 	var batch := String(t.get("batch", t.get("id", "")))
 	var nm := String(t.get("name", t.get("id", "")))
+	var dock_lbl := String(t.get("dock_state", ""))
+	if dock_lbl != "":
+		nm += (" · 已对接Chronos" if dock_lbl == "docked" else " · 对接Chronos")
 	var ident := _identity_label(_ident(t))
 	var threat := String(t.get("threat", ""))
 	var th_tag := ""
@@ -1642,6 +1757,9 @@ func _draw_planar_contact_title(t: Dictionary) -> String:
 	var lv := _lvl(t)
 	var batch := String(t.get("batch", t.get("id", "")))
 	var nm := String(t.get("name", t.get("id", "")))
+	var dock_lbl := String(t.get("dock_state", ""))
+	if dock_lbl != "":
+		nm += (" · 已对接Chronos" if dock_lbl == "docked" else " · 对接Chronos")
 	var ident := _identity_label(_ident(t))
 	if lv <= 1:
 		return "[%s] %s · %s · L1 仅方位" % [batch, nm, ident]
@@ -1675,21 +1793,44 @@ func _draw_planar_contacts() -> void:
 		var pos := _p2(km)
 		var col := _side_color(t)
 		if lvl <= 1:
-			# L1 仅方位：战略图上从中心出发的方位线
+			# L1 仅方位：方位线端点用 _p2 地图坐标（随 yaw/zoom 旋转缩放）
 			var b := deg_to_rad(float(t.get("obs_bearing_deg", t.get("bearing", 0.0))))
-			draw_dashed_line(o, o + Vector2(sin(b), -cos(b)) * 66.0, Palette.a(col, 0.32), 1.0, 4.0)
-			cluster.append({"t": t, "col": col, "lvl": lvl})
+			var far_km := Vector3(sin(b), cos(b), 0.0) * 450.0
+			var p_end := _p2(far_km)
+			var p_a := _p2(Vector3(sin(b - deg_to_rad(1.2)), cos(b - deg_to_rad(1.2)), 0.0) * 450.0)
+			var p_b := _p2(Vector3(sin(b + deg_to_rad(1.2)), cos(b + deg_to_rad(1.2)), 0.0) * 450.0)
+			if _ok(p_end) and _ok(p_a) and _ok(p_b):
+				draw_colored_polygon(PackedVector2Array([o, p_a, p_b]), Palette.a(col, 0.025))
+				draw_dashed_line(o, p_a, Palette.a(col, 0.26), 1.0, 4.0)
+				draw_dashed_line(o, p_b, Palette.a(col, 0.26), 1.0, 4.0)
+				_draw_symbol(p_end, t, col)
+			cluster.append({"t": t, "col": col, "lvl": lvl, "pos": p_end})
 			continue
 		if pos.distance_to(o) < 26.0:
 			if t.side == "friend":
 				friends += 1
 			else:
-				cluster.append({"t": t, "col": col, "lvl": lvl})
+				cluster.append({"t": t, "col": col, "lvl": lvl, "pos": pos})
 		else:
 			_draw_symbol(pos, t, col)
 			_draw_planar_contact_label(t, pos, col)
-	# 战略尺度上近场接触 < 1px：用编队框 + 引线拉出来
-	draw_rect(Rect2(o - Vector2(22, 22), Vector2(44, 44)), Palette.a(Palette.PH, 0.30), false, 1.0)
+	# 战略尺度上近场接触：编队框按接触的 _p2 地图坐标外接，随 yaw/zoom 移动
+	var frame := Rect2()
+	if cluster.size() > 0:
+		var minp := Vector2(1.0e9, 1.0e9)
+		var maxp := Vector2(-1.0e9, -1.0e9)
+		for it in cluster:
+			var pp: Vector2 = it.get("pos", o)
+			minp = Vector2(minf(minp.x, pp.x), minf(minp.y, pp.y))
+			maxp = Vector2(maxf(maxp.x, pp.x), maxf(maxp.y, pp.y))
+		frame = Rect2(minp - Vector2(14, 14), (maxp - minp) + Vector2(28, 28))
+		if frame.size.x < 44.0:
+			frame = Rect2(frame.get_center() - Vector2(22, frame.size.y * 0.5), Vector2(44.0, frame.size.y))
+		if frame.size.y < 44.0:
+			frame = Rect2(frame.get_center() - Vector2(frame.size.x * 0.5, 22), Vector2(frame.size.x, 44.0))
+		draw_rect(frame, Palette.a(Palette.PH, 0.30), false, 1.0)
+	else:
+		draw_rect(Rect2(o - Vector2(22, 22), Vector2(44, 44)), Palette.a(Palette.PH, 0.30), false, 1.0)
 	_txt(mono, o.x - 150.0, o.y + 58.0, "LOCAL ×%d · L4 %d/L3 %d/L2 %d/L1 %d" % [
 		total, lv_counts[4], lv_counts[3], lv_counts[2], lv_counts[1]], 7, Palette.a(Palette.PH, 0.70))
 	if cluster.size() > 0:
@@ -1698,11 +1839,12 @@ func _draw_planar_contacts() -> void:
 			var it: Dictionary = cluster[i]
 			var tt: Dictionary = it["t"]
 			var c: Color = it["col"]
+			var pos_m: Vector2 = it.get("pos", o)
+			_draw_symbol(pos_m, tt, c)
 			var ang := deg_to_rad(float(fan[i % fan.size()]))
 			var dir := Vector2(cos(ang), sin(ang))
-			var q := o + dir * (44.0 + float(i) * 30.0)
-			draw_line(o + dir * 30.0, q, Palette.a(c, 0.35), 1.0)
-			_draw_symbol(q, tt, c)
+			var q := frame.get_center() + dir * (maxf(frame.size.x, frame.size.y) * 0.5 + 34.0 + float(i) * 22.0)
+			draw_line(pos_m, q, Palette.a(c, 0.35), 1.0)
 			var title := _draw_planar_contact_title(tt)
 			var idf := cjk if Fonts.has_cjk(title) else mono
 			if cos(ang) < -0.2:
@@ -1712,6 +1854,11 @@ func _draw_planar_contacts() -> void:
 
 func _draw_planar_contact_label(t: Dictionary, pos: Vector2, col: Color) -> void:
 	var title := _draw_planar_contact_title(t)
+	var dock_state := String(t.get("dock_state", ""))
+	if dock_state != "":
+		title += " · 对接Chronos"
+		if dock_state == "docked":
+			title += "（已对接）"
 	var idf := cjk if Fonts.has_cjk(title) else mono
 	_txt(idf, pos.x + 7.0, pos.y + 2.0, title, 8, Palette.a(col, 0.9))
 	var lv := _lvl(t)
@@ -1725,8 +1872,9 @@ func _draw_planar_phantom(o: Vector2, t: Dictionary) -> void:
 	var resolved := bool(t.get("false_alarm", false))
 	var col := Palette.FAINT if resolved else Palette.AMBER
 	var b := deg_to_rad(float(state.phantom_bearing))
-	var end := o + Vector2(sin(b), -cos(b)) * 62.0
+	var end := _p2(Vector3(sin(b), cos(b), 0.0) * 315.0)
 	draw_dashed_line(o, end, Palette.a(col, 0.35), 1.0, 5.0)
+	draw_rect(Rect2(end - Vector2(4, 4), Vector2(8, 8)), Palette.a(col, 0.8), false, 1.0)
 	_txt_r(mono, end.x - 5.0, end.y - 3.0, "[9002] 不明接触", 7, Palette.a(col, 0.85))
 	if resolved:
 		_txt_r(cjk, end.x - 5.0, end.y + 10.0, "无威胁目标 · 已交叉确认", 8, Palette.a(Palette.FAINT, 0.85))

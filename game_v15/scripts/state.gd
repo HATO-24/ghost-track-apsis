@@ -162,6 +162,19 @@ var mast_deployed: Dictionary = {}      # ship_id -> bool（默认伸出）
 var mast_note := ""
 var nav_data: Dictionary = {}
 var _adjutant_choices: Array = []
+# ── P10a：目标动作 / 光学红外通道 / 图层 / AV-4412 对接 ──
+var target_menu_open := false
+var target_menu_track := ""
+var target_menu_actions: Array = []
+var target_menu_hud_handled := false
+var layer_visible: Dictionary = {
+	"contacts": true, "labels": true, "predictions": true,
+	"radar": true, "stations": true, "grid": true,
+}
+var track_channels: Dictionary = {}         # track_id -> {optical:{...}, ir:{...}}
+var channel_last_t := -1.0
+var av4412_dock: Dictionary = {"active": false, "state": "none", "target": "Chronos", "started_t": 0.0, "docked_t": 0.0}
+var av4412_dock_text: Dictionary = {}
 # ── P1c 传感器状态 ─────────────────────────────────────
 var racks: Dictionary = {}                 # ship_id -> [sensor...]（SensorModel）
 var sensor_on: Dictionary = {}             # ship_id -> {model: bool}（当前融合计划）
@@ -642,6 +655,8 @@ func refresh(now: float) -> void:
 	_pump_feeds(t)
 	_seed_demo_tasks(t)
 	_advance_tasks(t)
+	_advance_channels(t)
+	_advance_av4412_dock(t)
 	if sim_frozen:
 		return
 	# 命令状态机 tick：QUEUED→TRANSMITTED→EXEC→DONE
@@ -1206,6 +1221,7 @@ func _load_story() -> void:
 	adjutant_request = (story.get("adjutant_request", {}) as Dictionary).duplicate(true)
 	prelude_data = (story.get("prelude", {}) as Dictionary).duplicate(true)
 	nav_data = (story.get("navigation", {}) as Dictionary).duplicate(true)
+	av4412_dock_text = (story.get("av4412_dock", {}) as Dictionary).duplicate(true)
 
 func _update_phase_gate(t: float) -> void:
 	if end_open:
@@ -1325,6 +1341,7 @@ func choose_ending(kind: String) -> Dictionary:
 			reputation["ueg_doves"] = int(reputation.get("ueg_doves", 0)) + 1
 			reputation["outer"] = int(reputation.get("outer", 0)) + 1
 			reputation["reclaimers"] = int(reputation.get("reclaimers", 0)) - 1
+			_start_av4412_dock("evacuate")
 		"EXPOSE", "C":
 			if not can_expose():
 				_push_log("选项不可用：证据不足（%d/3，需至少 2 项）" % evidence_count(), "GATE", "HOLD")
@@ -1428,6 +1445,7 @@ func submit_report(kind: String) -> Dictionary:
 		"reputation": reputation.duplicate(true),
 		"standing": reputation.duplicate(true),
 		"ghost_track_evidence": bool(flags.get("ghost_track_evidence", false)),
+		"av4412_dock": av4412_dock.duplicate(true),
 		"report_text": report_text,
 		"report_choice": report_choice,
 		"flags": flags.duplicate(true),
@@ -1463,6 +1481,11 @@ func _compose_report(truth: bool) -> String:
 		"声望：%s" % _rep_text(),
 		"建议：%s" % (rec if rec != "" else "—"),
 	]
+	if av4412_dock.get("active", false):
+		var dock_line := String(av4412_dock_text.get("report_line", "")).strip_edges()
+		if dock_line == "":
+			dock_line = "2001 AV-4412 传唤者已进入 Chronos 对接（%s）。" % String(av4412_dock.get("state", ""))
+		lines.append("后续：%s" % dock_line)
 	if fire_branch:
 		lines.append("备注：武器释放已执行；ID13 被定性为未登记武装，进入调查程序。")
 	if not truth:
@@ -1627,6 +1650,15 @@ func _reset_runtime() -> void:
 	mast_note = ""
 	nav_data = {}
 	_adjutant_choices = []
+	target_menu_open = false
+	target_menu_track = ""
+	target_menu_actions = []
+	target_menu_hud_handled = false
+	layer_visible = {"contacts": true, "labels": true, "predictions": true, "radar": true, "stations": true, "grid": true}
+	track_channels = {}
+	channel_last_t = -1.0
+	av4412_dock = {"active": false, "state": "none", "target": "Chronos", "started_t": 0.0, "docked_t": 0.0}
+	av4412_dock_text = {}
 	tracks.clear()
 	racks = {}
 	sensor_on = {}
@@ -1910,6 +1942,7 @@ func _advance_tasks(t: float) -> void:
 		if kind == "evacuation":
 			civilians_evacuated = true
 			flags["civilians_evacuated"] = true
+			_start_av4412_dock("civilians_evacuated")
 		else:
 			evidence[kind] = true
 		_push_log(String(def.get("done_text", "任务完成：%s" % tk.label)), "TASK", "EXEC")
@@ -2199,6 +2232,326 @@ func navigation_steps() -> Array:
 
 func navigation_tutorial() -> String:
 	return String(nav_data.get("tutorial", ""))
+
+# ── P10a：目标动作 / 光学红外通道 / 图层 / AV-4412 对接 ──
+
+const TARGET_ACTION_CATALOG := [
+	{"id": "crossfix", "label": "交叉定位", "min": 1},
+	{"id": "radar_illum", "label": "雷达照射识别", "min": 1},
+	{"id": "model_ident", "label": "型号识别", "min": 2},
+	{"id": "radar_track", "label": "雷达跟踪", "min": 3},
+	{"id": "iff_query", "label": "IFF 问答", "min": 3},
+	{"id": "optical_channel", "label": "光学通道", "min": 3},
+	{"id": "ir_channel", "label": "红外通道", "min": 3},
+	{"id": "fire_control", "label": "火控解算", "min": 4},
+	{"id": "missile_path", "label": "导弹路径解算", "min": 4},
+	{"id": "armed_standby", "label": "武装待命", "min": 4},
+]
+
+func track_level(track_id: String) -> int:
+	var tr := track_by_id(track_id)
+	if tr.is_empty():
+		return 0
+	return clampi(int(tr.get("level", 0)), 0, 4)
+
+func select_track_by_id(track_id: String) -> bool:
+	for i in range(tracks.size()):
+		if String((tracks[i] as Dictionary).get("id", "")) == track_id:
+			selected = i
+			return true
+	return false
+
+func _channel_sensor_ready(kind: String) -> bool:
+	for raw_ship in racks.keys():
+		var ship := String(raw_ship)
+		if not is_mast_deployed(ship):
+			continue
+		for raw_s in SensorModel.sensor_rack(ship):
+			var sen: Dictionary = raw_s
+			var ty := String(sen.get("type", ""))
+			var ok_type := (ty == "optical" and kind == "optical") or (ty == "ir" and kind == "ir")
+			if not ok_type:
+				continue
+			var model := String(sen.get("model", ""))
+			if bool((sensor_on.get(ship, {}) as Dictionary).get(model, false)):
+				return true
+	return false
+
+func target_actions(track_id: String) -> Array:
+	var tr := track_by_id(track_id)
+	if tr.is_empty():
+		return []
+	var lv := track_level(track_id)
+	var out: Array = []
+	for raw in TARGET_ACTION_CATALOG:
+		var def: Dictionary = raw
+		var aid := String(def.get("id", ""))
+		var min_lv := int(def.get("min", 1))
+		var ok := lv >= min_lv
+		var unsupported := aid in ["fire_control", "missile_path", "armed_standby"]
+		var reason := ""
+		if not ok:
+			reason = "需 L%d 识别（当前 L%d）" % [min_lv, lv]
+		elif unsupported:
+			reason = "未实现：本作尚无武器系统（第二批）"
+		elif aid == "optical_channel" and not _channel_sensor_ready("optical"):
+			ok = false
+			reason = "无可用光学通道（传感器关机/桅杆收起）"
+		elif aid == "ir_channel" and not _channel_sensor_ready("ir"):
+			ok = false
+			reason = "无可用红外通道（传感器关机/桅杆收起）"
+		elif aid == "radar_illum" and not _channel_sensor_ready("radar") and not SensorModel.rack_sensor("harmattan", "YW-R9").is_empty():
+			pass
+		out.append({
+			"id": aid, "label": String(def.get("label", aid)), "min_level": min_lv,
+			"level": lv, "available": ok and not unsupported, "unsupported": unsupported,
+			"reason": reason,
+		})
+	return out
+
+func open_target_menu(track_id: String) -> Array:
+	var tr := track_by_id(track_id)
+	if tr.is_empty():
+		target_menu_open = false
+		target_menu_track = ""
+		target_menu_actions = []
+		return []
+	select_track_by_id(track_id)
+	target_menu_open = true
+	target_menu_track = track_id
+	target_menu_actions = target_actions(track_id)
+	target_menu_hud_handled = false
+	_push_log("目标菜单：[%s] %s · L%d · %d 项" % [String(tr.get("batch", track_id)), String(tr.get("name", "")), track_level(track_id), target_menu_actions.size()], "MENU", "EXEC")
+	return target_menu_actions
+
+func close_target_menu() -> void:
+	target_menu_open = false
+	target_menu_track = ""
+	target_menu_actions = []
+
+func perform_target_action(track_id: String, action: String) -> Dictionary:
+	var acts := target_actions(track_id)
+	var found: Dictionary = {}
+	for raw in acts:
+		var a: Dictionary = raw
+		if String(a.get("id", "")) == action:
+			found = a
+			break
+	if found.is_empty():
+		return {"ok": false, "status": "error", "track_id": track_id, "action": action, "message": "未知动作或目标不存在"}
+	if bool(found.get("unsupported", false)):
+		return {"ok": false, "status": "unsupported", "track_id": track_id, "action": action, "message": String(found.get("reason", "未实现"))}
+	if not bool(found.get("available", false)):
+		return {"ok": false, "status": "unavailable", "track_id": track_id, "action": action, "message": String(found.get("reason", "当前不可用"))}
+	var tr := track_by_id(track_id)
+	var msg := ""
+	match action:
+		"crossfix":
+			tr["crossfix_t"] = tau()
+			flags["crossfix_%s" % track_id] = true
+			msg = "交叉定位完成（基于现有被动传感器方位）"
+		"radar_illum":
+			if not is_mast_deployed("harmattan") or not set_sensor("harmattan", 0, true):
+				return {"ok": false, "status": "error", "track_id": track_id, "action": action, "message": "哈马丹雷达不可用（桅杆/传感器状态）"}
+			tr["radar_illum_t"] = tau()
+			msg = "雷达照射识别：YW-R9 已开机（EMIT 暴露）"
+		"model_ident":
+			tr["classification_confirmed"] = true
+			msg = "型号识别已确认（写入该批号分类状态）"
+		"radar_track":
+			tr["tracking"] = true
+			tr["tracking_since"] = tau()
+			msg = "雷达跟踪已建立（状态标记；TWS 状态机第二批）"
+		"iff_query":
+			tr["iff_queried"] = true
+			if String(tr.get("iff_status", "")) == "":
+				tr["iff_status"] = "queried_no_response"
+			msg = "IFF 问答已发出（无应答时仅到“不明/可疑”，不能自动判敌）"
+		"optical_channel":
+			var ro := start_optical_track(track_id)
+			if not bool(ro.get("ok", false)):
+				return ro
+			msg = "光学通道已建立（凝视中）"
+		"ir_channel":
+			var ri := start_ir_track(track_id)
+			if not bool(ri.get("ok", false)):
+				return ri
+			msg = "红外通道已建立（跟踪中）"
+		_:
+			return {"ok": false, "status": "unsupported", "track_id": track_id, "action": action, "message": "未实现"}
+	flags["action_%s_%s" % [action, track_id]] = true
+	_push_log("目标动作 %s → [%s]：%s" % [action, track_id, msg], "ACTION", "EXEC")
+	return {"ok": true, "status": "ok", "track_id": track_id, "action": action, "message": msg,
+		"level": track_level(track_id), "actions": acts}
+
+# ── 光学 / 红外通道 ────────────────────────────────────
+
+func start_optical_track(track_id: String, elapsed_s := 0.0) -> Dictionary:
+	return _start_channel(track_id, "optical", 6.0, elapsed_s)
+
+func start_ir_track(track_id: String, elapsed_s := 0.0) -> Dictionary:
+	return _start_channel(track_id, "ir", 4.0, elapsed_s)
+
+func _start_channel(track_id: String, kind: String, required_s: float, elapsed_s: float) -> Dictionary:
+	var tr := track_by_id(track_id)
+	if tr.is_empty():
+		return {"ok": false, "status": "error", "message": "无该批号"}
+	if track_level(track_id) < 2:
+		return {"ok": false, "status": "error", "message": "需 L2（有距离解）才可建立通道"}
+	if not _channel_sensor_ready(kind):
+		return {"ok": false, "status": "error", "message": "%s通道不可用（传感器/桅杆）" % ("光学" if kind == "optical" else "红外")}
+	var ch: Dictionary = track_channels.get(track_id, {})
+	if ch.is_empty():
+		track_channels[track_id] = {}
+	var entry := {
+		"kind": kind,
+		"status": "running",
+		"started_t": tau() - maxf(0.0, elapsed_s),
+		"required_s": required_s,
+		"progress": clampf(elapsed_s / required_s, 0.0, 0.999),
+		"elapsed_s": elapsed_s,
+	}
+	(track_channels[track_id] as Dictionary)[kind] = entry
+	if channel_last_t < 0.0:
+		channel_last_t = tau()
+	_push_log("%s通道启动：[%s] %s" % ["光学" if kind == "optical" else "红外", track_id, String(tr.get("name", ""))], "CHANNEL", "EXEC")
+	return {"ok": true, "status": "running", "track_id": track_id, "kind": kind, "channel": entry.duplicate(true)}
+
+func stop_track() -> Dictionary:
+	var stopped: Array = []
+	for raw_id in track_channels.keys():
+		var tid := String(raw_id)
+		var ch: Dictionary = track_channels[tid]
+		for kind in ch.keys():
+			var e: Dictionary = ch[kind]
+			if String(e.get("status", "")) == "running":
+				e["status"] = "stopped"
+				stopped.append("%s:%s" % [tid, String(kind)])
+	track_channels.clear()
+	_push_log("通道停止：%s" % ("无" if stopped.is_empty() else ", ".join(stopped)), "CHANNEL", "HOLD")
+	return {"ok": true, "stopped": stopped, "status": "stopped"}
+
+func channel_status(track_id := "") -> Dictionary:
+	if track_id != "":
+		return {"track_id": track_id, "channels": (track_channels.get(track_id, {}) as Dictionary).duplicate(true)}
+	var active: Array = []
+	for raw_id in track_channels.keys():
+		var ch: Dictionary = track_channels[raw_id]
+		for k in ch.keys():
+			if String((ch[k] as Dictionary).get("status", "")) == "running":
+				active.append(String(raw_id))
+				break
+	return {"active_tracks": active, "channels": track_channels.duplicate(true)}
+
+func _advance_channels(t: float) -> void:
+	if track_channels.is_empty():
+		return
+	if channel_last_t < 0.0:
+		channel_last_t = t
+	for raw_id in track_channels.keys():
+		var tid := String(raw_id)
+		var ch: Dictionary = track_channels[tid]
+		for kind in ch.keys():
+			var e: Dictionary = ch[kind]
+			if String(e.get("status", "")) != "running":
+				continue
+			var elapsed := t - float(e.get("started_t", t))
+			var req := maxf(0.1, float(e.get("required_s", 6.0)))
+			e["elapsed_s"] = elapsed
+			e["progress"] = clampf(elapsed / req, 0.0, 1.0)
+			if elapsed >= req:
+				e["status"] = "locked"
+				e["locked_t"] = t
+				var tr := track_by_id(tid)
+				if not tr.is_empty():
+					(tr as Dictionary)["%s_locked" % String(kind)] = true
+				_push_log("%s通道锁定：[%s]" % ["光学" if String(kind) == "optical" else "红外", tid], "CHANNEL", "EXEC")
+	channel_last_t = t
+
+# ── 图层显隐 ──────────────────────────────────────────
+
+func _layer_key(name: String) -> String:
+	match name.to_lower():
+		"contact", "contacts", "track", "tracks":
+			return "contacts"
+		"label", "labels", "text":
+			return "labels"
+		"prediction", "predictions", "orbit", "orbits", "history":
+			return "predictions"
+		"radar", "sensor", "sensors", "emit", "elint":
+			return "radar"
+		"station", "stations", "site", "sites", "chronos":
+			return "stations"
+		"grid", "grids":
+			return "grid"
+		_:
+			return name.to_lower()
+
+func set_layer_visible(name: String, on: bool) -> bool:
+	var k := _layer_key(name)
+	if not layer_visible.has(k):
+		return false
+	layer_visible[k] = on
+	_push_log("图层 %s：%s" % [k, "显示" if on else "隐藏"], "LAYER", "EXEC")
+	return true
+
+func is_layer_visible(name: String) -> bool:
+	return bool(layer_visible.get(_layer_key(name), true))
+
+func toggle_layer(name: String) -> bool:
+	var k := _layer_key(name)
+	if not layer_visible.has(k):
+		return false
+	return set_layer_visible(k, not bool(layer_visible[k]))
+
+# ── AV-4412 与 Chronos 对接（EVACUATE 后） ─────────────
+
+func _start_av4412_dock(reason: String) -> void:
+	if bool(av4412_dock.get("active", false)):
+		return
+	av4412_dock = {"active": true, "state": "approach", "target": "Chronos",
+		"started_t": tau(), "docked_t": 0.0, "reason": reason}
+	flags["av4412_dock"] = true
+	flags["chronos_handover"] = true
+	var tr := track_by_id("2001")
+	if not tr.is_empty():
+		(tr as Dictionary)["dock_state"] = "approach"
+		(tr as Dictionary)["dock_target"] = "Chronos"
+	var txt := String(av4412_dock_text.get("approach_text", "2001 AV-4412 传唤者进入 Chronos 对接航道。"))
+	_push_log(txt, "DOCK", "EXEC")
+	_append_radio("接管官 科尔", "远地点号", "RDO", txt, tau())
+
+func _advance_av4412_dock(t: float) -> void:
+	if not bool(av4412_dock.get("active", false)):
+		return
+	if String(av4412_dock.get("state", "")) != "approach":
+		return
+	var wait_s := float(av4412_dock_text.get("approach_after_s", 45.0))
+	if t - float(av4412_dock.get("started_t", t)) < wait_s:
+		return
+	av4412_dock["state"] = "docked"
+	av4412_dock["docked_t"] = t
+	flags["av4412_docked"] = true
+	var tr := track_by_id("2001")
+	if not tr.is_empty():
+		(tr as Dictionary)["dock_state"] = "docked"
+	var txt2 := String(av4412_dock_text.get("docked_text", "2001 AV-4412 传唤者已与 Chronos 对接，接管程序完成。"))
+	_push_log(txt2, "DOCK", "EXEC")
+	_append_radio("接管官 科尔", "远地点号", "RDO", txt2, t)
+
+# DSH/测试：强制推进对接（不伪造几何，只写状态）
+func force_av4412_dock() -> Dictionary:
+	_start_av4412_dock("debug")
+	av4412_dock["state"] = "docked"
+	av4412_dock["docked_t"] = tau()
+	flags["av4412_docked"] = true
+	var tr := track_by_id("2001")
+	if not tr.is_empty():
+		(tr as Dictionary)["dock_state"] = "docked"
+	return av4412_dock.duplicate(true)
+
+func av4412_dock_state() -> Dictionary:
+	return av4412_dock.duplicate(true)
 
 # ── 日志 / 单位面板 ────────────────────────────────────
 
