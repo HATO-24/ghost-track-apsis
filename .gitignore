@@ -18,3 +18,7 @@ mockups/*.log
 /build_v2/
 
 /build_v17/
+
+/build_ce/
+
+/build_sx/

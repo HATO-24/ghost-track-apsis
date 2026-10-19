@@ -1,0 +1,104 @@
+{
+  "schema": "reclaimer_radio.v1",
+  "id": "l1_reclaimer_radio_v1",
+  "title": "清算者程序性通话 / RECLAIMER PROCEDURAL CHALLENGE",
+  "trigger_phase": "COMMAND",
+  "trigger_note": "COMMAND 阶段由玩家手动发起（HUD 通信入口 → state.reclaimer_radio_initiate）；不自动触发、不自动完成。",
+  "own_callsign": "远地点号",
+  "counterpart": "AV-4412 传唤者",
+  "counterpart_officer": "接管官 科尔",
+  "exchange": [
+    {
+      "dir": "tx",
+      "from": "远地点号",
+      "to": "AV-4412 传唤者",
+      "mode": "RDO",
+      "text": "AV-4412 传唤者，远地点号。ID13 请求确认第七号轨道紧急托管令对 Chronos 加注站与储罐区的适用范围，以及 50 km 检查边界的程序要求。ID13 当前仅执行人员与可移动资产保护任务，不寻求升级。完毕。"
+    },
+    {
+      "dir": "rx",
+      "from": "AV-4412 传唤者",
+      "to": "远地点号",
+      "mode": "RDO",
+      "text": "远地点号，AV-4412 传唤者。第七号轨道紧急托管令适用于 Chronos 加注站、储罐群与进港航道。检查边界依据第33轨道特别独立舰队执行通告设立，ID13 应于边界外待命，不得妨碍封存程序。ID13 可以提出程序性询问，询问不改变托管程序。完毕。"
+    },
+    {
+      "dir": "rx",
+      "from": "接管官 科尔",
+      "to": "远地点号",
+      "mode": "LD",
+      "text": "ID13 指挥官，接管官科尔。本席补充：ID13 在 Chronos 没有执法权，本舰队依据第七号令执行临时托管。若 ID13 在边界外保持待命，双方无需进一步通信。完毕。"
+    }
+  ],
+  "options": [
+    {
+      "id": "ack",
+      "code": "A",
+      "label": "确认记录并声明立场 / ACK",
+      "hint": "确认收到，声明不承认指挥权变更，但不在当前阶段主动升级。",
+      "reply": {
+        "dir": "tx",
+        "from": "远地点号",
+        "to": "接管官 科尔",
+        "mode": "LD",
+        "text": "接管官科尔，远地点号。ID13 收到你的声明。ID13 已记录本次通话，并保留 OCJC 就第七号令作出进一步指令的权利。在接到 OCJC 指令前，ID13 不会主动使用武力，但不会让出对 Chronos 人员与可移动资产的保护责任。完毕。"
+      },
+      "ack": {
+        "dir": "rx",
+        "from": "AV-4412 传唤者",
+        "to": "远地点号",
+        "mode": "RDO",
+        "text": "远地点号，AV-4412 传唤者。你的声明已记录。本舰队继续执行封存程序。通话结束。完毕。"
+      }
+    },
+    {
+      "id": "query",
+      "code": "B",
+      "label": "要求移交授权文件 / QUERY",
+      "hint": "要求以可记录形式提供授权文件与检查边界依据，保留提交 OCJC 的权利。",
+      "reply": {
+        "dir": "tx",
+        "from": "远地点号",
+        "to": "AV-4412 传唤者",
+        "mode": "RDO",
+        "text": "AV-4412 传唤者，远地点号。ID13 要求以可记录形式提供第33轨道特别独立舰队的授权文件与 50 km 检查边界的设立依据。ID13 会将本次通话记录与所获文件一并提交 OCJC 监察与 UEG 轨道事务委员会。完毕。"
+      },
+      "ack": {
+        "dir": "rx",
+        "from": "AV-4412 传唤者",
+        "to": "远地点号",
+        "mode": "RDO",
+        "text": "远地点号，AV-4412 传唤者。授权文件与检查边界依据将按程序通过公开频道发送。ID13 应在收到文件前继续于边界外待命。完毕。"
+      }
+    },
+    {
+      "id": "decline",
+      "code": "C",
+      "label": "结束通话 / END",
+      "hint": "结束本次通话，不作出进一步表态；通信记录保留。",
+      "reply": {
+        "dir": "tx",
+        "from": "远地点号",
+        "to": "AV-4412 传唤者",
+        "mode": "LD",
+        "text": "AV-4412 传唤者，远地点号。本次通话到此结束。ID13 保留通信记录。完毕。"
+      },
+      "ack": {
+        "dir": "rx",
+        "from": "AV-4412 传唤者",
+        "to": "远地点号",
+        "mode": "RDO",
+        "text": "远地点号，AV-4412 传唤者。收到。通话结束。完毕。"
+      }
+    }
+  ],
+  "guardrails": {
+    "manual_only": true,
+    "auto_complete": false,
+    "changes_evidence": false,
+    "changes_decision": false,
+    "changes_reputation": false,
+    "changes_clock": false,
+    "note": "教学用程序性通话：只写 radio_feed/日志与本流程状态，不改变证据、裁决、声望、时钟或仿真冻结。"
+  }
+}

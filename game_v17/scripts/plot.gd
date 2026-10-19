@@ -97,6 +97,7 @@ var _right := Vector3.RIGHT
 var _up := Vector3.UP
 var _focal := 700.0
 var _planar_scale := 0.0014
+var _cam_env_done := false
 
 func _ready() -> void:
 	mono = Fonts.mono()
@@ -220,14 +221,24 @@ func _cam_dist() -> float:
 	return dist * CAM_FACTOR
 
 func _update_camera() -> void:
+	# P11c 截图/调试：DSH_CAMERA_SUBJECT=1000|1001|own 指定视角主体（只读，不恢复压平）
+	if not _cam_env_done:
+		_cam_env_done = true
+		var env_subj := OS.get_environment("DSH_CAMERA_SUBJECT")
+		if env_subj != "":
+			camera_subject_id = env_subj
+		var env_dist := OS.get_environment("DSH_PLOT_DIST")
+		if env_dist != "":
+			dist = clampf(float(env_dist), DIST_MIN, DIST_MAX)
 	_planar_scale = (size.x * 0.86) / PLANAR_SPAN_KM * planar_zoom
 	var cd := _cam_dist()
 	var cp := cos(pitch)
 	var sp := sin(pitch)
-	_focus_km = _focus_offset_km()
+	_focus_km = _focus_offset_km()   # 局部板坐标（km，planar 用）
+	var focus_m := _focus_km * 1000.0 # 3D 相机/接触都用米；主体必须偏移到中心
 	var orbit := Vector3(cp * sin(yaw3d), -cp * cos(yaw3d), sp) * cd
-	_cam_pos = _focus_km + orbit
-	var to_target := _focus_km - _cam_pos
+	_cam_pos = focus_m + orbit
+	var to_target := focus_m - _cam_pos
 	if to_target.length() < 1.0:
 		to_target = Vector3(0.0, -1.0, 0.0)
 	_fwd = to_target.normalized()
@@ -1483,24 +1494,75 @@ func cycle_camera_subject() -> String:
 	_focus_km = _focus_offset_km()
 	return camera_subject_id
 
+func _own_track() -> Dictionary:
+	if state == null:
+		return {}
+	for raw in state.tracks:
+		var t: Dictionary = raw
+		if bool(t.get("own", false)):
+			return t
+	if state.has_method("track_by_id"):
+		return state.track_by_id("1001")
+	return {}
+
+
+func _subject_is_own() -> bool:
+	var subj := _subject_track()
+	var own := _own_track()
+	if subj.is_empty() or own.is_empty():
+		return false
+	return String(subj.get("id", "")) == String(own.get("id", ""))
+
+
+func _subject_label_origin(p: Vector2, own_p: Vector2) -> Vector2:
+	var lx := p.x + 18.0
+	var ly := p.y - 44.0
+	# 本舰靠近中心且在上方时，主体标签放中心下方，避免与本舰标签重叠
+	if _ok(own_p) and own_p.y < p.y - 20.0 and absf(own_p.x - p.x) < 240.0:
+		ly = p.y + 22.0
+	if lx + 210.0 > size.x - 12.0:
+		lx = p.x - 212.0
+	if ly < 26.0:
+		ly = p.y + 22.0
+	return Vector2(lx, ly)
+
+
 func _draw_subject_marker() -> void:
 	var tr := _subject_track()
 	if tr.is_empty():
 		return
 	var p := _o()
 	var col: Color = Palette.AMBER
-	draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), Palette.a(col, 0.18))
-	draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), Palette.a(col, 0.85), false, 1.0)
-	draw_line(p - Vector2(12, 0), p + Vector2(12, 0), Palette.a(col, 0.55), 1.0)
-	draw_line(p - Vector2(0, 12), p + Vector2(0, 12), Palette.a(col, 0.55), 1.0)
-	_txt(cjk, p.x + 16.0, p.y - 8.0, "视角主体 / CAMERA SUBJECT", 7, Palette.a(col, 0.9))
-	_txt(cjk, p.x + 16.0, p.y + 4.0, String(tr.get("name", tr.get("batch", ""))), 10, col)
-	_txt(mono, p.x + 16.0, p.y + 16.0, "%s · 本舰 %s" % [String(tr.get("batch", "")), String(state.unit.get("name", "哈马丹"))], 7, Palette.a(Palette.PH_DIM, 0.9))
+	var own_p := _p3(Vector3.ZERO)
+	var same := _subject_is_own()
+	# 中心主体标记：菱形 + 双十字（与接触/本舰符号区分）
+	var pts := PackedVector2Array([p + Vector2(0, -9), p + Vector2(9, 0), p + Vector2(0, 9),
+		p + Vector2(-9, 0), p + Vector2(0, -9)])
+	draw_colored_polygon(pts, Palette.a(col, 0.12))
+	draw_polyline(pts, Palette.a(col, 0.9), 1.0)
+	draw_line(p - Vector2(16, 0), p + Vector2(16, 0), Palette.a(col, 0.55), 1.0)
+	draw_line(p - Vector2(0, 16), p + Vector2(0, 16), Palette.a(col, 0.55), 1.0)
+	draw_circle(p, 2.2, col)
+	# 主体标签：kicker / 名称 / 提示 三行；主体名与本舰名分属两处标记，不重复
+	var lp := _subject_label_origin(p, own_p)
+	draw_rect(Rect2(lp + Vector2(-8, -12), Vector2(226, 44)), Palette.a(Palette.PANEL, 0.94))
+	draw_rect(Rect2(lp + Vector2(-8, -12), Vector2(226, 46)), Palette.a(col, 0.30), false, 1.0)
+	_txt(cjk, lp.x, lp.y, "视角主体 / CAMERA SUBJECT", 7, Palette.a(col, 0.9))
+	_txt(cjk, lp.x, lp.y + 13.0, "[%s] %s" % [String(tr.get("batch", "")), String(tr.get("name", ""))], 10, col)
+	if same:
+		_txt(mono, lp.x, lp.y + 26.0, "本舰 = 主体 · C 循环 旗舰/本舰/选中", 7, Palette.a(Palette.PH_DIM, 0.9))
+	else:
+		_txt(mono, lp.x, lp.y + 26.0, "%s · C 循环 旗舰/本舰/选中" % String(state.datum), 7, Palette.a(Palette.PH_DIM, 0.9))
+
 
 func _draw_own() -> void:
 	var p := _p3(Vector3.ZERO)
 	var dat := String(state.datum)
 	var own_name := String(state.unit.get("name", "哈马丹"))
+	var own_tr := _own_track()
+	var same := _subject_is_own()
+	var c := _o()
+	# 本舰标记（保持 V15：圆点 + 环 + 四向刻度 + L1 双十字/括号）
 	draw_circle(p, 2.6, Palette.PH)
 	draw_arc(p, 11.0, 0, TAU, 36, Palette.a(Palette.PH, 0.65), 1.0, true)
 	for a in [0.0, 90.0, 180.0, 270.0]:
@@ -1513,19 +1575,32 @@ func _draw_own() -> void:
 		if hd.length() > 0.001:
 			draw_line(p, p + hd.normalized() * 24.0, Palette.a(Palette.PH, 0.40), 1.0)
 	if dat == "L1":
-		# 站点基准：双十字 + 方括号
 		draw_line(p - Vector2(26.0, 0.0), p + Vector2(26.0, 0.0), Palette.a(Palette.PH, 0.85), 1.0)
 		draw_line(p - Vector2(0.0, 26.0), p + Vector2(0.0, 26.0), Palette.a(Palette.PH, 0.85), 1.0)
 		draw_arc(p, 16.0, 0, TAU, 32, Palette.a(Palette.PH, 0.35), 1.0, true)
 		for q in [Vector2(-22, -22), Vector2(22, -22), Vector2(-22, 22), Vector2(22, 22)]:
 			draw_rect(Rect2(p + q - Vector2(3, 3), Vector2(6, 6)), Palette.a(Palette.PH, 0.7), false, 1.0)
+	if same:
+		# 主体=本舰：中心由 _draw_subject_marker 统一标注，本舰不再重复名字
+		if state.has_method("is_mast_deployed") and not bool(state.call("is_mast_deployed", String(state.rack_ship))):
+			_txt(mono, p.x + 18.0, p.y + 32.0, "MAST DOWN · 传感器架不可用", 7, Palette.a(Palette.AMBER, 0.9))
+		return
+	# 本舰不在主体位置：偏移标记 + 虚线引线 + 本舰标签（避开主体标签）
+	var batch := String(own_tr.get("batch", "1001"))
+	var lp := p + Vector2(18.0, -44.0 if p.y >= c.y else 24.0)
+	if lp.x + 186.0 > size.x - 10.0:
+		lp.x = p.x - 194.0
+	lp.y = clampf(lp.y, 26.0, size.y - 84.0)
+	var anchor := lp + Vector2(0, 8.0)
+	draw_dashed_line(p, anchor, Palette.a(Palette.PH, 0.55), 1.0, 4.0)
+	draw_circle(anchor, 2.2, Palette.a(Palette.PH, 0.9))
+	draw_rect(Rect2(lp + Vector2(-8, -12), Vector2(184, 34)), Palette.a(Palette.PANEL, 0.94))
+	draw_rect(Rect2(lp + Vector2(-8, -12), Vector2(184, 34)), Palette.a(Palette.PH, 0.28), false, 1.0)
+	_txt(cjk, lp.x, lp.y, "本舰 / OWN · [%s] %s" % [batch, own_name], 8, Palette.PH)
+	var off_km := _focus_km.length() / 1000.0
+	_txt(mono, lp.x, lp.y + 13.0, "偏移主体 %.0f km · C 循环主体" % off_km, 7, Palette.a(Palette.PH_DIM, 0.9))
 	if state.has_method("is_mast_deployed") and not bool(state.call("is_mast_deployed", String(state.rack_ship))):
-		_txt(mono, p.x + 16.0, p.y + 34.0, "MAST DOWN · 传感器架不可用", 7, Palette.a(Palette.AMBER, 0.9))
-	_txt(cjk, p.x + 16.0, p.y + 8.0, own_name, 11, Palette.PH)
-	if dat == "L1":
-		_txt(mono, p.x + 16.0, p.y + 21.0, "本舰 · 站位 Meridian-05 / L1", 7, Palette.a(Palette.PH_DIM, 0.9))
-	else:
-		_txt(mono, p.x + 16.0, p.y + 21.0, "本舰 · 400 km", 7, Palette.a(Palette.PH_DIM, 0.9))
+		_txt(mono, lp.x, lp.y + 25.0, "MAST DOWN · 传感器架不可用", 7, Palette.a(Palette.AMBER, 0.9))
 
 # ══ V17-SENSOR-1：V2 TWS / 球形雷达（只读 state.tracks / sensor_on）══
 
@@ -2275,7 +2350,7 @@ func _draw_planar_inset() -> void:
 	draw_circle(c, 1.6, Palette.PH)
 	draw_arc(c, 5.0, 0, TAU, 20, Palette.a(Palette.PH, 0.6), 1.0, true)
 	_txt(mono, r.position.x + 8.0, r.end.y - 22.0, "历史 -60 s · 预测 +300 s", 7, Palette.a(Palette.FAINT, 0.8))
-	_txt(mono, r.position.x + 8.0, r.end.y - 10.0, "%s / Chronos · 3D→ORTHO" % String(state.datum), 7, Palette.a(Palette.PH, 0.55))
+	_txt(mono, r.position.x + 8.0, r.end.y - 10.0, "%s / Chronos · 3D LVLH" % String(state.datum), 7, Palette.a(Palette.PH, 0.55))
 
 # ── 界面装饰 ────────────────────────────────────────────
 
@@ -2418,6 +2493,17 @@ func _chrome_3d() -> void:
 	if bool(ev.get("elint_signature", false)): bits.append("ELINT")
 	if bits.size() > 0:
 		_txt(mono, x0, 122.0, "EVIDENCE  " + " / ".join(bits), 7, Palette.a(Palette.PH, 0.55))
+	# P11c：视角主体（map 顶栏右侧，避开左侧 TASK/EXPOSE 行）：主体/本舰两行
+	var subj_tr := _subject_track()
+	if not subj_tr.is_empty():
+		var own_tr2 := _own_track()
+		var same2 := _subject_is_own()
+		_txt_r(mono, size.x - 16.0, 58.0, "CAMERA SUBJECT  [%s] %s" % [
+			String(subj_tr.get("batch", "")), String(subj_tr.get("name", ""))], 7, Palette.a(Palette.AMBER, 0.9))
+		if not same2 and not own_tr2.is_empty():
+			_txt_r(mono, size.x - 16.0, 70.0, "OWN  [%s] %s · 偏移 %.0f km" % [
+				String(own_tr2.get("batch", "")), String(state.unit.get("name", "哈马丹")),
+				_focus_km.length() / 1000.0], 7, Palette.a(Palette.PH_DIM, 0.9))
 	# P9a：选中舰三维方位 + 相对轨道读数；基准锁本舰（选中舰只读）
 	# 放右侧（光学窗/命令队列下方），避开左侧 HUD 覆盖层与任务面板
 	var si: Dictionary = state.selected_info() if state.has_method("selected_info") else {}
@@ -2438,13 +2524,15 @@ func _chrome_3d() -> void:
 	_txt_r(mono, size.x - 24.0, size.y - 116.0, String(state.cmd_note), 7, Palette.a(Palette.AMBER, 0.85))
 	_txt_r(mono, size.x - 24.0, size.y - 104.0, "1 保持站位 STATION · 2 跟踪 SHADOW · 3 点火 BURN · 4 撤销", 7, Palette.a(Palette.PH, 0.65))
 	_txt_r(mono, size.x - 24.0, size.y - 92.0, "历元 T0+%06.1fs · 预测 %d 点" % [_tau_now(), PRED_STEPS + 1], 7, Palette.a(Palette.PH_FAINT, 0.9))
-	_txt_r(mono, size.x - 16.0, size.y - 14.0, "拖动：横=Yaw / 竖=Pitch · 滚轮缩放 · R 翻转 · D 基准 · Q/E 横滚 · F10 无边框 · F11 独占全屏", 7, Palette.a(Palette.FAINT, 0.75))
+	# P11c：底部提示收成两行，全部右对齐在 plot 边界内（最后一字距右边缘 16px）
+	_txt_r(mono, size.x - 16.0, size.y - 26.0, "拖动 横=Yaw / 竖=Pitch · 滚轮缩放 · R 翻转 · D 基准", 7, Palette.a(Palette.FAINT, 0.75))
+	_txt_r(mono, size.x - 16.0, size.y - 12.0, "C 主体 · Q/E 横滚 · F10 无边框 · F11 独占全屏 · P 已停用", 7, Palette.a(Palette.FAINT, 0.75))
 
 func _chrome_planar() -> void:
-	_txt(cjk, 16.0, 10.0, "压平态势", 14, Palette.PH)
-	_txt(mono, 16.0, 29.0, "PLANAR CHART / CENTER OWN", 8, Palette.DIM)
-	_txt(cjk, 16.0, 41.0, "ORTHOGRAPHIC · GRID 50,000 km", 8, Palette.FAINT)
-	_txt(mono, 16.0, 53.0, "DATUM %s · PLANAR ×%.2f" % [String(state.datum), planar_zoom], 8, Palette.a(Palette.PH, 0.75))
+	_txt(cjk, 16.0, 10.0, "导航图 / NAV CHART", 14, Palette.PH)
+	_txt(mono, 16.0, 29.0, "NAV CHART / PLANAR LEGACY", 8, Palette.DIM)
+	_txt(cjk, 16.0, 41.0, "NAV GRID · PLANAR DISABLED", 8, Palette.FAINT)
+	_txt(mono, 16.0, 53.0, "DATUM %s · NAV SCALE ×%.2f" % [String(state.datum), planar_zoom], 8, Palette.a(Palette.PH, 0.75))
 	_txt(mono, 16.0, 65.0, "执行窗口 %s · 1× 锁" % _hms(state.exec_left), 7, Palette.a(Palette.AMBER, 0.70))
 	_txt(mono, 16.0, 77.0, String(state.sensor_note), 7, Palette.a(Palette.PH, 0.80))
 	_txt(mono, 16.0, 89.0, "传感器架 %s · 融合 1 Hz · 等级由证据时间戳决定" % String(state.rack_ship).to_upper(), 7, Palette.a(Palette.PH_FAINT, 0.95))
@@ -2498,38 +2586,38 @@ func _draw_compass() -> void:
 		c + hd * 14.0, c + hd * 8.0 + pp * 3.0, c + hd * 8.0 - pp * 3.0
 	]), Palette.a(Palette.PH, 0.8))
 	if ortho:
-		_txt(cjk, c.x - 30.0, c.y + 46.0, "帧 PLANAR", 7, Palette.a(Palette.FAINT, 0.9))
+		_txt(cjk, c.x - 30.0, c.y + 46.0, "帧 NAV", 7, Palette.a(Palette.FAINT, 0.9))
 	else:
 		_txt(cjk, c.x - 90.0, c.y - 5.0, "帧 LVLH", 7, Palette.a(Palette.FAINT, 0.9))
 
 func _draw_legend() -> void:
-	_txt(cjk, 16.0, 648.0, "图例 / LEGEND · 身份 / IDENTITY", 7, Palette.a(Palette.FAINT, 0.9))
-	_txt(mono, 424.0, 648.0, "威胁：待判定 · 无威胁 · 低 · 中 · 高 · 敌对", 7, Palette.a(Palette.PH_DIM, 0.9))
+	_txt(cjk, 16.0, 640.0, "图例 / LEGEND · 身份 / IDENTITY", 7, Palette.a(Palette.FAINT, 0.9))
+	_txt(mono, 424.0, 640.0, "威胁：待判定 · 无威胁 · 低 · 中 · 高 · 敌对", 7, Palette.a(Palette.PH_DIM, 0.9))
 	var row1 := [["pending", "待定"], ["unknown", "未知"], ["assumed_friend", "假定友好"], ["friend", "友方"]]
 	var row2 := [["neutral", "中立"], ["suspect", "可疑"], ["hostile", "敌方"]]
 	var x := 22.0
 	for it in row1:
-		_symbol_at(Vector2(x, 666.0), String(it[0]), _identity_color(String(it[0])), 1)
-		_txt(cjk, x + 13.0, 669.0, String(it[1]), 7, Palette.DIM)
+		_symbol_at(Vector2(x, 658.0), String(it[0]), _identity_color(String(it[0])), 1)
+		_txt(cjk, x + 13.0, 661.0, String(it[1]), 7, Palette.DIM)
 		x += 108.0
 	x = 22.0
 	for it in row2:
-		_symbol_at(Vector2(x, 684.0), String(it[0]), _identity_color(String(it[0])), 1)
-		_txt(cjk, x + 13.0, 687.0, String(it[1]), 7, Palette.DIM)
+		_symbol_at(Vector2(x, 676.0), String(it[0]), _identity_color(String(it[0])), 1)
+		_txt(cjk, x + 13.0, 679.0, String(it[1]), 7, Palette.DIM)
 		x += 108.0
-	draw_rect(Rect2(Vector2(x - 2.0, 679.0), Vector2(8, 8)), Palette.a(Palette.FAINT, 0.85), false, 1.0)
-	draw_line(Vector2(x - 3.0, 678.0), Vector2(x + 7.0, 690.0), Palette.a(Palette.FAINT, 0.65), 1.0)
-	_txt(cjk, x + 13.0, 687.0, "无威胁", 7, Palette.DIM)
-	var y2 := 704.0
+	draw_rect(Rect2(Vector2(x - 2.0, 671.0), Vector2(8, 8)), Palette.a(Palette.FAINT, 0.85), false, 1.0)
+	draw_line(Vector2(x - 3.0, 670.0), Vector2(x + 7.0, 682.0), Palette.a(Palette.FAINT, 0.65), 1.0)
+	_txt(cjk, x + 13.0, 679.0, "无威胁", 7, Palette.DIM)
+	var y2 := 696.0
 	draw_line(Vector2(16, y2 + 5), Vector2(34, y2 + 5), Palette.a(Palette.PH_DIM, 0.55), 1.0)
 	_txt(cjk, 40.0, y2, "历史", 7, Palette.DIM)
 	draw_dashed_line(Vector2(82, y2 + 5), Vector2(100, y2 + 5), Palette.a(Palette.PH, 0.8), 1.0, 4.0)
 	_txt(cjk, 106.0, y2, "预测", 7, Palette.DIM)
 	draw_dashed_line(Vector2(148, y2 + 5), Vector2(166, y2 + 5), Palette.a(Palette.PH, 0.35), 1.0, 2.0)
 	_txt(cjk, 172.0, y2, "1σ 误差", 7, Palette.DIM)
-	_txt(mono, 16.0, 720.0, "航迹：批号 · L1 方位线 · L2 定位+协方差 · L3 分类 · L4 舰名/敌我识别", 7, Palette.a(Palette.PH, 0.65))
-	_txt(mono, 16.0, 734.0, "T+60/120/300 = 预测刻度 · 辐射 = 主动传感器开机即暴露（球面搜索 / TWS 通道见战术图） · LINK DEGRADED", 7, Palette.a(Palette.PH_FAINT, 0.95))
-	_txt(mono, 16.0, 748.0, "标记三层：身份（符号）· L级（L1–L4 识别等级）· 威胁（处置优先级，非身份）", 7, Palette.a(Palette.AMBER, 0.8))
+	_txt(mono, 16.0, 712.0, "航迹：批号 · L1 方位线 · L2 定位+协方差 · L3 分类 · L4 舰名/敌我识别", 7, Palette.a(Palette.PH, 0.65))
+	_txt(mono, 16.0, 726.0, "T+60/120/300 = 预测刻度 · 辐射 = 主动传感器开机即暴露（球面搜索/TWS 见战术图） · LINK DEGRADED", 7, Palette.a(Palette.PH_FAINT, 0.95))
+	_txt(mono, 16.0, 740.0, "标记三层：身份符号 · L级识别等级 · 威胁（处置优先级）", 7, Palette.a(Palette.AMBER, 0.8))
 
 func _draw_optical() -> void:
 	var r := Rect2(size.x - 252.0, 76.0, 236.0, 132.0)

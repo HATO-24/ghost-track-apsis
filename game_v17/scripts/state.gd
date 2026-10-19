@@ -168,6 +168,22 @@ var adjutant_request_seen := false
 var _demo_tasks := false
 var _demo_tasks_seeded := false
 
+# ── V17-CORE-3：清算者无线电教学 / 传感器权威边界 ─────────
+# 内容在 framework/content（V17 副本）；COMMAND 阶段手动触发，不自动完成。
+const RECLAIMER_RADIO_PATH := "res://framework/content/reclaimer_radio_l1.json"
+const RECLAIMER_RADIO_SCHEMA := "reclaimer_radio.v1"
+const RECLAIMER_RADIO_MODES := ["LD", "LR", "RDO"]
+const SENSOR_AUTHORITY_LEGACY := "legacy_v15"
+const SENSOR_AUTHORITY_NOTE := "V15 sensor_model 决定接触等级/融合/威胁；V2 radar/TWS/optical 仅为数据/演示模型，V17 不切换、不伪造。"
+var reclaimer_radio_content: Dictionary = {}
+var reclaimer_radio_stage := "idle"        # idle / open / done
+var reclaimer_radio_open := false
+var reclaimer_radio_seen := false
+var reclaimer_radio_started_t := -1.0
+var reclaimer_radio_choice := ""
+var reclaimer_radio_transcript: Array = []
+var sensor_authority := SENSOR_AUTHORITY_LEGACY
+
 # ── P3c：前置航行（L4 Hammer → L1 Meridian）────────────
 var prelude_open := false
 var prelude_step := 0            # 0 目的地 / 1 变轨窗口 / 2 点火确认 / 3 完成
@@ -234,6 +250,7 @@ func _bootstrap() -> void:
 	scenario = _load_scenario()
 	_apply_scenario_env()
 	_load_story()
+	_load_reclaimer_radio()
 	_init_mast()
 	racks = SensorModel.all_racks()
 	cmd_model = CommandModel.new()
@@ -1688,6 +1705,14 @@ func _reset_runtime() -> void:
 	mast_note = ""
 	nav_data = {}
 	_adjutant_choices = []
+	reclaimer_radio_content = {}
+	reclaimer_radio_stage = "idle"
+	reclaimer_radio_open = false
+	reclaimer_radio_seen = false
+	reclaimer_radio_started_t = -1.0
+	reclaimer_radio_choice = ""
+	reclaimer_radio_transcript = []
+	sensor_authority = SENSOR_AUTHORITY_LEGACY
 	target_menu_open = false
 	target_menu_track = ""
 	target_menu_actions = []
@@ -2876,3 +2901,262 @@ func _fw_mirror_report(truth: bool) -> void:
 		return
 	framework.submit_report(truth)
 	_fw_pull()
+
+# ═══════════════════════════════════════════════════════════════════
+# V17-CORE-3：清算者无线电教学 API / 传感器权威边界
+#
+# 无线电：COMMAND 阶段手动触发，标准通信格式 [from至to]-[LD/LR/RDO]-[text]，
+#   写入 radio_feed（_append_radio）与本流程只读状态；不自动完成、不改变证据/裁决/
+#   声望/时钟/冻结。HUD 后续只需读 state.reclaimer_radio_* 与调用 initiate/reply。
+#
+# 传感器边界：V15 sensor_model 仍是接触等级/融合/威胁的唯一权威；
+#   V2 radar/TWS/optical 仅为数据/演示模型（advisory），不切换、不伪造。
+# ═══════════════════════════════════════════════════════════════════
+
+func _load_reclaimer_radio() -> void:
+	reclaimer_radio_content = {}
+	var candidates: Array = [RECLAIMER_RADIO_PATH]
+	var base := ProjectSettings.globalize_path("res://")
+	candidates.append(base.path_join("../framework/content/reclaimer_radio_l1.json").simplify_path())
+	for raw_path in candidates:
+		var path := String(raw_path)
+		if not FileAccess.file_exists(path):
+			continue
+		var f := FileAccess.open(path, FileAccess.READ)
+		if f == null:
+			continue
+		var txt := f.get_as_text()
+		f.close()
+		var parsed = JSON.parse_string(txt)
+		if parsed is Dictionary:
+			var content: Dictionary = parsed
+			if content.get("exchange") is Array and (content.get("exchange", []) as Array).size() > 0:
+				reclaimer_radio_content = content
+				return
+	reclaimer_radio_content = _reclaimer_fallback_content()
+
+## 内容文件丢失时的最小兜底（仍遵守手动/无自动完成/标准格式；探针会验证正式文件）。
+func _reclaimer_fallback_content() -> Dictionary:
+	var own := "远地点号"
+	var cp := "AV-4412 传唤者"
+	return {
+		"schema": RECLAIMER_RADIO_SCHEMA,
+		"id": "l1_reclaimer_radio_fallback",
+		"title": "清算者程序性通话（兜底）",
+		"trigger_phase": "COMMAND",
+		"own_callsign": own,
+		"counterpart": cp,
+		"exchange": [{
+			"dir": "rx", "from": cp, "to": own, "mode": "RDO",
+			"text": "远地点号，AV-4412 传唤者。依据第七号轨道紧急托管令，ID13 应于 50 km 检查边界外待命。完毕。",
+		}],
+		"options": [{
+			"id": "ack", "code": "A", "label": "确认收到 / ACK",
+			"hint": "确认记录，不改变当前程序。",
+			"reply": {"dir": "tx", "from": own, "to": cp, "mode": "RDO",
+				"text": "AV-4412 传唤者，远地点号。收到，ID13 将记录本次通话。完毕。"},
+			"ack": {"dir": "rx", "from": cp, "to": own, "mode": "RDO",
+				"text": "远地点号，收到。通话结束。完毕。"},
+		}],
+	}
+
+## 标准通信格式：`[from至to]-[LD/LR/RDO]-[text]`（docs/15 §0.3、docs/19 §1）。
+func reclaimer_radio_format(from_s: String, to_s: String, mode: String, text: String) -> String:
+	return "[%s至%s]-[%s]-[%s]" % [from_s, to_s, mode, text]
+
+## 通用格式 helper（其他通信也可用；不写死清算者）。
+func format_radio_line(from_s: String, to_s: String, mode: String, text: String) -> String:
+	return reclaimer_radio_format(from_s, to_s, mode, text)
+
+## 是否可发起：仅 COMMAND 阶段、未发起过、未冻结/未进入裁决或报告/END。
+func reclaimer_radio_available() -> bool:
+	if reclaimer_radio_content.is_empty():
+		return false
+	if reclaimer_radio_stage != "idle":
+		return false
+	if prelude_open or sim_frozen:
+		return false
+	if decision_open or consequence_open or report_open or end_open:
+		return false
+	return tut_phase == PHASE_COMMAND
+
+## 只读状态（HUD 直接读；不含可变引用）。
+func reclaimer_radio_state() -> Dictionary:
+	var opts: Array = []
+	var raw_opts: Array = reclaimer_radio_content.get("options", []) if reclaimer_radio_content.has("options") else []
+	for raw in raw_opts:
+		if not (raw is Dictionary):
+			continue
+		var o: Dictionary = raw
+		var enabled := reclaimer_radio_open
+		var reason := ""
+		if not enabled:
+			reason = "通话已结束" if reclaimer_radio_stage == "done" else "尚未发起通话"
+		opts.append({
+			"id": String(o.get("id", "")),
+			"code": String(o.get("code", "")),
+			"label": String(o.get("label", "")),
+			"hint": String(o.get("hint", "")),
+			"enabled": enabled,
+			"reason": reason,
+		})
+	var transcript_lines: Array = []
+	for raw in reclaimer_radio_transcript:
+		transcript_lines.append(String((raw as Dictionary).get("formatted", "")))
+	return {
+		"available": reclaimer_radio_available(),
+		"phase": tut_phase,
+		"trigger_phase": "COMMAND",
+		"stage": reclaimer_radio_stage,
+		"open": reclaimer_radio_open,
+		"seen": reclaimer_radio_seen,
+		"choice": reclaimer_radio_choice,
+		"started_t": reclaimer_radio_started_t,
+		"content_id": String(reclaimer_radio_content.get("id", "")),
+		"content_loaded": not reclaimer_radio_content.is_empty(),
+		"title": String(reclaimer_radio_content.get("title", "")),
+		"own_callsign": String(reclaimer_radio_content.get("own_callsign", "远地点号")),
+		"counterpart": String(reclaimer_radio_content.get("counterpart", "AV-4412 传唤者")),
+		"options": opts,
+		"transcript": reclaimer_radio_transcript.duplicate(true),
+		"formatted_transcript": transcript_lines,
+		"note": "COMMAND 阶段手动发起；只写 radio_feed/日志与本流程状态，不自动完成，不改变证据/裁决/声望/时钟。",
+	}
+
+## 手动发起（接收清算者程序性通话）。只写 radio_feed/日志；不改变其他游戏状态。
+func reclaimer_radio_initiate() -> Dictionary:
+	if not reclaimer_radio_available():
+		var reason := ""
+		if prelude_open:
+			reason = "前置航行未完成"
+		elif tut_phase != PHASE_COMMAND:
+			reason = "仅 COMMAND 阶段可发起（当前 %s）" % tut_phase
+		elif reclaimer_radio_stage != "idle":
+			reason = "本次通话已发起（stage=%s）" % reclaimer_radio_stage
+		elif reclaimer_radio_content.is_empty():
+			reason = "无线电内容未就绪"
+		else:
+			reason = "当前不可发起"
+		_push_log("清算者无线电不可发起：%s" % reason, "COMMS", "HOLD")
+		return {"ok": false, "reason": reason, "stage": reclaimer_radio_stage,
+			"phase": tut_phase, "available": false, "state": reclaimer_radio_state()}
+	reclaimer_radio_stage = "open"
+	reclaimer_radio_open = true
+	reclaimer_radio_seen = true
+	reclaimer_radio_started_t = tau()
+	reclaimer_radio_choice = ""
+	var lines: Array = []
+	for raw in (reclaimer_radio_content.get("exchange", []) as Array):
+		if raw is Dictionary:
+			lines.append(_reclaimer_append_line(raw as Dictionary, "initiate"))
+	_push_log("无线电教学：已发起与清算者的程序性通话（COMMAND 阶段手动触发）", "COMMS", "EXEC")
+	return {"ok": true, "stage": "open", "lines": lines, "state": reclaimer_radio_state()}
+
+## 玩家选择回复（需先 initiate）。只写 radio_feed/日志；不自动完成/不改变流程外状态。
+func reclaimer_radio_reply(choice: String) -> Dictionary:
+	if reclaimer_radio_stage != "open" or not reclaimer_radio_open:
+		return {"ok": false, "reason": "通话未开启或已结束", "stage": reclaimer_radio_stage,
+			"state": reclaimer_radio_state()}
+	var key := choice.strip_edges().to_lower()
+	var raw_opts: Array = reclaimer_radio_content.get("options", []) if reclaimer_radio_content.has("options") else []
+	var opt: Dictionary = {}
+	for raw in raw_opts:
+		if not (raw is Dictionary):
+			continue
+		var o: Dictionary = raw
+		var oid := String(o.get("id", "")).to_lower()
+		var ocode := String(o.get("code", "")).to_lower()
+		if key == oid or key == ocode or key == String(o.get("label", "")).to_lower():
+			opt = o
+			break
+	if opt.is_empty():
+		return {"ok": false, "reason": "未知选项：%s" % choice, "stage": reclaimer_radio_stage,
+			"options": (reclaimer_radio_state().get("options", []) as Array).duplicate(true),
+			"state": reclaimer_radio_state()}
+	var lines: Array = []
+	var reply: Dictionary = (opt.get("reply", {}) as Dictionary) if opt.get("reply") is Dictionary else {}
+	if not reply.is_empty():
+		lines.append(_reclaimer_append_line(reply, "reply"))
+	var ack: Dictionary = (opt.get("ack", {}) as Dictionary) if opt.get("ack") is Dictionary else {}
+	if not ack.is_empty():
+		lines.append(_reclaimer_append_line(ack, "ack"))
+	reclaimer_radio_choice = String(opt.get("id", ""))
+	reclaimer_radio_stage = "done"
+	reclaimer_radio_open = false
+	reclaimer_radio_seen = true
+	_push_log("无线电教学：已回复清算者（%s），通话结束；未改变证据/裁决/声望" % String(opt.get("label", reclaimer_radio_choice)),
+		"COMMS", "EXEC")
+	return {"ok": true, "choice": reclaimer_radio_choice, "code": String(opt.get("code", "")),
+		"stage": "done", "lines": lines, "state": reclaimer_radio_state()}
+
+## 已发生的通话条目（只读，按发生顺序）。
+func reclaimer_radio_transcript_lines() -> Array:
+	return reclaimer_radio_transcript.duplicate(true)
+
+## 追加一条通话：写 radio_feed + 日志（复用 _append_radio 的标准格式），并记录只读 transcript。
+func _reclaimer_append_line(line: Dictionary, stage_name: String) -> Dictionary:
+	var dir := String(line.get("dir", "rx")).to_lower()
+	if dir != "tx":
+		dir = "rx"
+	var from_s := String(line.get("from", ""))
+	var to_s := String(line.get("to", ""))
+	var mode := String(line.get("mode", "RDO")).to_upper()
+	var text := String(line.get("text", ""))
+	var at := tau()
+	_append_radio(from_s, to_s, mode, text, at)
+	var rec := {
+		"stage": stage_name,
+		"dir": dir,
+		"from": from_s,
+		"to": to_s,
+		"mode": mode,
+		"text": text,
+		"formatted": reclaimer_radio_format(from_s, to_s, mode, text),
+		"t": at,
+	}
+	reclaimer_radio_transcript.append(rec)
+	return rec
+
+# ── 传感器权威边界（不切换，仅声明/摘要）────────────────────
+
+func sensor_authority_note() -> String:
+	return SENSOR_AUTHORITY_NOTE
+
+## V2 传感器/数据模型的只读 advisory 摘要；V15 sensor_model 仍是接触等级权威。
+func v2_sensor_advisory() -> Dictionary:
+	var sel_level := 0
+	var sel_identity := ""
+	var sel_id := ""
+	var idx := clampi(int(selected), 0, maxi(0, tracks.size() - 1))
+	if idx >= 0 and idx < tracks.size():
+		var tr: Dictionary = tracks[idx]
+		sel_level = int(tr.get("level", 1))
+		sel_identity = String(tr.get("identity", ""))
+		sel_id = String(tr.get("id", ""))
+	var adv := {
+		"authority": sensor_authority,
+		"authority_source": "scripts/sensor_model.gd（V15 传感器融合/接触等级）",
+		"role": "advisory_data_demo",
+		"switching": false,
+		"note": SENSOR_AUTHORITY_NOTE,
+		"v2_ready": false,
+		"v2_sources": ["framework/sim/radar.gd", "framework/sim/tws.gd", "framework/sim/optical.gd"],
+		"v15": {
+			"selected_track_id": sel_id,
+			"selected_level": sel_level,
+			"selected_identity": sel_identity,
+			"sensor": sensor,
+			"fusion_count": fusion_count,
+		},
+	}
+	if framework != null and bool(framework.ready):
+		adv["v2_ready"] = true
+		var contacts: Array = []
+		if framework.has_method("contacts_view"):
+			contacts = framework.contacts_view() as Array
+		elif framework.contacts is Array:
+			contacts = framework.contacts as Array
+		adv["v2_contact_count"] = contacts.size()
+		if framework.has_method("summary"):
+			adv["v2_summary"] = framework.summary()
+	return adv

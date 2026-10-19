@@ -87,8 +87,8 @@ const DAMAGE_CARD := Rect2(1556, 614, 288, 74)
 const DAMAGE_BTN := Rect2(1556, 668, 120, 16)
 const DAMAGE_POPUP := Rect2(1556, 470, 288, 190)
 # ── P11a：fw 教学/损管/回放增量（V17-UI-1；严格放在右区既有坐标空位/复用弹窗）──
-const TUT_STRIP := Rect2(1556, 484, 144, 16)       # Δv 与传感器架之间；严格止于 MAST_BTN(1704) 之前（P11b 对齐）
-const TUT_STRIP_HIT := Rect2(1556, 480, 144, 24)
+const TUT_STRIP := Rect2(1556, 482, 144, 18)       # Δv 与传感器架之间；严格止于 MAST_BTN(1704) 之前（P11c 对齐）
+const TUT_STRIP_HIT := Rect2(1556, 478, 144, 26)
 const TUT_POPUP := Rect2(1556, 470, 288, 190)      # 复用 DAMAGE_POPUP 区域，同屏互斥
 const TUT_DEC_CHIP := Rect2(1556, 600, 288, 24)    # 弹窗内「裁决入口」置灰/解锁行
 const REPLAY_PLAY := Rect2(1768, 886, 44, 12)
@@ -2924,13 +2924,21 @@ func _draw_tut_strip() -> void:
 	var prog := _fw_tut_progress()
 	var ready := _fw_tut_ready()
 	var col: Color = Palette.PH if ready else Palette.AMBER
+	# V15 局部小条：外 1px 框 + 内 1px 底线 + 左侧 2px 状态条；文字垂直居中
 	draw_rect(TUT_STRIP, Palette.a(col, 0.05))
-	draw_rect(TUT_STRIP, Palette.a(col, 0.30), false, 1.0)
-	# 垂直居中：16px 高、7px 字号，基线 y+11；左 6px 内边距，右 6px 留白
-	_txt(cjk, TUT_STRIP.position.x + 5.0, TUT_STRIP.position.y + 11.0, "教学 / TUTORIAL", 7, col)
-	_txt(mono, TUT_STRIP.position.x + 90.0, TUT_STRIP.position.y + 11.0, "%d/%d" % [prog.x, prog.y], 7,
+	draw_rect(TUT_STRIP, Palette.a(col, 0.34), false, 1.0)
+	draw_rect(Rect2(TUT_STRIP.position + Vector2(1.0, 1.0), TUT_STRIP.size - Vector2(2.0, 2.0)),
+		Palette.a(col, 0.10 if ready else 0.06))
+	draw_rect(Rect2(TUT_STRIP.position + Vector2(1.0, TUT_STRIP.size.y - 2.0),
+		Vector2(TUT_STRIP.size.x - 2.0, 1.0)), Palette.a(col, 0.28))
+	draw_rect(Rect2(TUT_STRIP.position.x, TUT_STRIP.position.y + 3.0, 2.0, 10.0),
+		Palette.a(col, 0.85 if ready else 0.65))
+	# 基线统一 y+11（16px 高 / 7px 中文 + 7px mono + 6px 状态）；左右各 8px 留白
+	# cjk 7 / mono 7 / 状态 6：基线按视觉居中微调（cjk y+10.5、mono y+11.5、状态 y+10.5）
+	_txt(cjk, TUT_STRIP.position.x + 8.0, TUT_STRIP.position.y + 10.5, "教学 / TUTORIAL", 7, col)
+	_txt(mono, TUT_STRIP.position.x + 92.0, TUT_STRIP.position.y + 11.5, "%d/%d" % [prog.x, prog.y], 7,
 		Palette.PH if ready else Palette.AMBER)
-	_txt_r(cjk, TUT_STRIP.end.x - 5.0, TUT_STRIP.position.y + 11.0,
+	_txt_r(cjk, TUT_STRIP.end.x - 8.0, TUT_STRIP.position.y + 10.5,
 		"READY" if ready else "门控", 6, Palette.PH if ready else Palette.AMBER)
 
 

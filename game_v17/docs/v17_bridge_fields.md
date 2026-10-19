@@ -120,3 +120,12 @@ seek/pause/stop、只读）/ state.fw_* 归一字段 / V15 决策挂起→自动
 - bridge 只读 `framework/*`；sim/tactical_snapshot、plot/TWS 由 V17-SENSOR 维护，core 不反向依赖。
 - 回放为数据帧接口；HUD 回放期间应暂停仿真（`state.paused`/`sim_frozen` 或 UI 自行冻结）。
 - 未 commit；与 V17 其他任务（hud/plot）按字段契约协作。
+## 9　传感器权威边界（V17-CORE-3）
+
+- `state.sensor_authority == "legacy_v15"`：V15 `sensor_model` 决定接触等级/融合/威胁；
+  V2 radar/TWS/optical 仅是数据/演示模型（advisory）。
+- `state.v2_sensor_advisory()`：只读摘要（authority/role="advisory_data_demo"/switching=false/
+  v2_ready/v2_sources/v15{selected_level,selected_identity,sensor,fusion_count}/v2_contact_count）；
+  未接 bridge 时 v2_ready=false；接 `state.framework` 后提供 V2 接触数，但 authority 不变。
+- 不切换权威、不伪造；plot 的 TWS/球形雷达演示只能作为 advisory 叠加，不得回写
+  `state.tracks/level`。详见 `game_v17/docs/v17_radio_sensor.md`。
