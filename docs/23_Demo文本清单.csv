@@ -1,33 +1,33 @@
 ﻿ID,区域,来源,当前文本,可见性,状态,备注
-TXT-0001,PRELUDE,scenario_l1.json:prelude.body,ID13 在母港 L4-02 Hammer 完成交接，OCUVF 本部命令前往 L1 Meridian 作为谈判主力介入 Chronos 事件。设定目的地并选择变轨窗口；执行前不会推进仿真时间。,核心,,
-TXT-0002,PRELUDE,scenario_l1.json:prelude.confirm_text,目的地与变轨窗口已选；确认后执行点火，Δv 从 ID13 预算中扣除。,核心,,
-TXT-0003,PRELUDE,scenario_l1.json:prelude.done_comm[0].text,ID13，重锤港务调度。离港许可已签发；转移轨道已清空。完毕。,核心,,
-TXT-0004,PRELUDE,scenario_l1.json:prelude.done_comm[1].text,ID13，OCUVF 本部。你已被任命为第13独立分遣群指挥官。前任指挥官在 L5-01 Eko 遇刺。ID13 立即前往 Meridian，作为谈判主力介入 Chronos 事件。OCJC 授权：不得首先开火。完毕。,核心,,
-TXT-0005,PRELUDE,scenario_l1.json:prelude.done_comm[2].text,全队，远地点。航线已设定：L4 Hammer → L1 Meridian。执行变轨后进入巡航。抵达 Meridian 前完成接触识别准备。完毕。,核心,,
-TXT-0006,PRELUDE,scenario_l1.json:prelude.execute_text,点火执行。ID13 离开 L4-02 Hammer，进入 L1 Meridian 转移轨道；抵达后开始 Chronos 执行窗口。,核心,,
-TXT-0007,PRELUDE,scenario_l1.json:prelude.routes[0].hint,OCUVF 本部命令的目标；Chronos 现场需要 ID13 的传感器与谈判存在。,核心,,
-TXT-0008,PRELUDE,scenario_l1.json:prelude.routes[0].label,L1 Meridian（Chronos 现场）,核心,,
-TXT-0009,PRELUDE,scenario_l1.json:prelude.routes[1].hint,Karman 是港群中继/观测方向，与 Chronos 现场不符；本部要求前往 Meridian。,核心,,
-TXT-0010,PRELUDE,scenario_l1.json:prelude.routes[1].label,L2 Karman（中继方向）,核心,,
-TXT-0011,PRELUDE,scenario_l1.json:prelude.title,前置航行 · L4-02 Hammer → L1 Meridian,核心,,
-TXT-0012,PRELUDE,scenario_l1.json:prelude.windows[0].hint,最优窗口；Δv 消耗低，可在执行窗口开始前抵达 Meridian 外缘。,核心,,
-TXT-0013,PRELUDE,scenario_l1.json:prelude.windows[0].label,T+18:00 变轨窗口,核心,,
-TXT-0014,PRELUDE,scenario_l1.json:prelude.windows[1].hint,窗口过紧，需额外 Δv 且抵达时间不可控；不建议。,核心,,
-TXT-0015,PRELUDE,scenario_l1.json:prelude.windows[1].label,T+02:00 变轨窗口,核心,,
-TXT-0016,NOTICE,scenario_l1.json:notice.body,远地点号，AV-4412 传唤者。本舰受第33轨道特别独立舰队指派，依据《轨道宪章》与第七号轨道紧急托管令，接管 Chronos 加注站、储罐群与进港航道。请 ID13 立即撤出检查边界，不得妨碍执行。本声明不构成威胁。完毕。,核心,,
-TXT-0017,NOTICE,scenario_l1.json:notice.title,第七号令接管声明 · AV-4412 传唤者,核心,,
-TXT-0018,RADIO,scenario_l1.json:radio_lines[0].text,各港群单位注意，UEG 海关格林尼治。第七号轨道紧急托管令现予公告：凡失能、受威胁或被敌方渗透的加注站、储罐、船坞与航道，可由联合政府指定部队接管，直至紧急状态结束。Chronos 加注站及储罐区处于紧急状态范围。完毕。,核心,,
-TXT-0019,RADIO,scenario_l1.json:radio_lines[10].text,[2001] 仍不应答。按交战规则属潜在威胁目标。请求武器释放授权。完毕。,核心,,
-TXT-0020,RADIO,scenario_l1.json:radio_lines[11].text,MK-12 敌我识别：[9001] 识别结果 · 谷神-2 · 无应答状态。,核心,,
-TXT-0021,RADIO,scenario_l1.json:radio_lines[1].text,ID13，六分仪进港调度。Chronos 储罐区与进港航道已划为管制区。请 ID13 于 50 km 检查边界外待命，不得进入。完毕。,核心,,
-TXT-0022,RADIO,scenario_l1.json:radio_lines[2].text,全队，远地点。ID13 已抵达 Meridian。当前任务：保护 Chronos 储罐区人员与可移动资产。不得首先开火。完毕。,核心,,
-TXT-0023,RADIO,scenario_l1.json:radio_lines[3].text,远地点号，AV-4412 传唤者。本舰受第33轨道特别独立舰队指派，依据《轨道宪章》与第七号轨道紧急托管令，接管 Chronos 加注站、储罐群与进港航道。请 ID13 立即撤出检查边界，不得妨碍执行。本声明不构成威胁。完毕。,核心,,
-TXT-0024,RADIO,scenario_l1.json:radio_lines[4].text,[9001] 敌我识别未应答，须进一步确认。完毕。,核心,,
-TXT-0025,RADIO,scenario_l1.json:radio_lines[5].text,使用雷达与光学识别 [9001]。注意，雷达开机即暴露。完毕。,核心,,
-TXT-0026,RADIO,scenario_l1.json:radio_lines[6].text,收到，正在进行识别，等待数据返回。完毕。,核心,,
-TXT-0027,RADIO,scenario_l1.json:radio_lines[7].text,ID13 指挥官，我是第33舰队前线接管官科尔。执行程序已经开始。ID13 不在联合政府登记名册内，本舰队不承认 ID13 的执法权。请在执行窗口结束前离开管制区。完毕。,核心,,
-TXT-0028,RADIO,scenario_l1.json:radio_lines[8].text,远地点号，Chronos 港务。储罐区仍有值守人员与家属；三号罐持续泄漏。请求 ID13 先协助撤离，不要拖走储罐。完毕。,核心,,
-TXT-0029,RADIO,scenario_l1.json:radio_lines[9].text,全队，远地点。光学分类完成：[2001] 传唤级，第33舰队所属，可疑；[9001] 谷神-2，民用工作船，应答机故障，中立。注意交战规则，不得首先开火。完毕。,核心,,
+TXT-0001,PRELUDE,scenario_l1.json:prelude.body,ID13 在母港 L4-02 Hammer 完成交接，OCUVF 本部命令前往 L1 Meridian 作为谈判主力介入 Chronos 事件。设定目的地并选择变轨窗口；执行前不会推进仿真时间。,核心,,通信已按固定格式显示
+TXT-0002,PRELUDE,scenario_l1.json:prelude.confirm_text,目的地与变轨窗口已选；确认后执行点火，Δv 从 ID13 预算中扣除。,核心,,通信已按固定格式显示
+TXT-0003,PRELUDE,scenario_l1.json:prelude.done_comm[0].text,[Hammer 港务调度至ID13]-[RDO]-[ID13，重锤港务调度。离港许可已签发；转移轨道已清空。完毕。],核心,,通信已按固定格式显示
+TXT-0004,PRELUDE,scenario_l1.json:prelude.done_comm[1].text,[OCUVF 本部至ID13]-[LD]-[ID13，OCUVF 本部。你已被任命为第13独立分遣群指挥官。前任指挥官在 L5-01 Eko 遇刺。ID13 立即前往 Meridian，作为谈判主力介入 Chronos 事件。OCJC 授权：不得首先开火。完毕。],核心,,通信已按固定格式显示
+TXT-0005,PRELUDE,scenario_l1.json:prelude.done_comm[2].text,[远地点号至全队]-[LD]-[全队，远地点。航线已设定：L4 Hammer → L1 Meridian。执行变轨后进入巡航。抵达 Meridian 前完成接触识别准备。完毕。],核心,,通信已按固定格式显示
+TXT-0006,PRELUDE,scenario_l1.json:prelude.execute_text,点火执行。ID13 离开 L4-02 Hammer，进入 L1 Meridian 转移轨道；抵达后开始 Chronos 执行窗口。,核心,,通信已按固定格式显示
+TXT-0007,PRELUDE,scenario_l1.json:prelude.routes[0].hint,OCUVF 本部命令的目标；Chronos 现场需要 ID13 的传感器与谈判存在。,核心,,通信已按固定格式显示
+TXT-0008,PRELUDE,scenario_l1.json:prelude.routes[0].label,L1 Meridian（Chronos 现场）,核心,,通信已按固定格式显示
+TXT-0009,PRELUDE,scenario_l1.json:prelude.routes[1].hint,Karman 是港群中继/观测方向，与 Chronos 现场不符；本部要求前往 Meridian。,核心,,通信已按固定格式显示
+TXT-0010,PRELUDE,scenario_l1.json:prelude.routes[1].label,L2 Karman（中继方向）,核心,,通信已按固定格式显示
+TXT-0011,PRELUDE,scenario_l1.json:prelude.title,前置航行 · L4-02 Hammer → L1 Meridian,核心,,通信已按固定格式显示
+TXT-0012,PRELUDE,scenario_l1.json:prelude.windows[0].hint,最优窗口；Δv 消耗低，可在执行窗口开始前抵达 Meridian 外缘。,核心,,通信已按固定格式显示
+TXT-0013,PRELUDE,scenario_l1.json:prelude.windows[0].label,T+18:00 变轨窗口,核心,,通信已按固定格式显示
+TXT-0014,PRELUDE,scenario_l1.json:prelude.windows[1].hint,窗口过紧，需额外 Δv 且抵达时间不可控；不建议。,核心,,通信已按固定格式显示
+TXT-0015,PRELUDE,scenario_l1.json:prelude.windows[1].label,T+02:00 变轨窗口,核心,,通信已按固定格式显示
+TXT-0016,NOTICE,scenario_l1.json:notice.body,[AV-4412 传唤者至远地点号]-[RDO]-[远地点号，AV-4412 传唤者。本舰受第33轨道特别独立舰队指派，依据《轨道宪章》与第七号轨道紧急托管令，接管 Chronos 加注站、储罐群与进港航道。请 ID13 立即撤出检查边界，不得妨碍执行。本声明不构成威胁。完毕。],核心,,通信已按固定格式显示
+TXT-0017,NOTICE,scenario_l1.json:notice.title,第七号令接管声明 · AV-4412 传唤者,核心,,通信已按固定格式显示
+TXT-0018,RADIO,scenario_l1.json:radio_lines[0].text,[Greenwich 海关官至全港]-[RDO]-[各港群单位注意，UEG 海关格林尼治。第七号轨道紧急托管令现予公告：凡失能、受威胁或被敌方渗透的加注站、储罐、船坞与航道，可由联合政府指定部队接管，直至紧急状态结束。Chronos 加注站及储罐区处于紧急状态范围。完毕。],核心,,通信已按固定格式显示
+TXT-0019,RADIO,scenario_l1.json:radio_lines[10].text,[渡口号至远地点号]-[LD]-[[2001] 仍不应答。按交战规则属潜在威胁目标。请求武器释放授权。完毕。],核心,,通信已按固定格式显示
+TXT-0020,RADIO,scenario_l1.json:radio_lines[11].text,[远地点号至全体]-[LD]-[MK-12 敌我识别：[9001] 识别结果 · 谷神-2 · 无应答状态。],核心,,通信已按固定格式显示
+TXT-0021,RADIO,scenario_l1.json:radio_lines[1].text,[Sextant 进港调度至ID13]-[RDO]-[ID13，六分仪进港调度。Chronos 储罐区与进港航道已划为管制区。请 ID13 于 50 km 检查边界外待命，不得进入。完毕。],核心,,通信已按固定格式显示
+TXT-0022,RADIO,scenario_l1.json:radio_lines[2].text,[远地点号至全队]-[LD]-[全队，远地点。ID13 已抵达 Meridian。当前任务：保护 Chronos 储罐区人员与可移动资产。不得首先开火。完毕。],核心,,通信已按固定格式显示
+TXT-0023,RADIO,scenario_l1.json:radio_lines[3].text,[AV-4412 传唤者至远地点号]-[RDO]-[远地点号，AV-4412 传唤者。本舰受第33轨道特别独立舰队指派，依据《轨道宪章》与第七号轨道紧急托管令，接管 Chronos 加注站、储罐群与进港航道。请 ID13 立即撤出检查边界，不得妨碍执行。本声明不构成威胁。完毕。],核心,,通信已按固定格式显示
+TXT-0024,RADIO,scenario_l1.json:radio_lines[4].text,[哈马丹号至远地点号]-[LD]-[[9001] 敌我识别未应答，须进一步确认。完毕。],核心,,通信已按固定格式显示
+TXT-0025,RADIO,scenario_l1.json:radio_lines[5].text,[远地点号至哈马丹号]-[LD]-[使用雷达与光学识别 [9001]。注意，雷达开机即暴露。完毕。],核心,,通信已按固定格式显示
+TXT-0026,RADIO,scenario_l1.json:radio_lines[6].text,[哈马丹号至远地点号]-[LD]-[收到，正在进行识别，等待数据返回。完毕。],核心,,通信已按固定格式显示
+TXT-0027,RADIO,scenario_l1.json:radio_lines[7].text,[接管官 科尔至远地点号]-[RDO]-[ID13 指挥官，我是第33舰队前线接管官科尔。执行程序已经开始。ID13 不在联合政府登记名册内，本舰队不承认 ID13 的执法权。请在执行窗口结束前离开管制区。完毕。],核心,,通信已按固定格式显示
+TXT-0028,RADIO,scenario_l1.json:radio_lines[8].text,[Chronos 港务至远地点号]-[RDO]-[远地点号，Chronos 港务。储罐区仍有值守人员与家属；三号罐持续泄漏。请求 ID13 先协助撤离，不要拖走储罐。完毕。],核心,,通信已按固定格式显示
+TXT-0029,RADIO,scenario_l1.json:radio_lines[9].text,[远地点号至全体]-[LR]-[全队，远地点。光学分类完成：[2001] 传唤级，第33舰队所属，可疑；[9001] 谷神-2，民用工作船，应答机故障，中立。注意交战规则，不得首先开火。完毕。],核心,,通信已按固定格式显示
 TXT-0030,EVENT,scenario_l1.json:events[0].text,第七号令接管声明送达 · AV-4412 传唤者（2001）,核心,,
 TXT-0031,EVENT,scenario_l1.json:events[1].text,MS-IR9 交叉确认：302° 回波为 9002 无威胁目标（残骸/反射）,核心,,
 TXT-0032,EVENT,scenario_l1.json:events[2].text,命令：远地点号 → 哈马丹号，YW-R9 搜索雷达开机（辐射暴露）,核心,,
@@ -62,10 +62,10 @@ TXT-0060,ADJUTANT,scenario_l1.json:adjutant_request.options[3].label,暂不处�
 TXT-0061,ADJUTANT,scenario_l1.json:adjutant_request.title,副官建议 · Chronos 取证与撤离,核心,,
 TXT-0062,DECISION,scenario_l1.json:consequence_fire,武器释放授权已下达。渡口号对 2001 实施两发轨道炮射击。交火导致 Chronos 储罐区二次火灾，站体与储罐受损，平民伤亡 12 人。第33舰队宣布 ID13 为未登记武装并请求增援；UEG 中央安全委员会将事件定性为对联合政府的武装攻击。武器释放记录、传感器日志与通信记录已封存。,核心,,
 TXT-0063,DECISION,scenario_l1.json:decision_prompt,指挥官，执行窗口剩余 {mm:ss}。清算者要求接管 Chronos 储罐与航道；Chronos 港务请求先撤人；渡口号请求武器释放授权。ID13 没有执法权，但必须在窗口结束前作出决定。请裁决。,核心,,
-TXT-0064,DECISION,scenario_l1.json:decision_replies.EVACUATE.text,Chronos 各岗位注意，ID13 将组织人员与可移动储罐撤离；请港务按名单引导，优先伤员与家属。ID13 不阻碍对空站的接管。完毕。,核心,,
-TXT-0065,DECISION,scenario_l1.json:decision_replies.EXPOSE.text,OCJC 监察、轨道事务委员会：ID13 已取得 Chronos 爆炸遥测与核查组记录副本，并记录到与第33舰队公开型号不符的未登记特征码。请求联合调查。原始记录已保存，可随时移交。完毕。,核心,,
-TXT-0066,DECISION,scenario_l1.json:decision_replies.FIRE.text,全队，远地点。ID13 授权武器释放，目标 2001；确认交战规则状态。完毕。,核心,,
-TXT-0067,DECISION,scenario_l1.json:decision_replies.HOLD.text,科尔接管官，ID13 指挥官。依据 OCJC 授权，ID13 要求暂停 Chronos 接管程序，等待轨道事务委员会复核。ID13 不会首先开火，但不会让出储罐区。完毕。,核心,,
+TXT-0064,DECISION,scenario_l1.json:decision_replies.EVACUATE.text,[远地点号至Chronos 港务 / 全港]-[RDO]-[Chronos 各岗位注意，ID13 将组织人员与可移动储罐撤离；请港务按名单引导，优先伤员与家属。ID13 不阻碍对空站的接管。完毕。],核心,,通信已按固定格式显示
+TXT-0065,DECISION,scenario_l1.json:decision_replies.EXPOSE.text,[远地点号至OCJC 监察 / UEG 轨道事务委员会]-[LD]-[OCJC 监察、轨道事务委员会：ID13 已取得 Chronos 爆炸遥测与核查组记录副本，并记录到与第33舰队公开型号不符的未登记特征码。请求联合调查。原始记录已保存，可随时移交。完毕。],核心,,通信已按固定格式显示
+TXT-0066,DECISION,scenario_l1.json:decision_replies.FIRE.text,[远地点号至全队]-[LD]-[全队，远地点。ID13 授权武器释放，目标 2001；确认交战规则状态。完毕。],核心,,通信已按固定格式显示
+TXT-0067,DECISION,scenario_l1.json:decision_replies.HOLD.text,[远地点号至接管官 科尔]-[LD]-[科尔接管官，ID13 指挥官。依据 OCJC 授权，ID13 要求暂停 Chronos 接管程序，等待轨道事务委员会复核。ID13 不会首先开火，但不会让出储罐区。完毕。],核心,,通信已按固定格式显示
 TXT-0068,DECISION,scenario_l1.json:endings[0].hint,保持卡位，拒绝让出储罐区与航道，将接管程序拖入 UEG 复核。不首先开火。,核心,,
 TXT-0069,DECISION,scenario_l1.json:endings[0].label,卡住 / HOLD,核心,,
 TXT-0070,DECISION,scenario_l1.json:endings[1].hint,撤出 Chronos 人员与可移动储罐，保留记录，允许接管空站。,核心,,
