@@ -1,0 +1,53 @@
+{
+  "schema": "track_rules.v1",
+  "_comment": "航迹等级/身份/衰减/观测支撑级规则。数值口径：docs/11_传感器规则.md §4（L4 30s / L3 90s / L2 210s / L1 记忆地板）、docs/19 §2.5（身份分类）。core/tracks.gd 不写死这些数值。",
+  "levels": [
+    {"level": 0, "id": "UNKNOWN", "label": "未发现", "label_en": "UNKNOWN", "valid_s": 0},
+    {"level": 1, "id": "BEARING", "label": "方位", "label_en": "BEARING", "valid_s": -1},
+    {"level": 2, "id": "POSITION", "label": "定位", "label_en": "POSITION", "valid_s": 210},
+    {"level": 3, "id": "CLASSIFIED", "label": "分类", "label_en": "CLASSIFIED", "valid_s": 90},
+    {"level": 4, "id": "IDENTIFIED", "label": "识别", "label_en": "IDENTIFIED", "valid_s": 30}
+  ],
+  "default_quality": 1.0,
+  "min_quality": 0.05,
+  "stale_after_s": 30.0,
+  "memory_keep_s": 300.0,
+  "keep_observations": 64,
+  "track_id_prefix": "T",
+  "track_id_pad": 4,
+  "validate_support": true,
+  "sensor_support": {
+    "ir": 1,
+    "optical": 1,
+    "optical.classification": 3,
+    "lidar": 2,
+    "radar": 2,
+    "radar.tws": 2,
+    "crossfix": 2,
+    "triangulation": 2,
+    "iff": 4,
+    "elint": 3,
+    "datalink": 4,
+    "manual": 1,
+    "visual": 1
+  },
+  "identity": {
+    "default": "pending",
+    "classes": [
+      {"id": "pending", "label": "待定", "label_en": "Pending"},
+      {"id": "unknown", "label": "未知", "label_en": "Unknown"},
+      {"id": "assumed_friend", "label": "假定友好", "label_en": "Assumed Friend"},
+      {"id": "friend", "label": "友方", "label_en": "Friend"},
+      {"id": "neutral", "label": "中立", "label_en": "Neutral"},
+      {"id": "suspect", "label": "可疑", "label_en": "Suspect"},
+      {"id": "hostile", "label": "敌方", "label_en": "Hostile"}
+    ],
+    "iff_status_map": {
+      "friend": "assumed_friend",
+      "wrong_code": "unknown",
+      "no_reply": "unknown",
+      "faulty_transponder": "unknown",
+      "unknown": "unknown"
+    }
+  }
+}

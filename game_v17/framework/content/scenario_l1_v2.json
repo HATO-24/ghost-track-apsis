@@ -1,0 +1,256 @@
+{
+  "schema": "scenario.v2",
+  "_comment": "V2 场景 schema 示例：实体 / 初始航迹 / 数据驱动阶段 / 证据 / 命令配置；文本在 content/story_l1.json。所有批号、舰名、阶段、提示均来自本文件，core 不写死第一关。",
+  "id": "l1_supervision_v2",
+  "title": "第一关 · 越权回收 · L1 Meridian-05 Chronos",
+  "epoch": 760.8,
+  "datum": "L1",
+  "own_entity": "harmattan",
+  "story_file": "res://content/story_l1.json",
+  "entities": [
+    {
+      "id": "apsis",
+      "batch": "1000",
+      "kind": "ship",
+      "side": "friend",
+      "name": "远地点",
+      "name_en": "APSIS",
+      "class": "远地点级",
+      "role": "船坞舰",
+      "faction": "OCUVF · ID13",
+      "capabilities": ["sensor.ir", "sensor.optical", "sensor.iff.interrogator", "sensor.elint.passive", "comms.radio", "comms.laser", "datalink.ocuvf"],
+      "signatures": {"radar": "", "iff": "MK-12"},
+      "orbit": {"frame": "L1", "r": [-190.0, 255.0, 62.0], "v": [-0.05, -0.06, 0.01]},
+      "tags": ["own_fleet", "flagship"],
+      "meta": {"sensors": ["MS-IR9", "MS-OT2", "MK-12", "ELINT"]}
+    },
+    {
+      "id": "harmattan",
+      "batch": "1001",
+      "kind": "ship",
+      "side": "friend",
+      "name": "哈马丹",
+      "name_en": "HARMATTAN",
+      "class": "托盘-5 改",
+      "role": "哨舰",
+      "faction": "OCUVF · ID13",
+      "capabilities": ["sensor.radar.active", "sensor.optical", "sensor.ir", "sensor.elint.passive", "comms.radio", "datalink.ocuvf"],
+      "signatures": {"radar": "YW-R9", "iff": ""},
+      "orbit": {"frame": "L1", "r": [2.0, -3.0, 0.0], "v": [0.22, -0.12, 0.03]},
+      "tags": ["own", "own_fleet", "command"],
+      "meta": {"sensors": ["YW-R9", "MS-OT2", "CH-IR2", "ELINT", "CH-R0"]}
+    },
+    {
+      "id": "ferry",
+      "batch": "1002",
+      "kind": "ship",
+      "side": "friend",
+      "name": "渡口",
+      "name_en": "FERRY",
+      "class": "赤铁-6 改",
+      "role": "炮舰",
+      "faction": "OCUVF · ID13",
+      "capabilities": ["sensor.ir", "sensor.lidar", "comms.radio", "datalink.ocuvf"],
+      "signatures": {"radar": "", "iff": ""},
+      "orbit": {"frame": "L1", "r": [-31.914, 60.045, -4.0], "v": [-0.0607, -0.0775, 0.0074]},
+      "tags": ["own_fleet"],
+      "meta": {"sensors": ["CH-IR2", "LR-4", "CH-R0"]}
+    },
+    {
+      "id": "watchtower",
+      "batch": "1003",
+      "kind": "ship",
+      "side": "friend",
+      "name": "望楼",
+      "name_en": "WATCHTOWER",
+      "class": "安海-1",
+      "role": "中继舰",
+      "faction": "OCUVF · ID13",
+      "capabilities": ["comms.laser", "comms.radio", "datalink.ocuvf"],
+      "signatures": {"radar": "", "iff": ""},
+      "orbit": {"frame": "L1", "r": [19.957, 93.902, 38.0], "v": [-0.1174, 0.025, 0.02]},
+      "tags": ["own_fleet", "relay"],
+      "meta": {"sensors": ["MS-L2", "CH-R0"]}
+    },
+    {
+      "id": "deepwell",
+      "batch": "1004",
+      "kind": "ship",
+      "side": "friend",
+      "name": "深井",
+      "name_en": "DEEPWELL",
+      "class": "月港-4",
+      "role": "油船",
+      "faction": "OCUVF · ID13",
+      "capabilities": ["comms.radio", "datalink.ocuvf"],
+      "signatures": {"radar": "", "iff": ""},
+      "orbit": {"frame": "L1", "r": [205.0, -270.0, -26.0], "v": [0.045, 0.06, -0.005]},
+      "tags": ["own_fleet", "tanker"],
+      "meta": {"sensors": ["CH-R0"]}
+    },
+    {
+      "id": "summons_4471",
+      "batch": "2001",
+      "kind": "ship",
+      "side": "hostile",
+      "name": "AV-4412 传唤者",
+      "name_en": "AV-4412",
+      "class": "传唤级",
+      "role": "通报舰",
+      "faction": "UEG 第33舰队",
+      "capabilities": ["sensor.radar.active", "sensor.iff.interrogator", "sensor.elint.passive", "comms.radio", "datalink.ueg33"],
+      "signatures": {"radar": "YW-R9", "iff": "MK-12"},
+      "orbit": {"frame": "L1", "r": [208.602, 240.0, 12.0], "v": [-1.1683, -0.5067, -0.0634]},
+      "tags": ["reclaimer"],
+      "meta": {"sensors": ["YW-R9", "MK-12", "ELINT", "CH-R0"]}
+    },
+    {
+      "id": "ceres_2",
+      "batch": "9001",
+      "kind": "ship",
+      "side": "unknown",
+      "name": "谷神-2",
+      "name_en": "CERES-2",
+      "class": "谷神改",
+      "role": "民用工作船",
+      "faction": "民用",
+      "capabilities": ["comms.radio"],
+      "signatures": {"radar": "", "iff": ""},
+      "orbit": {"frame": "L1", "r": [229.598, -122.086, -6.0], "v": [0.0505, 0.0524, -0.0005]},
+      "tags": ["civilian"],
+      "meta": {"sensors": ["CH-R0"]}
+    },
+    {
+      "id": "chronos_station",
+      "batch": "0100",
+      "kind": "station",
+      "side": "neutral",
+      "name": "Chronos 加注站",
+      "name_en": "CHRONOS DEPOT",
+      "class": "加注站",
+      "role": "加注/储罐/港务",
+      "faction": "Chronos 港务",
+      "capabilities": ["comms.radio"],
+      "signatures": {},
+      "orbit": {"frame": "L1", "r": [180.0, 210.0, 8.0], "v": [0.0, 0.0, 0.0]},
+      "tags": ["station", "fixed"],
+      "meta": {"icon": "station", "size_km": 1.2, "role": "Chronos 加注站", "fixed": true}
+    },
+    {
+      "id": "tank_farm",
+      "batch": "0101",
+      "kind": "tank",
+      "side": "neutral",
+      "name": "Chronos 储罐群",
+      "name_en": "CHRONOS TANK FARM",
+      "class": "储罐群",
+      "role": "推进剂储罐",
+      "faction": "Chronos 港务",
+      "capabilities": [],
+      "signatures": {},
+      "orbit": {"frame": "L1", "r": [182.0, 214.0, 8.0], "v": [0.0, 0.0, 0.0]},
+      "tags": ["tank", "fixed"],
+      "meta": {"icon": "tank", "size_km": 0.8, "role": "储罐群", "tanks": 3, "fixed": true}
+    }
+  ],
+  "tracks": [
+    {"id": "1000", "entity_id": "apsis", "level": 4, "identity": "friend", "threat": "none", "age_s": 1.0},
+    {"id": "1001", "entity_id": "harmattan", "level": 4, "identity": "friend", "threat": "none", "age_s": 0.0},
+    {"id": "1002", "entity_id": "ferry", "level": 4, "identity": "friend", "threat": "none", "age_s": 1.0},
+    {"id": "1003", "entity_id": "watchtower", "level": 4, "identity": "friend", "threat": "none", "age_s": 1.0},
+    {"id": "1004", "entity_id": "deepwell", "level": 4, "identity": "friend", "threat": "none", "age_s": 1.0},
+    {"id": "2001", "entity_id": "summons_4471", "level": 1, "identity": "unknown", "threat": "pending", "age_s": 2.0},
+    {"id": "9001", "entity_id": "ceres_2", "level": 1, "identity": "pending", "threat": "pending", "age_s": 12.0},
+    {"id": "9002", "entity_id": "", "level": 1, "identity": "pending", "threat": "none", "bearing_only": true, "bearing_deg": 302.0, "age_s": 0.0, "sources": ["CH-IR2"], "tags": ["phantom", "false_alarm"], "notes": ["CH-IR2 回波候选：残骸/反射，目视交叉确认后无威胁"]},
+    {"id": "0100", "entity_id": "chronos_station", "level": 4, "identity": "neutral", "threat": "none", "age_s": 0.0, "tags": ["station", "fixed"]},
+    {"id": "0101", "entity_id": "tank_farm", "level": 4, "identity": "neutral", "threat": "none", "age_s": 0.0, "tags": ["tank", "fixed"]}
+  ],
+  "phases": [
+    {
+      "id": "prelude",
+      "kind": "PRELUDE",
+      "title": "前置航行 / PRELUDE",
+      "enter": {"always": true},
+      "prompt_ref": "story.prelude.body",
+      "options_ref": "story.prelude",
+      "actions": []
+    },
+    {
+      "id": "read",
+      "kind": "READ",
+      "title": "接管通知 / NOTICE",
+      "enter": {"flags_any": ["prelude_executed"]},
+      "prompt_ref": "story.notice.body",
+      "options_ref": "story.notice",
+      "actions": []
+    },
+    {
+      "id": "command",
+      "kind": "COMMAND",
+      "title": "处置 / COMMAND",
+      "enter": {"min_t": 0.0},
+      "prompt_ref": "story.decision_prompt",
+      "actions": ["crossfix", "radar_illum", "model_ident", "radar_track", "iff_query", "optical_channel", "ir_channel"]
+    },
+    {
+      "id": "decision",
+      "kind": "DECISION",
+      "title": "指挥官决策 / DETERMINATION",
+      "enter": {"flags_any": ["decision_open"]},
+      "prompt_ref": "story.decision_prompt",
+      "options_ref": "story.endings",
+      "actions": ["crossfix", "radar_illum", "model_ident", "radar_track", "iff_query", "optical_channel", "ir_channel", "fire_control", "missile_solve", "weapons_hold"]
+    },
+    {
+      "id": "consequence",
+      "kind": "CONSEQUENCE",
+      "title": "后果 / CONSEQUENCE",
+      "enter": {"flags_any": ["fire_release"]},
+      "prompt_ref": "story.consequence_fire",
+      "optional": true,
+      "actions": []
+    },
+    {
+      "id": "report",
+      "kind": "REPORT",
+      "title": "内部事后报告 / AFTER-ACTION",
+      "enter": {"flags_any": ["decision_made", "fire_release"]},
+      "prompt_ref": "story.report_event",
+      "actions": []
+    },
+    {
+      "id": "end",
+      "kind": "END",
+      "title": "归档 / END",
+      "enter": {"flags_any": ["report_submitted"]},
+      "prompt_ref": "story.report_evidence",
+      "actions": []
+    }
+  ],
+  "evidence": {
+    "policy": {"min_for_expose": 2},
+    "items": {
+      "port_telemetry": {"id": "port_telemetry", "label": "港务遥测", "duration_s": 30.0, "shuttle": false},
+      "inspection_blackbox": {"id": "inspection_blackbox", "label": "核查组黑匣子", "duration_s": 75.0, "shuttle": true},
+      "elint_signature": {"id": "elint_signature", "label": "异常 ELINT 特征码", "duration_s": 45.0, "shuttle": false},
+      "evacuation": {"id": "evacuation", "label": "撤出 Chronos 人员", "duration_s": 60.0, "shuttle": true, "flags_on_done": ["civilians_evacuated"]}
+    }
+  },
+  "orders": {
+    "tx_delay_s": 8.0,
+    "exec_delay_s": 0.0,
+    "id_prefix": "ORD",
+    "id_pad": 4
+  },
+  "exec_window": {
+    "duration_s": 360.0
+  },
+  "damage": {
+    "repair_rate_s": 120.0,
+    "initial": [
+      {"id": "sensor_cal", "label": "传感器校准漂移", "state": "degraded", "severity": 0.35, "repair_eta_s": 120.0},
+      {"id": "ir_false_alarm", "label": "CH-IR2 虚警率偏高", "state": "degraded", "severity": 0.2, "repair_eta_s": 60.0},
+      {"id": "thermal", "label": "热控回路温度偏高", "state": "damaged", "severity": 0.5, "repair_eta_s": 180.0}
+    ]
+  }
+}
