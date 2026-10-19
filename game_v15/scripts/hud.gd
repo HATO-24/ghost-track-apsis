@@ -670,9 +670,9 @@ func _threat_legend_chip(rc: Rect2, key: String) -> void:
 	var col := _threat_color(key)
 	draw_rect(rc, Palette.a(col, 0.04))
 	draw_rect(rc, Palette.a(col, 0.22), false, 1.0)
-	_threat_shape(Vector2(rc.position.x + 8.0, rc.position.y + 8.0), 8.0, key, Palette.a(col, 0.95))
-	_txt(cjk, rc.position.x + 16.0, rc.position.y + 2.0, String(THR_CN.get(key, "待判定")), 7, Palette.a(col, 0.95))
-	_txt(mono, rc.position.x + 16.0, rc.position.y + 11.0, String(THR_EN.get(key, "PENDING")), 6, Palette.a(col, 0.6))
+	_threat_shape(Vector2(rc.position.x + 9.0, rc.position.y + 8.0), 8.0, key, Palette.a(col, 0.95))
+	_txt(cjk, rc.position.x + 19.0, rc.position.y + 1.0, String(THR_CN.get(key, "待判定")), 7, Palette.a(col, 0.95))
+	_txt(mono, rc.position.x + 19.0, rc.position.y + 10.0, String(THR_EN.get(key, "PENDING")), 6, Palette.a(col, 0.6))
 
 # 通信流：19 §1 格式 [发信者至收信者]-[LD/LR/RDO/IR/VIS]-[内容]
 func _comms_mode_short(mode: String) -> String:
@@ -1032,6 +1032,9 @@ func _ready() -> void:
 			var demo_step := OS.get_environment("DSH_PRELUDE_STEP")
 			if demo_step != "":
 				_demo_pre_step = clampi(int(demo_step), 0, 2)
+		"clean":
+			# P4 截图：正常 HUD 默认态，仅抑制 capture 时自动弹出的副官申请窗口。
+			_demo_suppress_adjutant = true
 	# P3a：截图时把动效冻结到指定时刻（秒），用于逐帧截取硬切/解码中间态。
 	var ut := OS.get_environment("DSH_UI_T")
 	if ut != "":
@@ -1368,21 +1371,23 @@ func _draw_top() -> void:
 	draw_rect(TOP, Palette.a(Palette.BG, 0.55))
 	draw_line(Vector2(40, 112), Vector2(1880, 112), Palette.a(Palette.LINE, 0.95), 1.0)
 
-	_txt(cjk, 60, 47, "指挥官席 / COMMANDER", 7, Palette.FAINT)
+	# P4：顶栏左区重排到 4/8 基线：标签 46 / 大时标 68 / 任务时间 88 / 目标 100，
+	# 全部收在 TOP(40..112) 内，不再压到中心区或越出面板下沿。
+	_txt(cjk, 60, 46, "指挥官席 / COMMANDER", 7, Palette.FAINT)
 	var total := int(state.clock)
 	var hh := int(total / 3600.0)
 	var mm := int(total / 60.0) % 60
 	var ss := total % 60
 	var clock_s := "T+%02d:%02d:%02d" % [hh, mm, ss]
-	_txt(mono, 60, 57, clock_s, 26, Palette.PH)
-	var cw := mono.get_string_size(clock_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
+	_txt(mono, 60, 70, clock_s, 24, Palette.PH)
+	var cw := mono.get_string_size(clock_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
 	var tenth := int(fmod(float(state.clock), 1.0) * 10.0)
 	_txt(mono, 60.0 + cw + 2.0, 70, ".%d" % tenth, 13, Palette.a(Palette.PH, 0.55))
-	_txt(cjk, 60, 92, "任务时间 / MISSION ELAPSED", 7, Palette.FAINT)
+	_txt(cjk, 60, 88, "任务时间 / MISSION ELAPSED", 7, Palette.FAINT)
 	# P2a：目标行（第七号令 / Chronos / OCUVF-ID13；不显示 Act/Phase/关卡）。
-	_txt(cjk, 60, 104, "目标 / OBJECTIVE · 阻止接管 · 第七号令 · Chronos · OCUVF-ID13", 7, Palette.a(Palette.AMBER, 0.8))
+	_txt(cjk, 60, 100, "目标 / OBJECTIVE · 阻止接管 · 第七号令 · Chronos · OCUVF-ID13", 7, Palette.a(Palette.AMBER, 0.8))
 
-	draw_line(Vector2(520, 50), Vector2(520, 102), Palette.a(Palette.LINE, 0.7), 1.0)
+	draw_line(Vector2(520, 44), Vector2(520, 104), Palette.a(Palette.LINE, 0.7), 1.0)
 
 	# 07 §4：第一关顶栏是「接管通知 · 案卷 4471」，主计时是 6 分钟执行窗口；
 	# 主裁定的 216 h 宽限期另算，不压在这一关上。窗口剩余由 state.exec_left 提供。
@@ -1392,16 +1397,17 @@ func _draw_top() -> void:
 		exec_left = clampf(float(exec_v), 0.0, 360.0)
 	# P2a：可点开的接管声明（第七号令）；2001 AV-4412 传唤者。
 	var notice_hot := NOTICE_CLICK.has_point(_mouse_base())
-	_txt(cjk, 548, 47, "接管声明 · 第七号令 · AV-4412 传唤者 / ORDER 7 NOTICE", 7,
+	_txt(cjk, 548, 46, "接管声明 · 第七号令 · AV-4412 传唤者 / ORDER 7 NOTICE", 7,
 		Palette.a(Palette.AMBER, 0.95 if notice_hot else 0.72))
 	var notice_line_c: Color = Palette.a(Palette.AMBER, 0.55 if notice_hot else 0.22)
 	draw_line(Vector2(548.0, 60.0), Vector2(800.0, 60.0), notice_line_c, 1.0)
-	_txt(mono, 804, 47, "▸", 7, Palette.a(Palette.AMBER, 0.9 if notice_hot else 0.5))
-	_txt(cjk, 548, 66, "执行窗口", 9, Palette.DIM)
-	_txt(mono, 626, 56, _hms(exec_left), 24, Palette.AMBER)
-	draw_rect(Rect2(548, 96, 420, 1), Palette.a(Palette.AMBER, 0.16))
-	draw_rect(Rect2(548, 96, 420.0 * exec_left / 360.0, 1), Palette.AMBER)
-	_txt_r(cjk, 968, 87, "EXECUTION WINDOW · 时标锁 1× · OCUVF-ID13", 7, Palette.a(Palette.AMBER, 0.45))
+	_txt(mono, 804, 46, "▸", 7, Palette.a(Palette.AMBER, 0.9 if notice_hot else 0.5))
+	# P4：执行窗口 label / 数字 / 右侧注记统一基线（84 = 4 网格）；进度条压到 102。
+	_txt(cjk, 548, 84, "执行窗口", 9, Palette.DIM)
+	_txt(mono, 596, 84, _hms(exec_left), 24, Palette.AMBER)
+	draw_rect(Rect2(548, 102, 420, 1), Palette.a(Palette.AMBER, 0.16))
+	draw_rect(Rect2(548, 102, 420.0 * exec_left / 360.0, 1), Palette.AMBER)
+	_txt_r(cjk, 968, 84, "EXECUTION WINDOW · 时标锁 1× · OCUVF-ID13", 7, Palette.a(Palette.AMBER, 0.45))
 
 	draw_line(Vector2(1288, 50), Vector2(1288, 102), Palette.a(Palette.LINE, 0.7), 1.0)
 
@@ -1445,13 +1451,13 @@ func _draw_tracks() -> void:
 		_draw_track_row(state.tracks[i], i, y)
 
 	draw_line(Vector2(60, 824), Vector2(380, 824), Palette.a(Palette.LINE, 0.9), 1.0)
-	# P1k：底部小栏 = 威胁等级图例（身份图标仍留在接触行）。
-	# 4/8 基线：标题 832、图例条 844（高 16），每格 46（6 级 = 276，76…352）。
-	_txt(cjk, 76, 832, "威胁图例 / THREAT", 7, Palette.FAINT)
-	var lx := 76.0
-	for key in THR_ORDER:
-		_threat_legend_chip(Rect2(lx, 844, 46, 16), String(key))
-		lx += 46.0
+	# P4：威胁图例改两行 × 3 格（92×16，间距 96/16），6 级中英文都收在 60..380 内。
+	_txt(cjk, 76, 828, "威胁图例 / THREAT", 7, Palette.FAINT)
+	for i in range(THR_ORDER.size()):
+		var col := i % 3
+		var row := i / 3
+		_threat_legend_chip(Rect2(76.0 + float(col) * 96.0, 840.0 + float(row) * 16.0, 92.0, 16.0),
+			String(THR_ORDER[i]))
 
 func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 	var col := _side_color(t)
@@ -1948,10 +1954,11 @@ func _draw_unit() -> void:
 			Palette.PH if on else Palette.FAINT)
 	if rack.size() > 2:
 		_txt_r(mono, 1844, 632.0, "+%d" % (rack.size() - 2), 7, Palette.FAINT)
-	var exp_short := "EMIT 暴露风险" if bool(em.get("exposed", false)) else "EMCON 静默"
-	var exp_hint := "警告：暴露风险"
-	var exp_col: Color = Palette.RED if bool(state.get("elint_named")) else (Palette.AMBER if bool(em.get("exposed", false)) else Palette.FAINT)
-	_txt(cjk, 1556, 636, "%s · 等级 L%d · %s" % [exp_short, lv, exp_hint], 7, exp_col)
+	var exposed := bool(em.get("exposed", false))
+	# P4：底行精确文案（不再写「开机即暴露」）：EMIT/暴露 · 等级L4 · 开机暴露风险。
+	var exp_short := "EMIT/暴露" if exposed else "EMCON/静默"
+	var exp_col: Color = Palette.RED if bool(state.get("elint_named")) else (Palette.AMBER if exposed else Palette.FAINT)
+	_txt(cjk, 1556, 636, "%s · 等级L%d · 开机暴露风险" % [exp_short, lv], 7, exp_col)
 
 	draw_rect(Rect2(1556, 660, 288, 32), Palette.a(Palette.AMBER, 0.05))
 	draw_rect(Rect2(1556, 660, 2, 32), Palette.a(Palette.AMBER, 0.8))
@@ -3767,7 +3774,7 @@ func _draw_sensor_bar() -> void:
 	_glyph(x0 + 72.0, y0 + 6.0, 16.0, String(s.get("glyph", "ring")), Color(s.get("color", "#8CF0C0")))
 	var model := _dn(String(s.get("model", "—")))
 	_txt(cjk, x0 + 96.0, y0 + 8.0, "%s · %s" % [_rack_ship_name(), model], 9, Palette.TXT)
-	var tag := "会暴露" if bool(s.get("expose", false)) else "被动"
+	var tag := "暴露风险" if bool(s.get("expose", false)) else "被动"
 	var tag_col: Color = Palette.AMBER if bool(s.get("expose", false)) else Palette.FAINT
 	_txt_r(cjk, SENSOR_RECT.end.x - 32.0, y0 + 9.0, "%s · %s" % [_dn(String(s.get("mode", ""))), tag], 7, tag_col)
 	var chev := "▴" if menu_open else "▾"

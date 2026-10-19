@@ -1861,13 +1861,14 @@ func _draw_tasks() -> void:
 		_txt(mono, p.x + 8.0, p.y + 2.0, ("穿梭机 · " if shuttle else "哈马丹 · ") + String(tk2.get("label", "")), 7, Palette.a(c, 0.8))
 
 func _chrome_3d() -> void:
-	_txt(cjk, 16.0, 10.0, "战术态势", 14, Palette.PH)
-	_txt(mono, 16.0, 29.0, "TACTICAL PLOT", 8, Palette.DIM)
-	_txt(cjk, 16.0, 41.0, "站点基准 · 局部 ±400 km · 预测 +300 s" if String(state.datum) == "L1" else "LVLH · ±400 km · 预测 +300 s", 8, Palette.FAINT)
-	_txt(mono, 16.0, 53.0, "基准 %s · 三维轨道 · %.0f km" % [String(state.datum), dist / 1000.0], 8, Palette.a(Palette.PH, 0.75))
-	_txt(mono, 16.0, 65.0, "执行窗口 %s · 1× 锁" % _hms(state.exec_left), 7, Palette.a(Palette.AMBER, 0.70))
-	_txt(mono, 16.0, 77.0, String(state.sensor_note), 7, Palette.a(Palette.PH, 0.80))
-	_txt(mono, 16.0, 89.0, "传感器架 %s · %d 模块 · 融合 1 Hz" % [String(state.rack_ship).to_upper(), state.sensors.size()], 7, Palette.a(Palette.PH_FAINT, 0.95))
+	# P4：标题块按 4/8 基线重排（16pt 标题 + 12px 行距），消除挤行/上沿压线。
+	_txt(cjk, 16.0, 20.0, "战术态势", 14, Palette.PH)
+	_txt(mono, 16.0, 36.0, "TACTICAL PLOT", 8, Palette.DIM)
+	_txt(cjk, 16.0, 48.0, "站点基准 · 局部 ±400 km · 预测 +300 s" if String(state.datum) == "L1" else "LVLH · ±400 km · 预测 +300 s", 8, Palette.FAINT)
+	_txt(mono, 16.0, 60.0, "基准 %s · 三维轨道 · %.0f km" % [String(state.datum), dist / 1000.0], 8, Palette.a(Palette.PH, 0.75))
+	_txt(mono, 16.0, 72.0, "执行窗口 %s · 1× 锁" % _hms(state.exec_left), 7, Palette.a(Palette.AMBER, 0.70))
+	_txt(mono, 16.0, 84.0, String(state.sensor_note), 7, Palette.a(Palette.PH, 0.80))
+	_txt(mono, 16.0, 96.0, "传感器架 %s · %d 模块 · 融合 1 Hz" % [String(state.rack_ship).to_upper(), state.sensors.size()], 7, Palette.a(Palette.PH_FAINT, 0.95))
 	var blink := 0.55 + 0.45 * sin(_t * 3.2)
 	draw_circle(Vector2(8.0, 16.0), 2.2, Palette.a(Palette.PH, blink * 0.8))
 	_draw_legend()
@@ -1930,32 +1931,45 @@ func _draw_compass() -> void:
 		_txt(cjk, c.x - 90.0, c.y - 5.0, "帧 LVLH", 7, Palette.a(Palette.FAINT, 0.9))
 
 func _draw_legend() -> void:
-	_txt(cjk, 16.0, 648.0, "图例 / LEGEND · 身份 / IDENTITY", 7, Palette.a(Palette.FAINT, 0.9))
-	_txt(mono, 424.0, 648.0, "威胁：待判定 · 无威胁 · 低 · 中 · 高 · 敌对", 7, Palette.a(Palette.PH_DIM, 0.9))
-	var row1 := [["pending", "待定"], ["unknown", "未知"], ["assumed_friend", "假定友好"], ["friend", "友方"]]
-	var row2 := [["neutral", "中立"], ["suspect", "可疑"], ["hostile", "敌方"]]
-	var x := 22.0
-	for it in row1:
-		_symbol_at(Vector2(x, 665.0), String(it[0]), _identity_color(String(it[0])), 1)
-		_txt(cjk, x + 13.0, 668.0, String(it[1]), 7, Palette.DIM)
-		x += 96.0
-	x = 22.0
-	for it in row2:
-		_symbol_at(Vector2(x, 681.0), String(it[0]), _identity_color(String(it[0])), 1)
-		_txt(cjk, x + 13.0, 684.0, String(it[1]), 7, Palette.DIM)
-		x += 96.0
-	draw_rect(Rect2(Vector2(x - 2.0, 676.0), Vector2(8, 8)), Palette.a(Palette.FAINT, 0.85), false, 1.0)
-	draw_line(Vector2(x - 3.0, 675.0), Vector2(x + 7.0, 687.0), Palette.a(Palette.FAINT, 0.65), 1.0)
-	_txt(cjk, x + 13.0, 684.0, "无威胁", 7, Palette.DIM)
-	var y2 := 700.0
-	draw_line(Vector2(16, y2 + 5), Vector2(34, y2 + 5), Palette.a(Palette.PH_DIM, 0.55), 1.0)
-	_txt(cjk, 40.0, y2, "历史", 7, Palette.DIM)
-	draw_dashed_line(Vector2(82, y2 + 5), Vector2(100, y2 + 5), Palette.a(Palette.PH, 0.8), 1.0, 4.0)
-	_txt(cjk, 106.0, y2, "预测", 7, Palette.DIM)
-	draw_dashed_line(Vector2(148, y2 + 5), Vector2(166, y2 + 5), Palette.a(Palette.PH, 0.35), 1.0, 2.0)
-	_txt(cjk, 172.0, y2, "1σ 误差", 7, Palette.DIM)
-	_txt(mono, 16.0, 714.0, "航迹：批号 · L1 方位线 · L2 定位+协方差 · L3 分类 · L4 舰名/敌我识别", 7, Palette.a(Palette.PH, 0.65))
-	_txt(mono, 16.0, 727.0, "T+60/120/300 = 预测刻度 · 辐射 = 开机即暴露 · LINK DEGRADED", 7, Palette.a(Palette.PH_FAINT, 0.95))
+	# P4：左下角图例重排 —— 两栏分组（身份 / 航迹+图形）+ 半透明底板，7pt；
+	# 只占地图左下角，宽 560/高 132，不越出地图边界，避开右下站点标记列。
+	var box := Rect2(12.0, size.y - 148.0, 560.0, 132.0)
+	draw_rect(box, Palette.a(Palette.BG, 0.80))
+	draw_rect(box, Palette.a(Palette.LINE, 0.55), false, 1.0)
+	var x0 := box.position.x + 10.0
+	var y0 := box.position.y + 10.0
+	_txt(cjk, x0, y0, "图例 / LEGEND", 7, Palette.a(Palette.PH, 0.85))
+	_txt(mono, x0 + 86.0, y0, "身份 / IDENTITY", 7, Palette.FAINT)
+	_txt(mono, x0 + 300.0, y0, "航迹 / TRACK", 7, Palette.FAINT)
+	# 左栏：六级身份 + 无威胁（3 列 × 3 行）
+	var id_rows := [
+		[["friend", "友方"], ["assumed_friend", "假定友好"], ["neutral", "中立"]],
+		[["suspect", "可疑"], ["hostile", "敌方"], ["unknown", "未知"]],
+		[["pending", "待定"], ["none", "无威胁"], ["", ""]],
+	]
+	for r in range(id_rows.size()):
+		var row: Array = id_rows[r]
+		for c in range(row.size()):
+			var it: Array = row[c]
+			if String(it[0]) == "":
+				continue
+			var sx: float = x0 + float(c) * 94.0
+			var sy: float = y0 + 18.0 + float(r) * 16.0
+			_symbol_at(Vector2(sx, sy), String(it[0]), _identity_color(String(it[0])), 1)
+			_txt(cjk, sx + 13.0, sy + 3.0, String(it[1]), 7, Palette.DIM)
+	# 右栏：航迹 / 预测 / 1σ 图形说明
+	var tx: float = x0 + 300.0
+	var ty: float = y0 + 18.0
+	draw_line(Vector2(tx, ty + 3.0), Vector2(tx + 18.0, ty + 3.0), Palette.a(Palette.PH_DIM, 0.6), 1.0)
+	_txt(cjk, tx + 23.0, ty + 3.0, "历史 / HISTORY", 7, Palette.DIM)
+	draw_dashed_line(Vector2(tx, ty + 16.0), Vector2(tx + 18.0, ty + 16.0), Palette.a(Palette.PH, 0.8), 1.0, 4.0)
+	_txt(cjk, tx + 23.0, ty + 16.0, "预测 / PREDICT", 7, Palette.DIM)
+	draw_dashed_line(Vector2(tx, ty + 29.0), Vector2(tx + 18.0, ty + 29.0), Palette.a(Palette.PH, 0.35), 1.0, 2.0)
+	_txt(cjk, tx + 23.0, ty + 29.0, "1σ 误差 / COV", 7, Palette.DIM)
+	# 底栏说明（两行 · 7pt，收在 560 宽内）
+	_txt(mono, x0, y0 + 74.0, "批号 0000 · L1 方位线 / L2 定位+协方差 / L3 分类 / L4 舰名+识别", 7, Palette.a(Palette.PH, 0.70))
+	_txt(mono, x0, y0 + 88.0, "预测刻度 T+60/120/300 · EMIT 暴露 · LINK DEGRADED", 7, Palette.a(Palette.PH_FAINT, 0.95))
+	_txt(mono, x0, y0 + 102.0, "威胁：待判定 · 无威胁 · 低 · 中 · 高 · 敌对", 7, Palette.a(Palette.PH_DIM, 0.90))
 
 func _draw_optical() -> void:
 	var r := Rect2(size.x - 252.0, 76.0, 236.0, 132.0)
