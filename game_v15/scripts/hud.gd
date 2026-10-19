@@ -1213,7 +1213,7 @@ func _process(delta: float) -> void:
 		_filed_t = maxf(0.0, _filed_t - delta)
 	if _feed_flash > 0.0:
 		_feed_flash = maxf(0.0, _feed_flash - delta)
-	# P1g：END 归档页的退出键 E（R 重开由 main.gd 的 END 分支处理；main 用 Q 退出）。
+	# P1g：END 归档页的退出键 E（R 重开由 main.gd 的 END 分支处理；main 用 X 退出）。
 	if _ov_end() and state.boot_t >= 1.7:
 		var ed := Input.is_key_pressed(KEY_E)
 		var ew := bool(_key_prev.get(KEY_E, false))
@@ -1332,7 +1332,7 @@ func _draw_pause_menu() -> void:
 	_cmd_btn(PAUSE_BTN_RESUME, "继续 / RESUME", false, Palette.PH)
 	_cmd_btn(PAUSE_BTN_RESTART, "重新开始 / RESTART", false, Palette.AMBER)
 	_cmd_btn(PAUSE_BTN_QUIT, "退出 / QUIT", false, Palette.RED)
-	_txt(cjk, r.position.x + 28.0, r.end.y - 32.0, "ESC 继续 · R 重新开始 · Q 退出", 8, Palette.a(Palette.FAINT, 0.9))
+	_txt(cjk, r.position.x + 28.0, r.end.y - 32.0, "ESC 继续 · R 重新开始 · X 退出", 8, Palette.a(Palette.FAINT, 0.9))
 	_txt_r(mono, r.end.x - 28.0, r.end.y - 32.0, "PAUSE · NOT IN COMMS", 7, Palette.a(Palette.FAINT, 0.6))
 
 func _sfx(n: String) -> void:

@@ -565,16 +565,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_R:
 				hud.close_pause()
 				state.restart_demo()
-			KEY_Q:
+			KEY_X:
 				get_tree().quit()
 			KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
 				hud.close_pause()
 		return
-	# P1g：END 页 —— R 重开 / Q 退出
+	# P1g：END 页 —— R 重开 / X 退出
 	if state.end_open:
 		if event.keycode == KEY_R:
 			state.restart_demo()
-		elif event.keycode == KEY_Q:
+		elif event.keycode == KEY_X:
 			get_tree().quit()
 		return
 	# P1f：决断 / 后果 / 报告面板优先吃键（1/2/3 与 F）
@@ -691,7 +691,7 @@ class EndPanel extends Control:
 			draw_string(cjk, Vector2(r.position.x + 16.0, y), String(line), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, P.TXT)
 			y += 18.0
 		var fy := r.end.y - 52.0
-		draw_string(cjk, Vector2(r.position.x + 16.0, fy), "R 重开演示 · ESC / Q 退出", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, P.a(P.PH, 0.85))
+		draw_string(cjk, Vector2(r.position.x + 16.0, fy), "R 重开演示 · ESC / X 退出", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, P.a(P.PH, 0.85))
 		draw_string(cjk, Vector2(r.position.x + 16.0, fy + 18.0), "报告文本 / flags 已写入 state.end_summary，供后续审裁与剧情读取。", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, P.a(P.FAINT, 0.9))
 
 	func _wrap(s: String, n: int) -> Array:
