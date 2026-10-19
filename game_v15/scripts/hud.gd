@@ -113,6 +113,10 @@ const PRELUDE_SKIP := Rect2(1252, 778, 200, 32)
 const FEED_ROWS := 3
 const FEED_PITCH := 12.0
 const PAUSE_RECT := Rect2(1560, 912, 284, 24)
+const PAUSE_MENU := Rect2(650, 300, 620, 380)
+const PAUSE_BTN_RESUME := Rect2(700, 420, 520, 40)
+const PAUSE_BTN_RESTART := Rect2(700, 480, 520, 40)
+const PAUSE_BTN_QUIT := Rect2(700, 540, 520, 40)
 const END_RECT := Rect2(420, 200, 1080, 640)
 const END_RESTART := Rect2(940, 756, 260, 40)
 const END_EXIT := Rect2(1216, 756, 240, 40)
@@ -959,6 +963,8 @@ const DIR_PRESETS := [
 var _burn_drag := false
 var _preview_dirty := false
 var _queue_abort: Array = []          # [{rect: Rect2, id: String}]（每帧重建）
+var pause_open := false
+var _pause_prev := false
 
 # P1f：覆盖层 / 武器释放（优先读 state 字段；缺失时用 DSH_UI 的本地演示态）
 var _demo_decision := false
@@ -1069,6 +1075,9 @@ func _ready() -> void:
 				_demo_pre_step = clampi(int(demo_step), 0, 2)
 		"clean":
 			# P4 截图：正常 HUD 默认态，仅抑制 capture 时自动弹出的副官申请窗口。
+			_demo_suppress_adjutant = true
+		"pause":
+			pause_open = true
 			_demo_suppress_adjutant = true
 	# P9a 截图钩子：日志/队列页签、损管详情、航行准备长按已充能。
 	var ltab := OS.get_environment("DSH_LOG_TAB")
@@ -1265,6 +1274,8 @@ func _draw() -> void:
 		_draw_window_cut(Rect2(0, 0, 1920, 1080), UI_CUT_DUR - _prelude_close_t)
 	# P1g：暂停指示画在覆盖层之上（否则会被 dim 压暗），时标处常驻可见。
 	_draw_pause_badge()
+	if pause_open:
+		_draw_pause_menu()
 
 # P1g：decision / consequence / report / END 时，时标处显示 PAUSED · 裁决/报告/归档。
 func _draw_pause_badge() -> void:
@@ -1279,6 +1290,51 @@ func _draw_pause_badge() -> void:
 	_txt(cjk, pr.position.x + 22.0, pr.position.y + 5.0, "PAUSED · " + pl, 10, Palette.a(Palette.AMBER, 0.98))
 	_txt_r(mono, pr.end.x - 12.0, pr.position.y + 6.0, "SIM FROZEN", 7, Palette.a(Palette.AMBER, 0.6))
 
+func open_pause() -> void:
+	if pause_open:
+		return
+	pause_open = true
+	_pause_prev = bool(state.paused)
+	state.paused = true
+	_sfx("ui_open")
+
+func close_pause() -> void:
+	if not pause_open:
+		return
+	pause_open = false
+	if state != null:
+		state.paused = _pause_prev
+	_sfx("ui_back")
+
+func _handle_pause_click(p: Vector2) -> void:
+	if PAUSE_BTN_RESUME.has_point(p):
+		close_pause()
+		return
+	if PAUSE_BTN_RESTART.has_point(p):
+		close_pause()
+		state.restart_demo()
+		_sfx("ui_confirm")
+		return
+	if PAUSE_BTN_QUIT.has_point(p):
+		get_tree().quit()
+		return
+	if not PAUSE_MENU.has_point(p):
+		close_pause()
+
+func _draw_pause_menu() -> void:
+	draw_rect(Rect2(Vector2.ZERO, Vector2(1920, 1080)), Color(0.01, 0.02, 0.018, 0.78))
+	var r := PAUSE_MENU
+	draw_rect(r, Palette.a(Palette.PANEL, 0.99))
+	draw_rect(r, Palette.a(Palette.AMBER, 0.65), false, 1.0)
+	_txt(cjk, r.position.x + 28.0, r.position.y + 34.0, "暂停 / PAUSED", 18, Palette.AMBER)
+	_txt(mono, r.position.x + 28.0, r.position.y + 58.0, "SIMULATION FROZEN · OCUVF-ID13", 8, Palette.a(Palette.FAINT, 0.9))
+	draw_line(Vector2(r.position.x, r.position.y + 76.0), Vector2(r.end.x, r.position.y + 76.0), Palette.a(Palette.LINE, 0.7), 1.0)
+	_cmd_btn(PAUSE_BTN_RESUME, "继续 / RESUME", false, Palette.PH)
+	_cmd_btn(PAUSE_BTN_RESTART, "重新开始 / RESTART", false, Palette.AMBER)
+	_cmd_btn(PAUSE_BTN_QUIT, "退出 / QUIT", false, Palette.RED)
+	_txt(cjk, r.position.x + 28.0, r.end.y - 32.0, "ESC 继续 · R 重新开始 · Q 退出", 8, Palette.a(Palette.FAINT, 0.9))
+	_txt_r(mono, r.end.x - 28.0, r.end.y - 32.0, "PAUSE · NOT IN COMMS", 7, Palette.a(Palette.FAINT, 0.6))
+
 func _sfx(n: String) -> void:
 	if state == null or state.capture:
 		return
@@ -1288,6 +1344,9 @@ func _sfx(n: String) -> void:
 
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
+		return
+	if pause_open:
+		_handle_pause_click(p)
 		return
 	if not state.capture:
 		var audio := get_node_or_null("/root/Audio")
@@ -1384,6 +1443,8 @@ func click(p: Vector2) -> void:
 			return
 
 func consumes(p: Vector2) -> bool:
+	if pause_open:
+		return true
 	# P3c：前置航行 / P2b 副官申请优先吞输入。
 	if _ov_prelude():
 		return true

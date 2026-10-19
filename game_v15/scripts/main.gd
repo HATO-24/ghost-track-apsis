@@ -555,7 +555,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		_toggle_borderless()
 		return
 	if event.keycode == KEY_ESCAPE:
-		get_tree().quit()
+		if hud.pause_open:
+			hud.close_pause()
+		else:
+			hud.open_pause()
+		return
+	if hud.pause_open:
+		match event.keycode:
+			KEY_R:
+				hud.close_pause()
+				state.restart_demo()
+			KEY_Q:
+				get_tree().quit()
+			KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+				hud.close_pause()
 		return
 	# P1g：END 页 —— R 重开 / Q 退出
 	if state.end_open:
