@@ -26,6 +26,7 @@
 - Demo 文本清单 → [`docs/23_Demo文本清单.md`](docs/23_Demo文本清单.md)
 - 音频设计 → [`docs/28_音频设计.md`](docs/28_音频设计.md)
 - 启动 CG → [`docs/29_启动CG.md`](docs/29_启动CG.md)
+- 独立 Demo 打包 → [`docs/30_独立Demo打包.md`](docs/30_独立Demo打包.md)
 
 ## 目录
 
