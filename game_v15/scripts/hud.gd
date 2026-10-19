@@ -81,7 +81,7 @@ const RACK_HEADER_Y := 512.0
 const RACK_ROW_Y := 528.0
 const RACK_ROW_PITCH := 16.0
 const RACK_ROWS_MAX := 5
-const MAST_BTN := Rect2(1556, 480, 120, 14)
+const MAST_BTN := Rect2(1704, 490, 140, 14)
 const RACK_PAGE_BTN := Rect2(1796, 514, 48, 16)
 const DAMAGE_CARD := Rect2(1556, 614, 288, 74)
 const DAMAGE_BTN := Rect2(1556, 668, 120, 16)
@@ -2468,18 +2468,18 @@ func _draw_unit() -> void:
 	# Δv（紧凑）
 	var dv_s := String(u.get("dv", "—"))
 	var dv_max := String(u.get("dv_max", "—"))
-	_txt(cjk, UNIT_X, 424, "Δv 预算 / BUDGET", 7, Palette.FAINT)
-	_txt(mono, UNIT_X, 450, dv_s, 24, Palette.PH)
+	_txt(cjk, UNIT_X, 420, "Δv 预算 / BUDGET", 7, Palette.FAINT)
+	_txt(mono, UNIT_X, 440, dv_s, 24, Palette.PH)
 	var dvw := mono.get_string_size(dv_s, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
-	_txt(mono, UNIT_X + dvw + 5.0, 450, "m/s", 8, Palette.DIM)
-	_txt_r(mono, 1844, 450, "/ %s 满" % dv_max, 8, Palette.DIM)
+	_txt(mono, UNIT_X + dvw + 5.0, 440, "m/s", 8, Palette.DIM)
+	_txt_r(mono, 1844, 440, "/ %s 满" % dv_max, 8, Palette.DIM)
 	var dv_now := _to_int(dv_s)
 	var dv_full := _to_int(dv_max)
 	var dv_frac := 1.0
 	if dv_full > 0:
 		dv_frac = clampf(float(dv_now) / float(dv_full), 0.0, 1.0)
-	_bar(Rect2(UNIT_X, 460, 288, 3), dv_frac, Palette.PH)
-	_txt(cjk, UNIT_X, 474, "剩余 %d%% · 已耗 %s m/s" % [int(round(dv_frac * 100.0)), _fmt_int(maxi(dv_full - dv_now, 0))],
+	_bar(Rect2(UNIT_X, 468, 288, 3), dv_frac, Palette.PH)
+	_txt(cjk, UNIT_X, 476, "剩余 %d%% · 已耗 %s m/s" % [int(round(dv_frac * 100.0)), _fmt_int(maxi(dv_full - dv_now, 0))],
 		7, Palette.FAINT)
 
 	# 完整传感器架：每页最多 5 行，超过则分页（点击右上翻页），不截断
