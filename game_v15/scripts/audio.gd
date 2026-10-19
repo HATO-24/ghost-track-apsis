@@ -27,11 +27,16 @@ const BGM_NAMES := {
 }
 
 const SFX_NAMES := [
-	"ui_hover", "ui_confirm", "ui_back", "ui_error",
-	"alarm", "fire", "hard_cut", "boot",
+	"ui_hover", "ui_select", "ui_confirm", "ui_back", "ui_error",
+	"ui_toggle_on", "ui_toggle_off", "ui_open", "ui_close", "ui_slider", "ui_tab",
+	"sys_boot", "sys_sensor_on", "sys_sensor_off", "sys_radar_ping", "sys_elint",
+	"sys_comms_rx", "sys_cmd_queued", "sys_cmd_tx", "sys_cmd_exec",
+	"sys_evidence_start", "sys_evidence_done", "sys_evac_start", "sys_evac_done",
+	"sys_clock_tick", "alarm", "alarm_decision", "alarm_lock", "alarm_fire", "alarm_damage",
+	"fire", "hard_cut", "boot",
 ]
 
-const SFX_POOL_SIZE := 8
+const SFX_POOL_SIZE := 16
 const BGM_DIR := "res://audio/"
 const DEFAULT_BGM_DB := -14.0
 const DEFAULT_SFX_DB := -6.0

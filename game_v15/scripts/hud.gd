@@ -277,6 +277,11 @@ func _toggle_sensor(idx: int) -> void:
 	var on := _rack_on(_rack_ship(), model, bool(s.get("on", true)))
 	# 只调 state API（内部刷新 plan / emissions）；不改 state 字段。
 	state.call("set_sensor", _rack_ship(), idx, not on)
+	_sfx("sys_sensor_on" if not on else "sys_sensor_off")
+	if not on and (model == "YW-R9" or model == "MK-12"):
+		_sfx("sys_radar_ping")
+	elif not on and model == "ELINT":
+		_sfx("sys_elint")
 	queue_redraw()
 
 # 截图钩子用：把第一个「可暴露且当前关」的模块开机（用于展示「开机即暴露」）。
@@ -724,6 +729,9 @@ func _open_modal(kind: String) -> void:
 	if _any_overlay():
 		return
 	_modal = kind
+	_sfx("ui_open")
+	if kind == "notice":
+		_sfx("sys_comms_rx")
 	_modal_prev_paused = bool(state.paused)
 	state.paused = true
 	queue_redraw()
@@ -732,6 +740,7 @@ func _close_modal() -> void:
 	if _modal == "advisor":
 		_advisor_read = true
 	_modal = ""
+	_sfx("ui_close")
 	if state != null:
 		state.paused = _modal_prev_paused
 	queue_redraw()
@@ -1188,6 +1197,13 @@ func _draw_pause_badge() -> void:
 	draw_rect(Rect2(pr.position.x + 12.0, pr.position.y + 9.0, 2.0, 6.0), Palette.a(Palette.AMBER, pblink))
 	_txt(cjk, pr.position.x + 22.0, pr.position.y + 5.0, "PAUSED · " + pl, 10, Palette.a(Palette.AMBER, 0.98))
 	_txt_r(mono, pr.end.x - 12.0, pr.position.y + 6.0, "SIM FROZEN", 7, Palette.a(Palette.AMBER, 0.6))
+
+func _sfx(n: String) -> void:
+	if state == null or state.capture:
+		return
+	var a := get_node_or_null("/root/Audio")
+	if a != null:
+		a.call("sfx", n)
 
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
@@ -1684,6 +1700,7 @@ func _evac_task() -> Dictionary:
 
 func _start_evidence(kind: String) -> void:
 	_evidence_menu_open = false
+	_sfx("sys_evidence_start")
 	var st_kind := _evid_state_key(kind)
 	if state != null:
 		if state.has_method("start_evidence_task"):
@@ -1696,6 +1713,7 @@ func _start_evidence(kind: String) -> void:
 		_demo_task = {"kind": kind, "label": _evid_label(kind), "t0": _t, "duration_s": 96.0, "done": false}
 
 func _start_evac() -> void:
+	_sfx("sys_evac_start")
 	if state != null:
 		if state.has_method("start_evacuation"):
 			state.call("start_evacuation")
@@ -2159,6 +2177,7 @@ func _authorize() -> void:
 			state.issue_command("SHADOW", {"hold_km": 60.0}, "谷神-2")
 		"BURN":
 			state.issue_command("BURN", _draft_params())
+	_sfx("sys_cmd_queued")
 	queue_redraw()
 
 func _handle_command_click(p: Vector2) -> void:

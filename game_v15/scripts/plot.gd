@@ -456,8 +456,6 @@ func _draw_station_backing() -> void:
 		_dashed_line2(a_l, a_r, Palette.a(Palette.PH_FAINT, 0.22), 1.0, 7.0)
 	_dir_marker(270.0, 300.0, "EARTH", "地心 · 326,000 km", Palette.PH_DIM)
 	_dir_marker(90.0, 300.0, "MOON", "月心 · 58,400 km", Palette.BLUE)
-	_txt(cjk, 24.0, 124.0, "站点基准 / STATION FRAME", 8, Palette.a(Palette.PH, 0.65))
-	_txt(mono, 24.0, 136.0, "DATUM L1 · NO EARTH LIMB", 7, Palette.a(Palette.FAINT, 0.9))
 	# 站点十字（画在本舰标记下面一层）
 	draw_line(o - Vector2(34.0, 0.0), o + Vector2(34.0, 0.0), Palette.a(Palette.PH, 0.30), 1.0)
 	draw_line(o - Vector2(0.0, 34.0), o + Vector2(0.0, 34.0), Palette.a(Palette.PH, 0.30), 1.0)
@@ -1405,9 +1403,10 @@ func _draw_sensor() -> void:
 	_draw_sensor_label(s, typ)
 
 func _layer_label(txt: String, col: Color, sub := "") -> void:
-	_txt(cjk, 24.0, 96.0, txt, 8, col)
+	# P4e：从左上状态块移出，放到光学窗下方，避免与标题/任务块重叠。
+	_txt(cjk, size.x - 252.0, 216.0, txt, 8, col)
 	if sub != "":
-		_txt(mono, 24.0, 108.0, sub, 7, Palette.a(col, 0.40))
+		_txt(mono, size.x - 252.0, 228.0, sub, 7, Palette.a(col, 0.40))
 
 func _draw_radar_sweep(o: Vector2) -> void:
 	var sweep := fmod(_t * 0.9, TAU)
@@ -1946,18 +1945,29 @@ func _draw_tasks() -> void:
 		_txt(mono, p.x + 8.0, p.y + 2.0, ("穿梭机 · " if shuttle else "哈马丹 · ") + String(tk2.get("label", "")), 7, Palette.a(c, 0.8))
 
 func _chrome_3d() -> void:
-	# P4：标题块按 4/8 基线重排（16pt 标题 + 12px 行距），消除挤行/上沿压线。
-	_txt(cjk, 16.0, 20.0, "战术态势", 14, Palette.PH)
-	_txt(mono, 16.0, 36.0, "TACTICAL PLOT", 8, Palette.DIM)
-	_txt(cjk, 16.0, 48.0, "站点基准 · 局部 ±400 km · 预测 +300 s" if String(state.datum) == "L1" else "LVLH · ±400 km · 预测 +300 s", 8, Palette.FAINT)
-	_txt(mono, 16.0, 60.0, "基准 %s · 三维轨道 · %.0f km" % [String(state.datum), dist / 1000.0], 8, Palette.a(Palette.PH, 0.75))
-	_txt(mono, 16.0, 72.0, "执行窗口 %s · 1× 锁" % _hms(state.exec_left), 7, Palette.a(Palette.AMBER, 0.70))
-	_txt(mono, 16.0, 84.0, String(state.sensor_note), 7, Palette.a(Palette.PH, 0.80))
-	_txt(mono, 16.0, 96.0, "传感器架 %s · %d 模块 · 融合 1 Hz" % [String(state.rack_ship).to_upper(), state.sensors.size()], 7, Palette.a(Palette.PH_FAINT, 0.95))
-	var blink := 0.55 + 0.45 * sin(_t * 3.2)
-	draw_circle(Vector2(8.0, 16.0), 2.2, Palette.a(Palette.PH, blink * 0.8))
+	# P4e：左上角改为有层级的状态块：标题 / 视图 / 基准 / 窗口 / 传感器。
+	var x0 := 16.0
+	var y := 20.0
+	draw_rect(Rect2(8.0, 12.0, 360.0, 112.0), Palette.a(Palette.BG, 0.72))
+	draw_rect(Rect2(8.0, 12.0, 2.0, 112.0), Palette.a(Palette.PH, 0.55))
+	_txt(cjk, x0, y, "战术态势", 14, Palette.PH)
+	_txt(mono, x0, y + 18.0, "TACTICAL PLOT · L1 MERIDIAN-05", 8, Palette.DIM)
+	var lx := x0
+	var vx := x0 + 84.0
+	var rows := [
+		["基准 / DATUM", "%s · 站点基准" % String(state.datum)],
+		["视图 / VIEW", "3D · DIST %s km" % _fmt_km(dist / 1000.0)],
+		["窗口 / WINDOW", "%s · 1×" % _hms(state.exec_left)],
+		["融合 / FUSION", "1 Hz · %d 接触" % state.tracks.size()],
+	]
+	var yy := y + 36.0
+	for row in rows:
+		draw_rect(Rect2(x0, yy - 1.0, 78.0, 1.0), Palette.a(Palette.LINE, 0.35))
+		_txt(cjk, lx, yy + 2.0, String(row[0]), 7, Palette.a(Palette.FAINT, 0.95))
+		_txt(mono, vx, yy + 2.0, String(row[1]), 7, Palette.a(Palette.PH, 0.82))
+		yy += 18.0
 	_draw_legend()
-	# 右下：命令 / 模型 / 历元状态（与基准 REF 标签叠一列）
+	# 右下：命令 / 模型 / 历元状态（保留）
 	_txt_r(mono, size.x - 24.0, size.y - 116.0, String(state.cmd_note), 7, Palette.a(Palette.AMBER, 0.85))
 	_txt_r(mono, size.x - 24.0, size.y - 104.0, "1 保持站位 STATION · 2 跟踪 SHADOW · 3 点火 BURN · 4 撤销", 7, Palette.a(Palette.PH, 0.65))
 	_txt_r(mono, size.x - 24.0, size.y - 92.0, "历元 T0+%06.1fs · 预测 %d 点" % [_tau_now(), PRED_STEPS + 1], 7, Palette.a(Palette.PH_FAINT, 0.9))

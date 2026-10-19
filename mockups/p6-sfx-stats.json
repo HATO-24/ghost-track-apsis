@@ -1,0 +1,134 @@
+{
+  "ui_hover": {
+    "dur": 0.045,
+    "bytes": 4012
+  },
+  "ui_select": {
+    "dur": 0.06,
+    "bytes": 5336
+  },
+  "ui_confirm": {
+    "dur": 0.25,
+    "bytes": 22094
+  },
+  "ui_back": {
+    "dur": 0.14,
+    "bytes": 12392
+  },
+  "ui_error": {
+    "dur": 0.26,
+    "bytes": 22976
+  },
+  "ui_toggle_on": {
+    "dur": 0.14,
+    "bytes": 12392
+  },
+  "ui_toggle_off": {
+    "dur": 0.14,
+    "bytes": 12392
+  },
+  "ui_open": {
+    "dur": 0.22,
+    "bytes": 19448
+  },
+  "ui_close": {
+    "dur": 0.18,
+    "bytes": 15920
+  },
+  "ui_slider": {
+    "dur": 0.025,
+    "bytes": 2248
+  },
+  "ui_tab": {
+    "dur": 0.1,
+    "bytes": 8864
+  },
+  "sys_boot": {
+    "dur": 1.6,
+    "bytes": 141164
+  },
+  "sys_sensor_on": {
+    "dur": 0.28,
+    "bytes": 24740
+  },
+  "sys_sensor_off": {
+    "dur": 0.26,
+    "bytes": 22976
+  },
+  "sys_radar_ping": {
+    "dur": 0.56,
+    "bytes": 49436
+  },
+  "sys_elint": {
+    "dur": 0.45,
+    "bytes": 39734
+  },
+  "sys_comms_rx": {
+    "dur": 0.16,
+    "bytes": 14156
+  },
+  "sys_cmd_queued": {
+    "dur": 0.17,
+    "bytes": 15038
+  },
+  "sys_cmd_tx": {
+    "dur": 0.22,
+    "bytes": 19448
+  },
+  "sys_cmd_exec": {
+    "dur": 0.25,
+    "bytes": 22094
+  },
+  "sys_evidence_start": {
+    "dur": 0.23,
+    "bytes": 20330
+  },
+  "sys_evidence_done": {
+    "dur": 0.48,
+    "bytes": 42380
+  },
+  "sys_evac_start": {
+    "dur": 0.29,
+    "bytes": 25620
+  },
+  "sys_evac_done": {
+    "dur": 0.49,
+    "bytes": 43262
+  },
+  "sys_clock_tick": {
+    "dur": 0.025,
+    "bytes": 2248
+  },
+  "alarm_decision": {
+    "dur": 1.6,
+    "bytes": 141164
+  },
+  "alarm_lock": {
+    "dur": 1.0,
+    "bytes": 88242
+  },
+  "alarm_fire": {
+    "dur": 0.8,
+    "bytes": 70604
+  },
+  "alarm_damage": {
+    "dur": 0.6,
+    "bytes": 52964
+  },
+  "alarm": {
+    "dur": 1.6,
+    "bytes": 141164
+  },
+  "fire": {
+    "dur": 0.8,
+    "bytes": 70604
+  },
+  "hard_cut": {
+    "dur": 0.1,
+    "bytes": 8864
+  },
+  "boot": {
+    "dur": 1.8,
+    "bytes": 158804
+  }
+}

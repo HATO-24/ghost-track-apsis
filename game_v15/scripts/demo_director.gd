@@ -69,23 +69,23 @@ func _segment_sensors_and_orders() -> void:
 func _segment_evidence() -> void:
 	var st = _st()
 	_caption("04 / 副官申请 · 取证与撤离")
-	st.clock = 21.0
+	st.clock = st.T0 + 21.0
 	st.refresh(st.clock)
 	await _wait(2.2)
 	st.ack_adjutant("telemetry")
 	await _wait(1.6)
-	st.clock = 55.0
+	st.clock = st.T0 + 55.0
 	st.refresh(st.clock)
 	await _wait(1.0)
 	st.start_evidence_task("inspection_blackbox")
 	_caption("05 / 穿梭机取证 · 港务遥测 / 核查组黑匣子")
 	await _wait(2.0)
-	st.clock = 130.0
+	st.clock = st.T0 + 130.0
 	st.refresh(st.clock)
 	await _wait(1.0)
 	st.start_evacuation()
 	await _wait(1.8)
-	st.clock = 195.0
+	st.clock = st.T0 + 195.0
 	st.refresh(st.clock)
 	_caption("06 / 证据 2/3 · 可走 EXPOSE")
 	await _wait(2.0)
@@ -93,11 +93,11 @@ func _segment_evidence() -> void:
 func _segment_decision_and_report() -> void:
 	var st = _st()
 	st.exec_left = 60.0
-	st.clock = 301.0
+	st.clock = st.T0 + 301.0
 	st.refresh(st.clock)
 	_caption("07 / 指挥官决策 · HOLD / EVACUATE / EXPOSE")
 	await _wait(3.0)
-	st.choose_ending("EXPOSE")
+	var choose_ret = st.choose_ending("EXPOSE")
 	_caption("08 / 内部报告 · 如实提交")
 	await _wait(2.4)
 	st.submit_report("TRUTH")

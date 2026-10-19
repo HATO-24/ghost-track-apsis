@@ -26,6 +26,11 @@ var _last_consequence := false
 var _last_report := false
 var _demo_caption: Label
 var _demo_director
+var _last_task_n := 0
+var _last_done_n := 0
+var _last_civ := false
+var _last_radio_n := -1
+var _last_cmd_n := 0
 
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
@@ -147,11 +152,38 @@ func _sfx(name: String) -> void:
 
 func _audio_cues() -> void:
 	if state.decision_open and not _last_decision:
-		_sfx("alarm")
+		_sfx("alarm_decision")
 	if state.consequence_open and not _last_consequence:
-		_sfx("fire")
+		_sfx("alarm_fire")
 	if state.report_open and not _last_report:
-		_sfx("ui_confirm")
+		_sfx("sys_cmd_exec")
+	# 系统事件：通信、命令、取证/撤人。
+	var tasks: Array = state.evidence_tasks if state.evidence_tasks is Array else []
+	if tasks.size() > _last_task_n:
+		var latest: Dictionary = tasks[tasks.size() - 1]
+		if String(latest.get("kind", "")) == "evacuation":
+			_sfx("sys_evac_start")
+		else:
+			_sfx("sys_evidence_start")
+	var done_n := 0
+	for raw in tasks:
+		if String((raw as Dictionary).get("status", "")) == "DONE":
+			done_n += 1
+	if done_n > _last_done_n:
+		_sfx("sys_evidence_done")
+	if state.civilians_evacuated and not _last_civ:
+		_sfx("sys_evac_done")
+	var cmds: Array = state.commands()
+	if cmds.size() > _last_cmd_n:
+		_sfx("sys_cmd_queued")
+	var feed: Array = state.radio_feed if state.radio_feed is Array else []
+	if _last_radio_n >= 0 and feed.size() > _last_radio_n:
+		_sfx("sys_comms_rx")
+	_last_task_n = tasks.size()
+	_last_done_n = done_n
+	_last_civ = state.civilians_evacuated
+	_last_cmd_n = cmds.size()
+	_last_radio_n = feed.size()
 	_last_decision = state.decision_open
 	_last_consequence = state.consequence_open
 	_last_report = state.report_open
