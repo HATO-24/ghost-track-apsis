@@ -5,10 +5,10 @@ extends Node
 ## 不依赖编辑器导入：WAV 由本脚本按 PCM 头直接读取，headless/Dummy 驱动下安全。
 ##
 ## 公共 API：
-##   play_bgm(name)             name: "menu" | "game" | "menu_ambient" | "game_ambient"
+##   play_bgm(name)             name: "menu"（主菜单曲） | "game"（游戏内设备底噪）
 ##   stop_bgm()
 ##   sfx(name)                  UI/警报等短音效，名称缺失时静默
-##   set_bgm_volume(db)         线性总线音量（dB），默认 -14 dB
+##   set_bgm_volume(db)         线性总线音量（dB），默认 -9 dB
 ##   set_sfx_volume(db)         默认 -6 dB
 ##   toggle_mute() -> bool
 ##   is_muted() -> bool
@@ -20,10 +20,15 @@ extends Node
 ## 本地配置：user://audio.cfg（音量/静音；不存在时使用默认值）。
 
 const BGM_NAMES := {
-	"menu": "menu_ambient",
-	"menu_ambient": "menu_ambient",
-	"game": "game_ambient",
-	"game_ambient": "game_ambient",
+	# 主菜单：用户提供曲目（Orbital Fleet，已转为 wav）。
+	"menu": "menu_music",
+	"menu_music": "menu_music",
+	# 游戏内：不放音乐，只放设备工作底噪（软盘/磁带/拨号/继电器）。
+	"game": "game_device_ambience",
+	"game_device_ambience": "game_device_ambience",
+	# 旧占位名保留兼容，但不再默认使用。
+	"menu_ambient": "menu_music",
+	"game_ambient": "game_device_ambience",
 }
 
 const SFX_NAMES := [
@@ -37,8 +42,9 @@ const SFX_NAMES := [
 ]
 
 const SFX_POOL_SIZE := 16
+const BGM_TRIM := {"menu_music": 6.0, "game_device_ambience": -4.0}
 const BGM_DIR := "res://audio/"
-const DEFAULT_BGM_DB := -14.0
+const DEFAULT_BGM_DB := -9.0
 const DEFAULT_SFX_DB := -6.0
 const MUTE_DB := -80.0
 
@@ -200,6 +206,7 @@ func play_bgm(name: String) -> bool:
 	if headless or _bgm_player == null:
 		return true
 	_bgm_player.stream = _bgm_streams[fname]
+	_bgm_player.volume_db = float(BGM_TRIM.get(fname, 0.0))
 	_bgm_player.play()
 	return true
 
@@ -305,7 +312,7 @@ func _self_test() -> Dictionary:
 		"bgm_keys": _bgm_streams.keys(),
 		"sfx_keys": _sfx_streams.keys(),
 		"pool": _sfx_pool.size(),
-		"loop_end": _bgm_streams.get("game_ambient", null).loop_end if _bgm_streams.has("game_ambient") else 0,
+		"loop_end": _bgm_streams.get("game_device_ambience", null).loop_end if _bgm_streams.has("game_device_ambience") else 0,
 	}
 
 
