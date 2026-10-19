@@ -1,0 +1,186 @@
+{
+  "schema": "damage.v1",
+  "id": "damage_l1",
+  "title": "第一关 · 损管/毁伤参数（V17 R2-DAMAGE-1）",
+  "units": {"integrity": "0..1", "time": "s", "energy": "0..1（归一化命中能量）", "distance": "km"},
+  "state_thresholds": {
+    "nominal": 0.9,
+    "degraded": 0.65,
+    "damaged": 0.25,
+    "destroyed": 0.001
+  },
+  "armor": {
+    "kinetic_resist": 0.12,
+    "energy_resist": 0.08
+  },
+  "penetration": {
+    "overflow_ratio": 0.4,
+    "min_energy": 0.25,
+    "max_sections": 2,
+    "directions": ["fore", "aft", "port", "starboard", "ventral", "dorsal"]
+  },
+  "fire": {
+    "ignite_threshold": 0.18,
+    "ignite_intensity_base": 0.8,
+    "growth_per_s": 0.09,
+    "damage_per_s": 0.012,
+    "spread_threshold": 0.55,
+    "spread_interval_s": 6.0,
+    "spread_ignite_intensity": 0.35,
+    "suppress_rate_per_s": 0.4
+  },
+  "decompression": {
+    "activate_threshold": 0.22,
+    "damage_per_s": 0.008,
+    "spread_interval_s": 10.0,
+    "spread_ignite_intensity": 0.3,
+    "seal_rate_per_s": 0.35
+  },
+  "power": {
+    "loss_integrity_threshold": 0.5,
+    "propagate_sections": ["sensors", "comms", "docking", "propulsion"],
+    "restore_integrity_threshold": 0.65
+  },
+  "repair": {
+    "team_speed": 1.0,
+    "teams_total": 2,
+    "spares": 3,
+    "spares_per_job": 1,
+    "power_max": 200.0,
+    "power_per_s": 0.5,
+    "power_recharge_per_s": 1.0,
+    "personnel": 12,
+    "personnel_per_team": 2,
+    "min_priority": 1,
+    "max_priority": 3
+  },
+  "effects": {
+    "sensors": {
+      "degraded_mult": 0.6,
+      "damaged_mult": 0.3,
+      "critical_mult": 0.1,
+      "destroyed_mult": 0.0
+    },
+    "comms": {
+      "degraded_delay_s": 2.0,
+      "damaged_delay_s": 6.0,
+      "critical_delay_s": 15.0,
+      "destroyed_delay_s": 60.0
+    },
+    "propulsion": {
+      "degraded_dv": 0.8,
+      "damaged_dv": 0.5,
+      "critical_dv": 0.2,
+      "destroyed_dv": 0.0,
+      "degraded_turn": 0.8,
+      "damaged_turn": 0.5,
+      "critical_turn": 0.2,
+      "destroyed_turn": 0.0
+    },
+    "docking": {
+      "min_integrity": 0.5
+    }
+  },
+  "ships": {
+    "harmattan": {
+      "id": "harmattan",
+      "name": "哈马丹号 / HAMATTAN",
+      "class": "ch-l1 哨舰",
+      "note": "ID13 本舰；损管队 2 组、备件 3；演示可用。",
+      "sections": [
+        {
+          "id": "hull", "label": "舰体 / HULL", "kind": "hull", "integrity": 1.0,
+          "systems": ["structure"], "requires_power": false,
+          "adjacent": ["power", "propulsion", "sensors", "comms", "tanks", "docking"],
+          "repair_s": 180.0, "fire_risk": 0.15, "vacuum_risk": 0.25
+        },
+        {
+          "id": "power", "label": "动力/配电 / POWER", "kind": "power", "integrity": 1.0,
+          "systems": ["power"], "requires_power": false, "power_critical": true,
+          "adjacent": ["hull", "propulsion", "sensors", "comms", "docking"],
+          "repair_s": 90.0, "fire_risk": 0.35, "vacuum_risk": 0.05
+        },
+        {
+          "id": "propulsion", "label": "推进 / PROPULSION", "kind": "propulsion", "integrity": 1.0,
+          "systems": ["dv", "turn"], "requires_power": true,
+          "adjacent": ["hull", "power", "tanks"],
+          "repair_s": 150.0, "fire_risk": 0.30, "vacuum_risk": 0.05
+        },
+        {
+          "id": "sensors", "label": "传感器 / SENSORS", "kind": "sensors", "integrity": 1.0,
+          "systems": ["radar", "optical", "ir", "iff", "elint"], "requires_power": true,
+          "adjacent": ["hull", "power", "comms"],
+          "repair_s": 70.0, "fire_risk": 0.20, "vacuum_risk": 0.10
+        },
+        {
+          "id": "comms", "label": "通信 / COMMS", "kind": "comms", "integrity": 1.0,
+          "systems": ["comms", "command"], "requires_power": true,
+          "adjacent": ["hull", "power", "sensors"],
+          "repair_s": 60.0, "fire_risk": 0.20, "vacuum_risk": 0.10
+        },
+        {
+          "id": "tanks", "label": "储罐/燃料 / TANKS", "kind": "tanks", "integrity": 1.0,
+          "systems": ["fuel", "cargo"], "requires_power": false,
+          "adjacent": ["hull", "propulsion"],
+          "repair_s": 140.0, "fire_risk": 0.50, "vacuum_risk": 0.30
+        },
+        {
+          "id": "docking", "label": "对接口 / DOCKING", "kind": "docking", "integrity": 1.0,
+          "systems": ["docking"], "requires_power": true,
+          "adjacent": ["hull", "power"],
+          "repair_s": 80.0, "fire_risk": 0.15, "vacuum_risk": 0.20
+        }
+      ]
+    },
+    "summons_4471": {
+      "id": "summons_4471",
+      "name": "AV-4412 传唤者 / SUMMONS",
+      "class": "传唤级通报舰（清算者）",
+      "note": "敌舰示例档案；损管资源较少，装甲略高（只作伤害输入目标，不生成武器）。",
+      "sections": [
+        {
+          "id": "hull", "label": "舰体 / HULL", "kind": "hull", "integrity": 1.0,
+          "systems": ["structure"], "requires_power": false,
+          "adjacent": ["power", "propulsion", "sensors", "comms", "tanks", "docking"],
+          "repair_s": 200.0, "fire_risk": 0.15, "vacuum_risk": 0.30
+        },
+        {
+          "id": "power", "label": "动力/配电 / POWER", "kind": "power", "integrity": 1.0,
+          "systems": ["power"], "requires_power": false, "power_critical": true,
+          "adjacent": ["hull", "propulsion", "sensors", "comms", "docking"],
+          "repair_s": 100.0, "fire_risk": 0.35, "vacuum_risk": 0.05
+        },
+        {
+          "id": "propulsion", "label": "推进 / PROPULSION", "kind": "propulsion", "integrity": 1.0,
+          "systems": ["dv", "turn"], "requires_power": true,
+          "adjacent": ["hull", "power", "tanks"],
+          "repair_s": 160.0, "fire_risk": 0.30, "vacuum_risk": 0.05
+        },
+        {
+          "id": "sensors", "label": "传感器 / SENSORS", "kind": "sensors", "integrity": 1.0,
+          "systems": ["radar", "optical", "ir", "iff", "elint"], "requires_power": true,
+          "adjacent": ["hull", "power", "comms"],
+          "repair_s": 80.0, "fire_risk": 0.20, "vacuum_risk": 0.10
+        },
+        {
+          "id": "comms", "label": "通信 / COMMS", "kind": "comms", "integrity": 1.0,
+          "systems": ["comms", "command"], "requires_power": true,
+          "adjacent": ["hull", "power", "sensors"],
+          "repair_s": 70.0, "fire_risk": 0.20, "vacuum_risk": 0.10
+        },
+        {
+          "id": "tanks", "label": "弹药/储罐 / TANKS", "kind": "tanks", "integrity": 1.0,
+          "systems": ["fuel", "magazine"], "requires_power": false,
+          "adjacent": ["hull", "propulsion"],
+          "repair_s": 150.0, "fire_risk": 0.55, "vacuum_risk": 0.25
+        },
+        {
+          "id": "docking", "label": "对接口 / DOCKING", "kind": "docking", "integrity": 1.0,
+          "systems": ["docking"], "requires_power": true,
+          "adjacent": ["hull", "power"],
+          "repair_s": 90.0, "fire_risk": 0.15, "vacuum_risk": 0.20
+        }
+      ]
+    }
+  }
+}

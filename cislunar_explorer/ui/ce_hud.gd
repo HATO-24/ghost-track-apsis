@@ -15,11 +15,12 @@ extends Control
 const Pal := preload("res://scripts/pal.gd")
 const UiFonts := preload("res://scripts/fonts.gd")
 
-const LIST_RECT := Rect2(40.0, 40.0, 380.0, 388.0)
+const LIST_RECT := Rect2(40.0, 40.0, 380.0, 440.0)
 const INFO_RECT := Rect2(1480.0, 40.0, 400.0, 334.0)
+const MODULE_RECT := Rect2(1480.0, 560.0, 400.0, 290.0)
 const CTRL_RECT := Rect2(40.0, 866.0, 620.0, 168.0)
 const TIME_RECT := Rect2(1480.0, 866.0, 400.0, 168.0)
-const ROW_H := 21.0
+const ROW_H := 20.0
 const LIST_TOP := 112.0
 const FOOT_Y := 1054.0
 
@@ -79,6 +80,7 @@ func _draw() -> void:
 	_draw_title()
 	_draw_list()
 	_draw_info()
+	_draw_modules()
 	_draw_controls()
 	_draw_time()
 	_draw_legend()
@@ -186,7 +188,8 @@ func _draw_controls() -> void:
 		"1 地球焦点   2 月球焦点   3 L1 焦点   4 选中焦点",
 		"TAB 循环选择   R 重置视角/时间   SPACE 暂停",
 		"- / =  时间倍率 1× / 10× / 100× / 1000×",
-		"点击对象 / 左侧列表 选中",
+		"5 L1 站聚焦   6 舰船聚焦   7 地球港聚焦",
+		"点击对象 / 左侧列表；选中后右侧 MODULES",
 	]
 	for i in range(lines.size()):
 		var ln := String(lines[i])
@@ -219,7 +222,7 @@ func _draw_time() -> void:
 
 func _draw_legend() -> void:
 	var x := 40.0
-	var y := 452.0
+	var y := 500.0
 	_txt(mono, x, y, "LEGEND", 7, Pal.a(Pal.PH, 0.85))
 	var items := [
 		["地球/月球 线框", Pal.PH],
@@ -227,6 +230,7 @@ func _draw_legend() -> void:
 		["GEO 环 / 月球同步环", Pal.BLUE],
 		["L1–L5 站点 / 平动点", Pal.AMBER],
 		["港口/站点", Pal.ID_SUSPECT],
+		["舰船（技术演示几何）", Pal.BLUE],
 	]
 	for i in range(items.size()):
 		var it: Array = items[i]
@@ -236,6 +240,53 @@ func _draw_legend() -> void:
 		var ln := String(it[0])
 		var f: Font = cjk if UiFonts.has_cjk(ln) else mono
 		_txt(f, x + 26.0, yy, ln, 7, Pal.a(Pal.DIM, 0.85))
+
+
+func _draw_modules() -> void:
+	_panel(MODULE_RECT, "模块与端口", "MODULES / PORTS")
+	var s: Dictionary = vm.get("selected", {})
+	if s.is_empty():
+		_txt(mono, MODULE_RECT.position.x + 12.0, MODULE_RECT.position.y + 52.0,
+			"NO SELECTION", 7, Pal.a(Pal.FAINT, 0.9))
+		return
+	var modules: Array = s.get("modules", [])
+	var y := MODULE_RECT.position.y + 44.0
+	if modules.is_empty():
+		_txt(mono, MODULE_RECT.position.x + 12.0, y,
+			"NO MODULE DATA（天体 / 轨道环 / 平动点）", 7, Pal.a(Pal.FAINT, 0.9))
+		y += 16.0
+	else:
+		var n := mini(10, modules.size())
+		var rows := int(ceil(float(n) / 2.0))
+		for i in range(n):
+			var col := i % 2
+			var row := i / 2
+			var x := MODULE_RECT.position.x + 12.0 + 196.0 * float(col)
+			var yy := y + 16.0 * float(row)
+			_txt(mono, x, yy, "· " + _fit(mono, String(modules[i]), 7, 178.0), 7,
+				Pal.a(Pal.TXT, 0.86))
+		y += 16.0 * float(rows) + 4.0
+	var ports: Array = s.get("ports", [])
+	if not ports.is_empty():
+		var ptext := ""
+		for i2 in range(ports.size()):
+			if i2 > 0:
+				ptext += " · "
+			ptext += String(ports[i2])
+		_txt(mono, MODULE_RECT.position.x + 12.0, y, "PORTS", 7, Pal.a(Pal.FAINT, 0.9))
+		_txt(mono, MODULE_RECT.position.x + 76.0, y, _fit(mono, ptext, 7, 306.0), 7,
+			Pal.a(Pal.TXT, 0.82))
+		y += 16.0
+	var vis := String(s.get("visual_text", ""))
+	if vis != "":
+		_txt(cjk if UiFonts.has_cjk(vis) else mono, MODULE_RECT.position.x + 12.0, y,
+			_fit(cjk if UiFonts.has_cjk(vis) else mono, vis, 7, 372.0), 7, Pal.a(Pal.DIM, 0.85))
+		y += 16.0
+	var stext := String(s.get("status_text", ""))
+	if stext != "":
+		_txt(cjk if UiFonts.has_cjk(stext) else mono, MODULE_RECT.position.x + 12.0, y,
+			_fit(cjk if UiFonts.has_cjk(stext) else mono, stext, 7, 372.0), 7,
+			Pal.a(Pal.PH_DIM, 0.9))
 
 
 func _draw_labels() -> void:
@@ -321,6 +372,15 @@ func _draw_footer() -> void:
 # ═══════════════════════════════════════════════════════════════════
 # 文本工具
 # ═══════════════════════════════════════════════════════════════════
+
+func _fit(f: Font, s: String, size: int, maxw: float) -> String:
+	if f.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size).x <= maxw:
+		return s
+	var cut := s
+	while cut.length() > 1 and f.get_string_size(cut + "…", HORIZONTAL_ALIGNMENT_LEFT, -1.0, size).x > maxw:
+		cut = cut.substr(0, cut.length() - 1)
+	return cut + "…"
+
 
 func _fmt_hms(t: float) -> String:
 	var sec := int(maxf(0.0, t))

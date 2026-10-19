@@ -126,6 +126,9 @@ func _ready() -> void:
 	_refresh_data()
 	_update_camera(1.0)
 	_rebuild_mesh()
+	# 视图预设等对象建好后立刻收敛相机，截图/启动首帧即构图正确
+	_cam_target = _focus_position()
+	_update_camera(1.0)
 	_update_vm()
 	if hud != null:
 		hud.set_vm(_vm)
@@ -499,6 +502,13 @@ func _build_objects() -> void:
 			var stk := st.duplicate(true)
 			stk["kind_label"] = "L-STATION"
 			stk["color"] = "AMBER"
+			stk["model_kind"] = "l_station"
+			stk["modules"] = ["核心舱 CORE", "居住舱 HAB×2", "推进储罐 TANK×2",
+				"对接桁架 TRUSS", "散热板 RADIATOR×2", "太阳翼 SOLAR×2",
+				"通信桅杆 COMMS", "停泊港 DOCK×2"]
+			stk["ports"] = ["DOCK-A", "DOCK-B"]
+			stk["visual_text"] = "视觉尺度 ~2.8 units（非实体尺寸，仅可视化）"
+			stk["status_text"] = "NOMINAL · 共转系静止（技术演示，无碰撞/对接物理）"
 			_objects.append(stk)
 			continue
 		if not lag.has(lid):
@@ -536,6 +546,12 @@ func _build_objects() -> void:
 		var s2 := s.duplicate(true)
 		s2["kind_label"] = "LUNAR-STATION"
 		s2["color"] = "BLUE"
+		s2["model_kind"] = "lunar_station"
+		s2["modules"] = ["核心舱 CORE", "电池组 BAT×2", "太阳翼 SOLAR×2",
+			"通信桅杆 COMMS", "姿控推进 RCS"]
+		s2["ports"] = ["DOCK-L1"]
+		s2["visual_text"] = "视觉尺度 ~1.1 units（非实体尺寸）"
+		s2["status_text"] = "NOMINAL · 月球轨道站（技术演示）"
 		_objects.append(s2)
 	var earth: Dictionary = _data.get("earth", {})
 	var moon: Dictionary = _data.get("moon", {})
@@ -558,7 +574,72 @@ func _build_objects() -> void:
 		var p2 := p.duplicate(true)
 		p2["kind_label"] = "PORT"
 		p2["color"] = "ID_SUSPECT"
+		p2["model_kind"] = "port"
+		p2["modules"] = ["系泊平台 PLATFORM", "系泊臂 ARM×2", "推进剂储罐 TANK×2",
+			"信标塔 BEACON", "航道标记 APPROACH×4"]
+		p2["ports"] = ["BERTH-1", "BERTH-2"]
+		p2["visual_text"] = "视觉尺度 ~2.4 units（非实体尺寸）"
+		p2["status_text"] = "OPEN · 技术演示（无碰撞/对接物理）"
 		_objects.append(p2)
+
+	# ── 技术演示舰船（视觉几何；位置相对真实站/港，非 sim 航迹）─────────
+	var st_by_id: Dictionary = {}
+	for raw_s in stations:
+		if raw_s is Dictionary:
+			st_by_id[String((raw_s as Dictionary).get("id", ""))] = raw_s
+	var ep: Dictionary = st_by_id.get("earth_port", {})
+	if not ep.is_empty():
+		var ep_pos: Vector3 = ep.get("pos", Vector3.ZERO)
+		var earth_dir := ep_pos.normalized() if ep_pos.length() > 1.0e-6 else Vector3.RIGHT
+		var tan := Vector3.UP.cross(earth_dir).normalized()
+		var fpos := ep_pos + earth_dir * 0.80 + tan * 0.42 + Vector3(0.0, 0.22, 0.0)
+		_objects.append({
+			"id": "ship_freighter", "name": "HAZE-1 补给船", "name_en": "HAZE-1 FREIGHTER",
+			"kind": "ship", "kind_label": "SHIP", "pos": fpos,
+			"radius_km": 0.0, "period_s": 0.0, "color": "PH_DIM", "model_kind": "ship_freighter",
+			"modules": ["舰体 HULL", "货舱 CARGO×3", "推进段 ENGINE×2", "舰桥 BRIDGE",
+				"姿控 RCS", "通信桅杆 COMMS"],
+			"ports": ["BERTH-E1"],
+			"visual_text": "舰体视觉长度 ~2.6 units（技术演示，非实体尺寸）",
+			"status_text": "DOCKED · 地球港外泊位（技术演示，无对接物理）",
+			"parent_id": "earth_port",
+			"note": "技术演示船 · 位置相对地球港（视觉偏移，非 sim 航迹）",
+		})
+	var l1r: Dictionary = st_by_id.get("l1_station", {})
+	if not l1r.is_empty():
+		var l1p: Vector3 = l1r.get("pos", Vector3.ZERO)
+		var e_dir := (-l1p).normalized() if l1p.length() > 1.0e-6 else Vector3.LEFT
+		var tan2 := Vector3.UP.cross(e_dir).normalized()
+		var cpos := l1p + tan2 * 4.2 + Vector3(0.0, 0.9, 0.0) + e_dir * 0.6
+		_objects.append({
+			"id": "ship_corvette", "name": "KESTREL 巡逻舰", "name_en": "KESTREL CORVETTE",
+			"kind": "ship", "kind_label": "SHIP", "pos": cpos,
+			"radius_km": 0.0, "period_s": 0.0, "color": "BLUE", "model_kind": "ship_corvette",
+			"modules": ["舰体 HULL", "推进段 ENGINE×2", "传感器桅杆 SENSOR",
+				"散热板 RADIATOR×2", "任务舱 MISSION", "通信桅杆 COMMS"],
+			"ports": ["BERTH-L1"],
+			"visual_text": "舰体视觉长度 ~1.9 units（技术演示，非实体尺度）",
+			"status_text": "STATION KEEPING · L1 站泊位外（技术演示）",
+			"parent_id": "l1_station",
+			"note": "技术演示船 · 位置相对 L1 站（视觉偏移，非 sim 航迹）",
+		})
+	var mp: Dictionary = st_by_id.get("lunar_port", {})
+	if not mp.is_empty():
+		var mp_pos: Vector3 = mp.get("pos", Vector3.ZERO)
+		var m_dir := mp_pos.normalized() if mp_pos.length() > 1.0e-6 else Vector3.RIGHT
+		var tan3 := Vector3.UP.cross(m_dir).normalized()
+		var tpos := mp_pos + m_dir * 0.26 + tan3 * 0.18 + Vector3(0.0, 0.10, 0.0)
+		_objects.append({
+			"id": "ship_tug", "name": "月港拖船 S-03", "name_en": "MOONPORT TUG S-03",
+			"kind": "ship", "kind_label": "SHIP", "pos": tpos,
+			"radius_km": 0.0, "period_s": 0.0, "color": "PH", "model_kind": "ship_tug",
+			"modules": ["舰体 HULL", "推进段 ENGINE×2", "拖曳绞盘 WINCH", "驾驶舱 BRIDGE"],
+			"ports": ["BERTH-M1"],
+			"visual_text": "舰体视觉长度 ~1.2 units（技术演示，非实体尺寸）",
+			"status_text": "DOCKED · 月球港（技术演示）",
+			"parent_id": "lunar_port",
+			"note": "技术演示船 · 位置相对月球港（视觉偏移，非 sim 航迹）",
+		})
 	_object_order = []
 	for o in _objects:
 		_object_order.append(String((o as Dictionary).get("id", "")))
@@ -622,27 +703,32 @@ func _rebuild_mesh() -> void:
 			var inc := float(ob.get("inclination_deg", 0.0))
 			var rr := float(ob.get("orbit_radius_km", 0.0)) / KM_PER_UNIT
 			_add_orbit_ring(verts, moon.get("pos", Vector3.ZERO), rr, inc, _col("BLUE"), 0.20)
-	# 对象标记
+	# 对象标记 / R3-MODEL 模块化几何（近距 detail，远距剪影 LOD）
+	var detail := _cam_dist < 55.0
 	for o2 in _objects:
 		var ob2: Dictionary = o2
 		match String(ob2.get("kind", "")):
 			"l_station":
-				_add_octahedron(verts, ob2.get("pos", Vector3.ZERO), 2.0, _col("AMBER"), 0.65)
+				_draw_station_model(verts, ob2, detail)
 			"l_point":
-				_add_octahedron(verts, ob2.get("pos", Vector3.ZERO), 1.6, _col("AMBER"), 0.50)
+				_add_octahedron(verts, ob2.get("pos", Vector3.ZERO), 1.2, _col("AMBER"), 0.50)
 			"lunar_station":
-				_add_octahedron(verts, ob2.get("pos", Vector3.ZERO), 1.2, _col("BLUE"), 0.60)
+				_draw_lunar_station_model(verts, ob2, detail)
 			"port":
-				_add_port_marker(verts, ob2.get("pos", Vector3.ZERO), _col("ID_SUSPECT"))
+				_draw_port_model(verts, ob2, detail)
+			"ship":
+				_draw_ship_model(verts, ob2, detail)
 			_:
 				pass
-	# 选中高亮十字
+	# 选中高亮十字（有模型的站体/港口/舰船用短十字，避免压住模块细节）
 	for o3 in _objects:
 		if String((o3 as Dictionary).get("id", "")) != _selected_id:
 			continue
 		var p: Vector3 = (o3 as Dictionary).get("pos", Vector3.ZERO)
 		var col2 := _col(String((o3 as Dictionary).get("color", "PH")))
 		var s2 := 3.4
+		if String((o3 as Dictionary).get("model_kind", "")) != "":
+			s2 = 0.55
 		_add_line(verts, p + Vector3(s2, 0, 0), p + Vector3(s2 * 1.7, 0, 0), col2, 0.9)
 		_add_line(verts, p - Vector3(s2, 0, 0), p - Vector3(s2 * 1.7, 0, 0), col2, 0.9)
 		_add_line(verts, p + Vector3(0, s2, 0), p + Vector3(0, s2 * 1.7, 0), col2, 0.7)
@@ -754,6 +840,426 @@ func _add_port_marker(arr: Array, center: Vector3, col: Color) -> void:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# R3-MODEL：可见模块化线框几何（纯视觉层；不实现碰撞/对接物理）
+#   * 全部 ImmediateMesh 1px 线段，无贴图；V1 色板。
+#   * 尺寸为**视觉尺度**（单位=1,000 km 的场景单位），不是实体物理尺寸；
+#     近距（相机 <55 units）画完整模块，远距画简化剪影（LOD）。
+#   * 站体/港口位置仍来自 sim/cislunar_model.sample(t)；舰船为技术演示船，
+#     位置相对真实港/站做视觉偏移（非 sim 航迹）。
+# ═══════════════════════════════════════════════════════════════════
+
+## 站体本地坐标：fwd = 轨道切向，up = 场景天顶，right = fwd×up。
+func _model_axes(obj: Dictionary) -> Array:
+	var p: Vector3 = obj.get("pos", Vector3.ZERO)
+	var fwd := Vector3.RIGHT
+	if p.length() > 1.0e-6:
+		fwd = Vector3(-p.z, 0.0, p.x).normalized()
+	if fwd.length() < 1.0e-6:
+		fwd = Vector3.RIGHT
+	var right := fwd.cross(Vector3.UP).normalized()
+	if right.length() < 1.0e-6:
+		right = Vector3.RIGHT
+	var up := right.cross(fwd).normalized()
+	return [right, up, fwd]
+
+
+func _perp_axes(axis: Vector3) -> Array:
+	var f := axis.normalized()
+	if f.length() < 1.0e-6:
+		f = Vector3.RIGHT
+	var hint := Vector3.UP
+	if absf(f.dot(hint)) > 0.95:
+		hint = Vector3.RIGHT
+	var r := f.cross(hint).normalized()
+	var u := r.cross(f).normalized()
+	return [r, u, f]
+
+
+func _add_path(arr: Array, pts: Array, col: Color, alpha: float) -> void:
+	for i in range(1, pts.size()):
+		_add_line(arr, pts[i - 1], pts[i], col, alpha)
+
+
+func _add_box(arr: Array, center: Vector3, axes: Array, size: Vector3,
+		col: Color, alpha: float) -> void:
+	var right: Vector3 = axes[0]
+	var up: Vector3 = axes[1]
+	var fwd: Vector3 = axes[2]
+	var hx := size.x * 0.5
+	var hy := size.y * 0.5
+	var hz := size.z * 0.5
+	var corners: Array = []
+	for sx in [-1.0, 1.0]:
+		for sy in [-1.0, 1.0]:
+			for sz in [-1.0, 1.0]:
+				corners.append(center + right * hx * sx + up * hy * sy + fwd * hz * sz)
+	var edges := [[0, 1], [0, 2], [0, 4], [1, 3], [1, 5], [2, 3], [2, 6],
+		[3, 7], [4, 5], [4, 6], [5, 7], [6, 7]]
+	for e in edges:
+		_add_line(arr, corners[e[0]], corners[e[1]], col, alpha)
+
+
+func _add_circle_face(arr: Array, center: Vector3, normal: Vector3, radius: float,
+		segments: int, col: Color, alpha: float) -> void:
+	if radius <= 0.0:
+		return
+	var ax := _perp_axes(normal)
+	var r: Vector3 = ax[0]
+	var u: Vector3 = ax[1]
+	var pts: Array = []
+	for i in range(segments + 1):
+		var ang := TAU * float(i) / float(segments)
+		pts.append(center + (r * cos(ang) + u * sin(ang)) * radius)
+	_add_path(arr, pts, col, alpha)
+
+
+func _add_cylinder_wire(arr: Array, a: Vector3, b: Vector3, radius: float,
+		segments: int, col: Color, alpha: float) -> void:
+	if radius <= 0.0 or a.distance_to(b) < 1.0e-6:
+		return
+	var ax := _perp_axes(b - a)
+	var r: Vector3 = ax[0]
+	var u: Vector3 = ax[1]
+	var ra: Array = []
+	var rb: Array = []
+	for i in range(segments + 1):
+		var ang := TAU * float(i) / float(segments)
+		var off := (r * cos(ang) + u * sin(ang)) * radius
+		ra.append(a + off)
+		rb.append(b + off)
+	_add_path(arr, ra, col, alpha)
+	_add_path(arr, rb, col, alpha)
+	for i in range(0, segments, maxi(1, segments / 4)):
+		_add_line(arr, ra[i], rb[i], col, alpha * 0.8)
+
+
+func _add_panel(arr: Array, center: Vector3, right: Vector3, up: Vector3,
+		w: float, h: float, gx: int, gy: int, col: Color, alpha: float) -> void:
+	if w <= 0.0 or h <= 0.0:
+		return
+	var hw := w * 0.5
+	var hh := h * 0.5
+	var c := [
+		center - right * hw - up * hh, center + right * hw - up * hh,
+		center + right * hw + up * hh, center - right * hw + up * hh,
+	]
+	for i in range(4):
+		_add_line(arr, c[i], c[(i + 1) % 4], col, alpha)
+	for i in range(1, gx):
+		var t := float(i) / float(gx)
+		_add_line(arr, c[0].lerp(c[1], t), c[3].lerp(c[2], t), col, alpha * 0.5)
+	for j in range(1, gy):
+		var t2 := float(j) / float(gy)
+		_add_line(arr, c[0].lerp(c[3], t2), c[1].lerp(c[2], t2), col, alpha * 0.5)
+
+
+func _add_truss(arr: Array, a: Vector3, b: Vector3, half_w: float, up_hint: Vector3,
+		col: Color, alpha: float, rungs: int) -> void:
+	var axis := b - a
+	if axis.length() < 1.0e-6:
+		return
+	var ax := _perp_axes(axis)
+	var r: Vector3 = ax[0]
+	var u := up_hint - axis.normalized() * up_hint.dot(axis.normalized())
+	if u.length() < 1.0e-6:
+		u = ax[1]
+	u = u.normalized()
+	var offsets := [r * half_w + u * half_w, -r * half_w + u * half_w,
+		-r * half_w - u * half_w, r * half_w - u * half_w]
+	for off in offsets:
+		_add_line(arr, a + off, b + off, col, alpha)
+	var n := maxi(2, rungs)
+	for i in range(1, n):
+		var t := float(i) / float(n)
+		var p := a.lerp(b, t)
+		for k in range(4):
+			_add_line(arr, p + (offsets[k] as Vector3), p + (offsets[(k + 1) % 4] as Vector3),
+				col, alpha * 0.6)
+		# 斜撑（交替方向，V1 桁架感）
+		var sgn := 1.0 if i % 2 == 0 else -1.0
+		_add_line(arr, p + (offsets[0] as Vector3),
+			p.lerp(b, t + 1.0 / float(n)) + (offsets[2] as Vector3) * sgn, col, alpha * 0.4)
+
+
+func _add_dish(arr: Array, center: Vector3, normal: Vector3, radius: float,
+		col: Color, alpha: float) -> void:
+	var ax := _perp_axes(normal)
+	_add_circle_face(arr, center, normal, radius, 14, col, alpha)
+	for i in range(3):
+		var ang := TAU * float(i) / 3.0
+		var r: Vector3 = ax[0]
+		var u: Vector3 = ax[1]
+		var rim := center + (r * cos(ang) + u * sin(ang)) * radius
+		_add_line(arr, center, rim, col, alpha * 0.7)
+	_add_line(arr, center, center + normal.normalized() * radius * 1.3, col, alpha)
+
+
+func _add_marker_cross(arr: Array, p: Vector3, size: float, col: Color, alpha: float) -> void:
+	_add_line(arr, p - Vector3(size, 0, 0), p + Vector3(size, 0, 0), col, alpha)
+	_add_line(arr, p - Vector3(0, size, 0), p + Vector3(0, size, 0), col, alpha)
+	_add_line(arr, p - Vector3(0, 0, size), p + Vector3(0, 0, size), col, alpha)
+
+
+## L1–L5 站：核心舱/居住舱/储罐/桁架/太阳翼/散热板/通信桅杆/停泊港。
+func _draw_station_model(arr: Array, obj: Dictionary, detail: bool) -> void:
+	var p: Vector3 = obj.get("pos", Vector3.ZERO)
+	var ax := _model_axes(obj)
+	var right: Vector3 = ax[0]
+	var up: Vector3 = ax[1]
+	var fwd: Vector3 = ax[2]
+	var col := _col("AMBER")
+	var id := String(obj.get("id", ""))
+	var s := 1.0
+	if id == "l2_station":
+		s = 0.9
+	elif id == "l4_station" or id == "l5_station":
+		s = 0.82
+	_add_marker_cross(arr, p, 0.18 * s, col, 0.85)
+	if not detail:
+		# LOD-1：远距剪影（仍可见，不是单点）
+		_add_box(arr, p, ax, Vector3(0.5, 0.4, 2.0) * s, col, 0.8)
+		_add_line(arr, p - right * 1.35 * s, p + right * 1.35 * s, col, 0.6)
+		for side in [-1.0, 1.0]:
+			_add_box(arr, p + right * side * 1.35 * s, ax,
+				Vector3(0.06, 0.55, 0.95) * s, col, 0.55)
+		_add_line(arr, p + up * 0.2 * s, p + up * 1.3 * s, col, 0.6)
+		return
+	# 核心舱（沿 fwd）+ 端盖环
+	var core_a := p - fwd * 1.05 * s
+	var core_b := p + fwd * 1.05 * s
+	_add_cylinder_wire(arr, core_a, core_b, 0.20 * s, 10, col, 0.9)
+	for t in [0.0, 0.5, 1.0]:
+		_add_circle_face(arr, core_a.lerp(core_b, t), fwd, 0.22 * s, 10, col, 0.55)
+	# 居住舱 ×2（左右）
+	for side in [-1.0, 1.0]:
+		var hb: Vector3 = p + right * side * 0.55 * s + up * 0.04 * s
+		_add_cylinder_wire(arr, hb - fwd * 0.42 * s, hb + fwd * 0.42 * s,
+			0.26 * s, 8, col, 0.8)
+		_add_circle_face(arr, hb + fwd * 0.42 * s, fwd, 0.26 * s, 8, col, 0.55)
+		_add_box(arr, p + right * side * 0.32 * s, ax,
+			Vector3(0.22, 0.16, 0.18) * s, col, 0.65)
+	# 推进储罐 ×2（上方）
+	for side2 in [-1.0, 1.0]:
+		var tp: Vector3 = p + right * side2 * 0.34 * s + up * 0.46 * s - fwd * 0.25 * s
+		_add_cylinder_wire(arr, tp - right * 0.28 * s, tp + right * 0.28 * s,
+			0.20 * s, 8, col, 0.7)
+		_add_circle_face(arr, tp, right, 0.20 * s, 8, col, 0.5)
+	# 对接桁架（横向）
+	var ta := p - right * 1.35 * s + fwd * 0.45 * s
+	var tb := p + right * 1.35 * s + fwd * 0.45 * s
+	_add_truss(arr, ta, tb, 0.11 * s, up, col, 0.7, 6)
+	# 太阳翼（桁架两端，fwd/up 平面）
+	for side3 in [-1.0, 1.0]:
+		var wb: Vector3 = p + right * side3 * 1.62 * s + fwd * 0.45 * s
+		_add_panel(arr, wb + fwd * 0.25 * s, fwd, up, 0.85 * s, 0.55 * s, 3, 2, col, 0.65)
+		_add_panel(arr, wb - fwd * 0.30 * s, fwd, up, 0.85 * s, 0.55 * s, 3, 2, col, 0.65)
+		_add_line(arr, wb, wb + right * side3 * 0.28 * s, col, 0.6)
+	# 散热板 ×2（上方，fwd/up 平面）
+	for side4 in [-0.42, 0.42]:
+		_add_panel(arr, p + right * side4 * s + up * 0.95 * s, fwd, right,
+			0.75 * s, 0.5 * s, 2, 2, col, 0.5)
+	# 通信桅杆 + 天线
+	var mast_a := p + up * 0.25 * s
+	var mast_b := p + up * 1.30 * s + fwd * 0.15 * s
+	_add_line(arr, mast_a, mast_b, col, 0.8)
+	_add_dish(arr, mast_b + up * 0.10 * s, fwd, 0.20 * s, col, 0.7)
+	_add_line(arr, mast_b, mast_b + up * 0.28 * s, col, 0.55)
+	# 端部停泊港 ×2（法向 fwd / -fwd）
+	for end in [-1.0, 1.0]:
+		var dp: Vector3 = p + fwd * end * 1.15 * s
+		_add_circle_face(arr, dp, fwd * end, 0.30 * s, 10, col, 0.8)
+		_add_circle_face(arr, dp + fwd * end * 0.18 * s, fwd * end, 0.16 * s, 8, col, 0.55)
+		for k in range(4):
+			var ang2 := TAU * float(k) / 4.0
+			var rax := _perp_axes(fwd * end)
+			var rv: Vector3 = rax[0]
+			var uv: Vector3 = rax[1]
+			_add_line(arr, dp + (rv * cos(ang2) + uv * sin(ang2)) * 0.16 * s,
+				dp + (rv * cos(ang2) + uv * sin(ang2)) * 0.30 * s, col, 0.55)
+	# 停泊的小型舱段
+	_add_box(arr, p + fwd * 1.42 * s, ax, Vector3(0.24, 0.20, 0.34) * s, col, 0.6)
+
+
+## 地球港/月球港：系泊平台环 + 系泊臂 + 储罐 + 信标塔 + 航道标记。
+func _draw_port_model(arr: Array, obj: Dictionary, detail: bool) -> void:
+	var p: Vector3 = obj.get("pos", Vector3.ZERO)
+	var ax := _model_axes(obj)
+	var right: Vector3 = ax[0]
+	var up: Vector3 = ax[1]
+	var fwd: Vector3 = ax[2]
+	var col := _col("ID_SUSPECT")
+	var s := 1.0
+	_add_marker_cross(arr, p, 0.2, col, 0.8)
+	if not detail:
+		_add_circle_face(arr, p, up, 1.2, 20, col, 0.75)
+		_add_line(arr, p, p + up * 1.3, col, 0.7)
+		for side in [-1.0, 1.0]:
+			_add_line(arr, p + right * side * 1.2, p + right * side * 1.2 + fwd * 2.6, col, 0.45)
+		return
+	# 平台环 + 内环 + 辐条
+	_add_circle_face(arr, p, up, 1.15 * s, 20, col, 0.85)
+	_add_circle_face(arr, p, up, 0.42 * s, 12, col, 0.6)
+	for i in range(8):
+		var ang := TAU * float(i) / 8.0
+		var d := right * cos(ang) + fwd * sin(ang)
+		_add_line(arr, p + d * 0.42 * s, p + d * 1.15 * s, col, 0.6)
+	# 中央信标塔
+	_add_cylinder_wire(arr, p - up * 0.1, p + up * 1.25 * s, 0.13 * s, 8, col, 0.8)
+	_add_box(arr, p + up * 1.33 * s, ax, Vector3(0.18, 0.14, 0.18) * s, col, 0.9)
+	for i2 in range(4):
+		var ang2 := TAU * float(i2) / 4.0
+		var d2 := right * cos(ang2) + fwd * sin(ang2)
+		_add_line(arr, p + up * 1.40 * s, p + up * 1.40 * s + d2 * 0.30 * s + up * 0.12 * s, col, 0.5)
+	# 储罐 ×2（平台外侧）
+	for side2 in [-1.0, 1.0]:
+		var tp: Vector3 = p + right * side2 * 0.78 * s
+		_add_cylinder_wire(arr, tp - up * 0.24 * s, tp + up * 0.24 * s, 0.24 * s, 8, col, 0.7)
+		_add_circle_face(arr, tp + up * 0.24 * s, up, 0.24 * s, 8, col, 0.5)
+	# 系泊臂 ×2（外伸，带端部缓冲环）
+	for side3 in [-1.0, 1.0]:
+		var arm_end: Vector3 = p + right * side3 * 1.55 * s + fwd * 0.35 * s + up * 0.15 * s
+		_add_line(arr, p + right * side3 * 1.05 * s, arm_end, col, 0.85)
+		_add_line(arr, p + right * side3 * 1.05 * s + up * 0.18 * s,
+			arm_end + up * 0.18 * s, col, 0.6)
+		_add_line(arr, p + right * side3 * 1.05 * s - up * 0.18 * s,
+			arm_end - up * 0.18 * s, col, 0.6)
+		_add_circle_face(arr, arm_end, fwd, 0.22 * s, 10, col, 0.7)
+		for k2 in range(3):
+			_add_line(arr, arm_end, arm_end + right * side3 * (0.10 + 0.08 * float(k2)), col, 0.5)
+	# 航道：两条平行引导线 + 人字标记 + 航道灯标
+	var corr_a := p + up * 0.4 * s + fwd * 1.4 * s
+	for side4 in [-1.0, 1.0]:
+		_add_line(arr, corr_a + right * side4 * 0.55 * s,
+			corr_a + fwd * 1.7 * s + right * side4 * 0.55 * s, col, 0.55)
+	for i3 in range(3):
+		var c := corr_a + fwd * (0.45 + 0.50 * float(i3))
+		_add_line(arr, c - right * 0.55 * s, c + right * 0.30 * s + fwd * 0.18 * s, col, 0.45)
+		_add_line(arr, c + right * 0.55 * s, c + right * 0.30 * s + fwd * 0.18 * s, col, 0.45)
+		_add_marker_cross(arr, c + right * 0.78 * s, 0.10, col, 0.5)
+
+
+## 月球低轨/极轨站：小型模块（核心舱 + 电池 + 太阳翼 + 天线）。
+func _draw_lunar_station_model(arr: Array, obj: Dictionary, detail: bool) -> void:
+	var p: Vector3 = obj.get("pos", Vector3.ZERO)
+	var ax := _model_axes(obj)
+	var right: Vector3 = ax[0]
+	var up: Vector3 = ax[1]
+	var fwd: Vector3 = ax[2]
+	var col := _col("BLUE")
+	_add_marker_cross(arr, p, 0.12, col, 0.8)
+	if not detail:
+		_add_box(arr, p, ax, Vector3(0.28, 0.22, 0.85), col, 0.8)
+		_add_line(arr, p - right * 0.75, p + right * 0.75, col, 0.6)
+		return
+	_add_cylinder_wire(arr, p - fwd * 0.42, p + fwd * 0.42, 0.11, 8, col, 0.9)
+	_add_circle_face(arr, p + fwd * 0.42, fwd, 0.12, 8, col, 0.6)
+	for side in [-1.0, 1.0]:
+		_add_box(arr, p + right * side * 0.22 + up * 0.06, ax,
+			Vector3(0.20, 0.13, 0.24), col, 0.6)
+		_add_panel(arr, p + right * side * 0.62, fwd, up, 0.62, 0.32, 2, 1, col, 0.55)
+		_add_line(arr, p, p + right * side * 0.62, col, 0.5)
+	_add_cylinder_wire(arr, p + up * 0.18, p + up * 0.38, 0.07, 6, col, 0.6)
+	_add_dish(arr, p + up * 0.42, fwd, 0.10, col, 0.65)
+
+
+## 舰船：低模线框舰体 + 推进段 + 传感器桅杆（3 种尺度；技术演示几何）。
+func _draw_ship_model(arr: Array, obj: Dictionary, detail: bool) -> void:
+	var p: Vector3 = obj.get("pos", Vector3.ZERO)
+	var ax := _model_axes(obj)
+	var right: Vector3 = ax[0]
+	var up: Vector3 = ax[1]
+	var fwd: Vector3 = ax[2]
+	var mk := String(obj.get("model_kind", "ship_freighter"))
+	var col := _col(String(obj.get("color", "PH")))
+	_add_marker_cross(arr, p, 0.10, col, 0.85)
+	if not detail:
+		_add_box(arr, p, ax, Vector3(0.45, 0.30, 1.8), col, 0.85)
+		_add_line(arr, p + up * 0.15, p + up * 0.9, col, 0.65)
+		_add_line(arr, p - fwd * 0.9, p - fwd * 1.2, col, 0.5)
+		return
+	match mk:
+		"ship_corvette":
+			_draw_hull(arr, p, right, up, fwd, 1.9, 0.34, 0.26, col, true)
+			_add_engine_pair(arr, p, right, up, fwd, 0.95, 0.13, col)
+			_add_box(arr, p + fwd * 0.35 + up * 0.20, ax, Vector3(0.22, 0.16, 0.42), col, 0.7)
+			_add_line(arr, p + up * 0.12, p + up * 0.85, col, 0.8)
+			_add_dish(arr, p + up * 0.88 + fwd * 0.10, fwd, 0.16, col, 0.7)
+			for side in [-1.0, 1.0]:
+				_add_panel(arr, p + right * side * 0.42 - fwd * 0.15, fwd, up,
+					0.55, 0.34, 2, 1, col, 0.55)
+				_add_line(arr, p, p + right * side * 0.42, col, 0.55)
+			_add_line(arr, p - fwd * 0.95, p - fwd * 0.95 + up * 0.12, col, 0.5)
+		"ship_tug":
+			_draw_hull(arr, p, right, up, fwd, 1.05, 0.38, 0.26, col, false)
+			_add_engine_pair(arr, p, right, up, fwd, 0.55, 0.12, col)
+			_add_box(arr, p + fwd * 0.18 + up * 0.20, ax, Vector3(0.20, 0.15, 0.26), col, 0.7)
+			_add_circle_face(arr, p - fwd * 0.18 + up * 0.05, right, 0.20, 10, col, 0.7)
+			_add_circle_face(arr, p - fwd * 0.18 + up * 0.05, right, 0.10, 8, col, 0.5)
+			_add_line(arr, p + up * 0.10, p + up * 0.48, col, 0.65)
+		_:
+			# HAZE-1 补给船：长舰体 + 3 货舱 + 双推进 + 舰桥 + 桅杆
+			_draw_hull(arr, p, right, up, fwd, 2.55, 0.52, 0.38, col, false)
+			for i in range(3):
+				var off := -0.62 + 0.52 * float(i)
+				_add_box(arr, p + fwd * off + up * 0.32, ax,
+					Vector3(0.36, 0.22, 0.40), col, 0.6)
+			_add_engine_pair(arr, p, right, up, fwd, 1.30, 0.17, col)
+			_add_box(arr, p + fwd * 0.92 + up * 0.30, ax, Vector3(0.34, 0.26, 0.42), col, 0.8)
+			_add_line(arr, p + fwd * 0.92 + up * 0.42, p + fwd * 0.92 + up * 1.0, col, 0.7)
+			_add_dish(arr, p + fwd * 0.92 + up * 1.02, fwd, 0.14, col, 0.65)
+			for side in [-1.0, 1.0]:
+				_add_panel(arr, p + right * side * 0.62 - fwd * 0.35, fwd, up,
+					0.72, 0.38, 2, 1, col, 0.5)
+				_add_line(arr, p, p + right * side * 0.62 - fwd * 0.35, col, 0.5)
+			_add_line(arr, p + up * 0.2, p + up * 0.55, col, 0.55)
+
+
+## 舰体：箱式主体 + 舰艏收束线 + 尾部框。
+func _draw_hull(arr: Array, p: Vector3, right: Vector3, up: Vector3, fwd: Vector3,
+		length: float, beam: float, height: float, col: Color, sharp: bool) -> void:
+	var hl := length * 0.5
+	var hb := beam * 0.5
+	var hh := height * 0.5
+	var corners: Array = []
+	for sx in [-1.0, 1.0]:
+		for sy in [-1.0, 1.0]:
+			corners.append(p + right * hb * sx + up * hh * sy)
+	var front: Array = []
+	for sx2 in [-1.0, 1.0]:
+		for sy2 in [-1.0, 1.0]:
+			front.append(p + fwd * hl + right * hb * 0.75 * sx2 + up * hh * 0.75 * sy2)
+	var nose := p + fwd * (hl + (0.55 if sharp else 0.35))
+	for i in range(4):
+		_add_line(arr, corners[i] - fwd * hl, corners[i] + fwd * hl, col, 0.9)
+		_add_line(arr, corners[i] + fwd * (hl - 0.04), front[i], col, 0.7)
+		_add_line(arr, front[i], nose, col, 0.55)
+	for i in range(4):
+		_add_line(arr, corners[i] - fwd * hl, corners[(i + 1) % 4] - fwd * hl, col, 0.9)
+		_add_line(arr, front[i], front[(i + 1) % 4], col, 0.8)
+	_add_line(arr, p + up * hh, p + up * hh + fwd * hl, col, 0.4)
+
+
+## 双推进段 + 喷管（锥形线框）+ 尾焰虚线。
+func _add_engine_pair(arr: Array, p: Vector3, right: Vector3, up: Vector3, fwd: Vector3,
+		hl: float, radius: float, col: Color) -> void:
+	for side in [-1.0, 1.0]:
+		var off: Vector3 = right * side * radius * 1.4 + up * 0.02
+		var a: Vector3 = p - fwd * (hl - 0.18) + off
+		var b: Vector3 = p - fwd * (hl + 0.30) + off
+		_add_cylinder_wire(arr, a, b, radius * 0.6, 8, col, 0.75)
+		_add_circle_face(arr, b, fwd, radius, 10, col, 0.8)
+		_add_circle_face(arr, b, fwd, radius * 0.55, 8, col, 0.6)
+		for k in range(4):
+			var ang := TAU * float(k) / 4.0
+			var ax2 := _perp_axes(fwd)
+			var rv: Vector3 = ax2[0]
+			var uv: Vector3 = ax2[1]
+			var d := (rv * cos(ang) + uv * sin(ang))
+			_add_line(arr, b + d * radius * 0.55, b + d * radius, col, 0.55)
+		_add_line(arr, b, b - fwd * 0.35, col, 0.3)
+
+
+# ═══════════════════════════════════════════════════════════════════
 # 2. 相机（自由环绕 / 平移 / 缩放 / 焦点）
 # ═══════════════════════════════════════════════════════════════════
 
@@ -793,10 +1299,16 @@ func _focus_distance(mode: String) -> float:
 				return maxf(60.0, float(o.get("radius_km", 0.0)) / KM_PER_UNIT * 12.0)
 			if kind == "ring":
 				return maxf(80.0, float(o.get("radius_km", 0.0)) / KM_PER_UNIT * 2.4)
-			if kind == "l_station" or kind == "l_point":
-				return 70.0
+			if kind == "l_station":
+				return 8.5
 			if kind == "lunar_station":
-				return 45.0
+				return 5.5
+			if kind == "port":
+				return 7.5
+			if kind == "ship":
+				return 6.5
+			if kind == "l_point":
+				return 40.0
 			return 30.0
 		_:
 			return 860.0
@@ -813,6 +1325,15 @@ func _apply_view(mode: String) -> void:
 		"l1":
 			_selected_id = "l1_station"
 			_set_focus(FOCUS_L1)
+		"station":
+			_selected_id = "l1_station"
+			_set_focus(FOCUS_SELECTED)
+		"port":
+			_selected_id = "earth_port"
+			_set_focus(FOCUS_SELECTED)
+		"ship":
+			_selected_id = "ship_freighter"
+			_set_focus(FOCUS_SELECTED)
 		"overview", "":
 			_selected_id = "l1_station"
 			_set_focus(FOCUS_OVERVIEW)
@@ -824,6 +1345,10 @@ func _apply_view(mode: String) -> void:
 				_set_focus(FOCUS_OVERVIEW)
 	_cam_pitch = deg_to_rad(30.0 if mode != "overview" else 34.0)
 	_cam_yaw = deg_to_rad(-38.0)
+	if mode == "station" or mode == "port" or mode == "ship":
+		_cam_pitch = deg_to_rad(18.0)
+		_cam_yaw = deg_to_rad(-34.0)
+		_cam_dist = {"station": 9.0, "port": 8.0, "ship": 8.5}.get(mode, 8.0)
 
 
 func _set_focus(mode: String) -> void:
@@ -943,7 +1468,7 @@ func _update_vm() -> void:
 			label_txt = name
 		elif kind == "l_station" or kind == "l_point":
 			label_txt = en
-		elif kind == "port":
+		elif kind == "port" or kind == "ship":
 			label_txt = name
 		else:
 			label_txt = "%s · %s" % [en, name]
@@ -977,11 +1502,13 @@ func _update_vm() -> void:
 			"ring":
 				radius_text = "环半径 %.1f km" % orbit_r
 			"l_station":
-				radius_text = "轨道半径 %.1f km（站体：点）" % orbit_r
+				radius_text = "站体模型 · 轨道 %.0f km" % orbit_r
 			"lunar_station":
-				radius_text = "轨道半径 %.1f km（站体：点）" % orbit_r
+				radius_text = "站体模型 · 轨道 %.0f km" % orbit_r
 			"port":
-				radius_text = "地表标记（无半径）"
+				radius_text = "港口平台（视觉模型）"
+			"ship":
+				radius_text = "视觉模型（非实体尺寸）"
 			_:
 				radius_text = "无实体（平动点）"
 		var period_text := "—"
@@ -1002,6 +1529,12 @@ func _update_vm() -> void:
 			"period_text": period_text,
 			"dist_earth_text": "%.0f km" % pos_km.distance_to(earth_km),
 			"dist_moon_text": "%.0f km" % pos_km.distance_to(moon_km),
+			"modules": (sel_obj.get("modules", []) as Array).duplicate(),
+			"ports": (sel_obj.get("ports", []) as Array).duplicate(),
+			"visual_text": String(sel_obj.get("visual_text", "")),
+			"status_text": String(sel_obj.get("status_text", "")),
+			"model_kind": String(sel_obj.get("model_kind", "")),
+			"parent_id": String(sel_obj.get("parent_id", "")),
 			"note": note,
 		}
 	_vm = {
@@ -1081,6 +1614,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				_speed_idx = mini(SPEEDS.size() - 1, _speed_idx + 1)
 			KEY_F:
 				_cycle_focus()
+			KEY_5:
+				_apply_view("station")
+			KEY_6:
+				_apply_view("ship")
+			KEY_7:
+				_apply_view("port")
 
 
 func _click_select(pos: Vector2) -> void:
