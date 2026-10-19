@@ -66,6 +66,12 @@ func _run() -> void:
 	var w = WorldScript.new()
 	var loaded: bool = w.load_scenario(s)
 	check(loaded, "world.load_scenario ok", "errors=%s" % str(w.errors))
+	# V2-CORE-2：前置航行执行前 world.advance() 冻结仿真时间（prelude_open）；集成测试先跳过 PRELUDE。
+	if w.has_method("prelude_skip"):
+		w.prelude_skip()
+	check(not bool(w.vm_state().get("time_frozen", true)),
+		"prelude_skip：世界时间可推进（V2-CORE-2 行为）",
+		"prelude_open=%s" % str(w.vm_state().get("prelude_open", false)))
 	check(String(w.own_id) == "harmattan" and w.entities.size() == 7,
 		"world：7 实体 / own=harmattan", "entities=%d own=%s" % [w.entities.size(), str(w.own_id)])
 

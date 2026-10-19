@@ -398,3 +398,16 @@ func snapshot(now: float) -> Dictionary:
 		"errors": errors.duplicate(),
 		"phases": phases.duplicate(true),
 	}
+
+## 重开：清空流程 flags/历史，回到第一个阶段（scenario 由 world.restart 重新装载）。
+func reset() -> void:
+	flags.clear()
+	phase_flags.clear()
+	history.clear()
+	entered_t = 0.0
+	phase = ""
+	kind = ""
+	if phases.is_empty() and scenario != null:
+		phases = scenario.phases.duplicate(true)
+	if not phases.is_empty():
+		_enter_index(0, 0.0)

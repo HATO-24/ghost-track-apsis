@@ -3,6 +3,11 @@
   "_comment": "第一关文本/叙事数据（自 scenario_l1.json 的 story 拆出，供 V2 场景引用）。",
   "story": {
     "decision_t": 300.0,
+    "fire_option": {
+      "kind": "FIRE",
+      "label": "武器释放 / FIRE",
+      "hint": "授权对 2001 实施轨道炮射击：灾难分支，将造成 Chronos 储罐区二次火灾与平民伤亡。"
+    },
     "decision_prompt": "指挥官，执行窗口剩余 {mm:ss}。清算者正要求接管 Chronos 储罐与航道；Chronos 港务正请求先撤出人员；渡口号已请求武器释放授权。注意 ID13 没有执法权，但必须在窗口结束前作出决定。请下令。",
     "notice": {
       "title": "第七号令接管声明 · AV-4412 传唤者",

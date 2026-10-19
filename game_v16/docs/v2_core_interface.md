@@ -1,8 +1,9 @@
-# V2-1 core 接口契约（UI / sim 对接用）
+# V2 core 接口契约（UI / sim 对接用）
 
-> 状态：V2-CORE-1 实现完成（task-44）。文件：`game_v16/core/*`、`content/*.json`、
-> `sim/observation_bridge.gd`、`tests/core_probe.gd`。
-> 本文件是 UI（V2-2）与 sim（V2-SENSOR）对接 core 的唯一接口说明。
+> 状态：V2-CORE-1（task-44）+ V2-CORE-2（task-47，第一关端到端流程）实现完成。
+> 文件：`game_v16/core/*`、`content/*.json`、`sim/observation_bridge.gd`、
+> `tests/core_probe.gd`、`tests/flow_probe.gd`。
+> 本文件是 UI（V2-3）与 sim（V2-SENSOR）对接 core 的唯一接口说明。
 > 原则：UI 只读 view-model / 明确命令方法；core 不引用 UI、不做传感器数学、不模拟武器。
 
 ## 0　装载流程（UI 启动）
@@ -15,16 +16,21 @@ var world := V2World.new()
 var ok: bool = world.load_scenario(scenario)     # false 时看 world.errors / world.warnings
 
 var mission := V2Mission.from_scenario(scenario) # 数据驱动阶段
-mission.attach_world(world)                      # 进入条件需要读 world 时必须绑定
+world.attach_mission(mission)                    # 绑定后 flow flag 自动同步给 mission
 
 # 每帧：
-world.advance(delta)                             # 推进时间 + 命令队列 + 航迹衰减
-mission.advance(world.t)                         # 条件满足才进入下一阶段
+var out := world.advance(delta)   # 时间线 + 证据任务 + 命令队列 + 航迹衰减 + mission 自动推进一格
+# mission 也可由 world.advance_mission(n) 显式推进；mission_auto=false 关闭自动推进。
 ```
 
+- `world.advance()` 返回 `{orders, tracks, events, radio, tasks, phase, frozen}`；
+  `frozen=true` 时世界不推进（前置航行未完成 / 任务已结束）。
+- **前置航行门控**：`world.vm_state().prelude_open==true` 时时间冻结，需先走
+  `prelude_choose_route/window → prelude_confirm → prelude_execute`（或 `prelude_skip()`）。
+  自动化/截图钩子：环境变量 `DSH_SKIP_PRELUDE=1` 会在装载时自动跳过并置 `prelude_executed`。
 - `world.errors` 是致命问题（场景/内容/规则校验失败），`world.warnings` 是迁移默认值等提示。
 - `V2Mission.new()` 仍可用（无场景的 7 阶段骨架，只保证 V2-0 app.gd 的 TAB 兼容）；
-  正式流程必须用 `V2Mission.from_scenario()`。
+  正式流程必须用 `V2Mission.from_scenario()` + `world.attach_mission()`。
 
 ## 1　V2World：容器 + 只读 view-model
 
@@ -220,16 +226,108 @@ m.can_enter_phase(i, world.t) / m.available_action_ids()
 
 ```powershell
 tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless --path game_v16 --quit
+# V2 UI BOOT src=CORE contacts=8 own=1001 … ；UI SELFCHECK checks=20 fail=0
+
 tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless --path game_v16 --script res://tests/core_probe.gd
-# 末行 V2-1 CORE PROBE RESULT: PASS=277 FAIL=0；退出码 0
-# sensor_probe 由 V2-SENSOR 维护（tests/sensor_probe.gd），两者互不引用。
+# V2-1 CORE PROBE RESULT: PASS=277 FAIL=0
+
+tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless --path game_v16 --script res://tests/flow_probe.gd
+# V2-CORE-2 FLOW PROBE RESULT: PASS=179 FAIL=0
+
+# sim 侧探针（V2-SENSOR 维护）：sensor_probe 105/0、sensor_bridge_probe 38/0、snapshot_probe 117/0。
+# 注意：core 现在在 PRELUDE 未执行时冻结 advance；做老化/时间推进的探针先 world.prelude_skip()
+# 或设 DSH_SKIP_PRELUDE=1。
 ```
 
-## 9　已知边界（V2-1 不做）
+## 9　已知边界（V2-CORE-1 不做）
 
-- 不做渲染/雷达 TWS/UI（V2-2/V2-3）；不做武器、火控、毁伤（显式 unsupported）。
+- 不做渲染/雷达 TWS/UI；不做武器、火控、毁伤（显式 unsupported）。
 - `sim/` 的传感器模型（V2RadarModel/V2TwsModel/V2OpticalModel/V2SensorTypes）由 V2-SENSOR 维护；
   core 只通过观测 schema + `sim/observation_bridge.gd` 消费，不反向依赖 sim。
-- 迁移默认值（证据门槛 2 / 链路 8s）需要 V2-3 第一关迁移时用 V2 场景显式覆盖。
 - 剧情 flag（`prelude_executed/decision_open/decision_made/report_submitted/fire_release`）
-  由后续关卡流程置位；V2-1 只定义条件与推进机制。
+  由 V2-CORE-2 流程置位；V2-CORE-1 只定义条件与推进机制。
+
+## 10　V2-CORE-2：第一关端到端流程 API（UI 覆盖层用）
+
+UI 覆盖层判断顺序（全部来自 `world.vm_flow()`，不要自己改流程状态）：
+
+```
+prelude.open            → PRELUDE 覆盖层（目的地/变轨窗口/执行）
+decision.open           → DECISION 覆盖层（HOLD/EVACUATE/EXPOSE/FIRE；EXPOSE 看 enabled/reason）
+report.available        → REPORT 覆盖层（truth/fake）
+end.ok / flow.ended     → END 归档页
+否则                    → 游戏界面（战术/接触/动作/证据/命令/通信）
+```
+
+### 10.1　前置航行 PRELUDE
+
+| 方法 | 返回 | 说明 |
+| --- | --- | --- |
+| `world.vm_prelude()` | Dictionary | open/executed/step/route/window/confirmed/dv_spent_ms/title/body/routes/windows/route_def/window_def/confirm_text/execute_text/can_execute/time_frozen |
+| `world.prelude_choose_route(id)` | `{ok,reason,step,route_def}` | 目的地；错误选择返回 `ok=false` + story.hint（不推进步骤） |
+| `world.prelude_choose_window(id)` | `{ok,reason,step,window_def}` | 变轨窗口；需先选目的地 |
+| `world.prelude_confirm()` | `{ok,confirm_text}` | 二次确认（可选，execute 不强制） |
+| `world.prelude_execute()` | `{ok,dv_spent_ms,execute_text,radio_count,flags}` | 执行点火：置 `prelude_executed`，写离港通信，时间开始流动 |
+| `world.prelude_skip()` | 同 execute + `skipped=true` | 自动化/跳过 |
+| `world.prelude_open()` | bool | 是否处于前置航行 |
+
+### 10.2　动作 perform_action（7 个支持动作）
+
+`world.perform_action(action_id, target_id, params={})` →
+
+```
+{ok, action, action_label, target_id, level, level_name, identity, identity_label,
+ actor_id, actor_name, detail, reason, reason_code, order_id, observation_count,
+ sensor, support}
+```
+
+- 动作可用性仍由 `content/actions.json` + `V2Actions.available_one` 决定（等级/能力/距离/阶段/flag）；
+  本舰能力不足时自动选舰队内能执行的友军平台（例如 IFF 由远地点执行，`actor_id/actor_name` 指明）。
+- 观测用动作 effect 支撑级 + 目标真实轨道几何（`entity.orbit.r`）+ 平台传感器参数生成；
+  `level` 为动作后航迹等级。武器类（fire_control/missile_solve/weapons_hold）返回
+  `ok=false, reason_code="unsupported"`，不产生命令/不改等级。
+- 每个成功动作在命令队列留一条 `DONE` 审计记录（`order_id`）。
+- 不伪造 L4：IFF 仅对友方给 L4 身份；2001/9001 等无应答只到未知/可疑。
+
+### 10.3　证据任务
+
+| 方法 | 返回 | 说明 |
+| --- | --- | --- |
+| `world.start_evidence(id)` | `{ok,reason,task}` | 开始取证；穿梭机任务互斥（reason 写占用），远程任务可并行 |
+| `world.advance(dt)` / `world.advance_tasks(dt)` | `{tasks,...}` | 任务随世界时间自动完成（到 duration_s） |
+| `world.evidence_remaining(id)` | float | 剩余秒数 |
+| `world.vm_evidence()` | Array | id/label/duration_s/shuttle/state/started_t/done_t/remaining_s/progress |
+| `world.evidence_count()` / `world.can_expose()` | int / bool | 证据数 / 是否达 `evidence.policy.min_for_expose` |
+| `world.evidence_complete(id)` | bool | 调试/剧情直接完成 |
+
+任务完成效果来自内容：`evidence.items[].flags_on_done`（例：evacuation → `civilians_evacuated`）；
+v15 旧场景迁移时 `evacuation` 自动带该 flag。
+
+### 10.4　决策 / 报告 / 结束 / 重开
+
+| 方法 | 返回 | 说明 |
+| --- | --- | --- |
+| `world.open_decision()` | `{ok,prompt,evidence_count,can_expose}` | 打开决策（时间线 `type="decision"` 事件也会自动调用） |
+| `world.vm_decision()` | `{open,prompt,options,evidence_count,can_expose,decision,reply,consequence}` | options 含 `kind/label/hint/enabled/reason`；EXPOSE 证据不足时 `enabled=false` |
+| `world.choose_ending(kind)` | `{ok,kind,ending,reply,fire_release,consequence,reason}` | kind ∈ HOLD/EVACUATE/EXPOSE/FIRE；EXPOSE 需 `can_expose`；FIRE 置灾难分支 |
+| `world.vm_report()` | `{available,prompt,options,audit_flag,report,fake_available,recommend}` | 报告覆盖层 |
+| `world.submit_report(truth)` | `{ok,report,audit_flag,ended,mission_phase}` | truth=false → 伪造记录 + `audit_flag` / `audit_count`，文本优先 story.report_fake |
+| `world.vm_end()` / `world.end_summary()` | Dictionary | 结局/报告正文/审计/证据/平民撤离/灾难后果/reputation/flag |
+| `world.restart()` | `{ok,phase,prelude_open,t,evidence_count}` | 从场景原始数据重载世界、复位流程、mission.reset() |
+| `world.mission_snapshot()` | Dictionary | mission.snapshot（phase/kind/prompt/flags/history/phases） |
+
+流程 flag（自动同步给 mission）：`prelude_executed / decision_open / decision_made /
+fire_release / report_submitted / audit_flag / civilians_evacuated`。
+阶段进入条件与提示/选项文本全部来自 `scenario.phases[]` + `story.*`（不写死结局）。
+
+### 10.5　自动时间线
+
+`world.advance(dt)` 会：
+
+- 触发 `story.events` / `story.radio_lines` 中 `t <= world.t` 的条目（各一次；event kind = `timeline:<type>`）；
+  `type="decision"` 的事件自动 `open_decision()`；
+- 推进证据任务；自动推进一格 mission（`mission_auto` 可关）；推进命令队列与航迹衰减；
+- **不自动做任何识别动作**（教学门控：等级只能由玩家 `perform_action` 或外部 sim 观测推进）。
+
+UI 读取：`world.recent_events(n)` / `world.recent_radio(n)` / `world.vm_state()`（含
+phase/phase_kind/prelude_open/decision_open/report_submitted/ended/time_frozen/audit_flag）。

@@ -199,7 +199,7 @@
       "port_telemetry": {"id": "port_telemetry", "label": "港务遥测", "duration_s": 30.0, "shuttle": false},
       "inspection_blackbox": {"id": "inspection_blackbox", "label": "核查组黑匣子", "duration_s": 75.0, "shuttle": true},
       "elint_signature": {"id": "elint_signature", "label": "异常 ELINT 特征码", "duration_s": 45.0, "shuttle": false},
-      "evacuation": {"id": "evacuation", "label": "撤出 Chronos 人员", "duration_s": 60.0, "shuttle": true}
+      "evacuation": {"id": "evacuation", "label": "撤出 Chronos 人员", "duration_s": 60.0, "shuttle": true, "flags_on_done": ["civilians_evacuated"]}
     }
   },
   "orders": {

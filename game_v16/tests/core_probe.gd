@@ -499,6 +499,7 @@ func _test_orders() -> void:
 	var world := V2World.new()
 	var ok := world.load_scenario(_sc_v2)
 	_ok(ok, "命令测试用 world 装载 V2 场景")
+	world.prelude_skip()
 	var t0: float = world.t
 
 	# 预命令：创建但不推进时间、不入队（用 exec_delay 把 TRANSMITTED 段拉出来验证）
@@ -672,6 +673,7 @@ func _test_world_and_view_model() -> void:
 	_section_begin("9 world / view-model / 证据")
 	var w := V2World.new()
 	_ok(w.load_scenario(_sc_v2), "装载 V2 场景", str(w.errors))
+	w.prelude_skip()
 	var st := w.vm_state()
 	_eq(int(st.get("entity_count", 0)), 7, "vm_state entity_count")
 	_eq(int(st.get("track_count", 0)), 8, "vm_state track_count")

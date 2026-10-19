@@ -68,6 +68,10 @@ static func load_file(path: String) -> V2Scenario:
 		return s
 	return V2Scenario.from_dict(parsed, path)
 
+## 深拷贝（restart 用）：从原始数据重新走一遍校验/迁移，不复用旧实体/航迹对象。
+func clone() -> V2Scenario:
+	return V2Scenario.from_dict(raw.duplicate(true), source_path)
+
 static func from_dict(data: Dictionary, source := "<memory>") -> V2Scenario:
 	var s := V2Scenario.new()
 	s.source_path = source
@@ -134,6 +138,48 @@ func phase_kinds() -> Array:
 
 func story_endings() -> Array:
 	return endings
+
+# ── 流程数据（V2-CORE-2 用；全部来自 story/场景，不写死关卡文本）─────
+
+func prelude_data() -> Dictionary:
+	return (story.get("prelude", {}) as Dictionary).duplicate(true)
+
+func prelude_enabled() -> bool:
+	return not prelude_data().is_empty() and ("PRELUDE" in phase_kinds())
+
+func story_events() -> Array:
+	return (story.get("events", []) as Array).duplicate(true)
+
+func story_radio() -> Array:
+	return (story.get("radio_lines", []) as Array).duplicate(true)
+
+func decision_prompt() -> String:
+	return String(story.get("decision_prompt", ""))
+
+func decision_replies() -> Dictionary:
+	return (story.get("decision_replies", {}) as Dictionary).duplicate(true)
+
+func consequence_text() -> String:
+	return String(story.get("consequence_fire", ""))
+
+## 结局选项（kind/code/label/hint），来自 story.endings；FIRE 是独立灾难分支，不在列表内时由 UI 单独提供。
+func ending_by_kind(kind: String) -> Dictionary:
+	for raw in endings:
+		if raw is Dictionary and String((raw as Dictionary).get("kind", "")) == kind:
+			return (raw as Dictionary).duplicate(true)
+	return {}
+
+func report_bodies() -> Dictionary:
+	return (story.get("report_bodies", {}) as Dictionary).duplicate(true)
+
+func report_fake() -> Dictionary:
+	return (story.get("report_fake", {}) as Dictionary).duplicate(true)
+
+func report_recommend() -> Dictionary:
+	return (story.get("report_recommend", {}) as Dictionary).duplicate(true)
+
+func reputation_base() -> Dictionary:
+	return (story.get("reputation", {}) as Dictionary).duplicate(true)
 
 # ── V2 校验 ─────────────────────────────────────────────────────
 
@@ -492,6 +538,9 @@ func _migrate_v0() -> void:
 		d["id"] = String(k)
 		d["label"] = String(d.get("label", k))
 		d["duration_s"] = float(d.get("duration", 0.0))
+		# 迁移约定：v15 的「撤出 Chronos 人员」完成即平民撤离（旧场景无 flags 字段）。
+		if String(k) == "evacuation":
+			d["flags_on_done"] = ["civilians_evacuated"]
 		evidence_defs[String(k)] = d
 	evidence_policy = DEFAULT_EVIDENCE_POLICY.duplicate(true)
 	warnings.append("迁移：证据门槛取默认 min_for_expose=%d（旧场景无该字段，口径见 docs/07）"

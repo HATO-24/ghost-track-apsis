@@ -72,6 +72,8 @@ var _state: Dictionary = {}
 var _evidence: Array = []
 var _core_events: Array = []
 var _scenario_entities: Dictionary = {}
+var _story: Dictionary = {}
+var _bridge_script: Variant = null
 
 
 # ══ 启动 ═════════════════════════════════════════════════════════════════
@@ -145,9 +147,15 @@ func _try_core() -> bool:
 		elif mission_script.can_instantiate():
 			m = mission_script.new()
 		if m != null:
-			if m.has_method("attach_world"):
+			# V2-CORE-2：world.attach_mission 绑定 mission（flow flag 自动同步 + advance 内自动推进）
+			if w.has_method("attach_mission"):
+				w.call("attach_mission", m)
+			elif m.has_method("attach_world"):
 				m.call("attach_world", w)
 			_core_mission = m
+	# 场景文本（story.* 由 scenario.story 携带，prompt_ref 已解析）
+	var story_raw: Variant = _field(scenario, "story", {})
+	_story = (story_raw as Dictionary).duplicate(true) if story_raw is Dictionary else {}
 	# 场景元数据（优先 vm_state）
 	_state = _extract_state()
 	title = String(_state.get("title", _field(scenario, "title", "")))
@@ -206,6 +214,15 @@ func _try_content() -> bool:
 		datum = String(d.get("datum", "L1"))
 		epoch = float(d.get("epoch", 0.0))
 		phases = _normalize_phases(d.get("phases", []))
+		_story = {}
+		if d.get("story", null) is Dictionary:
+			_story = (d.get("story") as Dictionary).duplicate(true)
+		if d.get("story_file", null) is String:
+			var story_txt := FileAccess.get_file_as_string(String(d.get("story_file", "")))
+			var story_parsed: Variant = JSON.parse_string(story_txt)
+			if story_parsed is Dictionary:
+				var sp: Dictionary = story_parsed
+				_story = (sp.get("story", sp) as Dictionary).duplicate(true) if sp.get("story", sp) is Dictionary else {}
 		phase = _current_phase()
 		scenario_path = path
 		_contacts.clear()
@@ -249,6 +266,10 @@ func _try_content() -> bool:
 				}
 				if c["track_id"] == "":
 					c["track_id"] = eid
+				if e.get("orbit", null) is Dictionary:
+					c["orbit"] = (e.get("orbit") as Dictionary).duplicate(true)
+					c["r"] = ((e.get("orbit") as Dictionary).get("r", []) as Array).duplicate()
+					c["v"] = ((e.get("orbit") as Dictionary).get("v", []) as Array).duplicate()
 				_contacts.append(_finalize_contact(c))
 				if eid == own_entity or ("own" in (c["tags"] as Array)):
 					own_id = eid
@@ -425,6 +446,7 @@ func _extract_contacts() -> Array:
 			"range_km": -1.0,
 			"sources": [],
 			"quality": 1.0,
+			"bearing_only": false,
 			"has_entity": true,
 			"tags": _strings(vm.get("tags", [])),
 			"notes": [],
@@ -458,6 +480,7 @@ func _normalize_contacts(raw: Array) -> Array:
 			"range_km": float(r.get("range_km", -1.0)),
 			"sources": _strings(r.get("sources", [])),
 			"quality": float(r.get("quality", 1.0)),
+			"bearing_only": bool(r.get("bearing_only", false)),
 			"has_entity": bool(r.get("has_entity", String(r.get("entity_id", "")) != "")),
 			"tags": _strings(r.get("tags", [])),
 			"notes": _strings(r.get("notes", [])),
@@ -481,6 +504,12 @@ func _normalize_contacts(raw: Array) -> Array:
 				c["cls"] = String(ev.get("cls", ev.get("class", "")))
 				c["role"] = String(ev.get("role", ""))
 				c["faction"] = String(ev.get("faction", ""))
+				var orbit_raw: Variant = ev.get("orbit", {})
+				if orbit_raw is Dictionary and not (orbit_raw as Dictionary).is_empty():
+					var orbit: Dictionary = orbit_raw
+					c["orbit"] = orbit.duplicate(true)
+					c["r"] = (orbit.get("r", []) as Array).duplicate()
+					c["v"] = (orbit.get("v", []) as Array).duplicate()
 		out.append(_finalize_contact(c))
 	return out
 
@@ -713,6 +742,9 @@ func _contact_to_entity(c: Dictionary) -> Dictionary:
 		"track_level": int(c.get("level", 0)),
 		"identity": String(c.get("identity", "unknown")),
 		"threat": String(c.get("threat", "")),
+		"r": (c.get("r", []) as Array).duplicate(),
+		"v": (c.get("v", []) as Array).duplicate(),
+		"track_id": String(c.get("track_id", "")),
 		"is_own": bool(c.get("is_own", false)),
 		"synthetic": bool(c.get("synthetic", false)),
 	}
@@ -892,15 +924,12 @@ func _mission_title() -> String:
 
 
 ## mission.prompt() 的只读快照（title/text/hint/options），文本来自 content/story_l1.json。
-func mission_prompt() -> Dictionary:
-	if _core_mission != null and _core_mission.has_method("prompt"):
-		var res: Variant = _core_mission.call("prompt")
-		if res is Dictionary:
-			return (res as Dictionary).duplicate(true)
-	return {}
-
-
 func _current_phase() -> String:
+	if _core_world != null and _core_world.has_method("mission_snapshot"):
+		var ms: Variant = _core_world.call("mission_snapshot")
+		if ms is Dictionary and String((ms as Dictionary).get("kind", "")) != "":
+			phase_title = String((ms as Dictionary).get("title", ""))
+			return String((ms as Dictionary).get("kind", ""))
 	if _core_mission != null:
 		var k := String(_field(_core_mission, "kind", ""))
 		if k == "":
@@ -919,6 +948,464 @@ func _current_phase() -> String:
 	if not phases.is_empty():
 		return String(phases[0])
 	return "PRELUDE"
+
+
+# ══ V2-3 游戏屏 API：story / core flow / 证据 / 动作 / 战术快照 ═════════
+
+const TACTICAL_SNAPSHOT_PATH := "res://sim/tactical_snapshot.gd"
+const DEFAULT_CAMERA := {
+	"map_rect": [436.0, 124.0, 1088.0, 752.0],
+	"yaw_deg": 0.0, "pitch_deg": 60.0, "scale_px_per_km": 0.0,
+	"fit_margin": 0.82, "center_mode": "own",
+}
+
+var _snapshot_cls: Variant = null
+var _sim_state: Dictionary = {}
+var _sim_ready := false
+var _tactical_notes: Array[String] = []
+
+
+# ── 场景文本（story_l1.json → scenario.story）──────────────────────────
+
+func story_data() -> Dictionary:
+	return _story.duplicate(true)
+
+
+## 按 "prelude"/"notice.body"/"report_bodies.HOLD" 这类路径取文本；缺失返回默认值。
+func story_get(path: String, default_value: Variant = null) -> Variant:
+	var node: Variant = _story
+	for raw_part in path.split("."):
+		var key := String(raw_part)
+		if key == "":
+			continue
+		if node is Dictionary and (node as Dictionary).has(key):
+			node = (node as Dictionary)[key]
+		elif node is Array:
+			var idx := int(key)
+			if idx < 0 or idx >= (node as Array).size():
+				return default_value
+			node = (node as Array)[idx]
+		else:
+			return default_value
+	return default_value if node == null else node
+
+
+# ── core flow（V2-CORE-2）：prelude / decision / report / end / mission ─
+
+func vm_flow() -> Dictionary:
+	if _core_world != null and _core_world.has_method("vm_flow"):
+		var raw: Variant = _core_world.call("vm_flow")
+		if raw is Dictionary:
+			return (raw as Dictionary).duplicate(true)
+	return {
+		"t": time, "time_frozen": false,
+		"prelude": {}, "decision": {}, "report": {}, "end": {}, "mission": {},
+		"flags": {}, "civilians_evacuated": false, "audit_count": 0,
+	}
+
+
+func _flow_call(method: String, args: Array = []) -> Dictionary:
+	if _core_world == null or not _core_world.has_method(method):
+		return {"ok": false, "reason": "core 未就绪：无 " + method}
+	var raw: Variant = _core_world.callv(method, args)
+	var out: Dictionary = (raw as Dictionary).duplicate(true) if raw is Dictionary else {"ok": raw != null}
+	refresh()
+	return out
+
+
+func prelude_state() -> Dictionary:
+	var p: Variant = vm_flow().get("prelude", {})
+	return (p as Dictionary).duplicate(true) if p is Dictionary else {}
+
+
+func prelude_choose_route(id: String) -> Dictionary:
+	return _flow_call("prelude_choose_route", [id])
+
+
+func prelude_choose_window(id: String) -> Dictionary:
+	return _flow_call("prelude_choose_window", [id])
+
+
+func prelude_confirm() -> Dictionary:
+	return _flow_call("prelude_confirm", [])
+
+
+func prelude_execute() -> Dictionary:
+	return _flow_call("prelude_execute", [])
+
+
+func prelude_skip() -> Dictionary:
+	return _flow_call("prelude_skip", [])
+
+
+func open_decision() -> Dictionary:
+	var r: Dictionary = _flow_call("open_decision", [])
+	if not r.is_empty():
+		advance_mission(1)
+	return r
+
+
+func vm_decision() -> Dictionary:
+	var d: Variant = vm_flow().get("decision", {})
+	return (d as Dictionary).duplicate(true) if d is Dictionary else {}
+
+
+func choose_ending(kind: String) -> Dictionary:
+	var r: Dictionary = _flow_call("choose_ending", [kind])
+	if bool(r.get("ok", false)):
+		advance_mission(2 if kind == "FIRE" else 1)
+	return r
+
+
+func report_state() -> Dictionary:
+	var r: Variant = vm_flow().get("report", {})
+	return (r as Dictionary).duplicate(true) if r is Dictionary else {}
+
+
+func submit_report(truth := true) -> Dictionary:
+	return _flow_call("submit_report", [truth])
+
+
+func end_summary() -> Dictionary:
+	var e: Variant = vm_flow().get("end", {})
+	return (e as Dictionary).duplicate(true) if e is Dictionary else {}
+
+
+func restart_world() -> Dictionary:
+	return _flow_call("restart", [])
+
+
+func advance_mission(steps := 1) -> Array:
+	if _core_world == null or not _core_world.has_method("advance_mission"):
+		return []
+	var raw: Variant = _core_world.call("advance_mission", steps)
+	refresh()
+	return (raw as Array).duplicate(true) if raw is Array else []
+
+
+func mission_state() -> Dictionary:
+	var flow := vm_flow()
+	var mission: Dictionary = flow.get("mission", {}) if flow.get("mission", {}) is Dictionary else {}
+	var prompt: Dictionary = mission.get("prompt", {}) if mission.get("prompt", {}) is Dictionary else {}
+	var kind := String(mission.get("kind", phase))
+	if kind == "":
+		kind = phase
+	var out: Dictionary = {
+		"phase": String(mission.get("phase", phase)),
+		"phase_id": String(mission.get("phase", phase)),
+		"kind": kind,
+		"title": String(mission.get("title", phase_title)),
+		"prompt": prompt.duplicate(true),
+		"options": prompt.get("options", null),
+		"index": int(mission.get("index", -1)),
+		"total": int(mission.get("total", phases.size())),
+		"is_last": bool(mission.get("is_last", false)),
+		"countdown_s": decision_countdown(),
+		"flags": flow.get("flags", {}),
+		"prelude": flow.get("prelude", {}),
+		"decision": flow.get("decision", {}),
+		"report": flow.get("report", {}),
+		"end": flow.get("end", {}),
+	}
+	return out
+
+
+## 决策倒计时：story.decision_t - world.t（前置/结束后时间流动）；决策打开后冻结。
+func decision_countdown() -> float:
+	# V2 场景没有独立执行窗口字段：用 story.decision_t - world.t 作为数据驱动倒计时。
+	# 决策打开后 UI 停止推进世界时间 → 倒计时冻结在打开时刻。
+	var dt := float(story_get("decision_t", 300.0))
+	return maxf(0.0, dt - world_time())
+
+
+func mission_prompt() -> Dictionary:
+	var mission: Dictionary = vm_flow().get("mission", {}) if vm_flow().get("mission", {}) is Dictionary else {}
+	var prompt: Variant = mission.get("prompt", {})
+	if prompt is Dictionary:
+		return (prompt as Dictionary).duplicate(true)
+	if _core_mission != null and _core_mission.has_method("prompt"):
+		var raw: Variant = _core_mission.call("prompt")
+		if raw is Dictionary:
+			return (raw as Dictionary).duplicate(true)
+	return {}
+
+
+# ── 证据任务（V2-CORE-2：world.start_evidence / evidence_remaining）─────
+
+func evidence_policy() -> Dictionary:
+	if _core_world == null:
+		return {}
+	var pol: Variant = _core_world.get("evidence_policy")
+	return (pol as Dictionary).duplicate(true) if pol is Dictionary else {}
+
+
+func evidence_min_for_expose() -> int:
+	return int(evidence_policy().get("min_for_expose", 2))
+
+
+func evidence_tasks() -> Array:
+	var out: Array = []
+	for raw in evidence():
+		var ev: Dictionary = raw
+		var eid := String(ev.get("id", ""))
+		var state := String(ev.get("state", "unknown"))
+		var dur := float(ev.get("duration_s", 0.0))
+		var remain := dur
+		if _core_world != null and _core_world.has_method("evidence_remaining"):
+			remain = float(_core_world.call("evidence_remaining", eid))
+		var row: Dictionary = ev.duplicate(true)
+		row["id"] = eid
+		row["label"] = String(ev.get("label", eid))
+		row["duration_s"] = dur
+		row["shuttle"] = bool(ev.get("shuttle", false))
+		row["remain_s"] = maxf(0.0, remain) if state != "done" else 0.0
+		row["progress"] = 1.0 if state == "done" else clampf(1.0 - remain / maxf(dur, 1.0), 0.0, 1.0)
+		row["available"] = state == "unknown"
+		row["reason"] = "已取得" if state == "done" else ("进行中" if state == "in_progress" else "")
+		out.append(row)
+	return out
+
+
+func start_evidence(id: String) -> Dictionary:
+	if _core_world == null or not _core_world.has_method("start_evidence"):
+		return {"ok": false, "reason": "core 未就绪：无 start_evidence"}
+	var raw: Variant = _core_world.call("start_evidence", id)
+	var out: Dictionary = (raw as Dictionary).duplicate(true) if raw is Dictionary else {"ok": bool(raw)}
+	refresh()
+	return out
+
+
+func can_expose() -> bool:
+	if _core_world == null or not _core_world.has_method("can_expose"):
+		return false
+	return bool(_core_world.call("can_expose"))
+
+
+# ── 动作 → core（V2-CORE-2 perform_action：动作观测/状态由 core 生成）──
+
+func perform_action(action_id: String, target_id: String) -> Dictionary:
+	if _core_world == null:
+		return {"ok": false, "reason": "core 未就绪"}
+	var raw: Variant = null
+	if _core_world.has_method("perform_action"):
+		raw = _core_world.call("perform_action", action_id, target_id, {})
+	elif _core_world.has_method("issue_order"):
+		raw = _core_world.call("issue_order", action_id, target_id, {})
+	var out: Dictionary = (raw as Dictionary).duplicate(true) if raw is Dictionary else {"ok": false, "reason": "动作调用返回异常"}
+	refresh()
+	return out
+
+
+func action_effect(action_id: String) -> Dictionary:
+	if _core_actions != null and _core_actions.has_method("definition"):
+		var d: Variant = _core_actions.call("definition", action_id)
+		if d is Dictionary and (d as Dictionary).get("effect", null) is Dictionary:
+			return ((d as Dictionary).get("effect") as Dictionary).duplicate(true)
+	return {}
+
+
+func abort_order(order_id: String) -> Dictionary:
+	return _flow_call("abort_order", [order_id])
+
+
+# ── 世界时间 / 事件 / 无线电 ───────────────────────────────────────────
+
+func advance_world(dt: float) -> Dictionary:
+	if _core_world == null or not _core_world.has_method("advance"):
+		return {}
+	var raw: Variant = _core_world.call("advance", dt)
+	time = float(_field(_core_world, "t", time))
+	if raw is Dictionary:
+		refresh()
+		return (raw as Dictionary).duplicate(true)
+	return {}
+
+
+func world_time() -> float:
+	time = float(_field(_core_world, "t", time)) if _core_world != null else time
+	return time
+
+
+func has_core() -> bool:
+	return _core_world != null
+
+
+func push_log(kind: String, text: String) -> void:
+	if _core_world != null and _core_world.has_method("push_log"):
+		_core_world.call("push_log", kind, text)
+
+
+func push_radio(line: Dictionary) -> void:
+	if _core_world != null and _core_world.has_method("push_radio"):
+		_core_world.call("push_radio", line)
+
+
+func recent_radio(n := 6) -> Array:
+	if _core_world != null and _core_world.has_method("recent_radio"):
+		var raw: Variant = _core_world.call("recent_radio", n)
+		if raw is Array:
+			return (raw as Array).duplicate(true)
+	return []
+
+
+# ── 战术快照（V2-SENSOR-2：sim/tactical_snapshot.gd，纯数据）──────────
+
+func tactical_available() -> bool:
+	if _core_world == null:
+		return false
+	if _snapshot_cls == null:
+		_snapshot_cls = _load_script(TACTICAL_SNAPSHOT_PATH)
+	return _snapshot_cls != null
+
+
+func tactical_notes() -> Array:
+	return _tactical_notes.duplicate()
+
+
+func tactical_ensure_sim() -> bool:
+	if not tactical_available():
+		return false
+	if _sim_ready and not _sim_state.is_empty():
+		return true
+	var raw: Variant = _snapshot_cls.call("make_sim_state", _core_world, {})
+	if raw is Dictionary and not (raw as Dictionary).is_empty():
+		_sim_state = (raw as Dictionary).duplicate(true)
+		_sim_ready = true
+		for note in (_sim_state.get("notes", []) as Array):
+			_tactical_notes.append(String(note))
+	return _sim_ready
+
+
+func tactical_sim_state() -> Dictionary:
+	return _sim_state
+
+
+func _camera_cfg(camera_cfg: Dictionary) -> Dictionary:
+	var cam: Dictionary = DEFAULT_CAMERA.duplicate(true)
+	for key in (camera_cfg as Dictionary).keys():
+		cam[key] = camera_cfg[key]
+	return cam
+
+
+func tactical_build(camera_cfg: Dictionary = {}) -> Dictionary:
+	if not tactical_ensure_sim():
+		return {"available": false, "reason": "sim/tactical_snapshot 不可用（core/sim 未就绪）"}
+	var cfg: Dictionary = {"sim_state": _sim_state, "camera": _camera_cfg(camera_cfg)}
+	var raw: Variant = _snapshot_cls.call("build", _core_world, _sim_state, cfg)
+	return (raw as Dictionary).duplicate(true) if raw is Dictionary else {"available": false}
+
+
+## 推进 sim 模型并返回观测建议 → 由 UI 决定是否 ingest（本项目：可用观测直接进 core）。
+func tactical_step(dt: float, camera_cfg: Dictionary = {}) -> Dictionary:
+	if not tactical_ensure_sim():
+		return {"ok": false, "snapshot": {}, "observations": 0, "reason": "sim 未就绪"}
+	var cfg: Dictionary = {"sim_state": _sim_state, "camera": _camera_cfg(camera_cfg)}
+	var raw: Variant = _snapshot_cls.call("step", _core_world, dt, cfg)
+	var snap: Dictionary = {}
+	var obs_count := 0
+	var events: Array = []
+	var suggested: Array = []
+	if raw is Dictionary:
+		var out: Dictionary = raw
+		if out.get("snapshot", null) is Dictionary:
+			snap = (out.get("snapshot") as Dictionary).duplicate(true)
+		var obs: Variant = out.get("observations", [])
+		if obs is Array and _core_world != null and _core_world.has_method("ingest"):
+			for item in (obs as Array):
+				if item is Dictionary:
+					_core_world.call("ingest", item)
+					obs_count += 1
+		if out.get("events", null) is Array:
+			events = (out.get("events") as Array).duplicate(true)
+		if out.get("suggested_calls", null) is Array:
+			suggested = (out.get("suggested_calls") as Array).duplicate(true)
+	if snap.is_empty():
+		snap = tactical_build(camera_cfg)
+	if obs_count > 0:
+		refresh()
+	return {"ok": true, "snapshot": snap, "observations": obs_count,
+		"events": events, "suggested": suggested}
+
+
+func tactical_start_channel(kind: String, track_id: String) -> Dictionary:
+	if not tactical_ensure_sim():
+		return {"ok": false, "reason": "sim 未就绪"}
+	var raw: Variant = _snapshot_cls.call("start_channel", _sim_state, kind, track_id)
+	return (raw as Dictionary).duplicate(true) if raw is Dictionary else {"ok": bool(raw)}
+
+
+func tactical_stop_channel(kind: String, track_id := "") -> void:
+	if tactical_ensure_sim():
+		_snapshot_cls.call("stop_channel", _sim_state, kind, track_id)
+
+
+func tactical_set_radar_enabled(on: bool) -> void:
+	if tactical_ensure_sim():
+		_snapshot_cls.call("set_radar_enabled", _sim_state, on)
+
+
+# ══ 重新拉取 / 几何辅助 ═════════════════════════════════════════════════
+
+## 重新拉取 view-model（core tick / 流程动作 / 事件后调用；保留选中）。
+func refresh() -> void:
+	if _core_world == null:
+		return
+	_state = _extract_state()
+	title = String(_state.get("title", title))
+	scenario_id = String(_state.get("scenario_id", scenario_id))
+	time = float(_state.get("t", _field(_core_world, "t", time)))
+	_contacts = _extract_contacts()
+	_evidence = _extract_evidence()
+	_apply_own()
+	_rebuild_index()
+	if not _index.has(selected_id):
+		selected_id = own_id
+	phase = _current_phase()
+	phase_title = _mission_title()
+
+
+func _vec3_of(value: Variant) -> Vector3:
+	if value is Vector3:
+		return value
+	if value is Array:
+		var arr: Array = value
+		if arr.size() >= 3:
+			return Vector3(float(arr[0]), float(arr[1]), float(arr[2]))
+	return Vector3.ZERO
+
+
+## UI 几何：实体轨道 r/v（km / km·s⁻¹）与航迹方位/距离（无快照时的兜底投影用）。
+func geometry_of(id: String) -> Dictionary:
+	var c := contact(id)
+	if c.is_empty():
+		return {}
+	var eid := String(c.get("entity_id", ""))
+	var ent: Dictionary = _entity_by_id(eid) if eid != "" else {}
+	var orbit: Dictionary = ent.get("orbit", {}) if ent.get("orbit", {}) is Dictionary else {}
+	var r := _vec3_of(orbit.get("r", c.get("r", [])))
+	var v := _vec3_of(orbit.get("v", c.get("v", [])))
+	return {
+		"id": String(c.get("id", id)),
+		"track_id": String(c.get("track_id", "")),
+		"entity_id": eid,
+		"batch": String(c.get("batch", id)),
+		"name": String(c.get("name", "")),
+		"kind": String(c.get("kind", "unknown")),
+		"side": String(c.get("side", "unknown")),
+		"identity": String(c.get("identity", "unknown")),
+		"level": int(c.get("level", 0)),
+		"r": r,
+		"v": v,
+		"has_entity": bool(c.get("has_entity", eid != "")),
+		"bearing_only": bool(c.get("bearing_only", false)),
+		"bearing_deg": float(c.get("bearing_deg", 0.0)),
+		"range_km": float(c.get("range_km", -1.0)),
+		"orbit": orbit.duplicate(true),
+	}
+
+
+func own_geometry() -> Dictionary:
+	return geometry_of(own_id)
 
 
 # ══ 截图/压测用 synthetic 实体 ═══════════════════════════════════════════
