@@ -2054,6 +2054,33 @@ func _handle_evidence_click(p: Vector2) -> bool:
 		return true
 	return false
 
+func _draw_target_panel(v: Dictionary, tr: Dictionary, accent: Color) -> void:
+	# 非己方选中：覆盖己舰系统/Δv/传感器架区域，显示目标数据，不把本舰参数套到敌舰。
+	draw_rect(Rect2(UNIT_X, 328, 288, 370), Palette.a(Palette.PANEL, 0.98))
+	draw_rect(Rect2(UNIT_X, 328, 288, 370), Palette.a(accent, 0.28), false, 1.0)
+	_txt(cjk, UNIT_X, 342, "目标数据 / TARGET DATA", 8, accent)
+	_txt_r(mono, 1844, 342, "NON-OWN CONTACT", 7, Palette.a(Palette.AMBER, 0.7))
+	var rows := [
+		["批号 BATCH", "%04d" % int(v.get("batch", 0))],
+		["身份 IDENTITY", _identity_cn(String(v.get("identity", "unknown")))],
+		["威胁 THREAT", String(v.get("threat", "—"))],
+		["阵营 FACTION", String(v.get("faction", "—"))],
+		["舰级 CLASS", "%s · %s" % [String(v.get("cls", "—")), String(v.get("role", "—"))]],
+		["方位 AZ/EL", String(v.get("azel", "—"))],
+		["距离 RANGE", String(v.get("range", "—"))],
+		["接近率 CLOSING", String(v.get("closing", "—"))],
+		["周期 PERIOD", String(v.get("period", "—"))],
+		["倾角 INC", String(v.get("inc", "—"))],
+		["姿态 ATTITUDE", String(v.get("att", "—"))],
+	]
+	for i in range(rows.size()):
+		var y := 362.0 + float(i) * 25.0
+		_txt(cjk, UNIT_X, y, String(rows[i][0]), 7, Palette.FAINT)
+		var val := String(rows[i][1])
+		var vf: Font = cjk if Fonts.has_cjk(val) else mono
+		_txt(vf, UNIT_X, y + 10.0, _ellipsis(vf, val, 9, 276.0), 9, Palette.TXT)
+	_txt(cjk, UNIT_X, 662, "目标接触只读 · 右键地图执行传感器/火控动作", 7, Palette.a(Palette.FAINT, 0.9))
+
 func _draw_evidence_panel() -> void:
 	var got := _evidence_got()
 	var n := _evidence_count()
@@ -2255,9 +2282,12 @@ func _selected_ship_view() -> Dictionary:
 		"cls": _dn(String(u.get("cls", ""))), "role": _dn(String(u.get("role", ""))),
 		"faction": _dn(String(u.get("faction", ""))), "batch": 1001, "identity": "friend",
 		"mass": "—", "crew": "—", "accel": "—", "inc": "—", "period": "—",
-		"att": "—", "range": "—", "closing": "—",
+		"att": "—", "range": "—", "closing": "—", "azel": "—",
+		"side": "friend", "threat": "",
 	}
 	if not tr.is_empty():
+		v["side"] = String(tr.get("side", "friend"))
+		v["threat"] = _track_threat(tr)
 		v["name"] = _dn(_track_display_id(tr))
 		v["en"] = _dn(String(tr.get("en", "")))
 		v["batch"] = _track_batch(tr)
@@ -2296,6 +2326,8 @@ func _selected_ship_view() -> Dictionary:
 				if sd.get("closing_mps") != null:
 					var cm := float(sd["closing_mps"]) / 1000.0
 					v["closing"] = "接近率 %+.1f km/s" % cm
+				if sd.get("az_deg") != null:
+					v["azel"] = "AZ %03.0f° / EL %+03.0f°" % [float(sd["az_deg"]), float(sd.get("el_deg", 0.0))]
 		if bool(tr.get("own", false)):
 			v["mass"] = _dn(String(u.get("mass", "—")))
 			v["crew"] = _dn(String(u.get("crew", "—")))
@@ -2384,9 +2416,13 @@ func _draw_unit() -> void:
 	var rack_ship := _rack_ship()
 	var em := _rack_emission()
 	var lv := clampi(int(tr.get("level", 0)), 0, 4)
-	# 抬头：跟随 state.selected
-	_txt(cjk, UNIT_X, 138, "选中舰 / SELECTED SHIP", 7, Palette.FAINT)
-	_txt(cjk, UNIT_X, 152, String(v["name"]), 22, Palette.TXT)
+	# 抬头：跟随 state.selected；敌我使用不同标题与色彩。
+	var own_sel := tr.is_empty() or bool(tr.get("own", false))
+	var side_sel := String(tr.get("side", "friend"))
+	var accent: Color = Palette.PH if own_sel else (Palette.RED if side_sel == "hostile" else Palette.AMBER)
+	draw_rect(Rect2(UNIT_X, 128, 288, 78), Palette.a(accent, 0.055))
+	_txt(cjk, UNIT_X, 138, "选中舰 / SELECTED SHIP" if own_sel else "选中目标 / SELECTED CONTACT", 7, accent)
+	_txt(cjk, UNIT_X, 152, String(v["name"]), 22, accent)
 	_txt(mono, UNIT_X, 178, String(v["en"]), 8, Palette.DIM)
 	_txt(cjk, UNIT_X, 194, _ellipsis(cjk, "%s · %s" % [String(v["cls"]), String(v["role"])], 10, 288.0),
 		10, Palette.PH)
@@ -2486,6 +2522,8 @@ func _draw_unit() -> void:
 	# 损管卡（独立状态卡；副官/手册按钮不在此卡内）
 	_draw_damage_card()
 
+	if not own_sel:
+		_draw_target_panel(v, tr, accent)
 	# 证据面板（P2b）
 	_draw_evidence_panel()
 	if _damage_open:
