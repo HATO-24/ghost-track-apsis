@@ -11,6 +11,7 @@ const Fonts := preload("res://scripts/fonts.gd")
 const DW := 1920.0
 const DH := 1080.0
 const CG_TOTAL := 8.8          # 8–10s 目标区间
+const CG_MARATHON_TOTAL := 17.0  # 第二版：电影化启动 CG
 const CUT_SEED := 4471         # 与 HUD/plot 硬切同 seed，保持可复现
 const CUT_DUR := 0.32
 const SHOT_FRAMES := 30
@@ -40,6 +41,7 @@ var cjk: Font
 
 # ── 状态 / 时间 ───────────────────────────────────────
 var _state := "cg"             # "cg" | "menu" | "options"
+var _style := "terminal"        # "terminal" | "marathon"
 var _t := 0.0                  # CG 计时（真实时间）
 var _menu_t := 0.0             # 菜单自身计时（揭场硬切用）
 var _sample_t := -1.0          # 截图冻结时间（DSH_INTRO_T / cg1 / cg2）
@@ -75,6 +77,8 @@ func _ready() -> void:
 	_build_visuals()
 	_parse_env()
 	_demo = OS.get_environment("DSH_DEMO") == "1"
+	if _state == "cg" and _style == "marathon":
+		_audio("play_bgm", "game")
 	queue_redraw()
 
 func _load_settings() -> void:
@@ -141,6 +145,8 @@ func _build_visuals() -> void:
 	_cut_cells = arr
 
 func _parse_env() -> void:
+	_style = OS.get_environment("DSH_INTRO_STYLE")
+	if _style == "": _style = "marathon"
 	var intro := OS.get_environment("DSH_INTRO")
 	var shot := OS.get_environment("DSH_SHOT")
 	var skip := OS.get_environment("DSH_SKIP_INTRO")
@@ -198,19 +204,13 @@ func _process(delta: float) -> void:
 	_menu_t += delta
 	if _state == "cg":
 		var ct := _cg_time()
-		if ct >= 0.06 and _sfx_stage < 1:
-			_sfx_stage = 1
-			_audio("sfx", "boot")
-		if ct >= 3.16 and _sfx_stage < 2:
-			_sfx_stage = 2
-			_audio("sfx", "hard_cut")
-		if ct >= 6.46 and _sfx_stage < 3:
-			_sfx_stage = 3
-			_audio("sfx", "hard_cut")
-		if ct >= 6.57 and _sfx_stage < 4:
-			_sfx_stage = 4
-			_audio("sfx", "hard_cut")
-		if ct >= CG_TOTAL:
+		var marks := [0.10, 2.20, 6.20, 9.40, 12.80, 16.20] if _style == "marathon" else [0.06, 3.16, 6.46, 6.57, 8.40]
+		for i in range(marks.size()):
+			if ct >= float(marks[i]) and _sfx_stage <= i:
+				_sfx_stage = i + 1
+				_audio("sfx", "boot" if i == 0 else "hard_cut")
+				break
+		if ct >= _cg_total():
 			_enter_menu()
 	elif _state == "menu" and _demo and not _demo_started and _menu_t >= 2.8:
 		_demo_started = true
@@ -376,6 +376,9 @@ func _txt_spaced(s: String, cx: float, y: float, sz: int, gap: float, c: Color) 
 		if i < s.length() - 1:
 			x += gap
 
+func _cg_total() -> float:
+	return CG_MARATHON_TOTAL if _style == "marathon" else CG_TOTAL
+
 func _cg_time() -> float:
 	if _sample_t >= 0.0:
 		return _sample_t
@@ -398,6 +401,9 @@ func _draw() -> void:
 	_draw_frame()
 
 func _draw_cg() -> void:
+	if _style == "marathon":
+		_draw_cg_marathon()
+		return
 	var t := _cg_time()
 	_draw_grid_bg(0.30)
 	_draw_noise(t)
@@ -423,6 +429,186 @@ func _draw_cg() -> void:
 	_txt_r(mono, DW - 96.0, DH - 72.0, "T+%04.1f s / %04.1f s" % [t, CG_TOTAL], 7, Palette.a(Palette.FAINT, 0.8))
 
 # ── 通用底纹：网格 / 星点 / 噪点 / 扫描线 / 边框 ───────
+# ── P7：电影化启动 CG（同类型风格，原创镜头/文案/图形）────────
+func _draw_cg_marathon() -> void:
+	var t := _cg_time()
+	draw_rect(Rect2(Vector2.ZERO, Vector2(DW, DH)), Color("#030507"))
+	_draw_stars(t * 0.2)
+	_draw_noise(t)
+	if t < 2.2:
+		_marathon_opening(t)
+	elif t < 6.2:
+		_marathon_orbit(t)
+	elif t < 9.4:
+		_marathon_glitch(t)
+	elif t < 12.8:
+		_marathon_title(t)
+	else:
+		_marathon_cards(t)
+	# 电影遮幅与片头标识
+	var lb := 58.0
+	draw_rect(Rect2(0, 0, DW, lb), Color("#000000"))
+	draw_rect(Rect2(0, DH - lb, DW, lb), Color("#000000"))
+	_txt(mono, 92.0, 27.0, "GHOST TRACK / APSIS  //  PRELUDE", 7, Palette.a(Color("#9BD8C8"), 0.72))
+	_txt_r(mono, DW - 92.0, 27.0, "CISLUNAR / L1 MERIDIAN-05", 7, Palette.a(Color("#9BD8C8"), 0.45))
+	_txt(mono, 92.0, DH - 37.0, "OCUVF-ID13 // SIGNAL 07", 7, Palette.a(Color("#9BD8C8"), 0.55))
+	_txt_r(mono, DW - 92.0, DH - 37.0, "T+%04.1f / %04.1f" % [t, _cg_total()], 7, Palette.a(Color("#9BD8C8"), 0.45))
+	_draw_skip_btn()
+
+func _marathon_opening(t: float) -> void:
+	var ink := Color("#EAF6F2")
+	var cyan := Color("#72E1D0")
+	var orange := Color("#FF6A36")
+	# 0–0.2：黑场里的白闪；不连续帧，制造胶片启动感。
+	if t < 0.18:
+		draw_rect(Rect2(Vector2.ZERO, Vector2(DW, DH)), Color(0.92, 0.98, 0.96, 0.65))
+		return
+	var a := clampf((t - 0.18) / 1.8, 0.0, 1.0)
+	var cx := DW * 0.5
+	# 垂直信号柱 + 横向故障块
+	draw_rect(Rect2(cx - 2.0, 120.0, 4.0, DH - 240.0), Palette.a(cyan, 0.10 + 0.25 * a))
+	for i in range(7):
+		var yy := 180.0 + float(i) * 92.0 + sin(t * 1.7 + float(i)) * 12.0
+		var ww := 120.0 + 260.0 * absf(sin(float(i) * 2.1 + t))
+		draw_rect(Rect2(cx - ww * 0.5, yy, ww, 2.0), Palette.a(orange, 0.10 + 0.28 * a))
+	# 低机位大号数字
+	draw_rect(Rect2(0, 116.0, DW, 4.0), Palette.a(orange, 0.40))
+	_txt(mono, 92.0, 130.0, "SIGNAL 07", 56, Palette.a(ink, 0.92))
+	_txt(mono, 96.0, 196.0, "CHRONOS / L1 MERIDIAN-05", 9, Palette.a(cyan, 0.82))
+	_txt(mono, 96.0, 870.0, "第九天。", 34, Palette.a(ink, 0.9))
+	_txt(mono, 96.0, 906.0, "他们把它叫作「接管」。", 12, Palette.a(ink, 0.62))
+	# 画面右侧的窄幅字幕，像被截获的广播
+	var bx := DW - 560.0
+	draw_rect(Rect2(bx, 640.0, 420.0, 76.0), Palette.a(Color("#071210"), 0.72))
+	draw_rect(Rect2(bx, 640.0, 2.0, 76.0), Palette.a(orange, 0.8))
+	_txt(mono, bx + 14.0, 652.0, "INTERCEPT // UEG 33RD FLEET", 7, Palette.a(orange, 0.85))
+	_txt(mono, bx + 14.0, 670.0, "「ID13，你不在名册里。」", 10, Palette.a(ink, 0.82))
+	_txt(mono, bx + 14.0, 690.0, "「但你需要进去。」", 10, Palette.a(ink, 0.62))
+
+func _marathon_orbit(t: float) -> void:
+	var ink := Color("#EAF6F2")
+	var cyan := Color("#72E1D0")
+	var orange := Color("#FF6A36")
+	var red := Color("#D94A36")
+	var cx := DW * 0.42
+	var cy := DH * 0.56
+	var drift := sin(t * 0.35) * 18.0
+	var pr := 250.0 + sin(t * 0.45) * 10.0
+	# 行星/站体的暗面与轮廓：不是写实地球，是低照度图形。
+	draw_circle(Vector2(cx + drift, cy), pr, Color("#07100F"))
+	draw_arc(Vector2(cx + drift, cy), pr, -2.8, 0.4, 96, Palette.a(ink, 0.72), 2.0, true)
+	draw_arc(Vector2(cx + drift, cy), 214.0, 0.1, 2.3, 72, Palette.a(cyan, 0.42), 1.0, true)
+	draw_arc(Vector2(cx + drift, cy), 286.0, -0.2, 2.9, 96, Palette.a(orange, 0.20), 1.0, true)
+	# 轨道环 / 站体切线
+	for i in range(5):
+		var rr := 300.0 + float(i) * 44.0
+		draw_arc(Vector2(cx + drift, cy), rr, -2.95 + 0.2 * float(i), 0.3 + 0.12 * float(i), 96, Palette.a(cyan, 0.10 + 0.03 * float(i)), 1.0, true)
+	# 站体标记：一个很小的几何结构，给出尺度。
+	var sp := Vector2(cx + drift + pr * 0.72, cy - pr * 0.58)
+	draw_rect(Rect2(sp - Vector2(10, 4), Vector2(20, 8)), Palette.a(ink, 0.6))
+	draw_line(sp - Vector2(22, 0), sp + Vector2(22, 0), Palette.a(orange, 0.55), 1.0)
+	draw_line(sp - Vector2(0, 18), sp + Vector2(0, 18), Palette.a(orange, 0.55), 1.0)
+	# 大号区域编号
+	_txt(mono, DW - 520.0, 250.0, "07", 150, Palette.a(orange, 0.16))
+	_txt(mono, DW - 500.0, 330.0, "L1 MERIDIAN-05 / CHRONOS", 10, Palette.a(ink, 0.78))
+	_txt(mono, DW - 500.0, 350.0, "第六号加注站 · 储罐区", 10, Palette.a(ink, 0.55))
+	# 缓慢移动的扫描线
+	var sy := 150.0 + fmod(t * 30.0, 720.0)
+	draw_rect(Rect2(0, sy, DW, 1), Palette.a(cyan, 0.12))
+	# 文案：短、冷、像任务简报，不做抒情。
+	_txt(mono, 96.0, 760.0, "第七号轨道紧急托管令 / ORDER 7", 9, Palette.a(cyan, 0.72))
+	_txt(mono, 96.0, 790.0, "清算者正在接管储罐区。", 22, Palette.a(ink, 0.86))
+	_txt(mono, 96.0, 820.0, "你只有六分钟。", 22, Palette.a(orange, 0.9))
+	# 角落数据碎片
+	_txt(mono, 96.0, 690.0, "ORBITAL FRAME / L1", 7, Palette.a(cyan, 0.45))
+	_txt_r(mono, DW - 92.0, 690.0, "TRANSIT 18:00 / Δv 120 m/s", 7, Palette.a(red, 0.55))
+
+func _marathon_glitch(t: float) -> void:
+	var ink := Color("#EAF6F2")
+	var cyan := Color("#72E1D0")
+	var red := Color("#D94A36")
+	var cx := DW * 0.5
+	var cy := DH * 0.52
+	# 冷光背板：让人物剪影从黑场里分离出来。
+	draw_circle(Vector2(cx, cy), 300.0, Color("#061210"))
+	draw_arc(Vector2(cx, cy), 300.0, 0.0, TAU, 96, Palette.a(cyan, 0.10), 1.0, true)
+	draw_arc(Vector2(cx, cy), 330.0, -0.7, 1.8, 64, Palette.a(red, 0.22), 1.0, true)
+	draw_rect(Rect2(cx - 210.0, cy - 260.0, 420.0, 2.0), Palette.a(cyan, 0.18))
+	# 头盔/面罩剪影：用几何块构成，不做写实人物。
+	var helmet := PackedVector2Array([
+		Vector2(cx - 120, cy - 190), Vector2(cx + 120, cy - 190),
+		Vector2(cx + 160, cy - 56), Vector2(cx + 118, cy + 138),
+		Vector2(cx - 118, cy + 138), Vector2(cx - 160, cy - 56),
+	])
+	draw_polyline(helmet + PackedVector2Array([helmet[0]]), Palette.a(red, 0.20), 2.0)
+	draw_colored_polygon(helmet, Color("#142521"))
+	draw_polyline(helmet + PackedVector2Array([helmet[0]]), Palette.a(ink, 0.78), 2.0)
+	draw_polyline(helmet + PackedVector2Array([helmet[0]]), Palette.a(red, 0.22), 3.0)
+	# 面罩的横向光带 + 扫描条
+	for i in range(5):
+		var yy := cy - 52.0 + float(i) * 15.0
+		draw_rect(Rect2(cx - 94.0, yy, 188.0, 3.0), Palette.a(cyan if i % 2 == 0 else red, 0.42 - 0.05 * float(i)))
+	var sy := cy - 80.0 + fmod(t * 46.0, 180.0)
+	draw_rect(Rect2(cx - 130.0, sy, 260.0, 2.0), Palette.a(ink, 0.55))
+	# RGB 分离的故障块
+	var step := int(floor(t * 9.0))
+	for i in range(9):
+		var h := (i * 7919 + step * 104729) & 0x7fffffff
+		var yy := 180.0 + float(h % 620)
+		var ww := 50.0 + float((h / 7) % 280)
+		var xx := 120.0 + float((h / 13) % 1400)
+		draw_rect(Rect2(xx, yy, ww, 2.0), Palette.a(cyan, 0.08))
+		draw_rect(Rect2(xx + 4.0, yy + 2.0, ww, 1.0), Palette.a(red, 0.08))
+	# 大字：故意错位，像信号没有对齐
+	_txt(mono, 96.0, 760.0, "ID13", 64, Palette.a(ink, 0.90))
+	_txt(mono, 100.0, 804.0, "你被派去取回一件不属于你的东西。", 18, Palette.a(ink, 0.72))
+	_txt(mono, 100.0, 832.0, "你不是第一个。", 18, Palette.a(red, 0.88))
+	_txt_r(mono, DW - 92.0, 760.0, "RETRIEVAL // TERMINAL", 9, Palette.a(cyan, 0.55))
+	_txt_r(mono, DW - 92.0, 780.0, "「不要相信清算者。」", 10, Palette.a(red, 0.75))
+
+func _marathon_title(t: float) -> void:
+	var ink := Color("#EAF6F2")
+	var cyan := Color("#72E1D0")
+	var orange := Color("#FF6A36")
+	# 黑场 + 极细扫描线
+	var reveal := clampf((t - 9.4) / 0.8, 0.0, 1.0)
+	var cx := DW * 0.5
+	draw_rect(Rect2(0, 0, DW, DH), Color("#030507"))
+	# 标题：大字距；先出现红色残影，再落主字。
+	_txt_spaced("GHOST TRACK", cx + 3.0, 470.0, 96, 24.0, Palette.a(orange, 0.20 * reveal))
+	_txt_spaced("GHOST TRACK", cx, 466.0, 96, 24.0, Palette.a(ink, 0.94 * reveal))
+	_txt_spaced("APSIS", cx, 548.0, 42, 30.0, Palette.a(cyan, 0.86 * reveal))
+	draw_line(Vector2(cx - 300.0, 585.0), Vector2(cx + 300.0, 585.0), Palette.a(ink, 0.20 * reveal), 1.0)
+	_txt(mono, cx - 214.0, 610.0, "CISLUNAR OPERATIONS SIMULATOR", 9, Palette.a(ink, 0.60 * reveal))
+	_txt(mono, cx - 214.0, 632.0, "ORDER 7 / CHRONOS / ID13", 7, Palette.a(orange, 0.72 * reveal))
+	# 故障横条
+	for i in range(5):
+		var yy := 420.0 + float(i) * 54.0 + sin(t * 13.0 + float(i)) * 8.0
+		draw_rect(Rect2(cx - 340.0, yy, 680.0, 1.0), Palette.a(cyan, 0.10 * reveal))
+
+func _marathon_cards(t: float) -> void:
+	var ink := Color("#EAF6F2")
+	var cyan := Color("#72E1D0")
+	var orange := Color("#FF6A36")
+	var k := t - 12.8
+	# 三段极短字幕卡；每段硬切，不淡入。
+	var lines := [
+		["RECOVER WHAT THEY LEFT.", "取回他们留下的东西。"],
+		["DO NOT TRUST THE RECLAIMERS.", "不要相信清算者。"],
+		["YOU ARE THE VARIABLE.", "你是变量。"],
+	]
+	var idx := clampi(int(k / 1.2), 0, lines.size() - 1)
+	var local := fmod(k, 1.2)
+	var a := clampf(local / 0.08, 0.0, 1.0)
+	var pair: Array = lines[idx]
+	_txt(mono, 160.0, 470.0, String(pair[0]), 28, Palette.a(ink, 0.90 * a))
+	_txt(mono, 160.0, 512.0, String(pair[1]), 18, Palette.a(cyan, 0.72 * a))
+	draw_rect(Rect2(160.0, 590.0, 520.0, 2.0), Palette.a(orange, 0.35 * a))
+	_txt(mono, 160.0, 620.0, "%02d / ORDER 7 // GHOST TRACK" % (idx + 1), 7, Palette.a(orange, 0.55 * a))
+	# 末帧标题残影
+	if t > 16.2:
+		_txt(mono, 160.0, 760.0, "GHOST TRACK / APSIS", 16, Palette.a(ink, 0.55))
+
 func _draw_grid_bg(a: float) -> void:
 	draw_rect(Rect2(Vector2.ZERO, Vector2(DW, DH)), Palette.a(Palette.BG, 1.0))
 	for x in range(0, int(DW) + 1, 80):

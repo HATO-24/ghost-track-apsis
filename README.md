@@ -25,6 +25,7 @@
 - D2 正典纲要 → [`docs/21_D2正典纲要.md`](docs/21_D2正典纲要.md)
 - Demo 文本清单 → [`docs/23_Demo文本清单.md`](docs/23_Demo文本清单.md)
 - 音频设计 → [`docs/28_音频设计.md`](docs/28_音频设计.md)
+- 启动 CG → [`docs/29_启动CG.md`](docs/29_启动CG.md)
 
 ## 目录
 
