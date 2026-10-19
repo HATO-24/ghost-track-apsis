@@ -726,6 +726,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			print("DATUM → ", d)
 		KEY_P:
 			print("V17 PLANAR DISABLED — navigation page migration pending")
+		KEY_C:
+			print("CAMERA SUBJECT → ", plot.cycle_camera_subject())
 		KEY_Z:
 			var ru: bool = plot.toggle_roll_unlock()
 			print("ROLL UNLOCK → ", ru)

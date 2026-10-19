@@ -65,6 +65,8 @@ var pitch := deg_to_rad(26.0)
 var dist := DIST_DEFAULT
 var roll3d := 0.0
 var roll_unlocked := false
+var camera_subject_id := "1000"   # 默认旗舰 APSIS；C 循环 旗舰/本舰/选中
+var _focus_km := Vector3.ZERO
 # 压平战略图
 var ortho := false
 var yaw2d := 0.0
@@ -222,8 +224,10 @@ func _update_camera() -> void:
 	var cd := _cam_dist()
 	var cp := cos(pitch)
 	var sp := sin(pitch)
-	_cam_pos = Vector3(cp * sin(yaw3d), -cp * cos(yaw3d), sp) * cd
-	var to_target := -_cam_pos
+	_focus_km = _focus_offset_km()
+	var orbit := Vector3(cp * sin(yaw3d), -cp * cos(yaw3d), sp) * cd
+	_cam_pos = _focus_km + orbit
+	var to_target := _focus_km - _cam_pos
 	if to_target.length() < 1.0:
 		to_target = Vector3(0.0, -1.0, 0.0)
 	_fwd = to_target.normalized()
@@ -252,10 +256,11 @@ func _p3(p: Vector3) -> Vector2:
 	return size * 0.5 + Vector2(d.dot(_right), -d.dot(_up)) / z * _focal
 
 func _p2(km: Vector3) -> Vector2:
+	var kmf := km - _focus_km
 	var c := cos(yaw2d)
 	var s := sin(yaw2d)
-	var x := km.x * c + km.y * s
-	var y := km.x * s - km.y * c
+	var x := kmf.x * c + kmf.y * s
+	var y := kmf.x * s - kmf.y * c
 	var px := Vector2(x, y) * _planar_scale
 	if absf(roll3d) > 0.00001:
 		var cr := cos(roll3d)
@@ -339,6 +344,7 @@ func _draw_3d() -> void:
 	if _layer_on("stations"):
 		_draw_fixed_assets(false)
 	_draw_own()
+	_draw_subject_marker()
 	_draw_interaction_overlays()
 	for it in _pending_contact_labels:
 		_draw_track_label(it["t"], it["p"], it["col"])
@@ -365,6 +371,7 @@ func _draw_planar() -> void:
 	if _layer_on("stations"):
 		_draw_fixed_assets(true)
 	_draw_planar_own()
+	_draw_subject_marker()
 	_draw_interaction_overlays()
 	if _layer_on("radar"):
 		_draw_planar_sensor()
@@ -1449,8 +1456,49 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 				_txt(cjk, lx, ly + 26.0, "敌我识别：无应答", 7, Palette.a(Palette.AMBER, 0.7))
 	_draw_level_badge(p, t, col)
 
-func _draw_own() -> void:
+func _subject_track() -> Dictionary:
+	if camera_subject_id == "" or camera_subject_id == "own":
+		return {}
+	var tr: Dictionary = state.track_by_id(camera_subject_id)
+	return tr
+
+func _focus_offset_km() -> Vector3:
+	var tr := _subject_track()
+	if tr.is_empty():
+		return Vector3.ZERO
+	var tau := _tau_now()
+	var st: Dictionary = state.track_at(tr, tau)
+	var ow: Dictionary = state.own_at(tau)
+	return (st["r"] as Vector3) - (ow["r"] as Vector3)
+
+func cycle_camera_subject() -> String:
+	# 旗舰(1000) → 本舰(1001) → 当前选中 → 旗舰
+	if camera_subject_id == "1000":
+		camera_subject_id = "1001"
+	elif camera_subject_id == "1001":
+		var sel: Dictionary = state.track_by_id(String(state.selected))
+		camera_subject_id = String(sel.get("id", "1000")) if not sel.is_empty() else "1000"
+	else:
+		camera_subject_id = "1000"
+	_focus_km = _focus_offset_km()
+	return camera_subject_id
+
+func _draw_subject_marker() -> void:
+	var tr := _subject_track()
+	if tr.is_empty():
+		return
 	var p := _o()
+	var col: Color = Palette.AMBER
+	draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), Palette.a(col, 0.18))
+	draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), Palette.a(col, 0.85), false, 1.0)
+	draw_line(p - Vector2(12, 0), p + Vector2(12, 0), Palette.a(col, 0.55), 1.0)
+	draw_line(p - Vector2(0, 12), p + Vector2(0, 12), Palette.a(col, 0.55), 1.0)
+	_txt(cjk, p.x + 16.0, p.y - 8.0, "视角主体 / CAMERA SUBJECT", 7, Palette.a(col, 0.9))
+	_txt(cjk, p.x + 16.0, p.y + 4.0, String(tr.get("name", tr.get("batch", ""))), 10, col)
+	_txt(mono, p.x + 16.0, p.y + 16.0, "%s · 本舰 %s" % [String(tr.get("batch", "")), String(state.unit.get("name", "哈马丹"))], 7, Palette.a(Palette.PH_DIM, 0.9))
+
+func _draw_own() -> void:
+	var p := _p3(Vector3.ZERO)
 	var dat := String(state.datum)
 	var own_name := String(state.unit.get("name", "哈马丹"))
 	draw_circle(p, 2.6, Palette.PH)
