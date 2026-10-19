@@ -25,7 +25,7 @@ var _drag := false
 var end_panel
 var svc: SubViewportContainer
 var _vp_rect := Rect2()
-var _window_restore_size := Vector2i(1600, 900)
+var _window_restore_size := Vector2i(1920, 1080)
 var _last_win_size := Vector2i.ZERO
 var _last_decision := false
 var _last_consequence := false
@@ -69,9 +69,9 @@ func _ready() -> void:
 		" skip_v2_prelude=", bool(fw_sum.get("skipped_v2_prelude", false)),
 		" errors=", framework.errors)
 	get_window().title = "GHOST TRACK // APSIS — V17"
-	get_window().size = Vector2i(1600, 900)
+	get_window().size = Vector2i(1920, 1080)
 	var screen := DisplayServer.screen_get_size()
-	get_window().position = Vector2i((screen.x - 1600) / 2, (screen.y - 900) / 2)
+	get_window().position = Vector2i(maxi(0, (screen.x - 1920) / 2), maxi(0, (screen.y - 1080) / 2))
 	if _shot_path != "" or _gif_dir != "":
 		get_window().borderless = true
 		get_window().size = Vector2i(1920, 1080)
