@@ -412,7 +412,7 @@
     }
   ],
   "story": {
-    "decision_t": 75.0,
+    "decision_t": 300.0,
     "decision_prompt": "指挥官，执行窗口剩余 {mm:ss}。清算者要求接管 Chronos 储罐与航道；Chronos 港务请求先撤人；渡口号请求武器释放授权。ID13 没有执法权，但必须在窗口结束前作出决定。请裁决。",
     "notice": {
       "title": "第七号令接管声明 · AV-4412 传唤者",
@@ -611,6 +611,66 @@
         "mode": "LD",
         "text": "MK-12 敌我识别：[9001] 识别结果 · 谷神-2 · 无应答状态。"
       }
-    ]
+    ],
+    "evidence_tasks": {
+      "port_telemetry": {
+        "label": "港务遥测",
+        "duration": 30.0,
+        "shuttle": false,
+        "risk": "港务值班组远程发送；链路受 Sextant 管制。",
+        "start_text": "RDO 请求 Chronos 港务发送港务遥测副本。",
+        "done_text": "已收到 Chronos 港务遥测副本（证据：port_telemetry）。"
+      },
+      "inspection_blackbox": {
+        "label": "核查组黑匣子",
+        "duration": 75.0,
+        "shuttle": true,
+        "risk": "穿梭机需进入清算者管制区，可能被驱逐或扣押。",
+        "start_text": "派穿梭机/登舰小队前往 Chronos 取核查组记录黑匣子。",
+        "done_text": "取得 UEG 核查组记录黑匣子（证据：inspection_blackbox）。"
+      },
+      "elint_signature": {
+        "label": "异常 ELINT 特征码",
+        "duration": 45.0,
+        "shuttle": false,
+        "risk": "需哈马丹号保持被动监听，期间不能关机。",
+        "start_text": "命令哈马丹号收集异常 ELINT 特征码。",
+        "done_text": "哈马丹号记录到无法归档的异常特征码（证据：elint_signature）。"
+      },
+      "evacuation": {
+        "label": "撤出 Chronos 人员",
+        "duration": 60.0,
+        "shuttle": true,
+        "risk": "穿梭机往返；不能与黑匣子任务同时进行。",
+        "start_text": "派穿梭机撤出 Chronos 值守人员与家属。",
+        "done_text": "Chronos 值守人员与家属已撤离（civilians_evacuated）。"
+      }
+    },
+    "adjutant_request": {
+      "title": "副官建议 · Chronos 取证与撤离",
+      "body": "指挥官，证据满两项才能走 EXPOSE。港务遥测可远程请求；核查组黑匣子与撤人需要穿梭机，同一时间只能执行一项。",
+      "options": [
+        {
+          "kind": "telemetry",
+          "label": "请求港务遥测（30 s）",
+          "hint": "RDO；无穿梭机风险"
+        },
+        {
+          "kind": "blackbox",
+          "label": "取核查组黑匣子（75 s）",
+          "hint": "派穿梭机进入管制区；有风险"
+        },
+        {
+          "kind": "evacuate",
+          "label": "撤出 Chronos 人员（60 s）",
+          "hint": "派穿梭机；降低平民伤亡"
+        },
+        {
+          "kind": "decline",
+          "label": "暂不处理",
+          "hint": "继续观察"
+        }
+      ]
+    }
   }
 }

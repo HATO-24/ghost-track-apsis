@@ -122,6 +122,24 @@ const NOTICE_CLICK := Rect2(540, 42, 380, 22)
 const NOTICE_RECT := Rect2(480, 250, 960, 480)
 const ADVISOR_BTN := Rect2(1556, 848, 140, 20)
 const MANUAL_BTN := Rect2(1704, 848, 140, 20)
+# ── P2b：证据面板 / 穿梭机取证 / 撤人 / 副官申请 ─────────────
+# 证据三项：港务遥测 / 核查组黑匣子 / 异常 ELINT；EXPOSE 需 ≥2。
+const EVID_TITLE_Y := 700.0
+const EVID_ROW_Y := 712.0
+const EVID_ROW_H := 14.0
+const EVID_BAR := Rect2(1556, 754, 288, 3)
+const EVID_TASK_Y := 762.0
+const EVID_MENU_Y := 772.0
+const EVID_MENU_ROW := 20.0
+const EVID_SHUTTLE := Rect2(1556, 796, 140, 22)
+const EVID_EVAC := Rect2(1704, 796, 140, 22)
+const EVID_ITEMS := [
+	["telemetry", "port_telemetry", "港务遥测 / TELEMETRY"],
+	["blackbox", "inspection_blackbox", "核查组黑匣子 / RECORDER"],
+	["elint", "elint_signature", "异常特征码 / ELINT"],
+]
+const ADJUTANT_RECT := Rect2(520, 280, 880, 420)
+const ADJUTANT_OPT := Rect2(520, 280, 880, 420)  # 选项网格从 r.y+176 起算
 const ADVISOR_RECT := Rect2(560, 280, 800, 400)
 const MANUAL_RECT := Rect2(440, 190, 1040, 660)
 
@@ -874,6 +892,16 @@ var _local_comms: Array = []           # 裁决回复（本地追加到通信流
 var _reply_added_for := ""             # 已追加回复的裁决（避免重复）
 var _decision_fire_confirm := 0.0      # P2a：决策层 FIRE 二次确认倒计时
 var _demo_modal := ""                  # DSH_UI 截图钩子（等 boot 完成后再开）
+# P2b：证据 / 穿梭机任务 / 副官申请（state 新 API 未就绪时的本地演示态）
+var _demo_evidence := false
+var _demo_adjutant := false
+var _evidence_menu_open := false
+var _demo_ev: Dictionary = {}          # {"telemetry":true,...}
+var _demo_task: Dictionary = {}        # {"kind","label","t0","duration_s","done"}
+var _demo_evac: Dictionary = {}        # {"t0","duration_s","done"}
+var _adj_was_open := false
+var _adj_prev_paused := false
+var _demo_suppress_adjutant := false   # 仅 DSH_UI 截图：state 自动弹副官时临时隐藏
 
 func _ready() -> void:
 	mono = Fonts.mono()
@@ -904,6 +932,15 @@ func _ready() -> void:
 			_demo_modal = "advisor"
 		"manual":
 			_demo_modal = "manual"
+		"evidence":
+			# P2b 截图：1/3 证据 + 穿梭机任务进行中 + 取证菜单展开（本地演示）
+			_demo_evidence = true
+			_demo_suppress_adjutant = true
+			_demo_ev = {"telemetry": true}
+			_demo_task = {"kind": "blackbox", "label": "核查组黑匣子", "t0": 0.0, "duration_s": 96.0, "done": false}
+			_evidence_menu_open = true
+		"adjutant":
+			_demo_adjutant = true
 
 func _process(delta: float) -> void:
 	_t += delta
@@ -911,6 +948,16 @@ func _process(delta: float) -> void:
 		var m := _demo_modal
 		_demo_modal = ""
 		_open_modal(m)
+	# P2b：副官申请打开时暂停（记录原 paused，关掉恢复）。
+	if state != null and state.boot_t >= 1.7:
+		var adj_now := _ov_adjutant()
+		if adj_now and not _adj_was_open:
+			_adj_prev_paused = bool(state.paused)
+			state.paused = true
+			_adj_was_open = true
+		elif not adj_now and _adj_was_open:
+			state.paused = _adj_prev_paused
+			_adj_was_open = false
 	# P1j/P2a：裁决回复进通信流 —— 无论裁决来自 HUD 点击/按键还是 main 的 1/2/3 键（后者直调 state），
 	# 都按 state.outcome 的 D2 视图补一次（幂等）。
 	if state != null:
@@ -981,6 +1028,9 @@ func _draw() -> void:
 	# P1j：通知 / 副官建议 / 手册（模态，打开时暂停）。
 	if _modal != "":
 		_draw_modal_overlay()
+	# P2b：副官申请（独立 UI，打开时暂停；不进通信流）。
+	if _ov_adjutant():
+		_draw_adjutant_overlay()
 	# P1g：暂停指示画在覆盖层之上（否则会被 dim 压暗），时标处常驻可见。
 	_draw_pause_badge()
 
@@ -1000,6 +1050,11 @@ func _draw_pause_badge() -> void:
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
 		return
+	# P2b：副官申请（独立 UI）最优先吃点击。
+	if _ov_adjutant():
+		_handle_adjutant_click(p)
+		queue_redraw()
+		return
 	# P1j：模态窗口（通知 / 副官建议 / 手册）优先吃点击。
 	if _modal != "":
 		_handle_modal_click(p)
@@ -1018,6 +1073,10 @@ func click(p: Vector2) -> void:
 	# P1f：覆盖层吃掉一切点击。
 	if _any_overlay():
 		_handle_overlay_click(p)
+		queue_redraw()
+		return
+	# P2b：右区证据面板（派穿梭机取证 / 撤出居民 / 三项菜单）。
+	if _handle_evidence_click(p):
 		queue_redraw()
 		return
 	# P1e：命令面板优先（面板内的点击不再落到接触列表/时标/地图）。
@@ -1058,6 +1117,15 @@ func click(p: Vector2) -> void:
 			return
 
 func consumes(p: Vector2) -> bool:
+	# P2b：副官申请 / 证据面板按钮优先吞输入。
+	if _ov_adjutant():
+		return true
+	if EVID_SHUTTLE.has_point(p) or EVID_EVAC.has_point(p):
+		return true
+	if _evidence_menu_open:
+		for i in range(3):
+			if Rect2(1556.0 + float(i) * 96.0, EVID_MENU_Y, 92.0, 20.0).has_point(p):
+				return true
 	# P1j：模态窗口打开时吞掉所有指针输入。
 	if _modal != "":
 		return true
@@ -1291,6 +1359,341 @@ func _draw_level(x: float, y: float, t: Dictionary, col: Color) -> void:
 	draw_rect(Rect2(x, y, 18, 12), Palette.a(col, 0.42), false, 1.0)
 	_txt(mono, x + 3, y + 1, lv, 7, Palette.a(col, 0.9))
 
+# ══ P2b：证据 / 穿梭机任务 / 撤人 / 副官申请 ═════════════════
+# 只读 state（evidence / can_expose() / start_evidence_task() / start_evacuation() /
+# adjutant_request_open / ack_adjutant()）；字段/方法不存在时用 HUD 本地演示态兜底。
+func _evid_state_key(ui_key: String) -> String:
+	for row in EVID_ITEMS:
+		if String(row[0]) == ui_key:
+			return String(row[1])
+	return ui_key
+
+func _evidence_got() -> Dictionary:
+	var got := {"telemetry": false, "blackbox": false, "elint": false}
+	if state != null:
+		var ev = state.get("evidence")
+		if ev is Dictionary:
+			for row in EVID_ITEMS:
+				var ui_k := String(row[0])
+				var st_k := String(row[1])
+				if (ev as Dictionary).has(st_k):
+					got[ui_k] = bool((ev as Dictionary)[st_k])
+				elif (ev as Dictionary).has(ui_k):
+					got[ui_k] = bool((ev as Dictionary)[ui_k])
+		for row in EVID_ITEMS:
+			var ui_k2 := String(row[0])
+			var direct = state.get("evidence_" + ui_k2)
+			if direct != null:
+				got[ui_k2] = got[ui_k2] or bool(direct)
+		var fl = state.get("flags")
+		if fl is Dictionary:
+			for row in EVID_ITEMS:
+				var ui_k3 := String(row[0])
+				if (fl as Dictionary).has("evidence_" + ui_k3):
+					got[ui_k3] = got[ui_k3] or bool((fl as Dictionary)["evidence_" + ui_k3])
+			if (fl as Dictionary).has("ghost_track_evidence"):
+				got["elint"] = true
+	if _demo_evidence:
+		for k in _demo_ev.keys():
+			var kk := String(k)
+			if got.has(kk):
+				got[kk] = bool(_demo_ev[k])
+	return got
+
+func _evidence_count() -> int:
+	var local := 0
+	var got := _evidence_got()
+	for k in got.keys():
+		if bool(got[k]):
+			local += 1
+	var state_n := 0
+	if state != null and state.has_method("evidence_count"):
+		state_n = int(state.call("evidence_count"))
+	return maxi(local, state_n)
+
+func _can_expose() -> bool:
+	if _demo_evidence:
+		return _evidence_count() >= 2
+	if state != null and state.has_method("can_expose"):
+		return bool(state.call("can_expose"))
+	return _evidence_count() >= 2
+
+func _evid_label(kind: String) -> String:
+	for row in EVID_ITEMS:
+		if String(row[0]) == kind:
+			return String(row[2]).split(" / ")[0]
+	return kind
+
+func _shuttle_busy() -> bool:
+	if state != null:
+		var tasks = state.get("evidence_tasks")
+		if tasks is Array:
+			for raw in (tasks as Array):
+				if raw is Dictionary and String((raw as Dictionary).get("status", "")) == "RUNNING" \
+						and bool((raw as Dictionary).get("shuttle", false)):
+					return true
+	return false
+
+func _shuttle_task() -> Dictionary:
+	var out := {"active": false, "done": false, "kind": "", "label": "", "remain": 0.0, "progress": 0.0, "shuttle": false}
+	if state != null:
+		var tasks = state.get("evidence_tasks")
+		if tasks is Array:
+			var running: Dictionary = {}
+			var last_done: Dictionary = {}
+			for raw in (tasks as Array):
+				if not (raw is Dictionary):
+					continue
+				var tk: Dictionary = raw
+				var st := String(tk.get("status", ""))
+				if st == "RUNNING":
+					if running.is_empty() or (bool(tk.get("shuttle", false)) and not bool(running.get("shuttle", false))):
+						running = tk
+				elif st == "DONE":
+					last_done = tk
+			if not running.is_empty():
+				out["active"] = true
+				out["kind"] = String(running.get("kind", ""))
+				out["label"] = String(running.get("label", _evid_label(String(running.get("kind", "")))))
+				var dur := maxf(1.0, float(running.get("duration", 30.0)))
+				out["progress"] = clampf(float(running.get("progress", 0.0)), 0.0, 1.0)
+				out["remain"] = maxf(0.0, dur * (1.0 - float(out["progress"])))
+				out["shuttle"] = bool(running.get("shuttle", false))
+				return out
+			if not last_done.is_empty():
+				out["done"] = true
+				out["kind"] = String(last_done.get("kind", ""))
+				out["label"] = String(last_done.get("label", _evid_label(String(last_done.get("kind", "")))))
+				return out
+		# 兼容旧字段：evidence_task / shuttle_task dict
+		for nm in ["evidence_task", "shuttle_task"]:
+			var v = state.get(nm)
+			if v is Dictionary and not (v as Dictionary).is_empty():
+				var d: Dictionary = v
+				out["kind"] = String(d.get("kind", ""))
+				out["label"] = String(d.get("label", out["kind"]))
+				out["done"] = bool(d.get("done", false))
+				out["active"] = bool(d.get("active", not out["done"])) and not out["done"]
+				out["shuttle"] = bool(d.get("shuttle", false))
+				if d.get("end_t") != null:
+					out["remain"] = maxf(0.0, float(d["end_t"]) - float(state.tau()))
+				elif d.get("duration_s") != null and d.get("t0") != null:
+					out["remain"] = maxf(0.0, float(d["duration_s"]) - (float(state.tau()) - float(d["t0"])))
+				return out
+	if _demo_evidence and not _demo_task.is_empty():
+		out["kind"] = String(_demo_task.get("kind", ""))
+		out["label"] = String(_demo_task.get("label", _evid_label(String(out["kind"]))))
+		out["done"] = bool(_demo_task.get("done", false))
+		out["active"] = not out["done"]
+		out["remain"] = maxf(0.0, float(_demo_task.get("duration_s", 0.0)) - _t)
+		out["shuttle"] = true
+	return out
+
+func _evac_task() -> Dictionary:
+	var out := {"active": false, "done": false, "remain": 0.0, "progress": 0.0}
+	if state != null:
+		var tasks = state.get("evidence_tasks")
+		if tasks is Array:
+			for raw in (tasks as Array):
+				if not (raw is Dictionary):
+					continue
+				var tk: Dictionary = raw
+				if String(tk.get("kind", "")) != "evacuation":
+					continue
+				var st := String(tk.get("status", ""))
+				if st == "RUNNING":
+					out["active"] = true
+					out["progress"] = clampf(float(tk.get("progress", 0.0)), 0.0, 1.0)
+					out["remain"] = maxf(0.0, float(tk.get("duration", 60.0)) * (1.0 - float(out["progress"])))
+					return out
+				if st == "DONE":
+					out["done"] = true
+					return out
+		if bool(state.get("civilians_evacuated")):
+			out["done"] = true
+			return out
+	if _demo_evidence and not _demo_evac.is_empty():
+		out["done"] = bool(_demo_evac.get("done", false))
+		out["active"] = not out["done"]
+		out["evacuated"] = int(_demo_evac.get("evacuated", 0))
+		out["total"] = int(_demo_evac.get("total", 0))
+	return out
+
+func _start_evidence(kind: String) -> void:
+	_evidence_menu_open = false
+	var st_kind := _evid_state_key(kind)
+	if state != null:
+		if state.has_method("start_evidence_task"):
+			state.call("start_evidence_task", st_kind)
+			return
+		if state.has_method("start_evidence"):
+			state.call("start_evidence", st_kind)
+			return
+	if _demo_evidence:
+		_demo_task = {"kind": kind, "label": _evid_label(kind), "t0": _t, "duration_s": 96.0, "done": false}
+
+func _start_evac() -> void:
+	if state != null:
+		if state.has_method("start_evacuation"):
+			state.call("start_evacuation")
+			return
+		if state.has_method("evacuate"):
+			state.call("evacuate")
+			return
+	if _demo_evidence:
+		_demo_evac = {"t0": _t, "duration_s": 96.0, "done": false, "evacuated": 0, "total": 0}
+
+func _handle_evidence_click(p: Vector2) -> bool:
+	if _evidence_menu_open:
+		for i in range(3):
+			var mr := Rect2(1556.0 + float(i) * 96.0, EVID_MENU_Y, 92.0, 20.0)
+			if mr.has_point(p):
+				_start_evidence(String(EVID_ITEMS[i][0]))
+				return true
+		_evidence_menu_open = false
+		return false
+	if EVID_SHUTTLE.has_point(p):
+		if _shuttle_busy():
+			return true
+		_evidence_menu_open = not _evidence_menu_open
+		return true
+	if EVID_EVAC.has_point(p):
+		var e := _evac_task()
+		if _shuttle_busy() or bool(e["done"]):
+			return true
+		_start_evac()
+		return true
+	return false
+
+func _draw_evidence_panel() -> void:
+	var got := _evidence_got()
+	var n := _evidence_count()
+	var expose_ok := _can_expose()
+	_txt(cjk, 1556, EVID_TITLE_Y, "证据 / EXPOSE（需 2/3）", 7, Palette.FAINT)
+	_txt_r(mono, 1844, EVID_TITLE_Y, "%d/3" % n, 8, Palette.PH if expose_ok else Palette.AMBER)
+	for i in range(3):
+		var row: Array = EVID_ITEMS[i]
+		var y := EVID_ROW_Y + float(i) * EVID_ROW_H
+		var g := bool(got[String(row[0])])
+		var col: Color = Palette.PH if g else Palette.FAINT
+		_txt(mono, 1556, y, "✓" if g else "○", 8, col)
+		_txt(cjk, 1572, y, String(row[2]), 7, Palette.TXT if g else Palette.DIM)
+	var frac := float(n) / 3.0
+	draw_rect(EVID_BAR, Palette.a(Palette.LINE, 0.85))
+	draw_rect(Rect2(EVID_BAR.position, Vector2(EVID_BAR.size.x * frac, EVID_BAR.size.y)),
+		Palette.PH if expose_ok else Palette.AMBER)
+	var task := _shuttle_task()
+	var evac := _evac_task()
+	var tline := "任务空闲 · 穿梭机同一时间 1 架"
+	var tcol: Color = Palette.FAINT
+	if bool(evac["active"]):
+		tline = "撤人：进行中 · 剩余 %.0fs" % float(evac["remain"])
+		tcol = Palette.AMBER
+	elif bool(task["active"]):
+		tline = "%s：%s · 剩余 %.0fs" % ["穿梭机" if bool(task["shuttle"]) else "任务", String(task["label"]), float(task["remain"])]
+		tcol = Palette.BLUE
+	elif bool(task["done"]):
+		tline = "任务完成 · %s" % String(task["label"])
+		tcol = Palette.PH
+	elif bool(evac["done"]):
+		tline = "撤人：已完成"
+		tcol = Palette.PH
+	_txt(cjk, 1556, EVID_TASK_Y, _ellipsis(cjk, tline, 7, 288.0), 6, tcol)
+	if _evidence_menu_open:
+		for i in range(3):
+			var mr := Rect2(1556.0 + float(i) * 96.0, EVID_MENU_Y, 92.0, 20.0)
+			var hot := mr.has_point(_mouse_base())
+			draw_rect(mr, Palette.a(Palette.PH, 0.12 if hot else 0.05))
+			draw_rect(mr, Palette.a(Palette.PH, 0.6 if hot else 0.3), false, 1.0)
+			_txt(cjk, mr.position.x + 5.0, mr.position.y + 4.0,
+				"遥测" if i == 0 else ("黑匣子" if i == 1 else "特征码"), 7, Palette.TXT)
+	var shuttle_busy := _shuttle_busy()
+	_cmd_btn(EVID_SHUTTLE, "派穿梭机取证 / SHUTTLE", _evidence_menu_open, Palette.FAINT if shuttle_busy else Palette.BLUE)
+	_cmd_btn(EVID_EVAC, "撤出居民 / EVACUATE", false,
+		Palette.FAINT if (shuttle_busy or bool(evac["done"])) else Palette.AMBER)
+
+# ── P2b：副官申请（独立 UI；state.adjutant_request_open / ack_adjutant）──
+func _ov_adjutant() -> bool:
+	if _demo_adjutant:
+		return true
+	return _flag("adjutant_request_open") and not _demo_suppress_adjutant
+
+func _adj_data() -> Dictionary:
+	var d := {"title": "副官建议 / ADJUTANT REQUEST", "body": "",
+		"options": [] as Array}
+	if state != null:
+		var ar = state.get("adjutant_request")
+		if ar is Dictionary and not (ar as Dictionary).is_empty():
+			var a: Dictionary = ar
+			d["body"] = String(a.get("body", a.get("text", "")))
+			var op = a.get("options")
+			if op is Array and (op as Array).size() > 0:
+				d["options"] = op
+		if String(d["body"]) == "":
+			var bt = state.get("adjutant_request_text")
+			if bt != null:
+				d["body"] = String(bt)
+		if String(d["body"]) != "" and _is_old_text(String(d["body"])):
+			d["body"] = _d2_text(String(d["body"]))
+	if String(d["body"]) == "":
+		d["body"] = "指挥官，Chronos 港务与 UEG 核查组记录可能被清算者封存；EXPOSE 需要至少两件证据。建议：批准穿梭机取港务遥测或核查组黑匣子，或先撤出居民。请指示。"
+	if (d["options"] as Array).is_empty():
+		d["options"] = [
+			{"key": "telemetry", "label": "批准取港务遥测 / TELEMETRY", "hint": "派穿梭机去 Chronos 港务副本（EXPOSE 证据 1/3）"},
+			{"key": "blackbox", "label": "批准取黑匣子 / RECORDER", "hint": "取 UEG 核查组记录副本（EXPOSE 证据 1/3）"},
+			{"key": "evacuate", "label": "先撤人 / EVACUATE FIRST", "hint": "撤出平民与可移动储罐，暂不取证"},
+			{"key": "later", "label": "暂不处理 / LATER", "hint": "关闭建议，稍后自行下令"},
+		]
+	return d
+
+func _ack_adjutant(choice: String) -> void:
+	_demo_adjutant = false
+	if state != null and state.has_method("ack_adjutant"):
+		state.call("ack_adjutant", choice)
+		return
+	match choice:
+		"telemetry", "blackbox", "elint":
+			_start_evidence(choice)
+		"evacuate":
+			_start_evac()
+		_:
+			pass
+
+func _adj_opt_rect(i: int) -> Rect2:
+	var r := ADJUTANT_RECT
+	return Rect2(r.position.x + 24.0 + float(i % 2) * 424.0, r.position.y + 176.0 + float(i / 2) * 84.0, 400.0, 72.0)
+
+func _draw_adjutant_overlay() -> void:
+	_overlay_dim()
+	var r := ADJUTANT_RECT
+	var info := _adj_data()
+	_overlay_frame(r, "副官建议 / ADJUTANT REQUEST", "独立 UI · 不进通信流 · 19 §7")
+	_txt(cjk, r.position.x + 24.0, r.position.y + 56.0, "副官（独立 UI）· 请求指示：", 8, Palette.DIM)
+	_txt_r(cjk, r.end.x - 24.0, r.position.y + 56.0, "打开时暂停执行窗口", 7, Palette.a(Palette.AMBER, 0.9))
+	var lines := _wrap_text(cjk, String(info["body"]), 9, r.size.x - 48.0)
+	for i in range(mini(lines.size(), 4)):
+		_txt(cjk, r.position.x + 24.0, r.position.y + 80.0 + float(i) * 18.0, String(lines[i]), 9, Palette.a(Palette.TXT, 0.95))
+	var opts: Array = info["options"]
+	for i in range(mini(opts.size(), 4)):
+		var rc := _adj_opt_rect(i)
+		var o: Dictionary = opts[i]
+		var hot := rc.has_point(_mouse_base())
+		draw_rect(rc, Palette.a(Palette.PANEL2, 0.95) if hot else Palette.a(Palette.PANEL, 0.6))
+		draw_rect(rc, Palette.a(Palette.PH, 0.75 if hot else 0.3), false, 1.0)
+		_txt(mono, rc.position.x + 14.0, rc.position.y + 16.0, "0%d" % (i + 1), 14, Palette.a(Palette.PH, 0.9))
+		_txt(cjk, rc.position.x + 44.0, rc.position.y + 16.0, String(o.get("label", "")), 10, Palette.PH if hot else Palette.TXT)
+		_txt(cjk, rc.position.x + 44.0, rc.position.y + 44.0, _ellipsis(cjk, String(o.get("hint", "")), 7, 330.0), 7, Palette.DIM)
+	_txt(cjk, r.position.x + 24.0, r.end.y - 24.0, "选择会写入命令 / 真实通话；本窗口本身不进通信流", 7, Palette.FAINT)
+
+func _handle_adjutant_click(p: Vector2) -> void:
+	var info := _adj_data()
+	var opts: Array = info["options"]
+	for i in range(mini(opts.size(), 4)):
+		if _adj_opt_rect(i).has_point(p):
+			var o: Dictionary = opts[i]
+			_ack_adjutant(String(o.get("key", o.get("kind", "later"))))
+			return
+
 func _draw_unit() -> void:
 	_panel(UNIT)
 	# _draw_ship_watermark()
@@ -1397,21 +1800,8 @@ func _draw_unit() -> void:
 	_txt(cjk, 1566, 665, "损管 / DAMAGE CONTROL", 7, Palette.AMBER)
 	_txt(cjk, 1566, 677, u.damage + " · " + u.damage2, 8, Palette.TXT)
 
-	_txt(cjk, 1556, 706, "姿态 / ATTITUDE", 7, Palette.FAINT)
-	draw_rect(Rect2(1556, 720, 64, 56), Palette.a(Palette.LINE, 0.8), false, 1.0)
-	var c := Vector2(1588, 748)
-	var hd := Vector2(cos(deg_to_rad(12.4)), sin(deg_to_rad(12.4))) * 24.0
-	draw_line(c - hd, c + hd, Palette.a(Palette.PH, 0.55), 1.0)
-	for k in [-2, -1, 1, 2]:
-		var o := Vector2(0, float(k) * 7.0)
-		draw_line(c + o + Vector2(-6, 0), c + o + Vector2(6, 0), Palette.a(Palette.PH_FAINT, 0.45), 1.0)
-	draw_line(Vector2(1588, 720), Vector2(1588, 726), Palette.a(Palette.PH, 0.5), 1.0)
-	draw_circle(c, 1.4, Palette.PH)
-	_txt(mono, 1628, 720, "P +12.4°", 8, Palette.TXT)
-	_txt(mono, 1628, 732, "Y  -3.1°", 8, Palette.TXT)
-	_txt(mono, 1628, 744, "R  +0.8°", 8, Palette.TXT)
-	_txt(mono, 1628, 756, "ω  0.02°/s", 7, Palette.DIM)
-	_txt(cjk, 1628, 768, "姿控 RCS 就绪", 7, Palette.PH_DIM)
+	# P2b：右区改为「证据面板 + 取证/撤人按钮」（原姿态块为装饰，移出以腾出操作位）。
+	_draw_evidence_panel()
 
 	draw_line(Vector2(1540, 820), Vector2(1860, 820), Palette.a(Palette.LINE, 0.9), 1.0)
 	_txt(cjk, 1556, 828, "损管队列 2 项", 8, Palette.AMBER)
@@ -1828,6 +2218,8 @@ func _pause_label() -> String:
 		return "副官建议"
 	if _modal == "manual":
 		return "手册"
+	if _ov_adjutant():
+		return "副官申请"
 	if _ov_end():
 		return "归档"
 	if _ov_report():
@@ -2187,6 +2579,8 @@ func _choose_ending_at(i: int) -> void:
 	if i < 0 or i >= arr.size():
 		return
 	var d: Dictionary = arr[i]
+	if not bool(d.get("enabled", true)):
+		return
 	_choose_ending(String(d["state_kind"]), String(d["kind"]))
 
 func _choose_ending(kind_state: String, d2_kind := "") -> void:
@@ -2420,7 +2814,11 @@ func _endings_d2() -> Array:
 			"label": String(DECISION_NAMES[i]),
 			"hint": String(DECISION_CONSEQ[i]),
 			"code": ["A", "B", "C"][i],
+			"enabled": true,
 		}
+		if i == 2:
+			# P2b：EXPOSE 需 ≥2/3 证据（state.can_expose() 优先）。
+			d["enabled"] = _can_expose()
 		if i < src.size() and src[i] is Dictionary:
 			var e: Dictionary = src[i]
 			var sk := String(e.get("kind", e.get("code", "")))
@@ -2435,6 +2833,8 @@ func _endings_d2() -> Array:
 			var code := String(e.get("code", ""))
 			if code != "":
 				d["code"] = code
+			if e.has("enabled"):
+				d["enabled"] = bool(e["enabled"])
 		out.append(d)
 	return out
 
@@ -2499,22 +2899,32 @@ func _draw_decision_overlay() -> void:
 	var mp := _mouse_base()
 	for i in range(3):
 		var row := _decision_row_rect(i)
-		var hot := row.has_point(mp)
+		var d: Dictionary = endings[i]
+		var enabled := bool(d.get("enabled", true))
+		var hot := row.has_point(mp) and enabled
+		var border_col: Color = Palette.PH if enabled else Palette.FAINT
 		draw_rect(row, Palette.a(Palette.PANEL2, 0.95) if hot else Palette.a(Palette.PANEL, 0.55))
-		draw_rect(row, Palette.a(Palette.PH, 0.8 if hot else 0.30), false, 1.0)
+		draw_rect(row, Palette.a(border_col, 0.8 if hot else (0.30 if enabled else 0.18)), false, 1.0)
 		if hot:
 			draw_rect(Rect2(row.position.x, row.position.y, 2.0, row.size.y), Palette.PH)
-		var d: Dictionary = endings[i]
 		var label: String = String(d["label"])
 		var hint: String = String(d["hint"])
 		var tag: String = String(d["code"])
 		var rubric: String = _d2_rubric(String(d["kind"]))
-		_txt(mono, row.position.x + 18.0, row.position.y + 14.0, "0%d" % (i + 1), 22, Palette.a(Palette.PH, 0.9))
-		_txt(cjk, row.position.x + 74.0, row.position.y + 16.0, label, 13, Palette.PH if hot else Palette.TXT)
-		_txt(cjk, row.position.x + 74.0, row.position.y + 48.0, _ellipsis(cjk, hint, 8, row.size.x - 300.0), 8, Palette.DIM)
-		_txt_r(cjk, row.end.x - 18.0, row.position.y + 16.0, tag, 7, Palette.a(Palette.AMBER, 0.65))
-		_txt_r(cjk, row.end.x - 18.0, row.position.y + 50.0, rubric, 7, Palette.a(Palette.FAINT, 0.9))
-		_txt(mono, row.position.x + 74.0, row.position.y + 78.0, "键位 [%d]" % (i + 1), 7, Palette.a(Palette.FAINT, 0.85))
+		if not enabled:
+			hint = "证据不足（需 2 件）· 先派穿梭机取证（港务遥测 / 核查组黑匣子 / 异常 ELINT 三取二）"
+			rubric = "EXPOSE 不可用"
+		_txt(mono, row.position.x + 18.0, row.position.y + 14.0, "0%d" % (i + 1), 22,
+			Palette.a(Palette.PH, 0.9 if enabled else 0.35))
+		_txt(cjk, row.position.x + 74.0, row.position.y + 16.0, label, 13,
+			(Palette.PH if hot else Palette.TXT) if enabled else Palette.FAINT)
+		_txt(cjk, row.position.x + 74.0, row.position.y + 48.0, _ellipsis(cjk, hint, 8, row.size.x - 300.0), 8,
+			Palette.DIM if enabled else Palette.FAINT)
+		_txt_r(cjk, row.end.x - 18.0, row.position.y + 16.0, tag, 7, Palette.a(Palette.AMBER, 0.65 if enabled else 0.3))
+		_txt_r(cjk, row.end.x - 18.0, row.position.y + 50.0, rubric, 7,
+			Palette.a(Palette.AMBER if not enabled else Palette.FAINT, 0.9 if not enabled else 0.9))
+		_txt(mono, row.position.x + 74.0, row.position.y + 78.0, "键位 [%d]" % (i + 1), 7,
+			Palette.a(Palette.FAINT, 0.85 if enabled else 0.35))
 	# P2a：FIRE 灾难入口（单独按钮 + 二次确认；不走 1/2/3）
 	var fr := DECISION_FIRE
 	var fire_done := _flag("fire_branch") or bool(_decision_done)

@@ -114,7 +114,7 @@ var audit_flag := false
 var perjury_count := 0
 var reputation: Dictionary = {"ocu": 0, "meridian": 0, "ueg_doves": 0, "outer": 0, "reclaimers": 0}
 var sim_frozen := false
-var decision_t := 75.0
+var decision_t := 300.0
 var decision_prompt := ""
 var consequence_text := ""
 var report_choice := ""
@@ -138,6 +138,17 @@ var report_bodies: Dictionary = {}
 var report_recommend: Dictionary = {}
 var link_mode := "LD"
 var scenario_sensor_init: Dictionary = {}   # scenario 传感器初始开关（非时序项）
+
+# ── P2b：EXPOSE 取证 / 撤人 / 副官申请 ─────────────────
+var evidence: Dictionary = {"port_telemetry": false, "inspection_blackbox": false, "elint_signature": false}
+var evidence_tasks_def: Dictionary = {}
+var evidence_tasks: Array = []
+var civilians_evacuated := false
+var adjutant_request: Dictionary = {}
+var adjutant_request_open := false
+var adjutant_request_seen := false
+var _demo_tasks := false
+var _demo_tasks_seeded := false
 
 # ── P1c 传感器状态 ─────────────────────────────────────
 var racks: Dictionary = {}                 # ship_id -> [sensor...]（SensorModel）
@@ -175,6 +186,8 @@ func _init() -> void:
 
 func _bootstrap() -> void:
 	rng.seed = 4471
+	if OS.get_environment("DSH_TASK") == "demo":
+		_demo_tasks = true
 	scenario = _load_scenario()
 	_apply_scenario_env()
 	_load_story()
@@ -597,6 +610,8 @@ func refresh(now: float) -> void:
 	var t := now - T0
 	_update_phase_gate(t)
 	_pump_feeds(t)
+	_seed_demo_tasks(t)
+	_advance_tasks(t)
 	if sim_frozen:
 		return
 	# 命令状态机 tick：QUEUED→TRANSMITTED→EXEC→DONE
@@ -1126,7 +1141,7 @@ func _load_story() -> void:
 	story = scenario.get("story", {})
 	if typeof(story) != TYPE_DICTIONARY:
 		story = {}
-	decision_t = float(story.get("decision_t", 75.0))
+	decision_t = float(story.get("decision_t", 300.0))
 	decision_prompt = String(story.get("decision_prompt", "指挥官，执行窗口剩余 {mm:ss}。请裁决。"))
 	consequence_text = String(story.get("consequence_fire", "武器释放授权已下达；交火导致 Chronos 储罐区二次火灾，平民伤亡 12 人。"))
 	story_events = story.get("events", [])
@@ -1144,6 +1159,8 @@ func _load_story() -> void:
 	report_evidence = String(story.get("report_evidence", "传感器日志、命令队列、通信记录、港务与核查组黑匣子。"))
 	report_bodies = story.get("report_bodies", {})
 	report_recommend = story.get("report_recommend", {})
+	evidence_tasks_def = story.get("evidence_tasks", {})
+	adjutant_request = (story.get("adjutant_request", {}) as Dictionary).duplicate(true)
 
 func _update_phase_gate(t: float) -> void:
 	if end_open:
@@ -1164,6 +1181,10 @@ func _update_phase_gate(t: float) -> void:
 		_update_freeze()
 		return
 	tut_phase = PHASE_READ if t < 20.0 else PHASE_COMMAND
+	if tut_phase == PHASE_COMMAND and not adjutant_request_seen:
+		adjutant_request_seen = true
+		adjutant_request_open = true
+		_push_log("副官建议：Chronos 取证/撤离（可派穿梭机）", "ADJUTANT", "RX")
 	_update_freeze()
 	if t >= decision_t or (exec_locked and exec_left <= 0.0):
 		_open_decision()
@@ -1260,6 +1281,9 @@ func choose_ending(kind: String) -> Dictionary:
 			reputation["outer"] = int(reputation.get("outer", 0)) + 1
 			reputation["reclaimers"] = int(reputation.get("reclaimers", 0)) - 1
 		"EXPOSE", "C":
+			if not can_expose():
+				_push_log("EXPOSE 不可用：证据不足（%d/3，需至少 2 项）" % evidence_count(), "GATE", "HOLD")
+				return {}
 			outcome = "EXPOSE"
 			flags["expose"] = true
 			flags["ghost_track_evidence"] = true
@@ -1305,6 +1329,9 @@ func authorize_fire() -> Dictionary:
 	reputation["outer"] = int(reputation.get("outer", 0)) - 1
 	reputation["reclaimers"] = int(reputation.get("reclaimers", 0)) + 1
 	consequence_text = story_text("consequence_fire", consequence_text)
+	if civilians_evacuated:
+		flags["civilians_evacuated"] = true
+		consequence_text += "\nID13 已提前撤出 Chronos 值勤人员与家属；平民伤亡显著减少。"
 	var reply: Dictionary = (decision_replies.get("FIRE", {}) as Dictionary)
 	if not reply.is_empty():
 		_append_radio(String(reply.get("from", "远地点号")), String(reply.get("to", "全队")),
@@ -1514,7 +1541,7 @@ func _reset_runtime() -> void:
 	perjury_count = 0
 	reputation = {"ocu": 0, "meridian": 0, "ueg_doves": 0, "outer": 0, "reclaimers": 0}
 	sim_frozen = false
-	decision_t = 75.0
+	decision_t = 300.0
 	decision_prompt = ""
 	consequence_text = ""
 	report_choice = ""
@@ -1536,6 +1563,15 @@ func _reset_runtime() -> void:
 	report_recommend = {}
 	link_mode = "LD"
 	scenario_sensor_init = {}
+	evidence = {"port_telemetry": false, "inspection_blackbox": false, "elint_signature": false}
+	evidence_tasks_def = {}
+	evidence_tasks = []
+	civilians_evacuated = false
+	adjutant_request = {}
+	adjutant_request_open = false
+	adjutant_request_seen = false
+	_demo_tasks = false
+	_demo_tasks_seeded = false
 	tracks.clear()
 	racks = {}
 	sensor_on = {}
@@ -1689,6 +1725,174 @@ func _update_threat(t: float) -> void:
 		tr["threat_label"] = threat_text(threat)
 		if prev != "" and prev != threat and (id == "2001" or id == "9002"):
 			_push_log("威胁更新：[%s] %s → %s" % [id, threat_text(prev), threat_text(threat)], "THREAT", "RX")
+
+# ── P2b：EXPOSE 证据 / 取证任务 / 撤人 / 副官申请 ───────
+
+func evidence_count() -> int:
+	var n := 0
+	for k in evidence.keys():
+		if bool(evidence[k]):
+			n += 1
+	return n
+
+func can_expose() -> bool:
+	return evidence_count() >= 2
+
+func evidence_label(kind: String) -> String:
+	match kind:
+		"port_telemetry":
+			return "港务遥测"
+		"inspection_blackbox":
+			return "核查组黑匣子"
+		"elint_signature":
+			return "异常特征码"
+		"evacuation":
+			return "撤出人员"
+		_:
+			return kind
+
+func _task_def(kind: String) -> Dictionary:
+	var def: Dictionary = evidence_tasks_def.get(kind, {})
+	if def.is_empty():
+		var durs := {"port_telemetry": 30.0, "inspection_blackbox": 75.0, "elint_signature": 45.0, "evacuation": 60.0}
+		def = {
+			"label": evidence_label(kind),
+			"duration": float(durs.get(kind, 30.0)),
+			"shuttle": kind == "inspection_blackbox" or kind == "evacuation",
+		}
+	return def
+
+func _tasks_allowed() -> bool:
+	if decision_open or consequence_open or report_open or end_open:
+		return false
+	return tut_phase == PHASE_COMMAND
+
+func _shuttle_busy() -> bool:
+	for raw in evidence_tasks:
+		var tk: Dictionary = raw
+		if String(tk.get("status", "")) == "RUNNING" and bool(tk.get("shuttle", false)):
+			return true
+	return false
+
+func _has_task(kind: String) -> bool:
+	for raw in evidence_tasks:
+		var tk: Dictionary = raw
+		if String(tk.get("kind", "")) == kind and String(tk.get("status", "")) == "RUNNING":
+			return true
+	return false
+
+func _new_task(kind: String) -> Dictionary:
+	var def := _task_def(kind)
+	var task := {
+		"kind": kind,
+		"label": String(def.get("label", evidence_label(kind))),
+		"duration": float(def.get("duration", 30.0)),
+		"started_t": tau(),
+		"progress": 0.0,
+		"status": "RUNNING",
+		"shuttle": bool(def.get("shuttle", false)),
+		"risk": String(def.get("risk", "")),
+	}
+	evidence_tasks.append(task)
+	return task
+
+func start_evidence_task(kind: String) -> Dictionary:
+	var k := kind.to_lower()
+	if not _tasks_allowed():
+		_push_log("当前阶段无法派取证任务", "TASK", "HOLD")
+		return {}
+	if k == "evacuation":
+		return start_evacuation()
+	if not evidence.has(k):
+		return {}
+	if bool(evidence[k]):
+		_push_log("证据已取得：%s" % evidence_label(k), "TASK", "HOLD")
+		return {}
+	if _has_task(k):
+		return {}
+	var def := _task_def(k)
+	if bool(def.get("shuttle", false)) and _shuttle_busy():
+		_push_log("穿梭机占用：同一时间只能执行一项穿梭机任务", "TASK", "HOLD")
+		return {}
+	var task := _new_task(k)
+	_push_log(String(def.get("start_text", "开始取证：%s" % task.label)), "TASK", "EXEC")
+	_append_radio("远地点号", "Chronos 港务" if not bool(task.shuttle) else "ID13 穿梭机", "RDO", String(def.get("start_text", task.label)), tau())
+	return task
+
+func start_evacuation() -> Dictionary:
+	if not _tasks_allowed():
+		_push_log("当前阶段无法派撤人任务", "TASK", "HOLD")
+		return {}
+	if civilians_evacuated:
+		_push_log("Chronos 人员已撤离", "TASK", "HOLD")
+		return {}
+	if _has_task("evacuation"):
+		return {}
+	if _shuttle_busy():
+		_push_log("穿梭机占用：同一时间只能执行一项穿梭机任务", "TASK", "HOLD")
+		return {}
+	var def := _task_def("evacuation")
+	var task := _new_task("evacuation")
+	_push_log(String(def.get("start_text", "开始撤离 Chronos 人员")), "TASK", "EXEC")
+	_append_radio("远地点号", "Chronos 港务", "RDO", String(def.get("start_text", "开始撤离 Chronos 人员")), tau())
+	return task
+
+func _advance_tasks(t: float) -> void:
+	for raw in evidence_tasks:
+		var tk: Dictionary = raw
+		if String(tk.get("status", "")) != "RUNNING":
+			continue
+		var dur := maxf(1.0, float(tk.get("duration", 30.0)))
+		var elapsed := t - float(tk.get("started_t", t))
+		tk["progress"] = clampf(elapsed / dur, 0.0, 1.0)
+		if elapsed < dur:
+			continue
+		tk["status"] = "DONE"
+		tk["progress"] = 1.0
+		tk["finished_t"] = t
+		var kind := String(tk.get("kind", ""))
+		var def := _task_def(kind)
+		if kind == "evacuation":
+			civilians_evacuated = true
+			flags["civilians_evacuated"] = true
+		else:
+			evidence[kind] = true
+		_push_log(String(def.get("done_text", "任务完成：%s" % tk.label)), "TASK", "EXEC")
+		_append_radio("远地点号", "全队", "LD", String(def.get("done_text", tk.label)), t)
+
+func ack_adjutant(choice: String) -> Dictionary:
+	if not adjutant_request_open:
+		return {}
+	adjutant_request_open = false
+	adjutant_request_seen = true
+	var c := choice.to_lower()
+	var task: Dictionary = {}
+	match c:
+		"telemetry":
+			task = start_evidence_task("port_telemetry")
+		"blackbox":
+			task = start_evidence_task("inspection_blackbox")
+		"evacuate":
+			task = start_evacuation()
+		"decline":
+			_push_log("副官申请：暂不处理", "ADJUTANT", "HOLD")
+		_:
+			return {}
+	return {"choice": c, "task": task, "adjutant_request_open": false}
+
+# 截图演示：按时间线预置“遥测已完成 + 黑匣子进行中”，供 p2b-sim 截图
+func _seed_demo_tasks(t: float) -> void:
+	if not _demo_tasks or _demo_tasks_seeded:
+		return
+	_demo_tasks_seeded = true
+	var tel := start_evidence_task("port_telemetry")
+	if not tel.is_empty():
+		tel["started_t"] = 20.0
+	var bb := start_evidence_task("inspection_blackbox")
+	if not bb.is_empty():
+		bb["started_t"] = 50.0
+	adjutant_request_open = false
+	adjutant_request_seen = true
 
 # ── 日志 / 单位面板 ────────────────────────────────────
 

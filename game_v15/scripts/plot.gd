@@ -297,6 +297,7 @@ func _draw_3d() -> void:
 	_draw_contacts()
 	_draw_own()
 	_draw_sensor()
+	_draw_tasks()
 	_draw_chrome()
 	_draw_command_queue()
 
@@ -309,6 +310,7 @@ func _draw_planar() -> void:
 	_draw_planar_contacts()
 	_draw_planar_own()
 	_draw_planar_sensor()
+	_draw_tasks()
 	_draw_planar_inset()
 	_draw_chrome()
 
@@ -1806,6 +1808,57 @@ func _draw_chrome() -> void:
 	_draw_compass()
 	if not ortho:
 		_draw_optical()
+
+# ── P2b：取证/撤人任务进度 + Chronos 任务标记 ───────────
+func _draw_tasks() -> void:
+	var raw_tasks = state.get("evidence_tasks")
+	var tasks: Array = raw_tasks if raw_tasks is Array else []
+	var raw_ev = state.get("evidence")
+	var ev: Dictionary = raw_ev if raw_ev is Dictionary else {}
+	var cnt := 0
+	for k in ev.keys():
+		if bool(ev[k]):
+			cnt += 1
+	var expose_ok := false
+	if state != null and state.has_method("can_expose"):
+		expose_ok = bool(state.call("can_expose"))
+	var head_col := Palette.PH_DIM if expose_ok else Palette.AMBER
+	_txt(cjk, 16.0, 150.0, "任务 / TASK · EXPOSE 证据 %d/3" % cnt, 7, Palette.a(head_col, 0.95))
+	_txt(mono, 16.0, 162.0, "EXPOSE 需 ≥2 项 · 穿梭机同时只执行一项", 7, Palette.a(Palette.FAINT, 0.9))
+	var y := 176.0
+	for raw in tasks:
+		var tk: Dictionary = raw
+		var st := String(tk.get("status", ""))
+		var prog := clampf(float(tk.get("progress", 0.0)), 0.0, 1.0)
+		var col := Palette.PH_DIM if st == "DONE" else Palette.AMBER
+		_txt(mono, 16.0, y, "%s · %s · %d%%" % [String(tk.get("label", "")), "完成" if st == "DONE" else "进行中", int(round(prog * 100.0))], 7, Palette.a(col, 0.92))
+		draw_rect(Rect2(16.0, y + 3.0, 128.0, 2.0), Palette.a(col, 0.22))
+		draw_rect(Rect2(16.0, y + 3.0, 128.0 * prog, 2.0), Palette.a(col, 0.85))
+		y += 16.0
+	# Chronos 任务标记（固定方位，仅作现场参照）
+	var cp := _p3(_world(250.0, 240.0, 0.0))
+	if _ok(cp):
+		draw_polyline(PackedVector2Array([
+			cp + Vector2(0, -5), cp + Vector2(5, 0), cp + Vector2(0, 5),
+			cp + Vector2(-5, 0), cp + Vector2(0, -5)
+		]), Palette.a(Palette.AMBER, 0.55), 1.0)
+		_txt(cjk, cp.x + 8.0, cp.y + 15.0, "Chronos · L1-05", 7, Palette.a(Palette.AMBER, 0.75))
+	# 运行中的穿梭机 / 哈马丹取证标记
+	for raw2 in tasks:
+		var tk2: Dictionary = raw2
+		if String(tk2.get("status", "")) != "RUNNING":
+			continue
+		var shuttle := bool(tk2.get("shuttle", false))
+		var prog2 := clampf(float(tk2.get("progress", 0.0)), 0.0, 1.0)
+		var dist := 60.0 + 80.0 * (1.0 - absf(prog2 * 2.0 - 1.0))
+		var p := _p3(_world(250.0, dist, 8.0))
+		if not _ok(p):
+			continue
+		var c := Palette.BLUE if shuttle else Palette.AMBER
+		draw_colored_polygon(PackedVector2Array([
+			p + Vector2(0, -5), p + Vector2(5, 4), p + Vector2(-5, 4)
+		]), Palette.a(c, 0.85))
+		_txt(mono, p.x + 8.0, p.y + 2.0, ("穿梭机 · " if shuttle else "哈马丹 · ") + String(tk2.get("label", "")), 7, Palette.a(c, 0.8))
 
 func _chrome_3d() -> void:
 	_txt(cjk, 16.0, 10.0, "战术态势", 14, Palette.PH)

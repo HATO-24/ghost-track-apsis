@@ -206,6 +206,9 @@ func _set_scene(sc: String) -> void:
 		state.clock = state.clock - state.tau() + maxf(76.0, state.decision_t + 1.0)
 		state.exec_left = maxf(0.0, 360.0 - state.tau())
 		state.refresh(state.clock)
+		# 截图钩子：直接跳到决策时刻时，先关闭副官申请，避免遮挡裁决面板
+		if state.adjutant_request_open:
+			state.ack_adjutant("decline")
 		match sim_env:
 			"decision":
 				pass
