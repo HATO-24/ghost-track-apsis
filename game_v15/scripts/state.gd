@@ -1051,7 +1051,7 @@ func set_emcon(ship_id: String, on: bool) -> void:
 	emcon[ship_id] = on
 	_plan_tick(tau())
 	_update_emissions(tau())
-	_push_log("%s EMCON %s" % [ship_id, "开启 · 发射类全关" if on else "解除"], "EMCON", "EXEC")
+	_push_log("%s EMCON %s" % [ship_id, "开启 · 进入电磁管制" if on else "解除"], "EMCON", "EXEC")
 
 func is_emcon(ship_id: String) -> bool:
 	return bool(emcon.get(ship_id, false))
@@ -1162,7 +1162,7 @@ func _load_story() -> void:
 	if typeof(story) != TYPE_DICTIONARY:
 		story = {}
 	decision_t = float(story.get("decision_t", 300.0))
-	decision_prompt = String(story.get("decision_prompt", "指挥官，执行窗口剩余 {mm:ss}。请裁决。"))
+	decision_prompt = String(story.get("decision_prompt", "指挥官，执行窗口剩余 {mm:ss}。请抉择。"))
 	consequence_text = String(story.get("consequence_fire", "武器释放授权已下达；交火导致 Chronos 储罐区二次火灾，平民伤亡 12 人。"))
 	story_events = story.get("events", [])
 	endings = []
@@ -1205,7 +1205,7 @@ func _update_phase_gate(t: float) -> void:
 	if tut_phase == PHASE_COMMAND and not adjutant_request_seen:
 		adjutant_request_seen = true
 		adjutant_request_open = true
-		_push_log("副官建议：Chronos 取证/撤离（可派穿梭机）", "ADJUTANT", "RX")
+		_push_log("副官建议：Chronos 取证/撤离（派遣穿梭机）", "ADJUTANT", "RX")
 	_update_freeze()
 	if t >= decision_t or (exec_locked and exec_left <= 0.0):
 		_open_decision()
@@ -1221,7 +1221,7 @@ func _open_decision() -> void:
 	tut_phase = PHASE_DECIDE
 	decision_prompt = _fmt_decision_prompt()
 	_update_freeze()
-	_push_log("决断窗口开启 · 三选一（或武器释放）", "裁决", "EXEC")
+	_push_log("决断窗口开启", "抉择", "EXEC")
 
 func story_text(key: String, fallback: String = "") -> String:
 	var v = story.get(key, fallback)
@@ -1230,13 +1230,13 @@ func story_text(key: String, fallback: String = "") -> String:
 func ending_label(kind: String) -> String:
 	match kind:
 		"HOLD":
-			return "卡住 / HOLD"
+			return "坚守 / HOLD"
 		"EVACUATE":
-			return "撤人 / EVACUATE"
+			return "人员撤离 / EVACUATE"
 		"EXPOSE":
-			return "曝光 / EXPOSE"
+			return "证据曝光 / EXPOSE"
 		"FIRE":
-			return "开火 / FIRE（灾难）"
+			return "开火 / FIRE"
 		_:
 			return kind
 
@@ -1303,7 +1303,7 @@ func choose_ending(kind: String) -> Dictionary:
 			reputation["reclaimers"] = int(reputation.get("reclaimers", 0)) - 1
 		"EXPOSE", "C":
 			if not can_expose():
-				_push_log("EXPOSE 不可用：证据不足（%d/3，需至少 2 项）" % evidence_count(), "GATE", "HOLD")
+				_push_log("选项不可用：证据不足（%d/3，需至少 2 项）" % evidence_count(), "GATE", "HOLD")
 				return {}
 			outcome = "EXPOSE"
 			flags["expose"] = true
@@ -1322,7 +1322,7 @@ func choose_ending(kind: String) -> Dictionary:
 		_append_radio(String(reply.get("from", "远地点号")), String(reply.get("to", "OCJC / OCUVF")),
 			String(reply.get("mode", "LD")), String(reply.get("text", "")), tau())
 	decision_prompt = ""
-	_push_log("裁决：%s · 声望 %s" % [ending_label(outcome), _rep_text()], "OUTCOME", "EXEC")
+	_push_log("抉择：%s · 声望 %s" % [ending_label(outcome), _rep_text()], "OUTCOME", "EXEC")
 	return {
 		"outcome": outcome,
 		"reputation": reputation.duplicate(true),
@@ -1374,7 +1374,7 @@ func finish_consequence() -> void:
 func _build_report_options() -> void:
 	report_options = [{"kind": "TRUTH", "label": "据实报告", "hint": "完整记录裁决与经过，进入 OCJC/OCUVF 内部档案"}]
 	if fire_branch:
-		report_options.append({"kind": "FAKE", "label": "淡化 / 伪造", "hint": "只在不希望被追责时可选 · perjury+1"})
+		report_options.append({"kind": "FAKE", "label": "淡化 / 伪造", "hint": "只在试图逃离追责时可选 · perjury+1"})
 
 # 报告：truth / fake；fake 增 perjury，第二次审计触发 audit_flag
 func submit_report(kind: String) -> Dictionary:
@@ -1440,7 +1440,7 @@ func _compose_report(truth: bool) -> String:
 		"建议：%s" % (rec if rec != "" else "—"),
 	]
 	if fire_branch:
-		lines.append("备注：武器释放已执行；ID13 被定性为未登记武装，审计启动。")
+		lines.append("备注：武器释放已执行；ID13 被定性为未登记武装，进入调查程序。")
 	if not truth:
 		lines.append("备注：内部版本与黑匣子记录不一致（perjury=%d）。" % perjury_count)
 	var out := ""

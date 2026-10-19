@@ -575,7 +575,7 @@ func _draw_burn_node(km: Vector3, cmd: Dictionary, pending: bool, remain: float,
 	if pending:
 		_txt(cjk, lx, ly, "点火 T+%04.1fs · %s" % [exec_t, ("预览 DRAFT" if draft else "待生效")], 9, Palette.a(Palette.BLUE if draft else Palette.AMBER, 0.95))
 		_txt(mono, lx, ly + 13.0, "Δv %.0f m/s · BRG %03d° · ELEV %+02d°" % [bms, int(bbrg), int(belev)], 8, Palette.a(Palette.PH_DIM, 1.0))
-		_txt(mono, lx, ly + 26.0, "%s / %s" % [state.cmd_model.phase_text(cmd, _tau_now()), "草稿节点（未下注）" if draft else "命令幽灵"], 7, Palette.a(Palette.BLUE if draft else Palette.AMBER, 0.85))
+		_txt(mono, lx, ly + 26.0, "%s / %s" % [state.cmd_model.phase_text(cmd, _tau_now()), "草稿节点" if draft else "命令幽灵"], 7, Palette.a(Palette.BLUE if draft else Palette.AMBER, 0.85))
 	else:
 		_txt(cjk, lx, ly, "点火 T+%04.1fs · 已执行" % exec_t, 9, Palette.a(Palette.PH, 0.95))
 		_txt(mono, lx, ly + 13.0, "Δv %.0f m/s · 已扣 · 已执行" % bms, 8, Palette.a(Palette.PH_DIM, 0.95))
@@ -997,7 +997,7 @@ func _draw_bearing_contact(t: Dictionary, col: Color) -> void:
 		if band == "":
 			band = "距离不明"
 		_txt(mono, lx, ly - 4.0, "%s · L1 · 仅方位 · %s" % [_identity_label(_ident(t)), band], 7, Palette.a(col, 0.62))
-		_txt(mono, lx, ly + 8.0, "仅方位 · 无预测 / BEARING ONLY", 7, Palette.a(col, 0.36))
+		_txt(mono, lx, ly + 8.0, "仅方位 · 未定位 / BEARING ONLY", 7, Palette.a(col, 0.36))
 		draw_line(mid + Vector2(-3, 0), mid + Vector2(3, 0), Palette.a(col, 0.7), 1.0)
 		draw_line(mid + Vector2(0, -3), mid + Vector2(0, 3), Palette.a(col, 0.7), 1.0)
 
@@ -1021,7 +1021,7 @@ func _draw_phantom(t: Dictionary) -> void:
 		draw_line(mid + Vector2(-6, -6), mid + Vector2(6, 6), Palette.a(Palette.FAINT, 0.55), 1.0)
 		_txt(mono, mid.x + 10.0, mid.y - 20.0, "[9002] 无威胁目标", 8, Palette.a(Palette.FAINT, 0.9))
 		_txt(cjk, mid.x + 10.0, mid.y - 8.0, "已交叉确认 · 无威胁", 9, Palette.a(Palette.DIM, 0.95))
-		_txt(mono, mid.x + 10.0, mid.y + 5.0, "残骸/反射 · 无实体 · 无威胁", 7, Palette.a(Palette.FAINT, 0.9))
+		_txt(mono, mid.x + 10.0, mid.y + 5.0, "残骸/反射 · 无威胁", 7, Palette.a(Palette.FAINT, 0.9))
 	else:
 		var d := 5.0
 		draw_polyline(PackedVector2Array([
@@ -1029,8 +1029,8 @@ func _draw_phantom(t: Dictionary) -> void:
 			mid + Vector2(-d, 0), mid + Vector2(0, -d)
 		]), Palette.a(col, 0.8), 1.0)
 		_txt(mono, mid.x + 10.0, mid.y - 20.0, "[9002] 不明接触", 8, Palette.a(col, 0.8))
-		_txt(mono, mid.x + 10.0, mid.y - 8.0, "CH-IR2 回波候选 · L1 仅方位", 8, Palette.a(col, 0.62))
-		_txt(mono, mid.x + 10.0, mid.y + 5.0, "待交叉确认 · 无实体 · 无辐射", 7, Palette.a(col, 0.4))
+		_txt(mono, mid.x + 10.0, mid.y - 8.0, "CH-IR2 回波候选 · L1", 8, Palette.a(col, 0.62))
+		_txt(mono, mid.x + 10.0, mid.y + 5.0, "待交叉确认", 7, Palette.a(col, 0.4))
 
 # 协方差椭圆（来自 SensorModel.covariance：径向 / 横向 σ，单位 km）
 func _draw_covariance(p: Vector2, t: Dictionary, col: Color) -> void:
@@ -1192,7 +1192,7 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 	if threat == "high" or threat == "hostile":
 		th_tag = " · 威胁 %s" % String(t.get("threat_label", threat))
 	var idf := cjk if Fonts.has_cjk(nm) else mono
-	var stale_tag := " · 陈旧" if t.get("stale", false) else ""
+	var stale_tag := " · 过期" if t.get("stale", false) else ""
 	var rng_label := _fmt_km(float(t.get("obs_range_km", -1.0)) if float(t.get("obs_range_km", -1.0)) >= 0.0 else float(t.get("range", 0.0)))
 	var sig := float((t.get("covariance", {}) as Dictionary).get("pos_sigma_km", 0.0))
 	match lv:
@@ -1219,9 +1219,9 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 				draw_line(Vector2(lx + 4.0, ly + 28.0), Vector2(lx + 11.0, ly + 19.0), Palette.a(Palette.PH, 0.8), 1.0)
 				_txt(mono, lx + 14.0, ly + 26.0, "已确认", 7, Palette.a(Palette.PH, 0.5))
 			elif iff == "faulty_transponder":
-				_txt(cjk, lx, ly + 26.0, "敌我识别：应答机故障 · 不明 ≠ 敌意", 7, Palette.a(Palette.AMBER, 0.85))
+				_txt(cjk, lx, ly + 26.0, "敌我识别：应答机故障", 7, Palette.a(Palette.AMBER, 0.85))
 			elif iff != "":
-				_txt(cjk, lx, ly + 26.0, "敌我识别：无应答 · 不明 ≠ 敌意", 7, Palette.a(Palette.AMBER, 0.7))
+				_txt(cjk, lx, ly + 26.0, "敌我识别：无应答", 7, Palette.a(Palette.AMBER, 0.7))
 	_draw_level_badge(p, t, col)
 
 func _draw_own() -> void:
@@ -1366,7 +1366,7 @@ func _draw_emit_ring(o: Vector2) -> void:
 	_txt(mono, o.x - 150.0, o.y - rr - 8.0, "辐射 · %s（%s）" % [
 		String(best.get("model", "")), String(best.get("owner", "")).to_upper()], 7, Palette.a(Palette.AMBER, 0.8))
 	if bool(state.elint_named):
-		_txt(cjk, o.x - 150.0, o.y - rr + 4.0, "开机即暴露", 7, Palette.a(Palette.RED, 0.85))
+		_txt(cjk, o.x - 150.0, o.y - rr + 4.0, "开机暴露风险", 7, Palette.a(Palette.RED, 0.85))
 
 # 敌方 ELINT 点名：从传唤级指向本舰的虚线 + 截获环
 func _draw_elint_named(o: Vector2) -> void:
@@ -1404,15 +1404,15 @@ func _draw_sensor_label(s: Dictionary, typ: String) -> void:
 			col = Palette.AMBER
 			sub = "红外 · 被动 · L1 方位线 · 无距离"
 		"radar":
-			sub = "主动 · L2 距离+方位 · 开机即暴露"
+			sub = "主动 · L2 距离+方位 · 开机暴露风险"
 		"optical":
 			col = Palette.BLUE
-			sub = "可见光 · 凝视 → L3 分类 · 阴影不可见"
+			sub = "可见光 · 凝视 → L3 分类 · 阴影环境无效"
 		"iff":
-			sub = "敌我识别（IFF）→ L4 · 不明 ≠ 敌意"
+			sub = "敌我识别（IFF）→ L4 · 身份判断"
 		"elint":
 			col = Palette.AMBER
-			sub = "被动 · 信号不是接触"
+			sub = "被动"
 		"radio", "lasercom":
 			col = Palette.DIM
 			sub = "链路 · 激光直连 > 激光中继 > 红外 > 无线电（鲁棒/全向）> 可见光"
@@ -1823,8 +1823,8 @@ func _draw_tasks() -> void:
 	if state != null and state.has_method("can_expose"):
 		expose_ok = bool(state.call("can_expose"))
 	var head_col := Palette.PH_DIM if expose_ok else Palette.AMBER
-	_txt(cjk, 16.0, 150.0, "任务 / TASK · EXPOSE 证据 %d/3" % cnt, 7, Palette.a(head_col, 0.95))
-	_txt(mono, 16.0, 162.0, "EXPOSE 需 ≥2 项 · 穿梭机同时只执行一项", 7, Palette.a(Palette.FAINT, 0.9))
+	_txt(cjk, 16.0, 150.0, "任务 / TASK · EXPOSE 收集证据 %d/3" % cnt, 7, Palette.a(head_col, 0.95))
+	_txt(mono, 16.0, 162.0, "EXPOSE 需 ≥2 项 · 穿梭机同时只可执行一项", 7, Palette.a(Palette.FAINT, 0.9))
 	var y := 176.0
 	for raw in tasks:
 		var tk: Dictionary = raw
