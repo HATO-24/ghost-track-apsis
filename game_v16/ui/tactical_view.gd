@@ -35,6 +35,10 @@ var _drag_yaw := 0.0
 var _drag_pitch := 60.0
 var _fit_margin := 0.82
 var _replay_frame: Dictionary = {}
+var _layers: Dictionary = {
+	"contacts": true, "labels": true, "predictions": true,
+	"radar": true, "stations": true, "grid": true,
+}
 
 
 func _ready() -> void:
@@ -95,6 +99,24 @@ func _snapshot_from_camera() -> void:
 func set_selected(id: String) -> void:
 	_selected_id = id
 	queue_redraw()
+
+
+func set_layers(dict: Dictionary) -> void:
+	for k in _layers.keys():
+		if dict.has(k):
+			_layers[k] = bool(dict[k])
+	queue_redraw()
+
+
+func layer_on(name: String) -> bool:
+	return bool(_layers.get(name, true))
+
+
+## 站体/储罐/残骸的最小可见像素：按 size_km 对数缩放 + 下限（不是固定像素）。
+func marker_px(size_km: float) -> float:
+	var skm := clampf(size_km, 0.05, 100.0)
+	var px := 7.0 + log(1.0 + skm * 6.0) * 3.6
+	return clampf(px, 8.0, 30.0)
 
 
 func set_replay_frame(frame: Dictionary) -> void:
@@ -209,11 +231,16 @@ func _draw() -> void:
 		_draw_footer()
 		return
 	var body := _body_rect()
-	_draw_grid(body)
-	_draw_radar(body)
-	_draw_predictions()
-	_draw_bearing_lines()
-	_draw_contacts(body)
+	if layer_on("grid"):
+		_draw_grid(body)
+	if layer_on("radar"):
+		_draw_radar(body)
+	if layer_on("predictions"):
+		_draw_predictions()
+	if layer_on("contacts"):
+		_draw_bearing_lines()
+	if layer_on("contacts"):
+		_draw_contacts(body)
 	_draw_own()
 	_draw_kind_legend(body)
 	if not _replay_frame.is_empty():
@@ -504,7 +531,10 @@ func _draw_contacts(body: Rect2) -> void:
 		var kind2 := String(c.get("kind", "ship"))
 		if mshape2 == "station" or mshape2 == "tank" or mshape2 == "wreck":
 			kind2 = mshape2
-		_draw_kind_marker(sp, kind2, accent)
+		var size_km := float(c.get("size_km", 0.0))
+		if size_km <= 0.0:
+			size_km = float({"station": 1.2, "tank": 0.8, "wreck": 0.4}.get(kind2, 0.6))
+		_draw_kind_marker(sp, kind2, accent, size_km)
 		T.badge(self, Rect2(sp + Vector2(9.0, -18.0), Vector2(20.0, 12.0)),
 			T.level_name(level), T.identity_color(identity), T.F7)
 		# TWS 通道环（snapshot.contacts[i].tws）
@@ -537,6 +567,8 @@ func _draw_contacts(body: Rect2) -> void:
 			var tag := ("OPT %s %.0f%%" % [status, float(och.get("progress", 0.0)) * 100.0]) if kind == "optical" else "IR " + status
 			T.text(self, sp.x + rad + 3.0, sp.y - 8.0, tag, T.F7, T.a(col2, 0.9), false)
 			oi += 1
+		if not layer_on("labels"):
+			continue
 		# 标签 + 引线（按优先级放置，简单碰撞避免）
 		var label_size := Vector2(172.0, 30.0)
 		var candidates: Array = [
@@ -582,31 +614,43 @@ func _draw_contacts(body: Rect2) -> void:
 			info += " · %.0f km" % rng_km
 		if bool(c.get("stale", false)):
 			info += " · 陈旧 %.0fs" % float(c.get("age_s", 0.0))
+		if kind2 in ["station", "tank", "wreck"]:
+			info += " · %s %.2f km" % [{"station": "站体", "tank": "储罐", "wreck": "残骸"}.get(kind2, ""), size_km]
 		T.text_fit(self, label_pos.x + 4.0, label_pos.y + 16.0, info, T.F7, T.a(T.DIM, 0.95),
 			label_size.x - 8.0, false)
 
 
-func _draw_kind_marker(sp: Vector2, kind: String, col: Color) -> void:
-	# 站体 / 储罐 / 残骸用线条/矩形标记（无贴图）；舰船沿用身份符号。
+func _draw_kind_marker(sp: Vector2, kind: String, col: Color, size_km := 0.0) -> void:
+	# 站体 / 储罐 / 残骸用线条/矩形标记（无贴图）；尺寸按 size_km 对数缩放（下限 8 px）。
 	var c2 := T.a(col, 0.9)
+	var px := marker_px(size_km if size_km > 0.0 else 0.6)
+	var w := px * 1.7
+	var h := maxf(6.0, px * 0.62)
 	match kind:
 		"station":
-			var r := Rect2(sp + Vector2(-9.0, 8.0), Vector2(18.0, 8.0))
+			var r := Rect2(sp + Vector2(-w * 0.5, 8.0), Vector2(w, h))
 			draw_rect(r, T.a(col, 0.10))
 			draw_rect(r, c2, false, 1.0)
 			draw_line(Vector2(r.position.x + 2.0, r.end.y - 2.0), Vector2(r.end.x - 2.0, r.end.y - 2.0), c2, 1.0)
 			draw_line(Vector2(sp.x, r.position.y), Vector2(sp.x, r.end.y), T.a(col, 0.55), 1.0)
-			draw_rect(Rect2(sp + Vector2(-1.0, 11.0), Vector2(2.0, 2.0)), c2)
+			draw_rect(Rect2(sp + Vector2(-1.0, 8.0 + h * 0.5 - 1.0), Vector2(2.0, 2.0)), c2)
+			draw_line(Vector2(r.position.x + 2.0, r.position.y + h * 0.5), Vector2(r.position.x - 3.0, r.position.y + h * 0.5), T.a(col, 0.6), 1.0)
+			draw_line(Vector2(r.end.x - 2.0, r.position.y + h * 0.5), Vector2(r.end.x + 3.0, r.position.y + h * 0.5), T.a(col, 0.6), 1.0)
 		"tank":
-			var r2 := Rect2(sp + Vector2(-9.0, 8.0), Vector2(18.0, 7.0))
-			draw_rect(r2, T.a(col, 0.08))
-			draw_rect(r2, c2, false, 1.0)
-			draw_line(Vector2(r2.position.x + 3.0, r2.position.y), Vector2(r2.position.x + 3.0, r2.end.y), T.a(col, 0.65), 1.0)
-			draw_line(Vector2(r2.end.x - 3.0, r2.position.y), Vector2(r2.end.x - 3.0, r2.end.y), T.a(col, 0.65), 1.0)
+			# 储罐组：3 个罐体（tanks=3），随 size_km 缩放
+			var tanks := 3
+			var gap := 2.0
+			var tw := maxf(4.0, (w - float(tanks - 1) * gap) / float(tanks))
+			for i in range(tanks):
+				var r2 := Rect2(sp + Vector2(-w * 0.5 + float(i) * (tw + gap), 8.0), Vector2(tw, h))
+				draw_rect(r2, T.a(col, 0.08))
+				draw_rect(r2, c2, false, 1.0)
+				draw_line(Vector2(r2.position.x + 1.0, r2.position.y + 2.0), Vector2(r2.position.x + 1.0, r2.end.y - 2.0),
+					T.a(col, 0.6), 1.0)
 		"wreck":
-			draw_line(sp + Vector2(-8.0, 8.0), sp + Vector2(8.0, 12.0), T.a(col, 0.7), 1.0)
-			draw_line(sp + Vector2(-8.0, 12.0), sp + Vector2(8.0, 8.0), T.a(col, 0.7), 1.0)
-			draw_line(sp + Vector2(-5.0, 10.0), sp + Vector2(-1.0, 9.0), c2, 1.0)
+			draw_line(sp + Vector2(-w * 0.5, 8.0), sp + Vector2(w * 0.5, 8.0 + h * 0.5), T.a(col, 0.7), 1.0)
+			draw_line(sp + Vector2(-w * 0.5, 8.0 + h * 0.5), sp + Vector2(w * 0.5, 8.0), T.a(col, 0.7), 1.0)
+			draw_line(sp + Vector2(-w * 0.25, 8.0 + h * 0.25), sp + Vector2(-2.0, 8.0 + h * 0.2), c2, 1.0)
 		_:
 			pass
 
@@ -630,8 +674,9 @@ func _draw_kind_legend(body: Rect2) -> void:
 		var p := box.position + Vector2(12.0 + float(col) * 108.0, 24.0 + float(row) * 20.0)
 		var kind := String(kinds[i][0])
 		draw_circle(p + Vector2(6.0, 6.0), 3.0, T.a(T.PH, 0.7))
-		_draw_kind_marker(p + Vector2(6.0, -2.0), kind, T.PH_DIM)
-		T.text(self, p.x + 18.0, p.y, String(kinds[i][1]), T.F7, T.a(T.DIM, 0.95))
+		var sample_km: float = {"station": 1.2, "tank": 0.8, "wreck": 0.4, "ship": 0.6}.get(kind, 0.6)
+		_draw_kind_marker(p + Vector2(6.0, -2.0), kind, T.PH_DIM, sample_km)
+		T.text(self, p.x + 22.0, p.y, String(kinds[i][1]), T.F7, T.a(T.DIM, 0.95))
 
 
 func _draw_replay_ghosts(body: Rect2) -> void:

@@ -20,6 +20,8 @@ const ActionMenu := preload("res://ui/widgets/action_menu.gd")
 const TacticalView := preload("res://ui/tactical_view.gd")
 const Overlays := preload("res://ui/overlays.gd")
 const DamagePanel := preload("res://ui/damage_panel.gd")
+const LayersPanel := preload("res://ui/layers_panel.gd")
+const ChannelWindow := preload("res://ui/channel_window.gd")
 
 const BUILD_TAG := "V2-3 · FIRST LEVEL · TACTICAL UI"
 
@@ -33,6 +35,13 @@ var _actions_inline = null
 var _menu = null
 var _overlays = null
 var _damage_panel = null
+var _layers_panel = null
+var _channel_window = null
+var _layers: Dictionary = {}
+var _channel_open := false
+var _channel_kind := "optical"
+var _channel_target := ""
+var _channel_action: Dictionary = {}
 var _bottom_tab := "mission"          # mission | damage
 var _replay_frames: Array = []
 var _replay_open := false
@@ -85,6 +94,10 @@ func _ready() -> void:
 	data = DataSource.new()
 	data.boot()
 	_build_children()
+	_layers = data.layers_state()
+	_layers_panel.bind(data)
+	_layers_panel.set_layers(_layers)
+	_tactical.set_layers(_layers)
 	data.select(data.own_id)
 	_ui_log("SYS", "V2-3 游戏屏启动 · source=%s · 接触 %d" % [
 		data.source_label(), data.all_contacts().size()])
@@ -248,6 +261,13 @@ func _build_children() -> void:
 	_menu.action_chosen.connect(_on_action_chosen)
 	add_child(_menu)
 
+	_layers_panel = LayersPanel.new()
+	_layers_panel.position = L.MAP.position + Vector2(12.0, 44.0)
+	_layers_panel.size = Vector2(280.0, 226.0)
+	_layers_panel.visible = false
+	_layers_panel.layer_toggled.connect(_on_layer_toggled)
+	add_child(_layers_panel)
+
 	_overlays = Overlays.new()
 	_overlays.position = Vector2.ZERO
 	_overlays.size = L.DESIGN
@@ -258,6 +278,15 @@ func _build_children() -> void:
 	_overlays.end_restart.connect(_on_end_restart)
 	_overlays.end_quit.connect(_on_end_quit)
 	add_child(_overlays)
+
+	_channel_window = ChannelWindow.new()
+	_channel_window.position = Vector2.ZERO
+	_channel_window.size = L.DESIGN
+	_channel_window.visible = false
+	_channel_window.start_requested.connect(_on_channel_start)
+	_channel_window.stop_requested.connect(_on_channel_stop)
+	_channel_window.closed.connect(_close_channel)
+	add_child(_channel_window)
 
 
 # ══ 仿真 / 流程 director ═════════════════════════════════════════════════
@@ -593,6 +622,7 @@ func _on_action_chosen(action_id: String, target_id: String) -> void:
 	if ekind == "optical" or ekind == "ir":
 		var tr_id := String(data.contact(target_id).get("track_id", target_id))
 		data.tactical_start_channel(ekind, tr_id)
+		_open_channel(ekind, target_id, res)
 	_ui_log("ACTION", "动作 %s → %s · 执行平台 %s · 等级 L%d→L%d · %s" % [
 		action_id, String(data.contact(target_id).get("batch", target_id)),
 		String(res.get("actor_name", "")), int(res.get("level", 0)), int(res.get("level_after", res.get("level", 0))),
@@ -601,6 +631,112 @@ func _on_action_chosen(action_id: String, target_id: String) -> void:
 		" level=", res.get("level"), " detail=", res.get("detail"))
 	_refresh_all()
 	_tactical_tick(0.0)
+
+
+# ── 图层 / 光学通道窗 ───────────────────────────────────────────────────
+
+func _on_layer_toggled(name: String, on: bool) -> void:
+	_layers[name] = on
+	if _tactical != null:
+		_tactical.set_layers(_layers)
+	_ui_log("LAYERS", "图层 %s → %s（core set_layer + 本地立即生效）" % [name, "ON" if on else "OFF"])
+	_refresh_events()
+	queue_redraw()
+
+
+func _open_channel(kind: String, target_id: String, action_result: Dictionary) -> void:
+	if _channel_window == null:
+		return
+	_channel_kind = kind
+	_channel_target = target_id
+	_channel_action = action_result.duplicate(true)
+	_channel_action["id"] = kind + "_channel"
+	var c: Dictionary = data.contact(target_id)
+	_channel_window.set_payload(kind, _channel_target_dict(c), _channel_action, not _tactical_snapshot.is_empty())
+	_channel_window.set_channel(_find_channel_view(kind, target_id))
+	_channel_window.visible = true
+	_channel_open = true
+	_refresh_channel()
+	queue_redraw()
+
+
+func _close_channel() -> void:
+	if _channel_window != null:
+		_channel_window.visible = false
+	_channel_open = false
+	queue_redraw()
+
+
+func _channel_target_dict(c: Dictionary) -> Dictionary:
+	var kind := String(c.get("kind", "ship"))
+	var kl := T.kind_label(kind)
+	return {
+		"id": String(c.get("id", "")), "track_id": String(c.get("track_id", c.get("id", ""))),
+		"batch": String(c.get("batch", "")), "name": String(c.get("name", "")),
+		"name_en": String(c.get("name_en", "")), "identity": String(c.get("identity", "unknown")),
+		"identity_label": String(c.get("identity_label", c.get("identity", ""))),
+		"level": int(c.get("level", 0)), "level_label": String(c.get("level_label", "")),
+		"kind": kind, "kind_label": kl, "cls": String(c.get("cls", "")),
+		"display_kind": String(c.get("display_kind", kind)),
+		"range_km": float(c.get("range_km", -1.0)), "range_band": String(c.get("range_band_label", "")),
+		"bearing_deg": float(c.get("bearing_deg", -1.0)),
+	}
+
+
+## 从 sim 快照找当前目标/通道的光学通道视图。
+## 优先 snapshot.optical.channels（完整字段），退回 contact.optical_channels（dict/array 两种形状）。
+func _find_channel_view(kind: String, target_id: String) -> Dictionary:
+	if _tactical_snapshot.is_empty():
+		return {}
+	var track_id := String(data.contact(target_id).get("track_id", target_id))
+	var optical: Dictionary = _tactical_snapshot.get("optical", {}) if _tactical_snapshot.get("optical", {}) is Dictionary else {}
+	var full: Array = optical.get("channels", []) if optical.get("channels", []) is Array else []
+	for raw in full:
+		if not (raw is Dictionary):
+			continue
+		var ch: Dictionary = raw
+		if String(ch.get("channel", "")) != kind:
+			continue
+		if String(ch.get("target_track_id", track_id)) == track_id:
+			return ch
+	for raw_c in (_tactical_snapshot.get("contacts", []) as Array):
+		var c: Dictionary = raw_c
+		if String(c.get("track_id", "")) != track_id:
+			continue
+		var chans: Variant = c.get("optical_channels", {})
+		if chans is Dictionary:
+			var d: Dictionary = chans
+			if d.get(kind, null) is Dictionary and not (d[kind] as Dictionary).is_empty():
+				return (d[kind] as Dictionary).duplicate(true)
+		elif chans is Array:
+			for raw_ch in chans:
+				if raw_ch is Dictionary and String((raw_ch as Dictionary).get("channel", "")) == kind:
+					return (raw_ch as Dictionary).duplicate(true)
+	return {}
+
+
+func _refresh_channel() -> void:
+	if not _channel_open or _channel_window == null:
+		return
+	var view := _find_channel_view(_channel_kind, _channel_target)
+	_channel_window.set_channel(view)
+	var optical: Dictionary = _tactical_snapshot.get("optical", {}) if _tactical_snapshot.get("optical", {}) is Dictionary else {}
+	_channel_window.snapshot_available = not view.is_empty() or bool(optical.get("available", false))
+	_channel_window.queue_redraw()
+
+
+func _on_channel_start(kind: String, target_id: String) -> void:
+	var tr := String(data.contact(target_id).get("track_id", target_id))
+	var r: Dictionary = data.tactical_start_channel(kind, tr)
+	_ui_log("CHANNEL", "开始 %s 凝视 → %s：%s" % [kind, tr, "ok" if bool(r.get("ok", true)) else String(r.get("reason", ""))])
+	_refresh_channel()
+
+
+func _on_channel_stop(kind: String, target_id: String) -> void:
+	var tr := String(data.contact(target_id).get("track_id", target_id))
+	data.tactical_stop_channel(kind, tr)
+	_ui_log("CHANNEL", "停止 %s 凝视 → %s" % [kind, tr])
+	_refresh_channel()
 
 
 func _step_selection(dir: int) -> void:
@@ -629,6 +765,7 @@ func _refresh_all() -> void:
 	_refresh_actions()
 	_refresh_mission()
 	_refresh_bottom_tab()
+	_refresh_channel()
 	queue_redraw()
 
 
@@ -1208,7 +1345,11 @@ func _input(event: InputEvent) -> void:
 		return
 	match key.keycode:
 		KEY_ESCAPE, KEY_Q:
-			if _menu.is_open():
+			if _channel_open:
+				_close_channel()
+			elif _layers_panel != null and _layers_panel.visible and key.keycode == KEY_ESCAPE:
+				_layers_panel.visible = false
+			elif _menu.is_open():
 				_menu.close()
 			else:
 				get_tree().quit()
@@ -1237,6 +1378,10 @@ func _input(event: InputEvent) -> void:
 			queue_redraw()
 		KEY_R:
 			_tactical.reset_view()
+			accept_event()
+		KEY_O:
+			if _layers_panel != null:
+				_layers_panel.visible = not _layers_panel.visible
 			accept_event()
 		KEY_D:
 			_bottom_tab = "damage" if _bottom_tab == "mission" else "mission"
@@ -1412,6 +1557,25 @@ func _apply_shot_view() -> void:
 				_damage_panel.bind(data)
 				_damage_panel.repair("sensor_align")
 				_damage_panel.tick(7.0)
+		"optical":
+			_debug_to_command()
+			data.select("2001")
+			_refresh_all()
+			for aid_o in ["crossfix", "radar_illum", "model_ident"]:
+				data.perform_action(String(aid_o), "2001")
+			var oc: Dictionary = data.perform_action("optical_channel", "2001")
+			print("V2-5 OPTICAL ACTION ", oc.get("ok"), " level=", oc.get("level"), " reason=", oc.get("reason"))
+			data.tactical_start_channel("optical", "2001")
+			_warm(maxf(20.0, _warm_s))
+			_open_channel("optical", "2001", oc)
+		"layers":
+			_debug_to_command()
+			data.select("2001")
+			_refresh_all()
+			_layers_panel.visible = true
+			_layers_panel.toggle("grid")
+			_layers_panel.toggle("labels")
+			_layers_panel.toggle("predictions")
 		"replay":
 			_debug_to_command()
 			data.replay_start()
@@ -1546,6 +1710,30 @@ func _run_self_check() -> void:
 	_replay_step(-1)
 	_close_replay()
 	_check(not _replay_open and not _tactical.is_replaying(), "replay closes and resumes sim")
+	# 4e) 光学/IR 通道窗口数据准备：model_ident → L3，optical_channel → 核心证据
+	var mi: Dictionary = data.perform_action("model_ident", "2001")
+	_check(bool(mi.get("ok", false)) or String(mi.get("reason", "")) != "", "model_ident callable")
+	var oc: Dictionary = data.perform_action("optical_channel", "2001")
+	_check(bool(oc.get("ok", false)) or String(oc.get("reason", "")) != "", "optical_channel callable")
+	_check(int(oc.get("level", 0)) >= 3 or not bool(oc.get("ok", false)), "optical action raises level to L3")
+	data.tactical_start_channel("optical", "2001")
+	# 4f) 图层开关（core set_layer/vm_layers + 本地绘制同步）
+	var ls: Dictionary = data.layers_state()
+	for lk in ["contacts", "labels", "predictions", "radar", "stations", "grid"]:
+		_check(ls.has(lk), "layers_state has " + lk)
+	_layers = data.layers_state()
+	_layers["labels"] = false
+	_tactical.set_layers(_layers)
+	_check(not _tactical.layer_on("labels"), "tactical labels layer off")
+	data.set_layer("labels", false)
+	_check(not bool(data.layers_state().get("labels", true)), "core set_layer labels false")
+	data.set_layer("labels", true)
+	_layers["labels"] = true
+	_tactical.set_layers(_layers)
+	_check(_tactical.layer_on("labels"), "tactical labels layer restored")
+	# 4g) size_km 尺寸缩放（下限 8 px，单调）
+	_check(_tactical.marker_px(1.2) > _tactical.marker_px(0.6), "station marker bigger by size_km")
+	_check(_tactical.marker_px(0.05) >= 8.0, "marker min visible px >= 8")
 	# 4e) 站体/储罐图标
 	_check(_tactical.kind_marker_shape("station") == "station_marker", "station marker shape")
 	_check(_tactical.kind_marker_shape("tank") == "tank_marker", "tank marker shape")
@@ -1562,6 +1750,25 @@ func _run_self_check() -> void:
 		if not (c2.get("tws", {}) as Dictionary).is_empty():
 			obs_ok = true
 	_check(obs_ok, "contact carries TWS channel state")
+	# 5b) 光学通道快照 + 通道窗（sim optical section，状态非空）
+	var ch_view: Dictionary = _find_channel_view("optical", "2001")
+	_check(not ch_view.is_empty(), "sim optical channel view for 2001")
+	_check(String(ch_view.get("status", "")) in ["idle", "acquiring", "staring", "locked", "lost"], "optical channel status")
+	_open_channel("optical", "2001", oc)
+	_check(_channel_open and _channel_window.visible, "channel window opens")
+	_check(String(_channel_window.kind) == "optical", "channel window kind optical")
+	_check(bool(_channel_window.snapshot_available), "channel window snapshot available")
+	_on_channel_stop("optical", "2001")
+	_close_channel()
+	_check(not _channel_open and not _channel_window.visible, "channel window closes")
+	# 5c) 图层面板存在且可切换
+	_check(_layers_panel != null, "layers panel exists")
+	_layers_panel.visible = true
+	_layers_panel.toggle("grid")
+	_check(not _tactical.layer_on("grid"), "layers panel toggle grid off")
+	_layers_panel.toggle("grid")
+	_layers_panel.visible = false
+	_check(_tactical.layer_on("grid"), "layers panel toggle grid on")
 	# 6) 证据任务：开始 + 时间推进自动完成
 	var started: Dictionary = data.start_evidence("port_telemetry")
 	_check(bool(started.get("ok", false)), "start_evidence port_telemetry")

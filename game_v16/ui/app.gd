@@ -21,7 +21,7 @@ const LEGACY_VIEWS := [
 func _ready() -> void:
 	var view := OS.get_environment("DSH_V2_VIEW")
 	var screen: Control
-	if view == "intro" or view == "menu":
+	if view == "intro" or view == "menu" or view == "settings":
 		screen = IntroScreen.new()
 		print("V2 ROUTER → intro (DSH_V2_VIEW=%s)" % view)
 	elif view in LEGACY_VIEWS:

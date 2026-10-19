@@ -29,6 +29,7 @@ const CHECK_LINES := [
 const CHECK_AT := [0.20, 0.55, 0.90, 1.30, 1.70, 2.10, 2.55, 3.00, 3.60]
 
 const MENU_ITEMS := ["开始演示 / START DEMO", "设置 / OPTIONS", "退出 / QUIT"]
+const WINDOW_MODES := ["窗口 / WINDOW", "F10 无边框 / BORDERLESS", "F11 独占全屏 / EXCLUSIVE"]
 
 var _state := "cg"            # cg | menu | options
 var _t := 0.0
@@ -41,6 +42,11 @@ var _options_sel := 0
 var _vol_bgm := 0.72
 var _vol_sfx := 0.72
 var _muted := false
+var _win_mode := 0
+var _test_mode := ""
+var _test_timer := 0.0
+var _test_phase := 0
+var _test_done := false
 var _cfg := ConfigFile.new()
 var _mouse := Vector2(-1.0, -1.0)
 var _noise: Array = []
@@ -55,6 +61,7 @@ func _ready() -> void:
 	_vol_bgm = float(_cfg.get_value("audio", "bgm", 0.72))
 	_vol_sfx = float(_cfg.get_value("audio", "sfx", 0.72))
 	_muted = bool(_cfg.get_value("audio", "muted", false))
+	_win_mode = int(_cfg.get_value("video", "window_mode", 0))
 	_build_noise()
 	_parse_env()
 
@@ -64,14 +71,39 @@ func _parse_env() -> void:
 	_shot_view = OS.get_environment("DSH_V2_VIEW")
 	var force := OS.get_environment("DSH_INTRO")
 	var skip := OS.get_environment("DSH_SKIP_INTRO")
-	var is_intro_shot := _shot_path != "" and (_shot_view == "intro" or _shot_view == "menu")
+	var test := OS.get_environment("DSH_INTRO_TEST")
+	var view := _shot_view
+	var is_intro_shot := _shot_path != "" and (view == "intro" or view == "menu" or view == "settings")
+	# 自动化实测：DSH_INTRO_TEST=click_start|enter_start|esc_skip|settings_cycle（headless 也可跑）
+	if test != "":
+		_test_mode = test
+		match test:
+			"esc_skip":
+				_state = "cg"
+			"settings_cycle":
+				_state = "options"
+				_options_sel = 3
+			_:
+				_state = "menu"
+		_menu_sel = 0
+		if _test_mode == "click_start" or _test_mode == "enter_start":
+			_setup_capture_window()
+		set_process(true)
+		queue_redraw()
+		return
 	if _headless:
 		_goto_game()
 		return
 	if is_intro_shot:
-		_state = "menu" if _shot_view == "menu" else "cg"
-		if _state == "cg":
-			_sample_t = float(OS.get_environment("DSH_INTRO_T")) if OS.get_environment("DSH_INTRO_T") != "" else 5.0
+		match view:
+			"menu":
+				_state = "menu"
+			"settings":
+				_state = "options"
+				_options_sel = 3
+			_:
+				_state = "cg"
+				_sample_t = float(OS.get_environment("DSH_INTRO_T")) if OS.get_environment("DSH_INTRO_T") != "" else 5.0
 		_setup_capture_window()
 		_capture.call_deferred()
 		return
@@ -86,6 +118,7 @@ func _parse_env() -> void:
 			_sample_t = float(OS.get_environment("DSH_INTRO_T"))
 	else:
 		_state = "cg"
+	_apply_window_mode()
 	_apply_audio()
 	if _state == "menu":
 		_play_bgm("menu_music")
@@ -133,6 +166,7 @@ func _save_settings() -> void:
 	_cfg.set_value("audio", "bgm", _vol_bgm)
 	_cfg.set_value("audio", "sfx", _vol_sfx)
 	_cfg.set_value("audio", "muted", _muted)
+	_cfg.set_value("video", "window_mode", _win_mode)
 	_cfg.save(CONFIG_PATH)
 
 
@@ -140,6 +174,11 @@ func _save_settings() -> void:
 
 func _process(delta: float) -> void:
 	if _capture_done:
+		return
+	if _test_mode != "":
+		_test_timer += delta
+		_test_tick()
+		queue_redraw()
 		return
 	if _sample_t >= 0.0:
 		_t = _sample_t
@@ -178,6 +217,12 @@ func _input(event: InputEvent) -> void:
 		var key := event as InputEventKey
 		if not key.pressed or key.echo:
 			return
+		if key.keycode == KEY_F10:
+			_set_window_mode(1)
+			return
+		if key.keycode == KEY_F11:
+			_set_window_mode(2)
+			return
 		if _state == "cg":
 			_skip_cg()
 			return
@@ -198,10 +243,10 @@ func _input(event: InputEvent) -> void:
 		elif _state == "options":
 			match key.keycode:
 				KEY_UP:
-					_options_sel = (_options_sel + 2) % 3
+					_options_sel = (_options_sel + 3) % 4
 					queue_redraw()
 				KEY_DOWN:
-					_options_sel = (_options_sel + 1) % 3
+					_options_sel = (_options_sel + 1) % 4
 					queue_redraw()
 				KEY_LEFT:
 					_adjust_option(_options_sel, -0.1)
@@ -230,7 +275,7 @@ func _input(event: InputEvent) -> void:
 					_activate_menu(i)
 					return
 		elif _state == "options":
-			for i in range(3):
+			for i in range(4):
 				if _options_row_rect(i).has_point(mb.position):
 					_options_sel = i
 					_adjust_option(i, 0.0)
@@ -260,14 +305,45 @@ func _adjust_option(idx: int, dv: float) -> void:
 		_vol_bgm = clampf(_vol_bgm + dv, 0.0, 1.0)
 	elif idx == 1:
 		_vol_sfx = clampf(_vol_sfx + dv, 0.0, 1.0)
-	else:
+	elif idx == 2:
 		_muted = not _muted
 		var a := _audio()
 		if a != null and a.has_method("toggle_mute"):
 			a.call("toggle_mute")
+	elif idx == 3:
+		var dir := 1 if dv > 0.0 else (-1 if dv < 0.0 else 1)
+		_set_window_mode((_win_mode + dir + WINDOW_MODES.size()) % WINDOW_MODES.size())
+		return
 	_apply_audio()
 	_save_settings()
 	queue_redraw()
+
+
+func _set_window_mode(mode: int) -> void:
+	_win_mode = clampi(mode, 0, WINDOW_MODES.size() - 1)
+	_apply_window_mode()
+	_save_settings()
+	queue_redraw()
+
+
+func _apply_window_mode() -> void:
+	if _headless:
+		return
+	var w := get_window()
+	match _win_mode:
+		0:
+			w.mode = Window.MODE_WINDOWED
+			w.borderless = false
+			w.size = Vector2i(1600, 900)
+			var scr := DisplayServer.screen_get_size()
+			if scr.x > 1600 and scr.y > 900:
+				w.position = Vector2i((scr.x - 1600) / 2, (scr.y - 900) / 2)
+		1:
+			w.mode = Window.MODE_WINDOWED
+			w.borderless = true
+		2:
+			w.borderless = false
+			w.mode = Window.MODE_EXCLUSIVE_FULLSCREEN
 
 
 # ══ 绘制 ═════════════════════════════════════════════════════════════════
@@ -338,6 +414,82 @@ func _draw_cg() -> void:
 	T.text_r(self, 1800.0, 1020.0, "GHOST TRACK // APSIS · V2-4 · DEMO", T.F7, T.a(T.FAINT, 0.8), false)
 
 
+# ══ 启动/点击流程实测（DSH_INTRO_TEST；headless 可跑）════════════════════
+
+func _test_tick() -> void:
+	if _test_done:
+		return
+	match _test_mode:
+		"click_start":
+			if _test_phase == 0 and _test_timer >= 0.5:
+				_test_phase = 1
+				print("INTRO TEST click_start: click START at ", str(_menu_btn_rect(0).get_center()))
+				_inject_click(_menu_btn_rect(0).get_center())
+			elif _test_phase == 1 and _test_timer >= 2.0:
+				print("INTRO TEST FAIL click_start: scene didn't change")
+				_test_done = true
+				get_tree().quit(1)
+		"enter_start":
+			if _test_phase == 0 and _test_timer >= 0.5:
+				_test_phase = 1
+				print("INTRO TEST enter_start: ENTER on menu")
+				_inject_key(KEY_ENTER)
+			elif _test_phase == 1 and _test_timer >= 2.0:
+				print("INTRO TEST FAIL enter_start: scene didn't change")
+				_test_done = true
+				get_tree().quit(1)
+		"esc_skip":
+			if _test_phase == 0 and _test_timer >= 0.5:
+				_test_phase = 1
+				print("INTRO TEST esc_skip: ESC during CG")
+				_inject_key(KEY_ESCAPE)
+			elif _test_phase == 1 and _state == "menu":
+				print("INTRO TEST OK esc_skip: CG → MENU state=", _state)
+				_test_done = true
+				get_tree().quit(0)
+		"settings_cycle":
+			if _test_phase == 0 and _test_timer >= 0.3:
+				_test_phase = 1
+				_win_mode = 0   # 测试从窗口模式开始，避免受 user 配置影响（确定性）
+				print("INTRO TEST settings: initial mode=", WINDOW_MODES[_win_mode])
+				_adjust_option(3, 1.0)
+				print("INTRO TEST settings: after → ", WINDOW_MODES[_win_mode])
+				_adjust_option(3, 1.0)
+				print("INTRO TEST settings: after → ", WINDOW_MODES[_win_mode])
+				_adjust_option(3, -1.0)
+				print("INTRO TEST settings: back → ", WINDOW_MODES[_win_mode])
+				print("INTRO TEST OK settings_cycle volume=%d/%d muted=%s" % [
+					int(_vol_bgm * 100.0), int(_vol_sfx * 100.0), str(_muted)])
+				_test_done = true
+				get_tree().quit(0)
+
+
+func _inject_click(design_pos: Vector2) -> void:
+	var wsize := get_window().size
+	var scale := Vector2(1.0, 1.0)
+	if wsize.x > 0 and wsize.y > 0:
+		scale = Vector2(float(wsize.x) / 1920.0, float(wsize.y) / 1080.0)
+	var pos := design_pos * scale
+	for pressed in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.pressed = pressed
+		ev.position = pos
+		ev.global_position = pos
+		Input.parse_input_event(ev)
+	print("INTRO TEST injected click ", str(pos), " (design ", str(design_pos), ")")
+
+
+func _inject_key(keycode: Key) -> void:
+	for pressed in [true, false]:
+		var ev := InputEventKey.new()
+		ev.keycode = keycode
+		ev.physical_keycode = keycode
+		ev.pressed = pressed
+		Input.parse_input_event(ev)
+	print("INTRO TEST injected key ", keycode)
+
+
 func _draw_menu() -> void:
 	T.text(self, 120.0, 120.0, "GHOST TRACK", T.F26 + 18, T.PH)
 	T.text(self, 124.0, 176.0, "// APSIS", T.F26, T.PH_DIM)
@@ -365,6 +517,7 @@ func _draw_menu() -> void:
 		["LINK", "OCJC · ENCRYPTED"],
 		["ROE", "WEAPONS HOLD"],
 		["AUDIO", "%d%% / %d%%%s" % [int(_vol_bgm * 100.0), int(_vol_sfx * 100.0), " · MUTE" if _muted else ""]],
+		["WINDOW", String(WINDOW_MODES[_win_mode])],
 	]
 	for i in range(rows.size()):
 		var row: Array = rows[i]
@@ -377,6 +530,8 @@ func _draw_menu() -> void:
 
 
 func _draw_options() -> void:
+	# 设置页为模态：压暗背景菜单，避免按钮/状态文字透出
+	draw_rect(Rect2(0.0, 0.0, 1920.0, 1080.0), Color(0.0, 0.0, 0.0, 0.58))
 	var panel := Rect2(560.0, 260.0, 800.0, 540.0)
 	draw_rect(panel, T.a(T.PANEL, 0.985))
 	draw_rect(panel, T.a(T.PH, 0.7), false, 1.0)
@@ -384,8 +539,8 @@ func _draw_options() -> void:
 	T.text(self, panel.position.x + 28.0, panel.position.y + 24.0, "设置 / OPTIONS", T.F18, T.PH)
 	T.text(self, panel.position.x + 28.0, panel.position.y + 50.0,
 		"音量调整写入 user://v2_intro.cfg；Audio autoload 存在时立即生效。", T.F8, T.FAINT)
-	var labels := ["BGM 音量 / BGM", "SFX 音量 / SFX", "静音 / MUTE"]
-	for i in range(3):
+	var labels := ["BGM 音量 / BGM", "SFX 音量 / SFX", "静音 / MUTE", "窗口模式 / WINDOW"]
+	for i in range(4):
 		var r := _options_row_rect(i)
 		var sel := i == _options_sel
 		draw_rect(r, T.a(T.PANEL2, 0.9 if sel else 0.35))
@@ -403,15 +558,18 @@ func _draw_options() -> void:
 				draw_rect(Rect2(bar.position.x + float(s) * (seg_w + 1.0), bar.position.y, seg_w, bar.size.y),
 					T.PH if s < filled else T.a(T.LINE, 0.6))
 			T.text_r(self, r.end.x - 12.0, r.position.y + 8.0, "%d%%" % int(v * 100.0), T.F9, T.a(T.PH, 0.95), false)
-		else:
+		elif i == 2:
 			T.text_r(self, r.end.x - 12.0, r.position.y + 8.0, "MUTED" if _muted else "ON", T.F9,
 				T.a(T.RED if _muted else T.PH, 0.95), false)
+		else:
+			T.text_r(self, r.end.x - 12.0, r.position.y + 8.0, String(WINDOW_MODES[_win_mode]), T.F9,
+				T.a(T.PH, 0.95), false)
 	var back := _back_rect()
 	draw_rect(back, T.a(T.PANEL2, 0.6))
 	draw_rect(back, T.a(T.LINE, 0.6), false, 1.0)
 	T.text_c(self, back.get_center().x, back.position.y + 10.0, "返回 / BACK (ESC)", T.F10, T.a(T.TXT, 0.95))
 	T.text(self, panel.position.x + 28.0, panel.end.y - 30.0,
-		"←→ 调整 · ↑↓ 选择 · ESC 返回", T.F8, T.a(T.FAINT, 0.9))
+		"←→ 调整 · ↑↓ 选择 · ESC 返回 · F10 无边框 / F11 独占全屏（即时生效）", T.F8, T.a(T.FAINT, 0.9))
 
 
 func _menu_btn_rect(i: int) -> Rect2:

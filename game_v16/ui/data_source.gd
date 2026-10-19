@@ -1627,6 +1627,33 @@ func exec_pct() -> float:
 	return clampf(exec_left() / total, 0.0, 1.0)
 
 
+# ══ V2-5 图层开关（core V2-CORE-4 set_layer/vm_layers；无 core 时 UI 本地兜底）══
+
+var _layers_fallback: Dictionary = {
+	"contacts": true, "labels": true, "predictions": true,
+	"radar": true, "stations": true, "grid": true,
+}
+
+
+func set_layer(name: String, on: bool) -> void:
+	_layers_fallback[name] = on
+	if _core_world != null and _core_world.has_method("set_layer"):
+		_core_world.call("set_layer", name, on)
+	refresh()
+
+
+func layers_state() -> Dictionary:
+	if _core_world != null and _core_world.has_method("vm_layers"):
+		var raw: Variant = _core_world.call("vm_layers")
+		if raw is Dictionary and not (raw as Dictionary).is_empty():
+			var out: Dictionary = (raw as Dictionary).duplicate(true)
+			out["fallback"] = false
+			return out
+	var fb: Dictionary = _layers_fallback.duplicate(true)
+	fb["fallback"] = true
+	return fb
+
+
 # ── 回放控制（core V2-CORE-3 可用时转发；否则 UI 本地帧兜底）──────────
 
 func replay_start() -> Dictionary:
