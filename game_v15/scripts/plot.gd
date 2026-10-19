@@ -441,7 +441,7 @@ func _draw_station_backing() -> void:
 	draw_line(o - Vector2(34.0, 0.0), o + Vector2(34.0, 0.0), Palette.a(Palette.PH, 0.30), 1.0)
 	draw_line(o - Vector2(0.0, 34.0), o + Vector2(0.0, 34.0), Palette.a(Palette.PH, 0.30), 1.0)
 	_txt_r(mono, size.x - 24.0, size.y - 80.0, "VIEW 3D · DIST %s km" % _fmt_km(dist / 1000.0), 7, Palette.a(Palette.PH_DIM, 0.8))
-	_txt_r(mono, size.x - 24.0, size.y - 68.0, "STATION FRAME / 环一 · 斛", 8, Palette.a(Palette.PH_DIM, 0.75))
+	_txt_r(mono, size.x - 24.0, size.y - 68.0, "STATION FRAME / L1 Meridian-05 Chronos", 8, Palette.a(Palette.PH_DIM, 0.75))
 	_txt_r(mono, size.x - 24.0, size.y - 56.0, "L1 REF · DATUM", 7, Palette.a(Palette.FAINT, 0.8))
 
 func _dir_marker(bearing: float, range_km: float, en: String, zh: String, col: Color) -> void:
@@ -755,7 +755,7 @@ func _draw_command_queue() -> void:
 				tail = "生效 %.1fs" % maxf(0.0, float(c.get("exec_t", tau)) - tau)
 			"EXEC":
 				col = Palette.PH_DIM
-				tail = "回执 %.1fs" % maxf(0.0, float(c.get("done_t", tau)) - tau)
+				tail = "确认 %.1fs" % maxf(0.0, float(c.get("done_t", tau)) - tau)
 			"DONE":
 				col = Palette.PH_FAINT
 				tail = "已完成"
@@ -999,7 +999,7 @@ func _draw_bearing_contact(t: Dictionary, col: Color) -> void:
 		draw_line(mid + Vector2(-3, 0), mid + Vector2(3, 0), Palette.a(col, 0.7), 1.0)
 		draw_line(mid + Vector2(0, -3), mid + Vector2(0, 3), Palette.a(col, 0.7), 1.0)
 
-# CH-IR2 虚警：没有实体，只有一条方位线；交叉确认后标「虚警 / FALSE ALARM」
+# CH-IR2 回波：没有实体，只有一条方位线；交叉确认后标「无威胁目标」
 func _draw_phantom(t: Dictionary) -> void:
 	var o := _o()
 	var resolved := bool(t.get("false_alarm", false))
@@ -1246,7 +1246,7 @@ func _draw_own() -> void:
 			draw_rect(Rect2(p + q - Vector2(3, 3), Vector2(6, 6)), Palette.a(Palette.PH, 0.7), false, 1.0)
 	_txt(cjk, p.x + 16.0, p.y + 8.0, own_name, 11, Palette.PH)
 	if dat == "L1":
-		_txt(mono, p.x + 16.0, p.y + 21.0, "本舰 · 站位 斛 / L1", 7, Palette.a(Palette.PH_DIM, 0.9))
+		_txt(mono, p.x + 16.0, p.y + 21.0, "本舰 · 站位 Meridian-05 / L1", 7, Palette.a(Palette.PH_DIM, 0.9))
 	else:
 		_txt(mono, p.x + 16.0, p.y + 21.0, "本舰 · 400 km", 7, Palette.a(Palette.PH_DIM, 0.9))
 
@@ -1509,7 +1509,7 @@ func _draw_planar_bodies() -> void:
 	_body_planar(moon, MOON_R_KM, "MOON / 月球", Palette.DIM, dat == "MOON", "FLAGSHIP · %s km · R 1,737" % _fmt_km(moon.length()))
 	if dat == "L1":
 		_txt(mono, 24.0, 124.0, "L1 基准 · 地月双体", 8, Palette.a(Palette.PH, 0.65))
-		_txt(mono, 24.0, 136.0, "站点 环一 · 斛 / 无天体弧", 7, Palette.a(Palette.FAINT, 0.9))
+		_txt(mono, 24.0, 136.0, "站点 Meridian-05 Chronos / 无天体弧", 7, Palette.a(Palette.FAINT, 0.9))
 		# L1 拉格朗日点标记：在站点上方标一个菱形
 		var o := _o()
 		var lp := o + Vector2(0.0, -88.0)
@@ -1517,7 +1517,7 @@ func _draw_planar_bodies() -> void:
 			lp + Vector2(0, -5), lp + Vector2(5, 0), lp + Vector2(0, 5),
 			lp + Vector2(-5, 0), lp + Vector2(0, -5)
 		]), Palette.a(Palette.PH, 0.55), 1.0)
-		_txt(mono, lp.x + 10.0, lp.y - 4.0, "L1 · 环一 · 斛", 8, Palette.a(Palette.PH, 0.75))
+		_txt(mono, lp.x + 10.0, lp.y - 4.0, "L1 · Meridian-05 · Chronos", 8, Palette.a(Palette.PH, 0.75))
 		_txt(mono, lp.x + 10.0, lp.y + 8.0, "站点基准 / STATION FRAME · 地月双体", 7, Palette.a(Palette.FAINT, 0.8))
 
 func _axis_tick(a: Vector2, b: Vector2, label: String, frac: float) -> void:
@@ -1794,7 +1794,7 @@ func _draw_planar_inset() -> void:
 	draw_circle(c, 1.6, Palette.PH)
 	draw_arc(c, 5.0, 0, TAU, 20, Palette.a(Palette.PH, 0.6), 1.0, true)
 	_txt(mono, r.position.x + 8.0, r.end.y - 22.0, "历史 -60 s · 预测 +300 s", 7, Palette.a(Palette.FAINT, 0.8))
-	_txt(mono, r.position.x + 8.0, r.end.y - 10.0, "%s / 环一·斛 · 3D→ORTHO" % String(state.datum), 7, Palette.a(Palette.PH, 0.55))
+	_txt(mono, r.position.x + 8.0, r.end.y - 10.0, "%s / Chronos · 3D→ORTHO" % String(state.datum), 7, Palette.a(Palette.PH, 0.55))
 
 # ── 界面装饰 ────────────────────────────────────────────
 

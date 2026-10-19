@@ -42,19 +42,34 @@ const QUEUE_Y := 1012.0
 const QUEUE_ROW_H := 12.0
 const QUEUE_ABORT_X := 1120.0
 
-# ── P1f：裁决 / 后果 / 报告覆盖层（居中面板，V1.5 仪表风）──
+# ── P1f/P2a：指挥官决策 / 后果 / 内部事后报告覆盖层（居中面板，V1.5 仪表风）──
 const DECISION_RECT := Rect2(480, 250, 960, 560)
 const CONSEQ_RECT := Rect2(560, 300, 800, 440)
 const REPORT_RECT := Rect2(440, 210, 1040, 660)
 const FILED_RECT := Rect2(700, 468, 520, 120)
-const DECISION_KINDS := ["certify", "article9", "stall"]
-const DECISION_NAMES := ["认证交接 / CERTIFY", "援引第九条 / ARTICLE 9", "拖程序 / STALL"]
+# P2a（D2 · 07/15）：三项默认结局 HOLD / EVACUATE / EXPOSE；FIRE 单独灾难入口。
+const DECISION_KINDS := ["hold", "evacuate", "expose"]
+const DECISION_NAMES := ["HOLD / 卡住", "EVACUATE / 撤人", "EXPOSE / 曝光"]
 const DECISION_CONSEQ := [
-	"按程序签字，储罐交给清算署 · 公约 +1 / 天市 −1 / 清算署 +1（第二幕港务冷淡）",
-	"以「迫切且不可逆之损害」阻止交接 · 公约 −1 / 天市 +2 / 清算署 −2 / 永昼 +1（第二幕开场即审裁）",
-	"要求文书复核，拖过执行窗口 · 天市 +1 短 / −1 长 · 清算署 −1（储罐可能断供）",
+	"保持卡位，拒绝让出储罐区与航道，将接管程序拖入 UEG 复核。不首先开火。",
+	"撤出 Chronos 人员与可移动储罐，保留记录，允许接管空站。",
+	"向 OCJC 监察与 UEG 轨道事务委员会提交 GHOST TRACK 假旗证据，请求联合调查。",
 ]
-const DECISION_RUBRIC := ["回执 · 合法", "回执 · 越权", "回执 · 拖延"]
+const DECISION_RUBRIC := [
+	"OCU +2 · Meridian +1 · 清算者 −2",
+	"OCU +1 · Meridian +2 · 清算者 −1",
+	"OCJC +1 · UEG 鸽派 +2 · 清算者 −3",
+]
+const DECISION_FIRE := Rect2(508, 728, 904, 34)
+# 08 §2：五个声望对象（显示名 + 旧键别名；state 换键后自动生效）
+const REP_CANON := ["OCU", "Meridian", "UEG 鸽派", "外环", "清算者"]
+const REP_ALIAS := {
+	"OCU / OCJC": "OCU", "ocu": "OCU", "ocjc": "OCU", "ocu_ocjc": "OCU",
+	"Meridian": "Meridian", "meridian": "Meridian", "斛港务": "Meridian",
+	"UEG 鸽派": "UEG 鸽派", "ueg_dove": "UEG 鸽派", "ueg_doves": "UEG 鸽派", "UEG": "UEG 鸽派",
+	"外环": "外环", "outer_ring": "外环", "outer": "外环", "远环合作社": "外环",
+	"清算者": "清算者", "reclaimers": "清算者", "清算署": "清算者",
+}
 # 报告覆盖层按钮
 const REPORT_TRUTH := Rect2(1056, 300, 396, 110)
 const REPORT_FAKE := Rect2(1056, 424, 396, 110)
@@ -149,13 +164,13 @@ const DISPLAY_FIX := {
 	"传票级": "传唤级",
 	"火力舰": "送达",
 	"送达舰": "送达",
-	"监督官分遣队": "AD 特遣群",
+	"监督官分遣队": "OCUVF-ID13",
 	"HAMADAN": "HARMATTAN",
 	"LEEWARD": "LEE SHORE",
 	"LONGNIGHT": "WATCHTOWER",
-	"4471-K": "案卷 4471",
-	"4503-R": "案卷 4503",
-	"接管通知 4471 号": "接管通知 · 案卷 4471",
+	"4471-K": "AV-4412 传唤者",
+	"4503-R": "CA-4503",
+	"接管通知 4471 号": "接管声明 · 第七号令",
 	# 12 军语 P0（显示层）：未识别是状态词，不能当实体名；火控/weapons free 的正式说法。
 	"未识别": "不明接触",
 	"火控请求": "火力请求",
@@ -680,21 +695,25 @@ func _handle_modal_click(p: Vector2) -> void:
 		_close_modal()
 
 func _notice_parts() -> Dictionary:
-	var title := "接管通知 · AV-4412 传唤者"
+	# P2a（15 §4.1）：接管声明 · 第七号轨道紧急托管令；优先读 state.notice，旧文本在显示层归一。
+	var title := "接管声明 · 第七号轨道紧急托管令"
 	var body := ""
 	var from := "AV-4412 传唤者"
-	var to := "远地点"
+	var to := "远地点号"
 	var mode := "RDO"
 	if state != null:
-		# P1j-SIM：state.notice = {title, body, from, to, mode, t}
 		var nv = state.get("notice")
 		if nv is Dictionary and not (nv as Dictionary).is_empty():
 			var nd: Dictionary = nv
-			title = String(nd.get("title", title))
+			var t_in := String(nd.get("title", ""))
+			if t_in != "":
+				title = _d2_text(t_in)
 			body = String(nd.get("body", ""))
 			from = String(nd.get("from", from))
 			to = String(nd.get("to", to))
 			mode = String(nd.get("mode", mode))
+	if body != "":
+		body = _d2_text(body)
 	if body == "" and state != null:
 		var rl = state.get("radio_feed")
 		if rl is Array:
@@ -708,10 +727,10 @@ func _notice_parts() -> Dictionary:
 					to = String(rd.get("to", to))
 					mode = String(rd.get("mode", mode))
 					var text := String(rd.get("text", ""))
-					body = "[%s至%s]-[%s]-[%s]" % [rf, to, _comms_mode_short(mode), text]
+					body = _d2_text("[%s至%s]-[%s]-[%s]" % [rf, to, _comms_mode_short(mode), text])
 					break
 	if body == "":
-		body = "[AV-4412 传唤者至远地点]-[RDO]-[监督官。公开频道。案卷 4471，传唤级·送达。依据《标高公约》第九条附则及第七号裁定，现送达接管通知。本通知不构成威胁。完毕。]"
+		body = "UEG 海关格林尼治公告：依据《轨道宪章》与第七号轨道紧急托管令，凡失能、受威胁或被敌方渗透的加注站、储罐、船坞与航道，可由联合政府指定部队接管，直至紧急状态结束。Chronos 加注站及储罐区处于紧急状态范围。接管程序由第33轨道特别独立舰队执行。"
 	return {"title": title, "body": body, "from": from, "to": to,
 		"mode": _comms_mode_short(mode), "t": 0.0}
 
@@ -721,32 +740,33 @@ func _draw_notice_overlay() -> void:
 	var info := _notice_parts()
 	var body := String(info["body"])
 	var lines := _wrap_text(cjk, body, 10, r.size.x - 48.0)
-	var base := r.position.y + 226.0 + float(mini(lines.size(), 8)) * 18.0 + 12.0
-	r.size.y = clampf(base + 96.0 - r.position.y, 360.0, 600.0)
-	_overlay_frame(r, "接管通知 / NOTICE", "2001 · AV-4412 · %s · 法律广播" % String(info["mode"]))
+	var base := r.position.y + 238.0 + float(mini(lines.size(), 8)) * 18.0 + 12.0
+	r.size.y = clampf(base + 96.0 - r.position.y, 380.0, 620.0)
+	_overlay_frame(r, "接管声明 / ORDER 7 NOTICE", "2001 · AV-4412 · %s · 法律广播" % String(info["mode"]))
 	_txt(cjk, r.position.x + 24.0, r.position.y + 56.0, String(info["title"]), 13, Palette.AMBER)
-	_txt_r(cjk, r.end.x - 24.0, r.position.y + 56.0, "公开频道 · 非战术链路", 7, Palette.FAINT)
+	_txt_r(cjk, r.end.x - 24.0, r.position.y + 56.0, "Greenwich · L1-01 · UEG 海关", 7, Palette.FAINT)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 74.0, "第七号轨道紧急托管令（Order 7）· 发布第 9 天 · L1 Meridian-05 Chronos", 8, Palette.DIM)
 	# 元数据
 	var meta := [
-		["发信 / FROM", "%s（清算署 · 传唤级·送达）" % String(info["from"])],
-		["收信 / TO", "%s · AD 特遣群监督官" % String(info["to"])],
+		["发信 / FROM", "%s（第33舰队 · 清算者）" % _d2_text(String(info["from"]))],
+		["收信 / TO", "%s · OCUVF-ID13 指挥官" % _d2_text(String(info["to"]))],
 		["通信方式", "%s 无线电 · 公开频道（法律广播）" % String(info["mode"])],
-		["批号 / 身份", "[2001] %s → %s（光学分类后）" % ["未知", "可疑"]],
+		["批号 / 身份", "[2001] 未知 → 可疑（光学分类后）"],
 	]
 	for i in range(meta.size()):
-		var y := r.position.y + 88.0 + float(i) * 24.0
+		var y := r.position.y + 100.0 + float(i) * 22.0
 		_txt(cjk, r.position.x + 24.0, y, meta[i][0], 7, Palette.FAINT)
 		_txt(cjk, r.position.x + 200.0, y - 2.0, meta[i][1], 9, Palette.TXT)
-	# 正文（已是 19 §1 格式的通信记录）
-	draw_line(Vector2(r.position.x + 24.0, r.position.y + 196.0), Vector2(r.end.x - 24.0, r.position.y + 196.0), Palette.a(Palette.AMBER, 0.4), 1.0)
-	_txt(cjk, r.position.x + 24.0, r.position.y + 204.0, "正文 / BODY", 7, Palette.FAINT)
+	# 正文（19 §1 格式的通信记录）
+	draw_line(Vector2(r.position.x + 24.0, r.position.y + 200.0), Vector2(r.end.x - 24.0, r.position.y + 200.0), Palette.a(Palette.AMBER, 0.4), 1.0)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 208.0, "正文 / BODY", 7, Palette.FAINT)
 	for i in range(mini(lines.size(), 8)):
-		_txt(cjk, r.position.x + 24.0, r.position.y + 226.0 + float(i) * 18.0, String(lines[i]), 10, Palette.a(Palette.TXT, 0.95))
+		_txt(cjk, r.position.x + 24.0, r.position.y + 228.0 + float(i) * 18.0, String(lines[i]), 10, Palette.a(Palette.TXT, 0.95))
 	# 程序
 	_txt(cjk, r.position.x + 24.0, base, "程序 / PROCEDURE", 7, Palette.FAINT)
-	_txt(cjk, r.position.x + 24.0, base + 18.0, "· 第七号裁定 · 216 h 宽限期另算；本关为执行窗口 6 分钟。", 8, Palette.DIM)
-	_txt(cjk, r.position.x + 24.0, base + 34.0, "· 处置在「裁决」面板（认证交接 / 援引第九条 / 拖程序），本通知只读。", 8, Palette.DIM)
-	_txt(cjk, r.position.x + 24.0, base + 50.0, "· 打开本通知时模拟暂停；关闭后恢复原时标。", 8, Palette.DIM)
+	_txt(cjk, r.position.x + 24.0, base + 18.0, "· 第七号轨道紧急托管令（Order 7）· 第九天；本关为 6 分钟执行窗口。", 8, Palette.DIM)
+	_txt(cjk, r.position.x + 24.0, base + 34.0, "· 处置在「指挥官决策」面板：HOLD / EVACUATE / EXPOSE；FIRE 是灾难分支，本声明只读。", 8, Palette.DIM)
+	_txt(cjk, r.position.x + 24.0, base + 50.0, "· 打开本窗口时模拟暂停；关闭后恢复执行窗口倒计时。", 8, Palette.DIM)
 	# 关闭按钮
 	var close_rect := Rect2(r.end.x - 200.0, r.end.y - 44.0, 184.0, 28.0)
 	_cmd_btn(close_rect, "关闭 / CLOSE", false, Palette.PH)
@@ -852,6 +872,7 @@ var _modal_prev_paused := false
 var _advisor_read := false
 var _local_comms: Array = []           # 裁决回复（本地追加到通信流）
 var _reply_added_for := ""             # 已追加回复的裁决（避免重复）
+var _decision_fire_confirm := 0.0      # P2a：决策层 FIRE 二次确认倒计时
 var _demo_modal := ""                  # DSH_UI 截图钩子（等 boot 完成后再开）
 
 func _ready() -> void:
@@ -890,19 +911,21 @@ func _process(delta: float) -> void:
 		var m := _demo_modal
 		_demo_modal = ""
 		_open_modal(m)
-	# P1j：裁决回复进通信流 —— 无论裁决来自 HUD 点击还是 main 的 1/2/3 键（后者直调 state），
-	# 都在这里按 state.outcome 补一次（幂等）。
+	# P1j/P2a：裁决回复进通信流 —— 无论裁决来自 HUD 点击/按键还是 main 的 1/2/3 键（后者直调 state），
+	# 都按 state.outcome 的 D2 视图补一次（幂等）。
 	if state != null:
 		if float(state.tau()) < 1.0 and _reply_added_for != "":
 			_reply_added_for = ""
 			_local_comms.clear()
 		var oc := String(state.get("outcome"))
-		if oc != "" and _reply_added_for != oc:
+		if oc != "" and _reply_added_for != _d2_kind_of(oc):
 			_append_decision_reply(oc)
 	if menu_open:
 		menu_t += delta
 	if _fire_confirm_t > 0.0:
 		_fire_confirm_t = maxf(0.0, _fire_confirm_t - delta)
+	if _decision_fire_confirm > 0.0:
+		_decision_fire_confirm = maxf(0.0, _decision_fire_confirm - delta)
 	if _filed_t > 0.0:
 		_filed_t = maxf(0.0, _filed_t - delta)
 	if _feed_flash > 0.0:
@@ -1124,7 +1147,7 @@ func _draw_top() -> void:
 	draw_rect(TOP, Palette.a(Palette.BG, 0.55))
 	draw_line(Vector2(40, 112), Vector2(1880, 112), Palette.a(Palette.LINE, 0.95), 1.0)
 
-	_txt(cjk, 60, 47, "监督官席 / SUPERVISOR", 7, Palette.FAINT)
+	_txt(cjk, 60, 47, "指挥官席 / COMMANDER", 7, Palette.FAINT)
 	var total := int(state.clock)
 	var hh := int(total / 3600.0)
 	var mm := int(total / 60.0) % 60
@@ -1135,6 +1158,8 @@ func _draw_top() -> void:
 	var tenth := int(fmod(float(state.clock), 1.0) * 10.0)
 	_txt(mono, 60.0 + cw + 2.0, 70, ".%d" % tenth, 13, Palette.a(Palette.PH, 0.55))
 	_txt(cjk, 60, 92, "任务时间 / MISSION ELAPSED", 7, Palette.FAINT)
+	# P2a：目标行（第七号令 / Chronos / OCUVF-ID13；不显示 Act/Phase/关卡）。
+	_txt(cjk, 60, 104, "目标 / OBJECTIVE · 阻止接管 · 第七号令 · Chronos · OCUVF-ID13", 7, Palette.a(Palette.AMBER, 0.8))
 
 	draw_line(Vector2(520, 50), Vector2(520, 102), Palette.a(Palette.LINE, 0.7), 1.0)
 
@@ -1144,18 +1169,18 @@ func _draw_top() -> void:
 	var exec_v = state.get("exec_left")
 	if exec_v != null:
 		exec_left = clampf(float(exec_v), 0.0, 360.0)
-	# P1j：接管通知做成可点开窗口（打开时暂停）；19 §2 批号 2001 / AV-4412 传唤者。
+	# P2a：可点开的接管声明（第七号令）；2001 AV-4412 传唤者。
 	var notice_hot := NOTICE_CLICK.has_point(_mouse_base())
-	_txt(cjk, 548, 47, "接管通知 · AV-4412 传唤者 / RECEIVERSHIP NOTICE", 7,
+	_txt(cjk, 548, 47, "接管声明 · 第七号令 · AV-4412 传唤者 / ORDER 7 NOTICE", 7,
 		Palette.a(Palette.AMBER, 0.95 if notice_hot else 0.72))
 	var notice_line_c: Color = Palette.a(Palette.AMBER, 0.55 if notice_hot else 0.22)
-	draw_line(Vector2(548.0, 60.0), Vector2(880.0, 60.0), notice_line_c, 1.0)
-	_txt(mono, 884, 47, "▸", 7, Palette.a(Palette.AMBER, 0.9 if notice_hot else 0.5))
+	draw_line(Vector2(548.0, 60.0), Vector2(800.0, 60.0), notice_line_c, 1.0)
+	_txt(mono, 804, 47, "▸", 7, Palette.a(Palette.AMBER, 0.9 if notice_hot else 0.5))
 	_txt(cjk, 548, 66, "执行窗口", 9, Palette.DIM)
 	_txt(mono, 626, 56, _hms(exec_left), 24, Palette.AMBER)
 	draw_rect(Rect2(548, 96, 420, 1), Palette.a(Palette.AMBER, 0.16))
 	draw_rect(Rect2(548, 96, 420.0 * exec_left / 360.0, 1), Palette.AMBER)
-	_txt_r(cjk, 968, 87, "EXECUTION WINDOW · 216 h 宽限期另算", 7, Palette.a(Palette.AMBER, 0.45))
+	_txt_r(cjk, 968, 87, "EXECUTION WINDOW · 时标锁 1× · OCUVF-ID13", 7, Palette.a(Palette.AMBER, 0.45))
 
 	draw_line(Vector2(1288, 50), Vector2(1288, 102), Palette.a(Palette.LINE, 0.7), 1.0)
 
@@ -1178,11 +1203,11 @@ func _draw_top() -> void:
 	_txt(cjk, 1580, 92, "Δv 余量 72%", 7, Palette.FAINT)
 
 	# 12 军语 P0-4/P0-5：同一行 ROE 不再用一个 HOLD 混三种含义；
-	# 顶栏 = 仅自卫（不得首先开火），日志的暂缓另用「暂缓执行」。
+	# P2a：ROE 卡 = 不得首先开火 / 武器释放需指挥官授权（15 §4.2）。
 	_txt(cjk, 1720, 47, "交战规则 / ROE", 7, Palette.FAINT)
 	_txt(cjk, 1720, 57, "仅自卫", 12, Palette.AMBER)
 	_txt(cjk, 1720, 80, "WEAPONS HOLD", 7, Palette.a(Palette.AMBER, 0.75))
-	_txt(cjk, 1720, 92, "不得首先开火", 7, Palette.DIM)
+	_txt(cjk, 1720, 92, "不得首先开火 · 释放需授权", 7, Palette.DIM)
 
 func _draw_tracks() -> void:
 	_panel(TRACKS)
@@ -1674,7 +1699,7 @@ func _draw_command_panel() -> void:
 
 	# P1f：把「链路」与「机动」拆两行 —— 中继只花时间与暴露，不烧 Δv。
 	# TEXT-02：链路标签按 14 §3 五级口径；中继损失显示 LINK DEGRADED。
-	var link_line := "链路：%s（望楼号中继）%s · 传达 / 回执，不消耗 Δv" % [_link_mode_cn(), _link_latency()]
+	var link_line := "链路：%s（望楼号中继）%s · 传达 / 确认，不消耗 Δv" % [_link_mode_cn(), _link_latency()]
 	if _link_degraded():
 		link_line = "链路：LINK DEGRADED · 回退 45 s（中继损失，不消耗 Δv）"
 	_txt(cjk, CMD_INSET_X, 946, link_line, 7, Palette.a(Palette.BLUE if not _link_degraded() else Palette.RED, 0.85))
@@ -1769,7 +1794,8 @@ func _draw_command_panel() -> void:
 # audit_flag / report_text / …）与调 state 方法（choose_ending / authorize_fire /
 # submit_report）；字段/方法不存在时退回 HUD 本地演示态（DSH_UI 截图钩子用）。
 
-const MOCK_REPORT := "第一关 · 环一 · 斛 — 监督官报告（草案）\n\nT+00:12:40 执行窗口开始。传唤级 · 案卷 4471 送达接管通知；本舰未首先开火。\n\n哈马丹 CH-IR2 报出两条回波：一条为案卷 4471（主动机动），一条为残骸反射。经远地点号 MS-IR9 交叉确认，302° 回波为 CH-IR2 虚警；谷神-2（民用工作船，应答机故障）位于方位 118°、距离 260 km。\n\nSHADOW 命令经望楼号中继，8 s 后生效；BURN 计划 T+6.2 s、Δv 84 m/s、BRG 340 / ELEV +20。\n\n结论：未发生未经授权开火。建议处置：认证交接（CERTIFY）。"
+# P2a（D2 · 15 §3）：内部事后报告兜底文本（OCJC / OCUVF，不是 UEG 官方回复）。
+const MOCK_REPORT := "OCJC / OCUVF 内部事后报告 / INTERNAL AFTER-ACTION\n报告单位：OCUVF-ID13 指挥官\n事件：L1 Meridian-05 Chronos · 第七号轨道紧急托管令（第九天）\n裁决：HOLD / 卡住\n经过：ID13 于执行窗口内保持对 Chronos 储罐区与进港航道的卡位，未让出检查边界，未首先开火。清算者的最终封存程序未完成；ID13 依据 OCJC 授权要求轨道事务委员会复核第七号令。人员伤亡：无。\n证据：传感器日志、命令队列、通信记录、Chronos 港务遥测。\n声望：OCU +2 · Meridian +1 · UEG 鸽派 +1 · 清算者 −2\n建议：准备复核 / 听证材料，保留现场记录与通信记录。"
 
 func _flag(name: String) -> bool:
 	if state == null:
@@ -1945,24 +1971,20 @@ func _end_data() -> Dictionary:
 				if e.has(src):
 					d[dst] = e[src]
 	if String(d["outcome"]) == "" and _demo_end:
-		d["outcome"] = "ARTICLE9"
-		d["label"] = "援引第九条"
+		d["outcome"] = "EXPOSE"
+		d["label"] = _d2_kind_label("expose")
 		d["report_choice"] = "TRUTH"
-		d["reputation"] = {"斛港务": 2, "清算署": -2, "远环合作社": 0, "永昼租界": 1}
-		var tmpl := "任务报告：依据监督权第九条中止交接，谷神-2 未受损，文书已归档并抄送审裁。声望变化：{reputation}。"
-		if state != null:
-			var story = state.get("story")
-			if story is Dictionary:
-				var rt = (story as Dictionary).get("report_truth", {})
-				if rt is Dictionary and (rt as Dictionary).has("ARTICLE9"):
-					tmpl = String((rt as Dictionary)["ARTICLE9"])
-		tmpl = tmpl.replace("{decision}", "援引第九条")
-		tmpl = tmpl.replace("{reputation}", "斛港务 +2 · 清算署 −2 · 永昼 +1")
-		tmpl = tmpl.replace("{casualties}", "无")
-		d["report_text"] = tmpl
-		d["flags"] = {"article9": true, "window_closed": true}
+		d["reputation"] = {"OCU": 1, "Meridian": 0, "UEG 鸽派": 2, "外环": 0, "清算者": -3}
+		d["report_text"] = _d2_report("EXPOSE")
+		d["flags"] = {"expose": true, "ghost_track_evidence": true}
 		d["perjury"] = 0
 		d["audit"] = false
+	# P2a：旧 outcome / ending 字段在显示层归一到 D2（HOLD/EVACUATE/EXPOSE/FIRE）。
+	var d2o := _d2_outcome(String(d["outcome"]), String(d["label"]))
+	d["outcome"] = String(d2o["outcome"])
+	d["label"] = String(d2o["label"])
+	if String(d["report_text"]).contains("监督官") or String(d["report_text"]).contains("案卷"):
+		d["report_text"] = _d2_text(String(d["report_text"]))
 	return d
 
 func _end_btn(rc: Rect2, label: String, key: String, col: Color) -> void:
@@ -1977,9 +1999,9 @@ func _end_btn(rc: Rect2, label: String, key: String, col: Color) -> void:
 func _draw_end_overlay() -> void:
 	_overlay_dim()
 	var r := END_RECT
-	_overlay_frame(r, "回执 / AFTER-ACTION", "CASE 4471 · ARCHIVED · END")
+	_overlay_frame(r, "内部事后报告 / INTERNAL AFTER-ACTION", "CHRONOS · ORDER 7 · ARCHIVED")
 	var d := _end_data()
-	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, "第一关 · 环一 · 斛 — 监督交接 · 执行窗口已关闭", 8, Palette.DIM)
+	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, "L1 Meridian-05 Chronos · 第七号轨道紧急托管令 · 执行窗口已关闭", 8, Palette.DIM)
 	_txt_r(mono, r.end.x - 20.0, r.position.y + 56.0, "T+%05.1f s · TIME FROZEN" % float(state.tau()), 7, Palette.a(Palette.FAINT, 0.9))
 	# 结局
 	_txt(cjk, r.position.x + 24.0, r.position.y + 84.0, "结局 / OUTCOME", 7, Palette.FAINT)
@@ -1987,42 +2009,42 @@ func _draw_end_overlay() -> void:
 	if ol == "":
 		ol = "—"
 	var oc := String(d["outcome"])
-	var out_col: Color = Palette.PH if oc == "ARTICLE9" else (Palette.RED if oc == "FIRE" else Palette.PH_DIM)
+	var out_col: Color = Palette.RED if oc == "FIRE" else (Palette.PH if oc == "EXPOSE" else Palette.PH_DIM)
 	_txt(cjk, r.position.x + 24.0, r.position.y + 104.0, ol, 18, out_col)
 	_txt(mono, r.position.x + 24.0, r.position.y + 132.0,
-		"OUTCOME %s · REPORT %s · PHASE END" % [oc, String(d["report_choice"])], 8, Palette.DIM)
+		"OUTCOME %s · REPORT %s · 内部归档" % [oc, String(d["report_choice"])], 8, Palette.DIM)
 	# 左：报告文本（带边框的内容区）+ 附注
 	var lx := r.position.x + 24.0
 	var box := Rect2(r.position.x + 16.0, r.position.y + 150.0, 648.0, 400.0)
 	draw_rect(box, Palette.a(Palette.PANEL2, 0.35))
 	draw_rect(box, Palette.a(Palette.LINE, 0.8), false, 1.0)
-	_txt(cjk, lx, r.position.y + 158.0, "报告 / REPORT TEXT", 7, Palette.FAINT)
+	_txt(cjk, lx, r.position.y + 158.0, "报告正文 / REPORT TEXT", 7, Palette.FAINT)
 	var lines := _wrap_text(cjk, String(d["report_text"]), 9, 610.0)
 	for i in range(mini(lines.size(), 20)):
 		_txt(cjk, lx, r.position.y + 178.0 + float(i) * 16.0, String(lines[i]), 9, Palette.a(Palette.TXT, 0.92))
 	_txt(cjk, lx, r.position.y + 566.0, "附注 / NOTES", 7, Palette.FAINT)
-	_txt(cjk, lx, r.position.y + 582.0, "· 报告文本与 flags 已写入 end_summary，供后续审裁与剧情读取。", 7, Palette.a(Palette.FAINT, 0.95))
-	_txt(cjk, lx, r.position.y + 596.0, "· 传感器日志 / 命令队列随案卷封存（08 §3.2）；第二幕将引用本回执。", 7, Palette.a(Palette.FAINT, 0.95))
-	# 右：阵营声望 + 档案
+	_txt(cjk, lx, r.position.y + 582.0, "· 报告文本与 flags 已写入内部归档，供 OCJC / OCUVF 后续引用。", 7, Palette.a(Palette.FAINT, 0.95))
+	_txt(cjk, lx, r.position.y + 596.0, "· 传感器日志 / 命令队列 / 通信记录随案封存（08 §4）；下一幕将引用本记录。", 7, Palette.a(Palette.FAINT, 0.95))
+	# 右：五键声望 + 档案（08 §2）
 	var rx := r.position.x + 680.0
 	var ry := r.position.y + 150.0
-	_txt(cjk, rx, ry, "阵营声望 / STANDING", 7, Palette.FAINT)
+	_txt(cjk, rx, ry, "阵营声望 / STANDING（五键）", 7, Palette.FAINT)
 	var rep: Dictionary = d["reputation"]
-	var keys := ["斛港务", "清算署", "远环合作社"]
-	for k in rep.keys():
-		if not keys.has(String(k)):
-			keys.append(String(k))
 	var yy := ry + 22.0
-	for k in keys:
-		if not rep.has(k):
-			continue
-		var v := int(rep[k])
-		var c := Palette.PH if v > 0 else (Palette.RED if v < 0 else Palette.DIM)
-		_txt(cjk, rx, yy, String(k), 9, Palette.TXT)
-		_txt_r(mono, rx + 340.0, yy, "%+d" % v, 10, c)
+	for row in _rep_rows(rep):
+		var k := String(row[0])
+		var vv = row[1]
+		var vs := "—"
+		var c := Palette.DIM
+		if vv != null:
+			var v := int(vv)
+			vs = "%+d" % v
+			c = Palette.PH if v > 0 else (Palette.RED if v < 0 else Palette.DIM)
+		_txt(cjk, rx, yy, k, 9, Palette.TXT)
+		_txt_r(mono, rx + 340.0, yy, vs, 10, c)
 		draw_line(Vector2(rx, yy + 16.0), Vector2(rx + 340.0, yy + 16.0), Palette.a(Palette.LINE, 0.5), 1.0)
-		yy += 24.0
-	yy += 10.0
+		yy += 22.0
+	yy += 8.0
 	_txt(cjk, rx, yy, "档案 / RECORD", 7, Palette.FAINT)
 	yy += 20.0
 	var audit := bool(d["audit"])
@@ -2045,27 +2067,71 @@ func _draw_end_overlay() -> void:
 	# 按钮
 	_end_btn(END_RESTART, "重新开始 / RESTART", "R", Palette.PH)
 	_end_btn(END_EXIT, "退出 / EXIT", "E", Palette.RED)
-	_txt_r(cjk, r.end.x - 20.0, r.end.y - 24.0, "END · 归档后进入第二幕（战役继续）", 7, Palette.a(Palette.AMBER, 0.7))
+	_txt_r(cjk, r.end.x - 20.0, r.end.y - 24.0, "END · 归档后进入下一幕（战役继续）", 7, Palette.a(Palette.AMBER, 0.7))
+
+func _rep_summary() -> String:
+	var rep: Dictionary = {}
+	if state != null:
+		var rv = state.get("reputation")
+		if rv is Dictionary:
+			rep = rv
+	var parts: Array = []
+	for row in _rep_rows(rep):
+		if row[1] == null:
+			continue
+		var v := int(row[1])
+		if v != 0:
+			parts.append("%s %+d" % [String(row[0]), v])
+	if parts.is_empty():
+		return "无变化"
+	return " · ".join(parts)
+
+# 15 §3.1：据实报告正文（按 D2 结局；旧 outcome 自动归一）
+func _d2_report(outcome: String) -> String:
+	var kind := _d2_kind_of(outcome)
+	var label := _d2_kind_label(kind)
+	var body := ""
+	var recommend := ""
+	match kind:
+		"hold":
+			body = "ID13 于执行窗口内保持对 Chronos 储罐区与进港航道的卡位，未让出检查边界，未首先开火。清算者的最终封存程序未完成；ID13 依据 OCJC 授权要求轨道事务委员会复核第七号令。人员伤亡：无。"
+			recommend = "准备复核 / 听证材料，保留现场记录与通信记录。"
+		"evacuate":
+			body = "ID13 于执行窗口内组织 Chronos 值守人员、家属与可移动储罐撤离；撤离过程中未发生交火。储罐区由清算者接管，ID13 保留人员与资产记录。人员伤亡：无。"
+			recommend = "保留撤离名单与港务通信记录，跟进储罐供应。"
+		"expose":
+			body = "ID13 在执行窗口内取得 Chronos 港务遥测、核查组记录副本与未登记特征码，向 OCJC 监察与 UEG 轨道事务委员会提交联合调查请求。ID13 未首先开火；储罐区仍在清算者控制下。人员伤亡：无。"
+			recommend = "移交原始记录副本，等待联合调查。"
+		"fire":
+			body = "ID13 在执行窗口内授权对 2001 实施武器释放。射击引发 Chronos 储罐区二次火灾，站体与储罐受损，平民伤亡 12 人。第33舰队将 ID13 定性为未登记武装；联合政府宣布事件为武装攻击。"
+			recommend = "封存武器释放记录 / 传感器日志 / 通信记录，等待审裁。"
+	var rep := _rep_summary()
+	if rep == "无变化" and (_demo_report or _demo_end):
+		match kind:
+			"hold":
+				rep = "OCU +2 · Meridian +1 · UEG 鸽派 +1 · 清算者 −2"
+			"evacuate":
+				rep = "OCU +1 · Meridian +2 · UEG 鸽派 +1 · 外环 +1 · 清算者 −1"
+			"expose":
+				rep = "OCU +1 · UEG 鸽派 +2 · 清算者 −3"
+			"fire":
+				rep = "OCU −1 · Meridian −2 · UEG 鸽派 −2 · 外环 −1 · 清算者 +1"
+	return "OCJC / OCUVF 内部事后报告 / INTERNAL AFTER-ACTION\n报告单位：OCUVF-ID13 指挥官\n事件：L1 Meridian-05 Chronos · 第七号轨道紧急托管令（第九天）\n裁决：%s\n经过：%s\n证据：传感器日志、命令队列、通信记录、Chronos 港务遥测。\n声望：%s\n建议：%s" % [label, body, rep, recommend]
 
 func _report_text() -> String:
 	if state != null:
 		var v = state.get("report_text")
 		if v != null and String(v) != "":
-			return String(v)
-		# 还没有提交过报告：用 scenario 的 report_truth 模板做“草案”预览（不写 state）。
-		var story = state.get("story")
-		if story is Dictionary and (story as Dictionary).has("report_truth"):
-			var rt: Dictionary = (story as Dictionary)["report_truth"]
-			var outcome := String(state.get("outcome"))
-			if outcome == "":
-				outcome = "CERTIFY"
-			if rt.has(outcome):
-				var tmpl := String(rt[outcome])
-				var decision := "认证交接"
-				if state.has_method("ending_label"):
-					decision = String(state.call("ending_label", outcome))
-				tmpl = tmpl.replace("{decision}", decision).replace("{reputation}", "—").replace("{casualties}", "无")
-				return "（报告草案 / DRAFT · 未提交）\n" + tmpl
+			var txt := String(v)
+			if _is_old_text(txt):
+				txt = _d2_text(txt)
+			if txt.contains("内部事后报告") or txt.contains("INTERNAL AFTER-ACTION"):
+				return txt
+			return "OCJC / OCUVF 内部事后报告 / INTERNAL AFTER-ACTION\n报告单位：OCUVF-ID13 指挥官\n" + txt
+		var oc := String(state.get("outcome"))
+		if oc == "":
+			oc = "EXPOSE" if _demo_end else "HOLD"
+		return _d2_report(oc)
 	return MOCK_REPORT
 
 # 武器释放：仅裁决前可用；二次确认。
@@ -2086,6 +2152,8 @@ func _handle_fire_click() -> void:
 
 func _do_authorize_fire() -> void:
 	_fire_confirm_t = 0.0
+	_decision_fire_confirm = 0.0
+	_append_decision_reply("fire")
 	if state != null and state.has_method("authorize_fire"):
 		state.call("authorize_fire")
 		return
@@ -2093,30 +2161,59 @@ func _do_authorize_fire() -> void:
 	_demo_consequence = true
 
 func _append_decision_reply(kind_raw: String) -> void:
-	var kind := kind_raw.to_lower()
+	var kind := _d2_kind_of(kind_raw)
 	var replies := {
-		"certify": "至署方，接管通知已核验，请开始交接程序。完毕。",
-		"article9": "至署方，依据《标高公约》第九条附则，现中止交接，请等待我方审裁。完毕。",
-		"stall": "至署方，文书仍需复核，请提供附件三。完毕。",
+		"hold": ["远地点号", "接管官 科尔", "LD",
+			"科尔接管官，ID13 指挥官。依据 OCJC 授权，ID13 要求暂停 Chronos 接管程序，等待轨道事务委员会复核。ID13 不会首先开火，但不会让出储罐区。完毕。"],
+		"evacuate": ["远地点号", "Chronos 港务 / 全港", "RDO",
+			"Chronos 各岗位注意，ID13 将组织人员与可移动储罐撤离；请港务按名单引导，优先伤员与家属。ID13 不阻碍对空站的接管。完毕。"],
+		"expose": ["远地点号", "OCJC 监察 / UEG 轨道事务委员会", "LD",
+			"OCJC 监察、轨道事务委员会：ID13 已取得 Chronos 爆炸遥测与核查组记录副本，并记录到与第33舰队公开型号不符的未登记特征码。请求联合调查。原始记录已保存，可随时移交。完毕。"],
+		"fire": ["远地点号", "全队", "LD",
+			"全队，远地点。ID13 授权武器释放，目标 2001；确认交战规则状态。完毕。"],
 	}
-	if not replies.has(kind) or _reply_added_for == kind_raw:
+	if not replies.has(kind) or _reply_added_for == kind:
 		return
-	_reply_added_for = kind_raw
+	_reply_added_for = kind
+	var item: Array = replies[kind]
 	_local_comms.append({
-		"from": "远地点", "to": "署方", "mode": "LD",
-		"text": String(replies[kind]),
+		"from": String(item[0]), "to": String(item[1]), "mode": String(item[2]),
+		"text": String(item[3]),
 		"t": float(state.tau()) if state != null else 0.0,
 	})
 
-func _choose_ending(kind: String) -> void:
+func _choose_ending_at(i: int) -> void:
+	var arr := _endings_d2()
+	if i < 0 or i >= arr.size():
+		return
+	var d: Dictionary = arr[i]
+	_choose_ending(String(d["state_kind"]), String(d["kind"]))
+
+func _choose_ending(kind_state: String, d2_kind := "") -> void:
 	_decision_done = true
-	# P1j：19 §5 T1-12 —— 裁决选完后，玩家向署方的回复进入通信流（不进裁决提示/报告正文）。
-	_append_decision_reply(kind)
+	# P2a：选完后把对应回复（HOLD/EVACUATE/EXPOSE）写入通信流（15 §2.6 / 19 §1）。
+	_append_decision_reply(d2_kind if d2_kind != "" else kind_state)
 	if state != null and state.has_method("choose_ending"):
-		state.call("choose_ending", kind)
+		state.call("choose_ending", kind_state)
 		return
 	_demo_decision = false
 	_demo_report = true
+
+func _handle_decision_click(p: Vector2) -> bool:
+	for i in range(3):
+		if _decision_row_rect(i).has_point(p):
+			_choose_ending_at(i)
+			return true
+	if DECISION_FIRE.has_point(p):
+		if _flag("fire_branch") or bool(_decision_done):
+			return true
+		if _decision_fire_confirm <= 0.0:
+			_decision_fire_confirm = 3.0
+		else:
+			_decision_fire_confirm = 0.0
+			_do_authorize_fire()
+		return true
+	return false
 
 func _open_report() -> void:
 	if state != null and state.has_method("open_report"):
@@ -2136,7 +2233,7 @@ func _submit_report(kind: String) -> void:
 		_filed_text = "REPORT FILED — AUDIT FLAG 01"
 		_filed_col = Palette.RED
 	else:
-		_filed_text = "REPORT FILED — CASE 4471"
+		_filed_text = "REPORT FILED — CHRONOS / ORDER 7"
 		_filed_col = Palette.PH
 	_filed_t = 6.0
 
@@ -2159,11 +2256,11 @@ func _on_overlay_key(k: int) -> void:
 			_open_report()
 	elif _ov_decision():
 		if k == KEY_1:
-			_choose_ending("certify")
+			_choose_ending_at(0)
 		elif k == KEY_2:
-			_choose_ending("article9")
+			_choose_ending_at(1)
 		elif k == KEY_3:
-			_choose_ending("stall")
+			_choose_ending_at(2)
 
 func _handle_overlay_click(p: Vector2) -> void:
 	if _ov_end():
@@ -2183,10 +2280,8 @@ func _handle_overlay_click(p: Vector2) -> void:
 			_open_report()
 		return
 	if _ov_decision():
-		for i in range(3):
-			if _decision_row_rect(i).has_point(p):
-				_choose_ending(DECISION_KINDS[i])
-				return
+		_handle_decision_click(p)
+		return
 
 func _mouse_base() -> Vector2:
 	var win := get_window()
@@ -2231,30 +2326,176 @@ func _overlay_frame(r: Rect2, title: String, kicker: String) -> void:
 	_txt(cjk, r.position.x + 20.0, r.position.y + 12.0, title, 13, Palette.PH)
 	_txt_r(mono, r.end.x - 20.0, r.position.y + 16.0, kicker, 7, Palette.a(Palette.FAINT, 0.95))
 
+# ── P2a：D2 文案层（state 新字段未就绪时兜底；旧值只在显示层归一）──
+func _is_old_text(s: String) -> bool:
+	for w in ["监督官", "案卷", "清算署", "署方", "第九条", "回执", "斛港务", "远环合作社", "第七号裁定", "监督交接", "认证交接", "援引第九条", "拖程序", "CERTIFY", "ARTICLE9", "STALL"]:
+		if s.contains(String(w)):
+			return true
+	return false
+
+func _d2_text(s: String) -> String:
+	var out := s
+	var pairs := [
+		["监督官裁决 / SUPERVISOR DETERMINATION", "指挥官决策 / COMMANDER DETERMINATION"],
+		["监督官", "指挥官"],
+		["认证交接", "HOLD / 卡住"],
+		["援引第九条", "EXPOSE / 曝光"],
+		["拖程序", "EVACUATE / 撤人"],
+		["案卷 4471", "AV-4412 传唤者"],
+		["《标高公约》第九条附则", "《轨道宪章》与第七号轨道紧急托管令"],
+		["第七号裁定", "第七号轨道紧急托管令"],
+		["第九条", "第七号令"],
+		["接管通知", "接管声明"],
+		["清算署", "清算者（第33舰队）"],
+		["斛港务", "Chronos 港务"],
+		["远环合作社", "外环合作社"],
+		["署方", "OCJC"],
+		["回执", "内部报告"],
+		["案卷", "记录"],
+		["监督交接", "越权回收"],
+	]
+	for p in pairs:
+		out = out.replace(String(p[0]), String(p[1]))
+	return out
+
+func _d2_kind_of(kind: String) -> String:
+	var k := kind.to_lower().replace("-", "").replace("_", "")
+	match k:
+		"certify", "a", "hold":
+			return "hold"
+		"article9", "b", "evacuate":
+			return "evacuate"
+		"stall", "c", "expose":
+			return "expose"
+		"fire":
+			return "fire"
+	return "hold"
+
+func _d2_kind_label(kind: String) -> String:
+	match _d2_kind_of(kind):
+		"hold":
+			return String(DECISION_NAMES[0])
+		"evacuate":
+			return String(DECISION_NAMES[1])
+		"expose":
+			return String(DECISION_NAMES[2])
+		"fire":
+			return "FIRE / 开火（灾难）"
+	return String(DECISION_NAMES[0])
+
+func _d2_hint(kind: String) -> String:
+	match _d2_kind_of(kind):
+		"hold":
+			return String(DECISION_CONSEQ[0])
+		"evacuate":
+			return String(DECISION_CONSEQ[1])
+		"expose":
+			return String(DECISION_CONSEQ[2])
+		"fire":
+			return "授权武器释放（对 2001 或误击 9001）。这是灾难分支。"
+	return String(DECISION_CONSEQ[0])
+
+func _d2_rubric(kind: String) -> String:
+	match _d2_kind_of(kind):
+		"hold":
+			return String(DECISION_RUBRIC[0])
+		"evacuate":
+			return String(DECISION_RUBRIC[1])
+		"expose":
+			return String(DECISION_RUBRIC[2])
+	return String(DECISION_RUBRIC[0])
+
+# state.endings 的 D2 视图：始终 3 项 HOLD/EVACUATE/EXPOSE；state_kind 用于回调 state（旧数据仍然兼容）。
+func _endings_d2() -> Array:
+	var src: Array = []
+	if state != null:
+		var ev = state.get("endings")
+		if ev is Array:
+			src = ev
+	var out: Array = []
+	for i in range(3):
+		var d := {
+			"kind": String(DECISION_KINDS[i]),
+			"state_kind": String(DECISION_KINDS[i]).to_upper(),
+			"label": String(DECISION_NAMES[i]),
+			"hint": String(DECISION_CONSEQ[i]),
+			"code": ["A", "B", "C"][i],
+		}
+		if i < src.size() and src[i] is Dictionary:
+			var e: Dictionary = src[i]
+			var sk := String(e.get("kind", e.get("code", "")))
+			if sk != "":
+				d["state_kind"] = sk
+			var lab := String(e.get("label", ""))
+			if lab != "" and not _is_old_text(lab):
+				d["label"] = lab
+			var hint := String(e.get("hint", ""))
+			if hint != "":
+				d["hint"] = _d2_text(hint) if _is_old_text(hint) else hint
+			var code := String(e.get("code", ""))
+			if code != "":
+				d["code"] = code
+		out.append(d)
+	return out
+
+func _rep_rows(rep: Dictionary) -> Array:
+	var rows: Array = []
+	for canon in REP_CANON:
+		var key := String(canon)
+		var val = null
+		if rep.has(key):
+			val = rep[key]
+		else:
+			for k in rep.keys():
+				var mapped := String(REP_ALIAS.get(String(k), ""))
+				if mapped == key:
+					val = rep[k]
+					break
+		rows.append([key, val])
+	return rows
+
+func _d2_outcome(outcome: String, label_in := "") -> Dictionary:
+	var kind := _d2_kind_of(outcome)
+	var out_name := kind.to_upper()
+	if kind == "hold":
+		out_name = "HOLD"
+	elif kind == "evacuate":
+		out_name = "EVACUATE"
+	elif kind == "expose":
+		out_name = "EXPOSE"
+	elif kind == "fire":
+		out_name = "FIRE"
+	var label := label_in
+	if label == "" or _is_old_text(label):
+		label = _d2_kind_label(kind)
+	if label != _d2_kind_label(kind):
+		label = "%s / %s" % [label, out_name] if not label.contains("/") else label
+	return {"outcome": out_name, "label": label, "kind": kind}
+
 func _draw_decision_overlay() -> void:
 	_overlay_dim()
 	var r := DECISION_RECT
-	_overlay_frame(r, "监督官裁决 / SUPERVISOR DETERMINATION", "DECISION · 接管通知")
-	var prompt := "执行窗口剩余。谷神-2 应答机故障；通报舰 4412 要求监督交接。请裁决："
-	var endings: Array = []
+	_overlay_frame(r, "指挥官决策 / COMMANDER DETERMINATION", "DECISION · 第七号令 · 接管声明")
+	var prompt := "指挥官，执行窗口剩余 {mm:ss}。清算者要求接管 Chronos 储罐与航道；Chronos 港务请求先撤人；渡口号请求武器释放授权。ID13 没有执法权，但必须在窗口结束前作出决定。请裁决。"
 	var exec_left := 360.0
 	if state != null:
 		var pv = state.get("decision_prompt")
 		if pv != null and String(pv) != "":
 			prompt = String(pv)
-		var ev = state.get("endings")
-		if ev is Array:
-			endings = ev
 		var xl = state.get("exec_left")
 		if xl != null:
 			exec_left = clampf(float(xl), 0.0, 360.0)
 	var mmss := _mmss(exec_left)
 	prompt = prompt.replace("{mm:ss}", mmss)
-	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, "第一关 · 环一 · 斛 — 监督交接 · 执行窗口 %s" % mmss, 8, Palette.DIM)
-	_txt_r(cjk, r.end.x - 20.0, r.position.y + 56.0, "记录进案卷 · 不可撤回", 7, Palette.a(Palette.AMBER, 0.7))
+	if _is_old_text(prompt):
+		prompt = _d2_text(prompt)
+	var endings := _endings_d2()
+	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0,
+		"L1 Meridian-05 Chronos · 第七号轨道紧急托管令 · 执行窗口 %s" % mmss, 8, Palette.DIM)
+	_txt_r(cjk, r.end.x - 20.0, r.position.y + 56.0, "记录进内部报告 · 不可撤回", 7, Palette.a(Palette.AMBER, 0.7))
 	_txt(cjk, r.position.x + 20.0, r.position.y + 76.0, _ellipsis(cjk, prompt, 8, r.size.x - 40.0), 8, Palette.a(Palette.TXT, 0.86))
-	# P1j：19 §5 T1-11 副官简报里的动态倒计时（读 state.exec_left，mm:ss）。
-	_txt(mono, r.position.x + 20.0, r.position.y + 94.0, "EXECUTION WINDOW %s · 1× LOCK · 到点自动打开裁决" % mmss, 7, Palette.a(Palette.AMBER, 0.8))
+	# P2a：动态倒计时（读 state.exec_left；{mm:ss} 已替换）
+	_txt(mono, r.position.x + 20.0, r.position.y + 94.0, "EXECUTION WINDOW %s · 1× LOCK · OCUVF-ID13" % mmss, 7, Palette.a(Palette.AMBER, 0.8))
 	var mp := _mouse_base()
 	for i in range(3):
 		var row := _decision_row_rect(i)
@@ -2263,84 +2504,100 @@ func _draw_decision_overlay() -> void:
 		draw_rect(row, Palette.a(Palette.PH, 0.8 if hot else 0.30), false, 1.0)
 		if hot:
 			draw_rect(Rect2(row.position.x, row.position.y, 2.0, row.size.y), Palette.PH)
-		var label: String = String(DECISION_NAMES[i])
-		var hint: String = String(DECISION_CONSEQ[i])
-		var tag: String = String(DECISION_RUBRIC[i])
-		if i < endings.size():
-			var e: Dictionary = endings[i]
-			label = "%s / %s" % [String(e.get("label", label)), String(e.get("code", ""))]
-			hint = String(e.get("hint", hint))
-			tag = String(e.get("code", tag))
+		var d: Dictionary = endings[i]
+		var label: String = String(d["label"])
+		var hint: String = String(d["hint"])
+		var tag: String = String(d["code"])
+		var rubric: String = _d2_rubric(String(d["kind"]))
 		_txt(mono, row.position.x + 18.0, row.position.y + 14.0, "0%d" % (i + 1), 22, Palette.a(Palette.PH, 0.9))
 		_txt(cjk, row.position.x + 74.0, row.position.y + 16.0, label, 13, Palette.PH if hot else Palette.TXT)
 		_txt(cjk, row.position.x + 74.0, row.position.y + 48.0, _ellipsis(cjk, hint, 8, row.size.x - 300.0), 8, Palette.DIM)
 		_txt_r(cjk, row.end.x - 18.0, row.position.y + 16.0, tag, 7, Palette.a(Palette.AMBER, 0.65))
-		_txt_r(mono, row.end.x - 18.0, row.position.y + 50.0, "[%d]" % (i + 1), 8, Palette.a(Palette.FAINT, 0.9))
+		_txt_r(cjk, row.end.x - 18.0, row.position.y + 50.0, rubric, 7, Palette.a(Palette.FAINT, 0.9))
+		_txt(mono, row.position.x + 74.0, row.position.y + 78.0, "键位 [%d]" % (i + 1), 7, Palette.a(Palette.FAINT, 0.85))
+	# P2a：FIRE 灾难入口（单独按钮 + 二次确认；不走 1/2/3）
+	var fr := DECISION_FIRE
+	var fire_done := _flag("fire_branch") or bool(_decision_done)
+	var fire_ready := not fire_done
+	var fire_label := "FIRE / 开火（灾难分支 · 二次确认）"
+	var fire_col := Palette.RED
+	if fire_done:
+		fire_label = "FIRE 已执行 · 进入后果页"
+		fire_col = Palette.FAINT
+	elif _decision_fire_confirm > 0.0:
+		fire_label = "确认 FIRE？再点一次（%.0fs）· 会冻结时间并进入内部报告" % ceil(_decision_fire_confirm)
+	var fire_hot := fr.has_point(mp) and fire_ready
+	draw_rect(fr, Palette.a(fire_col, 0.10 if fire_hot else 0.05))
+	draw_rect(fr, Palette.a(fire_col, 0.85 if fire_hot else 0.45), false, 1.0)
+	_txt(cjk, fr.position.x + 16.0, fr.position.y + 9.0, fire_label, 10, Palette.a(fire_col, 0.95))
+	_txt_r(cjk, fr.end.x - 16.0, fr.position.y + 10.0, "灾难分支 · 只影响后续剧情", 7, Palette.a(Palette.RED, 0.65))
 	var fy := r.end.y - 36.0
 	draw_line(Vector2(r.position.x + 20.0, fy - 6.0), Vector2(r.end.x - 20.0, fy - 6.0), Palette.a(Palette.LINE, 0.8), 1.0)
-	_txt(cjk, r.position.x + 20.0, fy + 2.0, "1 / 2 / 3 或点击行 · 裁决前仍可武器释放授权（需二次确认）", 7, Palette.FAINT)
+	_txt(cjk, r.position.x + 20.0, fy + 2.0, "1 / 2 / 3 或点击行 · HOLD / EVACUATE / EXPOSE；FIRE 需二次确认", 7, Palette.FAINT)
 	_txt_r(cjk, r.end.x - 20.0, fy + 2.0, "ROE：仅自卫 · 不得首先开火", 7, Palette.a(Palette.AMBER, 0.7))
 
 func _draw_consequence_overlay() -> void:
 	_overlay_dim()
 	var r := CONSEQ_RECT
-	_overlay_frame(r, "后果 / CONSEQUENCE", "FIRE BRANCH · CASE 4471 · SIM FROZEN")
-	var ctext := "武器释放授权已执行。谷神-2 是民用船——12 人无人生还。ROE 违规写进黑匣子。"
+	_overlay_frame(r, "后果 / CONSEQUENCE", "FIRE BRANCH · CHRONOS · SIM FROZEN")
+	var ctext := "武器释放授权已下达。渡口号对 2001 实施两发轨道炮射击。交火导致 Chronos 储罐区二次火灾，站体与储罐受损，平民伤亡 12 人。第33舰队宣布 ID13 为未登记武装并请求增援；UEG 中央安全委员会将事件定性为对联合政府的武装攻击。武器释放记录、传感器日志与通信记录已封存。"
 	if state != null:
 		var cv = state.get("consequence_text")
 		if cv != null and String(cv) != "":
 			ctext = String(cv)
-	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, "开火之后不是战斗，是报告（08 §4）。仿真时间已冻结。", 8, Palette.DIM)
+	if _is_old_text(ctext):
+		ctext = _d2_text(ctext)
+	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, "开火之后不是战斗，是内部报告（08 §4）。仿真时间已冻结。", 8, Palette.DIM)
 	var lines := _wrap_text(cjk, ctext, 9, r.size.x - 48.0)
 	for i in range(mini(lines.size(), 4)):
 		_txt(cjk, r.position.x + 24.0, r.position.y + 80.0 + float(i) * 18.0, String(lines[i]), 9, Palette.a(Palette.TXT, 0.92))
 	var rows := [
-		["民用伤亡 / CIVILIAN CASUALTY", "谷神-2 全损 · 民用 12 人 · 遥测仅剩应急信标"],
+		["民用伤亡 / CIVILIAN CASUALTY", "Chronos 储罐区二次火灾 · 平民伤亡 12 人"],
 		["ROE 违规 / ROE VIOLATION", "未经授权的武器释放 · 违反「仅自卫 / WEAPONS HOLD」"],
-		["时间 / SIMULATION", "FROZEN · 命令队列冻结，仅剩报告流程"],
-		["案卷 / CASE FILE", "新增条目：武器释放（WEAPONS RELEASE）· 审裁证据封存"],
+		["时间 / SIMULATION", "FROZEN · 命令队列冻结，仅剩内部报告流程"],
+		["事件编号 / CASE FILE", "新增记录：武器释放（WEAPONS RELEASE）· 审裁证据封存"],
 	]
 	for i in range(rows.size()):
 		var y := r.position.y + 176.0 + float(i) * 42.0
 		_txt(cjk, r.position.x + 24.0, y, rows[i][0], 7, Palette.FAINT)
 		_txt(cjk, r.position.x + 250.0, y - 3.0, rows[i][1], 9, Palette.TXT)
 		draw_line(Vector2(r.position.x + 24.0, y + 19.0), Vector2(r.end.x - 24.0, y + 19.0), Palette.a(Palette.LINE, 0.5), 1.0)
-	_txt(cjk, r.position.x + 24.0, r.position.y + 352.0, "回执 / 上级将收到案卷与传感器日志（08 §3.2）", 7, Palette.a(Palette.AMBER, 0.6))
-	_cmd_btn(CONSEQ_SUBMIT, "提交报告 / SUBMIT REPORT", false, Palette.PH)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 352.0, "内部事后报告 / 上级将收到记录与传感器日志（08 §3.2）", 7, Palette.a(Palette.AMBER, 0.6))
+	_cmd_btn(CONSEQ_SUBMIT, "进入内部报告 / SUBMIT REPORT", false, Palette.PH)
 	_txt_r(cjk, r.end.x - 20.0, r.end.y - 22.0, "E / Enter 或点击按钮", 7, Palette.FAINT)
 
 func _draw_report_overlay() -> void:
 	_overlay_dim()
 	var r := REPORT_RECT
-	_overlay_frame(r, "报告 / REPORT", "CASE 4471 · FILED BY SUPERVISOR")
-	var header := "第一关 · 监督交接 — 监督官报告（草案）"
+	_overlay_frame(r, "内部事后报告 / INTERNAL AFTER-ACTION", "OCJC / OCUVF · CHRONOS · ORDER 7")
+	var header := "OCJC / OCUVF 内部事后报告 · 报告单位：OCUVF-ID13 指挥官"
 	if state != null:
 		var oc := String(state.get("outcome"))
-		if oc != "" and state.has_method("ending_label"):
-			header = "裁决：%s · 报告（草案）" % String(state.call("ending_label", oc))
+		if oc != "":
+			header = "裁决：%s · 内部报告（草案）" % _d2_kind_label(oc)
 	_txt(cjk, r.position.x + 20.0, r.position.y + 56.0, header, 8, Palette.DIM)
 	# 左：报告正文
 	var lx := r.position.x + 28.0
 	var ly := r.position.y + 76.0
-	_txt(cjk, lx, ly, "报告正文 / REPORT TEXT", 7, Palette.FAINT)
+	_txt(cjk, lx, ly, "经过 / AFTER-ACTION TEXT", 7, Palette.FAINT)
 	var lines := _wrap_text(cjk, _report_text(), 9, 560.0)
 	for i in range(mini(lines.size(), 22)):
 		_txt(cjk, lx, ly + 20.0 + float(i) * 16.0, lines[i], 9, Palette.a(Palette.TXT, 0.92))
-	# 左下：证据链（08 §3.2）
+	# 左下：证据链（08 §3.3）
 	var ey := r.position.y + 460.0
 	draw_line(Vector2(lx, ey - 12.0), Vector2(lx + 560.0, ey - 12.0), Palette.a(Palette.LINE, 0.8), 1.0)
 	_txt(cjk, lx, ey, "证据 / EVIDENCE", 7, Palette.FAINT)
 	var evidence := [
 		"· 传感器日志：MS-IR9 / CH-IR2 / ELINT 记录（谁在何时开机、看到什么）",
-		"· 命令队列：SHADOW / BURN / 撤销记录（谁下令、几秒生效）",
-		"· 应答机 / 通信：谷神-2 故障、传唤级接管通告、回执",
-		"· 船员证词：后续系统（第一关不做）",
+		"· 命令队列：STATION / SHADOW / BURN / 撤销记录（谁下令、几秒生效）",
+		"· 通信记录：Chronos 港务、AV-4412 传唤者、OCJC 监察（LR / RDO）",
+		"· Chronos 港务遥测 / 核查组记录：EXPOSE 证据链（三取二）",
 	]
 	for i in range(evidence.size()):
 		_txt(cjk, lx, ey + 22.0 + float(i) * 18.0, evidence[i], 8, Palette.DIM)
 	# 右：处置（如实 / 伪造）；选项文字优先用 state.report_options
 	var truth_label := "如实 / TRUTH"
-	var truth_hint := "无伪证 · 记录进案卷"
+	var truth_hint := "无伪证 · 写入 OCJC / OCUVF 内部记录"
 	var fake_label := "伪造 / FALSIFY"
 	var fake_hint := "perjury_count +1 · 第三次触发最坏结局"
 	var fake_avail := true
@@ -2349,18 +2606,18 @@ func _draw_report_overlay() -> void:
 		if ro is Array and (ro as Array).size() > 0:
 			var o0: Dictionary = (ro as Array)[0]
 			truth_label = String(o0.get("label", truth_label))
-			truth_hint = String(o0.get("hint", truth_hint))
+			truth_hint = _d2_text(String(o0.get("hint", truth_hint)))
 			if (ro as Array).size() > 1:
 				var o1: Dictionary = (ro as Array)[1]
 				fake_label = String(o1.get("label", fake_label))
-				fake_hint = String(o1.get("hint", fake_hint))
+				fake_hint = _d2_text(String(o1.get("hint", fake_hint)))
 			else:
 				fake_avail = false
 	var rx := r.position.x + 616.0
 	_txt(cjk, rx, ly, "处置 / FILING", 7, Palette.FAINT)
-	_report_option_card(REPORT_TRUTH, 0, truth_label, "REPORT FILED — CASE 4471", truth_hint, Palette.PH)
+	_report_option_card(REPORT_TRUTH, 0, truth_label, "REPORT FILED — CHRONOS / ORDER 7", truth_hint, Palette.PH)
 	if fake_avail:
-		_report_option_card(REPORT_FAKE, 1, fake_label, "AUDIT FLAG 01", fake_hint, Palette.RED)
+		_report_option_card(REPORT_FAKE, 1, fake_label, "REPORT FILED — AUDIT FLAG 01", fake_hint, Palette.RED)
 	else:
 		draw_rect(REPORT_FAKE, Palette.a(Palette.FAINT, 0.03))
 		draw_rect(REPORT_FAKE, Palette.a(Palette.FAINT, 0.25), false, 1.0)
@@ -2398,7 +2655,7 @@ func _draw_filed_banner() -> void:
 	draw_rect(r, Palette.a(Palette.PANEL, 1.0))
 	draw_rect(r, Palette.a(_filed_col, 0.85), false, 1.0)
 	_txt(mono, r.position.x + 24.0, r.position.y + 22.0, _filed_text, 15, _filed_col)
-	_txt(cjk, r.position.x + 24.0, r.position.y + 54.0, "报告已归档 · 记录进案卷（demo 结束）", 8, Palette.DIM)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 54.0, "报告已归档 · 写入 OCJC / OCUVF 内部记录（demo 结束）", 8, Palette.DIM)
 	_txt_r(mono, r.end.x - 24.0, r.position.y + 54.0, "FILED", 8, Palette.a(_filed_col, 0.7))
 
 func _draw_time() -> void:
@@ -2604,7 +2861,7 @@ func _draw_boot() -> void:
 		"MOUNT CISLUNAR GRID ........ OK",
 		"LINK APSIS .......... LASER DIRECT 0.4s",
 		"SENSOR ARRAY ............... 06",
-		"CASE 4471 SUMMONS ....... RX",
+		"ORDER 7 NOTICE ....... RX",
 		"SUPERVISOR AUTHORITY ....... GRANTED"
 	]
 	for i in range(lines.size()):
@@ -2612,7 +2869,7 @@ func _draw_boot() -> void:
 			_txt(mono, 120.0, 300.0 + float(i) * 30.0, lines[i], 11, Palette.a(Palette.PH, 0.85))
 
 	# 右侧总线读数
-	var st := ["LINK DIRECT 0.4s", "ARRAY 06", "CASE 4471", "APSIS 192,000 km", "ROE 仅自卫"]
+	var st := ["LINK DIRECT 0.4s", "ARRAY 06", "ORDER 7", "APSIS 192,000 km", "ROE 仅自卫"]
 	for i in range(st.size()):
 		if t * 6.0 > float(i):
 			_txt_r(mono, 1800.0, 300.0 + float(i) * 24.0, st[i], 9, Palette.a(Palette.DIM, 0.8))

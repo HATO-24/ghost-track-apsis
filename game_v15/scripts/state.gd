@@ -112,7 +112,7 @@ var report_text := ""
 var report_options: Array[Dictionary] = []
 var audit_flag := false
 var perjury_count := 0
-var reputation: Dictionary = {"斛港务": 0, "清算署": 0, "远环合作社": 0}
+var reputation: Dictionary = {"ocu": 0, "meridian": 0, "ueg_doves": 0, "outer": 0, "reclaimers": 0}
 var sim_frozen := false
 var decision_t := 75.0
 var decision_prompt := ""
@@ -131,9 +131,9 @@ var _feed_fired: Dictionary = {}
 # P1j：通信格式 / 身份 / 通知
 var notice: Dictionary = {}
 var decision_replies: Dictionary = {}
-var report_unit := "AD 特遣群监督官"
-var report_event := "斛 · 第七号裁定接管通知"
-var report_evidence := "黑匣子、通信流、传感器日志与光学分类记录。"
+var report_unit := "OCUVF-ID13 指挥官"
+var report_event := "L1 Meridian-05 Chronos · 第七号轨道紧急托管令（第九天）"
+var report_evidence := "传感器日志、命令队列、通信记录、港务与核查组黑匣子。"
 var report_bodies: Dictionary = {}
 var report_recommend: Dictionary = {}
 var link_mode := "LD"
@@ -296,16 +296,20 @@ func _build_tracks() -> void:
 	own = {"r": own_r, "v": own_v}
 	own_cur = {"r": own_r, "v": own_v}
 	tracks = [
-		_track("哈马丹", "HARMATTAN", "托盘-5 改", "哨舰", "friend", 4,
-			own_r, own_v, 0.0, true, Vector2(16, 14)),
-		_track("渡口号", "FERRY", "赤铁-6 改", "炮舰", "friend", 4,
-			_rel(332.0, 68.0, -4.0), Vector3(-0.0607, -0.0775, 0.0074), 1.0, false, Vector2(-72, -20)),
-		_track("望楼号", "WATCHTOWER", "安海-1", "中继舰", "friend", 4,
-			_rel(12.0, 96.0, 38.0), Vector3(-0.1174, 0.0250, 0.0200), 1.0, false, Vector2(16, -18)),
-		_track("案卷 4471", "SUMMONS", "传唤级", "送达", "hostile", 1,
-			_rel(41.0, 318.0, 12.0), Vector3(-1.1683, -0.5067, -0.0634), 2.0, false, Vector2(-86, -38)),
-		_track("谷神-2", "CERES-2", "谷神改", "民用工作船", "unknown", 1,
-			_rel(118.0, 260.0, -6.0), Vector3(0.0505, 0.0524, -0.0005), 12.0, false, Vector2(16, 12)),
+		_track("1000", "APSIS", "远地点级", "船坞舰", "friend", 4,
+			_rel(300.0, 210.0, 55.0), Vector3(-0.050, -0.060, 0.010), 1.0, false, Vector2(10, -30), false, "远地点", "friend"),
+		_track("1001", "HARMATTAN", "托盘-5 改", "哨舰", "friend", 4,
+			own_r, own_v, 0.0, true, Vector2(16, 14), false, "哈马丹", "friend"),
+		_track("1002", "FERRY", "赤铁-6 改", "炮舰", "friend", 4,
+			_rel(332.0, 68.0, -4.0), Vector3(-0.0607, -0.0775, 0.0074), 1.0, false, Vector2(-72, -20), false, "渡口号", "friend"),
+		_track("1003", "WATCHTOWER", "安海-1", "中继舰", "friend", 4,
+			_rel(12.0, 96.0, 38.0), Vector3(-0.1174, 0.0250, 0.0200), 1.0, false, Vector2(16, -18), false, "望楼号", "friend"),
+		_track("1004", "DEEPWELL", "月港-4", "油船", "friend", 4,
+			_rel(60.0, 280.0, -26.0), Vector3(0.045, 0.060, -0.005), 1.0, false, Vector2(14, 12), false, "深井号", "friend"),
+		_track("2001", "AV-4412", "传唤级", "通报舰", "hostile", 1,
+			_rel(41.0, 318.0, 12.0), Vector3(-1.1683, -0.5067, -0.0634), 2.0, false, Vector2(26, -40), false, "AV-4412 传唤者", "unknown"),
+		_track("9001", "CERES-2", "谷神改", "民用工作船", "unknown", 1,
+			_rel(118.0, 260.0, -6.0), Vector3(0.0505, 0.0524, -0.0005), 12.0, false, Vector2(16, 12), false, "谷神-2", "pending"),
 	]
 	# 点火计划：T+6.2 s、Δv 84 m/s、方位 340°、仰角 +20°（含离面分量）。
 	burn = {
@@ -317,7 +321,7 @@ func _build_tracks() -> void:
 		"label": "点火（BURN）哈马丹 → 节点 B-2"
 	}
 
-# CH-IR2 虚警（07 §3 Phase 1「两条回波」：真目标是案卷 4471，另一条是残骸/反射）。
+# CH-IR2 回波候选（07 §3 Phase 1「两条回波」：真目标是 AV-4412 传唤者，另一条是残骸/反射）。
 # 没有真实实体：无 r/v、不发射、不预测；只有一条方位线。
 func _build_phantom() -> void:
 	var ch_ir2 := SensorModel.rack_sensor("harmattan", "CH-IR2")
@@ -641,7 +645,7 @@ func _plan_tick(t: float) -> void:
 		"ferry": {"CH-IR2": true, "LR-4": false, "CH-R0": true},
 		"watchtower": {"MS-L2": true, "CH-R0": true},
 		"deepwell": {"CH-R0": true},
-		# 敌方（案卷 4471）：ELINT 与无线电接收常开；雷达保持静默
+		# 清算者（2001 AV-4412 传唤者）：ELINT 与无线电接收常开；雷达保持静默
 		"summons_4471": {"YW-R9": false, "MK-12": false, "ELINT": true, "CH-R0": true},
 		"ceres_2": {"CH-R0": true},
 	}
@@ -1076,8 +1080,6 @@ func _apply_scenario_env() -> void:
 # 职责文案归一（role 只放职责；状态另放 notes/iff_status，见 docs/12 P0-9）
 func _role_text(role: String) -> String:
 	match role:
-		"送达舰":
-			return "送达"
 		"民用 · 应答机故障":
 			return "民用工作船"
 		_:
@@ -1125,8 +1127,8 @@ func _load_story() -> void:
 	if typeof(story) != TYPE_DICTIONARY:
 		story = {}
 	decision_t = float(story.get("decision_t", 75.0))
-	decision_prompt = String(story.get("decision_prompt", "执行窗口剩余：交接 / 阻止 / 拖程序，选一个。"))
-	consequence_text = String(story.get("consequence_fire", "谷神-2 被击毁（民用船）。ROE 违规。"))
+	decision_prompt = String(story.get("decision_prompt", "指挥官，执行窗口剩余 {mm:ss}。请裁决。"))
+	consequence_text = String(story.get("consequence_fire", "武器释放授权已下达；交火导致 Chronos 储罐区二次火灾，平民伤亡 12 人。"))
 	story_events = story.get("events", [])
 	endings = []
 	for raw in story.get("endings", []):
@@ -1137,9 +1139,9 @@ func _load_story() -> void:
 		reputation[String(k)] = int(rep0[k])
 	notice = (story.get("notice", {}) as Dictionary).duplicate(true)
 	decision_replies = story.get("decision_replies", {})
-	report_unit = String(story.get("report_unit", "AD 特遣群监督官"))
-	report_event = String(story.get("report_event", "斛 · 第七号裁定接管通知"))
-	report_evidence = String(story.get("report_evidence", "黑匣子、通信流、传感器日志。"))
+	report_unit = String(story.get("report_unit", "OCUVF-ID13 指挥官"))
+	report_event = String(story.get("report_event", "L1 Meridian-05 Chronos · 第七号轨道紧急托管令（第九天）"))
+	report_evidence = String(story.get("report_evidence", "传感器日志、命令队列、通信记录、港务与核查组黑匣子。"))
 	report_bodies = story.get("report_bodies", {})
 	report_recommend = story.get("report_recommend", {})
 
@@ -1185,14 +1187,14 @@ func story_text(key: String, fallback: String = "") -> String:
 
 func ending_label(kind: String) -> String:
 	match kind:
-		"CERTIFY":
-			return "认证交接"
-		"ARTICLE9":
-			return "援引第九条"
-		"STALL":
-			return "拖程序 / 文书复核"
+		"HOLD":
+			return "卡住 / HOLD"
+		"EVACUATE":
+			return "撤人 / EVACUATE"
+		"EXPOSE":
+			return "曝光 / EXPOSE"
 		"FIRE":
-			return "开火击毁"
+			return "开火 / FIRE（灾难）"
 		_:
 			return kind
 
@@ -1211,37 +1213,59 @@ func phase_label() -> String:
 		_:
 			return tut_phase
 
+func _rep_label(key: String) -> String:
+	match key:
+		"ocu":
+			return "OCU/OCJC"
+		"meridian":
+			return "Meridian"
+		"ueg_doves":
+			return "UEG 鸽派"
+		"outer":
+			return "外环"
+		"reclaimers":
+			return "清算者"
+		_:
+			return key
+
 func _rep_text() -> String:
 	var parts: Array = []
 	for k in reputation.keys():
 		var v := int(reputation[k])
 		if v != 0:
-			parts.append("%s %+d" % [String(k), v])
+			parts.append("%s %+d" % [_rep_label(String(k)), v])
 	if parts.is_empty():
 		return "无变化"
 	return " · ".join(parts)
 
-# 三种结局：写 outcome / 阵营声望 / 案卷 flag，打开报告
+# 三种默认结局（HOLD / EVACUATE / EXPOSE）：写 outcome / 五对象声望 / flags，打开内部报告
 func choose_ending(kind: String) -> Dictionary:
 	if not decision_open or report_open or consequence_open:
 		return {}
 	var k := kind.to_upper()
 	match k:
-		"CERTIFY", "A":
-			outcome = "CERTIFY"
-			flags["certify"] = true
-			reputation["斛港务"] = int(reputation.get("斛港务", 0)) - 2
-			reputation["清算署"] = int(reputation.get("清算署", 0)) + 2
-		"ARTICLE9", "B":
-			outcome = "ARTICLE9"
-			flags["article9"] = true
-			reputation["斛港务"] = int(reputation.get("斛港务", 0)) + 2
-			reputation["清算署"] = int(reputation.get("清算署", 0)) - 2
-		"STALL", "C":
-			outcome = "STALL"
-			flags["stall"] = true
-			reputation["斛港务"] = int(reputation.get("斛港务", 0)) + 1
-			reputation["清算署"] = int(reputation.get("清算署", 0)) - 1
+		"HOLD", "A":
+			outcome = "HOLD"
+			flags["hold"] = true
+			reputation["ocu"] = int(reputation.get("ocu", 0)) + 2
+			reputation["meridian"] = int(reputation.get("meridian", 0)) + 1
+			reputation["ueg_doves"] = int(reputation.get("ueg_doves", 0)) + 1
+			reputation["reclaimers"] = int(reputation.get("reclaimers", 0)) - 2
+		"EVACUATE", "B":
+			outcome = "EVACUATE"
+			flags["evacuate"] = true
+			reputation["ocu"] = int(reputation.get("ocu", 0)) + 1
+			reputation["meridian"] = int(reputation.get("meridian", 0)) + 2
+			reputation["ueg_doves"] = int(reputation.get("ueg_doves", 0)) + 1
+			reputation["outer"] = int(reputation.get("outer", 0)) + 1
+			reputation["reclaimers"] = int(reputation.get("reclaimers", 0)) - 1
+		"EXPOSE", "C":
+			outcome = "EXPOSE"
+			flags["expose"] = true
+			flags["ghost_track_evidence"] = true
+			reputation["ocu"] = int(reputation.get("ocu", 0)) + 1
+			reputation["ueg_doves"] = int(reputation.get("ueg_doves", 0)) + 2
+			reputation["reclaimers"] = int(reputation.get("reclaimers", 0)) - 3
 		_:
 			return {}
 	decision_open = false
@@ -1250,11 +1274,16 @@ func choose_ending(kind: String) -> Dictionary:
 	_build_report_options()
 	var reply: Dictionary = (decision_replies.get(outcome, {}) as Dictionary)
 	if not reply.is_empty():
-		_append_radio(String(reply.get("from", "远地点")), String(reply.get("to", "署方")),
+		_append_radio(String(reply.get("from", "远地点号")), String(reply.get("to", "OCJC / OCUVF")),
 			String(reply.get("mode", "LD")), String(reply.get("text", "")), tau())
 	decision_prompt = ""
 	_push_log("裁决：%s · 声望 %s" % [ending_label(outcome), _rep_text()], "OUTCOME", "EXEC")
-	return {"outcome": outcome, "reputation": reputation.duplicate(true), "report_open": true}
+	return {
+		"outcome": outcome,
+		"reputation": reputation.duplicate(true),
+		"standing": reputation.duplicate(true),
+		"report_open": true,
+	}
 
 # 开火分支：冻结时间、consequence、民用伤亡 / ROE 违规
 func authorize_fire() -> Dictionary:
@@ -1266,14 +1295,23 @@ func authorize_fire() -> Dictionary:
 	sim_frozen = true
 	outcome = "FIRE"
 	flags["fire"] = true
+	flags["weapons_release"] = true
+	flags["disaster"] = true
 	flags["roe_violation"] = true
 	flags["civilian_casualties"] = true
-	reputation["斛港务"] = int(reputation.get("斛港务", 0)) - 5
-	reputation["远环合作社"] = int(reputation.get("远环合作社", 0)) - 3
+	reputation["ocu"] = int(reputation.get("ocu", 0)) - 1
+	reputation["meridian"] = int(reputation.get("meridian", 0)) - 2
+	reputation["ueg_doves"] = int(reputation.get("ueg_doves", 0)) - 2
+	reputation["outer"] = int(reputation.get("outer", 0)) - 1
+	reputation["reclaimers"] = int(reputation.get("reclaimers", 0)) + 1
 	consequence_text = story_text("consequence_fire", consequence_text)
-	_push_log("武器释放授权 → 谷神-2（民用）· ROE 违规", "FIRE", "HOLD")
-	_push_log("时间冻结 · 审裁证据已封存", "CONSEQ", "HOLD")
-	return {"fire_branch": true, "consequence_open": true, "frozen": true}
+	var reply: Dictionary = (decision_replies.get("FIRE", {}) as Dictionary)
+	if not reply.is_empty():
+		_append_radio(String(reply.get("from", "远地点号")), String(reply.get("to", "全队")),
+			String(reply.get("mode", "LD")), String(reply.get("text", "")), tau())
+	_push_log("武器释放授权 → 2001 · 灾难分支", "FIRE", "HOLD")
+	_push_log("时间冻结 · 记录封存", "CONSEQ", "HOLD")
+	return {"fire_branch": true, "consequence_open": true, "frozen": true, "standing": reputation.duplicate(true)}
 
 # 看完后果后进入报告（main 按 E 调）
 func finish_consequence() -> void:
@@ -1286,7 +1324,7 @@ func finish_consequence() -> void:
 	_update_freeze()
 
 func _build_report_options() -> void:
-	report_options = [{"kind": "TRUTH", "label": "据实报告", "hint": "完整记录交接/裁决过程，进入审裁档案"}]
+	report_options = [{"kind": "TRUTH", "label": "据实报告", "hint": "完整记录裁决与经过，进入 OCJC/OCUVF 内部档案"}]
 	if fire_branch:
 		report_options.append({"kind": "FAKE", "label": "淡化 / 伪造", "hint": "只在不希望被追责时可选 · perjury+1"})
 
@@ -1316,6 +1354,8 @@ func submit_report(kind: String) -> Dictionary:
 		"outcome": outcome,
 		"ending": ending_label(outcome),
 		"reputation": reputation.duplicate(true),
+		"standing": reputation.duplicate(true),
+		"ghost_track_evidence": bool(flags.get("ghost_track_evidence", false)),
 		"report_text": report_text,
 		"report_choice": report_choice,
 		"flags": flags.duplicate(true),
@@ -1334,17 +1374,15 @@ func _compose_report(truth: bool) -> String:
 	var rec := ""
 	if truth:
 		body = String((report_bodies as Dictionary).get(outcome, ""))
-		if body == "":
-			body = String((story.get("report_truth", {}) as Dictionary).get(outcome, ""))
 		rec = String((report_recommend as Dictionary).get(outcome, ""))
 	else:
 		body = String((story.get("report_fake", {}) as Dictionary).get(outcome, ""))
 		if body == "":
 			body = "未发现异常。"
-		rec = "建议维持现有记录。"
+		rec = "建议按程序归档。"
 	body = body.replace("{decision}", ending_label(outcome))
 	var lines: Array[String] = [
-		"舰队内部事后报告 / INTERNAL AFTER-ACTION",
+		"OCJC / OCUVF 内部事后报告 / INTERNAL AFTER-ACTION",
 		"报告单位：%s" % report_unit,
 		"事件：%s" % report_event,
 		"裁决：%s" % ending_label(outcome),
@@ -1354,7 +1392,7 @@ func _compose_report(truth: bool) -> String:
 		"建议：%s" % (rec if rec != "" else "—"),
 	]
 	if fire_branch:
-		lines.append("备注：武器释放已执行；民用船只损失，ROE 审查启动。")
+		lines.append("备注：武器释放已执行；ID13 被定性为未登记武装，审计启动。")
 	if not truth:
 		lines.append("备注：内部版本与黑匣子记录不一致（perjury=%d）。" % perjury_count)
 	var out := ""
@@ -1406,7 +1444,7 @@ func _pump_feeds(t: float) -> void:
 		_push_log("[%s至%s]-[%s]-[%s]" % [item["from"], item["to"], item["mode"], item["text"]], String(item["mode"]), "RX")
 		if String(item.get("from", "")).begins_with("AV-4412"):
 			notice = {
-				"title": "接管通知 · AV-4412 传唤者",
+				"title": "第七号令接管声明 · AV-4412 传唤者",
 				"body": "[%s至%s]-[%s]-[%s]" % [item["from"], item["to"], item["mode"], item["text"]],
 				"from": String(item["from"]), "to": String(item["to"]),
 				"mode": String(item["mode"]), "t": float(item["t"]),
@@ -1474,7 +1512,7 @@ func _reset_runtime() -> void:
 	report_options.clear()
 	audit_flag = false
 	perjury_count = 0
-	reputation = {"斛港务": 0, "清算署": 0, "远环合作社": 0}
+	reputation = {"ocu": 0, "meridian": 0, "ueg_doves": 0, "outer": 0, "reclaimers": 0}
 	sim_frozen = false
 	decision_t = 75.0
 	decision_prompt = ""
@@ -1491,9 +1529,9 @@ func _reset_runtime() -> void:
 	_feed_fired = {}
 	notice = {}
 	decision_replies = {}
-	report_unit = "AD 特遣群监督官"
-	report_event = "斛 · 第七号裁定接管通知"
-	report_evidence = "黑匣子、通信流、传感器日志与光学分类记录。"
+	report_unit = "OCUVF-ID13 指挥官"
+	report_event = "L1 Meridian-05 Chronos · 第七号轨道紧急托管令（第九天）"
+	report_evidence = "传感器日志、命令队列、通信记录、港务与核查组黑匣子。"
 	report_bodies = {}
 	report_recommend = {}
 	link_mode = "LD"
@@ -1660,15 +1698,15 @@ func _build_log() -> void:
 		{"t": "12:28.0", "text": "电磁管制 · 雷达关机", "arg": "", "status": "EXEC"},
 		{"t": "12:19.3", "text": "武器释放授权请求 → AV-4412 传唤者（2001）", "arg": "ROE 拒绝", "status": "HOLD"},
 		{"t": "12:04.8", "text": "传感器：红外 / 光学", "arg": "", "status": "EXEC"},
-		{"t": "11:52.1", "text": "接收 接管通知 · AV-4412 传唤者（2001）", "arg": "", "status": "RX"}
+		{"t": "11:52.1", "text": "接收 第七号令接管声明 · AV-4412 传唤者（2001）", "arg": "", "status": "RX"}
 	]
 
 func _build_unit() -> void:
 	unit = {
 		"name": "哈马丹", "en": "HARMATTAN", "cls": "托盘-5 改", "role": "哨舰",
-		"faction": "公约 · AD 特遣群",
+		"faction": "OCUVF · ID13",
 		"mass": "300 t", "crew": "12", "accel": "0.15 g",
-		"orbit": "L1 · 站位 斛", "inc": "—", "period": "—",
+		"orbit": "L1 Meridian-05 Chronos", "inc": "—", "period": "—",
 		"dv": _fmt_int(int(round(unit_dv_ms))), "dv_max": _fmt_int(int(round(unit_dv_max))),
 		"systems": [["传感器", 0.74], ["火控", 0.42], ["推进", 0.66], ["通信", 0.82], ["反应堆", 0.95]],
 		"weapons": [["CH-IR2 红外", "1 · 被动"], ["CH-R0 无线电", "1 · 4s"], ["武器释放", "无"]],

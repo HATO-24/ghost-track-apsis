@@ -212,23 +212,23 @@ func _set_scene(sc: String) -> void:
 			"fire", "consequence":
 				state.authorize_fire()
 			"report":
-				state.choose_ending("CERTIFY")
+				state.choose_ending("HOLD")
 			"reportfake":
 				state.authorize_fire()
 				state.finish_consequence()
 				state.submit_report("FAKE")
 			"done":
-				state.choose_ending("ARTICLE9")
+				state.choose_ending("EVACUATE")
 				state.submit_report("TRUTH")
 			"end":
-				state.choose_ending("CERTIFY")
+				state.choose_ending("HOLD")
 				state.submit_report("TRUTH")
 			"endfake":
 				state.authorize_fire()
 				state.finish_consequence()
 				state.submit_report("FAKE")
 			"restart":
-				state.choose_ending("CERTIFY")
+				state.choose_ending("HOLD")
 				state.submit_report("TRUTH")
 				state.restart_demo()
 		state.refresh(state.clock)
@@ -358,11 +358,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if state.decision_open:
 		match event.keycode:
 			KEY_1:
-				state.choose_ending("CERTIFY")
+				state.choose_ending("HOLD")
 			KEY_2:
-				state.choose_ending("ARTICLE9")
+				state.choose_ending("EVACUATE")
 			KEY_3:
-				state.choose_ending("STALL")
+				state.choose_ending("EXPOSE")
 			KEY_F:
 				state.authorize_fire()
 		return
