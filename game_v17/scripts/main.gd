@@ -39,6 +39,7 @@ var _last_radio_n := -1
 var _last_cmd_n := 0
 var _hud_drag := false   # V17-UI-2：回放时间轴拖动（HUD 报告是否开始拖动）
 var _roll_vel := 0.0
+var _last_camera_sel := -1
 
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
@@ -61,6 +62,7 @@ func _ready() -> void:
 	var fw_ok: bool = framework.boot()
 	state.framework = framework
 	state.fw_sync(0.0)
+	_last_camera_sel = int(state.selected)
 	var fw_sum: Dictionary = framework.summary()
 	print("V17 FRAMEWORK ok=", fw_ok, " summary=", fw_sum)
 	print("V17 BRIDGE ready=", state.fw_ready,
@@ -524,6 +526,15 @@ func _process(delta: float) -> void:
 		plot.roll3d = clampf(plot.roll3d + _roll_vel * delta, -deg_to_rad(60.0), deg_to_rad(60.0))
 	else:
 		_roll_vel = lerpf(_roll_vel, 0.0, clampf(delta * 8.0, 0.0, 1.0))
+	# V17：点击选中目标即把视角主体切到该目标；C 回旗舰。
+	if int(state.selected) != _last_camera_sel:
+		_last_camera_sel = int(state.selected)
+		var idx := clampi(_last_camera_sel, 0, state.tracks.size() - 1)
+		if idx >= 0 and idx < state.tracks.size():
+			var tsel: Dictionary = state.tracks[idx]
+			var tid := String(tsel.get("id", ""))
+			if tid != "":
+				plot.camera_subject_id = tid
 	# V17：V2 数据桥同步（教学门控/损管/回放/动作/接触；暂停/冻结/截图时 dt 传 0）
 	state.fw_sync(delta)
 	_audio_cues()
@@ -748,7 +759,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_P:
 			print("V17 PLANAR DISABLED — navigation page migration pending")
 		KEY_C:
-			print("CAMERA SUBJECT → ", plot.cycle_camera_subject())
+			plot.camera_subject_id = "1000"
+			print("CAMERA SUBJECT → FLAGSHIP 1000")
 		KEY_Z:
 			var ru: bool = plot.toggle_roll_unlock()
 			print("ROLL UNLOCK → ", ru)
