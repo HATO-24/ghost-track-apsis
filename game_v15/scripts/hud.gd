@@ -82,6 +82,17 @@ const UI_CUT_SEED := 4471
 const UI_DECODE_DUR := 0.42     # 乱码→完整文本（逐字；行间错峰 ≤0.08）
 const UI_DECODE_MAX_STAGGER := 0.08
 
+# ── P3c：前置航行覆盖层（航行准备 / DEPARTURE；state.prelude_* 只读）──
+const PRELUDE_RECT := Rect2(420, 210, 1080, 620)
+const PRELUDE_OPT_W := 480.0
+const PRELUDE_OPT_H := 150.0
+const PRELUDE_OPT_GAP := 24.0
+const PRELUDE_OPT_Y := 380.0
+const PRELUDE_ACT_Y := 578.0
+const PRELUDE_CONFIRM := Rect2(468, 578, 480, 44)
+const PRELUDE_EXECUTE := Rect2(972, 578, 480, 44)
+const PRELUDE_SKIP := Rect2(1252, 778, 200, 32)
+
 # ── P1g：无线电 / 事件 feed、暂停指示、END 归档页 ──────────
 const FEED_ROWS := 3
 const FEED_PITCH := 12.0
@@ -895,6 +906,18 @@ var _t := 0.0
 var _rack_chip_rects: Array = []      # P3b：[{rect, idx, model}]（每帧重建）
 var _demo_sensor_menu := false
 var _demo_sensor_toggle := false
+# P3c：前置航行覆盖层（state 未落地时的本地演示态；state 字段存在时以 state 为准）
+var _demo_prelude := false
+var _demo_pre_step := 0
+var _demo_pre_route := ""
+var _demo_pre_window := ""
+var _demo_pre_confirmed := false
+var _demo_pre_hint := ""
+var _prelude_was_open := false
+var _prelude_close_t := 0.0            # 执行/跳过后的全屏 80px 硬切揭场
+var _prelude_skipped := false
+var _prelude_local_confirmed := false
+var _prelude_hint_text := ""
 
 # P1e 命令面板（本地 draft；授权前不写 state）
 var cmd_action := "BURN"
@@ -1002,6 +1025,13 @@ func _ready() -> void:
 			_demo_sensor_menu = true
 			_demo_suppress_adjutant = true
 			_demo_sensor_toggle = OS.get_environment("DSH_SENSOR_TOGGLE") != ""
+		"prelude":
+			# P3c 截图：航行准备 Step 0（state 无 prelude 字段时用本地演示态）。
+			_demo_prelude = true
+			_demo_suppress_adjutant = true
+			var demo_step := OS.get_environment("DSH_PRELUDE_STEP")
+			if demo_step != "":
+				_demo_pre_step = clampi(int(demo_step), 0, 2)
 	# P3a：截图时把动效冻结到指定时刻（秒），用于逐帧截取硬切/解码中间态。
 	var ut := OS.get_environment("DSH_UI_T")
 	if ut != "":
@@ -1039,6 +1069,19 @@ func _process(delta: float) -> void:
 		if _demo_sensor_toggle:
 			_demo_sensor_toggle = false
 			_demo_toggle_first_expose()
+	# P3c：前置航行覆盖层 —— 键盘、跳过钩子、执行/跳过后的全屏硬切揭场。
+	var prelude_now := _ov_prelude()
+	if prelude_now:
+		_poll_prelude_keys()
+		if OS.get_environment("DSH_SKIP_PRELUDE") != "" and not _prelude_skipped:
+			_prelude_skipped = true
+			_prelude_skip()
+	if _prelude_was_open and not _ov_prelude():
+		_prelude_close_t = UI_CUT_DUR
+		_prelude_hint_text = ""
+	_prelude_was_open = _ov_prelude()
+	if _prelude_close_t > 0.0:
+		_prelude_close_t = maxf(0.0, _prelude_close_t - delta)
 	# P2b：副官申请打开时暂停（记录原 paused，关掉恢复）。
 	if state != null and state.boot_t >= 1.7:
 		var adj_now := _ov_adjutant()
@@ -1122,6 +1165,11 @@ func _draw() -> void:
 	# P2b：副官申请（独立 UI，打开时暂停；不进通信流）。
 	if _ov_adjutant():
 		_draw_adjutant_overlay()
+	# P3c：前置航行（最顶层，P3a 硬切/解码）；执行/跳过后的全屏 80px 硬切揭场。
+	if _ov_prelude():
+		_draw_prelude_overlay()
+	if _prelude_close_t > 0.0:
+		_draw_window_cut(Rect2(0, 0, 1920, 1080), UI_CUT_DUR - _prelude_close_t)
 	# P1g：暂停指示画在覆盖层之上（否则会被 dim 压暗），时标处常驻可见。
 	_draw_pause_badge()
 
@@ -1140,6 +1188,11 @@ func _draw_pause_badge() -> void:
 
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
+		return
+	# P3c：前置航行覆盖层最优先吃点击（开局阻挡）。
+	if _ov_prelude():
+		_handle_prelude_click(p)
+		queue_redraw()
 		return
 	# P2b：副官申请（独立 UI）最优先吃点击。
 	if _ov_adjutant():
@@ -1215,7 +1268,9 @@ func click(p: Vector2) -> void:
 			return
 
 func consumes(p: Vector2) -> bool:
-	# P2b：副官申请 / 证据面板按钮优先吞输入。
+	# P3c：前置航行 / P2b 副官申请优先吞输入。
+	if _ov_prelude():
+		return true
 	if _ov_adjutant():
 		return true
 	if EVID_SHUTTLE.has_point(p) or EVID_EVAC.has_point(p):
@@ -2316,6 +2371,8 @@ func _any_overlay() -> bool:
 # 暂停指示文案（时标处）：decision / consequence / report / END。
 # P1g：decision / consequence / report / END 时，时标处显示 PAUSED · 裁决/报告/归档。
 func _pause_label() -> String:
+	if _ov_prelude():
+		return "航行准备"
 	if _modal == "notice":
 		return "通知"
 	if _modal == "advisor":
@@ -2333,6 +2390,350 @@ func _pause_label() -> String:
 	if _ov_decision():
 		return "裁决"
 	return ""
+
+# ══ P3c：前置航行覆盖层（航行准备 / DEPARTURE）════════════════
+# 读 state.prelude_*（P3c-SIM contract）；state 未落地时用 _demo_prelude 本地演示。
+# 不写通信流：所有文本都只在覆盖层内，不放无线电 / 事件 feed。
+func _ov_prelude() -> bool:
+	if _demo_prelude:
+		return true
+	return _flag("prelude_open")
+
+func _prelude_live() -> bool:
+	return state != null and state.get("prelude_open") != null
+
+func _prelude_data() -> Dictionary:
+	var d := {
+		"step": 0, "route": "", "window": "", "dv": 84.0,
+		"hint": "", "body": "ID13 母港 L4-02 Hammer 离港，前往 L1 Meridian 执行 OCUVF 任务；设定目的地、变轨窗口与 Δv 预算。本阶段不计入 6:00 执行窗口。",
+	}
+	# 场景级文本（title/body）优先读 state.prelude_data（P3c-SIM 已落地，story.prelude）。
+	if state != null:
+		for pkey in ["prelude_data", "prelude"]:
+			var pd = state.get(pkey)
+			if pd is Dictionary:
+				var bv = (pd as Dictionary).get("body")
+				if bv != null and String(bv) != "":
+					d["body"] = String(bv)
+				var tv = (pd as Dictionary).get("title")
+				if tv != null and String(tv) != "":
+					d["_title"] = String(tv)
+	if _demo_prelude:
+		# 截图演示态：步骤/选择完全本地；step≥2 时若未选中，回退到第一个正确项以显示完整摘要。
+		d["step"] = clampi(_demo_pre_step, 0, 3)
+		if d["step"] >= 2 and _demo_pre_route == "":
+			for raw_r in _prelude_routes():
+				if raw_r is Dictionary and bool((raw_r as Dictionary).get("ok", false)):
+					_demo_pre_route = String((raw_r as Dictionary).get("id", ""))
+					break
+		if d["step"] >= 2 and _demo_pre_window == "":
+			for raw_w in _prelude_windows():
+				if raw_w is Dictionary and bool((raw_w as Dictionary).get("ok", false)):
+					_demo_pre_window = String((raw_w as Dictionary).get("id", ""))
+					break
+		d["route"] = _demo_pre_route
+		d["window"] = _demo_pre_window
+		d["hint"] = _prelude_hint_text
+		return d
+	if _prelude_live():
+		var st = state.get("prelude_step")
+		if st != null:
+			d["step"] = clampi(int(st), 0, 3)
+		var rv = state.get("prelude_route")
+		if rv != null:
+			d["route"] = String(rv)
+		var wv = state.get("prelude_window")
+		if wv != null:
+			d["window"] = String(wv)
+		var dv = state.get("prelude_dv")
+		if dv != null and float(dv) > 0.0:
+			d["dv"] = float(dv)
+		d["hint"] = _prelude_hint_text
+	return d
+
+func _prelude_routes() -> Array:
+	var out: Array = []
+	if state != null:
+		var pd = state.get("prelude_data")
+		if pd is Dictionary and (pd as Dictionary).get("routes") is Array:
+			var rv = (pd as Dictionary)["routes"]
+			if (rv as Array).size() > 0:
+				return rv
+		for key in ["prelude_routes", "prelude_route_options"]:
+			var v = state.get(key)
+			if v is Array and (v as Array).size() > 0:
+				out = v
+				break
+		if not out.is_empty():
+			return out
+	out = [
+		{"id": "meridian", "label": "L1 Meridian · Chronos", "hint": "OCUVF 本部指定；ID13 以谈判主力介入 Chronos 事件。", "ok": true},
+		{"id": "karman", "label": "L2 Karman · 贸易环", "hint": "非任务航线：抵达时执行窗口已开始，错过 T+18:00 变轨。", "ok": false},
+	]
+	return out
+
+func _prelude_windows() -> Array:
+	var out: Array = []
+	if state != null:
+		var pd = state.get("prelude_data")
+		if pd is Dictionary and (pd as Dictionary).get("windows") is Array:
+			var wv = (pd as Dictionary)["windows"]
+			if (wv as Array).size() > 0:
+				return wv
+		for key in ["prelude_windows", "prelude_window_options"]:
+			var v = state.get(key)
+			if v is Array and (v as Array).size() > 0:
+				out = v
+				break
+		if not out.is_empty():
+			return out
+	out = [
+		{"id": "t1800", "label": "T+18:00 · 标准变轨窗口", "hint": "Hammer 港务调度批准；Δv 预算内，抵达时间符合 OCUVF 要求。", "ok": true},
+		{"id": "t0200", "label": "T+02:00 · 应急窗口", "hint": "窗口过窄：时序/燃料风险，抵达时执行窗口已开始。", "ok": false},
+	]
+	return out
+
+func _prelude_opt_label(opts: Array, oid: String) -> String:
+	for raw in opts:
+		if raw is Dictionary:
+			var o: Dictionary = raw
+			var id := String(o.get("id", o.get("kind", "")))
+			if id == oid:
+				return String(o.get("label", id))
+	if oid == "":
+		return "—"
+	return oid
+
+# Δv 预计：state.prelude_dv 优先；未结算时按「航线 dv_ms + 窗口 dv_ms」估算（scenario 数据）。
+func _prelude_dv_value(d: Dictionary) -> float:
+	var dv := float(d.get("dv", 0.0))
+	if dv > 0.0:
+		return dv
+	var total := 0.0
+	for raw in _prelude_routes():
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == String(d.get("route", "")):
+			total += float((raw as Dictionary).get("dv_ms", 0.0))
+			break
+	for raw2 in _prelude_windows():
+		if raw2 is Dictionary and String((raw2 as Dictionary).get("id", "")) == String(d.get("window", "")):
+			total += float((raw2 as Dictionary).get("dv_ms", 0.0))
+			break
+	return total if total > 0.0 else 84.0
+
+func _prelude_call(method: String, arg: Variant = null) -> bool:
+	if state == null or not state.has_method(method):
+		return false
+	if arg == null:
+		state.call(method)
+	else:
+		state.call(method, arg)
+	return true
+
+func _prelude_choose(kind: String, option: Dictionary) -> void:
+	var oid := String(option.get("id", option.get("kind", "")))
+	if oid == "":
+		return
+	var ok := bool(option.get("ok", option.get("correct", false)))
+	var hint := String(option.get("hint", ""))
+	if _demo_prelude:
+		# 截图演示态：正确项推进，错误项停在原地并给提示（文本仍来自 scenario）。
+		if kind == "route":
+			if ok:
+				_demo_pre_route = oid
+				_demo_pre_step = 1
+				_prelude_hint_text = ""
+			else:
+				_prelude_hint_text = "航线不可用：%s" % hint if hint != "" else "航线错误：请选择 L1 Meridian。"
+		else:
+			if ok:
+				_demo_pre_window = oid
+				_demo_pre_step = 2
+				_prelude_hint_text = ""
+			else:
+				_prelude_hint_text = "窗口不可用：%s" % hint if hint != "" else "窗口错误：请选择 T+18:00。"
+		return
+	if _prelude_live():
+		var res = null
+		if kind == "route" and state.has_method("prelude_choose_route"):
+			res = state.call("prelude_choose_route", oid)
+		elif kind == "window" and state.has_method("prelude_choose_window"):
+			res = state.call("prelude_choose_window", oid)
+		if res is Dictionary and not bool((res as Dictionary).get("ok", false)):
+			var h := String((res as Dictionary).get("hint", hint))
+			_prelude_hint_text = h if h != "" else "选择无效，请重新选择。"
+		else:
+			_prelude_hint_text = ""
+
+func _prelude_confirm() -> void:
+	if _demo_prelude:
+		_demo_prelude = false
+		return
+	# P3c-SIM：prelude_confirm() 内部即执行点火（等价 execute）。
+	if _prelude_live() and state.has_method("prelude_confirm"):
+		state.call("prelude_confirm")
+		return
+	_prelude_execute()
+
+func _prelude_execute() -> void:
+	if _demo_prelude:
+		_demo_prelude = false
+		return
+	if _prelude_live() and state.has_method("prelude_execute"):
+		state.call("prelude_execute")
+		return
+
+func _prelude_skip() -> void:
+	if _demo_prelude:
+		_demo_prelude = false
+		return
+	if _prelude_live() and state.has_method("prelude_skip"):
+		state.call("prelude_skip")
+
+func _poll_prelude_keys() -> void:
+	for k in [KEY_1, KEY_2, KEY_ENTER, KEY_SPACE, KEY_S]:
+		var down := Input.is_key_pressed(k)
+		var was := bool(_key_prev.get(k, false))
+		_key_prev[k] = down
+		if down and not was:
+			_on_prelude_key(k)
+
+func _on_prelude_key(k: int) -> void:
+	if k == KEY_S:
+		_prelude_skip()
+		return
+	var d := _prelude_data()
+	var st := int(d["step"])
+	if st == 0:
+		var routes := _prelude_routes()
+		if k == KEY_1 and routes.size() > 0:
+			_prelude_choose("route", routes[0])
+		elif k == KEY_2 and routes.size() > 1:
+			_prelude_choose("route", routes[1])
+	elif st == 1:
+		var wins := _prelude_windows()
+		if k == KEY_1 and wins.size() > 0:
+			_prelude_choose("window", wins[0])
+		elif k == KEY_2 and wins.size() > 1:
+			_prelude_choose("window", wins[1])
+	elif st == 2:
+		if k == KEY_ENTER or k == KEY_SPACE or k == KEY_1:
+			_prelude_confirm()
+		elif k == KEY_2:
+			_prelude_execute()
+
+func _prelude_opt_rect(i: int) -> Rect2:
+	return Rect2(PRELUDE_RECT.position.x + 48.0 + float(i) * (PRELUDE_OPT_W + PRELUDE_OPT_GAP),
+		PRELUDE_OPT_Y, PRELUDE_OPT_W, PRELUDE_OPT_H)
+
+func _handle_prelude_click(p: Vector2) -> void:
+	var d := _prelude_data()
+	var st := int(d["step"])
+	if st == 0 or st == 1:
+		var opts := _prelude_routes() if st == 0 else _prelude_windows()
+		for i in range(mini(opts.size(), 2)):
+			if _prelude_opt_rect(i).has_point(p):
+				_prelude_choose("route" if st == 0 else "window", opts[i])
+				return
+	elif st == 2:
+		if PRELUDE_CONFIRM.has_point(p):
+			_prelude_confirm()
+			return
+		if PRELUDE_EXECUTE.has_point(p):
+			_prelude_execute()
+			return
+	if PRELUDE_SKIP.has_point(p):
+		_prelude_skip()
+
+func _draw_prelude_overlay() -> void:
+	_overlay_dim()
+	var r := PRELUDE_RECT
+	var d := _prelude_data()
+	var st := int(d["step"])
+	_overlay_frame(r, _dtext("航行准备 / DEPARTURE"),
+		"PRELUDE · 第零幕 · 不计入 6:00 窗口 · 不写通信流")
+	# 三步进度（step 3 = 已执行，仅过渡帧）
+	var steps := [["00", "目的地 / ROUTE"], ["01", "变轨窗口 / WINDOW"], ["02", "Δv / BURN"]]
+	for i in range(3):
+		var chip := Rect2(r.position.x + 48.0 + float(i) * 224.0, r.position.y + 56.0, 208.0, 24.0)
+		var done := st > i
+		var cur := st == i
+		draw_rect(chip, Palette.a(Palette.PANEL2, 0.9) if cur else Palette.a(Palette.PANEL, 0.4))
+		draw_rect(chip, Palette.a(Palette.PH, 0.8 if (cur or done) else 0.22), false, 1.0)
+		_txt(mono, chip.position.x + 10.0, chip.position.y + 5.0, String(steps[i][0]), 8,
+			Palette.PH if (cur or done) else Palette.FAINT)
+		_txt(cjk, chip.position.x + 40.0, chip.position.y + 5.0, String(steps[i][1]), 8,
+			Palette.TXT if cur else Palette.DIM)
+	# 概述正文（P3a 解码）
+	var body_lines := _wrap_text(cjk, String(d["body"]), 9, r.size.x - 96.0)
+	var db := _dlines(body_lines)
+	for i in range(mini(db.size(), 2)):
+		_txt(cjk, r.position.x + 48.0, r.position.y + 96.0 + float(i) * 18.0, String(db[i]), 9,
+			Palette.a(Palette.TXT, 0.9))
+	if st == 0 or st == 1:
+		var opts := _prelude_routes() if st == 0 else _prelude_windows()
+		var chosen := String(d["route"]) if st == 0 else String(d["window"])
+		for i in range(mini(opts.size(), 2)):
+			var o: Dictionary = opts[i]
+			var rc := _prelude_opt_rect(i)
+			var oid := String(o.get("id", o.get("kind", "")))
+			var sel := oid != "" and oid == chosen
+			var hot := rc.has_point(_mouse_base())
+			var col: Color = Palette.PH if sel else (Palette.AMBER if hot else Palette.LINE)
+			draw_rect(rc, Palette.a(Palette.PANEL2, 0.85 if hot else 0.5))
+			draw_rect(rc, Palette.a(col, 0.85 if (sel or hot) else 0.3), false, 1.0)
+			if sel:
+				draw_rect(Rect2(rc.position.x, rc.position.y, 2.0, rc.size.y), Palette.PH)
+			_txt(mono, rc.position.x + 18.0, rc.position.y + 16.0, "0%d" % (i + 1), 18,
+				Palette.a(Palette.PH, 0.9))
+			_txt(cjk, rc.position.x + 62.0, rc.position.y + 14.0, _dtext(String(o.get("label", oid))), 12,
+				Palette.TXT)
+			_txt(cjk, rc.position.x + 62.0, rc.position.y + 48.0,
+				_ellipsis(cjk, _dtext(String(o.get("hint", ""))), 8, rc.size.x - 84.0), 8, Palette.DIM)
+			var corr = o.get("ok")
+			if corr == null:
+				corr = o.get("correct")
+			if corr != null:
+				if bool(corr):
+					_txt(cjk, rc.position.x + 62.0, rc.position.y + 104.0,
+						"任务指定 / 正确" if st == 0 else "推荐窗口 / 正确", 7, Palette.a(Palette.PH, 0.8))
+				else:
+					_txt(cjk, rc.position.x + 62.0, rc.position.y + 104.0,
+						"非任务航线 / 会错过窗口" if st == 0 else "应急窗口 / 风险", 7, Palette.a(Palette.AMBER, 0.75))
+			if sel:
+				_txt_r(cjk, rc.end.x - 16.0, rc.position.y + 16.0, "已选", 7, Palette.PH)
+		var hint := String(d["hint"])
+		if hint != "":
+			_txt(cjk, r.position.x + 48.0, PRELUDE_ACT_Y - 24.0, _dtext(hint), 9, Palette.a(Palette.AMBER, 0.95))
+	elif st == 2:
+		var routes := _prelude_routes()
+		var wins := _prelude_windows()
+		var dv_est := _prelude_dv_value(d)
+		_txt(cjk, r.position.x + 48.0, PRELUDE_OPT_Y - 24.0, "Δv 预算 / BURN BUDGET", 7, Palette.FAINT)
+		_txt(mono, r.position.x + 48.0, PRELUDE_OPT_Y + 32.0, "%d m/s" % int(round(dv_est)), 36, Palette.PH)
+		_txt(cjk, r.position.x + 560.0, PRELUDE_OPT_Y + 2.0,
+			_dtext("航线 / ROUTE：%s" % _prelude_opt_label(routes, String(d["route"]))), 10, Palette.TXT)
+		_txt(cjk, r.position.x + 560.0, PRELUDE_OPT_Y + 32.0,
+			_dtext("窗口 / WINDOW：%s" % _prelude_opt_label(wins, String(d["window"]))), 10, Palette.TXT)
+		var ctext := ""
+		var pd = state.get("prelude_data") if state != null else null
+		if pd is Dictionary:
+			ctext = String((pd as Dictionary).get("confirm_text", ""))
+		if ctext == "":
+			ctext = "目的地与变轨窗口已选；确认后执行点火，Δv 从 ID13 预算中扣除。"
+		_txt(cjk, r.position.x + 560.0, PRELUDE_OPT_Y + 62.0,
+			_ellipsis(cjk, _dtext(ctext), 9, 420.0), 9, Palette.a(Palette.TXT, 0.9))
+		_txt(cjk, r.position.x + 560.0, PRELUDE_OPT_Y + 92.0,
+			"执行后：点火 → 巡航 → 抵达 Meridian；本阶段不计入 6:00 执行窗口。", 8, Palette.DIM)
+		_cmd_btn(PRELUDE_CONFIRM, "确认并点火 / CONFIRM & BURN", false, Palette.PH)
+		_cmd_btn(PRELUDE_EXECUTE, "执行点火 / EXECUTE", false, Palette.AMBER)
+	else:
+		_txt(cjk, r.position.x + 48.0, PRELUDE_OPT_Y + 24.0, "点火命令已下达 · 正在硬切揭场…", 14, Palette.PH)
+	# 跳过 / 键位提示
+	_cmd_btn(PRELUDE_SKIP, "跳过 / SKIP（S）", false, Palette.FAINT)
+	_txt(cjk, r.position.x + 48.0, r.end.y - 44.0,
+		"1 / 2 选择 · Enter 确认 / 点火 · S 跳过（或 DSH_SKIP_PRELUDE=1）", 7, Palette.FAINT)
+	# P3a：80px 硬切揭示 + 文本解码（窗口 id = prelude）
+	_draw_window_cut(r)
 
 # ── P1g：无线电 / 事件 feed ────────────────────────────
 func _norm_feed(raw, default_kind: String) -> Dictionary:
@@ -2829,6 +3230,11 @@ func _overlay_frame(r: Rect2, title: String, kicker: String) -> void:
 # ── P3a：窗口硬切 / 文本乱码解码（一次性动效；docs/09 §4.2 #6/#7）──
 func _window_id() -> String:
 	# 与绘制顺序一致：越后画的窗口优先级越高。
+	# boot 期间不启动窗口动效（boot 结束后才第一次看到覆盖层）。
+	if state != null and float(state.boot_t) < 1.7:
+		return ""
+	if _ov_prelude():
+		return "prelude"
 	if _ov_adjutant():
 		return "adjutant"
 	if _modal != "":
@@ -2864,8 +3270,10 @@ func _cut_order(cells: int) -> Array:
 		arr[j] = tmp
 	return arr
 
-func _draw_window_cut(rect: Rect2) -> void:
+func _draw_window_cut(rect: Rect2, t_override := -1.0) -> void:
 	var t := _ui_cut_sample_t if _ui_cut_sample_t >= 0.0 else _ui_anim_time()
+	if t_override >= 0.0:
+		t = t_override
 	if UI_CUT_DUR <= 0.0 or t >= UI_CUT_DUR:
 		return
 	var step := int(floor(t / (UI_CUT_DUR / float(UI_CUT_STEPS))))

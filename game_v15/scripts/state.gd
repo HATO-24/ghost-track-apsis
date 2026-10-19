@@ -150,6 +150,14 @@ var adjutant_request_seen := false
 var _demo_tasks := false
 var _demo_tasks_seeded := false
 
+# ── P3c：前置航行（L4 Hammer → L1 Meridian）────────────
+var prelude_open := false
+var prelude_step := 0            # 0 目的地 / 1 变轨窗口 / 2 点火确认 / 3 完成
+var prelude_route := ""
+var prelude_window := ""
+var prelude_dv := 0.0
+var prelude_data: Dictionary = {}
+
 # ── P1c 传感器状态 ─────────────────────────────────────
 var racks: Dictionary = {}                 # ship_id -> [sensor...]（SensorModel）
 var sensor_on: Dictionary = {}             # ship_id -> {model: bool}（当前融合计划）
@@ -204,7 +212,9 @@ func _bootstrap() -> void:
 	_fusion_tick(0.0)
 	_update_identity(0.0)
 	_update_threat(0.0)
-	_pump_feeds(0.0)
+	_prelude_init()
+	if not prelude_open:
+		_pump_feeds(0.0)
 
 # ── 舰 / 架 ────────────────────────────────────────────
 
@@ -423,6 +433,9 @@ func _commands_locked() -> bool:
 func issue_command(action: String, params: Dictionary = {}, target := "") -> Dictionary:
 	if cmd_model == null:
 		return {}
+	if prelude_open:
+		_push_log("前置航行未完成：无法下达战斗命令", "NAV", "HOLD")
+		return {}
 	if _commands_locked():
 		_push_log("命令不可用：已进入决断/报告阶段", "LOCKED", "HOLD")
 		return {}
@@ -607,6 +620,13 @@ func _fmt_int(v: int) -> String:
 	return out
 
 func refresh(now: float) -> void:
+	if prelude_open:
+		if capture or OS.get_environment("DSH_SKIP_PRELUDE") == "1":
+			prelude_skip()
+		else:
+			paused = true
+			clock = T0
+			return
 	var t := now - T0
 	_update_phase_gate(t)
 	_pump_feeds(t)
@@ -1161,6 +1181,7 @@ func _load_story() -> void:
 	report_recommend = story.get("report_recommend", {})
 	evidence_tasks_def = story.get("evidence_tasks", {})
 	adjutant_request = (story.get("adjutant_request", {}) as Dictionary).duplicate(true)
+	prelude_data = (story.get("prelude", {}) as Dictionary).duplicate(true)
 
 func _update_phase_gate(t: float) -> void:
 	if end_open:
@@ -1191,7 +1212,7 @@ func _update_phase_gate(t: float) -> void:
 
 # P1g：决断/后果/报告/END 真正冻结仿真（main 停 clock / exec_left）
 func _update_freeze() -> void:
-	sim_frozen = decision_open or consequence_open or report_open or end_open or fire_branch
+	sim_frozen = decision_open or consequence_open or report_open or end_open or fire_branch or prelude_open
 
 func _open_decision() -> void:
 	if decision_open or report_open or consequence_open or tut_phase == PHASE_END:
@@ -1572,6 +1593,12 @@ func _reset_runtime() -> void:
 	adjutant_request_seen = false
 	_demo_tasks = false
 	_demo_tasks_seeded = false
+	prelude_open = false
+	prelude_step = 0
+	prelude_route = ""
+	prelude_window = ""
+	prelude_dv = 0.0
+	prelude_data = {}
 	tracks.clear()
 	racks = {}
 	sensor_on = {}
@@ -1763,7 +1790,7 @@ func _task_def(kind: String) -> Dictionary:
 	return def
 
 func _tasks_allowed() -> bool:
-	if decision_open or consequence_open or report_open or end_open:
+	if prelude_open or decision_open or consequence_open or report_open or end_open:
 		return false
 	return tut_phase == PHASE_COMMAND
 
@@ -1893,6 +1920,125 @@ func _seed_demo_tasks(t: float) -> void:
 		bb["started_t"] = 50.0
 	adjutant_request_open = false
 	adjutant_request_seen = true
+
+# ── P3c：前置航行（Hammer → Meridian）────────────────────
+
+func _prelude_init() -> void:
+	if prelude_data.is_empty():
+		prelude_open = false
+		return
+	prelude_open = true
+	prelude_step = 0
+	prelude_route = ""
+	prelude_window = ""
+	prelude_dv = 0.0
+	paused = true
+	if OS.get_environment("DSH_SKIP_PRELUDE") == "1":
+		prelude_skip()
+
+func _prelude_route_def(id: String) -> Dictionary:
+	for raw in prelude_data.get("routes", []):
+		var r: Dictionary = raw
+		if String(r.get("id", "")) == id:
+			return r
+	return {}
+
+func _prelude_window_def(id: String) -> Dictionary:
+	for raw in prelude_data.get("windows", []):
+		var w: Dictionary = raw
+		if String(w.get("id", "")) == id:
+			return w
+	return {}
+
+func prelude_choose_route(id: String) -> Dictionary:
+	if not prelude_open or prelude_step > 1:
+		return {}
+	var r := _prelude_route_def(id)
+	if r.is_empty():
+		return {}
+	var hint := String(r.get("hint", ""))
+	if not bool(r.get("ok", false)):
+		_push_log("前置航行：%s —— %s" % [String(r.get("label", id)), hint], "NAV", "HOLD")
+		return {"ok": false, "hint": hint, "step": prelude_step}
+	prelude_route = id
+	prelude_step = 1
+	_push_log("前置航行：目的地 = %s" % String(r.get("label", id)), "NAV", "EXEC")
+	return {"ok": true, "route": id, "step": prelude_step}
+
+func prelude_choose_window(id: String) -> Dictionary:
+	if not prelude_open or prelude_step != 1:
+		return {}
+	var w := _prelude_window_def(id)
+	if w.is_empty():
+		return {}
+	var hint := String(w.get("hint", ""))
+	if not bool(w.get("ok", false)):
+		_push_log("前置航行：%s —— %s" % [String(w.get("label", id)), hint], "NAV", "HOLD")
+		return {"ok": false, "hint": hint, "step": prelude_step}
+	prelude_window = id
+	var r := _prelude_route_def(prelude_route)
+	prelude_dv = float(r.get("dv_ms", 0.0)) + float(w.get("dv_ms", 0.0))
+	prelude_step = 2
+	_push_log("前置航行：变轨窗口 = %s；预计 Δv %.0f m/s" % [String(w.get("label", id)), prelude_dv], "NAV", "EXEC")
+	return {"ok": true, "window": id, "dv_ms": prelude_dv, "step": prelude_step}
+
+func prelude_confirm() -> Dictionary:
+	if not prelude_open:
+		return {}
+	if prelude_step != 2:
+		return {"ok": false, "reason": "prelude_step"}
+	return prelude_execute()
+
+func prelude_execute() -> Dictionary:
+	if not prelude_open:
+		return {}
+	var r := _prelude_route_def(prelude_route)
+	var w := _prelude_window_def(prelude_window)
+	if r.is_empty() or w.is_empty() or not bool(r.get("ok", false)) or not bool(w.get("ok", false)):
+		_push_log("前置航行：目的地或窗口未确认", "NAV", "HOLD")
+		return {"ok": false, "reason": "prelude_invalid"}
+	prelude_dv = float(r.get("dv_ms", 0.0)) + float(w.get("dv_ms", 0.0))
+	unit_dv_ms = maxf(0.0, unit_dv_ms - prelude_dv)
+	fleet_dv = maxi(0, fleet_dv - int(round(prelude_dv)))
+	unit["dv"] = _fmt_int(int(round(unit_dv_ms)))
+	flags["prelude_done"] = true
+	flags["prelude_route"] = prelude_route
+	flags["prelude_window"] = prelude_window
+	prelude_open = false
+	prelude_step = 3
+	if not capture:
+		clock = T0
+		paused = false
+	_push_log(String(prelude_data.get("execute_text", "点火执行；ID13 进入转移轨道。")), "NAV", "EXEC")
+	for raw in prelude_data.get("done_comm", []):
+		var c: Dictionary = raw
+		_append_radio(String(c.get("from", "—")), String(c.get("to", "—")), String(c.get("mode", "RDO")),
+			String(c.get("text", "")), tau())
+	return {"ok": true, "open": false, "step": 3, "dv_ms": prelude_dv,
+		"route": prelude_route, "window": prelude_window}
+
+# 静默完成（截图/自动化）：不扣 Δv、不写通信，避免影响既有截图
+func prelude_skip() -> Dictionary:
+	if not prelude_open:
+		return {}
+	for raw in prelude_data.get("routes", []):
+		var r: Dictionary = raw
+		if bool(r.get("ok", false)):
+			prelude_route = String(r.get("id", ""))
+			break
+	for raw2 in prelude_data.get("windows", []):
+		var w: Dictionary = raw2
+		if bool(w.get("ok", false)):
+			prelude_window = String(w.get("id", ""))
+			break
+	prelude_open = false
+	prelude_step = 3
+	if not capture:
+		clock = T0
+		paused = false
+	flags["prelude_skipped"] = true
+	return {"ok": true, "open": false, "skipped": true,
+		"route": prelude_route, "window": prelude_window}
 
 # ── 日志 / 单位面板 ────────────────────────────────────
 
