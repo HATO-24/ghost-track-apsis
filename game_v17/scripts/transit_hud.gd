@@ -24,6 +24,11 @@ const BTN_REPLAY := Rect2(1472, 952, 120, 22)
 const TUT_BTN := Rect2(1640, 56, 160, 20)
 const TUT_CLOSE := Rect2(1396, 820, 126, 24)
 const TUT_NEXT := Rect2(1210, 820, 174, 24)
+const ROE_FIRE_BTN := Rect2(540, 436, 190, 28)
+const FIRE_CONFIRM_BTN := Rect2(540, 436, 220, 28)
+const FIRE_CANCEL_BTN := Rect2(776, 436, 160, 28)
+const CONS_REPORT_BTN := Rect2(540, 660, 220, 28)
+const CONS_RESTART_BTN := Rect2(776, 660, 220, 28)
 const OPT_RECT := Rect2(1180, 360, 320, 220)
 const OPT_START_VIS := Rect2(1192, 536, 70, 20)
 const OPT_START_IR := Rect2(1268, 536, 58, 20)
@@ -655,14 +660,49 @@ func _draw_modal_page() -> void:
 		return
 	var page := String(sim.modal_page)
 	var r := Rect2(520, 260, 880, 520)
-	draw_rect(Rect2(0, 0, 1920, 1080), Color(0.01, 0.02, 0.016, 0.72))
+	if page == "consequence":
+		r = Rect2(440, 200, 1040, 600)
+	draw_rect(Rect2(0, 0, 1920, 1080), Color(0.01, 0.02, 0.016, 0.78))
 	draw_rect(r, P.a(P.PANEL, 0.995))
-	draw_rect(r, P.a(P.AMBER, 0.7), false, 1.0)
+	draw_rect(r, P.a(P.AMBER if page != "consequence" else P.RED, 0.75), false, 1.0)
 	var cur: Dictionary = _teach_vm().get("current", {}) if _teach_vm().get("current", {}) is Dictionary else {}
+	if page == "roe":
+		_txt(cjk, r.position.x + 20, r.position.y + 24, "ROE / 交战规则", 12, P.AMBER)
+		_txt(mono, r.position.x + 20, r.position.y + 42, "07 教学 %s · %s" % [String(cur.get("step_id", "—")), String(cur.get("title", ""))], 7, P.a(P.PH_DIM, 0.9))
+		_txt(cjk, r.position.x + 20, r.position.y + 72, "默认交战规则 / DEFAULT ROE", 8, P.PH)
+		_txt(cjk, r.position.x + 20, r.position.y + 92, "WEAPONS HOLD · 不首先开火；武器释放需指挥官明确授权。", 8, P.TXT)
+		_txt(cjk, r.position.x + 20, r.position.y + 112, "当前授权：%s" % ("已授权" if bool(sim.fire_authorized) else "未授权"), 7, P.AMBER if not bool(sim.fire_authorized) else P.RED)
+		_txt(cjk, r.position.x + 20, r.position.y + 136, "FIRE 为灾难分支：二次确认后冻结转场、进入后果页；不可返回普通决策。", 7, P.AMBER)
+		_btn(ROE_FIRE_BTN, "FIRE / 授权开火", true, P.RED)
+		_btn(Rect2(r.end.x - 140, r.end.y - 40, 120, 24), "关闭 / CLOSE", true, P.PH_DIM)
+		_txt(cjk, r.position.x + 20, r.end.y - 20, "手动选择 · 不自动开火 · teaching note 在确认后记录", 6, P.a(P.FAINT, 0.9))
+		return
+	if page == "fire_confirm":
+		_txt(cjk, r.position.x + 20, r.position.y + 24, "FIRE / 二次确认", 12, P.RED)
+		_txt(cjk, r.position.x + 20, r.position.y + 54, "授权 2001 AV-4412 实施动能释放？", 9, P.AMBER)
+		_txt(cjk, r.position.x + 20, r.position.y + 76, "默认不交火。确认后：转场冻结 → 后果页 → 内部事后报告。", 8, P.TXT)
+		_txt(cjk, r.position.x + 20, r.position.y + 98, "不实现弹道/命中/伤害；后果为脚本设定。", 7, P.FAINT)
+		_btn(FIRE_CONFIRM_BTN, "CONFIRM FIRE / 确认", true, P.RED)
+		_btn(FIRE_CANCEL_BTN, "CANCEL / 取消", true, P.PH_DIM)
+		_txt(cjk, r.position.x + 20, r.end.y - 20, "第二次确认 · 不自动选择 · 可取消回 ROE", 6, P.a(P.FAINT, 0.9))
+		return
+	if page == "consequence":
+		_txt(cjk, r.position.x + 24, r.position.y + 28, "后果 / CONSEQUENCE · FIRE", 14, P.RED)
+		_txt(mono, r.position.x + 24, r.position.y + 46, "SCRIPTED CONSEQUENCE · WEAPONS NOT SIMULATED", 8, P.AMBER)
+		_txt(cjk, r.position.x + 24, r.position.y + 76, "后果文本 / EXISTING SETTING", 8, P.PH)
+		var ctext := String((sim.story as Dictionary).get("consequence_fire", "")) if sim.story is Dictionary else ""
+		if ctext == "":
+			ctext = "武器释放授权已下达；Chronos 储罐区发生二次火灾，平民伤亡；ID13 被定性。"
+		_txt(cjk, r.position.x + 24, r.position.y + 96, _ellipsis(cjk, ctext, 8, 980.0), 8, P.TXT)
+		_txt(cjk, r.position.x + 24, r.position.y + 120, _ellipsis(cjk, "交火风险：站体与平民伤亡；不是 game over，但 ID13 被定性为未登记武装；需内部事后报告。", 7, 980.0), 7, P.AMBER)
+		_txt(cjk, r.position.x + 24, r.position.y + 148, "状态：decision=FIRE · fire_authorized=true · playing=frozen · consequence=visible", 7, P.DIM)
+		_btn(CONS_REPORT_BTN, "进入报告 / REPORT", true, P.PH)
+		_btn(CONS_RESTART_BTN, "重开转场 / RESTART", true, P.PH_DIM)
+		_txt(cjk, r.position.x + 24, r.end.y - 44, "不可返回普通决策重选；RESET/重开仅允许重开转场（t=0）。", 7, P.AMBER)
+		_txt(cjk, r.position.x + 24, r.end.y - 24, "REPORT 页会读取 story.report_bodies.FIRE；不自动提交。", 6, P.a(P.FAINT, 0.9))
+		return
 	var title := ""
 	match page:
-		"roe":
-			title = "ROE / 交战规则"
 		"hold":
 			title = "DECISION / HOLD · EVACUATE · EXPOSE"
 		"report":
@@ -671,12 +711,7 @@ func _draw_modal_page() -> void:
 			title = page.to_upper()
 	_txt(cjk, r.position.x + 20, r.position.y + 24, title, 12, P.AMBER)
 	_txt(mono, r.position.x + 20, r.position.y + 42, "07 教学 %s · %s" % [String(cur.get("step_id", "—")), String(cur.get("title", ""))], 7, P.a(P.PH_DIM, 0.9))
-	if page == "roe":
-		_txt(cjk, r.position.x + 20, r.position.y + 76, "默认交战规则 / DEFAULT ROE", 8, P.PH)
-		_txt(cjk, r.position.x + 20, r.position.y + 96, "WEAPONS HOLD · 不首先开火；武器释放需指挥官明确授权。", 8, P.TXT)
-		_txt(cjk, r.position.x + 20, r.position.y + 116, "当前授权：%s" % ("已授权" if bool(sim.roe_release_authorized) else "未授权（需决策/授权页）"), 7, P.AMBER)
-		_txt(cjk, r.position.x + 20, r.position.y + 140, "本页只读 · 不自动选择 DECISION", 7, P.FAINT)
-	elif page == "hold":
+	if page == "hold":
 		_txt(cjk, r.position.x + 20, r.position.y + 76, "当前裁决：%s" % (String(sim.decision_state) if String(sim.decision_state) != "" else "未选择"), 8, P.AMBER if String(sim.decision_state) == "" else P.PH)
 		_txt(cjk, r.position.x + 20, r.position.y + 96, "选择后写入 transit 状态；HOLD 分支会跳过其余决策，可重开。", 7, P.DIM)
 		_btn(Rect2(r.position.x + 20, r.position.y + 156, 170, 28), "HOLD / 坚守", true, P.PH)
@@ -687,7 +722,7 @@ func _draw_modal_page() -> void:
 			_txt(cjk, r.position.x + 20, r.position.y + 240, "结果 / RESULT：%s 已记录 · 可继续 REPORT" % String(sim.decision_state), 8, P.PH)
 	elif page == "report":
 		_txt(cjk, r.position.x + 20, r.position.y + 76, "内部事后报告 / INTERNAL AFTER-ACTION", 8, P.PH)
-		_txt(cjk, r.position.x + 20, r.position.y + 96, "状态：%s" % (String(sim.report_state) if String(sim.report_state) != "" else "未提交"), 8, P.AMBER if not bool(sim.report_submitted) else P.PH)
+		_txt(cjk, r.position.x + 20, r.position.y + 96, "状态：%s · 裁决：%s" % [String(sim.report_state) if String(sim.report_state) != "" else "未提交", String(sim.decision_state) if String(sim.decision_state) != "" else "—"], 8, P.AMBER if not bool(sim.report_submitted) else P.PH)
 		if String(sim.report_text) != "":
 			_txt(cjk, r.position.x + 20, r.position.y + 118, _ellipsis(cjk, String(sim.report_text), 7, 820.0), 7, P.TXT)
 		_btn(Rect2(r.position.x + 20, r.position.y + 170, 190, 26), "提交报告 / SUBMIT", not bool(sim.report_submitted), P.PH)
@@ -760,7 +795,6 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 	var cx := MAP.position.x + MAP.size.x * 0.5
 	var cy := MAP.position.y + MAP.size.y * 0.52
 	var pr := {"cx": cx, "cy": cy, "minx": minx, "maxx": maxx, "miny": miny, "maxy": maxy, "sc": sc}
-	# 固定种子星点
 	for i in range(280):
 		var hh := (i * 1103515245 + 12345) & 0x7fffffff
 		var sx2 := MAP.position.x + 20.0 + float(hh % int(MAP.size.x - 40.0))
@@ -772,7 +806,7 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 	var p1 := _p_real(Vector3.ZERO, pr)
 	var re := maxf(7.0, C.R_EARTH_KM * sc)
 	var rm := maxf(4.0, C.R_MOON_KM * sc)
-	# 固定星座线（增加星图密度，不盖数据）
+	# 星座线
 	var cons := [0, 3, 7, 12, 18, 26, 35, 48, 63, 79]
 	for ci in range(cons.size() - 1):
 		var ha := (int(cons[ci]) * 1103515245 + 12345) & 0x7fffffff
@@ -780,17 +814,14 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 		var pa := Vector2(MAP.position.x + 20.0 + float(ha % int(MAP.size.x - 40.0)), MAP.position.y + 20.0 + float((ha / 97) % int(MAP.size.y - 40.0)))
 		var pb := Vector2(MAP.position.x + 20.0 + float(hb % int(MAP.size.x - 40.0)), MAP.position.y + 20.0 + float((hb / 97) % int(MAP.size.y - 40.0)))
 		draw_line(pa, pb, P.a(P.TXT, 0.08), 1.0)
-	# 地月轨道弧
 	draw_arc(pe, 42164.0 * sc, 0, TAU, 64, P.a(P.PH, 0.10), 1.0, true)
 	draw_arc(pe, 384400.0 * sc, 0, TAU, 96, P.a(P.PH_DIM, 0.10), 1.0, true)
-	# Earth / Moon
 	draw_circle(pe, re, P.a(P.BLUE, 0.10))
 	draw_arc(pe, re, 0, TAU, 48, P.a(P.BLUE, 0.65), 1.0, true)
 	_txt(cjk, pe.x + re + 6, pe.y + 3, "EARTH / 地球", 8, P.a(P.BLUE, 0.9))
 	draw_circle(pm, rm, P.a(P.DIM, 0.35))
 	draw_arc(pm, rm, 0, TAU, 32, P.a(P.DIM, 0.8), 1.0, true)
 	_txt(cjk, pm.x + rm + 6, pm.y + 3, "MOON / 月球", 8, P.a(P.TXT, 0.85))
-	# L4/L1 markers
 	var l4pts := PackedVector2Array([pl4 + Vector2(0, -7), pl4 + Vector2(7, 0), pl4 + Vector2(0, 7), pl4 + Vector2(-7, 0), pl4 + Vector2(0, -7)])
 	draw_polyline(l4pts, P.a(P.AMBER, 0.9), 1.0)
 	_txt(cjk, pl4.x + 10, pl4.y + 3, "L4-02 HAMMER 母港", 8, P.AMBER)
@@ -798,7 +829,6 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 	draw_line(p1 - Vector2(15, 0), p1 + Vector2(15, 0), P.a(P.PH, 0.7), 1.0)
 	draw_line(p1 - Vector2(0, 15), p1 + Vector2(0, 15), P.a(P.PH, 0.7), 1.0)
 	_txt(cjk, p1.x + 14, p1.y + 4, "L1 MERIDIAN 港群", 8, P.PH)
-	# L2/L3/L5
 	for pair2 in [["L2", "L2"], ["L3", "L3"], ["L5", "L5"]]:
 		var e2: Dictionary = eq.get(String(pair2[0]), {}) if eq.get(String(pair2[0]), {}) is Dictionary else {}
 		if e2.is_empty():
@@ -806,12 +836,10 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 		var q2 := _p_real((e2.get("pos_rot", Vector3.ZERO) as Vector3) - l1, pr)
 		draw_arc(q2, 4.0, 0, TAU, 16, P.a(P.FAINT, 0.8), 1.0, true)
 		_txt(mono, q2.x + 5, q2.y, String(pair2[1]), 6, P.a(P.FAINT, 0.8))
-	# L1 ports labels
 	for pair3 in [["L1-Meridian-05", Vector3(160, -90, 15)], ["Anchorage-02", Vector3(-220, 120, -25)], ["Drydock-01", Vector3(40, 260, 30)]]:
 		var pp := _p_real(pair3[1] as Vector3, pr)
 		draw_rect(Rect2(pp - Vector2(2, 2), Vector2(4, 4)), P.a(P.PH_DIM, 0.8))
 		_txt(mono, pp.x + 5, pp.y + 2, String(pair3[0]), 6, P.a(P.PH_DIM, 0.8))
-	# transfer route + fleet vectors
 	if tl.size() >= 2:
 		var prev := Vector2(-1, -1)
 		for raw in tl:
@@ -840,7 +868,6 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 			"L4-02 → L1 · timeline %d 段 · 折线为真实 pos_rot_km（减 L1）" % tl.size(), 7, P.a(P.FAINT, 0.9))
 	else:
 		_txt(cjk, MAP.position.x + 24, MAP.position.y + 48, "TRANSFER NOT READY · planner timeline 为空", 10, P.AMBER)
-	# scale bar
 	var sb := 100000.0 * sc
 	var sbx := MAP.position.x + 20.0
 	var sby := MAP.end.y - 22.0
@@ -873,6 +900,24 @@ func handle_click(p: Vector2) -> bool:
 		return true
 	if String(sim.modal_page) != "":
 		var page := String(sim.modal_page)
+		if page == "roe":
+			if ROE_FIRE_BTN.has_point(p):
+				sim.ui_open_fire_confirm(); return true
+			if Rect2(1260, 740, 120, 24).has_point(p) or not Rect2(520, 260, 880, 520).has_point(p):
+				sim.modal_page = ""
+			return true
+		if page == "fire_confirm":
+			if FIRE_CONFIRM_BTN.has_point(p):
+				sim.ui_confirm_fire(); return true
+			if FIRE_CANCEL_BTN.has_point(p):
+				sim.modal_page = "roe"; return true
+			return true
+		if page == "consequence":
+			if CONS_REPORT_BTN.has_point(p):
+				sim.ui_fire_to_report(); return true
+			if CONS_RESTART_BTN.has_point(p):
+				sim.ui_restart_transit(); return true
+			return true
 		if Rect2(1260, 740, 120, 24).has_point(p) or not Rect2(520, 260, 880, 520).has_point(p):
 			sim.modal_page = ""
 			return true
@@ -889,7 +934,11 @@ func handle_click(p: Vector2) -> bool:
 			if Rect2(540, 430, 190, 26).has_point(p):
 				sim.ui_submit_report(); return true
 			if Rect2(746, 430, 150, 26).has_point(p):
-				sim.ui_reset_decision(); return true
+				if String(sim.decision_state) == "FIRE":
+					sim.ui_restart_transit()
+				else:
+					sim.ui_reset_decision()
+				return true
 		return true
 	# teaching popup
 	if bool(sim.tutorial_open):

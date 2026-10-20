@@ -14,10 +14,12 @@ const Palette := preload("res://scripts/pal.gd")
 const Fonts := preload("res://scripts/fonts.gd")
 
 const SCENARIO_PATH := "res://framework/content/scenario_transit_l4_l1.json"
+const STORY_PATH := "res://framework/content/story_l1.json"
 const PLAN_CACHE_PATH := "res://framework/content/transfer_l4_l1_cached.json"
 const BASE := Vector2i(1920, 1080)
 
 var scenario: Dictionary = {}
+var story: Dictionary = {}
 var plan: Dictionary = {}
 var t: float = 0.0
 var tof_s: float = 0.0
@@ -36,6 +38,9 @@ var report_state := ""
 var report_text := ""
 var report_submitted := false
 var roe_release_authorized := false
+var fire_authorized := false
+var fire_confirmed := false
+var consequence_open := false
 var ui_mode := "ship"
 var optical_open := false
 var tutorial_open := false
@@ -56,6 +61,7 @@ func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
 	_shot_mode = OS.get_environment("DSH_TRANSIT_ARRIVAL")
 	_load_scenario()
+	_load_story()
 	_plan_transfer()
 	sensors = TransitSensors.new({})
 	teach = TeachingController.new("res://framework/content/teaching_l4_l1.json")
@@ -83,6 +89,14 @@ func _ready() -> void:
 		report_state = "SUBMITTED"
 		report_text = "内部事后报告已提交归档：转场完成 · 训练步骤记录。"
 		modal_page = "report"
+	elif view == "fire":
+		ui_mode = "ship"
+		fire_authorized = true
+		fire_confirmed = true
+		decision_state = "FIRE"
+		consequence_open = true
+		modal_page = "consequence"
+		playing = false
 	hud = TransitHUD.new()
 	hud.sim = self
 	hud.position = Vector2.ZERO
@@ -139,6 +153,20 @@ func _load_scenario() -> void:
 	var parsed = JSON.parse_string(txt)
 	if parsed is Dictionary:
 		scenario = parsed
+
+
+func _load_story() -> void:
+	story = {}
+	if not FileAccess.file_exists(STORY_PATH):
+		return
+	var f := FileAccess.open(STORY_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var txt := f.get_as_text()
+	f.close()
+	var parsed = JSON.parse_string(txt)
+	if parsed is Dictionary:
+		story = parsed.get("story", {}) if parsed.get("story") is Dictionary else parsed
 
 
 func _plan_transfer() -> void:
@@ -395,6 +423,63 @@ func ui_teach_current() -> void:
 	queue_redraw()
 
 
+func ui_open_fire_confirm() -> void:
+	if bool(fire_authorized) or String(decision_state) == "FIRE":
+		modal_page = "consequence"
+	else:
+		modal_page = "fire_confirm"
+	last_note = "ROE FIRE · 二次确认未确认"
+	queue_redraw()
+
+
+func ui_confirm_fire() -> void:
+	fire_authorized = true
+	fire_confirmed = true
+	decision_state = "FIRE"
+	consequence_open = true
+	modal_page = "consequence"
+	playing = false
+	last_note = "FIRE AUTHORIZED · consequence page · weapons not simulated"
+	if teach != null:
+		var tr: Dictionary = teach.note("decision", "FIRE", {"weapons_release_confirmed": true, "evidence_count": 2})
+		last_note += " · teach✓" if bool(tr.get("ok", false)) else " · teach=" + String(tr.get("reason", ""))
+	queue_redraw()
+
+
+func ui_fire_to_report() -> void:
+	if not bool(consequence_open):
+		return
+	consequence_open = false
+	report_submitted = false
+	report_state = ""
+	report_text = ""
+	modal_page = "report"
+	last_note = "CONSEQUENCE → REPORT"
+	queue_redraw()
+
+
+func ui_restart_transit() -> void:
+	t = 0.0
+	playing = false
+	decision_state = ""
+	report_state = ""
+	report_text = ""
+	report_submitted = false
+	fire_authorized = false
+	fire_confirmed = false
+	consequence_open = false
+	modal_page = ""
+	last_note = "TRANSIT RESTART · t=0"
+	if sensors != null:
+		sensors.seek(0.0)
+	if damage != null:
+		damage.reset()
+	if teach != null:
+		teach.reset()
+	_update_phase()
+	queue_redraw()
+
+
 func ui_open_modal(page: String) -> void:
 	# 打开页面本身不自动选择/提交；真实选择/提交由 HUD 按钮调用下方法。
 	modal_page = page
@@ -436,7 +521,11 @@ func ui_submit_report() -> void:
 		return
 	report_submitted = true
 	report_state = "SUBMITTED"
-	report_text = "内部事后报告已提交归档：%s · 转场 L4-02→L1 Meridian" % (decision_state if decision_state != "" else "未选择裁决")
+	var bodies: Dictionary = story.get("report_bodies", {}) if story.get("report_bodies", {}) is Dictionary else {}
+	var body := String(bodies.get(decision_state, ""))
+	if body == "":
+		body = "内部事后报告已提交归档：%s · 转场 L4-02→L1 Meridian" % (decision_state if decision_state != "" else "未选择裁决")
+	report_text = body
 	last_note = "REPORT SUBMITTED"
 	if teach != null:
 		var tr: Dictionary = teach.note("report_submit", "INTERNAL_AFTER_ACTION")
