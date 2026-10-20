@@ -44,6 +44,9 @@ var fw_sensor_compare: Dictionary = {}
 var fw_info_warfare: Dictionary = {}
 var fw_info_warfare_ready := false
 var fw_info_warfare_summary: Dictionary = {}
+# —— R5-OPT-DOCK-BRIDGE-1：光学/IR 与对接只读 VM（显式 API 包装）——
+var fw_optical_ir: Dictionary = {}
+var fw_docking: Dictionary = {}
 
 # 演示用状态。真实 sim 会接管 clock / tracks / commands，
 # 这里的数值只服务于"把 GUI 长相对出来"。
@@ -1786,6 +1789,8 @@ func _reset_runtime() -> void:
 	fw_info_warfare = {}
 	fw_info_warfare_ready = false
 	fw_info_warfare_summary = {}
+	fw_optical_ir = {}
+	fw_docking = {}
 
 # ── P1j：身份 / 通信格式 / 动态裁决提示 ─────────────────
 
@@ -2771,6 +2776,8 @@ func _fw_pull() -> void:
 		fw_info_warfare = {}
 		fw_info_warfare_ready = false
 		fw_info_warfare_summary = {}
+		fw_optical_ir = {}
+		fw_docking = {}
 		return
 	fw_ready = true
 	fw_tutorial = (framework.tutorial_view() as Dictionary).duplicate(true)
@@ -2802,6 +2809,9 @@ func _fw_pull() -> void:
 	fw_info_warfare_ready = bool(framework.info_warfare_ready)
 	fw_info_warfare = (framework.info_warfare_view() as Dictionary).duplicate(true)
 	fw_info_warfare_summary = (framework.info_warfare_summary() as Dictionary).duplicate(true)
+	# R5-OPT-DOCK-BRIDGE-1：光学/IR + 对接只读 VM（显式 API 后刷新）
+	fw_optical_ir = (framework.optical_ir_view() as Dictionary).duplicate(true)
+	fw_docking = (framework.docking_view() as Dictionary).duplicate(true)
 
 ## R6-AUTH-1：用当前 V15 board 数据生成物理对比（只读；显示层尚未切换）。
 ## 未就绪/关闭时清空，不报错、不写 V15。
@@ -2860,6 +2870,89 @@ func fw_sensor_shadow_view() -> Dictionary:
 
 func fw_sensor_compare_view() -> Dictionary:
 	return fw_sensor_compare
+
+# ═══════════════════════════════════════════════════════════════════
+# R5-OPT-DOCK-BRIDGE-1：光学/IR + 对接只读字段与显式 API 包装
+#   - fw_optical_ir / fw_docking 只读 VM；显式调用后自动 _fw_pull() 刷新；
+#   - 不写 world/TrackTable/V15；不接 HUD。
+# ═══════════════════════════════════════════════════════════════════
+
+func fw_optical_ir_view() -> Dictionary:
+	return fw_optical_ir
+
+func fw_docking_view() -> Dictionary:
+	return fw_docking
+
+## 显式：VIS/IR 对准/启动/推进/停止（只读 bridge；不写 V15）。
+func fw_optical_ir_point(target_id: String) -> Dictionary:
+	if framework == null:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var res: Dictionary = framework.optical_ir_point(target_id)
+	_fw_pull()
+	return res
+
+func fw_optical_ir_start(kind: String, target_id: String, opts := {}) -> Dictionary:
+	if framework == null:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var res: Dictionary = framework.optical_ir_start(kind, target_id, opts)
+	_fw_pull()
+	return res
+
+func fw_optical_ir_step(dt: float) -> Dictionary:
+	if framework == null:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var res: Dictionary = framework.optical_ir_step(dt)
+	_fw_pull()
+	return res
+
+func fw_optical_ir_stop(kind: String, target_id := "") -> void:
+	if framework == null:
+		return
+	framework.optical_ir_stop(kind, target_id)
+	_fw_pull()
+
+## 显式：对接选择端口/相对状态 update/保持/恢复/中止/复位（只读 bridge；不写 V15）。
+func fw_docking_select_port(port_id: String) -> Dictionary:
+	if framework == null:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var res: Dictionary = framework.docking_select_port(port_id)
+	_fw_pull()
+	return res
+
+func fw_docking_update(rel, attitude := {}, dt := 0.0) -> Dictionary:
+	if framework == null:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var res: Dictionary = framework.docking_update(rel, attitude, dt)
+	_fw_pull()
+	return res
+
+func fw_docking_hold(reason := "commander_hold") -> Dictionary:
+	if framework == null:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var res: Dictionary = framework.docking_hold(reason)
+	_fw_pull()
+	return res
+
+func fw_docking_resume() -> Dictionary:
+	if framework == null:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var res: Dictionary = framework.docking_resume()
+	_fw_pull()
+	return res
+
+func fw_docking_abort(reason := "commander_abort") -> Dictionary:
+	if framework == null:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var res: Dictionary = framework.docking_abort(reason)
+	_fw_pull()
+	return res
+
+func fw_docking_reset() -> Dictionary:
+	if framework == null:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var res: Dictionary = framework.docking_reset()
+	_fw_pull()
+	return res
 
 ## 当前 authoritative 只读视图（HUD 后续接 [未切换]）。
 func fw_physics_authoritative_view() -> Dictionary:
@@ -3411,6 +3504,8 @@ func fw_bridge_state() -> Dictionary:
 		"info_warfare": fw_info_warfare.duplicate(true),
 		"info_warfare_ready": fw_info_warfare_ready,
 		"info_warfare_summary": fw_info_warfare_summary.duplicate(true),
+		"optical_ir": fw_optical_ir.duplicate(true),
+		"docking": fw_docking.duplicate(true),
 		"exec_window_s": float(fw_flow.get("exec_window_s", 360.0)),
 		"exec_left": float(fw_flow.get("exec_left", 0.0)),
 		"exec_pct": float(fw_flow.get("exec_pct", 0.0)),

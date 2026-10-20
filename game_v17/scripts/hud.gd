@@ -1160,6 +1160,8 @@ var _nav_selected := 0
 var _nav_from_id := "l1"
 var _nav_to_id := ""
 var _nav_prev_paused := false
+var _info_page_open := false
+var _info_prev_paused := false
 var _nav_open_on_ready := ""
 var _nav_rows: Array = []        # [{rect,id,kind}]
 var _nav_candidate_sel := 0
@@ -1270,6 +1272,10 @@ func _ready() -> void:
 			_demo_suppress_adjutant = true
 			_nav_open_on_ready = "routes"
 			_nav_planned_demo = true
+		"info_warfare":
+			# R5-INFO-UI-1 截图：独立只读信息作战页
+			_demo_suppress_adjutant = true
+			_info_page_open = true
 		"nav_maneuver":
 			# R4-NAV-MANEUVER-UI-1 截图：真实 planned_maneuvers + plan/authorize/queue/execute
 			_demo_suppress_adjutant = true
@@ -1522,6 +1528,9 @@ func _draw() -> void:
 		_draw_boot()
 		return
 	_draw_bezel()
+	if _info_page_open:
+		_draw_info_warfare_page()
+		return
 	if _nav_page_open:
 		_draw_nav_page()
 		return
@@ -1647,6 +1656,8 @@ func _sfx(n: String) -> void:
 
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
+		return
+	if _info_page_open:
 		return
 	if _nav_page_open:
 		_handle_nav_click(p)
@@ -1796,6 +1807,8 @@ func click(p: Vector2) -> void:
 			return
 
 func consumes(p: Vector2) -> bool:
+	if _info_page_open:
+		return true
 	if _nav_page_open:
 		return true
 	if pause_open:
@@ -2597,6 +2610,356 @@ func _running_evidence_tasks() -> Array:
 		out.append({"label": "人员撤离", "shuttle": true,
 			"remain": maxf(0.0, float(_demo_evac.get("duration_s", 0.0)) - _t)})
 	return out
+
+# R5-INFO-UI-1：独立只读信息作战页（IFF/ELINT/COMINT/EW）
+const INFO_HEADER := Rect2(40, 40, 1840, 72)
+const INFO_IFF := Rect2(60, 124, 520, 752)
+const INFO_ELINT := Rect2(592, 124, 620, 752)
+const INFO_COMINT := Rect2(1224, 124, 616, 364)
+const INFO_EW := Rect2(1224, 500, 616, 376)
+const INFO_EVENTS := Rect2(60, 884, 1120, 156)
+const INFO_RULES := Rect2(1200, 884, 660, 156)
+
+func _info_view() -> Dictionary:
+	if state == null:
+		return {}
+	var v = state.get("fw_info_warfare")
+	return v if v is Dictionary else {}
+
+
+func _info_ready() -> bool:
+	if state == null:
+		return false
+	if not bool(state.get("fw_info_warfare_ready")):
+		return false
+	var v := _info_view()
+	if v.is_empty():
+		return false
+	return String(v.get("mode", "")) == "shadow"
+
+
+func _info_panel(r: Rect2, title: String, en: String, sub := "") -> void:
+	_panel(r)
+	_txt(cjk, r.position.x + 12.0, r.position.y + 8.0, title, 9, Palette.PH)
+	_txt(mono, r.position.x + r.size.x - 12.0, r.position.y + 8.0, en, 7, Palette.a(Palette.FAINT, 0.95))
+	draw_line(Vector2(r.position.x + 12.0, r.position.y + 22.0), Vector2(r.end.x - 12.0, r.position.y + 22.0),
+		Palette.a(Palette.LINE, 0.8), 1.0)
+	if sub != "":
+		_txt(cjk, r.position.x + 12.0, r.position.y + 28.0, _ellipsis(cjk, sub, 7, r.size.x - 24.0), 7, Palette.a(Palette.DIM, 0.95))
+
+
+func _info_off_page() -> void:
+	draw_rect(Rect2(0, 0, 1920, 1080), Color(0.015, 0.030, 0.024, 0.985))
+	_panel(INFO_HEADER)
+	_txt(cjk, 60.0, 50.0, "信息作战 / INFORMATION WARFARE", 12, Palette.PH)
+	_txt(cjk, 60.0, 72.0, "SHADOW · V2 ADVISORY · READ-ONLY · authoritative=false · 不写 V15 · 不自动判敌", 7, Palette.a(Palette.AMBER, 0.9))
+	var r := Rect2(480.0, 400.0, 960.0, 240.0)
+	_panel(r)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 24.0, "INFO WARFARE SHADOW OFF", 14, Palette.AMBER)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 54.0, "无 fw_info_warfare 数据 / V17_INFO_WARFARE=off / authoritative 不实现。", 8, Palette.DIM)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 74.0, "IFF / ELINT / COMINT / EW 均为只读 shadow；off 时不显示旧值、不伪造。", 8, Palette.DIM)
+	_txt(mono, r.position.x + 24.0, r.position.y + 110.0, "data: state.fw_info_warfare_ready=false", 8, Palette.a(Palette.FAINT, 0.9))
+	_txt(cjk, 60.0, 1052.0, "只读页 · 数据源 state.fw_info_warfare · 不触发 IFF/EW · 不写 V15", 7, Palette.FAINT)
+	_txt_r(cjk, 1860.0, 1052.0, "R5-INFO-UI-1 · SHADOW OFF", 7, Palette.FAINT)
+
+
+func _info_iff_panel(view: Dictionary) -> void:
+	var iff: Dictionary = view.get("iff", {}) if view.get("iff", {}) is Dictionary else {}
+	var rows: Array = iff.get("results", []) if iff.get("results", []) is Array else []
+	var sm: Dictionary = iff.get("summary", {}) if iff.get("summary", {}) is Dictionary else {}
+	var no_reply := 0
+	var captured := 0
+	var crypto := 0
+	var faulty := 0
+	var timeout := 0
+	var blocked := 0
+	var wrong := 0
+	for raw in rows:
+		var row: Dictionary = raw
+		match String(row.get("status", "")):
+			"no_reply":
+				no_reply += 1
+			"captured":
+				captured += 1
+			"crypto_mismatch":
+				crypto += 1
+			"faulty_transponder":
+				faulty += 1
+			"timeout":
+				timeout += 1
+			"blocked":
+				blocked += 1
+			"wrong_code":
+				wrong += 1
+	_info_panel(INFO_IFF, "IFF / 敌我识别", "READ-ONLY", "仅最近结果；不自动询问/不自动判敌（不明≠敌意）")
+	var y := INFO_IFF.position.y + 48.0
+	_txt(mono, INFO_IFF.position.x + 12.0, y,
+		"TOTAL %d · FRIEND %d · UNKNOWN %d · HOSTILE %d" % [
+			int(sm.get("total", rows.size())), int(sm.get("friend", 0)),
+			int(sm.get("unknown", 0)), int(sm.get("hostile", 0))], 8, Palette.TXT)
+	y += 14.0
+	_txt(mono, INFO_IFF.position.x + 12.0, y,
+		"NO_REPLY %d · CAPTURED %d · CRYPTO_FAIL %d · FAULTY %d" % [no_reply, captured, crypto, faulty], 7, Palette.a(Palette.DIM, 0.95))
+	y += 12.0
+	_txt(mono, INFO_IFF.position.x + 12.0, y,
+		"TIMEOUT %d · BLOCKED %d · WRONG_CODE %d · hostile_allowed=false" % [timeout, blocked, wrong], 7, Palette.a(Palette.FAINT, 0.95))
+	y += 18.0
+	draw_line(Vector2(INFO_IFF.position.x + 12.0, y), Vector2(INFO_IFF.end.x - 12.0, y), Palette.a(Palette.LINE, 0.55), 1.0)
+	y += 10.0
+	_txt(cjk, INFO_IFF.position.x + 12.0, y, "最近询问 / LAST INTERROGATIONS", 7, Palette.PH)
+	y += 14.0
+	if rows.is_empty():
+		_txt(cjk, INFO_IFF.position.x + 12.0, y, "— 无 IFF 结果（本页只读，不触发询问）", 8, Palette.FAINT)
+		y += 16.0
+	else:
+		var start := maxi(0, rows.size() - 8)
+		for i in range(start, rows.size()):
+			var row: Dictionary = rows[i]
+			var st := String(row.get("status", ""))
+			var id := String(row.get("target_id", ""))
+			var ident := String(row.get("identity", "unknown"))
+			var conf := float(row.get("confidence", 0.0))
+			var reason := String(row.get("reason", ""))
+			var col := Palette.PH if st == "reply_ok" else (Palette.AMBER if st != "no_reply" else Palette.RED)
+			_txt(mono, INFO_IFF.position.x + 12.0, y, "%s %-12s %s" % [id, st, ident], 7, col)
+			_txt_r(mono, INFO_IFF.end.x - 12.0, y, "%.2f" % conf, 7, Palette.a(col, 0.8))
+			y += 11.0
+			if reason != "":
+				_txt(mono, INFO_IFF.position.x + 24.0, y, _ellipsis(mono, reason, 7, 470.0), 7, Palette.a(Palette.FAINT, 0.9))
+				y += 11.0
+			if y > INFO_IFF.end.y - 34.0:
+				break
+	# 底部固定声明
+	_txt(cjk, INFO_IFF.position.x + 12.0, INFO_IFF.end.y - 30.0,
+		"作者：framework/sim/information_warfare.shadow · IFF 只证据，不产生位置", 7, Palette.FAINT)
+	_txt(cjk, INFO_IFF.position.x + 12.0, INFO_IFF.end.y - 16.0,
+		"HOSTILE 恒 0：不明/无应答/故障/缴获码均不自动判敌", 7, Palette.a(Palette.AMBER, 0.85))
+
+
+func _info_elint_panel(view: Dictionary) -> void:
+	var el: Dictionary = view.get("elint", {}) if view.get("elint", {}) is Dictionary else {}
+	var signals: Array = el.get("signals", []) if el.get("signals", []) is Array else []
+	var fixes: Array = el.get("fix_candidates", []) if el.get("fix_candidates", []) is Array else []
+	var sm: Dictionary = el.get("summary", {}) if el.get("summary", {}) is Dictionary else {}
+	_info_panel(INFO_ELINT, "ELINT / 电子侦察", "READ-ONLY", "单站只给信号/方位；SIGNAL FIX 仅候选，不自动成为接触")
+	var y := INFO_ELINT.position.y + 48.0
+	_txt(mono, INFO_ELINT.position.x + 12.0, y, "SIGNALS %d · FIX_CANDIDATES %d · STATIONS %d" % [
+		int(sm.get("signals", signals.size())), int(sm.get("fix_candidates", fixes.size())),
+		int(sm.get("stations", 0))], 8, Palette.TXT)
+	y += 14.0
+	_txt(mono, INFO_ELINT.position.x + 12.0, y, "single_station_contact=false · elint_level_cap=L3_fingerprint_evidence_only", 7, Palette.a(Palette.DIM, 0.95))
+	y += 18.0
+	_txt(cjk, INFO_ELINT.position.x + 12.0, y, "信号 / SIGNALS", 7, Palette.PH)
+	y += 13.0
+	if signals.is_empty():
+		_txt(cjk, INFO_ELINT.position.x + 12.0, y, "— 无信号（shadow / 无发射源）", 8, Palette.FAINT)
+		y += 16.0
+	else:
+		var start := maxi(0, signals.size() - 7)
+		for i in range(start, signals.size()):
+			var sig: Dictionary = signals[i]
+			var src := String(sig.get("source_id", sig.get("observer_id", "")))
+			var model := String(sig.get("emitter_model", sig.get("model", "")))
+			var bearing := float(sig.get("bearing_deg", 0.0))
+			var freq := float(sig.get("freq_mhz", 0.0))
+			var signature := String(sig.get("signature", ""))
+			var conf := float(sig.get("confidence", 0.0))
+			var matched := bool(sig.get("matched", false))
+			_txt(mono, INFO_ELINT.position.x + 12.0, y, "%s %s %03d° %.0fMHz %s %s %.2f" % [
+				src, model, int(round(bearing)), freq, "M" if matched else "-", signature, conf], 7, Palette.TXT)
+			y += 12.0
+			var class_hint := String(sig.get("class_hint", ""))
+			if class_hint != "":
+				_txt(cjk, INFO_ELINT.position.x + 22.0, y, _ellipsis(cjk, class_hint, 7, 570.0), 7, Palette.a(Palette.DIM, 0.9))
+				y += 10.0
+			if y > INFO_ELINT.end.y - 170.0:
+				break
+	_txt(cjk, INFO_ELINT.position.x + 12.0, y + 4.0, "SIGNAL FIX / 交叉定位候选", 7, Palette.PH)
+	y += 18.0
+	if fixes.is_empty():
+		_txt(cjk, INFO_ELINT.position.x + 12.0, y, "— 无候选（多站基线/指纹/时间门限内无解）", 8, Palette.FAINT)
+	else:
+		for i in range(mini(3, fixes.size())):
+			var f: Dictionary = fixes[i]
+			_txt(mono, INFO_ELINT.position.x + 12.0, y, "SRC %s · L%d · conf %.2f · cross %.1f°" % [
+				String(f.get("source_id", "")), int(f.get("level_support", 0)),
+				float(f.get("confidence", 0.0)), float(f.get("cross_angle_deg", 0.0))], 7, Palette.AMBER)
+			y += 12.0
+			var fp := String(f.get("fingerprint", ""))
+			if fp != "":
+				_txt(mono, INFO_ELINT.position.x + 22.0, y, "FP %s · provisional · requires_confirmation=true" % fp, 7, Palette.FAINT)
+				y += 11.0
+	_txt(cjk, INFO_ELINT.position.x + 12.0, INFO_ELINT.end.y - 30.0,
+		"ELINT 不产生接触；SIGNAL FIX 仅 L2 候选，需融合/雷达/光学确认", 7, Palette.FAINT)
+	_txt(cjk, INFO_ELINT.position.x + 12.0, INFO_ELINT.end.y - 16.0,
+		"指纹证据最高支撑 L3；不自动判敌", 7, Palette.a(Palette.PH_DIM, 0.8))
+
+
+func _info_comint_panel(view: Dictionary) -> void:
+	var com: Dictionary = view.get("comint", {}) if view.get("comint", {}) is Dictionary else {}
+	var events: Array = com.get("events", []) if com.get("events", []) is Array else []
+	var sm: Dictionary = com.get("summary", {}) if com.get("summary", {}) is Dictionary else {}
+	_info_panel(INFO_COMINT, "COMINT / 通信侦察", "READ-ONLY", "通信内容侦察 ≠ ELINT；加密只给元数据，不自动解码")
+	var y := INFO_COMINT.position.y + 54.0
+	_txt(mono, INFO_COMINT.position.x + 12.0, y, "EVENTS %d · ENCRYPTED %d · auto_decode=false" % [
+		int(sm.get("events", events.size())), int(sm.get("encrypted", 0))], 8, Palette.TXT)
+	y += 14.0
+	_txt(mono, INFO_COMINT.position.x + 12.0, y, "produces_contact=false · level_support=0 · shadow", 7, Palette.a(Palette.DIM, 0.95))
+	y += 18.0
+	if events.is_empty():
+		_txt(cjk, INFO_COMINT.position.x + 12.0, y, "— 无 COMINT 事件", 8, Palette.FAINT)
+		return
+	var start := maxi(0, events.size() - 5)
+	for i in range(start, events.size()):
+		var e: Dictionary = events[i]
+		var enc := bool(e.get("encrypted", false))
+		var content: Dictionary = e.get("comms_content", {}) if e.get("comms_content", {}) is Dictionary else {}
+		_txt(mono, INFO_COMINT.position.x + 12.0, y, "%s→%s · %s · %.1fMHz" % [
+			String(e.get("from", "")), String(e.get("to", "")), String(e.get("comms_mode", "")),
+			float(e.get("frequency_mhz", 0.0))], 7, Palette.TXT)
+		_txt_r(mono, INFO_COMINT.end.x - 12.0, y, "ENC" if enc else "PLAIN", 7, Palette.AMBER if enc else Palette.PH)
+		y += 11.0
+		var text := String(content.get("text", ""))
+		if enc:
+			_txt(cjk, INFO_COMINT.position.x + 22.0, y, "ENCRYPTED · metadata_only · 不解码", 7, Palette.AMBER)
+		else:
+			_txt(cjk, INFO_COMINT.position.x + 22.0, y, _ellipsis(cjk, text, 7, 560.0), 7, Palette.a(Palette.DIM, 0.9))
+		y += 14.0
+		if y > INFO_COMINT.end.y - 18.0:
+			break
+
+
+func _info_ew_panel(view: Dictionary) -> void:
+	var ew: Dictionary = view.get("ew", {}) if view.get("ew", {}) is Dictionary else {}
+	var effects: Array = ew.get("effects", []) if ew.get("effects", []) is Array else []
+	var sm: Dictionary = ew.get("summary", {}) if ew.get("summary", {}) is Dictionary else {}
+	_info_panel(INFO_EW, "EW / 电子战", "READ-ONLY", "噪声/通信干扰/欺骗/诱饵/EMCON/致盲；统一事件总线，不自动判敌")
+	var y := INFO_EW.position.y + 54.0
+	_txt(mono, INFO_EW.position.x + 12.0, y, "EFFECTS %d · PHANTOM %d · SUSPICIOUS %d · DAZZLED %s · EMCON %s" % [
+		int(sm.get("effects", effects.size())), int(sm.get("phantom_active", 0)),
+		int(sm.get("suspicious_commands", 0)), str(bool(sm.get("dazzled", false))),
+		str(bool(sm.get("emcon", false)))], 8, Palette.TXT)
+	y += 14.0
+	var radar: Dictionary = ew.get("radar", {}) if ew.get("radar", {}) is Dictionary else {}
+	var comms: Dictionary = ew.get("comms", {}) if ew.get("comms", {}) is Dictionary else {}
+	var opt: Dictionary = ew.get("optical", {}) if ew.get("optical", {}) is Dictionary else {}
+	_txt(mono, INFO_EW.position.x + 12.0, y, "RADAR %s · COMMS %s · OPTICAL %s" % [
+		str(radar.get("active", radar.get("jammed", "—"))), str(comms.get("active", comms.get("jammed", "—"))),
+		str(opt.get("dazzled", opt.get("active", "—")))], 7, Palette.a(Palette.DIM, 0.95))
+	y += 18.0
+	if effects.is_empty():
+		_txt(cjk, INFO_EW.position.x + 12.0, y, "NO ACTIVE EW EFFECTS", 8, Palette.FAINT)
+	else:
+		var start := maxi(0, effects.size() - 6)
+		for i in range(start, effects.size()):
+			var e: Dictionary = effects[i]
+			var kind := String(e.get("effect", ""))
+			var sev := float(e.get("severity", 0.0))
+			var src := String(e.get("source_id", ""))
+			var tgt := String(e.get("target_id", ""))
+			var active := bool(e.get("active", true))
+			var col := Palette.RED if sev >= 0.6 else Palette.AMBER
+			_txt(mono, INFO_EW.position.x + 12.0, y, "%s · sev %.2f · %s→%s %s" % [
+				kind, sev, src, tgt, "ACTIVE" if active else "ENDED"], 7, col if active else Palette.FAINT)
+			y += 14.0
+			if y > INFO_EW.end.y - 26.0:
+				break
+	_txt(cjk, INFO_EW.position.x + 12.0, INFO_EW.end.y - 26.0,
+		"效果只进同一总线；不改 V15 等级/身份/TWS", 7, Palette.FAINT)
+	_txt(cjk, INFO_EW.position.x + 12.0, INFO_EW.end.y - 13.0,
+		"NO AUTO-HOSTILE · phantoms 不产生真实航迹", 7, Palette.a(Palette.AMBER, 0.8))
+
+
+func _info_event_text(e: Dictionary) -> String:
+	var typ := String(e.get("type", e.get("kind", "")))
+	var payload: Dictionary = e.get("payload", {}) if e.get("payload", {}) is Dictionary else {}
+	match typ:
+		"emitter.signal":
+			return "ELINT %s · %s · %03d° · %s" % [
+				String(payload.get("source_id", "")), String(payload.get("emitter_model", "")),
+				int(round(float(payload.get("bearing_deg", 0.0)))), String(payload.get("signature", ""))]
+		"comms.link":
+			return "COMINT %s→%s · %s" % [String(payload.get("from", "")),
+				String(payload.get("to", "")), String(payload.get("comms_mode", ""))]
+		"iff.reply":
+			return "IFF %s · %s" % [String(payload.get("target_id", e.get("target_id", ""))),
+				String(payload.get("status", ""))]
+		"ew.effect":
+			return "EW %s · sev %.2f · %s→%s" % [String(payload.get("effect", "")),
+				float(payload.get("severity", 0.0)), String(payload.get("source_id", "")),
+				String(payload.get("target_id", ""))]
+		"exposure.fix":
+			return "EXPOSURE %s · %s" % [String(payload.get("source_id", e.get("target_id", ""))),
+				String(payload.get("reason", "fix"))]
+		_:
+			return typ + (" · " + String(e.get("target_id", "")) if String(e.get("target_id", "")) != "" else "")
+
+
+func _info_events_panel(view: Dictionary) -> void:
+	_info_panel(INFO_EVENTS, "事件 / 告警", "READ-ONLY", "最近事件 + 告警；完整列表仅 shadow view")
+	var events: Array = view.get("events", []) if view.get("events", []) is Array else []
+	var alerts: Array = view.get("alerts", []) if view.get("alerts", []) is Array else []
+	var y := INFO_EVENTS.position.y + 40.0
+	if events.is_empty() and alerts.is_empty():
+		_txt(cjk, INFO_EVENTS.position.x + 12.0, y, "— 无事件/告警", 8, Palette.FAINT)
+		return
+	var start := maxi(0, events.size() - 6)
+	for i in range(start, events.size()):
+		var e: Dictionary = events[i]
+		var typ := String(e.get("type", e.get("kind", "")))
+		_txt(mono, INFO_EVENTS.position.x + 12.0, y, "T+%.1f %s" % [float(e.get("t", 0.0)), typ], 7, Palette.a(Palette.DIM, 0.95))
+		_txt(cjk, INFO_EVENTS.position.x + 160.0, y, _ellipsis(cjk, _info_event_text(e), 7, 930.0), 7, Palette.TXT)
+		y += 12.0
+	var astart := maxi(0, alerts.size() - 4)
+	for j in range(astart, alerts.size()):
+		var a: Dictionary = alerts[j]
+		_txt(mono, INFO_EVENTS.position.x + 12.0, y, "ALERT %s" % String(a.get("kind", "")), 7, Palette.AMBER)
+		_txt(cjk, INFO_EVENTS.position.x + 130.0, y, _ellipsis(cjk, String(a.get("text", "")), 7, 960.0), 7, Palette.a(Palette.AMBER, 0.9))
+		y += 12.0
+
+
+func _info_rules_panel(view: Dictionary) -> void:
+	_info_panel(INFO_RULES, "只读 / 边界", "FIXED", "authoritative=false · 不写 V15 · 不自动判敌")
+	var y := INFO_RULES.position.y + 40.0
+	var lines := [
+		"数据源：state.fw_info_warfare / fw_info_warfare_summary",
+		"模式：SHADOW（authoritative 不实现）",
+		"writes：track_table=false / v15=false",
+		"IFF：不自动询问、不自动判敌，无应答≠敌意",
+		"ELINT：单站不产生接触；SIGNAL FIX 仅候选",
+		"COMINT：加密只给元数据，不自动解码",
+		"EW：统一事件总线；phantom 不产生真实航迹",
+		"本页只读：不触发 IFF/EW，不改等级/身份/TWS",
+	]
+	for line in lines:
+		_txt(cjk, INFO_RULES.position.x + 12.0, y, _ellipsis(cjk, String(line), 7, 636.0), 7, Palette.a(Palette.DIM, 0.95))
+		y += 12.0
+	_txt(cjk, INFO_RULES.position.x + 12.0, INFO_RULES.end.y - 16.0, "R5-INFO-UI-1 · SHADOW · 只读", 7, Palette.FAINT)
+
+
+func _draw_info_warfare_page() -> void:
+	draw_rect(Rect2(0, 0, 1920, 1080), Color(0.015, 0.030, 0.024, 0.985))
+	_panel(INFO_HEADER)
+	_txt(cjk, INFO_HEADER.position.x + 20.0, INFO_HEADER.position.y + 10.0, "信息作战 / INFORMATION WARFARE", 12, Palette.PH)
+	_txt(cjk, INFO_HEADER.position.x + 20.0, INFO_HEADER.position.y + 32.0,
+		"SHADOW · V2 ADVISORY · READ-ONLY · IFF / ELINT / COMINT / EW", 7, Palette.a(Palette.DIM, 0.95))
+	_txt_r(mono, INFO_HEADER.end.x - 20.0, INFO_HEADER.position.y + 10.0,
+		"authoritative=false · 不写 V15 · 不自动判敌", 7, Palette.a(Palette.AMBER, 0.9))
+	_txt_r(mono, INFO_HEADER.end.x - 20.0, INFO_HEADER.position.y + 32.0,
+		"mode=shadow · data=state.fw_info_warfare", 7, Palette.a(Palette.PH_DIM, 0.85))
+	if not _info_ready():
+		_info_off_page()
+		return
+	var view := _info_view()
+	_info_iff_panel(view)
+	_info_elint_panel(view)
+	_info_comint_panel(view)
+	_info_ew_panel(view)
+	_info_events_panel(view)
+	_info_rules_panel(view)
+	_txt(cjk, 60.0, 1052.0, "只读页 · 不触发 IFF/EW · 不改传感器等级/身份/TWS · 不伪造", 7, Palette.FAINT)
+	_txt_r(cjk, 1860.0, 1052.0, "R5-INFO-UI-1 · SHADOW / 信息作战", 7, Palette.FAINT)
+
 
 # R5-SENSOR-UI-1：传感器 shadow 只读对比条（V1 7pt；不写 V15；不可点击）
 func _draw_sensor_shadow_strip() -> void:

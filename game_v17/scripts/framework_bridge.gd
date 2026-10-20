@@ -22,6 +22,8 @@ const NavigationScript := preload("res://framework/core/navigation_model.gd")
 const PhysicsScript := preload("res://framework/sim/cislunar_physics.gd")
 const SensorAuthorityScript := preload("res://framework/sim/sensor_authority.gd")
 const InformationWarfareScript := preload("res://framework/sim/information_warfare.gd")
+const OpticalIRScript := preload("res://framework/sim/optical_ir_channel.gd")
+const DockingScript := preload("res://framework/sim/docking_controller.gd")
 
 const DEFAULT_SCENARIO := "res://framework/content/scenario_l1_v2.json"
 
@@ -91,6 +93,20 @@ var info_warfare_fallback_reason := ""
 var info_warfare_recent_events: Array = []
 var info_warfare_recent_alerts: Array = []
 const MAX_INFO_WARNINGS := 32
+# —— R5-OPT-DOCK-BRIDGE-1：光学/IR 通道 + 对接控制器（只读 VM / 显式 API）——
+var optical_ir = null
+var optical_ir_enabled := true
+var optical_ir_ready := false
+var optical_ir_view_data: Dictionary = {}
+var optical_ir_summary_data: Dictionary = {}
+var optical_ir_warnings: Array = []
+var docking = null
+var docking_enabled := true
+var docking_ready := false
+var docking_view_data: Dictionary = {}
+var docking_update_last: Dictionary = {}
+var optical_docking_warnings: Array = []
+const MAX_OPT_WARNINGS := 32
 const INFO_RECENT_MAX := 8
 
 # —— 运行时元数据 ——
@@ -124,6 +140,8 @@ func boot(scenario_path := DEFAULT_SCENARIO) -> bool:
 	_init_sensor_shadow()
 	# R5-INFO-BRIDGE-1：信息作战 shadow（IFF/ELINT/COMINT/EW advisory；V17_INFO_WARFARE=off 关闭）
 	_init_info_warfare()
+	# R5-OPT-DOCK-BRIDGE-1：光学/IR + 对接（只读 VM；V17_OPTICAL_IR/V17_DOCKING=off 关闭）
+	_init_optical_docking()
 	ready = ok
 	# V15 自己有 PRELUDE 覆盖层；默认跳过 V2 prelude，避免“执行前冻结”双门控。
 	if ready and OS.get_environment("DSH_V2_PRELUDE") != "1":
@@ -163,6 +181,7 @@ func refresh() -> void:
 	_refresh_physics()
 	_refresh_sensor_shadow()
 	_refresh_info_warfare()
+	_refresh_optical_docking()
 	tutorial_ready = bool(tutorial.get("ready", false))
 	exec_window_s = float(world.exec_window_s)
 	exec_left = world.exec_left()
@@ -349,6 +368,14 @@ func bridge_state() -> Dictionary:
 		"info_warfare_fallback_reason": info_warfare_fallback_reason,
 		"info_warfare_recent_events": info_warfare_recent_events.duplicate(true),
 		"info_warfare_recent_alerts": info_warfare_recent_alerts.duplicate(true),
+		"optical_ir": optical_ir_view_data.duplicate(true),
+		"optical_ir_summary": optical_ir_summary_data.duplicate(true),
+		"optical_ir_ready": optical_ir_ready,
+		"optical_ir_enabled": optical_ir_enabled,
+		"docking": docking_view_data.duplicate(true),
+		"docking_ready": docking_ready,
+		"docking_enabled": docking_enabled,
+		"docking_update_last": docking_update_last.duplicate(true),
 		"exec_window_s": exec_window_s,
 		"exec_left": exec_left,
 		"exec_pct": exec_pct,
@@ -582,6 +609,7 @@ func restart() -> Dictionary:
 	_bind_nav_position_provider()
 	_init_sensor_shadow()
 	_init_info_warfare()
+	_init_optical_docking()
 	refresh()
 	return r
 
@@ -1487,3 +1515,182 @@ func info_warfare_events() -> Array:
 
 func info_warfare_alerts() -> Array:
 	return info_warfare_recent_alerts
+
+# ═══════════════════════════════════════════════════════════════════
+# R5-OPT-DOCK-BRIDGE-1：光学/IR 通道 + 对接控制器（只读 VM / 显式 API）
+#   - V2OpticalIRChannel（VIS/IR）与 V2DockingController（默认端口样例）；
+#     V17_OPTICAL_IR=on|off、V17_DOCKING=on|off（默认 on；off 时 view 为空）；
+#   - 不自动写 world/TrackTable/V15；光学/对接均需显式 API（point/start/step、update/…）；
+#   - 失败不阻塞 bridge；不接 HUD/plot。
+# ═══════════════════════════════════════════════════════════════════
+
+func _init_optical_docking() -> void:
+	optical_ir = null
+	optical_ir_ready = false
+	optical_ir_view_data = {}
+	optical_ir_summary_data = {}
+	optical_ir_warnings.clear()
+	docking = null
+	docking_ready = false
+	docking_view_data = {}
+	docking_update_last = {}
+	optical_docking_warnings.clear()
+	var oenv := OS.get_environment("V17_OPTICAL_IR").to_lower().strip_edges()
+	optical_ir_enabled = not (oenv == "off" or oenv == "0")
+	if optical_ir_enabled:
+		optical_ir = OpticalIRScript.new()
+		var ok: bool = optical_ir.setup({})
+		optical_ir_ready = bool(ok and optical_ir.enabled)
+		if not optical_ir_ready:
+			_note_opt_warning("optical_ir 初始化失败：" + str(optical_ir.errors))
+			optical_ir = null
+	var denv := OS.get_environment("V17_DOCKING").to_lower().strip_edges()
+	docking_enabled = not (denv == "off" or denv == "0")
+	if docking_enabled:
+		docking = DockingScript.new()
+		var dok: bool = docking.setup(DockingScript.default_ports(), {})
+		docking_ready = bool(dok and docking.errors.is_empty())
+		if not docking_ready:
+			_note_opt_warning("docking 初始化失败：" + str(docking.errors))
+			docking = null
+	_refresh_optical_docking()
+
+func _refresh_optical_docking() -> void:
+	if optical_ir_enabled and optical_ir_ready and optical_ir != null:
+		optical_ir_view_data = optical_ir.vm_optical_ir()
+		optical_ir_summary_data = optical_ir.summary()
+		for raw in optical_ir.warnings:
+			_note_opt_warning(String(raw))
+	else:
+		optical_ir_view_data = {}
+		optical_ir_summary_data = {}
+	if docking_enabled and docking_ready and docking != null:
+		docking_view_data = docking.vm()
+	else:
+		docking_view_data = {}
+
+func _note_opt_warning(text: String) -> void:
+	if text == "" or optical_docking_warnings.has(text):
+		return
+	optical_docking_warnings.append(text)
+	while optical_docking_warnings.size() > MAX_OPT_WARNINGS:
+		optical_docking_warnings.pop_front()
+
+## 光学/IR 只读 VM（sensors/channels/by_status/events/warnings/summary/writes=false）。
+func optical_ir_view() -> Dictionary:
+	return optical_ir_view_data
+
+func optical_ir_summary() -> Dictionary:
+	return optical_ir_summary_data
+
+## 光学 snapshot：observer=本舰 L1 板原点；targets 由 V2 contacts 的 range/bearing/alt 构造。
+func optical_ir_snapshot() -> Dictionary:
+	var own_id := String(world.own_id)
+	var observer := OpticalIRScript.default_observer(own_id)
+	observer["pos_km"] = [0.0, 0.0, 0.0]
+	observer["vel_kmps"] = [0.0, 0.0, 0.0]
+	var targets: Array = []
+	for raw in world.vm_contacts():
+		var c: Dictionary = raw
+		if bool(c.get("bearing_only", false)):
+			continue
+		var eid := String(c.get("entity_id", ""))
+		if eid == "" or eid == own_id:
+			continue
+		var rng := float(c.get("range_km", 0.0))
+		if rng <= 0.0:
+			continue
+		var br := deg_to_rad(float(c.get("bearing_deg", 0.0)))
+		var pos := [sin(br) * rng, cos(br) * rng, float(c.get("alt", 0.0))]
+		targets.append(OpticalIRScript.make_target(
+			String(c.get("track_id", c.get("batch", ""))), pos, {
+				"entity_id": eid,
+				"batch": String(c.get("batch", "")),
+				"name": String(c.get("name", "")),
+				"size_m": maxf(1.0, float(c.get("size_km", 0.05)) * 1000.0),
+				"temp_k": 300.0, "area_m2": 1000.0, "illum": 1.0,
+			}))
+	return OpticalIRScript.make_snapshot(float(world.t), observer, targets,
+		{"sun_illum": 1.0, "shadow": false, "los": true})
+
+## 显式：两通道对准目标（aim_at；不 step/不写 V15）。
+func optical_ir_point(target_id: String) -> Dictionary:
+	if not optical_ir_ready or optical_ir == null:
+		return {"ok": false, "reason": "optical_ir_not_ready", "target_id": target_id}
+	var out := {"ok": true, "target_id": target_id, "sensors": {}}
+	for kind in OpticalIRScript.KINDS:
+		if optical_ir.has_sensor(kind):
+			(out["sensors"] as Dictionary)[kind] = optical_ir.aim_at(kind, target_id)
+	_refresh_optical_docking()
+	return out
+
+## 显式：启动 VIS/IR 通道（kind=optical|ir）。
+func optical_ir_start(kind: String, target_id: String, opts := {}) -> Dictionary:
+	if not optical_ir_ready or optical_ir == null:
+		return {"ok": false, "reason": "optical_ir_not_ready"}
+	var res: Dictionary = optical_ir.start_channel(kind, target_id, opts)
+	_refresh_optical_docking()
+	return res
+
+## 显式：推进光学通道（用 bridge 构造的 snapshot；不写 V15）。
+func optical_ir_step(dt: float) -> Dictionary:
+	if not optical_ir_ready or optical_ir == null:
+		return {"ok": false, "reason": "optical_ir_not_ready"}
+	var out: Dictionary = optical_ir.step(maxf(0.0, dt), optical_ir_snapshot())
+	_refresh_optical_docking()
+	return out
+
+func optical_ir_stop(kind: String, target_id := "") -> void:
+	if not optical_ir_ready or optical_ir == null:
+		return
+	optical_ir.stop_channel(kind, target_id)
+	_refresh_optical_docking()
+
+## 对接只读 VM（ports/target/last/events/config/writes=false）。
+func docking_view() -> Dictionary:
+	return docking_view_data
+
+## 显式：选择目标端口（默认端口样例；不落实体）。
+func docking_select_port(port_id: String) -> Dictionary:
+	if not docking_ready or docking == null:
+		return {"ok": false, "reason": "docking_not_ready"}
+	var res: Dictionary = docking.select_target_port(port_id)
+	_refresh_optical_docking()
+	return res
+
+## 显式：相对状态/姿态驱动对接（rel={dr,dv} 或 [x,y,z,vx,vy,vz]；attitude={chaser_port_axis}）。
+func docking_update(rel, attitude := {}, dt := 0.0) -> Dictionary:
+	if not docking_ready or docking == null:
+		return {"ok": false, "reason": "docking_not_ready"}
+	var res: Dictionary = docking.update(rel, attitude, maxf(0.0, float(dt)))
+	docking_update_last = res.duplicate(true)
+	_refresh_optical_docking()
+	return res
+
+func docking_hold(reason := "commander_hold") -> Dictionary:
+	if not docking_ready or docking == null:
+		return {"ok": false, "reason": "docking_not_ready"}
+	var res: Dictionary = docking.hold(reason)
+	_refresh_optical_docking()
+	return res
+
+func docking_resume() -> Dictionary:
+	if not docking_ready or docking == null:
+		return {"ok": false, "reason": "docking_not_ready"}
+	var res: Dictionary = docking.resume()
+	_refresh_optical_docking()
+	return res
+
+func docking_abort(reason := "commander_abort") -> Dictionary:
+	if not docking_ready or docking == null:
+		return {"ok": false, "reason": "docking_not_ready"}
+	var res: Dictionary = docking.abort(reason)
+	_refresh_optical_docking()
+	return res
+
+func docking_reset() -> Dictionary:
+	if not docking_ready or docking == null:
+		return {"ok": false, "reason": "docking_not_ready"}
+	docking.reset()
+	_refresh_optical_docking()
+	return {"ok": true, "state": String(docking.state)}

@@ -300,3 +300,22 @@ boot 做一次 `step(0.0)` priming（不推进时间）使 advisory 立即可读
 其余 off；每条带占位雷达 emission + radio comms）；stations=两个 ELINT 站（5000 km 基线）；
 advisory_contacts 透传 sensor shadow。`sync(dt)` 中 `dt>0` 才 step；`dt=0` 不推进。
 详见 `game_v17/docs/v17_info_warfare_shadow.md`；最小 probe `tests/v17_info_warfare_probe.gd`（116/0）。
+## 17　光学/IR + 对接字段（R5-OPT-DOCK-BRIDGE-1）
+
+模型 `framework/sim/optical_ir_channel.gd`（`V2OpticalIRChannel`）与
+`framework/sim/docking_controller.gd`（`V2DockingController`）以 **只读 VM / 显式 API** 接入：
+不自动步进、不写 world/physics/TrackTable/V15、不接 HUD/plot。
+`V17_OPTICAL_IR=on|off`、`V17_DOCKING=on|off`（默认 on；失败不阻塞 bridge）。
+
+| 位置 | 字段 / API | 说明 |
+| --- | --- | --- |
+| bridge | `optical_ir_enabled/ready` / `docking_enabled/ready` | 开关/就绪 |
+| bridge | `optical_ir_view()` / `optical_ir_summary()` | optical_ir.v1：sensors{optical,ir}/channels[]/by_status/events/warnings/summary{channels,locked,staring,acquiring,lost,optical_l3,ir_l1}/writes=false |
+| bridge | `optical_ir_point(target_id)` / `optical_ir_start(kind,target_id,opts)` / `optical_ir_step(dt)` / `optical_ir_stop(kind,target_id)` | 显式光学操作（用 bridge snapshot；不写 V15） |
+| bridge | `docking_view()` | v17_docking.v1：state/ports[]/target_port/config/last/events/hold/failure/writes{world,physics,track_table,v15:false}/authoritative=false |
+| bridge | `docking_select_port(port_id)` / `docking_update(rel,attitude,dt)` / `docking_hold/resume/abort/reset` | 显式对接状态机（rel={dr,dv} 或 [x,y,z,vx,vy,vz]；attitude={chaser_port_axis}） |
+| bridge | `bridge_state()` | 增 optical_ir/optical_ir_summary/ready/enabled、docking/docking_ready/docking_enabled/docking_update_last |
+| state | `fw_optical_ir` / `fw_docking` | 只读 VM 快照；`fw_sync` 刷新；off 为空 |
+| state | `fw_optical_ir_view()/fw_docking_view()`、`fw_optical_ir_*`、`fw_docking_*` | 包装显式 API，调用后自动 `_fw_pull()`；旧字段不变 |
+
+详见 `game_v17/docs/v17_optical_docking_bridge.md`；最小 probe `tests/v17_optical_docking_probe.gd`（128/0）。

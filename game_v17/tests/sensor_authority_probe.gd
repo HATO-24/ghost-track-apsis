@@ -33,6 +33,7 @@ func _initialize() -> void:
 	_test_snapshot()
 	_test_radar_tws()
 	_test_optics()
+	_test_optical_backend_switch()
 	_test_optical_shadow()
 	_test_gating()
 	_test_shadow_no_write()
@@ -120,6 +121,7 @@ func _make_targets() -> void:
 func _new_authority(extra := {}) -> Object:
 	var cfg: Dictionary = {
 		"targets": _targets,
+		"optical_backend": "legacy",   # R5-SENSOR-OPT-1：旧 tests 显式回归 legacy 后端
 		"optical_channels": [{"kind": "optical", "target_id": "T1"},
 			{"kind": "ir", "target_id": "T1"}],
 	}
@@ -373,6 +375,139 @@ func _test_optics() -> void:
 	_data_line("optics", "VIS locked/L3，IR locked/L1；attitude default 明示")
 
 
+func _test_optical_backend_switch() -> void:
+	_section_begin("4b 光学后端切换：optical_ir 默认 / legacy 回退")
+	# 新后端：真实 FOV/凝视/SNR/遮挡/角速度字段
+	var vis_target := Auth.make_target("V1", 8000.0, 0.0, {
+		"batch": "3101", "name": "VIS目标",
+		"classification": {"ship_class": "DDG", "role": "escort"},
+	})
+	var a = Auth.new()
+	_ok(bool(a.setup({"targets": [vis_target], "optical_backend": "optical_ir",
+		"optical_channels": [{"kind": "optical", "target_id": "V1"},
+			{"kind": "ir", "target_id": "V1"}]})), "optical_ir setup 成功")
+	_eq(str(a.optical_backend()), "optical_ir", "默认后端=optical_ir")
+	var avail: Array = a.optical_summary().get("available_backends", [])
+	_ok(avail.has("optical_ir") and avail.has("legacy"), "两个后端均可用")
+	var ch0: Dictionary = a.channel("optical", "V1")
+	_eq(str(ch0.get("backend", "")), "optical_ir", "setup 通道 backend=optical_ir")
+	_ok(ch0.has("fov_deg") and ch0.has("boresight_deg") and ch0.has("snr_db"),
+		"channels 含 fov/boresight/snr")
+	_ok(ch0.has("occluded") or ch0.has("occlusion"), "channels 含 occlusion")
+	var tt = TrackTable.new(TrackTable.default_rules())
+	var tt_before := "%s|%d|%s" % [str(tt.tracks), int(tt.next_seq), str(tt.errors)]
+	_warm(a, 90.0)
+	var vis_ch: Dictionary = a.channel("optical", "V1")
+	_eq(str(vis_ch.get("status", "")), "locked", "optical_ir VIS 锁定")
+	_eq(int(vis_ch.get("level_support", 0)), 3, "optical_ir VIS 分类 → L3")
+	_ok(not (vis_ch.get("classification", {}) as Dictionary).is_empty(),
+		"optical_ir VIS classification 非空")
+	_ok(float(vis_ch.get("fov_deg", 0.0)) > 0.0, "optical_ir 输出来自真实 FOV")
+	_ok(float(vis_ch.get("snr_db", -999.0)) > float(vis_ch.get("min_snr_db", 8.0)) - 999.0,
+		"optical_ir 输出 SNR")
+	_ok(float(vis_ch.get("off_axis_deg", -1.0)) >= 0.0, "optical_ir 输出 off_axis")
+	var ir_ch: Dictionary = a.channel("ir", "V1")
+	_eq(str(ir_ch.get("status", "")), "locked", "optical_ir IR 锁定")
+	_eq(int(ir_ch.get("level_support", 0)), 1, "optical_ir IR 仅 L1")
+	_ok((ir_ch.get("classification", {}) as Dictionary).is_empty(),
+		"optical_ir IR 不分类")
+	var vis_obs := {}
+	var ir_obs := {}
+	for raw in a.advisory_observations:
+		if raw is Dictionary:
+			var o: Dictionary = raw
+			if String(o.get("kind", "")) == "optical":
+				vis_obs = o
+			elif String(o.get("kind", "")) == "ir":
+				ir_obs = o
+	_eq(str(vis_obs.get("backend", "")), "optical_ir", "VIS 观测 backend=optical_ir")
+	_eq(int(vis_obs.get("level_support", 0)), 3, "VIS 观测 L3")
+	_eq(str(ir_obs.get("backend", "")), "optical_ir", "IR 观测 backend=optical_ir")
+	_eq(int(ir_obs.get("level_support", 0)), 1, "IR 观测 L1")
+	_ok(vis_obs.has("fov_deg") and vis_obs.has("occluded") and vis_obs.has("snr_db")
+		and vis_obs.has("boresight_deg"), "观测含 fov/occlusion/snr/boresight")
+	var c_vis_any := false
+	for raw_c in a.advisory_contacts:
+		if raw_c is Dictionary:
+			c_vis_any = true
+			_eq(int((raw_c as Dictionary).get("level", 0)), 3, "V1 advisory contact L3")
+	_ok(c_vis_any, "新后端 advisory contact 存在")
+	var sm: Dictionary = a.optical_summary()
+	_eq(str(sm.get("backend", "")), "optical_ir", "optical_summary backend")
+	_eq(int((sm.get("backend_counts", {}) as Dictionary).get("optical_ir", 0)), 2,
+		"backend_counts.optical_ir=2")
+	_ok(sm.get("sensors") is Dictionary, "optical_summary 含相机参数")
+	var vm: Dictionary = a.vm_sensor()
+	_eq(str(vm.get("optical_backend", "")), "optical_ir", "vm.optical_backend")
+	_ok((vm.get("optical_backends", {}) as Dictionary).has("available"), "vm.optical_backends")
+	_ok(_has_warning(a, "OPTICAL BACKEND"), "warnings 标注后端")
+	_eq("%s|%d|%s" % [str(tt.tracks), int(tt.next_seq), str(tt.errors)], tt_before,
+		"optical_ir 不写 TrackTable")
+	# FOV 外失败（固定视轴 0°，目标 90°）
+	var fov_target := Auth.make_target("OFF", 8000.0, 90.0, {"batch": "3102"})
+	var af = Auth.new()
+	af.setup({"targets": [fov_target], "optical_backend": "optical_ir"})
+	var rf: Dictionary = af.start_channel("optical", "OFF", {"backend": "optical_ir",
+		"boresight_deg": 0.0})
+	_ok(bool(rf.get("ok", false)), "FOV 测试通道建立")
+	af.step(0.5)
+	var fov_ch: Dictionary = af.channel("optical", "OFF")
+	_eq(str(fov_ch.get("reason", "")), "fov_miss", "optical_ir FOV 外 → fov_miss")
+	var fov_obs := {}
+	for raw_f in af.advisory_observations:
+		if raw_f is Dictionary and String((raw_f as Dictionary).get("kind", "")) == "optical":
+			fov_obs = raw_f
+	_eq(str(fov_obs.get("reason", "")), "fov_miss", "观测记录 fov_miss")
+	_eq(bool(fov_obs.get("detected", true)), false, "FOV 外观测 detected=false")
+	# 地球遮挡：observer 7000，目标在背面，固定视轴 -90°
+	var occ_target := Auth.make_target("BEHIND", 1.0, 0.0, {"batch": "3103"})
+	occ_target["pos_km"] = [-7000.0, 0.0, 0.0]
+	var ao = Auth.new()
+	ao.setup({"targets": [occ_target], "optical_backend": "optical_ir",
+		"observer": {"pos_km": [7000.0, 0.0, 0.0]}})
+	ao.start_channel("optical", "BEHIND", {"backend": "optical_ir", "boresight_deg": -90.0})
+	ao.step(1.0)
+	var occ_ch: Dictionary = ao.channel("optical", "BEHIND")
+	_eq(str(occ_ch.get("reason", "")), "occluded", "optical_ir 地球遮挡 → occluded")
+	var occ_obs := {}
+	for raw_o2 in ao.advisory_observations:
+		if raw_o2 is Dictionary and String((raw_o2 as Dictionary).get("kind", "")) == "optical":
+			occ_obs = raw_o2
+	_eq(bool(occ_obs.get("occluded", false)), true, "观测 occluded=true")
+	# 相对角速度 → 运动模糊
+	var blur_target := Auth.make_target("BLUR", 8000.0, 0.0, {"batch": "3104"})
+	blur_target["vel_kmps"] = [10.0, 0.0, 0.0]
+	var ab = Auth.new()
+	ab.setup({"targets": [blur_target], "optical_backend": "optical_ir"})
+	ab.start_channel("optical", "BLUR", {"backend": "optical_ir"})
+	ab.step(0.5)
+	_eq(str(ab.channel("optical", "BLUR").get("reason", "")), "blurred",
+		"optical_ir 角速度/曝光 → blurred")
+	# legacy 回退：默认/显式 opts
+	var leg = _new_authority()
+	_eq(str(leg.optical_backend()), "legacy", "legacy 配置后端")
+	var leg_ch: Dictionary = leg.channel("optical", "T1")
+	_eq(str(leg_ch.get("backend", "")), "legacy", "legacy 通道 backend")
+	_ok(leg_ch.has("fov_deg") and leg_ch.has("occlusion"), "legacy 通道也补 FOV/occlusion 字段")
+	_warm(leg, 90.0)
+	_eq(str(leg.channel("optical", "T1").get("status", "")), "locked", "legacy VIS 回归 locked")
+	var am = Auth.new()
+	am.setup({"targets": [vis_target], "optical_backend": "optical_ir"})
+	var rlegacy: Dictionary = am.start_channel("optical", "V1", {"backend": "legacy"})
+	_eq(str(rlegacy.get("backend", "")), "legacy", "opts.backend=legacy 单通道回退")
+	_eq(str(am.channel("optical", "V1").get("backend", "")), "legacy", "回退通道 backend")
+	var sw: Dictionary = am.set_optical_backend("legacy")
+	_ok(bool(sw.get("ok", false)), "set_optical_backend(legacy)")
+	_eq(str(am.optical_backend()), "legacy", "后端切换 legacy")
+	var bad_sw: Dictionary = am.set_optical_backend("nope")
+	_eq(str(bad_sw.get("reason", "")), "invalid_backend", "非法 backend 拒绝")
+	# compare 不变
+	var cmp: Dictionary = a.compare([])
+	_eq(str(cmp.get("schema", "")), "sensor_shadow_compare.v1", "compare schema 不变")
+	_eq(bool(cmp.get("read_only", false)), true, "compare read_only 不变")
+	_data_line("backend", "optical_ir VIS L3/IR L1/FOV/occluded/blurred；legacy 回退+字段；不写 TrackTable")
+
+
 func _test_optical_shadow() -> void:
 	_section_begin("5 光学阴影 / IR 独立")
 	var targets: Array = []
@@ -381,7 +516,7 @@ func _test_optical_shadow() -> void:
 			"batch": "30%02d" % (i + 10), "illum": 0.0 if i == 0 else 1.0,
 			"classification": {"ship_class": "FFG"}}))
 	var a = Auth.new()
-	a.setup({"targets": targets, "optical_channels": [
+	a.setup({"targets": targets, "optical_backend": "legacy", "optical_channels": [
 		{"kind": "optical", "target_id": "S1"},
 		{"kind": "ir", "target_id": "S1"}]})
 	for i in range(20):

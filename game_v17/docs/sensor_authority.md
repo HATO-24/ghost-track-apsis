@@ -177,15 +177,17 @@ a.summary()
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/sensor_authority_probe.gd
-# 末行 SENSOR AUTHORITY PROBE RESULT: PASS=286 FAIL=0 / SENSOR AUTHORITY PROBE OK，退出码 0
+# 末行 SENSOR AUTHORITY PROBE RESULT: PASS=333 FAIL=0 / SENSOR AUTHORITY PROBE OK，退出码 0
 ```
 
-覆盖（10 节）：
+覆盖（11 节）：
 1. 初始化/挂载/记录/mode/writes/warnings/summary；非法装配失败；
 2. snapshot/目标归一（缺省字段、重复/无效过滤、JSON）；
 3. 球形雷达（shape/sphere/no_sector/R_eff 30,000/track 15,000/refresh 6/active/scan_index/in_sphere 6）+
    TWS 六通道（状态/FC×3/quality/aging）+ 观测类型 + 6 advisory contacts + T1 L3 分类；
 4. VIS/IR（锁定、L3/L1、attitude_source、start/stop channel、summary）；
+4b. **光学后端切换**（§9）：optical_ir VIS L3/IR L1、FOV/occlusion/snr/boresight 字段、fov_miss/occluded/blurred；
+   legacy 回退（config/opts/set_optical_backend）、单通道回退、compare 不变、不写 TrackTable；
 5. 光学阴影（illum=0 → VIS lost/shadow；IR 仍 locked）；目标在球外/失锁路径；
 6. EMCON/桅杆/损坏/挂载开关/非法通道；
 7. **shadow 不写**：V2 TrackTable 签名不变、legacy 输入不变、无 tracks/track_table 字段、contacts 不增删；
@@ -217,3 +219,74 @@ a.summary()
 - compare 为只读诊断：不自动融合、不写等级/身份/威胁；不处理 replay/事件总线。
 - 不修改 TrackTable/V15；authoritative 切换、HUD 页面、bridge 字段均留给后续 R5 任务。
 - 位置/速度/坐标帧：本 shadow 使用调用方 snapshot 的同一帧（默认 L1 局部板）；跨帧转换（ECI/L1）由 R6/world adapter 负责。
+
+
+---
+
+## 9　R5-SENSOR-OPT-1：统一光学/IR 后端（optical_ir / legacy）
+
+> 任务 task-90。只改 `framework/sim/sensor_authority.gd`、`tests/sensor_authority_probe.gd`、本文件；未改 `optical_ir_channel.gd`、bridge/state/ui/core；未 commit。
+> 目标：光学/IR 通道接入 `V2OpticalIRChannel` 的真实 FOV/遮挡/光照/角速度/凝视/SNR，同时保留旧 `optical.gd` 回退。
+
+### 9.1　后端选择
+
+| 方式 | 字段 | 默认/说明 |
+| --- | --- | --- |
+| authority 级 | `setup({"optical_backend": "optical_ir"|"legacy"})` | 默认 **optical_ir**；非法值 warning + 回退 legacy |
+| 单通道 | `start_channel(kind,target,{"backend":"optical_ir"|"legacy"})` | 逐通道选择；可混合 |
+| 运行时默认 | `set_optical_backend("optical_ir"|"legacy")` | 只改之后 start 的默认；已有通道继续存在于各自后端 |
+| 查询 | `optical_backend()` / `vm_sensor().optical_backend` / `optical_summary().available_backends` | 两个后端均实例化；`available_backends` 反映实际可用 |
+
+- 两个后端**都 step**；各自只处理通过其 `start_channel` 建立的通道。legacy 通道与 optical_ir 通道可并存（probe 覆盖）。
+- 请求 backend 不可用时（如新后端初始化失败）：`start_channel` 回退 legacy，返回 `backend_fallback=true` / `reason_text`；不伪造新后端结果。
+- 仍为 shadow：不写 TrackTable/V15；`writes_track_table=false`、`writes_v15=false`。
+
+### 9.2　新增/增强字段
+
+**channels[]**（`channels_cache` / `vm_sensor().channels`）新增：
+`backend`（`optical_ir|legacy`）、`fov_deg`、`ifov_urad`、`ifov_eff_urad`、`boresight_deg`、`boresight_el_deg`、`off_axis_deg`、`occluded`、`occlusion`、`snr_db`、`snr_available`、`visible`、`detected`、`effective_range_km`、`angular_size_rad`、`n_px`、`smear_px`、`omega_dps`、`level_cap`。
+
+- `optical_ir`：这些字段来自真实模型；`status` 含 idle/acquiring/staring/locked/lost，`reason` 可为
+  `fov_miss/occluded/too_dark/dazzled/out_of_range/low_snr/too_fast/blurred/maneuver/target_missing`。
+- `legacy`：`status/凝视` 来自旧 optical.gd；`fov/ifov/boresight` 为同型号相机表的只读元数据；
+  `snr_db=-999`、`snr_available=false`（legacy 不计算 SNR，不冒充）；`occluded` 由 legacy reason 映射。
+- **observations**（`sensor_observation.v1`）新增 extra：`backend/fov_deg/ifov_urad/off_axis_deg/boresight_deg/
+  snr_db/snr_available/occluded/occlusion/visible/angular_size_rad/n_px/smear_px/omega_dps/level_cap`；
+  notes 增加 `backend=`、`fov=... off_axis=...`、`snr=... dB`、`occluded=true`。
+- **optical_summary()** 新增/保留：
+  `backend`、`available_backends[]`、`backend_counts{legacy,optical_ir}`、`sensors{optical,ir}`
+  （口径/焦距/FOV/IFOV/曝光/云台/活动通道）、`notes[]`；保留 `by_status`/`channels`/`enabled`/`attitude_source`。
+- **vm_sensor()** 新增：`optical_backend`、`optical_backends{active,available,legacy_available,
+  optical_ir_available,notes}`；`summary()` 同步 `optical_backend`/`optical_backends_available`。
+- `compare()` **不变**（schema/只读语义保持；probe 断言）。
+
+### 9.3　advisory / 等级规则（与旧 shadow 一致）
+
+- VIS（新后端）：锁定 + 分类判据成立 → `level_support=3`、classification；未分类 → 1；IR → 1。
+- identity 恒 unknown；不判敌；不写 V15/TrackTable。
+- 观测 failure（fov_miss/occluded/blurred 等）以 `detected=false`、真实 `reason` 进入 observations；
+  不生成伪造 contact。
+
+### 9.4　验证（单次 probe）
+
+```powershell
+.\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
+    --path .\game_v17 --script res://tests/sensor_authority_probe.gd
+# SENSOR AUTHORITY PROBE RESULT: PASS=333 FAIL=0 / SENSOR AUTHORITY PROBE OK
+```
+
+新增 4b 覆盖：
+- new backend setup（默认 optical_ir）、两个后端 available、channel backend/fov/boresight/snr/occlusion 字段；
+- optical_ir VIS 锁定 → L3 + classification、IR 锁定 → L1、observation backend/字段、advisory contact L3；
+- FOV 外 `fov_miss`（固定视轴）；地球遮挡 `occluded`；相对角速度/曝光 `blurred`；
+- legacy 回归（config/opts backend=legacy、channel backend、锁定状态）；`set_optical_backend` 与非法 backend；
+- 不写 TrackTable；`compare()` schema/read_only 不变；VM backend 字段。
+- 旧 10 节全部通过（原 286 断言 + 新 47 = 333）。
+
+### 9.5　边界 / 未完成
+
+- 本任务是 **sensor_authority 内部后端切换**，不接 bridge/state/UI/core；bridge 的 `fw_sensor` 后续再取新字段。
+- optical_ir 的 SNR/遮挡/角速度公式见 `docs/optical_ir_channel.md`；legacy 不计算 SNR，字段明确 `snr_available=false`。
+- 两后端并存时，同名 target 的不同 backend 通道会分别出现在 channels[]（backend 区分）；advisory 聚合按目标合并等级证据。
+- 未做跨后端自动对比/切换迁移（如 legacy→optical_ir 状态迁移）；未改 optical_ir_channel.gd。
+- 仍不写 TrackTable/V15；authoritative 切换留给 R5.6。

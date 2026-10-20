@@ -25,6 +25,7 @@ const Types := preload("res://framework/sim/sensor_types.gd")
 const RadarModel := preload("res://framework/sim/radar.gd")
 const TwsModel := preload("res://framework/sim/tws.gd")
 const OpticalModel := preload("res://framework/sim/optical.gd")
+const OpticalIRModel := preload("res://framework/sim/optical_ir_channel.gd")
 
 const SCHEMA_VM := "sensor_shadow.v1"
 const SCHEMA_OBS := "sensor_observation.v1"
@@ -36,6 +37,8 @@ const ATTITUDE_DEFAULT_NOTE := "ATTITUDE NOT MODELED: 使用显式默认姿态 q
 const IDENTITY_SCOPE_NOTE := "IDENTITY NOT ASSERTED: shadow 仅覆盖雷达/TWS/VIS/IR；IFF/ELINT 未接入，advisory identity=unknown（不判敌）"
 const ACTIVE_TWS_STATES := ["ACQUIRE", "TRACK", "STARE", "FIRE_CONTROL"]
 const OPTICAL_STATES_DETECTED := ["acquiring", "staring", "locked"]
+const OPTICAL_BACKENDS := ["optical_ir", "legacy"]
+const OPTICAL_BACKEND_DEFAULT := "optical_ir"
 const LEVEL_LABELS := {0: "UNKNOWN", 1: "BEARING", 2: "POSITION", 3: "CLASSIFIED", 4: "IDENTIFIED"}
 const REF_RCS_M2 := 10.0
 const STALE_AFTER_S := 30.0
@@ -66,7 +69,9 @@ var optical_summary_cache: Dictionary = {}
 var step_count := 0
 
 var _tws = null
-var _optical = null
+var _optical = null               # legacy optical.gd 后端（回退）
+var _optical_ir = null            # V2OpticalIRChannel 后端（新默认）
+var _optical_backend := OPTICAL_BACKEND_DEFAULT
 var _obs_seq := 0
 var _last_compare: Dictionary = {}
 var _last_radar_scan: Dictionary = {}
@@ -171,6 +176,10 @@ func setup(config := {}) -> bool:
 		for k in (_config.get("observer") as Dictionary).keys():
 			base_obs[String(k)] = (_config.get("observer") as Dictionary)[k]
 	observer = base_obs
+	_optical_backend = String(_config.get("optical_backend", OPTICAL_BACKEND_DEFAULT))
+	if not OPTICAL_BACKENDS.has(_optical_backend):
+		warnings.append("optical_backend=%s 非法；回退 legacy" % _optical_backend)
+		_optical_backend = "legacy"
 	_level_tolerance = int(_config.get("level_tolerance", 0))
 	_range_tolerance_km = float(_config.get("range_tolerance_km", 5.0))
 	t = float(_config.get("t", 0.0))
@@ -201,12 +210,12 @@ func setup(config := {}) -> bool:
 			 "shadow": bool(_config.get("shadow", false)),
 			 "los": bool(_config.get("los", true))})
 		_normalize_snapshot()
-	# 初始光学/IR 通道
+	# 初始光学/IR 通道（per-channel backend 可在 optical_channels 条目里给 backend）
 	var chans: Array = _config.get("optical_channels", []) if _config.get("optical_channels") is Array else []
 	for raw_ch in chans:
 		if raw_ch is Dictionary:
 			start_channel(String((raw_ch as Dictionary).get("kind", "optical")),
-				String((raw_ch as Dictionary).get("target_id", "")))
+				String((raw_ch as Dictionary).get("target_id", "")), raw_ch as Dictionary)
 	ready = true
 	_rebuild()
 	_build_warnings()
@@ -235,6 +244,8 @@ func reset() -> void:
 	step_count = 0
 	_tws = null
 	_optical = null
+	_optical_ir = null
+	_optical_backend = OPTICAL_BACKEND_DEFAULT
 	_obs_seq = 0
 	_last_compare = {}
 	_last_radar_scan = {}
@@ -278,6 +289,29 @@ func _build_models() -> void:
 	_tws = TwsModel.new(radar_rec, {"id": String(radar_mount.get("model", "YW-R9")),
 		"max_channels": cap, "enabled": true})
 	_optical = OpticalModel.new({"optical": optical_rec, "ir": ir_rec, "lost_hold_s": 8.0})
+	# 新默认后端 V2OpticalIRChannel：用记录中的型号/距离/刷新/测向 σ 覆盖默认相机参数；
+	# 失败时保留 legacy 回退，不让 authority 整体不可用。
+	_optical_ir = null
+	var ir_sensors: Dictionary = OpticalIRModel.default_sensors()
+	var opt_cfg: Dictionary = (ir_sensors.get("optical", {}) as Dictionary).duplicate(true)
+	opt_cfg["model"] = String(optical_rec.model)
+	opt_cfg["range_km"] = float(optical_rec.range_km)
+	opt_cfg["refresh_s"] = float(optical_rec.refresh_s)
+	opt_cfg["sigma_bearing_deg"] = float(optical_rec.sigma_bearing_deg)
+	var ir_cfg: Dictionary = (ir_sensors.get("ir", {}) as Dictionary).duplicate(true)
+	ir_cfg["model"] = String(ir_rec.model)
+	ir_cfg["range_km"] = float(ir_rec.range_km)
+	ir_cfg["refresh_s"] = float(ir_rec.refresh_s)
+	ir_cfg["sigma_bearing_deg"] = float(ir_rec.sigma_bearing_deg)
+	var model_cfg: Dictionary = {"sensors": {"optical": opt_cfg, "ir": ir_cfg}}
+	_optical_ir = OpticalIRModel.new(model_cfg)
+	if not (_optical_ir.errors as Array).is_empty():
+		warnings.append("optical_ir backend 初始化失败，回退 legacy：%s" % str(_optical_ir.errors))
+		_optical_ir = null
+	elif _optical_backend == "optical_ir":
+		warnings.append("OPTICAL BACKEND: optical_ir（legacy 回退可用）")
+	else:
+		warnings.append("OPTICAL BACKEND: legacy（optical_ir 可用，opts.backend=\"optical_ir\" 切换）")
 
 
 func _mount_by_kind(kind: String) -> Dictionary:
@@ -350,6 +384,40 @@ func set_mount_enabled(mount_id: String, on: bool) -> Dictionary:
 		"shadow": true, "writes_v15": false}
 
 
+func _optical_backend_available(backend: String) -> bool:
+	if backend == "legacy":
+		return _optical != null
+	if backend == "optical_ir":
+		return _optical_ir != null
+	return false
+
+
+func optical_backend() -> String:
+	return _optical_backend
+
+
+func set_optical_backend(backend: String) -> Dictionary:
+	if not OPTICAL_BACKENDS.has(backend):
+		return {"ok": false, "reason": "invalid_backend", "backend": backend,
+			"available": OPTICAL_BACKENDS.duplicate(), "shadow": true, "writes_v15": false}
+	if not _optical_backend_available(backend):
+		return {"ok": false, "reason": "backend_unavailable", "backend": backend,
+			"available": _available_optical_backends(), "shadow": true, "writes_v15": false}
+	_optical_backend = backend
+	_build_warnings()
+	return {"ok": true, "backend": _optical_backend, "available": _available_optical_backends(),
+		"shadow": true, "writes_v15": false, "writes_track_table": false}
+
+
+func _available_optical_backends() -> Array:
+	var out: Array = []
+	if _optical != null:
+		out.append("legacy")
+	if _optical_ir != null:
+		out.append("optical_ir")
+	return out
+
+
 func start_channel(kind: String, target_id: String, opts := {}) -> Dictionary:
 	if kind != "optical" and kind != "ir":
 		return {"ok": false, "reason": "unknown_kind", "kind": kind}
@@ -357,19 +425,108 @@ func start_channel(kind: String, target_id: String, opts := {}) -> Dictionary:
 		return {"ok": false, "reason": "target_required"}
 	if not _optical_enabled(kind):
 		return {"ok": false, "reason": "mount_disabled_or_damaged", "kind": kind}
-	var res: Dictionary = _optical.start(kind, target_id, opts if opts is Dictionary else {})
+	var opt: Dictionary = (opts as Dictionary).duplicate(true) if opts is Dictionary else {}
+	var backend := String(opt.get("backend", _optical_backend))
+	if not OPTICAL_BACKENDS.has(backend):
+		return {"ok": false, "reason": "invalid_backend", "backend": backend}
+	var fallback := false
+	if not _optical_backend_available(backend):
+		# 请求的新后端不可用时回退 legacy（保留明确原因，不伪造新后端结果）
+		backend = "legacy"
+		fallback = true
+		if _optical == null:
+			return {"ok": false, "reason": "backend_unavailable", "backend": backend}
+	var res: Dictionary = {}
+	if backend == "optical_ir":
+		res = _optical_ir.start_channel(kind, target_id, opt)
+	else:
+		res = _optical.start(kind, target_id, opt)
 	_resync_channel_cache()
-	return {"ok": bool(res.get("ok", false)), "reason": String(res.get("reason", "")),
-		"kind": kind, "target_id": target_id, "shadow": true, "writes_v15": false}
+	var out := {"ok": bool(res.get("ok", false)), "reason": String(res.get("reason", "")),
+		"kind": kind, "target_id": target_id, "backend": backend,
+		"backend_fallback": fallback, "shadow": true, "writes_v15": false}
+	if fallback:
+		out["reason_text"] = "requested backend unavailable; using legacy"
+	if res.get("channel") is Dictionary:
+		out["channel"] = ((res.get("channel") as Dictionary) as Dictionary).duplicate(true)
+	return out
 
 
 func stop_channel(kind: String, target_id := "") -> void:
 	if _optical != null:
 		_optical.stop(kind, target_id)
+	if _optical_ir != null:
+		_optical_ir.stop_channel(kind, target_id)
 	_resync_channel_cache()
 
 
-## 从当前 OpticalModel 重新生成 VIS/IR 通道缓存（保留 TWS 通道）。
+## 合并 legacy + optical_ir 的 VIS/IR 通道，并补齐 backend/fov/occlusion/snr/boresight。
+func _combined_optical_channels() -> Array:
+	var out: Array = []
+	if _optical != null:
+		for raw in (_optical.to_dict().get("channels", []) as Array):
+			if raw is Dictionary:
+				out.append(_enrich_optical_channel((raw as Dictionary).duplicate(true), "legacy"))
+	if _optical_ir != null:
+		for raw2 in _optical_ir.export_channels():
+			if raw2 is Dictionary:
+				out.append(_enrich_optical_channel((raw2 as Dictionary).duplicate(true), "optical_ir"))
+	return out
+
+
+func _enrich_optical_channel(oc: Dictionary, backend: String) -> Dictionary:
+	var kind := String(oc.get("channel", oc.get("kind", "optical")))
+	oc["backend"] = backend
+	oc["shadow"] = true
+	oc["mount_id"] = _mount_id_for_kind(kind)
+	var rec = records.get(kind, null)
+	oc["sensor_model"] = String(rec.model) if rec != null else String(oc.get("model", ""))
+	# 相机/FOV/SNR/视轴元数据：legacy 通道仍用新相机表的只读参数标注，
+	# 但 status/进度仍来自 legacy；backend 字段明确来源。
+	var meta: Dictionary = {}
+	if _optical_ir != null:
+		var sv: Dictionary = _optical_ir.sensors_view()
+		meta = (sv.get(kind, {}) as Dictionary) if sv.get(kind) is Dictionary else {}
+	if not oc.has("fov_deg"):
+		oc["fov_deg"] = float(meta.get("fov_deg", 0.0))
+	if not oc.has("ifov_urad"):
+		oc["ifov_urad"] = float(meta.get("ifov_urad", 0.0))
+	if not oc.has("ifov_eff_urad"):
+		oc["ifov_eff_urad"] = float(meta.get("ifov_eff_urad", 0.0))
+	if not oc.has("boresight_deg"):
+		oc["boresight_deg"] = float(meta.get("boresight_deg", oc.get("bearing_deg", -1.0)))
+	if not oc.has("boresight_el_deg"):
+		oc["boresight_el_deg"] = float(meta.get("boresight_el_deg", 0.0))
+	if not oc.has("off_axis_deg"):
+		oc["off_axis_deg"] = -1.0
+	if not oc.has("snr_db"):
+		oc["snr_db"] = -999.0
+		oc["snr_available"] = false
+	else:
+		oc["snr_available"] = true
+	if not oc.has("occluded"):
+		oc["occluded"] = String(oc.get("reason", "")) == "occluded"
+	oc["occlusion"] = bool(oc.get("occluded", false))
+	if not oc.has("visible"):
+		oc["visible"] = String(oc.get("status", "")) in OPTICAL_STATES_DETECTED
+	if not oc.has("detected"):
+		oc["detected"] = String(oc.get("status", "")) in OPTICAL_STATES_DETECTED
+	if not oc.has("effective_range_km"):
+		oc["effective_range_km"] = -1.0
+	if not oc.has("angular_size_rad"):
+		oc["angular_size_rad"] = 0.0
+	if not oc.has("n_px"):
+		oc["n_px"] = 0.0
+	if not oc.has("smear_px"):
+		oc["smear_px"] = 0.0
+	if not oc.has("omega_dps"):
+		oc["omega_dps"] = 0.0
+	if not oc.has("level_cap"):
+		oc["level_cap"] = "L3_optical_classify" if kind == "optical" else "L1_ir_only"
+	return oc
+
+
+## 从两个后端重新生成 VIS/IR 通道缓存（保留 TWS 通道）与 summary。
 func _resync_channel_cache() -> void:
 	var kept: Array = []
 	for raw in channels_cache:
@@ -379,25 +536,37 @@ func _resync_channel_cache() -> void:
 		var k := String(ch.get("channel", ch.get("kind", "")))
 		if k != "optical" and k != "ir":
 			kept.append(ch.duplicate(true))
-	if _optical != null:
-		var opt_export: Dictionary = _optical.to_dict()
-		for raw_opt in (opt_export.get("channels", []) as Array):
-			if not (raw_opt is Dictionary):
-				continue
-			var oc: Dictionary = (raw_opt as Dictionary).duplicate(true)
-			var kind := String(oc.get("channel", "optical"))
-			oc["mount_id"] = _mount_id_for_kind(kind)
-			var rec = records.get(kind, null)
-			oc["sensor_model"] = String(rec.model) if rec != null else ""
-			oc["shadow"] = true
-			kept.append(oc)
-		optical_summary_cache = {
-			"by_status": (opt_export.get("by_status", {}) as Dictionary).duplicate(true),
-			"channels": (opt_export.get("channels", []) as Array).duplicate(true),
-			"enabled": bool(opt_export.get("enabled", false)),
-			"attitude_source": String(observer.get("attitude_source", "default_not_modeled")),
-		}
+	var optical_channels := _combined_optical_channels()
+	for oc in optical_channels:
+		kept.append(oc)
 	channels_cache = kept
+	optical_summary_cache = _build_optical_summary(optical_channels)
+
+
+func _build_optical_summary(optical_channels: Array) -> Dictionary:
+	var by_status: Dictionary = {"idle": 0, "acquiring": 0, "staring": 0, "locked": 0, "lost": 0}
+	var backend_counts: Dictionary = {"legacy": 0, "optical_ir": 0}
+	for raw in optical_channels:
+		if raw is Dictionary:
+			var st := String((raw as Dictionary).get("status", "idle"))
+			by_status[st] = int(by_status.get(st, 0)) + 1
+			var bk := String((raw as Dictionary).get("backend", "legacy"))
+			backend_counts[bk] = int(backend_counts.get(bk, 0)) + 1
+	return {
+		"backend": _optical_backend,
+		"available_backends": _available_optical_backends(),
+		"backend_counts": backend_counts,
+		"by_status": by_status,
+		"channels": optical_channels.duplicate(true),
+		"enabled": (_optical != null and bool(_optical.enabled))
+			or (_optical_ir != null and bool(_optical_ir.enabled)),
+		"attitude_source": String(observer.get("attitude_source", "default_not_modeled")),
+		"sensors": (_optical_ir.sensors_view() if _optical_ir != null else {}),
+		"notes": [
+			"backend=%s；legacy 回退：opts.backend=\"legacy\" / config.optical_backend=\"legacy\"" % _optical_backend,
+			"optical_ir: FOV/遮挡/光照/角速度/凝视/SNR；legacy 保留原状态机",
+		],
+	}
 
 
 func set_observer(observer_row: Dictionary) -> void:
@@ -493,17 +662,20 @@ func step(dt: float, snap := {}) -> Dictionary:
 	snapshot["t"] = t
 	_normalize_snapshot()
 	_tws.set_enabled(is_radar_enabled())
-	# 光学/IR：挂载关闭则停掉对应通道（shadow 自身状态；不改 V15）
+	# 光学/IR：挂载关闭则停掉对应通道（shadow 自身状态；不改 V15）；两个后端都处理
 	if not _optical_enabled("optical"):
 		_optical.stop("optical")
+		_optical_ir.stop_channel("optical")
 	if not _optical_enabled("ir"):
 		_optical.stop("ir")
+		_optical_ir.stop_channel("ir")
 	_optical.set_enabled(_optical_enabled("optical") or _optical_enabled("ir"))
+	_optical_ir.set_enabled(_optical_enabled("optical") or _optical_enabled("ir"))
 	_step_events = []
 	var snap_for_model: Dictionary = snapshot.duplicate(true)
 	var tws_out: Dictionary = _tws.step(d, snap_for_model)
 	_step_events.append_array((tws_out.get("events", []) as Array).duplicate(true))
-	var opt_out: Dictionary = _optical.step(d, snap_for_model)
+	var opt_out: Dictionary = _step_optical_models(d, snap_for_model)
 	_step_events.append_array((opt_out.get("events", []) as Array).duplicate(true))
 	_last_radar_scan = _tws.radar.last_scan.duplicate(true) if _tws.radar != null else {}
 	_build_models_view(tws_out, opt_out)
@@ -512,6 +684,37 @@ func step(dt: float, snap := {}) -> Dictionary:
 	_build_warnings()
 	_rebuild()
 	return vm_sensor()
+
+
+## 同时 step 两个光学后端（各自只处理通过 start_channel(backend=...) 建立的通道）。
+func _step_optical_models(dt: float, snap: Dictionary) -> Dictionary:
+	var evs: Array = []
+	var legacy_out: Dictionary = {}
+	var new_out: Dictionary = {}
+	if _optical != null:
+		legacy_out = _optical.step(dt, snap)
+		evs.append_array((legacy_out.get("events", []) as Array).duplicate(true))
+	if _optical_ir != null:
+		new_out = _optical_ir.step(dt, snap)
+		evs.append_array((new_out.get("events", []) as Array).duplicate(true))
+	var optical_channels := _combined_optical_channels()
+	return {
+		"t": t, "dt": dt, "backend": _optical_backend,
+		"available_backends": _available_optical_backends(),
+		"enabled": (_optical != null and bool(_optical.enabled))
+			or (_optical_ir != null and bool(_optical_ir.enabled)),
+		"channels": optical_channels, "by_status": _optical_by_status(optical_channels),
+		"events": evs, "legacy_out": legacy_out, "optical_ir_out": new_out,
+	}
+
+
+func _optical_by_status(optical_channels: Array) -> Dictionary:
+	var by_status: Dictionary = {"idle": 0, "acquiring": 0, "staring": 0, "locked": 0, "lost": 0}
+	for raw in optical_channels:
+		if raw is Dictionary:
+			var st := String((raw as Dictionary).get("status", "idle"))
+			by_status[st] = int(by_status.get(st, 0)) + 1
+	return by_status
 
 
 func _build_models_view(tws_out: Dictionary, opt_out: Dictionary) -> void:
@@ -561,22 +764,14 @@ func _build_models_view(tws_out: Dictionary, opt_out: Dictionary) -> void:
 				ch["sensor_model"] = String(_mount_by_kind("search_radar").get("model", "YW-R9"))
 				ch["shadow"] = true
 				chans.append(ch)
-	var opt_export: Dictionary = _optical.to_dict() if _optical != null else {"channels": [], "by_status": {}}
-	for raw_opt in (opt_export.get("channels", []) as Array):
-		if raw_opt is Dictionary:
-			var oc: Dictionary = (raw_opt as Dictionary).duplicate(true)
-			var kind := String(oc.get("channel", "optical"))
-			oc["mount_id"] = _mount_id_for_kind(kind)
-			oc["sensor_model"] = String((records.get(kind, null) as Object).model) if records.get(kind, null) != null else ""
-			oc["shadow"] = true
-			chans.append(oc)
+	var optical_channels: Array = opt_out.get("channels", []) if opt_out.get("channels", []) is Array else []
+	for oc in optical_channels:
+		if oc is Dictionary:
+			var oc2: Dictionary = (oc as Dictionary).duplicate(true)
+			oc2["shadow"] = true
+			chans.append(oc2)
 	channels_cache = chans
-	optical_summary_cache = {
-		"by_status": (opt_export.get("by_status", {}) as Dictionary).duplicate(true),
-		"channels": (opt_export.get("channels", []) as Array).duplicate(true),
-		"enabled": bool(opt_export.get("enabled", false)),
-		"attitude_source": String(observer.get("attitude_source", "default_not_modeled")),
-	}
+	optical_summary_cache = _build_optical_summary(optical_channels)
 	if not _step_events.is_empty():
 		for raw_ev in _step_events:
 			if raw_ev is Dictionary:
@@ -684,7 +879,7 @@ func _build_observations(tws_out: Dictionary, opt_out: Dictionary) -> void:
 			 "stare_progress": float(ch.get("stare_progress", 0.0)),
 			 "fire_control": (ch.get("fire_control", {}) as Dictionary).duplicate(true)})
 		advisory_observations.append(obs2)
-	# 3) VIS/IR 通道观测
+	# 3) VIS/IR 通道观测（legacy + optical_ir；backend 字段标明来源）
 	for raw_opt in (opt_out.get("channels", []) as Array):
 		if not (raw_opt is Dictionary):
 			continue
@@ -694,15 +889,26 @@ func _build_observations(tws_out: Dictionary, opt_out: Dictionary) -> void:
 		if tid3 == "":
 			continue
 		var status := String(oc.get("status", "idle"))
-		var detected_opt := status in OPTICAL_STATES_DETECTED
+		var backend := String(oc.get("backend", "legacy"))
+		var detected_opt := false
 		var level := 0
-		if detected_opt:
-			level = 3 if (kind == "optical" and status == "locked") else 1
+		if backend == "optical_ir":
+			detected_opt = bool(oc.get("detected", status in OPTICAL_STATES_DETECTED))
+			level = int(oc.get("level_support", 0)) if detected_opt else 0
+		else:
+			detected_opt = status in OPTICAL_STATES_DETECTED
+			level = 3 if (kind == "optical" and status == "locked") else (1 if detected_opt else 0)
 		var rec = records.get(kind, null)
-		var sensor_model := String(rec.model) if rec != null else ""
-		var notes := ["status=%s" % status,
+		var sensor_model := String(rec.model) if rec != null else String(oc.get("sensor_model", ""))
+		var occluded := bool(oc.get("occluded", String(oc.get("reason", "")) == "occluded"))
+		var notes := ["backend=%s" % backend, "status=%s" % status,
 			"progress=%.0f%%" % (float(oc.get("progress", 0.0)) * 100.0),
+			"fov=%.3f° off_axis=%.3f°" % [float(oc.get("fov_deg", 0.0)), float(oc.get("off_axis_deg", -1.0))],
 			"illum=%.2f contrast=%.2f" % [float(oc.get("illum", 1.0)), float(oc.get("contrast", 1.0))]]
+		if float(oc.get("snr_db", -999.0)) > -900.0:
+			notes.append("snr=%.1f dB" % float(oc.get("snr_db", 0.0)))
+		if occluded:
+			notes.append("occluded=true")
 		if String(oc.get("reason", "")) != "":
 			notes.append("reason=" + String(oc.get("reason", "")))
 		var obs3 := _make_observation(tid3, _mount_id_for_kind(kind),
@@ -710,10 +916,23 @@ func _build_observations(tws_out: Dictionary, opt_out: Dictionary) -> void:
 			-1.0, -1.0, float(oc.get("progress", 0.0)),
 			(oc.get("classification", {}) as Dictionary) if oc.get("classification") is Dictionary else {},
 			notes, String(oc.get("reason", "")), float(oc.get("progress", 0.0)),
-			{"status": status, "progress": float(oc.get("progress", 0.0)),
+			{"status": status, "backend": backend, "progress": float(oc.get("progress", 0.0)),
 			 "required_s": float(oc.get("required_s", 0.0)),
 			 "slant_range_km": float(oc.get("slant_range_km", -1.0)),
 			 "range_band": String(oc.get("range_band", "")),
+			 "fov_deg": float(oc.get("fov_deg", 0.0)),
+			 "ifov_urad": float(oc.get("ifov_urad", 0.0)),
+			 "off_axis_deg": float(oc.get("off_axis_deg", -1.0)),
+			 "boresight_deg": float(oc.get("boresight_deg", -1.0)),
+			 "snr_db": float(oc.get("snr_db", -999.0)),
+			 "snr_available": bool(oc.get("snr_available", false)),
+			 "occluded": occluded, "occlusion": occluded,
+			 "visible": bool(oc.get("visible", detected_opt)),
+			 "angular_size_rad": float(oc.get("angular_size_rad", 0.0)),
+			 "n_px": float(oc.get("n_px", 0.0)),
+			 "smear_px": float(oc.get("smear_px", 0.0)),
+			 "omega_dps": float(oc.get("omega_dps", 0.0)),
+			 "level_cap": String(oc.get("level_cap", "L3_optical_classify" if kind == "optical" else "L1_ir_only")),
 			 "bearing_sigma_deg": float(oc.get("bearing_sigma_deg", 0.0)),
 			 "illum": float(oc.get("illum", 1.0)),
 			 "contrast": float(oc.get("contrast", 1.0))})
@@ -825,6 +1044,11 @@ func _build_advisory_contacts() -> void:
 func _build_warnings() -> void:
 	var w: Array[String] = []
 	w.append(SHADOW_MODE_NOTE)
+	var avail := _available_optical_backends()
+	w.append("OPTICAL BACKEND: %s（available=%s；legacy 回退：opts.backend=\"legacy\"）" % [
+		_optical_backend, str(avail)])
+	if _optical_ir == null:
+		w.append("OPTICAL BACKEND: optical_ir 不可用 → 仅 legacy（不伪装新后端）")
 	if String(observer.get("attitude_source", "default_not_modeled")) == "default_not_modeled":
 		w.append(ATTITUDE_DEFAULT_NOTE)
 	w.append(IDENTITY_SCOPE_NOTE)
@@ -865,7 +1089,8 @@ func _build_warnings() -> void:
 
 func _shadow_notes() -> Array[String]:
 	return [
-		"SRC: framework/sim/{sensor_types,radar,tws,optical}.gd（只读调用）",
+		"SRC: framework/sim/{sensor_types,radar,tws,optical,optical_ir_channel}.gd（只读调用）",
+		"OPTICAL BACKEND: %s（legacy 回退可用）" % _optical_backend,
 		"MODE: shadow；authoritative=false；writes_track_table=false；writes_v15=false",
 		"SCOPE: YW-R9 spherical radar/TWS · MS-OT2 VIS · CH-IR2 IR；IFF/ELINT/EW 未接入",
 		"NOTE: 目标来自 V2 world/entity snapshot；站体/实体位置由调用方提供（本模型不写世界）",
@@ -1124,6 +1349,14 @@ func vm_sensor() -> Dictionary:
 			"optical": String((records.get("optical", null) as Object).model) if records.get("optical", null) != null else "",
 			"ir": String((records.get("ir", null) as Object).model) if records.get("ir", null) != null else "",
 		},
+		"optical_backend": _optical_backend,
+		"optical_backends": {
+			"active": _optical_backend,
+			"available": _available_optical_backends(),
+			"legacy_available": _optical != null,
+			"optical_ir_available": _optical_ir != null,
+			"notes": "opts.backend=\"legacy\"|\"optical_ir\" 可逐通道选择；默认来自 config.optical_backend",
+		},
 		"radar": {
 			"enabled": is_radar_enabled(),
 			"sphere": radar_sphere.duplicate(true),
@@ -1188,6 +1421,8 @@ func summary() -> Dictionary:
 		"channels": channels_cache.size(),
 		"warnings": warnings.size(),
 		"radar_active": is_radar_enabled(),
+		"optical_backend": _optical_backend,
+		"optical_backends_available": _available_optical_backends(),
 		"writes_track_table": false,
 		"writes_v15": false,
 	}
