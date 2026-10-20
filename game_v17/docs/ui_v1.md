@@ -587,3 +587,40 @@ v1_hud.gd
 2. Ceres-2 灯语 out_of_range 是真实距离失败；未伪造发送/ACK。
 3. AV-4412 mode_5 显示真实 profile 字段；未做完整军用 IFF 权限/交战。
 4. 触发横幅只展示已收到事件；不自动推进剧情/物理；未跑全量 regression。
+
+
+---
+
+## 21　方案B-16：谷神-2 识别/救援链 UI（task-173）
+
+### 21.1 数据 / API
+
+- ShellBinder 新增 `CeresChain`（`framework/content/story_ceres.json`，entity_id=ceres_2）：
+  - `ceres_state()` / `ceres_vm()` / `ceres_text(key)` / `ceres_emergency_code()`；
+  - `ceres_ingest(input)` / `ceres_advance(action,payload)` / `ceres_rescue(choice)`；
+  - 启动日志：`CeresChain ready state=L1 entity=ceres_2 texts=9 code=7700`。
+- 阶段：`L1 → L2 → L3 → LIGHT_READ → L4_TYPE → RESCUE_PROMPT → RESCUED/IGNORED → COMPLETE`；文本全部来自 story_ceres 原文。
+
+### 21.2 V1 HUD CERES 面板
+
+- 选中 ceres_2 时光学页显示 CERES 链面板：阶段条、当前阶段原文、EMERGENCY CODE 7700、EVIDENCE/TRIGGERS、REPUTATION、结果行；顶部 trigger 横幅。
+- 按钮（真实 chain 输入，不自动完成）：
+  - `DATA LINK`：先 `ceres_ingest` 真实传感器/数据链状态，再 `ceres_advance("data_link_l2",...)`；
+  - `VIS / ELINT / IFF`：L2 时 `ceres_advance("identify_l3",...)`，不足/阶段错显示 reason；
+  - `READ LIGHT`：用真实应急码 `7700` 执行 `read_light`，触发 `ceres_light_read`；
+  - `TYPE L4` / `RESCUE PROMPT`：`classify_l4` / `rescue_prompt`，触发 `ceres_rescue_prompt`；
+  - `RESCUE` / `IGNORE`：`ceres_rescue`，互斥，进入 RESCUED/IGNORED 并写声望；失败 reason 显示。
+- 触发横幅接 `ceres_light_read/ceres_rescue_prompt/ceres_rescued/ceres_ignored`；不自动选择救援。
+
+### 21.3 实测 / 截图
+
+- 真实链实测：`data_link_l2 OK → identify_l3 OK → read_light OK (ceres_light_read) → classify_l4 OK → rescue_prompt OK (ceres_rescue_prompt)`，最终 `state=RESCUE_PROMPT`。
+- `mockups/v1-hud-ceres-chain-1920.png`（1920×1080：CERES 面板、阶段、原文、EMERGENCY CODE 7700、EVIDENCE 5/TRIGGERS、DATA LINK…IGNORE 按钮、trigger 横幅）
+- `V1 HUD SHOT err=0`；headless ceres_chain demo 一次；`v1_hud.gd/shell_binder.gd --check-only` 通过。
+
+### 21.4 未完成 / 边界
+
+1. 截图为真实 chain 推进到 RESCUE_PROMPT 的样张；RESCUE/IGNORE 未在截图选择，避免自动完成。
+2. 文本为 story_ceres 原文；无完整剧情分支/教学高亮。
+3. VIS/ELINT/IFF 在本页作为链输入（真实 `identify_l3`）；无完整传感器证据 UI。
+4. 不写 world/物理/存档；未跑全量 regression。

@@ -81,6 +81,7 @@ var _signal_code_index := 0
 var _txp_reply: Dictionary = {}
 var _txp_msg := ""
 var _trigger_banner := ""
+var _ceres_msg := ""
 var _save_slots: Array = []
 var _save_load_buttons: Array = []
 var _save_overlay_msg := ""
@@ -186,7 +187,17 @@ func _load_data() -> void:
 	var dok: bool = _damage.setup({}, "apsis")
 	print("[V1 HUD] damage_model=", str(dok), " sections=", _damage.section_ids().size(), " combat=", str(_combat.ready), " roe=", String(_combat.roe) if _combat != null else "—", " roe_locked=", str(_roe_locked))
 	var view := OS.get_environment("DSH_V1_VIEW")
-	if view == "ceres":
+	if view == "ceres_chain":
+		_overlay = "optical"
+		_page = "target"
+		for i in range(_contacts.size()):
+			if String((_contacts[i] as Dictionary).get("entity_id", "")) == "ceres_2":
+				_selected = i
+				_optical_target = "ceres_2"
+				_optical_track = _track_for_contact(_contacts[i])
+				break
+		call_deferred("_ceres_chain_demo")
+	elif view == "ceres":
 		_overlay = "optical"
 		_page = "target"
 		for i in range(_contacts.size()):
@@ -928,6 +939,57 @@ func _transponder_demo() -> void:
 	print("[V1 HUD] TRANSPONDER DEMO ", _txp_msg)
 
 
+func _ceres_action(kind: String) -> String:
+	var res: Dictionary = {}
+	match kind:
+		"DATA_LINK":
+			var sensors := 2
+			if binder != null and binder.session != null and binder.session.sensor_service != null:
+				var svm: Dictionary = binder.session.sensor_vm
+				var ec: Dictionary = svm.get("elint", {}) if svm.get("elint", {}) is Dictionary else {}
+				sensors = maxi(2, int((ec.get("counts", {}) as Dictionary).get("observations", 2)) if ec.get("counts", {}) is Dictionary else 2)
+			var has_dl := binder.session.comms != null if binder != null and binder.session != null else false
+			binder.ceres_ingest({"kind": "sensor", "sensors": sensors, "source": "data_link", "data_link": has_dl})
+			res = binder.ceres_advance("data_link_l2", {"data_link": has_dl, "sensor_sources": sensors})
+		"VIS", "ELINT", "IFF":
+			res = binder.ceres_advance("identify_l3", {"kind": "identification", "source": String(kind).to_lower(), "level": "L3", "identity": "unknown"})
+		"READ_LIGHT":
+			res = binder.ceres_advance("read_light", {"light_code": binder.ceres_emergency_code()})
+		"TYPE_L4":
+			res = binder.ceres_advance("classify_l4", {})
+		"RESCUE_PROMPT":
+			res = binder.ceres_advance("rescue_prompt", {})
+		"RESCUE":
+			res = binder.ceres_rescue("rescue")
+		"IGNORE":
+			res = binder.ceres_rescue("ignore")
+		_:
+			res = {"ok": false, "reason": "unknown_action"}
+	var ok := bool(res.get("ok", false))
+	var trig := String(res.get("trigger_id", ""))
+	_ceres_msg = "%s · %s%s" % [kind, "OK" if ok else "FAILED", "" if ok else " · " + String(res.get("reason", ""))]
+	if trig != "":
+		_trigger_banner = trig + " · ceres_2 · " + String(res.get("state", binder.ceres_state()))
+	_ceres_msg += " · stage=" + binder.ceres_state()
+	if res.has("reputation"):
+		_ceres_msg += " · rep=" + JSON.stringify(res.get("reputation", {}))
+	binder.refresh()
+	return _ceres_msg
+
+
+func _ceres_chain_demo() -> void:
+	# 截图/调试：按真实 CeresChain API 顺序推进到 RESCUE_PROMPT；不自动选择救援。
+	binder.ceres_advance("data_link_l2", {"data_link": true, "sensor_sources": 2})
+	binder.ceres_advance("identify_l3", {"kind": "identification", "source": "vis", "level": "L3"})
+	binder.ceres_advance("read_light", {"light_code": binder.ceres_emergency_code()})
+	binder.ceres_advance("classify_l4", {})
+	binder.ceres_advance("rescue_prompt", {})
+	_ceres_msg = "CERES DEMO · stage=" + binder.ceres_state() + " · " + String(binder.last_ceres_result.get("trigger_id", ""))
+	_trigger_banner = "ceres_rescue_prompt · ceres_2 · RESCUE_PROMPT"
+	print("[V1 HUD] CERES CHAIN DEMO ", _ceres_msg)
+	queue_redraw()
+
+
 func _signal_demo() -> void:
 	# 仅 DSH_V1_VIEW=signal 截图样张：走真实 ELINT/灯语 API，不伪造。
 	# 样张优先选任意非友方 SIGNAL 动态 target，展示 all-sides；发送/ACK 仍由真实 target 能力决定。
@@ -969,6 +1031,65 @@ func _signal_demo() -> void:
 	_optical_action("RECV")
 	_optical_action("ACK")
 	print("[V1 HUD] SIGNAL DEMO ", _signal_msg)
+
+
+func _draw_ceres_panel(sr: Rect2) -> void:
+	draw_rect(sr, P.a(P.PANEL, 0.98))
+	draw_rect(sr, P.a(P.AMBER, 0.65), false, 1.0)
+	var vm: Dictionary = binder.ceres_vm() if binder != null else {}
+	var stage := String(vm.get("state", "NOT READY"))
+	Painter.label(self, sr.position.x + 10, sr.position.y + 18, "CERES / 谷神-2 识别链 · STAGE " + stage, 9, P.AMBER)
+	var chain := ["L1", "L2", "L3", "LIGHT_READ", "L4_TYPE", "RESCUE_PROMPT"]
+	var found := false
+	for i in range(chain.size()):
+		var st := String(chain[i])
+		var cx := sr.position.x + 10.0 + float(i) * (sr.size.x - 20.0) / 6.0
+		var active := stage == st or (stage in ["RESCUED", "IGNORED", "COMPLETE"] and st == "RESCUE_PROMPT")
+		if active and not found:
+			found = true
+		draw_rect(Rect2(cx, sr.position.y + 28, (sr.size.x - 20.0) / 6.0 - 3, 16), P.a(P.AMBER if active else P.LINE, 0.20 if active else 0.06))
+		draw_rect(Rect2(cx, sr.position.y + 28, (sr.size.x - 20.0) / 6.0 - 3, 16), P.a(P.AMBER if active else P.LINE, 0.75 if active else 0.25), false, 1.0)
+		Painter.label(self, cx + 4, sr.position.y + 40, st, 6, P.PH if active else P.FAINT, true)
+	var key := "ceres.fault"
+	match stage:
+		"L2":
+			key = "ceres.l2"
+		"L3":
+			key = "ceres.identify_prompt"
+		"LIGHT_READ":
+			key = "ceres.vis_read"
+		"L4_TYPE":
+			key = "ceres.l3_l4"
+		"RESCUE_PROMPT":
+			key = "ceres.rescue_prompt"
+		"RESCUED":
+			key = "ceres.rescue_yes"
+		"IGNORED":
+			key = "ceres.rescue_no"
+	var txt: String = binder.ceres_text(key) if binder != null else ""
+	var lines := _wrap_text_cjk(txt, 58)
+	var ty := sr.position.y + 58.0
+	for i in range(mini(lines.size(), 4)):
+		Painter.label(self, sr.position.x + 10, ty, lines[i], 7, P.TXT, true)
+		ty += 13.0
+	Painter.label(self, sr.position.x + 10, sr.end.y - 42, "EMERGENCY CODE " + (binder.ceres_emergency_code() if binder != null else "—") + " · EVIDENCE %d · TRIGGERS %s" % [int((vm.get("evidence", []) as Array).size()), ",".join(vm.get("trigger_ids", []) if vm.get("trigger_ids", []) is Array else [])], 6, P.PH_DIM, true)
+	var rep: Dictionary = vm.get("reputation", {}) if vm.get("reputation", {}) is Dictionary else {}
+	Painter.label(self, sr.position.x + 10, sr.end.y - 30, "REPUTATION " + JSON.stringify(rep) + " · 不自动完成", 6, P.a(P.FAINT, 0.9), true)
+	if _ceres_msg != "":
+		Painter.label(self, sr.position.x + 10, sr.end.y - 16, TM.fit(_ceres_msg, sr.size.x - 20, true, 6), 6, P.AMBER, true)
+
+
+func _wrap_text_cjk(text: String, width: int) -> Array:
+	var out: Array = []
+	var cur := ""
+	for i in text.length():
+		cur += text.substr(i, 1)
+		if cur.length() >= width and text.substr(i, 1) in ["，", "。", "；", " ", "、", "）", "】"]:
+			out.append(cur)
+			cur = ""
+	if cur != "":
+		out.append(cur)
+	return out
 
 
 func _draw_optical_overlay(r: Rect2) -> void:
@@ -1039,7 +1160,10 @@ func _draw_optical_overlay(r: Rect2) -> void:
 	draw_string(F.mono(), Vector2(ow.position.x + 8, ow.end.y - 12), "VIS/IR · SNR " + str(snr) + " · TRACK L%d" % level, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
 	# 按钮
 	_optical_buttons.clear()
+	var is_ceres := target_id == "ceres_2" and binder != null and bool(binder.ceres_ready)
 	var labels := [["VIS", "VIS / 可见光"], ["IR", "IR / 红外"], ["IFF", "IFF QUERY"], ["ELINT", "ELINT"], ["LIGHT", "LIGHT TX"], ["RECV", "LIGHT RECV"], ["ACK", "LIGHT ACK"], ["CODE_PREV", "CODE ◀"], ["CODE_NEXT", "CODE ▶"]]
+	if is_ceres:
+		labels = [["DATA_LINK", "DATA LINK"], ["VIS", "VIS"], ["ELINT", "ELINT"], ["IFF", "IFF QUERY"], ["READ_LIGHT", "READ LIGHT"], ["TYPE_L4", "TYPE L4"], ["RESCUE_PROMPT", "RESCUE PROMPT"], ["RESCUE", "RESCUE"], ["IGNORE", "IGNORE"]]
 	var by := r.end.y - 36.0
 	for i in range(labels.size()):
 		var br := Rect2(x + float(i) * 104.0, by, 98, 22)
@@ -1077,6 +1201,8 @@ func _draw_optical_overlay(r: Rect2) -> void:
 		Painter.label(self, sr.position.x + 10, sr.position.y + 113, "facility " + String(_txp_reply.get("facility_code", "—")) + " · crypto " + ("OK" if bool((_txp_reply.get("crypto", {}) as Dictionary).get("valid", false)) else "FAIL") + " · conf " + ("%.2f" % float(_txp_reply.get("confidence", 0.0))) + " · reason " + String(_txp_reply.get("reason", "")) + " · trigger " + String((_txp_reply.get("trigger", {}) as Dictionary).get("trigger_id", "")) if _txp_reply.get("trigger", {}) is Dictionary else "", 6, P.PH_DIM, true)
 	if _signal_msg != "":
 		Painter.label(self, sr.position.x + 10, sr.end.y - 12, TM.fit(_signal_msg, sr.size.x - 20, true, 7), 7, P.AMBER, true)
+	if is_ceres:
+		_draw_ceres_panel(sr)
 	if _optical_msg != "":
 		Painter.label(self, x, by - 12, TM.fit(_optical_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
 
@@ -1101,6 +1227,11 @@ func _optical_action(kind: String) -> void:
 		return
 	var s = binder.session.sensor_service
 	var res: Dictionary = {}
+	if _optical_target == "ceres_2" and binder.ceres_ready and kind in ["DATA_LINK", "VIS", "ELINT", "IFF", "READ_LIGHT", "TYPE_L4", "RESCUE_PROMPT", "RESCUE", "IGNORE"]:
+		_ceres_msg = _ceres_action(kind)
+		_optical_msg = _ceres_msg
+		_signal_msg = _ceres_msg
+		return
 	match kind:
 		"VIS":
 			res = s.start_channel("optical", target)

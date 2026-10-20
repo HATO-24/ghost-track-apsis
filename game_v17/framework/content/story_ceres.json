@@ -1,0 +1,141 @@
+{
+  "schema": "v17.story_ceres.v1",
+  "version": "1.0.0",
+  "title": "完整游戏-阶段3U 谷神-2 识别/救援链文本",
+  "source": "docs/44_新剧本_2193.md（当前副本第163-191行；任务原始行73-86）",
+  "source_path": "../docs/44_新剧本_2193.md",
+  "entity_id": "ceres_2",
+  "chain": [
+    "L1",
+    "L2",
+    "L3",
+    "LIGHT_READ",
+    "L4_TYPE",
+    "RESCUE_PROMPT",
+    "RESCUED",
+    "IGNORED",
+    "COMPLETE"
+  ],
+  "emergency_light_code": "7700",
+  "light_code_note": "可见光应急代码（演示占位；原剧本未给定具体四位码）",
+  "triggers": {
+    "light_read": "ceres_light_read",
+    "rescue_prompt": "ceres_rescue_prompt",
+    "rescued": "ceres_rescued",
+    "ignored": "ceres_ignored",
+    "complete": "ceres_complete"
+  },
+  "reputation": {
+    "rescue": {
+      "meridian": 2,
+      "outer": 1,
+      "ocu": 1
+    },
+    "ignore": {
+      "meridian": -1,
+      "outer": -2
+    }
+  },
+  "texts": [
+    {
+      "text_key": "ceres.fault",
+      "zh": "谷神-2（谷神-2是船只型号，需新增单独的民用船编号设定）是遭遇故障的远地环带所属作业船，由于遭遇故障，其通信阵列失效，应答机不工作，以可见光灯语形式挂起应急代码状态。但空间站港务方面由于处于管制状态无法派出工程船前去帮助，玩家在态势感知图中会首先发现空间站旁有来自已自动在数据链机制下自动由舰队内所有船只的被动传感器进行准确定位的目标，此处进入目标识别教学。",
+      "en": "",
+      "source_lines": [
+        167
+      ],
+      "usage": "fault",
+      "draft": true,
+      "note": "谷神-2 故障/通信阵列失效/应答机不工作/可见光应急代码。"
+    },
+    {
+      "text_key": "ceres.l2",
+      "zh": "当舰队内有任何一艘船只的被动传感器（IRST被动模式/ELINT雷达信号监听）发现新目标时，会自动触发数据链比对，此时其他舰只会自动以通道同样的传感器参与定位尝试，如果定位成功，则会在态势图中显示准确的目标位置（目标接触深度到达L2）。如果失败，则会显示目标方向（目标接触深度维持L1）。（此部分文本内容呼应38的信息作战规格，但是注意，信息链，自动化初步处理至L2接触功能需要新增进游戏机制中，减轻玩家操作量）（注意到38中出现了具体型号，注意未来游戏中会出现多型号设备，需确保传感器与信息作战规格不是局限于关卡或者舰只设定中出现的具体传感器的，而是一整套完整，独立运行的系统，而影响玩家信息接收能力的只有设备本身的性能限制）（如果系统的确是以上述要求建立的，那就是我文本阅读不全的问题）",
+      "en": "",
+      "source_lines": [
+        171
+      ],
+      "usage": "l2_teaching",
+      "draft": true,
+      "note": "数据链自动定位至 L2；失败保持 L1。"
+    },
+    {
+      "text_key": "ceres.l3_l4",
+      "zh": "对于接触等级L2的目标，玩家需要进行下一步的识别工作。通过进行光学凝视完成（VIS）、ELINT 指纹匹配、数据库比对，IFF 应答等操作，目标接触等级分别会到达L3和L4。（此处须衔接新机制，即可见光通道中需兼容通信机制中的可见光灯语交流，可见光模式仅可输出设定好的通信短语，参考民航应答机中的四位代码，此处谷神-2因IFF故障，挂起代表无线电故障的四位特殊代号）",
+      "en": "",
+      "source_lines": [
+        173
+      ],
+      "usage": "l3_l4_teaching",
+      "draft": true,
+      "note": "VIS/ELINT/数据库/IFF 到 L3/L4；可见光四位代码。"
+    },
+    {
+      "text_key": "ceres.identify_prompt",
+      "zh": "请尝试对接触列表中的位置目标进行识别。",
+      "en": "",
+      "source_lines": [
+        175
+      ],
+      "usage": "identify_prompt",
+      "draft": true,
+      "note": "请尝试对接触列表中的位置目标进行识别。"
+    },
+    {
+      "text_key": "ceres.vis_read",
+      "zh": "当玩家操作到可见光凝视时，会自动读取灯号，并在态势地图中自动显示目标进入紧急状态，但由于无应答机，只能识别到目标是谷神-2型作业船。",
+      "en": "",
+      "source_lines": [
+        177
+      ],
+      "usage": "vis_read",
+      "draft": true,
+      "note": "可见光凝视自动读取灯号；无应答机仅识别为谷神-2型作业船。"
+    },
+    {
+      "text_key": "ceres.rescue_prompt",
+      "zh": "发现港口附近有民用船遭遇故障，通信无应答，可见光通道可确认已挂起紧急状态灯号，是否派遣拖船进行援救，将其送至港口？",
+      "en": "",
+      "source_lines": [
+        181
+      ],
+      "usage": "rescue_prompt",
+      "draft": true,
+      "note": "救援抉择问题。"
+    },
+    {
+      "text_key": "ceres.rescue_yes",
+      "zh": "是：进入特殊舰只操作教学",
+      "en": "",
+      "source_lines": [
+        183
+      ],
+      "usage": "rescue_yes",
+      "draft": true,
+      "note": "是：进入特殊舰只操作教学。"
+    },
+    {
+      "text_key": "ceres.rescue_no",
+      "zh": "否：放着不管（稍后在手册中自行学习）",
+      "en": "",
+      "source_lines": [
+        185
+      ],
+      "usage": "rescue_no",
+      "draft": true,
+      "note": "否：放着不管（稍后在手册中自行学习）。"
+    },
+    {
+      "text_key": "ceres.optional_note",
+      "zh": "（玩家无需强制确认目标，此为可选项，但做出选择后会纳入声望值，数值影响请自动推算。）",
+      "en": "",
+      "source_lines": [
+        189
+      ],
+      "usage": "note",
+      "draft": true,
+      "note": "可选项；做出选择后纳入声望值。"
+    }
+  ],
+  "draft": true
+}

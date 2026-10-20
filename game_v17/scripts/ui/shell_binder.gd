@@ -8,6 +8,7 @@ extends RefCounted
 
 const GameSession := preload("res://scripts/core/game_session.gd")
 const PreludeScenario := preload("res://scripts/core/prelude_scenario.gd")
+const CeresChain := preload("res://scripts/core/ceres_chain.gd")
 const SaveService := preload("res://scripts/core/save_service.gd")
 
 const TRANSFER_CACHE := "res://framework/content/transfer_l4_l1_cached.json"
@@ -25,6 +26,9 @@ var prelude_ready := false
 var used_prelude := false
 var prelude_title := ""
 var prelude_triggers: Array = []
+var ceres_chain = null
+var ceres_ready := false
+var last_ceres_result: Dictionary = {}
 var track_vm: Dictionary = {}
 var sensor_vm: Dictionary = {}
 var sensor_result := ""
@@ -88,6 +92,13 @@ func boot() -> bool:
 	if not bool(save_service.setup(SAVE_ROOT)):
 		errors.append("SaveService setup failed")
 		return false
+	ceres_chain = CeresChain.new()
+	var cerr: bool = ceres_chain.setup({"content_path": CeresChain.DEFAULT_CONTENT})
+	ceres_ready = cerr
+	if not cerr:
+		warnings.append("CeresChain 未 ready：" + str(ceres_chain.errors))
+	else:
+		print("[SHELL BINDER] CeresChain ready state=", ceres_chain.current_state(), " entity=", ceres_chain.entity_id, " texts=", ceres_chain.text_keys.size(), " code=", ceres_chain.emergency_light_code)
 	if session.sensor_service == null:
 		_seed_tracks()
 	_load_delta_v()
@@ -550,6 +561,44 @@ func timers() -> Array:
 	while out.size() > 4:
 		out.pop_front()
 	return out
+
+
+func ceres_state() -> String:
+	return String(ceres_chain.current_state()) if ceres_chain != null else "NOT READY"
+
+
+func ceres_vm() -> Dictionary:
+	return ceres_chain.vm() if ceres_chain != null else {}
+
+
+func ceres_text(text_key: String) -> String:
+	if ceres_chain == null:
+		return ""
+	var t: Dictionary = ceres_chain.text(text_key)
+	return String(t.get("zh", ""))
+
+
+func ceres_emergency_code() -> String:
+	return String(ceres_chain.emergency_light_code) if ceres_chain != null else ""
+
+
+func ceres_ingest(input: Dictionary) -> Dictionary:
+	if ceres_chain == null:
+		return {"ok": false, "reason": "no_ceres_chain"}
+	return ceres_chain.ingest(input)
+
+
+func ceres_advance(action: String, payload := {}) -> Dictionary:
+	if ceres_chain == null:
+		return {"ok": false, "reason": "no_ceres_chain"}
+	var res: Dictionary = ceres_chain.advance(action, payload)
+	last_ceres_result = res.duplicate(true)
+	print("[SHELL BINDER] CERES ", action, " · ", str(res.get("ok", false)), " state=", String(res.get("state", ceres_chain.current_state())), " trigger=", String(res.get("trigger_id", "")))
+	return last_ceres_result
+
+
+func ceres_rescue(choice: String) -> Dictionary:
+	return ceres_advance(choice, {})
 
 
 func transponder_query(target: String, mode := "mode_s", opts := {}) -> Dictionary:
