@@ -89,6 +89,7 @@ const DAMAGE_POPUP := Rect2(1556, 470, 288, 190)
 # ── P11a：fw 教学/损管/回放增量（V17-UI-1；严格放在右区既有坐标空位/复用弹窗）──
 const TUT_STRIP := Rect2(1556, 482, 144, 18)       # Δv 与传感器架之间；严格止于 MAST_BTN(1704) 之前（P11c 对齐）
 const TUT_STRIP_HIT := Rect2(1556, 478, 144, 26)
+const SENSOR_SHADOW_STRIP := Rect2(1556, 830, 288, 16)  # 右栏底部 READINESS/按钮之间；只读 shadow 对比条
 const TUT_POPUP := Rect2(1556, 470, 288, 190)      # 复用 DAMAGE_POPUP 区域，同屏互斥
 const TUT_DEC_CHIP := Rect2(1556, 600, 288, 24)    # 弹窗内「裁决入口」置灰/解锁行
 const REPLAY_PLAY := Rect2(1768, 886, 44, 12)
@@ -1527,6 +1528,7 @@ func _draw() -> void:
 	_draw_top()
 	_draw_tracks()
 	_draw_unit()
+	_draw_sensor_shadow_strip()
 	_draw_log()
 	_draw_command_panel()
 	_draw_time()
@@ -2595,6 +2597,58 @@ func _running_evidence_tasks() -> Array:
 		out.append({"label": "人员撤离", "shuttle": true,
 			"remain": maxf(0.0, float(_demo_evac.get("duration_s", 0.0)) - _t)})
 	return out
+
+# R5-SENSOR-UI-1：传感器 shadow 只读对比条（V1 7pt；不写 V15；不可点击）
+func _draw_sensor_shadow_strip() -> void:
+	var r := SENSOR_SHADOW_STRIP
+	var shadow = state.get("fw_sensor_shadow") if state != null else {}
+	var ready := bool(state.get("fw_sensor_shadow_ready")) if state != null else false
+	var mode := String((shadow as Dictionary).get("mode", "")) if shadow is Dictionary else ""
+	if not ready or not (shadow is Dictionary) or (shadow as Dictionary).is_empty() or mode != "shadow":
+		draw_rect(r, Palette.a(Palette.PANEL, 0.50))
+		draw_rect(r, Palette.a(Palette.FAINT, 0.35), false, 1.0)
+		_txt(mono, r.position.x + 4.0, r.position.y + 8.0, "SENSOR SHADOW OFF", 7, Palette.a(Palette.AMBER, 0.8))
+		_txt(mono, r.position.x + 4.0, r.position.y + 15.0, "V2 ADVISORY DISABLED · 不伪造", 6, Palette.a(Palette.FAINT, 0.9))
+		return
+	var sh: Dictionary = shadow
+	var counts: Dictionary = sh.get("counts", {}) if sh.get("counts", {}) is Dictionary else {}
+	var acs: Array = sh.get("advisory_contacts", []) if sh.get("advisory_contacts", []) is Array else []
+	var chs: Array = sh.get("channels", []) if sh.get("channels", []) is Array else []
+	var ccount := int(counts.get("contacts", acs.size()))
+	var chcount := int(counts.get("channels", chs.size()))
+	var warns: Array = sh.get("warnings", []) if sh.get("warnings", []) is Array else []
+	var wcount := int(counts.get("warnings", warns.size()))
+	var writes: Dictionary = sh.get("writes", {}) if sh.get("writes", {}) is Dictionary else {}
+	var writes_v15 := bool(writes.get("v15", false))
+	var cmp = state.get("fw_sensor_compare") if state != null else {}
+	var matched := 0
+	var only_v2 := 0
+	var only_v15 := 0
+	var lv_hi := 0
+	var lv_lo := 0
+	if cmp is Dictionary and not (cmp as Dictionary).is_empty():
+		var cd: Dictionary = cmp
+		var sm: Dictionary = cd.get("summary", {}) if cd.get("summary", {}) is Dictionary else {}
+		matched = int(cd.get("matched_count", sm.get("level_equal", 0)))
+		only_v2 = int(sm.get("only_advisory", 0))
+		only_v15 = int(sm.get("only_legacy", 0))
+		lv_hi = int(sm.get("level_advisory_higher", 0))
+		lv_lo = int(sm.get("level_advisory_lower", 0))
+		if only_v2 == 0 and cd.get("only_advisory", []) is Array:
+			only_v2 = (cd.get("only_advisory", []) as Array).size()
+		if only_v15 == 0 and cd.get("only_legacy", []) is Array:
+			only_v15 = (cd.get("only_legacy", []) as Array).size()
+	var cmp_txt := "CMP —"
+	if cmp is Dictionary and not (cmp as Dictionary).is_empty():
+		cmp_txt = "CMP %d/%d/%d L%d/%d" % [matched, only_v2, only_v15, lv_hi, lv_lo]
+	var col := Palette.a(Palette.PH_DIM, 0.9)
+	draw_rect(r, Palette.a(Palette.PANEL, 0.55))
+	draw_rect(r, Palette.a(Palette.PH_DIM, 0.35), false, 1.0)
+	var line1 := "SHADOW/V2 ADV a=false · ADV c%d ch%d" % [ccount, chcount]
+	_txt(mono, r.position.x + 4.0, r.position.y + 8.0, line1, 7, col)
+	var line2 := "%s · WARN %d · %s" % [cmp_txt, wcount, "不写V15" if not writes_v15 else "WRITES!"]
+	_txt(cjk, r.position.x + 4.0, r.position.y + 15.0, line2, 7, Palette.a(Palette.PH, 0.8) if not writes_v15 else Palette.RED)
+	draw_line(Vector2(r.position.x, r.end.y), Vector2(r.end.x, r.end.y), Palette.a(Palette.PH_DIM, 0.30), 1.0)
 
 func _draw_damage_card() -> void:
 	draw_rect(DAMAGE_CARD, Palette.a(Palette.AMBER, 0.045))
