@@ -42,6 +42,7 @@ func boot() -> bool:
 		"track_table": true,
 		"story_state": true,
 		"sensor_service": sensor_cfg,
+		"signal_service": true,
 		"orders": [
 			{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
 		],

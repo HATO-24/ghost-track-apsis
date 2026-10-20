@@ -387,3 +387,42 @@ v1_hud.gd
 2. load 使用 UI 侧 raw payload + 当前 session 恢复（因 SaveService.load_session 新 session 缺少可选组件）；标准 load_session 仍作为 fallback；失败 reason 可见。
 3. 无 autosave 写入；autosave 槽仅展示/读取。
 4. 三色点只写文件/显示意图，不真正切菜单/退出；不实现剧情/物理；未跑全量 regression。
+
+
+---
+
+## 16　方案B-10：ELINT / 灯语接真实信号服务（task-158）
+
+### 16.1 数据源 / boot
+
+- `ShellBinder.boot()` 增加 `signal_service: true`；GameSession `_demo_signal_config` 生成 ELINT emitters（harmattan 等）与灯语 targets；v1_hud 可通过 `binder.session.signal_service` 读取。
+- 光学/识别页新增真实 SIGNAL 小面板：`signal_service.vm()` → ELINT signals/fingerprints/candidates/observations/evidence、light codes/transmissions counts、last TX status/reason。
+- 无 signal_service 时明确 `NO SIGNAL · signal_service NOT READY`。
+
+### 16.2 按钮真实 API / 实测
+
+- `ELINT`：`session.signal_intercept(target)` + `session.signal_df(target)`；调用后 `session.tick(0.1)` 路由，`binder.refresh()`。实测 `ELINT harmattan · OK`。
+- `LIGHT TX`：`session.light_send(selected_code,target)`，保存 tx_id；实测 `LIGHT harmattan · OK`。
+- `LIGHT RECV`：`session.light_receive(tx_id)`；实测 `OK`。
+- `LIGHT ACK`：`session.light_ack(tx_id)`；实测 `OK`。
+- 失败一律显示 reason；`SIGNAL DEMO` 使用真实 API 链，不伪造。
+- 灯语码来自 `framework/content/light_codes_l1.json`（APPROACH_REQ 等），codes count/selected 显示在面板。
+
+### 16.3 识别 / 边界
+
+- 光学页 target 从 signal vm 的真实 emitters 选择（样张 harmattan），不是硬编码舰名。
+- 当前 track_vm 的 signal tracks（T0001/T0002）存在，但其 track_table `entity_id/batch` 为空，无法可靠映射回 harmattan entity；因此光学页 TRACK 显示 `TRACK NOT READY` 是真实数据状态，未伪造 L3/L4。
+- ELINT evidence 已在 signal vm 中（evidence 2），但不虚构 track 等级/身份。
+
+### 16.4 截图 / 验证
+
+- `mockups/v1-hud-signal-1920.png`（1920×1080：ELINT/LIGHT/SIGNAL 小面板、TX/ACK 状态、真实 ELINT counts/evidence、按钮 VIS/IR/IFF/ELINT/LIGHT TX/RECV/ACK）
+- `V1 HUD SHOT err=0`；headless signal demo 一次；`v1_hud.gd/shell_binder.gd --check-only` 通过。
+- 实测：ELINT OK → LIGHT OK → RECV OK → ACK OK，message `SIGNAL DEMO ACK harmattan · OK`。
+
+### 16.5 未完成 / 边界
+
+1. signal tracks 与 entity 映射缺失，光学页无法展示对应 L3/L4；不伪造。
+2. 灯语选中码为第一个 real code；无完整选码/码表交互（面板显示 codes/TX）。
+3. signal_service 为 shadow；不写 world/V15；不实现剧情/物理。
+4. 未跑全量 regression。

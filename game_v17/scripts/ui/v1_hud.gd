@@ -74,6 +74,9 @@ var _combat_target_rows: Array = []
 var _combat_weapon_rows: Array = []
 var _combat_buttons: Array = []
 var _combat_roe_buttons: Array = []
+var _signal_code := ""
+var _signal_tx_id := ""
+var _signal_msg := ""
 var _save_slots: Array = []
 var _save_load_buttons: Array = []
 var _save_overlay_msg := ""
@@ -195,16 +198,21 @@ func _load_data() -> void:
 	elif view == "save":
 		_overlay = "save"
 		_rebuild_save_slots()
-	elif view == "optical":
+	elif view == "optical" or view == "signal":
 		_overlay = "optical"
-		# 光学页目标=当前选中实体（默认旗舰1000），不自动跳到哈马丹。
+		# 光学/信号样张选中第一个有 track 的接触；正常 UI 由用户点击接触决定 target。
 		if _selected >= 0 and _selected < _contacts.size():
 			var picked: Dictionary = _contacts[_selected]
 			_optical_target = String(picked.get("entity_id", picked.get("id", "")))
-			_optical_track = binder.selected_track(picked) if binder != null else {}
-		else:
-			_optical_target = ""
-			_optical_track = {}
+			_optical_track = _track_for_contact(picked)
+		if view == "signal":
+			for i in range(_contacts.size()):
+				if String((_contacts[i] as Dictionary).get("track_id", "")) != "":
+					_selected = i
+					_optical_target = String((_contacts[i] as Dictionary).get("entity_id", (_contacts[i] as Dictionary).get("id", "")))
+					_optical_track = _track_for_contact(_contacts[i])
+					break
+			call_deferred("_signal_demo")
 
 func _seed_comms_sample() -> void:
 	# 通过真实 session.send_comms 生成消息流；from/to 来自 session 实体，不硬编码舰名。
@@ -777,6 +785,48 @@ func _comms_send() -> void:
 	queue_redraw()
 
 
+func _track_for_contact(c: Dictionary) -> Dictionary:
+	if binder == null or binder.track_vm.is_empty():
+		return {}
+	var tr: Dictionary = binder.selected_track(c)
+	if not tr.is_empty():
+		return tr
+	var eid := String(c.get("entity_id", ""))
+	var cid := String(c.get("id", ""))
+	for raw in (binder.track_vm.get("tracks", []) if binder.track_vm.get("tracks", []) is Array else []):
+		if raw is Dictionary:
+			var rt: Dictionary = raw
+			if (eid != "" and String(rt.get("entity_id", "")) == eid) or (cid != "" and String(rt.get("batch", "")) == cid):
+				return rt
+	return {}
+
+
+func _signal_demo() -> void:
+	# 仅 DSH_V1_VIEW=signal 截图样张：走真实 ELINT/灯语 API，不伪造。
+	# 从 signal vm 的真实 emitters/targets 选一个可截获目标，不写死/不伪造。
+	if binder != null and binder.session != null and binder.session.signal_service != null:
+		var svm: Dictionary = binder.session.signal_service.vm()
+		var stargets: Array = svm.get("targets", []) if svm.get("targets", []) is Array else []
+		for raw_t in stargets:
+			if raw_t is Dictionary and bool((raw_t as Dictionary).get("has_emitter", not (raw_t.get("emissions", []) as Array).is_empty())) and not bool((raw_t as Dictionary).get("occluded", false)):
+				var tid := String((raw_t as Dictionary).get("id", ""))
+				if tid != "":
+					_optical_target = tid
+					break
+		if _optical_target != "":
+			for i in range(_contacts.size()):
+				if String((_contacts[i] as Dictionary).get("entity_id", (_contacts[i] as Dictionary).get("id", ""))) == _optical_target:
+					_selected = i
+					_optical_track = binder.selected_track(_contacts[i]) if binder != null else {}
+					break
+	print("[V1 HUD] SIGNAL DEMO start target=", _optical_target, " contacts=", _contacts.size(), " sensor=", str(binder != null and binder.session != null and binder.session.sensor_service != null), " signal=", str(binder != null and binder.session != null and binder.session.signal_service != null))
+	_optical_action("ELINT")
+	_optical_action("LIGHT")
+	_optical_action("RECV")
+	_optical_action("ACK")
+	print("[V1 HUD] SIGNAL DEMO ", _signal_msg)
+
+
 func _draw_optical_overlay(r: Rect2) -> void:
 	var x := r.position.x + 16.0
 	var y := r.position.y + 34.0
@@ -785,7 +835,7 @@ func _draw_optical_overlay(r: Rect2) -> void:
 	var c: Dictionary = _contacts[_selected] if _selected >= 0 and _selected < _contacts.size() else {}
 	var tr: Dictionary = _optical_track
 	if tr.is_empty() and binder != null:
-		tr = binder.selected_track(c)
+		tr = _track_for_contact(c)
 	var target_id := String(_optical_target)
 	if target_id == "":
 		target_id = String(c.get("entity_id", c.get("id", "")))
@@ -845,20 +895,58 @@ func _draw_optical_overlay(r: Rect2) -> void:
 	draw_string(F.mono(), Vector2(ow.position.x + 8, ow.end.y - 12), "VIS/IR · SNR " + str(snr) + " · TRACK L%d" % level, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
 	# 按钮
 	_optical_buttons.clear()
-	var labels := [["VIS", "VIS / 可见光"], ["IR", "IR / 红外"], ["IFF", "IFF QUERY"], ["ELINT", "ELINT"], ["LIGHT", "LIGHT SIGNAL"]]
+	var labels := [["VIS", "VIS / 可见光"], ["IR", "IR / 红外"], ["IFF", "IFF QUERY"], ["ELINT", "ELINT"], ["LIGHT", "LIGHT TX"], ["RECV", "LIGHT RECV"], ["ACK", "LIGHT ACK"]]
 	var by := r.end.y - 36.0
 	for i in range(labels.size()):
-		var br := Rect2(x + float(i) * 120.0, by, 112, 22)
+		var br := Rect2(x + float(i) * 104.0, by, 98, 22)
 		_optical_buttons.append({"rect": br, "kind": String(labels[i][0])})
 		Painter.button(self, br, String(labels[i][1]), true, P.PH if i < 3 else P.PH_DIM)
+	# SIGNAL 小面板
+	var sr := Rect2(x + 570.0, y + 350.0, maxf(420.0, r.size.x - 600.0), 160.0)
+	draw_rect(sr, P.a(P.PANEL2, 0.35))
+	draw_rect(sr, P.a(P.LINE, 0.6), false, 1.0)
+	Painter.label(self, sr.position.x + 10, sr.position.y + 18, "SIGNAL / ELINT · LIGHT", 9, P.PH)
+	var svm: Dictionary = {}
+	if binder != null and binder.session != null and binder.session.signal_service != null:
+		svm = binder.session.signal_service.vm()
+	if svm.is_empty():
+		Painter.label(self, sr.position.x + 10, sr.position.y + 40, "NO SIGNAL · signal_service NOT READY", 8, P.AMBER)
+	else:
+		var ec: Dictionary = svm.get("elint", {}) if svm.get("elint", {}) is Dictionary else {}
+		var lc: Dictionary = ec.get("counts", {}) if ec.get("counts", {}) is Dictionary else {}
+		var light: Dictionary = svm.get("light", {}) if svm.get("light", {}) is Dictionary else {}
+		var lcounts: Dictionary = light.get("counts", {}) if light.get("counts", {}) is Dictionary else {}
+		var codes: Array = light.get("codes", []) if light.get("codes", []) is Array else []
+		if _signal_code == "" and not codes.is_empty():
+			_signal_code = String(codes[0])
+		Painter.label(self, sr.position.x + 10, sr.position.y + 40, "ELINT signals %d · fixes/candidates %d · obs %d · evidence %d" % [int(lc.get("signals", 0)), int(lc.get("candidates", 0)), int(lc.get("observations", 0)), int(lc.get("evidence", 0))], 7, P.TXT, true)
+		Painter.label(self, sr.position.x + 10, sr.position.y + 54, "CODES %d · selected %s · TX sent %d recv %d ack %d timeout %d occluded %d misread %d" % [codes.size(), _signal_code, int(lcounts.get("sent", 0)), int(lcounts.get("received", 0)), int(lcounts.get("acked", 0)), int(lcounts.get("timeout", 0)), int(lcounts.get("occluded", 0)), int(lcounts.get("misread", 0))], 6, P.DIM, true)
+		Painter.label(self, sr.position.x + 10, sr.position.y + 68, "TX " + (_signal_tx_id if _signal_tx_id != "" else "NONE") + " · FIXES/指纹/置信度来自 signal vm", 7, P.PH_DIM, true)
+		# 最近 code/tx 摘要
+		var txs: Array = light.get("transmissions", []) if light.get("transmissions", []) is Array else []
+		if not txs.is_empty():
+			var tx: Dictionary = txs[txs.size() - 1]
+			Painter.label(self, sr.position.x + 10, sr.position.y + 84, "LAST TX %s · code %s · %s · reason %s" % [String(tx.get("tx_id", "")), String(tx.get("code_id", "")), String(tx.get("status", "")), String(tx.get("reason", ""))], 6, P.TXT, true)
+	if _signal_msg != "":
+		Painter.label(self, sr.position.x + 10, sr.end.y - 12, TM.fit(_signal_msg, sr.size.x - 20, true, 7), 7, P.AMBER, true)
 	if _optical_msg != "":
 		Painter.label(self, x, by - 12, TM.fit(_optical_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
 
 
 func _optical_action(kind: String) -> void:
-	if binder == null or binder.session == null or binder.session.sensor_service == null:
-		_optical_msg = "SENSOR NOT READY · 无 sensor_service"
+	if binder == null or binder.session == null:
+		_optical_msg = "NOT READY · no session"
 		return
+	var signal_kind := kind in ["ELINT", "LIGHT", "RECV", "ACK"]
+	if signal_kind:
+		if binder.session.signal_service == null:
+			_optical_msg = "SIGNAL NOT READY · no signal_service"
+			_signal_msg = _optical_msg
+			return
+	else:
+		if binder.session.sensor_service == null:
+			_optical_msg = "SENSOR NOT READY · 无 sensor_service"
+			return
 	var target := _optical_target
 	if target == "":
 		_optical_msg = "NO TARGET · NOT READY"
@@ -873,15 +961,42 @@ func _optical_action(kind: String) -> void:
 		"IFF":
 			res = s.query_iff(target)
 		"LIGHT":
-			res = binder.session.send_comms("apsis", target, "VIS", "COMMS_SENT", {}, {})
+			var codes: Array = []
+			if binder.session.signal_service != null:
+				codes = binder.session.signal_service.code_ids
+			if codes.is_empty():
+				res = {"ok": false, "reason": "no_light_codes"}
+			else:
+				_signal_code = String(codes[0]) if _signal_code == "" else _signal_code
+				res = binder.session.light_send(_signal_code, target)
+				if bool(res.get("ok", false)):
+					_signal_tx_id = String(res.get("tx_id", res.get("id", "")))
+		"RECV":
+			if _signal_tx_id == "":
+				res = {"ok": false, "reason": "no_tx"}
+			else:
+				res = binder.session.light_receive(_signal_tx_id)
+		"ACK":
+			if _signal_tx_id == "":
+				res = {"ok": false, "reason": "no_tx"}
+			else:
+				res = binder.session.light_ack(_signal_tx_id)
 		"ELINT":
-			res = {"ok": false, "reason": "elint_not_wired"}
+			res = binder.session.signal_intercept(target)
+			var df: Dictionary = binder.session.signal_df(target)
+			if bool(res.get("ok", false)):
+				res["df"] = df
+			binder.session.tick(0.1)
+			_signal_msg = "ELINT %s · %s%s" % [target, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+			_signal_msg += " · df=" + ("OK" if bool(df.get("ok", false)) else String(df.get("reason", "FAILED")))
 		_:
 			res = {"ok": false, "reason": "unknown"}
 	_optical_msg = "%s %s · %s%s" % [kind, target, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+	if kind in ["ELINT", "LIGHT", "RECV", "ACK"]:
+		_signal_msg = _optical_msg
 	print("[V1 HUD] OPTICAL ", _optical_msg)
 	binder.refresh()
-	_optical_track = binder.selected_track(_contacts[_selected]) if binder != null and _selected >= 0 and _selected < _contacts.size() else {}
+	_optical_track = _track_for_contact(_contacts[_selected]) if _selected >= 0 and _selected < _contacts.size() else {}
 	queue_redraw()
 
 
