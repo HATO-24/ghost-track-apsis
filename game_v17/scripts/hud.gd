@@ -2632,7 +2632,7 @@ func _selected_ship_view() -> Dictionary:
 	var v := {
 		"name": _dn(String(u.get("name", "—"))), "en": _dn(String(u.get("en", ""))),
 		"cls": _dn(String(u.get("cls", ""))), "role": _dn(String(u.get("role", ""))),
-		"faction": _dn(String(u.get("faction", ""))), "batch": 1001, "identity": "friend",
+		"faction": _dn(String(u.get("faction", ""))), "batch": 1000, "identity": "friend",
 		"mass": "—", "crew": "—", "accel": "—", "inc": "—", "period": "—",
 		"att": "—", "range": "—", "closing": "—", "azel": "—",
 		"side": "friend", "threat": "",

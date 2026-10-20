@@ -300,7 +300,7 @@ func _bootstrap() -> void:
 	_build_log()
 	_build_unit()
 	_seed_demo_commands()
-	selected = _own_track_index()
+	selected = _flagship_track_index()
 	_sync_sensor_view()
 	_plan_tick(0.0)
 	_fusion_tick(0.0)
@@ -322,6 +322,17 @@ const TRACK_SHIP := {
 	"9001": "ceres_2",
 	"9002": "harmattan",
 }
+
+func _flagship_track_index() -> int:
+	# 玩家默认选中旗舰 APSIS(1000)，不是 V15 的 own=哈马丹(1001)。
+	for i in range(tracks.size()):
+		if String((tracks[i] as Dictionary).get("id", "")) == "1000":
+			return i
+	for i in range(tracks.size()):
+		if bool((tracks[i] as Dictionary).get("flagship", false)) or bool((tracks[i] as Dictionary).get("own_fleet", false)):
+			if String((tracks[i] as Dictionary).get("id", "")) == "1000":
+				return i
+	return _own_track_index()
 
 func _own_track_index() -> int:
 	for i in range(tracks.size()):
