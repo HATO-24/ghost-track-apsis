@@ -1,0 +1,24 @@
+{
+  "schema": "v17.schema.v1",
+  "id": "sensor_observation",
+  "title": "传感器观测 / Sensor Observation",
+  "version": "1.0.0",
+  "type": "object",
+  "description": "单次传感器观测（radar/tws/optical/ir/elint/iff/comint）；身份不自动判敌。",
+  "required": ["id", "observer_id", "sensor", "t_s"],
+  "properties": {
+    "id": {"type": "string"},
+    "observer_id": {"type": "string"},
+    "target_id": {"type": "string"},
+    "sensor": {"type": "string", "enum": ["radar", "tws", "optical", "ir", "elint", "iff", "comint"]},
+    "t_s": {"type": "number", "unit": "s"},
+    "level": {"type": "integer", "unit": "none", "min": 0, "max": 4},
+    "bearing_deg": {"type": "number", "unit": "deg"},
+    "range_km": {"type": "number", "unit": "km"},
+    "snr_db": {"type": "number", "unit": "dB"}
+  },
+  "example": {
+    "id": "obs-001", "observer_id": "harmattan", "target_id": "9001", "sensor": "radar",
+    "t_s": 12.0, "level": 2, "bearing_deg": 118.0, "range_km": 260.1, "snr_db": 24.0
+  }
+}

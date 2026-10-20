@@ -1,0 +1,22 @@
+{
+  "schema": "v17.schema.v1",
+  "id": "story_state",
+  "title": "剧情状态 / Story State",
+  "version": "1.0.0",
+  "type": "object",
+  "description": "剧情/教学目标状态：阶段、flags、证据、裁决记录；只读快照。",
+  "required": ["id", "scenario_id", "phase", "flags", "evidence", "decisions"],
+  "properties": {
+    "id": {"type": "string"},
+    "scenario_id": {"type": "string"},
+    "phase": {"type": "string", "enum": ["prelude", "read", "command", "decision", "consequence", "report", "end"]},
+    "flags": {"type": "object"},
+    "evidence": {"type": "object"},
+    "decisions": {"type": "array", "items": {"type": "object"}},
+    "t_s": {"type": "number", "unit": "s", "min": 0.0}
+  },
+  "example": {
+    "id": "story-0001", "scenario_id": "transit_l4_l1", "phase": "command",
+    "flags": {"prelude_done": true}, "evidence": {"count": 0}, "decisions": [], "t_s": 0.0
+  }
+}

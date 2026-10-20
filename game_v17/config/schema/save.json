@@ -1,0 +1,23 @@
+{
+  "schema": "v17.schema.v1",
+  "id": "save",
+  "title": "存档 / Save",
+  "version": "1.0.0",
+  "type": "object",
+  "description": "存档根：scenario/t 快照/实体/航迹/UI 状态；不含实现细节。",
+  "required": ["id", "version", "scenario_id", "t_s", "entities", "tracks", "ui"],
+  "properties": {
+    "id": {"type": "string"},
+    "version": {"type": "string"},
+    "created_at": {"type": "string"},
+    "scenario_id": {"type": "string"},
+    "t_s": {"type": "number", "unit": "s", "min": 0.0},
+    "entities": {"type": "array", "items": {"type": "object"}},
+    "tracks": {"type": "array", "items": {"type": "object"}},
+    "ui": {"type": "object"}
+  },
+  "example": {
+    "id": "save-0001", "version": "1.0.0", "created_at": "2026-10-21T00:00:00Z",
+    "scenario_id": "transit_l4_l1", "t_s": 518400.0, "entities": [], "tracks": [], "ui": {}
+  }
+}

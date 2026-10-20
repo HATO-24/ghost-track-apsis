@@ -1,0 +1,25 @@
+{
+  "schema": "v17.schema.v1",
+  "id": "comms",
+  "title": "通信 / Comms",
+  "version": "1.0.0",
+  "type": "object",
+  "description": "通信消息（radio/laser；加密/延迟；无自动裁决）。",
+  "required": ["id", "from", "to", "mode", "encrypted"],
+  "properties": {
+    "id": {"type": "string"},
+    "from": {"type": "string"},
+    "to": {"type": "string"},
+    "mode": {"type": "string", "enum": ["radio", "laser"]},
+    "encrypted": {"type": "boolean"},
+    "sent_t_s": {"type": "number", "unit": "s"},
+    "latency_s": {"type": "number", "unit": "s", "min": 0.0},
+    "text": {"type": "string"},
+    "frequency_mhz": {"type": "number", "unit": "MHz"}
+  },
+  "example": {
+    "id": "msg-001", "from": "apsis", "to": "harmattan", "mode": "radio",
+    "encrypted": false, "sent_t_s": 0.0, "latency_s": 8.0, "text": "OCUVF 命令",
+    "frequency_mhz": 300.0
+  }
+}

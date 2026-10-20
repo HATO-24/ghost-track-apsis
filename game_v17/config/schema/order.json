@@ -1,0 +1,23 @@
+{
+  "schema": "v17.schema.v1",
+  "id": "order",
+  "title": "命令 / Order",
+  "version": "1.0.0",
+  "type": "object",
+  "description": "玩家/脚本下达的显式命令（不自动执行）。",
+  "required": ["id", "ship_id", "kind", "status"],
+  "properties": {
+    "id": {"type": "string"},
+    "ship_id": {"type": "string"},
+    "kind": {"type": "string", "enum": ["move", "sensor", "comms", "interact", "hold"]},
+    "target_id": {"type": "string"},
+    "issued_t_s": {"type": "number", "unit": "s"},
+    "delay_s": {"type": "number", "unit": "s", "min": 0.0},
+    "status": {"type": "string", "enum": ["queued", "transmitted", "active", "done", "aborted"]},
+    "sequence": {"type": "array", "items": {"type": "number"}, "unit": "none"}
+  },
+  "example": {
+    "id": "ord-001", "ship_id": "harmattan", "kind": "sensor", "target_id": "9001",
+    "issued_t_s": 12.0, "delay_s": 8.0, "status": "queued", "sequence": [0, 1]
+  }
+}

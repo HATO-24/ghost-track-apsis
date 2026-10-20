@@ -1,0 +1,27 @@
+{
+  "schema": "v17.schema.v1",
+  "id": "entity",
+  "title": "实体 / Entity",
+  "version": "1.0.0",
+  "type": "object",
+  "description": "V2/V15 通用实体档案：舰船、固定站体、储罐、残骸、标记。",
+  "required": ["id", "kind", "side", "name"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "实体唯一 id"},
+    "batch": {"type": "string", "description": "批号（可为空字符串）"},
+    "kind": {"type": "string", "enum": ["ship", "station", "tank", "wreck", "marker"]},
+    "side": {"type": "string", "enum": ["friend", "hostile", "neutral", "unknown"]},
+    "name": {"type": "string"},
+    "frame": {"type": "string", "enum": ["L1", "L4", "bary_rot", "earth_eci"]},
+    "pos_km": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3, "unit": "km"},
+    "vel_kmps": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3, "unit": "km/s"},
+    "size_km": {"type": "number", "unit": "km"},
+    "tags": {"type": "array", "items": {"type": "string"}}
+  },
+  "example": {
+    "id": "apsis", "batch": "1000", "kind": "ship", "side": "friend",
+    "name": "远地点", "frame": "L4",
+    "pos_km": [-520.0, 310.0, 40.0], "vel_kmps": [0.0, 0.0, 0.0],
+    "size_km": 0.12, "tags": ["own_fleet", "flagship"]
+  }
+}

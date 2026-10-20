@@ -1,0 +1,37 @@
+{
+  "schema": "v17.ui_tokens.v1",
+  "version": "1.0.0",
+  "updated": "2026-10-21",
+  "font_files": {
+    "sans": "res://assets/fonts/NotoSansSC-Regular.ttf",
+    "mono": "res://assets/fonts/JetBrainsMono-Regular.ttf",
+    "cjk": "res://assets/fonts/NotoSansSC-Regular.ttf"
+  },
+  "font_sizes": {"7": 7, "8": 8, "9": 9, "11": 11, "14": 14, "18": 18},
+  "line_heights": {"7": 10, "8": 11, "9": 12, "11": 15, "14": 19, "18": 24},
+  "baselines": {
+    "cjk_font_size": 11, "mono_font_size": 9,
+    "cjk_baseline_px": 3.0, "mono_baseline_px": 2.0,
+    "cjk_line_gap_px": 2, "mono_line_gap_px": 1
+  },
+  "spacing": {
+    "panel_padding_x": 12, "panel_padding_y": 10,
+    "content_gap": 6, "line_gap": 2, "section_gap": 10
+  },
+  "palette": {
+    "bg": "#0b0f14", "panel": "#111821", "panel_border": "#2a3644",
+    "text": "#d8e0ea", "text_dim": "#8a97a6", "accent": "#4fc3f7",
+    "warn": "#ffb74d", "danger": "#ef5350", "ok": "#66bb6a",
+    "selection": "#1e3a52", "transparent": "#00000000"
+  },
+  "panel_9slice": {
+    "margin_left": 8, "margin_top": 8, "margin_right": 8, "margin_bottom": 8,
+    "content_margin": 12
+  },
+  "button": {"height": 28, "min_width": 88, "padding_x": 10, "padding_y": 4, "font_size": 11},
+  "target_card": {"width": 180, "height": 44, "padding": 6, "font_size": 9},
+  "list": {"row_height": 20, "header_height": 24, "padding_x": 6, "font_size": 9},
+  "dialog": {"padding": 14, "min_width": 360, "min_height": 220, "font_size": 11},
+  "pointer": {"size": 10, "hotspot_x": 5, "hotspot_y": 5},
+  "icons": {"size_small": 12, "size_normal": 16, "size_large": 24}
+}

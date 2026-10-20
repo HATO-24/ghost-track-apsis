@@ -1,0 +1,22 @@
+{
+  "schema": "v17.schema.v1",
+  "id": "ui_field",
+  "title": "UI 字段 / UI Field",
+  "version": "1.0.0",
+  "type": "object",
+  "description": "UI 字段描述（token 取自 ui_tokens.json；数据来源只读）。",
+  "required": ["id", "token", "label", "value_type", "source"],
+  "properties": {
+    "id": {"type": "string"},
+    "token": {"type": "string"},
+    "label": {"type": "string"},
+    "value_type": {"type": "string", "enum": ["string", "number", "boolean", "status", "timestamp"]},
+    "unit": {"type": "string"},
+    "format": {"type": "string"},
+    "source": {"type": "string", "enum": ["v15", "v2", "teaching", "transfer", "damage"]}
+  },
+  "example": {
+    "id": "field-t-0001", "token": "text", "label": "时间", "value_type": "number",
+    "unit": "s", "format": "T+%.1f", "source": "v15"
+  }
+}

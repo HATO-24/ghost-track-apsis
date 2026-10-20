@@ -1,0 +1,18 @@
+{
+  "schema": "v17.schema.v1",
+  "id": "frame",
+  "title": "坐标系 / Frame",
+  "version": "1.0.0",
+  "type": "object",
+  "description": "坐标参考系：惯性/旋转、中心天体、单位、旋转角速度。",
+  "required": ["id", "kind", "origin", "unit"],
+  "properties": {
+    "id": {"type": "string"},
+    "kind": {"type": "string", "enum": ["inertial", "rotating"]},
+    "origin": {"type": "string", "enum": ["barycenter", "earth", "moon", "ship"]},
+    "unit": {"type": "string", "enum": ["km", "m"]},
+    "rotation": {"type": "number", "unit": "deg/s"},
+    "parent": {"type": "string"}
+  },
+  "example": {"id": "bary_rot", "kind": "rotating", "origin": "barycenter", "unit": "km", "rotation": 0.0}
+}

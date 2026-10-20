@@ -1,0 +1,28 @@
+{
+  "schema": "v17.schema.v1",
+  "id": "track",
+  "title": "航迹 / Track",
+  "version": "1.0.0",
+  "type": "object",
+  "description": "融合航迹（等级/身份/威胁为显示值；不自动判敌）。",
+  "required": ["id", "batch", "entity_id", "level", "identity", "threat"],
+  "properties": {
+    "id": {"type": "string"},
+    "batch": {"type": "string"},
+    "entity_id": {"type": "string"},
+    "level": {"type": "integer", "unit": "none", "min": 0, "max": 4},
+    "identity": {"type": "string", "enum": ["friend", "hostile", "neutral", "unknown", "pending"]},
+    "threat": {"type": "string", "enum": ["none", "pending", "low", "medium", "high"]},
+    "sources": {"type": "array", "items": {"type": "string"}},
+    "age_s": {"type": "number", "unit": "s", "min": 0.0},
+    "frame": {"type": "string", "enum": ["L1", "L4", "bary_rot", "earth_eci"]},
+    "pos_km": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3, "unit": "km"},
+    "vel_kmps": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3, "unit": "km/s"}
+  },
+  "example": {
+    "id": "1000", "batch": "1000", "entity_id": "apsis", "level": 4,
+    "identity": "friend", "threat": "none", "sources": ["YW-R9", "MS-OT2"],
+    "age_s": 0.0, "frame": "L1", "pos_km": [-190.0, 255.0, 62.0],
+    "vel_kmps": [-0.05, -0.06, 0.01]
+  }
+}

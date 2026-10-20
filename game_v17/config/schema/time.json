@@ -1,0 +1,18 @@
+{
+  "schema": "v17.schema.v1",
+  "id": "time",
+  "title": "时间 / Time",
+  "version": "1.0.0",
+  "type": "object",
+  "description": "仿真时间基：t_s / t_days / epoch / 时间倍率与状态。",
+  "required": ["id", "t_s", "epoch", "mode"],
+  "properties": {
+    "id": {"type": "string"},
+    "t_s": {"type": "number", "unit": "s", "min": 0.0},
+    "t_days": {"type": "number", "unit": "day"},
+    "epoch": {"type": "number", "unit": "s"},
+    "scale": {"type": "number", "unit": "none", "min": 0.0},
+    "mode": {"type": "string", "enum": ["paused", "running", "window"]}
+  },
+  "example": {"id": "t-0001", "t_s": 0.0, "t_days": 0.0, "epoch": 760.8, "scale": 1.0, "mode": "running"}
+}
