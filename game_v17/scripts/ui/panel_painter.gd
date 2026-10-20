@@ -39,8 +39,11 @@ static func label_right(ci: CanvasItem, right_x: float, y: float, text: String, 
 static func button(ci: CanvasItem, r: Rect2, text: String, active := true, col: Color = P.PH) -> void:
 	ci.draw_rect(r, P.a(P.PANEL2, 0.9))
 	ci.draw_rect(r, P.a(col if active else P.LINE, 0.65 if active else 0.35), false, 1.0)
-	var w := TM.width(text, false, 8)
-	ci.draw_string(F.cjk(), Vector2(r.position.x + (r.size.x - w) * 0.5, r.position.y + r.size.y * 0.5 + 3), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, P.TXT if active else P.FAINT)
+	var fs := 8
+	if TM.width(text, false, fs) > r.size.x - 8.0:
+		fs = 7
+	var w := TM.width(text, false, fs)
+	ci.draw_string(F.cjk(), Vector2(r.position.x + (r.size.x - w) * 0.5, r.position.y + r.size.y * 0.5 + 3), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, P.TXT if active else P.FAINT)
 
 
 static func list_row(ci: CanvasItem, r: Rect2, title: String, meta: String, type_col: Color, selected := false) -> void:

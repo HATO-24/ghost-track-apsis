@@ -968,11 +968,16 @@ func _draw_combat_overlay(r: Rect2) -> void:
 	else:
 		Painter.label(self, rx, ry, "PREDICTION NOT READY · " + String(pred.get("reason", "no target/weapon")), 7, P.AMBER, true)
 	ry += 38.0
-	# 操作按钮
+	# 操作按钮：按可用宽度等分两列，避免固定宽度在不同分辨率下越界/错位
 	_combat_buttons.clear()
 	var actions := ["TRACK", "SOLUTION", "AUTHORIZE FIRE", "FIRE"]
+	var btn_gap := 8.0
+	var btn_avail := maxf(120.0, r.end.x - 14.0 - rx)
+	var btn_w := floorf((btn_avail - btn_gap) * 0.5)
 	for i in range(actions.size()):
-		var br := Rect2(rx + float(i % 2) * 170.0, ry + float(i / 2) * 26.0, 162, 21)
+		var col := i % 2
+		var row := i / 2
+		var br := Rect2(rx + float(col) * (btn_w + btn_gap), ry + float(row) * 26.0, btn_w, 21)
 		_combat_buttons.append({"rect": br, "kind": String(actions[i])})
 		Painter.button(self, br, String(actions[i]), true, P.PH if i < 3 else P.RED)
 	ry += 60.0
