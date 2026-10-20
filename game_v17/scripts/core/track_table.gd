@@ -21,6 +21,8 @@ extends RefCounted
 const SCHEMA_TABLE := "fused_track_table.v1"
 const SCHEMA_TRACK := "fused_track.v1"
 const SCHEMA_EVENT := "fused_track_event.v1"
+const SAVE_SCHEMA := "v17.fused_track_table_save.v1"
+const SAVE_VERSION := "1.0.0"
 const INPUT_OBS := "sensor_observation.v1"
 const INPUT_EVIDENCE := "track_evidence.v1"
 const INPUT_UPDATE := "track_update.v1"
@@ -881,6 +883,258 @@ func vm(opts := {}) -> Dictionary:
 		"notes": ["TrackTable 单写者：仅 writer_id 可写；UI 只读",
 			"身份六级；不明不判敌（hostile 需显式授权）"],
 	}
+
+
+## 保存快照（Dictionary；JSON-safe，可直接放进 SaveService payload）。
+func snapshot() -> Dictionary:
+	var seen: Array = []
+	for k in _seen_event_ids.keys():
+		seen.append(String(k))
+	seen.sort()
+	return {
+		"schema": SAVE_SCHEMA, "version": SAVE_VERSION,
+		"table_schema": SCHEMA_TABLE, "t": t, "writer_id": writer_id,
+		"config": config.duplicate(true),
+		"tracks": all_tracks(),
+		"next_id": next_id, "event_seq": _event_seq,
+		"seen_event_ids": seen,
+		"events": JSON.parse_string(JSON.stringify(events)),
+		"outbox": JSON.parse_string(JSON.stringify(_outbox)),
+		"errors": errors.duplicate(true), "warnings": warnings.duplicate(true),
+	}
+
+
+## 保存为 JSON 字符串（与 SaveService 的 JSON payload 兼容）。
+func save_state() -> String:
+	return JSON.stringify(snapshot())
+
+
+func save_payload() -> Dictionary:
+	return snapshot()
+
+
+## 恢复快照（String 或 Dictionary）；先完整校验，失败不改当前状态。
+func load_state(data: Variant) -> Dictionary:
+	var parsed: Variant = data
+	if data is String:
+		var txt := String(data)
+		if txt.strip_edges() == "":
+			return {"ok": false, "reason": "empty_state", "errors": ["空快照"]}
+		parsed = JSON.parse_string(txt)
+		if not (parsed is Dictionary):
+			return {"ok": false, "reason": "invalid_json", "errors": ["快照 JSON 无效"]}
+	if not (parsed is Dictionary):
+		return {"ok": false, "reason": "invalid_payload", "errors": ["快照必须是对象"]}
+	var payload: Dictionary = parsed
+	var errs := _validate_save_payload(payload)
+	if not errs.is_empty():
+		return {"ok": false, "reason": "invalid_payload", "errors": errs,
+			"from_version": String(payload.get("version", ""))}
+	_apply_save_payload(payload)
+	var out := {"ok": true, "reason": "", "errors": [], "version": SAVE_VERSION,
+		"from_version": String(payload.get("version", "")), "migrated": false,
+		"tracks": tracks.size(), "events": events.size(),
+		"writes_v15": false, "writes_track_table": false}
+	return out
+
+
+func restore(data: Variant) -> Dictionary:
+	return load_state(data)
+
+
+func load_save_payload(data: Variant) -> Dictionary:
+	return load_state(data)
+
+
+func _validate_save_payload(p: Dictionary) -> Array:
+	var errs: Array = []
+	if String(p.get("schema", "")) != SAVE_SCHEMA:
+		errs.append("save schema 必须为 " + SAVE_SCHEMA)
+	var ver := String(p.get("version", ""))
+	if ver == "":
+		errs.append("缺 version")
+	elif ver != SAVE_VERSION:
+		var cmp := _compare_version(ver, SAVE_VERSION)
+		if cmp > 0:
+			errs.append("不支持未来版本: " + ver)
+		else:
+			errs.append("不支持的旧版本（无迁移路径）: " + ver)
+	if String(p.get("table_schema", "")) != SCHEMA_TABLE:
+		errs.append("table_schema 不匹配")
+	if not (p.get("config") is Dictionary):
+		errs.append("config 必须是对象")
+	else:
+		var cfg: Dictionary = p.get("config")
+		var stale := float(cfg.get("stale_after_s", -1.0))
+		var forget := float(cfg.get("forget_after_s", -1.0))
+		if not is_finite(stale) or stale < 0.0:
+			errs.append("config.stale_after_s 非法")
+		if not is_finite(forget) or forget < stale:
+			errs.append("config.forget_after_s 非法")
+		if int(cfg.get("track_id_pad", 0)) < 1:
+			errs.append("config.track_id_pad 非法")
+	var wt := String(p.get("writer_id", ""))
+	if wt.strip_edges() == "":
+		errs.append("writer_id 不能为空")
+	var tt := float(p.get("t", NAN))
+	if not is_finite(tt) or tt < 0.0:
+		errs.append("t 非法")
+	if int(p.get("next_id", 0)) < 1:
+		errs.append("next_id 非法")
+	if int(p.get("event_seq", -1)) < 0:
+		errs.append("event_seq 非法")
+	if not (p.get("seen_event_ids") is Array):
+		errs.append("seen_event_ids 必须是数组")
+	if not (p.get("events") is Array):
+		errs.append("events 必须是数组")
+	if not (p.get("outbox") is Array):
+		errs.append("outbox 必须是数组")
+	var raw_tracks = p.get("tracks", null)
+	if not (raw_tracks is Array):
+		errs.append("tracks 必须是数组")
+		return errs
+	var ids: Dictionary = {}
+	for i in range((raw_tracks as Array).size()):
+		var one = (raw_tracks as Array)[i]
+		if not (one is Dictionary):
+			errs.append("tracks[%d] 必须为对象" % i)
+			continue
+		var tr: Dictionary = one
+		var tid := String(tr.get("id", ""))
+		if tid == "":
+			errs.append("tracks[%d] 缺 id" % i)
+		elif ids.has(tid):
+			errs.append("tracks 重复 id: " + tid)
+		else:
+			ids[tid] = true
+		if not (int(tr.get("level", 0)) in LEVELS):
+			errs.append("track %s level 非法" % tid)
+		if not (String(tr.get("identity", "")) in IDENTITIES):
+			errs.append("track %s identity 非法" % tid)
+		if not (String(tr.get("threat", "")) in THREATS):
+			errs.append("track %s threat 非法" % tid)
+		if not (tr.get("sources") is Array):
+			errs.append("track %s sources 非法" % tid)
+		if not (tr.get("evidence") is Array):
+			errs.append("track %s evidence 非法" % tid)
+		var q := float(tr.get("quality", NAN))
+		if not is_finite(q) or q < 0.0 or q > 1.0:
+			errs.append("track %s quality 非法" % tid)
+		if not is_finite(float(tr.get("last_update", NAN))):
+			errs.append("track %s last_update 非法" % tid)
+	return errs
+
+
+func _compare_version(a: String, b: String) -> int:
+	var aa := _version_parts(a)
+	var bb := _version_parts(b)
+	for i in range(3):
+		var x := int(aa[i]) if i < aa.size() else 0
+		var y := int(bb[i]) if i < bb.size() else 0
+		if x < y:
+			return -1
+		if x > y:
+			return 1
+	return 0
+
+
+func _version_parts(v: String) -> Array:
+	var out: Array = []
+	for part in v.split("."):
+		out.append(int(part))
+	return out
+
+
+func _apply_save_payload(p: Dictionary) -> void:
+	config = (p.get("config", {}) as Dictionary).duplicate(true)
+	writer_id = String(p.get("writer_id", "fusion_authority"))
+	t = float(p.get("t", 0.0))
+	next_id = int(p.get("next_id", 1))
+	_event_seq = int(p.get("event_seq", 0))
+	_seen_event_ids = {}
+	for raw in (p.get("seen_event_ids", []) as Array):
+		_seen_event_ids[String(raw)] = true
+	tracks = {}
+	by_entity = {}
+	by_batch = {}
+	for raw in (p.get("tracks", []) as Array):
+		if not (raw is Dictionary):
+			continue
+		var tr: Dictionary = (raw as Dictionary).duplicate(true)
+		var tid := String(tr.get("id", ""))
+		tracks[tid] = tr
+		var eid := String(tr.get("entity_id", ""))
+		if eid != "" and not by_entity.has(eid):
+			by_entity[eid] = tid
+		var b := String(tr.get("batch", ""))
+		if b != "" and not by_batch.has(b):
+			by_batch[b] = tid
+	events = JSON.parse_string(JSON.stringify(p.get("events", [])))
+	if not (events is Array):
+		events = []
+	_outbox = JSON.parse_string(JSON.stringify(p.get("outbox", [])))
+	if not (_outbox is Array):
+		_outbox = []
+	_normalize_loaded_types()
+	errors = (p.get("errors", []) as Array).duplicate() if p.get("errors") is Array else []
+	warnings = (p.get("warnings", []) as Array).duplicate() if p.get("warnings") is Array else []
+	_subscribers = []
+	ready = true
+
+
+## JSON 会把整数解析成 float；恢复时把有契约的整数字段归一，保证 VM/save 往返一致。
+func _normalize_loaded_types() -> void:
+	next_id = int(next_id)
+	_event_seq = int(_event_seq)
+	config["track_id_pad"] = int(config.get("track_id_pad", 4))
+	config["max_tracks"] = int(config.get("max_tracks", 256))
+	for raw in events:
+		if raw is Dictionary:
+			_normalize_event_dict(raw as Dictionary)
+	for raw in _outbox:
+		if raw is Dictionary:
+			_normalize_event_dict(raw as Dictionary)
+	for tid in tracks.keys():
+		var tr: Dictionary = tracks[tid]
+		tr["level"] = int(tr.get("level", 0))
+		if tr.get("level_evidence") is Dictionary:
+			var le: Dictionary = {}
+			for k in (tr.get("level_evidence") as Dictionary).keys():
+				le[String(k)] = float((tr.get("level_evidence") as Dictionary)[k])
+			tr["level_evidence"] = le
+		if tr.get("evidence") is Array:
+			for raw_e in (tr.get("evidence") as Array):
+				if raw_e is Dictionary:
+					var e: Dictionary = raw_e
+					if e.has("seq"):
+						e["seq"] = int(e.get("seq", 0))
+					if e.has("support"):
+						e["support"] = int(e.get("support", 0))
+					if e.has("level"):
+						e["level"] = int(e.get("level", 0))
+					if e.has("t"):
+						e["t"] = float(e.get("t", 0.0))
+					if e.has("quality"):
+						e["quality"] = float(e.get("quality", 0.0))
+
+
+func _normalize_event_dict(e: Dictionary) -> void:
+	for k in ["seq", "level", "level_after", "relay_count", "track_id"]:
+		if k == "track_id":
+			continue
+		if e.has(k):
+			e[k] = int(e.get(k, 0))
+	if e.has("t"):
+		e["t"] = float(e.get("t", 0.0))
+	if e.has("delay_s"):
+		e["delay_s"] = float(e.get("delay_s", 0.0))
+	if e.has("level"):
+		e["level"] = int(e.get("level", 0))
+	if e.has("level_after"):
+		e["level_after"] = int(e.get("level_after", 0))
+
+
+
 
 
 func to_dict() -> Dictionary:

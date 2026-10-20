@@ -1,6 +1,7 @@
-# 完整游戏-阶段2F · TrackTable 单写者 / 观测·证据融合
+# 完整游戏-阶段2F/2G · TrackTable 单写者 / 观测·证据融合 / 快照恢复
 
-> 任务 task-124。工程 `game_v17`。**只新增 3 个文件**：
+> task-124（单写者融合）→ **task-127（save/load 快照）**。工程 `game_v17`。
+> **只新增/修改 3 个文件**：
 > `scripts/core/track_table.gd`、`tests/track_table_probe.gd`、`docs/track_table.md`。
 > 未改旧 HUD/state/bridge/core/sim/project、未改现有
 > `framework/core/track_table.gd`/`tracks.gd`；不接传感器/物理/UI；不写 V15；未 commit。
@@ -145,6 +146,8 @@ s.filter({level_min,level_max,identity,stale,source,batch,id})
 s.selected(track_id) / s.summary()
 s.vm({filter:{},selected_id:""}) / s.to_dict() / s.to_json()
 s.events / s.events_since(seq) / s.take_events()
+s.snapshot() / s.save_state() / s.save_payload()
+s.load_state(json_or_dict) / s.restore(...) / s.load_save_payload(...)
 ```
 
 事件 schema `fused_track_event.v1`：`{schema,seq,t,action,track_id,level,identity,
@@ -182,16 +185,74 @@ events[], warnings[], errors[], writes={track_table:false,v15:false}
 
 违反契约一律返回 `ok=false` + `reason`，并写 `errors`，不静默吞错。
 
-## 9　验证（单次 probe）
+## 9　Save / Load 快照（task-127）
+
+### 9.1 schema
+
+`save_state()` 返回 JSON 字符串；`snapshot()`/`save_payload()` 返回同内容 Dictionary：
+
+```text
+{
+  "schema": "v17.fused_track_table_save.v1",
+  "version": "1.0.0",
+  "table_schema": "fused_track_table.v1",
+  "t": 12.0,
+  "writer_id": "fusion",
+  "config": {writer_id/stale_after_s/forget_after_s/track_id_prefix/...},
+  "tracks": [完整 track：level/identity/threat/sources/evidence[]/evidence_ids[]/
+             level_evidence/merged_from/stale/last_update/...],
+  "next_id": 3,
+  "event_seq": 17,
+  "seen_event_ids": ["..."],   // event_id 去重表
+  "events": [完整 fused_track_event.v1],
+  "outbox": [...],              // 未 take 的只读事件
+  "errors": [], "warnings": []
+}
+```
+
+### 9.2 API
+
+```gdscript
+var text: String = s.save_state()          # JSON + version
+var dict: Dictionary = s.snapshot()        # same payload as Dictionary
+var r := TrackTable.new()
+var res: Dictionary = r.load_state(text)   # or dict/restore/load_save_payload
+# {ok, reason, version, from_version, migrated, tracks, events, ...}
+```
+
+- `load_state` 先完整校验再应用；失败不改当前状态（probe 断言）；
+- 保存/恢复 `tracks/evidence/events/事件序号/seen_event_ids/writer/config/
+  stale/forget/last_update`，因此：
+  - 恢复后 `vm()` 与原状态一致；
+  - `event_id` 去重仍有效；
+  - stale 状态、下次 forget 过期继续；
+  - 新 track id / event seq 从保存点继续；
+- 整数契约（level/seq/next_id/track_id_pad/max_tracks/support/level_after 等）
+  在 JSON 解析后归一为 int，保证 VM/save 往返一致。
+
+### 9.3 版本 / 迁移 / 校验
+
+- 当前 `version=1.0.0`；`schema/table_schema/version` 必须匹配；
+- **未来版本拒绝** `unsupported_future_version`；**旧版本拒绝**（当前无迁移路径，
+  reason 可见），不静默加载；
+- 缺 config/tracks/seen/events、非有限 t、非法 writer、level/identity/threat/
+  quality、重复 track id、损坏 JSON 均拒绝；
+- 加载成功不写 UI/world/V15；不触发 tick/过期逻辑，只恢复状态。
+- **SaveService / GameSession 兼容**：`save_state()` 是普通 JSON 字符串，可放入
+  `SaveService` 的 `session_save` payload 或 GameSession 扩展组件；
+  本表不直接读写磁盘、不修改 SaveService。probe 用 SaveService encode/decode
+  验证该 JSON 可嵌入/恢复。
+
+## 10　验证（单次 probe）
 
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/track_table_probe.gd
-# TRACK TABLE PROBE RESULT: PASS=113 FAIL=0
+# TRACK TABLE PROBE RESULT: PASS=153 FAIL=0
 # TRACK TABLE PROBE OK（退出码 0）
 ```
 
-覆盖（113 checks）：
+覆盖（153 checks，含原 113 + 快照）：
 - **单写者**：writer claim/冲突/未授权拒绝/订阅只读；
 - **L1→L4**：单观测 L1、多源 L2、光学/ELINT Evidence L3、IFF L4；证据追溯；
 - **身份/威胁**：六级、IFF no_reply→unknown 不判敌、非授权 hostile 拒绝、
@@ -200,10 +261,16 @@ events[], warnings[], errors[], writes={track_table:false,v15:false}
   stale/forget、时间回归拒绝；
 - **DbC**：缺 schema/未知 schema/无标识/坏 sensor/support/观测 L3/坏 evidence/
   未知 track/非有限 t 全部拒绝；非法 setup 不 ready；
+- **快照**：save_state schema/version、payload 字段、dict/snapshot 别名、
+  load 后 VM/save_state 一致、evidence/level/stale/writer/t 保留、
+  event_id 去重保留、Continue ID/seq、dict 形式加载、save/load 往返确定性、
+  SaveService encode/decode 兼容、恢复后 stale/forget 继续；
+  损坏 JSON/坏 schema/future/old version/缺 tracks/非法 level/重复 track id 拒绝
+  且不破坏当前状态；
 - **VM/JSON/确定性**：filter/selected/summary、只读 copy、writes=false、两实例
   VM/events 逐字节一致；JSON-safe。
 
-## 10　边界 / 未完成
+## 11　边界 / 未完成
 
 - 不接真实传感器/物理/世界；输入 Observation/Evidence/TrackUpdate 由上层提供，
   本层只做融合/唯一写。
@@ -212,6 +279,10 @@ events[], warnings[], errors[], writes={track_table:false,v15:false}
 - 不实现 UI、ROE、身份数据库、通讯链路；hostile 仅授权标记，不自动判敌。
 - 证据去重只做“连续相同”抑制；未做跨 track 全局证据哈希/回滚。
 - `merge_duplicates` 仅同 entity/batch；`merged_from` 保留但被合并 track 移除。
-- 未写 V15/TrackTable 外部权威；`writes` 字段恒 false；未做存档/恢复。
+- 未写 V15/TrackTable 外部权威；`writes` 字段恒 false。
+- 快照为内存 JSON；不直接写盘，未接 SaveService 自动槽位/备份；由 SaveService
+  外层负责文件/校验；GameSession 需自行把 save_state 放进扩展 payload（当前 3 文件
+  范围不修改 GameSession/SaveService）。
+- 未实现旧版本迁移路径（当前只有 1.0.0；旧版本拒绝）；未做存档压缩/加密。
 - probe 使用内部 `_create_track/_apply_level` 构造 merge 夹具；生产不应直接调用私有方法。
 - 未跑全量回归；只单次跑本 probe。

@@ -18,6 +18,9 @@ var _mouse := Vector2(-100, -100)
 var _hover_dot := -1
 var time_service = null
 var event_bus = null
+var session = null
+var save_status := ""
+var save_ok := false
 var _time_token := -1
 var _timer_event_token := -1
 var _dots := [
@@ -63,8 +66,9 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-func bind_services(ts, bus) -> void:
-	time_service = ts
+func bind_services(svc, bus) -> void:
+	session = svc
+	time_service = svc.time if svc != null and svc.get("time") != null else svc
 	event_bus = bus
 	if event_bus != null and event_bus.has_method("subscribe"):
 		var sub: Dictionary = event_bus.call("subscribe", "tactical", Callable(self, "_on_bus_event"))
@@ -73,9 +77,17 @@ func bind_services(ts, bus) -> void:
 
 
 func _now_s() -> float:
+	if session != null and session.has_method("now_s"):
+		return float(session.call("now_s"))
 	if time_service != null and time_service.has_method("now_s"):
 		return float(time_service.call("now_s"))
 	return _t
+
+
+func set_save_result(text: String, ok: bool) -> void:
+	save_status = text
+	save_ok = ok
+	queue_redraw()
 
 
 func _on_bus_event(event: Dictionary) -> void:
@@ -94,6 +106,10 @@ func _on_bus_event(event: Dictionary) -> void:
 		while _timers.size() > 4:
 			_timers.pop_front()
 		queue_redraw()
+
+
+func _fit(s: String, n: int) -> String:
+	return s if s.length() <= n else s.substr(0, n - 1) + "…"
 
 
 func _fmt_clock(sec: float) -> String:
@@ -128,6 +144,9 @@ func _draw() -> void:
 	var now_s := _now_s()
 	var scale_txt := "×%.0f" % float(time_service.scale) if time_service != null else "×1"
 	var paused_txt := "PAUSED" if time_service != null and bool(time_service.paused) else "RUNNING"
+	if session != null and session.time != null:
+		scale_txt = "×%.0f" % float(session.time.scale)
+		paused_txt = "PAUSED" if bool(session.time.paused) else "RUNNING"
 	draw_string(mono, Vector2(16, 55), "MISSION T+%s · L1 港内 %s · %s %s" % [_fmt_clock(now_s + mission_time_base), _port_clock(), scale_txt, paused_txt], HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.DIM, 0.95))
 	# 中左：动态计时器（3 条，自动过期）
 	var tx := 300.0
@@ -166,6 +185,8 @@ func _draw() -> void:
 			draw_rect(tr, P.a(col, 0.65), false, 1.0)
 			draw_string(cjk, Vector2(tr.position.x + 6.0, tr.position.y + 12.0), tip, HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.TXT)
 	draw_string(mono, Vector2(size.x - 86, 34), "SAVE", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.FAINT, 0.9))
+	if save_status != "":
+		draw_string(mono, Vector2(700, 66), _fit(save_status, 96), HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.PH if save_ok else P.RED)
 
 
 func _dot_rect(i: int) -> Rect2:

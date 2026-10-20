@@ -11,9 +11,13 @@ const ContactList := preload("res://scripts/ui/contact_list.gd")
 const CustomCursor := preload("res://scripts/ui/custom_cursor.gd")
 const TimeService := preload("res://scripts/core/time_service.gd")
 const EventBus := preload("res://scripts/core/event_bus.gd")
+const GameSession := preload("res://scripts/core/game_session.gd")
+const SaveService := preload("res://scripts/core/save_service.gd")
 const RightPanel := preload("res://scripts/ui/right_panel.gd")
 const CommandLog := preload("res://scripts/ui/command_log.gd")
 const CONTACT_SOURCE := "res://framework/content/scenario_transit_l4_l1.json"
+const TRACK_SCHEMA := "res://config/schema/track.json"
+const SAVE_ROOT := "user://saves"
 
 var _top
 var _contacts
@@ -24,7 +28,8 @@ var _shot_path := ""
 var _target_size := Vector2i(1920, 1080)
 
 var _log_lines: Array[String] = []
-var _time = null
+var _session = null
+var _save = null
 var _bus = null
 var _right_panel = null
 var _command_log = null
@@ -48,16 +53,21 @@ func _ready() -> void:
 	theme = UiTheme.build()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	_time = TimeService.new({})
-	_time.setup({"epoch_s": 760.8, "scale": 1.0})
-	_bus = EventBus.new({})
-	_bus.setup({})
+	_session = GameSession.new()
+	var boot_res: Dictionary = _session.boot({"orders": [
+		{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
+	]})
+	_save = SaveService.new(SAVE_ROOT)
+	_save.setup(SAVE_ROOT)
+	_bus = _session.bus
 	_build_shell()
-	_top.bind_services(_time, _bus)
+	_top.bind_services(_session, _bus)
 	_load_contacts()
 	_seed_events()
 	_refresh_command_log()
 	set_process(true)
+	if OS.get_environment("DSH_UI_SAVE_TEST") == "1":
+		call_deferred("_run_save_test")
 	if _shot_path != "":
 		get_window().size = _target_size
 		Input.warp_mouse(Vector2(_target_size) * 0.5)
@@ -133,57 +143,76 @@ func _build_shell() -> void:
 
 func _load_contacts() -> void:
 	var rows: Array = []
-	if FileAccess.file_exists(CONTACT_SOURCE):
-		var f := FileAccess.open(CONTACT_SOURCE, FileAccess.READ)
+	var snap: Dictionary = _session.snapshot() if _session != null else {}
+	var ents: Array = snap.get("entities", []) if snap.get("entities", []) is Array else []
+	var by_id: Dictionary = {}
+	for raw in ents:
+		if not (raw is Dictionary):
+			continue
+		var e: Dictionary = raw
+		var eid := String(e.get("id", ""))
+		by_id[eid] = e
+		var kind := String(e.get("kind", "ship"))
+		var fl: Dictionary = e.get("flags", {}) if e.get("flags", {}) is Dictionary else {}
+		var badge := "PORT" if kind == "station" else ("FLAGSHIP" if bool(fl.get("flagship", false)) else "FRIENDLY")
+		rows.append({"id": String(e.get("batch", eid)), "entity_id": eid, "name": String(e.get("name", "")),
+			"cls": kind.to_upper(), "type": "station" if kind == "station" else "friendly", "side": "friend",
+			"threat": "none", "badge": badge, "session": true})
+	# track schema 示例：明确 DEMO，不混入 session entities
+	if FileAccess.file_exists(TRACK_SCHEMA):
+		var f := FileAccess.open(TRACK_SCHEMA, FileAccess.READ)
 		if f != null:
-			var txt := f.get_as_text()
+			var parsed = JSON.parse_string(f.get_as_text())
 			f.close()
-			var parsed = JSON.parse_string(txt)
-			if parsed is Dictionary:
-				var ents: Array = parsed.get("entities", []) if parsed.get("entities", []) is Array else []
-				for raw in ents:
-					if not (raw is Dictionary):
-						continue
-					var e: Dictionary = raw
-					var kind := String(e.get("kind", "ship"))
-					var side := String(e.get("side", "friend"))
-					var ttype := "station" if kind == "station" else ("friendly" if side == "friend" else ("unknown" if side == "unknown" else "neutral"))
-					var threat := "none" if side == "friend" else ("med" if side == "unknown" else "low")
-					var badge := "PORT" if kind == "station" else ("FLAGSHIP" if side == "friend" and String(e.get("id", "")) == "apsis" else ("UNKNOWN" if side == "unknown" else "FRIENDLY"))
-					rows.append({"id": String(e.get("batch", e.get("id", ""))), "name": String(e.get("name", "")),
-						"cls": String(e.get("class", e.get("role", ""))), "type": ttype, "side": side,
-						"threat": threat, "badge": badge})
+			if parsed is Dictionary and parsed.get("example") is Dictionary:
+				var ex: Dictionary = parsed.get("example")
+				rows.append({"id": "TRACK-EX", "entity_id": "TRACK-EX", "name": "TRACK EXAMPLE / DEMO",
+					"cls": "track schema · level %d" % int(ex.get("level", 0)), "type": "unknown",
+					"side": "unknown", "threat": "pending", "badge": "DEMO TRACK", "session": false,
+					"track": ex.duplicate(true)})
 	if rows.is_empty():
-		rows = [{"id": "----", "name": "NO CONTACT DATA", "cls": "content 未加载", "type": "unknown", "side": "unknown", "threat": "pending", "badge": "NOT READY"}]
+		rows = [{"id": "----", "name": "NO CONTACT DATA", "cls": "session 未就绪", "type": "unknown", "side": "unknown", "threat": "pending", "badge": "NOT READY"}]
 	_contacts.set_contacts(rows)
-	if not rows.is_empty() and _right_panel != null:
-		_right_panel.set_selected(rows[0])
-	_on_log("CONTACTS loaded from scenario_transit_l4_l1.json · %d" % rows.size())
+	if _right_panel != null:
+		_right_panel.set_snapshot(snap)
+		if not rows.is_empty():
+			_right_panel.set_selected(rows[0])
+	_on_log("SESSION contacts=%d + track DEMO · orders=%d" % [ents.size(), int((snap.get("orders_summary", {}) as Dictionary).get("orders", 0))])
 
 
 func _seed_events() -> void:
-	# UI 只发布示例 tactical.timer 事件；顶栏从 EventBus 订阅，过期由 TimeService 判定。
+	# UI 只发布示例 tactical.timer；Session.bus 真实事件由 topbar 订阅。
 	for item in [["变轨窗口 / BURN WINDOW", 30.0, "burn"], ["入轨 / ARRIVAL", 120.0, "arrival"], ["链路 / LINK", 15.0, "link"]]:
-		_bus.publish({"type": "tactical.timer", "t": _time.now_s(), "source": "ui_proto",
+		_bus.publish({"type": "tactical.timer", "t": _session.now_s(), "source": "ui_proto",
 			"target": "top_bar", "payload": {"label": String(item[0]), "duration_s": float(item[1]), "kind": String(item[2])}})
-	_on_log("EVENTBUS seeded 3 tactical.timer · time_service t=%.1fs" % _time.now_s())
+	_on_log("SESSION EVENTBUS seeded 3 tactical.timer · t=%.1fs" % _session.now_s())
 
 
 func _refresh_command_log() -> void:
-	if _command_log == null or _bus == null:
+	if _command_log == null or _session == null:
 		return
-	var events: Array = _bus.recent(8)
-	var demo_commands: Array = [
-		{"id": "ORD-0007", "state": "QUEUED", "actor": "指挥官", "target": "哈马丹 1001", "action": "SHADOW", "mode": "LD", "delay": "8.0s"},
-		{"id": "ORD-0008", "state": "TRANSMITTED", "actor": "哈马丹 1001", "target": "L1 港", "action": "SCAN", "mode": "LR", "delay": "1.0s"},
-		{"id": "ORD-0009", "state": "EXECUTING", "actor": "指挥官", "target": "远地点 1000", "action": "HOLD", "mode": "LD", "delay": "—"},
-	]
-	_command_log.set_data(demo_commands, events, "DEMO · NO GAMESESSION", "EVENTBUS · REAL")
+	var snap: Dictionary = _session.snapshot()
+	var comps: Dictionary = snap.get("components", {}) if snap.get("components", {}) is Dictionary else {}
+	var om: Dictionary = comps.get("orders", {}) if comps.get("orders", {}) is Dictionary else {}
+	var raw_orders: Array = om.get("orders", []) if om.get("orders", []) is Array else []
+	var cmds: Array = []
+	for raw in raw_orders:
+		if not (raw is Dictionary):
+			continue
+		var o: Dictionary = raw
+		cmds.append({
+			"id": String(o.get("order_id", "—")), "state": String(o.get("status", "—")),
+			"actor": String(o.get("issuer_id", "—")), "target": ",".join(o.get("target_ids", [])) if o.get("target_ids") is Array else "—",
+			"action": String(o.get("action", "—")), "mode": String(o.get("mode", "—")),
+			"delay": "%.1fs" % float(o.get("delivery_delay_s", 0.0)),
+		})
+	var events: Array = _session.bus.recent(8) if _session.bus != null else []
+	_command_log.set_data(cmds, events, "GAME SESSION · ORDERS", "SESSION BUS")
 
 
 func _process(delta: float) -> void:
-	if _time != null:
-		_time.tick(delta)
+	if _session != null:
+		_session.tick(delta)
 	if _frames % 10 == 0:
 		_refresh_command_log()
 	if _shot_path == "":
@@ -200,38 +229,73 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
-	if _time == null:
+	if _session == null:
 		return
 	match event.keycode:
 		KEY_SPACE:
-			if _time.paused:
-				_time.resume()
+			if bool(_session.time.paused):
+				_session.resume()
 			else:
-				_time.pause()
-			_on_log("TIME %s · scale ×%.0f" % ["PAUSED" if _time.paused else "RUNNING", _time.scale])
+				_session.pause()
+			_on_log("SESSION TIME %s · scale ×%.0f" % ["PAUSED" if bool(_session.time.paused) else "RUNNING", float(_session.time.scale)])
 		KEY_1:
-			_time.set_scale(1.0); _on_log("TIMESCALE ×1")
+			_session.set_scale(1.0); _on_log("SESSION TIMESCALE ×1")
 		KEY_2:
-			_time.set_scale(10.0); _on_log("TIMESCALE ×10")
+			_session.set_scale(10.0); _on_log("SESSION TIMESCALE ×10")
 		KEY_3:
-			_time.set_scale(60.0); _on_log("TIMESCALE ×60")
+			_session.set_scale(60.0); _on_log("SESSION TIMESCALE ×60")
 		KEY_4:
-			_time.set_scale(300.0); _on_log("TIMESCALE ×300")
+			_session.set_scale(300.0); _on_log("SESSION TIMESCALE ×300")
 
 
 func _on_dot_action(kind: String) -> void:
-	_on_log("DOT " + kind + " · signal only · save not implemented")
+	var intent := "save"
+	if kind == "menu":
+		intent = "save_and_menu"
+	elif kind == "quit":
+		intent = "save_and_quit"
+	var res: Dictionary = {}
+	if _save != null and _session != null:
+		res = _save.save_with_intent(_session, intent, {"chapter": "stage1e", "location": "ui_proto"})
+	var ok := bool(res.get("ok", false))
+	var status := ""
+	if ok:
+		status = "SAVED slot=%s · %sB · %s" % [String(res.get("slot", "")), str(int(res.get("bytes", 0))), String(res.get("checksum", "")).substr(0, 8)]
+		if intent == "save_and_menu":
+			status += " · should_show_menu=" + str(bool(res.get("should_show_menu", false)))
+		elif intent == "save_and_quit":
+			status += " · should_exit=" + str(bool(res.get("should_exit", false)))
+	else:
+		status = "SAVE FAILED · " + String(res.get("reason", "not_ready"))
+	if _top != null:
+		_top.set_save_result(status, ok)
+	_on_log("SAVE intent=%s · %s · path=%s" % [intent, "OK" if ok else "FAILED", String(res.get("path", ""))])
+	if _session != null and _session.bus != null:
+		_session.bus.publish({"type": "save.request", "t": _session.now_s(), "source": "ui_proto.top_bar",
+			"target": kind, "payload": {"intent": intent, "ok": ok, "path": String(res.get("path", "")), "save_implemented": true}})
 	if _cursor != null:
 		_cursor.set_state("point")
+
+
+func _run_save_test() -> void:
+	# 仅 DSH_UI_SAVE_TEST=1 执行：boot 后真实 save + load metadata + UI refresh；默认不写。
+	var res: Dictionary = _save.save_with_intent(_session, "save", {"chapter": "stage1e", "location": "ui_proto.test"})
+	var ok := bool(res.get("ok", false))
+	_on_log("SAVE TEST save=%s slot=%s path=%s" % ["OK" if ok else "FAIL", String(res.get("slot", "")), String(res.get("path", ""))])
+	var meta: Dictionary = _save.load_metadata("save")
+	_on_log("SAVE TEST metadata=%s slot=%s updated=%s" % [str(bool(meta.get("ok", false))), String((meta.get("meta", {}) as Dictionary).get("slot", "")), str(float((meta.get("meta", {}) as Dictionary).get("updated_at", 0.0)))])
+	_top.set_save_result("SAVED save · %sB · metadata %s" % [str(int(res.get("bytes", 0))), "OK" if bool(meta.get("ok", false)) else "FAIL"], ok and bool(meta.get("ok", false)))
+	_refresh_command_log()
 
 
 func _on_contact(index: int, data: Dictionary) -> void:
 	_selected_contact = data.duplicate(true)
 	if _right_panel != null:
+		_right_panel.set_snapshot(_session.snapshot() if _session != null else {})
 		_right_panel.set_selected(_selected_contact)
 	_on_log("CONTACT.SELECT [%s] %s" % [String(data.get("id", "")), String(data.get("name", ""))])
 	if _bus != null:
-		_bus.publish({"type": "contact.select", "t": _time.now_s(), "source": "ui_proto.contact_list",
+		_bus.publish({"type": "contact.select", "t": _session.now_s() if _session != null else 0.0, "source": "ui_proto.contact_list",
 			"target": String(data.get("id", "")), "payload": {"index": index, "contact": data.duplicate(true)}})
 
 

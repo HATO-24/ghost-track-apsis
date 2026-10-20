@@ -153,3 +153,48 @@ top bar 显示 T+now_s / L1 港内 epoch_abs_s / scale / paused
 3. 右栏按钮只发信号/日志，未接导航/损管/光学/信息作战。
 4. 目标页为 DEMO 示例；无真实 target snapshot。
 5. 未实现剧情/物理/存档；未跑全量。
+
+
+---
+
+## 10　阶段1E：UI 壳 boot GameSession + SaveService（task-126）
+
+### 10.1 真实 session
+
+- `ui_proto._ready()`：
+  - `GameSession.boot({"orders":[{"action":"HOLD","issuer_id":"apsis","target_ids":["harmattan"],"issue":true,"opts":{"auth_required":false}}]})`；
+  - `SaveService.setup("user://saves")`；**初始不写**，只有三色点或 `DSH_UI_SAVE_TEST=1` 才写。
+- 真实字段（本次 boot）：
+  - entities：`apsis`(1000, ship, flagship)、`harmattan`(1001, ship)、`l1_station`(3100, station)；
+  - orders：`O-000001` / `HOLD` / `apsis → harmattan` / status `QUEUED` / mode `LD` / delay `1.0s`；
+  - events：`order.issued`、`order.delayed`、`tactical.timer` 等来自 session bus。
+- 顶栏时间/暂停/时标改读 `session.time`；计时器仍订阅 `session.bus tactical.timer`。
+- 接触列表：session snapshot entities（3 条）+ `config/schema/track.json` example（1 条，badge `DEMO TRACK`，明确 DEMO）；点击 publish `contact.select`。
+- 命令队列：`session.snapshot().components.orders.orders`；无订单时显示 `NO COMMAND DATA · NOT READY`（本 boot 有 1 条真实 order）。
+- 事件日志：`session.bus.recent(8)`；显示 `t / type / text`。
+- 右栏：按选中实体 `entity_id/batch` 从 session snapshot 查真实 name/batch/kind/flags/pos → 距离；传感器/损管/ROE/Δv 在 session 无对应组件时明确 `NOT IN SESSION · NOT READY`；track DEMO 单独标 `DEMO TRACK`。
+
+### 10.2 三色圆点 / SaveService
+
+- `top_bar` 点击三色点发 `dot_action`；`ui_proto._on_dot_action(kind)` 映射：
+  - green `save` → `SaveService.save_with_intent(session,"save")`；
+  - yellow `menu` → `save_and_menu`，返回 `should_show_menu=true`；**不切菜单**；
+  - red `quit` → `save_and_quit`，返回 `should_exit=false`（SaveService 当前实现）；**不退出**。
+- 顶栏绘制 `SAVED slot=... · bytes · checksum8` / `SAVE FAILED reason`。
+- 写盘：`user://saves/save.json`；原子写 + `.bak`（SaveService）。
+- 测试开关：
+  - `DSH_UI_SAVE_TEST=1` 时 boot 后执行一次 save + `load_metadata("save")`，日志输出 `SAVE TEST`；默认不写。
+
+### 10.3 截图 / 验证
+
+- `mockups/ui-proto-session-1920.png`（1920×1080）：真实 session 接触、右栏、命令队列/事件日志 + 顶栏 `SAVED save`。
+- 本次测试结果：`SAVE TEST save=OK slot=save path=user://saves/save.json`，`metadata=true`；截图 `UI PROTO SHOT size=(1920,1080) err=0`。
+- 未跑全量 regression；未改核心/旧场景。
+
+### 10.4 未完成 / 限制
+
+1. 右栏只接 session 实体字段；sensors/damage/ROE/Δv 组件在 session demo 中无数据，显示 `NOT IN SESSION · NOT READY`，不是伪造。
+2. 命令队列来自 session orders（本次 demo 仅 1 条 HOLD），无完整命令 UI/操作。
+3. 黄/红点只保存并返回 `should_show_menu/should_exit`；未实际切菜单/退出。
+4. 接触列表中的 track example 为 DEMO；session entities 3 条，不是完整关卡接触表。
+5. 不实现剧情/物理；未跑全量。

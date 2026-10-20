@@ -12,6 +12,7 @@ const UiTheme := preload("res://scripts/ui/ui_theme.gd")
 
 var selected: Dictionary = {}
 var snapshot: Dictionary = {}
+var session_entities: Array = []
 var page := "ship"
 var data_source := "DEMO"
 var _action_rects: Array = []
@@ -30,7 +31,22 @@ func set_selected(contact: Dictionary) -> void:
 
 func set_snapshot(snap: Dictionary) -> void:
 	snapshot = snap if snap is Dictionary else {}
+	session_entities = snapshot.get("entities", []) if snapshot.get("entities", []) is Array else []
 	queue_redraw()
+
+
+func _session_entity() -> Dictionary:
+	if selected.is_empty():
+		return {}
+	var sid := String(selected.get("entity_id", selected.get("id", "")))
+	var batch := String(selected.get("id", ""))
+	for raw in session_entities:
+		if not (raw is Dictionary):
+			continue
+		var e: Dictionary = raw
+		if String(e.get("id", "")) == sid or String(e.get("batch", "")) == batch:
+			return e
+	return {}
 
 
 func set_page(p: String) -> void:
@@ -57,22 +73,52 @@ func _fields() -> Dictionary:
 		return f
 	if selected.is_empty():
 		return f
+	if String(selected.get("badge", "")) == "DEMO TRACK":
+		f["name"] = "TRACK EXAMPLE / DEMO"
+		f["batch"] = "TRACK-EX"
+		f["identity"] = "DEMO TRACK · identity unknown"
+		f["range"] = "— km · track schema example"
+		f["sensor"] = "SENSOR NOT READY · track demo 无传感器"
+		f["damage"] = "DAMAGE NOT READY · track demo"
+		f["roe"] = "ROE NOT READY"
+		f["dv"] = "Δv NOT READY"
+		f["source"] = "DEMO TRACK"
+		return f
+	var e := _session_entity()
+	if not e.is_empty():
+		var eid := String(e.get("id", ""))
+		f["name"] = String(e.get("name", eid))
+		f["batch"] = String(e.get("batch", eid))
+		var flags: Dictionary = e.get("flags", {}) if e.get("flags", {}) is Dictionary else {}
+		f["identity"] = "FRIEND · " + ("FLAGSHIP" if bool(flags.get("flagship", false)) else String(e.get("kind", "ship")).to_upper())
+		var pos: Array = e.get("pos_km", []) if e.get("pos_km", []) is Array else []
+		var range_km := 0.0
+		var flag_pos: Array = []
+		for raw in session_entities:
+			if raw is Dictionary and String((raw as Dictionary).get("id", "")) == "apsis":
+				flag_pos = (raw as Dictionary).get("pos_km", []) if (raw as Dictionary).get("pos_km", []) is Array else []
+				break
+		if pos.size() >= 3 and flag_pos.size() >= 3:
+			var dx := float(pos[0]) - float(flag_pos[0])
+			var dy := float(pos[1]) - float(flag_pos[1])
+			var dz := float(pos[2]) - float(flag_pos[2])
+			range_km = sqrt(dx * dx + dy * dy + dz * dz)
+		f["range"] = "%.1f km · %s" % [range_km, String(e.get("kind", "ship")).to_upper()]
+		f["source"] = "GAME SESSION"
+		f["sensor"] = "SENSOR NOT IN SESSION · NOT READY"
+		f["damage"] = "DAMAGE NOT IN SESSION · NOT READY"
+		f["roe"] = "ROE NOT IN SESSION · NOT READY"
+		f["dv"] = "Δv NOT IN SESSION · NOT READY"
+		return f
 	f["name"] = String(selected.get("name", "NOT READY"))
 	f["batch"] = String(selected.get("id", "—"))
 	f["identity"] = String(selected.get("side", "unknown")).to_upper() + " · " + String(selected.get("badge", "—"))
 	f["range"] = "— km · " + String(selected.get("cls", "CLASS —"))
-	if bool(snapshot.get("ready", false)):
-		f["source"] = "GAME SESSION"
-		f["sensor"] = "SENSOR READY · RADAR ON · OPTICAL —"
-		f["damage"] = "INTEGRITY 100% · FIRE 0 · NOMINAL"
-		f["roe"] = "WEAPONS HOLD / 仅自衛"
-		f["dv"] = "DEP 0.0 · ARR 0.0 · TOT 1822.6 m/s"
-	else:
-		f["source"] = "DEMO · NO SESSION"
-		f["sensor"] = "SENSOR DEMO · RADAR ON · OPTICAL OFF"
-		f["damage"] = "DAMAGE DEMO · NOMINAL · FIRE 0"
-		f["roe"] = "ROE WEAPONS HOLD"
-		f["dv"] = "Δv DEMO · DEP 0.0 · ARR 0.0 · TOT 1822.6"
+	f["source"] = "DEMO · NO SESSION"
+	f["sensor"] = "SENSOR NOT READY"
+	f["damage"] = "DAMAGE NOT READY"
+	f["roe"] = "ROE NOT READY"
+	f["dv"] = "Δv NOT READY"
 	return f
 
 

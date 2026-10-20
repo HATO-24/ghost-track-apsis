@@ -9,6 +9,7 @@ extends SceneTree
 # ═══════════════════════════════════════════════════════════════════
 
 const TrackTable := preload("res://scripts/core/track_table.gd")
+const SaveServiceScript := preload("res://scripts/core/save_service.gd")
 
 var _pass := 0
 var _fail := 0
@@ -25,6 +26,7 @@ func _initialize() -> void:
 	_test_dedup_merge_expire()
 	_test_validation_and_dbC()
 	_test_readonly_vm_json_determinism()
+	_test_save_load()
 	print("────────────────────────────────────────────────────────────────")
 	print("TRACK TABLE PROBE RESULT: PASS=%d FAIL=%d" % [_pass, _fail])
 	if _fail > 0:
@@ -345,3 +347,113 @@ func _test_readonly_vm_json_determinism() -> void:
 	_ok(JSON.stringify(a.vm()) == JSON.stringify(b.vm()), "确定性 VM")
 	_ok(JSON.stringify(a.take_events()) == JSON.stringify(b.take_events()), "确定性 events")
 	_ok(_json_ok(a.events), "events JSON")
+
+
+func _test_save_load() -> void:
+	print("")
+	print("── 7. save/load 快照 / 版本 / 去重 / 过期 ──")
+	# 构造有 evidence / 去重记录 / stale 的状态
+	var s = TrackTable.new({"writer_id": "fusion", "stale_after_s": 5.0,
+		"forget_after_s": 50.0})
+	var o: Dictionary = s.handle_observation(_obs("s-o1", 1.0, "radar", "8101", 1), "fusion")
+	var id := String((o.get("track", {}) as Dictionary).get("id", ""))
+	s.handle_observation(_obs("s-o2", 2.0, "ir", "8101", 1), "fusion")
+	s.handle_evidence(_ev("s-e1", 3.0, id, "optical", {"support": 3}), "fusion")
+	s.tick(6.0)
+	_ok(bool(s.find(id).get("stale", false)), "保存前 stale")
+	var json := s.save_state()
+	var parsed = JSON.parse_string(json)
+	_ok(parsed is Dictionary, "save_state 是 JSON")
+	var payload: Dictionary = parsed
+	_eq(String(payload.get("schema", "")), "v17.fused_track_table_save.v1", "save schema")
+	_eq(String(payload.get("version", "")), "1.0.0", "save version")
+	_eq(String(payload.get("table_schema", "")), "fused_track_table.v1", "table_schema")
+	_ok(payload.get("tracks") is Array and (payload.get("tracks") as Array).size() == 1,
+		"save tracks")
+	_ok(payload.get("events") is Array, "save events")
+	_ok(payload.get("seen_event_ids") is Array, "save dedup keys")
+	_ok(_json_ok(payload), "save payload JSON")
+	_ok(s.snapshot().get("tracks") is Array, "snapshot() 返回 payload")
+	_ok(s.save_payload().get("version") == "1.0.0", "save_payload 别名")
+	# 恢复 → VM 一致
+	var r = TrackTable.new()
+	var lr: Dictionary = r.load_state(json)
+	_ok(bool(lr.get("ok", false)), "load_state ok", str(lr.get("errors", [])))
+	_ok(JSON.stringify(s.vm()) == JSON.stringify(r.vm()), "load 后 VM 一致")
+	_ok(s.save_state() == r.save_state(), "load 后 save_state 一致")
+	_ok(bool(r.find(id).get("stale", false)), "stale 状态保留")
+	_ok((r.find(id).get("evidence", []) as Array).size() >= 3, "evidence 保留")
+	_ok(int(r.find(id).get("level", 0)) == 3, "level 保留")
+	_ok(String(r.current_writer()) == "fusion", "writer 保留")
+	_ok(absf(float(r.t) - float(s.t)) < 1.0e-9, "t 保留")
+	# 去重状态保留
+	var dup: Dictionary = r.handle_observation(_obs("s-o1", 20.0, "radar", "8101", 1), "fusion")
+	_eq(String(dup.get("reason", "")), "duplicate_event", "load 后 event_id 去重保留")
+	# 新 event 继续序号/新 track
+	var n: Dictionary = r.handle_observation(_obs("s-new", 20.0, "radar", "8102", 1), "fusion")
+	_ok(bool(n.get("ok", false)), "load 后继续写")
+	_ok(String((n.get("track", {}) as Dictionary).get("id", "")) != id, "新 track id 不冲突")
+	# dict 形式 / save_payload 兼容
+	var r2 = TrackTable.new()
+	_ok(bool(r2.load_state(payload).get("ok", false)), "load_state(dict)")
+	_ok(bool(r2.load_save_payload(s.snapshot()).get("ok", false)), "load_save_payload")
+	# 确定性
+	_ok(s.save_state() == s.save_state(), "save_state 确定性")
+	var r3 = TrackTable.new()
+	r3.load_state(json)
+	_ok(s.save_state() == r3.save_state(), "load/save 往返确定性")
+	# SaveService payload 兼容（JSON 字符串可嵌入 session_save）
+	var svc = SaveServiceScript.new("user://track_table_probe_saves")
+	var sp := {"schema": "v17.session_payload.v1", "version": "1.0.0",
+		"session_save": s.save_state(), "writer": "fusion"}
+	var encoded: String = svc.encode_file(sp)
+	var dec: Dictionary = svc.decode_file(encoded)
+	_ok(bool(dec.get("ok", false)), "SaveService encode/decode 兼容")
+	_ok(String((dec.get("payload", {}) as Dictionary).get("session_save", "")) == s.save_state(),
+		"SaveService payload 保留 track state")
+	# 过期状态在恢复后继续
+	var se = TrackTable.new({"writer_id": "fusion", "stale_after_s": 5.0,
+		"forget_after_s": 50.0})
+	var oe: Dictionary = se.handle_observation(_obs("x", 1.0, "radar", "8201", 1), "fusion")
+	var xid := String((oe.get("track", {}) as Dictionary).get("id", ""))
+	se.tick(6.0)
+	var saved_exp := se.save_state()
+	var re = TrackTable.new()
+	re.load_state(saved_exp)
+	_ok(bool(re.find(xid).get("stale", false)), "恢复后 stale 继续")
+	re.tick(50.0)
+	_ok(re.find(xid).is_empty(), "恢复后 forget 继续")
+	# 非法/版本/损坏拒绝，不破坏当前状态
+	var before := r.all_tracks().size()
+	var bad_cases: Array = [
+		["empty", ""],
+		["bad json", "{bad"],
+		["bad schema", JSON.stringify({"schema": "x", "version": "1.0.0"})],
+		["future version", JSON.stringify({"schema": "v17.fused_track_table_save.v1",
+			"version": "9.0.0", "table_schema": "fused_track_table.v1"})],
+		["old version", JSON.stringify({"schema": "v17.fused_track_table_save.v1",
+			"version": "0.9.0", "table_schema": "fused_track_table.v1"})],
+		["missing tracks", JSON.stringify({"schema": "v17.fused_track_table_save.v1",
+			"version": "1.0.0", "table_schema": "fused_track_table.v1",
+			"config": {}, "writer_id": "fusion", "t": 1.0, "next_id": 1,
+			"event_seq": 0, "seen_event_ids": [], "events": [], "outbox": []})],
+	]
+	for raw in bad_cases:
+		var c: Array = raw
+		var rr: Dictionary = r.load_state(c[1])
+		_ok(not bool(rr.get("ok", true)), "拒绝快照: " + String(c[0]),
+			String(rr.get("reason", "")))
+	_eq(r.all_tracks().size(), before, "非法快照不破坏当前状态")
+	# 非法 track 字段
+	var good: Dictionary = payload.duplicate(true)
+	var bad_track: Dictionary = (good.get("tracks", []) as Array)[0].duplicate(true)
+	bad_track["level"] = 9
+	good["tracks"] = [bad_track]
+	_ok(not bool(r.load_state(good).get("ok", true)), "非法 level 快照拒绝")
+	var bad_id: Dictionary = payload.duplicate(true)
+	var bt2: Dictionary = (bad_id.get("tracks", []) as Array)[0].duplicate(true)
+	bt2["id"] = "T0001"
+	var bt2b: Dictionary = bt2.duplicate(true)
+	bad_id["tracks"] = [bt2, bt2b]
+	_ok(not bool(r.load_state(bad_id).get("ok", true)), "重复 track id 快照拒绝")
+	_ok(_json_ok(r.vm()), "恢复后 VM JSON")
