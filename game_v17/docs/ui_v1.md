@@ -155,3 +155,45 @@ v1_hud.gd
 3. 命令只有 demo seed 1 条；ABORT/REVOKE 状态/原因由 session API 返回，无完整命令录入 UI。
 4. No Control panels；IME/系统弹窗仍保留 Control 边界。
 5. 不实现剧情/物理/完整战斗；未跑全量 regression。
+
+
+---
+
+## 10　方案B-4：自绘命令/通信页（task-148）
+
+### 10.1 COMMS/ORDERS overlay
+
+- 右栏 `COMMS / 命令` 按钮或 `DSH_V1_VIEW=comms` 打开自绘 overlay。
+- 左侧：
+  - 频道条 `LD / LR / RDO / IR / VIS`（CommsService.MODES；不伪造频道）；
+  - MESSAGE STREAM：读 `binder.session.comms.vm().events`，格式 `[from_name 至 to_name]-[mode]-[content]`；
+  - `from/to/mode` 全部取事件字段（不硬编码舰名）；`content` 优先事件 `text`，否则 `text_key`，再否则结构化 fallback（kind/reason），不伪造具体台词。
+- 启动时若无消息，`_seed_comms_sample()` 用真实 `session.send_comms` 从 `binder.contacts` 的 entity_id 生成 LD/LR 两条（不是硬编码舰名）；本次实测成功，MESSAGE STREAM 显示 2 条。
+- 右侧 COMMAND PANEL：
+  - 类型 `HOLD / NAV / EMCON / IFF / ROE`；目标来自当前接触 `entity_id`（默认 harmattan），`ISSUER apsis`；
+  - `SEND / 发送`：
+    - HOLD/NAV → `session.issue_order(action,"apsis",[target])`；
+    - EMCON/IFF → ShellBinder.sensor_command；
+    - ROE → 若 prelude 锁定则拒绝，否则 `session.set_roe("HOLD")`。
+  - 发送后 `binder.refresh()` 刷新消息流/命令队列；结果显示在面板。
+- 命令队列（overlay + 底栏）可点击选中，显示详情；`ABORT→session.abort_order`，`REVOKE→session.reject_order`，失败 reason 可见。
+- 全部控件走 LayoutTokens/PanelPainter；无 Control 面板。
+
+### 10.2 实测
+
+`DSH_V1_TEST=1`：
+- damage FIX/PRI/CANCEL OK；ROE set_roe HOLD OK；COMMAND REVOKE `O-000001` OK；
+- `COMMS SEND HOLD → harmattan · OK`；消息流/队列刷新。
+
+### 10.3 截图 / 验证
+
+- `mockups/v1-hud-comms-1920.png`（1920×1080）：频道条、2 条真实消息、命令类型 HOLD/NAV/EMCON/IFF/ROE、target harmattan、命令队列、ABORT/REVOKE。
+- `V1 HUD SHOT err=0`；headless interaction test 一次；`v1_hud.gd --check-only` 通过。
+
+### 10.4 边界 / 未完成
+
+1. 消息正文仅用 text_key / 结构化 fallback；无完整剧本对白/文本库定制。
+2. COMMS seed 仅为 UI 演示产生的真实 session 事件（LD/LR 两条），非剧情消息。
+3. HOLD/NAV 走 order API；EMCON/IFF/ROE 走 sensor/combat API；无完整命令录入/权限流。
+4. ROE 默认 prelude 锁定；未接正式授权/战斗。
+5. 不实现剧情/物理/完整通信；未跑全量 regression。

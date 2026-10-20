@@ -56,6 +56,13 @@ var _command_rows: Array = []
 var _command_buttons: Array = []
 var _selected_cmd := -1
 var _command_msg := ""
+var _comms_type := "HOLD"
+var _comms_target := ""
+var _comms_msg := ""
+var _comms_type_buttons: Array = []
+var _comms_send_rect := Rect2()
+var _comms_cmd_rows: Array = []
+var _comms_cmd_buttons: Array = []
 
 
 func _ready() -> void:
@@ -138,6 +145,9 @@ func _load_data() -> void:
 		_transfer_ok = true
 	binder.seed_timers()
 	_selected_cmd = 0 if binder != null and binder.commands.size() > 0 else -1
+	if binder != null and binder.contacts.size() > 0:
+		_comms_target = String((binder.contacts[0] as Dictionary).get("entity_id", (binder.contacts[0] as Dictionary).get("id", "")))
+	_seed_comms_sample()
 	# CombatService（ROE 四档）与 DamageModel（损管页）为会话外挂的 shadow 组件；
 	# GameSession 当前未内置 damage_vm；损管明确标注 MODEL，不伪造。
 	_combat = CombatService.new({})
@@ -159,6 +169,28 @@ func _load_data() -> void:
 				_selected_section = String(ids[0])
 	elif view == "roe":
 		_overlay = "roe"
+	elif view == "comms":
+		_overlay = "comms"
+
+func _seed_comms_sample() -> void:
+	# 通过真实 session.send_comms 生成消息流；from/to 来自 session 实体，不硬编码舰名。
+	if binder == null or binder.session == null or binder.session.comms == null:
+		return
+	var vm: Dictionary = binder.session.comms.vm()
+	if (vm.get("events", []) as Array).size() > 0:
+		return
+	var ids: Array = []
+	for raw in binder.contacts:
+		if raw is Dictionary:
+			var eid := String((raw as Dictionary).get("entity_id", ""))
+			if eid != "" and not (eid in ids):
+				ids.append(eid)
+	if ids.size() < 2:
+		return
+	var res1: Dictionary = binder.session.send_comms(String(ids[0]), String(ids[1]), "LD", "COMMS_SENT", {}, {})
+	var res2: Dictionary = binder.session.send_comms(String(ids[0]), String(ids[1] if ids.size() > 1 else ids[0]), "LR", "COMMS_SENT", {}, {})
+	print("[V1 HUD] COMMS seed LD=", str(bool(res1.get("ok", false))), " LR=", str(bool(res2.get("ok", false))), " events=", (binder.session.comms.vm().get("events", []) as Array).size())
+
 
 func _normalize_contacts() -> void:
 	for i in range(_contacts.size()):
@@ -352,7 +384,7 @@ func _draw_right(r: Rect2) -> void:
 	Painter.section(self, x, y, right, "SENSOR CONTROLS / 只读最小交互")
 	y += 10.0
 	_right_buttons.clear()
-	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["INFO", "INFO / 信息"]]
+	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["INFO", "INFO / 信息"]]
 	for i in range(labels.size()):
 		var bw := (r.size.x - 32.0) * 0.5 - 4.0
 		var col := i % 2
@@ -430,7 +462,9 @@ func _run_interaction_test() -> void:
 	_roe_action("HOLD")
 	_selected_cmd = 0
 	_command_action("REVOKE")
-	print("[V1 HUD] INTERACTION TEST damage=", _damage_msg, " roe=", _roe_msg, " command=", _command_msg)
+	_do_right_action("COMMS")
+	_comms_send()
+	print("[V1 HUD] INTERACTION TEST damage=", _damage_msg, " roe=", _roe_msg, " command=", _command_msg, " comms=", _comms_msg)
 
 
 func _run_save_test() -> void:
@@ -456,6 +490,124 @@ func _draw_overlay(l: Dictionary) -> void:
 		_draw_damage_overlay(r)
 	elif _overlay == "roe":
 		_draw_roe_overlay(r)
+	elif _overlay == "comms":
+		_draw_comms_overlay(r)
+
+
+func _draw_comms_overlay(r: Rect2) -> void:
+	var x := r.position.x + 14.0
+	var y := r.position.y + 34.0
+	Painter.label(self, x, y, "通信 / COMMS · 命令 / ORDERS", 12, P.PH)
+	Painter.label(self, x, y + 14, "from/to/mode 来自 session/comms 事件；内容来自 text_key，缺失用结构化 fallback", 7, P.a(P.AMBER, 0.9), true)
+	var left_w := r.size.x * 0.55
+	var vm: Dictionary = binder.session.comms.vm() if binder != null and binder.session != null and binder.session.comms != null else {}
+	var modes := ["LD", "LR", "RDO", "IR", "VIS"]
+	var chx := x
+	var chy := y + 38.0
+	for i in range(modes.size()):
+		var mode := String(modes[i])
+		var cr := Rect2(chx + float(i) * 88.0, chy, 82, 18)
+		draw_rect(cr, P.a(P.PANEL2, 0.75))
+		draw_rect(cr, P.a(P.PH if i == 0 else P.LINE, 0.55), false, 1.0)
+		Painter.label(self, cr.position.x + 5, cr.position.y + 12, mode, 7, P.PH if i == 0 else P.DIM, true)
+	Painter.label(self, x, chy + 30.0, "LINK / 链路 %d · PENDING %d · EVENTS %d" % [
+		int((vm.get("counts", {}) as Dictionary).get("links", 0)),
+		int((vm.get("counts", {}) as Dictionary).get("pending", 0)),
+		int((vm.get("counts", {}) as Dictionary).get("events", 0))], 6, P.a(P.FAINT, 0.9), true)
+	var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
+	var my := chy + 48.0
+	Painter.section(self, x, my, x + left_w - 10, "MESSAGE STREAM")
+	my += 16.0
+	if evs.is_empty():
+		Painter.label(self, x, my, "NO COMMS DATA · NOT READY", 7, P.FAINT, true)
+	for i in range(maxi(0, evs.size() - 8), evs.size()):
+		var ev: Dictionary = evs[i]
+		var from := String(ev.get("from_name", ev.get("from", "—")))
+		var to := String(ev.get("to_name", ev.get("to", "—")))
+		var mode := String(ev.get("mode", "—"))
+		var content := String(ev.get("text", ""))
+		if content == "":
+			content = String(ev.get("text_key", "TEXT KEY 未提供"))
+		if content == "":
+			content = "[" + String(ev.get("kind", "comms")) + " · " + String(ev.get("reason", "")) + "]"
+		Painter.label(self, x, my + float(i - maxi(0, evs.size() - 8)) * 14.0,
+			TM.fit("[%s 至 %s]-[%s]-[%s]" % [from, to, mode, content], left_w - 20, true, 7), 7, P.TXT, true)
+	# 右侧命令面板
+	var px := x + left_w + 10.0
+	var py := y + 34.0
+	Painter.section(self, px, py, r.end.x - 14, "COMMAND PANEL / 命令面板")
+	py += 16.0
+	_comms_type_buttons.clear()
+	var types := ["HOLD", "NAV", "EMCON", "IFF", "ROE"]
+	for i in range(types.size()):
+		var tr := Rect2(px + float(i % 3) * 91.0, py + float(i / 3) * 24.0, 86, 20)
+		_comms_type_buttons.append({"rect": tr, "kind": String(types[i])})
+		var active := _comms_type == String(types[i])
+		Painter.button(self, tr, String(types[i]), true, P.PH if active else P.PH_DIM)
+	py += 54.0
+	Painter.label(self, px, py, "TARGET " + (_comms_target if _comms_target != "" else "NOT READY"), 7, P.TXT, true)
+	py += 12.0
+	Painter.label(self, px, py, "ISSUER apsis · MODE " + ("LD" if _comms_type in ["HOLD", "NAV"] else "SENSOR/ROE"), 6, P.DIM, true)
+	py += 18.0
+	_comms_send_rect = Rect2(px, py, 180, 22)
+	Painter.button(self, _comms_send_rect, "SEND / 发送", true, P.PH)
+	Painter.label(self, px + 190, py + 15, "真实 session API / 失败 reason", 6, P.a(P.FAINT, 0.9), true)
+	py += 30.0
+	if _comms_msg != "":
+		Painter.label(self, px, py, TM.fit(_comms_msg, r.end.x - px - 14, true, 7), 7, P.AMBER, true)
+	py += 18.0
+	Painter.section(self, px, py, r.end.x - 14, "COMMAND QUEUE / 命令队列")
+	py += 14.0
+	_comms_cmd_rows.clear()
+	_comms_cmd_buttons.clear()
+	var cmds: Array = binder.commands if binder != null else []
+	for i in range(mini(3, cmds.size())):
+		var c: Dictionary = cmds[i]
+		var rr := Rect2(px, py + float(i) * 16.0, r.end.x - px - 14, 14)
+		_comms_cmd_rows.append({"rect": rr, "index": i})
+		if i == _selected_cmd:
+			draw_rect(rr, P.a(P.PH, 0.10))
+		Painter.label(self, px, rr.position.y + 10, TM.fit("%s %s · %s → %s" % [String(c.get("id", "")), String(c.get("state", "")), String(c.get("actor", "")), String(c.get("target", ""))], rr.size.x, true, 6), 6, P.PH if i == _selected_cmd else P.DIM, true)
+	var by := r.end.y - 30.0
+	_comms_cmd_buttons.append({"rect": Rect2(px, by, 84, 18), "kind": "ABORT"})
+	_comms_cmd_buttons.append({"rect": Rect2(px + 90, by, 84, 18), "kind": "REVOKE"})
+	Painter.button(self, _comms_cmd_buttons[0]["rect"], "ABORT", _selected_cmd >= 0, P.AMBER)
+	Painter.button(self, _comms_cmd_buttons[1]["rect"], "REVOKE", _selected_cmd >= 0, P.RED)
+	if _command_msg != "":
+		Painter.label(self, px + 184, by + 12, TM.fit(_command_msg, r.end.x - px - 198, true, 6), 6, P.AMBER, true)
+
+
+func _comms_action(kind: String) -> void:
+	_comms_type = kind
+	_comms_msg = "TYPE " + kind + " · target " + _comms_target
+	queue_redraw()
+
+
+func _comms_send() -> void:
+	if binder == null or binder.session == null:
+		_comms_msg = "NO SESSION · NOT READY"
+		return
+	var target := _comms_target
+	if target == "":
+		_comms_msg = "NO TARGET · NOT READY"
+		return
+	var res: Dictionary = {}
+	if _comms_type in ["HOLD", "NAV"]:
+		res = binder.session.issue_order(_comms_type, "apsis", [target], {}, {})
+	elif _comms_type == "EMCON":
+		res = binder.sensor_command("EMCON")
+	elif _comms_type == "IFF":
+		res = binder.sensor_command("IFF")
+	elif _comms_type == "ROE":
+		if _roe_locked:
+			_comms_msg = "ROE LOCKED · 序章未解锁"
+			return
+		res = binder.session.set_roe("HOLD")
+	_comms_msg = "SEND %s → %s · %s%s" % [_comms_type, target, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+	print("[V1 HUD] COMMS ", _comms_msg)
+	binder.refresh()
+	_selected_cmd = clampi(_selected_cmd, 0, maxi(0, binder.commands.size() - 1))
+	queue_redraw()
 
 
 func _draw_damage_overlay(r: Rect2) -> void:
@@ -575,6 +727,22 @@ func _gui_input(event: InputEvent) -> void:
 				if (b["rect"] as Rect2).has_point(event.position):
 					_roe_action(String(b.get("kind", "")))
 					return
+		elif _overlay == "comms":
+			for b in _comms_type_buttons:
+				if (b["rect"] as Rect2).has_point(event.position):
+					_comms_action(String(b.get("kind", "")))
+					return
+			if _comms_send_rect.has_point(event.position):
+				_comms_send()
+				return
+			for row in _comms_cmd_rows:
+				if (row["rect"] as Rect2).has_point(event.position):
+					_selected_cmd = int(row.get("index", -1))
+					return
+			for b in _comms_cmd_buttons:
+				if (b["rect"] as Rect2).has_point(event.position):
+					_command_action(String(b.get("kind", "")))
+					return
 		return
 	for d in _top_dots:
 		if (d["rect"] as Rect2).has_point(event.position):
@@ -587,7 +755,9 @@ func _gui_input(event: InputEvent) -> void:
 	for c in _contact_rects:
 		if (c["rect"] as Rect2).has_point(event.position):
 			_selected = int(c.get("index", 0))
-			_page = "target" if String((_contacts[_selected] as Dictionary).get("type", "")) in ["unknown", "neutral"] else "ship"
+			var picked: Dictionary = _contacts[_selected]
+			_comms_target = String(picked.get("entity_id", picked.get("id", "")))
+			_page = "target" if String(picked.get("type", "")) in ["unknown", "neutral"] else "ship"
 			return
 	for tab in _tabs:
 		if (tab["rect"] as Rect2).has_point(event.position):
@@ -615,6 +785,8 @@ func _do_right_action(kind: String) -> void:
 					_selected_section = String(secs[0])
 		"ROE":
 			_overlay = "roe"
+		"COMMS":
+			_overlay = "comms"
 		"NAV":
 			get_tree().change_scene_to_file("res://nav_page.tscn")
 		"OPTICAL":
