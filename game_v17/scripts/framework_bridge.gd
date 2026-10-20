@@ -559,10 +559,11 @@ func _init_physics_shadow() -> void:
 	var env_mode := OS.get_environment("V17_PHYSICS").to_lower()
 	if env_mode == "off":
 		physics_requested_mode = "off"
-	elif env_mode == "authoritative" or env_mode == "auth":
-		physics_requested_mode = "authoritative"
-	else:
+	elif env_mode == "shadow":
 		physics_requested_mode = "shadow"
+	else:
+		# 默认进入 authoritative；初始化失败会显式回落 shadow。
+		physics_requested_mode = "authoritative"
 	physics_mode = physics_requested_mode
 	if physics_mode == "off":
 		_refresh_authoritative_view()
