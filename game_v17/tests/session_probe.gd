@@ -45,6 +45,8 @@ func _initialize() -> void:
 	_test_port_integration()
 	_test_combat_integration()
 	_test_port_combat_save_load()
+	_test_damage_integration()
+	_test_damage_save_load()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -1429,3 +1431,167 @@ func _test_port_combat_save_load() -> void:
 		"port+combat 同操作 save 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "确定性 contracts ok")
 	_data_line("pc_save", "save/load port+combat VM/snapshot 一致 · 继续操作 · 旧档兼容 · 确定性")
+
+# ═══════════════════════════════════════════════════════════════════
+# 25. Damage 集成（Session/Combat 伤害事件 → DamageService）
+# ═══════════════════════════════════════════════════════════════════
+
+func _damage_cfg_session() -> Dictionary:
+	return {"damage_service": {"ships": ["apsis", "harmattan"], "default_ship": "apsis"}}
+
+func _damage_core(s) -> String:
+	var vm: Dictionary = s.damage_vm()
+	return _norm_json({"t": vm.get("t", 0.0), "ships": vm.get("ships", []),
+		"applied_damage": vm.get("applied_damage", [])})
+
+func _damage_integrity(s, ship_id: String, section := "hull") -> float:
+	var vm: Dictionary = s.damage_ship_vm(ship_id)
+	for raw in (vm.get("sections", []) as Array):
+		if String((raw as Dictionary).get("id", "")) == section:
+			return float((raw as Dictionary).get("integrity", -1.0))
+	return -1.0
+
+func _test_damage_integration() -> void:
+	_section_begin("25 Damage 集成")
+	# 可选退化
+	var plain = _new_session()
+	_ok(plain.damage_service == null, "默认无 damage_service")
+	_eq(plain.damage_vm().size(), 0, "无 damage 时 VM 空")
+	_eq(plain.damage_summary().size(), 0, "无 damage 时 summary 空")
+	_eq((plain.damage_ships() as Array).size(), 0, "无 damage 时 ships 空")
+	_eq(String(plain.damage_apply_hit("apsis", "hull", 0.2).get("reason", "")),
+		"no_damage_service", "无 damage apply_hit 拒绝")
+	_eq(String(plain.damage_repair("apsis", "hull").get("reason", "")),
+		"no_damage_service", "无 damage repair 拒绝")
+	_eq(String(plain.damage_apply_event({}).get("reason", "")),
+		"no_damage_service", "无 damage event 拒绝")
+	# 启用
+	var s = GameSession.new(_damage_cfg_session())
+	_ok(bool(s.ready), "damage session ready", str(s.errors))
+	_ok(s.damage_service != null, "damage 启用")
+	_ok(s.combat_service == null, "damage-only 无 combat")
+	_eq(String(s.damage_vm().get("schema", "")), "v17.damage_service.v1", "damage vm schema")
+	_eq((s.damage_ships() as Array).size(), 2, "damage 2 舰")
+	_eq(int(s.damage_summary().get("ships", 0)), 2, "damage summary ships=2")
+	_eq(int(s.damage_summary().get("operational", 0)), 2, "damage 全 operational")
+	_eq((s.damage_ship_vm("apsis").get("sections", []) as Array).size(), 7,
+		"apsis 7 分区")
+	_eq(bool(s.damage_service.model("ferry") == null), true, "未配置 ferry")
+	# 直接伤害/维修
+	var r: Dictionary = s.damage_apply_hit("apsis", "hull", 0.4, 0.5)
+	_eq(bool(r.get("ok", false)), true, "damage_apply_hit ok")
+	_eq(bool(r.get("applied", false)), true, "damage applied")
+	var integ := _damage_integrity(s, "apsis", "hull")
+	_ok(integ < 1.0, "hull integrity <1", str(integ))
+	_eq((s.damage_vm().get("applied_damage", []) as Array).size(), 1, "applied_damage 1")
+	var rep: Dictionary = s.damage_repair("apsis", "hull", 1)
+	_eq(bool(rep.get("ok", false)), true, "damage_repair ok")
+	var t1: Dictionary = s.tick(2.0)
+	_eq(bool(t1.get("ok", false)), true, "damage tick 驱动 ok")
+	_near(float(s.damage_service.t), s.now_s(), 1.0e-6, "damage t 与会话同步")
+	_ok(t1.get("damage_tick") is Dictionary, "tick 返回 damage_tick")
+	_ok(bool(s.check_contracts().get("ok", false)), "damage contracts ok")
+	# 失败不改状态
+	var before := _damage_core(s)
+	_eq(String(s.damage_apply_hit("no_ship", "hull", 0.2).get("reason", "")),
+		"unknown_ship", "未知舰伤害拒绝")
+	_eq(String(s.damage_apply_hit("apsis", "bad_section", 0.2).get("reason", "")),
+		"invalid_section", "非法分区伤害拒绝")
+	_eq(String(s.damage_repair("no_ship", "hull").get("reason", "")),
+		"unknown_ship", "未知舰维修拒绝")
+	_eq(_damage_core(s), before, "失败不改 damage 状态")
+	# 总线 damage.* 事件（flush）
+	s.flush_events()
+	var devs: Array = s.bus.filter_events({"type": "damage"})
+	_ok(devs.size() > 0, "damage.* 事件进 bus", str(devs.size()))
+	var dkinds: Dictionary = {}
+	for raw in devs:
+		dkinds[String((raw as Dictionary).get("type", ""))] = true
+	_ok(dkinds.has("damage.applied"), "bus 含 damage.applied")
+	_ok(dkinds.has("damage.repair_queued"), "bus 含 repair_queued")
+	# Combat 伤害事件白名单路由：incoming 不可拦截 → tick 内路由
+	var cfg := _damage_cfg_session()
+	cfg["combat_service"] = (_combat_cfg_session()["combat_service"] as Dictionary)
+	var sc = GameSession.new(cfg)
+	_ok(bool(sc.ready), "combat+damage ready", str(sc.errors))
+	sc.combat_register_track("T1", {"identity": "hostile", "threat": "hostile",
+		"range_km": 500.0, "in_arc": true, "ship_id": "apsis"})
+	var inc: Dictionary = sc.combat_service.incoming_missile("threat-1", "T1", 0.5,
+		{"eta_s": 0.1, "interceptable": false})
+	_eq(bool(inc.get("ok", false)), true, "incoming 注册")
+	var tk: Dictionary = sc.tick(1.0)
+	_eq(bool(tk.get("ok", false)), true, "combat tick 路由 ok")
+	_ok(_damage_integrity(sc, "apsis", "hull") < 1.0, "combat damage 写入 apsis hull")
+	_ok((sc.damage_vm().get("applied_damage", []) as Array).size() >= 1,
+		"combat damage applied 记录")
+	var bus_types: Array = []
+	for raw2 in sc.bus.recent(50):
+		bus_types.append(String((raw2 as Dictionary).get("type", "")))
+	_ok("combat.incoming_impact" in bus_types, "bus 含 combat.incoming_impact")
+	_ok("damage.applied" in bus_types, "bus 含 damage.applied（combat 路由）")
+	# 同一次伤害不重复应用
+	var applied_before := (sc.damage_vm().get("applied_damage", []) as Array).size()
+	sc.flush_events()
+	_eq((sc.damage_vm().get("applied_damage", []) as Array).size(), applied_before,
+		"flush 不重复应用")
+	_ok(bool(sc.check_contracts().get("ok", false)), "combat+damage contracts ok")
+	_data_line("damage", "可选退化 · 直接伤害/维修/tick · 总线事件 · combat damage 白名单路由")
+
+# ═══════════════════════════════════════════════════════════════════
+# 26. Damage 存档
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_damage_save_load() -> void:
+	_section_begin("26 Damage 存档")
+	var cfg := _damage_cfg_session()
+	cfg["combat_service"] = (_combat_cfg_session()["combat_service"] as Dictionary)
+	var s = GameSession.new(cfg)
+	s.damage_apply_hit("apsis", "hull", 0.5, 0.4)
+	s.damage_apply_hit("harmattan", "sensors", 0.3, 0.3)
+	s.damage_repair("apsis", "hull", 1)
+	s.tick(2.0)
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary, "damage save JSON 可解析")
+	if d is Dictionary:
+		_ok(String((d as Dictionary).get("damage_service", "")) != "", "save 含 damage_service")
+		var seed: Dictionary = (d as Dictionary).get("seed", {})
+		_ok(seed.has("damage_service"), "seed 含 damage_service 配置")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "damage load ok", str(lr.get("errors", [])))
+	_ok(s2.damage_service != null, "load 重建 damage_service")
+	_ok(_norm_json(s.damage_vm()) == _norm_json(s2.damage_vm()), "load 后 damage_vm 一致")
+	_ok(_norm_json(s.snapshot()) == _norm_json(s2.snapshot()), "load 后 snapshot 一致")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load 后 contracts ok")
+	_near(float(s2.damage_service.t), s2.now_s(), 1.0e-6, "load damage t 同步")
+	# load 后继续
+	var rep2: Dictionary = s2.damage_repair("harmattan", "sensors", 2)
+	_eq(bool(rep2.get("ok", false)), true, "load 后继续维修")
+	var t2: Dictionary = s2.tick(3.0)
+	_eq(bool(t2.get("ok", false)), true, "load 后继续 tick")
+	_ok(bool(s2.check_contracts().get("ok", false)), "继续后 contracts ok")
+	# 旧存档兼容：删除伤害字段和 seed 配置
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("damage_service")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("damage_service")
+	old["seed"] = old_seed
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 damage 兼容", str(lr3.get("errors", [])))
+	_ok(s3.damage_service == null, "旧存档 load 后 damage 退化")
+	# 确定性：两实例同操作
+	var a = GameSession.new(cfg)
+	var b = GameSession.new(cfg)
+	for sv in [a, b]:
+		sv.damage_apply_hit("apsis", "hull", 0.4, 0.4)
+		sv.damage_repair("apsis", "hull", 1)
+		sv.tick(2.0)
+		sv.damage_apply_hit("harmattan", "tanks", 0.6, 0.6)
+		sv.tick(1.0)
+	_ok(_norm_json(a.damage_vm()) == _norm_json(b.damage_vm()), "damage 同操作 VM 一致")
+	_ok(_norm_json(JSON.parse_string(a.save_state())) == _norm_json(JSON.parse_string(b.save_state())),
+		"damage 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "damage 确定性 contracts ok")
+	_data_line("damage_save", "save/load damage_vm/snapshot 一致 · 继续 · 旧档兼容 · 确定性")

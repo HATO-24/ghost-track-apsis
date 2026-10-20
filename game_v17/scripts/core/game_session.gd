@@ -22,6 +22,7 @@ const StoryStateScript := preload("res://scripts/core/story_state.gd")
 const SensorServiceScript := preload("res://scripts/core/sensor_service.gd")
 const PortServiceScript := preload("res://scripts/core/port_service.gd")
 const CombatServiceScript := preload("res://scripts/core/combat_service.gd")
+const DamageServiceScript := preload("res://scripts/core/damage_service.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -47,11 +48,14 @@ var story_state = null
 var sensor_service = null
 var port_service = null
 var combat_service = null
+var damage_service = null
 
 var _track_enabled := false
 var _sensor_enabled := false
 var _port_enabled := false
 var _combat_enabled := false
+var _damage_enabled := false
+var _damage_applied_shots: Dictionary = {}
 var _story_enabled := false
 var _track_writer := ""
 var _last_track_t := 0.0
@@ -108,7 +112,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -130,11 +134,14 @@ func boot(config := {}) -> Dictionary:
 	sensor_service = null
 	port_service = null
 	combat_service = null
+	damage_service = null
+	_damage_applied_shots = {}
 	_track_enabled = false
 	_story_enabled = false
 	_sensor_enabled = false
 	_port_enabled = false
 	_combat_enabled = false
+	_damage_enabled = false
 	_track_writer = ""
 	_last_track_t = 0.0
 	_last_story_revision = 0
@@ -171,6 +178,8 @@ func boot(config := {}) -> Dictionary:
 	if _port_enabled and port_service != null and not bool(port_service.ready):
 		extra_ok = false
 	if _combat_enabled and combat_service != null and not bool(combat_service.ready):
+		extra_ok = false
+	if _damage_enabled and damage_service != null and not bool(damage_service.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -223,6 +232,9 @@ func boot(config := {}) -> Dictionary:
 		port_service.t_s = now_s()
 	if combat_service != null:
 		combat_service.t = now_s()
+	if damage_service != null:
+		damage_service.t = now_s()
+	_damage_applied_shots = {}
 	_last_bus_routed_index = bus.count()
 	_flush_component_events()
 	_last_bus_routed_index = bus.count()
@@ -307,6 +319,15 @@ func _setup_optional_components() -> void:
 			errors.append("combat_service 未就绪：" + str(combat_service.errors))
 		else:
 			_combat_enabled = true
+	var dmg = _seed.get("damage_service", null)
+	var dmg_on := (dmg is Dictionary) or (dmg is bool and bool(dmg))
+	if dmg_on:
+		var dcfg: Dictionary = _demo_damage_config() if (dmg is bool) else (dmg as Dictionary).duplicate(true)
+		damage_service = DamageServiceScript.new(dcfg)
+		if not bool(damage_service.ready):
+			errors.append("damage_service 未就绪：" + str(damage_service.errors))
+		else:
+			_damage_enabled = true
 
 ## 示例港口配置（boot 时 port_service=true 使用；不进入关卡）。
 func _demo_port_config() -> Dictionary:
@@ -318,6 +339,12 @@ func _demo_port_config() -> Dictionary:
 			"corridor": "C1", "require_permit": true,
 			"services": ["refuel", "repair", "tow", "shuttle"]},
 	]}
+
+## 示例损管配置（boot damage_service=true 使用；按 damage_l1 档案）。
+func _demo_damage_config() -> Dictionary:
+	return {"content_path": "res://framework/content/damage_l1.json",
+		"ships": ["apsis", "harmattan", "ferry", "watchtower", "deepwell"],
+		"default_ship": "apsis"}
 
 func _mk_event(event_type: String, target := "", payload := {}) -> Dictionary:
 	return {"type": event_type, "t": time.now_s() if time != null else 0.0,
@@ -377,6 +404,7 @@ func tick(dt: float) -> Dictionary:
 	var sensor_route: Dictionary = _advance_sensors(sim_dt)
 	var port_combat: Dictionary = _advance_port_combat(sim_dt)
 	_flush_component_events()
+	var damage_tick: Dictionary = _advance_damage(sim_dt)
 	var routed: Array = _route_pending_bus_events()
 	_reconcile_standalone(pending_before)
 	var contracts := check_contracts()
@@ -396,6 +424,7 @@ func tick(dt: float) -> Dictionary:
 		},
 		"sensor_route": sensor_route,
 		"port_combat": port_combat,
+		"damage_tick": damage_tick,
 		"contracts": contracts}
 
 func _check_post() -> void:
@@ -529,12 +558,74 @@ func _flush_component_events() -> void:
 			var cev: Dictionary = raw2
 			var kind := String(cev.get("kind", "event"))
 			var payload: Dictionary = cev.get("payload", {}) if cev.get("payload") is Dictionary else {}
+			payload = payload.duplicate(true)
+			# 白名单：combat_damage_event（内嵌 damage_event）→ DamageService
+			if damage_service != null and payload.get("damage_event") is Dictionary:
+				var dmg_ev: Dictionary = (payload.get("damage_event") as Dictionary).duplicate(true)
+				var route: Dictionary = _route_combat_damage(dmg_ev)
+				if bool(route.get("applied", false)):
+					dmg_ev["applied"] = true
+					payload["damage_event"] = dmg_ev
 			_publish({"type": "combat." + kind, "t": now_s(),
 				"source": "combat_service", "target": String(payload.get("target_id", "")),
-				"payload": payload.duplicate(true), "text_key": ""})
+				"payload": payload, "text_key": ""})
+			n += 1
+	if damage_service != null:
+		for raw3 in damage_service.take_events():
+			if not (raw3 is Dictionary):
+				continue
+			var dev: Dictionary = raw3
+			var detail3: Dictionary = dev.get("detail", {}) if dev.get("detail") is Dictionary else {}
+			_publish({"type": String(dev.get("kind", "damage.event")), "t": now_s(),
+				"source": "damage_service", "target": String(detail3.get("ship_id", "")),
+				"payload": detail3.duplicate(true), "text_key": ""})
 			n += 1
 	if n > 0:
 		_last_bus_routed_index = bus.events.size()
+
+## tick 推进损管（火灾/失压/断电/维修队列）；伤害事件已在 _flush_component_events 应用。
+func _advance_damage(sim_dt: float) -> Dictionary:
+	if damage_service == null:
+		return {"enabled": false}
+	var res: Dictionary = damage_service.tick(sim_dt)
+	if not bool(res.get("ok", false)):
+		warnings.append("damage_service tick 失败：" + str(res.get("reason", "")))
+	return {"enabled": true, "ok": bool(res.get("ok", false)),
+		"t": float(damage_service.t), "summary": res.get("summary", {})}
+
+## 路由 combat_damage_event → DamageService（applied=true）；按 shot_id 去重，避免同一次开火
+## 在 request_fire 立即应用后又在 tick flush 二次应用。
+func _route_combat_damage(dmg_ev: Dictionary) -> Dictionary:
+	if damage_service == null:
+		return {"ok": false, "reason": "no_damage_service"}
+	var shot := String(dmg_ev.get("shot_id", ""))
+	if shot != "" and _damage_applied_shots.has(shot):
+		return {"ok": true, "applied": true, "duplicate": true}
+	var ship := _damage_ship_for_target(String(dmg_ev.get("target_id", "")))
+	var ev2: Dictionary = dmg_ev.duplicate(true)
+	ev2["target_ship"] = ship
+	var res: Dictionary = damage_service.apply_combat_damage(ev2, {"ship_id": ship})
+	if bool(res.get("ok", false)):
+		if shot != "":
+			_damage_applied_shots[shot] = true
+		res["applied"] = true
+		res["ship_id"] = ship
+		return res
+	warnings.append("damage 路由失败：" + str(res.get("reason", "")))
+	return {"ok": false, "reason": String(res.get("reason", "")), "applied": false}
+
+## combat target_id → damage ship_id（combat track.ship_id；否则 default_ship）。
+func _damage_ship_for_target(target_id: String) -> String:
+	if damage_service == null:
+		return ""
+	var ship := ""
+	if combat_service != null:
+		var tr = combat_service.track(target_id)
+		if tr is Dictionary:
+			ship = String((tr as Dictionary).get("ship_id", ""))
+	if ship != "" and (damage_service.ships as Dictionary).has(ship):
+		return ship
+	return String(damage_service.default_ship)
 
 const ROUTABLE_TYPES := ["story.flag", "story.evidence", "story.choice",
 	"track.observation", "track.evidence"]
@@ -1136,6 +1227,15 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false) -> D
 	if bool(res.get("ok", false)):
 		_record({"op": "request_fire", "target_id": target_id,
 			"weapon_id": weapon_id, "confirmed": confirmed})
+		# 命中时立即把 combat_damage_event 白名单路由到 DamageService（去重 shot_id）
+		if damage_service != null and res.get("damage_event") is Dictionary:
+			var ev: Dictionary = (res.get("damage_event") as Dictionary).duplicate(true)
+			var route: Dictionary = _route_combat_damage(ev)
+			res["damage_applied"] = bool(route.get("applied", false))
+			if bool(route.get("applied", false)):
+				ev["applied"] = true
+				res["damage_event"] = ev
+				res["damage_result"] = route
 	return res
 
 ## 手动推进战斗服务（通常由 session tick 驱动；此接口供测试/上层显式推进）。
@@ -1167,6 +1267,83 @@ func combat_authorization(level := "FIRE", target := "", weapon := "") -> Dictio
 func flush_events() -> int:
 	_flush_component_events()
 	return bus.current_seq() if bus != null else 0
+# ── DamageService 委托（可选）───────────────────────────────────
+
+func damage_apply_event(event: Dictionary, opts := {}) -> Dictionary:
+	if damage_service == null:
+		return {"ok": false, "reason": "no_damage_service", "errors": ["未配置 damage_service"]}
+	var res: Dictionary = damage_service.apply_combat_damage(event, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "damage_apply_event", "event": event, "opts": opts})
+	return res
+
+func damage_apply_hit(ship_id: String, section: String, energy: float,
+		penetration := 0.5, direction := "fore", source := "manual") -> Dictionary:
+	if damage_service == null:
+		return {"ok": false, "reason": "no_damage_service"}
+	var res: Dictionary = damage_service.apply_hit(ship_id, section, energy,
+		penetration, direction, source)
+	if bool(res.get("ok", false)):
+		_record({"op": "damage_apply_hit", "ship_id": ship_id, "section": section,
+			"energy": energy, "penetration": penetration,
+			"direction": direction, "source": source})
+	return res
+
+func damage_repair(ship_id: String, section: String, priority := 2) -> Dictionary:
+	if damage_service == null:
+		return {"ok": false, "reason": "no_damage_service"}
+	var res: Dictionary = damage_service.repair(ship_id, section, priority)
+	if bool(res.get("ok", false)):
+		_record({"op": "damage_repair", "ship_id": ship_id, "section": section,
+			"priority": priority})
+	return res
+
+func damage_fix(ship_id: String, section: String, priority := 2) -> Dictionary:
+	if damage_service == null:
+		return {"ok": false, "reason": "no_damage_service"}
+	var res: Dictionary = damage_service.fix(ship_id, section, priority)
+	if bool(res.get("ok", false)):
+		_record({"op": "damage_fix", "ship_id": ship_id, "section": section,
+			"priority": priority})
+	return res
+
+func damage_cancel_repair(ship_id: String, section: String) -> Dictionary:
+	if damage_service == null:
+		return {"ok": false, "reason": "no_damage_service"}
+	var res: Dictionary = damage_service.cancel_repair(ship_id, section)
+	if bool(res.get("ok", false)):
+		_record({"op": "damage_cancel_repair", "ship_id": ship_id,
+			"section": section})
+	return res
+
+func damage_set_priority(ship_id: String, section: String, priority: int) -> Dictionary:
+	if damage_service == null:
+		return {"ok": false, "reason": "no_damage_service"}
+	var res: Dictionary = damage_service.set_priority(ship_id, section, priority)
+	if bool(res.get("ok", false)):
+		_record({"op": "damage_set_priority", "ship_id": ship_id,
+			"section": section, "priority": priority})
+	return res
+
+func damage_vm(ship_id := "") -> Dictionary:
+	if damage_service == null:
+		return {}
+	return damage_service.vm(ship_id)
+
+func damage_ship_vm(ship_id: String) -> Dictionary:
+	if damage_service == null:
+		return {}
+	return damage_service.ship_vm(ship_id)
+
+func damage_summary() -> Dictionary:
+	if damage_service == null:
+		return {}
+	return damage_service.summary()
+
+func damage_ships() -> Array:
+	if damage_service == null:
+		return []
+	return damage_service.ship_ids_list()
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -1224,6 +1401,13 @@ func check_contracts() -> Dictionary:
 			v.append("combat 时间与会话不一致：%s != %s" % [str(combat_service.t), str(now_s())])
 		if not (String(combat_service.roe) in ["DEFEND", "HOLD", "TIGHT", "FREE"]):
 			v.append("combat ROE 非法：" + String(combat_service.roe))
+	if damage_service != null:
+		if not bool(damage_service.ready):
+			v.append("damage_service 未就绪")
+		if absf(float(damage_service.t) - now_s()) > 1.0e-6:
+			v.append("damage 时间与会话不一致：%s != %s" % [str(damage_service.t), str(now_s())])
+		if not bool(damage_service.check_contracts().get("ok", false)):
+			v.append("damage 不变量失败")
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -1275,6 +1459,7 @@ func snapshot() -> Dictionary:
 		"sensor": sensor_service.vm() if sensor_service != null else null,
 		"port": port_service.vm() if port_service != null else null,
 		"combat": combat_service.vm() if combat_service != null else null,
+		"damage": damage_service.vm() if damage_service != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -1305,6 +1490,7 @@ func save_state() -> String:
 		"story": story_state.snapshot() if story_state != null else null,
 		"port_service": port_service.save_state() if port_service != null else "",
 		"combat_service": combat_service.save_state() if combat_service != null else "",
+		"damage_service": damage_service.save_state() if damage_service != null else "",
 		"bus": {
 			"seq": bus.current_seq(),
 			"events": JSON.parse_string(JSON.stringify(bus.events)),
@@ -1381,6 +1567,14 @@ func load_state(json_text: String) -> Dictionary:
 			var cr: Dictionary = combat_service.load_state(saved_combat)
 			if not bool(cr.get("ok", false)):
 				replay_errors.append("combat_service 快照恢复失败：" + str(cr.get("errors", [])))
+	var saved_damage = data.get("damage_service", null)
+	if saved_damage != null and String(saved_damage) != "":
+		if damage_service == null:
+			replay_errors.append("存档含 damage_service 快照但 boot 未启用 damage_service")
+		else:
+			var dr: Dictionary = damage_service.load_state(saved_damage)
+			if not bool(dr.get("ok", false)):
+				replay_errors.append("damage_service 快照恢复失败：" + str(dr.get("errors", [])))
 	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:
@@ -1538,6 +1732,37 @@ func _replay_op(op: Dictionary) -> Dictionary:
 			if combat_service == null:
 				return {"ok": true, "skipped": "no_combat_service"}
 			return combat_tick(float(op.get("dt", 0.0)))
+		"damage_apply_event":
+			if damage_service == null:
+				return {"ok": true, "skipped": "no_damage_service"}
+			return damage_apply_event(op.get("event", {}), op.get("opts", {}))
+		"damage_apply_hit":
+			if damage_service == null:
+				return {"ok": true, "skipped": "no_damage_service"}
+			return damage_apply_hit(String(op.get("ship_id", "")),
+				String(op.get("section", "")), float(op.get("energy", 0.0)),
+				float(op.get("penetration", 0.5)), String(op.get("direction", "fore")),
+				String(op.get("source", "manual")))
+		"damage_repair":
+			if damage_service == null:
+				return {"ok": true, "skipped": "no_damage_service"}
+			return damage_repair(String(op.get("ship_id", "")),
+				String(op.get("section", "")), int(op.get("priority", 2)))
+		"damage_fix":
+			if damage_service == null:
+				return {"ok": true, "skipped": "no_damage_service"}
+			return damage_fix(String(op.get("ship_id", "")),
+				String(op.get("section", "")), int(op.get("priority", 2)))
+		"damage_cancel_repair":
+			if damage_service == null:
+				return {"ok": true, "skipped": "no_damage_service"}
+			return damage_cancel_repair(String(op.get("ship_id", "")),
+				String(op.get("section", "")))
+		"damage_set_priority":
+			if damage_service == null:
+				return {"ok": true, "skipped": "no_damage_service"}
+			return damage_set_priority(String(op.get("ship_id", "")),
+				String(op.get("section", "")), int(op.get("priority", 2)))
 		"pause":
 			return pause()
 		"resume":

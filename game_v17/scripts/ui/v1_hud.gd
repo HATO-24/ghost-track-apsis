@@ -10,6 +10,8 @@ const Tokens := preload("res://scripts/ui/layout_tokens.gd")
 const TM := preload("res://scripts/ui/text_metrics.gd")
 const Painter := preload("res://scripts/ui/panel_painter.gd")
 const ShellBinder := preload("res://scripts/ui/shell_binder.gd")
+const DamageModel := preload("res://framework/core/damage_model.gd")
+const CombatService := preload("res://scripts/core/combat_service.gd")
 
 const SCENARIO := "res://framework/content/scenario_transit_l4_l1.json"
 const TRANSFER := "res://framework/content/transfer_l4_l1_cached.json"
@@ -39,6 +41,21 @@ var _save_msg := ""
 var _save_ok := true
 var _sensor_msg := ""
 var _right_buttons: Array = []
+var _damage = null
+var _combat = null
+var _overlay := ""
+var _overlay_close := Rect2()
+var _damage_rows: Array = []
+var _damage_buttons: Array = []
+var _selected_section := ""
+var _damage_msg := ""
+var _roe_buttons: Array = []
+var _roe_msg := ""
+var _roe_locked := true
+var _command_rows: Array = []
+var _command_buttons: Array = []
+var _selected_cmd := -1
+var _command_msg := ""
 
 
 func _ready() -> void:
@@ -76,6 +93,8 @@ func _ready() -> void:
 		call_deferred("_flow_smoke_v1")
 	if OS.get_environment("DSH_V1_SAVE_TEST") == "1":
 		call_deferred("_run_save_test")
+	if OS.get_environment("DSH_V1_TEST") == "1":
+		call_deferred("_run_interaction_test")
 
 
 func _load_data() -> void:
@@ -118,6 +137,28 @@ func _load_data() -> void:
 		_delta_v = float(binder.delta_v_mps)
 		_transfer_ok = true
 	binder.seed_timers()
+	_selected_cmd = 0 if binder != null and binder.commands.size() > 0 else -1
+	# CombatService（ROE 四档）与 DamageModel（损管页）为会话外挂的 shadow 组件；
+	# GameSession 当前未内置 damage_vm；损管明确标注 MODEL，不伪造。
+	_combat = CombatService.new({})
+	if _combat != null and bool(_combat.ready) and binder.session != null:
+		binder.session.combat_service = _combat
+		_combat.t = float(binder.session.now_s())
+	_roe_locked = String(binder.story_vm.get("phase", "prelude")) == "prelude"
+	if OS.get_environment("DSH_V1_ROE_UNLOCK") == "1":
+		_roe_locked = false
+	_damage = DamageModel.new()
+	var dok: bool = _damage.setup({}, "apsis")
+	print("[V1 HUD] damage_model=", str(dok), " sections=", _damage.section_ids().size(), " combat=", str(_combat.ready), " roe=", String(_combat.roe) if _combat != null else "—", " roe_locked=", str(_roe_locked))
+	var view := OS.get_environment("DSH_V1_VIEW")
+	if view == "damage":
+		_overlay = "damage"
+		if _damage != null and _damage.ready:
+			var ids: Array = _damage.section_ids()
+			if not ids.is_empty():
+				_selected_section = String(ids[0])
+	elif view == "roe":
+		_overlay = "roe"
 
 func _normalize_contacts() -> void:
 	for i in range(_contacts.size()):
@@ -233,6 +274,8 @@ func _draw() -> void:
 	# 底部
 	Painter.panel(self, bottom, "", P.PH)
 	_draw_bottom(bottom)
+	if _overlay != "":
+		_draw_overlay(l)
 
 
 func PersonPainterDivider(r: Rect2, y: float) -> void:
@@ -309,15 +352,16 @@ func _draw_right(r: Rect2) -> void:
 	Painter.section(self, x, y, right, "SENSOR CONTROLS / 只读最小交互")
 	y += 10.0
 	_right_buttons.clear()
-	var labels := [["RADAR", "RADAR ON/OFF"], ["EMCON", "EMCON"], ["IFF", "IFF QUERY"], ["ROE", "ROE / HOLD"]]
+	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["INFO", "INFO / 信息"]]
 	for i in range(labels.size()):
 		var bw := (r.size.x - 32.0) * 0.5 - 4.0
-		var br := Rect2(x + float(i % 2) * (bw + 8.0), y + float(i / 2) * 26.0, bw, 21.0)
+		var col := i % 2
+		var br := Rect2(x + float(col) * (bw + 8.0), y + float(i / 2) * 26.0, bw, 21.0)
 		_right_buttons.append({"rect": br, "kind": String(labels[i][0])})
 		Painter.button(self, br, String(labels[i][1]), true, P.PH)
 	if _sensor_msg != "":
-		Painter.label(self, x, y + 60, TM.fit(_sensor_msg, r.size.x - 24, true, 7), 7, P.AMBER, true)
-	Painter.label(self, x, r.end.y - 14, "LIVE SESSION · 只读/最小交互 · 无玩法", 6, P.a(P.FAINT, 0.9), true)
+		Painter.label(self, x, y + 83, TM.fit(_sensor_msg, r.size.x - 24, true, 7), 7, P.AMBER, true)
+	Painter.label(self, x, r.end.y - 14, "LIVE SESSION · 最小交互 · 自绘 V1", 6, P.a(P.FAINT, 0.9), true)
 
 func _draw_bottom(r: Rect2) -> void:
 	var split := r.position.x + floorf(r.size.x * 0.56)
@@ -328,16 +372,35 @@ func _draw_bottom(r: Rect2) -> void:
 	Painter.divider(self, r.position.x + 10, r.position.y + 26, r.end.x - 10)
 	draw_line(Vector2(split, r.position.y + 10), Vector2(split, r.end.y - 10), P.a(P.LINE, 0.8), 1.0)
 	var cmds: Array = binder.commands if binder != null else []
+	_command_rows.clear()
+	_command_buttons.clear()
 	if cmds.is_empty():
 		Painter.label(self, r.position.x + 12, y, "NO COMMAND DATA · NOT READY", 7, P.FAINT, true)
 	else:
-		for i in range(mini(4, cmds.size())):
+		for i in range(mini(3, cmds.size())):
 			var c: Dictionary = cmds[i]
 			var state := String(c.get("state", "—"))
 			var col := P.PH if state in ["EXECUTING", "DONE", "TRANSMITTED"] else (P.AMBER if state in ["QUEUED", "ISSUED"] else P.DIM)
+			var rr := Rect2(r.position.x + 8, y + float(i) * 14.0 - 9, split - r.position.x - 16, 13)
+			_command_rows.append({"rect": rr, "index": i})
+			if i == _selected_cmd:
+				draw_rect(rr, P.a(P.PH, 0.10))
 			Painter.label(self, r.position.x + 12, y + float(i) * 14.0, "%s %s · %s → %s · %s · %s" % [
 				String(c.get("id", "")), state, String(c.get("actor", "")), String(c.get("target", "")),
 				String(c.get("action", "")), String(c.get("delay", ""))], 7, col, true)
+		if _selected_cmd >= 0 and _selected_cmd < cmds.size():
+			var sc: Dictionary = cmds[_selected_cmd]
+			Painter.label(self, r.position.x + 12, y + 34.0, "DETAIL %s · %s → %s · %s · mode %s · delay %s · %s" % [
+				String(sc.get("id", "")), String(sc.get("actor", "")), String(sc.get("target", "")),
+				String(sc.get("action", "")), String(sc.get("mode", "")), String(sc.get("delay", "")), String(sc.get("state", ""))], 6, P.a(P.PH_DIM, 0.95), true)
+		var b1 := Rect2(r.position.x + 12, r.end.y - 26, 84, 18)
+		var b2 := Rect2(r.position.x + 102, r.end.y - 26, 84, 18)
+		_command_buttons.append({"rect": b1, "kind": "ABORT"})
+		_command_buttons.append({"rect": b2, "kind": "REVOKE"})
+		Painter.button(self, b1, "ABORT", _selected_cmd >= 0, P.AMBER)
+		Painter.button(self, b2, "REVOKE", _selected_cmd >= 0, P.RED)
+		if _command_msg != "":
+			Painter.label(self, r.position.x + 196, r.end.y - 12, TM.fit(_command_msg, split - r.position.x - 210, true, 6), 6, P.AMBER, true)
 	var events: Array = binder.events if binder != null else []
 	if events.is_empty():
 		Painter.label(self, split + 12, y, "NO EVENT DATA · NOT READY", 7, P.FAINT, true)
@@ -352,6 +415,24 @@ func _draw_bottom(r: Rect2) -> void:
 			Painter.label(self, split + 154, y + float(i) * 14.0, TM.fit(text, r.size.x - (split - r.position.x) - 180, false, 7), 7, P.TXT, false)
 	Painter.label(self, r.position.x + 12, r.end.y - 8, ("GAME SESSION · TRACK/SENSOR/STORY · 自绘 V1 HUD" if live else "FALLBACK DEMO · 无 session") + " · 三色点保存", 6, P.a(P.AMBER if not live else P.FAINT, 0.85), true)
 
+func _run_interaction_test() -> void:
+	# 仅 headless 验证真实 API；不改变正常手动流程。
+	_do_right_action("DAMAGE")
+	if _damage != null and _damage.ready:
+		var ids: Array = _damage.section_ids()
+		if not ids.is_empty():
+			_selected_section = String(ids[0])
+			_damage_action("FIX")
+			_damage_action("PRI")
+			_damage_action("CANCEL")
+	_do_right_action("ROE")
+	_roe_locked = false
+	_roe_action("HOLD")
+	_selected_cmd = 0
+	_command_action("REVOKE")
+	print("[V1 HUD] INTERACTION TEST damage=", _damage_msg, " roe=", _roe_msg, " command=", _command_msg)
+
+
 func _run_save_test() -> void:
 	_do_save("save")
 	var meta: Dictionary = binder.save_service.load_metadata("save") if binder != null and binder.save_service != null else {}
@@ -363,9 +444,100 @@ func _flow_smoke_v1() -> void:
 	get_tree().quit()
 
 
-func _clock(s: float) -> String:
-	var sec := int(maxf(0.0, s))
-	return "%02d:%02d:%02d" % [sec / 3600, (sec / 60) % 60, sec % 60]
+func _draw_overlay(l: Dictionary) -> void:
+	var center: Rect2 = l.center
+	var right: Rect2 = l.right
+	var r := Rect2(center.position.x, center.position.y, right.end.x - center.position.x, center.size.y)
+	draw_rect(r, P.a(P.PANEL, 0.985))
+	draw_rect(r, P.a(P.PH, 0.7), false, 1.0)
+	_overlay_close = Rect2(r.end.x - 96, r.position.y + 8, 84, 20)
+	Painter.button(self, _overlay_close, "关闭 / CLOSE", true, P.RED)
+	if _overlay == "damage":
+		_draw_damage_overlay(r)
+	elif _overlay == "roe":
+		_draw_roe_overlay(r)
+
+
+func _draw_damage_overlay(r: Rect2) -> void:
+	var x := r.position.x + 14.0
+	var y := r.position.y + 34.0
+	Painter.label(self, x, y, "损管 / DAMAGE · 7 SECTIONS", 12, P.PH)
+	Painter.label(self, x, y + 14, "SOURCE · V2DamageModel shadow (session 无 damage_vm) · 只读/最小交互", 7, P.a(P.AMBER, 0.9), true)
+	_damage_rows.clear()
+	_damage_buttons.clear()
+	if _damage == null or not bool(_damage.ready):
+		Painter.label(self, x, y + 40, "DAMAGE NOT READY · 无模型/内容", 9, P.AMBER)
+		return
+	var vm: Dictionary = _damage.vm_damage()
+	var secs: Array = vm.get("sections", []) if vm.get("sections", []) is Array else []
+	var sy := y + 44.0
+	for i in range(secs.size()):
+		var sec: Dictionary = secs[i]
+		var sr := Rect2(x, sy + float(i) * 36.0, r.size.x * 0.55, 32.0)
+		var selected := String(sec.get("id", "")) == _selected_section
+		var fire: Dictionary = sec.get("fire", {}) if sec.get("fire", {}) is Dictionary else {}
+		var dec: Dictionary = sec.get("decompression", {}) if sec.get("decompression", {}) is Dictionary else {}
+		Painter.list_row(self, sr, "%s · %s" % [String(sec.get("id", "")), String(sec.get("label", ""))],
+			"%.1f%% %s%s%s" % [float(sec.get("integrity_pct", 0.0)), String(sec.get("state", "")),
+			" · FIRE" if bool(fire.get("active", false)) else "", " · DEC" if bool(dec.get("active", false)) else ""],
+			P.RED if float(sec.get("integrity", 0.0)) < 0.25 else P.PH_DIM, selected)
+		_damage_rows.append({"rect": sr, "id": String(sec.get("id", ""))})
+	_damage_buttons.clear()
+	var bx := x
+	var by := r.end.y - 34.0
+	for i in range(3):
+		var br := Rect2(bx + float(i) * 128.0, by, 118, 22.0)
+		_damage_buttons.append({"rect": br, "kind": ["FIX", "PRI", "CANCEL"][i]})
+		Painter.button(self, br, ["FIX / 维修", "PRI / 优先级", "CANCEL / 取消"][i], true, P.PH if i < 2 else P.AMBER)
+	Painter.label(self, bx + 400, by + 15, "选择的 section / 点击列表选中", 7, P.a(P.FAINT, 0.9), true)
+	# 右侧资源/队列/事件
+	var rx := x + r.size.x * 0.57
+	var ry := y + 44.0
+	Painter.section(self, rx, ry, r.end.x - 14, "RESOURCES / 队伍")
+	ry += 15.0
+	var res: Dictionary = vm.get("resources", {}) if vm.get("resources", {}) is Dictionary else {}
+	Painter.label(self, rx, ry, "TEAMS %s · SPARES %s · PERSONNEL %s" % [str(res.get("teams_available", "")), str(res.get("spares", "")), str(res.get("personnel", ""))], 7, P.TXT, true)
+	ry += 18.0
+	Painter.section(self, rx, ry, r.end.x - 14, "QUEUE / 队列")
+	ry += 15.0
+	var jobs: Array = vm.get("queue", []) if vm.get("queue", []) is Array else []
+	if jobs.is_empty():
+		Painter.label(self, rx, ry, "NO REPAIR JOBS", 7, P.FAINT, true)
+	for i in range(mini(3, jobs.size())):
+		var job: Dictionary = jobs[i]
+		Painter.label(self, rx, ry + float(i) * 12.0, "%s · P%s · %.0f%%" % [String(job.get("section", "")), str(job.get("priority", "")), float(job.get("progress_pct", 0.0))], 7, P.TXT, true)
+	ry += 48.0
+	Painter.section(self, rx, ry, r.end.x - 14, "EVENTS / 事件")
+	ry += 15.0
+	var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
+	for i in range(mini(3, maxi(0, evs.size() - 3))):
+		var ev: Dictionary = evs[evs.size() - 1 - i]
+		Painter.label(self, rx, ry + float(i) * 12.0, TM.fit(String(ev.get("text", ev.get("type", ""))), r.size.x * 0.4, false, 7), 7, P.DIM, true)
+	if _damage_msg != "":
+		Painter.label(self, x, r.end.y - 48, TM.fit(_damage_msg, r.size.x - 28, true, 7), 7, P.AMBER, true)
+
+
+func _draw_roe_overlay(r: Rect2) -> void:
+	var x := r.position.x + 24.0
+	var y := r.position.y + 40.0
+	Painter.label(self, x, y, "ROE / 交战规则 · 四档", 12, P.PH)
+	Painter.label(self, x, y + 16, "session.set_roe(DEFEND/HOLD/TIGHT/FREE) · 当前 " + (String(_combat.roe) if _combat != null else "NOT READY"), 8, P.PH_DIM, true)
+	if _roe_locked:
+		Painter.label(self, x, y + 40, "LOCKED · 序章未解锁 · 仅显示当前档位", 9, P.AMBER)
+	else:
+		Painter.label(self, x, y + 40, "UNLOCKED · 点击档位调用真实 session.set_roe", 8, P.TXT, true)
+	_roe_buttons.clear()
+	var labels := [["DEFEND", "DEFEND / 防御"], ["HOLD", "HOLD / 保持"], ["TIGHT", "TIGHT / 严格"], ["FREE", "FREE / 自由"]]
+	for i in range(labels.size()):
+		var br := Rect2(x + float(i % 2) * 220.0, y + 60.0 + float(i / 2) * 42.0, 210, 30.0)
+		_roe_buttons.append({"rect": br, "kind": String(labels[i][0])})
+		var active := _combat != null and String(_combat.roe) == String(labels[i][0])
+		Painter.button(self, br, String(labels[i][1]), not _roe_locked, P.PH if active else P.PH_DIM)
+		if active:
+			Painter.label(self, br.position.x + 4, br.end.y - 3, "CURRENT", 6, P.PH, true)
+	Painter.label(self, x, y + 180, "授权提示：ROE 只改交战规则，不授予开火许可；需另行授权。", 8, P.a(P.DIM, 0.95), false)
+	if _roe_msg != "":
+		Painter.label(self, x, y + 204, TM.fit(_roe_msg, r.size.x - 48, true, 8), 8, P.AMBER, true)
 
 
 func _do_save(kind: String) -> void:
@@ -382,20 +554,27 @@ func _do_save(kind: String) -> void:
 	print("[V1 HUD] SAVE ", intent, " · ", _save_msg)
 
 
-func _do_right_action(kind: String) -> void:
-	if binder == null:
-		return
-	if kind in ["RADAR", "EMCON", "IFF"]:
-		var res: Dictionary = binder.sensor_command(kind)
-		_sensor_msg = "%s · %s%s" % [kind, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
-		print("[V1 HUD] SENSOR ", _sensor_msg)
-	else:
-		_sensor_msg = "ROE " + String(binder.roe_text)
-	queue_redraw()
-
-
 func _gui_input(event: InputEvent) -> void:
 	if not (event is InputEventMouseButton) or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if _overlay != "":
+		if _overlay_close.has_point(event.position):
+			_overlay = ""
+			return
+		if _overlay == "damage":
+			for row in _damage_rows:
+				if (row["rect"] as Rect2).has_point(event.position):
+					_selected_section = String(row.get("id", ""))
+					return
+			for b in _damage_buttons:
+				if (b["rect"] as Rect2).has_point(event.position):
+					_damage_action(String(b.get("kind", "")))
+					return
+		elif _overlay == "roe":
+			for b in _roe_buttons:
+				if (b["rect"] as Rect2).has_point(event.position):
+					_roe_action(String(b.get("kind", "")))
+					return
 		return
 	for d in _top_dots:
 		if (d["rect"] as Rect2).has_point(event.position):
@@ -414,3 +593,82 @@ func _gui_input(event: InputEvent) -> void:
 		if (tab["rect"] as Rect2).has_point(event.position):
 			_page = String(tab.get("page", "ship"))
 			return
+	for row in _command_rows:
+		if (row["rect"] as Rect2).has_point(event.position):
+			_selected_cmd = int(row.get("index", -1))
+			return
+	for b in _command_buttons:
+		if (b["rect"] as Rect2).has_point(event.position):
+			_command_action(String(b.get("kind", "")))
+			return
+
+
+func _do_right_action(kind: String) -> void:
+	if binder == null:
+		return
+	match kind:
+		"DAMAGE":
+			_overlay = "damage"
+			if _selected_section == "" and _damage != null and _damage.ready:
+				var secs: Array = _damage.section_ids()
+				if not secs.is_empty():
+					_selected_section = String(secs[0])
+		"ROE":
+			_overlay = "roe"
+		"NAV":
+			get_tree().change_scene_to_file("res://nav_page.tscn")
+		"OPTICAL":
+			_sensor_msg = "OPTICAL channel · 占位信号（未接光学玩法）"
+		"INFO":
+			_sensor_msg = "INFO OPS · 占位信号（未接信息作战）"
+		_:
+			_sensor_msg = "ACTION " + kind + " · 未接线"
+	queue_redraw()
+
+
+func _damage_action(kind: String) -> void:
+	if _damage == null or _selected_section == "":
+		_damage_msg = "NO SECTION SELECTED"
+		return
+	var res: Dictionary = {}
+	if kind == "FIX":
+		res = _damage.assign_repair(_selected_section, 2)
+	elif kind == "PRI":
+		res = _damage.set_priority(_selected_section, 1)
+	elif kind == "CANCEL":
+		res = _damage.cancel_repair(_selected_section)
+	_damage_msg = "%s %s · %s%s" % [kind, _selected_section, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+	print("[V1 HUD] DAMAGE ", _damage_msg)
+
+
+func _roe_action(level: String) -> void:
+	if _roe_locked:
+		_roe_msg = "LOCKED · 序章未解锁"
+		return
+	if binder == null or binder.session == null:
+		_roe_msg = "ROE NOT READY · no session"
+		return
+	var res: Dictionary = binder.session.set_roe(level)
+	_roe_msg = "set_roe %s · %s%s" % [level, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+	print("[V1 HUD] ROE ", _roe_msg)
+
+
+func _command_action(kind: String) -> void:
+	if binder == null or binder.session == null or _selected_cmd < 0 or _selected_cmd >= binder.commands.size():
+		_command_msg = "NO COMMAND SELECTED"
+		return
+	var c: Dictionary = binder.commands[_selected_cmd]
+	var oid := String(c.get("id", ""))
+	var res: Dictionary = {}
+	if kind == "ABORT":
+		res = binder.session.abort_order(oid, "ui_abort")
+	elif kind == "REVOKE":
+		res = binder.session.reject_order(oid, "ui_revoke", "commander")
+	_command_msg = "%s %s · %s%s" % [kind, oid, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+	print("[V1 HUD] COMMAND ", _command_msg)
+	binder.refresh()
+
+
+func _clock(s: float) -> String:
+	var sec := int(maxf(0.0, s))
+	return "%02d:%02d:%02d" % [sec / 3600, (sec / 60) % 60, sec % 60]

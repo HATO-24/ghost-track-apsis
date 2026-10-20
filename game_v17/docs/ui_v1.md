@@ -112,3 +112,46 @@ v1_hud.gd
 3. 三色点 SaveService 实际写 `user://saves/save.json`；黄/红返回菜单/退出意图但不切 UI/退出。
 4. 地图仍为路线示意，不是实时导航权威图；无 IME/剧情/物理。
 5. `game_shell.tscn` 保留但不再进入流程；未跑全量 regression。
+
+
+---
+
+## 9　方案B-3：自绘损管/ROE四档/命令队列最小交互（task-147）
+
+### 9.1 右栏页面
+
+- `DAMAGE` → 自绘损管 overlay：
+  - 7 分区（hull/power/propulsion/sensors/comms/tanks/docking），每行显示 integrity/state/fire/decomp；点击选中；
+  - 右侧 RESOURCES（teams/spares/personnel）、QUEUE、EVENTS；
+  - 底部 `FIX / PRI / CANCEL` 调 `V2DamageModel.assign_repair/set_priority/cancel_repair`；失败 reason。
+  - 数据源：当前 GameSession 无内置 `damage_vm`；本页直接挂 `V2DamageModel`（content damage_l1，ship apsis，7 sections），明确 `SOURCE · V2DamageModel shadow (session 无 damage_vm)`，不伪造。
+- `ROE` → 四档 overlay：`DEFEND/HOLD/TIGHT/FREE`，显示当前档位（TIGHT）、授权提示；默认序章 prelude 时锁定；`DSH_V1_ROE_UNLOCK=1` 解锁用于测试。解锁后按钮调 `binder.session.set_roe(level)`；当前 CombatService 由 v1_hud 以可选服务注入 session（真实 `set_roe` API）。
+- `NAV` → `nav_page.tscn`；`OPTICAL/INFO` → 明确占位信号，不接玩法。
+
+### 9.2 命令队列
+
+- 底栏命令行可点击选中（默认第一条）；选中高亮；显示 DETAIL（id/actor/target/action/mode/delay/state）。
+- `ABORT` → `session.abort_order(id,"ui_abort")`；`REVOKE` → `session.reject_order(id,"ui_revoke","commander")`；成功/失败 reason 写底栏/日志。
+- 数据 source `binder.commands`（session.components.orders.orders）。
+
+### 9.3 实测
+
+`DSH_V1_TEST=1`：
+- `DAMAGE FIX hull · OK` → `PRI hull · OK` → `CANCEL hull · OK`（V2DamageModel 7 sections）。
+- `ROE set_roe HOLD · OK`（测试解锁；默认 prelude locked）。
+- `COMMAND REVOKE O-000001 · OK`（session reject_order 真实 API）。
+- `DAMAGE/ROE` 页面、命令选中均只自绘 Painter/LayoutTokens，无 Control 面板。
+
+### 9.4 截图 / 验证
+
+- `mockups/v1-hud-damage-1920.png`（1920×1080，选中 hull，7 分区/资源/队列/事件/FIX/PRI/CANCEL，底部 ABORT/REVOKE）
+- `mockups/v1-hud-roe-1920.png`（四档 + 当前 TIGHT + 授权提示；测试环境解锁）
+- 均 `V1 HUD SHOT err=0`；headless interaction test 一次；`v1_hud.gd --check-only` 通过。
+
+### 9.5 边界 / 未完成
+
+1. GameSession 无内置 damage_vm；损管为 V2DamageModel shadow，不宣称 session 原生损管。
+2. ROE 默认 prelude 锁定；测试用 `DSH_V1_ROE_UNLOCK=1`；授权提示明确 ROE 不授予开火许可。
+3. 命令只有 demo seed 1 条；ABORT/REVOKE 状态/原因由 session API 返回，无完整命令录入 UI。
+4. No Control panels；IME/系统弹窗仍保留 Control 边界。
+5. 不实现剧情/物理/完整战斗；未跑全量 regression。

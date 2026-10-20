@@ -1,9 +1,9 @@
 # 完整游戏-阶段2C/2H · GameSession 编排层（含 TrackTable/StoryState）
 
-> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）。工程 `game_v17`。
+> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=520 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=579 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -20,7 +20,8 @@ GameSession
  ├─ StoryState（可选） 剧情 flags/evidence/choices/trust/morality/reputation/threat/gate
  ├─ SensorService（可选） 传感器管道 → observation/evidence，经 session 显式白名单路由到 TrackTable
  ├─ PortService（可选） 港口/对接/加注/维修/拖曳/穿梭机状态机与资源
- └─ CombatService（可选） ROE/授权/火控/武器/点防御（damage event 不直接应用）
+ ├─ CombatService（可选） ROE/授权/火控/武器/点防御（damage event 不直接应用）
+ └─ DamageService（可选） 每舰 V2DamageModel；combat damage 事件→分区伤害/维修
 ```
 
 - **依赖方向**：OrderService 内部持有 CommsService；`tick` 时订单服务推进通信并消费其投递事件。
@@ -34,8 +35,10 @@ GameSession
   session 在 tick 中取走其事件，按 schema/kind 白名单（`sensor_observation.v1` support 1..2、
   `track_evidence.v1`）路由到 TrackTable；support=0/>2 的非 L1/L2 行忽略。
 - **Port/Combat → EventBus**：session tick 驱动二者 step；其 outbox 事件映射为 `port.*`/`combat.*`
-  发布到 bus（只读事件）；Port/Combat 不写 world/TrackTable/物理/UI，damage event 由上层决
-  定是否应用（`applied=false`）。
+  发布到 bus（只读事件）；Port/Combat 不写 world/TrackTable/物理/UI。
+- **Combat → Damage**：combat `combat_damage_event`（combat_hit/incoming_impact 内嵌
+  `damage_event`）经显式白名单路由到 DamageService（`applied=true` 才写损伤）；`shot_id` 去重，
+  同一伤害不会因 request_fire 立即应用 + tick flush 二次应用。Damage 事件发布 `damage.*`。
 - seed/demo 数据仅示例，**不进入关卡**。
 
 ## 2　boot(config)
@@ -59,6 +62,7 @@ config 可覆盖字段（省略用 demo）：
 | `sensor_service` | **可选**：`true` 或 SensorService 配置字典（`observer`/`mounts`/`targets`/`snapshot`/`options`）；缺省/`false` → 不组合 |
 | `port_service` | **可选**：`true` 或 PortService 配置（`ports[]` 泊位/船坞/拖船/燃料/窗口/许可/services）；缺省/`false` → 不组合 |
 | `combat_service` | **可选**：`true` 或 CombatService 配置（`content_path`(weapons_l1)/`roe`/`own_id`/`fleet_id`）；缺省/`false` → 不组合 |
+| `damage_service` | **可选**：`true` 或 DamageService 配置（`content_path`(damage_l1)/`ships[]`/`default_ship`）；缺省/`false` → 不组合 |
 
 - boot 建 5 个必需组件 + 可选 TrackTable/StoryState；任一启用组件 `ready=false` → `ok=false` + errors，不伪造。
 - TrackTable 默认 writer = `<session writer>_fusion`；StoryState 时间在 boot 时对齐 session 时间。
@@ -86,7 +90,9 @@ config 可覆盖字段（省略用 demo）：
 | `port_request/port_permit/port_approach/port_dock/port_refuel/port_repair/port_finish_service/port_undock` | PortService 委托（失败不改状态；成功记录 log） |
 | `port_tow/port_shuttle/port_services/port_vm/port_summary` | 拖曳/穿梭机委托与只读 VM |
 | `set_roe/combat_register_track/combat_request_solution/grant_authorization/revoke_authorization/request_fire` | CombatService 委托（FIRE 需 confirmed+授权；失败不改状态） |
-| `combat_authorization/combat_vm/combat_summary/flush_events` | 授权查询/只读 VM/立即 flush Port+Combat bus 事件 |
+| `combat_authorization/combat_vm/combat_summary/flush_events` | 授权查询/只读 VM/立即 flush Port+Combat+Dage bus 事件 |
+| `damage_apply_event/damage_apply_hit/damage_repair/damage_fix/damage_cancel_repair/damage_set_priority` | DamageService 委托（直接伤害/维修；失败不改状态） |
+| `damage_vm/damage_ship_vm/damage_summary/damage_ships` | 只读损管 VM/摘要/舰列表 |
 | `order(id)` / `comms_pending()` | 只读查询 |
 | `snapshot()` / `to_dict()` / `to_json()` | 只读快照（time/world/orders/comms/bus 最近 32 事件/track/story/contracts/errors） |
 | `save_state() -> String` / `load_state(json) -> Dictionary` | **内存 JSON**：seed + 操作日志重放 + track/story/bus 快照 |
@@ -102,9 +108,11 @@ config 可覆盖字段（省略用 demo）：
    到 TrackTable（target_id 映射到已建 track；support=0/>2 忽略；控制事件忽略）；
 6. `port_service.tick(sim_dt)` / `combat_service.tick(sim_dt)`；各自 outbox 事件 → `port.*`/`combat.*`
    发布到 EventBus（tick 自动 flush；也可 `flush_events()` 显式拉取）；
-7. 白名单总线路由：tick 处理 bus 中未被路由且类型在白名单的事件（`track.observation` 等）；
-8. standalone `send_comms` 的投递对账：tick 后 pending 消失 → 发布 `comms.delivered`；
-9. 事件 bus 只接收发布；不改变 world 实体（probe 断言 tick 前后 world 不变）。
+7. combat `combat_damage_event` 白名单 → DamageService（applied=true）；`damage_service.tick(sim_dt)`
+   推进火灾/失压/断电/维修；damage.* 事件发布到 bus；
+8. 白名单总线路由：tick 处理 bus 中未被路由且类型在白名单的事件（`track.observation` 等）；
+9. standalone `send_comms` 的投递对账：tick 后 pending 消失 → 发布 `comms.delivered`；
+10. 事件 bus 只接收发布；不改变 world 实体（probe 断言 tick 前后 world 不变）。
 
 ### 3.2　事件类型
 
@@ -117,6 +125,8 @@ config 可覆盖字段（省略用 demo）：
 - PortService 事件：`port.request_created/granted/denied/held/expired/approach/docked/service_started/
   service_finished/departed`；CombatService 事件：`combat.<kind>`（weapon_launch/combat_hit/combat_miss/
   point_defense/authorization_*/roe_* 等），均为只读事件。
+- DamageService 事件：`damage.applied/repair_queued/repair_cancelled/repair_priority/tick`；
+  combat damage 应用后 bus 上对应 combat 事件的 `payload.damage_event.applied=true`。
 
 ## 4　DbC / 一致性
 
@@ -135,6 +145,8 @@ config 可覆盖字段（省略用 demo）：
   返回 `{ok:false,reason}`，sensor 计数/状态不变；IFF 只给 friend/unknown，不自动判敌。
 - **Port/Combat 一致**：`port_service.t_s == combat_service.t == now_s()`；两者 ready 且内部
   contracts/ROE 合法；失败委托（无服务/错误状态/非法 ROE/冷却/未授权）不改组件状态。
+- **Damage 一致**：`damage_service.t == now_s()`、ready、内部 contracts ok；combat damage 只在
+  whitelist 路由且 `shot_id` 去重；伤害/维修失败不改状态。
 - tick 失败/拒绝路径不静默：返回 `ok=false` + `errors/contract_errors`；失败订单不伪造状态。
 
 ## 5　内存 save/load（不写盘）
@@ -151,9 +163,14 @@ config 可覆盖字段（省略用 demo）：
   story: <StoryState.snapshot()> | null,
   port_service: <PortService.save_state() JSON> | "",
   combat_service: <CombatService.save_state() JSON> | "",
+  damage_service: <DamageService.save_state() JSON> | "",
   bus: {seq, events[]}
 }
 ```
+
+**Damage 存档**：save 嵌入 DamageService 每舰模型快照；load boot 重建 + log 重放 +
+damage 快照恢复；load 后 damage VM/snapshot 一致、t 同步、可继续维修/tick、再次 save 一致。
+旧存档缺 `damage_service` 字段/seed 配置 → damage 操作 replay 跳过、组件退化。
 
 **Port/Combat 存档**：save 嵌入二者 `save_state()` JSON；load 时先 boot(seed) 重建并按 log 重放
 （port/combat 委托操作 + tick），再恢复快照；load 后 VM/snapshot 一致、时间与 session 同步、
@@ -179,10 +196,10 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=520 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=579 FAIL=0（exit 0，只跑一次）
 ```
 
-覆盖（24 节）：boot（5 组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
+覆盖（26 节）：boot（5 组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
 （ISSUED→…→DONE、事件类型、delivery_id、订单-通信一致、终态拒绝）；通信/链路；失败/过期/
 撤销/拒绝；暂停/时标/时间单调；bus-world 分离与单写者；save/load snapshot 一致+二次 save；
 错误路径；JSON/确定性；**可选组件**（无配置/false 退化、true 启用、退化 save/load）；
@@ -200,12 +217,17 @@ EMCON/雷达开关/通道启停、unknown_target/非法通道拒绝、sensor t �
 无服务 API 拒绝）；**Port 集成**（request→permit→approach→dock→refuel/repair→finish→undock、
 tow/shuttle、port.* 事件进 bus、tick 不自动、失败不改状态）；**Combat 集成**（set_roe/register/
 solution/READY/grant/check/confirmed fire/冷却拒绝/未知目标/友方拒绝/非法 ROE、combat.* 事件）；
-**Port/Combat 存档**（save 嵌入两快照、load 后 VM/snapshot 一致、继续操作、旧档兼容、同操作确定性）。
+**Port/Combat 存档**（save 嵌入两快照、load 后 VM/snapshot 一致、继续操作、旧档兼容、同操作确定性）；
+**Damage 集成**（可选退化、直接伤害/维修/tick、damage.* 事件、combat incoming damage 白名单路由、
+shot_id 去重、失败不改状态）；**Damage 存档**（save 嵌入 damage 快照、load VM/snapshot 一致、
+继续维修/tick、旧档兼容、同操作确定性）。
 
 ## 7　边界 / 未完成
 
 - 只做**编排**：不实现物理/传感器/武器/ROE/UI/剧情文本；不接旧场景/HUD/transit；不写 V15。
-- TrackTable/StoryState/SensorService/PortService/CombatService 为**可选组合**；未配置时相关 API 返回空/`no_*`，session 退化运行。
+- TrackTable/StoryState/SensorService/PortService/CombatService/DamageService 为**可选组合**；未配置时相关 API 返回空/`no_*`，session 退化运行。
+- DamageService 只做多舰损管组合/事件/存档；combat 命中概率由 CombatService 决定，damage event
+  经白名单应用；damage 不直接写 world/V15/UI。
 - PortService/CombatService 只输出状态/事件；session 不自动许可/对接/服务/开火；FIRE 永不自动，
   需 confirmed + 授权；combat damage event `applied=false`，由上层损管决定应用。
 - SensorService 只产生 observation/evidence（不直接写 TrackTable/world/UI）；routing 由 session
