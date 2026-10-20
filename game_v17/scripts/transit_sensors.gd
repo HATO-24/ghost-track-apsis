@@ -191,7 +191,18 @@ func _load_scenario() -> void:
 func _get_plan() -> Dictionary:
 	if not _plan_cache.is_empty():
 		return _plan_cache.duplicate(true)
-	var p: Dictionary = Planner.plan({})
+	var p: Dictionary = {}
+	var cache_path := "res://framework/content/transfer_l4_l1_cached.json"
+	if FileAccess.file_exists(cache_path):
+		var f := FileAccess.open(cache_path, FileAccess.READ)
+		if f != null:
+			var txt := f.get_as_text()
+			f.close()
+			var parsed = JSON.parse_string(txt)
+			if parsed is Dictionary and bool((parsed as Dictionary).get("ok", false)):
+				p = parsed
+	if p.is_empty():
+		p = Planner.plan({})
 	_plan_cache = p.duplicate(true)
 	return _plan_cache.duplicate(true)
 
