@@ -1,7 +1,7 @@
 extends Control
 
 # 阶段2-SCENE-1：转场 V1 HUD（只读 planner 数据 + 本地时间控制）。
-# 1920×1080；不接旧 Chronos HUD；传感器桥未接时固定显示 SENSOR BRIDGE NOT WIRED。
+# 1920×1080；不接旧 Chronos HUD；传感器/教学/损管均为真实数据层（未就绪才显式 NOT READY）。
 
 const P := preload("res://scripts/pal.gd")
 const F := preload("res://scripts/fonts.gd")
@@ -23,6 +23,7 @@ const BTN_ARR := Rect2(1344, 952, 120, 22)
 const BTN_REPLAY := Rect2(1472, 952, 120, 22)
 const TUT_BTN := Rect2(1640, 56, 160, 20)
 const TUT_CLOSE := Rect2(1396, 820, 126, 24)
+const TUT_NEXT := Rect2(1210, 820, 174, 24)
 const OPT_RECT := Rect2(1180, 360, 320, 220)
 const OPT_START_VIS := Rect2(1192, 536, 70, 20)
 const OPT_START_IR := Rect2(1268, 536, 58, 20)
@@ -132,7 +133,8 @@ func _draw() -> void:
 	_txt_r(mono, 1848, 56, "T+%.0f s / %.2f d · %s" % [float(sim.t) if sim != null else 0.0,
 		float(sim.t) / 86400.0 if sim != null else 0.0, String(sim.phase) if sim != null else "not_ready"], 8,
 		P.PH if ok else P.AMBER)
-	_txt_r(cjk, 1848, 74, "PLANNER %s · NOT WIRED TO SENSORS" % ("OK" if ok else "NOT READY"), 7, P.PH if ok else P.AMBER)
+	var sensor_live := not _sensors_vm().is_empty() and bool(_sensors_vm().get("ready", false))
+	_txt_r(cjk, 1848, 74, "PLANNER %s · %s" % ["OK" if ok else "NOT READY", "SENSORS LIVE" if sensor_live else "SENSOR DATA NOT READY"], 7, P.PH if sensor_live else P.AMBER)
 	# Left fleet / contacts / TWS / teaching
 	_draw_fleet_panel(plan)
 	# Map
@@ -374,7 +376,7 @@ func _draw_side_page(plan: Dictionary, budget: Dictionary, arrival: Dictionary, 
 	_txt(cjk, SIDE.position.x + 12, SIDE.end.y - 84, "教学 / TUTORIAL", 7, P.FAINT)
 	_txt(mono, SIDE.position.x + 12, SIDE.end.y - 70, _teach_progress_text() if sim != null else "NOT READY", 7, P.PH_DIM)
 	_txt(cjk, SIDE.position.x + 12, SIDE.end.y - 54, _teach_current_text() if sim != null else "NOT READY", 7, P.a(P.DIM, 0.95))
-	_txt(cjk, SIDE.position.x + 12, SIDE.end.y - 30, "sensor bridge: V2TransitSensors shadow", 6, P.FAINT)
+	_txt(cjk, SIDE.position.x + 12, SIDE.end.y - 30, "V2TransitSensors · shadow live · writes v15=false", 6, P.FAINT)
 	_txt(cjk, SIDE.position.x + 12, SIDE.end.y - 16, "writes v15=false · 不伪造", 6, P.FAINT)
 
 
@@ -497,6 +499,19 @@ func _draw_tutorial_popup() -> void:
 		gy += 12.0
 		_txt(cjk, r.position.x + 20, gy, "提示：%s" % _ellipsis(cjk, String(cur.get("hint", "")), 7, 1100.0), 7, P.a(P.PH_DIM, 0.9))
 	# 手动触发（仅教学手动记录；真实场景动作仍由点击/控制执行）
+	# 20 步完整列表（2 列，手动走；HOLD 分支由控制器跳过其余决策）
+	var all_steps: Array = vm.get("steps", []) if vm.get("steps", []) is Array else []
+	_txt(cjk, r.position.x + 20, r.position.y + 206, "完整步骤 / 20 STEPS · manual_only", 7, P.FAINT)
+	for si in range(mini(20, all_steps.size())):
+		var step: Dictionary = all_steps[si]
+		var col_i := si / 10
+		var row_i := si % 10
+		var sx := r.position.x + 20.0 + float(col_i) * 560.0
+		var sy2 := r.position.y + 220.0 + float(row_i) * 11.0
+		var sst := String(step.get("status", "pending"))
+		var scol := P.PH if sst == "completed" else (P.AMBER if sst == "skipped" else P.DIM)
+		var glyph := "✓" if sst == "completed" else ("↷" if sst == "skipped" else "·")
+		_txt(mono, sx, sy2, "%s %s %s" % [glyph, String(step.get("id", "")), _ellipsis(cjk, String(step.get("title", "")), 6, 360.0)], 6, scol)
 	var hints: Array = vm.get("hints", []) if vm.get("hints", []) is Array else []
 	var hy := r.position.y + 430.0
 	_txt(cjk, r.position.x + 20, hy, "提示 / HINTS", 7, P.FAINT)
@@ -513,6 +528,7 @@ func _draw_tutorial_popup() -> void:
 		var ar: Array = actions[i]
 		var br := Rect2(r.position.x + 20 + float(i) * 158.0, r.end.y - 64, 148, 20)
 		_btn(br, "+ " + String(ar[0]), true, P.PH)
+	_btn(TUT_NEXT, "手动下一步 / NEXT", true, P.PH)
 	_btn(TUT_CLOSE, "关闭 / CLOSE", true, P.RED)
 	_txt(cjk, r.position.x + 20, r.end.y - 20, "manual_only=true · auto_complete=false · 文本来自 teaching_l4_l1.json · 未自动完成", 6, P.a(P.FAINT, 0.9))
 
@@ -642,16 +658,45 @@ func _draw_modal_page() -> void:
 	draw_rect(Rect2(0, 0, 1920, 1080), Color(0.01, 0.02, 0.016, 0.72))
 	draw_rect(r, P.a(P.PANEL, 0.995))
 	draw_rect(r, P.a(P.AMBER, 0.7), false, 1.0)
-	var title: String = String({"roe": "ROE / 交战规则", "hold": "DECISION / HOLD", "report": "REPORT / 内部报告"}.get(page, page.to_upper()))
-	_txt(cjk, r.position.x + 20, r.position.y + 24, String(title), 12, P.AMBER)
-	var vm := _teach_vm()
-	var cur: Dictionary = vm.get("current", {}) if vm.get("current", {}) is Dictionary else {}
-	_txt(cjk, r.position.x + 20, r.position.y + 52, "教学步骤：%s · %s" % [String(cur.get("step_id", "—")), String(cur.get("title", "—"))], 8, P.TXT)
-	_txt(cjk, r.position.x + 20, r.position.y + 72, "目标：%s" % _ellipsis(cjk, String(cur.get("objective", "")), 8, 820.0), 7, P.DIM)
-	_txt(cjk, r.position.x + 20, r.position.y + 92, "操作：%s" % _ellipsis(cjk, String(cur.get("player_action", "")), 8, 820.0), 7, P.TXT)
-	_txt(cjk, r.position.x + 20, r.position.y + 128, "此页为教学模态；关闭后不自动完成步骤。真实动作请按页面/游戏入口执行。", 7, P.FAINT)
+	var cur: Dictionary = _teach_vm().get("current", {}) if _teach_vm().get("current", {}) is Dictionary else {}
+	var title := ""
+	match page:
+		"roe":
+			title = "ROE / 交战规则"
+		"hold":
+			title = "DECISION / HOLD · EVACUATE · EXPOSE"
+		"report":
+			title = "REPORT / 内部事后报告"
+		_:
+			title = page.to_upper()
+	_txt(cjk, r.position.x + 20, r.position.y + 24, title, 12, P.AMBER)
+	_txt(mono, r.position.x + 20, r.position.y + 42, "07 教学 %s · %s" % [String(cur.get("step_id", "—")), String(cur.get("title", ""))], 7, P.a(P.PH_DIM, 0.9))
+	if page == "roe":
+		_txt(cjk, r.position.x + 20, r.position.y + 76, "默认交战规则 / DEFAULT ROE", 8, P.PH)
+		_txt(cjk, r.position.x + 20, r.position.y + 96, "WEAPONS HOLD · 不首先开火；武器释放需指挥官明确授权。", 8, P.TXT)
+		_txt(cjk, r.position.x + 20, r.position.y + 116, "当前授权：%s" % ("已授权" if bool(sim.roe_release_authorized) else "未授权（需决策/授权页）"), 7, P.AMBER)
+		_txt(cjk, r.position.x + 20, r.position.y + 140, "本页只读 · 不自动选择 DECISION", 7, P.FAINT)
+	elif page == "hold":
+		_txt(cjk, r.position.x + 20, r.position.y + 76, "当前裁决：%s" % (String(sim.decision_state) if String(sim.decision_state) != "" else "未选择"), 8, P.AMBER if String(sim.decision_state) == "" else P.PH)
+		_txt(cjk, r.position.x + 20, r.position.y + 96, "选择后写入 transit 状态；HOLD 分支会跳过其余决策，可重开。", 7, P.DIM)
+		_btn(Rect2(r.position.x + 20, r.position.y + 156, 170, 28), "HOLD / 坚守", true, P.PH)
+		_btn(Rect2(r.position.x + 206, r.position.y + 156, 190, 28), "EVACUATE / 撤人", true, P.AMBER)
+		_btn(Rect2(r.position.x + 412, r.position.y + 156, 190, 28), "EXPOSE / 曝光", true, P.AMBER)
+		_btn(Rect2(r.position.x + 20, r.position.y + 198, 150, 24), "RESET / 重开", true, P.PH_DIM)
+		if String(sim.decision_state) != "":
+			_txt(cjk, r.position.x + 20, r.position.y + 240, "结果 / RESULT：%s 已记录 · 可继续 REPORT" % String(sim.decision_state), 8, P.PH)
+	elif page == "report":
+		_txt(cjk, r.position.x + 20, r.position.y + 76, "内部事后报告 / INTERNAL AFTER-ACTION", 8, P.PH)
+		_txt(cjk, r.position.x + 20, r.position.y + 96, "状态：%s" % (String(sim.report_state) if String(sim.report_state) != "" else "未提交"), 8, P.AMBER if not bool(sim.report_submitted) else P.PH)
+		if String(sim.report_text) != "":
+			_txt(cjk, r.position.x + 20, r.position.y + 118, _ellipsis(cjk, String(sim.report_text), 7, 820.0), 7, P.TXT)
+		_btn(Rect2(r.position.x + 20, r.position.y + 170, 190, 26), "提交报告 / SUBMIT", not bool(sim.report_submitted), P.PH)
+		_btn(Rect2(r.position.x + 226, r.position.y + 170, 150, 26), "RESET / 重开", true, P.PH_DIM)
+		if bool(sim.report_submitted):
+			_txt(cjk, r.position.x + 20, r.position.y + 220, "已提交 · 状态/文本可见；不自动选择裁决。", 8, P.PH)
+	_txt(cjk, r.position.x + 20, r.position.y + 280, "操作步骤文本：%s" % _ellipsis(cjk, String(cur.get("player_action", "")), 7, 820.0), 7, P.DIM)
 	_btn(Rect2(r.end.x - 140, r.end.y - 40, 120, 24), "关闭 / CLOSE", true, P.RED)
-	_txt(cjk, r.position.x + 20, r.end.y - 20, "07 教学目标 · teaching_l4_l1.json · manual_only=true · auto_complete=false", 6, P.a(P.FAINT, 0.9))
+	_txt(cjk, r.position.x + 20, r.end.y - 20, "07 教学 · manual_only=true · auto_complete=false · 手动选择/提交才记录 note", 6, P.a(P.FAINT, 0.9))
 
 
 func _phase_label() -> String:
@@ -668,16 +713,6 @@ func _phase_label() -> String:
 			return "NOT READY"
 
 
-func _phase_glyph(p: String) -> String:
-	match p:
-		"departure":
-			return "●"
-		"cruise":
-			return "○"
-		_:
-			return "◉"
-
-
 func _hms(sec: float) -> String:
 	var s := maxf(0.0, sec)
 	var d := int(s / 86400.0)
@@ -690,6 +725,14 @@ func _hms(sec: float) -> String:
 
 func _speed_is(v: float) -> bool:
 	return sim != null and absf(float(sim.speed) - v) < 0.1
+
+
+func _p_real(p: Vector3, pr: Dictionary) -> Vector2:
+	var cx := float(pr.get("cx", 0.0)); var cy := float(pr.get("cy", 0.0))
+	var minx := float(pr.get("minx", 0.0)); var maxx := float(pr.get("maxx", 1.0))
+	var miny := float(pr.get("miny", 0.0)); var maxy := float(pr.get("maxy", 1.0))
+	var sc := float(pr.get("sc", 1.0))
+	return Vector2(cx + (p.x - (minx + maxx) * 0.5) * sc, cy - (p.y - (miny + maxy) * 0.5) * sc)
 
 
 func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
@@ -711,25 +754,43 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 	var maxy := -1.0e30
 	for q in pts:
 		minx = minf(minx, q.x); maxx = maxf(maxx, q.x); miny = minf(miny, q.y); maxy = maxf(maxy, q.y)
-	var pad := 80.0
+	var pad := 76.0
 	var spanx := maxf(1.0, maxx - minx); var spany := maxf(1.0, maxy - miny)
 	var sc := minf((MAP.size.x - pad * 2.0) / spanx, (MAP.size.y - pad * 2.0) / spany)
 	var cx := MAP.position.x + MAP.size.x * 0.5
 	var cy := MAP.position.y + MAP.size.y * 0.52
 	var pr := {"cx": cx, "cy": cy, "minx": minx, "maxx": maxx, "miny": miny, "maxy": maxy, "sc": sc}
+	# 固定种子星点
+	for i in range(280):
+		var hh := (i * 1103515245 + 12345) & 0x7fffffff
+		var sx2 := MAP.position.x + 20.0 + float(hh % int(MAP.size.x - 40.0))
+		var sy2 := MAP.position.y + 20.0 + float((hh / 97) % int(MAP.size.y - 40.0))
+		draw_rect(Rect2(sx2, sy2, 1, 1), P.a(P.TXT, 0.09 + 0.06 * float(i % 3)))
 	var pe := _p_real(earth, pr)
 	var pm := _p_real(moon, pr)
 	var pl4 := _p_real(l4, pr)
 	var p1 := _p_real(Vector3.ZERO, pr)
 	var re := maxf(7.0, C.R_EARTH_KM * sc)
 	var rm := maxf(4.0, C.R_MOON_KM * sc)
+	# 固定星座线（增加星图密度，不盖数据）
+	var cons := [0, 3, 7, 12, 18, 26, 35, 48, 63, 79]
+	for ci in range(cons.size() - 1):
+		var ha := (int(cons[ci]) * 1103515245 + 12345) & 0x7fffffff
+		var hb := (int(cons[ci + 1]) * 1103515245 + 12345) & 0x7fffffff
+		var pa := Vector2(MAP.position.x + 20.0 + float(ha % int(MAP.size.x - 40.0)), MAP.position.y + 20.0 + float((ha / 97) % int(MAP.size.y - 40.0)))
+		var pb := Vector2(MAP.position.x + 20.0 + float(hb % int(MAP.size.x - 40.0)), MAP.position.y + 20.0 + float((hb / 97) % int(MAP.size.y - 40.0)))
+		draw_line(pa, pb, P.a(P.TXT, 0.08), 1.0)
+	# 地月轨道弧
+	draw_arc(pe, 42164.0 * sc, 0, TAU, 64, P.a(P.PH, 0.10), 1.0, true)
+	draw_arc(pe, 384400.0 * sc, 0, TAU, 96, P.a(P.PH_DIM, 0.10), 1.0, true)
+	# Earth / Moon
 	draw_circle(pe, re, P.a(P.BLUE, 0.10))
 	draw_arc(pe, re, 0, TAU, 48, P.a(P.BLUE, 0.65), 1.0, true)
 	_txt(cjk, pe.x + re + 6, pe.y + 3, "EARTH / 地球", 8, P.a(P.BLUE, 0.9))
 	draw_circle(pm, rm, P.a(P.DIM, 0.35))
 	draw_arc(pm, rm, 0, TAU, 32, P.a(P.DIM, 0.8), 1.0, true)
 	_txt(cjk, pm.x + rm + 6, pm.y + 3, "MOON / 月球", 8, P.a(P.TXT, 0.85))
-	# L4/L1 ports
+	# L4/L1 markers
 	var l4pts := PackedVector2Array([pl4 + Vector2(0, -7), pl4 + Vector2(7, 0), pl4 + Vector2(0, 7), pl4 + Vector2(-7, 0), pl4 + Vector2(0, -7)])
 	draw_polyline(l4pts, P.a(P.AMBER, 0.9), 1.0)
 	_txt(cjk, pl4.x + 10, pl4.y + 3, "L4-02 HAMMER 母港", 8, P.AMBER)
@@ -737,7 +798,20 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 	draw_line(p1 - Vector2(15, 0), p1 + Vector2(15, 0), P.a(P.PH, 0.7), 1.0)
 	draw_line(p1 - Vector2(0, 15), p1 + Vector2(0, 15), P.a(P.PH, 0.7), 1.0)
 	_txt(cjk, p1.x + 14, p1.y + 4, "L1 MERIDIAN 港群", 8, P.PH)
-	# route
+	# L2/L3/L5
+	for pair2 in [["L2", "L2"], ["L3", "L3"], ["L5", "L5"]]:
+		var e2: Dictionary = eq.get(String(pair2[0]), {}) if eq.get(String(pair2[0]), {}) is Dictionary else {}
+		if e2.is_empty():
+			continue
+		var q2 := _p_real((e2.get("pos_rot", Vector3.ZERO) as Vector3) - l1, pr)
+		draw_arc(q2, 4.0, 0, TAU, 16, P.a(P.FAINT, 0.8), 1.0, true)
+		_txt(mono, q2.x + 5, q2.y, String(pair2[1]), 6, P.a(P.FAINT, 0.8))
+	# L1 ports labels
+	for pair3 in [["L1-Meridian-05", Vector3(160, -90, 15)], ["Anchorage-02", Vector3(-220, 120, -25)], ["Drydock-01", Vector3(40, 260, 30)]]:
+		var pp := _p_real(pair3[1] as Vector3, pr)
+		draw_rect(Rect2(pp - Vector2(2, 2), Vector2(4, 4)), P.a(P.PH_DIM, 0.8))
+		_txt(mono, pp.x + 5, pp.y + 2, String(pair3[0]), 6, P.a(P.PH_DIM, 0.8))
+	# transfer route + fleet vectors
 	if tl.size() >= 2:
 		var prev := Vector2(-1, -1)
 		for raw in tl:
@@ -748,8 +822,7 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 			prev = q
 		var pc := _p_real(_interp_pos(_frac()) - l1, pr)
 		draw_circle(pc, 3.0, P.PH)
-		_txt(cjk, pc.x + 8, pc.y - 8, "TRANSIT %s" % (_phase_label()), 7, P.PH)
-		# 5 ships at current point (offsets)
+		_txt(cjk, pc.x + 8, pc.y - 8, "TRANSIT %s" % _phase_label(), 7, P.PH)
 		var fleet: Array = plan.get("fleet", []) if plan.get("fleet", []) is Array else []
 		for raw2 in fleet:
 			var ship: Dictionary = raw2
@@ -758,22 +831,23 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 			var c: Color = P.PH if String(ship.get("id", "")) == "apsis" else P.PH_DIM
 			draw_circle(sp, 2.5, c)
 			_txt(mono, sp.x + 5, sp.y - 5, String(ship.get("batch", "")), 6, P.a(c, 0.9))
+			var sp2 := _p_real(_interp_pos(minf(1.0, _frac() + 0.01)) - l1 + off, pr)
+			if (sp2 - sp).length() > 1.0:
+				draw_line(sp, sp + (sp2 - sp) * 6.0, P.a(P.PH_DIM, 0.45), 1.0)
 		_txt(cjk, MAP.position.x + 24, MAP.position.y + 42,
 			"真实 CR3BP/Lambert 轨迹 · 5 舰沿 timeline · scale %.0f km/px" % (1.0 / maxf(sc, 1.0e-9)), 7, P.a(P.PH_DIM, 0.9))
 		_txt(cjk, MAP.position.x + 24, MAP.end.y - 26,
 			"L4-02 → L1 · timeline %d 段 · 折线为真实 pos_rot_km（减 L1）" % tl.size(), 7, P.a(P.FAINT, 0.9))
 	else:
 		_txt(cjk, MAP.position.x + 24, MAP.position.y + 48, "TRANSFER NOT READY · planner timeline 为空", 10, P.AMBER)
-		_txt(cjk, MAP.position.x + 24, MAP.position.y + 64, "不画伪造轨迹；仅显示真实地月/L4/L1 几何。", 7, P.FAINT)
-
-
-
-func _p_real(p: Vector3, pr: Dictionary) -> Vector2:
-	var cx := float(pr.get("cx", 0.0)); var cy := float(pr.get("cy", 0.0))
-	var minx := float(pr.get("minx", 0.0)); var maxx := float(pr.get("maxx", 1.0))
-	var miny := float(pr.get("miny", 0.0)); var maxy := float(pr.get("maxy", 1.0))
-	var sc := float(pr.get("sc", 1.0))
-	return Vector2(cx + (p.x - (minx + maxx) * 0.5) * sc, cy - (p.y - (miny + maxy) * 0.5) * sc)
+	# scale bar
+	var sb := 100000.0 * sc
+	var sbx := MAP.position.x + 20.0
+	var sby := MAP.end.y - 22.0
+	draw_line(Vector2(sbx, sby), Vector2(sbx + sb, sby), P.a(P.PH, 0.55), 1.0)
+	draw_line(Vector2(sbx, sby - 4), Vector2(sbx, sby + 4), P.a(P.PH, 0.45), 1.0)
+	draw_line(Vector2(sbx + sb, sby - 4), Vector2(sbx + sb, sby + 4), P.a(P.PH, 0.45), 1.0)
+	_txt(mono, sbx + 4, sby - 6, "100,000 km", 6, P.a(P.FAINT, 0.85))
 
 
 func handle_click(p: Vector2) -> bool:
@@ -798,13 +872,32 @@ func handle_click(p: Vector2) -> bool:
 				return true
 		return true
 	if String(sim.modal_page) != "":
+		var page := String(sim.modal_page)
 		if Rect2(1260, 740, 120, 24).has_point(p) or not Rect2(520, 260, 880, 520).has_point(p):
 			sim.modal_page = ""
+			return true
+		if page == "hold":
+			if Rect2(540, 416, 170, 28).has_point(p):
+				sim.ui_choose_decision("HOLD"); return true
+			if Rect2(726, 416, 190, 28).has_point(p):
+				sim.ui_choose_decision("EVACUATE"); return true
+			if Rect2(932, 416, 190, 28).has_point(p):
+				sim.ui_choose_decision("EXPOSE"); return true
+			if Rect2(540, 458, 150, 24).has_point(p):
+				sim.ui_reset_decision(); return true
+		elif page == "report":
+			if Rect2(540, 430, 190, 26).has_point(p):
+				sim.ui_submit_report(); return true
+			if Rect2(746, 430, 150, 26).has_point(p):
+				sim.ui_reset_decision(); return true
 		return true
 	# teaching popup
 	if bool(sim.tutorial_open):
 		if TUT_CLOSE.has_point(p):
 			sim.tutorial_open = false
+			return true
+		if TUT_NEXT.has_point(p):
+			sim.ui_teach_current()
 			return true
 		var vmt := _teach_vm()
 		for i in range(6):

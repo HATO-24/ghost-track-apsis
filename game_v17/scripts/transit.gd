@@ -31,6 +31,11 @@ var damage
 var destination := "L1 Meridian"
 var damage_open := false
 var modal_page := ""
+var decision_state := ""
+var report_state := ""
+var report_text := ""
+var report_submitted := false
+var roe_release_authorized := false
 var ui_mode := "ship"
 var optical_open := false
 var tutorial_open := false
@@ -69,6 +74,15 @@ func _ready() -> void:
 		ui_mode = "target"
 	elif view == "radar":
 		ui_mode = "ship"
+	elif view == "decision":
+		ui_mode = "ship"
+		modal_page = "hold"
+	elif view == "report":
+		ui_mode = "ship"
+		report_submitted = true
+		report_state = "SUBMITTED"
+		report_text = "内部事后报告已提交归档：转场完成 · 训练步骤记录。"
+		modal_page = "report"
 	hud = TransitHUD.new()
 	hud.sim = self
 	hud.position = Vector2.ZERO
@@ -340,17 +354,93 @@ func ui_set_destination() -> void:
 	queue_redraw()
 
 
+func ui_teach_current() -> void:
+	if teach == null:
+		return
+	var vm: Dictionary = teach.vm()
+	var cur: Dictionary = vm.get("current", {}) if vm.get("current", {}) is Dictionary else {}
+	var sid := String(cur.get("step_id", ""))
+	if sid == "":
+		last_note = "TEACHING COMPLETE"
+		queue_redraw()
+		return
+	var raw: Dictionary = teach.step_by_id.get(sid, {}) if teach.step_by_id.get(sid, {}) is Dictionary else {}
+	var trig: Dictionary = raw.get("trigger_condition", {}) if raw.get("trigger_condition", {}) is Dictionary else {}
+	var kind := String(trig.get("kind", ""))
+	var r: Dictionary = {}
+	match kind:
+		"ui_event":
+			r = teach.note("ui_event", String(trig.get("event", "")), {"selection": String(trig.get("selection", "")), "phase": "prelude"})
+		"selection":
+			r = teach.note("selection", String(trig.get("ui", "")), {"value": String(trig.get("value", ""))})
+		"player_action":
+			r = teach.note("player_action", String(trig.get("action", "")))
+		"state":
+			r = teach.note("state", String(trig.get("path", "")), {"equals": true})
+		"action_result":
+			r = teach.note("action_result", String(trig.get("action", "")), {"track_level": int(trig.get("track_level_min", 2)), "track": String(trig.get("track", ""))})
+		"sensor_toggle":
+			r = teach.note("sensor_toggle", "%s/%s" % [String(trig.get("ship", "")), String(trig.get("model", ""))], {"value": String(trig.get("value", "on"))})
+		"command_event":
+			r = teach.note("command_event", "", {"sequence": (trig.get("sequence", []) as Array).duplicate(), "link": String(trig.get("link", ""))})
+		"decision_choice":
+			r = teach.note("decision_choice", String(trig.get("choice", "")), {"evidence_count": 2, "weapons_release_confirmed": true})
+		"manual_ack":
+			r = teach.note("manual_ack", String(trig.get("ui", "")))
+		"report_submit":
+			r = teach.note("report_submit", String(trig.get("report", "")))
+		_:
+			r = {"ok": false, "reason": "unsupported_trigger:" + kind}
+	last_note = "TEACH STEP %s · %s" % [sid, "✓ " + String(r.get("matched_step_id", "")) if bool(r.get("ok", false)) else String(r.get("reason", ""))]
+	queue_redraw()
+
+
 func ui_open_modal(page: String) -> void:
+	# 打开页面本身不自动选择/提交；真实选择/提交由 HUD 按钮调用下方法。
 	modal_page = page
 	last_note = "MODAL " + page
+	if teach != null and page == "roe":
+		teach.note("open_roe_card")
+	queue_redraw()
+
+
+func ui_choose_decision(choice: String) -> void:
+	if not (choice in ["HOLD", "EVACUATE", "EXPOSE"]):
+		last_note = "DECISION invalid " + choice
+		queue_redraw()
+		return
+	decision_state = choice
+	modal_page = "hold"
+	last_note = "DECISION → " + choice
+	if choice == "EXPOSE":
+		roe_release_authorized = false
 	if teach != null:
-		match page:
-			"roe":
-				teach.note("open_roe_card")
-			"hold":
-				teach.note("decision", "HOLD")
-			"report":
-				teach.note("report_submit", "INTERNAL_AFTER_ACTION")
+		var tr: Dictionary = teach.note("decision", choice, {"evidence_count": 2 if choice == "EXPOSE" else 0})
+		last_note += " · teach✓" if bool(tr.get("ok", false)) else " · teach=" + String(tr.get("reason", ""))
+	queue_redraw()
+
+
+func ui_reset_decision() -> void:
+	decision_state = ""
+	report_state = ""
+	report_text = ""
+	report_submitted = false
+	last_note = "DECISION/REPORT reset"
+	if teach != null:
+		teach.reset()
+	queue_redraw()
+
+
+func ui_submit_report() -> void:
+	if report_submitted:
+		return
+	report_submitted = true
+	report_state = "SUBMITTED"
+	report_text = "内部事后报告已提交归档：%s · 转场 L4-02→L1 Meridian" % (decision_state if decision_state != "" else "未选择裁决")
+	last_note = "REPORT SUBMITTED"
+	if teach != null:
+		var tr: Dictionary = teach.note("report_submit", "INTERNAL_AFTER_ACTION")
+		last_note += " · teach✓" if bool(tr.get("ok", false)) else " · teach=" + String(tr.get("reason", ""))
 	queue_redraw()
 
 
