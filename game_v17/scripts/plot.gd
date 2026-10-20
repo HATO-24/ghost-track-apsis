@@ -111,7 +111,7 @@ var _phys_contract := false
 var _phys_t := 0.0
 var _phys_logged := false
 # R3-V17-GEO-1：可见站体/舰船线框几何层
-var geo_on := true
+var geo_on := false
 var _geo_flash_t := 0.0
 var _geo_close := false
 var _geo_close_done := false
@@ -383,12 +383,8 @@ func _draw_3d() -> void:
 	if _layer_on("contacts"):
 		_draw_contacts()
 	if _layer_on("stations"):
-		if not _geo_close:
-			_draw_geo_layer()
 		_draw_fixed_assets(false)
-		if _geo_close:
-			_draw_geo_layer()
-		_draw_geo_panel()
+		_draw_fixed_icons_3d()
 	_draw_own()
 	_draw_subject_marker()
 	_draw_interaction_overlays()
@@ -714,7 +710,7 @@ func _own_history_pts() -> Array[Vector3]:
 	for i in range(HIST_STEPS + 1):
 		var tt := -HIST_HORIZON + HIST_HORIZON * float(i) / float(HIST_STEPS)
 		var st: Dictionary = state.own_at(tau + tt)
-		pts.append((st["r"] as Vector3) - cur)
+		pts.append((st["r"] as Vector3) - cur + _flag_rel_own_km())
 	return pts
 
 # 本舰计划：从当前实际状态出发，应用所有 PENDING BURN（命令模型 plan）
@@ -730,7 +726,17 @@ func _own_plan_data() -> Dictionary:
 			continue
 		var pl: Dictionary = c.get("plan", {})
 		burns.append({"t": float(c.get("exec_t", tau)), "dv": pl.get("dv", Vector3.ZERO), "cmd": c})
-	return CommandModel.plan_own(st, tau, burns, PRED_HORIZON, PRED_STEPS)
+	var out: Dictionary = CommandModel.plan_own(st, tau, burns, PRED_HORIZON, PRED_STEPS)
+	var off := _flag_rel_own_km()
+	var pts: Array = out.get("pts", [])
+	for i in range(pts.size()):
+		pts[i] = (pts[i] as Vector3) + off
+	out["pts"] = pts
+	var evs2: Array = out.get("events", [])
+	for i2 in range(evs2.size()):
+		var e2: Dictionary = evs2[i2]
+		e2["km"] = (e2.get("km", Vector3.ZERO) as Vector3) + off
+	return out
 
 func _burn_screen_dir(km: Vector3, dv: Vector3) -> Vector2:
 	var a := _p3(km * 1000.0)
@@ -867,7 +873,7 @@ func _draw_own_plan() -> void:
 		if et > tau:
 			continue
 		var ev_st: Dictionary = state.own_at(et)
-		var ev_km := (ev_st["r"] as Vector3) - cur_r
+		var ev_km := (ev_st["r"] as Vector3) - cur_r + _flag_rel_own_km()
 		var dv: Vector3 = ev.get("dv", Vector3.ZERO)
 		var brg := rad_to_deg(atan2(dv.x, dv.y))
 		var elev := rad_to_deg(asin(clampf(dv.z / maxf(dv.length(), 1.0e-9), -1.0, 1.0)))
@@ -910,6 +916,11 @@ func _draw_own_plan() -> void:
 			var pl: Dictionary = pv.get("plan", {})
 			var pburn: Array = [{"t": float(pv.get("exec_t", tau)), "dv": pl.get("dv", Vector3.ZERO), "cmd": pv}]
 			var pplan := CommandModel.plan_own(_own_now(), tau, pburn, PRED_HORIZON, PRED_STEPS)
+			var poff := _flag_rel_own_km()
+			for pi in range((pplan["pts"] as Array).size()):
+				(pplan["pts"] as Array)[pi] = (pplan["pts"][pi] as Vector3) + poff
+			for pev in (pplan.get("events", []) as Array):
+				(pev as Dictionary)["km"] = ((pev as Dictionary).get("km", Vector3.ZERO) as Vector3) + poff
 			_poly_km(pplan["pts"], Palette.a(Palette.BLUE, 0.55), 1.1, true)
 			var evs: Array = pplan["events"]
 			if evs.size() > 0:
@@ -1009,7 +1020,7 @@ func _tau_now() -> float:
 	return state.tau()
 
 func _track_km(t: Dictionary, tau: float) -> Vector3:
-	return state.board_pos(t, tau)
+	return state.board_pos(t, tau) - _flag_board_km()
 
 func _track_vel(t: Dictionary, tau: float) -> Vector3:
 	return state.board_vel(t, tau)
@@ -1522,6 +1533,17 @@ func _subject_track() -> Dictionary:
 	var tr: Dictionary = state.track_by_id(camera_subject_id)
 	return tr
 
+func _flag_track() -> Dictionary:
+	if state == null or not state.has_method("track_by_id"):
+		return {}
+	return state.track_by_id("1000")
+
+func _flag_board_km() -> Vector3:
+	var f := _flag_track()
+	if f.is_empty():
+		return Vector3.ZERO
+	return state.board_pos(f, _tau_now())
+
 func _focus_offset_km() -> Vector3:
 	var tr := _subject_track()
 	if tr.is_empty():
@@ -1531,6 +1553,8 @@ func _focus_offset_km() -> Vector3:
 		if pb.length() < 1.0e20:
 			return pb
 	var tau := _tau_now()
+	if state.has_method("board_pos"):
+		return state.board_pos(tr, tau) - _flag_board_km()
 	var st: Dictionary = state.track_at(tr, tau)
 	var ow: Dictionary = state.own_at(tau)
 	return (st["r"] as Vector3) - (ow["r"] as Vector3)
@@ -1568,16 +1592,8 @@ func _subject_is_own() -> bool:
 
 
 func _subject_label_origin(p: Vector2, own_p: Vector2) -> Vector2:
-	var lx := p.x + 18.0
-	var ly := p.y - 44.0
-	# 本舰靠近中心且在上方时，主体标签放中心下方，避免与本舰标签重叠
-	if _ok(own_p) and own_p.y < p.y - 20.0 and absf(own_p.x - p.x) < 240.0:
-		ly = p.y + 22.0
-	if lx + 210.0 > size.x - 12.0:
-		lx = p.x - 212.0
-	if ly < 26.0:
-		ly = p.y + 22.0
-	return Vector2(lx, ly)
+	# R6-UI-A：主体标签固定右上，避开中心准心/点火预览区域（不再贴右下）。
+	return Vector2(16.0, 96.0)
 
 
 func _draw_subject_marker() -> void:
@@ -1608,8 +1624,17 @@ func _draw_subject_marker() -> void:
 		_txt(mono, lp.x, lp.y + 26.0, "%s · C 循环 旗舰/本舰/选中" % String(state.datum), 7, Palette.a(Palette.PH_DIM, 0.9))
 
 
+func _flag_rel_own_km() -> Vector3:
+	if state == null:
+		return Vector3.ZERO
+	var own_tr := _own_track()
+	if own_tr.is_empty():
+		return Vector3.ZERO
+	return state.board_pos(own_tr, _tau_now()) - _flag_board_km()
+
 func _draw_own() -> void:
-	var p := _p3(Vector3.ZERO)
+	var own_rel := _flag_rel_own_km()
+	var p := _p3(own_rel * 1000.0)
 	var dat := String(state.datum)
 	var own_name := String(state.unit.get("name", "哈马丹"))
 	var own_tr := _own_track()
@@ -2976,8 +3001,8 @@ func _fixed_world(c: Dictionary, planar_view: bool) -> Vector3:
 	if not planar_view:
 		var b := _fixed_phys_board(c)
 		if b.length() < 1.0e20:
-			return b * 1000.0
-	return _world(float(c.get("bearing_deg", 0.0)), float(c.get("range_km", 0.0)), 0.0)
+			return (b - _flag_board_km()) * 1000.0
+	return _world(float(c.get("bearing_deg", 0.0)), float(c.get("range_km", 0.0)), 0.0) - _flag_board_km() * 1000.0
 
 
 func _fixed_source_tag(c: Dictionary, planar_view: bool) -> String:
@@ -3031,6 +3056,38 @@ func _draw_fixed_assets(planar_view: bool) -> void:
 			draw_line(Vector2(p.x, sr.position.y), Vector2(p.x, sr.end.y), Palette.a(col, 0.35), 1.0)
 			draw_circle(p, 1.5, Palette.a(col, 0.85))
 			_txt(mono, p.x + sz * 0.8, p.y + 2.0, "[%s] %s%s" % [batch, "站体" if name == "" else name, fix_tag], 7, Palette.a(col, 0.9))
+
+func _draw_fixed_icons_3d() -> void:
+	# R6-UI-A：V15 平面图标/标签（替代 V17 3D 线框建模；旗舰基准）
+	if state == null:
+		return
+	var raw = state.get("fw_contacts")
+	if not (raw is Array):
+		return
+	var off := _flag_board_km() * 1000.0
+	for raw_c in (raw as Array):
+		if not (raw_c is Dictionary):
+			continue
+		var c: Dictionary = raw_c
+		if not bool(c.get("fixed", false)):
+			continue
+		var rkm := float(c.get("range_km", 0.0))
+		if rkm <= 0.0:
+			continue
+		var wp := _world(float(c.get("bearing_deg", 0.0)), rkm, 0.0) - off
+		var p := _p3(wp)
+		if not _ok(p):
+			continue
+		var is_tank := String(c.get("kind", "")) == "tank"
+		var col: Color = Palette.PH_DIM if String(c.get("side", "friend")) == "friend" else Palette.AMBER
+		if is_tank:
+			draw_rect(Rect2(p + Vector2(-5, -5), Vector2(10, 10)), Palette.a(col, 0.08))
+			draw_rect(Rect2(p + Vector2(-5, -5), Vector2(10, 10)), Palette.a(col, 0.55), false, 1.0)
+		else:
+			draw_colored_polygon(PackedVector2Array([p + Vector2(0, -6), p + Vector2(6, 0), p + Vector2(0, 6), p + Vector2(-6, 0)]), Palette.a(col, 0.10))
+			draw_polyline(PackedVector2Array([p + Vector2(0, -6), p + Vector2(6, 0), p + Vector2(0, 6), p + Vector2(-6, 0), p + Vector2(0, -6)]), Palette.a(col, 0.75), 1.0)
+		_txt(mono, p.x + 9.0, p.y + 2.0, "[%s] %s" % [String(c.get("batch", c.get("track_id", ""))), String(c.get("name", ""))], 7, Palette.a(col, 0.9))
+
 
 func _draw_chrome() -> void:
 	if ortho:
@@ -3101,7 +3158,7 @@ func _chrome_3d() -> void:
 	var vx := x0 + 58.0
 	# FRAME：基准/视图/距离，静态结构 + 动态距离。
 	_txt(mono, x0, 58.0, "FRAME", 7, Palette.FAINT)
-	_txt(mono, vx, 58.0, "%s · 3D LVLH · ±400 km · DIST %s km" % [String(state.datum), _fmt_km(dist / 1000.0)], 7, Palette.a(Palette.PH, 0.80))
+	_txt(mono, vx, 58.0, "%s · FLAGSHIP REF · 3D LVLH · DIST %s km" % [String(state.datum), _fmt_km(dist / 1000.0)], 7, Palette.a(Palette.PH, 0.80))
 	# CLOCK：T+ / 窗口 / 锁定 / LIVE；数值用琥珀色。
 	_txt(mono, x0, 74.0, "CLOCK", 7, Palette.FAINT)
 	_txt(mono, vx, 74.0, "T+%s · WINDOW %s · 1×" % [_hms(_tau_now()), _hms(state.exec_left)], 7, Palette.a(Palette.AMBER, 0.86))

@@ -1,0 +1,124 @@
+{
+  "schema": "scenario.v2",
+  "_comment": "阶段2-CORE-A 场景骨架（仅数据；不改默认启动）。L4-02 Hammer 母港 → L1 Meridian-05 港群真实轨道转场；CR3BP/RK4 + Lambert 种子 + 脉冲转移。本场景由 transfer_planner 规划，不接入 UI/bridge。",
+  "id": "transit_l4_l1",
+  "title": "阶段2 · L4-02 Hammer → L1 港群 · 真实轨道转场",
+  "epoch": 760.8,
+  "datum": "L4",
+  "own_entity": "apsis",
+  "transfer": {
+    "schema": "v17_transfer_scenario_skeleton.v1",
+    "source_port": "l4_02_hammer",
+    "target_port": "l1_meridian_05",
+    "target_cluster": ["l1_meridian_05", "l1_anchorage_02", "l1_drydock_01"],
+    "planner": "res://framework/sim/transfer_planner.gd",
+    "method": "lambert_seed_cr3bp_shooting",
+    "units": "km,km/s,s",
+    "frame_rotating": "bary_rot",
+    "frame_inertial": "earth_eci",
+    "tof_days_candidates": [3.0, 4.0, 5.0, 6.0],
+    "arrival_gate": {"radius_km": 3000.0, "relative_speed_kmps": 3.0,
+      "time_window_days": [1.0, 15.0]}
+  },
+  "entities": [
+    {
+      "id": "apsis", "batch": "1000", "kind": "ship", "side": "friend",
+      "name": "远地点", "name_en": "APSIS", "class": "远地点级", "role": "船坞舰（旗舰）",
+      "faction": "OCUVF · ID13",
+      "capabilities": ["sensor.optical", "sensor.ir", "comms.radio", "comms.laser"],
+      "orbit": {"frame": "L4", "r": [-520.0, 310.0, 40.0], "v": [0.0, 0.0, 0.0]},
+      "tags": ["own_fleet", "flagship", "transit"],
+      "meta": {"transfer_role": "flagship", "fleet_offset_km": [0.0, 0.0, 0.0]}
+    },
+    {
+      "id": "harmattan", "batch": "1001", "kind": "ship", "side": "friend",
+      "name": "哈马丹", "name_en": "HARMATTAN", "class": "托盘-5 改", "role": "哨舰",
+      "faction": "OCUVF · ID13",
+      "capabilities": ["sensor.radar.active", "sensor.optical", "sensor.ir"],
+      "orbit": {"frame": "L4", "r": [-502.0, 298.0, 43.0], "v": [0.001, -0.0005, 0.0]},
+      "tags": ["own_fleet", "transit"],
+      "meta": {"transfer_role": "command", "fleet_offset_km": [18.0, -12.0, 3.0]}
+    },
+    {
+      "id": "ferry", "batch": "1002", "kind": "ship", "side": "friend",
+      "name": "渡口", "name_en": "FERRY", "class": "赤铁-6 改", "role": "炮舰",
+      "faction": "OCUVF · ID13",
+      "capabilities": ["sensor.optical", "comms.radio"],
+      "orbit": {"frame": "L4", "r": [-544.0, 325.0, 36.0], "v": [-0.001, 0.0007, 0.0]},
+      "tags": ["own_fleet", "transit"],
+      "meta": {"transfer_role": "escort", "fleet_offset_km": [-24.0, 15.0, -4.0]}
+    },
+    {
+      "id": "watchtower", "batch": "1003", "kind": "ship", "side": "friend",
+      "name": "望楼", "name_en": "WATCHTOWER", "class": "安海-1", "role": "中继舰",
+      "faction": "OCUVF · ID13",
+      "capabilities": ["comms.laser", "comms.radio"],
+      "orbit": {"frame": "L4", "r": [-508.0, 336.0, 46.0], "v": [0.0006, 0.0012, 0.0]},
+      "tags": ["own_fleet", "transit"],
+      "meta": {"transfer_role": "relay", "fleet_offset_km": [12.0, 26.0, 6.0]}
+    },
+    {
+      "id": "deepwell", "batch": "1004", "kind": "ship", "side": "friend",
+      "name": "深井", "name_en": "DEEPWELL", "class": "月港-4", "role": "油船",
+      "faction": "OCUVF · ID13",
+      "capabilities": ["comms.radio"],
+      "orbit": {"frame": "L4", "r": [-550.0, 292.0, 34.0], "v": [-0.0014, -0.0009, 0.0002]},
+      "tags": ["own_fleet", "transit"],
+      "meta": {"transfer_role": "tanker", "fleet_offset_km": [-30.0, -18.0, -6.0]}
+    },
+    {
+      "id": "l4_02_hammer", "batch": "3000", "kind": "station", "side": "friend",
+      "name": "L4-02 Hammer 母港", "name_en": "L4-02 HAMMER",
+      "class": "Hammer 级母港", "role": "母港/补给站",
+      "faction": "OCUVF · ID13",
+      "orbit": {"frame": "L4", "r": [-520.0, 310.0, 40.0], "v": [0.0, 0.0, 0.0]},
+      "tags": ["fixed", "port", "source_port", "transit"],
+      "meta": {"port_id": "L4-02", "lpoint": "L4", "capacity": 12}
+    },
+    {
+      "id": "l1_meridian_05", "batch": "3100", "kind": "station", "side": "friend",
+      "name": "L1 Meridian-05 主港", "name_en": "L1 MERIDIAN-05",
+      "class": "Meridian 级港", "role": "主港/入轨目标",
+      "faction": "OCUVF · ID13",
+      "orbit": {"frame": "L1", "r": [160.0, -90.0, 15.0], "v": [0.0, 0.0, 0.0]},
+      "tags": ["fixed", "port", "target_port", "transit"],
+      "meta": {"port_id": "L1-Meridian-05", "lpoint": "L1", "status": "open"}
+    },
+    {
+      "id": "l1_anchorage_02", "batch": "3101", "kind": "station", "side": "friend",
+      "name": "L1 Anchorage-02 停泊区", "name_en": "L1 ANCHORAGE-02",
+      "class": "锚地", "role": "泊位/避风港",
+      "faction": "OCUVF · ID13",
+      "orbit": {"frame": "L1", "r": [-220.0, 120.0, -25.0], "v": [0.0, 0.0, 0.0]},
+      "tags": ["fixed", "port", "transit"],
+      "meta": {"port_id": "L1-Anchorage-02", "lpoint": "L1", "status": "open"}
+    },
+    {
+      "id": "l1_drydock_01", "batch": "3102", "kind": "station", "side": "friend",
+      "name": "L1 Drydock-01 干船坞", "name_en": "L1 DRYDOCK-01",
+      "class": "干船坞", "role": "维修/驻泊",
+      "faction": "OCUVF · ID13",
+      "orbit": {"frame": "L1", "r": [40.0, 260.0, 30.0], "v": [0.0, 0.0, 0.0]},
+      "tags": ["fixed", "port", "transit"],
+      "meta": {"port_id": "L1-Drydock-01", "lpoint": "L1", "status": "reserved"}
+    }
+  ],
+  "ports": [
+    {"port_id": "L4-02", "owner_id": "l4_02_hammer", "kind": "dock",
+      "lpoint": "L4", "offset_km": [-520.0, 310.0, 40.0], "status": "open"},
+    {"port_id": "L1-Meridian-05", "owner_id": "l1_meridian_05", "kind": "dock",
+      "lpoint": "L1", "offset_km": [160.0, -90.0, 15.0], "status": "open"},
+    {"port_id": "L1-Anchorage-02", "owner_id": "l1_anchorage_02", "kind": "berth",
+      "lpoint": "L1", "offset_km": [-220.0, 120.0, -25.0], "status": "open"},
+    {"port_id": "L1-Drydock-01", "owner_id": "l1_drydock_01", "kind": "drydock",
+      "lpoint": "L1", "offset_km": [40.0, 260.0, 30.0], "status": "reserved"}
+  ],
+  "tracks": [],
+  "meta": {
+    "stage": "stage2-core-A",
+    "theater": "L4-02 → L1",
+    "description": "真实转移数据骨架：Lambert 两体种子 + CR3BP/RK4 打靶；departure/arrival burn；舰队共享转移 + 小偏移；不接 UI/bridge。",
+    "no_legacy_entities": true,
+    "default_start": false
+  }
+}

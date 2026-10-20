@@ -1,0 +1,1365 @@
+{
+  "schema": "teaching.l4_l1.v1",
+  "version": "0.1",
+  "scenario_id": "l1_supervision_v2",
+  "story_file": "res://framework/content/story_l1.json",
+  "source_doc": "docs/41_工作文本07教学目标映射.md",
+  "source_goal_doc": "docs/07_第一关_越权回收.md",
+  "text_catalog": "docs/23_Demo文本清单.md",
+  "manual_only": true,
+  "auto_complete": false,
+  "not_wired": true,
+  "notes": [
+    "仅教学目标数据，不接引擎；每条 expected_text_source 只引用 docs/23 的 TXT- key。",
+    "manual_only=true、auto_complete=false：不得由计时器自动完成教学步骤。",
+    "current_status 取值：runnable / partial / missing / next_stage。",
+    "现有 story/scenario 的 events/radio_lines/decision_t 需按 timer_to_manual 改为玩家行动后触发。"
+  ],
+  "status_vocabulary": {
+    "runnable": "当前 UI/动作/内容已能产生可观察结果",
+    "partial": "已有部分 UI/数据/动作，缺触发、验收或教学接线",
+    "missing": "当前缺所需动作或反馈",
+    "next_stage": "明确留到下一阶段"
+  },
+  "goals": [
+    {
+      "id": "G1",
+      "source": "docs/07 §1.1",
+      "title": "基础轨道航行操作",
+      "objective": "从母港 L4-02 Hammer 完成交接，设定 L1 Meridian，选择 T+18:00 变轨窗口，下达点火命令，抵达 L1 并进入执行窗口。",
+      "step_ids": [
+        "T07-G1-S1",
+        "T07-G1-S2",
+        "T07-G1-S3",
+        "T07-G1-S4",
+        "T07-G1-S5"
+      ],
+      "manual_only": true,
+      "auto_complete": false
+    },
+    {
+      "id": "G2",
+      "source": "docs/07 §1.2",
+      "title": "接触列表与身份识别",
+      "objective": "从 L1 仅方位读到 L4 确认；掌握四位数批号、六级身份，并正确判读不明 ≠ 敌意、无威胁目标 ≠ 敌舰。",
+      "step_ids": [
+        "T07-G2-S1",
+        "T07-G2-S2",
+        "T07-G2-S3",
+        "T07-G2-S4",
+        "T07-G2-S5"
+      ],
+      "manual_only": true,
+      "auto_complete": false
+    },
+    {
+      "id": "G3",
+      "source": "docs/07 §1.3",
+      "title": "命令下达与传感器使用",
+      "objective": "理解传感器按舰载；选中哈马丹号，命令 YW-R9 开机，观察中继延迟、待生效、撤销与开机暴露。",
+      "step_ids": [
+        "T07-G3-S1",
+        "T07-G3-S2",
+        "T07-G3-S3",
+        "T07-G3-S4"
+      ],
+      "manual_only": true,
+      "auto_complete": false
+    },
+    {
+      "id": "G4",
+      "source": "docs/07 §1.4",
+      "title": "政治红线",
+      "objective": "理解默认不交火；在 HOLD / EVACUATE / EXPOSE 中作选择；FIRE 是灾难分支；结束后提交内部事后报告。",
+      "step_ids": [
+        "T07-G4-S1",
+        "T07-G4-S2",
+        "T07-G4-S3",
+        "T07-G4-S4",
+        "T07-G4-S5",
+        "T07-G4-S6"
+      ],
+      "manual_only": true,
+      "auto_complete": false
+    }
+  ],
+  "steps": [
+    {
+      "id": "T07-G1-S1",
+      "goal_id": "G1",
+      "order": 1,
+      "title": "上任交接与 OCUVF 命令",
+      "objective": "玩家知道自己在 L4-02 Hammer 上任，收到 OCUVF 本部命令，前往 L1 Meridian 介入 Chronos 事件。",
+      "player_action": "打开前置阶段/任务简报，确认接管与任务命令。",
+      "trigger_condition": {
+        "kind": "ui_event",
+        "event": "prelude.opened",
+        "requires": [
+          "phase=prelude"
+        ]
+      },
+      "expected_ui": [
+        "PRELUDE / DEPARTURE",
+        "任务简报"
+      ],
+      "expected_text_source": [
+        "TXT-0001",
+        "TXT-0004",
+        "TXT-0011",
+        "TXT-0257"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "prelude.opened",
+          "equals": true
+        },
+        {
+          "type": "text_seen",
+          "key": "TXT-0001"
+        },
+        {
+          "type": "text_seen",
+          "key": "TXT-0004"
+        }
+      ],
+      "depends_on": [],
+      "current_status": "partial",
+      "gap_id": "GAP-PRELUDE-HANDOVER"
+    },
+    {
+      "id": "T07-G1-S2",
+      "goal_id": "G1",
+      "order": 2,
+      "title": "设定目的地 L1 Meridian",
+      "objective": "玩家选择 L1 Meridian 作为任务目的地，知道 Karman 不是本关目标。",
+      "player_action": "在 PRELUDE 的目的地列表中选择 L1 Meridian。",
+      "trigger_condition": {
+        "kind": "selection",
+        "ui": "prelude.routes",
+        "value": "meridian"
+      },
+      "expected_ui": [
+        "目的地 / ROUTE",
+        "航线选择"
+      ],
+      "expected_text_source": [
+        "TXT-0007",
+        "TXT-0008",
+        "TXT-0273",
+        "TXT-0274"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "prelude.route_id",
+          "equals": "meridian"
+        },
+        {
+          "type": "text_seen",
+          "key": "TXT-0274"
+        }
+      ],
+      "depends_on": [
+        "T07-G1-S1"
+      ],
+      "current_status": "runnable",
+      "gap_id": null
+    },
+    {
+      "id": "T07-G1-S3",
+      "goal_id": "G1",
+      "order": 3,
+      "title": "选择 T+18:00 变轨窗口",
+      "objective": "玩家选择可用的 T+18:00 变轨窗口，理解窗口过紧会带来时序与燃料风险。",
+      "player_action": "在 PRELUDE 的窗口列表中选择 T+18:00。",
+      "trigger_condition": {
+        "kind": "selection",
+        "ui": "prelude.windows",
+        "value": "t1800"
+      },
+      "expected_ui": [
+        "变轨窗口 / WINDOW",
+        "Δv 预算"
+      ],
+      "expected_text_source": [
+        "TXT-0012",
+        "TXT-0013",
+        "TXT-0262",
+        "TXT-0275",
+        "TXT-0268"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "prelude.window_id",
+          "equals": "t1800"
+        },
+        {
+          "type": "text_seen",
+          "key": "TXT-0275"
+        }
+      ],
+      "depends_on": [
+        "T07-G1-S2"
+      ],
+      "current_status": "runnable",
+      "gap_id": null
+    },
+    {
+      "id": "T07-G1-S4",
+      "goal_id": "G1",
+      "order": 4,
+      "title": "确认点火/变轨命令",
+      "objective": "玩家确认点火，看到 Δv 从预算扣除并进入巡航。",
+      "player_action": "选择“确认并点火”，执行变轨命令。",
+      "trigger_condition": {
+        "kind": "player_action",
+        "action": "prelude.confirm_burn"
+      },
+      "expected_ui": [
+        "点火确认 / CONFIRM",
+        "Δv 预算"
+      ],
+      "expected_text_source": [
+        "TXT-0002",
+        "TXT-0006",
+        "TXT-0282",
+        "TXT-0284",
+        "TXT-0286"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "prelude.executed",
+          "equals": true
+        },
+        {
+          "type": "state",
+          "path": "prelude.dv_spent_ms",
+          "greater_than": 0
+        }
+      ],
+      "depends_on": [
+        "T07-G1-S3"
+      ],
+      "current_status": "runnable",
+      "gap_id": null
+    },
+    {
+      "id": "T07-G1-S5",
+      "goal_id": "G1",
+      "order": 5,
+      "title": "抵达 L1 入轨/执行窗口开始",
+      "objective": "玩家进入 L1 Meridian 场景，看到 6:00 执行窗口与接管通知，知道前置航行结束。",
+      "player_action": "确认航行结束；打开执行窗口/接管通知。",
+      "trigger_condition": {
+        "kind": "state",
+        "path": "prelude.transit_done",
+        "equals": true,
+        "fallback_ui": "execution_window.visible"
+      },
+      "expected_ui": [
+        "执行窗口 / EXECUTION WINDOW",
+        "接管通知"
+      ],
+      "expected_text_source": [
+        "TXT-0117",
+        "TXT-0118",
+        "TXT-0286",
+        "TXT-0021",
+        "TXT-0022"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "execution_window.visible",
+          "equals": true
+        },
+        {
+          "type": "text_seen",
+          "key": "TXT-0117"
+        },
+        {
+          "type": "text_seen",
+          "key": "TXT-0118"
+        }
+      ],
+      "depends_on": [
+        "T07-G1-S4"
+      ],
+      "current_status": "partial",
+      "gap_id": "GAP-PRELUDE-INSERTION"
+    },
+    {
+      "id": "T07-G2-S1",
+      "goal_id": "G2",
+      "order": 6,
+      "title": "读 L1 方位线/初始接触",
+      "objective": "玩家打开接触列表，区分 9001 漂移回波、2001 机动回波与 9002 回波候选，知道当前只有方位。",
+      "player_action": "打开接触列表，选择 9001/2001/9002 接触行。",
+      "trigger_condition": {
+        "kind": "ui_event",
+        "event": "contact_list.opened",
+        "selection": "9001|2001|9002"
+      },
+      "expected_ui": [
+        "接触 / CONTACTS",
+        "威胁排序 / THREAT RANKING"
+      ],
+      "expected_text_source": [
+        "TXT-0127",
+        "TXT-0128",
+        "TXT-0131",
+        "TXT-0103",
+        "TXT-0104",
+        "TXT-0031"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "contact_list.opened",
+          "equals": true
+        },
+        {
+          "type": "state",
+          "path": "track.9002.bearing_only",
+          "equals": true
+        },
+        {
+          "type": "state",
+          "path": "track.9002.level",
+          "equals": 1
+        }
+      ],
+      "depends_on": [
+        "T07-G1-S5"
+      ],
+      "current_status": "partial",
+      "gap_id": "GAP-CONTACT-L1"
+    },
+    {
+      "id": "T07-G2-S2",
+      "goal_id": "G2",
+      "order": 7,
+      "title": "交叉定位/雷达到 L2",
+      "objective": "玩家用交叉定位或雷达照射把接触推到 L2，得到位置/距离。",
+      "player_action": "选中接触，执行交叉定位或雷达照射识别。",
+      "trigger_condition": {
+        "kind": "action_result",
+        "action": "crossfix|radar_illum",
+        "track_level_min": 2
+      },
+      "expected_ui": [
+        "接触行",
+        "协方差椭圆",
+        "接触等级 L2"
+      ],
+      "expected_text_source": [
+        "TXT-0127",
+        "TXT-0131",
+        "TXT-0132",
+        "TXT-0190"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "track.9001.level",
+          "greater_or_equal": 2
+        },
+        {
+          "type": "state",
+          "path": "track.2001.level",
+          "greater_or_equal": 2
+        }
+      ],
+      "depends_on": [
+        "T07-G2-S1"
+      ],
+      "current_status": "runnable",
+      "gap_id": null
+    },
+    {
+      "id": "T07-G2-S3",
+      "goal_id": "G2",
+      "order": 8,
+      "title": "光学凝视到 L3 分类",
+      "objective": "玩家用光学凝视完成分类：2001 为传唤级/第33舰队/可疑，9001 为民用工作船/中立，9002 为无威胁目标。",
+      "player_action": "选中接触，执行型号识别或光学通道并等待凝视完成。",
+      "trigger_condition": {
+        "kind": "action_result",
+        "action": "model_ident|optical_channel",
+        "track_level_min": 3
+      },
+      "expected_ui": [
+        "分类结果",
+        "接触行身份"
+      ],
+      "expected_text_source": [
+        "TXT-0033",
+        "TXT-0029",
+        "TXT-0105",
+        "TXT-0106",
+        "TXT-0132"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "track.2001.identity",
+          "equals": "suspect"
+        },
+        {
+          "type": "state",
+          "path": "track.9001.identity",
+          "equals": "neutral"
+        },
+        {
+          "type": "state",
+          "path": "track.9002.threat",
+          "equals": "none"
+        }
+      ],
+      "depends_on": [
+        "T07-G2-S2"
+      ],
+      "current_status": "runnable",
+      "gap_id": null
+    },
+    {
+      "id": "T07-G2-S4",
+      "goal_id": "G2",
+      "order": 9,
+      "title": "IFF 问答到 L4 确认",
+      "objective": "玩家用 IFF 问答确认身份；理解 9001 无应答只到不明/中立，2001 不因此自动成为敌方。",
+      "player_action": "选中 9001/2001，执行敌我识别问答。",
+      "trigger_condition": {
+        "kind": "action_result",
+        "action": "iff_query",
+        "track": "9001|2001"
+      },
+      "expected_ui": [
+        "IFF 结果",
+        "身份图例"
+      ],
+      "expected_text_source": [
+        "TXT-0034",
+        "TXT-0020",
+        "TXT-0101",
+        "TXT-0102",
+        "TXT-0104"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "track.9001.iff_status",
+          "equals": "no_reply"
+        },
+        {
+          "type": "state",
+          "path": "track.2001.identity",
+          "not_equals": "hostile"
+        }
+      ],
+      "depends_on": [
+        "T07-G2-S3"
+      ],
+      "current_status": "runnable",
+      "gap_id": null
+    },
+    {
+      "id": "T07-G2-S5",
+      "goal_id": "G2",
+      "order": 10,
+      "title": "批号、六级身份、不明≠敌意判读",
+      "objective": "玩家能解释四位数批号、六级身份，并正确指出 9002 无威胁、9001 中立、2001 可疑而非敌方。",
+      "player_action": "打开身份图例/接触详情，口头或界面确认判读。",
+      "trigger_condition": {
+        "kind": "manual_ack",
+        "ui": "identity_legend"
+      },
+      "expected_ui": [
+        "身份图例",
+        "接触列表",
+        "无威胁标记"
+      ],
+      "expected_text_source": [
+        "TXT-0101",
+        "TXT-0102",
+        "TXT-0103",
+        "TXT-0104",
+        "TXT-0105",
+        "TXT-0106",
+        "TXT-0107",
+        "TXT-0109",
+        "TXT-0126",
+        "TXT-0029"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "manual_ack",
+          "ui": "identity_legend",
+          "must_identify": [
+            "9002=无威胁",
+            "9001=中立",
+            "2001≠敌方"
+          ]
+        }
+      ],
+      "depends_on": [
+        "T07-G2-S4"
+      ],
+      "current_status": "partial",
+      "gap_id": "GAP-CONTACT-TEACH"
+    },
+    {
+      "id": "T07-G3-S1",
+      "goal_id": "G3",
+      "order": 11,
+      "title": "选中哈马丹号，打开传感器架",
+      "objective": "玩家知道传感器按舰载，找到哈马丹号的 YW-R9/MS-OT2/CH-IR2/ELINT/CH-R0。",
+      "player_action": "在单位面板选中哈马丹号，打开传感器架。",
+      "trigger_condition": {
+        "kind": "selection",
+        "ui": "unit_panel.ship",
+        "value": "harmattan"
+      },
+      "expected_ui": [
+        "选中舰 / SELECTED SHIP",
+        "传感器架 / SENSOR RACK"
+      ],
+      "expected_text_source": [
+        "TXT-0169",
+        "TXT-0182",
+        "TXT-0183",
+        "TXT-0184",
+        "TXT-0185"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "selected_ship",
+          "equals": "harmattan"
+        },
+        {
+          "type": "state",
+          "path": "sensor_rack.visible",
+          "equals": true
+        }
+      ],
+      "depends_on": [
+        "T07-G2-S5"
+      ],
+      "current_status": "runnable",
+      "gap_id": null
+    },
+    {
+      "id": "T07-G3-S2",
+      "goal_id": "G3",
+      "order": 12,
+      "title": "命令 YW-R9 开机",
+      "objective": "玩家命令哈马丹号 YW-R9 开机，接触升到 L2，同时看到开机暴露警告。",
+      "player_action": "在传感器架把 YW-R9 切换为开机。",
+      "trigger_condition": {
+        "kind": "sensor_toggle",
+        "ship": "harmattan",
+        "model": "YW-R9",
+        "value": "on"
+      },
+      "expected_ui": [
+        "传感器架",
+        "暴露风险 / EMIT"
+      ],
+      "expected_text_source": [
+        "TXT-0032",
+        "TXT-0188",
+        "TXT-0189",
+        "TXT-0184",
+        "TXT-0126"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "sensor.harmattan.YW-R9.on",
+          "equals": true
+        },
+        {
+          "type": "state",
+          "path": "emission_state.harmattan.exposed",
+          "equals": true
+        }
+      ],
+      "depends_on": [
+        "T07-G3-S1"
+      ],
+      "current_status": "partial",
+      "gap_id": "GAP-SENSOR-OWNERSHIP"
+    },
+    {
+      "id": "T07-G3-S3",
+      "goal_id": "G3",
+      "order": 13,
+      "title": "观察中继延迟、待生效、撤销",
+      "objective": "玩家下令后看到命令经望楼号中继 8 s 待生效，并在生效前撤销。",
+      "player_action": "下达一条需中继的命令，观察命令队列，执行“撤销待生效”。",
+      "trigger_condition": {
+        "kind": "command_event",
+        "sequence": [
+          "command.queued",
+          "command.aborted"
+        ],
+        "link": "LR"
+      },
+      "expected_ui": [
+        "命令面板 / ORDERS",
+        "命令日志",
+        "队列 / QUEUE"
+      ],
+      "expected_text_source": [
+        "TXT-0211",
+        "TXT-0217",
+        "TXT-0218",
+        "TXT-0219",
+        "TXT-0220",
+        "TXT-0221",
+        "TXT-0232",
+        "TXT-0237",
+        "TXT-0245"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "command.last.status",
+          "equals": "aborted"
+        },
+        {
+          "type": "state",
+          "path": "command.last.link",
+          "equals": "LR"
+        }
+      ],
+      "depends_on": [
+        "T07-G3-S2"
+      ],
+      "current_status": "partial",
+      "gap_id": "GAP-SENSOR-DELAY"
+    },
+    {
+      "id": "T07-G3-S4",
+      "goal_id": "G3",
+      "order": 14,
+      "title": "认读开机暴露",
+      "objective": "玩家理解雷达开机即暴露：看到 EMIT/暴露风险，并知道 ELINT 可以截获/点名。",
+      "player_action": "观察传感器架的暴露风险与 EMIT 状态，阅读通信/日志中的暴露反馈。",
+      "trigger_condition": {
+        "kind": "state",
+        "path": "emission_state.harmattan.exposed",
+        "equals": true
+      },
+      "expected_ui": [
+        "EMCON 静默",
+        "EMIT 暴露风险",
+        "警告：暴露风险"
+      ],
+      "expected_text_source": [
+        "TXT-0187",
+        "TXT-0188",
+        "TXT-0189",
+        "TXT-0184",
+        "TXT-0211"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "emission_state.harmattan.exposed",
+          "equals": true
+        },
+        {
+          "type": "text_seen",
+          "key": "TXT-0189"
+        }
+      ],
+      "depends_on": [
+        "T07-G3-S3"
+      ],
+      "current_status": "partial",
+      "gap_id": "GAP-SENSOR-AUTHORITY"
+    },
+    {
+      "id": "T07-G4-S1",
+      "goal_id": "G4",
+      "order": 15,
+      "title": "默认不交火/ROE 卡",
+      "objective": "玩家阅读 ROE：不得首先开火，武器释放需 ID13 指挥官授权。",
+      "player_action": "打开交战规则卡/任务简报，阅读 ROE。",
+      "trigger_condition": {
+        "kind": "ui_event",
+        "event": "roe_card.opened"
+      },
+      "expected_ui": [
+        "交战规则 / ROE",
+        "顶栏 ROE 状态"
+      ],
+      "expected_text_source": [
+        "TXT-0124",
+        "TXT-0125",
+        "TXT-0126",
+        "TXT-0117",
+        "TXT-0118"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "roe_card.opened",
+          "equals": true
+        },
+        {
+          "type": "text_seen",
+          "key": "TXT-0126"
+        }
+      ],
+      "depends_on": [
+        "T07-G1-S5"
+      ],
+      "current_status": "runnable",
+      "gap_id": null
+    },
+    {
+      "id": "T07-G4-S2",
+      "goal_id": "G4",
+      "order": 16,
+      "title": "HOLD / 卡住",
+      "objective": "玩家选择 HOLD：保持卡位、拒绝让出储罐区与航道，把接管拖入 UEG 复核。",
+      "player_action": "在裁决面板选择 HOLD 并确认。",
+      "trigger_condition": {
+        "kind": "decision_choice",
+        "choice": "HOLD"
+      },
+      "expected_ui": [
+        "裁决面板",
+        "通信流回复"
+      ],
+      "expected_text_source": [
+        "TXT-0069",
+        "TXT-0068",
+        "TXT-0067",
+        "TXT-0077"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "outcome",
+          "equals": "hold"
+        },
+        {
+          "type": "communication",
+          "key": "TXT-0067"
+        }
+      ],
+      "depends_on": [
+        "T07-G4-S1"
+      ],
+      "current_status": "partial",
+      "gap_id": "GAP-DECISION-GATE"
+    },
+    {
+      "id": "T07-G4-S3",
+      "goal_id": "G4",
+      "order": 17,
+      "title": "EVACUATE / 撤人",
+      "objective": "玩家选择 EVACUATE：撤出 Chronos 人员与可移动储罐，保留记录，允许接管空站。",
+      "player_action": "在裁决面板选择 EVACUATE 并确认。",
+      "trigger_condition": {
+        "kind": "decision_choice",
+        "choice": "EVACUATE"
+      },
+      "expected_ui": [
+        "裁决面板",
+        "通信流回复",
+        "证据/撤离状态"
+      ],
+      "expected_text_source": [
+        "TXT-0071",
+        "TXT-0070",
+        "TXT-0064",
+        "TXT-0074"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "outcome",
+          "equals": "evacuate"
+        },
+        {
+          "type": "communication",
+          "key": "TXT-0064"
+        }
+      ],
+      "depends_on": [
+        "T07-G4-S1"
+      ],
+      "current_status": "partial",
+      "gap_id": "GAP-DECISION-GATE"
+    },
+    {
+      "id": "T07-G4-S4",
+      "goal_id": "G4",
+      "order": 18,
+      "title": "EXPOSE / 曝光",
+      "objective": "玩家取得至少两件证据（港务遥测/核查组黑匣子/异常特征码）后，向 OCJC 监察与 UEG 轨道事务委员会提交联合调查请求。",
+      "player_action": "打开证据面板，完成至少 2 件证据任务；在裁决面板选择 EXPOSE。",
+      "trigger_condition": {
+        "kind": "decision_choice",
+        "choice": "EXPOSE",
+        "requires": [
+          "evidence_count>=2"
+        ]
+      },
+      "expected_ui": [
+        "证据 / EXPOSE",
+        "裁决面板",
+        "通信流回复"
+      ],
+      "expected_text_source": [
+        "TXT-0141",
+        "TXT-0138",
+        "TXT-0139",
+        "TXT-0140",
+        "TXT-0073",
+        "TXT-0072",
+        "TXT-0065"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "evidence_count",
+          "greater_or_equal": 2
+        },
+        {
+          "type": "state",
+          "path": "outcome",
+          "equals": "expose"
+        },
+        {
+          "type": "communication",
+          "key": "TXT-0065"
+        }
+      ],
+      "depends_on": [
+        "T07-G4-S1"
+      ],
+      "current_status": "partial",
+      "gap_id": "GAP-DECISION-GATE"
+    },
+    {
+      "id": "T07-G4-S5",
+      "goal_id": "G4",
+      "order": 19,
+      "title": "FIRE / 开火灾难",
+      "objective": "玩家选择 FIRE 后进入灾难分支：冻结时间、进入后果页，而不是普通通关。",
+      "player_action": "在裁决面板选择 FIRE，并完成武器释放二次确认。",
+      "trigger_condition": {
+        "kind": "decision_choice",
+        "choice": "FIRE",
+        "requires": [
+          "weapons_release.confirmed"
+        ]
+      },
+      "expected_ui": [
+        "裁决面板",
+        "后果 / CONSEQUENCE"
+      ],
+      "expected_text_source": [
+        "TXT-0066",
+        "TXT-0062",
+        "TXT-0076",
+        "TXT-0080"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "outcome",
+          "equals": "fire"
+        },
+        {
+          "type": "state",
+          "path": "consequence_page.visible",
+          "equals": true
+        }
+      ],
+      "depends_on": [
+        "T07-G4-S1"
+      ],
+      "current_status": "partial",
+      "gap_id": "GAP-FIRE-UNSUPPORTED"
+    },
+    {
+      "id": "T07-G4-S6",
+      "goal_id": "G4",
+      "order": 20,
+      "title": "内部事后报告",
+      "objective": "玩家提交 OCJC/OCUVF 内部事后报告，报告包含裁决、经过、证据与建议。",
+      "player_action": "打开报告页，核对报告段落并提交归档。",
+      "trigger_condition": {
+        "kind": "report_submit",
+        "report": "INTERNAL_AFTER_ACTION"
+      },
+      "expected_ui": [
+        "内部事后报告 / INTERNAL AFTER-ACTION",
+        "归档 / END"
+      ],
+      "expected_text_source": [
+        "TXT-0247",
+        "TXT-0085",
+        "TXT-0078",
+        "TXT-0079",
+        "TXT-0084"
+      ],
+      "manual_only": true,
+      "auto_complete": false,
+      "acceptance": [
+        {
+          "type": "state",
+          "path": "report.submitted",
+          "equals": true
+        },
+        {
+          "type": "state",
+          "path": "report.outcome",
+          "in": [
+            "hold",
+            "evacuate",
+            "expose",
+            "fire"
+          ]
+        },
+        {
+          "type": "text_seen",
+          "key": "TXT-0247"
+        }
+      ],
+      "depends_on": [
+        "T07-G4-S2",
+        "T07-G4-S3",
+        "T07-G4-S4",
+        "T07-G4-S5"
+      ],
+      "current_status": "partial",
+      "gap_id": "GAP-REPORT-GATE"
+    }
+  ],
+  "timer_to_manual": [
+    {
+      "id": "TC-01",
+      "source_ref": "story_l1.json:story.notice",
+      "current_trigger": "t=0",
+      "target_step": "T07-G1-S5 → T07-G2-S1",
+      "manual_trigger": "prelude.transit_done 后玩家打开通知窗口",
+      "text_keys": [
+        "TXT-0016",
+        "TXT-0017"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-02",
+      "source_ref": "story_l1.json:story.events[0]",
+      "current_trigger": "t=0",
+      "target_step": "T07-G1-S5",
+      "manual_trigger": "抵达 L1 后触发",
+      "text_keys": [
+        "TXT-0030"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-03",
+      "source_ref": "story_l1.json:story.radio_lines[0..3]",
+      "current_trigger": "t=0",
+      "target_step": "T07-G1-S5 / T07-G2-S1",
+      "manual_trigger": "抵达 L1 后，玩家打开通信流后逐条触发",
+      "text_keys": [
+        "TXT-0018",
+        "TXT-0021",
+        "TXT-0022",
+        "TXT-0023"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-04",
+      "source_ref": "story_l1.json:story.events[1]",
+      "current_trigger": "t=12",
+      "target_step": "T07-G2-S1 / T07-G2-S2",
+      "manual_trigger": "玩家对 9002 执行交叉确认后",
+      "text_keys": [
+        "TXT-0031"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-05",
+      "source_ref": "story_l1.json:story.radio_lines[4]",
+      "current_trigger": "t=12",
+      "target_step": "T07-G2-S1",
+      "manual_trigger": "玩家打开接触列表并查看 9001 后",
+      "text_keys": [
+        "TXT-0024"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-06",
+      "source_ref": "story_l1.json:story.events[2]",
+      "current_trigger": "t=20",
+      "target_step": "T07-G3-S2",
+      "manual_trigger": "玩家命令哈马丹号 YW-R9 开机后",
+      "text_keys": [
+        "TXT-0032"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-07",
+      "source_ref": "story_l1.json:story.radio_lines[5..6]",
+      "current_trigger": "t=20/21",
+      "target_step": "T07-G3-S2",
+      "manual_trigger": "玩家打开传感器架并命令开机后",
+      "text_keys": [
+        "TXT-0025",
+        "TXT-0026"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-08",
+      "source_ref": "story_l1.json:story.radio_lines[7]",
+      "current_trigger": "t=30",
+      "target_step": "T07-G4-S1",
+      "manual_trigger": "玩家打开通知/ROE 卡后",
+      "text_keys": [
+        "TXT-0027"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-09",
+      "source_ref": "story_l1.json:story.radio_lines[8]",
+      "current_trigger": "t=40",
+      "target_step": "T07-G4-S3 / T07-G4-S4",
+      "manual_trigger": "玩家打开港务/证据面板后",
+      "text_keys": [
+        "TXT-0028"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-10",
+      "source_ref": "story_l1.json:story.events[3]",
+      "current_trigger": "t=46",
+      "target_step": "T07-G2-S3",
+      "manual_trigger": "玩家完成光学分类后",
+      "text_keys": [
+        "TXT-0033"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-11",
+      "source_ref": "story_l1.json:story.radio_lines[9]",
+      "current_trigger": "t=46",
+      "target_step": "T07-G2-S3",
+      "manual_trigger": "玩家完成光学分类后",
+      "text_keys": [
+        "TXT-0029"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-12",
+      "source_ref": "story_l1.json:story.radio_lines[10]",
+      "current_trigger": "t=60",
+      "target_step": "T07-G4-S1 / T07-G4-S5",
+      "manual_trigger": "玩家打开 ROE/武器释放入口后",
+      "text_keys": [
+        "TXT-0019"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-13",
+      "source_ref": "story_l1.json:story.events[4]",
+      "current_trigger": "t=62",
+      "target_step": "T07-G2-S4",
+      "manual_trigger": "玩家执行 IFF 问答后",
+      "text_keys": [
+        "TXT-0034"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-14",
+      "source_ref": "story_l1.json:story.radio_lines[11]",
+      "current_trigger": "t=62",
+      "target_step": "T07-G2-S4",
+      "manual_trigger": "玩家执行 IFF 问答后",
+      "text_keys": [
+        "TXT-0020"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-15",
+      "source_ref": "story_l1.json:story.events[5]",
+      "current_trigger": "t=75",
+      "target_step": "T07-G4-S2 / T07-G4-S3 / T07-G4-S4",
+      "manual_trigger": "G1–G3 与 G4-S1 教学验收完成后",
+      "text_keys": [
+        "TXT-0035"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-16",
+      "source_ref": "story_l1.json:story.decision_t",
+      "current_trigger": "t=300",
+      "target_step": "T07-G4-S2–T07-G4-S4",
+      "manual_trigger": "玩家打开裁决面板，或执行窗口结束",
+      "text_keys": [
+        "TXT-0063"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "TC-17",
+      "source_ref": "story_l1.json:story.tutorial.required_actions / min_required",
+      "current_trigger": "4 选 2",
+      "target_step": "G2 / G3",
+      "manual_trigger": "四目标各自验收；不以 min_required=2 代替全部教学",
+      "text_keys": [],
+      "status": "partial"
+    },
+    {
+      "id": "TC-18",
+      "source_ref": "scenario_l1_v2.json:phases.command.enter.min_t",
+      "current_trigger": "min_t=0",
+      "target_step": "T07-G1-S5",
+      "manual_trigger": "前置执行 + 通知确认后进入 command 阶段",
+      "text_keys": [],
+      "status": "partial"
+    },
+    {
+      "id": "TC-19",
+      "source_ref": "scenario_l1_v2.json:phases.decision.enter.flags",
+      "current_trigger": "decision_open",
+      "target_step": "T07-G4-S2–T07-G4-S4",
+      "manual_trigger": "由教学目标验收完成写入",
+      "text_keys": [],
+      "status": "partial"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "GAP-TIMER",
+      "severity": "P0",
+      "affects_steps": [
+        "all"
+      ],
+      "description": "story.events/radio_lines/decision_t 按时间自动播报，与手动触发原则冲突。",
+      "owner": "content/engine",
+      "target": "按 timer_to_manual 改为玩家行动后触发",
+      "current_status": "partial"
+    },
+    {
+      "id": "GAP-TEACHING-WIRING",
+      "severity": "P0",
+      "affects_steps": [
+        "all"
+      ],
+      "description": "teaching_l4_l1.json 未被任何引擎读取；本轮只交数据。",
+      "owner": "engine",
+      "target": "下一阶段由 mission/state 读取并驱动",
+      "current_status": "next_stage"
+    },
+    {
+      "id": "GAP-TUTORIAL-GATE",
+      "severity": "P0",
+      "affects_steps": [
+        "T07-G2-S5",
+        "T07-G3-S4",
+        "T07-G4-S2",
+        "T07-G4-S3",
+        "T07-G4-S4"
+      ],
+      "description": "tutorial.min_required=2，只要求 4 选 2；裁决未被教学目标 gate。",
+      "owner": "content/engine",
+      "target": "四目标各自验收后再开裁决",
+      "current_status": "partial"
+    },
+    {
+      "id": "GAP-PRELUDE-HANDOVER",
+      "severity": "P1",
+      "affects_steps": [
+        "T07-G1-S1"
+      ],
+      "description": "前置只有文案，没有“上任交接”独立确认动作。",
+      "owner": "content/UI",
+      "target": "增加确认接管动作，或把简报打开视为确认",
+      "current_status": "partial"
+    },
+    {
+      "id": "GAP-PRELUDE-INSERTION",
+      "severity": "P1",
+      "affects_steps": [
+        "T07-G1-S5"
+      ],
+      "description": "前置执行后硬切（TXT-0286），没有抵达/入轨场景；并行 scenario_transit_l4_l1.json 只是未接 UI 的数据骨架。",
+      "owner": "engine/content",
+      "target": "下一阶段接真实入轨；当前以执行窗口出现作为验收",
+      "current_status": "partial"
+    },
+    {
+      "id": "GAP-CONTACT-L1",
+      "severity": "P1",
+      "affects_steps": [
+        "T07-G2-S1"
+      ],
+      "description": "scenario tracks 预置等级，L1 手动揭示不足。",
+      "owner": "content",
+      "target": "使用初始 IR 观测/接触列表打开作为 L1 触发",
+      "current_status": "partial"
+    },
+    {
+      "id": "GAP-CONTACT-TEACH",
+      "severity": "P1",
+      "affects_steps": [
+        "T07-G2-S5"
+      ],
+      "description": "身份图例/不明≠敌意没有独立教学 gate。",
+      "owner": "content",
+      "target": "加身份图例确认与三项判读验收",
+      "current_status": "partial"
+    },
+    {
+      "id": "GAP-SENSOR-OWNERSHIP",
+      "severity": "P1",
+      "affects_steps": [
+        "T07-G3-S2"
+      ],
+      "description": "scenario_l1_v2.own_entity=harmattan；玩家身份/旗舰是 APSIS，需明确教学切片的“本舰”。",
+      "owner": "content/engine",
+      "target": "明确本舰=哈马丹，或把选中舰与本舰分开",
+      "current_status": "partial"
+    },
+    {
+      "id": "GAP-SENSOR-DELAY",
+      "severity": "P1",
+      "affects_steps": [
+        "T07-G3-S3"
+      ],
+      "description": "中继延迟/待生效/撤销有 UI，但未作为教学验收。",
+      "owner": "content",
+      "target": "用命令队列与撤销事件做 acceptance",
+      "current_status": "partial"
+    },
+    {
+      "id": "GAP-SENSOR-AUTHORITY",
+      "severity": "P1",
+      "affects_steps": [
+        "T07-G3-S4"
+      ],
+      "description": "V17 传感器/探测融合仍为 shadow，不权威。",
+      "owner": "engine",
+      "target": "下一阶段接权威 detection/fusion；当前只验收可见暴露反馈",
+      "current_status": "next_stage"
+    },
+    {
+      "id": "GAP-FIRE-UNSUPPORTED",
+      "severity": "P0",
+      "affects_steps": [
+        "T07-G4-S5"
+      ],
+      "description": "fire_control/missile_solve/weapons_hold 均 supported=false；FIRE 只有脚本化后果。",
+      "owner": "engine",
+      "target": "保留灾难脚本；完整武器留下一阶段",
+      "current_status": "next_stage"
+    },
+    {
+      "id": "GAP-DECISION-GATE",
+      "severity": "P0",
+      "affects_steps": [
+        "T07-G4-S2",
+        "T07-G4-S3",
+        "T07-G4-S4"
+      ],
+      "description": "裁决由 decision_t/decision_open 打开，不是教学目标 gate。",
+      "owner": "content/engine",
+      "target": "用 G1–G3 + G4-S1 验收完成触发裁决",
+      "current_status": "partial"
+    },
+    {
+      "id": "GAP-REPORT-GATE",
+      "severity": "P1",
+      "affects_steps": [
+        "T07-G4-S6"
+      ],
+      "description": "报告页存在，但未与教学目标/裁决验收绑定。",
+      "owner": "content",
+      "target": "报告提交作为 G4 最终验收；不做审判扩展",
+      "current_status": "partial"
+    }
+  ],
+  "acceptance": {
+    "data": [
+      "ConvertFrom-Json 通过",
+      "goals=4，steps=20，order=1..20 唯一",
+      "每步含必填字段且 manual_only=true、auto_complete=false",
+      "全部 expected_text_source key 存在于 docs/23 且为核心",
+      "全部 partial/missing/next_stage 步的 gap_id 在 gaps 中",
+      "timer_to_manual 覆盖 events[1..5]、radio_lines[4..11]、decision_t、tutorial.min_required"
+    ],
+    "play": [
+      "G1：完成 L4-02 → L1 Meridian，执行窗口出现",
+      "G2：能从 L1 读到 L4，并正确判读 9001/9002/2001",
+      "G3：能选中哈马丹号、切 YW-R9、看到暴露反馈，解释中继 8 s 与撤销",
+      "G4：能解释默认不交火，完成 HOLD/EVACUATE/EXPOSE 之一，FIRE 只作灾难分支"
+    ]
+  }
+}

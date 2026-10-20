@@ -90,8 +90,10 @@ const DAMAGE_POPUP := Rect2(1556, 470, 288, 190)
 const TUT_STRIP := Rect2(1556, 482, 144, 18)       # Δv 与传感器架之间；严格止于 MAST_BTN(1704) 之前（P11c 对齐）
 const TUT_STRIP_HIT := Rect2(1556, 478, 144, 26)
 const SENSOR_SHADOW_STRIP := Rect2(1556, 830, 288, 16)  # 右栏底部 READINESS/按钮之间；只读 shadow 对比条
-const TUT_POPUP := Rect2(1556, 470, 288, 190)      # 复用 DAMAGE_POPUP 区域，同屏互斥
-const TUT_DEC_CHIP := Rect2(1556, 600, 288, 24)    # 弹窗内「裁决入口」置灰/解锁行
+const TUT_POPUP := Rect2(460, 220, 1000, 600)       # R6-UI-A：完整 V1 教学弹窗
+const TUT_DEC_CHIP := Rect2(480, 700, 960, 30)
+const TUT_CLOSE_BTN := Rect2(1150, 748, 130, 30)
+const TUT_NEXT_BTN := Rect2(1296, 748, 130, 30)
 const REPLAY_PLAY := Rect2(1768, 886, 44, 12)
 const REPLAY_SEEK_BAND := Rect2(1216, 944, 628, 40)
 const REPLAY_STATUS := Rect2(1496, 886, 336, 12)
@@ -1242,6 +1244,12 @@ func _ready() -> void:
 			# V17-UI-1 截图：右区教学门控条 + 小卡（数据 state.fw_tutorial / bridge）
 			_demo_suppress_adjutant = true
 			_tut_open = true
+		"stage2_tutorial":
+			# R6-UI-A 截图：完整教学弹窗（真实 state.fw_tutorial）
+			_demo_suppress_adjutant = true
+			_tut_open = true
+		"stage2_clean":
+			_demo_suppress_adjutant = true
 		"fw_damage":
 			# V17-UI-1 截图：损管卡 + 详情（数据 state.fw_damage / bridge）
 			_demo_suppress_adjutant = true
@@ -2093,6 +2101,21 @@ func _draw_tracks() -> void:
 		_threat_legend_chip(Rect2(76.0 + float(col) * 96.0, 840.0 + float(row) * 16.0, 92.0, 16.0),
 			String(THR_ORDER[i]))
 
+func _track_flag_polar(t: Dictionary) -> Dictionary:
+	if state == null or not state.has_method("board_pos"):
+		return {}
+	var flag: Dictionary = state.track_by_id("1000") if state.has_method("track_by_id") else {}
+	if flag.is_empty():
+		return {}
+	var tau: float = float(state.tau())
+	var rb: Vector3 = state.board_pos(t, tau) - state.board_pos(flag, tau)
+	var rr := rb.length()
+	if rr < 1.0e-9:
+		return {"range_km": 0.0, "bearing_deg": 0.0, "closing_kmps": 0.0}
+	var rv: Vector3 = state.board_vel(t, tau) - state.board_vel(flag, tau) if state.has_method("board_vel") else Vector3.ZERO
+	return {"range_km": rr, "bearing_deg": fposmod(rad_to_deg(atan2(rb.x, rb.y)), 360.0),
+		"closing_kmps": -rb.dot(rv) / rr}
+
 func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 	var col := _side_color(t)
 	var sel: bool = i == int(state.selected)
@@ -2122,13 +2145,17 @@ func _draw_track_row(t: Dictionary, i: int, y: float) -> void:
 	elif t.get("bearing_only", false):
 		line2 = "方位 302° · 距离未知"
 	else:
-		line2 = "方位 %03d° · %d km" % [int(t.bearing), int(t.range)]
+		var fp := _track_flag_polar(t)
+		if not fp.is_empty():
+			line2 = "方位 %03d° · %d km · 旗舰基准" % [int(round(float(fp.get("bearing_deg", 0.0)))), int(round(float(fp.get("range_km", 0.0))))]
+		else:
+			line2 = "方位 %03d° · %d km" % [int(t.bearing), int(t.range)]
 	_txt(mono, 76, y + 36, line2, 8, Palette.a(Palette.DIM, dim))
 
 	var cl := "编队内"
 	if t.side == "hostile":
-		# 12 军语 P0-11：光一个 km/s 不知道是接近率还是速度。
-		cl = "接近率 %+.1f km/s" % float(t.closing)
+		var fpc := _track_flag_polar(t)
+		cl = "接近率 %+.1f km/s" % (float(fpc.get("closing_kmps", t.closing)) if not fpc.is_empty() else float(t.closing))
 	elif t.get("own", false):
 		cl = "—"
 	_txt_r(mono, 364, y + 36, cl, 8, Palette.a(col, 0.8 * dim))
@@ -2634,6 +2661,18 @@ func _selected_ship_view() -> Dictionary:
 					v["closing"] = "接近率 %+.1f km/s" % cm
 				if sd.get("az_deg") != null:
 					v["azel"] = "AZ %03.0f° / EL %+03.0f°" % [float(sd["az_deg"]), float(sd.get("el_deg", 0.0))]
+		# R6-UI-A：选中/接触距离、方位、接近率以旗舰（1000）为基准。
+		var flag_tr: Dictionary = state.track_by_id("1000") if state.has_method("track_by_id") else {}
+		if not flag_tr.is_empty() and state.has_method("board_pos") and String(tr.get("id", "")) != "1000":
+			var tau_s: float = float(state.tau())
+			var rb: Vector3 = state.board_pos(tr, tau_s) - state.board_pos(flag_tr, tau_s)
+			var rv: Vector3 = state.board_vel(tr, tau_s) - state.board_vel(flag_tr, tau_s) if state.has_method("board_vel") else Vector3.ZERO
+			var rr := rb.length()
+			if rr > 1.0e-9:
+				var brg := fposmod(rad_to_deg(atan2(rb.x, rb.y)), 360.0)
+				v["range"] = _km(rr)
+				v["azel"] = "AZ %03.0f° / EL %+03.0f°" % [brg, rad_to_deg(asin(clampf(rb.z / rr, -1.0, 1.0)))]
+				v["closing"] = "接近率 %+.1f km/s" % (-rb.dot(rv) / rr)
 		if bool(tr.get("own", false)):
 			v["mass"] = _dn(String(u.get("mass", "—")))
 			v["crew"] = _dn(String(u.get("crew", "—")))
@@ -3582,9 +3621,11 @@ func _draw_unit() -> void:
 	# 抬头：跟随 state.selected；敌我使用不同标题与色彩。
 	var own_sel := tr.is_empty() or bool(tr.get("own", false))
 	var side_sel := String(tr.get("side", "friend"))
-	var accent: Color = Palette.PH if own_sel else (Palette.RED if side_sel == "hostile" else Palette.AMBER)
+	var tid_sel := String(tr.get("id", ""))
+	var cmd_sel := own_sel or (side_sel == "friend" and tid_sel in ["1000", "1001", "1002", "1003", "1004"])
+	var accent: Color = Palette.PH if cmd_sel else (Palette.RED if side_sel == "hostile" else Palette.AMBER)
 	draw_rect(Rect2(UNIT_X, 128, 288, 78), Palette.a(accent, 0.055))
-	_txt(cjk, UNIT_X, 138, "选中舰 / SELECTED SHIP" if own_sel else "选中目标 / SELECTED CONTACT", 7, accent)
+	_txt(cjk, UNIT_X, 138, "选中舰 / SELECTED SHIP" if cmd_sel else "选中目标 / SELECTED CONTACT", 7, accent)
 	_txt(cjk, UNIT_X, 152, String(v["name"]), 22, accent)
 	_txt(mono, UNIT_X, 178, String(v["en"]), 8, Palette.DIM)
 	_txt(cjk, UNIT_X, 194, _ellipsis(cjk, "%s · %s" % [String(v["cls"]), String(v["role"])], 10, 288.0),
@@ -3687,7 +3728,7 @@ func _draw_unit() -> void:
 	# P11a：教学门控条（无 state.fw_tutorial 数据时完全不画、不占位）
 	_draw_tut_strip()
 
-	if not own_sel:
+	if not cmd_sel:
 		_draw_target_panel(v, tr, accent)
 	# 证据面板（P2b）
 	_draw_evidence_panel()
@@ -3905,49 +3946,70 @@ func _draw_tut_popup() -> void:
 	if _fw_tut.is_empty() or not _fw_tut_enabled():
 		return
 	var r := TUT_POPUP
-	draw_rect(r, Palette.a(Palette.PANEL, 0.99))
+	draw_rect(Rect2(0, 0, 1540, 1080), Color(0.010, 0.020, 0.016, 0.72))
+	draw_rect(r, Palette.a(Palette.PANEL, 0.995))
 	draw_rect(r, Palette.a(Palette.AMBER if not _fw_tut_ready() else Palette.PH, 0.75), false, 1.0)
 	var prog := _fw_tut_progress()
-	_txt(cjk, r.position.x + 12.0, r.position.y + 18.0, "教学门控 / TUTORIAL", 9, Palette.AMBER)
-	_txt_r(mono, r.end.x - 12.0, r.position.y + 18.0, "%d/%d" % [prog.x, prog.y], 8,
-		Palette.PH if _fw_tut_ready() else Palette.AMBER)
-	draw_line(Vector2(r.position.x + 12.0, r.position.y + 26.0), Vector2(r.end.x - 12.0, r.position.y + 26.0),
-		Palette.a(Palette.AMBER, 0.3), 1.0)
-	var acts := _fw_tut_actions()
-	for i in range(mini(4, acts.size())):
-		var act: Dictionary = acts[i]
-		var y := r.position.y + 44.0 + float(i) * 20.0
-		var acol := _fw_step_color(act)
-		_txt(mono, r.position.x + 12.0, y, _fw_step_glyph(act), 10, acol)
-		_txt(cjk, r.position.x + 28.0, y, _ellipsis(cjk, String(act.get("label", act.get("id", ""))), 8, 150.0),
-			8, Palette.TXT if bool(act.get("done", false)) or bool(act.get("available", true)) else Palette.DIM)
-		_txt_r(cjk, r.end.x - 12.0, y, _fw_step_cn(act), 7, acol)
-		var reason := String(act.get("reason", ""))
-		if reason != "" and not bool(act.get("available", true)):
-			_txt(cjk, r.position.x + 28.0, y + 9.0, _ellipsis(cjk, reason, 6, 248.0), 6,
-				Palette.a(Palette.FAINT, 0.9))
-	# 门控原因
-	_txt(cjk, r.position.x + 12.0, r.position.y + 130.0,
-		_ellipsis(cjk, _fw_tut_gate_reason(), 6, 264.0), 6,
-		Palette.a(Palette.AMBER, 0.9) if not _fw_tut_ready() else Palette.PH)
-	# 裁决入口（未完成 → 置灰 + 原因；完成 → 解锁）
 	var ready := _fw_tut_ready()
+	var title := String(_fw_tut.get("title", ""))
+	if title == "":
+		title = "教学 / TUTORIAL"
+	_txt(cjk, r.position.x + 22.0, r.position.y + 26.0, title, 14, Palette.AMBER if not ready else Palette.PH)
+	_txt(mono, r.end.x - 22.0, r.position.y + 26.0, "STEP %d/%d · %s" % [prog.x, prog.y, "READY" if ready else "GATED"], 8,
+		Palette.PH if ready else Palette.AMBER)
+	draw_line(Vector2(r.position.x + 22.0, r.position.y + 40.0), Vector2(r.end.x - 22.0, r.position.y + 40.0),
+		Palette.a(Palette.AMBER, 0.35), 1.0)
+	var hint := String(_fw_tut.get("hint", ""))
+	hint = hint.replace("{need}", str(prog.y)).replace("{done}", str(prog.x))
+	_txt(cjk, r.position.x + 22.0, r.position.y + 58.0,
+		_ellipsis(cjk, hint if hint != "" else "完成识别链后解锁裁决入口。", 8, 950.0), 8, Palette.a(Palette.DIM, 0.95))
+	var acts := _fw_tut_actions()
+	var current_done := true
+	var y := r.position.y + 88.0
+	_txt(cjk, r.position.x + 22.0, y, "步骤列表 / STEPS", 8, Palette.FAINT)
+	_txt_r(mono, r.end.x - 22.0, y, "state.fw_tutorial.actions", 7, Palette.a(Palette.FAINT, 0.9))
+	y += 16.0
+	if acts.is_empty():
+		_txt(cjk, r.position.x + 22.0, y, "— 无教学步骤（tutorial 未启用或数据为空）", 8, Palette.FAINT)
+	else:
+		for i in range(mini(7, acts.size())):
+			var act: Dictionary = acts[i]
+			var done := bool(act.get("done", false))
+			var avail := bool(act.get("available", true))
+			if not done and current_done:
+				current_done = false
+				draw_rect(Rect2(r.position.x + 16.0, y - 12.0, r.size.x - 32.0, 44.0), Palette.a(Palette.AMBER, 0.07))
+				draw_rect(Rect2(r.position.x + 16.0, y - 12.0, 3.0, 44.0), Palette.a(Palette.AMBER, 0.85))
+			var acol := _fw_step_color(act)
+			_txt(mono, r.position.x + 28.0, y, _fw_step_glyph(act), 11, acol)
+			_txt(mono, r.position.x + 46.0, y - 2.0, "%02d" % (i + 1), 8, Palette.a(Palette.FAINT, 0.9))
+			_txt(cjk, r.position.x + 70.0, y, _ellipsis(cjk, String(act.get("label", act.get("id", ""))), 9, 580.0),
+				9, Palette.TXT if done or avail else Palette.DIM)
+			_txt_r(cjk, r.end.x - 28.0, y, _fw_step_cn(act), 8, acol)
+			var reason := String(act.get("reason", ""))
+			if reason != "" and not done:
+				_txt(cjk, r.position.x + 70.0, y + 13.0, _ellipsis(cjk, reason, 7, 760.0), 7,
+					Palette.a(Palette.AMBER, 0.85) if not avail else Palette.a(Palette.DIM, 0.9))
+			y += 44.0
+			if y > r.position.y + 430.0:
+				break
+	_txt(cjk, r.position.x + 22.0, r.position.y + 458.0, "门控 / GATE", 8, Palette.FAINT)
+	_txt(cjk, r.position.x + 100.0, r.position.y + 458.0,
+		_ellipsis(cjk, _fw_tut_gate_reason(), 8, 850.0), 8,
+		Palette.PH if ready else Palette.AMBER)
+	# 裁决入口 chip
 	var dec_col: Color = Palette.PH if ready else Palette.FAINT
 	draw_rect(TUT_DEC_CHIP, Palette.a(dec_col, 0.06 if not ready else 0.12))
 	draw_rect(TUT_DEC_CHIP, Palette.a(dec_col, 0.55 if ready else 0.28), false, 1.0)
-	_txt(cjk, TUT_DEC_CHIP.position.x + 10.0, TUT_DEC_CHIP.position.y + 8.0,
-		"裁决入口 / DECISION", 8, dec_col)
-	if ready:
-		_txt_r(cjk, TUT_DEC_CHIP.end.x - 10.0, TUT_DEC_CHIP.position.y + 8.0, "已解锁 / READY", 7, Palette.PH)
-		_txt(cjk, TUT_DEC_CHIP.position.x + 10.0, TUT_DEC_CHIP.position.y + 18.0,
-			"识别链完成，执行窗口到点自动开启裁决", 6, Palette.a(Palette.PH_DIM, 0.95))
-	else:
-		_txt_r(cjk, TUT_DEC_CHIP.end.x - 10.0, TUT_DEC_CHIP.position.y + 8.0,
-			"置灰 · 识别不足 %d/%d" % [prog.x, prog.y], 7, Palette.AMBER)
-		_txt(cjk, TUT_DEC_CHIP.position.x + 10.0, TUT_DEC_CHIP.position.y + 18.0,
-			_ellipsis(cjk, _fw_tut_gate_reason(), 6, 268.0), 6, Palette.a(Palette.AMBER, 0.9))
-	_txt(cjk, r.end.x - 12.0, r.end.y - 10.0, "点击条/面板外关闭 · state.fw_tutorial", 6,
-		Palette.a(Palette.FAINT, 0.9))
+	_txt(cjk, TUT_DEC_CHIP.position.x + 10.0, TUT_DEC_CHIP.position.y + 10.0, "裁决入口 / DECISION", 8, dec_col)
+	_txt_r(cjk, TUT_DEC_CHIP.end.x - 10.0, TUT_DEC_CHIP.position.y + 10.0,
+		"已解锁 / READY" if ready else "置灰 · 识别不足 %d/%d" % [prog.x, prog.y], 7,
+		Palette.PH if ready else Palette.AMBER)
+	# 关闭 / 继续
+	_cmd_btn(TUT_CLOSE_BTN, "关闭 / CLOSE", true, Palette.RED)
+	_cmd_btn(TUT_NEXT_BTN, "继续 / CONTINUE", true, Palette.PH if ready else Palette.AMBER)
+	_txt(cjk, r.position.x + 22.0, r.end.y - 18.0,
+		"点击关闭/继续或面板外关闭 · 真实 state.fw_tutorial · 不遮挡右栏关键数据", 7, Palette.FAINT)
 
 
 func _handle_fw_click(p: Vector2) -> bool:
@@ -3959,6 +4021,12 @@ func _handle_fw_click(p: Vector2) -> bool:
 		_sfx("ui_open" if _tut_open else "ui_close")
 		return true
 	if _tut_open:
+		if TUT_CLOSE_BTN.has_point(p) or TUT_NEXT_BTN.has_point(p):
+			_tut_open = false
+			if TUT_NEXT_BTN.has_point(p):
+				_toast("教学继续 · 完成识别步骤后解锁裁决")
+			_sfx("ui_close")
+			return true
 		if TUT_POPUP.has_point(p) or TUT_DEC_CHIP.has_point(p):
 			return true
 	# 损管维修 chip
