@@ -1,0 +1,1861 @@
+{
+  "arrival": {
+    "all_within_gate": true,
+    "gate_radius_km": 3000.0,
+    "gate_speed_kmps": 3.0,
+    "max_error_km": 743.974792480469,
+    "max_speed_kmps": 0.969567537307739,
+    "rows": [
+      {
+        "arrival_error_km": 0.770604610443115,
+        "arrival_speed_kmps": 0.969230055809021,
+        "batch": "1000",
+        "ship_id": "apsis",
+        "within_gate": true
+      },
+      {
+        "arrival_error_km": 244.253112792969,
+        "arrival_speed_kmps": 0.969567537307739,
+        "batch": "1001",
+        "ship_id": "harmattan",
+        "within_gate": true
+      },
+      {
+        "arrival_error_km": 316.059265136719,
+        "arrival_speed_kmps": 0.968803405761719,
+        "batch": "1002",
+        "ship_id": "ferry",
+        "within_gate": true
+      },
+      {
+        "arrival_error_km": 609.339660644531,
+        "arrival_speed_kmps": 0.969529867172241,
+        "batch": "1003",
+        "ship_id": "watchtower",
+        "within_gate": true
+      },
+      {
+        "arrival_error_km": 743.974792480469,
+        "arrival_speed_kmps": 0.96860009431839,
+        "batch": "1004",
+        "ship_id": "deepwell",
+        "within_gate": true
+      }
+    ]
+  },
+  "baseline": {
+    "arrival_error_km": 0.770604610443115,
+    "method": "lambert_seed_cr3bp_shooting",
+    "planner": "transfer_planner.gd",
+    "total_dv_mps": 1822.62325286865
+  },
+  "deterministic": true,
+  "dv": {
+    "avg_total_mps": 1822.44135141373,
+    "max_arrival_mps": 969.567537307739,
+    "max_departure_mps": 853.779852390289,
+    "rows": [
+      {
+        "arrival_dv_mps": 969.230055809021,
+        "batch": "1000",
+        "departure_dv_mps": 853.393197059631,
+        "ship_id": "apsis",
+        "total_dv_mps": 1822.62325286865
+      },
+      {
+        "arrival_dv_mps": 969.567537307739,
+        "batch": "1001",
+        "departure_dv_mps": 853.779852390289,
+        "ship_id": "harmattan",
+        "total_dv_mps": 1823.34738969803
+      },
+      {
+        "arrival_dv_mps": 968.803405761719,
+        "batch": "1002",
+        "departure_dv_mps": 852.911233901978,
+        "ship_id": "ferry",
+        "total_dv_mps": 1821.7146396637
+      },
+      {
+        "arrival_dv_mps": 969.529867172241,
+        "batch": "1003",
+        "departure_dv_mps": 853.719294071198,
+        "ship_id": "watchtower",
+        "total_dv_mps": 1823.24916124344
+      },
+      {
+        "arrival_dv_mps": 968.60009431839,
+        "batch": "1004",
+        "departure_dv_mps": 852.672219276428,
+        "ship_id": "deepwell",
+        "total_dv_mps": 1821.27231359482
+      }
+    ],
+    "sum_arrival_mps": 4845.73096036911,
+    "sum_departure_mps": 4266.47579669952,
+    "sum_total_mps": 9112.20675706863
+  },
+  "fleet": "transit_l4_l1",
+  "generated_by": "fleet_transfer.gd",
+  "samples": [
+    {
+      "progress": 0.0,
+      "ships": [
+        {
+          "batch": "1000",
+          "distance_to_target_km": 359550.34375,
+          "earth_distance_km": 384408.9375,
+          "finite": true,
+          "pos_rot_km": [
+            187009.3125,
+            333210.15625,
+            40.0
+          ],
+          "rel_to_flagship_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rel_to_flagship_mag_km": 0.0,
+          "role": "flagship",
+          "ship_id": "apsis",
+          "vel_rot_kmps": [
+            0.85258287191391,
+            0.0371810756623745,
+            0.0000179707130882889
+          ]
+        },
+        {
+          "batch": "1001",
+          "distance_to_target_km": 359538.40625,
+          "earth_distance_km": 384407.96875,
+          "finite": true,
+          "pos_rot_km": [
+            187021.3125,
+            333202.15625,
+            42.0
+          ],
+          "rel_to_flagship_km": [
+            12.0,
+            -8.0,
+            2.0
+          ],
+          "rel_to_flagship_mag_km": 14.5602197647095,
+          "role": "command",
+          "ship_id": "harmattan",
+          "vel_rot_kmps": [
+            0.852982878684998,
+            0.0368810743093491,
+            0.0000679707154631615
+          ]
+        },
+        {
+          "batch": "1002",
+          "distance_to_target_km": 359565.25,
+          "earth_distance_km": 384410.125,
+          "finite": true,
+          "pos_rot_km": [
+            186994.3125,
+            333220.15625,
+            37.0
+          ],
+          "rel_to_flagship_km": [
+            -15.0,
+            10.0,
+            -3.0
+          ],
+          "rel_to_flagship_mag_km": 18.2756671905518,
+          "role": "escort",
+          "ship_id": "ferry",
+          "vel_rot_kmps": [
+            0.852082848548889,
+            0.0375810749828815,
+            0.0000179707130882889
+          ]
+        },
+        {
+          "batch": "1003",
+          "distance_to_target_km": 359562.1875,
+          "earth_distance_km": 384426.78125,
+          "finite": true,
+          "pos_rot_km": [
+            187017.3125,
+            333226.15625,
+            44.0
+          ],
+          "rel_to_flagship_km": [
+            8.0,
+            16.0,
+            4.0
+          ],
+          "rel_to_flagship_mag_km": 18.3303031921387,
+          "role": "relay",
+          "ship_id": "watchtower",
+          "vel_rot_kmps": [
+            0.852882862091064,
+            0.0377810746431351,
+            -0.0000820292843854986
+          ]
+        },
+        {
+          "batch": "1004",
+          "distance_to_target_km": 359546.71875,
+          "earth_distance_km": 384388.5625,
+          "finite": true,
+          "pos_rot_km": [
+            186989.3125,
+            333198.15625,
+            35.0
+          ],
+          "rel_to_flagship_km": [
+            -20.0,
+            -12.0,
+            -5.0
+          ],
+          "rel_to_flagship_mag_km": 23.8537216186523,
+          "role": "tanker",
+          "ship_id": "deepwell",
+          "vel_rot_kmps": [
+            0.851882874965668,
+            0.0366810746490955,
+            0.000167970720212907
+          ]
+        }
+      ],
+      "t_days": 0.0,
+      "t_s": 0.0
+    },
+    {
+      "progress": 0.1,
+      "ships": [
+        {
+          "batch": "1000",
+          "distance_to_target_km": 341595.53125,
+          "earth_distance_km": 404883.21875,
+          "finite": true,
+          "pos_rot_km": [
+            231028.9375,
+            329205.28125,
+            40.5678405761719
+          ],
+          "rel_to_flagship_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rel_to_flagship_mag_km": 0.0,
+          "role": "flagship",
+          "ship_id": "apsis",
+          "vel_rot_kmps": [
+            0.837406694889069,
+            -0.188166707754135,
+            0.00000424968220613664
+          ]
+        },
+        {
+          "batch": "1001",
+          "distance_to_target_km": 341563.0,
+          "earth_distance_km": 404880.0,
+          "finite": true,
+          "pos_rot_km": [
+            231058.96875,
+            329179.8125,
+            45.1341896057129
+          ],
+          "rel_to_flagship_km": [
+            30.03125,
+            -25.46875,
+            4.56634902954102
+          ],
+          "rel_to_flagship_mag_km": 39.640697479248,
+          "role": "command",
+          "ship_id": "harmattan",
+          "vel_rot_kmps": [
+            0.837709367275238,
+            -0.188566476106644,
+            0.0000531418882019352
+          ]
+        },
+        {
+          "batch": "1002",
+          "distance_to_target_km": 341638.78125,
+          "earth_distance_km": 404889.21875,
+          "finite": true,
+          "pos_rot_km": [
+            230991.15625,
+            329239.71875,
+            37.5949401855469
+          ],
+          "rel_to_flagship_km": [
+            -37.78125,
+            34.4375,
+            -2.972900390625
+          ],
+          "rel_to_flagship_mag_km": 51.2074432373047,
+          "role": "escort",
+          "ship_id": "ferry",
+          "vel_rot_kmps": [
+            0.837035775184631,
+            -0.187641799449921,
+            0.00000526754138263641
+          ]
+        },
+        {
+          "batch": "1003",
+          "distance_to_target_km": 341631.375,
+          "earth_distance_km": 404936.0625,
+          "finite": true,
+          "pos_rot_km": [
+            231056.984375,
+            329250.1875,
+            39.3630332946777
+          ],
+          "rel_to_flagship_km": [
+            28.046875,
+            44.90625,
+            -1.20480728149414
+          ],
+          "rel_to_flagship_mag_km": 52.9589462280273,
+          "role": "relay",
+          "ship_id": "watchtower",
+          "vel_rot_kmps": [
+            0.837881445884705,
+            -0.187643200159073,
+            -0.0000962450139923021
+          ]
+        },
+        {
+          "batch": "1004",
+          "distance_to_target_km": 341579.25,
+          "earth_distance_km": 404821.15625,
+          "finite": true,
+          "pos_rot_km": [
+            230969.015625,
+            329171.84375,
+            43.366096496582
+          ],
+          "rel_to_flagship_km": [
+            -59.921875,
+            -33.4375,
+            2.79825592041016
+          ],
+          "rel_to_flagship_mag_km": 68.6769790649414,
+          "role": "tanker",
+          "ship_id": "deepwell",
+          "vel_rot_kmps": [
+            0.836569428443909,
+            -0.188488975167274,
+            0.000154653956997208
+          ]
+        }
+      ],
+      "t_days": 0.6,
+      "t_s": 51840.0
+    },
+    {
+      "progress": 0.2,
+      "ships": [
+        {
+          "batch": "1000",
+          "distance_to_target_km": 317969.03125,
+          "earth_distance_km": 419248.46875,
+          "finite": true,
+          "pos_rot_km": [
+            273013.5,
+            314103.125,
+            40.4668121337891
+          ],
+          "rel_to_flagship_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rel_to_flagship_mag_km": 0.0,
+          "role": "flagship",
+          "ship_id": "apsis",
+          "vel_rot_kmps": [
+            0.774887323379517,
+            -0.390189737081528,
+            -0.00000794439074525144
+          ]
+        },
+        {
+          "batch": "1001",
+          "distance_to_target_km": 317914.84375,
+          "earth_distance_km": 419240.5625,
+          "finite": true,
+          "pos_rot_km": [
+            273056.09375,
+            314054.90625,
+            47.5250015258789
+          ],
+          "rel_to_flagship_km": [
+            42.59375,
+            -48.21875,
+            7.05818939208984
+          ],
+          "rel_to_flagship_mag_km": 64.7232055664063,
+          "role": "command",
+          "ship_id": "harmattan",
+          "vel_rot_kmps": [
+            0.775071084499359,
+            -0.390664249658585,
+            0.000039204016502481
+          ]
+        },
+        {
+          "batch": "1002",
+          "distance_to_target_km": 318040.65625,
+          "earth_distance_km": 419261.5625,
+          "finite": true,
+          "pos_rot_km": [
+            272960.5625,
+            314167.375,
+            37.5700874328613
+          ],
+          "rel_to_flagship_km": [
+            -52.9375,
+            64.25,
+            -2.89672470092773
+          ],
+          "rel_to_flagship_mag_km": 83.2996520996094,
+          "role": "escort",
+          "ship_id": "ferry",
+          "vel_rot_kmps": [
+            0.774676322937012,
+            -0.389573305845261,
+            -0.00000604222577749169
+          ]
+        },
+        {
+          "batch": "1003",
+          "distance_to_target_km": 318029.0625,
+          "earth_distance_km": 419338.59375,
+          "finite": true,
+          "pos_rot_km": [
+            273070.75,
+            314172.78125,
+            34.0755233764648
+          ],
+          "rel_to_flagship_km": [
+            57.25,
+            69.65625,
+            -6.39128875732422
+          ],
+          "rel_to_flagship_mag_km": 90.3902893066406,
+          "role": "relay",
+          "ship_id": "watchtower",
+          "vel_rot_kmps": [
+            0.775536596775055,
+            -0.389767825603485,
+            -0.000107303058030084
+          ]
+        },
+        {
+          "batch": "1004",
+          "distance_to_target_km": 317940.65625,
+          "earth_distance_km": 419144.03125,
+          "finite": true,
+          "pos_rot_km": [
+            272907.03125,
+            314057.84375,
+            51.0194969177246
+          ],
+          "rel_to_flagship_km": [
+            -106.46875,
+            -45.28125,
+            10.5526847839355
+          ],
+          "rel_to_flagship_mag_km": 116.178077697754,
+          "role": "tanker",
+          "ship_id": "deepwell",
+          "vel_rot_kmps": [
+            0.773936450481415,
+            -0.390324652194977,
+            0.000140461401315406
+          ]
+        }
+      ],
+      "t_days": 1.2,
+      "t_s": 103680.0
+    },
+    {
+      "progress": 0.3,
+      "ships": [
+        {
+          "batch": "1000",
+          "distance_to_target_km": 289547.4375,
+          "earth_distance_km": 427878.1875,
+          "finite": true,
+          "pos_rot_km": [
+            310639.0625,
+            289239.53125,
+            39.7609825134277
+          ],
+          "rel_to_flagship_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rel_to_flagship_mag_km": 0.0,
+          "role": "flagship",
+          "ship_id": "apsis",
+          "vel_rot_kmps": [
+            0.670134007930756,
+            -0.563901841640472,
+            -0.0000191612543858355
+          ]
+        },
+        {
+          "batch": "1001",
+          "distance_to_target_km": 289471.40625,
+          "earth_distance_km": 427863.84375,
+          "finite": true,
+          "pos_rot_km": [
+            310687.65625,
+            289165.3125,
+            49.2059745788574
+          ],
+          "rel_to_flagship_km": [
+            48.59375,
+            -74.21875,
+            9.44499206542969
+          ],
+          "rel_to_flagship_mag_km": 89.213134765625,
+          "role": "command",
+          "ship_id": "harmattan",
+          "vel_rot_kmps": [
+            0.670178294181824,
+            -0.564421772956848,
+            0.0000256814219028456
+          ]
+        },
+        {
+          "batch": "1002",
+          "distance_to_target_km": 289647.53125,
+          "earth_distance_km": 427900.875,
+          "finite": true,
+          "pos_rot_km": [
+            310580.0625,
+            289337.40625,
+            36.9837608337402
+          ],
+          "rel_to_flagship_km": [
+            -59.0,
+            97.875,
+            -2.7772216796875
+          ],
+          "rel_to_flagship_mag_km": 114.316352844238,
+          "role": "escort",
+          "ship_id": "ferry",
+          "vel_rot_kmps": [
+            0.670106112957001,
+            -0.563232600688934,
+            -0.0000164642187883146
+          ]
+        },
+        {
+          "batch": "1003",
+          "distance_to_target_km": 289631.71875,
+          "earth_distance_km": 428007.8125,
+          "finite": true,
+          "pos_rot_km": [
+            310734.21875,
+            289327.5625,
+            28.2780857086182
+          ],
+          "rel_to_flagship_km": [
+            95.15625,
+            88.03125,
+            -11.4828968048096
+          ],
+          "rel_to_flagship_mag_km": 130.138656616211,
+          "role": "relay",
+          "ship_id": "watchtower",
+          "vel_rot_kmps": [
+            0.670951128005981,
+            -0.563610732555389,
+            -0.000116020324639976
+          ]
+        },
+        {
+          "batch": "1004",
+          "distance_to_target_km": 289506.40625,
+          "earth_distance_km": 427729.65625,
+          "finite": true,
+          "pos_rot_km": [
+            310480.8125,
+            289192.28125,
+            57.9112358093262
+          ],
+          "rel_to_flagship_km": [
+            -158.25,
+            -47.25,
+            18.1502532958984
+          ],
+          "rel_to_flagship_mag_km": 166.147689819336,
+          "role": "tanker",
+          "ship_id": "deepwell",
+          "vel_rot_kmps": [
+            0.669089436531067,
+            -0.563838362693787,
+            0.000125227321404964
+          ]
+        }
+      ],
+      "t_days": 1.8,
+      "t_s": 155520.0
+    },
+    {
+      "progress": 0.4,
+      "ships": [
+        {
+          "batch": "1000",
+          "distance_to_target_km": 257085.953125,
+          "earth_distance_km": 430965.5,
+          "finite": true,
+          "pos_rot_km": [
+            341860.40625,
+            256217.59375,
+            38.489875793457
+          ],
+          "rel_to_flagship_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rel_to_flagship_mag_km": 0.0,
+          "role": "flagship",
+          "ship_id": "apsis",
+          "vel_rot_kmps": [
+            0.528784334659576,
+            -0.704066514968872,
+            -0.0000298159611702431
+          ]
+        },
+        {
+          "batch": "1001",
+          "distance_to_target_km": 256988.390625,
+          "earth_distance_km": 430942.75,
+          "finite": true,
+          "pos_rot_km": [
+            341907.15625,
+            256116.078125,
+            50.1874694824219
+          ],
+          "rel_to_flagship_km": [
+            46.75,
+            -101.515625,
+            11.6975936889648
+          ],
+          "rel_to_flagship_mag_km": 112.373565673828,
+          "role": "command",
+          "ship_id": "harmattan",
+          "vel_rot_kmps": [
+            0.528676331043243,
+            -0.704598844051361,
+            0.0000121457806017133
+          ]
+        },
+        {
+          "batch": "1002",
+          "distance_to_target_km": 257214.296875,
+          "earth_distance_km": 430999.65625,
+          "finite": true,
+          "pos_rot_km": [
+            341804.5,
+            256350.671875,
+            35.8717727661133
+          ],
+          "rel_to_flagship_km": [
+            -55.90625,
+            133.078125,
+            -2.61810302734375
+          ],
+          "rel_to_flagship_mag_km": 144.368103027344,
+          "role": "escort",
+          "ship_id": "ferry",
+          "vel_rot_kmps": [
+            0.528953790664673,
+            -0.703387081623077,
+            -0.0000263818346866174
+          ]
+        },
+        {
+          "batch": "1003",
+          "distance_to_target_km": 257196.03125,
+          "earth_distance_km": 431138.34375,
+          "finite": true,
+          "pos_rot_km": [
+            342001.9375,
+            256316.921875,
+            22.0786666870117
+          ],
+          "rel_to_flagship_km": [
+            141.53125,
+            99.328125,
+            -16.4112091064453
+          ],
+          "rel_to_flagship_mag_km": 173.68505859375,
+          "role": "relay",
+          "ship_id": "watchtower",
+          "vel_rot_kmps": [
+            0.529761791229248,
+            -0.703937113285065,
+            -0.000122870158520527
+          ]
+        },
+        {
+          "batch": "1004",
+          "distance_to_target_km": 257031.03125,
+          "earth_distance_km": 430769.96875,
+          "finite": true,
+          "pos_rot_km": [
+            341645.65625,
+            256179.15625,
+            63.9793319702148
+          ],
+          "rel_to_flagship_km": [
+            -214.75,
+            -38.4375,
+            25.4894561767578
+          ],
+          "rel_to_flagship_mag_km": 219.646789550781,
+          "role": "tanker",
+          "ship_id": "deepwell",
+          "vel_rot_kmps": [
+            0.527664482593536,
+            -0.703793704509735,
+            0.000108611886389554
+          ]
+        }
+      ],
+      "t_days": 2.4,
+      "t_s": 207360.0
+    },
+    {
+      "progress": 0.5,
+      "ships": [
+        {
+          "batch": "1000",
+          "distance_to_target_km": 221227.796875,
+          "earth_distance_km": 428552.40625,
+          "finite": true,
+          "pos_rot_km": [
+            364936.0625,
+            216905.546875,
+            36.6727600097656
+          ],
+          "rel_to_flagship_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rel_to_flagship_mag_km": 0.0,
+          "role": "flagship",
+          "ship_id": "apsis",
+          "vel_rot_kmps": [
+            0.356923431158066,
+            -0.805832266807556,
+            -0.0000402941805077717
+          ]
+        },
+        {
+          "batch": "1001",
+          "distance_to_target_km": 221108.859375,
+          "earth_distance_km": 428519.375,
+          "finite": true,
+          "pos_rot_km": [
+            364973.21875,
+            216776.90625,
+            50.4566764831543
+          ],
+          "rel_to_flagship_km": [
+            37.15625,
+            -128.640625,
+            13.7839164733887
+          ],
+          "rel_to_flagship_mag_km": 134.606811523438,
+          "role": "command",
+          "ship_id": "harmattan",
+          "vel_rot_kmps": [
+            0.356657564640045,
+            -0.806341826915741,
+            -0.00000189209265499812
+          ]
+        },
+        {
+          "batch": "1002",
+          "distance_to_target_km": 221384.453125,
+          "earth_distance_km": 428601.65625,
+          "finite": true,
+          "pos_rot_km": [
+            364894.59375,
+            217073.46875,
+            34.2510643005371
+          ],
+          "rel_to_flagship_km": [
+            -41.46875,
+            167.921875,
+            -2.42169570922852
+          ],
+          "rel_to_flagship_mag_km": 172.983459472656,
+          "role": "escort",
+          "ship_id": "ferry",
+          "vel_rot_kmps": [
+            0.357298403978348,
+            -0.805187940597534,
+            -0.0000361537058779504
+          ]
+        },
+        {
+          "batch": "1003",
+          "distance_to_target_km": 221365.40625,
+          "earth_distance_km": 428773.03125,
+          "finite": true,
+          "pos_rot_km": [
+            365132.46875,
+            217006.796875,
+            15.5667085647583
+          ],
+          "rel_to_flagship_km": [
+            196.40625,
+            101.25,
+            -21.1060523986816
+          ],
+          "rel_to_flagship_mag_km": 221.973968505859,
+          "role": "relay",
+          "ship_id": "watchtower",
+          "vel_rot_kmps": [
+            0.358052462339401,
+            -0.80589634180069,
+            -0.000128104496980086
+          ]
+        },
+        {
+          "batch": "1004",
+          "distance_to_target_km": 221156.4375,
+          "earth_distance_km": 428306.5,
+          "finite": true,
+          "pos_rot_km": [
+            364661.75,
+            216887.078125,
+            69.1382064819336
+          ],
+          "rel_to_flagship_km": [
+            -274.3125,
+            -18.46875,
+            32.465446472168
+          ],
+          "rel_to_flagship_mag_km": 276.843719482422,
+          "role": "tanker",
+          "ship_id": "deepwell",
+          "vel_rot_kmps": [
+            0.355743825435638,
+            -0.805339097976685,
+            0.0000900174636626616
+          ]
+        }
+      ],
+      "t_days": 3.0,
+      "t_s": 259200.0
+    },
+    {
+      "progress": 0.6,
+      "ships": [
+        {
+          "batch": "1000",
+          "distance_to_target_km": 182483.296875,
+          "earth_distance_km": 420532.1875,
+          "finite": true,
+          "pos_rot_km": [
+            378447.25,
+            173401.1875,
+            34.3068771362305
+          ],
+          "rel_to_flagship_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rel_to_flagship_mag_km": 0.0,
+          "role": "flagship",
+          "ship_id": "apsis",
+          "vel_rot_kmps": [
+            0.160820856690407,
+            -0.865265071392059,
+            -0.0000510911813762505
+          ]
+        },
+        {
+          "batch": "1001",
+          "distance_to_target_km": 182343.3125,
+          "earth_distance_km": 420486.59375,
+          "finite": true,
+          "pos_rot_km": [
+            378466.71875,
+            173247.578125,
+            49.9700164794922
+          ],
+          "rel_to_flagship_km": [
+            19.46875,
+            -153.609375,
+            15.6631393432617
+          ],
+          "rel_to_flagship_mag_km": 155.62841796875,
+          "role": "command",
+          "ship_id": "harmattan",
+          "vel_rot_kmps": [
+            0.160396263003349,
+            -0.865716516971588,
+            -0.0000171853316714987
+          ]
+        },
+        {
+          "batch": "1002",
+          "distance_to_target_km": 182667.953125,
+          "earth_distance_km": 420599.4375,
+          "finite": true,
+          "pos_rot_km": [
+            378430.65625,
+            173600.796875,
+            32.1180801391602
+          ],
+          "rel_to_flagship_km": [
+            -16.59375,
+            199.609375,
+            -2.18879699707031
+          ],
+          "rel_to_flagship_mag_km": 200.309860229492,
+          "role": "escort",
+          "ship_id": "ferry",
+          "vel_rot_kmps": [
+            0.161402821540833,
+            -0.864700138568878,
+            -0.0000462425778096076
+          ]
+        },
+        {
+          "batch": "1003",
+          "distance_to_target_km": 182651.40625,
+          "earth_distance_km": 420806.03125,
+          "finite": true,
+          "pos_rot_km": [
+            378706.0625,
+            173493.46875,
+            8.82342720031738
+          ],
+          "rel_to_flagship_km": [
+            258.8125,
+            92.28125,
+            -25.4834499359131
+          ],
+          "rel_to_flagship_mag_km": 275.951324462891,
+          "role": "relay",
+          "ship_id": "watchtower",
+          "vel_rot_kmps": [
+            0.162093564867973,
+            -0.865546226501465,
+            -0.000131789187435061
+          ]
+        },
+        {
+          "batch": "1004",
+          "distance_to_target_km": 182391.71875,
+          "earth_distance_km": 420231.03125,
+          "finite": true,
+          "pos_rot_km": [
+            378110.71875,
+            173414.28125,
+            73.2589721679688
+          ],
+          "rel_to_flagship_km": [
+            -336.53125,
+            13.09375,
+            38.9520950317383
+          ],
+          "rel_to_flagship_mag_km": 339.030975341797,
+          "role": "tanker",
+          "ship_id": "deepwell",
+          "vel_rot_kmps": [
+            0.159593939781189,
+            -0.864534914493561,
+            0.0000682913378113881
+          ]
+        }
+      ],
+      "t_days": 3.6,
+      "t_s": 311040.0
+    },
+    {
+      "progress": 0.7,
+      "ships": [
+        {
+          "batch": "1000",
+          "distance_to_target_km": 141171.59375,
+          "earth_distance_km": 406625.6875,
+          "finite": true,
+          "pos_rot_km": [
+            381294.78125,
+            127965.2109375,
+            31.3539524078369
+          ],
+          "rel_to_flagship_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rel_to_flagship_mag_km": 0.0,
+          "role": "flagship",
+          "ship_id": "apsis",
+          "vel_rot_kmps": [
+            -0.053550511598587,
+            -0.880290269851685,
+            -0.0000631957955192775
+          ]
+        },
+        {
+          "batch": "1001",
+          "distance_to_target_km": 141009.578125,
+          "earth_distance_km": 406564.1875,
+          "finite": true,
+          "pos_rot_km": [
+            381288.1875,
+            127789.6328125,
+            48.6260299682617
+          ],
+          "rel_to_flagship_km": [
+            -6.59375,
+            -175.578125,
+            17.2720775604248
+          ],
+          "rel_to_flagship_mag_km": 176.548797607422,
+          "role": "command",
+          "ship_id": "harmattan",
+          "vel_rot_kmps": [
+            -0.054131805896759,
+            -0.880654096603394,
+            -0.000035405970265856
+          ]
+        },
+        {
+          "batch": "1002",
+          "distance_to_target_km": 141383.921875,
+          "earth_distance_km": 406714.40625,
+          "finite": true,
+          "pos_rot_km": [
+            381313.5,
+            128190.578125,
+            29.4360122680664
+          ],
+          "rel_to_flagship_km": [
+            18.71875,
+            225.3671875,
+            -1.91794013977051
+          ],
+          "rel_to_flagship_mag_km": 226.1513671875,
+          "role": "escort",
+          "ship_id": "ferry",
+          "vel_rot_kmps": [
+            -0.052764005959034,
+            -0.87983638048172,
+            -0.0000575752965232823
+          ]
+        },
+        {
+          "batch": "1003",
+          "distance_to_target_km": 141374.484375,
+          "earth_distance_km": 406959.625,
+          "finite": true,
+          "pos_rot_km": [
+            381623.03125,
+            128036.265625,
+            1.9328111410141
+          ],
+          "rel_to_flagship_km": [
+            328.25,
+            71.0546875,
+            -29.4211406707764
+          ],
+          "rel_to_flagship_mag_km": 337.138580322266,
+          "role": "relay",
+          "ship_id": "watchtower",
+          "vel_rot_kmps": [
+            -0.0521436668932438,
+            -0.880825459957123,
+            -0.000133714900584891
+          ]
+        },
+        {
+          "batch": "1004",
+          "distance_to_target_km": 141054.59375,
+          "earth_distance_km": 406262.75,
+          "finite": true,
+          "pos_rot_km": [
+            380893.65625,
+            128021.765625,
+            76.1189117431641
+          ],
+          "rel_to_flagship_km": [
+            -401.125,
+            56.5546875,
+            44.7649612426758
+          ],
+          "rel_to_flagship_mag_km": 407.55810546875,
+          "role": "tanker",
+          "ship_id": "deepwell",
+          "vel_rot_kmps": [
+            -0.0548111759126186,
+            -0.879310846328735,
+            0.0000406253420806024
+          ]
+        }
+      ],
+      "t_days": 4.2,
+      "t_s": 362880.0
+    },
+    {
+      "progress": 0.8,
+      "ships": [
+        {
+          "batch": "1000",
+          "distance_to_target_km": 97264.2265625,
+          "earth_distance_km": 386332.34375,
+          "finite": true,
+          "pos_rot_km": [
+            372672.90625,
+            82852.234375,
+            27.680290222168
+          ],
+          "rel_to_flagship_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rel_to_flagship_mag_km": 0.0,
+          "role": "flagship",
+          "ship_id": "apsis",
+          "vel_rot_kmps": [
+            -0.280697554349899,
+            -0.854305684566498,
+            -0.0000799248009570874
+          ]
+        },
+        {
+          "batch": "1001",
+          "distance_to_target_km": 97078.90625,
+          "earth_distance_km": 386251.375,
+          "finite": true,
+          "pos_rot_km": [
+            372632.1875,
+            82659.8125,
+            46.1568908691406
+          ],
+          "rel_to_flagship_km": [
+            -40.71875,
+            -192.421875,
+            18.4766006469727
+          ],
+          "rel_to_flagship_mag_km": 197.548919677734,
+          "role": "command",
+          "ship_id": "harmattan",
+          "vel_rot_kmps": [
+            -0.281426221132278,
+            -0.854601442813873,
+            -0.0000624389940639958
+          ]
+        },
+        {
+          "batch": "1002",
+          "distance_to_target_km": 97507.3984375,
+          "earth_distance_km": 386447.59375,
+          "finite": true,
+          "pos_rot_km": [
+            372736.8125,
+            83098.2109375,
+            26.0786685943604
+          ],
+          "rel_to_flagship_km": [
+            63.90625,
+            245.9765625,
+            -1.60162162780762
+          ],
+          "rel_to_flagship_mag_km": 254.147674560547,
+          "role": "escort",
+          "ship_id": "ferry",
+          "vel_rot_kmps": [
+            -0.279718428850174,
+            -0.853949546813965,
+            -0.0000732561311451718
+          ]
+        },
+        {
+          "batch": "1003",
+          "distance_to_target_km": 97506.1796875,
+          "earth_distance_km": 386734.09375,
+          "finite": true,
+          "pos_rot_km": [
+            373076.3125,
+            82888.234375,
+            -4.99096298217773
+          ],
+          "rel_to_flagship_km": [
+            403.40625,
+            36.0,
+            -32.6712532043457
+          ],
+          "rel_to_flagship_mag_km": 406.325012207031,
+          "role": "relay",
+          "ship_id": "watchtower",
+          "vel_rot_kmps": [
+            -0.279201537370682,
+            -0.855129659175873,
+            -0.000132639397634193
+          ]
+        },
+        {
+          "batch": "1004",
+          "distance_to_target_km": 97119.1796875,
+          "earth_distance_km": 385901.0,
+          "finite": true,
+          "pos_rot_km": [
+            372206.0625,
+            82966.796875,
+            77.2101287841797
+          ],
+          "rel_to_flagship_km": [
+            -466.84375,
+            114.5625,
+            49.5298385620117
+          ],
+          "rel_to_flagship_mag_km": 483.239959716797,
+          "role": "tanker",
+          "ship_id": "deepwell",
+          "vel_rot_kmps": [
+            -0.281943589448929,
+            -0.853025317192078,
+            -0.00000315624788527202
+          ]
+        }
+      ],
+      "t_days": 4.8,
+      "t_s": 414720.0
+    },
+    {
+      "progress": 0.9,
+      "ships": [
+        {
+          "batch": "1000",
+          "distance_to_target_km": 50066.46875,
+          "earth_distance_km": 359111.25,
+          "finite": true,
+          "pos_rot_km": [
+            352237.6875,
+            39715.3515625,
+            22.7219200134277
+          ],
+          "rel_to_flagship_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rel_to_flagship_mag_km": 0.0,
+          "role": "flagship",
+          "ship_id": "apsis",
+          "vel_rot_kmps": [
+            -0.501664042472839,
+            -0.809971392154694,
+            -0.000118039475637488
+          ]
+        },
+        {
+          "batch": "1001",
+          "distance_to_target_km": 49851.71484375,
+          "earth_distance_km": 359009.125,
+          "finite": true,
+          "pos_rot_km": [
+            352158.1875,
+            39505.83203125,
+            41.5058670043945
+          ],
+          "rel_to_flagship_km": [
+            -79.5,
+            -209.51953125,
+            18.7839469909668
+          ],
+          "rel_to_flagship_mag_km": 224.881118774414,
+          "role": "command",
+          "ship_id": "harmattan",
+          "vel_rot_kmps": [
+            -0.502331852912903,
+            -0.810364127159119,
+            -0.000129792315419763
+          ]
+        },
+        {
+          "batch": "1002",
+          "distance_to_target_km": 50348.4140625,
+          "earth_distance_km": 359255.90625,
+          "finite": true,
+          "pos_rot_km": [
+            352353.53125,
+            39981.54296875,
+            21.5173358917236
+          ],
+          "rel_to_flagship_km": [
+            115.84375,
+            266.19140625,
+            -1.2045841217041
+          ],
+          "rel_to_flagship_mag_km": 290.308624267578,
+          "role": "escort",
+          "ship_id": "ferry",
+          "vel_rot_kmps": [
+            -0.500760436058044,
+            -0.809518396854401,
+            -0.000108982938400004
+          ]
+        },
+        {
+          "batch": "1003",
+          "distance_to_target_km": 50342.1953125,
+          "earth_distance_km": 359585.46875,
+          "finite": true,
+          "pos_rot_km": [
+            352717.15625,
+            39694.42578125,
+            -11.6217460632324
+          ],
+          "rel_to_flagship_km": [
+            479.46875,
+            -20.92578125,
+            -34.3436660766602
+          ],
+          "rel_to_flagship_mag_km": 481.152435302734,
+          "role": "relay",
+          "ship_id": "watchtower",
+          "vel_rot_kmps": [
+            -0.500265300273895,
+            -0.811588168144226,
+            -0.000118672862299718
+          ]
+        },
+        {
+          "batch": "1004",
+          "distance_to_target_km": 49908.1328125,
+          "earth_distance_km": 358608.59375,
+          "finite": true,
+          "pos_rot_km": [
+            351709.5625,
+            39915.375,
+            74.6450881958008
+          ],
+          "rel_to_flagship_km": [
+            -528.125,
+            200.0234375,
+            51.923168182373
+          ],
+          "rel_to_flagship_mag_km": 567.11669921875,
+          "role": "tanker",
+          "ship_id": "deepwell",
+          "vel_rot_kmps": [
+            -0.502847671508789,
+            -0.80763304233551,
+            -0.000118565192678943
+          ]
+        }
+      ],
+      "t_days": 5.4,
+      "t_s": 466560.0
+    },
+    {
+      "progress": 1.0,
+      "ships": [
+        {
+          "batch": "1000",
+          "distance_to_target_km": 0.770604610443115,
+          "earth_distance_km": 326540.75,
+          "finite": true,
+          "pos_rot_km": [
+            321870.0625,
+            -89.2396011352539,
+            15.0000343322754
+          ],
+          "rel_to_flagship_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rel_to_flagship_mag_km": 0.0,
+          "role": "flagship",
+          "ship_id": "apsis",
+          "vel_rot_kmps": [
+            -0.670676708221436,
+            -0.699713945388794,
+            -0.000173026885022409
+          ]
+        },
+        {
+          "batch": "1001",
+          "distance_to_target_km": 244.253112792969,
+          "earth_distance_km": 326433.3125,
+          "finite": true,
+          "pos_rot_km": [
+            321762.46875,
+            -308.578247070313,
+            31.7275276184082
+          ],
+          "rel_to_flagship_km": [
+            -107.59375,
+            -219.338653564453,
+            16.7274932861328
+          ],
+          "rel_to_flagship_mag_km": 244.878890991211,
+          "role": "command",
+          "ship_id": "harmattan",
+          "vel_rot_kmps": [
+            -0.671281099319458,
+            -0.699601888656616,
+            -0.00023622477601748
+          ]
+        },
+        {
+          "batch": "1002",
+          "distance_to_target_km": 316.059265136719,
+          "earth_distance_km": 326695.8125,
+          "finite": true,
+          "pos_rot_km": [
+            322025.0625,
+            185.511825561523,
+            14.351450920105
+          ],
+          "rel_to_flagship_km": [
+            155.0,
+            274.751434326172,
+            -0.64858341217041
+          ],
+          "rel_to_flagship_mag_km": 315.458038330078,
+          "role": "escort",
+          "ship_id": "ferry",
+          "vel_rot_kmps": [
+            -0.669807136058807,
+            -0.699956059455872,
+            -0.000161178104463033
+          ]
+        },
+        {
+          "batch": "1003",
+          "distance_to_target_km": 609.339660644531,
+          "earth_distance_km": 327128.78125,
+          "finite": true,
+          "pos_rot_km": [
+            322458.0,
+            -247.374664306641,
+            -16.6944179534912
+          ],
+          "rel_to_flagship_km": [
+            587.9375,
+            -158.135070800781,
+            -31.6944522857666
+          ],
+          "rel_to_flagship_mag_km": 609.657043457031,
+          "role": "relay",
+          "ship_id": "watchtower",
+          "vel_rot_kmps": [
+            -0.66761314868927,
+            -0.703051090240479,
+            -0.0000774184518377297
+          ]
+        },
+        {
+          "batch": "1004",
+          "distance_to_target_km": 743.974792480469,
+          "earth_distance_km": 325901.875,
+          "finite": true,
+          "pos_rot_km": [
+            321231.0625,
+            287.769195556641,
+            63.0438003540039
+          ],
+          "rel_to_flagship_km": [
+            -639.0,
+            377.0087890625,
+            48.0437660217285
+          ],
+          "rel_to_flagship_mag_km": 743.481567382813,
+          "role": "tanker",
+          "ship_id": "deepwell",
+          "vel_rot_kmps": [
+            -0.673923969268799,
+            -0.695710122585297,
+            -0.000311817799229175
+          ]
+        }
+      ],
+      "t_days": 6.0,
+      "t_s": 518400.0
+    }
+  ],
+  "schema": "v17_fleet_transfer_cache.v1",
+  "ships": [
+    {
+      "arrival_dv_mps": 969.230055809021,
+      "arrival_dv_rot": [
+        0.670676708221436,
+        0.699713945388794,
+        0.000173026885022409
+      ],
+      "arrival_error_km": 0.770604610443115,
+      "arrival_speed_kmps": 0.969230055809021,
+      "arrival_state_rot": {
+        "r": [
+          321870.0625,
+          -89.2396011352539,
+          15.0000343322754
+        ],
+        "v": [
+          -0.670676708221436,
+          -0.699713945388794,
+          -0.000173026885022409
+        ]
+      },
+      "batch": "1000",
+      "departure_dv_mps": 853.393197059631,
+      "departure_dv_rot": [
+        0.85258287191391,
+        0.0371810756623745,
+        0.0000179707130882889
+      ],
+      "departure_state_rot": {
+        "r": [
+          187009.3125,
+          333210.15625,
+          40.0
+        ],
+        "v": [
+          0.85258287191391,
+          0.0371810756623745,
+          0.0000179707130882889
+        ]
+      },
+      "gate_radius_km": 3000.0,
+      "gate_speed_kmps": 3.0,
+      "independent_propagation": true,
+      "initial_state_rot": {
+        "r": [
+          187009.3125,
+          333210.15625,
+          40.0
+        ],
+        "v": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "offset_km": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "offset_kmps": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "propagated_steps": 8640,
+      "role": "flagship",
+      "ship_id": "apsis",
+      "total_dv_mps": 1822.62325286865,
+      "within_gate": true
+    },
+    {
+      "arrival_dv_mps": 969.567537307739,
+      "arrival_dv_rot": [
+        0.671281099319458,
+        0.699601888656616,
+        0.00023622477601748
+      ],
+      "arrival_error_km": 244.253112792969,
+      "arrival_speed_kmps": 0.969567537307739,
+      "arrival_state_rot": {
+        "r": [
+          321762.46875,
+          -308.578247070313,
+          31.7275276184082
+        ],
+        "v": [
+          -0.671281099319458,
+          -0.699601888656616,
+          -0.00023622477601748
+        ]
+      },
+      "batch": "1001",
+      "departure_dv_mps": 853.779852390289,
+      "departure_dv_rot": [
+        0.852982878684998,
+        0.0368810743093491,
+        0.0000679707154631615
+      ],
+      "departure_state_rot": {
+        "r": [
+          187021.3125,
+          333202.15625,
+          42.0
+        ],
+        "v": [
+          0.852982878684998,
+          0.0368810743093491,
+          0.0000679707154631615
+        ]
+      },
+      "gate_radius_km": 3000.0,
+      "gate_speed_kmps": 3.0,
+      "independent_propagation": true,
+      "initial_state_rot": {
+        "r": [
+          187021.3125,
+          333202.15625,
+          42.0
+        ],
+        "v": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "offset_km": [
+        12.0,
+        -8.0,
+        2.0
+      ],
+      "offset_kmps": [
+        0.0004,
+        -0.0003,
+        0.00005
+      ],
+      "propagated_steps": 8640,
+      "role": "command",
+      "ship_id": "harmattan",
+      "total_dv_mps": 1823.34738969803,
+      "within_gate": true
+    },
+    {
+      "arrival_dv_mps": 968.803405761719,
+      "arrival_dv_rot": [
+        0.669807136058807,
+        0.699956059455872,
+        0.000161178104463033
+      ],
+      "arrival_error_km": 316.059265136719,
+      "arrival_speed_kmps": 0.968803405761719,
+      "arrival_state_rot": {
+        "r": [
+          322025.0625,
+          185.511825561523,
+          14.351450920105
+        ],
+        "v": [
+          -0.669807136058807,
+          -0.699956059455872,
+          -0.000161178104463033
+        ]
+      },
+      "batch": "1002",
+      "departure_dv_mps": 852.911233901978,
+      "departure_dv_rot": [
+        0.852082848548889,
+        0.0375810749828815,
+        0.0000179707130882889
+      ],
+      "departure_state_rot": {
+        "r": [
+          186994.3125,
+          333220.15625,
+          37.0
+        ],
+        "v": [
+          0.852082848548889,
+          0.0375810749828815,
+          0.0000179707130882889
+        ]
+      },
+      "gate_radius_km": 3000.0,
+      "gate_speed_kmps": 3.0,
+      "independent_propagation": true,
+      "initial_state_rot": {
+        "r": [
+          186994.3125,
+          333220.15625,
+          37.0
+        ],
+        "v": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "offset_km": [
+        -15.0,
+        10.0,
+        -3.0
+      ],
+      "offset_kmps": [
+        -0.0005,
+        0.0004,
+        0.0
+      ],
+      "propagated_steps": 8640,
+      "role": "escort",
+      "ship_id": "ferry",
+      "total_dv_mps": 1821.7146396637,
+      "within_gate": true
+    },
+    {
+      "arrival_dv_mps": 969.529867172241,
+      "arrival_dv_rot": [
+        0.66761314868927,
+        0.703051090240479,
+        0.0000774184518377297
+      ],
+      "arrival_error_km": 609.339660644531,
+      "arrival_speed_kmps": 0.969529867172241,
+      "arrival_state_rot": {
+        "r": [
+          322458.0,
+          -247.374664306641,
+          -16.6944179534912
+        ],
+        "v": [
+          -0.66761314868927,
+          -0.703051090240479,
+          -0.0000774184518377297
+        ]
+      },
+      "batch": "1003",
+      "departure_dv_mps": 853.719294071198,
+      "departure_dv_rot": [
+        0.852882862091064,
+        0.0377810746431351,
+        -0.0000820292843854986
+      ],
+      "departure_state_rot": {
+        "r": [
+          187017.3125,
+          333226.15625,
+          44.0
+        ],
+        "v": [
+          0.852882862091064,
+          0.0377810746431351,
+          -0.0000820292843854986
+        ]
+      },
+      "gate_radius_km": 3000.0,
+      "gate_speed_kmps": 3.0,
+      "independent_propagation": true,
+      "initial_state_rot": {
+        "r": [
+          187017.3125,
+          333226.15625,
+          44.0
+        ],
+        "v": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "offset_km": [
+        8.0,
+        16.0,
+        4.0
+      ],
+      "offset_kmps": [
+        0.0003,
+        0.0006,
+        -0.0001
+      ],
+      "propagated_steps": 8640,
+      "role": "relay",
+      "ship_id": "watchtower",
+      "total_dv_mps": 1823.24916124344,
+      "within_gate": true
+    },
+    {
+      "arrival_dv_mps": 968.60009431839,
+      "arrival_dv_rot": [
+        0.673923969268799,
+        0.695710122585297,
+        0.000311817799229175
+      ],
+      "arrival_error_km": 743.974792480469,
+      "arrival_speed_kmps": 0.96860009431839,
+      "arrival_state_rot": {
+        "r": [
+          321231.0625,
+          287.769195556641,
+          63.0438003540039
+        ],
+        "v": [
+          -0.673923969268799,
+          -0.695710122585297,
+          -0.000311817799229175
+        ]
+      },
+      "batch": "1004",
+      "departure_dv_mps": 852.672219276428,
+      "departure_dv_rot": [
+        0.851882874965668,
+        0.0366810746490955,
+        0.000167970720212907
+      ],
+      "departure_state_rot": {
+        "r": [
+          186989.3125,
+          333198.15625,
+          35.0
+        ],
+        "v": [
+          0.851882874965668,
+          0.0366810746490955,
+          0.000167970720212907
+        ]
+      },
+      "gate_radius_km": 3000.0,
+      "gate_speed_kmps": 3.0,
+      "independent_propagation": true,
+      "initial_state_rot": {
+        "r": [
+          186989.3125,
+          333198.15625,
+          35.0
+        ],
+        "v": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "offset_km": [
+        -20.0,
+        -12.0,
+        -5.0
+      ],
+      "offset_kmps": [
+        -0.0007,
+        -0.0005,
+        0.00015
+      ],
+      "propagated_steps": 8640,
+      "role": "tanker",
+      "ship_id": "deepwell",
+      "total_dv_mps": 1821.27231359482,
+      "within_gate": true
+    }
+  ],
+  "source_port": "L4-02 Hammer",
+  "target_port": "L1-Meridian-05",
+  "tof_days": 6.0,
+  "tof_s": 518400.0
+}
