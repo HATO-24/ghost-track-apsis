@@ -226,7 +226,16 @@ func _arrive() -> void:
 
 
 func _complete() -> void:
-	_result(controller.complete(), "COMPLETE")
+	var res: Dictionary = controller.complete()
+	_result(res, "COMPLETE")
+	if bool(res.get("ok", false)) and controller.state == "COMPLETE":
+		var saved_name := String(controller.player_name)
+		if saved_name == "":
+			saved_name = "沧澜"
+		get_tree().root.set_meta("player_name", saved_name)
+		OS.set_environment("DSH_PLAYER_NAME", saved_name)
+		_log("FLOW COMPLETE → game_shell.tscn · name=" + saved_name)
+		get_tree().change_scene_to_file("res://game_shell.tscn")
 
 
 func _result(res: Dictionary, action: String) -> void:

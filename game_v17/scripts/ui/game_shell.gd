@@ -44,6 +44,12 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	binder = ShellBinder.new()
+	var pname := OS.get_environment("DSH_PLAYER_NAME")
+	if pname == "":
+		pname = String(get_tree().root.get_meta("player_name", ""))
+	if pname == "":
+		pname = "沧澜"
+	binder.commander = "指挥官 · " + pname
 	var ok: bool = binder.boot()
 	binder.seed_timers()
 	print("[GAME SHELL] boot=", str(ok), " errors=", str(binder.errors), " contacts=", binder.contacts.size(), " orders=", binder.commands.size())
@@ -322,7 +328,7 @@ class ProdTop extends Control:
 		var scale := float(binder.session.time.scale) if binder != null and binder.session != null else 1.0
 		var paused := bool(binder.session.time.paused) if binder != null and binder.session != null else false
 		draw_string(cjk, Vector2(16, 20), "指挥官 / COMMANDER", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, PP.a(PP.PH, 0.75))
-		draw_string(cjk, Vector2(16, 38), "指挥官 · 沧澜", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, PP.PH)
+		draw_string(cjk, Vector2(16, 38), String(binder.commander) if binder != null else "指挥官 · 沧澜", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, PP.PH)
 		draw_string(mono, Vector2(16, 55), "MISSION T+%02d:%02d · L1 港内 %s · ×%.0f %s" % [int(t_s) / 60, int(t_s) % 60, _port_clock(), scale, "PAUSED" if paused else "RUNNING"], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, PP.a(PP.DIM, 0.95))
 		draw_string(cjk, Vector2(360, 20), "动态计时 / EVENTBUS", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, PP.a(PP.FAINT, 0.95))
 		var timers: Array = binder.timers() if binder != null else []

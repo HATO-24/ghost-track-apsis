@@ -13,7 +13,7 @@ const BriefingPanel := preload("res://scripts/ui/briefing_panel.gd")
 
 const STORY_PATH := "res://framework/content/story_l1.json"
 const SCENARIO_PATH := "res://framework/content/scenario_transit_l4_l1.json"
-const SHELL_SCENE := "res://game_shell.tscn"
+const NAV_SCENE := "res://nav_page.tscn"
 const BRIEFING_DATE := "2193-11-07"
 
 # 文本 key（内容层）：不在脚本硬编码简报正文。
@@ -230,13 +230,17 @@ func _show_briefing() -> void:
 	_briefing = BriefingPanel.new()
 	_briefing.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_briefing.set_data(_load_briefing_data())
-	_briefing.continue_requested.connect(_enter_shell)
-	_briefing.skip_requested.connect(_enter_shell)
+	_briefing.continue_requested.connect(_enter_nav)
+	_briefing.skip_requested.connect(_enter_nav)
 	add_child(_briefing)
 
 
-func _enter_shell() -> void:
-	get_tree().change_scene_to_file(SHELL_SCENE)
+func _enter_nav() -> void:
+	# 名字经 root meta/OS env 传入 nav；不自动跳过简报。
+	if _name != "":
+		get_tree().root.set_meta("player_name", _name)
+		OS.set_environment("DSH_PLAYER_NAME", _name)
+	get_tree().change_scene_to_file(NAV_SCENE)
 
 
 func _process(_delta: float) -> void:
