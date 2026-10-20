@@ -44,6 +44,7 @@ func boot() -> bool:
 		"story_state": true,
 		"sensor_service": sensor_cfg,
 		"signal_service": true,
+		"facility_registry": true,
 		"orders": [
 			{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
 		],
@@ -199,10 +200,62 @@ func _build_contacts() -> Array:
 			continue
 		var e: Dictionary = entity_by_id[eid]
 		var kind := String(e.get("kind", "ship"))
-		rows.append({"id": String(e.get("batch", eid)), "entity_id": String(eid), "track_id": "",
+		var row := {"id": String(e.get("batch", eid)), "entity_id": String(eid), "track_id": "",
 			"name": String(e.get("name", eid)), "cls": kind.to_upper(),
 			"type": "station" if kind == "station" else "friendly", "side": "friend",
-			"threat": "none", "badge": "ENTITY", "level": 0, "range_km": -1.0, "sources": []})
+			"threat": "none", "badge": "ENTITY", "level": 0, "range_km": -1.0, "sources": []}
+		if kind == "station" and session != null and session.facility_registry != null:
+			var f: Dictionary = session.facility_for_entity(eid)
+			if not f.is_empty():
+				var card: Dictionary = session.facility_lookup(String(f.get("facility_id", "")))
+				var fac: Dictionary = card.get("facility", f) if card.get("facility", {}) is Dictionary else f
+				var cluster: Dictionary = card.get("cluster", {}) if card.get("cluster", {}) is Dictionary else {}
+				row["facility_id"] = String(fac.get("facility_id", ""))
+				row["facility_name"] = String(fac.get("name", ""))
+				row["facility_code"] = String(fac.get("facility_code", ""))
+				row["transponder_code"] = String(fac.get("transponder_code", ""))
+				row["transponder_type"] = String(fac.get("transponder_type", ""))
+				row["facility_class"] = String(fac.get("facility_class", ""))
+				row["owner"] = String(fac.get("owner", ""))
+				row["side"] = String(fac.get("side", "friend"))
+				row["cluster_id"] = String(fac.get("parent_cluster", ""))
+				row["cluster_name"] = String(cluster.get("name", ""))
+				row["services"] = (fac.get("services", []) as Array).duplicate()
+				row["ports"] = (fac.get("ports", []) as Array).duplicate(true)
+				row["physical"] = (fac.get("physical", {}) as Dictionary).duplicate(true)
+				row["badge"] = "FACILITY"
+				row["cls"] = "设施 · " + String(fac.get("facility_class", "")) + " · " + String(fac.get("facility_code", "")) + " · " + String(fac.get("transponder_code", ""))
+		rows.append(row)
+	# 已存在 track 行的 station/设施接触也补 facility 映射（entity row 可能因 track 已存在而跳过）。
+	if session != null and session.facility_registry != null:
+		for row in rows:
+			var rr: Dictionary = row
+			if String(rr.get("facility_id", "")) != "":
+				continue
+			var reid := String(rr.get("entity_id", ""))
+			if reid == "":
+				continue
+			var f2: Dictionary = session.facility_for_entity(reid)
+			if f2.is_empty():
+				continue
+			var card2: Dictionary = session.facility_lookup(String(f2.get("facility_id", "")))
+			var fac2: Dictionary = card2.get("facility", f2) if card2.get("facility", {}) is Dictionary else f2
+			var cluster2: Dictionary = card2.get("cluster", {}) if card2.get("cluster", {}) is Dictionary else {}
+			rr["facility_id"] = String(fac2.get("facility_id", ""))
+			rr["facility_name"] = String(fac2.get("name", ""))
+			rr["facility_code"] = String(fac2.get("facility_code", ""))
+			rr["transponder_code"] = String(fac2.get("transponder_code", ""))
+			rr["transponder_type"] = String(fac2.get("transponder_type", ""))
+			rr["facility_class"] = String(fac2.get("facility_class", ""))
+			rr["owner"] = String(fac2.get("owner", ""))
+			rr["side"] = String(fac2.get("side", "friend"))
+			rr["cluster_id"] = String(fac2.get("parent_cluster", ""))
+			rr["cluster_name"] = String(cluster2.get("name", ""))
+			rr["services"] = (fac2.get("services", []) as Array).duplicate()
+			rr["ports"] = (fac2.get("ports", []) as Array).duplicate(true)
+			rr["physical"] = (fac2.get("physical", {}) as Dictionary).duplicate(true)
+			rr["badge"] = "FACILITY"
+			rr["cls"] = "设施 · " + String(fac2.get("facility_class", "")) + " · " + String(fac2.get("facility_code", "")) + " · " + String(fac2.get("transponder_code", ""))
 	# 动态 signal targets（core signal_service.targets）补进接触列表，供任意 side 灯语/ELINT；
 	# 明确 badge=SIGNAL，不是伪造 world 实体。
 	if session != null and session.signal_service != null:

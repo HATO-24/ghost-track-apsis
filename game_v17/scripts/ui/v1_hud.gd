@@ -183,7 +183,13 @@ func _load_data() -> void:
 	var dok: bool = _damage.setup({}, "apsis")
 	print("[V1 HUD] damage_model=", str(dok), " sections=", _damage.section_ids().size(), " combat=", str(_combat.ready), " roe=", String(_combat.roe) if _combat != null else "—", " roe_locked=", str(_roe_locked))
 	var view := OS.get_environment("DSH_V1_VIEW")
-	if view == "combat":
+	if view == "facility":
+		_page = "facility"
+		for i in range(_contacts.size()):
+			if String((_contacts[i] as Dictionary).get("facility_id", "")) != "":
+				_selected = i
+				break
+	elif view == "combat":
 		_overlay = "combat"
 		_seed_combat_tracks()
 	elif view == "damage":
@@ -370,7 +376,7 @@ func _draw() -> void:
 			var tr := Rect2(left.position.x + 8, row_y, left.size.x - 16, rh)
 			_contact_rects.append({"rect": tr, "index": i})
 			Painter.list_row(self, tr, "[%s] %s" % [String(c.get("id", "")), String(c.get("name", ""))], String(c.get("badge", "")), _type_col(c), i == _selected)
-			Painter.label(self, tr.position.x + 8, tr.position.y + 31, String(c.get("cls", "")), 6, P.a(P.FAINT, 0.95), true)
+			Painter.label(self, tr.position.x + 8, tr.position.y + 31, TM.fit(String(c.get("cls", "")), tr.size.x - 16, true, 6), 6, P.a(P.FAINT, 0.95), true)
 			row_y += rh + 4.0
 	# 中图
 	Painter.panel(self, center, "战术图 / TACTICAL PLOT", P.PH)
@@ -421,13 +427,19 @@ func _draw_right(r: Rect2) -> void:
 	var y := r.position.y + 34.0
 	var c: Dictionary = _contacts[_selected] if _selected >= 0 and _selected < _contacts.size() else {}
 	var fields: Dictionary = binder.ship_fields(c, _page) if binder != null else {"title": "NOT READY", "source": "NO SESSION", "lines": []}
-	_tabs = [{"rect": Rect2(x, r.position.y + 4, 70, 18), "page": "ship"}, {"rect": Rect2(x + 76, r.position.y + 4, 76, 18), "page": "target"}]
+	_tabs = [{"rect": Rect2(x, r.position.y + 4, 70, 18), "page": "ship"},
+		{"rect": Rect2(x + 76, r.position.y + 4, 76, 18), "page": "target"},
+		{"rect": Rect2(x + 158, r.position.y + 4, 84, 18), "page": "facility"}]
 	for tab in _tabs:
 		var active := String(tab.get("page", "")) == _page
 		var tr: Rect2 = tab["rect"]
 		draw_rect(tr, P.a(P.PH if active else P.LINE, 0.10 if active else 0.04))
 		draw_rect(tr, P.a(P.PH if active else P.LINE, 0.65 if active else 0.25), false, 1.0)
-		Painter.label(self, tr.position.x + 6, tr.position.y + 13, "SHIP" if String(tab.get("page", "")) == "ship" else "TARGET", 7, P.PH if active else P.FAINT, true)
+		var plabel := "SHIP" if String(tab.get("page", "")) == "ship" else ("TARGET" if String(tab.get("page", "")) == "target" else "FACILITY")
+		Painter.label(self, tr.position.x + 6, tr.position.y + 13, plabel, 7, P.PH if active else P.FAINT, true)
+	if _page == "facility":
+		_draw_facility_page(r, x, right, y, c)
+		return
 	Painter.label(self, right - TM.width(String(fields.get("source", "")), true, 6), r.position.y + 14, String(fields.get("source", "NOT READY")), 6, P.a(P.AMBER, 0.9), true)
 	Painter.label(self, x, y + 8, TM.fit(String(fields.get("title", "NOT READY")), r.size.x - 24, false, 12), 12, P.TXT)
 	Painter.label(self, x, y + 22, "LIVE DATABASE FIELD · SESSION/TRACK", 7, P.PH_DIM, true)
@@ -469,6 +481,48 @@ func _draw_right(r: Rect2) -> void:
 	if _sensor_msg != "":
 		Painter.label(self, x, y + 83, TM.fit(_sensor_msg, r.size.x - 24, true, 7), 7, P.AMBER, true)
 	Painter.label(self, x, r.end.y - 14, "LIVE SESSION · 最小交互 · 自绘 V1", 6, P.a(P.FAINT, 0.9), true)
+
+func _draw_facility_page(r: Rect2, x: float, right: float, y: float, c: Dictionary) -> void:
+	Painter.label(self, right - TM.width("FACILITY REGISTRY", true, 6), r.position.y + 14, "FACILITY REGISTRY", 6, P.a(P.AMBER, 0.9), true)
+	var fid := String(c.get("facility_id", ""))
+	if fid == "":
+		Painter.label(self, x, y + 8, "NO FACILITY DATA · NOT READY", 10, P.AMBER)
+		Painter.label(self, x, y + 26, "当前接触无注册表映射（facility_for_entity 空）", 7, P.DIM, true)
+		return
+	Painter.label(self, x, y + 8, TM.fit(String(c.get("facility_name", c.get("name", fid))), r.size.x - 24, false, 12), 12, P.TXT)
+	Painter.label(self, x, y + 22, "设施 / FACILITY · " + String(c.get("facility_class", "")), 7, P.PH_DIM, true)
+	var cy := y + 42.0
+	var port_ids: Array = []
+	for p in (c.get("ports", []) if c.get("ports", []) is Array else []):
+		if p is Dictionary:
+			port_ids.append(String((p as Dictionary).get("port_id", "")))
+		else:
+			port_ids.append(str(p))
+	var rows := [
+		["ID / CODE", fid + " · " + String(c.get("facility_code", "—"))],
+		["TRANSPONDER", String(c.get("transponder_code", "—")) + " · " + String(c.get("transponder_type", "—"))],
+		["CLUSTER", String(c.get("cluster_id", "—")) + " · " + String(c.get("cluster_name", "—"))],
+		["OWNER / SIDE", String(c.get("owner", "—")) + " · " + String(c.get("side", "—"))],
+		["SERVICES", ",".join(c.get("services", []) if c.get("services", []) is Array else [])],
+		["PORTS", ",".join(port_ids)],
+	]
+	var phys: Dictionary = c.get("physical", {}) if c.get("physical", {}) is Dictionary else {}
+	var orbit: Dictionary = phys.get("orbit", {}) if phys.get("orbit", {}) is Dictionary else {}
+	var sk: Dictionary = phys.get("station_keeping", {}) if phys.get("station_keeping", {}) is Dictionary else {}
+	rows.append(["ORBIT", "%s · %s · pos %s" % [String(orbit.get("frame", "—")), String(orbit.get("type", "—")), str(orbit.get("position_km", []))]])
+	rows.append(["MASS / RADIUS", "%.2e kg · %.2f km" % [float(phys.get("mass_kg", 0.0)), float(phys.get("radius_km", 0.0))]])
+	rows.append(["STATION-KEEPING", "%s · %.1f m/s/yr" % [String(sk.get("mode", "—")), float(sk.get("dv_m_s_year", 0.0))]])
+	for pair in rows:
+		Painter.key_value(self, x, cy, right, String(pair[0]), TM.fit(String(pair[1]), r.size.x - 150, true, 7), P.TXT)
+		cy += 15.0
+	cy += 8.0
+	Painter.section(self, x, cy, right, "FACILITY SOURCE")
+	cy += 14.0
+	Painter.label(self, x, cy, "来自 GameSession.facility_for_entity → FacilityRegistry.facility_card", 6, P.a(P.FAINT, 0.9), true)
+	cy += 14.0
+	Painter.label(self, x, cy, "不写 world/UI/物理；未知设施显示 NOT READY。", 6, P.a(P.FAINT, 0.9), true)
+	Painter.label(self, x, r.end.y - 14, "FACILITY · " + fid + " · 只读注册表", 6, P.a(P.FAINT, 0.9), true)
+
 
 func _draw_bottom(r: Rect2) -> void:
 	var split := r.position.x + floorf(r.size.x * 0.56)

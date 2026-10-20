@@ -468,3 +468,44 @@ v1_hud.gd
 2. L1 无 emitter，所以 ELINT 失败 reason 真实；harmattan ELINT 在上一版已实测 OK。
 3. 无完整码表交互（仅 ◀/▶ 切换 10 个 real codes）；无完整 ACK 重试流程。
 4. signal_service 为 shadow；不写 world/V15；不实现剧情/物理；未跑全量 regression。
+
+
+---
+
+## 18　方案B-12：设施识别 / 港口注册表（task-163）
+
+### 18.1 ShellBinder / FacilityRegistry
+
+- `ShellBinder.boot()` 增加 `"facility_registry": true`；core ready 时创建 7 cluster / 29 facilities / 57 ports。
+- 每次 refresh 构建 contacts 后：
+  - station 实体通过 `session.facility_for_entity(entity_id)` 映射到 FacilityRegistry；
+  - 所有 track/entity contacts 再次补 facility 映射，避免 track 行覆盖 entity 行导致漏挂；
+  - 接触行新增 facility_id/facility_name/facility_code/transponder_code/transponder_type/facility_class/owner/side/cluster_id/cluster_name/services/ports/physical；badge=FACILITY。
+- 无 registry/映射时明确 NOT READY，不伪造。
+
+### 18.2 V1 HUD FACILITY 页
+
+- 右栏新增 `FACILITY` tab（SHIP / TARGET / FACILITY）；选中设施接触后切到该页。
+- 显示：名称、ID/CODE、TRANSPONDER、CLUSTER、OWNER/SIDE、SERVICES、PORTS、ORBIT、MASS/RADIUS、STATION-KEEPING；来源标注 `GameSession.facility_for_entity → FacilityRegistry.facility_card`。
+- 本次 `[3100] L1 港` → `L1-05 Chronos · FC-L1-05 · TXP-L1-05 · L1_MERIDIAN · depot`；PORTS PORT-L1-05-1/PORT-L1-05-2。
+- 无映射显示 `NO FACILITY DATA · NOT READY`。
+
+### 18.3 port_page
+
+- 直接加载 `FacilityRegistry`（29 设施 / 7 cluster）；L1 `facilities_by_cluster("L1_MERIDIAN")` 读取 Greenwich/Sextant/Chronos/Astrolabe。
+- `_config()` 从注册表每个 facility.ports 生成 PortService 配置，port_id 使用注册表真实值（PORT-L1-01-1 等）；PortService boot 后默认绑定第一个 port_id。
+- 左栏显示 4 个 L1 设施（facility_code/name/transponder/ports）+ PortService 各 port 的 berth/tug/fuel 资源；无 registry 显示 `NO FACILITY REGISTRY · NOT READY`。
+- 实测：`facility_registry ready=true count=29 clusters=7`，`boot=true ports=8`。
+
+### 18.4 截图 / 验证
+
+- `mockups/v1-hud-facility-1920.png`（1920×1080：FACILITY tab + Chronos 卡片字段 + 接触设施 badge）
+- `mockups/port-page-facility-1920.png`（1920×1080：FacilityRegistry L1 设施/port_id 列表 + PortService 资源）
+- 均 `SHOT err=0`；headless v1_hud/port_page 一次；`v1_hud.gd/shell_binder.gd/port_page.gd --check-only` 通过。
+
+### 18.5 未完成 / 边界
+
+1. FACILITY 页为只读卡片；未接设施交互/服务请求。
+2. port_page 仍用旧 Control 布局；仅数据源切到 FacilityRegistry；PortService 资源为 8 个 registry port 的示例容量，不写剧情/物理/存档。
+3. 设施实体仅 l1_station→Chronos；其余 L1 设施在 port_page 列表展示，无 world entity 绑定。
+4. 不实现剧情/物理/完整港务流程；未跑全量 regression。

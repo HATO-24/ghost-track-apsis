@@ -7,11 +7,14 @@ const P := preload("res://scripts/pal.gd")
 const F := preload("res://scripts/fonts.gd")
 const UiTheme := preload("res://scripts/ui/ui_theme.gd")
 const PortService := preload("res://scripts/core/port_service.gd")
+const FacilityRegistry := preload("res://scripts/core/facility_registry.gd")
 
 const SHIP_ID := "apsis"
-const PORT_ID := "l1_meridian_05"
 
 var service = null
+var registry = null
+var _port_id := ""
+var _facility_rows: Array = []
 var _request_id := ""
 var _status: Label = null
 var _resource_label: Label = null
@@ -52,9 +55,16 @@ func _ready() -> void:
 	theme = UiTheme.build()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	registry = FacilityRegistry.new()
+	var rok: bool = registry.setup({"content_path": FacilityRegistry.DEFAULT_PATH})
+	print("[PORT PAGE] facility_registry ready=%s count=%d clusters=%d warnings=%s" % [str(rok), registry.count(), registry.cluster_count(), str(registry.warnings)])
 	service = PortService.new(_config())
 	service.bind_event_bus(null)
-	print("[PORT PAGE] boot=%s ports=%d resources=%s name=%s" % [str(service.ready), service.ports.size(), str(service.resource_summary()), _name])
+	if service.ready and not service.ports.is_empty():
+		var pids: Array = service.ports.keys()
+		pids.sort()
+		_port_id = String(pids[0])
+	print("[PORT PAGE] boot=%s ports=%d registry_ready=%s name=%s" % [str(service.ready), service.ports.size(), str(registry.ready), _name])
 	_build()
 	_refresh()
 	set_process(true)
@@ -68,25 +78,45 @@ func _ready() -> void:
 
 
 func _config() -> Dictionary:
-	return {"ports": [
-		{"id": "l1_meridian_05", "name": "L1 Meridian", "berths": ["B1", "B2", "B3"],
-			"drydock_slots": 2, "tugs": ["TUG1"], "fuel_capacity_t": 2400.0, "fuel_available_t": 1900.0,
-			"windows": [{"id": "W1", "open_t": 0.0, "close_t": 1000000.0}],
-			"corridor": "C1", "require_permit": true, "services": ["refuel", "repair", "tow", "shuttle"],
-			"hazard": "EXAMPLE · 3 号罐泄漏 / TANK 3 LEAK", "rescue": "EXAMPLE · 救援目标 12 船员 / 12 CREW"},
-		{"id": "chronos", "name": "Chronos 站", "berths": ["CH-1"], "drydock_slots": 1,
-			"tugs": ["CH-TUG"], "fuel_capacity_t": 600.0, "fuel_available_t": 420.0,
-			"windows": [{"id": "W1", "open_t": 0.0, "close_t": 1000000.0}],
-			"corridor": "C2", "require_permit": true, "services": ["refuel", "repair", "tow"]},
-		{"id": "greenwich", "name": "Greenwich 船坞", "berths": ["G-1", "G-2"], "drydock_slots": 2,
-			"tugs": ["G-TUG"], "fuel_capacity_t": 900.0, "fuel_available_t": 700.0,
-			"windows": [{"id": "W1", "open_t": 0.0, "close_t": 1000000.0}],
-			"corridor": "C3", "require_permit": false, "services": ["refuel", "repair"]},
-		{"id": "sextant", "name": "Sextant 泊位", "berths": ["S-1"], "drydock_slots": 0,
-			"tugs": ["S-TUG"], "fuel_capacity_t": 300.0, "fuel_available_t": 260.0,
-			"windows": [{"id": "W1", "open_t": 0.0, "close_t": 1000000.0}],
-			"corridor": "C4", "require_permit": true, "services": ["tow", "shuttle"]},
-	]}
+	# L1 设施/港口全部来自 FacilityRegistry；PortService 只绑定注册表 port_id。
+	var ports: Array = []
+	_facility_rows = registry.facilities_by_cluster("L1_MERIDIAN") if registry != null and registry.ready else []
+	for raw_f in _facility_rows:
+		if not (raw_f is Dictionary):
+			continue
+		var f: Dictionary = raw_f
+		var fac_name := String(f.get("name", f.get("facility_id", "")))
+		var fac_services: Array = f.get("services", []) if f.get("services", []) is Array else []
+		var allowed: Array = []
+		for sv in ["refuel", "repair", "tow", "shuttle"]:
+			if fac_services.has(sv) or (sv == "refuel" and fac_services.has("fuel")) or (sv == "repair" and fac_services.has("repair_light")):
+				allowed.append(sv)
+		if allowed.is_empty():
+			allowed = ["tow"]
+		for raw_p in (f.get("ports", []) if f.get("ports", []) is Array else []):
+			if not (raw_p is Dictionary):
+				continue
+			var p: Dictionary = raw_p
+			var pid := String(p.get("port_id", ""))
+			if pid == "":
+				continue
+			var n := maxi(1, int(p.get("berths", 1)))
+			var berths: Array = []
+			for i in range(n):
+				berths.append("B%d" % (i + 1))
+			ports.append({"id": pid, "name": fac_name + " · " + String(p.get("kind", "berth")),
+				"berths": berths, "drydock_slots": 1 if String(p.get("kind", "")) == "drydock" else 0,
+				"tugs": ["TUG-" + pid], "fuel_capacity_t": 1200.0 if String(f.get("facility_class", "")) == "depot" else 300.0,
+				"fuel_available_t": 900.0 if String(f.get("facility_class", "")) == "depot" else 220.0,
+				"windows": [{"id": "W1", "open_t": 0.0, "close_t": 1000000.0}],
+				"corridor": String(f.get("facility_code", "")), "require_permit": true,
+				"services": allowed, "max_length_m": int(p.get("max_length_m", 220))})
+	if ports.is_empty():
+		print("[PORT PAGE] NO FACILITY DATA · FacilityRegistry 无 L1 ports")
+		return {"ports": []}
+	return {"ports": ports}
+
+
 
 
 func _build() -> void:
@@ -119,7 +149,7 @@ func _build() -> void:
 	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	h.add_child(_status)
-	tv.add_child(UiTheme.make_label("Chronos / Greenwich / Sextant · 泊位/船坞/拖船/燃料 · 请求/许可/窗口", true, 7, P.a(P.FAINT, 0.9)))
+	tv.add_child(UiTheme.make_label("FacilityRegistry L1 · Greenwich / Sextant / Chronos / Astrolabe · 设施码头 port_id 绑定", true, 7, P.a(P.FAINT, 0.9)))
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 8)
@@ -200,19 +230,32 @@ func _refresh() -> void:
 		return
 	_status.text = "t=%.0fs · requests=%d · name=%s · FLOW %s" % [service.t_s, service.requests.size(), _name, _flow_phase]
 	var lines: Array = []
-	for pid in ["l1_meridian_05", "chronos", "greenwich", "sextant"]:
-		var ps: Dictionary = service.port_summary(pid)
-		if ps.is_empty():
-			continue
-		var rs: Dictionary = ps.get("resources", {}) if ps.get("resources", {}) is Dictionary else {}
-		lines.append("%s · berth %d/%d · drydock %d/%d · tug %d/%d · fuel %.0f/%.0ft" % [
-			String(ps.get("name", pid)), int(rs.get("berths_free", 0)), int(rs.get("berths_total", 0)),
-			int(rs.get("drydock_free", 0)), int(rs.get("drydock_total", 0)),
-			int(rs.get("tugs_free", 0)), int(rs.get("tugs_total", 0)),
-			float(rs.get("fuel_available_t", 0.0)), float(rs.get("fuel_capacity_t", 0.0))])
+	if registry == null or not registry.ready:
+		lines.append("NO FACILITY REGISTRY · NOT READY")
+	else:
+		for raw_f in _facility_rows:
+			if raw_f is Dictionary:
+				var f: Dictionary = raw_f
+				var pids: Array = []
+				for raw_p in (f.get("ports", []) if f.get("ports", []) is Array else []):
+					if raw_p is Dictionary:
+						pids.append(String((raw_p as Dictionary).get("port_id", "")))
+				lines.append("%s · %s · %s · %s" % [String(f.get("facility_code", "")), String(f.get("name", "")), String(f.get("transponder_code", "")), ",".join(pids)])
+		lines.append("— PORTS / PortService —")
+		var pkeys: Array = service.ports.keys()
+		pkeys.sort()
+		for pid in pkeys:
+			var ps: Dictionary = service.port_summary(String(pid))
+			if ps.is_empty():
+				continue
+			var rs: Dictionary = ps.get("resources", {}) if ps.get("resources", {}) is Dictionary else {}
+			lines.append("%s · berth %d/%d · tug %d/%d · fuel %.0f/%.0ft" % [
+				String(pid), int(rs.get("berths_free", 0)), int(rs.get("berths_total", 0)),
+				int(rs.get("tugs_free", 0)), int(rs.get("tugs_total", 0)),
+				float(rs.get("fuel_available_t", 0.0)), float(rs.get("fuel_capacity_t", 0.0))])
 	_resource_label.text = "\n".join(lines)
 	var rr: Dictionary = service.get_request(_request_id) if _request_id != "" else {}
-	var wstat: Dictionary = service.window_status(PORT_ID)
+	var wstat: Dictionary = service.window_status(_port_id)
 	var window_txt := "WINDOW %s · %s" % ["OPEN" if bool(wstat.get("is_open", false)) else "CLOSED", String((wstat.get("window", {}) as Dictionary).get("id", "—"))]
 	if rr.is_empty():
 		_request_label.text = "NO REQUEST · 点击 REQUEST DOCK\n" + window_txt
@@ -261,7 +304,7 @@ func _flow_smoke_port() -> void:
 
 
 func _request_dock() -> void:
-	var req: Dictionary = service.request("dock", SHIP_ID, PORT_ID, {"priority": 2, "clearance": "L1-CLEARANCE-001"})
+	var req: Dictionary = service.request("dock", SHIP_ID, _port_id, {"priority": 2, "clearance": "L1-CLEARANCE-001"})
 	_result(req, "REQUEST DOCK")
 	if bool(req.get("ok", false)):
 		_request_id = String(req.get("request_id", ""))
