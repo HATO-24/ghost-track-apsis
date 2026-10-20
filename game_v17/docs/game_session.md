@@ -1,9 +1,9 @@
 # 完整游戏-阶段2C/2H · GameSession 编排层（含 TrackTable/StoryState）
 
-> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）。工程 `game_v17`。
+> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=862 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=909 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -23,7 +23,8 @@ GameSession
  ├─ CombatService（可选） ROE/授权/火控/武器/点防御（damage event 不直接应用）
  ├─ DamageService（可选） 每舰 V2DamageModel；combat damage 事件→分区伤害/维修
  ├─ PhysicsWorld（可选） 单一位置权威；固定步长 CR3BP/星历；显式同步 world
- └─ SignalService（可选） ELINT/DF/灯语；observation/evidence→TrackTable，light→bus
+ ├─ SignalService（可选） ELINT/DF/灯语；observation/evidence→TrackTable，light→bus
+ └─ FacilityRegistry（可选） 全设施只读注册表；cluster/站/应答机/港口/物理参数
 ```
 
 - **依赖方向**：OrderService 内部持有 CommsService；`tick` 时订单服务推进通信并消费其投递事件。
@@ -53,6 +54,9 @@ GameSession
   entity_id/batch）；其次 world 同名实体（id/batch/name/kind/side）；不硬编码具体舰名；
   两者都缺失时保持空并在 session warnings 记一次（route 返回 `missing_meta/bound/world_bound`）。
   绑定后的 track 具备 entity_id/batch（`track_table.vm().tracks` 可直接给 UI 使用）。
+- **FacilityRegistry（3O）**：只读设施注册表（7 cluster / 29 facility / 57 ports：
+  L1–L5 20 站 + NESOSS-06 + LUNSYNC-03 TBD 提案）；不写 world/UI、不改现有实体；
+  `facility_for_entity` 只按 `entity_ids` 绑定读取（L1-05↔l1_station），不做实体移动。
 - **Signal 动态目标（3N）**：session 包装 `signal_upsert_target/signal_remove_target/
   signal_set_targets/signal_sync_targets/signal_target_ids/signal_target`；
   `signal_sync_from_world()` 从 world 实体（只读）同步目标，`signal_sync_from_contacts()`
@@ -85,6 +89,7 @@ config 可覆盖字段（省略用 demo）：
 | `damage_service` | **可选**：`true` 或 DamageService 配置（`content_path`(damage_l1)/`ships[]`/`default_ship`）；缺省/`false` → 不组合 |
 | `physics_world` | **可选**：`true` 或 PhysicsWorld 配置（`step_s`≤60/`sun`/`ephemeris_path`/`entities[]`/`auto_seed`）；缺省/`false` → 不组合；启用时 seed 实体自动灌入（auto_seed=false 可关） |
 | `signal_service` | **可选**：`true` 或 SignalService 配置（`observer`/`targets`/`stations`/`elint`/`codes_path`/`light_codes`/`emitters[]`/`month`/`time`）；缺省/`false` → 不组合；启用时 ELINT/灯语可用 |
+| `facility_registry` | **可选**：`true`（默认设施内容）或 `{content_path/content}`；缺省/`false` → 不组合；只读注册表 |
 
 - boot 建 5 个必需组件 + 可选 TrackTable/StoryState；任一启用组件 `ready=false` → `ok=false` + errors，不伪造。
 - TrackTable 默认 writer = `<session writer>_fusion`；StoryState 时间在 boot 时对齐 session 时间。
@@ -121,6 +126,8 @@ config 可覆盖字段（省略用 demo）：
 | `signal_intercept/signal_df/signal_resolve` | ELINT 拦截/多站 DF/候选 fix 解析；失败不改状态 |
 | `signal_upsert_target/signal_remove_target/signal_set_targets/signal_sync_targets` | Signal 动态目标增删/全量替换/增量同步（side/light_capable/receiver_facing 等）；失败不改状态 |
 | `signal_target_ids/signal_target/signal_sync_from_world/signal_sync_from_contacts` | 目标只读/从 world 实体或 TrackTable 接触同步（只读 source，不写 world） |
+| `facility_lookup/facility_by_transponder/facility_for_entity/facilities_by_cluster` | 设施卡片/应答机识别/实体绑定/按 cluster 查询（只读） |
+| `facility_vm/facility_summary` | 全设施内容/摘要（只读，不写 world/UI） |
 | `light_send/light_receive/light_ack/signal_vm/signal_summary/signal_flush_events` | 可见光灯语发送/接收/确认、只读 VM/摘要、显式拉取 Signal outbox |
 | `order(id)` / `comms_pending()` | 只读查询 |
 | `snapshot()` / `to_dict()` / `to_json()` | 只读快照（time/world/orders/comms/bus 最近 32 事件/track/story/contracts/errors） |
@@ -195,6 +202,8 @@ config 可覆盖字段（省略用 demo）：
   同一 target 的 evidence 复用 observation 建的 track；缺失绑定留空 + warning，不猜实体。
 - **Signal 目标一致**：动态目标 side/能力字段只存在于 SignalService；world/contacts 同步
   只读、不双写；灯语发送不看 side；ACK 只看目标能力/状态（无能力时不伪造回应）。
+- **Facility 一致**：`facility_registry.ready` 且内部 contracts ok；查询/卡片不写 world；
+  `facility_for_entity` 只读 entity_ids 绑定；未启用时 API 返回空/`no_facility_registry`。
 - tick 失败/拒绝路径不静默：返回 `ok=false` + `errors/contract_errors`；失败订单不伪造状态。
 
 ## 5　内存 save/load（不写盘）
@@ -214,6 +223,7 @@ config 可覆盖字段（省略用 demo）：
   damage_service: <DamageService.save_state() JSON> | "",
   physics_world: <PhysicsWorld.save_state() JSON> | "",
   signal_service: <SignalService.save_state() JSON> | "",
+  facility_registry: <FacilityRegistry.to_dict()> | null,
   bus: {seq, events[]}
 }
 ```
@@ -233,6 +243,10 @@ targets**/灯语 transmissions/events）；load boot(seed)+log 重放+signal 快
 signal VM/snapshot 一致、t 同步、TrackTable/bus 历史一致、可继续 intercept/灯语/tick、再次 save 一致。
 旧存档缺 `signal_service` 字段/seed 配置 → signal 操作 replay 跳过（skipped:no_signal_service）、
 组件退化；旧 signal 快照缺 `targets` → 按 boot+log 重建目标列表。
+
+**Facility 存档**：save 嵌入 FacilityRegistry 完整内容（cluster/facility/ports/physical）；
+load boot(seed) 重建 + 快照恢复（校验后应用）；load 后 facility_vm/summary 一致、contracts ok、
+不再写 world；旧存档缺 `facility_registry` 字段/seed 配置 → 组件退化。
 
 **Port/Combat 存档**：save 嵌入二者 `save_state()` JSON；load 时先 boot(seed) 重建并按 log 重放
 （port/combat 委托操作 + tick），再恢复快照；load 后 VM/snapshot 一致、时间与 session 同步、
@@ -258,10 +272,10 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=862 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=909 FAIL=0（exit 0，只跑一次）
 ```
 
-覆盖（32 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
+覆盖（33 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
 （ISSUED→…→DONE、事件类型、delivery_id、订单-通信一致、终态拒绝）；通信/链路；失败/过期/
 撤销/拒绝；暂停/时标/时间单调；bus-world 分离与单写者；save/load snapshot 一致+二次 save；
 错误路径；JSON/确定性；**可选组件**（无配置/false 退化、true 启用、退化 save/load）；
@@ -296,6 +310,8 @@ shot_id 去重、失败不改状态）；**Damage 存档**（save 嵌入 damage 
   entity_id；无绑定 track 仍可用于方位/等级显示，但 UI 实体联动需等绑定或后续人工关联。
 - Signal 动态目标是服务内部注册表；从 world/contacts 同步只读、不写 world；灯语 send 不按
   side 过滤；ACK 能力字段由上层配置/注册提供，不推断真实平台能力，无能力时不伪造 ACK。
+- FacilityRegistry 只读内容/绑定；不写 world/UI、不生成实体/PortService、不做停靠物理；
+  `ports[]` 只是数据绑定（port_id 供上层引用）；月同步站名 TBD 提案、物理参数原型占位。
 - DamageService 只做多舰损管组合/事件/存档；combat 命中概率由 CombatService 决定，damage event
   经白名单应用；damage 不直接写 world/V15/UI。
 - PortService/CombatService 只输出状态/事件；session 不自动许可/对接/服务/开火；FIRE 永不自动，

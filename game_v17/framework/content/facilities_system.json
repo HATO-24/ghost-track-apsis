@@ -1,0 +1,1612 @@
+{
+  "schema": "v17.facilities_system.v1",
+  "version": "1.0.0",
+  "title": "完整游戏-阶段3O 全设施注册表",
+  "source": "legacy docs/20 港群与站点 + docs/42 legacy迭代记录（NESOSS/月同步提案）",
+  "generated_at": "2026-10-21",
+  "clusters": [
+    {
+      "cluster_id": "L1_MERIDIAN",
+      "name": "Meridian",
+      "name_en": "Meridian",
+      "name_zh": "子午",
+      "kind": "lagrange",
+      "point": "L1",
+      "description": "贸易/海关/加注/转运；最国际化"
+    },
+    {
+      "cluster_id": "L2_KARMAN",
+      "name": "Karman",
+      "name_en": "Karman",
+      "name_zh": "卡门",
+      "kind": "lagrange",
+      "point": "L2",
+      "description": "中继/观测/月背通信；技术官僚"
+    },
+    {
+      "cluster_id": "L3_ALBORADA",
+      "name": "Alborada",
+      "name_en": "Alborada",
+      "name_zh": "黎明",
+      "kind": "lagrange",
+      "point": "L3",
+      "description": "农业/食品/水；合作社"
+    },
+    {
+      "cluster_id": "L4_ANVIL",
+      "name": "Anvil",
+      "name_en": "Anvil",
+      "name_zh": "铁砧",
+      "kind": "lagrange",
+      "point": "L4",
+      "description": "船坞/重工业/拆船；工会"
+    },
+    {
+      "cluster_id": "L5_NEW_LAGOS",
+      "name": "New Lagos",
+      "name_en": "New Lagos",
+      "name_zh": "新拉各斯",
+      "kind": "lagrange",
+      "point": "L5",
+      "description": "居住/轻工业/人口；派系杂"
+    },
+    {
+      "cluster_id": "NESOSS",
+      "name": "NESOSS",
+      "name_en": "Near-Earth Synchronous Orbit Space Station",
+      "name_zh": "近地同步轨道站",
+      "kind": "geo",
+      "point": "GEO",
+      "description": "NESOSS-01..06 近地同步轨道空间站"
+    },
+    {
+      "cluster_id": "LUNSYNC",
+      "name": "LUNSYNC",
+      "name_en": "Lunar Synchronous Orbit",
+      "name_zh": "月同步轨道站群",
+      "kind": "moon_sync",
+      "point": "LUNSYNC",
+      "description": "提案站群；3 站，站名 TBD"
+    }
+  ],
+  "facilities": [
+    {
+      "facility_id": "L1-01",
+      "name": "Greenwich",
+      "name_en": "Greenwich",
+      "name_zh": "格林尼治",
+      "facility_code": "FC-L1-01",
+      "transponder_code": "TXP-L1-01",
+      "transponder_type": "traffic_control",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "station",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "customs",
+        "administration",
+        "cargo_clearance",
+        "inspection"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L1-01-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L1-01-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -51900.0,
+            0.0,
+            15200.0
+          ]
+        },
+        "mass_kg": 3200000000.0,
+        "radius_km": 2.8,
+        "cross_section_m2": 96000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "L1-01 港群行政中心/海关总部；第七号令张贴地。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L1-03",
+      "name": "Sextant",
+      "name_en": "Sextant",
+      "name_zh": "六分仪",
+      "facility_code": "FC-L1-03",
+      "transponder_code": "TXP-L1-03",
+      "transponder_type": "traffic_control",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "port",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "traffic_control",
+        "transfer",
+        "berth",
+        "cargo"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L1-03-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L1-03-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        },
+        {
+          "port_id": "PORT-L1-03-3",
+          "kind": "tug",
+          "berths": 3,
+          "max_length_m": 80
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -44800.0,
+            0.0,
+            8800.0
+          ]
+        },
+        "mass_kg": 2100000000.0,
+        "radius_km": 2.1,
+        "cross_section_m2": 54000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 5.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "交通咽喉；引航员工会亲 OCU。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L1-05",
+      "name": "Chronos",
+      "name_en": "Chronos",
+      "name_zh": "柯罗诺斯",
+      "facility_code": "FC-L1-05",
+      "transponder_code": "TXP-L1-05",
+      "transponder_type": "fuel_depot",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "depot",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "fuel",
+        "refuel",
+        "storage",
+        "repair_light",
+        "customs"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L1-05-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L1-05-2",
+          "kind": "fuel",
+          "berths": 2,
+          "max_length_m": 180
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -50200.0,
+            0.0,
+            14100.0
+          ]
+        },
+        "mass_kg": 1600000000.0,
+        "radius_km": 1.4,
+        "cross_section_m2": 24000000.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 6.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "Act 1 现场；燃料加注/储罐群。",
+      "entity_ids": [
+        "l1_station"
+      ]
+    },
+    {
+      "facility_id": "L1-08",
+      "name": "Astrolabe",
+      "name_en": "Astrolabe",
+      "name_zh": "星盘",
+      "facility_code": "FC-L1-08",
+      "transponder_code": "TXP-L1-08",
+      "transponder_type": "commercial",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "commercial",
+      "owner": "Neutral",
+      "side": "neutral",
+      "services": [
+        "commerce",
+        "arbitration",
+        "insurance",
+        "ship_registry"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L1-08-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -57200.0,
+            0.0,
+            17300.0
+          ]
+        },
+        "mass_kg": 1100000000.0,
+        "radius_km": 1.2,
+        "cross_section_m2": 18000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 3.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "中立金融/仲裁/情报站。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L2-02",
+      "name": "Janus",
+      "name_en": "Janus",
+      "name_zh": "雅努斯",
+      "facility_code": "FC-L2-02",
+      "transponder_code": "TXP-L2-02",
+      "transponder_type": "relay",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "relay",
+      "owner": "UEG-leaning",
+      "side": "ueg",
+      "services": [
+        "relay",
+        "comms",
+        "data"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L2-02-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            48700.0,
+            0.0,
+            -9100.0
+          ]
+        },
+        "mass_kg": 1400000000.0,
+        "radius_km": 1.0,
+        "cross_section_m2": 12000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "双面中继；港群通信咽喉。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L2-04",
+      "name": "Argus",
+      "name_en": "Argus",
+      "name_zh": "阿耳戈斯",
+      "facility_code": "FC-L2-04",
+      "transponder_code": "TXP-L2-04",
+      "transponder_type": "observation",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "observation",
+      "owner": "Neutral",
+      "side": "neutral",
+      "services": [
+        "optical_observation",
+        "research",
+        "tracking"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L2-04-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L2-04-2",
+          "kind": "hangar",
+          "berths": 2,
+          "max_length_m": 120
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            51600.0,
+            0.0,
+            -12900.0
+          ]
+        },
+        "mass_kg": 950000000.0,
+        "radius_km": 1.8,
+        "cross_section_m2": 42000000.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 4.8
+        },
+        "period_s": 1555200.0
+      },
+      "note": "最强光学观测阵列。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L2-07",
+      "name": "Horizon",
+      "name_en": "Horizon",
+      "name_zh": "地平线",
+      "facility_code": "FC-L2-07",
+      "transponder_code": "TXP-L2-07",
+      "transponder_type": "military",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "relay",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "deep_space_relay",
+        "military_comms"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L2-07-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            54900.0,
+            0.0,
+            -16500.0
+          ]
+        },
+        "mass_kg": 2400000000.0,
+        "radius_km": 2.0,
+        "cross_section_m2": 36000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 5.2
+        },
+        "period_s": 1555200.0
+      },
+      "note": "港群边缘深空通讯阵列。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L2-09",
+      "name": "Silent",
+      "name_en": "Silent",
+      "name_zh": "寂静",
+      "facility_code": "FC-L2-09",
+      "transponder_code": "TXP-L2-09",
+      "transponder_type": "observation",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "research",
+      "owner": "Neutral/Black",
+      "side": "neutral",
+      "services": [
+        "observation",
+        "research",
+        "black_site"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L2-09-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L2-09-2",
+          "kind": "hangar",
+          "berths": 2,
+          "max_length_m": 120
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            57400.0,
+            0.0,
+            -20200.0
+          ]
+        },
+        "mass_kg": 720000000.0,
+        "radius_km": 1.1,
+        "cross_section_m2": 9000000.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 7.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "月背阴影区极端观测站（名义科研）。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L3-01",
+      "name": "Aurora",
+      "name_en": "Aurora",
+      "name_zh": "欧若拉",
+      "facility_code": "FC-L3-01",
+      "transponder_code": "TXP-L3-01",
+      "transponder_type": "agriculture",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "agricultural",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "agriculture",
+        "habitat",
+        "power"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L3-01-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L3-01-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -382600.0,
+            0.0,
+            5100.0
+          ]
+        },
+        "mass_kg": 2800000000.0,
+        "radius_km": 3.4,
+        "cross_section_m2": 110000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "农业主站/巨型采光镜。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L3-04",
+      "name": "Ceres",
+      "name_en": "Ceres",
+      "name_zh": "谷神",
+      "facility_code": "FC-L3-04",
+      "transponder_code": "TXP-L3-04",
+      "transponder_type": "agriculture",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "food_processing",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "food_processing",
+        "agriculture",
+        "cargo"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L3-04-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L3-04-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -379300.0,
+            0.0,
+            8200.0
+          ]
+        },
+        "mass_kg": 1900000000.0,
+        "radius_km": 2.2,
+        "cross_section_m2": 51000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.2
+        },
+        "period_s": 1555200.0
+      },
+      "note": "谷物/合成肉类生产中心。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L3-06",
+      "name": "Dew",
+      "name_en": "Dew",
+      "name_zh": "白露",
+      "facility_code": "FC-L3-06",
+      "transponder_code": "TXP-L3-06",
+      "transponder_type": "life_support",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "water_utility",
+      "owner": "OCU/Neutral",
+      "side": "mixed",
+      "services": [
+        "water",
+        "recycling",
+        "utilities"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L3-06-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L3-06-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -384100.0,
+            0.0,
+            10900.0
+          ]
+        },
+        "mass_kg": 1500000000.0,
+        "radius_km": 1.7,
+        "cross_section_m2": 28000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 3.8
+        },
+        "period_s": 1555200.0
+      },
+      "note": "港群供水/水循环。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L3-10",
+      "name": "Demeter",
+      "name_en": "Demeter",
+      "name_zh": "得墨忒耳",
+      "facility_code": "FC-L3-10",
+      "transponder_code": "TXP-L3-10",
+      "transponder_type": "research",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "research",
+      "owner": "Corporate",
+      "side": "neutral",
+      "services": [
+        "seed_vault",
+        "biotech",
+        "research"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L3-10-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L3-10-2",
+          "kind": "hangar",
+          "berths": 2,
+          "max_length_m": 120
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -389000.0,
+            0.0,
+            15400.0
+          ]
+        },
+        "mass_kg": 1200000000.0,
+        "radius_km": 1.3,
+        "cross_section_m2": 16000000.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 5.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "种子库/基因实验室（公司运营）。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L4-02",
+      "name": "Hammer",
+      "name_en": "Hammer",
+      "name_zh": "重锤",
+      "facility_code": "FC-L4-02",
+      "transponder_code": "TXP-L4-02",
+      "transponder_type": "shipyard",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "shipyard",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "shipyard",
+        "drydock",
+        "assembly",
+        "repair",
+        "power"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L4-02-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L4-02-2",
+          "kind": "drydock",
+          "berths": 1,
+          "max_length_m": 400
+        },
+        {
+          "port_id": "PORT-L4-02-3",
+          "kind": "tug",
+          "berths": 3,
+          "max_length_m": 80
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            44700.0,
+            0.0,
+            6200.0
+          ]
+        },
+        "mass_kg": 8600000000.0,
+        "radius_km": 4.8,
+        "cross_section_m2": 220000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 5.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "ID13 后勤基地；大型舰船总装。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L4-05",
+      "name": "Vulcan",
+      "name_en": "Vulcan",
+      "name_zh": "武尔坎努斯",
+      "facility_code": "FC-L4-05",
+      "transponder_code": "TXP-L4-05",
+      "transponder_type": "industrial",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "industrial",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "refining",
+        "alloys",
+        "manufacturing"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L4-05-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L4-05-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            47200.0,
+            0.0,
+            9300.0
+          ]
+        },
+        "mass_kg": 6200000000.0,
+        "radius_km": 3.6,
+        "cross_section_m2": 140000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.6
+        },
+        "period_s": 1555200.0
+      },
+      "note": "高炉精炼/特种合金。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L4-08",
+      "name": "Crucible",
+      "name_en": "Crucible",
+      "name_zh": "坩埚",
+      "facility_code": "FC-L4-08",
+      "transponder_code": "TXP-L4-08",
+      "transponder_type": "salvage",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "salvage",
+      "owner": "Neutral/Black Market",
+      "side": "neutral",
+      "services": [
+        "salvage",
+        "recycling",
+        "black_market"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L4-08-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L4-08-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        },
+        {
+          "port_id": "PORT-L4-08-3",
+          "kind": "hangar",
+          "berths": 2,
+          "max_length_m": 120
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            49800.0,
+            0.0,
+            12600.0
+          ]
+        },
+        "mass_kg": 3100000000.0,
+        "radius_km": 2.6,
+        "cross_section_m2": 80000000.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 6.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "旧船拆解/金属重熔/黑市渠道。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L4-12",
+      "name": "Ingot",
+      "name_en": "Ingot",
+      "name_zh": "铸锭",
+      "facility_code": "FC-L4-12",
+      "transponder_code": "TXP-L4-12",
+      "transponder_type": "logistics",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "logistics",
+      "owner": "OCU/UEG",
+      "side": "contested",
+      "services": [
+        "parts",
+        "warehouse",
+        "logistics"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L4-12-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L4-12-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            52300.0,
+            0.0,
+            15900.0
+          ]
+        },
+        "mass_kg": 2700000000.0,
+        "radius_km": 2.4,
+        "cross_section_m2": 60000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.3
+        },
+        "period_s": 1555200.0
+      },
+      "note": "标准化零件/仓储供应链枢纽。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L5-01",
+      "name": "Eko",
+      "name_en": "Eko",
+      "name_zh": "埃科",
+      "facility_code": "FC-L5-01",
+      "transponder_code": "TXP-L5-01",
+      "transponder_type": "residential",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "residential",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "habitat",
+        "residential",
+        "docks",
+        "labor"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L5-01-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L5-01-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -362100.0,
+            0.0,
+            2400.0
+          ]
+        },
+        "mass_kg": 5400000000.0,
+        "radius_km": 3.8,
+        "cross_section_m2": 180000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.8
+        },
+        "period_s": 1555200.0
+      },
+      "note": "最古老居住区/人口最密。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L5-03",
+      "name": "Zuma",
+      "name_en": "Zuma",
+      "name_zh": "祖马",
+      "facility_code": "FC-L5-03",
+      "transponder_code": "TXP-L5-03",
+      "transponder_type": "cultural",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "cultural",
+      "owner": "OCU/Neutral",
+      "side": "mixed",
+      "services": [
+        "administration",
+        "culture",
+        "negotiation"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L5-03-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -359300.0,
+            0.0,
+            5300.0
+          ]
+        },
+        "mass_kg": 2200000000.0,
+        "radius_km": 1.6,
+        "cross_section_m2": 34000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "行政/文化广场站/谈判场所。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L5-07",
+      "name": "Savannah",
+      "name_en": "Savannah",
+      "name_zh": "稀树草原",
+      "facility_code": "FC-L5-07",
+      "transponder_code": "TXP-L5-07",
+      "transponder_type": "tourism",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "tourism",
+      "owner": "Neutral",
+      "side": "neutral",
+      "services": [
+        "habitat",
+        "tourism",
+        "ecology"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L5-07-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L5-07-2",
+          "kind": "hangar",
+          "berths": 2,
+          "max_length_m": 120
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -355800.0,
+            0.0,
+            8700.0
+          ]
+        },
+        "mass_kg": 3600000000.0,
+        "radius_km": 3.0,
+        "cross_section_m2": 120000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.4
+        },
+        "period_s": 1555200.0
+      },
+      "note": "地球生态景观居住站/难民安置。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "L5-11",
+      "name": "Victoria",
+      "name_en": "Victoria",
+      "name_zh": "维多利亚",
+      "facility_code": "FC-L5-11",
+      "transponder_code": "TXP-L5-11",
+      "transponder_type": "media",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "industrial",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "light_industry",
+        "media",
+        "consumer_goods"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-L5-11-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-L5-11-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -351900.0,
+            0.0,
+            12100.0
+          ]
+        },
+        "mass_kg": 4100000000.0,
+        "radius_km": 3.2,
+        "cross_section_m2": 130000000.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.1
+        },
+        "period_s": 1555200.0
+      },
+      "note": "轻工业/时尚/媒体中心。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "NESOSS-01",
+      "name": "Polaris",
+      "name_en": "Polaris",
+      "name_zh": "北极星",
+      "facility_code": "FC-NESOSS-01",
+      "transponder_code": "TXP-NESOSS-01",
+      "transponder_type": "traffic_control",
+      "parent_cluster": "NESOSS",
+      "facility_class": "station",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "traffic_control",
+        "customs",
+        "administration"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-NESOSS-01-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-NESOSS-01-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42164.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 2000000000.0,
+        "radius_km": 2.5,
+        "cross_section_m2": 70000000.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.0
+        },
+        "period_s": 86164.1
+      },
+      "note": "NESOSS 近地同步轨道站（legacy 42）。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "NESOSS-02",
+      "name": "Arclight",
+      "name_en": "Arclight",
+      "name_zh": "弧光",
+      "facility_code": "FC-NESOSS-02",
+      "transponder_code": "TXP-NESOSS-02",
+      "transponder_type": "commercial",
+      "parent_cluster": "NESOSS",
+      "facility_class": "port",
+      "owner": "Commercial",
+      "side": "neutral",
+      "services": [
+        "commercial_transfer",
+        "cargo",
+        "berth"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-NESOSS-02-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-NESOSS-02-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42164.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 2000000000.0,
+        "radius_km": 2.5,
+        "cross_section_m2": 50000000.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.2
+        },
+        "period_s": 86164.1
+      },
+      "note": "NESOSS 近地同步轨道站（legacy 42）。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "NESOSS-03",
+      "name": "Hyperion",
+      "name_en": "Hyperion",
+      "name_zh": "亥伯龙",
+      "facility_code": "FC-NESOSS-03",
+      "transponder_code": "TXP-NESOSS-03",
+      "transponder_type": "depot",
+      "parent_cluster": "NESOSS",
+      "facility_class": "depot",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "deep_space_supply",
+        "fuel",
+        "cargo"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-NESOSS-03-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-NESOSS-03-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42164.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 2000000000.0,
+        "radius_km": 2.5,
+        "cross_section_m2": 60000000.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.4
+        },
+        "period_s": 86164.1
+      },
+      "note": "NESOSS 近地同步轨道站（legacy 42）。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "NESOSS-04",
+      "name": "Vega Prime",
+      "name_en": "Vega Prime",
+      "name_zh": "织女一",
+      "facility_code": "FC-NESOSS-04",
+      "transponder_code": "TXP-NESOSS-04",
+      "transponder_type": "shipyard",
+      "parent_cluster": "NESOSS",
+      "facility_class": "shipyard",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "drydock",
+        "repair",
+        "maintenance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-NESOSS-04-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-NESOSS-04-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42164.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 2000000000.0,
+        "radius_km": 2.5,
+        "cross_section_m2": 90000000.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.6
+        },
+        "period_s": 86164.1
+      },
+      "note": "NESOSS 近地同步轨道站（legacy 42）。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "NESOSS-05",
+      "name": "Saturnus",
+      "name_en": "Saturnus",
+      "name_zh": "萨图尔努斯",
+      "facility_code": "FC-NESOSS-05",
+      "transponder_code": "TXP-NESOSS-05",
+      "transponder_type": "habitat",
+      "parent_cluster": "NESOSS",
+      "facility_class": "residential",
+      "owner": "Commercial",
+      "side": "neutral",
+      "services": [
+        "habitat",
+        "commerce",
+        "life_support"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-NESOSS-05-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-NESOSS-05-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42164.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 2000000000.0,
+        "radius_km": 2.5,
+        "cross_section_m2": 80000000.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.1
+        },
+        "period_s": 86164.1
+      },
+      "note": "NESOSS 近地同步轨道站（legacy 42）。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "NESOSS-06",
+      "name": "Noah",
+      "name_en": "Noah",
+      "name_zh": "诺亚",
+      "facility_code": "FC-NESOSS-06",
+      "transponder_code": "TXP-NESOSS-06",
+      "transponder_type": "industrial",
+      "parent_cluster": "NESOSS",
+      "facility_class": "industrial",
+      "owner": "Industrial",
+      "side": "neutral",
+      "services": [
+        "bulk_cargo",
+        "heavy_industry",
+        "warehouse"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-NESOSS-06-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-NESOSS-06-2",
+          "kind": "cargo",
+          "berths": 6,
+          "max_length_m": 260
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42164.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 2000000000.0,
+        "radius_km": 2.5,
+        "cross_section_m2": 110000000.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.8
+        },
+        "period_s": 86164.1
+      },
+      "note": "NESOSS 近地同步轨道站（legacy 42）。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "LUNSYNC-01",
+      "name": "TBD",
+      "name_en": "TBD",
+      "name_zh": "TBD（提案：月脊站）",
+      "facility_code": "FC-LUNSYNC-01",
+      "transponder_code": "TXP-LUNSYNC-01",
+      "transponder_type": "relay",
+      "parent_cluster": "LUNSYNC",
+      "facility_class": "station",
+      "owner": "TBD",
+      "side": "unknown",
+      "services": [
+        "relay",
+        "navigation"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-LUNSYNC-01-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-LUNSYNC-01-2",
+          "kind": "fuel",
+          "berths": 2,
+          "max_length_m": 180
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "moon_sync",
+          "position_km": [
+            384400.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1500000000.0,
+        "radius_km": 2.0,
+        "cross_section_m2": 40000000.0,
+        "station_keeping": {
+          "mode": "moon_sync",
+          "dv_m_s_year": 18.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "月同步轨道站群提案；站名 TBD，待用户确认。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "LUNSYNC-02",
+      "name": "TBD",
+      "name_en": "TBD",
+      "name_zh": "TBD（提案：静海站）",
+      "facility_code": "FC-LUNSYNC-02",
+      "transponder_code": "TXP-LUNSYNC-02",
+      "transponder_type": "observation",
+      "parent_cluster": "LUNSYNC",
+      "facility_class": "research",
+      "owner": "TBD",
+      "side": "unknown",
+      "services": [
+        "observation",
+        "research"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-LUNSYNC-02-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-LUNSYNC-02-2",
+          "kind": "fuel",
+          "berths": 2,
+          "max_length_m": 180
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "moon_sync",
+          "position_km": [
+            384400.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1500000000.0,
+        "radius_km": 2.0,
+        "cross_section_m2": 30000000.0,
+        "station_keeping": {
+          "mode": "moon_sync",
+          "dv_m_s_year": 20.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "月同步轨道站群提案；站名 TBD，待用户确认。",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "LUNSYNC-03",
+      "name": "TBD",
+      "name_en": "TBD",
+      "name_zh": "TBD（提案：月港站）",
+      "facility_code": "FC-LUNSYNC-03",
+      "transponder_code": "TXP-LUNSYNC-03",
+      "transponder_type": "depot",
+      "parent_cluster": "LUNSYNC",
+      "facility_class": "depot",
+      "owner": "TBD",
+      "side": "unknown",
+      "services": [
+        "fuel",
+        "cargo",
+        "relay"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-LUNSYNC-03-1",
+          "kind": "berth",
+          "berths": 4,
+          "max_length_m": 220
+        },
+        {
+          "port_id": "PORT-LUNSYNC-03-2",
+          "kind": "fuel",
+          "berths": 2,
+          "max_length_m": 180
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "moon_sync",
+          "position_km": [
+            384400.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1500000000.0,
+        "radius_km": 2.0,
+        "cross_section_m2": 50000000.0,
+        "station_keeping": {
+          "mode": "moon_sync",
+          "dv_m_s_year": 16.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "月同步轨道站群提案；站名 TBD，待用户确认。",
+      "entity_ids": []
+    }
+  ]
+}

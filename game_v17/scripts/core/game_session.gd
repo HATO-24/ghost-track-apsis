@@ -25,6 +25,7 @@ const CombatServiceScript := preload("res://scripts/core/combat_service.gd")
 const DamageServiceScript := preload("res://scripts/core/damage_service.gd")
 const PhysicsWorldScript := preload("res://scripts/core/physics_world.gd")
 const SignalServiceScript := preload("res://scripts/core/signal_service.gd")
+const FacilityRegistryScript := preload("res://scripts/core/facility_registry.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -53,6 +54,7 @@ var combat_service = null
 var damage_service = null
 var physics_world_service = null
 var signal_service = null
+var facility_registry = null
 
 var _track_enabled := false
 var _sensor_enabled := false
@@ -61,6 +63,7 @@ var _combat_enabled := false
 var _damage_enabled := false
 var _physics_enabled := false
 var _signal_enabled := false
+var _facility_enabled := false
 var _last_signal_route: Dictionary = {}
 var _signal_missing_meta_warned: Dictionary = {}
 var _damage_applied_shots: Dictionary = {}
@@ -120,7 +123,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "facility_registry"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -145,6 +148,7 @@ func boot(config := {}) -> Dictionary:
 	damage_service = null
 	physics_world_service = null
 	signal_service = null
+	facility_registry = null
 	_last_signal_route = {}
 	_signal_missing_meta_warned = {}
 	_damage_applied_shots = {}
@@ -196,6 +200,8 @@ func boot(config := {}) -> Dictionary:
 	if _physics_enabled and physics_world_service != null and not bool(physics_world_service.ready):
 		extra_ok = false
 	if _signal_enabled and signal_service != null and not bool(signal_service.ready):
+		extra_ok = false
+	if _facility_enabled and facility_registry != null and not bool(facility_registry.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -374,6 +380,15 @@ func _setup_optional_components() -> void:
 					meta_cur["batch"] = b_new
 				if not meta_cur.is_empty():
 					_sensor_target_meta[sid] = meta_cur
+	var fac = _seed.get("facility_registry", null)
+	var fac_on := (fac is Dictionary) or (fac is bool and bool(fac))
+	if fac_on:
+		var fcfg: Dictionary = {} if (fac is bool) else (fac as Dictionary).duplicate(true)
+		facility_registry = FacilityRegistryScript.new(fcfg)
+		if not bool(facility_registry.ready):
+			errors.append("facility_registry 未就绪：" + str(facility_registry.errors))
+		else:
+			_facility_enabled = true
 	var pw = _seed.get("physics_world", null)
 	var pw_on := (pw is Dictionary) or (pw is bool and bool(pw))
 	if pw_on:
@@ -587,6 +602,7 @@ func tick(dt: float) -> Dictionary:
 			"sensor": sensor_service != null,
 			"physics": physics_world_service != null,
 			"signal": signal_service != null,
+			"facility": facility_registry != null,
 		},
 		"sensor_route": sensor_route,
 		"port_combat": port_combat,
@@ -2005,6 +2021,37 @@ func _track_side(tr: Dictionary) -> String:
 	if threat == "hostile":
 		return "hostile"
 	return "unknown"
+# ── FacilityRegistry 委托（只读设施注册表；可选）────────────────
+
+func facility_lookup(facility_id: String) -> Dictionary:
+	if facility_registry == null:
+		return {}
+	return facility_registry.facility_card(facility_id)
+
+func facility_by_transponder(transponder_code: String) -> Dictionary:
+	if facility_registry == null:
+		return {"ok": false, "reason": "no_facility_registry"}
+	return facility_registry.classify_transponder(transponder_code)
+
+func facility_for_entity(entity_id: String) -> Dictionary:
+	if facility_registry == null:
+		return {}
+	return facility_registry.facility_for_entity(entity_id)
+
+func facilities_by_cluster(cluster_id: String) -> Array:
+	if facility_registry == null:
+		return []
+	return facility_registry.facilities_by_cluster(cluster_id)
+
+func facility_vm() -> Dictionary:
+	if facility_registry == null:
+		return {}
+	return facility_registry.to_dict()
+
+func facility_summary() -> Dictionary:
+	if facility_registry == null:
+		return {}
+	return facility_registry.summary()
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -2083,6 +2130,11 @@ func check_contracts() -> Dictionary:
 		if absf(float(signal_service.t) - now_s()) > 1.0e-6:
 			v.append("signal 时间与会话不一致：%s != %s" % [
 				str(signal_service.t), str(now_s())])
+	if facility_registry != null:
+		if not bool(facility_registry.ready):
+			v.append("facility_registry 未就绪")
+		if not bool(facility_registry.check_contracts().get("ok", false)):
+			v.append("facility_registry 不变量失败")
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -2137,6 +2189,7 @@ func snapshot() -> Dictionary:
 		"damage": damage_service.vm() if damage_service != null else null,
 		"physics": physics_world_service.snapshot() if physics_world_service != null else null,
 		"signal": signal_service.vm() if signal_service != null else null,
+		"facilities": facility_registry.summary() if facility_registry != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -2170,6 +2223,7 @@ func save_state() -> String:
 		"damage_service": damage_service.save_state() if damage_service != null else "",
 		"physics_world": physics_world_service.save_state() if physics_world_service != null else "",
 		"signal_service": signal_service.save_state() if signal_service != null else "",
+		"facility_registry": facility_registry.to_dict() if facility_registry != null else null,
 		"bus": {
 			"seq": bus.current_seq(),
 			"events": JSON.parse_string(JSON.stringify(bus.events)),
@@ -2270,6 +2324,16 @@ func load_state(json_text: String) -> Dictionary:
 			var sr: Dictionary = signal_service.load_state(saved_signal)
 			if not bool(sr.get("ok", false)):
 				replay_errors.append("signal_service 快照恢复失败：" + str(sr.get("errors", [])))
+	var saved_fac = data.get("facility_registry", null)
+	if saved_fac != null:
+		if facility_registry == null:
+			replay_errors.append("存档含 facility_registry 快照但 boot 未启用 facility_registry")
+		elif not (saved_fac is Dictionary):
+			replay_errors.append("facility_registry 快照必须是对象")
+		else:
+			var fac_ok: bool = facility_registry.load_data(saved_fac)
+			if not fac_ok:
+				replay_errors.append("facility_registry 快照恢复失败：" + str(facility_registry.errors))
 	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:

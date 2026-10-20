@@ -53,6 +53,7 @@ func _initialize() -> void:
 	_test_signal_save_load()
 	_test_signal_binding()
 	_test_signal_dynamic_targets()
+	_test_facility_registry()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -2331,3 +2332,102 @@ func _test_signal_dynamic_targets() -> void:
 	_ok(a.save_state() == b.save_state(), "dynamic 同操作 save 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "dynamic contracts ok")
 	_data_line("dynamic_targets", "side 不拒绝灯语 · ACK 由能力/状态 · 增删/替换/同步 world+contacts · 存档/确定性")
+
+# ═══════════════════════════════════════════════════════════════════
+# 33. FacilityRegistry 集成（只读设施注册表）
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_facility_registry() -> void:
+	_section_begin("33 Facility 注册表")
+	# 可选退化
+	var plain = _new_session()
+	_ok(plain.facility_registry == null, "默认无 facility_registry")
+	_eq(plain.facility_lookup("L1-05").size(), 0, "无 facility lookup 空")
+	_eq(String(plain.facility_by_transponder("TXP-L1-05").get("reason", "")),
+		"no_facility_registry", "无 facility transponder 拒绝")
+	_eq(plain.facility_for_entity("l1_station").size(), 0, "无 facility entity 空")
+	_eq((plain.facilities_by_cluster("L1_MERIDIAN") as Array).size(), 0,
+		"无 facility cluster 空")
+	_eq(plain.facility_vm().size(), 0, "无 facility vm 空")
+	_eq(plain.facility_summary().size(), 0, "无 facility summary 空")
+	# 启用
+	var s = GameSession.new({"facility_registry": true})
+	_ok(bool(s.ready), "facility session ready", str(s.errors))
+	_ok(s.facility_registry != null, "facility 启用")
+	var sum: Dictionary = s.facility_summary()
+	_eq(int(sum.get("clusters", 0)), 7, "facility 7 cluster")
+	_eq(int(sum.get("facilities", 0)), 29, "facility 29 站")
+	_eq(int(sum.get("facility_codes", 0)), 29, "facility_code 29")
+	_eq(int(sum.get("transponders", 0)), 29, "transponder 29")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "facility contracts ok")
+	_ok(bool((s.tick(0.0).get("components", {}) as Dictionary).get("facility", false)),
+		"tick components.facility")
+	# lookup / transponder / entity / cluster
+	var wp_before := JSON.stringify((s.world.entity("l1_station") as Dictionary).get("pos_km", []))
+	var l105: Dictionary = s.facility_lookup("L1-05")
+	_eq(String((l105.get("facility", {}) as Dictionary).get("name", "")), "Chronos",
+		"facility_lookup L1-05")
+	_eq(String((l105.get("codes", {}) as Dictionary).get("facility_code", "")),
+		"FC-L1-05", "lookup codes")
+	_eq((l105.get("ports", []) as Array).size(), 2, "lookup ports")
+	_eq(String((l105.get("cluster", {}) as Dictionary).get("name", "")), "Meridian",
+		"lookup cluster")
+	_eq(String(s.facility_by_transponder("TXP-L4-02").get("facility_id", "")), "L4-02",
+		"facility_by_transponder")
+	_eq(String(s.facility_by_transponder("NOPE").get("reason", "")),
+		"unknown_transponder", "未知 transponder 拒绝")
+	_eq(String(s.facility_for_entity("l1_station").get("facility_id", "")), "L1-05",
+		"facility_for_entity")
+	_ok(s.facility_for_entity("no_such").is_empty(), "未知 entity 空")
+	var l1: Array = s.facilities_by_cluster("L1_MERIDIAN")
+	_eq(l1.size(), 4, "L1 4 站")
+	_eq((s.facilities_by_cluster("NESOSS") as Array).size(), 6, "NESOSS 6 站")
+	_eq((s.facilities_by_cluster("LUNSYNC") as Array).size(), 3, "LUNSYNC 3 站")
+	_ok((s.facilities_by_cluster("NOPE") as Array).is_empty(), "未知 cluster 空")
+	_ok(s.facility_lookup("NOPE").is_empty(), "未知 facility 空")
+	_ok(JSON.parse_string(JSON.stringify(s.facility_vm())) is Dictionary,
+		"facility_vm JSON")
+	_eq((s.facility_vm().get("facilities", []) as Array).size(), 29, "facility_vm 29")
+	# 不改现有实体
+	_eq(JSON.stringify((s.world.entity("l1_station") as Dictionary).get("pos_km", [])),
+		wp_before, "facility 查询不改变实体")
+	_eq((s.world.entities_sorted() as Array).size(), 3, "world 实体数不变")
+	# 存档/load
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary and (d as Dictionary).has("facility_registry"),
+		"save 含 facility_registry")
+	var seed: Dictionary = (d as Dictionary).get("seed", {})
+	_ok(seed.has("facility_registry"), "seed 含 facility_registry")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "facility load ok", str(lr.get("errors", [])))
+	_ok(s2.facility_registry != null, "load 重建 facility_registry")
+	_ok(_norm_json(s.facility_vm()) == _norm_json(s2.facility_vm()),
+		"load 后 facility_vm 一致")
+	_ok(_norm_json(s.facility_summary()) == _norm_json(s2.facility_summary()),
+		"load 后 summary 一致")
+	_eq(String(s2.facility_lookup("L1-05").get("facility", {}).get("name", "")),
+		"Chronos", "load 后 lookup")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load 后 contracts ok")
+	# 旧存档兼容：删除 facility 字段 + seed 配置
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("facility_registry")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("facility_registry")
+	old["seed"] = old_seed
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 facility 兼容", str(lr3.get("errors", [])))
+	_ok(s3.facility_registry == null, "旧存档 load 后 facility 退化")
+	# 自定义 content_path（错误路径 → session 未就绪）
+	var sbad = GameSession.new({"facility_registry": {"content_path": "/no/such.json"}})
+	_ok(not bool(sbad.ready), "错误 content_path boot 失败")
+	# 确定性
+	var a = GameSession.new({"facility_registry": true})
+	var b = GameSession.new({"facility_registry": true})
+	_ok(_norm_json(a.facility_vm()) == _norm_json(b.facility_vm()),
+		"facility 同操作 VM 一致")
+	_ok(a.save_state() == b.save_state(), "facility 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "facility contracts ok 2")
+	_data_line("facility", "7 cluster/29 站/57 港口 · lookup/transponder/entity/cluster · 不写 world · 存档/旧档/确定性")
