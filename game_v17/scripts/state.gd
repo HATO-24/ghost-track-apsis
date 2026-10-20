@@ -40,6 +40,10 @@ var fw_physics_display: Dictionary = {}
 var fw_sensor_shadow: Dictionary = {}
 var fw_sensor_shadow_ready := false
 var fw_sensor_compare: Dictionary = {}
+# —— R5-INFO-BRIDGE-1：信息作战 shadow 只读（IFF/ELINT/COMINT/EW）——
+var fw_info_warfare: Dictionary = {}
+var fw_info_warfare_ready := false
+var fw_info_warfare_summary: Dictionary = {}
 
 # 演示用状态。真实 sim 会接管 clock / tracks / commands，
 # 这里的数值只服务于"把 GUI 长相对出来"。
@@ -1779,6 +1783,9 @@ func _reset_runtime() -> void:
 	fw_sensor_shadow = {}
 	fw_sensor_shadow_ready = false
 	fw_sensor_compare = {}
+	fw_info_warfare = {}
+	fw_info_warfare_ready = false
+	fw_info_warfare_summary = {}
 
 # ── P1j：身份 / 通信格式 / 动态裁决提示 ─────────────────
 
@@ -2761,6 +2768,9 @@ func _fw_pull() -> void:
 		fw_sensor_shadow = {}
 		fw_sensor_shadow_ready = false
 		fw_sensor_compare = {}
+		fw_info_warfare = {}
+		fw_info_warfare_ready = false
+		fw_info_warfare_summary = {}
 		return
 	fw_ready = true
 	fw_tutorial = (framework.tutorial_view() as Dictionary).duplicate(true)
@@ -2788,6 +2798,10 @@ func _fw_pull() -> void:
 	# R5-SENSOR-BRIDGE-1：传感器 shadow 只读快照（compare 在 fw_sync 里用 state.tracks 生成）
 	fw_sensor_shadow_ready = bool(framework.sensor_shadow_ready)
 	fw_sensor_shadow = (framework.sensor_shadow_view() as Dictionary).duplicate(true)
+	# R5-INFO-BRIDGE-1：信息作战 shadow 只读快照
+	fw_info_warfare_ready = bool(framework.info_warfare_ready)
+	fw_info_warfare = (framework.info_warfare_view() as Dictionary).duplicate(true)
+	fw_info_warfare_summary = (framework.info_warfare_summary() as Dictionary).duplicate(true)
 
 ## R6-AUTH-1：用当前 V15 board 数据生成物理对比（只读；显示层尚未切换）。
 ## 未就绪/关闭时清空，不报错、不写 V15。
@@ -3394,6 +3408,9 @@ func fw_bridge_state() -> Dictionary:
 		"sensor_shadow": fw_sensor_shadow.duplicate(true),
 		"sensor_shadow_ready": fw_sensor_shadow_ready,
 		"sensor_compare": fw_sensor_compare.duplicate(true),
+		"info_warfare": fw_info_warfare.duplicate(true),
+		"info_warfare_ready": fw_info_warfare_ready,
+		"info_warfare_summary": fw_info_warfare_summary.duplicate(true),
 		"exec_window_s": float(fw_flow.get("exec_window_s", 360.0)),
 		"exec_left": float(fw_flow.get("exec_left", 0.0)),
 		"exec_pct": float(fw_flow.get("exec_pct", 0.0)),

@@ -279,3 +279,24 @@ snapshot 由 bridge 构造：observer=harmattan（L1 板原点，damage.sensors 
 targets 取 `world.vm_contacts()` 中非 bearing-only、range>0、有 entity_id 的行（make_target range/bearing）。
 boot 做一次 `step(0.0)` priming（不推进时间）使 advisory 立即可读；运行时 `dt=0` 不推进。
 详见 `game_v17/docs/v17_sensor_shadow.md`；最小 probe `tests/v17_sensor_shadow_probe.gd`（105/0）。
+## 16　信息作战 shadow 字段（R5-INFO-BRIDGE-1）
+
+模型 `framework/sim/information_warfare.gd`（`V2InformationWarfare`）以 **shadow advisory only**
+接入：IFF/ELINT/COMINT/EW 只读 advisory/events/alerts；不写 TrackTable/V15；不接 HUD/plot。
+`V17_INFO_WARFARE=shadow|off`（默认 shadow）；`authoritative` 请求不实现（仍 shadow + reason）。
+
+| 位置 | 字段 / API | 说明 |
+| --- | --- | --- |
+| bridge | `info_warfare_mode` / `info_warfare_requested_mode` / `info_warfare_ready` / `info_warfare_fallback_reason` | 有效/请求/就绪/回落说明 |
+| bridge | `info_warfare_view()` | `vm_information_warfare()`：schema/mode/authoritative=false/ready/t/observer/mounts、iff{results,summary,hostile_allowed:false}、elint{state,signals,misses,fix_candidates,summary}、comint{events,summary}、ew{effects,active_count,radar,comms,optical,emcon,phantom,suspicious_commands}、effects/events/alerts/advisory_contacts、summary、writes{track_table:false,v15:false}、shadow{never_auto_hostile:true} |
+| bridge | `info_warfare_summary()` | iff/iff_identity_*/signals/fix_candidates/comint/effects/events/alerts/phantom_active/suspicious_commands/hostile_auto_determination=false |
+| bridge | `info_warfare_events()` / `info_warfare_alerts()` | 最近 ≤8 条事件/告警缓存（完整见 view） |
+| bridge | `bridge_state()` | 增 info_warfare/info_warfare_summary/ready/mode/requested/fallback/recent_events/recent_alerts |
+| state | `fw_info_warfare` / `fw_info_warfare_ready` / `fw_info_warfare_summary` | 只读快照；`fw_sync` 刷新；off/未就绪为空；旧字段不变 |
+| state | `fw_bridge_state()` | 增 info_warfare/info_warfare_ready/info_warfare_summary |
+
+输入：observer=harmattan（L1 板原点，damage.sensors/comms 取完整损管 effects.mult）；targets 取
+`world.vm_contacts()` 非 bearing-only/range>0/has entity 行（友军 transponder=ok+默认 IFF 码，
+其余 off；每条带占位雷达 emission + radio comms）；stations=两个 ELINT 站（5000 km 基线）；
+advisory_contacts 透传 sensor shadow。`sync(dt)` 中 `dt>0` 才 step；`dt=0` 不推进。
+详见 `game_v17/docs/v17_info_warfare_shadow.md`；最小 probe `tests/v17_info_warfare_probe.gd`（116/0）。

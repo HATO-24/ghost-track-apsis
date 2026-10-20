@@ -21,6 +21,7 @@ const MissionScript := preload("res://framework/core/mission.gd")
 const NavigationScript := preload("res://framework/core/navigation_model.gd")
 const PhysicsScript := preload("res://framework/sim/cislunar_physics.gd")
 const SensorAuthorityScript := preload("res://framework/sim/sensor_authority.gd")
+const InformationWarfareScript := preload("res://framework/sim/information_warfare.gd")
 
 const DEFAULT_SCENARIO := "res://framework/content/scenario_l1_v2.json"
 
@@ -78,6 +79,19 @@ var sensor_shadow_warnings: Array = []
 var sensor_shadow_fallback_reason := ""
 var sensor_compare_last: Dictionary = {}
 const MAX_SENSOR_WARNINGS := 32
+# —— R5-INFO-BRIDGE-1：信息作战 shadow（V2InformationWarfare；IFF/ELINT/COMINT/EW advisory）——
+var info_warfare = null
+var info_warfare_requested_mode := "shadow"
+var info_warfare_mode := "off"          # shadow / off（authoritative 不实现）
+var info_warfare_ready := false
+var info_warfare_view_data: Dictionary = {}
+var info_warfare_summary_data: Dictionary = {}
+var info_warfare_warnings: Array = []
+var info_warfare_fallback_reason := ""
+var info_warfare_recent_events: Array = []
+var info_warfare_recent_alerts: Array = []
+const MAX_INFO_WARNINGS := 32
+const INFO_RECENT_MAX := 8
 
 # —— 运行时元数据 ——
 var sync_count := 0
@@ -108,6 +122,8 @@ func boot(scenario_path := DEFAULT_SCENARIO) -> bool:
 	_bind_nav_position_provider()
 	# R5-SENSOR-BRIDGE-1：传感器 shadow（只读 advisory；V17_SENSOR_AUTHORITY=off 关闭）
 	_init_sensor_shadow()
+	# R5-INFO-BRIDGE-1：信息作战 shadow（IFF/ELINT/COMINT/EW advisory；V17_INFO_WARFARE=off 关闭）
+	_init_info_warfare()
 	ready = ok
 	# V15 自己有 PRELUDE 覆盖层；默认跳过 V2 prelude，避免“执行前冻结”双门控。
 	if ready and OS.get_environment("DSH_V2_PRELUDE") != "1":
@@ -127,6 +143,7 @@ func sync(dt: float) -> void:
 			nav.step(step)
 		_step_physics_shadow(step)
 		_step_sensor_shadow(step)
+		_step_info_warfare(step)
 	sync_count += 1
 	synced_t = float(world.t)
 	refresh()
@@ -145,6 +162,7 @@ func refresh() -> void:
 	_refresh_nav()
 	_refresh_physics()
 	_refresh_sensor_shadow()
+	_refresh_info_warfare()
 	tutorial_ready = bool(tutorial.get("ready", false))
 	exec_window_s = float(world.exec_window_s)
 	exec_left = world.exec_left()
@@ -323,6 +341,14 @@ func bridge_state() -> Dictionary:
 		"sensor_authority_requested_mode": sensor_authority_requested_mode,
 		"sensor_shadow_fallback_reason": sensor_shadow_fallback_reason,
 		"sensor_compare": sensor_compare_last.duplicate(true),
+		"info_warfare": info_warfare_view_data.duplicate(true),
+		"info_warfare_summary": info_warfare_summary_data.duplicate(true),
+		"info_warfare_ready": info_warfare_ready,
+		"info_warfare_mode": info_warfare_mode,
+		"info_warfare_requested_mode": info_warfare_requested_mode,
+		"info_warfare_fallback_reason": info_warfare_fallback_reason,
+		"info_warfare_recent_events": info_warfare_recent_events.duplicate(true),
+		"info_warfare_recent_alerts": info_warfare_recent_alerts.duplicate(true),
 		"exec_window_s": exec_window_s,
 		"exec_left": exec_left,
 		"exec_pct": exec_pct,
@@ -555,6 +581,7 @@ func restart() -> Dictionary:
 	_init_physics_shadow()
 	_bind_nav_position_provider()
 	_init_sensor_shadow()
+	_init_info_warfare()
 	refresh()
 	return r
 
@@ -1304,3 +1331,159 @@ func sensor_compare(legacy_tracks) -> Dictionary:
 	var r = sensor_shadow.compare(legacy_tracks)
 	sensor_compare_last = (r as Dictionary).duplicate(true) if r is Dictionary else {}
 	return r if r is Dictionary else {}
+
+# ═══════════════════════════════════════════════════════════════════
+# R5-INFO-BRIDGE-1：信息作战 shadow 接入（IFF/ELINT/COMINT/EW；只读 advisory）
+#   - V2InformationWarfare 从 world/entity 输入（observer/mounts/emitters/contacts）喂 step；
+#     V17_INFO_WARFARE=shadow|off；authoritative 不实现（只记录 reason，不伪称）；
+#   - 暴露计数/最近事件/告警；不写 TrackTable/V15；不接 HUD/plot。
+# ═══════════════════════════════════════════════════════════════════
+
+func _init_info_warfare() -> void:
+	info_warfare = null
+	info_warfare_ready = false
+	info_warfare_view_data = {}
+	info_warfare_summary_data = {}
+	info_warfare_warnings.clear()
+	info_warfare_fallback_reason = ""
+	info_warfare_recent_events = []
+	info_warfare_recent_alerts = []
+	var env := OS.get_environment("V17_INFO_WARFARE").to_lower().strip_edges()
+	if env == "off":
+		info_warfare_requested_mode = "off"
+		info_warfare_mode = "off"
+		return
+	if env == "authoritative" or env == "auth" or env == "v2":
+		info_warfare_requested_mode = "authoritative"
+		info_warfare_fallback_reason = "authoritative 未实现：保持 shadow advisory（不伪称 authoritative）"
+	else:
+		info_warfare_requested_mode = "shadow"
+	info_warfare_mode = "shadow"
+	if info_warfare_fallback_reason != "":
+		_note_info_warning(info_warfare_fallback_reason)
+	info_warfare = InformationWarfareScript.new()
+	var ok: bool = info_warfare.setup(_info_warfare_config())
+	if not ok:
+		info_warfare_ready = false
+		_note_info_warning("info warfare shadow 初始化失败：" + str(info_warfare.errors))
+		info_warfare = null
+		_refresh_info_warfare()
+		return
+	info_warfare_ready = bool(info_warfare.ready)
+	_refresh_info_warfare()
+
+## 从 V2 world/entity 构造 IW 输入（observer/targets emitters/contacts/advisory）。
+func _info_warfare_config() -> Dictionary:
+	var own_id := String(world.own_id)
+	var observer := InformationWarfareScript.default_observer(own_id)
+	observer["pos_km"] = [0.0, 0.0, 0.0]
+	observer["vel_kmps"] = [0.0, 0.0, 0.0]
+	observer["emcon"] = false
+	if world.has_method("vm_damage_full"):
+		var full: Dictionary = world.vm_damage_full()
+		var eff: Dictionary = (full.get("effects", {}) as Dictionary) if full.get("effects") is Dictionary else {}
+		var sens: Dictionary = (eff.get("sensors", {}) as Dictionary) if eff.get("sensors") is Dictionary else {}
+		var comms: Dictionary = (eff.get("comms", {}) as Dictionary) if eff.get("comms") is Dictionary else {}
+		observer["damage"] = {"sensors": float(sens.get("mult", 1.0)),
+			"comms": float(comms.get("mult", 1.0)), "propulsion": 1.0}
+	var codes := {"1": "M1", "2": "M2", "3/A": "CMP1234", "C": "25000", "S": "A1B2C3", "5": "FRIEND5"}
+	var targets: Array = []
+	for raw in world.vm_contacts():
+		var c: Dictionary = raw
+		if bool(c.get("bearing_only", false)):
+			continue
+		var eid := String(c.get("entity_id", ""))
+		if eid == "" or eid == own_id:
+			continue
+		var rng := float(c.get("range_km", 0.0))
+		if rng <= 0.0:
+			continue
+		var friendly := String(c.get("side", "")) == "friend"
+		var emissions := [{
+			"model": "YW-R9", "type": "radar", "active": true, "silent": false,
+			"lpi": false, "spoof": false, "frequency_mhz": 9500.0, "power_dbm": 90.0,
+			"gain_tx_dbi": 30.0, "prf_hz": 1200.0, "pulse_width_us": 1.2, "scan_period_s": 6.0,
+		}]
+		var comms := [{"from": eid, "to": own_id, "mode": "radio", "text": "shadow-link",
+			"encrypted": false, "frequency_mhz": 300.0}]
+		targets.append(InformationWarfareScript.make_target(
+			String(c.get("track_id", c.get("batch", ""))), rng,
+			float(c.get("bearing_deg", 0.0)), {
+				"entity_id": eid,
+				"batch": String(c.get("batch", "")),
+				"name": String(c.get("name", "")),
+				"transponder": "ok" if friendly else "off",
+				"registered": friendly,
+				"registry_match": friendly,
+				"iff_codes": codes if friendly else {},
+				"emissions": emissions,
+				"comms": comms,
+			}))
+	var advisory: Array = []
+	if sensor_shadow_ready and not sensor_shadow_view_data.is_empty():
+		advisory = (sensor_shadow_view_data.get("advisory_contacts", []) as Array).duplicate(true)
+	return {
+		"observer_id": own_id,
+		"observer": observer,
+		"targets": targets,
+		"stations": [
+			{"id": "%s-ELINT-A" % own_id, "model": "ELINT", "pos_km": [0.0, 0.0, 0.0],
+				"enabled": true, "sigma_bearing_deg": 1.0},
+			{"id": "%s-ELINT-B" % own_id, "model": "ELINT", "pos_km": [5000.0, 0.0, 0.0],
+				"enabled": true, "sigma_bearing_deg": 1.0},
+		],
+		"advisory_contacts": advisory,
+	}
+
+func _step_info_warfare(dt: float) -> void:
+	if info_warfare_mode != "shadow" or not info_warfare_ready or info_warfare == null:
+		return
+	if dt <= 0.0:
+		return
+	info_warfare.step(dt)
+	_refresh_info_warfare()
+
+func _refresh_info_warfare() -> void:
+	if info_warfare_mode != "shadow" or not info_warfare_ready or info_warfare == null:
+		info_warfare_view_data = {}
+		info_warfare_summary_data = {}
+		info_warfare_recent_events = []
+		info_warfare_recent_alerts = []
+		return
+	info_warfare_view_data = info_warfare.vm_information_warfare()
+	info_warfare_summary_data = info_warfare.summary()
+	info_warfare_recent_events = _tail(info_warfare_view_data.get("events", []), INFO_RECENT_MAX)
+	info_warfare_recent_alerts = _tail(info_warfare_view_data.get("alerts", []), INFO_RECENT_MAX)
+	for raw in info_warfare_view_data.get("warnings", []):
+		_note_info_warning(String(raw))
+
+func _tail(src: Variant, n: int) -> Array:
+	var out: Array = []
+	if not (src is Array):
+		return out
+	var arr: Array = src
+	var start := maxi(0, arr.size() - n)
+	for i in range(start, arr.size()):
+		out.append(arr[i])
+	return out
+
+func _note_info_warning(text: String) -> void:
+	if text == "" or info_warfare_warnings.has(text):
+		return
+	info_warfare_warnings.append(text)
+	while info_warfare_warnings.size() > MAX_INFO_WARNINGS:
+		info_warfare_warnings.pop_front()
+
+## 信息作战 shadow 只读 vm（IFF/ELINT/COMINT/EW/effects/events/alerts/advisory）。
+func info_warfare_view() -> Dictionary:
+	return info_warfare_view_data
+
+func info_warfare_summary() -> Dictionary:
+	return info_warfare_summary_data
+
+## 最近事件/告警（只读；最多 8 条；完整列表见 view.events/alerts）。
+func info_warfare_events() -> Array:
+	return info_warfare_recent_events
+
+func info_warfare_alerts() -> Array:
+	return info_warfare_recent_alerts
