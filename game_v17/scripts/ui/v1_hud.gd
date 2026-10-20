@@ -63,6 +63,10 @@ var _comms_type_buttons: Array = []
 var _comms_send_rect := Rect2()
 var _comms_cmd_rows: Array = []
 var _comms_cmd_buttons: Array = []
+var _optical_target := ""
+var _optical_track: Dictionary = {}
+var _optical_msg := ""
+var _optical_buttons: Array = []
 
 
 func _ready() -> void:
@@ -173,6 +177,16 @@ func _load_data() -> void:
 		_overlay = "roe"
 	elif view == "comms":
 		_overlay = "comms"
+	elif view == "optical":
+		_overlay = "optical"
+		# 光学页目标=当前选中实体（默认旗舰1000），不自动跳到哈马丹。
+		if _selected >= 0 and _selected < _contacts.size():
+			var picked: Dictionary = _contacts[_selected]
+			_optical_target = String(picked.get("entity_id", picked.get("id", "")))
+			_optical_track = binder.selected_track(picked) if binder != null else {}
+		else:
+			_optical_target = ""
+			_optical_track = {}
 
 func _seed_comms_sample() -> void:
 	# 通过真实 session.send_comms 生成消息流；from/to 来自 session 实体，不硬编码舰名。
@@ -498,7 +512,19 @@ func _run_interaction_test() -> void:
 	_command_action("REVOKE")
 	_do_right_action("COMMS")
 	_comms_send()
-	print("[V1 HUD] INTERACTION TEST damage=", _damage_msg, " roe=", _roe_msg, " command=", _command_msg, " comms=", _comms_msg)
+	_do_right_action("OPTICAL")
+	for i in range(_contacts.size()):
+		if String((_contacts[i] as Dictionary).get("track_id", "")) != "":
+			_selected = i
+			_optical_target = String((_contacts[i] as Dictionary).get("entity_id", (_contacts[i] as Dictionary).get("id", "")))
+			_optical_track = binder.selected_track(_contacts[i]) if binder != null else {}
+			break
+	_optical_action("VIS")
+	_optical_action("IR")
+	_optical_action("IFF")
+	_optical_action("ELINT")
+	_optical_action("LIGHT")
+	print("[V1 HUD] INTERACTION TEST damage=", _damage_msg, " roe=", _roe_msg, " command=", _command_msg, " comms=", _comms_msg, " optical=", _optical_msg)
 
 
 func _run_save_test() -> void:
@@ -516,6 +542,12 @@ func _draw_overlay(l: Dictionary) -> void:
 	var center: Rect2 = l.center
 	var right: Rect2 = l.right
 	var r := Rect2(center.position.x, center.position.y, right.end.x - center.position.x, center.size.y)
+	if _overlay == "comms":
+		r.size.y = minf(r.size.y, 560.0)
+		r.position.y = center.position.y + 20.0
+	if _overlay == "optical":
+		r.size.y = minf(r.size.y, 600.0)
+		r.position.y = center.position.y + 12.0
 	draw_rect(r, P.a(P.PANEL, 0.985))
 	draw_rect(r, P.a(P.PH, 0.7), false, 1.0)
 	_overlay_close = Rect2(r.end.x - 96, r.position.y + 8, 84, 20)
@@ -526,6 +558,8 @@ func _draw_overlay(l: Dictionary) -> void:
 		_draw_roe_overlay(r)
 	elif _overlay == "comms":
 		_draw_comms_overlay(r)
+	elif _overlay == "optical":
+		_draw_optical_overlay(r)
 
 
 func _draw_comms_overlay(r: Rect2) -> void:
@@ -555,7 +589,7 @@ func _draw_comms_overlay(r: Rect2) -> void:
 	my += 16.0
 	if evs.is_empty():
 		Painter.label(self, x, my, "NO MESSAGES · NOT READY", 7, P.FAINT, true)
-	var row_capacity := maxi(1, int((r.end.y - my - 100.0) / 14.0))
+	var row_capacity := mini(8, maxi(1, int((r.end.y - my - 100.0) / 14.0)))
 	for i in range(maxi(0, evs.size() - row_capacity), evs.size()):
 		var ev: Dictionary = evs[i]
 		var from := String(ev.get("from_name", ev.get("from", "—")))
@@ -647,6 +681,114 @@ func _comms_send() -> void:
 	print("[V1 HUD] COMMS ", _comms_msg)
 	binder.refresh()
 	_selected_cmd = clampi(_selected_cmd, 0, maxi(0, binder.commands.size() - 1))
+	queue_redraw()
+
+
+func _draw_optical_overlay(r: Rect2) -> void:
+	var x := r.position.x + 16.0
+	var y := r.position.y + 34.0
+	Painter.label(self, x, y, "光学 / 识别 · OPTICAL / IDENTIFICATION", 12, P.PH)
+	Painter.label(self, x, y + 14, "目标=当前选中 track/entity · 数据来自 track_vm / sensor_vm · 不伪造 L3/L4", 7, P.a(P.AMBER, 0.9), true)
+	var c: Dictionary = _contacts[_selected] if _selected >= 0 and _selected < _contacts.size() else {}
+	var tr: Dictionary = _optical_track
+	if tr.is_empty() and binder != null:
+		tr = binder.selected_track(c)
+	var target_id := String(_optical_target)
+	if target_id == "":
+		target_id = String(c.get("entity_id", c.get("id", "")))
+	Painter.label(self, x, y + 40, "TARGET  " + String(c.get("name", "NOT READY")) + " · " + String(c.get("id", target_id)), 9, P.TXT)
+	Painter.label(self, x, y + 56, "ENTITY/TRACK " + target_id + " · " + (String(tr.get("track_id", "TRACK NOT READY")) if not tr.is_empty() else "TRACK NOT READY"), 7, P.PH_DIM, true)
+	# 左侧识别链
+	var ly := y + 82.0
+	Painter.section(self, x, ly, x + 540, "IDENTIFICATION CHAIN / L1–L4")
+	ly += 16.0
+	var level := int(tr.get("level", 0)) if not tr.is_empty() else 0
+	var lv_names := ["NO TRACK", "L1 BEARING", "L2 POSITION", "L3 CLASSIFIED", "L4 IDENTIFIED"]
+	var level_name := String(lv_names[clampi(level, 0, 4)])
+	var lv_cols := [P.FAINT, P.DIM, P.BLUE, P.AMBER, P.PH]
+	for i in range(1, 5):
+		var active := level >= i
+		var cr := Rect2(x + float(i - 1) * 132.0, ly, 124, 20)
+		draw_rect(cr, P.a(lv_cols[i], 0.12 if active else 0.03))
+		draw_rect(cr, P.a(lv_cols[i], 0.7 if active else 0.22), false, 1.0)
+		Painter.label(self, cr.position.x + 5, cr.position.y + 14, "L%d %s" % [i, String(lv_names[i])], 7, lv_cols[i] if active else P.FAINT, true)
+	ly += 30.0
+	Painter.key_value(self, x, ly, x + 540, "LEVEL", "L%d · %s" % [level, level_name], P.PH if level >= 3 else P.AMBER)
+	ly += 13.0
+	Painter.key_value(self, x, ly, x + 540, "IDENTITY", String(tr.get("identity_label", tr.get("identity", "—"))) if not tr.is_empty() else "NOT READY", P.TXT)
+	ly += 13.0
+	var sources: Array = tr.get("sources", []) if not tr.is_empty() and tr.get("sources", []) is Array else []
+	var evidence: Array = tr.get("evidence_ids", []) if not tr.is_empty() and tr.get("evidence_ids", []) is Array else []
+	Painter.key_value(self, x, ly, x + 540, "SOURCES", ",".join(sources) if not sources.is_empty() else "NOT READY", P.TXT)
+	ly += 13.0
+	Painter.key_value(self, x, ly, x + 540, "EVIDENCE", str(evidence.size()) + " ids", P.TXT)
+	ly += 13.0
+	Painter.key_value(self, x, ly, x + 540, "RANGE / BRG", ("%.1f km / %.0f°" % [float(tr.get("range_km", -1.0)), float(tr.get("bearing_deg", -1.0))]) if not tr.is_empty() else "NOT READY", P.TXT)
+	ly += 13.0
+	# FOV/SNR 从 sensor vm channels 查
+	var fov := "—"
+	var snr := "—"
+	if binder != null:
+		var svm: Dictionary = binder.sensor_vm
+		var chans: Array = svm.get("channels", []) if svm.get("channels", []) is Array else []
+		for raw in chans:
+			if raw is Dictionary and (String((raw as Dictionary).get("target_id", "")) == target_id or String((raw as Dictionary).get("target", "")) == target_id):
+				fov = str((raw as Dictionary).get("fov_deg", (raw as Dictionary).get("fov", "—")))
+				snr = str((raw as Dictionary).get("snr_db", (raw as Dictionary).get("snr", "—")))
+				break
+	Painter.key_value(self, x, ly, x + 540, "FOV / SNR", "%s / %s" % [fov, snr], P.TXT)
+	# 右光学小窗
+	var ow := Rect2(x + 570, y + 80, 330, 250)
+	draw_rect(ow, P.a(P.EARTH, 0.7))
+	draw_rect(ow, P.a(P.LINE2, 0.6), false, 1.0)
+	draw_string(F.mono(), Vector2(ow.position.x + 8, ow.position.y + 16), "V1 OPTICAL / 瞄准框 · FOV " + str(fov), HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.PH, 0.9))
+	var cen := ow.position + ow.size * 0.5
+	draw_line(Vector2(cen.x - ow.size.x * 0.4, cen.y), Vector2(cen.x - 12, cen.y), P.a(P.PH, 0.65), 1.0)
+	draw_line(Vector2(cen.x + 12, cen.y), Vector2(cen.x + ow.size.x * 0.4, cen.y), P.a(P.PH, 0.65), 1.0)
+	draw_line(Vector2(cen.x, cen.y - ow.size.y * 0.4), Vector2(cen.x, cen.y - 12), P.a(P.PH, 0.65), 1.0)
+	draw_line(Vector2(cen.x, cen.y + 12), Vector2(cen.x, cen.y + ow.size.y * 0.4), P.a(P.PH, 0.65), 1.0)
+	draw_rect(Rect2(cen - Vector2(44, 44), Vector2(88, 88)), P.a(P.AMBER, 0.7), false, 1.0)
+	draw_circle(cen, 2.0, P.PH)
+	draw_string(F.mono(), Vector2(ow.position.x + 8, ow.end.y - 12), "VIS/IR · SNR " + str(snr) + " · TRACK L%d" % level, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
+	# 按钮
+	_optical_buttons.clear()
+	var labels := [["VIS", "VIS / 可见光"], ["IR", "IR / 红外"], ["IFF", "IFF QUERY"], ["ELINT", "ELINT"], ["LIGHT", "LIGHT SIGNAL"]]
+	var by := r.end.y - 36.0
+	for i in range(labels.size()):
+		var br := Rect2(x + float(i) * 120.0, by, 112, 22)
+		_optical_buttons.append({"rect": br, "kind": String(labels[i][0])})
+		Painter.button(self, br, String(labels[i][1]), true, P.PH if i < 3 else P.PH_DIM)
+	if _optical_msg != "":
+		Painter.label(self, x, by - 12, TM.fit(_optical_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
+
+
+func _optical_action(kind: String) -> void:
+	if binder == null or binder.session == null or binder.session.sensor_service == null:
+		_optical_msg = "SENSOR NOT READY · 无 sensor_service"
+		return
+	var target := _optical_target
+	if target == "":
+		_optical_msg = "NO TARGET · NOT READY"
+		return
+	var s = binder.session.sensor_service
+	var res: Dictionary = {}
+	match kind:
+		"VIS":
+			res = s.start_channel("optical", target)
+		"IR":
+			res = s.start_channel("ir", target)
+		"IFF":
+			res = s.query_iff(target)
+		"LIGHT":
+			res = binder.session.send_comms("apsis", target, "VIS", "COMMS_SENT", {}, {})
+		"ELINT":
+			res = {"ok": false, "reason": "elint_not_wired"}
+		_:
+			res = {"ok": false, "reason": "unknown"}
+	_optical_msg = "%s %s · %s%s" % [kind, target, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+	print("[V1 HUD] OPTICAL ", _optical_msg)
+	binder.refresh()
+	_optical_track = binder.selected_track(_contacts[_selected]) if binder != null and _selected >= 0 and _selected < _contacts.size() else {}
 	queue_redraw()
 
 
@@ -767,6 +909,11 @@ func _gui_input(event: InputEvent) -> void:
 				if (b["rect"] as Rect2).has_point(event.position):
 					_roe_action(String(b.get("kind", "")))
 					return
+		elif _overlay == "optical":
+			for b in _optical_buttons:
+				if (b["rect"] as Rect2).has_point(event.position):
+					_optical_action(String(b.get("kind", "")))
+					return
 		elif _overlay == "comms":
 			for b in _comms_type_buttons:
 				if (b["rect"] as Rect2).has_point(event.position):
@@ -830,7 +977,11 @@ func _do_right_action(kind: String) -> void:
 		"NAV":
 			get_tree().change_scene_to_file("res://nav_page.tscn")
 		"OPTICAL":
-			_sensor_msg = "OPTICAL channel · 占位信号（未接光学玩法）"
+			_overlay = "optical"
+			if _selected >= 0 and _selected < _contacts.size():
+				var picked: Dictionary = _contacts[_selected]
+				_optical_target = String(picked.get("entity_id", picked.get("id", "")))
+				_optical_track = binder.selected_track(picked) if binder != null else {}
 		"INFO":
 			_sensor_msg = "INFO OPS · 占位信号（未接信息作战）"
 		_:

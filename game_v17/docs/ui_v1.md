@@ -229,3 +229,46 @@ v1_hud.gd
 2. COMMS 默认目标随选中接触；当前默认旗舰 apsis（批号1000），不是 harmattan。
 3. 命令/ROE/损管仍为最小交互，不接完整剧情/授权/物理。
 4. 未跑全量 regression。
+
+
+---
+
+## 12　方案B-6：光学/识别 overlay + 通信页压缩（task-150）
+
+### 12.1 OPTICAL/识别
+
+- 右栏 `OPTICAL / 光学` 或 `DSH_V1_VIEW=optical` 打开；`DSH_V1_VIEW=optical` 样张自动选中第一个有 track 的接触（当前 harmattan），target=当前选中 entity。
+- 目标字段：
+  - target/entity/TRACK、LEVEL L1–L4（`track_vm` level）、identity、SOURCES、EVIDENCE、RANGE/BRG；
+  - FOV/SNR 从 `sensor_vm.channels` 查，缺失显示 `—`；
+  - 不伪造 L3/L4：本次 track 为 L2，L3/L4 格显示未激活。
+- 右侧 V1 光学小窗/瞄准框：FOV、SNR、TRACK level、准心+目标框；无假图像。
+- 按钮真实 API：
+  - VIS → `sensor_service.start_channel("optical", target)`；
+  - IR → `start_channel("ir", target)`；
+  - IFF QUERY → `query_iff(target)`；
+  - LIGHT SIGNAL → `session.send_comms(...,"VIS",...)`（真实链路；无 route 显示 reason）；
+  - ELINT → 当前无 sensor API，明确返回 `FAILED · elint_not_wired`，不伪造。
+- 操作后 `binder.refresh()`，证据/等级/消息刷新。
+
+实测：`VIS harmattan · OK`、`IR harmattan · OK`、`IFF harmattan · OK`、`ELINT · FAILED elint_not_wired`、`LIGHT · FAILED no_route`（真实链路原因）。
+
+### 12.2 通信页压缩
+
+- COMMS overlay 高度限制 `min(body,560)`，不再占满；消息区最多 8 行（14px/行），`TextMetrics.fit` 截断，无叠字。
+- COMMAND PANEL 固定宽 380px；命令队列/ABORT/REVOKE 固定在面板底部；空状态 `NO MESSAGES · NOT READY`。
+- 默认 target 仍为当前选中旗舰（本次 apsis/1000）；HOLD/NAV/EMCON/IFF/ROE 显示 target。
+
+### 12.3 截图 / 验证
+
+- `mockups/v1-hud-optical-1920.png`（L1–L4/identity/sources/evidence/range/FOV/SNR + 光学瞄准框 + 五按钮）
+- `mockups/v1-hud-comms-compact-1920.png`（高度 560、消息不叠、固定命令面板、ABORT/REVOKE 不重叠）
+- 均 `V1 HUD SHOT err=0`；headless interaction test 一次；`v1_hud.gd --check-only` 通过。
+
+### 12.4 边界 / 未完成
+
+1. ELINT 未接 sensor API，固定失败 reason；LIGHT 走 comms VIS 链路，无 route 时真实失败。
+2. 光学无真实图像/姿态；小窗为 V1 瞄准框示意；FOV/SNR 仅 sensor vm 有则显示。
+3. track 当前 L2；不伪造 L3/L4。
+4. 通信页消息仍 text_key/fallback；命令最小交互；不实现剧情/物理/完整战斗。
+5. 未跑全量 regression。
