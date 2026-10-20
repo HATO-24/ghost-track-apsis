@@ -272,3 +272,40 @@ v1_hud.gd
 3. track 当前 L2；不伪造 L3/L4。
 4. 通信页消息仍 text_key/fallback；命令最小交互；不实现剧情/物理/完整战斗。
 5. 未跑全量 regression。
+
+
+---
+
+## 13　方案B-7：自绘战斗终端（task-152）
+
+### 13.1 数据源
+
+- 右栏 `COMBAT / 战斗` 或 `DSH_V1_VIEW=combat` 打开自绘 overlay。
+- `CombatService` 为 session 可选服务（v1_hud 已把可选 CombatService 注入 `binder.session.combat_service`）。
+- 目标：将 `binder.track_vm.tracks` 通过 `register_track` 注册到 CombatService，取 `combat vm.tracks`；显示 level/identity/threat/range。当前两条 track T0001/T0002。
+- 武器：`combat vm.weapons`（decoy/jammer/missile/pd/railgun），显示 ammo/cooldown/range/kind；点击武器切换选中。
+- ROE/授权：`vm.roe` 四档 + `session.combat_authorization(TRACK/SOLUTION/FIRE,target,weapon)` 状态；缺授权显示 LOCKED/reason。
+- 预测：仅 `CombatService.predict_shot(target,weapon)`，显示 `PREDICTION / INTERFACE · NO PHYSICS`、TOF/HIT%/ERR；不执行物理/命中。
+- 战斗事件：`combat vm.events`。
+
+### 13.2 交互 / 实测
+
+- 按钮：`TRACK`、`SOLUTION`、`AUTHORIZE FIRE`、`FIRE`；ROE 四档也在此页可点。
+  - TRACK → `_combat.request_track(target,true)`；实测 OK。
+  - SOLUTION → `_combat.request_solution(target,weapon,true)`；实测 T0001/missile FAILED `inside_min_range`（真实原因）。
+  - AUTHORIZE FIRE → `session.grant_authorization("FIRE","target",target)`；实测 OK。
+  - FIRE → `_combat.request_fire(target,weapon,true)`；实测 FAILED `no_ready_solution`（无 solution 不命中，真实原因）。
+  - ROE → `_combat.set_roe`（同一 CombatService）。
+- FIRE 通过后也只记录 CombatService 事件/消耗，不做物理命中/世界写入；本次截图无伪造命中。
+
+### 13.3 截图 / 验证
+
+- `mockups/v1-hud-combat-1920.png`（1920×1080：目标列表 L2/identity/threat/range、武器架、ROE 四档、TRACK/SOLUTION/FIRE 授权、预测 TOF/HIT%/ERR、战斗事件、TRACK/SOLUTION/AUTHORIZE FIRE/FIRE）。
+- `V1 HUD SHOT err=0`；headless interaction test 一次；`v1_hud.gd --check-only` 通过。
+
+### 13.4 边界 / 未完成
+
+1. CombatService 为 shadow；无真实弹道/命中/伤害/世界写入；敌方/威胁数据来自 track_vm，目标默认 T0001。
+2. 本页 `SOLUTION` 因 inside_min_range 失败、`FIRE` 因 no_ready_solution 失败，均显示原因，不伪造成功。
+3. 武器架授权需求/冷却由内容与 service 状态决定；无完整武器选择/载荷 UI。
+4. 不实现剧情/物理/完整战斗；未跑全量 regression。

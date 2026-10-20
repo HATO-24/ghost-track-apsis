@@ -67,6 +67,13 @@ var _optical_target := ""
 var _optical_track: Dictionary = {}
 var _optical_msg := ""
 var _optical_buttons: Array = []
+var _combat_target := ""
+var _combat_weapon := ""
+var _combat_msg := ""
+var _combat_target_rows: Array = []
+var _combat_weapon_rows: Array = []
+var _combat_buttons: Array = []
+var _combat_roe_buttons: Array = []
 
 
 func _ready() -> void:
@@ -154,6 +161,7 @@ func _load_data() -> void:
 	if binder != null and binder.contacts.size() > 0:
 		_comms_target = String((_contacts[_selected] as Dictionary).get("entity_id", (_contacts[_selected] as Dictionary).get("id", "")))
 	_seed_comms_sample()
+	_seed_combat_tracks()
 	# CombatService（ROE 四档）与 DamageModel（损管页）为会话外挂的 shadow 组件；
 	# GameSession 当前未内置 damage_vm；损管明确标注 MODEL，不伪造。
 	_combat = CombatService.new({})
@@ -167,7 +175,10 @@ func _load_data() -> void:
 	var dok: bool = _damage.setup({}, "apsis")
 	print("[V1 HUD] damage_model=", str(dok), " sections=", _damage.section_ids().size(), " combat=", str(_combat.ready), " roe=", String(_combat.roe) if _combat != null else "—", " roe_locked=", str(_roe_locked))
 	var view := OS.get_environment("DSH_V1_VIEW")
-	if view == "damage":
+	if view == "combat":
+		_overlay = "combat"
+		_seed_combat_tracks()
+	elif view == "damage":
 		_overlay = "damage"
 		if _damage != null and _damage.ready:
 			var ids: Array = _damage.section_ids()
@@ -432,7 +443,7 @@ func _draw_right(r: Rect2) -> void:
 	Painter.section(self, x, y, right, "SENSOR CONTROLS / 只读最小交互")
 	y += 10.0
 	_right_buttons.clear()
-	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["INFO", "INFO / 信息"]]
+	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["COMBAT", "COMBAT / 战斗"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["INFO", "INFO / 信息"]]
 	for i in range(labels.size()):
 		var bw := (r.size.x - 32.0) * 0.5 - 4.0
 		var col := i % 2
@@ -524,7 +535,13 @@ func _run_interaction_test() -> void:
 	_optical_action("IFF")
 	_optical_action("ELINT")
 	_optical_action("LIGHT")
-	print("[V1 HUD] INTERACTION TEST damage=", _damage_msg, " roe=", _roe_msg, " command=", _command_msg, " comms=", _comms_msg, " optical=", _optical_msg)
+	_do_right_action("COMBAT")
+	_seed_combat_tracks()
+	_combat_action("TRACK")
+	_combat_action("SOLUTION")
+	_combat_action("AUTHORIZE FIRE")
+	_combat_action("FIRE")
+	print("[V1 HUD] INTERACTION TEST damage=", _damage_msg, " roe=", _roe_msg, " command=", _command_msg, " comms=", _comms_msg, " optical=", _optical_msg, " combat=", _combat_msg)
 
 
 func _run_save_test() -> void:
@@ -560,6 +577,8 @@ func _draw_overlay(l: Dictionary) -> void:
 		_draw_comms_overlay(r)
 	elif _overlay == "optical":
 		_draw_optical_overlay(r)
+	elif _overlay == "combat":
+		_draw_combat_overlay(r)
 
 
 func _draw_comms_overlay(r: Rect2) -> void:
@@ -792,6 +811,144 @@ func _optical_action(kind: String) -> void:
 	queue_redraw()
 
 
+func _seed_combat_tracks() -> void:
+	if _combat == null or binder == null:
+		return
+	var tracks: Array = binder.track_vm.get("tracks", []) if binder.track_vm.get("tracks", []) is Array else []
+	for raw in tracks:
+		if raw is Dictionary:
+			var tr: Dictionary = raw
+			var tid := String(tr.get("track_id", tr.get("id", "")))
+			if tid != "":
+				_combat.register_track(tid, tr)
+	var vm: Dictionary = _combat.vm()
+	var crows: Array = vm.get("tracks", []) if vm.get("tracks", []) is Array else []
+	if _combat_target == "" and not crows.is_empty():
+		_combat_target = String((crows[0] as Dictionary).get("id", ""))
+	var wrows: Array = vm.get("weapons", []) if vm.get("weapons", []) is Array else []
+	if _combat_weapon == "":
+		for raw2 in wrows:
+			if raw2 is Dictionary and String((raw2 as Dictionary).get("kind", "")) in ["kinetic", "guided"]:
+				_combat_weapon = String((raw2 as Dictionary).get("id", ""))
+				break
+	print("[V1 HUD] COMBAT tracks=", crows.size(), " weapons=", wrows.size(), " target=", _combat_target, " weapon=", _combat_weapon)
+
+
+func _draw_combat_overlay(r: Rect2) -> void:
+	var x := r.position.x + 16.0
+	var y := r.position.y + 34.0
+	Painter.label(self, x, y, "战斗终端 / COMBAT TERMINAL", 12, P.PH)
+	Painter.label(self, x, y + 14, "目标/武器/ROE/授权/预测 · CombatService shadow · NO PHYSICS HIT", 7, P.a(P.AMBER, 0.9), true)
+	if _combat == null or not bool(_combat.ready):
+		Painter.label(self, x, y + 44, "COMBAT NOT READY · no CombatService", 9, P.AMBER)
+		return
+	var vm: Dictionary = _combat.vm()
+	var track_rows: Array = vm.get("tracks", []) if vm.get("tracks", []) is Array else []
+	var weapon_rows: Array = vm.get("weapons", []) if vm.get("weapons", []) is Array else []
+	# 目标列表
+	var tw := 300.0
+	Painter.section(self, x, y + 42.0, x + tw, "TARGETS / 目标")
+	_combat_target_rows.clear()
+	var ty := y + 60.0
+	for i in range(mini(5, track_rows.size())):
+		var tr: Dictionary = track_rows[i]
+		var tid := String(tr.get("id", ""))
+		var tr_rect := Rect2(x, ty + float(i) * 28.0, tw - 8, 25.0)
+		_combat_target_rows.append({"rect": tr_rect, "id": tid})
+		if tid == _combat_target:
+			draw_rect(tr_rect, P.a(P.AMBER, 0.12))
+		Painter.label(self, x, tr_rect.position.y + 11, "L%d %s · %s" % [int(tr.get("level", 0)), tid, String(tr.get("identity", "unknown"))], 7, P.PH if tid == _combat_target else P.TXT, true)
+		var rng := float(tr.get("range_km", -1.0))
+		Painter.label(self, x + 8, tr_rect.position.y + 22, "threat %s · %s" % [String(tr.get("threat", "—")), ("%.1f km" % rng) if rng >= 0.0 else "RANGE NOT READY"], 6, P.a(P.DIM, 0.9), true)
+	# 武器架
+	var wx := x + tw + 16.0
+	Painter.section(self, wx, y + 42.0, wx + 360.0, "WEAPON RACK / 武器架")
+	_combat_weapon_rows.clear()
+	var wy := y + 60.0
+	for i in range(mini(6, weapon_rows.size())):
+		var w: Dictionary = weapon_rows[i]
+		var wid := String(w.get("id", ""))
+		var wr := Rect2(wx, wy + float(i) * 28.0, 352, 25.0)
+		_combat_weapon_rows.append({"rect": wr, "id": wid})
+		if wid == _combat_weapon:
+			draw_rect(wr, P.a(P.PH, 0.10))
+		Painter.label(self, wx, wr.position.y + 11, "%s · %s" % [wid, String(w.get("kind", ""))], 7, P.PH if wid == _combat_weapon else P.TXT, true)
+		Painter.label(self, wx + 190, wr.position.y + 11, "AMMO %s · CD %s · RANGE %s" % [
+			str(w.get("ammo", "—")), str(w.get("cooldown_remaining_s", w.get("cooldown_s", "—"))), str(w.get("range_km", "—"))], 6, P.a(P.DIM, 0.9), true)
+	# 右: ROE/授权/预测
+	var rx := x + tw + 390.0
+	var ry := y + 42.0
+	Painter.section(self, rx, ry, r.end.x - 14, "ROE / AUTHORIZATION")
+	ry += 16.0
+	Painter.label(self, rx, ry, "ROE " + String(vm.get("roe", "—")) + " · " + String(vm.get("roe_label", "")), 8, P.PH, true)
+	ry += 14.0
+	_combat_roe_buttons.clear()
+	var roes := ["DEFEND", "HOLD", "TIGHT", "FREE"]
+	for i in range(roes.size()):
+		var br := Rect2(rx + float(i) * 83.0, ry, 78, 18)
+		_combat_roe_buttons.append({"rect": br, "kind": String(roes[i])})
+		Painter.button(self, br, String(roes[i]), true, P.PH if String(vm.get("roe", "")) == String(roes[i]) else P.PH_DIM)
+	ry += 28.0
+	for lvl in ["TRACK", "SOLUTION", "FIRE"]:
+		var au: Dictionary = binder.session.combat_authorization(lvl, _combat_target, _combat_weapon) if binder != null and binder.session != null else {}
+		Painter.label(self, rx, ry, "%s AUTHORIZATION" % lvl, 7, P.a(P.PH_DIM, 0.9), true)
+		Painter.label_right(self, r.end.x - 14, ry, "OK" if bool(au.get("ok", false)) else String(au.get("reason", "LOCKED")), 7, P.PH if bool(au.get("ok", false)) else P.AMBER, true)
+		ry += 13.0
+	# 预测接口
+	ry += 6.0
+	Painter.section(self, rx, ry, r.end.x - 14, "PREDICTION / INTERFACE · NO PHYSICS")
+	ry += 15.0
+	var pred: Dictionary = _combat.predict_shot(_combat_target, _combat_weapon) if _combat_target != "" and _combat_weapon != "" else {}
+	if bool(pred.get("ok", false)):
+		Painter.label(self, rx, ry, "TOF %.1fs · HIT %d%% · ERR %.2f km" % [float(pred.get("time_of_flight_s", -1.0)), int(float(pred.get("hit_probability", 0.0)) * 100.0), float(pred.get("error_km", 0.0))], 7, P.TXT, true)
+		Painter.label(self, rx, ry + 12, "trajectory=" + String(pred.get("trajectory", "interface_only")) + " · no_physics=" + str(bool(pred.get("no_physics", true))), 6, P.a(P.FAINT, 0.9), true)
+	else:
+		Painter.label(self, rx, ry, "PREDICTION NOT READY · " + String(pred.get("reason", "no target/weapon")), 7, P.AMBER, true)
+	ry += 38.0
+	# 操作按钮
+	_combat_buttons.clear()
+	var actions := ["TRACK", "SOLUTION", "AUTHORIZE FIRE", "FIRE"]
+	for i in range(actions.size()):
+		var br := Rect2(rx + float(i % 2) * 170.0, ry + float(i / 2) * 26.0, 162, 21)
+		_combat_buttons.append({"rect": br, "kind": String(actions[i])})
+		Painter.button(self, br, String(actions[i]), true, P.PH if i < 3 else P.RED)
+	ry += 60.0
+	# 战斗事件
+	Painter.section(self, x, y + 235.0, x + r.size.x - 36, "COMBAT EVENTS / 战斗事件")
+	var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
+	var ey := y + 252.0
+	if evs.is_empty():
+		Painter.label(self, x, ey, "NO COMBAT EVENTS · NOT READY", 7, P.FAINT, true)
+	for i in range(maxi(0, evs.size() - 5), evs.size()):
+		var ev: Dictionary = evs[i]
+		Painter.label(self, x, ey + float(i - maxi(0, evs.size() - 5)) * 12.0, "%5.1fs %s · %s" % [float(ev.get("t", 0.0)), String(ev.get("kind", "")), TM.fit(JSON.stringify(ev.get("payload", {})), 520, true, 6)], 6, P.a(P.DIM, 0.9), true)
+	if _combat_msg != "":
+		Painter.label(self, x, r.end.y - 14, TM.fit(_combat_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
+
+
+func _combat_action(kind: String) -> void:
+	if _combat == null or not bool(_combat.ready):
+		_combat_msg = "COMBAT NOT READY"
+		return
+	var res: Dictionary = {}
+	match kind:
+		"TRACK":
+			res = _combat.request_track(_combat_target, true)
+		"SOLUTION":
+			res = _combat.request_solution(_combat_target, _combat_weapon, true)
+		"AUTHORIZE FIRE":
+			res = binder.session.grant_authorization("FIRE", "target", _combat_target) if binder != null and binder.session != null else {"ok": false, "reason": "no_session"}
+		"FIRE":
+			res = _combat.request_fire(_combat_target, _combat_weapon, true)
+		"DEFEND", "HOLD", "TIGHT", "FREE":
+			res = _combat.set_roe(kind)
+		_:
+			res = {"ok": false, "reason": "unknown_action"}
+	_combat_msg = "%s %s/%s · %s%s" % [kind, _combat_target, _combat_weapon, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+	print("[V1 HUD] COMBAT ", _combat_msg)
+	queue_redraw()
+
+
 func _draw_damage_overlay(r: Rect2) -> void:
 	var x := r.position.x + 14.0
 	var y := r.position.y + 34.0
@@ -914,6 +1071,23 @@ func _gui_input(event: InputEvent) -> void:
 				if (b["rect"] as Rect2).has_point(event.position):
 					_optical_action(String(b.get("kind", "")))
 					return
+		elif _overlay == "combat":
+			for row in _combat_target_rows:
+				if (row["rect"] as Rect2).has_point(event.position):
+					_combat_target = String(row.get("id", ""))
+					return
+			for row in _combat_weapon_rows:
+				if (row["rect"] as Rect2).has_point(event.position):
+					_combat_weapon = String(row.get("id", ""))
+					return
+			for b in _combat_buttons:
+				if (b["rect"] as Rect2).has_point(event.position):
+					_combat_action(String(b.get("kind", "")))
+					return
+			for b in _combat_roe_buttons:
+				if (b["rect"] as Rect2).has_point(event.position):
+					_combat_action(String(b.get("kind", "")))
+					return
 		elif _overlay == "comms":
 			for b in _comms_type_buttons:
 				if (b["rect"] as Rect2).has_point(event.position):
@@ -974,6 +1148,9 @@ func _do_right_action(kind: String) -> void:
 			_overlay = "roe"
 		"COMMS":
 			_overlay = "comms"
+		"COMBAT":
+			_overlay = "combat"
+			_seed_combat_tracks()
 		"NAV":
 			get_tree().change_scene_to_file("res://nav_page.tscn")
 		"OPTICAL":

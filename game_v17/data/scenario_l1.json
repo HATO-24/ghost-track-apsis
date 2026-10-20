@@ -5,7 +5,7 @@
   "_comment": "P2a（D2）：四位数批号 + 身份/威胁 + 第七号令 + OCJC/OCUVF 内部事后报告；单位 L1 站心 km/km/s；几何/传感器/时间线沿用 P1j。",
   "epoch": 760.8,
   "datum": "L1",
-  "own_ship": "harmattan",
+  "own_ship": "apsis",
   "timeline": {
     "radar_on_t": 20.0,
     "optical_on_t": 46.0,
@@ -111,7 +111,7 @@
       "side": "friend",
       "identity": "friend",
       "level": 4,
-      "own": false,
+      "own": true,
       "r": [
         -190.0,
         255.0,
@@ -139,7 +139,7 @@
       "side": "friend",
       "identity": "friend",
       "level": 4,
-      "own": true,
+      "own": false,
       "r": [
         2.0,
         -3.0,

@@ -419,15 +419,19 @@ func _build_tracks() -> void:
 			return
 	# r/v 全部是 L1 站点相对（km, km/s）：+x 地月连线方向（指向月球）、
 	# +y 面内横向、+z 轨道法向。plot 里把 +y 当"北"、+x 当"东"用。
-	var own_r := Vector3(2.0, -3.0, 0.0)
-	var own_v := Vector3(0.22, -0.12, 0.03)
+	# 玩家指挥舰 = 旗舰 APSIS(1000)。物理 own 参考也迁到旗舰；
+	# 哈马丹降为哨舰，位置相对旗舰保持原偏移，不再拥有 own 语义。
+	var own_r := _rel(300.0, 210.0, 55.0)
+	var own_v := Vector3(-0.050, -0.060, 0.010)
 	own = {"r": own_r, "v": own_v}
 	own_cur = {"r": own_r, "v": own_v}
+	var picket_r := own_r + Vector3(2.0, -3.0, 0.0)
+	var picket_v := own_v + Vector3(0.22, -0.12, 0.03)
 	tracks = [
 		_track("1000", "APSIS", "远地点级", "船坞舰", "friend", 4,
-			_rel(300.0, 210.0, 55.0), Vector3(-0.050, -0.060, 0.010), 1.0, false, Vector2(10, -30), false, "远地点", "friend"),
+			own_r, own_v, 1.0, true, Vector2(10, -30), false, "远地点", "friend"),
 		_track("1001", "HARMATTAN", "托盘-5 改", "哨舰", "friend", 4,
-			own_r, own_v, 0.0, true, Vector2(16, 14), false, "哈马丹", "friend"),
+			picket_r, picket_v, 0.0, false, Vector2(16, 14), false, "哈马丹", "friend"),
 		_track("1002", "FERRY", "赤铁-6 改", "炮舰", "friend", 4,
 			_rel(332.0, 68.0, -4.0), Vector3(-0.0607, -0.0775, 0.0074), 1.0, false, Vector2(-72, -20), false, "渡口号", "friend"),
 		_track("1003", "WATCHTOWER", "安海-1", "中继舰", "friend", 4,
@@ -446,7 +450,7 @@ func _build_tracks() -> void:
 		"elev": 20.0,
 		"dv_ms": 84.0,
 		"dv": _dv_vec(340.0, 20.0, 0.084),
-		"label": "点火（BURN）哈马丹 → 节点 B-2"
+		"label": "点火（BURN）ID13 旗舰 → 节点 B-2"
 	}
 
 # CH-IR2 回波候选（07 §3 Phase 1「两条回波」：真目标是 AV-4412 传唤者，另一条是残骸/反射）。
