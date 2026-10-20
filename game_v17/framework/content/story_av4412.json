@@ -1,0 +1,266 @@
+{
+  "schema": "v17.story_av4412.v1",
+  "version": "1.0.0",
+  "title": "完整游戏-阶段3W AV-4412 轨道/对峙/谈判链文本",
+  "source": "docs/44_新剧本_2193.md（当前副本第225-259行；任务原始行100-116）",
+  "source_path": "../docs/44_新剧本_2193.md",
+  "entity_id": "av_4412",
+  "chain": [
+    "ORBIT_DEPARTURE",
+    "WINDOW_OPEN",
+    "EARLY_RADAR",
+    "PASSIVE_CONTACT",
+    "COMMS",
+    "NEGOTIATION",
+    "STRONG",
+    "STANDARD",
+    "QUESTION",
+    "RETREAT",
+    "RESOLUTION",
+    "REPORT_HANDOFF"
+  ],
+  "triggers": {
+    "early_radar": "av4412_early_radar",
+    "passive_contact": "av4412_passive_contact",
+    "comms": "av4412_comms",
+    "strong": "av4412_strong",
+    "standard": "av4412_standard",
+    "question": "av4412_question",
+    "retreat": "av4412_retreat",
+    "death_ending": "av4412_death_ending",
+    "resolution": "av4412_resolution",
+    "report_handoff": "av4412_report_handoff"
+  },
+  "options": [
+    "strong",
+    "standard",
+    "question",
+    "retreat"
+  ],
+  "retreat_required_warnings": 3,
+  "threat": {
+    "strong": 2,
+    "standard": 1,
+    "question": 0,
+    "retreat": -1
+  },
+  "trust": {
+    "strong": 0,
+    "standard": 0,
+    "question": 1,
+    "retreat_warning": -1,
+    "retreat": -3
+  },
+  "reputation": {
+    "strong": {
+      "ocu": 2,
+      "meridian": 1
+    },
+    "standard": {
+      "ocu": 1
+    },
+    "question": {
+      "ocu": 2,
+      "meridian": 1
+    },
+    "retreat": {
+      "ocu": -3,
+      "meridian": -2
+    }
+  },
+  "texts": [
+    {
+      "text_key": "av4412.contact_rules",
+      "zh": "窗口期结束后，AV-4412会以真实实体的方式出现，实际上在游戏剧情开始时，4412就需按照真实轨道物理从UEG港口出发前往L1，如果玩家在窗口期内提前打开了雷达，则4412会按雷达机制被我方扫描，触发窗口期提前结束事件，提前触发对话文本进入对峙谈判阶段。若保持静默状态，则按被动索敌的传感器机制出现，4412会正常对我方进行通信，并进入对峙谈判阶段。",
+      "en": "",
+      "source_lines": [
+        227
+      ],
+      "usage": "contact_rules",
+      "draft": true,
+      "tbd": false,
+      "note": "窗口期结束/提前雷达→真实实体出现；不伪造轨道。"
+    },
+    {
+      "text_key": "av4412.negotiation_rules",
+      "zh": "清算者由于暂时没有足够理由对玩家开火，在玩家威胁程度达到必须消灭的程度前，只会解锁新的谈判页面。在此页面中玩家需要以单纯口头交涉，威胁，出示证据等手段阻止清算者部队接管空间站。谈判阶段会根据玩家的强硬程度以及证据对清算者部队方的不利程度判断成功或失败。若玩家在谈判阶段失败，则会出现坚守位置/让出位置的选项，如果选择坚守，则清算者部队因不可能为了接管设施而冒着舰只损坏的风险无法直接撞击玩家，在无奈中撤离。如果选择撤离，则玩家谈判彻底失败，清算者部队舰只入港，玩家舰只自动让出位置，无需额外操作。",
+      "en": "",
+      "source_lines": [
+        231
+      ],
+      "usage": "negotiation_rules",
+      "draft": true,
+      "tbd": false,
+      "note": "谈判根据强硬程度/证据判断成功失败；失败后坚守/撤离选项。"
+    },
+    {
+      "text_key": "av4412.opening",
+      "zh": "谈判开场文本复用第一关文本：“远地点号，AV-4412 传唤者。本舰受第33轨道特别独立舰队指派，依据《轨道宪章》与第七号轨道紧急托管令，接管 Chronos 加注站、储罐群与进港航道。请贵方立即撤出检查边界，不得妨碍执行。本通知不构成威胁。完毕” 界面需单独设计。",
+      "en": "",
+      "source_lines": [
+        233
+      ],
+      "usage": "opening",
+      "draft": true,
+      "tbd": false,
+      "note": "AV-4412 开场喊话（复用第一关文本）。"
+    },
+    {
+      "text_key": "av4412.strong",
+      "zh": "强硬回应：科尔接管官，ID13 指挥官。依据 OCJC 授权，我方要求暂停 Chronos 接管程序，等待轨道事务委员会复核。我方不会首先开火，但不会让出储罐区。我方依据授权有权在特殊情况下采取武力威慑，请不要进行越界行为。完毕。（玩家选择此项后，会自动切换ROE至TIGHT，并启动炮舰的火控雷达照射）",
+      "en": "",
+      "source_lines": [
+        237
+      ],
+      "usage": "strong",
+      "draft": true,
+      "tbd": false,
+      "note": "强硬回应文本；切 ROE TIGHT/火控照射。"
+    },
+    {
+      "text_key": "av4412.strong_aftermath",
+      "zh": "后续：清算者部队由于只派出了一艘舰艇，在自知寡不敌众的情况下，没有做出回应，并离开L1轨道。玩家威胁等级大幅上升。",
+      "en": "",
+      "source_lines": [
+        239
+      ],
+      "usage": "strong_aftermath",
+      "draft": true,
+      "tbd": false,
+      "note": "强硬后续；玩家威胁等级上升。"
+    },
+    {
+      "text_key": "av4412.standard",
+      "zh": "标准回应：科尔接管官，ID13 指挥官。依据 OCJC 授权，我方要求暂停 Chronos 接管程序，等待轨道事务委员会复核。我方不会首先开火，但不会让出储罐区。完毕。",
+      "en": "",
+      "source_lines": [
+        241
+      ],
+      "usage": "standard",
+      "draft": true,
+      "tbd": false,
+      "note": "标准回应文本。"
+    },
+    {
+      "text_key": "av4412.standard_aftermath",
+      "zh": "后续：清算者部队由于只派出了一艘舰艇，在自知寡不敌众的情况下，放出狠话威胁之后离开。玩家威胁等级上升。（帮我补上回复）",
+      "en": "",
+      "source_lines": [
+        243
+      ],
+      "usage": "standard_aftermath",
+      "draft": true,
+      "tbd": false,
+      "note": "标准后续；原文含“帮我补上回复”待补。"
+    },
+    {
+      "text_key": "av4412.question",
+      "zh": "提出质疑：科尔接管官，ID13 指挥官。我方已取得港务交通管制遥测数据，且对遥测记录有质疑。在贵方正式回答质疑前，我方不会撤出。完毕。",
+      "en": "",
+      "source_lines": [
+        245
+      ],
+      "usage": "question",
+      "draft": true,
+      "tbd": false,
+      "note": "提出质疑文本。"
+    },
+    {
+      "text_key": "av4412.question_aftermath",
+      "zh": "后续：清算者部队上级察觉有栽赃行动暴露风险，强行叫停接管并要求AV-4412返回。（文本内容：远地点号，AV-4412 传唤者。……（帮我写完，内容大概为AV-4412无权无义务回答质疑，现接上级命令返回复核。并且以威胁口吻警告玩家。）",
+      "en": "",
+      "source_lines": [
+        247
+      ],
+      "usage": "question_aftermath",
+      "draft": true,
+      "tbd": false,
+      "note": "质疑后续；原文含未写完的 AV-4412 返回/威胁文本。"
+    },
+    {
+      "text_key": "av4412.retreat_rules",
+      "zh": "玩家选择退让出空间予以清算者部队，点击此选项时副官会多次弹出信息窗口劝阻玩家（需要你帮忙生成文本，注意文本不能重复，需要交由我再次润色），口吻随点击次数恶化。到达最差好感度时，副官会判断你是清算者部队的内奸，依据 OCUVF 规定（虽然OCUVF按设定的确应该有有对背叛行为的相关军事法条，但副官此刻只是以此为借口）对你实施“特殊情况下的极端处置”。在枪响后玩家死亡，触发游戏最差结局，demo结束。",
+      "en": "",
+      "source_lines": [
+        253
+      ],
+      "usage": "retreat_rules",
+      "draft": true,
+      "tbd": false,
+      "note": "退让规则：副官多次劝阻、最差好感度极端处置/死亡结局、仅一次。"
+    },
+    {
+      "text_key": "av4412.retreat_ending",
+      "zh": "此选项应是仅出现一次的彩蛋结局。",
+      "en": "",
+      "source_lines": [
+        255
+      ],
+      "usage": "retreat_ending",
+      "draft": true,
+      "tbd": false,
+      "note": "退让彩蛋结局（原文）。"
+    },
+    {
+      "text_key": "av4412.standard_av_reply_tbd",
+      "zh": "TBD",
+      "en": "",
+      "source_lines": [],
+      "usage": "tbd",
+      "draft": true,
+      "tbd": true,
+      "note": "缺失：标准回应后 AV-4412 的回话（原文要求补写；不伪造）。"
+    },
+    {
+      "text_key": "av4412.question_av_reply_tbd",
+      "zh": "TBD",
+      "en": "",
+      "source_lines": [],
+      "usage": "tbd",
+      "draft": true,
+      "tbd": true,
+      "note": "缺失：质疑后 AV-4412 上级叫停/返回/威胁完整文本（原文未写完；不伪造）。"
+    },
+    {
+      "text_key": "av4412.av_return_threat_tbd",
+      "zh": "TBD",
+      "en": "",
+      "source_lines": [],
+      "usage": "tbd",
+      "draft": true,
+      "tbd": true,
+      "note": "缺失：AV-4412 返回/威胁完整台词。"
+    },
+    {
+      "text_key": "av4412.retreat_deputy_warn_1_tbd",
+      "zh": "TBD",
+      "en": "",
+      "source_lines": [],
+      "usage": "tbd",
+      "draft": true,
+      "tbd": true,
+      "note": "缺失：第一次退让劝阻文本（不伪造）。"
+    },
+    {
+      "text_key": "av4412.retreat_deputy_warn_2_tbd",
+      "zh": "TBD",
+      "en": "",
+      "source_lines": [],
+      "usage": "tbd",
+      "draft": true,
+      "tbd": true,
+      "note": "缺失：第二次退让劝阻文本（不伪造）。"
+    },
+    {
+      "text_key": "av4412.retreat_deputy_warn_3_tbd",
+      "zh": "TBD",
+      "en": "",
+      "source_lines": [],
+      "usage": "tbd",
+      "draft": true,
+      "tbd": true,
+      "note": "缺失：第三次退让劝阻/极端处置前文本（不伪造）。"
+    }
+  ],
+  "draft": true
+}
