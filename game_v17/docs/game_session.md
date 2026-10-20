@@ -1,9 +1,9 @@
 # 完整游戏-阶段2C/2H · GameSession 编排层（含 TrackTable/StoryState）
 
-> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）。工程 `game_v17`。
+> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）+ 3P（task-164）。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=909 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=979 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -24,7 +24,8 @@ GameSession
  ├─ DamageService（可选） 每舰 V2DamageModel；combat damage 事件→分区伤害/维修
  ├─ PhysicsWorld（可选） 单一位置权威；固定步长 CR3BP/星历；显式同步 world
  ├─ SignalService（可选） ELINT/DF/灯语；observation/evidence→TrackTable，light→bus
- └─ FacilityRegistry（可选） 全设施只读注册表；cluster/站/应答机/港口/物理参数
+ ├─ FacilityRegistry（可选） 全设施只读注册表；cluster/站/应答机/港口/物理参数
+ └─ TransponderService（可选） 应答机行为；询问/广播/状态/加密/触发→evidence/events
 ```
 
 - **依赖方向**：OrderService 内部持有 CommsService；`tick` 时订单服务推进通信并消费其投递事件。
@@ -54,6 +55,10 @@ GameSession
   entity_id/batch）；其次 world 同名实体（id/batch/name/kind/side）；不硬编码具体舰名；
   两者都缺失时保持空并在 session warnings 记一次（route 返回 `missing_meta/bound/world_bound`）。
   绑定后的 track 具备 entity_id/batch（`track_table.vm().tracks` 可直接给 UI 使用）。
+- **TransponderService（3P）**：应答机行为层（ship 绑 entity，station/port/fuel/tank/otc/relay
+  绑 FacilityRegistry）；询问/广播输出 `track_evidence.v1`（→TrackTable 白名单）与
+  `transponder_event.v1`（→bus `transponder.<kind>`）；不写 world；触发只输出 trigger_id/event，
+  不硬编码剧情文本。
 - **FacilityRegistry（3O）**：只读设施注册表（7 cluster / 29 facility / 57 ports：
   L1–L5 20 站 + NESOSS-06 + LUNSYNC-03 TBD 提案）；不写 world/UI、不改现有实体；
   `facility_for_entity` 只按 `entity_ids` 绑定读取（L1-05↔l1_station），不做实体移动。
@@ -90,6 +95,7 @@ config 可覆盖字段（省略用 demo）：
 | `physics_world` | **可选**：`true` 或 PhysicsWorld 配置（`step_s`≤60/`sun`/`ephemeris_path`/`entities[]`/`auto_seed`）；缺省/`false` → 不组合；启用时 seed 实体自动灌入（auto_seed=false 可关） |
 | `signal_service` | **可选**：`true` 或 SignalService 配置（`observer`/`targets`/`stations`/`elint`/`codes_path`/`light_codes`/`emitters[]`/`month`/`time`）；缺省/`false` → 不组合；启用时 ELINT/灯语可用 |
 | `facility_registry` | **可选**：`true`（默认设施内容）或 `{content_path/content}`；缺省/`false` → 不组合；只读注册表 |
+| `transponder_service` | **可选**：`true`（默认序章内容）或配置 `{content_path/content/max_range_km/max_latency_s/jam}`；缺省/`false` → 不组合；station 绑定自动注入 FacilityRegistry |
 
 - boot 建 5 个必需组件 + 可选 TrackTable/StoryState；任一启用组件 `ready=false` → `ok=false` + errors，不伪造。
 - TrackTable 默认 writer = `<session writer>_fusion`；StoryState 时间在 boot 时对齐 session 时间。
@@ -128,6 +134,9 @@ config 可覆盖字段（省略用 demo）：
 | `signal_target_ids/signal_target/signal_sync_from_world/signal_sync_from_contacts` | 目标只读/从 world 实体或 TrackTable 接触同步（只读 source，不写 world） |
 | `facility_lookup/facility_by_transponder/facility_for_entity/facilities_by_cluster` | 设施卡片/应答机识别/实体绑定/按 cluster 查询（只读） |
 | `facility_vm/facility_summary` | 全设施内容/摘要（只读，不写 world/UI） |
+| `transponder_interrogate/transponder_broadcast/transponder_passive_listen/transponder_lookup_code` | 应答机询问/广播/被动监听/注册码查询；evidence→TrackTable、事件→bus |
+| `transponder_set_status/transponder_set_crypto/transponder_set_jam/transponder_set_occlusion` | 应答机状态/加密/干扰/遮挡（失败不改状态） |
+| `transponder_upsert_profile/transponder_remove_profile/transponder_profile/transponder_vm/transponder_summary/transponder_trigger_ids` | profile 管理/只读 VM/摘要/触发 ID |
 | `light_send/light_receive/light_ack/signal_vm/signal_summary/signal_flush_events` | 可见光灯语发送/接收/确认、只读 VM/摘要、显式拉取 Signal outbox |
 | `order(id)` / `comms_pending()` | 只读查询 |
 | `snapshot()` / `to_dict()` / `to_json()` | 只读快照（time/world/orders/comms/bus 最近 32 事件/track/story/contracts/errors） |
@@ -204,6 +213,9 @@ config 可覆盖字段（省略用 demo）：
   只读、不双写；灯语发送不看 side；ACK 只看目标能力/状态（无能力时不伪造回应）。
 - **Facility 一致**：`facility_registry.ready` 且内部 contracts ok；查询/卡片不写 world；
   `facility_for_entity` 只读 entity_ids 绑定；未启用时 API 返回空/`no_facility_registry`。
+- **Transponder 一致**：`transponder_service.t == now_s()`、ready、contracts ok；evidence 只走
+  TrackTable 白名单、事件只走 bus；不写 world；captured/spoofed 不改 identity 为 hostile；
+  触发只输出 trigger_id/event，不写剧情文本。
 - tick 失败/拒绝路径不静默：返回 `ok=false` + `errors/contract_errors`；失败订单不伪造状态。
 
 ## 5　内存 save/load（不写盘）
@@ -224,6 +236,7 @@ config 可覆盖字段（省略用 demo）：
   physics_world: <PhysicsWorld.save_state() JSON> | "",
   signal_service: <SignalService.save_state() JSON> | "",
   facility_registry: <FacilityRegistry.to_dict()> | null,
+  transponder_service: <TransponderService.save_state() JSON> | "",
   bus: {seq, events[]}
 }
 ```
@@ -247,6 +260,10 @@ signal VM/snapshot 一致、t 同步、TrackTable/bus 历史一致、可继续 i
 **Facility 存档**：save 嵌入 FacilityRegistry 完整内容（cluster/facility/ports/physical）；
 load boot(seed) 重建 + 快照恢复（校验后应用）；load 后 facility_vm/summary 一致、contracts ok、
 不再写 world；旧存档缺 `facility_registry` 字段/seed 配置 → 组件退化。
+
+**Transponder 存档**：save 嵌入 TransponderService 快照（profiles 运行时状态/events/evidence/
+triggers/jam/occlusion）；load 校验 profile 后恢复；load 后 transponder_vm/snapshot 一致、
+t 同步、可继续询问/广播；旧存档缺字段/seed 配置 → 组件退化。
 
 **Port/Combat 存档**：save 嵌入二者 `save_state()` JSON；load 时先 boot(seed) 重建并按 log 重放
 （port/combat 委托操作 + tick），再恢复快照；load 后 VM/snapshot 一致、时间与 session 同步、
@@ -272,10 +289,10 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=909 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=979 FAIL=0（exit 0，只跑一次）
 ```
 
-覆盖（33 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
+覆盖（34 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
 （ISSUED→…→DONE、事件类型、delivery_id、订单-通信一致、终态拒绝）；通信/链路；失败/过期/
 撤销/拒绝；暂停/时标/时间单调；bus-world 分离与单写者；save/load snapshot 一致+二次 save；
 错误路径；JSON/确定性；**可选组件**（无配置/false 退化、true 启用、退化 save/load）；
@@ -312,6 +329,8 @@ shot_id 去重、失败不改状态）；**Damage 存档**（save 嵌入 damage 
   side 过滤；ACK 能力字段由上层配置/注册提供，不推断真实平台能力，无能力时不伪造 ACK。
 - FacilityRegistry 只读内容/绑定；不写 world/UI、不生成实体/PortService、不做停靠物理；
   `ports[]` 只是数据绑定（port_id 供上层引用）；月同步站名 TBD 提案、物理参数原型占位。
+- TransponderService 是行为/证据/触发层：不写 world/TrackTable/UI、不模拟真实 SSR/IFF 波形/
+  Mode 5 密码学；不决定敌我；触发只输出 ID/event/reason 供 StoryRuntime 消费。
 - DamageService 只做多舰损管组合/事件/存档；combat 命中概率由 CombatService 决定，damage event
   经白名单应用；damage 不直接写 world/V15/UI。
 - PortService/CombatService 只输出状态/事件；session 不自动许可/对接/服务/开火；FIRE 永不自动，

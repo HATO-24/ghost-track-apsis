@@ -26,6 +26,7 @@ const DamageServiceScript := preload("res://scripts/core/damage_service.gd")
 const PhysicsWorldScript := preload("res://scripts/core/physics_world.gd")
 const SignalServiceScript := preload("res://scripts/core/signal_service.gd")
 const FacilityRegistryScript := preload("res://scripts/core/facility_registry.gd")
+const TransponderServiceScript := preload("res://scripts/core/transponder_service.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -55,6 +56,7 @@ var damage_service = null
 var physics_world_service = null
 var signal_service = null
 var facility_registry = null
+var transponder_service = null
 
 var _track_enabled := false
 var _sensor_enabled := false
@@ -64,6 +66,7 @@ var _damage_enabled := false
 var _physics_enabled := false
 var _signal_enabled := false
 var _facility_enabled := false
+var _transponder_enabled := false
 var _last_signal_route: Dictionary = {}
 var _signal_missing_meta_warned: Dictionary = {}
 var _damage_applied_shots: Dictionary = {}
@@ -123,7 +126,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "facility_registry"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "facility_registry", "transponder_service"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -149,6 +152,7 @@ func boot(config := {}) -> Dictionary:
 	physics_world_service = null
 	signal_service = null
 	facility_registry = null
+	transponder_service = null
 	_last_signal_route = {}
 	_signal_missing_meta_warned = {}
 	_damage_applied_shots = {}
@@ -202,6 +206,8 @@ func boot(config := {}) -> Dictionary:
 	if _signal_enabled and signal_service != null and not bool(signal_service.ready):
 		extra_ok = false
 	if _facility_enabled and facility_registry != null and not bool(facility_registry.ready):
+		extra_ok = false
+	if _transponder_enabled and transponder_service != null and not bool(transponder_service.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -260,6 +266,8 @@ func boot(config := {}) -> Dictionary:
 		physics_world_service.set_time(now_s()) if now_s() > 0.0 else null
 	if signal_service != null:
 		signal_service.t = now_s()
+	if transponder_service != null:
+		transponder_service.set_time(now_s())
 	_damage_applied_shots = {}
 	_last_bus_routed_index = bus.count()
 	_flush_component_events()
@@ -389,6 +397,17 @@ func _setup_optional_components() -> void:
 			errors.append("facility_registry 未就绪：" + str(facility_registry.errors))
 		else:
 			_facility_enabled = true
+	var txp = _seed.get("transponder_service", null)
+	var txp_on := (txp is Dictionary) or (txp is bool and bool(txp))
+	if txp_on:
+		var tcfg: Dictionary = {} if (txp is bool) else (txp as Dictionary).duplicate(true)
+		if facility_registry != null:
+			tcfg["facility_registry"] = facility_registry
+		transponder_service = TransponderServiceScript.new(tcfg)
+		if not bool(transponder_service.ready):
+			errors.append("transponder_service 未就绪：" + str(transponder_service.errors))
+		else:
+			_transponder_enabled = true
 	var pw = _seed.get("physics_world", null)
 	var pw_on := (pw is Dictionary) or (pw is bool and bool(pw))
 	if pw_on:
@@ -584,6 +603,8 @@ func tick(dt: float) -> Dictionary:
 	_flush_component_events()
 	var signal_route: Dictionary = _last_signal_route.duplicate(true)
 	var damage_tick: Dictionary = _advance_damage(sim_dt)
+	var transponder_tick: Dictionary = _advance_transponder(sim_dt)
+	_flush_component_events()
 	var routed: Array = _route_pending_bus_events()
 	_reconcile_standalone(pending_before)
 	var contracts := check_contracts()
@@ -603,6 +624,7 @@ func tick(dt: float) -> Dictionary:
 			"physics": physics_world_service != null,
 			"signal": signal_service != null,
 			"facility": facility_registry != null,
+			"transponder": transponder_service != null,
 		},
 		"sensor_route": sensor_route,
 		"port_combat": port_combat,
@@ -610,6 +632,7 @@ func tick(dt: float) -> Dictionary:
 		"physics_tick": physics_tick,
 		"signal_step": signal_step,
 		"signal_route": signal_route,
+		"transponder_tick": transponder_tick,
 		"contracts": contracts}
 
 func _check_post() -> void:
@@ -924,6 +947,9 @@ func _flush_component_events() -> void:
 				"source": "physics_world", "target": String(pdet.get("id", "")),
 				"payload": pdet.duplicate(true), "text_key": ""})
 			n += 1
+	if transponder_service != null:
+		var tres: Dictionary = _flush_transponder_outputs()
+		n += int(tres.get("events", 0))
 	if n > 0:
 		_last_bus_routed_index = bus.events.size()
 
@@ -981,6 +1007,71 @@ func _advance_physics(sim_dt: float) -> Dictionary:
 	return {"enabled": true, "ok": bool(res.get("ok", false)),
 		"steps": int(res.get("steps", 0)), "t": float(physics_world_service.t),
 		"entities": physics_world_service.entity_count()}
+
+## tick：应答机只同步时间，不自动询问/广播；事件由 _flush_component_events 路由。
+func _advance_transponder(sim_dt: float) -> Dictionary:
+	if transponder_service == null:
+		return {"enabled": false}
+	transponder_service.set_time(now_s())
+	return {"enabled": true, "t": float(transponder_service.t),
+		"profiles": transponder_service.profiles.size()}
+
+## 应答机输出路由：track_evidence.v1 → TrackTable（白名单）；transponder_event.v1 →
+## EventBus（transponder.<kind>）。不写 world；track_table 未启用时 evidence skipped。
+func _flush_transponder_outputs(extra_events := [], extra_evidence := []) -> Dictionary:
+	if transponder_service == null:
+		return {"enabled": false}
+	var evs: Array = []
+	for raw in extra_events:
+		evs.append(raw)
+	for raw2 in transponder_service.take_events():
+		evs.append(raw2)
+	var evid: Array = []
+	for raw3 in extra_evidence:
+		evid.append(raw3)
+	for raw4 in evs:
+		if not (raw4 is Dictionary):
+			continue
+		var ev: Dictionary = raw4
+		if String(ev.get("schema", "")) == "track_evidence.v1":
+			evid.append(ev)
+	var out := {"enabled": true, "evidence": 0, "events": 0, "failed": 0,
+		"skipped": 0, "reasons": []}
+	if track_table == null:
+		out["skipped"] = evid.size()
+	else:
+		for raw_ev in evid:
+			var e: Dictionary = (raw_ev as Dictionary).duplicate(true)
+			var support := int(e.get("support", 3))
+			if support < 1 or support > 4:
+				out["skipped"] = int(out["skipped"]) + 1
+				continue
+			var tid := String(e.get("target_id", ""))
+			if _sensor_track_map.has(tid) and not e.has("track_id"):
+				e["track_id"] = String(_sensor_track_map[tid])
+			var r: Dictionary = track_table.handle_evidence(e, _track_writer)
+			if bool(r.get("ok", false)):
+				out["evidence"] = int(out["evidence"]) + 1
+			else:
+				out["failed"] = int(out["failed"]) + 1
+				out["reasons"].append("evidence:" + str(r.get("reason", "")))
+	for raw5 in evs:
+		if not (raw5 is Dictionary):
+			continue
+		var tev: Dictionary = raw5
+		if String(tev.get("schema", "")) != "transponder_event.v1":
+			continue
+		var payload: Dictionary = tev.get("payload", {}) if tev.get("payload") is Dictionary else {}
+		_publish({"type": "transponder." + str(tev.get("kind", "event")), "t": now_s(),
+			"source": "transponder_service",
+			"target": str(payload.get("target_id", "")),
+			"payload": {"event_id": str(tev.get("event_id", "")),
+				"kind": str(tev.get("kind", "")),
+				"trigger_id": str(tev.get("trigger_id", "")),
+				"data": payload.duplicate(true)},
+			"text_key": ""})
+		out["events"] = int(out["events"]) + 1
+	return out
 
 const ROUTABLE_TYPES := ["story.flag", "story.evidence", "story.choice",
 	"track.observation", "track.evidence"]
@@ -2052,6 +2143,113 @@ func facility_summary() -> Dictionary:
 	if facility_registry == null:
 		return {}
 	return facility_registry.summary()
+# ── TransponderService 委托（应答机行为层；可选）────────────────
+
+func transponder_interrogate(source_id: String, target_id: String,
+		mode := "", opts := {}) -> Dictionary:
+	if transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service"}
+	var res: Dictionary = transponder_service.interrogate(source_id, target_id, mode, opts)
+	_flush_transponder_outputs(res.get("events", []), res.get("evidence", []))
+	if bool(res.get("ok", false)):
+		_record({"op": "transponder_interrogate", "source_id": source_id,
+			"target_id": target_id, "mode": mode, "opts": opts})
+	return res
+
+func transponder_broadcast(opts := {}) -> Dictionary:
+	if transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service"}
+	var res: Dictionary = transponder_service.broadcast(opts)
+	_flush_transponder_outputs(res.get("events", []), res.get("evidence", []))
+	return res
+
+func transponder_passive_listen(opts := {}) -> Dictionary:
+	if transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service"}
+	var res: Dictionary = transponder_service.passive_listen(opts)
+	_flush_transponder_outputs(res.get("events", []), res.get("evidence", []))
+	return res
+
+func transponder_lookup_code(code: String) -> Dictionary:
+	if transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service"}
+	return transponder_service.lookup_code(code)
+
+func transponder_set_status(profile_id: String, status: String) -> Dictionary:
+	if transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service"}
+	var res: Dictionary = transponder_service.set_status(profile_id, status)
+	_flush_transponder_outputs()
+	if bool(res.get("ok", false)):
+		_record({"op": "transponder_set_status", "profile_id": profile_id,
+			"status": status})
+	return res
+
+func transponder_set_crypto(profile_id: String, patch: Dictionary) -> Dictionary:
+	if transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service"}
+	var res: Dictionary = transponder_service.set_crypto(profile_id, patch)
+	_flush_transponder_outputs()
+	if bool(res.get("ok", false)):
+		_record({"op": "transponder_set_crypto", "profile_id": profile_id,
+			"patch": patch})
+	return res
+
+func transponder_set_jam(target_id: String, severity: float) -> Dictionary:
+	if transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service"}
+	var res: Dictionary = transponder_service.set_jam(target_id, severity)
+	_flush_transponder_outputs()
+	if bool(res.get("ok", false)):
+		_record({"op": "transponder_set_jam", "target_id": target_id,
+			"severity": severity})
+	return res
+
+func transponder_set_occlusion(target_id: String, occluded: bool) -> Dictionary:
+	if transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service"}
+	var res: Dictionary = transponder_service.set_occlusion(target_id, occluded)
+	_flush_transponder_outputs()
+	if bool(res.get("ok", false)):
+		_record({"op": "transponder_set_occlusion", "target_id": target_id,
+			"occluded": occluded})
+	return res
+
+func transponder_upsert_profile(profile: Dictionary) -> Dictionary:
+	if transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service"}
+	var res: Dictionary = transponder_service.upsert_profile(profile)
+	if bool(res.get("ok", false)):
+		_record({"op": "transponder_upsert_profile", "profile": profile})
+	return res
+
+func transponder_remove_profile(profile_id: String) -> Dictionary:
+	if transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service"}
+	var res: Dictionary = transponder_service.remove_profile(profile_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "transponder_remove_profile", "profile_id": profile_id})
+	return res
+
+func transponder_profile(profile_id: String) -> Dictionary:
+	if transponder_service == null:
+		return {}
+	return transponder_service.profile(profile_id)
+
+func transponder_vm() -> Dictionary:
+	if transponder_service == null:
+		return {}
+	return transponder_service.vm()
+
+func transponder_summary() -> Dictionary:
+	if transponder_service == null:
+		return {}
+	return transponder_service.summary()
+
+func transponder_trigger_ids() -> Array:
+	if transponder_service == null:
+		return []
+	return transponder_service.trigger_ids()
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -2135,6 +2333,14 @@ func check_contracts() -> Dictionary:
 			v.append("facility_registry 未就绪")
 		if not bool(facility_registry.check_contracts().get("ok", false)):
 			v.append("facility_registry 不变量失败")
+	if transponder_service != null:
+		if not bool(transponder_service.ready):
+			v.append("transponder_service 未就绪")
+		if absf(float(transponder_service.t) - now_s()) > 1.0e-6:
+			v.append("transponder 时间与会话不一致：%s != %s" % [
+				str(transponder_service.t), str(now_s())])
+		if not bool(transponder_service.check_contracts().get("ok", false)):
+			v.append("transponder 不变量失败")
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -2190,6 +2396,7 @@ func snapshot() -> Dictionary:
 		"physics": physics_world_service.snapshot() if physics_world_service != null else null,
 		"signal": signal_service.vm() if signal_service != null else null,
 		"facilities": facility_registry.summary() if facility_registry != null else null,
+		"transponder": transponder_service.vm() if transponder_service != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -2224,6 +2431,7 @@ func save_state() -> String:
 		"physics_world": physics_world_service.save_state() if physics_world_service != null else "",
 		"signal_service": signal_service.save_state() if signal_service != null else "",
 		"facility_registry": facility_registry.to_dict() if facility_registry != null else null,
+		"transponder_service": transponder_service.save_state() if transponder_service != null else "",
 		"bus": {
 			"seq": bus.current_seq(),
 			"events": JSON.parse_string(JSON.stringify(bus.events)),
@@ -2334,6 +2542,14 @@ func load_state(json_text: String) -> Dictionary:
 			var fac_ok: bool = facility_registry.load_data(saved_fac)
 			if not fac_ok:
 				replay_errors.append("facility_registry 快照恢复失败：" + str(facility_registry.errors))
+	var saved_txp = data.get("transponder_service", null)
+	if saved_txp != null and String(saved_txp) != "":
+		if transponder_service == null:
+			replay_errors.append("存档含 transponder_service 快照但 boot 未启用 transponder_service")
+		else:
+			var txr: Dictionary = transponder_service.load_state(saved_txp)
+			if not bool(txr.get("ok", false)):
+				replay_errors.append("transponder_service 快照恢复失败：" + str(txr.get("errors", [])))
 	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:
@@ -2579,6 +2795,38 @@ func _replay_op(op: Dictionary) -> Dictionary:
 			if signal_service == null:
 				return {"ok": true, "skipped": "no_signal_service"}
 			return signal_sync_targets(op.get("targets", []), op.get("opts", {}))
+		"transponder_interrogate":
+			if transponder_service == null:
+				return {"ok": true, "skipped": "no_transponder_service"}
+			return transponder_interrogate(str(op.get("source_id", "")),
+				str(op.get("target_id", "")), str(op.get("mode", "")), op.get("opts", {}))
+		"transponder_set_status":
+			if transponder_service == null:
+				return {"ok": true, "skipped": "no_transponder_service"}
+			return transponder_set_status(str(op.get("profile_id", "")),
+				str(op.get("status", "")))
+		"transponder_set_crypto":
+			if transponder_service == null:
+				return {"ok": true, "skipped": "no_transponder_service"}
+			return transponder_set_crypto(str(op.get("profile_id", "")), op.get("patch", {}))
+		"transponder_set_jam":
+			if transponder_service == null:
+				return {"ok": true, "skipped": "no_transponder_service"}
+			return transponder_set_jam(str(op.get("target_id", "")),
+				float(op.get("severity", 0.0)))
+		"transponder_set_occlusion":
+			if transponder_service == null:
+				return {"ok": true, "skipped": "no_transponder_service"}
+			return transponder_set_occlusion(str(op.get("target_id", "")),
+				bool(op.get("occluded", false)))
+		"transponder_upsert_profile":
+			if transponder_service == null:
+				return {"ok": true, "skipped": "no_transponder_service"}
+			return transponder_upsert_profile(op.get("profile", {}))
+		"transponder_remove_profile":
+			if transponder_service == null:
+				return {"ok": true, "skipped": "no_transponder_service"}
+			return transponder_remove_profile(str(op.get("profile_id", "")))
 		"pause":
 			return pause()
 		"resume":

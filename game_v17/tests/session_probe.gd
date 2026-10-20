@@ -54,6 +54,7 @@ func _initialize() -> void:
 	_test_signal_binding()
 	_test_signal_dynamic_targets()
 	_test_facility_registry()
+	_test_transponder_integration()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -2431,3 +2432,198 @@ func _test_facility_registry() -> void:
 	_ok(a.save_state() == b.save_state(), "facility 同操作 save 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "facility contracts ok 2")
 	_data_line("facility", "7 cluster/29 站/57 港口 · lookup/transponder/entity/cluster · 不写 world · 存档/旧档/确定性")
+
+# ═══════════════════════════════════════════════════════════════════
+# 34. TransponderService 集成（应答机行为层）
+# ═══════════════════════════════════════════════════════════════════
+
+func _transponder_cfg_session() -> Dictionary:
+	return {"facility_registry": true, "transponder_service": true}
+
+func _transponder_routing_cfg() -> Dictionary:
+	var tgt: Dictionary = _sensor_target("T1", "2001", [0.0, 500.0, 0.0],
+		"ok", "CMP-2001", "friend")
+	tgt["entity_id"] = "apsis"
+	tgt["batch"] = "B1"
+	return {"facility_registry": true, "transponder_service": true,
+		"track_table": true,
+		"sensor_service": {
+			"observer": {"id": "harmattan", "pos_km": [0.0, 0.0, 0.0],
+				"vel_kmps": [0.0, 0.0, 0.0], "attitude_quat": [0.0, 0.0, 0.0, 1.0]},
+			"targets": [tgt],
+			"snapshot": {"sun_dir": [0.0, 0.0, 1.0], "sun_illum": 1.0,
+				"jamming": 0.0, "shadow": false, "los": true},
+			"options": {"radar_enabled": true, "emcon": false}}}
+
+func _test_transponder_integration() -> void:
+	_section_begin("34 Transponder 集成")
+	# 可选退化
+	var plain = _new_session()
+	_ok(plain.transponder_service == null, "默认无 transponder_service")
+	_eq(plain.transponder_vm().size(), 0, "无 transponder VM 空")
+	_eq(plain.transponder_summary().size(), 0, "无 transponder summary 空")
+	_eq((plain.transponder_trigger_ids() as Array).size(), 0, "无 transponder trigger_ids 空")
+	_eq(String(plain.transponder_interrogate("a", "b").get("reason", "")),
+		"no_transponder_service", "无 transponder interrogate 拒绝")
+	_eq(String(plain.transponder_broadcast().get("reason", "")),
+		"no_transponder_service", "无 transponder broadcast 拒绝")
+	_eq(String(plain.transponder_lookup_code("X").get("reason", "")),
+		"no_transponder_service", "无 transponder lookup 拒绝")
+	_eq(String(plain.transponder_set_status("a", "normal").get("reason", "")),
+		"no_transponder_service", "无 transponder set_status 拒绝")
+	_eq(String(plain.transponder_set_jam("a", 0.5).get("reason", "")),
+		"no_transponder_service", "无 transponder set_jam 拒绝")
+	_eq(String(plain.transponder_set_occlusion("a", true).get("reason", "")),
+		"no_transponder_service", "无 transponder set_occlusion 拒绝")
+	_eq(String(plain.transponder_set_crypto("a", {}).get("reason", "")),
+		"no_transponder_service", "无 transponder set_crypto 拒绝")
+	_eq(String(plain.transponder_upsert_profile({}).get("reason", "")),
+		"no_transponder_service", "无 transponder upsert 拒绝")
+	_eq(String(plain.transponder_remove_profile("a").get("reason", "")),
+		"no_transponder_service", "无 transponder remove 拒绝")
+	# 启用
+	var s = GameSession.new(_transponder_cfg_session())
+	_ok(bool(s.ready), "transponder session ready", str(s.errors))
+	_ok(s.transponder_service != null, "transponder 启用")
+	_eq(int(s.transponder_summary().get("profiles", 0)), 6, "transponder 6 profiles")
+	_eq(String(s.transponder_vm().get("schema", "")), "v17.transponder_service.v1",
+		"transponder vm schema")
+	_near(float(s.transponder_service.t), s.now_s(), 1.0e-6, "transponder boot 时间同步")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "transponder boot contracts ok")
+	_ok(bool((s.tick(0.0).get("components", {}) as Dictionary).get("transponder", false)),
+		"tick components.transponder")
+	_ok(bool((s.tick(1.0).get("transponder_tick", {}) as Dictionary).get("enabled", false)),
+		"tick transponder_tick enabled")
+	# 询问/广播/lookup
+	var r: Dictionary = s.transponder_interrogate("l1_station", "apsis", "mode_s")
+	_eq(bool(r.get("ok", false)), true, "transponder interrogate ok")
+	_eq(String((r.get("reply", {}) as Dictionary).get("transponder_code", "")),
+		"TXP-APSIS-01", "transponder reply code")
+	_eq(String(s.transponder_lookup_code("TXP-APSIS-01").get("profile_id", "")),
+		"apsis", "transponder lookup")
+	var br: Dictionary = s.transponder_broadcast()
+	_eq(bool(br.get("ok", false)), true, "transponder broadcast ok")
+	_ok((br.get("broadcasts", []) as Array).size() >= 3, "transponder broadcast rows")
+	var pl: Dictionary = s.transponder_passive_listen()
+	_eq(bool(pl.get("passive", false)), true, "transponder passive")
+	# 状态/触发
+	_eq(bool(s.transponder_set_status("l1_station", "captured").get("ok", false)),
+		true, "transponder set_status captured")
+	var rc: Dictionary = s.transponder_interrogate("apsis", "l1_station", "station_beacon")
+	_eq(bool((rc.get("reply", {}) as Dictionary).get("spoofed", false)), true,
+		"transponder captured spoofed")
+	_eq(String((rc.get("trigger", {}) as Dictionary).get("trigger_id", "")),
+		"station_spoof", "transponder station_spoof trigger")
+	_eq(bool(s.transponder_set_status("l1_station", "normal").get("ok", false)), true,
+		"transponder status normal")
+	var rf: Dictionary = s.transponder_interrogate("apsis", "ceres_2_demo", "mode_s")
+	_eq(String((rf.get("trigger", {}) as Dictionary).get("trigger_id", "")),
+		"ceres_no_reply", "transponder ceres_no_reply")
+	_ok("ceres_no_reply" in s.transponder_trigger_ids(), "transponder trigger_ids")
+	# 加密/干扰/遮挡 wrapper
+	_eq(bool(s.transponder_set_crypto("greenwich", {"valid": false}).get("ok", false)),
+		true, "transponder set_crypto")
+	_eq(String(s.transponder_interrogate("apsis", "greenwich", "mode_5").get("reason", "")),
+		"crypto_fail", "transponder crypto_fail")
+	s.transponder_set_crypto("greenwich", {"valid": true, "captured": false})
+	_eq(bool(s.transponder_set_jam("apsis", 0.9).get("ok", false)), true,
+		"transponder set_jam")
+	_eq(String(s.transponder_interrogate("x", "apsis").get("reason", "")),
+		"jammed", "transponder jammed")
+	s.transponder_set_jam("apsis", 0.0)
+	_eq(bool(s.transponder_set_occlusion("apsis", true).get("ok", false)), true,
+		"transponder set_occlusion")
+	_eq(String(s.transponder_interrogate("x", "apsis").get("reason", "")),
+		"occluded", "transponder occluded")
+	s.transponder_set_occlusion("apsis", false)
+	# profile 管理
+	var np: Dictionary = {"profile_id": "probe_ship", "name": "Probe",
+		"entity_type": "ship", "entity_id": "probe_ship",
+		"transponder_code": "TXP-PROBE-01", "registration_code": "REG-PROBE-01",
+		"modes": ["mode_s"], "default_mode": "mode_s", "status": "normal",
+		"range_km": 1000.0}
+	_eq(bool(s.transponder_upsert_profile(np).get("ok", false)), true,
+		"transponder upsert_profile")
+	_eq(String(s.transponder_profile("probe_ship").get("name", "")), "Probe",
+		"transponder profile")
+	_eq(bool(s.transponder_remove_profile("probe_ship").get("ok", false)), true,
+		"transponder remove_profile")
+	# 事件总线
+	var bus_types: Array = []
+	for raw in s.bus.recent(200):
+		bus_types.append(String((raw as Dictionary).get("type", "")))
+	_ok("transponder.interrogation" in bus_types, "bus transponder.interrogation")
+	_ok("transponder.broadcast" in bus_types, "bus transponder.broadcast")
+	_ok("transponder.no_reply" in bus_types, "bus transponder.no_reply")
+	_ok("transponder.status_changed" in bus_types, "bus transponder.status_changed")
+	# world 不变
+	_ok((s.world.entities_sorted() as Array).size() == 3, "transponder 不改 world 实体数")
+	_eq(JSON.stringify((s.world.entity("apsis") as Dictionary).get("pos_km", [])),
+		"[0.0,0.0,0.0]", "transponder 不改实体位置")
+	# evidence 路由：先由 sensor 建/更新 track(entity apsis)
+	var sr = GameSession.new(_transponder_routing_cfg())
+	_ok(bool(sr.ready), "transponder routing session ready", str(sr.errors))
+	sr.tick(1.0)
+	var tracks0: int = (sr.track_table.tracks as Dictionary).size()
+	_ok(tracks0 > 0, "sensor 已建 track")
+	var tr_entity := {}
+	for tid in (sr.track_table.tracks as Dictionary).keys():
+		var tr: Dictionary = sr.track_table.tracks[tid]
+		if String(tr.get("entity_id", "")) == "apsis":
+			tr_entity = tr
+	_ok(not tr_entity.is_empty(), "track entity=apsis")
+	var rt: Dictionary = sr.transponder_interrogate("l1_station", "apsis", "mode_s")
+	_eq(bool(rt.get("ok", false)), true, "routing interrogate ok")
+	var tracks1: int = (sr.track_table.tracks as Dictionary).size()
+	_eq(tracks1, tracks0, "transponder evidence 不重复建 track")
+	var lvl_after := 0
+	var sources_after: Array = []
+	for tid2 in (sr.track_table.tracks as Dictionary).keys():
+		var tr2: Dictionary = sr.track_table.tracks[tid2]
+		if String(tr2.get("entity_id", "")) == "apsis":
+			lvl_after = int(tr2.get("level", 0))
+			sources_after = (tr2.get("sources", []) as Array).duplicate()
+	_ok(lvl_after >= 4, "transponder evidence 融合 L4", str(lvl_after))
+	_ok("iff" in sources_after, "track sources 含 iff")
+	_eq(bool(sr.check_contracts().get("ok", false)), true, "routing contracts ok")
+	# 存档/load
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary and (d as Dictionary).has("transponder_service"),
+		"save 含 transponder_service")
+	var seed: Dictionary = (d as Dictionary).get("seed", {})
+	_ok(seed.has("transponder_service"), "seed 含 transponder_service")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "transponder load ok", str(lr.get("errors", [])))
+	_ok(s2.transponder_service != null, "load 重建 transponder")
+	_ok(_norm_json(s.transponder_vm()) == _norm_json(s2.transponder_vm()),
+		"load 后 transponder_vm 一致")
+	_ok(_norm_json(s.snapshot()) == _norm_json(s2.snapshot()), "load 后 snapshot 一致")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load 后 contracts ok")
+	var rr2: Dictionary = s2.transponder_interrogate("l1_station", "apsis", "mode_s")
+	_eq(bool(rr2.get("ok", false)), true, "load 后继续 interrogate")
+	# 旧存档兼容：删除 transponder 字段 + seed 配置
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("transponder_service")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("transponder_service")
+	old["seed"] = old_seed
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 transponder 兼容", str(lr3.get("errors", [])))
+	_ok(s3.transponder_service == null, "旧存档 load 后 transponder 退化")
+	# 确定性
+	var a = GameSession.new(_transponder_cfg_session())
+	var b = GameSession.new(_transponder_cfg_session())
+	for sv in [a, b]:
+		sv.transponder_interrogate("l1_station", "apsis", "mode_s")
+		sv.transponder_broadcast()
+		sv.transponder_set_status("l1_station", "spoofed")
+		sv.transponder_interrogate("apsis", "l1_station", "station_beacon")
+		sv.tick(1.0)
+	_ok(_norm_json(a.transponder_vm()) == _norm_json(b.transponder_vm()),
+		"transponder 同操作 VM 一致")
+	_ok(a.save_state() == b.save_state(), "transponder 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "transponder contracts ok 2")
+	_data_line("transponder", "询问/广播/lookup/状态/加密/干扰/遮挡/trigger · evidence→TrackTable L4 · bus · 存档/旧档/确定性")

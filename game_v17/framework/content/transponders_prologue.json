@@ -1,0 +1,229 @@
+{
+  "schema": "v17.transponders_prologue.v1",
+  "version": "1.0.0",
+  "title": "完整游戏-阶段3P 应答机行为层（序章示例）",
+  "source": "task-164；apsis/harmattan/l1_station/chronos/greenwich + ceres_2 demo",
+  "profiles": [
+    {
+      "profile_id": "apsis",
+      "name": "APSIS",
+      "entity_type": "ship",
+      "entity_id": "apsis",
+      "facility_id": "",
+      "facility_code": "",
+      "transponder_code": "TXP-APSIS-01",
+      "registration_code": "REG-OCUVF-APSIS",
+      "side": "friend",
+      "identity": "friend",
+      "modes": [
+        "mode_a",
+        "mode_c",
+        "mode_s",
+        "mode_5"
+      ],
+      "default_mode": "mode_s",
+      "status": "normal",
+      "range_km": 2500.0,
+      "silent": true,
+      "broadcast": {
+        "interval_s": 30.0,
+        "modes": [
+          "mode_s"
+        ],
+        "enabled": false
+      },
+      "crypto": {
+        "captured": false,
+        "epoch": 7,
+        "valid": true,
+        "key_id": "OCUVF-7"
+      },
+      "trigger_map": {},
+      "note": "玩家旗舰；Mode 5 可 challenge/reply。"
+    },
+    {
+      "profile_id": "harmattan",
+      "name": "Harmattan",
+      "entity_type": "ship",
+      "entity_id": "harmattan",
+      "facility_id": "",
+      "facility_code": "",
+      "transponder_code": "TXP-HARM-01",
+      "registration_code": "REG-OCUVF-HARM",
+      "side": "friend",
+      "identity": "friend",
+      "modes": [
+        "mode_s",
+        "mode_5"
+      ],
+      "default_mode": "mode_s",
+      "status": "normal",
+      "range_km": 1800.0,
+      "silent": true,
+      "broadcast": {
+        "interval_s": 30.0,
+        "modes": [
+          "mode_s"
+        ],
+        "enabled": false
+      },
+      "crypto": {
+        "captured": false,
+        "epoch": 7,
+        "valid": true,
+        "key_id": "OCUVF-7"
+      },
+      "trigger_map": {},
+      "note": "护卫舰。"
+    },
+    {
+      "profile_id": "l1_station",
+      "name": "L1 station",
+      "entity_type": "station",
+      "entity_id": "l1_station",
+      "facility_id": "L1-05",
+      "facility_code": "FC-L1-05",
+      "transponder_code": "TXP-L1-05",
+      "registration_code": "REG-L1-05-ELINT",
+      "side": "neutral",
+      "identity": "neutral",
+      "modes": [
+        "station_beacon",
+        "mode_a",
+        "mode_s"
+      ],
+      "default_mode": "station_beacon",
+      "status": "normal",
+      "range_km": 6000.0,
+      "silent": false,
+      "broadcast": {
+        "interval_s": 30.0,
+        "modes": [
+          "station_beacon"
+        ],
+        "enabled": true
+      },
+      "crypto": {
+        "captured": false,
+        "epoch": 3,
+        "valid": true,
+        "key_id": "MERIDIAN-3"
+      },
+      "trigger_map": {
+        "captured": "station_spoof",
+        "spoofed": "station_spoof"
+      },
+      "note": "L1-05 站/港站应答机演示；绑定 FacilityRegistry L1-05。"
+    },
+    {
+      "profile_id": "chronos",
+      "name": "Chronos fuel depot",
+      "entity_type": "fuel",
+      "entity_id": "",
+      "facility_id": "L1-05",
+      "facility_code": "FC-L1-05",
+      "transponder_code": "TXP-L1-05-FUEL",
+      "registration_code": "REG-L1-05-FUEL",
+      "side": "neutral",
+      "identity": "neutral",
+      "modes": [
+        "station_beacon",
+        "mode_s"
+      ],
+      "default_mode": "station_beacon",
+      "status": "normal",
+      "range_km": 6000.0,
+      "silent": false,
+      "broadcast": {
+        "interval_s": 30.0,
+        "modes": [
+          "station_beacon"
+        ],
+        "enabled": true
+      },
+      "crypto": {
+        "captured": false,
+        "epoch": 3,
+        "valid": true,
+        "key_id": "MERIDIAN-3"
+      },
+      "trigger_map": {},
+      "note": "Chronos 加注站演示（燃料设施）。"
+    },
+    {
+      "profile_id": "greenwich",
+      "name": "Greenwich",
+      "entity_type": "station",
+      "entity_id": "",
+      "facility_id": "L1-01",
+      "facility_code": "FC-L1-01",
+      "transponder_code": "TXP-L1-01",
+      "registration_code": "REG-L1-01-CUSTOMS",
+      "side": "mixed",
+      "identity": "unknown",
+      "modes": [
+        "station_beacon",
+        "mode_5"
+      ],
+      "default_mode": "station_beacon",
+      "status": "normal",
+      "range_km": 7000.0,
+      "silent": false,
+      "broadcast": {
+        "interval_s": 30.0,
+        "modes": [
+          "station_beacon"
+        ],
+        "enabled": true
+      },
+      "crypto": {
+        "captured": false,
+        "epoch": 5,
+        "valid": true,
+        "key_id": "UEG-5"
+      },
+      "trigger_map": {
+        "wrong_code": "unknown_code"
+      },
+      "note": "L1-01 海关/行政站；Mode 5 加密演示。"
+    },
+    {
+      "profile_id": "ceres_2_demo",
+      "name": "ceres_2 (demo)",
+      "entity_type": "ship",
+      "entity_id": "ceres_2",
+      "facility_id": "",
+      "facility_code": "",
+      "transponder_code": "TXP-CERES2-DEMO",
+      "registration_code": "REG-CERES2-DEMO",
+      "side": "unknown",
+      "identity": "unknown",
+      "modes": [
+        "mode_s"
+      ],
+      "default_mode": "mode_s",
+      "status": "faulty",
+      "range_km": 1200.0,
+      "silent": true,
+      "broadcast": {
+        "interval_s": 30.0,
+        "modes": [
+          "mode_s"
+        ],
+        "enabled": false
+      },
+      "crypto": {
+        "captured": false,
+        "epoch": 1,
+        "valid": false,
+        "key_id": ""
+      },
+      "trigger_map": {
+        "crypto_fail": "ceres_no_reply",
+        "no_reply": "ceres_no_reply",
+        "faulty": "ceres_no_reply"
+      },
+      "note": "demo 故障/无应答目标（名称引用 ceres_2；不接剧情文本）。"
+    }
+  ]
+}
