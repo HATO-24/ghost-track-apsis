@@ -309,3 +309,36 @@ v1_hud.gd
 2. 本页 `SOLUTION` 因 inside_min_range 失败、`FIRE` 因 no_ready_solution 失败，均显示原因，不伪造成功。
 3. 武器架授权需求/冷却由内容与 service 状态决定；无完整武器选择/载荷 UI。
 4. 不实现剧情/物理/完整战斗；未跑全量 regression。
+
+
+---
+
+## 14　方案B-8：通信页双栏定稿（task-153）
+
+### 14.1 布局
+
+- COMMS overlay 固定高度 **600px**；在 center+right 区域顶部（不覆盖底部 command log，留出间隔）。
+- 明确双栏，独立面板边框：
+  - 左 58%：CHANNELS 表（LD/LR/RDO/IR/VIS，MODE/STATUS/LATENCY/EVENTS，来自 `session.comms.vm().links/events`）+ MESSAGE STREAM（最多 10 行、行高 16、`TextMetrics.fit`、交替行底）+ LINK DETAIL 填充下部；
+  - 右 42%：COMMAND PANEL（HOLD/NAV/EMCON/IFF/ROE、TARGET/ISSUER/MODE、SEND）+ AUTH TRACK/SOLUTION/FIRE + COMMAND QUEUE + SELECTED COMMAND 详情 + ABORT/REVOKE；
+  - 左右各 1px 边框，间距 12px；无大片连续空白（左栏 LINK DETAIL，右栏 SELECTED COMMAND/ROE/AUTH）。
+- 空状态：`NO MESSAGES · NOT READY`，NO COMMAND 情况有明确文本。
+- 默认 target = 当前选中旗舰（apsis/1000）；点击接触同步。
+
+### 14.2 数据 / 边界
+
+- CHANNELS 状态来自 comms vm links：disabled/occluded/jam>=0.7 → CLOSED/OCCLUDED/JAMMED；延迟/事件数真实。
+- 消息 from/to/mode/content 来自 comms 事件；content text→text_key→结构化 fallback。
+- SEND 仍调真实 session/CombatService API；AUTH 状态来自 `session.combat_authorization`；ROE 行来自 CombatService。
+- 不实现剧情/物理；不伪造消息或授权。
+
+### 14.3 截图 / 验证
+
+- `mockups/v1-hud-comms-dual-1920.png`（1920×1080：600h 双栏、独立边框、CHANNELS 表、消息 2 行、命令/队列/详情/ABORT/REVOKE）
+- `V1 HUD SHOT err=0`；headless v1_hud 加载一次；`v1_hud.gd --check-only` 通过。
+
+### 14.4 未完成
+
+1. 消息/频道为当前 session 演示数据；无完整通讯录/剧情对白。
+2. 命令仍最小交互；授权/发送真实 API；无完整权限流。
+3. 双栏固定 600h，极端窄窗口未测；不实现剧情/物理；未跑全量 regression。

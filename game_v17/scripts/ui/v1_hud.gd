@@ -560,7 +560,7 @@ func _draw_overlay(l: Dictionary) -> void:
 	var right: Rect2 = l.right
 	var r := Rect2(center.position.x, center.position.y, right.end.x - center.position.x, center.size.y)
 	if _overlay == "comms":
-		r.size.y = minf(r.size.y, 560.0)
+		r.size.y = minf(r.size.y, 600.0)
 		r.position.y = center.position.y + 20.0
 	if _overlay == "optical":
 		r.size.y = minf(r.size.y, 600.0)
@@ -582,35 +582,63 @@ func _draw_overlay(l: Dictionary) -> void:
 
 
 func _draw_comms_overlay(r: Rect2) -> void:
-	var x := r.position.x + 14.0
-	var y := r.position.y + 34.0
-	Painter.label(self, x, y, "通信 / COMMS · 命令 / ORDERS", 12, P.PH)
-	Painter.label(self, x, y + 14, "from/to/mode 来自 session/comms 事件；内容来自 text_key，缺失用结构化 fallback", 7, P.a(P.AMBER, 0.9), true)
-	var right_w := 380.0
-	var left_w := maxf(420.0, r.size.x - right_w - 28.0)
+	var gap := 12.0
+	var left_w := floorf((r.size.x - 28.0 - gap) * 0.58)
+	var right_w := r.size.x - 28.0 - gap - left_w
+	var lp := Rect2(r.position.x + 14.0, r.position.y + 14.0, left_w, r.size.y - 28.0)
+	var rp := Rect2(lp.end.x + gap, lp.position.y, right_w, lp.size.y)
+	# 独立双栏面板边框
+	draw_rect(lp, P.a(P.PANEL2, 0.42))
+	draw_rect(lp, P.a(P.LINE2, 0.65), false, 1.0)
+	draw_rect(rp, P.a(P.PANEL2, 0.42))
+	draw_rect(rp, P.a(P.LINE2, 0.65), false, 1.0)
+	Painter.label(self, lp.position.x + 10, lp.position.y + 20, "通信 / COMMS · 双栏", 11, P.PH)
+	Painter.label(self, rp.position.x + 10, rp.position.y + 20, "命令 / ORDERS · 双栏", 11, P.PH)
 	var vm: Dictionary = binder.session.comms.vm() if binder != null and binder.session != null and binder.session.comms != null else {}
+	var events: Array = vm.get("events", []) if vm.get("events", []) is Array else []
+	var links: Array = vm.get("links", []) if vm.get("links", []) is Array else []
+	# 左栏 CHANNELS 表
+	var cy := lp.position.y + 38.0
+	Painter.section(self, lp.position.x + 10, cy, lp.end.x - 10, "CHANNELS / 频道")
+	cy += 15.0
+	Painter.label(self, lp.position.x + 10, cy, "MODE     STATUS     LATENCY   EVENTS", 6, P.a(P.FAINT, 0.9), true)
+	cy += 12.0
 	var modes := ["LD", "LR", "RDO", "IR", "VIS"]
-	var chx := x
-	var chy := y + 38.0
 	for i in range(modes.size()):
 		var mode := String(modes[i])
-		var cr := Rect2(chx + float(i) * 88.0, chy, 82, 18)
-		draw_rect(cr, P.a(P.PANEL2, 0.75))
-		draw_rect(cr, P.a(P.PH if i == 0 else P.LINE, 0.55), false, 1.0)
-		Painter.label(self, cr.position.x + 5, cr.position.y + 12, mode, 7, P.PH if i == 0 else P.DIM, true)
-	Painter.label(self, x, chy + 30.0, "LINK / 链路 %d · PENDING %d · EVENTS %d" % [
-		int((vm.get("counts", {}) as Dictionary).get("links", 0)),
-		int((vm.get("counts", {}) as Dictionary).get("pending", 0)),
-		int((vm.get("counts", {}) as Dictionary).get("events", 0))], 6, P.a(P.FAINT, 0.9), true)
-	var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
-	var my := chy + 48.0
-	Painter.section(self, x, my, x + left_w - 10, "MESSAGE STREAM")
+		var st := "OPEN"
+		var lat := "—"
+		for raw in links:
+			if raw is Dictionary and String((raw as Dictionary).get("mode", "")) == mode:
+				var link: Dictionary = raw
+				if bool(link.get("disabled", false)):
+					st = "CLOSED"
+				elif bool(link.get("occluded", false)):
+					st = "OCCLUDED"
+				elif float(link.get("jam", 0.0)) >= 0.7:
+					st = "JAMMED"
+				lat = "%.1fs" % float(link.get("latency_s", link.get("latency", 0.0)))
+				break
+		var n_ev := 0
+		for raw2 in events:
+			if raw2 is Dictionary and String((raw2 as Dictionary).get("mode", "")) == mode:
+				n_ev += 1
+		var y := cy + float(i) * 17.0
+		var col := P.PH if st == "OPEN" else (P.AMBER if st in ["OCCLUDED", "JAMMED"] else P.RED)
+		draw_rect(Rect2(lp.position.x + 10, y - 9, lp.size.x - 20, 13), P.a(P.PANEL, 0.35) if i % 2 == 0 else P.a(P.PANEL2, 0.2))
+		Painter.label(self, lp.position.x + 14, y, mode, 7, P.TXT, true)
+		Painter.label(self, lp.position.x + 80, y, st, 7, col, true)
+		Painter.label(self, lp.position.x + 156, y, lat, 7, P.DIM, true)
+		Painter.label_right(self, lp.end.x - 14, y, str(n_ev), 7, P.TXT, true)
+	# 左栏 MESSAGE STREAM
+	var my := cy + 5.0 * 17.0 + 14.0
+	Painter.section(self, lp.position.x + 10, my, lp.end.x - 10, "MESSAGE STREAM / 消息")
 	my += 16.0
-	if evs.is_empty():
-		Painter.label(self, x, my, "NO MESSAGES · NOT READY", 7, P.FAINT, true)
-	var row_capacity := mini(8, maxi(1, int((r.end.y - my - 100.0) / 14.0)))
-	for i in range(maxi(0, evs.size() - row_capacity), evs.size()):
-		var ev: Dictionary = evs[i]
+	if events.is_empty():
+		Painter.label(self, lp.position.x + 12, my, "NO MESSAGES · NOT READY", 7, P.FAINT, true)
+	var row_capacity := mini(10, maxi(1, int((lp.end.y - my - 12.0) / 16.0)))
+	for i in range(maxi(0, events.size() - row_capacity), events.size()):
+		var ev: Dictionary = events[i]
 		var from := String(ev.get("from_name", ev.get("from", "—")))
 		var to := String(ev.get("to_name", ev.get("to", "—")))
 		var mode := String(ev.get("mode", "—"))
@@ -619,55 +647,90 @@ func _draw_comms_overlay(r: Rect2) -> void:
 			content = String(ev.get("text_key", "TEXT KEY 未提供"))
 		if content == "":
 			content = "[" + String(ev.get("kind", "comms")) + " · " + String(ev.get("reason", "")) + "]"
-		var row := i - maxi(0, evs.size() - row_capacity)
-		var row_rect := Rect2(x - 2, my + float(row) * 14.0 - 9, left_w - 12, 13)
+		var row := i - maxi(0, events.size() - row_capacity)
+		var yy := my + float(row) * 16.0
 		if row % 2 == 1:
-			draw_rect(row_rect, P.a(P.PANEL2, 0.35))
-		Painter.label(self, x, my + float(row) * 14.0,
-			TM.fit("[%s 至 %s]-[%s]-[%s]" % [from, to, mode, content], left_w - 18, true, 7), 7, P.TXT, true)
-	# 右侧命令面板
-	var px := x + left_w + 12.0
-	var py := y + 34.0
-	Painter.section(self, px, py, r.end.x - 14, "COMMAND PANEL / 命令面板")
+			draw_rect(Rect2(lp.position.x + 10, yy - 11, lp.size.x - 20, 14), P.a(P.PANEL, 0.30))
+		Painter.label(self, lp.position.x + 12, yy, TM.fit("[%s 至 %s]-[%s]-[%s]" % [from, to, mode, content], lp.size.x - 24, true, 7), 7, P.TXT, true)
+	# 链路明细，填满左栏下部（真实 comms vm links）
+	var link_y := lp.end.y - 174.0
+	Painter.section(self, lp.position.x + 10, link_y, lp.end.x - 10, "LINK DETAIL / 链路明细")
+	link_y += 15.0
+	if links.is_empty():
+		Painter.label(self, lp.position.x + 12, link_y, "NO LINKS · NOT READY", 7, P.FAINT, true)
+	for i in range(mini(5, links.size())):
+		var l: Dictionary = links[i]
+		var la := String(l.get("a", l.get("from", "—")))
+		var lb := String(l.get("b", l.get("to", "—")))
+		var lm := String(l.get("mode", "—"))
+		var st := "OPEN"
+		if bool(l.get("disabled", false)):
+			st = "CLOSED"
+		elif bool(l.get("occluded", false)):
+			st = "OCCLUDED"
+		elif float(l.get("jam", 0.0)) >= 0.7:
+			st = "JAMMED"
+		Painter.label(self, lp.position.x + 12, link_y + float(i) * 14.0, TM.fit("%s → %s · %s · %s · %s" % [la, lb, lm, st, "%.1fs" % float(l.get("latency_s", l.get("latency", 0.0)))], lp.size.x - 24, true, 7), 7, P.PH_DIM if st == "OPEN" else P.AMBER, true)
+	# 右栏命令面板
+	var px := rp.position.x + 10.0
+	var py := rp.position.y + 38.0
+	Painter.section(self, px, py, rp.end.x - 10, "COMMAND PANEL / 命令面板")
 	py += 16.0
 	_comms_type_buttons.clear()
 	var types := ["HOLD", "NAV", "EMCON", "IFF", "ROE"]
 	for i in range(types.size()):
-		var tr := Rect2(px + float(i % 3) * 91.0, py + float(i / 3) * 24.0, 86, 20)
+		var tr := Rect2(px + float(i % 3) * (right_w - 28.0) / 3.0, py + float(i / 3) * 24.0, (right_w - 40.0) / 3.0, 20.0)
 		_comms_type_buttons.append({"rect": tr, "kind": String(types[i])})
 		var active := _comms_type == String(types[i])
 		Painter.button(self, tr, String(types[i]), true, P.PH if active else P.PH_DIM)
-	py += 54.0
+	py += 52.0
 	Painter.label(self, px, py, "TARGET " + (_comms_target if _comms_target != "" else "NOT READY"), 7, P.TXT, true)
-	py += 12.0
+	py += 13.0
 	Painter.label(self, px, py, "ISSUER apsis · MODE " + ("LD" if _comms_type in ["HOLD", "NAV"] else "SENSOR/ROE"), 6, P.DIM, true)
-	py += 18.0
-	_comms_send_rect = Rect2(px, py, 180, 22)
+	py += 20.0
+	_comms_send_rect = Rect2(px, py, 160, 22)
 	Painter.button(self, _comms_send_rect, "SEND / 发送", true, P.PH)
-	Painter.label(self, px + 190, py + 15, "真实 session API / 失败 reason", 6, P.a(P.FAINT, 0.9), true)
-	py += 30.0
+	py += 29.0
 	if _comms_msg != "":
-		Painter.label(self, px, py, TM.fit(_comms_msg, r.end.x - px - 14, true, 7), 7, P.AMBER, true)
-	py += 18.0
-	Painter.section(self, px, py, r.end.x - 14, "COMMAND QUEUE / 命令队列")
+		Painter.label(self, px, py, TM.fit(_comms_msg, rp.size.x - 28, true, 7), 7, P.AMBER, true)
+	py += 16.0
+	var auth_txt := ""
+	for lv in ["TRACK", "SOLUTION", "FIRE"]:
+		var au: Dictionary = binder.session.combat_authorization(lv, _comms_target, "") if binder != null and binder.session != null else {}
+		auth_txt += "%s:%s " % [lv, "OK" if bool(au.get("ok", false)) else "LOCK"]
+	Painter.label(self, px, py, "AUTH " + auth_txt, 6, P.a(P.PH_DIM, 0.9), true)
 	py += 14.0
+	Painter.section(self, px, py, rp.end.x - 10, "COMMAND QUEUE / 命令队列")
+	py += 15.0
 	_comms_cmd_rows.clear()
 	_comms_cmd_buttons.clear()
 	var cmds: Array = binder.commands if binder != null else []
 	for i in range(mini(3, cmds.size())):
 		var c: Dictionary = cmds[i]
-		var rr := Rect2(px, py + float(i) * 16.0, r.end.x - px - 14, 14)
+		var rr := Rect2(px, py + float(i) * 17.0, rp.size.x - 20, 15)
 		_comms_cmd_rows.append({"rect": rr, "index": i})
 		if i == _selected_cmd:
 			draw_rect(rr, P.a(P.PH, 0.10))
-		Painter.label(self, px, rr.position.y + 10, TM.fit("%s %s · %s → %s" % [String(c.get("id", "")), String(c.get("state", "")), String(c.get("actor", "")), String(c.get("target", ""))], rr.size.x, true, 6), 6, P.PH if i == _selected_cmd else P.DIM, true)
-	var by := r.end.y - 30.0
+		Painter.label(self, px, rr.position.y + 11, TM.fit("%s %s · %s → %s" % [String(c.get("id", "")), String(c.get("state", "")), String(c.get("actor", "")), String(c.get("target", ""))], rr.size.x, true, 7), 7, P.PH if i == _selected_cmd else P.DIM, true)
+	# 选中命令详情 + ROE/授权，填满右栏下部
+	var detail_y := rp.end.y - 174.0
+	Painter.section(self, px, detail_y, rp.end.x - 10, "SELECTED COMMAND / 命令详情")
+	detail_y += 15.0
+	if _selected_cmd >= 0 and _selected_cmd < cmds.size():
+		var sc: Dictionary = cmds[_selected_cmd]
+		Painter.label(self, px, detail_y, "ID " + String(sc.get("id", "—")) + " · " + String(sc.get("state", "—")), 7, P.TXT, true)
+		Painter.label(self, px, detail_y + 13, "ACTOR → TARGET  " + String(sc.get("actor", "—")) + " → " + String(sc.get("target", "—")), 7, P.TXT, true)
+		Painter.label(self, px, detail_y + 26, "ACTION " + String(sc.get("action", "—")) + " · MODE " + String(sc.get("mode", "—")) + " · DELAY " + String(sc.get("delay", "—")), 7, P.DIM, true)
+	else:
+		Painter.label(self, px, detail_y, "NO COMMAND SELECTED", 7, P.FAINT, true)
+	detail_y += 46.0
+	Painter.label(self, px, detail_y, "ROE " + (String(_combat.roe) if _combat != null else "NOT READY") + " · ROE 不授予 FIRE 授权", 7, P.AMBER, true)
+	var by := rp.end.y - 34.0
 	_comms_cmd_buttons.append({"rect": Rect2(px, by, 84, 18), "kind": "ABORT"})
 	_comms_cmd_buttons.append({"rect": Rect2(px + 90, by, 84, 18), "kind": "REVOKE"})
 	Painter.button(self, _comms_cmd_buttons[0]["rect"], "ABORT", _selected_cmd >= 0, P.AMBER)
 	Painter.button(self, _comms_cmd_buttons[1]["rect"], "REVOKE", _selected_cmd >= 0, P.RED)
-	if _command_msg != "":
-		Painter.label(self, px + 184, by + 12, TM.fit(_command_msg, r.end.x - px - 198, true, 6), 6, P.AMBER, true)
+	Painter.label(self, px, rp.end.y - 12, "双栏 · COMMS 600H · 默认旗舰 target", 6, P.a(P.FAINT, 0.9), true)
 
 
 func _comms_action(kind: String) -> void:
