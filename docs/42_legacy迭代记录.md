@@ -187,3 +187,58 @@ FacilityRegistry 数据
 - 空间站应答机识别只到 L4 设施类型，不自动产生敌意。
 - OTC 卫星/储罐/加注站可独立识别，不必先识别港群。
 - 港口绑定是业务关系，不等于设施实体位置/对接口几何。
+
+---
+
+## 14　应答机行为层（第二阶段追加）
+
+> 性质：对现实 SSR/IFF/ADS-B 的游戏化抽象，不是现实无线电协议仿真。
+
+### 14.1 覆盖范围
+
+- 舰只：`ship`，绑 world entity
+- 空间站/港口/加注站/储罐/OTC/中继：`station/port/fuel/tank/otc/relay`，绑 FacilityRegistry
+- 每实体有独立 profile：registration_code / transponder_code / facility_code
+
+### 14.2 模式
+
+- `mode_a` / `mode_c` / `mode_s`：代码/高度/选择式询问
+- `mode_5`：需要 challenge/reply 与 crypto
+- `station_beacon`：空间站/固定设施自动广播
+- `adsb_like`：广播式位置/身份（游戏化）
+- 舰只可 `silent`；空间站信标通常自动广播
+
+### 14.3 状态
+
+`normal / off / faulty / captured / spoofed / crypto_fail / expired / no_reply / wrong_code`
+
+规则：
+
+- `off/faulty/expired/no_reply/wrong_code/crypto_fail` → 无有效应答
+- `captured/spoofed` → 可返回伪造应答，identity=unknown、置信度降级
+- 无应答不代表敌意；不能自动判敌
+- 重复码/未注册码进入异常事件
+
+### 14.4 询问/广播
+
+- 询问受 source/target/range/occlusion/jam/latency 影响
+- 强干扰/超距/遮挡/超延迟 → 无应答
+- 弱干扰 → 置信度降级
+- 广播按 interval；空间站 beacon / adsb_like 可自动
+- 输出 `track_evidence.v1`（L4 设施/身份证据）与 `transponder_event.v1`
+
+### 14.5 序章触发
+
+应答机事件不自带剧情文本，只输出 `trigger_id`：
+
+- `ceres_no_reply`：谷神-2 无应答/故障
+- `station_spoof`：空间站应答被俘获/伪造
+- `unknown_code`：未知/错误注册码
+
+StoryRuntime 可把 trigger 映射为 flag/evidence/对话/步骤推进。这样后续舰只/空间站都复用同一套触发，不写死在 UI。
+
+### 14.6 与现实的差异
+
+当前未实现：真实 1030/1090 MHz 询问应答、Mode A/C/S/5 时序、旁瓣/多站定位、真实加密算法、ADS-B 报文格式。只实现“身份/状态/置信度/触发”的可玩抽象。
+
+高保真层后续可接：询问-应答时序、多站定位、抗欺骗、旁瓣、频率/功率、报文级 ADS-B。
