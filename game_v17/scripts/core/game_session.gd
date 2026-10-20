@@ -17,6 +17,8 @@ const EventBus := preload("res://scripts/core/event_bus.gd")
 const WorldState := preload("res://scripts/core/world_state.gd")
 const OrderService := preload("res://scripts/core/order_service.gd")
 const CommsService := preload("res://scripts/core/comms_service.gd")
+const TrackTableScript := preload("res://scripts/core/track_table.gd")
+const StoryStateScript := preload("res://scripts/core/story_state.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -37,6 +39,16 @@ var bus = null
 var world = null
 var orders = null
 var comms = null
+var track_table = null
+var story_state = null
+
+var _track_enabled := false
+var _story_enabled := false
+var _track_writer := ""
+var _last_track_t := 0.0
+var _last_story_revision := 0
+var _last_bus_routed_index := 0
+var _routed_seqs: Dictionary = {}
 
 var _seed: Dictionary = {}
 var _log: Array = []
@@ -84,7 +96,8 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 		return _demo_seed()
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
-			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required"]:
+			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
+			"track_table", "story_state"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -101,6 +114,15 @@ func boot(config := {}) -> Dictionary:
 	_standalone = {}
 	_log = []
 	_last_time_s = 0.0
+	track_table = null
+	story_state = null
+	_track_enabled = false
+	_story_enabled = false
+	_track_writer = ""
+	_last_track_t = 0.0
+	_last_story_revision = 0
+	_last_bus_routed_index = 0
+	_routed_seqs = {}
 	_seed = _normalize_seed(config if config is Dictionary else {})
 	_seed = _json_norm(_seed)
 	writer = String(_seed.get("writer", WRITER_DEFAULT))
@@ -119,8 +141,14 @@ func boot(config := {}) -> Dictionary:
 		"require_authorizer": false,
 		"comms_text_key": String(_seed.get("comms_text_key", "COMMS_SENT")),
 	})
+	_setup_optional_components()
+	var extra_ok := true
+	if _track_enabled and track_table != null and not bool(track_table.ready):
+		extra_ok = false
+	if _story_enabled and story_state != null and not bool(story_state.ready):
+		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
-			or not bool(orders.ready) or not bool(comms.ready):
+			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
 		errors.append("session 组件未就绪：time=%s bus=%s world=%s orders=%s comms=%s" % [
 			str(time.ready), str(bus.ready), str(world.ready),
 			str(orders.ready), str(comms.ready)])
@@ -156,6 +184,15 @@ func boot(config := {}) -> Dictionary:
 			if not bool(iss.get("ok", false)):
 				warnings.append("seed 订单 issue 失败：" + str(iss.get("reason", "")))
 	_flush_order_events()
+	if story_state != null and now_s() > 0.0:
+		story_state.set_time(now_s())
+	if track_table != null:
+		_track_writer = String(track_table.current_writer())
+		_last_track_t = float(track_table.t)
+		_routed_seqs = {}
+	if story_state != null:
+		_last_story_revision = int(story_state.revision)
+	_last_bus_routed_index = bus.count()
 	_last_time_s = time.now_s()
 	booted = true
 	ready = errors.is_empty()
@@ -169,6 +206,35 @@ func _entities_map() -> Dictionary:
 			out[String(ent.get("id", ""))] = {"name": String(ent.get("name", ent.get("id", ""))),
 				"role": String(ent.get("kind", ""))}
 	return out
+
+## 可选组件：boot config 里 track_table / story_state 为 true 或配置字典才创建；
+## 缺省（或无）则退化为不组合。
+func _setup_optional_components() -> void:
+	_track_enabled = false
+	_story_enabled = false
+	var tt = _seed.get("track_table", null)
+	var tt_on := (tt is Dictionary) or (tt is bool and bool(tt))
+	if tt_on:
+		var cfg: Dictionary = {}
+		if tt is Dictionary:
+			cfg = (tt as Dictionary).duplicate(true)
+		if not cfg.has("writer_id"):
+			cfg["writer_id"] = writer + "_fusion"
+		track_table = TrackTableScript.new(cfg)
+		if not bool(track_table.ready):
+			errors.append("track_table 未就绪")
+		else:
+			_track_enabled = true
+			_track_writer = String(track_table.current_writer())
+	var ss = _seed.get("story_state", null)
+	var ss_on := (ss is Dictionary) or (ss is bool and bool(ss))
+	if ss_on:
+		var scfg: Dictionary = {} if (ss is bool) else (ss as Dictionary).duplicate(true)
+		story_state = StoryStateScript.new(scfg)
+		if not bool(story_state.ready):
+			errors.append("story_state 未就绪：" + str(story_state.errors))
+		else:
+			_story_enabled = true
 
 func _mk_event(event_type: String, target := "", payload := {}) -> Dictionary:
 	return {"type": event_type, "t": time.now_s() if time != null else 0.0,
@@ -224,6 +290,8 @@ func tick(dt: float) -> Dictionary:
 	if not bool(ot.get("ok", false)):
 		warnings.append("orders tick 失败：" + str(ot.get("reason", "")))
 	_flush_order_events()
+	_advance_components(sim_dt)
+	var routed: Array = _route_pending_bus_events()
 	_reconcile_standalone(pending_before)
 	var contracts := check_contracts()
 	if not bool(contracts.get("ok", false)):
@@ -234,6 +302,11 @@ func tick(dt: float) -> Dictionary:
 	return {"ok": true, "t_s": now_s(), "paused": false, "dt_scaled_s": sim_dt,
 		"order_counts": orders.status_counts(),
 		"events": _tick_events.duplicate(true),
+		"routed": routed,
+		"components": {
+			"track": track_table != null,
+			"story": story_state != null,
+		},
 		"contracts": contracts}
 
 func _check_post() -> void:
@@ -242,6 +315,201 @@ func _check_post() -> void:
 	var contracts := check_contracts()
 	if not bool(contracts.get("ok", false)):
 		_contract("postcondition: " + str(contracts.get("violations", [])))
+
+## tick 内推进可选组件：TrackTable 过期/story 时间。
+func _advance_components(sim_dt: float) -> Dictionary:
+	var out := {}
+	if track_table != null:
+		var tr: Dictionary = track_table.tick(sim_dt)
+		out["track"] = tr
+		if not bool(tr.get("ok", false)):
+			warnings.append("track_table tick 失败：" + str(tr.get("reason", "")))
+		_last_track_t = maxf(_last_track_t, float(track_table.t))
+	if story_state != null:
+		var sr: Dictionary = story_state.set_time(now_s())
+		out["story"] = sr
+		if not bool(sr.get("ok", false)):
+			warnings.append("story_state set_time 失败：" + str(sr.get("reason", "")))
+		_last_story_revision = int(story_state.revision)
+	return out
+
+const ROUTABLE_TYPES := ["story.flag", "story.evidence", "story.choice",
+	"track.observation", "track.evidence"]
+
+func _is_routable_type(event_type: String) -> bool:
+	return event_type in ROUTABLE_TYPES
+
+## 显式白名单路由：事件总线 → StoryState / TrackTable；非白名单不路由。
+func _route_pending_bus_events() -> Array:
+	var routed: Array = []
+	if bus == null:
+		return routed
+	var all_events: Array = bus.events
+	var i := _last_bus_routed_index
+	while i < all_events.size():
+		var ev: Dictionary = all_events[i]
+		var seq := int(ev.get("seq", 0))
+		var typ := String(ev.get("type", ""))
+		if not _routed_seqs.has(seq) and _is_routable_type(typ):
+			var res: Dictionary = _apply_routed_event(ev)
+			res["type"] = typ
+			routed.append(res.duplicate(true))
+			if bool(res.get("ok", false)):
+				_routed_seqs[seq] = true
+			else:
+				warnings.append("bus 路由失败 %s：%s" % [typ, str(res.get("reason", ""))])
+		i += 1
+	_last_bus_routed_index = all_events.size()
+	return routed
+
+## 路由实现：先校验组件存在/载荷，再写入（失败不改状态）。
+func _apply_routed_event(ev: Dictionary, publish := false) -> Dictionary:
+	var typ := String(ev.get("type", ""))
+	var payload: Dictionary = ev.get("payload", {}) if ev.get("payload") is Dictionary else {}
+	if typ == "story.flag":
+		if story_state == null:
+			return {"ok": false, "reason": "no_story_state"}
+		var res: Dictionary = story_state.set_flag(String(payload.get("flag", "")),
+			payload.get("value", true))
+		if publish and bool(res.get("ok", false)):
+			_publish(ev)
+		return res
+	if typ == "story.evidence":
+		if story_state == null:
+			return {"ok": false, "reason": "no_story_state"}
+		var res2: Dictionary = story_state.add_evidence(String(payload.get("evidence_id", "")))
+		if publish and bool(res2.get("ok", false)):
+			_publish(ev)
+		return res2
+	if typ == "story.choice":
+		if story_state == null:
+			return {"ok": false, "reason": "no_story_state"}
+		var res3: Dictionary = story_state.record_choice(String(payload.get("choice_id", "")),
+			payload.get("meta", {}))
+		if publish and bool(res3.get("ok", false)):
+			_publish(ev)
+		return res3
+	if typ == "track.observation":
+		if track_table == null:
+			return {"ok": false, "reason": "no_track_table"}
+		var obs: Dictionary = payload.get("observation", payload) if payload.get("observation") is Dictionary else payload
+		var evn := obs.duplicate(true)
+		if not evn.has("t"):
+			evn["t"] = now_s()
+		var res4: Dictionary = track_table.handle_observation(evn, _track_writer)
+		if publish and bool(res4.get("ok", false)):
+			_publish(ev)
+		return res4
+	if typ == "track.evidence":
+		if track_table == null:
+			return {"ok": false, "reason": "no_track_table"}
+		var evd: Dictionary = payload.get("evidence", payload) if payload.get("evidence") is Dictionary else payload
+		var evd2 := evd.duplicate(true)
+		if not evd2.has("t"):
+			evd2["t"] = now_s()
+		var res5: Dictionary = track_table.handle_evidence(evd2, _track_writer)
+		if publish and bool(res5.get("ok", false)):
+			_publish(ev)
+		return res5
+	return {"ok": false, "reason": "not_routable"}
+
+## 订单/通信之外的显式事件发布+路由（只允许白名单 story.*/track.*）。
+func route_event(event: Dictionary) -> Dictionary:
+	if not ready:
+		return {"ok": false, "reason": "not_ready"}
+	if not (event is Dictionary):
+		return {"ok": false, "reason": "invalid_event"}
+	var evn: Dictionary = (event as Dictionary).duplicate(true)
+	var typ := String(evn.get("type", ""))
+	if not _is_routable_type(typ):
+		return {"ok": false, "reason": "not_routable", "type": typ,
+			"errors": ["不在显式白名单：" + typ]}
+	if not evn.has("t"):
+		evn["t"] = now_s()
+	if not evn.has("source"):
+		evn["source"] = "session"
+	var res: Dictionary = _apply_routed_event(evn, false)
+	if not bool(res.get("ok", false)):
+		return {"ok": false, "reason": String(res.get("reason", "")),
+			"type": typ, "errors": res.get("errors", [])}
+	var pub: Dictionary = bus.publish(evn)
+	if not bool(pub.get("ok", false)):
+		return {"ok": false, "reason": "bus_publish_failed", "type": typ,
+			"errors": pub.get("errors", [])}
+	var seq := int((pub.get("event", {}) as Dictionary).get("seq", 0))
+	_routed_seqs[seq] = true
+	_record({"op": "route_event", "event": evn})
+	return {"ok": true, "routed": true, "type": typ, "seq": seq,
+		"event": pub.get("event", {}), "result": res}
+
+## 观测（TrackTable）：需 boot 配置 track_table。
+func handle_observation(observation: Dictionary) -> Dictionary:
+	if not ready:
+		return {"ok": false, "reason": "not_ready"}
+	if track_table == null:
+		return {"ok": false, "reason": "no_track_table",
+			"errors": ["未配置 track_table"]}
+	if not (observation is Dictionary):
+		return {"ok": false, "reason": "invalid_observation"}
+	var evn: Dictionary = (observation as Dictionary).duplicate(true)
+	if not evn.has("t"):
+		evn["t"] = now_s()
+	var res: Dictionary = track_table.handle_observation(evn, _track_writer)
+	if bool(res.get("ok", false)):
+		_record({"op": "handle_observation", "event": evn})
+	return res
+
+## 证据（TrackTable track_evidence.v1）；不是 StoryState 证据（用 handle_story_evidence）。
+func handle_evidence(evidence: Dictionary) -> Dictionary:
+	if not ready:
+		return {"ok": false, "reason": "not_ready"}
+	if track_table == null:
+		return {"ok": false, "reason": "no_track_table",
+			"errors": ["未配置 track_table"]}
+	if not (evidence is Dictionary):
+		return {"ok": false, "reason": "invalid_evidence"}
+	var evn: Dictionary = (evidence as Dictionary).duplicate(true)
+	if not evn.has("t"):
+		evn["t"] = now_s()
+	var res: Dictionary = track_table.handle_evidence(evn, _track_writer)
+	if bool(res.get("ok", false)):
+		_record({"op": "handle_evidence", "event": evn})
+	return res
+
+## StoryState 证据（独立于 TrackTable 证据）。
+func handle_story_evidence(evidence_id: String) -> Dictionary:
+	if not ready:
+		return {"ok": false, "reason": "not_ready"}
+	if story_state == null:
+		return {"ok": false, "reason": "no_story_state",
+			"errors": ["未配置 story_state"]}
+	var res: Dictionary = story_state.add_evidence(evidence_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "handle_story_evidence", "evidence_id": evidence_id})
+	return res
+
+## 只读 Track VM/过滤（未配置时返回空对象）。
+func track_vm(opts := {}) -> Dictionary:
+	if track_table == null:
+		return {}
+	return track_table.vm(opts)
+
+func track_filter(where := {}) -> Array:
+	if track_table == null:
+		return []
+	return track_table.filter(where)
+
+## 只读 Story VM/条件判定。
+func story_vm() -> Dictionary:
+	if story_state == null:
+		return {}
+	return story_state.snapshot()
+
+func gate(conditions = {}) -> Dictionary:
+	if story_state == null:
+		return {"ok": false, "reason": "no_story_state", "passed": false,
+			"errors": ["未配置 story_state"], "failed": []}
+	return story_state.gate(conditions)
 
 # ── 订单包装 ────────────────────────────────────────────────────
 
@@ -469,6 +737,24 @@ func check_contracts() -> Dictionary:
 					v.append("订单-通信不一致：order %s status=%s 无 delivery_id" % [String(oid), st])
 				if float(o.get("issued_t", -1.0)) > now_s() + 1.0e-6:
 					v.append("订单 issuance 时间超过会话时间：" + String(oid))
+	if track_table != null:
+		if String(track_table.current_writer()) != _track_writer:
+			v.append("track_table 单写者冲突")
+		if absf(float(track_table.t) - now_s()) > 1.0e-6:
+			v.append("track_table 时间与会话不一致：%s != %s" % [str(track_table.t), str(now_s())])
+		if float(track_table.t) + 1.0e-9 < _last_track_t:
+			v.append("track_table 时间回退")
+		else:
+			_last_track_t = float(track_table.t)
+	if story_state != null:
+		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
+			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
+		if int(story_state.revision) < _last_story_revision:
+			v.append("story revision 回退")
+		else:
+			_last_story_revision = int(story_state.revision)
+		if not bool(story_state.check_contracts().get("ok", false)):
+			v.append("story 不变量失败：" + str(story_state.check_contracts().get("violations", [])))
 	var out := {"schema": SCHEMA, "ok": v.is_empty(), "violations": v}
 	return out
 
@@ -506,6 +792,9 @@ func snapshot() -> Dictionary:
 			},
 		},
 		"entities": world.entities_sorted() if world != null else [],
+		"track_table": track_table.snapshot() if track_table != null else null,
+		"story": story_state.snapshot() if story_state != null else null,
+		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
 		"events": bus_events,
@@ -531,6 +820,12 @@ func save_state() -> String:
 		"version": VERSION,
 		"seed": JSON.parse_string(JSON.stringify(_seed)),
 		"log": JSON.parse_string(JSON.stringify(_log)),
+		"track_table": track_table.snapshot() if track_table != null else null,
+		"story": story_state.snapshot() if story_state != null else null,
+		"bus": {
+			"seq": bus.current_seq(),
+			"events": JSON.parse_string(JSON.stringify(bus.events)),
+		},
 	}
 	return JSON.stringify(payload)
 
@@ -564,8 +859,47 @@ func load_state(json_text: String) -> Dictionary:
 		if not bool(res.get("ok", false)):
 			replay_errors.append("replay %s 失败：%s" % [str((raw as Dictionary).get("op", "")),
 				str(res.get("reason", ""))])
+	# 恢复可选组件快照（新存档才有；旧存档缺字段 → 兼容、组件保持退化）
+	var saved_track = data.get("track_table", null)
+	var saved_story = data.get("story", null)
+	if saved_track != null:
+		if track_table == null:
+			replay_errors.append("存档含 track_table 快照但 boot 未启用 track_table")
+		elif not (saved_track is Dictionary):
+			replay_errors.append("track_table 快照必须是对象")
+		else:
+			var tr: Dictionary = track_table.load_state(saved_track)
+			if not bool(tr.get("ok", false)):
+				replay_errors.append("track_table 快照恢复失败：" + str(tr.get("errors", [])))
+			else:
+				_track_writer = String(track_table.current_writer())
+	if saved_story != null:
+		if story_state == null:
+			replay_errors.append("存档含 story 快照但 boot 未启用 story_state")
+		elif not (saved_story is Dictionary):
+			replay_errors.append("story 快照必须是对象")
+		else:
+			var sr: Dictionary = story_state.load(saved_story)
+			if not bool(sr.get("ok", false)):
+				replay_errors.append("story 快照恢复失败：" + str(sr.get("errors", [])))
+	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
+	var saved_bus = data.get("bus", null)
+	if saved_bus is Dictionary:
+		var evs = (saved_bus as Dictionary).get("events", [])
+		if evs is Array:
+			bus.events = JSON.parse_string(JSON.stringify(evs))
+			bus.seq = int((saved_bus as Dictionary).get("seq", bus.events.size()))
+			for raw_ev in bus.events:
+				if raw_ev is Dictionary:
+					bus._seen_ids[String((raw_ev as Dictionary).get("id", ""))] = true
 	_replaying = false
 	_log = (log as Array).duplicate(true)
+	if track_table != null:
+		_last_track_t = float(track_table.t)
+	if story_state != null:
+		_last_story_revision = int(story_state.revision)
+	_last_bus_routed_index = bus.events.size()
+	_routed_seqs = {}
 	_last_time_s = now_s()
 	ready = replay_errors.is_empty() and errors.is_empty()
 	return {"ok": ready, "errors": replay_errors, "result_errors": errors.duplicate()}
@@ -596,6 +930,14 @@ func _replay_op(op: Dictionary) -> Dictionary:
 				op.get("payload", {}), op.get("opts", {}))
 		"set_link":
 			return set_link(String(op.get("a", "")), String(op.get("b", "")), op.get("opts", {}))
+		"handle_observation":
+			return handle_observation(op.get("event", {}))
+		"handle_evidence":
+			return handle_evidence(op.get("event", {}))
+		"handle_story_evidence":
+			return handle_story_evidence(String(op.get("evidence_id", "")))
+		"route_event":
+			return route_event(op.get("event", {}))
 		"pause":
 			return pause()
 		"resume":

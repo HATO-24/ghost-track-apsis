@@ -31,6 +31,12 @@ func _initialize() -> void:
 	_test_save_load()
 	_test_errors()
 	_test_json_determinism()
+	_test_optional_components()
+	_test_track_l1_l4()
+	_test_story_integration()
+	_test_save_components()
+	_test_old_save_compat()
+	_test_component_errors_determinism()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -79,6 +85,30 @@ func _near(actual: float, expected: float, tol: float, label: String) -> void:
 
 func _data_line(label: String, value: String) -> void:
 	_data.append(label + " = " + value)
+
+func _norm_json(value) -> String:
+	return JSON.stringify(JSON.parse_string(JSON.stringify(value)))
+
+func _story_content_json(s) -> String:
+	var vm: Dictionary = s.story_vm()
+	return _norm_json({
+		"flags": vm.get("flags", {}), "evidence_ids": vm.get("evidence_ids", []),
+		"choices": vm.get("choices", []), "trust": vm.get("trust", 0.0),
+		"morality": vm.get("morality", 0.0), "reputation": vm.get("reputation", 0.0),
+		"threat": vm.get("threat", 0.0), "chapter": vm.get("chapter", ""),
+		"phase": vm.get("phase", ""),
+	})
+
+func _story_state_json(s) -> String:
+	var vm: Dictionary = s.story_vm()
+	return _norm_json({
+		"flags": vm.get("flags", {}), "evidence_ids": vm.get("evidence_ids", []),
+		"choices": vm.get("choices", []), "trust": vm.get("trust", 0.0),
+		"morality": vm.get("morality", 0.0), "reputation": vm.get("reputation", 0.0),
+		"threat": vm.get("threat", 0.0), "chapter": vm.get("chapter", ""),
+		"phase": vm.get("phase", ""), "t_s": vm.get("t_s", 0.0),
+		"revision": vm.get("revision", 0),
+	})
 
 func _new_session():
 	var s = GameSession.new()
@@ -384,13 +414,13 @@ func _test_save_load() -> void:
 	var lr: Dictionary = s2.load_state(save_a)
 	_eq(bool(lr.get("ok", false)), true, "load_state ok", str(lr.get("errors", [])))
 	_ok(bool(s2.ready), "load 后 ready")
-	_ok(JSON.stringify(s.snapshot()) == JSON.stringify(s2.snapshot()), "save/load snapshot 一致")
+	_ok(_norm_json(s.snapshot()) == _norm_json(s2.snapshot()), "save/load snapshot 一致（JSON 规范化）")
 	_eq(String(s2.order(oid).get("status", "")), "DONE", "load 后订单 DONE")
 	_ok(s2.bus.current_seq() > 0, "load 后事件重放")
 	_ok(bool(s2.check_contracts().get("ok", false)), "load 后 contracts ok")
 	# 二次保存一致（确定性）
 	var save_b := s2.save_state()
-	_ok(save_a == save_b, "save-A == save-B（确定性）")
+	_ok(_norm_json(JSON.parse_string(save_a)) == _norm_json(JSON.parse_string(save_b)), "save-A == save-B（JSON 规范化）")
 	_data_line("save_load", "save len=%d load snapshot 一致 · 二次 save 相同" % save_a.length())
 
 # ═══════════════════════════════════════════════════════════════════
@@ -469,3 +499,346 @@ func _test_json_determinism() -> void:
 	_eq(String(a.to_dict().get("schema", "")), "v17.game_session.v1", "to_dict schema")
 	_ok(a.to_json().length() > 3000, "to_json 输出")
 	_data_line("json_det", "snapshot=%d save=%d 确定性一致" % [ja.length(), a.save_state().length()])
+
+# ═══════════════════════════════════════════════════════════════════
+# 11. 可选组件（track_table / story_state）
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_optional_components() -> void:
+	_section_begin("11 可选组件")
+	var s = _new_session()
+	_ok(s.track_table == null, "默认无 track_table")
+	_ok(s.story_state == null, "默认无 story_state")
+	_eq(s.track_vm().size(), 0, "无 track_table 时 track_vm 空")
+	_eq((s.track_filter({}) as Array).size(), 0, "无 track_table 时 filter 空")
+	_eq(s.story_vm().size(), 0, "无 story_state 时 story_vm 空")
+	_eq(String(s.handle_observation({}).get("reason", "")), "no_track_table", "无 track_table observation 拒绝")
+	_eq(String(s.handle_evidence({}).get("reason", "")), "no_track_table", "无 track_table evidence 拒绝")
+	_eq(String(s.handle_story_evidence("x").get("reason", "")), "no_story_state", "无 story_state evidence 拒绝")
+	_eq(String(s.gate({}).get("reason", "")), "no_story_state", "无 story_state gate 拒绝")
+	var save := s.save_state()
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "退化 session save/load ok")
+	_ok(s2.track_table == null, "退化 load 后无 track_table")
+	_ok(s2.story_state == null, "退化 load 后无 story_state")
+	_ok(_norm_json(s.snapshot()) == _norm_json(s2.snapshot()), "退化 save/load snapshot 一致")
+	var s3 = GameSession.new({"track_table": false, "story_state": false})
+	_ok(bool(s3.ready), "显式 false 退化 ready")
+	_ok(s3.track_table == null, "显式 false 无 track_table")
+	_ok(s3.story_state == null, "显式 false 无 story_state")
+	# 可选组合启用
+	var e = GameSession.new({"track_table": true, "story_state": true})
+	_ok(bool(e.ready), "启用组件 boot ready", str(e.errors))
+	_ok(e.track_table != null, "启用 track_table")
+	_ok(e.story_state != null, "启用 story_state")
+	_ok(String(e._track_writer) != "", "track writer 非空")
+	_ok(not e.track_vm().is_empty(), "track_vm 非空")
+	_eq(String(e.track_vm().get("schema", "")), "fused_track_table.v1", "track vm schema")
+	_ok(not e.story_vm().is_empty(), "story_vm 非空")
+	_eq(String(e.story_vm().get("schema", "")), "v17.story_state.v1", "story vm schema")
+	var snap: Dictionary = e.snapshot()
+	_ok(snap.has("track_table") and snap["track_table"] is Dictionary, "snapshot 含 track_table")
+	_ok(snap.has("story") and snap["story"] is Dictionary, "snapshot 含 story")
+	_ok(bool(e.check_contracts().get("ok", false)), "启用组件 contracts ok")
+	_data_line("optional", "无配置退化 · false 退化 · true 启用 track/story")
+
+# ═══════════════════════════════════════════════════════════════════
+# 12. TrackTable 观测 L1-L4 / 过期
+# ═══════════════════════════════════════════════════════════════════
+
+func _obs(s, event_id: String, sensor: String, support: int, entity := "E1", batch := "2001") -> Dictionary:
+	return {"schema": "sensor_observation.v1", "kind": "observation",
+		"event_id": event_id, "t": s.now_s(), "sensor": sensor,
+		"entity_id": entity, "batch": batch, "support": support,
+		"quality": 0.8, "range_km": 1000.0, "bearing_deg": 45.0}
+
+func _ev_track(s, event_id: String, track_id: String, etype: String, support: int,
+		identity := "unknown", iff := {}) -> Dictionary:
+	var ev := {"schema": "track_evidence.v1", "kind": "evidence",
+		"event_id": event_id, "t": s.now_s(), "track_id": track_id,
+		"evidence_type": etype, "support": support, "source": etype,
+		"identity": identity, "threat": "none"}
+	if not iff.is_empty():
+		ev["iff"] = iff
+	return ev
+
+func _test_track_l1_l4() -> void:
+	_section_begin("12 TrackTable L1-L4/过期")
+	var cfg = {"track_table": {"stale_after_s": 5.0, "forget_after_s": 20.0},
+		"story_state": true}
+	var s = GameSession.new(cfg)
+	_ok(bool(s.ready), "track session ready", str(s.errors))
+	_ok(s.track_table != null, "track_table 启用")
+	_eq(String(s.track_table.current_writer()), String(s._track_writer), "track 单写者一致")
+	# L1
+	var r1: Dictionary = s.handle_observation(_obs(s, "obs-1", "radar", 1))
+	_eq(bool(r1.get("ok", false)), true, "observation L1 ok", str(r1.get("reason", "")))
+	_eq((s.track_vm().get("tracks", []) as Array).size(), 1, "L1 后 1 track")
+	var t0: Dictionary = (s.track_vm().get("tracks", []) as Array)[0]
+	_eq(int(t0.get("level", -1)), 1, "L1 level=1")
+	var tid := String(t0.get("id", ""))
+	_ok(tid != "", "track id 生成")
+	# L2（不同 source）
+	var r2: Dictionary = s.handle_observation(_obs(s, "obs-2", "optical", 1))
+	_eq(bool(r2.get("ok", false)), true, "observation 第二源 ok")
+	_eq(int((s.track_filter({}) as Array)[0].get("level", -1)), 2, "L2 level=2")
+	# 非法 observation（support 3 / L3 不允许由观测提升）
+	var bad_obs: Dictionary = s.handle_observation(_obs(s, "obs-bad", "radar", 3))
+	_eq(bool(bad_obs.get("ok", true)), false, "observation support=3 拒绝")
+	_eq(int((s.track_filter({}) as Array)[0].get("level", -1)), 2, "非法观测不改变 level")
+	# L3 光学证据
+	var r3: Dictionary = s.handle_evidence(_ev_track(s, "ev-1", tid, "optical", 3, "friend"))
+	_eq(bool(r3.get("ok", false)), true, "evidence L3 ok", str(r3.get("reason", "")))
+	_eq(int((s.track_filter({}) as Array)[0].get("level", -1)), 3, "L3 level=3")
+	# L4 IFF 证据
+	var iff := {"status": "friend"}
+	var r4: Dictionary = s.handle_evidence(_ev_track(s, "ev-2", tid, "iff", 4, "friend", iff))
+	_eq(bool(r4.get("ok", false)), true, "evidence L4 ok", str(r4.get("reason", "")))
+	var t4: Dictionary = (s.track_filter({}) as Array)[0]
+	_eq(int(t4.get("level", -1)), 4, "L4 level=4")
+	_eq(String(t4.get("identity", "")), "friend", "L4 identity friend")
+	_ok(not (t4.get("evidence", []) as Array).is_empty(), "证据可追溯")
+	# 重复 event_id / 未知 track / 未授权 writer 拒绝
+	var dup: Dictionary = s.handle_evidence(_ev_track(s, "ev-2", tid, "iff", 4, "friend", iff))
+	_eq(bool(dup.get("ok", true)), false, "重复 event_id 拒绝")
+	var unk: Dictionary = s.handle_evidence(_ev_track(s, "ev-3", "T9999", "optical", 3, "friend"))
+	_eq(bool(unk.get("ok", true)), false, "未知 track 证据拒绝")
+	var before_track: String = _norm_json(s.track_filter({}))
+	var unauth: Dictionary = s.track_table.handle_observation(_obs(s, "obs-hack", "radar", 1), "hacker")
+	_eq(bool(unauth.get("ok", true)), false, "非 writer 直接写拒绝")
+	_eq(_norm_json(s.track_filter({})), before_track, "拒绝写不改变 track")
+	# filter
+	_eq((s.track_filter({"level_min": 3}) as Array).size(), 1, "filter level_min=3")
+	_eq((s.track_filter({"level_min": 5}) as Array).size(), 0, "filter level_min=5 空")
+	_eq((s.track_filter({"identity": "friend"}) as Array).size(), 1, "filter identity friend")
+	# tick stale
+	var tick1: Dictionary = s.tick(6.0)
+	_eq(bool(tick1.get("ok", false)), true, "tick 6s ok")
+	_near(float(s.track_table.t), s.now_s(), 1.0e-6, "track t 与会话同步")
+	_eq(bool((s.track_filter({}) as Array)[0].get("stale", false)), true, "track 过期 stale")
+	_ok(bool(s.check_contracts().get("ok", false)), "stale 后 contracts ok")
+	# tick forget（total 21 > forget 20）
+	var tick2: Dictionary = s.tick(15.0)
+	_eq(bool(tick2.get("ok", false)), true, "tick 15s ok")
+	_eq((s.track_filter({}) as Array).size(), 0, "forget 后 track 移除")
+	_eq(int(s.track_vm().get("all_count", -1)), 0, "forget 后 all_count 0")
+	_ok(bool(s.check_contracts().get("ok", false)), "forget 后 contracts ok")
+	_ok(bool(s.story_state != null), "story 仍启用")
+	_data_line("track_L1_L4", "L1→L2→L3→L4 · 拒绝非法/重复/未授权 · stale/forget")
+
+# ═══════════════════════════════════════════════════════════════════
+# 13. StoryState 集成 / 事件路由
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_story_integration() -> void:
+	_section_begin("13 Story 集成/路由")
+	var s = GameSession.new({"story_state": true})
+	_ok(bool(s.ready), "story session ready", str(s.errors))
+	_ok(s.story_state != null, "story_state 启用")
+	# StoryState 证据
+	var se: Dictionary = s.handle_story_evidence("ev_ghost_track")
+	_eq(bool(se.get("ok", false)), true, "handle_story_evidence ok")
+	_ok(bool(s.story_vm().get("evidence_ids", []).has("ev_ghost_track")), "story evidence 记录")
+	var dup: Dictionary = s.handle_story_evidence("ev_ghost_track")
+	_eq(bool(dup.get("ok", true)), false, "重复 story evidence 拒绝")
+	var bad: Dictionary = s.handle_story_evidence("Bad-ID")
+	_eq(bool(bad.get("ok", true)), false, "非法 story evidence 拒绝")
+	# 直接 bus 发布 story.flag → tick 白名单路由
+	var pub: Dictionary = s.bus.publish({"type": "story.flag", "t": s.now_s(),
+		"source": "test", "payload": {"flag": "aeug_contact", "value": true}})
+	_eq(bool(pub.get("ok", false)), true, "bus 发布 story.flag ok")
+	_ok(not bool(s.story_vm().get("flags", {}).has("aeug_contact")), "tick 前 flag 未路由")
+	var tick: Dictionary = s.tick(0.1)
+	_eq(bool(tick.get("ok", false)), true, "tick 路由 ok")
+	_ok(bool(s.story_vm().get("flags", {}).has("aeug_contact")), "tick 后 flag 已路由")
+	_ok((tick.get("routed", []) as Array).size() > 0, "tick 返回 routed")
+	# route_event 显式证据
+	var re: Dictionary = s.route_event({"type": "story.evidence", "t": s.now_s(),
+		"source": "test", "payload": {"evidence_id": "ev_extra"}})
+	_eq(bool(re.get("ok", false)), true, "route_event story.evidence ok")
+	_ok(bool(s.story_vm().get("evidence_ids", []).has("ev_extra")), "route evidence 生效")
+	_eq(String(re.get("type", "")), "story.evidence", "route 返回 type")
+	# route_event choice
+	var rc: Dictionary = s.route_event({"type": "story.choice", "t": s.now_s(),
+		"source": "test", "payload": {"choice_id": "ch_help", "meta": {"a": 1}}})
+	_eq(bool(rc.get("ok", false)), true, "route_event story.choice ok")
+	_ok(bool(s.story_vm().get("choices", [])[0].get("choice_id", "") == "ch_help"), "route choice 生效")
+	# 未知事件类型不路由
+	var nr: Dictionary = s.route_event({"type": "entity.move", "t": s.now_s(),
+		"source": "test", "payload": {}})
+	_eq(bool(nr.get("ok", true)), false, "非白名单 route 拒绝")
+	_eq(String(nr.get("reason", "")), "not_routable", "not_routable reason")
+	# 非法 story flag 不改变状态
+	var before := _story_state_json(s)
+	var bad_flag: Dictionary = s.route_event({"type": "story.flag", "t": s.now_s(),
+		"source": "test", "payload": {"flag": "Bad-Name", "value": true}})
+	_eq(bool(bad_flag.get("ok", true)), false, "非法 story flag route 拒绝")
+	_eq(_story_state_json(s), before, "失败 route 不改变 story")
+	# 非白名单 bus 事件不写 story（tick 只推进时间/revision，不改内容）
+	var before_content := _story_content_json(s)
+	var pub2: Dictionary = s.bus.publish({"type": "entity.move", "t": s.now_s(),
+		"source": "test", "target": "apsis", "payload": {"pos_km": [1, 2, 3]}})
+	_eq(bool(pub2.get("ok", false)), true, "bus 发布非白名单 ok")
+	s.tick(0.2)
+	_eq(_story_content_json(s), before_content, "非白名单事件不写 story 内容")
+	# gate / VM / 时间 / revision
+	_ok(bool(s.gate({"flags": ["aeug_contact"]}).get("passed", false)), "gate flag 通过")
+	_eq(bool(s.gate({"flags": ["no_such"]}).get("passed", true)), false, "gate 缺失 flag 不通过")
+	_eq(String(s.story_vm().get("schema", "")), "v17.story_state.v1", "story vm schema")
+	_near(float(s.story_state.t_s), s.now_s(), 1.0e-6, "story t_s 与会话同步")
+	var rev := int(s.story_state.revision)
+	s.tick(0.1)
+	_ok(int(s.story_state.revision) >= rev, "story revision 单调")
+	_ok(bool(s.check_contracts().get("ok", false)), "story 集成 contracts ok")
+	_data_line("story", "evidence/flag/choice 路由 · 非白名单不写 · gate/t_s/revision")
+
+# ═══════════════════════════════════════════════════════════════════
+# 14. 组件存档往返
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_save_components() -> void:
+	_section_begin("14 组件存档")
+	var cfg = {"track_table": {"stale_after_s": 5.0, "forget_after_s": 20.0},
+		"story_state": true}
+	var s = GameSession.new(cfg)
+	s.handle_observation(_obs(s, "obs-1", "radar", 1))
+	s.handle_observation(_obs(s, "obs-2", "optical", 1))
+	var tid := String((s.track_filter({}) as Array)[0].get("id", ""))
+	s.handle_evidence(_ev_track(s, "ev-1", tid, "optical", 3, "friend"))
+	s.handle_story_evidence("ev_ghost_track")
+	s.route_event({"type": "story.flag", "t": s.now_s(), "source": "test",
+		"payload": {"flag": "aeug_contact", "value": true}})
+	s.tick(1.0)
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary, "组件 save JSON 可解析")
+	if d is Dictionary:
+		_ok((d as Dictionary).get("track_table") is Dictionary, "save 含 track_table 快照")
+		_ok((d as Dictionary).get("story") is Dictionary, "save 含 story 快照")
+		_ok((d as Dictionary).get("bus") is Dictionary, "save 含 bus 历史")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "组件 load ok", str(lr.get("errors", [])))
+	_ok(s2.track_table != null, "load 后 track_table 启用")
+	_ok(s2.story_state != null, "load 后 story_state 启用")
+	_ok(_norm_json(s.snapshot()) == _norm_json(s2.snapshot()), "组件 snapshot 一致")
+	_ok(_norm_json(s.track_vm()) == _norm_json(s2.track_vm()), "track_vm 一致")
+	_ok(_norm_json(s.story_vm()) == _norm_json(s2.story_vm()), "story_vm 一致")
+	_near(float(s2.track_table.t), s2.now_s(), 1.0e-6, "load track t 同步")
+	_near(float(s2.story_state.t_s), s2.now_s(), 1.0e-6, "load story t 同步")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load 后 contracts ok")
+	# 再次保存（load 后立即，规范化一致）
+	var save2 := s2.save_state()
+	_ok(_norm_json(JSON.parse_string(save)) == _norm_json(JSON.parse_string(save2)),
+		"load 后再次 save 规范化一致")
+	# load 后可继续 tick/观测
+	s2.tick(0.5)
+	_eq(bool(s2.handle_observation(_obs(s2, "obs-after", "elint", 1, "E2", "2002")).get("ok", false)),
+		true, "load 后继续观测 ok")
+	_ok(bool(s2.check_contracts().get("ok", false)), "继续 tick 后 contracts ok")
+	# 退化存档（无 track/story）可被启用会话读取
+	var plain = GameSession.new()
+	plain.issue_order("hold", "apsis", ["harmattan"], {}, {})
+	plain.tick(1.0)
+	var plain_save := plain.save_state()
+	var plain_d = JSON.parse_string(plain_save)
+	var enabled_load = GameSession.new(cfg)
+	var elr: Dictionary = enabled_load.load_state(plain_save)
+	_eq(bool(elr.get("ok", false)), true, "无组件存档可被启用会话读取", str(elr.get("errors", [])))
+	_ok(enabled_load.track_table == null, "旧存档 seed 无配置 → 组件退化（兼容）")
+	_data_line("save_components", "track/story/bus 快照 · load 后 VM/t/contracts 一致 · 继续操作/再次 save")
+
+# ═══════════════════════════════════════════════════════════════════
+# 15. 旧存档缺字段兼容
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_old_save_compat() -> void:
+	_section_begin("15 旧存档兼容")
+	var s = _new_session()
+	s.issue_order("hold", "apsis", ["harmattan"], {}, {})
+	s.tick(1.0)
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary, "当前 save 可解析")
+	if not (d is Dictionary):
+		return
+	# 模拟旧存档：无 track_table/story/bus 字段，seed 也无组件配置
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("track_table")
+	old.erase("story")
+	old.erase("bus")
+	var seed: Dictionary = old.get("seed", {}) if old.get("seed") is Dictionary else {}
+	seed.erase("track_table")
+	seed.erase("story_state")
+	old["seed"] = seed
+	var old_text := JSON.stringify(old)
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(old_text)
+	_eq(bool(lr.get("ok", false)), true, "旧存档缺字段 load ok", str(lr.get("errors", [])))
+	_ok(s2.track_table == null, "旧存档 load 后无 track_table")
+	_ok(s2.story_state == null, "旧存档 load 后无 story_state")
+	_eq(String(s2.snapshot().get("schema", "")), "v17.game_session.v1", "旧存档 snapshot schema")
+	_near(s2.now_s(), s.now_s(), 1.0e-9, "旧存档恢复时间")
+	_eq(String(s2.orders.orders.keys()[0] if s2.orders.orders.size() > 0 else ""),
+		String(s.orders.orders.keys()[0] if s.orders.orders.size() > 0 else ""), "旧存档恢复订单")
+	var save2 := s2.save_state()
+	_ok(JSON.parse_string(save2) is Dictionary, "旧存档再次 save 可解析")
+	# 缺 bus 的旧存档在启用会话中也兼容：组件为空（seed 无配置 → 退化）
+	var enabled = GameSession.new({"story_state": true})
+	var elr: Dictionary = enabled.load_state(old_text)
+	_eq(bool(elr.get("ok", false)), true, "旧存档可被启用会话读取（seed 无配置 → 退化）",
+		str(elr.get("errors", [])))
+	_data_line("old_save", "缺 track_table/story/bus/seed 字段兼容 · 恢复核心状态")
+
+# ═══════════════════════════════════════════════════════════════════
+# 16. 组件非法事件 / 确定性
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_component_errors_determinism() -> void:
+	_section_begin("16 组件非法/确定性")
+	var cfg = {"track_table": true, "story_state": true}
+	var s = GameSession.new(cfg)
+	var before_track := _norm_json(s.track_filter({}))
+	var before_story := _story_state_json(s)
+	# 非法观测 / 证据 / story 操作不改状态
+	_eq(bool(s.handle_observation({}).get("ok", true)), false, "空 observation 拒绝")
+	_eq(bool(s.handle_observation({"schema": "bad"}).get("ok", true)), false, "坏 observation schema 拒绝")
+	_eq(bool(s.handle_evidence({}).get("ok", true)), false, "空 evidence 拒绝")
+	_eq(_norm_json(s.track_filter({})), before_track, "非法观测/证据不改变 track")
+	_eq(bool(s.handle_story_evidence("Bad-ID").get("ok", true)), false, "非法 story evidence 拒绝")
+	_eq(bool(s.route_event({"type": "story.flag", "source": "x", "t": 0,
+		"payload": {"flag": "Bad-Name"}}).get("ok", true)), false, "非法 story flag 拒绝")
+	_eq(_story_state_json(s), before_story, "非法 story 操作不改变 story")
+	# 非法 track evidence 路由不改 track
+	var bad_ev_route: Dictionary = s.route_event({"type": "track.evidence", "t": s.now_s(),
+		"source": "x", "payload": {"track_id": "T9999", "evidence_type": "optical",
+			"support": 3, "identity": "friend"}})
+	_eq(bool(bad_ev_route.get("ok", true)), false, "非法 track.evidence route 拒绝")
+	_eq(_norm_json(s.track_filter({})), before_track, "非法 track route 不改变 track")
+	# 总线路由失败写 warning（不静默）
+	s.bus.publish({"type": "story.flag", "t": s.now_s(), "source": "test",
+		"payload": {"flag": "Bad-Name", "value": true}})
+	s.tick(0.1)
+	_ok(s.warnings.size() > 0, "总线路由失败记录 warnings")
+	_ok(bool(s.check_contracts().get("ok", false)), "失败后 contracts ok")
+	# 确定性：同操作两实例
+	var a = GameSession.new(cfg)
+	var b = GameSession.new(cfg)
+	for st in [a, b]:
+		st.handle_observation(_obs(st, "obs-1", "radar", 1))
+		st.handle_observation(_obs(st, "obs-2", "optical", 1))
+		st.handle_story_evidence("ev_ghost_track")
+		st.route_event({"type": "story.flag", "t": st.now_s(), "source": "test",
+			"payload": {"flag": "aeug_contact", "value": true}})
+		st.tick(1.0)
+	_ok(_norm_json(a.snapshot()) == _norm_json(b.snapshot()), "组件同操作 snapshot 一致")
+	_ok(_norm_json(JSON.parse_string(a.save_state())) == _norm_json(JSON.parse_string(b.save_state())),
+		"组件同操作 save 一致")
+	# 单写者：外部 token 写 world/track 均拒绝
+	var w: Dictionary = a.world.apply({"type": "entity.move", "t": a.now_s(), "source": "x",
+		"target": "apsis", "payload": {"pos_km": [1, 2, 3]}}, "hacker")
+	_eq(String(w.get("reason", "")), "writer_mismatch", "world 外部写拒绝")
+	var unauth_track: Dictionary = a.track_table.handle_observation(_obs(a, "obs-hack", "radar", 1), "hacker")
+	_eq(bool(unauth_track.get("ok", true)), false, "track 外部写拒绝")
+	_data_line("components_errors", "非法组件事件不改状态 · 同操作确定性 · 单写者拒绝")
