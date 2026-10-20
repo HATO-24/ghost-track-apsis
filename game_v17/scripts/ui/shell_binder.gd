@@ -9,6 +9,7 @@ extends RefCounted
 const GameSession := preload("res://scripts/core/game_session.gd")
 const PreludeScenario := preload("res://scripts/core/prelude_scenario.gd")
 const CeresChain := preload("res://scripts/core/ceres_chain.gd")
+const ChronosChain := preload("res://scripts/core/chronos_chain.gd")
 const SaveService := preload("res://scripts/core/save_service.gd")
 
 const TRANSFER_CACHE := "res://framework/content/transfer_l4_l1_cached.json"
@@ -29,6 +30,10 @@ var prelude_triggers: Array = []
 var ceres_chain = null
 var ceres_ready := false
 var last_ceres_result: Dictionary = {}
+var chronos_chain = null
+var chronos_ready := false
+var last_chronos_result: Dictionary = {}
+var chronos_comms_lines: Array = []
 var track_vm: Dictionary = {}
 var sensor_vm: Dictionary = {}
 var sensor_result := ""
@@ -99,6 +104,13 @@ func boot() -> bool:
 		warnings.append("CeresChain 未 ready：" + str(ceres_chain.errors))
 	else:
 		print("[SHELL BINDER] CeresChain ready state=", ceres_chain.current_state(), " entity=", ceres_chain.entity_id, " texts=", ceres_chain.text_keys.size(), " code=", ceres_chain.emergency_light_code)
+	chronos_chain = ChronosChain.new()
+	var chr: bool = chronos_chain.setup({"content_path": ChronosChain.DEFAULT_CONTENT})
+	chronos_ready = chr
+	if not chr:
+		warnings.append("ChronosChain 未 ready：" + str(chronos_chain.errors))
+	else:
+		print("[SHELL BINDER] ChronosChain ready state=", chronos_chain.current_state(), " entity=", chronos_chain.entity_id, " texts=", chronos_chain.text_keys.size(), " trust=", chronos_chain.get_trust())
 	if session.sensor_service == null:
 		_seed_tracks()
 	_load_delta_v()
@@ -561,6 +573,48 @@ func timers() -> Array:
 	while out.size() > 4:
 		out.pop_front()
 	return out
+
+
+func chronos_state() -> String:
+	return String(chronos_chain.current_state()) if chronos_chain != null else "NOT READY"
+
+
+func chronos_vm() -> Dictionary:
+	return chronos_chain.vm() if chronos_chain != null else {}
+
+
+func chronos_text(text_key: String) -> String:
+	if chronos_chain == null:
+		return ""
+	return String(chronos_chain.text(text_key).get("zh", ""))
+
+
+func chronos_actions() -> Array:
+	return chronos_chain.available_actions() if chronos_chain != null else []
+
+
+func chronos_trust() -> int:
+	return chronos_chain.get_trust() if chronos_chain != null else 0
+
+
+func _chronos_comms_append(line: String) -> void:
+	if line != "" and not (line in chronos_comms_lines):
+		chronos_comms_lines.append(line)
+
+
+func chronos_advance(action: String, payload := {}) -> Dictionary:
+	if chronos_chain == null:
+		return {"ok": false, "reason": "no_chronos_chain"}
+	var res: Dictionary = chronos_chain.advance(action, payload)
+	last_chronos_result = res.duplicate(true)
+	if bool(res.get("ok", false)):
+		var from_state := String(res.get("from_state", ""))
+		if action == "port_comm":
+			_chronos_comms_append("[Chronos 港务 至 ID13]-[RDO]-[" + chronos_text("chronos.port_rdo") + "]")
+		elif action == "private_comm":
+			_chronos_comms_append("[副官 至 指挥官]-[PRIVATE]-[" + chronos_text("chronos.private_comm") + "]")
+	print("[SHELL BINDER] CHRONOS ", action, " · ", str(res.get("ok", false)), " state=", String(res.get("state", chronos_chain.current_state())), " trust=", chronos_chain.get_trust(), " trigger=", String(res.get("trigger_id", "")))
+	return last_chronos_result
 
 
 func ceres_state() -> String:

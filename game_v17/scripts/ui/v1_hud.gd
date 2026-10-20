@@ -82,6 +82,8 @@ var _txp_reply: Dictionary = {}
 var _txp_msg := ""
 var _trigger_banner := ""
 var _ceres_msg := ""
+var _chronos_msg := ""
+var _chronos_buttons: Array = []
 var _save_slots: Array = []
 var _save_load_buttons: Array = []
 var _save_overlay_msg := ""
@@ -187,7 +189,14 @@ func _load_data() -> void:
 	var dok: bool = _damage.setup({}, "apsis")
 	print("[V1 HUD] damage_model=", str(dok), " sections=", _damage.section_ids().size(), " combat=", str(_combat.ready), " roe=", String(_combat.roe) if _combat != null else "—", " roe_locked=", str(_roe_locked))
 	var view := OS.get_environment("DSH_V1_VIEW")
-	if view == "ceres_chain":
+	if view == "chronos":
+		_overlay = "chronos"
+		for i in range(_contacts.size()):
+			if String((_contacts[i] as Dictionary).get("entity_id", "")) == "chronos":
+				_selected = i
+				break
+		call_deferred("_chronos_demo")
+	elif view == "ceres_chain":
 		_overlay = "optical"
 		_page = "target"
 		for i in range(_contacts.size()):
@@ -521,7 +530,7 @@ func _draw_right(r: Rect2) -> void:
 	Painter.section(self, x, y, right, "SENSOR CONTROLS / 只读最小交互")
 	y += 10.0
 	_right_buttons.clear()
-	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["COMBAT", "COMBAT / 战斗"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["INFO", "INFO / 信息"]]
+	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["COMBAT", "COMBAT / 战斗"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["CHRONOS", "CHRONOS / 行动"]]
 	for i in range(labels.size()):
 		var bw := (r.size.x - 32.0) * 0.5 - 4.0
 		var col := i % 2
@@ -700,6 +709,8 @@ func _draw_overlay(l: Dictionary) -> void:
 		_draw_comms_overlay(r)
 	elif _overlay == "optical":
 		_draw_optical_overlay(r)
+	elif _overlay == "chronos":
+		_draw_chronos_overlay(r)
 	elif _overlay == "combat":
 		_draw_combat_overlay(r)
 	elif _overlay == "save":
@@ -777,6 +788,14 @@ func _draw_comms_overlay(r: Rect2) -> void:
 		if row % 2 == 1:
 			draw_rect(Rect2(lp.position.x + 10, yy - 11, lp.size.x - 20, 14), P.a(P.PANEL, 0.30))
 		Painter.label(self, lp.position.x + 12, yy, TM.fit("[%s 至 %s]-[%s]-[%s]" % [from, to, mode, content], lp.size.x - 24, true, 7), 7, P.TXT, true)
+	# ChronosChain 真实通信文本追加到 MESSAGE STREAM 下方
+	if binder != null and not binder.chronos_comms_lines.is_empty():
+		var chain_cy := my + float(mini(row_capacity, maxi(events.size(), 0))) * 16.0 + 4.0
+		Painter.label(self, lp.position.x + 12, chain_cy, "CHRONOS CHAIN COMMS", 6, P.AMBER, true)
+		chain_cy += 11.0
+		for i in range(mini(2, binder.chronos_comms_lines.size())):
+			Painter.label(self, lp.position.x + 12, chain_cy, TM.fit(String(binder.chronos_comms_lines[i]), lp.size.x - 24, true, 7), 7, P.PH_DIM, true)
+			chain_cy += 14.0
 	# 链路明细，填满左栏下部（真实 comms vm links）
 	var link_y := lp.end.y - 174.0
 	Painter.section(self, lp.position.x + 10, link_y, lp.end.x - 10, "LINK DETAIL / 链路明细")
@@ -1090,6 +1109,144 @@ func _wrap_text_cjk(text: String, width: int) -> Array:
 	if cur != "":
 		out.append(cur)
 	return out
+
+
+func _draw_chronos_overlay(r: Rect2) -> void:
+	var x := r.position.x + 16.0
+	var y := r.position.y + 30.0
+	Painter.label(self, x, y, "CHRONOS / 港务 · 私人通信 · 行动", 12, P.PH)
+	Painter.label(self, x, y + 14, "Ceres 后链 · 文本来自 story_chronos · 接受/拒绝互斥 · 不自动完成/不自动开 4412", 7, P.a(P.AMBER, 0.9), true)
+	if binder == null or not binder.chronos_ready:
+		Painter.label(self, x, y + 44, "CHRONOS NOT READY · no ChronosChain", 9, P.AMBER)
+		return
+	var vm: Dictionary = binder.chronos_vm()
+	var stage := String(vm.get("state", "NOT READY"))
+	var states := ["WAIT_DOCK", "PORT_COMM", "ACTION_EVAC", "PRIVATE_COMM", "CHOICE", "ACTIONS", "WINDOW_END"]
+	var active_i := 0
+	for i in range(states.size()):
+		if String(states[i]) == stage:
+			active_i = i
+	var sy := y + 40.0
+	for i in range(states.size()):
+		var cw := (r.size.x - 40.0) / states.size()
+		var cr := Rect2(x + float(i) * cw, sy, cw - 4, 18)
+		draw_rect(cr, P.a(P.AMBER if i <= active_i else P.LINE, 0.16 if i <= active_i else 0.05))
+		draw_rect(cr, P.a(P.AMBER if i == active_i else P.LINE, 0.75 if i == active_i else 0.25), false, 1.0)
+		Painter.label(self, cr.position.x + 4, cr.position.y + 13, states[i], 6, P.PH if i == active_i else P.FAINT, true)
+	# 当前阶段文本
+	var keys: Array = []
+	match stage:
+		"WAIT_DOCK":
+			keys = ["chronos.port_header"]
+		"PORT_COMM":
+			keys = ["chronos.port_rdo"]
+		"ACTION_EVAC":
+			keys = ["chronos.evac_option"]
+		"PRIVATE_COMM":
+			keys = ["chronos.private_comm"]
+		"CHOICE":
+			keys = ["chronos.accept", "chronos.reject", "chronos.trust_note"]
+		"ACTIONS":
+			keys = ["chronos.accept" if String(vm.get("choice", "")) == "accept" else "chronos.reject", "chronos.actions_menu"]
+		"WINDOW_END":
+			keys = ["chronos.window_teaching"]
+		_:
+			keys = []
+	var ty := sy + 34.0
+	for k in keys:
+		var txt: String = binder.chronos_text(String(k))
+		var lines := _wrap_text_cjk(txt, 96)
+		for line in lines:
+			if ty > r.end.y - 150.0:
+				break
+			Painter.label(self, x, ty, line, 7, P.TXT, true)
+			ty += 12.0
+		ty += 4.0
+	# 通信日志（chain 真实文本）
+	ty += 4.0
+	Painter.label(self, x, ty, "COMMS LOG", 8, P.PH_DIM)
+	ty += 14.0
+	var log_lines: Array = binder.chronos_comms_lines
+	if log_lines.is_empty():
+		Painter.label(self, x, ty, "NO CHRONOS COMMS · 尚未触发", 7, P.FAINT, true)
+	else:
+		for i in range(maxi(0, log_lines.size() - 3), log_lines.size()):
+			Painter.label(self, x, ty, TM.fit(String(log_lines[i]), r.size.x * 0.58, true, 6), 6, P.PH_DIM, true)
+			ty += 12.0
+	# 右栏 trust/flags/reputation/actions
+	var rx := x + r.size.x * 0.62
+	var ry := sy + 34.0
+	Painter.section(self, rx, ry, r.end.x - 14, "TRUST / STATE")
+	ry += 15.0
+	Painter.label(self, rx, ry, "TRUST %d · %s · CHOICE %s" % [int(vm.get("trust", 0)), String(vm.get("trust_state", "")), String(vm.get("choice", "—"))], 8, P.PH, true)
+	ry += 14.0
+	Painter.label(self, rx, ry, "ACTIONS " + ",".join(vm.get("actions", []) if vm.get("actions", []) is Array else []), 7, P.TXT, true)
+	ry += 14.0
+	Painter.label(self, rx, ry, "FLAGS " + JSON.stringify(vm.get("flags", {})), 6, P.a(P.DIM, 0.9), true)
+	ry += 14.0
+	Painter.label(self, rx, ry, "REPUTATION " + JSON.stringify(vm.get("reputation", {})), 6, P.a(P.DIM, 0.9), true)
+	ry += 14.0
+	Painter.label(self, rx, ry, "TRIGGERS " + ",".join(vm.get("trigger_ids", []) if vm.get("trigger_ids", []) is Array else []), 6, P.AMBER, true)
+	ry += 20.0
+	Painter.section(self, rx, ry, r.end.x - 14, "WINDOW / 494")
+	ry += 15.0
+	var flags: Dictionary = vm.get("flags", {}) if vm.get("flags", {}) is Dictionary else {}
+	Painter.label(self, rx, ry, "WINDOW " + ("ENDED" if bool(flags.get("window_ended", false)) else ("OPEN" if bool(flags.get("window_open", false)) else "NOT OPEN")) + " · 不自动开 4412", 7, P.AMBER, true)
+	# 按钮
+	_chronos_buttons.clear()
+	var labels := [["PORT", "PORT COMM"], ["EVAC", "EVAC"], ["PRIVATE", "PRIVATE"], ["ACCEPT", "ACCEPT"], ["REJECT", "REJECT"], ["OPEN", "OPEN ACTIONS"], ["BLACKBOX", "BLACKBOX"], ["TELEMETRY", "TELEMETRY"], ["WINDOW", "WINDOW END"]]
+	var by := r.end.y - 36.0
+	for i in range(labels.size()):
+		var bw := (r.size.x - 32.0 - 8.0 * 8.0) / 9.0
+		var br := Rect2(x + float(i) * (bw + 8.0), by, bw, 22)
+		_chronos_buttons.append({"rect": br, "kind": String(labels[i][0])})
+		Painter.button(self, br, String(labels[i][1]), true, P.PH if i in [5, 6, 7, 8] else P.PH_DIM)
+	if _chronos_msg != "":
+		Painter.label(self, x, by - 12, TM.fit(_chronos_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
+
+
+func _chronos_action(kind: String) -> void:
+	if binder == null or not binder.chronos_ready:
+		_chronos_msg = "CHRONOS NOT READY"
+		return
+	var action := ""
+	match kind:
+		"PORT":
+			action = "port_comm"
+		"EVAC":
+			action = "action_evac" if binder.chronos_state() == "PORT_COMM" else "evac"
+		"PRIVATE":
+			action = "private_comm"
+		"ACCEPT":
+			action = "choose_accept"
+		"REJECT":
+			action = "choose_reject"
+		"OPEN":
+			action = "open_actions"
+		"BLACKBOX":
+			action = "blackbox"
+		"TELEMETRY":
+			action = "telemetry"
+		"WINDOW":
+			action = "window_end"
+		_:
+			action = "unknown"
+	var res: Dictionary = binder.chronos_advance(action, {})
+	_chronos_msg = "%s · %s%s · state=%s · trust=%d" % [action, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", "")), binder.chronos_state(), binder.chronos_trust()]
+	var trig := String(res.get("trigger_id", ""))
+	if trig != "":
+		_trigger_banner = trig + " · chronos · " + binder.chronos_state()
+	queue_redraw()
+
+
+func _chronos_demo() -> void:
+	# 截图/调试：真实 ChronosChain API，推进到 ACTIONS 后停手；不选 WINDOW END/不自动开 4412。
+	for a in ["port_comm", "action_evac", "private_comm", "choose_accept", "open_actions", "blackbox", "telemetry"]:
+		binder.chronos_advance(a, {})
+	_chronos_msg = "DEMO state=" + binder.chronos_state() + " · trust=" + str(binder.chronos_trust()) + " · 未执行 WINDOW END/4412"
+	_trigger_banner = "chronos_telemetry · chronos · ACTIONS"
+	print("[V1 HUD] CHRONOS DEMO ", _chronos_msg)
+	queue_redraw()
 
 
 func _draw_optical_overlay(r: Rect2) -> void:
@@ -1722,8 +1879,8 @@ func _do_right_action(kind: String) -> void:
 				var picked: Dictionary = _contacts[_selected]
 				_optical_target = String(picked.get("entity_id", picked.get("id", "")))
 				_optical_track = binder.selected_track(picked) if binder != null else {}
-		"INFO":
-			_sensor_msg = "INFO OPS · 占位信号（未接信息作战）"
+		"CHRONOS":
+			_overlay = "chronos"
 		_:
 			_sensor_msg = "ACTION " + kind + " · 未接线"
 	queue_redraw()
@@ -1775,3 +1932,46 @@ func _command_action(kind: String) -> void:
 func _clock(s: float) -> String:
 	var sec := int(maxf(0.0, s))
 	return "%02d:%02d:%02d" % [sec / 3600, (sec / 60) % 60, sec % 60]
+
+
+func _gui_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton) or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	var pos := (event as InputEventMouseButton).position
+	if _overlay != "":
+		if _overlay_close.has_point(pos):
+			_overlay = ""
+			accept_event()
+			return
+		if _overlay == "chronos":
+			for b in _chronos_buttons:
+				if (b["rect"] as Rect2).has_point(pos):
+					_chronos_action(String(b.get("kind", "")))
+					accept_event()
+					return
+		return
+	for d in _top_dots:
+		if (d["rect"] as Rect2).has_point(pos):
+			_do_save(String(d.get("kind", "")))
+			accept_event()
+			return
+	for t in _tabs:
+		if (t["rect"] as Rect2).has_point(pos):
+			_page = String(t.get("page", "ship"))
+			queue_redraw()
+			accept_event()
+			return
+	for c in _contact_rects:
+		if (c["rect"] as Rect2).has_point(pos):
+			_selected = int(c.get("index", 0))
+			var picked: Dictionary = _contacts[_selected]
+			_optical_target = String(picked.get("entity_id", picked.get("id", "")))
+			_page = "facility" if String(picked.get("facility_id", "")) != "" else ("target" if String(picked.get("type", "")) in ["unknown", "neutral"] else "ship")
+			queue_redraw()
+			accept_event()
+			return
+	for b in _right_buttons:
+		if (b["rect"] as Rect2).has_point(pos):
+			_do_right_action(String(b.get("kind", "")))
+			accept_event()
+			return

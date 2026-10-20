@@ -624,3 +624,40 @@ v1_hud.gd
 2. 文本为 story_ceres 原文；无完整剧情分支/教学高亮。
 3. VIS/ELINT/IFF 在本页作为链输入（真实 `identify_l3`）；无完整传感器证据 UI。
 4. 不写 world/物理/存档；未跑全量 regression。
+
+
+---
+
+## 22　方案B-17：Chronos 通信/行动 UI（task-175）
+
+### 22.1 数据 / API
+
+- ShellBinder 新增 `ChronosChain`（`framework/content/story_chronos.json`，entity_id=chronos，绑定 chronos/l1_station 目标逻辑）：
+  - `chronos_state()` / `chronos_vm()` / `chronos_text(key)` / `chronos_actions()` / `chronos_trust()`；
+  - `chronos_advance(action,payload)`（接受/拒绝/blackbox/telemetry/window_end 均真实 chain）；
+  - 启动：`ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0`。
+- 阶段：`WAIT_DOCK → PORT_COMM → ACTION_EVAC → PRIVATE_COMM → CHOICE → ACTIONS → WINDOW_END → COMPLETE`；文本全部来自 story_chronos 原文。
+
+### 22.2 CHRONOS 面板
+
+- 右栏 `CHRONOS / 行动` 或 `DSH_V1_VIEW=chronos` 打开 V1 自绘 overlay；显示阶段条、当前状态原文、TRUST/STATE、FLAGS、REPUTATION、TRIGGERS、WINDOW。
+- 按钮：PORT COMM、EVAC、PRIVATE、ACCEPT、REJECT、OPEN ACTIONS、BLACKBOX、TELEMETRY、WINDOW END；全部映射真实 `chronos_advance`。
+  - ACCEPT/REJECT 互斥；未接受时 blackbox/telemetry/evidence 返回 `requires_accept`；
+  - 失败 reason 显示；不自动完成、不自动开 4412。
+- `chronos_comms_lines` 追加真实文本：
+  - `[Chronos 港务 至 ID13]-[RDO]-[chronos.port_rdo]`
+  - `[副官 至 指挥官]-[PRIVATE]-[chronos.private_comm]`
+  - COMMS 页面 MESSAGE STREAM 下方显示 `CHRONOS CHAIN COMMS`。
+
+### 22.3 实测 / 截图
+
+- 真实链：`port_comm → action_evac → private_comm → choose_accept → open_actions → blackbox → telemetry`，最终 `state=ACTIONS · trust=4`；触发 `chronos_telemetry`；未执行 WINDOW END/4412。
+- `mockups/v1-hud-chronos-1920.png`（1920×1080：阶段、原文、TRUST 4/trusted/choice accept、FLAGS/REPUTATION/TRIGGERS、WINDOW OPEN、九按钮、trigger 横幅）
+- `V1 HUD SHOT err=0`；headless chronos demo 一次；`v1_hud.gd/shell_binder.gd --check-only` 通过。
+
+### 22.4 未完成 / 边界
+
+1. L1/chonros 选中后的按钮点击输入/自动弹面板为最小路径（本页通过 CHRONOS 按钮/DSH_V1_VIEW 打开）。
+2. 接受/拒绝分支只写 trust/reputation/flags/证据，不接完整剧情分支/未来建议。
+3. WINDOW END 未在截图执行，避免自动开 4412；不写 world/物理/存档。
+4. 未跑全量 regression。

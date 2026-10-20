@@ -1,0 +1,175 @@
+{
+  "schema": "v17.story_chronos.v1",
+  "version": "1.0.0",
+  "title": "完整游戏-阶段3V Chronos 港务/私人通信/行动链文本",
+  "source": "docs/44_新剧本_2193.md（当前副本第195-221行；任务原始行87-99）",
+  "source_path": "../docs/44_新剧本_2193.md",
+  "entity_id": "chronos",
+  "chain": [
+    "WAIT_DOCK",
+    "PORT_COMM",
+    "ACTION_EVAC",
+    "PRIVATE_COMM",
+    "CHOICE",
+    "ACTIONS",
+    "WINDOW_END",
+    "COMPLETE"
+  ],
+  "trust": {
+    "initial": 0,
+    "accept": 2,
+    "reject": -1,
+    "blackbox": 1,
+    "telemetry": 1
+  },
+  "actions": {
+    "accept_unlocks": [
+      "blackbox",
+      "telemetry",
+      "evidence"
+    ],
+    "reject_unlocks": [],
+    "always": [
+      "evac"
+    ],
+    "optional": [
+      "evidence"
+    ]
+  },
+  "reputation": {
+    "accept": {
+      "ocu": 1,
+      "meridian": 1
+    },
+    "reject": {
+      "meridian": -1
+    },
+    "evac": {
+      "meridian": 1,
+      "ocu": 1
+    },
+    "blackbox": {
+      "ocu": 1
+    },
+    "telemetry": {
+      "ocu": 1
+    },
+    "evidence": {
+      "ocu": 1
+    },
+    "window_end": {}
+  },
+  "triggers": {
+    "port_comm": "chronos_port_comm",
+    "private_comm": "chronos_private_comm",
+    "accept": "chronos_accept",
+    "reject": "chronos_reject",
+    "evac": "chronos_evac",
+    "blackbox": "chronos_blackbox",
+    "telemetry": "chronos_telemetry",
+    "window_end": "chronos_window_end",
+    "complete": "chronos_complete"
+  },
+  "texts": [
+    {
+      "text_key": "chronos.port_header",
+      "zh": "from Chronos 港务通信 to ID13 mode RDO",
+      "en": "",
+      "source_lines": [
+        197
+      ],
+      "usage": "port_header",
+      "draft": true,
+      "note": "Chronos 港务通信 header（from/to/mode RDO）。"
+    },
+    {
+      "text_key": "chronos.port_rdo",
+      "zh": "远地点号，Chronos 港务。储罐区仍有值守人员与家属；三号罐持续泄漏。请求 ID13 先协助撤离，不要拖走储罐。完毕。",
+      "en": "",
+      "source_lines": [
+        199
+      ],
+      "usage": "port_rdo",
+      "draft": true,
+      "note": "港务 RDO 正文：储罐区值守人员/家属、三号罐泄漏、请求协助撤离、不要拖走储罐。"
+    },
+    {
+      "text_key": "chronos.evac_option",
+      "zh": "该消息出现的同时，玩家行动菜单会多出协助撤离选项。",
+      "en": "",
+      "source_lines": [
+        201
+      ],
+      "usage": "evac_option",
+      "draft": true,
+      "note": "港务消息出现同时行动菜单多出协助撤离选项。"
+    },
+    {
+      "text_key": "chronos.private_comm",
+      "zh": "指挥官，如果您还记得简报内容的话，那么我想您应该清楚UEG调查组的失联，而根据我个人的信息渠道显示，核查组的船只黑匣子就在站内。如果您信任我的话，那么请您批准我派出穿梭机进行物证取回，以及进行港务遥测调度。",
+      "en": "",
+      "source_lines": [
+        207
+      ],
+      "usage": "private_comm",
+      "draft": true,
+      "note": "副官私人通信：黑匣子/港务遥测调度建议。"
+    },
+    {
+      "text_key": "chronos.accept",
+      "zh": "是：你说得对，我们现在需要一切有利于我们的证据（行动菜单中多出取回黑匣子与遥测调度选项）",
+      "en": "",
+      "source_lines": [
+        213
+      ],
+      "usage": "accept",
+      "draft": true,
+      "note": "接受副官建议文本。"
+    },
+    {
+      "text_key": "chronos.reject",
+      "zh": "否：我认为我们不能随意相信小道消息，你的建议很好，不过以我的原则无法接受，抱歉。（行动菜单不出现新选项）",
+      "en": "",
+      "source_lines": [
+        215
+      ],
+      "usage": "reject",
+      "draft": true,
+      "note": "拒绝副官建议文本。"
+    },
+    {
+      "text_key": "chronos.trust_note",
+      "zh": "玩家的选择会影响副官信任度机制，以及相应地也会影响之后是否进入剧情分支线。不过注意序章的选择不影响后续同类型事件中副官仍会建议进行隐秘调查，玩家拒绝多次，剩余事件不足以及好感度低于阈值时才会彻底关闭AEUG线。",
+      "en": "",
+      "source_lines": [
+        217
+      ],
+      "usage": "trust_note",
+      "draft": true,
+      "note": "副官信任度/后续再建议机制说明。"
+    },
+    {
+      "text_key": "chronos.actions_menu",
+      "zh": "选择后，玩家的新事件行动菜单，也就是之前写死，之后应该为动态菜单的，原位于右下角的行动菜单会出现相应选项，在行动窗口结束前，玩家可以自由进行除了离轨外的所有操作，包括指挥舰队内船只使用各种设备。",
+      "en": "",
+      "source_lines": [
+        219
+      ],
+      "usage": "actions_menu",
+      "draft": true,
+      "note": "选择后动态行动菜单/窗口期自由操作说明。"
+    },
+    {
+      "text_key": "chronos.window_teaching",
+      "zh": "此时应该以教学弹窗方式提醒玩家在窗口期内完成行动。",
+      "en": "",
+      "source_lines": [
+        221
+      ],
+      "usage": "window_teaching",
+      "draft": true,
+      "note": "窗口期教学弹窗提醒。"
+    }
+  ],
+  "draft": true
+}
