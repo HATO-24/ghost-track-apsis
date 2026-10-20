@@ -37,6 +37,10 @@ func _initialize() -> void:
 	_test_save_components()
 	_test_old_save_compat()
 	_test_component_errors_determinism()
+	_test_sensor_optional()
+	_test_sensor_pipeline()
+	_test_sensor_save_load()
+	_test_sensor_errors_determinism()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -842,3 +846,273 @@ func _test_component_errors_determinism() -> void:
 	var unauth_track: Dictionary = a.track_table.handle_observation(_obs(a, "obs-hack", "radar", 1), "hacker")
 	_eq(bool(unauth_track.get("ok", true)), false, "track 外部写拒绝")
 	_data_line("components_errors", "非法组件事件不改状态 · 同操作确定性 · 单写者拒绝")
+
+# ═══════════════════════════════════════════════════════════════════
+# 17. SensorService 可选 / API
+# ═══════════════════════════════════════════════════════════════════
+
+func _sensor_target(id: String, batch: String, pos: Array, transponder: String,
+		code: String, side := "unknown") -> Dictionary:
+	return {"id": id, "target_id": id, "entity_id": "E-" + batch, "batch": batch,
+		"pos_km": pos, "vel_kmps": [0.0, 0.0, 0.0], "rcs_m2": 10.0,
+		"temp_k": 300.0, "area_m2": 1000.0, "size_m": 50.0, "illum": 1.0,
+		"transponder": transponder, "iff_code": code,
+		"registered": side == "friend", "crypto_epoch": "epoch-1",
+		"side": side, "faction": "test",
+		"classification": {"ship_class": "DDG", "role": "test", "faction": side}}
+
+func _sensor_cfg() -> Dictionary:
+	return {"track_table": true, "story_state": true,
+		"sensor_service": {
+			"observer": {"id": "harmattan", "pos_km": [0.0, 0.0, 0.0],
+				"vel_kmps": [0.0, 0.0, 0.0], "attitude_quat": [0.0, 0.0, 0.0, 1.0]},
+			"targets": [_sensor_target("T1", "2001", [0.0, 500.0, 0.0],
+				"ok", "CMP-2001", "friend")],
+			"snapshot": {"sun_dir": [0.0, 0.0, 1.0], "sun_illum": 1.0,
+				"jamming": 0.0, "shadow": false, "los": true},
+			"options": {"radar_enabled": true, "emcon": false},
+		}}
+
+func _sensor_state(s) -> String:
+	if s.sensor_service == null:
+		return ""
+	var vm: Dictionary = s.sensor_vm()
+	return _norm_json({
+		"t": vm.get("t", 0.0), "step_count": vm.get("step_count", 0),
+		"selected_target": vm.get("selected_target", ""),
+		"radar_enabled": vm.get("radar_enabled", false),
+		"emcon": vm.get("emcon", false),
+		"counts": vm.get("counts", {}),
+	})
+
+func _test_sensor_optional() -> void:
+	_section_begin("17 Sensor 可选/API")
+	var s = _new_session()
+	_ok(s.sensor_service == null, "默认无 sensor_service")
+	_eq(s.sensor_vm().size(), 0, "无 sensor 时 sensor_vm 空")
+	_eq(String(s.set_sensor_target("T1").get("reason", "")), "no_sensor_service", "无传感器 set_target 拒绝")
+	_eq(String(s.start_sensor_channel("optical", "T1").get("reason", "")), "no_sensor_service", "无传感器 start 拒绝")
+	_eq(String(s.stop_sensor_channel().get("reason", "")), "no_sensor_service", "无传感器 stop 拒绝")
+	_eq(String(s.set_radar_enabled(false).get("reason", "")), "no_sensor_service", "无传感器 radar 拒绝")
+	_eq(String(s.set_emcon(true).get("reason", "")), "no_sensor_service", "无传感器 emcon 拒绝")
+	_eq(String(s.query_iff("T1").get("reason", "")), "no_sensor_service", "无传感器 IFF 拒绝")
+	var s2 = GameSession.new({"sensor_service": false})
+	_ok(bool(s2.ready), "sensor=false ready")
+	_ok(s2.sensor_service == null, "sensor=false 退化")
+	var s3 = GameSession.new({"sensor_service": true})
+	_ok(bool(s3.ready), "sensor=true boot ready", str(s3.errors))
+	_ok(s3.sensor_service != null, "sensor=true 启用")
+	_ok(not s3.sensor_vm().is_empty(), "sensor=true vm 非空")
+	_eq(String(s3.sensor_vm().get("schema", "")), "sensor_service.v1", "sensor vm schema")
+	_ok((s3.sensor_vm().get("targets", []) as Array).is_empty(), "sensor=true 默认无目标")
+	# 空目标配置也可 ready（no observations）
+	var s4 = GameSession.new({"sensor_service": {"observer": {"id": "harmattan",
+		"pos_km": [0.0, 0.0, 0.0]}, "targets": []}})
+	_ok(bool(s4.ready), "空目标 sensor ready", str(s4.errors))
+	_ok(s4.sensor_service != null, "空目标启用")
+	_data_line("sensor_optional", "无/false 退化 · true 启默认 · 空目标配置 ready")
+
+# ═══════════════════════════════════════════════════════════════════
+# 18. Sensor 管道（雷达/光学/IFF/EMCON）
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_sensor_pipeline() -> void:
+	_section_begin("18 Sensor 管道")
+	var s = GameSession.new(_sensor_cfg())
+	_ok(bool(s.ready), "sensor pipeline boot ready", str(s.errors))
+	_ok(s.sensor_service != null, "sensor 启用")
+	_ok(s.track_table != null, "sensor 管道 track_table 启用")
+	var vm: Dictionary = s.sensor_vm()
+	_eq(String(vm.get("schema", "")), "sensor_service.v1", "sensor vm schema")
+	_eq(String(vm.get("mode", "")), "shadow", "sensor mode shadow")
+	_ok(bool(vm.get("ready", false)), "sensor vm ready")
+	_eq(String((vm.get("observer", {}) as Dictionary).get("id", "")), "harmattan", "observer id")
+	_eq((vm.get("targets", []) as Array).size(), 1, "targets 1")
+	var writes: Dictionary = vm.get("writes", {})
+	_eq(bool(writes.get("track_table", true)), false, "sensor 不直接写 track_table")
+	_eq(bool(writes.get("v15", true)), false, "sensor 不写 v15")
+	_eq(bool(writes.get("world", true)), false, "sensor 不写 world")
+	# 目标/通道控制
+	_eq(bool(s.set_sensor_target("T1").get("ok", false)), true, "set_sensor_target ok")
+	_eq(String(s.sensor_vm().get("selected_target", "")), "T1", "selected_target=T1")
+	var bad_t: Dictionary = s.set_sensor_target("TX")
+	_eq(bool(bad_t.get("ok", true)), false, "未知目标 set_target 拒绝")
+	_eq(String(bad_t.get("reason", "")), "unknown_target", "unknown_target")
+	var bad_ch: Dictionary = s.start_sensor_channel("xx", "T1")
+	_eq(bool(bad_ch.get("ok", true)), false, "非法通道 kind 拒绝")
+	var ch: Dictionary = s.start_sensor_channel("optical", "T1")
+	_eq(bool(ch.get("ok", false)), true, "start optical ok")
+	# tick：观测→TrackTable（L1/L2 级）
+	var t1: Dictionary = s.tick(1.0)
+	_eq(bool(t1.get("ok", false)), true, "sensor tick1 ok")
+	_near(float(s.sensor_service.t), s.now_s(), 1.0e-6, "sensor t 同步")
+	var sr1: Dictionary = t1.get("sensor_route", {})
+	_ok(bool(sr1.get("enabled", false)), "sensor_route enabled")
+	_ok(int(sr1.get("observations", 0)) >= 1, "sensor observation 路由 >=1", str(sr1))
+	var tracks: Array = s.track_filter({})
+	_eq(tracks.size(), 1, "sensor 观测建 1 track")
+	var lv1 := int((tracks[0] as Dictionary).get("level", 0))
+	_ok(lv1 >= 1 and lv1 <= 2, "观测→track L1/L2", "level=%d" % lv1)
+	_ok(bool(s.check_contracts().get("ok", false)), "sensor tick1 contracts ok")
+	# 光学证据 → L3
+	var t2: Dictionary = s.tick(5.0)
+	_eq(bool(t2.get("ok", false)), true, "sensor tick5 ok")
+	var sensor_evd: Array = s.sensor_vm().get("evidence", [])
+	_ok(sensor_evd.size() > 0, "sensor 产生 evidence")
+	var optical_ok := false
+	for e in sensor_evd:
+		if String((e as Dictionary).get("evidence_type", "")) == "optical":
+			optical_ok = true
+	_ok(optical_ok, "sensor 产生 optical evidence")
+	_ok(int((t2.get("sensor_route", {}) as Dictionary).get("evidence", 0)) >= 1,
+		"optical evidence 路由到 track")
+	_ok(int((s.track_filter({}) as Array)[0].get("level", 0)) >= 3, "光学证据→L3")
+	# IFF → L4（身份）
+	var iff: Dictionary = s.query_iff("T1")
+	_eq(bool(iff.get("ok", false)), true, "query_iff ok")
+	_eq(String(iff.get("identity", "")), "friend", "IFF identity friend")
+	_eq(bool(iff.get("never_hostile", false)), true, "IFF never_hostile")
+	_eq(bool(iff.get("routed", false)), true, "IFF evidence 路由")
+	var t4: Dictionary = (s.track_filter({}) as Array)[0]
+	_eq(int(t4.get("level", 0)), 4, "IFF→L4")
+	_eq(String(t4.get("identity", "")), "friend", "track identity friend")
+	var iff_unk: Dictionary = s.query_iff("TX")
+	_eq(bool(iff_unk.get("ok", true)), false, "未知目标 IFF 拒绝")
+	_eq(String(iff_unk.get("reason", "")), "unknown_target", "unknown IFF target")
+	# EMCON / 雷达开关
+	var radar_before := int((s.sensor_vm().get("counts", {}) as Dictionary).get("radar_obs", 0))
+	var em: Dictionary = s.set_emcon(true)
+	_eq(bool(em.get("ok", false)), true, "set_emcon true ok")
+	_eq(bool(s.sensor_vm().get("emcon", false)), true, "sensor emcon=true")
+	_eq(bool(s.sensor_vm().get("radar_enabled", true)), false, "emcon 关闭雷达")
+	s.tick(1.0)
+	var radar_after := int((s.sensor_vm().get("counts", {}) as Dictionary).get("radar_obs", 0))
+	_eq(radar_after, radar_before, "EMCON 后无新雷达观测")
+	var em_off: Dictionary = s.set_emcon(false)
+	_eq(bool(em_off.get("ok", false)), true, "set_emcon false ok")
+	_eq(bool(s.sensor_vm().get("radar_enabled", false)), true, "emcon off 恢复雷达")
+	var off: Dictionary = s.set_radar_enabled(false)
+	_eq(bool(off.get("ok", false)), true, "set_radar_enabled false ok")
+	s.tick(1.0)
+	_eq(int((s.sensor_vm().get("counts", {}) as Dictionary).get("radar_obs", 0)), radar_after,
+		"雷达关闭无新雷达观测")
+	_eq(bool(s.set_radar_enabled(true).get("ok", false)), true, "雷达恢复 ok")
+	# stop 通道
+	var stop: Dictionary = s.stop_sensor_channel("optical", "T1")
+	_eq(bool(stop.get("ok", false)), true, "stop optical ok")
+	_ok(JSON.parse_string(JSON.stringify(s.sensor_vm())) is Dictionary, "sensor vm JSON 可解析")
+	_ok(bool(s.check_contracts().get("ok", false)), "sensor 管道 contracts ok")
+	_data_line("sensor_pipeline", "雷达观测→track L1/L2 · optical→L3 · IFF→L4 · EMCON/雷达开关")
+
+# ═══════════════════════════════════════════════════════════════════
+# 19. Sensor 存档 / load 重建
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_sensor_save_load() -> void:
+	_section_begin("19 Sensor 存档")
+	var s = GameSession.new(_sensor_cfg())
+	s.tick(1.0)
+	s.set_sensor_target("T1")
+	s.start_sensor_channel("optical", "T1")
+	s.tick(5.0)
+	s.query_iff("T1")
+	s.set_emcon(true)
+	s.tick(1.0)
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary, "sensor save JSON 可解析")
+	if d is Dictionary:
+		var seed: Dictionary = (d as Dictionary).get("seed", {})
+		_ok(seed.has("sensor_service"), "save seed 含 sensor_service 配置")
+		_ok(not (d as Dictionary).has("sensor"), "save 无 sensor 快照（靠 boot+log 重建）")
+		var log: Array = (d as Dictionary).get("log", [])
+		var ops: Array = []
+		for raw in log:
+			if raw is Dictionary:
+				ops.append(String((raw as Dictionary).get("op", "")))
+		_ok("set_sensor_target" in ops, "log 含 set_sensor_target")
+		_ok("start_sensor_channel" in ops, "log 含 start_sensor_channel")
+		_ok("query_iff" in ops, "log 含 query_iff")
+		_ok("set_emcon" in ops, "log 含 set_emcon")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "sensor load ok", str(lr.get("errors", [])))
+	_ok(s2.sensor_service != null, "load 重建 sensor_service")
+	_ok(_norm_json(s.sensor_vm()) == _norm_json(s2.sensor_vm()), "load 后 sensor_vm 一致")
+	_ok(JSON.stringify(s.sensor_service.summary()) == JSON.stringify(s2.sensor_service.summary()),
+		"load 后 sensor summary 一致")
+	_ok(_norm_json(s.track_vm()) == _norm_json(s2.track_vm()), "load 后 track_vm 一致")
+	_ok(_norm_json(s.snapshot()) == _norm_json(s2.snapshot()), "load 后 snapshot 一致")
+	_ok(_norm_json(JSON.parse_string(save)) == _norm_json(JSON.parse_string(s2.save_state())),
+		"load 后再次 save 一致")
+	_ok(bool(s2.check_contracts().get("ok", false)), "sensor load contracts ok")
+	# load 后继续控制/推进
+	var em: Dictionary = s2.set_emcon(false)
+	_eq(bool(em.get("ok", false)), true, "load 后 set_emcon false ok")
+	var t: Dictionary = s2.tick(1.0)
+	_eq(bool(t.get("ok", false)), true, "load 后 tick ok")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load 后继续 tick contracts ok")
+	# 旧存档缺 sensor 配置兼容
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("sensor_service")
+	old["seed"] = old_seed
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 sensor 配置 load ok", str(lr3.get("errors", [])))
+	_ok(s3.sensor_service == null, "旧存档 load 后 sensor 退化")
+	_data_line("sensor_save", "seed+log 重建 sensor · load VM/summary/snapshot 一致 · 旧档兼容")
+
+# ═══════════════════════════════════════════════════════════════════
+# 20. Sensor 失败不改状态 / 确定性
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_sensor_errors_determinism() -> void:
+	_section_begin("20 Sensor 失败/确定性")
+	var s = GameSession.new(_sensor_cfg())
+	s.tick(1.0)
+	s.set_sensor_target("T1")
+	s.start_sensor_channel("optical", "T1")
+	s.tick(2.0)
+	var before := _sensor_state(s)
+	var bad_start: Dictionary = s.start_sensor_channel("xx", "T1")
+	_eq(bool(bad_start.get("ok", true)), false, "非法通道 start 拒绝")
+	var bad_stop: Dictionary = s.stop_sensor_channel("xx", "")
+	_eq(bool(bad_stop.get("ok", true)), false, "非法通道 stop 拒绝")
+	var bad_target: Dictionary = s.set_sensor_target("TX")
+	_eq(bool(bad_target.get("ok", true)), false, "未知目标 set 拒绝")
+	var bad_iff: Dictionary = s.query_iff("TX")
+	_eq(bool(bad_iff.get("ok", true)), false, "未知目标 IFF 拒绝")
+	_eq(_sensor_state(s), before, "失败控制不改 sensor 状态")
+	# IFF 未选目标（空）失败
+	var s2 = GameSession.new(_sensor_cfg())
+	var no_target: Dictionary = s2.query_iff("")
+	_eq(bool(no_target.get("ok", true)), false, "IFF 无目标拒绝")
+	# support=0 观测被忽略（无失败、无 warning）
+	var s3 = GameSession.new({"track_table": true,
+		"sensor_service": {"observer": {"id": "harmattan", "pos_km": [0.0, 0.0, 0.0]},
+			"targets": [_sensor_target("T2", "2002", [0.0, 40000.0, 0.0],
+				"off", "", "unknown")],
+			"snapshot": {"sun_illum": 1.0, "los": true}}})
+	var t3: Dictionary = s3.tick(1.0)
+	var sr3: Dictionary = t3.get("sensor_route", {})
+	_ok(int(sr3.get("ignored", 0)) >= 1, "support=0 观测被忽略")
+	_eq(int(sr3.get("failed", 0)), 0, "support=0 不算路由失败")
+	_eq((s3.track_filter({}) as Array).size(), 0, "超距目标不建 track")
+	# 确定性：两实例同传感器操作
+	var a = GameSession.new(_sensor_cfg())
+	var b = GameSession.new(_sensor_cfg())
+	for st in [a, b]:
+		st.tick(1.0)
+		st.set_sensor_target("T1")
+		st.start_sensor_channel("optical", "T1")
+		st.tick(5.0)
+		st.query_iff("T1")
+		st.set_emcon(true)
+		st.tick(1.0)
+	_ok(_norm_json(a.sensor_vm()) == _norm_json(b.sensor_vm()), "sensor 同操作 VM 一致")
+	_ok(_norm_json(a.snapshot()) == _norm_json(b.snapshot()), "sensor 同操作 snapshot 一致")
+	_ok(_norm_json(JSON.parse_string(a.save_state())) == _norm_json(JSON.parse_string(b.save_state())),
+		"sensor 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "sensor 失败/确定性 contracts ok")
+	_data_line("sensor_errors", "失败控制不改状态 · support0 忽略 · 同操作确定性")

@@ -19,6 +19,7 @@ const OrderService := preload("res://scripts/core/order_service.gd")
 const CommsService := preload("res://scripts/core/comms_service.gd")
 const TrackTableScript := preload("res://scripts/core/track_table.gd")
 const StoryStateScript := preload("res://scripts/core/story_state.gd")
+const SensorServiceScript := preload("res://scripts/core/sensor_service.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -41,14 +42,18 @@ var orders = null
 var comms = null
 var track_table = null
 var story_state = null
+var sensor_service = null
 
 var _track_enabled := false
+var _sensor_enabled := false
 var _story_enabled := false
 var _track_writer := ""
 var _last_track_t := 0.0
 var _last_story_revision := 0
 var _last_bus_routed_index := 0
 var _routed_seqs: Dictionary = {}
+var _sensor_track_map: Dictionary = {}
+var _sensor_target_meta: Dictionary = {}
 
 var _seed: Dictionary = {}
 var _log: Array = []
@@ -97,7 +102,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state"]:
+			"track_table", "story_state", "sensor_service"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -116,13 +121,17 @@ func boot(config := {}) -> Dictionary:
 	_last_time_s = 0.0
 	track_table = null
 	story_state = null
+	sensor_service = null
 	_track_enabled = false
 	_story_enabled = false
+	_sensor_enabled = false
 	_track_writer = ""
 	_last_track_t = 0.0
 	_last_story_revision = 0
 	_last_bus_routed_index = 0
 	_routed_seqs = {}
+	_sensor_track_map = {}
+	_sensor_target_meta = {}
 	_seed = _normalize_seed(config if config is Dictionary else {})
 	_seed = _json_norm(_seed)
 	writer = String(_seed.get("writer", WRITER_DEFAULT))
@@ -146,6 +155,8 @@ func boot(config := {}) -> Dictionary:
 	if _track_enabled and track_table != null and not bool(track_table.ready):
 		extra_ok = false
 	if _story_enabled and story_state != null and not bool(story_state.ready):
+		extra_ok = false
+	if _sensor_enabled and sensor_service != null and not bool(sensor_service.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -192,6 +203,8 @@ func boot(config := {}) -> Dictionary:
 		_routed_seqs = {}
 	if story_state != null:
 		_last_story_revision = int(story_state.revision)
+	if sensor_service != null:
+		sensor_service.t = now_s()
 	_last_bus_routed_index = bus.count()
 	_last_time_s = time.now_s()
 	booted = true
@@ -235,6 +248,27 @@ func _setup_optional_components() -> void:
 			errors.append("story_state 未就绪：" + str(story_state.errors))
 		else:
 			_story_enabled = true
+	var sn = _seed.get("sensor_service", null)
+	var sn_on := (sn is Dictionary) or (sn is bool and bool(sn))
+	if sn_on:
+		var sncfg: Dictionary = {} if (sn is bool) else (sn as Dictionary).duplicate(true)
+		sensor_service = SensorServiceScript.new(sncfg)
+		if not bool(sensor_service.ready):
+			errors.append("sensor_service 未就绪：" + str(sensor_service.errors))
+		else:
+			_sensor_enabled = true
+			var tlist: Array = sncfg.get("targets", []) if sncfg.get("targets") is Array else []
+			for raw_t in tlist:
+				if not (raw_t is Dictionary):
+					continue
+				var tm: Dictionary = raw_t
+				var tid := String(tm.get("id", tm.get("target_id", "")))
+				if tid == "":
+					continue
+				_sensor_target_meta[tid] = {
+					"entity_id": String(tm.get("entity_id", "")),
+					"batch": String(tm.get("batch", "")),
+				}
 
 func _mk_event(event_type: String, target := "", payload := {}) -> Dictionary:
 	return {"type": event_type, "t": time.now_s() if time != null else 0.0,
@@ -291,6 +325,7 @@ func tick(dt: float) -> Dictionary:
 		warnings.append("orders tick 失败：" + str(ot.get("reason", "")))
 	_flush_order_events()
 	_advance_components(sim_dt)
+	var sensor_route: Dictionary = _advance_sensors(sim_dt)
 	var routed: Array = _route_pending_bus_events()
 	_reconcile_standalone(pending_before)
 	var contracts := check_contracts()
@@ -306,7 +341,9 @@ func tick(dt: float) -> Dictionary:
 		"components": {
 			"track": track_table != null,
 			"story": story_state != null,
+			"sensor": sensor_service != null,
 		},
+		"sensor_route": sensor_route,
 		"contracts": contracts}
 
 func _check_post() -> void:
@@ -332,6 +369,78 @@ func _advance_components(sim_dt: float) -> Dictionary:
 			warnings.append("story_state set_time 失败：" + str(sr.get("reason", "")))
 		_last_story_revision = int(story_state.revision)
 	return out
+
+## tick 内推进传感器：step → 观测/证据经显式白名单路由到 TrackTable。
+func _advance_sensors(sim_dt: float) -> Dictionary:
+	if sensor_service == null:
+		return {"enabled": false, "observations": 0, "evidence": 0, "failed": 0}
+	var sv: Dictionary = sensor_service.step(sim_dt)
+	# VM 无显式 ok（传感器正常时用 ready）；只有明确失败才停止路由
+	var step_ok := bool(sv.get("ok", true))
+	var out := {"enabled": true, "observations": 0, "evidence": 0, "failed": 0,
+		"ok": step_ok}
+	if not step_ok:
+		warnings.append("sensor_service step 失败：" + str(sv.get("reason", "")))
+		return out
+	var evs: Array = sensor_service.take_events()
+	if track_table == null:
+		out["skipped"] = evs.size()
+		return out
+	var reasons: Array = []
+	for raw in evs:
+		if not (raw is Dictionary):
+			continue
+		var ev: Dictionary = raw
+		var schema := String(ev.get("schema", ""))
+		var kind := String(ev.get("kind", ""))
+		# 显式白名单：只路由 observation / evidence；控制事件忽略
+		if schema == "sensor_observation.v1" and kind == "observation":
+			# sensor service 会输出 support=0 / >2 的非 L1-L2 行；不是本层写事件，忽略
+			var obs_support := int(ev.get("support", 0))
+			if obs_support < 1 or obs_support > 2:
+				out["ignored"] = int(out.get("ignored", 0)) + 1
+				continue
+			var obs_ev: Dictionary = ev.duplicate(true)
+			var tid_obs := String(obs_ev.get("target_id", ""))
+			if _sensor_track_map.has(tid_obs) and not obs_ev.has("track_id"):
+				obs_ev["track_id"] = String(_sensor_track_map[tid_obs])
+			elif _sensor_target_meta.has(tid_obs):
+				var meta: Dictionary = _sensor_target_meta[tid_obs]
+				if String(obs_ev.get("entity_id", "")) == "":
+					obs_ev["entity_id"] = String(meta.get("entity_id", ""))
+				if String(obs_ev.get("batch", "")) == "":
+					obs_ev["batch"] = String(meta.get("batch", ""))
+			var r: Dictionary = track_table.handle_observation(obs_ev, _track_writer)
+			if bool(r.get("ok", false)):
+				out["observations"] = int(out["observations"]) + 1
+				var tr = r.get("track", {})
+				if tr is Dictionary and String((tr as Dictionary).get("id", "")) != "":
+					_sensor_track_map[String(ev.get("target_id", ""))] = String((tr as Dictionary).get("id", ""))
+			else:
+				out["failed"] = int(out["failed"]) + 1
+				reasons.append("observation:" + str(r.get("reason", "")))
+				warnings.append("sensor observation 路由失败：" + str(r.get("reason", "")))
+		elif schema == "track_evidence.v1" and kind == "evidence":
+			var ev2: Dictionary = ev.duplicate(true)
+			_enrich_track_id(ev2)
+			var r2: Dictionary = track_table.handle_evidence(ev2, _track_writer)
+			if bool(r2.get("ok", false)):
+				out["evidence"] = int(out["evidence"]) + 1
+				var tr2 = r2.get("track", {})
+				if tr2 is Dictionary and String((tr2 as Dictionary).get("id", "")) != "":
+					_sensor_track_map[String(ev2.get("target_id", ""))] = String((tr2 as Dictionary).get("id", ""))
+			else:
+				out["failed"] = int(out["failed"]) + 1
+				reasons.append("evidence:" + str(r2.get("reason", "")))
+				warnings.append("sensor evidence 路由失败：" + str(r2.get("reason", "")))
+	out["reasons"] = reasons
+	return out
+
+## sensor 事件 target_id → TrackTable track_id 映射（先有观测航迹）。
+func _enrich_track_id(ev: Dictionary) -> void:
+	var tid := String(ev.get("target_id", ""))
+	if tid != "" and _sensor_track_map.has(tid) and not ev.has("track_id"):
+		ev["track_id"] = String(_sensor_track_map[tid])
 
 const ROUTABLE_TYPES := ["story.flag", "story.evidence", "story.choice",
 	"track.observation", "track.evidence"]
@@ -510,6 +619,76 @@ func gate(conditions = {}) -> Dictionary:
 		return {"ok": false, "reason": "no_story_state", "passed": false,
 			"errors": ["未配置 story_state"], "failed": []}
 	return story_state.gate(conditions)
+
+# ── SensorService 包装（可选）──────────────────────────────────
+
+func sensor_vm() -> Dictionary:
+	if sensor_service == null:
+		return {}
+	return sensor_service.vm()
+
+func set_sensor_target(target_id: String) -> Dictionary:
+	if sensor_service == null:
+		return {"ok": false, "reason": "no_sensor_service"}
+	var res: Dictionary = sensor_service.set_target(target_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "set_sensor_target", "target_id": target_id})
+	return res
+
+func start_sensor_channel(kind: String, target := "", opts := {}) -> Dictionary:
+	if sensor_service == null:
+		return {"ok": false, "reason": "no_sensor_service"}
+	var res: Dictionary = sensor_service.start_channel(kind, target, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "start_sensor_channel", "kind": kind, "target": target,
+			"opts": opts})
+	return res
+
+func stop_sensor_channel(kind := "", target := "") -> Dictionary:
+	if sensor_service == null:
+		return {"ok": false, "reason": "no_sensor_service"}
+	var res: Dictionary = sensor_service.stop_channel(kind, target)
+	if bool(res.get("ok", false)):
+		_record({"op": "stop_sensor_channel", "kind": kind, "target": target})
+	return res
+
+func set_radar_enabled(on: bool) -> Dictionary:
+	if sensor_service == null:
+		return {"ok": false, "reason": "no_sensor_service"}
+	var res: Dictionary = sensor_service.set_radar_enabled(on)
+	if bool(res.get("ok", false)):
+		_record({"op": "set_radar_enabled", "on": on})
+	return res
+
+func set_emcon(on: bool) -> Dictionary:
+	if sensor_service == null:
+		return {"ok": false, "reason": "no_sensor_service"}
+	var res: Dictionary = sensor_service.set_emcon(on)
+	if bool(res.get("ok", false)):
+		_record({"op": "set_emcon", "on": on})
+	return res
+
+## IFF 询问；成功后把 iff evidence 显式路由到 TrackTable（若启用）。
+func query_iff(target_id := "") -> Dictionary:
+	if sensor_service == null:
+		return {"ok": false, "reason": "no_sensor_service"}
+	var res: Dictionary = sensor_service.query_iff(target_id)
+	if not bool(res.get("ok", false)):
+		return res
+	var routed := false
+	if track_table != null and res.get("evidence") is Dictionary:
+		var iff_ev: Dictionary = (res.get("evidence") as Dictionary).duplicate(true)
+		_enrich_track_id(iff_ev)
+		var rr: Dictionary = track_table.handle_evidence(iff_ev, _track_writer)
+		res["routed"] = bool(rr.get("ok", false))
+		if not bool(rr.get("ok", false)):
+			res["route_reason"] = String(rr.get("reason", ""))
+			warnings.append("IFF evidence 路由失败：" + String(rr.get("reason", "")))
+		else:
+			routed = true
+	res["routed"] = routed
+	_record({"op": "query_iff", "target_id": String(res.get("target_id", target_id))})
+	return res
 
 # ── 订单包装 ────────────────────────────────────────────────────
 
@@ -746,6 +925,11 @@ func check_contracts() -> Dictionary:
 			v.append("track_table 时间回退")
 		else:
 			_last_track_t = float(track_table.t)
+	if sensor_service != null:
+		if not bool(sensor_service.ready):
+			v.append("sensor_service 未就绪")
+		if absf(float(sensor_service.t) - now_s()) > 1.0e-6:
+			v.append("sensor 时间与会话不一致：%s != %s" % [str(sensor_service.t), str(now_s())])
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -794,6 +978,7 @@ func snapshot() -> Dictionary:
 		"entities": world.entities_sorted() if world != null else [],
 		"track_table": track_table.snapshot() if track_table != null else null,
 		"story": story_state.snapshot() if story_state != null else null,
+		"sensor": sensor_service.vm() if sensor_service != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -938,6 +1123,32 @@ func _replay_op(op: Dictionary) -> Dictionary:
 			return handle_story_evidence(String(op.get("evidence_id", "")))
 		"route_event":
 			return route_event(op.get("event", {}))
+		"set_sensor_target":
+			if sensor_service == null:
+				return {"ok": true, "skipped": "no_sensor_service"}
+			return set_sensor_target(String(op.get("target_id", "")))
+		"start_sensor_channel":
+			if sensor_service == null:
+				return {"ok": true, "skipped": "no_sensor_service"}
+			return start_sensor_channel(String(op.get("kind", "")),
+				String(op.get("target", "")), op.get("opts", {}))
+		"stop_sensor_channel":
+			if sensor_service == null:
+				return {"ok": true, "skipped": "no_sensor_service"}
+			return stop_sensor_channel(String(op.get("kind", "")),
+				String(op.get("target", "")))
+		"set_radar_enabled":
+			if sensor_service == null:
+				return {"ok": true, "skipped": "no_sensor_service"}
+			return set_radar_enabled(bool(op.get("on", true)))
+		"set_emcon":
+			if sensor_service == null:
+				return {"ok": true, "skipped": "no_sensor_service"}
+			return set_emcon(bool(op.get("on", false)))
+		"query_iff":
+			if sensor_service == null:
+				return {"ok": true, "skipped": "no_sensor_service"}
+			return query_iff(String(op.get("target_id", "")))
 		"pause":
 			return pause()
 		"resume":

@@ -1,9 +1,9 @@
 # 完整游戏-阶段2C/2H · GameSession 编排层（含 TrackTable/StoryState）
 
-> 任务 完整游戏-阶段2C（task-121）+ 阶段2H（task-129）。工程 `game_v17`。
+> 任务 完整游戏-阶段2C（task-121）+ 阶段2H（task-129）+ 阶段2J（task-131）。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=296 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=396 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -17,7 +17,8 @@ GameSession
  ├─ OrderService      命令状态机（依赖 CommsService 投递）
  ├─ CommsService      节点/链路/路由/延迟/丢包/遮挡/干扰
  ├─ TrackTable（可选） 观测/证据融合（L1-L4，单写者）= V2FusedTrackTable
- └─ StoryState（可选） 剧情 flags/evidence/choices/trust/morality/reputation/threat/gate
+ ├─ StoryState（可选） 剧情 flags/evidence/choices/trust/morality/reputation/threat/gate
+ └─ SensorService（可选） 传感器管道 → observation/evidence，经 session 显式白名单路由到 TrackTable
 ```
 
 - **依赖方向**：OrderService 内部持有 CommsService；`tick` 时订单服务推进通信并消费其投递事件。
@@ -27,6 +28,9 @@ GameSession
   独立单写者（默认 `session_fusion`）；外部 token 写两处均拒绝。
 - **bus → TrackTable/StoryState**：只按**显式白名单** `story.flag/story.evidence/story.choice/
   track.observation/track.evidence` 路由；其它事件不写组件（不让 bus 偷写）。
+- **Sensor → TrackTable**：SensorService 只输出 observation/evidence（不写 TrackTable/world/UI）；
+  session 在 tick 中取走其事件，按 schema/kind 白名单（`sensor_observation.v1` support 1..2、
+  `track_evidence.v1`）路由到 TrackTable；support=0/>2 的非 L1/L2 行忽略。
 - seed/demo 数据仅示例，**不进入关卡**。
 
 ## 2　boot(config)
@@ -47,6 +51,7 @@ config 可覆盖字段（省略用 demo）：
 | `order_mode` / `comms_text_key` / `delivery_delay_s` | 订单默认通信模式/发送文本键/本地延迟 |
 | `track_table` | **可选**：`true` 或配置字典（writer_id/stale_after_s/forget_after_s/max_tracks…）；缺省/`false` → 不组合 |
 | `story_state` | **可选**：`true` 或 StoryState seed 字典（flags/evidence_ids/trust…）；缺省/`false` → 不组合 |
+| `sensor_service` | **可选**：`true` 或 SensorService 配置字典（`observer`/`mounts`/`targets`/`snapshot`/`options`）；缺省/`false` → 不组合 |
 
 - boot 建 5 个必需组件 + 可选 TrackTable/StoryState；任一启用组件 `ready=false` → `ok=false` + errors，不伪造。
 - TrackTable 默认 writer = `<session writer>_fusion`；StoryState 时间在 boot 时对齐 session 时间。
@@ -66,6 +71,11 @@ config 可覆盖字段（省略用 demo）：
 | `route_event(event)` | 显式白名单事件：应用组件 + 发布 bus；不在白名单 → `not_routable`，不写组件 |
 | `track_vm(opts={})` / `track_filter(where={})` | 只读 TrackTable VM/过滤（未启用返回空） |
 | `story_vm()` / `gate(conditions)` | 只读 StoryState 快照/条件判定（未启用返回空/`no_story_state`） |
+| `sensor_vm()` | 只读 SensorService VM（未启用返回空） |
+| `set_sensor_target(target_id)` | 选中传感器目标（未知目标 `unknown_target`，失败不改状态） |
+| `start_sensor_channel(kind, target, opts={})` / `stop_sensor_channel(kind, target)` | 启停 optical/ir 通道 |
+| `set_radar_enabled(on)` / `set_emcon(on)` | 雷达开关/EMCON（关闭主动雷达观测；被动光学/IR 继续） |
+| `query_iff(target_id="")` | 显式 IFF 询问：产生 iff evidence（support 4），成功后显式路由到 TrackTable；`never_hostile=true` |
 | `order(id)` / `comms_pending()` | 只读查询 |
 | `snapshot()` / `to_dict()` / `to_json()` | 只读快照（time/world/orders/comms/bus 最近 32 事件/track/story/contracts/errors） |
 | `save_state() -> String` / `load_state(json) -> Dictionary` | **内存 JSON**：seed + 操作日志重放 + track/story/bus 快照 |
@@ -77,9 +87,11 @@ config 可覆盖字段（省略用 demo）：
 2. `TimeService.tick(dt)` 乘以 scale 得 `sim_dt`；`orders.tick(sim_dt)`（内部推进 comms）；
 3. `orders.take_events()` → 发布 `order.<event>`；
 4. `track_table.tick(sim_dt)`（stale/forget 过期）；`story_state.set_time(now_s)`；
-5. 白名单总线路由：tick 处理 bus 中未被路由且类型在白名单的事件（`track.observation` 等）；
-6. standalone `send_comms` 的投递对账：tick 后 pending 消失 → 发布 `comms.delivered`；
-7. 事件 bus 只接收发布；不改变 world 实体（probe 断言 tick 前后 world 不变）。
+5. `sensor_service.step(sim_dt)` → `take_events()` → 只路由 observation（support 1..2）/evidence
+   到 TrackTable（target_id 映射到已建 track；support=0/>2 忽略；控制事件忽略）；
+6. 白名单总线路由：tick 处理 bus 中未被路由且类型在白名单的事件（`track.observation` 等）；
+7. standalone `send_comms` 的投递对账：tick 后 pending 消失 → 发布 `comms.delivered`；
+8. 事件 bus 只接收发布；不改变 world 实体（probe 断言 tick 前后 world 不变）。
 
 ### 3.2　事件类型
 
@@ -87,6 +99,8 @@ config 可覆盖字段（省略用 demo）：
 - **可路由白名单（bus → 组件）**：`story.flag`（payload flag/value）、`story.evidence`（evidence_id）、
   `story.choice`（choice_id/meta）、`track.observation`（observation 对象）、`track.evidence`（证据对象）。
 - 非白名单类型（如 `entity.move`、`order.*`、`comms.*`）**不写** TrackTable/StoryState。
+- SensorService 输出不经过 bus（session 直接 take_events 并显式过滤）；其 observation/evidence
+  与 TrackTable 输入 schema 一致，控制事件不路由。
 
 ## 4　DbC / 一致性
 
@@ -101,6 +115,8 @@ config 可覆盖字段（省略用 demo）：
 - **世界时钟**：`world.clock_t_s() == session.now_s()`。
 - **组件失败不改状态**：observation/evidence/route 非法时返回 `{ok:false,reason}`，TrackTable/StoryState
   不部分写入；tick 路由失败写 warnings（不静默）。
+- **传感器一致**：`sensor_service.t == now_s()`；失败控制（未知目标/非法通道/非法 stop/无传感器）
+  返回 `{ok:false,reason}`，sensor 计数/状态不变；IFF 只给 friend/unknown，不自动判敌。
 - tick 失败/拒绝路径不静默：返回 `ok=false` + `errors/contract_errors`；失败订单不伪造状态。
 
 ## 5　内存 save/load（不写盘）
@@ -119,6 +135,12 @@ config 可覆盖字段（省略用 demo）：
 }
 ```
 
+**Sensor 重建**：save **不写 sensor 快照**；seed 保留 sensor_service 配置，log 记录控制操作
+（set_sensor_target/start_sensor_channel/stop_sensor_channel/set_radar_enabled/set_emcon/query_iff）；
+`load_state` 时 boot 重建 SensorService 并按 log 重放，tick 重放重新 step/路由 → sensor VM/计数/
+summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sensor 操作 replay 被跳过
+（`skipped:no_sensor_service`），不报错、组件退化。
+
 - `load_state(json)`：校验 schema → `boot(seed)` → 重放 log → 恢复 `track_table/story/bus` 快照 →
   设置 writer/时间/事件索引 → 返回 ok/errors。
 - 恢复后：track/story VM 与原状态一致、`track.t`/`story.t_s` 与 session 时间一致、contracts ok；
@@ -132,10 +154,10 @@ config 可覆盖字段（省略用 demo）：
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=296 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=396 FAIL=0（exit 0，只跑一次）
 ```
 
-覆盖（16 节）：boot（5 组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
+覆盖（20 节）：boot（5 组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
 （ISSUED→…→DONE、事件类型、delivery_id、订单-通信一致、终态拒绝）；通信/链路；失败/过期/
 撤销/拒绝；暂停/时标/时间单调；bus-world 分离与单写者；save/load snapshot 一致+二次 save；
 错误路径；JSON/确定性；**可选组件**（无配置/false 退化、true 启用、退化 save/load）；
@@ -144,12 +166,21 @@ stale/forget、filter、track t 同步）；**StoryState 集成**（story eviden
 非白名单不写、gate/t_s/revision）；**组件存档**（track/story/bus 快照、load 后 VM/t/contracts
 一致、继续操作、再次 save、无组件存档被启用会话读取兼容）；**旧存档缺字段兼容**；
 **组件非法事件/确定性**（失败不改状态、总线路由失败 warning、同操作 snapshot/save 一致、
-world/track 外部写拒绝）。
+world/track 外部写拒绝）；**Sensor 可选/API**（无/false 退化、true 默认、空目标 ready、无传感器
+API 返回 no_sensor_service）；**Sensor 管道**（雷达观测→track L1/L2、optical→L3、IFF→L4、
+EMCON/雷达开关/通道启停、unknown_target/非法通道拒绝、sensor t 同步、不写 track_table/v15/world）；
+**Sensor 存档**（seed+log 重建、load 后 sensor_vm/summary/track/snapshot/save 一致、继续控制 tick、
+旧存档缺 sensor 配置兼容）；**Sensor 失败/确定性**（失败控制不改状态、support=0 忽略、
+同操作 VM/snapshot/save 一致）。
 
 ## 7　边界 / 未完成
 
 - 只做**编排**：不实现物理/传感器/武器/ROE/UI/剧情文本；不接旧场景/HUD/transit；不写 V15。
-- TrackTable/StoryState 为**可选组合**；未配置时相关 API 返回空/`no_*`，session 退化运行。
+- TrackTable/StoryState/SensorService 为**可选组合**；未配置时相关 API 返回空/`no_*`，session 退化运行。
+- SensorService 只产生 observation/evidence（不直接写 TrackTable/world/UI）；routing 由 session
+  显式白名单完成；传感器不判等级/身份，等级由 TrackTable 融合规则决定；IFF 不自动判敌。
+- 传感器 target_id → TrackTable track 的内部分配在 session 记录（观测后映射）；无观测的目标
+  evidence 会 `unknown_track` 拒绝（不伪造航迹）。
 - bus 只按显式白名单路由，不自动把订单/通信事件写成剧情/航迹；world 变更仍必须 session 写者显式 apply。
 - demo seed 为示例（3 实体/3 节点/2 链路），**不是关卡内容**。
 - standalone `comms.delivered` 仅按 pending 消失对账；若在途链路失败，原因未从 comms 事件取回
