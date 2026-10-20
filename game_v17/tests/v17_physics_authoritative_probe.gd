@@ -19,6 +19,7 @@ var _data: Array[String] = []
 var _failures: Array[String] = []
 
 func _initialize() -> void:
+	OS.set_environment("V17_PHYSICS", "authoritative")
 	print("════════════════════════════════════════════════════════════")
 	print("R6-AUTH-1 PROBE · authoritative 物理适配层")
 	print("════════════════════════════════════════════════════════════")
@@ -132,13 +133,20 @@ func _test_modes() -> void:
 	_section_begin("1 三模式")
 	_clear_env()
 	var br = _make_bridge()
-	_eq(br.physics_requested_mode, "shadow", "默认 requested=shadow")
-	_eq(br.physics_mode, "shadow", "默认 mode=shadow")
+	_eq(br.physics_requested_mode, "authoritative", "默认 requested=authoritative")
+	_eq(br.physics_mode, "authoritative", "默认 mode=authoritative")
 	var av: Dictionary = br.physics_authoritative_view()
-	_eq(bool(av.get("ready", true)), false, "shadow 下 authoritative.ready=false")
-	_eq(String(av.get("mode", "")), "shadow", "shadow 下 view.mode=shadow")
-	_ok(String(av.get("error", "")).contains("未启用"), "shadow 下 error 明示未启用",
-		String(av.get("error", "")))
+	_eq(bool(av.get("ready", true)), true, "默认 authoritative.ready=true")
+	_eq(String(av.get("mode", "")), "authoritative", "默认 view.mode=authoritative")
+	_set_mode("shadow")
+	var bs = _make_bridge()
+	_eq(bs.physics_requested_mode, "shadow", "shadow requested=shadow")
+	_eq(bs.physics_mode, "shadow", "shadow mode=shadow")
+	var sv: Dictionary = bs.physics_authoritative_view()
+	_eq(bool(sv.get("ready", true)), false, "shadow 下 authoritative.ready=false")
+	_eq(String(sv.get("mode", "")), "shadow", "shadow 下 view.mode=shadow")
+	_ok(String(sv.get("error", "")).contains("未启用"), "shadow 下 error 明示未启用",
+		String(sv.get("error", "")))
 	# authoritative
 	_set_mode("authoritative")
 	var ba = _make_bridge()
@@ -154,7 +162,7 @@ func _test_modes() -> void:
 			"frame", "t", "own", "flagship", "targets", "flags", "warnings", "error"]:
 		_ok(va.has(key), "authoritative view 含字段: " + key)
 	_clear_env()
-	_data_line("modes", "shadow（默认）/ authoritative（ready）/ off 三模式")
+	_data_line("modes", "authoritative（默认）/ shadow / off 三模式")
 
 # ═══════════════════════════════════════════════════════════════════
 # 2. authoritative 相对板状态
@@ -347,7 +355,7 @@ func _test_fallback() -> void:
 	_clear_env()
 	# 恢复后再次 boot 正常
 	var br2 = _make_bridge()
-	_eq(br2.physics_mode, "shadow", "默认模式恢复 shadow")
+	_eq(br2.physics_mode, "authoritative", "默认模式恢复 authoritative")
 	_data_line("fallback", "authoritative 初始化失败 → shadow 回落，有 fallback_reason，不崩溃")
 
 # ═══════════════════════════════════════════════════════════════════

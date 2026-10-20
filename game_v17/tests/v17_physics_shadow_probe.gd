@@ -20,6 +20,7 @@ var _data: Array[String] = []
 var _failures: Array[String] = []
 
 func _initialize() -> void:
+	OS.set_environment("V17_PHYSICS", "shadow")
 	print("════════════════════════════════════════════════════════════")
 	print("R6-SHADOW-1 PROBE · CR3BP/RK4 物理 shadow 接入")
 	print("════════════════════════════════════════════════════════════")
@@ -407,7 +408,7 @@ func _test_off_mode() -> void:
 	OS.set_environment("V17_PHYSICS", "off")
 	var br = BridgeScript.new()
 	var ok: bool = br.boot()
-	OS.set_environment("V17_PHYSICS", "")
+	OS.set_environment("V17_PHYSICS", "off")
 	_eq(ok, true, "off 模式 bridge.boot 仍成功")
 	_eq(br.physics_mode, "off", "physics_mode=off")
 	_eq(br.physics_ready, false, "physics_ready=false")
@@ -426,6 +427,7 @@ func _test_off_mode() -> void:
 # ═══════════════════════════════════════════════════════════════════
 
 func _test_restart() -> void:
+	OS.set_environment("V17_PHYSICS", "shadow")
 	_section_begin("10 restart 复位")
 	var br = _make_bridge()
 	var st = _make_state(br)
