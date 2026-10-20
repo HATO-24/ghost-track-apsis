@@ -10,6 +10,7 @@ const GameSession := preload("res://scripts/core/game_session.gd")
 const PreludeScenario := preload("res://scripts/core/prelude_scenario.gd")
 const CeresChain := preload("res://scripts/core/ceres_chain.gd")
 const ChronosChain := preload("res://scripts/core/chronos_chain.gd")
+const AV4412Chain := preload("res://scripts/core/av4412_chain.gd")
 const SaveService := preload("res://scripts/core/save_service.gd")
 
 const TRANSFER_CACHE := "res://framework/content/transfer_l4_l1_cached.json"
@@ -34,6 +35,10 @@ var chronos_chain = null
 var chronos_ready := false
 var last_chronos_result: Dictionary = {}
 var chronos_comms_lines: Array = []
+var av4412_chain = null
+var av4412_ready := false
+var last_av4412_result: Dictionary = {}
+var av4412_comms_lines: Array = []
 var track_vm: Dictionary = {}
 var sensor_vm: Dictionary = {}
 var sensor_result := ""
@@ -111,6 +116,13 @@ func boot() -> bool:
 		warnings.append("ChronosChain 未 ready：" + str(chronos_chain.errors))
 	else:
 		print("[SHELL BINDER] ChronosChain ready state=", chronos_chain.current_state(), " entity=", chronos_chain.entity_id, " texts=", chronos_chain.text_keys.size(), " trust=", chronos_chain.get_trust())
+	av4412_chain = AV4412Chain.new()
+	var avr: bool = av4412_chain.setup({"content_path": AV4412Chain.DEFAULT_CONTENT})
+	av4412_ready = avr
+	if not avr:
+		warnings.append("AV4412Chain 未 ready：" + str(av4412_chain.errors))
+	else:
+		print("[SHELL BINDER] AV4412Chain ready state=", av4412_chain.current_state(), " entity=", av4412_chain.entity_id, " texts=", av4412_chain.text_keys.size(), " threat=", av4412_chain.get_threat(), " trust=", av4412_chain.get_trust())
 	if session.sensor_service == null:
 		_seed_tracks()
 	_load_delta_v()
@@ -573,6 +585,51 @@ func timers() -> Array:
 	while out.size() > 4:
 		out.pop_front()
 	return out
+
+
+func av4412_state() -> String:
+	return String(av4412_chain.current_state()) if av4412_chain != null else "NOT READY"
+
+
+func av4412_vm() -> Dictionary:
+	return av4412_chain.vm() if av4412_chain != null else {}
+
+
+func av4412_text(text_key: String) -> String:
+	if av4412_chain == null:
+		return ""
+	return String(av4412_chain.text(text_key).get("zh", ""))
+
+
+func av4412_actions() -> Array:
+	return av4412_chain.available_actions() if av4412_chain != null else []
+
+
+func av4412_update_orbit(track: Dictionary) -> Dictionary:
+	if av4412_chain == null:
+		return {"ok": false, "reason": "no_av4412_chain"}
+	var res: Dictionary = av4412_chain.update_orbit(track)
+	last_av4412_result = res.duplicate(true)
+	return last_av4412_result
+
+
+func av4412_advance(action: String, payload := {}) -> Dictionary:
+	if av4412_chain == null:
+		return {"ok": false, "reason": "no_av4412_chain"}
+	var res: Dictionary = av4412_chain.advance(action, payload)
+	last_av4412_result = res.duplicate(true)
+	if bool(res.get("ok", false)):
+		if action == "comms":
+			_add_av_comms("[AV-4412 至 APSIS]-[LD]-[" + av4412_text("av4412.opening") + "]")
+		elif action in ["strong", "standard", "question", "retreat"]:
+			_add_av_comms("[APSIS 至 AV-4412]-[LD]-[" + av4412_text("av4412." + action) + "]")
+	print("[SHELL BINDER] AV4412 ", action, " · ", str(res.get("ok", false)), " state=", String(res.get("state", av4412_chain.current_state())), " threat=", av4412_chain.get_threat(), " trust=", av4412_chain.get_trust(), " trigger=", String(res.get("trigger_id", "")))
+	return last_av4412_result
+
+
+func _add_av_comms(line: String) -> void:
+	if line != "" and not (line in av4412_comms_lines):
+		av4412_comms_lines.append(line)
 
 
 func chronos_state() -> String:

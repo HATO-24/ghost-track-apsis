@@ -661,3 +661,37 @@ v1_hud.gd
 2. 接受/拒绝分支只写 trust/reputation/flags/证据，不接完整剧情分支/未来建议。
 3. WINDOW END 未在截图执行，避免自动开 4412；不写 world/物理/存档。
 4. 未跑全量 regression。
+
+
+---
+
+## 23　方案B-18：AV-4412 对峙/谈判 UI（task-178）
+
+### 23.1 数据 / API
+
+- ShellBinder 新增 `AV4412Chain`（`framework/content/story_av4412.json`，entity=av_4412）：
+  - `av4412_state/vm/text/actions/update_orbit/advance`；
+  - 启动：`AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=17 threat=0 trust=0`。
+- 阶段：ORBIT_DEPARTURE→WINDOW_OPEN→EARLY_RADAR/PASSIVE_CONTACT→COMMS→NEGOTIATION→STRONG/STANDARD/QUESTION/RETREAT→RESOLUTION→REPORT_HANDOFF；原文 story_av4412，TBD key 保持 `TBD`。
+
+### 23.2 V1 HUD AV-4412 面板
+
+- 右栏 `AV-4412 / 对峙` 或 `DSH_V1_VIEW=av4412` 打开；状态条、当前原文、四选项原文（strong/standard/question/retreat）、TBD keys 明示。
+- 按钮：TRACK/WINDOW/ADVANCE + STRONG/STANDARD/QUESTION/RETREAT；全部真实 `av4412_advance`；退让不足劝阻返回 `missing_retreat_warnings` reason。
+- TRACK 使用真实 session 快照 av_4412 pos/vel + 当前 t/window/radar `update_orbit`；WINDOW 真实 `window_open`；ADVANCE 按状态推进。
+- STRONG 实测写 `roe_tight=true`、`fire_control_illumination=true`、`auto_fire=false`；不自动开火。
+- 显示 THREAT/TRUST/REPUTATION/FLAGS/TRIGGERS、TRACK/WINDOW/DETECTED、EVENTS/COMMS；ROE TIGHT 行。
+- 通信日志追加 `[AV-4412 至 APSIS]-[LD]-[opening]`、`[APSIS 至 AV-4412]-[LD]-[option]`；COMMS 页 AV-4412 COMMS。
+
+### 23.3 实测 / 截图
+
+- 真实链：`update_orbit OK → window_open OK → early_radar OK（雷达为 ON）→ comms OK → negotiation OK → strong OK`；最终 `state=STRONG · threat=2 · trigger av4412_strong · ROE TIGHT/fire_control_illumination · auto_fire=false`；未 resolve/handoff。
+- `mockups/v1-hud-av4412-1920.png`（1920×1080：状态条、原文、四选项、TBD keys、TRACK/WINDOW、THREAT/TRUST/FLAGS/TRIGGERS、ROE TIGHT、七按钮、trigger 横幅）
+- `V1 HUD SHOT err=0`；headless av4412 demo 一次；`v1_hud.gd/shell_binder.gd --check-only` 通过。
+
+### 23.4 未完成 / 边界
+
+1. 截图选 STRONG 后状态为 STRONG，四选项按钮仍展示（非全部可执行）。
+2. TBD 文本只显示 TBD/key，不生成假台词；报告/结局/handoff 未执行。
+3. 轨道来自 session snapshot 的 av_4412 真实 pos/vel；不写物理/世界。
+4. 不实现完整剧情分支/结局/物理；未跑全量 regression。
