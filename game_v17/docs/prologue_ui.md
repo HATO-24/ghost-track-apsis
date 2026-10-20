@@ -61,3 +61,23 @@ PrologueFlow (prologue.tscn)
 4. 星图为示意，不是真实导航；不实现导航/物理/存档。
 5. IME 为组件/注入模拟；系统 IME 需平台桥接（同 task-117 边界）。
 6. 未跑全量 regression；未改 project main_scene。
+
+
+---
+
+## 方案B-15：新剧本文本 / 副官通话（task-171）
+
+### 文本源
+- 简报正文改为 `StoryTextLibrary` 的 `briefing.body`（`framework/content/story_prologue_text.json` → `zh`，原样引用，不润色）。
+- 保留简报日期/FROM/TO/舰队编制；`prologue_flow` 不再用旧 `story_l1` prelude 正文。
+- 副官三句来自 `deputy.hello` / `deputy.terminal` / `deputy.nav`；`deputy_name` 变量由文本库 `var_specs` 占位 `[姓名待补]`。
+
+### 流程
+- 简报 CONTINUE / SKIP 后进入 `DeputyCallPanel`（V1 自绘，不自动跳过）：
+  - 手动 NEXT 依次显示三句；最后按钮 `进入导航 / ENTER NAV`；
+  - 文本只来自 StoryTextLibrary，缺文本显式 TEXT NOT READY。
+- `DSH_PROLOGUE_PHASE=briefing|deputy` 用于截图/调试；shot 模式副官面板展示全部三句。
+
+### 截图
+- `mockups/prologue-briefing-new-1920.png`（新简报正文/日期/FROM/TO/舰队）
+- `mockups/deputy-call-1920.png`（副官三句 + ENTER NAV）

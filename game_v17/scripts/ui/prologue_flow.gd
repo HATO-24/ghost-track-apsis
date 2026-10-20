@@ -10,6 +10,8 @@ const UiTheme := preload("res://scripts/ui/ui_theme.gd")
 const ImeInput := preload("res://scripts/ui/ime_input.gd")
 const ImeCandidate := preload("res://scripts/ui/ime_candidate.gd")
 const BriefingPanel := preload("res://scripts/ui/briefing_panel.gd")
+const DeputyCallPanel := preload("res://scripts/ui/deputy_call_panel.gd")
+const StoryTextLibrary := preload("res://scripts/core/story_text_library.gd")
 const PrologueController := preload("res://scripts/core/prologue_controller.gd")
 
 const STORY_PATH := "res://framework/content/story_l1.json"
@@ -39,6 +41,7 @@ var _frames := 0
 var _shot_path := ""
 var _name := ""
 var controller = null
+var _story_text = null
 
 
 func _ready() -> void:
@@ -53,8 +56,12 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	controller = PrologueController.new({})
+	_story_text = StoryTextLibrary.new()
+	_story_text.setup({})
+	if not bool(_story_text.ready):
+		print("[PROLOGUE] StoryTextLibrary NOT READY ", str(_story_text.errors))
 	var phase_env := OS.get_environment("DSH_PROLOGUE_PHASE")
-	var start_briefing := phase_env == "briefing"
+	var start_briefing := phase_env in ["briefing", "deputy"]
 	if start_briefing:
 		var pname := OS.get_environment("DSH_PLAYER_NAME")
 		if pname == "":
@@ -62,7 +69,7 @@ func _ready() -> void:
 		controller.submit_name(pname)
 		_name = pname
 		_flow_write("briefing")
-	_show_phase("briefing" if start_briefing else "name")
+	_show_phase("deputy" if phase_env == "deputy" else ("briefing" if start_briefing else "name"))
 	set_process(true)
 	if OS.get_environment("DSH_FLOW_SMOKE") == "1":
 		call_deferred("_flow_smoke_start")
@@ -86,6 +93,8 @@ func _show_phase(p: String) -> void:
 		move_child(bg, 0)
 	if p == "briefing":
 		_show_briefing()
+	elif p == "deputy":
+		_show_deputy()
 	else:
 		_show_name()
 
@@ -245,19 +254,17 @@ func _load_briefing_data() -> Dictionary:
 		from_name = String((scenario.get("source") as Dictionary).get("name", from_name))
 	if scenario.get("target") is Dictionary:
 		to_name = String((scenario.get("target") as Dictionary).get("name", to_name))
-	var objectives: Array = []
-	for k in ["confirm", "execute"]:
-		var t := _resolve_key(story, String(TEXT_KEYS[k]))
-		if t != "":
-			objectives.append(t)
+	# 正文只来自 StoryTextLibrary.briefing.body；不使用旧 story_l1 prelude 正文。
+	var bt: Dictionary = _story_text.render("briefing.body", {}) if _story_text != null and bool(_story_text.ready) else {}
+	var body_text := String(bt.get("text", ""))
+	if body_text == "":
+		body_text = "TEXT NOT READY · StoryTextLibrary briefing.body"
+	var objectives: Array = ["按 OCUVF 本部命令前往 L1 Meridian，作为谈判主力介入接管事件。", "严格遵守 ROE，不得首先开火。"]
 	var roe: Array = ["WEAPONS HOLD / 仅自衛 · 武器释放需授权"]
-	var fh := _resolve_key(story, String(TEXT_KEYS["fire_hint"]))
-	if fh != "":
-		roe.append(fh)
 	return {
 		"date": BRIEFING_DATE,
-		"title": _resolve_key(story, String(TEXT_KEYS["title"])),
-		"body": _resolve_key(story, String(TEXT_KEYS["body"])),
+		"title": "行动简报",
+		"body": body_text,
 		"from": from_name + " · ID13 APSIS",
 		"to": to_name,
 		"objectives": objectives,
@@ -271,9 +278,32 @@ func _show_briefing() -> void:
 	_briefing = BriefingPanel.new()
 	_briefing.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_briefing.set_data(_load_briefing_data())
-	_briefing.continue_requested.connect(_enter_nav)
-	_briefing.skip_requested.connect(_enter_nav)
+	_briefing.continue_requested.connect(_show_deputy)
+	_briefing.skip_requested.connect(_show_deputy)
 	add_child(_briefing)
+
+
+func _show_deputy() -> void:
+	phase = "deputy"
+	for c in get_children():
+		if c is ColorRect:
+			continue
+		c.queue_free()
+	if _story_text == null:
+		_story_text = StoryTextLibrary.new()
+		_story_text.setup({})
+	var lines: Array = []
+	for k in ["deputy.hello", "deputy.terminal", "deputy.nav"]:
+		var rr: Dictionary = _story_text.render(k, {"deputy_name": "[姓名待补]"}) if _story_text != null and bool(_story_text.ready) else {}
+		lines.append(String(rr.get("text", "TEXT NOT READY · " + k)))
+	var dp := DeputyCallPanel.new()
+	dp.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dp.setup(lines)
+	dp.finished.connect(_enter_nav)
+	add_child(dp)
+	if _shot_path != "":
+		dp.show_all_for_shot()
+	print("[PROLOGUE] DEPUTY CALL lines=%d source=StoryTextLibrary" % lines.size())
 
 
 func _enter_nav() -> void:

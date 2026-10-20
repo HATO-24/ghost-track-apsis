@@ -9,6 +9,7 @@ const UiTheme := preload("res://scripts/ui/ui_theme.gd")
 const PrologueController := preload("res://scripts/core/prologue_controller.gd")
 const FlightMap := preload("res://scripts/ui/flight_map.gd")
 const TEACHING_PATH := "res://framework/content/teaching_l4_l1.json"
+const StoryTextLibrary := preload("res://scripts/core/story_text_library.gd")
 
 var controller = null
 var map = null
@@ -23,6 +24,9 @@ var _shot_path := ""
 var _logs: Array[String] = []
 var _teach_steps: Dictionary = {}
 var _status_text := ""
+var _story_text = null
+var _comms_label: Label = null
+var _comms_lines: Array[String] = []
 
 
 func _ready() -> void:
@@ -38,6 +42,10 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_boot_controller()
 	_load_teaching()
+	_story_text = StoryTextLibrary.new()
+	_story_text.setup({})
+	if not bool(_story_text.ready):
+		print("[NAV PAGE] StoryTextLibrary NOT READY ", str(_story_text.errors))
 	_build_shell()
 	_refresh()
 	set_process(true)
@@ -45,6 +53,8 @@ func _ready() -> void:
 		call_deferred("_flow_smoke_nav")
 	if OS.get_environment("DSH_NAV_TEST") == "1":
 		call_deferred("_run_nav_test")
+	if OS.get_environment("DSH_NAV_COMMS_TEST") == "1":
+		call_deferred("_nav_comms_demo")
 	if _shot_path != "":
 		get_window().size = Vector2i(1920, 1080)
 		Input.warp_mouse(Vector2(1920, 1080) * 0.5)
@@ -203,6 +213,11 @@ func _build_shell() -> void:
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rv.add_child(_status)
 	rv.add_child(UiTheme.make_label("不自动推进 · 失败显示 reason · 不接物理/剧情/存档", true, 7, P.a(P.FAINT, 0.9)))
+	rv.add_child(HSeparator.new())
+	rv.add_child(UiTheme.make_label("通信 / COMMS", false, 9, P.PH_DIM))
+	_comms_label = UiTheme.make_label("NO COMMS · 等待离港申请/点火", true, 7, P.TXT)
+	_comms_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rv.add_child(_comms_label)
 	# bottom
 	var bottom := PanelContainer.new()
 	bottom.custom_minimum_size = Vector2(0, 84)
@@ -223,6 +238,7 @@ func _run_nav_test() -> void:
 	_set_dest()
 	_request_departure()
 	_authorize_burn()
+	controller.advance_time(controller.WINDOW_OPEN_S + 1.0 - controller.t_s)
 	_ignite()
 	var adv: Dictionary = controller.advance_time(controller.WINDOW_OPEN_S + 1.0 - controller.t_s)
 	_log("TEST advance window · " + str(bool(adv.get("ok", false))))
@@ -245,20 +261,52 @@ func _flow_smoke_nav() -> void:
 	_complete()
 
 
+func _append_comms(text_key: String, from_name: String, to_name: String, mode: String) -> void:
+	if _story_text == null or not bool(_story_text.ready):
+		return
+	var rr: Dictionary = _story_text.render(text_key, {})
+	if not bool(rr.get("ok", false)):
+		_log("COMMS TEXT NOT READY · " + text_key + " · " + String(rr.get("reason", "")))
+		return
+	var line := "[%s 至 %s]-[%s]-[%s]" % [from_name, to_name, mode, String(rr.get("text", ""))]
+	if not (line in _comms_lines):
+		_comms_lines.append(line)
+	_log("COMMS " + text_key)
+	_refresh()
+
+
+func _nav_comms_demo() -> void:
+	# 仅 DSH_NAV_COMMS_TEST=1 截图样张：真实 controller 操作，不自动跳过。
+	_set_dest()
+	_request_departure()
+	_authorize_burn()
+	controller.advance_time(controller.WINDOW_OPEN_S + 1.0 - controller.t_s)
+	_ignite()
+
+
 func _set_dest() -> void:
 	_result(controller.set_destination(controller.target_id), "SET DEST " + controller.target_id)
 
 
 func _request_departure() -> void:
-	_result(controller.request_departure(), "REQUEST DEPARTURE")
+	var res: Dictionary = controller.request_departure()
+	_result(res, "REQUEST DEPARTURE")
+	if bool(res.get("ok", false)):
+		_append_comms("comms.hammer", "Hammer Port Control", "APSIS", "RDO")
 
 
 func _authorize_burn() -> void:
-	_result(controller.authorize_burn(), "AUTHORIZE BURN")
+	var res: Dictionary = controller.authorize_burn()
+	_result(res, "AUTHORIZE BURN")
+	if bool(res.get("ok", false)):
+		_append_comms("comms.formation", "APSIS", "ALL", "LD")
 
 
 func _ignite() -> void:
-	_result(controller.ignite(), "IGNITE")
+	var res: Dictionary = controller.ignite()
+	_result(res, "IGNITE")
+	if bool(res.get("ok", false)):
+		_append_comms("comms.formation", "APSIS", "ALL", "LD")
 
 
 func _arrive() -> void:
@@ -298,6 +346,8 @@ func _refresh() -> void:
 		_clock(controller.WINDOW_CLOSE_S), "PLAYING" if _playing else "PAUSED"]
 	_teach_label.text = _teaching_text()
 	_status.text = _status_text if _status_text != "" else "state=%s · dest=%s · req=%s · auth=%s" % [controller.state, controller.destination, controller.request_id, str(controller.burn_authorized)]
+	if _comms_label != null:
+		_comms_label.text = "NO COMMS · 等待离港申请/点火" if _comms_lines.is_empty() else "\n".join(_comms_lines)
 	map.queue_redraw()
 
 

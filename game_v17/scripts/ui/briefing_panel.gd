@@ -46,11 +46,11 @@ func _draw() -> void:
 	# 任务摘要
 	draw_string(cjk, Vector2(r.position.x + 24, r.position.y + 158), "任务摘要 / SUMMARY", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, P.PH_DIM)
 	var body := String(data.get("body", "NOT READY"))
-	var lines := _wrap(body, 64)
+	var lines := _wrap(body, 82)
 	var y := r.position.y + 178.0
-	for i in range(mini(lines.size(), 5)):
-		draw_string(cjk, Vector2(r.position.x + 24, y), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 9, P.TXT)
-		y += 16.0
+	for i in range(mini(lines.size(), 11)):
+		draw_string(cjk, Vector2(r.position.x + 24, y), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, P.TXT)
+		y += 14.0
 	# 目标 / ROE
 	y += 8.0
 	draw_string(cjk, Vector2(r.position.x + 24, y), "目标 / OBJECTIVES", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, P.PH_DIM)
@@ -94,9 +94,9 @@ func _draw() -> void:
 	# 按钮
 	_continue_rect = Rect2(r.position.x + 870, r.position.y + 790, 300, 30)
 	_skip_rect = Rect2(r.position.x + 1190, r.position.y + 790, 300, 30)
-	_btn(_continue_rect, "进入 Shell / CONTINUE", true, P.PH)
+	_btn(_continue_rect, "继续 / DEPUTY CALL", true, P.PH)
 	_btn(_skip_rect, "跳过简报 / SKIP", true, P.PH_DIM)
-	draw_string(mono, Vector2(r.position.x + 24, r.end.y - 16), "DRAFT TEXT · content/story_l1.json prelude/notice · 不自动跳过", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
+	draw_string(mono, Vector2(r.position.x + 24, r.end.y - 16), "TEXT SOURCE · StoryTextLibrary briefing.body · 原样引用，不润色 · 手动进入副官通话", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
 
 
 func _wrap(text: String, width: int) -> Array:

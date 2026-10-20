@@ -60,3 +60,17 @@ $godot = "D:\GHOST TRACK_APSIS\tools\godot\Godot_v4.7.2-stable_win64.exe"
 3. IGNITE 必须满足窗口（T+18h–24h）；未实现真实推力/燃料/姿态。
 4. ARRIVE/COMPLETE 可手动推进；不接剧情后果/存档。
 5. 星图/时间轴为示意 frame，不是导航权威图；未跑全量 regression。
+
+
+---
+
+## 方案B-15：离港通信（task-171）
+
+- 导航页加载 `StoryTextLibrary`；真实 controller 操作成功后追加通信：
+  - `REQUEST DEPARTURE` 成功 → `comms.hammer`，格式 `[Hammer Port Control 至 APSIS]-[RDO]-[原文]`；
+  - `AUTHORIZE BURN` / `IGNITE` 成功 → `comms.formation`，格式 `[APSIS 至 ALL]-[LD]-[原文]`；
+  - 失败不追加，不复用旧文本；不伪造额外台词。
+- 右侧新增 `通信 / COMMS` 区显示通信原文；日志同步记录 `COMMS comms.hammer/formation`。
+- 本次截图样例：`DSH_NAV_COMMS_TEST=1` 真实执行 SET DEST/REQUEST DEPARTURE/AUTHORIZE BURN/advance window/IGNITE，显示 Hammer 与 formation 两条；`IGNITE · OK`。
+- 截图 `mockups/nav-comms-1920.png`。
+- 边界：不实现完整教学高亮/剧情分支；通信为文本展示，不写剧情/物理。
