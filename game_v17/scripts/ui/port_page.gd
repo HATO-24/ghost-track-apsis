@@ -20,6 +20,9 @@ var _ops_status: Label = null
 var _log_label: Label = null
 var _logs: Array[String] = []
 var _name := ""
+var _flow_phase := ""
+var _flow_state_name := ""
+var _flow_controller_save := ""
 var _shot_path := ""
 var _frames := 0
 
@@ -32,11 +35,20 @@ func _ready() -> void:
 		if _shot_path != "":
 			win.borderless = true
 			win.position = Vector2i(0, 0)
-	_name = OS.get_environment("DSH_PLAYER_NAME")
+	var flow: Dictionary = {}
+	var root := get_tree().root
+	if root.has_meta("flow_state") and root.get_meta("flow_state") is Dictionary:
+		flow = (root.get_meta("flow_state") as Dictionary).duplicate(true)
+	_name = String(flow.get("player_name", ""))
 	if _name == "":
-		_name = String(get_tree().root.get_meta("player_name", "沧澜"))
+		_name = OS.get_environment("DSH_PLAYER_NAME")
+	if _name == "":
+		_name = String(root.get_meta("player_name", "沧澜"))
 	if _name == "":
 		_name = "沧澜"
+	_flow_phase = String(flow.get("phase", ""))
+	_flow_controller_save = String(flow.get("controller_save", ""))
+	print("[PORT PAGE] FLOW phase=%s saved_bytes=%d name=%s" % [_flow_phase, _flow_controller_save.length(), _name])
 	theme = UiTheme.build()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -46,6 +58,8 @@ func _ready() -> void:
 	_build()
 	_refresh()
 	set_process(true)
+	if OS.get_environment("DSH_FLOW_SMOKE") == "1":
+		call_deferred("_flow_smoke_port")
 	if OS.get_environment("DSH_PORT_TEST") == "1":
 		call_deferred("_run_port_test")
 	if _shot_path != "":
@@ -184,7 +198,7 @@ func _result(res: Dictionary, action: String) -> void:
 func _refresh() -> void:
 	if service == null:
 		return
-	_status.text = "t=%.0fs · requests=%d · name=%s" % [service.t_s, service.requests.size(), _name]
+	_status.text = "t=%.0fs · requests=%d · name=%s · FLOW %s" % [service.t_s, service.requests.size(), _name, _flow_phase]
 	var lines: Array = []
 	for pid in ["l1_meridian_05", "chronos", "greenwich", "sextant"]:
 		var ps: Dictionary = service.port_summary(pid)
@@ -218,6 +232,32 @@ func _run_port_test() -> void:
 		_finish_service()
 		_undock()
 	_log("PORT TEST state=" + String(service.get_request(_request_id).get("status", "")))
+
+
+func _flow_write(phase: String) -> void:
+	var root := get_tree().root
+	var flow: Dictionary = {}
+	if root.has_meta("flow_state") and root.get_meta("flow_state") is Dictionary:
+		flow = (root.get_meta("flow_state") as Dictionary).duplicate(true)
+	flow["player_name"] = _name
+	flow["phase"] = phase
+	if _flow_controller_save != "":
+		flow["controller_save"] = _flow_controller_save
+	flow["updated_utc"] = Time.get_datetime_string_from_system(true)
+	root.set_meta("flow_state", flow)
+	root.set_meta("player_name", _name)
+	OS.set_environment("DSH_PLAYER_NAME", _name)
+	print("[PORT PAGE] FLOW write phase=", phase, " name=", _name)
+
+
+func _flow_smoke_port() -> void:
+	# headless smoke：请求/许可/进近/对接/离泊后切 shell。
+	_request_dock()
+	if _request_id != "":
+		_approach()
+		_dock()
+		_undock()
+		_depart()
 
 
 func _request_dock() -> void:
@@ -263,8 +303,7 @@ func _depart() -> void:
 	if String(rr.get("status", "")) != "DEPARTED":
 		_result({"ok": false, "reason": "not_departed · 先 UNDOCK"}, "DEPART")
 		return
-	get_tree().root.set_meta("player_name", _name)
-	OS.set_environment("DSH_PLAYER_NAME", _name)
+	_flow_write("shell")
 	_logs.append("FLOW DEPART → game_shell.tscn · name=" + _name)
 	get_tree().change_scene_to_file("res://game_shell.tscn")
 

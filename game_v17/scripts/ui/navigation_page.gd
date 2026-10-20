@@ -41,6 +41,8 @@ func _ready() -> void:
 	_build_shell()
 	_refresh()
 	set_process(true)
+	if OS.get_environment("DSH_FLOW_SMOKE") == "1":
+		call_deferred("_flow_smoke_nav")
 	if OS.get_environment("DSH_NAV_TEST") == "1":
 		call_deferred("_run_nav_test")
 	if _shot_path != "":
@@ -50,20 +52,46 @@ func _ready() -> void:
 
 func _boot_controller() -> void:
 	controller = PrologueController.new({})
-	var pname := OS.get_environment("DSH_PLAYER_NAME")
+	var flow: Dictionary = {}
+	var root := get_tree().root
+	if root.has_meta("flow_state") and root.get_meta("flow_state") is Dictionary:
+		flow = (root.get_meta("flow_state") as Dictionary).duplicate(true)
+	var saved := String(flow.get("controller_save", ""))
+	var restored := false
+	if saved != "":
+		var lr: Dictionary = controller.load_state(saved)
+		restored = bool(lr.get("ok", false))
+		print("[NAV PAGE] FLOW restore ok=%s state=%s name=%s" % [str(restored), controller.state, controller.player_name])
+	var pname := String(flow.get("player_name", ""))
 	if pname == "":
-		pname = String(get_tree().root.get_meta("player_name", "沧澜"))
+		pname = OS.get_environment("DSH_PLAYER_NAME")
+	if pname == "":
+		pname = String(root.get_meta("player_name", "沧澜"))
 	if pname == "":
 		pname = "沧澜"
-	var rs: Dictionary = controller.submit_name(pname)
-	if not bool(rs.get("ok", false)):
-		print("[NAV PAGE] name failed ", str(rs))
-	if bool(controller.ready):
-		controller.confirm_briefing()
-		controller.accept_handover()
+	if not restored:
+		# 缺失/坏状态才明确 fallback；正常流程不再自行 boot 到 NAVIGATION。
+		print("[NAV PAGE] FLOW fallback boot name=", pname)
+		controller.submit_name(pname)
+		if bool(controller.ready):
+			controller.confirm_briefing()
+			controller.accept_handover()
+	_flow_write("navigation")
 	print("[NAV PAGE] boot name=%s state=%s t=%.0f tof=%.0f fleet=%d timeline=%d" % [
 		controller.player_name, controller.state, controller.t_s, controller.tof_s,
 		controller.fleet().size(), controller.timeline().size()])
+
+func _flow_write(phase: String) -> void:
+	if controller == null:
+		return
+	var root := get_tree().root
+	var flow := {"player_name": controller.player_name, "controller_save": controller.save_state(),
+		"phase": phase, "updated_utc": Time.get_datetime_string_from_system(true)}
+	root.set_meta("flow_state", flow)
+	if String(controller.player_name) != "":
+		root.set_meta("player_name", controller.player_name)
+		OS.set_environment("DSH_PLAYER_NAME", controller.player_name)
+	print("[NAV PAGE] FLOW write phase=", phase, " state=", controller.state, " bytes=", String(flow["controller_save"]).length())
 
 
 func _load_teaching() -> void:
@@ -205,6 +233,18 @@ func _run_nav_test() -> void:
 	_log("NAV TEST COMPLETE state=" + controller.state)
 
 
+func _flow_smoke_nav() -> void:
+	# headless smoke：模拟手动操作链，完成后由 _complete 切 port_page。
+	_set_dest()
+	_request_departure()
+	_authorize_burn()
+	controller.advance_time(controller.WINDOW_OPEN_S + 1.0 - controller.t_s)
+	_ignite()
+	controller.advance_time(float(controller.tof_s) + 1.0)
+	_arrive()
+	_complete()
+
+
 func _set_dest() -> void:
 	_result(controller.set_destination(controller.target_id), "SET DEST " + controller.target_id)
 
@@ -234,6 +274,7 @@ func _complete() -> void:
 			saved_name = "沧澜"
 		get_tree().root.set_meta("player_name", saved_name)
 		OS.set_environment("DSH_PLAYER_NAME", saved_name)
+		_flow_write("port")
 		_log("FLOW COMPLETE → port_page.tscn · name=" + saved_name)
 		get_tree().change_scene_to_file("res://port_page.tscn")
 

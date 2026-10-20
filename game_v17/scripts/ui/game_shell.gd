@@ -44,11 +44,18 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	binder = ShellBinder.new()
-	var pname := OS.get_environment("DSH_PLAYER_NAME")
+	var flow: Dictionary = {}
+	if get_tree().root.has_meta("flow_state") and get_tree().root.get_meta("flow_state") is Dictionary:
+		flow = (get_tree().root.get_meta("flow_state") as Dictionary).duplicate(true)
+	var pname := String(flow.get("player_name", ""))
+	if pname == "":
+		pname = OS.get_environment("DSH_PLAYER_NAME")
 	if pname == "":
 		pname = String(get_tree().root.get_meta("player_name", ""))
 	if pname == "":
 		pname = "沧澜"
+	var flow_phase := String(flow.get("phase", "fallback"))
+	print("[GAME SHELL] FLOW phase=", flow_phase, " name=", pname, " saved_bytes=", String(flow.get("controller_save", "")).length())
 	binder.commander = "指挥官 · " + pname
 	var ok: bool = binder.boot()
 	binder.seed_timers()
@@ -60,6 +67,8 @@ func _ready() -> void:
 		_right.set_selected(_selected)
 	_refresh_ui()
 	set_process(true)
+	if OS.get_environment("DSH_FLOW_SMOKE") == "1":
+		call_deferred("_flow_smoke_shell")
 	if OS.get_environment("DSH_SHELL_SAVE_TEST") == "1":
 		call_deferred("_run_save_test")
 	if OS.get_environment("DSH_SHELL_SENSOR_TEST") == "1":
@@ -67,6 +76,11 @@ func _ready() -> void:
 	if _shot_path != "":
 		get_window().size = _target_size
 		Input.warp_mouse(Vector2(_target_size) * 0.5)
+
+
+func _flow_smoke_shell() -> void:
+	print("[GAME SHELL] FLOW SMOKE COMPLETE name=", binder.commander, " phase=", String(get_tree().root.get_meta("flow_state", {}).get("phase", "")) if get_tree().root.has_meta("flow_state") else "—")
+	get_tree().quit()
 
 
 func _build_shell() -> void:

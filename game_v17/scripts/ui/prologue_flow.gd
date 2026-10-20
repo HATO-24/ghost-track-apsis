@@ -10,6 +10,7 @@ const UiTheme := preload("res://scripts/ui/ui_theme.gd")
 const ImeInput := preload("res://scripts/ui/ime_input.gd")
 const ImeCandidate := preload("res://scripts/ui/ime_candidate.gd")
 const BriefingPanel := preload("res://scripts/ui/briefing_panel.gd")
+const PrologueController := preload("res://scripts/core/prologue_controller.gd")
 
 const STORY_PATH := "res://framework/content/story_l1.json"
 const SCENARIO_PATH := "res://framework/content/scenario_transit_l4_l1.json"
@@ -37,6 +38,7 @@ var _name_page: Control = null
 var _frames := 0
 var _shot_path := ""
 var _name := ""
+var controller = null
 
 
 func _ready() -> void:
@@ -50,9 +52,20 @@ func _ready() -> void:
 	theme = UiTheme.build()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	controller = PrologueController.new({})
 	var phase_env := OS.get_environment("DSH_PROLOGUE_PHASE")
-	_show_phase("briefing" if phase_env == "briefing" else "name")
+	var start_briefing := phase_env == "briefing"
+	if start_briefing:
+		var pname := OS.get_environment("DSH_PLAYER_NAME")
+		if pname == "":
+			pname = "沧澜"
+		controller.submit_name(pname)
+		_name = pname
+		_flow_write("briefing")
+	_show_phase("briefing" if start_briefing else "name")
 	set_process(true)
+	if OS.get_environment("DSH_FLOW_SMOKE") == "1":
+		call_deferred("_flow_smoke_start")
 	if _shot_path != "":
 		get_window().size = Vector2i(1920, 1080)
 		Input.warp_mouse(Vector2(1920, 1080) * 0.5)
@@ -152,15 +165,43 @@ func _on_name_text(t: String, typ: String) -> void:
 		_candidate.place(gr)
 
 
+func _flow_smoke_start() -> void:
+	_name = "沧澜"
+	if controller == null:
+		controller = PrologueController.new({})
+	controller.submit_name(_name)
+	_flow_write("briefing")
+	_enter_nav()
+
+
 func _on_name_submitted(res: Dictionary) -> void:
 	if not bool(res.get("ok", false)):
 		_status.text = "REJECT · " + String(res.get("reason", "invalid_name"))
 		_status.add_theme_color_override("font_color", P.RED)
 		return
 	_name = String(res.get("value", ""))
-	get_tree().root.set_meta("player_name", _name)
-	OS.set_environment("DSH_PLAYER_NAME", _name)
+	if controller == null:
+		controller = PrologueController.new({})
+	var cr: Dictionary = controller.submit_name(_name)
+	if not bool(cr.get("ok", false)):
+		_status.text = "FLOW REJECT · " + String(cr.get("reason", ""))
+		_status.add_theme_color_override("font_color", P.RED)
+		return
+	_flow_write("briefing")
 	_show_phase("briefing")
+
+
+func _flow_write(phase: String) -> void:
+	var saved := ""
+	if controller != null:
+		saved = controller.save_state()
+	var flow := {"player_name": _name, "controller_save": saved, "phase": phase,
+		"updated_utc": Time.get_datetime_string_from_system(true)}
+	get_tree().root.set_meta("flow_state", flow)
+	if _name != "":
+		get_tree().root.set_meta("player_name", _name)
+		OS.set_environment("DSH_PLAYER_NAME", _name)
+	print("[PROLOGUE] FLOW write phase=", phase, " saved_bytes=", saved.length())
 
 
 func _load_story() -> Dictionary:
@@ -236,10 +277,26 @@ func _show_briefing() -> void:
 
 
 func _enter_nav() -> void:
-	# 名字经 root meta/OS env 传入 nav；不自动跳过简报。
+	# 手动 CONTINUE/SKIP：写 controller save + 名字 + 阶段，再切 nav；不自动跳过简报。
 	if _name != "":
 		get_tree().root.set_meta("player_name", _name)
 		OS.set_environment("DSH_PLAYER_NAME", _name)
+	if controller == null:
+		controller = PrologueController.new({})
+	if String(controller.player_name) == "":
+		controller.submit_name(_name if _name != "" else "沧澜")
+	if String(controller.state) == "BRIEFING":
+		if not bool(controller.confirm_briefing().get("ok", false)):
+			print("[PROLOGUE] FLOW CONTINUE FAILED")
+			return
+	if String(controller.state) == "HANDOVER":
+		if not bool(controller.accept_handover().get("ok", false)):
+			print("[PROLOGUE] FLOW HANDOVER FAILED")
+			return
+	if String(controller.state) != "NAVIGATION":
+		print("[PROLOGUE] FLOW STATE INVALID ", controller.state)
+		return
+	_flow_write("navigation")
 	get_tree().change_scene_to_file(NAV_SCENE)
 
 
