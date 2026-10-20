@@ -27,10 +27,25 @@ extends RefCounted
 const ScenarioPath := "res://framework/content/scenario_transit_l4_l1.json"
 const Planner := preload("res://framework/sim/transfer_planner.gd")
 const Authority := preload("res://framework/sim/sensor_authority.gd")
+const InfoWarfare := preload("res://framework/sim/information_warfare.gd")
 
 const SCHEMA_VM := "transit_sensor_data.v1"
+const SCHEMA_IFF := "transit_iff.v1"
 const MODE := "shadow"
 const EXPECTED_SHIP_IDS := ["apsis", "harmattan", "ferry", "watchtower", "deepwell"]
+const SHIP_TRANSPONDER := {
+	"apsis": "ok", "harmattan": "ok", "ferry": "ok",
+	"watchtower": "faulty", "deepwell": "off",
+}
+const SHIP_IFF_CODE := {
+	"apsis": "CMP-1000", "harmattan": "CMP-1001", "ferry": "CMP-1002",
+	"watchtower": "OCU-1003", "deepwell": "CMP-1004",
+}
+const PORT_IFF_CODE := {
+	"l4_02_hammer": "PORT-3000", "l1_meridian_05": "PORT-3100",
+	"l1_anchorage_02": "PORT-3101", "l1_drydock_01": "PORT-3102",
+}
+const IFF_RANGE_KM := 2000.0
 const SHIP_NAMES := {
 	"apsis": "远地点", "harmattan": "哈马丹", "ferry": "渡口",
 	"watchtower": "望楼", "deepwell": "深井",
@@ -76,6 +91,13 @@ var selected_ship := "harmattan"
 var selected_target := "apsis"
 
 var _authority = null
+var _iff = null
+var _radar_mount_id := ""
+var _radar_enabled := true
+var _emcon := false
+var _iff_last: Dictionary = {}
+var _iff_results: Array = []
+var _iff_by_target: Dictionary = {}
 var _loadout_by_ship: Dictionary = {}
 var _fallback_mounts: Dictionary = {}
 var _active_channels: Dictionary = {}  # "optical"/"ir" -> target_id
@@ -108,6 +130,13 @@ func setup(opts := {}) -> bool:
 	selected_ship = "harmattan"
 	selected_target = "apsis"
 	_authority = null
+	_iff = null
+	_radar_mount_id = ""
+	_radar_enabled = true
+	_emcon = false
+	_iff_last = {}
+	_iff_results = []
+	_iff_by_target = {}
 	_loadout_by_ship = {}
 	_fallback_mounts = {}
 	_active_channels = {}
@@ -251,12 +280,16 @@ func _build_ports() -> void:
 
 func _ship_target_def(sh: Dictionary) -> Dictionary:
 	var sid := String(sh.get("id", ""))
+	var code := String(SHIP_IFF_CODE.get(sid, "CMP-0000"))
 	return {
 		"id": sid, "entity_id": sid, "batch": String(sh.get("batch", "")),
 		"name": String(sh.get("name", sid)), "kind": "ship",
 		"side": String(sh.get("side", "friend")), "faction": String(sh.get("faction", "")),
 		"rcs_m2": float(SHIP_RCS.get(sid, 500.0)), "size_m": float(SHIP_SIZE_M.get(sid, 80.0)),
 		"temp_k": 300.0, "area_m2": 1200.0, "illum": 1.0,
+		"transponder": String(SHIP_TRANSPONDER.get(sid, "off")),
+		"registered": true, "crypto_epoch": "epoch-1", "reply_delay_s": 0.2,
+		"iff_code": code, "iff_codes": {"3/A": code},
 		"classification": {"ship_class": String(sh.get("class", "")),
 			"role": String(sh.get("role", "")), "faction": String(sh.get("faction", ""))},
 		"emissions": [],
@@ -265,12 +298,15 @@ func _ship_target_def(sh: Dictionary) -> Dictionary:
 
 func _port_target_def(pt: Dictionary) -> Dictionary:
 	var pid := String(pt.get("id", ""))
+	var code := String(PORT_IFF_CODE.get(pid, "PORT-0000"))
 	return {
 		"id": pid, "entity_id": pid, "batch": String(pt.get("batch", "")),
 		"name": String(pt.get("name", pid)), "kind": "port",
 		"side": String(pt.get("side", "friend")), "faction": "OCUVF · ID13",
 		"rcs_m2": PORT_RCS, "size_m": PORT_SIZE_M, "temp_k": 290.0, "area_m2": 8000.0,
-		"illum": 1.0, "transponder": "off", "iff_code": "",
+		"illum": 1.0, "transponder": "ok", "registered": true,
+		"crypto_epoch": "epoch-1", "reply_delay_s": 0.2,
+		"iff_code": code, "iff_codes": {"3/A": code},
 		"classification": {"ship_class": "station", "role": "port", "faction": "OCUVF · ID13"},
 		"emissions": [],
 	}
@@ -407,7 +443,7 @@ func _build_authority() -> void:
 		"vel_kmps": obs_state.get("vel_kmps", [0.0, 0.0, 0.0]),
 		"attitude_quat": [0.0, 0.0, 0.0, 1.0], "attitude_source": "default_not_modeled",
 		"angular_rate_dps": [0.0, 0.0, 0.0], "maneuver_g": 0.0,
-		"mast_deployed": true, "emcon": false,
+		"mast_deployed": true, "emcon": _emcon,
 		"damage": {"sensors": 1.0, "comms": 1.0, "propulsion": 1.0},
 	}
 	var targets := _authority_targets()
@@ -417,9 +453,16 @@ func _build_authority() -> void:
 		"optical_channels": [],
 	})
 	_last_snapshot = _build_snapshot()
+	_radar_mount_id = ""
+	for raw in _authority.mounts:
+		if raw is Dictionary and String((raw as Dictionary).get("kind", "")) == "search_radar":
+			_radar_mount_id = String((raw as Dictionary).get("mount_id", ""))
+			break
 	if not ok:
 		errors.append("authority_setup_failed: " + selected_ship + " " + str(_authority.errors))
 		return
+	_authority.set_mount_enabled(_radar_mount_id, _radar_enabled)
+	_authority.set_observer({"emcon": _emcon})
 	var warnings_out: Array = []
 	for raw in _authority.warnings:
 		var w := String(raw)
@@ -432,6 +475,64 @@ func _build_authority() -> void:
 	for fm in (loadout.get("fallbacks", []) as Array):
 		_add_warning("CAPABILITY FALLBACK: %s %s（场景未列该能力；数据层用 authority 默认挂载）" % [selected_ship, String(fm)])
 	_fallback_mounts[selected_ship] = (loadout.get("fallbacks", []) as Array).duplicate()
+	_build_iff()
+
+
+func _build_iff() -> void:
+	_iff = null
+	_iff_last = {}
+	_iff_results = []
+	_iff_by_target = {}
+	if _authority == null:
+		return
+	_iff = InfoWarfare.new()
+	var obs_state := ship_state(selected_ship)
+	var rows := _iff_target_rows()
+	var ok: bool = _iff.setup({
+		"observer_id": selected_ship,
+		"observer": {"id": selected_ship,
+			"pos_km": obs_state.get("pos_km", [0.0, 0.0, 0.0]),
+			"vel_kmps": obs_state.get("vel_kmps", [0.0, 0.0, 0.0]),
+			"emcon": _emcon, "mast_deployed": true,
+			"damage": {"sensors": 1.0, "comms": 1.0, "propulsion": 1.0}},
+		"targets": rows,
+		"iff": {"enabled": true, "range_km": IFF_RANGE_KM, "crypto_epoch": "epoch-1"},
+		"stations": [{"id": "%s-ELINT" % selected_ship,
+			"pos_km": obs_state.get("pos_km", [0.0, 0.0, 0.0]),
+			"enabled": true, "sigma_bearing_deg": 1.0}],
+	})
+	if not ok:
+		_add_warning("IFF 初始化失败: " + str(_iff.errors))
+		return
+	if _emcon:
+		_iff.set_emcon(true)
+	for raw in _iff.warnings:
+		_add_warning("IFF: " + String(raw))
+
+
+func _iff_target_rows() -> Array:
+	var out: Array = []
+	for tid in target_defs.keys():
+		var id := String(tid)
+		if id == selected_ship:
+			continue
+		var d: Dictionary = (target_defs[id] as Dictionary).duplicate(true)
+		var st := target_state(id)
+		if not st.is_empty():
+			d["pos_km"] = st.get("pos_km", [])
+			d["vel_kmps"] = _velocity_state(id) if ship_by_id.has(id) else st.get("vel_kmps", [])
+		out.append(d)
+	return out
+
+
+func _apply_controls() -> void:
+	if _authority != null and _radar_mount_id != "":
+		_authority.set_mount_enabled(_radar_mount_id, _radar_enabled)
+		_authority.set_observer({"emcon": _emcon})
+	if _iff != null:
+		var cur := bool((_iff.emcon_state() as Dictionary).get("active", false))
+		if cur != _emcon:
+			_iff.set_emcon(_emcon)
 
 
 func _loadout_for(sh: Dictionary) -> Dictionary:
@@ -568,6 +669,111 @@ func stop_optical(kind := "", target := "") -> Dictionary:
 	return {"ok": true, "reason": "", "stopped": stopped}
 
 
+## 真实雷达/EMCON 开关（shadow；只改本层 authority 挂载状态，不写 V15 sensor_on/emcon）。
+func set_radar_enabled(on: bool) -> Dictionary:
+	if _authority == null:
+		return {"ok": false, "reason": "not_ready", "radar_enabled": false,
+			"emcon": _emcon, "writes": {"track_table": false, "v15": false}}
+	_radar_enabled = bool(on)
+	_emcon = not _radar_enabled
+	_apply_controls()
+	_push_event("radar", "RADAR %s · EMCON=%s（shadow）" % [
+		"ON" if _radar_enabled else "OFF", str(_emcon)])
+	_rebuild(_empty_step_events())
+	var exp: Dictionary = _exposure_view()
+	return {"ok": true, "reason": "" if _radar_enabled else "radar_off_emcon",
+		"radar_enabled": _radar_enabled, "emcon": _emcon,
+		"exposure": exp, "writes": {"track_table": false, "v15": false}}
+
+
+## 显式 EMCON（off 时恢复雷达，on 时等价 radar off）。
+func set_emcon(on: bool) -> Dictionary:
+	_emcon = bool(on)
+	_radar_enabled = not _emcon
+	_apply_controls()
+	_push_event("emcon", "EMCON %s" % ("ON" if _emcon else "OFF"))
+	_rebuild(_empty_step_events())
+	return {"ok": true, "radar_enabled": _radar_enabled, "emcon": _emcon,
+		"exposure": _exposure_view(), "writes": {"track_table": false, "v15": false}}
+
+
+## 真实 IFF 询问（V2InformationWarfare MK-12）；不产生位置/接触，不自动判敌。
+func iff_query(target_id: String) -> Dictionary:
+	if _iff == null:
+		return {"ok": false, "status": "not_ready", "target_id": target_id,
+			"never_hostile": true, "writes_v15": false}
+	if target_id == selected_ship or not target_defs.has(target_id):
+		var miss := {"schema": SCHEMA_IFF, "ok": false, "target_id": target_id,
+			"status": "unknown_target", "reason": "unknown_target",
+			"identity": "unknown", "friend": false, "hostile": false,
+			"never_hostile": true, "produces_contact": false,
+			"writes_v15": false, "writes_track_table": false}
+		return miss
+	var td: Dictionary = target_defs.get(target_id, {})
+	var code := String(td.get("iff_code", ""))
+	var raw: Dictionary = _iff.interrogate_iff(target_id, ["3/A"],
+		{"expected_codes": {"3/A": code}})
+	var raw_status := String(raw.get("status", "unknown"))
+	var identity := String(raw.get("identity", "unknown"))
+	var status_norm := "unknown"
+	if identity == "friend":
+		status_norm = "friend"
+	elif raw_status == "no_reply":
+		status_norm = "no_reply"
+	elif raw_status == "out_of_range":
+		status_norm = "out_of_range"
+	elif raw_status == "faulty_transponder":
+		status_norm = "faulty"
+	elif raw_status in ["blocked", "cooldown", "not_ready", "unknown_target"]:
+		status_norm = raw_status if raw_status != "unknown_target" else "unknown"
+	elif raw_status in ["captured", "crypto_mismatch", "timeout", "invalid_mode"]:
+		status_norm = "unknown"
+	var dist := 0.0
+	var st := target_state(target_id)
+	var ost := ship_state(selected_ship)
+	if not st.is_empty() and not ost.is_empty():
+		dist = _dist3(st.get("pos_km", []), ost.get("pos_km", []))
+	var rec := {
+		"schema": SCHEMA_IFF, "ok": status_norm != "not_ready",
+		"ok_query": true,
+		"target_id": target_id, "target_name": String(td.get("name", target_id)),
+		"kind": String(td.get("kind", "ship")),
+		"status": status_norm, "raw_status": raw_status,
+		"identity": identity, "friend": identity == "friend",
+		"hostile": false, "never_hostile": true,
+		"level_support": 0, "produces_contact": false,
+		"range_km": dist, "range_max_km": IFF_RANGE_KM,
+		"reason": String(raw.get("reason", "")),
+		"confidence": float(raw.get("confidence", 0.0)),
+		"source": "V2InformationWarfare/MK-12",
+		"shadow": true, "writes_v15": false, "writes_track_table": false,
+		"t": t,
+	}
+	_iff_last = rec.duplicate(true)
+	var replaced := false
+	for i in range(_iff_results.size()):
+		if _iff_results[i] is Dictionary and String((_iff_results[i] as Dictionary).get("target_id", "")) == target_id:
+			_iff_results[i] = rec.duplicate(true)
+			replaced = true
+			break
+	if not replaced:
+		_iff_results.append(rec.duplicate(true))
+	while _iff_results.size() > 32:
+		_iff_results.pop_front()
+	_iff_by_target[target_id] = rec.duplicate(true)
+	if status_norm in ["no_reply", "faulty", "out_of_range", "blocked", "unknown"]:
+		_add_warning("IFF %s: %s（不自动判敌）" % [target_id, status_norm])
+	_push_event("iff", "%s → %s · identity=%s（never_hostile）" % [
+		target_id, status_norm, identity])
+	return rec
+
+
+func iff_state(target_id := "") -> Dictionary:
+	if target_id == "":
+		return _iff_last.duplicate(true)
+	return ((_iff_by_target.get(target_id, {}) as Dictionary).duplicate(true))
+
+
 func step(dt: float) -> Dictionary:
 	var d := maxf(0.0, float(dt))
 	var was_t := t
@@ -583,6 +789,9 @@ func step(dt: float) -> Dictionary:
 	else:
 		_build_authority()
 		events = []
+	if _iff != null:
+		_iff.set_targets(_iff_target_rows())
+		_iff.step(d)
 	_rebuild(events)
 	return _last_vm.duplicate(true)
 
@@ -608,6 +817,10 @@ func _rebuild(step_events: Array) -> void:
 	var av: Dictionary = _authority.vm_sensor() if _authority != null else {}
 	var contacts_src: Array = av.get("advisory_contacts", []) if av.get("advisory_contacts") is Array else []
 	var chans: Array = av.get("channels", []) if av.get("channels") is Array else []
+	var radar_on := _radar_enabled and not _emcon
+	if not radar_on:
+		# 雷达关闭/EMCON：不展示旧雷达 advisory contacts；被动 VIS/IR 通道仍保留。
+		contacts_src = []
 	var ship_rows: Array = []
 	for sid in EXPECTED_SHIP_IDS:
 		var sh: Dictionary = ship_by_id.get(sid, {})
@@ -678,6 +891,8 @@ func _rebuild(step_events: Array) -> void:
 		"summary": opt_summary,
 		"channels": opt_channels,
 	}
+	var iff_vm: Dictionary = _iff_vm()
+	var exposure: Dictionary = _exposure_view(av)
 	var recent: Array = []
 	for raw in _event_log:
 		recent.append(raw)
@@ -712,6 +927,10 @@ func _rebuild(step_events: Array) -> void:
 		"ships": ship_rows, "ports": port_rows, "targets": target_rows,
 		"contacts": contacts, "channels": channels,
 		"optical": optical, "levels": levels,
+		"radar_enabled": radar_on, "emcon": _emcon,
+		"radar": (av.get("radar", {}) as Dictionary).duplicate(true) if av.get("radar") is Dictionary else {},
+		"exposure": exposure,
+		"iff": iff_vm,
 		"events": recent, "warnings": warnings.duplicate(), "errors": errors.duplicate(),
 		"notes": notes.duplicate(),
 		"counts": {
@@ -729,6 +948,64 @@ func _rebuild(step_events: Array) -> void:
 			"summary": _authority_summary(av),
 		},
 	}
+
+
+func _iff_vm() -> Dictionary:
+	var results: Array = []
+	for raw in _iff_results:
+		if raw is Dictionary:
+			results.append((raw as Dictionary).duplicate(true))
+	var by_target: Dictionary = {}
+	for raw in results:
+		var r: Dictionary = raw
+		by_target[String(r.get("target_id", ""))] = r.duplicate(true)
+	var counts := {"friend": 0, "unknown": 0, "no_reply": 0, "faulty": 0,
+		"out_of_range": 0, "blocked": 0, "hostile": 0}
+	for raw in results:
+		var r2: Dictionary = raw
+		var st := String(r2.get("status", "unknown"))
+		if counts.has(st):
+			counts[st] = int(counts.get(st, 0)) + 1
+		else:
+			counts["unknown"] = int(counts.get("unknown", 0)) + 1
+	return {
+		"schema": SCHEMA_IFF,
+		"available": _iff != null,
+		"model": "MK-12",
+		"range_km": IFF_RANGE_KM,
+		"enabled": _iff != null,
+		"last": _iff_last.duplicate(true),
+		"results": results,
+		"by_target": by_target,
+		"summary": {
+			"total": results.size(), "friend": int(counts.get("friend", 0)),
+			"unknown": int(counts.get("unknown", 0)),
+			"no_reply": int(counts.get("no_reply", 0)),
+			"faulty": int(counts.get("faulty", 0)),
+			"out_of_range": int(counts.get("out_of_range", 0)),
+			"hostile": 0,
+		},
+		"hostile": 0, "hostile_allowed": false, "never_hostile": true,
+		"auto_hostile": false, "produces_contact": false, "produces_position": false,
+		"writes_v15": false, "writes_track_table": false,
+	}
+
+
+func _exposure_view(av: Dictionary = {}) -> Dictionary:
+	var on := _radar_enabled and not _emcon
+	if not on:
+		return {"exposed": false, "radar_on": false, "emcon": _emcon,
+			"reason": "radar_off_emcon", "shadow": true, "writes_v15": false}
+	var radar: Dictionary = av.get("radar", {}) if av.get("radar") is Dictionary else {}
+	var exp: Dictionary = radar.get("exposure", {}) if radar.get("exposure") is Dictionary else {}
+	var out: Dictionary = exp.duplicate(true)
+	out["radar_on"] = true
+	out["emcon"] = _emcon
+	out["shadow"] = true
+	out["writes_v15"] = false
+	if not out.has("exposed"):
+		out["exposed"] = bool(out.get("elint_detectable", false))
+	return out
 
 
 func _target_rows(contacts: Array, channels: Array) -> Array:

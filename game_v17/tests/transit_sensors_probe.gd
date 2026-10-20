@@ -32,6 +32,7 @@ func _initialize() -> void:
 	_test_ship_observers()
 	_test_targets_and_failures()
 	_test_arrival_ports()
+	_test_controls_iff()
 	_test_json_determinism_writes()
 	print("────────────────────────────────────────────────────────────────")
 	print("TRANSIT SENSOR PROBE RESULT: PASS=%d FAIL=%d" % [_pass, _fail])
@@ -346,6 +347,90 @@ func _test_arrival_ports() -> void:
 
 
 # ── 6. JSON / 确定性 / 不写 ────────────────────────────────────
+
+func _test_controls_iff() -> void:
+	print("")
+	print("── 7. 雷达/EMCON 开关 + 真实 IFF ──")
+	var ts = _new()
+	var vm: Dictionary = ts.step(18.0)
+	_ok(bool(vm.get("radar_enabled", false)), "初始 radar_enabled=true")
+	_ok(not bool(vm.get("emcon", true)), "初始 EMCON=false")
+	_ok((vm.get("contacts", []) as Array).size() >= 5, "初始雷达 contact ≥5")
+	var exp: Dictionary = vm.get("exposure", {}) as Dictionary
+	_ok(bool(exp.get("exposed", false)), "雷达开机 → exposed=true", str(exp.keys()))
+	_ok(float(exp.get("elint_intercept_range_km", 0.0)) > 0.0, "暴露 distance 字段")
+	var before_contacts := (vm.get("contacts", []) as Array).size()
+	# 关雷达 → EMCON / 无主动接触
+	var off: Dictionary = ts.set_radar_enabled(false)
+	_ok(bool(off.get("ok", false)), "set_radar_enabled(false) ok")
+	_ok(not bool(off.get("radar_enabled", true)), "返回 radar_enabled=false")
+	_ok(bool(off.get("emcon", false)), "关雷达 → EMCON=true")
+	_ok(String(off.get("reason", "")) == "radar_off_emcon", "关雷达 reason")
+	_ok(not bool((off.get("exposure", {}) as Dictionary).get("exposed", true)), "off exposure=false")
+	var voff: Dictionary = ts.step(6.0)
+	_ok(not bool(voff.get("radar_enabled", true)), "off VM radar_enabled=false")
+	_ok(bool(voff.get("emcon", false)), "off VM emcon=true")
+	_eq((voff.get("contacts", []) as Array).size(), 0, "off VM 无主动 contacts")
+	_ok(not bool((voff.get("exposure", {}) as Dictionary).get("exposed", true)), "off VM 无暴露")
+	# EMCON 下 IFF 被真实阻断
+	var blocked: Dictionary = ts.iff_query("apsis")
+	_eq(String(blocked.get("status", "")), "blocked", "EMCON 下 IFF blocked")
+	_ok(bool(blocked.get("never_hostile", false)), "blocked never_hostile")
+	# 开雷达 → 接触/暴露恢复
+	var on: Dictionary = ts.set_radar_enabled(true)
+	_ok(bool(on.get("ok", false)), "set_radar_enabled(true) ok")
+	_ok(bool(on.get("radar_enabled", false)), "返回 radar_enabled=true")
+	_ok(not bool(on.get("emcon", true)), "开雷达 EMCON=false")
+	vm = ts.step(18.0)
+	_ok((vm.get("contacts", []) as Array).size() >= before_contacts, "开雷达后 contact 恢复")
+	_ok(bool((vm.get("exposure", {}) as Dictionary).get("exposed", false)), "开雷达后 exposed=true")
+	# IFF：4 舰 + 4 港（observer 之外）
+	var iff_ids := ["apsis", "ferry", "watchtower", "deepwell",
+		"l4_02_hammer", "l1_meridian_05", "l1_anchorage_02", "l1_drydock_01"]
+	var statuses: Dictionary = {}
+	var contacts_before_iff := (ts.vm().get("contacts", []) as Array).size()
+	for tid in iff_ids:
+		var r: Dictionary = ts.iff_query(tid)
+		_ok(bool(r.get("ok", false)), "IFF %s 查询 ok" % tid, String(r.get("status", "")))
+		statuses[tid] = String(r.get("status", ""))
+		_ok(String(r.get("schema", "")) == "transit_iff.v1", "IFF %s schema" % tid)
+		_ok(bool(r.get("never_hostile", false)), "IFF %s never_hostile" % tid)
+		_ok(not bool(r.get("hostile", true)), "IFF %s 无 hostile" % tid)
+		_ok(not bool(r.get("produces_contact", true)), "IFF %s 不产生 contact" % tid)
+		_ok(int(r.get("level_support", 0)) == 0, "IFF %s 不产生位置等级" % tid)
+		_ok(not bool(r.get("writes_v15", true)), "IFF %s 不写 V15" % tid)
+	_ok(String(statuses.get("apsis", "")) == "friend", "apsis IFF friend")
+	_ok(String(statuses.get("ferry", "")) == "friend", "ferry IFF friend")
+	_ok(String(statuses.get("watchtower", "")) == "faulty", "watchtower IFF faulty")
+	_ok(String(statuses.get("deepwell", "")) == "no_reply", "deepwell IFF no_reply")
+	_ok(String(statuses.get("l4_02_hammer", "")) == "friend", "L4 港 IFF friend")
+	_ok(String(statuses.get("l1_meridian_05", "")) == "out_of_range", "起飞段 L1 港 IFF out_of_range")
+	_ok(String(statuses.get("l1_anchorage_02", "")) == "out_of_range", "起飞段 Anchorage IFF out_of_range")
+	_ok(String(statuses.get("l1_drydock_01", "")) == "out_of_range", "起飞段 Drydock IFF out_of_range")
+	var vmi: Dictionary = ts.vm()
+	_eq((vmi.get("contacts", []) as Array).size(), contacts_before_iff, "IFF 不增删 contacts")
+	_ok(not (vmi.get("iff", {}) as Dictionary).is_empty(), "VM iff 字段存在")
+	var ivm: Dictionary = vmi.get("iff", {}) as Dictionary
+	_ok(String(ivm.get("schema", "")) == "transit_iff.v1", "VM iff schema")
+	_ok(int((ivm.get("summary", {}) as Dictionary).get("hostile", -1)) == 0, "VM iff hostile=0")
+	_ok(bool(ivm.get("never_hostile", false)), "VM iff never_hostile")
+	_ok(not bool(ivm.get("produces_contact", true)), "VM iff produces_contact=false")
+	_ok(int((ivm.get("summary", {}) as Dictionary).get("friend", 0)) >= 2, "VM iff friend count")
+	_ok(int((ivm.get("summary", {}) as Dictionary).get("total", 0)) >= 8, "VM iff total≥8")
+	_ok((ivm.get("by_target", {}) as Dictionary).has("apsis"), "VM iff by_target apsis")
+	_ok(_json_ok(ivm), "VM iff JSON")
+	# 未知/自身目标失败
+	_eq(String(ts.iff_query("does_not_exist").get("status", "")), "unknown_target", "IFF 未知目标")
+	_eq(String(ts.iff_query(ts.selected_ship).get("status", "")), "unknown_target", "IFF 自身目标拒绝")
+	# 二次查询：真实模型可给 cooldown，但必须 never_hostile
+	var repeat: Dictionary = ts.iff_query("apsis")
+	_ok(bool(repeat.get("never_hostile", false)), "重复 IFF never_hostile")
+	_ok(String(repeat.get("status", "")) in ["friend", "cooldown", "blocked"], "重复 IFF status 合法",
+		String(repeat.get("status", "")))
+	_ok(_json_ok(vmi), "controls VM JSON")
+	_ok(((vmi.get("writes", {}) as Dictionary).get("track_table", true)) == false, "controls 不写 TrackTable")
+	_ok(((vmi.get("writes", {}) as Dictionary).get("v15", true)) == false, "controls 不写 V15")
+
 
 func _test_json_determinism_writes() -> void:
 	print("")
