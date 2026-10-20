@@ -1,9 +1,9 @@
 # 完整游戏-阶段2C/2H · GameSession 编排层（含 TrackTable/StoryState）
 
-> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）。工程 `game_v17`。
-> 修改（不改其他；不接旧场景/UI；未 commit）：
+> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）。工程 `game_v17`。
+> 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=579 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=654 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -21,7 +21,8 @@ GameSession
  ├─ SensorService（可选） 传感器管道 → observation/evidence，经 session 显式白名单路由到 TrackTable
  ├─ PortService（可选） 港口/对接/加注/维修/拖曳/穿梭机状态机与资源
  ├─ CombatService（可选） ROE/授权/火控/武器/点防御（damage event 不直接应用）
- └─ DamageService（可选） 每舰 V2DamageModel；combat damage 事件→分区伤害/维修
+ ├─ DamageService（可选） 每舰 V2DamageModel；combat damage 事件→分区伤害/维修
+ └─ PhysicsWorld（可选） 单一位置权威；固定步长 CR3BP/星历；显式同步 world
 ```
 
 - **依赖方向**：OrderService 内部持有 CommsService；`tick` 时订单服务推进通信并消费其投递事件。
@@ -39,6 +40,9 @@ GameSession
 - **Combat → Damage**：combat `combat_damage_event`（combat_hit/incoming_impact 内嵌
   `damage_event`）经显式白名单路由到 DamageService（`applied=true` 才写损伤）；`shot_id` 去重，
   同一伤害不会因 request_fire 立即应用 + tick flush 二次应用。Damage 事件发布 `damage.*`。
+- **Physics 位置权威**：启用 `physics_world` 时实体位置/速度以 PhysicsWorld 为准（`position_of/
+  physics_state` 读 physics）；tick 不自动改 world（不双写），只提供显式 `sync_world_from_physics()`
+  把 physics 位置应用到 world（world 写仍由 session）；仅 PhysicsWorld 内部推进位置。
 - seed/demo 数据仅示例，**不进入关卡**。
 
 ## 2　boot(config)
@@ -63,6 +67,7 @@ config 可覆盖字段（省略用 demo）：
 | `port_service` | **可选**：`true` 或 PortService 配置（`ports[]` 泊位/船坞/拖船/燃料/窗口/许可/services）；缺省/`false` → 不组合 |
 | `combat_service` | **可选**：`true` 或 CombatService 配置（`content_path`(weapons_l1)/`roe`/`own_id`/`fleet_id`）；缺省/`false` → 不组合 |
 | `damage_service` | **可选**：`true` 或 DamageService 配置（`content_path`(damage_l1)/`ships[]`/`default_ship`）；缺省/`false` → 不组合 |
+| `physics_world` | **可选**：`true` 或 PhysicsWorld 配置（`step_s`≤60/`sun`/`ephemeris_path`/`entities[]`/`auto_seed`）；缺省/`false` → 不组合；启用时 seed 实体自动灌入（auto_seed=false 可关） |
 
 - boot 建 5 个必需组件 + 可选 TrackTable/StoryState；任一启用组件 `ready=false` → `ok=false` + errors，不伪造。
 - TrackTable 默认 writer = `<session writer>_fusion`；StoryState 时间在 boot 时对齐 session 时间。
@@ -93,6 +98,9 @@ config 可覆盖字段（省略用 demo）：
 | `combat_authorization/combat_vm/combat_summary/flush_events` | 授权查询/只读 VM/立即 flush Port+Combat+Dage bus 事件 |
 | `damage_apply_event/damage_apply_hit/damage_repair/damage_fix/damage_cancel_repair/damage_set_priority` | DamageService 委托（直接伤害/维修；失败不改状态） |
 | `damage_vm/damage_ship_vm/damage_summary/damage_ships` | 只读损管 VM/摘要/舰列表 |
+| `physics_vm/physics_summary/physics_state/physics_entity_ids/physics_positions/position_of` | PhysicsWorld 只读 VM/状态/位置权威读取（position_of 无 physics 时退回 world 只读） |
+| `upsert_physics_entity/remove_physics_entity/set_physics_time` | 物理实体增删/显式设置物理时间（向前推进整个 session；暂停/回退拒绝） |
+| `sync_world_from_physics` | **显式同步边界**：把 physics 位置/速度应用有 world 实体；不自动同步、不双写 |
 | `order(id)` / `comms_pending()` | 只读查询 |
 | `snapshot()` / `to_dict()` / `to_json()` | 只读快照（time/world/orders/comms/bus 最近 32 事件/track/story/contracts/errors） |
 | `save_state() -> String` / `load_state(json) -> Dictionary` | **内存 JSON**：seed + 操作日志重放 + track/story/bus 快照 |
@@ -100,19 +108,21 @@ config 可覆盖字段（省略用 demo）：
 
 ### 3.1　tick 语义
 
-1. 非有限/负 dt 拒绝；暂停时返回 `paused=true`，时间/订单/通信/轨道/剧情均不推进；
-2. `TimeService.tick(dt)` 乘以 scale 得 `sim_dt`；`orders.tick(sim_dt)`（内部推进 comms）；
-3. `orders.take_events()` → 发布 `order.<event>`；
-4. `track_table.tick(sim_dt)`（stale/forget 过期）；`story_state.set_time(now_s)`；
-5. `sensor_service.step(sim_dt)` → `take_events()` → 只路由 observation（support 1..2）/evidence
+1. 非有限/负 dt 拒绝；暂停时返回 `paused=true`，时间/订单/通信/轨道/剧情/physics 均不推进；
+2. `TimeService.tick(dt)` 乘以 scale 得 `sim_dt`；
+3. **`physics_world.step(sim_dt)`（固定步长；位置权威，先于 orders/world/sensor/track）**；
+4. `orders.tick(sim_dt)`（内部推进 comms）；`orders.take_events()` → 发布 `order.<event>`；
+5. `track_table.tick(sim_dt)`（stale/forget 过期）；`story_state.set_time(now_s)`；
+6. `sensor_service.step(sim_dt)` → `take_events()` → 只路由 observation（support 1..2）/evidence
    到 TrackTable（target_id 映射到已建 track；support=0/>2 忽略；控制事件忽略）；
-6. `port_service.tick(sim_dt)` / `combat_service.tick(sim_dt)`；各自 outbox 事件 → `port.*`/`combat.*`
+7. `port_service.tick(sim_dt)` / `combat_service.tick(sim_dt)`；各自 outbox 事件 → `port.*`/`combat.*`
    发布到 EventBus（tick 自动 flush；也可 `flush_events()` 显式拉取）；
-7. combat `combat_damage_event` 白名单 → DamageService（applied=true）；`damage_service.tick(sim_dt)`
+8. combat `combat_damage_event` 白名单 → DamageService（applied=true）；`damage_service.tick(sim_dt)`
    推进火灾/失压/断电/维修；damage.* 事件发布到 bus；
-8. 白名单总线路由：tick 处理 bus 中未被路由且类型在白名单的事件（`track.observation` 等）；
-9. standalone `send_comms` 的投递对账：tick 后 pending 消失 → 发布 `comms.delivered`；
-10. 事件 bus 只接收发布；不改变 world 实体（probe 断言 tick 前后 world 不变）。
+9. 白名单总线路由：tick 处理 bus 中未被路由且类型在白名单的事件（`track.observation` 等）；
+10. standalone `send_comms` 的投递对账：tick 后 pending 消失 → 发布 `comms.delivered`；
+11. 事件 bus 只接收发布；不改变 world 实体（probe 断言 tick 前后 world 不变；physics 也
+    不在 tick 中自动写 world，需显式 sync）。
 
 ### 3.2　事件类型
 
@@ -127,6 +137,9 @@ config 可覆盖字段（省略用 demo）：
   point_defense/authorization_*/roe_* 等），均为只读事件。
 - DamageService 事件：`damage.applied/repair_queued/repair_cancelled/repair_priority/tick`；
   combat damage 应用后 bus 上对应 combat 事件的 `payload.damage_event.applied=true`。
+- PhysicsWorld 事件：`physics.world_ready/entity_added/entity_updated/entity_removed/
+  step_started/step_completed/jacobi_drift/time_set`（防重复）；显式同步发布
+  `physics.world_synced`。
 
 ## 4　DbC / 一致性
 
@@ -147,6 +160,9 @@ config 可覆盖字段（省略用 demo）：
   contracts/ROE 合法；失败委托（无服务/错误状态/非法 ROE/冷却/未授权）不改组件状态。
 - **Damage 一致**：`damage_service.t == now_s()`、ready、内部 contracts ok；combat damage 只在
   whitelist 路由且 `shot_id` 去重；伤害/维修失败不改状态。
+- **Physics 一致**：`physics_world.t == now_s()`、ready、内部 contracts ok；tick 前
+  time→physics 顺序固定；暂停不推进；world 只在显式 `sync_world_from_physics()` 时更新
+  （同步边界，不自动双写）。
 - tick 失败/拒绝路径不静默：返回 `ok=false` + `errors/contract_errors`；失败订单不伪造状态。
 
 ## 5　内存 save/load（不写盘）
@@ -164,6 +180,7 @@ config 可覆盖字段（省略用 demo）：
   port_service: <PortService.save_state() JSON> | "",
   combat_service: <CombatService.save_state() JSON> | "",
   damage_service: <DamageService.save_state() JSON> | "",
+  physics_world: <PhysicsWorld.save_state() JSON> | "",
   bus: {seq, events[]}
 }
 ```
@@ -171,6 +188,12 @@ config 可覆盖字段（省略用 demo）：
 **Damage 存档**：save 嵌入 DamageService 每舰模型快照；load boot 重建 + log 重放 +
 damage 快照恢复；load 后 damage VM/snapshot 一致、t 同步、可继续维修/tick、再次 save 一致。
 旧存档缺 `damage_service` 字段/seed 配置 → damage 操作 replay 跳过、组件退化。
+
+**Physics 存档**：save 嵌入 PhysicsWorld 快照（entities r/v/steps/samples/events）；
+load boot(seed) 自动灌入/重放 tick → physics 快照恢复（双精度完全一致），load 后
+physics VM/snapshot 一致、t 同步、可继续 tick，再次 save 一致。旧存档缺
+`physics_world` 字段/seed 配置 → physics 操作 replay 跳过（skipped:no_physics_world）、
+组件退化；不自动把旧 world 位置搬入 physics。
 
 **Port/Combat 存档**：save 嵌入二者 `save_state()` JSON；load 时先 boot(seed) 重建并按 log 重放
 （port/combat 委托操作 + tick），再恢复快照；load 后 VM/snapshot 一致、时间与 session 同步、
@@ -196,10 +219,10 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=579 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=654 FAIL=0（exit 0，只跑一次）
 ```
 
-覆盖（26 节）：boot（5 组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
+覆盖（28 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
 （ISSUED→…→DONE、事件类型、delivery_id、订单-通信一致、终态拒绝）；通信/链路；失败/过期/
 撤销/拒绝；暂停/时标/时间单调；bus-world 分离与单写者；save/load snapshot 一致+二次 save；
 错误路径；JSON/确定性；**可选组件**（无配置/false 退化、true 启用、退化 save/load）；
@@ -225,7 +248,9 @@ shot_id 去重、失败不改状态）；**Damage 存档**（save 嵌入 damage 
 ## 7　边界 / 未完成
 
 - 只做**编排**：不实现物理/传感器/武器/ROE/UI/剧情文本；不接旧场景/HUD/transit；不写 V15。
-- TrackTable/StoryState/SensorService/PortService/CombatService/DamageService 为**可选组合**；未配置时相关 API 返回空/`no_*`，session 退化运行。
+- TrackTable/StoryState/SensorService/PortService/CombatService/DamageService/PhysicsWorld 为**可选组合**；未配置时相关 API 返回空/`no_*`，session 退化运行。
+- PhysicsWorld 启用时是实体位置唯一权威；world 位置只在显式 sync 后更新（单写者仍是 session），
+  tick 不自动同步；无 physics 时 `position_of` 退回 world 只读。
 - DamageService 只做多舰损管组合/事件/存档；combat 命中概率由 CombatService 决定，damage event
   经白名单应用；damage 不直接写 world/V15/UI。
 - PortService/CombatService 只输出状态/事件；session 不自动许可/对接/服务/开火；FIRE 永不自动，

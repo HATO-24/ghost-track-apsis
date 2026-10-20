@@ -74,6 +74,10 @@ var _combat_target_rows: Array = []
 var _combat_weapon_rows: Array = []
 var _combat_buttons: Array = []
 var _combat_roe_buttons: Array = []
+var _save_slots: Array = []
+var _save_load_buttons: Array = []
+var _save_overlay_msg := ""
+var _exit_intent := false
 
 
 func _ready() -> void:
@@ -188,6 +192,9 @@ func _load_data() -> void:
 		_overlay = "roe"
 	elif view == "comms":
 		_overlay = "comms"
+	elif view == "save":
+		_overlay = "save"
+		_rebuild_save_slots()
 	elif view == "optical":
 		_overlay = "optical"
 		# 光学页目标=当前选中实体（默认旗舰1000），不自动跳到哈马丹。
@@ -548,6 +555,8 @@ func _run_save_test() -> void:
 	_do_save("save")
 	var meta: Dictionary = binder.save_service.load_metadata("save") if binder != null and binder.save_service != null else {}
 	print("[V1 HUD] SAVE TEST metadata=", str(bool(meta.get("ok", false))), " slot=", String((meta.get("meta", {}) as Dictionary).get("slot", "")))
+	_load_slot("save")
+	print("[V1 HUD] SAVE TEST load·", _save_overlay_msg)
 
 
 func _flow_smoke_v1() -> void:
@@ -579,6 +588,8 @@ func _draw_overlay(l: Dictionary) -> void:
 		_draw_optical_overlay(r)
 	elif _overlay == "combat":
 		_draw_combat_overlay(r)
+	elif _overlay == "save":
+		_draw_save_overlay(r)
 
 
 func _draw_comms_overlay(r: Rect2) -> void:
@@ -1110,97 +1121,161 @@ func _do_save(kind: String) -> void:
 		return
 	var res: Dictionary = binder.save(intent)
 	_save_ok = bool(res.get("ok", false))
-	_save_msg = binder.last_save_text
+	var slot := String(res.get("slot", "save"))
+	var path := String(res.get("path", ""))
+	var meta: Dictionary = binder.save_service.load_metadata(slot) if binder.save_service != null and _save_ok else {}
+	var m: Dictionary = meta.get("meta", {}) if meta.get("meta", {}) is Dictionary else {}
+	var ts := float(m.get("updated_at", 0.0))
+	_save_msg = ("SAVED slot=%s · %sB · %s" % [slot, str(int(res.get("bytes", 0))), _fmt_time(ts)]) if _save_ok else ("FAILED · " + String(res.get("reason", "")))
+	_save_msg += " · " + path
 	print("[V1 HUD] SAVE ", intent, " · ", _save_msg)
+	if kind == "menu":
+		_overlay = "save"
+		_exit_intent = false
+		_save_overlay_msg = "SAVE/MENU · 意图：存档并打开菜单（不切场景）"
+		_rebuild_save_slots()
+	elif kind == "quit":
+		_overlay = "save"
+		_exit_intent = true
+		_save_overlay_msg = "EXIT INTENT ONLY · 不真正退出"
+		_rebuild_save_slots()
+	queue_redraw()
 
 
-func _gui_input(event: InputEvent) -> void:
-	if not (event is InputEventMouseButton) or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
+func _fmt_time(unix_s: float) -> String:
+	if unix_s <= 0.0:
+		return "—"
+	return Time.get_datetime_string_from_unix_time(int(unix_s))
+
+
+func _rebuild_save_slots() -> void:
+	_save_slots.clear()
+	if binder == null or binder.save_service == null:
 		return
-	if _overlay != "":
-		if _overlay_close.has_point(event.position):
-			_overlay = ""
-			return
-		if _overlay == "damage":
-			for row in _damage_rows:
-				if (row["rect"] as Rect2).has_point(event.position):
-					_selected_section = String(row.get("id", ""))
-					return
-			for b in _damage_buttons:
-				if (b["rect"] as Rect2).has_point(event.position):
-					_damage_action(String(b.get("kind", "")))
-					return
-		elif _overlay == "roe":
-			for b in _roe_buttons:
-				if (b["rect"] as Rect2).has_point(event.position):
-					_roe_action(String(b.get("kind", "")))
-					return
-		elif _overlay == "optical":
-			for b in _optical_buttons:
-				if (b["rect"] as Rect2).has_point(event.position):
-					_optical_action(String(b.get("kind", "")))
-					return
-		elif _overlay == "combat":
-			for row in _combat_target_rows:
-				if (row["rect"] as Rect2).has_point(event.position):
-					_combat_target = String(row.get("id", ""))
-					return
-			for row in _combat_weapon_rows:
-				if (row["rect"] as Rect2).has_point(event.position):
-					_combat_weapon = String(row.get("id", ""))
-					return
-			for b in _combat_buttons:
-				if (b["rect"] as Rect2).has_point(event.position):
-					_combat_action(String(b.get("kind", "")))
-					return
-			for b in _combat_roe_buttons:
-				if (b["rect"] as Rect2).has_point(event.position):
-					_combat_action(String(b.get("kind", "")))
-					return
-		elif _overlay == "comms":
-			for b in _comms_type_buttons:
-				if (b["rect"] as Rect2).has_point(event.position):
-					_comms_action(String(b.get("kind", "")))
-					return
-			if _comms_send_rect.has_point(event.position):
-				_comms_send()
-				return
-			for row in _comms_cmd_rows:
-				if (row["rect"] as Rect2).has_point(event.position):
-					_selected_cmd = int(row.get("index", -1))
-					return
-			for b in _comms_cmd_buttons:
-				if (b["rect"] as Rect2).has_point(event.position):
-					_command_action(String(b.get("kind", "")))
-					return
+	for slot in ["save", "menu", "quit", "autosave"]:
+		var path := String(binder.save_service.slot_path(slot))
+		var exists := FileAccess.file_exists(path)
+		var meta: Dictionary = {}
+		var corrupt := false
+		var reason := ""
+		if exists:
+			meta = binder.save_service.load_metadata(slot)
+			if not bool(meta.get("ok", false)):
+				corrupt = true
+				reason = String(meta.get("reason", "corrupted"))
+		var m: Dictionary = meta.get("meta", {}) if meta.get("meta", {}) is Dictionary else {}
+		var size := 0
+		if exists:
+			var bytes := FileAccess.get_file_as_bytes(path)
+			size = bytes.size()
+		_save_slots.append({"slot": slot, "path": path, "exists": exists, "corrupt": corrupt,
+			"reason": reason, "meta": m, "size": size})
+
+
+func _draw_save_overlay(r: Rect2) -> void:
+	var x := r.position.x + 16.0
+	var y := r.position.y + 34.0
+	Painter.label(self, x, y, "存档 / SAVE · LOAD", 12, P.PH)
+	Painter.label(self, x, y + 14, "三色点：绿=save · 黄=menu+打开 · 红=quit+退出确认（不退出） · SaveService user://saves", 7, P.a(P.AMBER, 0.9), true)
+	_rebuild_save_slots()
+	var sy := y + 44.0
+	_save_load_buttons.clear()
+	Painter.section(self, x, sy, r.end.x - 14, "SLOTS / 槽位")
+	sy += 16.0
+	for i in range(_save_slots.size()):
+		var row: Dictionary = _save_slots[i]
+		var rr := Rect2(x, sy + float(i) * 92.0, r.size.x - 28, 86)
+		draw_rect(rr, P.a(P.PANEL2, 0.35))
+		var corrupted := bool(row.get("corrupt", false))
+		var exists := bool(row.get("exists", false))
+		var col := P.RED if corrupted else (P.PH if exists else P.FAINT)
+		Painter.label(self, rr.position.x + 8, rr.position.y + 18, String(row.get("slot", "")).to_upper(), 10, col, true)
+		var state := "CORRUPTED · " + String(row.get("reason", "")) if corrupted else ("EXISTS" if exists else "EMPTY · NO SAVE")
+		Painter.label(self, rr.position.x + 8, rr.position.y + 34, "STATE " + state, 7, col, true)
+		var m: Dictionary = row.get("meta", {}) if row.get("meta", {}) is Dictionary else {}
+		if exists and not corrupted:
+			Painter.label(self, rr.position.x + 220, rr.position.y + 18, "UPDATED " + _fmt_time(float(m.get("updated_at", 0.0))), 7, P.TXT, true)
+			Painter.label(self, rr.position.x + 220, rr.position.y + 34, "CHAPTER %s · LOCATION %s" % [String(m.get("chapter", "—")), String(m.get("location", "—"))], 7, P.DIM, true)
+			Painter.label(self, rr.position.x + 220, rr.position.y + 50, "SIZE %dB · t=%.1fs" % [int(row.get("size", 0)), float(m.get("t_s", 0.0))], 7, P.DIM, true)
+			Painter.label(self, rr.position.x + 8, rr.position.y + 58, TM.fit("PATH " + String(row.get("path", "")), r.size.x - 180, true, 6), 6, P.a(P.FAINT, 0.9), true)
+		else:
+			Painter.label(self, rr.position.x + 220, rr.position.y + 22, "PATH " + String(row.get("path", "")), 6, P.a(P.FAINT, 0.9), true)
+		var br := Rect2(rr.end.x - 108, rr.position.y + 28, 96, 22)
+		if exists and not corrupted:
+			_save_load_buttons.append({"rect": br, "slot": String(row.get("slot", ""))})
+			Painter.button(self, br, "LOAD / 读档", true, P.PH)
+		else:
+			Painter.button(self, br, "LOAD · N/A", false, P.FAINT)
+	var py := sy + 4.0 * 92.0 + 6.0
+	Painter.section(self, x, py, r.end.x - 14, "ACTIONS / 占位")
+	Painter.label(self, x, py + 16, "NEW GAME / 新建：占位（未接剧情流程） · CONTINUE / 继续：由 LOAD 读档恢复", 7, P.DIM, false)
+	Painter.label(self, x, py + 30, "不覆盖主菜单/退出；黄色只显示 SAVE+MENU 意图，红色只显示 QUIT 意图。", 6, P.a(P.FAINT, 0.9), true)
+	if _exit_intent:
+		Painter.label(self, x, py + 48, "EXIT CONFIRMATION · 已写入 quit 槽，但未退出游戏（intent only）", 8, P.RED, false)
+	if _save_overlay_msg != "":
+		Painter.label(self, x, r.end.y - 14, TM.fit(_save_overlay_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
+
+
+func _load_slot(slot: String) -> void:
+	if binder == null or binder.save_service == null:
+		_save_overlay_msg = "LOAD FAILED · no SaveService"
 		return
-	for d in _top_dots:
-		if (d["rect"] as Rect2).has_point(event.position):
-			_do_save(String(d.get("kind", "")))
+	# 优先使用 SaveService 的原始 payload：当前 session 已 boot track/story/sensor/combat，
+	# 原地 load_state 能恢复这些可选组件；load_session 新建 session 无这些组件会失败。
+	var loaded := false
+	var load_fail := ""
+	var raw: Dictionary = binder.save_service.call("_read_slot_raw", slot)
+	if bool(raw.get("ok", false)):
+		var payload: Dictionary = raw.get("payload", {}) if raw.get("payload", {}) is Dictionary else {}
+		var save_text := String(payload.get("session_save", ""))
+		if save_text != "" and binder.session != null:
+			# 当前 shell 的 CombatService 是 UI 外挂注入，boot seed 未含 combat_service；
+			# load_state 会用 seed 重新 boot，先把可选 combat_service 加回 seed 供快照恢复。
+			var parsed = JSON.parse_string(save_text)
+			if parsed is Dictionary:
+				var seed: Dictionary = parsed.get("seed", {}) if parsed.get("seed", {}) is Dictionary else {}
+				if not seed.has("combat_service"):
+					seed["combat_service"] = {}
+					parsed["seed"] = seed
+					save_text = JSON.stringify(parsed)
+			var lr: Dictionary = binder.session.load_state(save_text)
+			loaded = bool(lr.get("ok", false))
+			if not loaded:
+				load_fail = String(lr.get("reason", "session_load_failed"))
+	else:
+		load_fail = String(raw.get("reason", "read_failed"))
+	if not loaded:
+		# fallback: 标准 load_session（无可选组件时会返回明确失败 reason）
+		var res2: Dictionary = binder.save_service.load_session(slot)
+		if bool(res2.get("ok", false)) and res2.get("session") != null:
+			binder.session = res2.get("session")
+			loaded = true
+		else:
+			_save_overlay_msg = "LOAD FAILED · " + String(res2.get("reason", load_fail))
 			return
-	for b in _right_buttons:
-		if (b["rect"] as Rect2).has_point(event.position):
-			_do_right_action(String(b.get("kind", "")))
-			return
-	for c in _contact_rects:
-		if (c["rect"] as Rect2).has_point(event.position):
-			_selected = int(c.get("index", 0))
-			var picked: Dictionary = _contacts[_selected]
-			_comms_target = String(picked.get("entity_id", picked.get("id", "")))
-			_page = "target" if String(picked.get("type", "")) in ["unknown", "neutral"] else "ship"
-			return
-	for tab in _tabs:
-		if (tab["rect"] as Rect2).has_point(event.position):
-			_page = String(tab.get("page", "ship"))
-			return
-	for row in _command_rows:
-		if (row["rect"] as Rect2).has_point(event.position):
-			_selected_cmd = int(row.get("index", -1))
-			return
-	for b in _command_buttons:
-		if (b["rect"] as Rect2).has_point(event.position):
-			_command_action(String(b.get("kind", "")))
-			return
+	if binder.session != null:
+		if binder.session.combat_service != null:
+			_combat = binder.session.combat_service
+			_combat.t = float(binder.session.now_s())
+		elif _combat != null:
+			binder.session.combat_service = _combat
+			_combat.t = float(binder.session.now_s())
+		binder.refresh()
+		_contacts = binder.contacts.duplicate(true) if binder.contacts is Array else []
+		_normalize_contacts()
+		_selected = 0
+		for i in range(_contacts.size()):
+			if String((_contacts[i] as Dictionary).get("id", "")) == "1000":
+				_selected = i
+				break
+		_selected_cmd = 0 if binder.commands.size() > 0 else -1
+		_comms_target = String((_contacts[_selected] as Dictionary).get("entity_id", (_contacts[_selected] as Dictionary).get("id", ""))) if _contacts.size() > 0 else ""
+		_save_msg = "LOADED slot=" + slot
+		_save_overlay_msg = "LOADED " + slot + " · name=" + String(binder.session.writer) + " · t=" + str(int(float(binder.session.now_s()))) + "s"
+		print("[V1 HUD] LOAD ", _save_overlay_msg)
+		_rebuild_save_slots()
+
+
 
 
 func _do_right_action(kind: String) -> void:

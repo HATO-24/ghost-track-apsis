@@ -342,3 +342,48 @@ v1_hud.gd
 1. 消息/频道为当前 session 演示数据；无完整通讯录/剧情对白。
 2. 命令仍最小交互；授权/发送真实 API；无完整权限流。
 3. 双栏固定 600h，极端窄窗口未测；不实现剧情/物理；未跑全量 regression。
+
+
+---
+
+## 15　方案B-9：存档/读档菜单（task-156）
+
+### 15.1 三色点行为
+
+- 绿 `save`：`SaveService.save_with_intent(session,"save")`，写 save 槽；顶栏显示 `SAVED slot=... · bytes · time · path` 或 FAILED reason。
+- 黄 `menu`：写 menu 槽并打开 SAVE/MENU overlay；显示 SAVE+MENU 意图（不切场景）。
+- 红 `quit`：写 quit 槽并显示 `EXIT INTENT ONLY · 不真正退出`；不调用 quit。
+- 槽位/路径来自 `SaveService.slot_path / save_with_intent`；不伪造。
+
+### 15.2 SAVE/MENU overlay
+
+- 四槽列表 `save/menu/quit/autosave`：
+  - 存在/EMPTY/CORRUPTED（load_metadata 失败 reason）；
+  - UPDATED 时间、CHAPTER、LOCATION、SIZE bytes、t_s、PATH；
+  - 存在且元数据有效时显示 `LOAD / 读档`；空/损坏 `LOAD · N/A`。
+- LOAD：
+  - 优先 `SaveService._read_slot_raw` 取 `session_save`，在当前已 boot track/story/sensor/combat 的 session 上 `load_state`（保留可选组件）；
+  - load_state 的 seed 缺 combat_service 时由 UI 补 `combat_service:{}` 供快照恢复；
+  - 失败 fallback 标准 `load_session`，仍失败显示 reason；
+  - 成功替换/恢复 session 后 `binder.refresh()`，接触/命令/事件/顶栏刷新。
+- 新建/继续：明确占位文案；不覆盖主菜单/退出。
+- 全部自绘 LayoutTokens/PanelPainter。
+
+### 15.3 实测
+
+`DSH_V1_SAVE_TEST=1`：
+- save `SAVED slot=save · 19231B · 2026-10-20T19:54:13 · user://saves/save.json`；
+- metadata=true；
+- `LOADED save · name=session · t=0s`（真实 load，非假加载）。
+
+### 15.4 截图 / 验证
+
+- `mockups/v1-hud-save-1920.png`（1920×1080：save 槽 EXISTS + path/size/time/chapter/location + LOAD；menu/quit/autosave EMPTY；ACTIONS 占位）
+- `V1 HUD SHOT err=0`；headless save/load test 一次；`v1_hud.gd --check-only` 通过。
+
+### 15.5 边界 / 未完成
+
+1. 新建/继续只是占位；未接主菜单/新游戏剧情。
+2. load 使用 UI 侧 raw payload + 当前 session 恢复（因 SaveService.load_session 新 session 缺少可选组件）；标准 load_session 仍作为 fallback；失败 reason 可见。
+3. 无 autosave 写入；autosave 槽仅展示/读取。
+4. 三色点只写文件/显示意图，不真正切菜单/退出；不实现剧情/物理；未跑全量 regression。

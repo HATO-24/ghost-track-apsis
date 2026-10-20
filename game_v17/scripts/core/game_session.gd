@@ -23,6 +23,7 @@ const SensorServiceScript := preload("res://scripts/core/sensor_service.gd")
 const PortServiceScript := preload("res://scripts/core/port_service.gd")
 const CombatServiceScript := preload("res://scripts/core/combat_service.gd")
 const DamageServiceScript := preload("res://scripts/core/damage_service.gd")
+const PhysicsWorldScript := preload("res://scripts/core/physics_world.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -49,12 +50,14 @@ var sensor_service = null
 var port_service = null
 var combat_service = null
 var damage_service = null
+var physics_world_service = null
 
 var _track_enabled := false
 var _sensor_enabled := false
 var _port_enabled := false
 var _combat_enabled := false
 var _damage_enabled := false
+var _physics_enabled := false
 var _damage_applied_shots: Dictionary = {}
 var _story_enabled := false
 var _track_writer := ""
@@ -112,7 +115,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -135,6 +138,7 @@ func boot(config := {}) -> Dictionary:
 	port_service = null
 	combat_service = null
 	damage_service = null
+	physics_world_service = null
 	_damage_applied_shots = {}
 	_track_enabled = false
 	_story_enabled = false
@@ -180,6 +184,8 @@ func boot(config := {}) -> Dictionary:
 	if _combat_enabled and combat_service != null and not bool(combat_service.ready):
 		extra_ok = false
 	if _damage_enabled and damage_service != null and not bool(damage_service.ready):
+		extra_ok = false
+	if _physics_enabled and physics_world_service != null and not bool(physics_world_service.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -234,6 +240,8 @@ func boot(config := {}) -> Dictionary:
 		combat_service.t = now_s()
 	if damage_service != null:
 		damage_service.t = now_s()
+	if physics_world_service != null:
+		physics_world_service.set_time(now_s()) if now_s() > 0.0 else null
 	_damage_applied_shots = {}
 	_last_bus_routed_index = bus.count()
 	_flush_component_events()
@@ -328,6 +336,16 @@ func _setup_optional_components() -> void:
 			errors.append("damage_service 未就绪：" + str(damage_service.errors))
 		else:
 			_damage_enabled = true
+	var pw = _seed.get("physics_world", null)
+	var pw_on := (pw is Dictionary) or (pw is bool and bool(pw))
+	if pw_on:
+		var pwcfg: Dictionary = {} if (pw is bool) else (pw as Dictionary).duplicate(true)
+		physics_world_service = PhysicsWorldScript.new(pwcfg)
+		if not bool(physics_world_service.ready):
+			errors.append("physics_world 未就绪：" + str(physics_world_service.errors))
+		else:
+			_physics_enabled = true
+			_seed_physics_entities(pwcfg)
 
 ## 示例港口配置（boot 时 port_service=true 使用；不进入关卡）。
 func _demo_port_config() -> Dictionary:
@@ -345,6 +363,43 @@ func _demo_damage_config() -> Dictionary:
 	return {"content_path": "res://framework/content/damage_l1.json",
 		"ships": ["apsis", "harmattan", "ferry", "watchtower", "deepwell"],
 		"default_ship": "apsis"}
+
+## 把实体位置权威移入 PhysicsWorld：优先 config.entities；否则从 session seed entities 自动灌入
+## （auto_seed=false 可关闭）。位置/速度数组按 bary_rot 解释；失败记录 error 不伪造。
+func _seed_physics_entities(pwcfg: Dictionary) -> void:
+	if physics_world_service == null:
+		return
+	var source: Array = []
+	if pwcfg.get("entities") is Array:
+		source = (pwcfg.get("entities") as Array)
+	elif bool(pwcfg.get("auto_seed", true)):
+		source = (_seed.get("entities", []) as Array)
+	for raw in source:
+		if not (raw is Dictionary):
+			continue
+		var d: Dictionary = raw
+		var id := String(d.get("id", ""))
+		if id == "":
+			continue
+		var st = d.get("state", null)
+		var r = d.get("r", d.get("pos_km", null))
+		var v = d.get("v", d.get("vel_kmps", null))
+		var body: Dictionary = d.duplicate(true)
+		if st is Dictionary:
+			body = (st as Dictionary).duplicate(true)
+			body["id"] = id
+			if not body.has("mass_kg"):
+				body["mass_kg"] = float(d.get("mass_kg", 1000.0))
+		else:
+			body["r"] = r
+			body["v"] = v
+			body["frame"] = String(d.get("frame", "bary_rot"))
+			body["mass_kg"] = float(d.get("mass_kg", 1000.0))
+		if body.get("r", null) == null or body.get("v", null) == null:
+			continue
+		var res: Dictionary = physics_world_service.upsert_entity(id, body)
+		if not bool(res.get("ok", false)):
+			warnings.append("physics seed 失败 %s：%s" % [id, str(res.get("reason", ""))])
 
 func _mk_event(event_type: String, target := "", payload := {}) -> Dictionary:
 	return {"type": event_type, "t": time.now_s() if time != null else 0.0,
@@ -396,6 +451,8 @@ func tick(dt: float) -> Dictionary:
 	if not bool(tr.get("ok", false)):
 		return {"ok": false, "reason": "time_tick_failed", "errors": time.errors.duplicate()}
 	var sim_dt := float(tr.get("dt_scaled_s", 0.0))
+	# tick 顺序：time → physics（位置权威）→ world/sensor/track/orders（见文档）
+	var physics_tick: Dictionary = _advance_physics(sim_dt)
 	var ot: Dictionary = orders.tick(sim_dt)
 	if not bool(ot.get("ok", false)):
 		warnings.append("orders tick 失败：" + str(ot.get("reason", "")))
@@ -421,10 +478,12 @@ func tick(dt: float) -> Dictionary:
 			"track": track_table != null,
 			"story": story_state != null,
 			"sensor": sensor_service != null,
+			"physics": physics_world_service != null,
 		},
 		"sensor_route": sensor_route,
 		"port_combat": port_combat,
 		"damage_tick": damage_tick,
+		"physics_tick": physics_tick,
 		"contracts": contracts}
 
 func _check_post() -> void:
@@ -580,6 +639,16 @@ func _flush_component_events() -> void:
 				"source": "damage_service", "target": String(detail3.get("ship_id", "")),
 				"payload": detail3.duplicate(true), "text_key": ""})
 			n += 1
+	if physics_world_service != null:
+		for raw4 in physics_world_service.take_events():
+			if not (raw4 is Dictionary):
+				continue
+			var pev: Dictionary = raw4
+			var pdet: Dictionary = pev.get("detail", {}) if pev.get("detail") is Dictionary else {}
+			_publish({"type": String(pev.get("kind", "physics.event")), "t": now_s(),
+				"source": "physics_world", "target": String(pdet.get("id", "")),
+				"payload": pdet.duplicate(true), "text_key": ""})
+			n += 1
 	if n > 0:
 		_last_bus_routed_index = bus.events.size()
 
@@ -626,6 +695,17 @@ func _damage_ship_for_target(target_id: String) -> String:
 	if ship != "" and (damage_service.ships as Dictionary).has(ship):
 		return ship
 	return String(damage_service.default_ship)
+
+## tick 内推进 PhysicsWorld（时间→physics 固定步长；在 orders/world/sensor/track 之前）。
+func _advance_physics(sim_dt: float) -> Dictionary:
+	if physics_world_service == null:
+		return {"enabled": false}
+	var res: Dictionary = physics_world_service.step(sim_dt)
+	if not bool(res.get("ok", false)):
+		warnings.append("physics_world step 失败：" + str(res.get("reason", "")))
+	return {"enabled": true, "ok": bool(res.get("ok", false)),
+		"steps": int(res.get("steps", 0)), "t": float(physics_world_service.t),
+		"entities": physics_world_service.entity_count()}
 
 const ROUTABLE_TYPES := ["story.flag", "story.evidence", "story.choice",
 	"track.observation", "track.evidence"]
@@ -1344,6 +1424,126 @@ func damage_ships() -> Array:
 	if damage_service == null:
 		return []
 	return damage_service.ship_ids_list()
+# ── PhysicsWorld 委托（位置权威；可选）──────────────────────────
+
+func physics_vm() -> Dictionary:
+	if physics_world_service == null:
+		return {}
+	return physics_world_service.snapshot()
+
+func physics_summary() -> Dictionary:
+	if physics_world_service == null:
+		return {}
+	return physics_world_service.summary()
+
+func physics_state(entity_id: String, frame := "bary_rot") -> Dictionary:
+	if physics_world_service == null:
+		return {"ok": false, "reason": "no_physics_world"}
+	return physics_world_service.state(entity_id, frame)
+
+func physics_entity_ids() -> Array:
+	if physics_world_service == null:
+		return []
+	return physics_world_service.entity_ids()
+
+func physics_positions(frame := "bary_rot") -> Dictionary:
+	var out: Dictionary = {}
+	if physics_world_service == null:
+		return out
+	for id in physics_world_service.entity_ids():
+		out[String(id)] = physics_world_service.state(String(id), frame)
+	return out
+
+## 位置权威读取：启用 physics 时读 physics；否则退回 world 实体位置（只读）。
+func position_of(entity_id: String, frame := "bary_rot") -> Dictionary:
+	if physics_world_service != null:
+		return physics_world_service.state(entity_id, frame)
+	if world != null and world.has_entity(entity_id):
+		return {"ok": true, "source": "world", "frame": "world_entity",
+			"r": (world.entity(entity_id).get("pos_km", []) as Array).duplicate(),
+			"v": (world.entity(entity_id).get("vel_kmps", []) as Array).duplicate()}
+	return {"ok": false, "reason": "unknown_entity"}
+
+func upsert_physics_entity(entity_id: String, data: Dictionary) -> Dictionary:
+	if physics_world_service == null:
+		return {"ok": false, "reason": "no_physics_world"}
+	var res: Dictionary = physics_world_service.upsert_entity(entity_id, data)
+	if bool(res.get("ok", false)):
+		_record({"op": "upsert_physics_entity", "entity_id": entity_id, "data": data})
+	return res
+
+func remove_physics_entity(entity_id: String) -> Dictionary:
+	if physics_world_service == null:
+		return {"ok": false, "reason": "no_physics_world"}
+	var res: Dictionary = physics_world_service.remove_entity(entity_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "remove_physics_entity", "entity_id": entity_id})
+	return res
+
+## 显式设置物理时间（只允许向前）：推进整个 session（time→physics→world/sensor/track/orders）
+## 到目标时间，再对齐 physics 时间，保持全部组件时间一致；暂停时拒绝。
+func set_physics_time(new_t: float) -> Dictionary:
+	if physics_world_service == null:
+		return {"ok": false, "reason": "no_physics_world"}
+	if not is_finite(new_t) or new_t < 0.0:
+		return {"ok": false, "reason": "invalid_time"}
+	if bool(time.paused):
+		return {"ok": false, "reason": "paused"}
+	if new_t + 1.0e-9 < now_s():
+		return {"ok": false, "reason": "time_regression"}
+	var delta := new_t - now_s()
+	if delta > 1.0e-9:
+		var tr: Dictionary = tick(delta)
+		if not bool(tr.get("ok", false)):
+			return tr
+	var pr: Dictionary = physics_world_service.set_time(new_t)
+	if not bool(pr.get("ok", true)):
+		return pr
+	_record({"op": "set_physics_time", "t": new_t})
+	_check_post()
+	return {"ok": true, "t": now_s(), "physics_t": float(physics_world_service.t)}
+
+## 显式同步边界：把 physics 实体位置/速度应用到 world（session 是唯一 world 写者；
+## 不自动同步、不双写）。返回 {ok, synced, skipped, failures}。
+func sync_world_from_physics() -> Dictionary:
+	if physics_world_service == null:
+		return {"ok": false, "reason": "no_physics_world", "synced": 0}
+	if world == null:
+		return {"ok": false, "reason": "no_world", "synced": 0}
+	var synced: Array = []
+	var skipped: Array = []
+	var failures: Array = []
+	for id in physics_world_service.entity_ids():
+		var eid := String(id)
+		if not world.has_entity(eid):
+			skipped.append(eid)
+			continue
+		var st: Dictionary = physics_world_service.state(eid, "bary_rot")
+		if not bool(st.get("ok", true)):
+			failures.append({"id": eid, "reason": String(st.get("reason", ""))})
+			continue
+		var ev: Dictionary = {"type": "entity.move", "t": now_s(),
+			"source": "physics_world", "target": eid,
+			"payload": {"pos_km": (st.get("r", []) as Array).duplicate(),
+				"vel_kmps": (st.get("v", []) as Array).duplicate()}}
+		var res: Dictionary = world.apply(ev, writer)
+		if bool(res.get("ok", false)):
+			synced.append(eid)
+			_emit_physics_sync_event(eid, st)
+		else:
+			failures.append({"id": eid, "reason": String(res.get("reason", ""))})
+	var ok := failures.is_empty()
+	if not synced.is_empty():
+		_record({"op": "sync_world_from_physics"})
+	return {"ok": ok, "synced": synced, "skipped": skipped,
+		"failures": failures, "count": synced.size()}
+
+func _emit_physics_sync_event(entity_id: String, st: Dictionary) -> void:
+	_publish({"type": "physics.world_synced", "t": now_s(),
+		"source": "physics_world", "target": entity_id,
+		"payload": {"id": entity_id, "r": (st.get("r", []) as Array).duplicate(),
+			"v": (st.get("v", []) as Array).duplicate(), "frame": "bary_rot"},
+		"text_key": ""})
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -1408,6 +1608,14 @@ func check_contracts() -> Dictionary:
 			v.append("damage 时间与会话不一致：%s != %s" % [str(damage_service.t), str(now_s())])
 		if not bool(damage_service.check_contracts().get("ok", false)):
 			v.append("damage 不变量失败")
+	if physics_world_service != null:
+		if not bool(physics_world_service.ready):
+			v.append("physics_world 未就绪")
+		if absf(float(physics_world_service.t) - now_s()) > 1.0e-6:
+			v.append("physics 时间与会话不一致：%s != %s" % [
+				str(physics_world_service.t), str(now_s())])
+		if not bool(physics_world_service.check_contracts().get("ok", false)):
+			v.append("physics 不变量失败")
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -1460,6 +1668,7 @@ func snapshot() -> Dictionary:
 		"port": port_service.vm() if port_service != null else null,
 		"combat": combat_service.vm() if combat_service != null else null,
 		"damage": damage_service.vm() if damage_service != null else null,
+		"physics": physics_world_service.snapshot() if physics_world_service != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -1491,6 +1700,7 @@ func save_state() -> String:
 		"port_service": port_service.save_state() if port_service != null else "",
 		"combat_service": combat_service.save_state() if combat_service != null else "",
 		"damage_service": damage_service.save_state() if damage_service != null else "",
+		"physics_world": physics_world_service.save_state() if physics_world_service != null else "",
 		"bus": {
 			"seq": bus.current_seq(),
 			"events": JSON.parse_string(JSON.stringify(bus.events)),
@@ -1575,6 +1785,14 @@ func load_state(json_text: String) -> Dictionary:
 			var dr: Dictionary = damage_service.load_state(saved_damage)
 			if not bool(dr.get("ok", false)):
 				replay_errors.append("damage_service 快照恢复失败：" + str(dr.get("errors", [])))
+	var saved_physics = data.get("physics_world", null)
+	if saved_physics != null and String(saved_physics) != "":
+		if physics_world_service == null:
+			replay_errors.append("存档含 physics_world 快照但 boot 未启用 physics_world")
+		else:
+			var pr: Dictionary = physics_world_service.load_state(saved_physics)
+			if not bool(pr.get("ok", false)):
+				replay_errors.append("physics_world 快照恢复失败：" + str(pr.get("errors", [])))
 	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:
@@ -1763,6 +1981,22 @@ func _replay_op(op: Dictionary) -> Dictionary:
 				return {"ok": true, "skipped": "no_damage_service"}
 			return damage_set_priority(String(op.get("ship_id", "")),
 				String(op.get("section", "")), int(op.get("priority", 2)))
+		"upsert_physics_entity":
+			if physics_world_service == null:
+				return {"ok": true, "skipped": "no_physics_world"}
+			return upsert_physics_entity(String(op.get("entity_id", "")), op.get("data", {}))
+		"remove_physics_entity":
+			if physics_world_service == null:
+				return {"ok": true, "skipped": "no_physics_world"}
+			return remove_physics_entity(String(op.get("entity_id", "")))
+		"set_physics_time":
+			if physics_world_service == null:
+				return {"ok": true, "skipped": "no_physics_world"}
+			return set_physics_time(float(op.get("t", 0.0)))
+		"sync_world_from_physics":
+			if physics_world_service == null:
+				return {"ok": true, "skipped": "no_physics_world"}
+			return sync_world_from_physics()
 		"pause":
 			return pause()
 		"resume":

@@ -1,0 +1,87 @@
+{
+  "schema": "light_codes.v1",
+  "id": "light_codes_l1",
+  "title": "第一关 · 可见光灯语代码表（阶段3K，内容驱动）",
+  "units": {"time": "s", "distance": "km"},
+  "defaults": {
+    "timeout_s": 30.0,
+    "range_km": 50.0,
+    "misread_chance": 0.0,
+    "ack_required": true,
+    "modes": ["blink", "steady"],
+    "symbols": ["0", "1"],
+    "repeat_interval_s": 4.0
+  },
+  "codes": [
+    {
+      "id": "APPROACH_REQ",
+      "code": "1010",
+      "mode": "blink",
+      "meaning": "请求接近",
+      "category": "navigation",
+      "ack_required": true,
+      "priority": 2,
+      "scenario_tags": ["gushen2"]
+    },
+    {
+      "id": "APPROACH_ACK",
+      "code": "0110",
+      "mode": "blink",
+      "meaning": "允许接近",
+      "category": "navigation",
+      "ack_required": false,
+      "priority": 2,
+      "scenario_tags": ["gushen2"]
+    },
+    {
+      "id": "HOLD_POSITION",
+      "code": "0000",
+      "mode": "blink",
+      "meaning": "保持位置",
+      "category": "navigation",
+      "ack_required": true,
+      "priority": 3,
+      "scenario_tags": ["gushen2"]
+    },
+    {
+      "id": "IDENTITY_CHALLENGE",
+      "code": "1100",
+      "mode": "blink",
+      "meaning": "身份询问",
+      "category": "identity",
+      "ack_required": true,
+      "priority": 4,
+      "scenario_tags": ["gushen2"]
+    },
+    {
+      "id": "GUSHEN2_HAIL",
+      "code": "1001",
+      "mode": "steady",
+      "meaning": "谷神-2 呼叫",
+      "category": "scenario",
+      "ack_required": true,
+      "priority": 2,
+      "scenario_tags": ["gushen2"]
+    },
+    {
+      "id": "GUSHEN2_ACK",
+      "code": "0011",
+      "mode": "steady",
+      "meaning": "谷神-2 应答",
+      "category": "scenario",
+      "ack_required": false,
+      "priority": 2,
+      "scenario_tags": ["gushen2"]
+    },
+    {
+      "id": "MAYDAY",
+      "code": "1111",
+      "mode": "blink",
+      "meaning": "遇险",
+      "category": "emergency",
+      "ack_required": false,
+      "priority": 5,
+      "scenario_tags": []
+    }
+  ]
+}

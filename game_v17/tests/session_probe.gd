@@ -47,6 +47,8 @@ func _initialize() -> void:
 	_test_port_combat_save_load()
 	_test_damage_integration()
 	_test_damage_save_load()
+	_test_physics_integration()
+	_test_physics_save_load()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -1595,3 +1597,183 @@ func _test_damage_save_load() -> void:
 		"damage 同操作 save 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "damage 确定性 contracts ok")
 	_data_line("damage_save", "save/load damage_vm/snapshot 一致 · 继续 · 旧档兼容 · 确定性")
+
+# ═══════════════════════════════════════════════════════════════════
+# 27. PhysicsWorld 集成（位置权威/tick 顺序/显式同步）
+# ═══════════════════════════════════════════════════════════════════
+
+func _physics_cfg_session() -> Dictionary:
+	return {"physics_world": true}
+
+func _physics_core(s) -> String:
+	var vm: Dictionary = s.physics_vm()
+	return _norm_json({"t": vm.get("t", 0.0), "entities": vm.get("entities", []),
+		"samples": vm.get("samples", [])})
+
+func _world_pos(s, entity_id: String) -> Array:
+	var ent: Dictionary = s.world.entity(entity_id)
+	var pos = ent.get("pos_km", [])
+	return (pos as Array).duplicate() if pos is Array else []
+
+func _test_physics_integration() -> void:
+	_section_begin("27 Physics 集成")
+	# 可选退化
+	var plain = _new_session()
+	_ok(plain.physics_world_service == null, "默认无 physics_world")
+	_eq(plain.physics_vm().size(), 0, "无 physics VM 空")
+	_eq(plain.physics_summary().size(), 0, "无 physics summary 空")
+	_eq((plain.physics_entity_ids() as Array).size(), 0, "无 physics ids 空")
+	_eq((plain.physics_positions() as Dictionary).size(), 0, "无 physics positions 空")
+	_eq(String(plain.physics_state("apsis").get("reason", "")), "no_physics_world",
+		"无 physics state 拒绝")
+	_eq(String(plain.upsert_physics_entity("x", {}).get("reason", "")),
+		"no_physics_world", "无 physics upsert 拒绝")
+	_eq(String(plain.remove_physics_entity("x").get("reason", "")),
+		"no_physics_world", "无 physics remove 拒绝")
+	_eq(String(plain.set_physics_time(10.0).get("reason", "")),
+		"no_physics_world", "无 physics set_time 拒绝")
+	_eq(String(plain.sync_world_from_physics().get("reason", "")),
+		"no_physics_world", "无 physics sync 拒绝")
+	var pos_plain: Dictionary = plain.position_of("apsis")
+	_eq(String(pos_plain.get("source", "")), "world", "无 physics position 退回 world")
+	# 启用：自动灌入 seed 实体
+	var s = GameSession.new(_physics_cfg_session())
+	_ok(bool(s.ready), "physics session ready", str(s.errors))
+	_ok(s.physics_world_service != null, "physics 启用")
+	_eq((s.physics_entity_ids() as Array).size(), 3, "physics 3 seed 实体")
+	_ok("apsis" in s.physics_entity_ids(), "physics 含 apsis")
+	_eq(String(s.physics_vm().get("schema", "")), "v17.physics_world.v1", "physics vm schema")
+	_eq(int(s.physics_summary().get("entities", 0)), 3, "physics summary 3")
+	_near(float(s.physics_world_service.t), s.now_s(), 1.0e-6, "physics boot 时间同步")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "physics boot contracts ok")
+	var st: Dictionary = s.physics_state("apsis")
+	_eq(String(st.get("frame", "")), "bary_rot", "physics_state frame")
+	_ok((st.get("r", []) as Array).size() == 3, "physics_state r 3")
+	var st_eci: Dictionary = s.physics_state("apsis", "earth_eci")
+	_eq(String(st_eci.get("frame", "")), "earth_eci", "physics_state earth_eci")
+	_eq((s.physics_positions() as Dictionary).size(), 3, "physics_positions 3")
+	_eq(String(s.position_of("apsis").get("frame", "")), "bary_rot",
+		"position_of 使用 physics 权威")
+	# tick 顺序：time → physics → world；world 不自动同步
+	var w0: Array = _world_pos(s, "apsis")
+	var r0: Array = s.physics_state("apsis").get("r", [])
+	var tick1: Dictionary = s.tick(90.0)
+	_eq(bool(tick1.get("ok", false)), true, "physics tick ok")
+	var pt: Dictionary = tick1.get("physics_tick", {})
+	_eq(bool(pt.get("ok", false)), true, "physics_tick ok")
+	_eq(int(pt.get("steps", 0)), 2, "physics 90s→2 步")
+	_near(float(s.physics_world_service.t), s.now_s(), 1.0e-6, "tick 后 physics t 同步")
+	_near(s.now_s(), 90.0, 1.0e-6, "tick 后 session t=90")
+	_ok(bool((tick1.get("components", {}) as Dictionary).get("physics", false)),
+		"tick components.physics")
+	_ok(_norm_json(_world_pos(s, "apsis")) == _norm_json(w0), "world 位置不自动同步")
+	_ok(_norm_json(s.physics_state("apsis").get("r", [])) != _norm_json(r0),
+		"physics 位置已推进")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "physics tick contracts ok")
+	# 显式同步
+	var sync: Dictionary = s.sync_world_from_physics()
+	_eq(bool(sync.get("ok", false)), true, "显式 sync ok")
+	_eq(int(sync.get("count", 0)), 3, "sync 3 实体")
+	_ok(_norm_json(_world_pos(s, "apsis")) == _norm_json(s.physics_state("apsis").get("r", [])),
+		"sync 后 world=physics(apsis)")
+	_ok(_norm_json(_world_pos(s, "harmattan")) == _norm_json(s.physics_state("harmattan").get("r", [])),
+		"sync 后 world=physics(harmattan)")
+	var bus_types: Array = []
+	for raw in s.bus.recent(80):
+		bus_types.append(String((raw as Dictionary).get("type", "")))
+	_ok("physics.world_synced" in bus_types, "bus 含 physics.world_synced")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "sync 后 contracts ok")
+	# 只同步 world 已有实体；physics 额外实体 skipped
+	var up: Dictionary = s.upsert_physics_entity("extra_ship", {"r": [0.0, 0.0, 0.0],
+		"v": [0.0, 0.0, 0.0], "mass_kg": 1000.0})
+	_eq(bool(up.get("ok", false)), true, "upsert physics 实体 ok")
+	_ok("extra_ship" in s.physics_entity_ids(), "实体已加入")
+	var sync2: Dictionary = s.sync_world_from_physics()
+	_ok("extra_ship" in (sync2.get("skipped", []) as Array), "world 缺失实体 skipped")
+	var rem: Dictionary = s.remove_physics_entity("extra_ship")
+	_eq(bool(rem.get("ok", false)), true, "remove physics 实体 ok")
+	_ok(not ("extra_ship" in s.physics_entity_ids()), "实体已移除")
+	# 失败不改状态
+	var before := _physics_core(s)
+	_eq(bool(s.upsert_physics_entity("bad", {"r": [NAN, 0.0, 0.0],
+		"v": [0.0, 0.0, 0.0]}).get("ok", true)), false, "NaN 物理实体拒绝")
+	_eq(bool(s.upsert_physics_entity("bad", {"state": {"r": [0.0, 0.0, 0.0],
+		"v": [0.0, 0.0, 0.0]}, "mass_kg": -1.0}).get("ok", true)), false,
+		"负质量物理实体拒绝")
+	_eq(String(s.remove_physics_entity("no_such").get("reason", "")), "unknown_entity",
+		"删除未知物理实体拒绝")
+	_eq(_physics_core(s), before, "物理失败不改状态")
+	# set_physics_time
+	var target: float = s.now_s() + 120.0
+	var stime: Dictionary = s.set_physics_time(target)
+	_eq(bool(stime.get("ok", false)), true, "set_physics_time ok")
+	_near(s.now_s(), target, 1.0e-6, "set_physics_time session t")
+	_near(float(s.physics_world_service.t), target, 1.0e-6, "set_physics_time physics t")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "set_physics_time contracts ok")
+	_eq(String(s.set_physics_time(target - 10.0).get("reason", "")), "time_regression",
+		"set_physics_time 回退拒绝")
+	# 暂停同步
+	s.pause()
+	var pt_before := float(s.physics_world_service.t)
+	var paused_tick: Dictionary = s.tick(60.0)
+	_eq(bool(paused_tick.get("paused", false)), true, "暂停 tick paused")
+	_near(float(s.physics_world_service.t), pt_before, 1.0e-9, "暂停时不推进 physics")
+	_eq(String(s.set_physics_time(s.now_s() + 60.0).get("reason", "")), "paused",
+		"暂停时 set_physics_time 拒绝")
+	s.resume()
+	_ok(bool(s.tick(60.0).get("ok", false)), "resume 后 tick ok")
+	_data_line("physics", "可选退化 · seed 实体 · tick 先 physics · world 不自动同步 · 显式 sync · 暂停不推进")
+
+func _test_physics_save_load() -> void:
+	_section_begin("28 Physics 存档")
+	var s = GameSession.new(_physics_cfg_session())
+	s.tick(120.0)
+	s.sync_world_from_physics()
+	s.upsert_physics_entity("extra_ship", {"r": [1.0, 2.0, 3.0],
+		"v": [0.0, 0.0, 0.0], "mass_kg": 500.0})
+	s.tick(60.0)
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary, "physics save JSON 可解析")
+	if d is Dictionary:
+		_ok(String((d as Dictionary).get("physics_world", "")) != "", "save 含 physics_world")
+		var seed: Dictionary = (d as Dictionary).get("seed", {})
+		_ok(seed.has("physics_world"), "seed 含 physics_world 配置")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "physics load ok", str(lr.get("errors", [])))
+	_ok(s2.physics_world_service != null, "load 重建 physics")
+	_ok(_norm_json(s.physics_vm()) == _norm_json(s2.physics_vm()), "load 后 physics_vm 一致")
+	_ok(_norm_json(s.snapshot()) == _norm_json(s2.snapshot()), "load 后 snapshot 一致")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load 后 contracts ok")
+	_near(float(s2.physics_world_service.t), s2.now_s(), 1.0e-6, "load physics t 同步")
+	_eq((s2.physics_entity_ids() as Array).size(), 4, "load physics 4 实体")
+	# load 后继续推进
+	s.tick(60.0)
+	s2.tick(60.0)
+	_ok(_norm_json(s.physics_vm()) == _norm_json(s2.physics_vm()), "load 后同 tick physics 一致")
+	_ok(bool(s2.check_contracts().get("ok", false)), "继续后 contracts ok")
+	# 旧存档兼容：删除 physics 字段 + seed 配置
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("physics_world")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("physics_world")
+	old["seed"] = old_seed
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 physics 兼容", str(lr3.get("errors", [])))
+	_ok(s3.physics_world_service == null, "旧存档 load 后 physics 退化")
+	# 确定性
+	var a = GameSession.new(_physics_cfg_session())
+	var b = GameSession.new(_physics_cfg_session())
+	for sv in [a, b]:
+		sv.tick(150.0)
+		sv.sync_world_from_physics()
+		sv.upsert_physics_entity("extra_ship", {"r": [1.0, 2.0, 3.0],
+			"v": [0.0, 0.0, 0.0], "mass_kg": 500.0})
+		sv.tick(60.0)
+	_ok(_norm_json(a.physics_vm()) == _norm_json(b.physics_vm()), "physics 同操作 VM 一致")
+	_ok(a.save_state() == b.save_state(), "physics 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "physics 确定性 contracts ok")
+	_data_line("physics_save", "save/load physics_vm/snapshot 一致 · 继续 tick · 旧档兼容 · 确定性")
+
