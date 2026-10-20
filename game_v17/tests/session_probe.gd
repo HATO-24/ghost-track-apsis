@@ -56,6 +56,7 @@ func _initialize() -> void:
 	_test_facility_registry()
 	_test_transponder_integration()
 	_test_ew_integration()
+	_test_legal_status_integration()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -2845,3 +2846,118 @@ func _test_identification_integration() -> void:
 	_ok(a.save_state() == b.save_state(), "identification 同操作 save 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "identification contracts ok 2")
 	_data_line("identification", "融合/冲突/欺骗/人工/授权 · 自动询问经 transponder 回灌 · bus · 存档/旧档/确定性")
+
+# ═══════════════════════════════════════════════════════════════════
+# 36. LegalStatusService 集成（ID13 法律状态/影响接口/脚本事件）
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_legal_status_integration() -> void:
+	_section_begin("36 LegalStatus 集成")
+	# 默认不启用 → 退化
+	var off = _new_session()
+	_ok(off.legal_status_service == null, "默认无 legal_status_service")
+	_eq(off.legal_vm().size(), 0, "无 legal VM 空")
+	_eq(off.legal_summary().size(), 0, "无 legal summary 空")
+	_eq(off.legal_impact().size(), 0, "无 legal impact 空")
+	_eq(off.legal_status_text(), "", "无 legal status 空")
+	_eq(str(off.legal_apply_event("strong").get("reason", "")),
+		"no_legal_status_service", "无 legal 事件拒绝")
+	_eq(str(off.legal_set_status("HUNTED").get("reason", "")),
+		"no_legal_status_service", "无 legal set_status 拒绝")
+	_eq(str(off.legal_tick(1.0).get("reason", "")),
+		"no_legal_status_service", "无 legal tick 拒绝")
+	_ok(off.snapshot().get("legal_status") == null, "无 legal snapshot null")
+	_ok((JSON.parse_string(off.save_state()) as Dictionary).has("legal_status_service"),
+		"无 legal save 字段为空字符串")
+	# 启用
+	var cfg := {"legal_status": true}
+	var s = GameSession.new(cfg)
+	_ok(bool(s.ready), "legal session ready", str(s.errors))
+	_ok(s.legal_status_service != null and bool(s.legal_status_service.ready),
+		"legal_status_service ready")
+	_eq(s.legal_status_text(), "UNLISTED", "初始 UNLISTED")
+	_near(float(s.legal_status_service.t), s.now_s(), 1.0e-6, "legal boot 时间同步")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "legal boot contracts ok")
+	_ok(s.snapshot().get("legal_status") is Dictionary, "snapshot legal")
+	_eq(str((s.snapshot().get("legal_status", {}) as Dictionary).get("status", "")),
+		"UNLISTED", "snapshot legal status")
+	_ok(bool((s.tick(0.0).get("components", {}) as Dictionary).get("legal_status", false)),
+		"tick components.legal_status")
+	# 影响接口
+	_eq(str(s.legal_port_access().get("ueg", "")), "NORMAL", "session port_access")
+	_eq(bool(s.legal_iff_watch_flag()), false, "session iff")
+	_eq(float(s.legal_combat_roe_modifier()), 1.0, "session roe")
+	_eq(str(s.legal_ending_branch_hint()), "standard", "session hint")
+	# 脚本事件驱动
+	var r1: Dictionary = s.legal_apply_event("strong", {"event_id": "L1"})
+	_eq(bool(r1.get("ok", false)), true, "session legal event ok")
+	_eq(str(r1.get("status", "")), "UNLISTED", "strong 后 UNLISTED")
+	_eq(float(s.legal_status_service.heat), 1.0, "session legal heat")
+	var r2: Dictionary = s.legal_apply_event("fire_control_illumination",
+		{"event_id": "L2"})
+	_eq(str(r2.get("status", "")), "WATCHLIST", "火控后 WATCHLIST")
+	_eq(bool(s.legal_iff_watch_flag()), true, "WATCH iff")
+	_eq(str(s.legal_port_access().get("ueg", "")), "WATCHED", "WATCH UEG 港")
+	# 去重
+	var rd: Dictionary = s.legal_apply_event("strong", {"event_id": "L1"})
+	_eq(bool(rd.get("duplicate", false)), true, "session legal 去重")
+	_eq(float(s.legal_status_service.heat), 3.0, "去重不改 heat")
+	# 失败不改状态
+	var before := _norm_json(s.legal_vm())
+	_ok(not bool(s.legal_apply_event("NOPE").get("ok", true)), "session 未知 trigger 拒绝")
+	_ok(not bool(s.legal_set_status("BAD").get("ok", true)), "session 非法状态拒绝")
+	_eq(_norm_json(s.legal_vm()), before, "失败不改 legal VM")
+	# 直接 tick（服务时间独立；不影响 session contracts）
+	var lt: Dictionary = s.legal_tick(2.0)
+	_eq(bool(lt.get("ok", false)), true, "session legal_tick ok")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "legal_tick 后 contracts ok")
+	# session tick 推进并同步
+	var t0 := float(s.legal_status_service.t)
+	var tk: Dictionary = s.tick(3.0)
+	_eq(bool(tk.get("ok", false)), true, "legal session tick ok")
+	_ok(bool((tk.get("legal_status_tick", {}) as Dictionary).get("enabled", false)),
+		"legal_status_tick enabled")
+	_near(float(s.legal_status_service.t), t0 + 3.0, 1.0e-6, "legal tick t 增加")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "legal tick contracts ok")
+	# snapshot/VM 一致
+	_eq(str(s.legal_vm().get("schema", "")), "v17.legal_status.v1", "legal vm schema")
+	_eq(_norm_json(s.legal_vm()), _norm_json(s.snapshot().get("legal_status")),
+		"legal vm = snapshot")
+	# save/load
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary and (d as Dictionary).has("legal_status_service"),
+		"save 含 legal_status_service")
+	var seed: Dictionary = (d as Dictionary).get("seed", {})
+	_ok(seed.has("legal_status"), "seed 含 legal_status")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "legal load ok", str(lr.get("errors", [])))
+	_ok(s2.legal_status_service != null, "load 重建 legal")
+	_eq(_norm_json(s.legal_vm()), _norm_json(s2.legal_vm()), "load legal VM 一致")
+	_eq(_norm_json(s.snapshot()), _norm_json(s2.snapshot()), "load snapshot 一致")
+	_eq(bool(s2.check_contracts().get("ok", false)), true, "load contracts ok")
+	_eq(str(s2.legal_status_text()), "WATCHLIST", "load legal status")
+	_eq(bool(s2.legal_apply_event("blackbox_public", {"event_id": "L3"}).get("ok", false)),
+		true, "load 后 legal 事件")
+	# 旧存档兼容：无 legal 字段/seed 配置 → 退化，日志 legal op 跳过
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("legal_status_service")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("legal_status")
+	old["seed"] = old_seed
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 legal 兼容", str(lr3.get("errors", [])))
+	_ok(s3.legal_status_service == null, "旧存档 legal 退化")
+	# 确定性
+	var a = GameSession.new(cfg)
+	var b = GameSession.new(cfg)
+	for sv in [a, b]:
+		sv.legal_apply_event("strong", {"event_id": "D1"})
+		sv.legal_apply_event("blackbox_public", {"event_id": "D2"})
+		sv.tick(1.0)
+	_eq(_norm_json(a.legal_vm()), _norm_json(b.legal_vm()), "legal 同操作 VM 一致")
+	_eq(a.save_state(), b.save_state(), "legal 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "legal contracts ok 2")
+	_data_line("legal", "可选退化 · 初始 UNLISTED · 事件/去重/影响接口 · tick · save/load/旧档 · 确定")

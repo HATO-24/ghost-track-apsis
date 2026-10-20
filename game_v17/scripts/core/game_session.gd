@@ -29,6 +29,7 @@ const EWServiceScript := preload("res://scripts/core/ew_service.gd")
 const FacilityRegistryScript := preload("res://scripts/core/facility_registry.gd")
 const TransponderServiceScript := preload("res://scripts/core/transponder_service.gd")
 const IdentificationServiceScript := preload("res://scripts/core/identification_service.gd")
+const LegalStatusServiceScript := preload("res://scripts/core/legal_status_service.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -61,6 +62,7 @@ var ew_service = null
 var facility_registry = null
 var transponder_service = null
 var identification_service = null
+var legal_status_service = null
 
 var _track_enabled := false
 var _sensor_enabled := false
@@ -73,6 +75,7 @@ var _ew_enabled := false
 var _facility_enabled := false
 var _transponder_enabled := false
 var _identification_enabled := false
+var _legal_enabled := false
 var _last_signal_route: Dictionary = {}
 var _signal_missing_meta_warned: Dictionary = {}
 var _damage_applied_shots: Dictionary = {}
@@ -132,7 +135,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -161,6 +164,7 @@ func boot(config := {}) -> Dictionary:
 	facility_registry = null
 	transponder_service = null
 	identification_service = null
+	legal_status_service = null
 	_last_signal_route = {}
 	_signal_missing_meta_warned = {}
 	_damage_applied_shots = {}
@@ -170,6 +174,8 @@ func boot(config := {}) -> Dictionary:
 	_port_enabled = false
 	_combat_enabled = false
 	_damage_enabled = false
+	_identification_enabled = false
+	_legal_enabled = false
 	_track_writer = ""
 	_last_track_t = 0.0
 	_last_story_revision = 0
@@ -220,6 +226,8 @@ func boot(config := {}) -> Dictionary:
 	if _transponder_enabled and transponder_service != null and not bool(transponder_service.ready):
 		extra_ok = false
 	if _identification_enabled and identification_service != null and not bool(identification_service.ready):
+		extra_ok = false
+	if _legal_enabled and legal_status_service != null and not bool(legal_status_service.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -284,6 +292,8 @@ func boot(config := {}) -> Dictionary:
 		transponder_service.set_time(now_s())
 	if identification_service != null:
 		identification_service.set_time(now_s())
+	if legal_status_service != null:
+		legal_status_service.t = now_s()
 	_damage_applied_shots = {}
 	_last_bus_routed_index = bus.count()
 	_flush_component_events()
@@ -442,6 +452,15 @@ func _setup_optional_components() -> void:
 			errors.append("identification_service 未就绪：" + str(identification_service.errors))
 		else:
 			_identification_enabled = true
+	var legal = _seed.get("legal_status", null)
+	var legal_on := (legal is Dictionary) or (legal is bool and bool(legal))
+	if legal_on:
+		var lcfg: Dictionary = {} if (legal is bool) else (legal as Dictionary).duplicate(true)
+		legal_status_service = LegalStatusServiceScript.new(lcfg)
+		if not bool(legal_status_service.ready):
+			errors.append("legal_status_service 未就绪：" + str(legal_status_service.errors))
+		else:
+			_legal_enabled = true
 	var pw = _seed.get("physics_world", null)
 	var pw_on := (pw is Dictionary) or (pw is bool and bool(pw))
 	if pw_on:
@@ -640,6 +659,7 @@ func tick(dt: float) -> Dictionary:
 	var damage_tick: Dictionary = _advance_damage(sim_dt)
 	var transponder_tick: Dictionary = _advance_transponder(sim_dt)
 	var identification_tick: Dictionary = _advance_identification(sim_dt)
+	var legal_tick: Dictionary = _advance_legal_status(sim_dt)
 	_flush_component_events()
 	var routed: Array = _route_pending_bus_events()
 	_reconcile_standalone(pending_before)
@@ -663,6 +683,7 @@ func tick(dt: float) -> Dictionary:
 			"facility": facility_registry != null,
 			"transponder": transponder_service != null,
 			"identification": identification_service != null,
+			"legal_status": legal_status_service != null,
 		},
 		"sensor_route": sensor_route,
 		"port_combat": port_combat,
@@ -673,6 +694,7 @@ func tick(dt: float) -> Dictionary:
 		"signal_route": signal_route,
 		"transponder_tick": transponder_tick,
 		"identification_tick": identification_tick,
+		"legal_status_tick": legal_tick,
 		"contracts": contracts}
 
 func _check_post() -> void:
@@ -1156,6 +1178,18 @@ func _advance_identification(sim_dt: float) -> Dictionary:
 	return {"enabled": true, "t": float(identification_service.t),
 		"auto": auto_enabled, "requests": requests.size(),
 		"executed": executed.size(), "targets": identification_service.assessments.size()}
+
+## tick 推进 ID13 法律状态：时间/可选 decay；仅输出状态/影响，不写 world。
+func _advance_legal_status(sim_dt: float) -> Dictionary:
+	if legal_status_service == null:
+		return {"enabled": false}
+	var res: Dictionary = legal_status_service.tick(sim_dt)
+	if not bool(res.get("ok", false)):
+		warnings.append("legal_status tick 失败：" + str(res.get("reason", "")))
+		return {"enabled": true, "ok": false, "reason": str(res.get("reason", ""))}
+	return {"enabled": true, "ok": true, "status": str(res.get("status", "")),
+		"heat": float(res.get("heat", 0.0)), "changed": bool(res.get("changed", false)),
+		"t": float(legal_status_service.t)}
 
 ## 自动询问执行：transponder 询问 → 把 reply 作为证据回灌识别；不写 world。
 func _execute_identification_query(req: Dictionary) -> Dictionary:
@@ -2546,6 +2580,78 @@ func identification_take_query_requests() -> Array:
 	if identification_service == null:
 		return []
 	return identification_service.take_query_requests()
+
+# ── 法律状态（ID13；可选组件）──────────────────────────────────
+
+func legal_apply_event(trigger: String, payload := {}) -> Dictionary:
+	if legal_status_service == null:
+		return {"ok": false, "reason": "no_legal_status_service"}
+	var p: Dictionary = payload if payload is Dictionary else {}
+	var r: Dictionary = legal_status_service.apply_event(trigger, p)
+	if bool(r.get("ok", false)) and not bool(r.get("duplicate", false)):
+		_record({"op": "legal_apply_event", "trigger": trigger,
+			"payload": _json_norm(p)})
+	return r
+
+func legal_set_status(new_status: String, reason := "") -> Dictionary:
+	if legal_status_service == null:
+		return {"ok": false, "reason": "no_legal_status_service"}
+	var r: Dictionary = legal_status_service.set_status(new_status, reason)
+	if bool(r.get("ok", false)):
+		_record({"op": "legal_set_status", "status": new_status, "reason": reason})
+	return r
+
+func legal_tick(dt: float) -> Dictionary:
+	if legal_status_service == null:
+		return {"ok": false, "reason": "no_legal_status_service"}
+	var r: Dictionary = legal_status_service.tick(dt)
+	if bool(r.get("ok", false)):
+		_record({"op": "legal_tick", "dt": float(dt)})
+	return r
+
+func legal_vm() -> Dictionary:
+	return legal_status_service.vm() if legal_status_service != null else {}
+
+func legal_summary() -> Dictionary:
+	return legal_status_service.summary() if legal_status_service != null else {}
+
+func legal_impact() -> Dictionary:
+	return legal_status_service.impact() if legal_status_service != null else {}
+
+func legal_status_text() -> String:
+	return legal_status_service.status if legal_status_service != null else ""
+
+func legal_port_access() -> Dictionary:
+	return legal_status_service.port_access() if legal_status_service != null else {}
+
+func legal_status_vm() -> Dictionary:
+	return legal_vm()
+
+func legal_status_summary() -> Dictionary:
+	return legal_summary()
+
+func legal_status_impact() -> Dictionary:
+	return legal_impact()
+
+func legal_iff_watch_flag() -> bool:
+	return legal_status_service.iff_watch_flag() if legal_status_service != null else false
+
+func legal_combat_roe_modifier() -> float:
+	return legal_status_service.combat_roe_modifier() if legal_status_service != null else 1.0
+
+func legal_ending_branch_hint() -> String:
+	return legal_status_service.ending_branch_hint() if legal_status_service != null else ""
+
+# 兼容别名（脚本/UI 事件驱动）
+func apply_legal_event(trigger: String, payload := {}) -> Dictionary:
+	return legal_apply_event(trigger, payload)
+
+func legal_status() -> String:
+	return legal_status_text()
+
+func legal_status_get_status() -> String:
+	return legal_status_text()
+
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -2645,6 +2751,12 @@ func check_contracts() -> Dictionary:
 				str(identification_service.t), str(now_s())])
 		if not bool(identification_service.check_contracts().get("ok", false)):
 			v.append("identification 不变量失败")
+	if legal_status_service != null:
+		if not bool(legal_status_service.ready):
+			v.append("legal_status_service 未就绪")
+		if not bool(legal_status_service.check_contracts().get("ok", false)):
+			v.append("legal 不变量失败：" + str(
+				legal_status_service.check_contracts().get("violations", [])))
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -2703,6 +2815,7 @@ func snapshot() -> Dictionary:
 		"facilities": facility_registry.summary() if facility_registry != null else null,
 		"transponder": transponder_service.vm() if transponder_service != null else null,
 		"identification": identification_service.vm() if identification_service != null else null,
+		"legal_status": legal_status_service.vm() if legal_status_service != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -2740,6 +2853,7 @@ func save_state() -> String:
 		"facility_registry": facility_registry.to_dict() if facility_registry != null else null,
 		"transponder_service": transponder_service.save_state() if transponder_service != null else "",
 		"identification_service": identification_service.save_state() if identification_service != null else "",
+		"legal_status_service": legal_status_service.save_state() if legal_status_service != null else "",
 		"bus": {
 			"seq": bus.current_seq(),
 			"events": JSON.parse_string(JSON.stringify(bus.events)),
@@ -2874,6 +2988,14 @@ func load_state(json_text: String) -> Dictionary:
 			var idr: Dictionary = identification_service.load_state(saved_idf)
 			if not bool(idr.get("ok", false)):
 				replay_errors.append("identification_service 快照恢复失败：" + str(idr.get("errors", [])))
+	var saved_legal = data.get("legal_status_service", null)
+	if saved_legal != null and String(saved_legal) != "":
+		if legal_status_service == null:
+			replay_errors.append("存档含 legal_status_service 快照但 boot 未启用 legal_status")
+		else:
+			var lr: Dictionary = legal_status_service.load_state(saved_legal)
+			if not bool(lr.get("ok", false)):
+				replay_errors.append("legal_status_service 快照恢复失败：" + str(lr.get("errors", [])))
 	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:
@@ -3185,6 +3307,18 @@ func _replay_op(op: Dictionary) -> Dictionary:
 			if identification_service == null:
 				return {"ok": true, "skipped": "no_identification_service"}
 			return identification_clear_manual(str(op.get("target_id", "")))
+		"legal_apply_event":
+			if legal_status_service == null:
+				return {"ok": true, "skipped": "no_legal_status_service"}
+			return legal_apply_event(str(op.get("trigger", "")), op.get("payload", {}))
+		"legal_set_status":
+			if legal_status_service == null:
+				return {"ok": true, "skipped": "no_legal_status_service"}
+			return legal_set_status(str(op.get("status", "")), str(op.get("reason", "")))
+		"legal_tick":
+			if legal_status_service == null:
+				return {"ok": true, "skipped": "no_legal_status_service"}
+			return legal_tick(float(op.get("dt", 0.0)))
 		"pause":
 			return pause()
 		"resume":
