@@ -20,6 +20,8 @@ const CommsService := preload("res://scripts/core/comms_service.gd")
 const TrackTableScript := preload("res://scripts/core/track_table.gd")
 const StoryStateScript := preload("res://scripts/core/story_state.gd")
 const SensorServiceScript := preload("res://scripts/core/sensor_service.gd")
+const PortServiceScript := preload("res://scripts/core/port_service.gd")
+const CombatServiceScript := preload("res://scripts/core/combat_service.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -43,9 +45,13 @@ var comms = null
 var track_table = null
 var story_state = null
 var sensor_service = null
+var port_service = null
+var combat_service = null
 
 var _track_enabled := false
 var _sensor_enabled := false
+var _port_enabled := false
+var _combat_enabled := false
 var _story_enabled := false
 var _track_writer := ""
 var _last_track_t := 0.0
@@ -102,7 +108,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -122,9 +128,13 @@ func boot(config := {}) -> Dictionary:
 	track_table = null
 	story_state = null
 	sensor_service = null
+	port_service = null
+	combat_service = null
 	_track_enabled = false
 	_story_enabled = false
 	_sensor_enabled = false
+	_port_enabled = false
+	_combat_enabled = false
 	_track_writer = ""
 	_last_track_t = 0.0
 	_last_story_revision = 0
@@ -157,6 +167,10 @@ func boot(config := {}) -> Dictionary:
 	if _story_enabled and story_state != null and not bool(story_state.ready):
 		extra_ok = false
 	if _sensor_enabled and sensor_service != null and not bool(sensor_service.ready):
+		extra_ok = false
+	if _port_enabled and port_service != null and not bool(port_service.ready):
+		extra_ok = false
+	if _combat_enabled and combat_service != null and not bool(combat_service.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -205,6 +219,12 @@ func boot(config := {}) -> Dictionary:
 		_last_story_revision = int(story_state.revision)
 	if sensor_service != null:
 		sensor_service.t = now_s()
+	if port_service != null:
+		port_service.t_s = now_s()
+	if combat_service != null:
+		combat_service.t = now_s()
+	_last_bus_routed_index = bus.count()
+	_flush_component_events()
 	_last_bus_routed_index = bus.count()
 	_last_time_s = time.now_s()
 	booted = true
@@ -269,6 +289,35 @@ func _setup_optional_components() -> void:
 					"entity_id": String(tm.get("entity_id", "")),
 					"batch": String(tm.get("batch", "")),
 				}
+	var po = _seed.get("port_service", null)
+	var po_on := (po is Dictionary) or (po is bool and bool(po))
+	if po_on:
+		var pcfg: Dictionary = _demo_port_config() if (po is bool) else (po as Dictionary).duplicate(true)
+		port_service = PortServiceScript.new(pcfg)
+		if not bool(port_service.ready):
+			errors.append("port_service 未就绪：" + str(port_service.errors))
+		else:
+			_port_enabled = true
+	var co = _seed.get("combat_service", null)
+	var co_on := (co is Dictionary) or (co is bool and bool(co))
+	if co_on:
+		var ccfg: Dictionary = {} if (co is bool) else (co as Dictionary).duplicate(true)
+		combat_service = CombatServiceScript.new(ccfg)
+		if not bool(combat_service.ready):
+			errors.append("combat_service 未就绪：" + str(combat_service.errors))
+		else:
+			_combat_enabled = true
+
+## 示例港口配置（boot 时 port_service=true 使用；不进入关卡）。
+func _demo_port_config() -> Dictionary:
+	return {"ports": [
+		{"id": "l1_meridian_05", "name": "L1 Meridian", "berths": ["B1", "B2"],
+			"drydock_slots": 1, "tugs": ["TUG1"],
+			"fuel_capacity_t": 1000.0, "fuel_available_t": 1000.0,
+			"windows": [{"id": "W1", "open_t": 0.0, "close_t": 1000000.0}],
+			"corridor": "C1", "require_permit": true,
+			"services": ["refuel", "repair", "tow", "shuttle"]},
+	]}
 
 func _mk_event(event_type: String, target := "", payload := {}) -> Dictionary:
 	return {"type": event_type, "t": time.now_s() if time != null else 0.0,
@@ -326,6 +375,8 @@ func tick(dt: float) -> Dictionary:
 	_flush_order_events()
 	_advance_components(sim_dt)
 	var sensor_route: Dictionary = _advance_sensors(sim_dt)
+	var port_combat: Dictionary = _advance_port_combat(sim_dt)
+	_flush_component_events()
 	var routed: Array = _route_pending_bus_events()
 	_reconcile_standalone(pending_before)
 	var contracts := check_contracts()
@@ -344,6 +395,7 @@ func tick(dt: float) -> Dictionary:
 			"sensor": sensor_service != null,
 		},
 		"sensor_route": sensor_route,
+		"port_combat": port_combat,
 		"contracts": contracts}
 
 func _check_post() -> void:
@@ -441,6 +493,48 @@ func _enrich_track_id(ev: Dictionary) -> void:
 	var tid := String(ev.get("target_id", ""))
 	if tid != "" and _sensor_track_map.has(tid) and not ev.has("track_id"):
 		ev["track_id"] = String(_sensor_track_map[tid])
+
+## tick 驱动 PortService/CombatService（手动状态机本身不自动执行）。
+func _advance_port_combat(sim_dt: float) -> Dictionary:
+	var out := {"port": false, "combat": false}
+	if port_service != null:
+		var pr: Dictionary = port_service.tick(sim_dt)
+		out["port"] = bool(pr.get("ok", false))
+		if not bool(pr.get("ok", false)):
+			warnings.append("port_service tick 失败：" + str(pr.get("reason", "")))
+	if combat_service != null:
+		var cr: Dictionary = combat_service.tick(sim_dt)
+		out["combat"] = bool(cr.get("ok", true))
+		if not bool(cr.get("ok", true)):
+			warnings.append("combat_service tick 失败：" + str(cr.get("reason", "")))
+	return out
+
+## 把 Port/Combat 服务的 outbox 事件发布到 EventBus（只读事件，不改 world/组件）。
+func _flush_component_events() -> void:
+	var n := 0
+	if port_service != null:
+		for raw in port_service.take_events():
+			if not (raw is Dictionary):
+				continue
+			var ev: Dictionary = raw
+			var detail: Dictionary = ev.get("detail", {}) if ev.get("detail") is Dictionary else {}
+			_publish({"type": String(ev.get("kind", "port.event")), "t": now_s(),
+				"source": "port_service", "target": String(detail.get("port_id", "")),
+				"payload": detail.duplicate(true), "text_key": ""})
+			n += 1
+	if combat_service != null:
+		for raw2 in combat_service.take_events():
+			if not (raw2 is Dictionary):
+				continue
+			var cev: Dictionary = raw2
+			var kind := String(cev.get("kind", "event"))
+			var payload: Dictionary = cev.get("payload", {}) if cev.get("payload") is Dictionary else {}
+			_publish({"type": "combat." + kind, "t": now_s(),
+				"source": "combat_service", "target": String(payload.get("target_id", "")),
+				"payload": payload.duplicate(true), "text_key": ""})
+			n += 1
+	if n > 0:
+		_last_bus_routed_index = bus.events.size()
 
 const ROUTABLE_TYPES := ["story.flag", "story.evidence", "story.choice",
 	"track.observation", "track.evidence"]
@@ -887,6 +981,192 @@ func _reconcile_standalone(before_ids: Array) -> void:
 		}))
 		_standalone.erase(id)
 
+# ── PortService 委托（可选）─────────────────────────────────────
+
+func port_request(kind: String, ship_id: String, port_id: String, opts := {}) -> Dictionary:
+	if port_service == null:
+		return {"ok": false, "reason": "no_port_service", "errors": ["未配置 port_service"]}
+	var res: Dictionary = port_service.request(kind, ship_id, port_id, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "port_request", "kind": kind, "ship_id": ship_id,
+			"port_id": port_id, "opts": opts})
+	return res
+
+func port_permit(request_id: String) -> Dictionary:
+	if port_service == null:
+		return {"ok": false, "reason": "no_port_service"}
+	var res: Dictionary = port_service.permit(request_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "port_permit", "request_id": request_id})
+	return res
+
+func port_approach(request_id: String) -> Dictionary:
+	if port_service == null:
+		return {"ok": false, "reason": "no_port_service"}
+	var res: Dictionary = port_service.approach(request_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "port_approach", "request_id": request_id})
+	return res
+
+func port_dock(request_id: String) -> Dictionary:
+	if port_service == null:
+		return {"ok": false, "reason": "no_port_service"}
+	var res: Dictionary = port_service.dock(request_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "port_dock", "request_id": request_id})
+	return res
+
+func port_refuel(request_id: String, amount_t: float) -> Dictionary:
+	if port_service == null:
+		return {"ok": false, "reason": "no_port_service"}
+	var res: Dictionary = port_service.refuel(request_id, amount_t)
+	if bool(res.get("ok", false)):
+		_record({"op": "port_refuel", "request_id": request_id,
+			"amount_t": amount_t})
+	return res
+
+func port_repair(request_id: String, opts := {}) -> Dictionary:
+	if port_service == null:
+		return {"ok": false, "reason": "no_port_service"}
+	var res: Dictionary = port_service.repair(request_id, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "port_repair", "request_id": request_id, "opts": opts})
+	return res
+
+func port_finish_service(request_id: String) -> Dictionary:
+	if port_service == null:
+		return {"ok": false, "reason": "no_port_service"}
+	var res: Dictionary = port_service.finish_service(request_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "port_finish_service", "request_id": request_id})
+	return res
+
+func port_undock(request_id: String) -> Dictionary:
+	if port_service == null:
+		return {"ok": false, "reason": "no_port_service"}
+	var res: Dictionary = port_service.undock(request_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "port_undock", "request_id": request_id})
+	return res
+
+func port_tow(ship_id: String, port_id: String, opts := {}) -> Dictionary:
+	if port_service == null:
+		return {"ok": false, "reason": "no_port_service"}
+	var res: Dictionary = port_service.tow(ship_id, port_id, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "port_tow", "ship_id": ship_id, "port_id": port_id,
+			"opts": opts})
+	return res
+
+func port_shuttle(ship_id: String, port_id: String, opts := {}) -> Dictionary:
+	if port_service == null:
+		return {"ok": false, "reason": "no_port_service"}
+	var res: Dictionary = port_service.shuttle(ship_id, port_id, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "port_shuttle", "ship_id": ship_id, "port_id": port_id,
+			"opts": opts})
+	return res
+
+func port_services(request_id := "", port_id := "") -> Array:
+	if port_service == null:
+		return []
+	return port_service.services(request_id, port_id)
+
+func port_vm() -> Dictionary:
+	if port_service == null:
+		return {}
+	return port_service.vm()
+
+func port_summary() -> Dictionary:
+	if port_service == null:
+		return {}
+	return port_service.summary()
+
+# ── CombatService 委托（可选）───────────────────────────────────
+
+func set_roe(level: String) -> Dictionary:
+	if combat_service == null:
+		return {"ok": false, "reason": "no_combat_service"}
+	var res: Dictionary = combat_service.set_roe(level)
+	if bool(res.get("ok", false)):
+		_record({"op": "set_roe", "level": level})
+	return res
+
+func combat_register_track(track_id: String, data := {}) -> Dictionary:
+	if combat_service == null:
+		return {"ok": false, "reason": "no_combat_service"}
+	var res: Dictionary = combat_service.register_track(track_id, data)
+	if bool(res.get("ok", false)):
+		_record({"op": "combat_register_track", "track_id": track_id, "data": data})
+	return res
+
+func combat_request_solution(target_id: String, weapon_id: String, confirmed := false) -> Dictionary:
+	if combat_service == null:
+		return {"ok": false, "reason": "no_combat_service"}
+	var res: Dictionary = combat_service.request_solution(target_id, weapon_id, confirmed)
+	if bool(res.get("ok", false)):
+		_record({"op": "combat_request_solution", "target_id": target_id,
+			"weapon_id": weapon_id, "confirmed": confirmed})
+	return res
+
+func grant_authorization(level: String, scope_type := "target", scope_id := "",
+		duration_s := 0.0, until_destroyed := false) -> Dictionary:
+	if combat_service == null:
+		return {"ok": false, "reason": "no_combat_service"}
+	var res: Dictionary = combat_service.grant_authorization(level, scope_type,
+		scope_id, duration_s, until_destroyed)
+	if bool(res.get("ok", false)):
+		_record({"op": "grant_authorization", "level": level,
+			"scope_type": scope_type, "scope_id": scope_id,
+			"duration_s": duration_s, "until_destroyed": until_destroyed})
+	return res
+
+func revoke_authorization(grant_id := "") -> Dictionary:
+	if combat_service == null:
+		return {"ok": false, "reason": "no_combat_service"}
+	var res: Dictionary = combat_service.revoke_authorization(grant_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "revoke_authorization", "grant_id": grant_id})
+	return res
+
+func request_fire(target_id: String, weapon_id: String, confirmed := false) -> Dictionary:
+	if combat_service == null:
+		return {"ok": false, "reason": "no_combat_service"}
+	var res: Dictionary = combat_service.request_fire(target_id, weapon_id, confirmed)
+	if bool(res.get("ok", false)):
+		_record({"op": "request_fire", "target_id": target_id,
+			"weapon_id": weapon_id, "confirmed": confirmed})
+	return res
+
+## 手动推进战斗服务（通常由 session tick 驱动；此接口供测试/上层显式推进）。
+func combat_tick(dt: float) -> Dictionary:
+	if combat_service == null:
+		return {"ok": false, "reason": "no_combat_service"}
+	var res: Dictionary = combat_service.tick(dt)
+	if bool(res.get("ok", true)):
+		_record({"op": "combat_tick", "dt": dt})
+	_flush_component_events()
+	return res
+
+func combat_vm() -> Dictionary:
+	if combat_service == null:
+		return {}
+	return combat_service.vm()
+
+func combat_summary() -> Dictionary:
+	if combat_service == null:
+		return {}
+	return combat_service.summary()
+
+func combat_authorization(level := "FIRE", target := "", weapon := "") -> Dictionary:
+	if combat_service == null:
+		return {"ok": false, "reason": "no_combat_service"}
+	return combat_service.check_authorization(level, target, weapon)
+
+## 立即把 Port/Combat outbox 事件发布到 bus（通常 tick 会自动 flush；此接口供 UI/测试显式拉取）。
+func flush_events() -> int:
+	_flush_component_events()
+	return bus.current_seq() if bus != null else 0
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -930,6 +1210,20 @@ func check_contracts() -> Dictionary:
 			v.append("sensor_service 未就绪")
 		if absf(float(sensor_service.t) - now_s()) > 1.0e-6:
 			v.append("sensor 时间与会话不一致：%s != %s" % [str(sensor_service.t), str(now_s())])
+	if port_service != null:
+		if not bool(port_service.ready):
+			v.append("port_service 未就绪")
+		if absf(float(port_service.t_s) - now_s()) > 1.0e-6:
+			v.append("port 时间与会话不一致：%s != %s" % [str(port_service.t_s), str(now_s())])
+		if not bool(port_service.check_contracts().get("ok", false)):
+			v.append("port 不变量失败")
+	if combat_service != null:
+		if not bool(combat_service.ready):
+			v.append("combat_service 未就绪")
+		if absf(float(combat_service.t) - now_s()) > 1.0e-6:
+			v.append("combat 时间与会话不一致：%s != %s" % [str(combat_service.t), str(now_s())])
+		if not (String(combat_service.roe) in ["DEFEND", "HOLD", "TIGHT", "FREE"]):
+			v.append("combat ROE 非法：" + String(combat_service.roe))
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -979,6 +1273,8 @@ func snapshot() -> Dictionary:
 		"track_table": track_table.snapshot() if track_table != null else null,
 		"story": story_state.snapshot() if story_state != null else null,
 		"sensor": sensor_service.vm() if sensor_service != null else null,
+		"port": port_service.vm() if port_service != null else null,
+		"combat": combat_service.vm() if combat_service != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -1007,6 +1303,8 @@ func save_state() -> String:
 		"log": JSON.parse_string(JSON.stringify(_log)),
 		"track_table": track_table.snapshot() if track_table != null else null,
 		"story": story_state.snapshot() if story_state != null else null,
+		"port_service": port_service.save_state() if port_service != null else "",
+		"combat_service": combat_service.save_state() if combat_service != null else "",
 		"bus": {
 			"seq": bus.current_seq(),
 			"events": JSON.parse_string(JSON.stringify(bus.events)),
@@ -1067,6 +1365,22 @@ func load_state(json_text: String) -> Dictionary:
 			var sr: Dictionary = story_state.load(saved_story)
 			if not bool(sr.get("ok", false)):
 				replay_errors.append("story 快照恢复失败：" + str(sr.get("errors", [])))
+	var saved_port = data.get("port_service", null)
+	if saved_port != null and String(saved_port) != "":
+		if port_service == null:
+			replay_errors.append("存档含 port_service 快照但 boot 未启用 port_service")
+		else:
+			var pr: Dictionary = port_service.load_state(saved_port)
+			if not bool(pr.get("ok", false)):
+				replay_errors.append("port_service 快照恢复失败：" + str(pr.get("errors", [])))
+	var saved_combat = data.get("combat_service", null)
+	if saved_combat != null and String(saved_combat) != "":
+		if combat_service == null:
+			replay_errors.append("存档含 combat_service 快照但 boot 未启用 combat_service")
+		else:
+			var cr: Dictionary = combat_service.load_state(saved_combat)
+			if not bool(cr.get("ok", false)):
+				replay_errors.append("combat_service 快照恢复失败：" + str(cr.get("errors", [])))
 	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:
@@ -1149,6 +1463,81 @@ func _replay_op(op: Dictionary) -> Dictionary:
 			if sensor_service == null:
 				return {"ok": true, "skipped": "no_sensor_service"}
 			return query_iff(String(op.get("target_id", "")))
+		"port_request":
+			if port_service == null:
+				return {"ok": true, "skipped": "no_port_service"}
+			return port_request(String(op.get("kind", "")), String(op.get("ship_id", "")),
+				String(op.get("port_id", "")), op.get("opts", {}))
+		"port_permit":
+			if port_service == null:
+				return {"ok": true, "skipped": "no_port_service"}
+			return port_permit(String(op.get("request_id", "")))
+		"port_approach":
+			if port_service == null:
+				return {"ok": true, "skipped": "no_port_service"}
+			return port_approach(String(op.get("request_id", "")))
+		"port_dock":
+			if port_service == null:
+				return {"ok": true, "skipped": "no_port_service"}
+			return port_dock(String(op.get("request_id", "")))
+		"port_refuel":
+			if port_service == null:
+				return {"ok": true, "skipped": "no_port_service"}
+			return port_refuel(String(op.get("request_id", "")), float(op.get("amount_t", 0.0)))
+		"port_repair":
+			if port_service == null:
+				return {"ok": true, "skipped": "no_port_service"}
+			return port_repair(String(op.get("request_id", "")), op.get("opts", {}))
+		"port_finish_service":
+			if port_service == null:
+				return {"ok": true, "skipped": "no_port_service"}
+			return port_finish_service(String(op.get("request_id", "")))
+		"port_undock":
+			if port_service == null:
+				return {"ok": true, "skipped": "no_port_service"}
+			return port_undock(String(op.get("request_id", "")))
+		"port_tow":
+			if port_service == null:
+				return {"ok": true, "skipped": "no_port_service"}
+			return port_tow(String(op.get("ship_id", "")), String(op.get("port_id", "")),
+				op.get("opts", {}))
+		"port_shuttle":
+			if port_service == null:
+				return {"ok": true, "skipped": "no_port_service"}
+			return port_shuttle(String(op.get("ship_id", "")), String(op.get("port_id", "")),
+				op.get("opts", {}))
+		"set_roe":
+			if combat_service == null:
+				return {"ok": true, "skipped": "no_combat_service"}
+			return set_roe(String(op.get("level", "")))
+		"combat_register_track":
+			if combat_service == null:
+				return {"ok": true, "skipped": "no_combat_service"}
+			return combat_register_track(String(op.get("track_id", "")), op.get("data", {}))
+		"combat_request_solution":
+			if combat_service == null:
+				return {"ok": true, "skipped": "no_combat_service"}
+			return combat_request_solution(String(op.get("target_id", "")),
+				String(op.get("weapon_id", "")), bool(op.get("confirmed", false)))
+		"grant_authorization":
+			if combat_service == null:
+				return {"ok": true, "skipped": "no_combat_service"}
+			return grant_authorization(String(op.get("level", "")),
+				String(op.get("scope_type", "target")), String(op.get("scope_id", "")),
+				float(op.get("duration_s", 0.0)), bool(op.get("until_destroyed", false)))
+		"revoke_authorization":
+			if combat_service == null:
+				return {"ok": true, "skipped": "no_combat_service"}
+			return revoke_authorization(String(op.get("grant_id", "")))
+		"request_fire":
+			if combat_service == null:
+				return {"ok": true, "skipped": "no_combat_service"}
+			return request_fire(String(op.get("target_id", "")),
+				String(op.get("weapon_id", "")), bool(op.get("confirmed", false)))
+		"combat_tick":
+			if combat_service == null:
+				return {"ok": true, "skipped": "no_combat_service"}
+			return combat_tick(float(op.get("dt", 0.0)))
 		"pause":
 			return pause()
 		"resume":

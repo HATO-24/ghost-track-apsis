@@ -234,8 +234,8 @@ func _complete() -> void:
 			saved_name = "沧澜"
 		get_tree().root.set_meta("player_name", saved_name)
 		OS.set_environment("DSH_PLAYER_NAME", saved_name)
-		_log("FLOW COMPLETE → game_shell.tscn · name=" + saved_name)
-		get_tree().change_scene_to_file("res://game_shell.tscn")
+		_log("FLOW COMPLETE → port_page.tscn · name=" + saved_name)
+		get_tree().change_scene_to_file("res://port_page.tscn")
 
 
 func _result(res: Dictionary, action: String) -> void:

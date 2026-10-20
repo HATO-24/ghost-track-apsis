@@ -41,6 +41,10 @@ func _initialize() -> void:
 	_test_sensor_pipeline()
 	_test_sensor_save_load()
 	_test_sensor_errors_determinism()
+	_test_optional_port_combat()
+	_test_port_integration()
+	_test_combat_integration()
+	_test_port_combat_save_load()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -1116,3 +1120,312 @@ func _test_sensor_errors_determinism() -> void:
 		"sensor 同操作 save 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "sensor 失败/确定性 contracts ok")
 	_data_line("sensor_errors", "失败控制不改状态 · support0 忽略 · 同操作确定性")
+
+# ═══════════════════════════════════════════════════════════════════
+# 21. Port/Combat 可选组件
+# ═══════════════════════════════════════════════════════════════════
+
+func _port_cfg_session() -> Dictionary:
+	return {"port_service": {"ports": [
+		{"id": "p1", "name": "L1 Meridian", "berths": ["B1"], "drydock_slots": 1,
+			"tugs": ["TUG1"], "fuel_capacity_t": 500.0, "fuel_available_t": 500.0,
+			"windows": [{"id": "W1", "open_t": 0.0, "close_t": 100000.0}],
+			"corridor": "C1", "require_permit": false,
+			"services": ["refuel", "repair", "tow", "shuttle"]}]}}
+
+func _combat_cfg_session() -> Dictionary:
+	return {"combat_service": {"content_path": "res://framework/content/weapons_l1.json",
+		"roe": "TIGHT", "own_id": "session_ship", "fleet_id": "taskforce"}}
+
+func _port_core(s) -> String:
+	var vm: Dictionary = s.port_vm()
+	return _norm_json({"t_s": vm.get("t", 0.0), "ports": vm.get("ports", []),
+		"requests": vm.get("requests", []), "queue": vm.get("queue", [])})
+
+func _combat_core(s) -> String:
+	var vm: Dictionary = s.combat_vm()
+	return _norm_json({"t": vm.get("t", 0.0), "roe": vm.get("roe", ""),
+		"weapons": vm.get("weapons", []), "tracks": vm.get("tracks", []),
+		"grants": vm.get("grants", []), "solutions": vm.get("solutions", []),
+		"incoming": vm.get("incoming", [])})
+
+func _test_optional_port_combat() -> void:
+	_section_begin("21 Port/Combat 可选")
+	var s = _new_session()
+	_ok(s.port_service == null, "默认无 port_service")
+	_ok(s.combat_service == null, "默认无 combat_service")
+	_eq(s.port_vm().size(), 0, "无 port 时 port_vm 空")
+	_eq(s.port_summary().size(), 0, "无 port 时 port_summary 空")
+	_eq(s.combat_vm().size(), 0, "无 combat 时 combat_vm 空")
+	_eq((s.port_services() as Array).size(), 0, "无 port 时 services 空")
+	_eq(String(s.port_request("dock", "ship1", "p1").get("reason", "")), "no_port_service",
+		"无 port request 拒绝")
+	_eq(String(s.port_dock("x").get("reason", "")), "no_port_service", "无 port dock 拒绝")
+	_eq(String(s.set_roe("HOLD").get("reason", "")), "no_combat_service", "无 combat set_roe 拒绝")
+	_eq(String(s.combat_register_track("T1").get("reason", "")), "no_combat_service",
+		"无 combat register 拒绝")
+	_eq(String(s.request_fire("T1", "railgun").get("reason", "")), "no_combat_service",
+		"无 combat fire 拒绝")
+	_eq(String(s.grant_authorization("FIRE").get("reason", "")), "no_combat_service",
+		"无 combat grant 拒绝")
+	_eq(String(s.combat_authorization().get("reason", "")), "no_combat_service",
+		"无 combat check 拒绝")
+	# 单启用
+	var p = GameSession.new(_port_cfg_session())
+	_ok(bool(p.ready), "port-only session ready", str(p.errors))
+	_ok(p.port_service != null, "port 启用")
+	_ok(p.combat_service == null, "port-only 无 combat")
+	_eq(String(p.port_vm().get("schema", "")), "v17.port_service.v1", "port vm schema")
+	_ok(int(p.port_summary().get("ports", 0)) == 1, "port summary ports=1")
+	var c = GameSession.new(_combat_cfg_session())
+	_ok(bool(c.ready), "combat-only session ready", str(c.errors))
+	_ok(c.combat_service != null, "combat 启用")
+	_ok(c.port_service == null, "combat-only 无 port")
+	_eq(String(c.combat_vm().get("schema", "")), "combat_service.v1", "combat vm schema")
+	_eq(String(c.combat_vm().get("roe", "")), "TIGHT", "combat roe TIGHT")
+	_ok(bool(c.combat_vm().get("weapons") is Array), "combat weapons")
+	# 启用 true 的默认配置
+	var pd = GameSession.new({"port_service": true})
+	_ok(bool(pd.ready), "port_service=true ready", str(pd.errors))
+	_ok(pd.port_service != null, "port_service=true 启用")
+	_ok(int(pd.port_summary().get("ports", 0)) >= 1, "默认港口配置")
+	var cd = GameSession.new({"combat_service": true})
+	_ok(bool(cd.ready), "combat_service=true ready", str(cd.errors))
+	_ok(cd.combat_service != null, "combat_service=true 启用")
+	_data_line("optional_pc", "无配置退化 · 单启用 · true 默认配置")
+
+# ═══════════════════════════════════════════════════════════════════
+# 22. Port 集成
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_port_integration() -> void:
+	_section_begin("22 Port 集成")
+	var s = GameSession.new(_port_cfg_session())
+	_ok(bool(s.ready), "port session ready", str(s.errors))
+	var r: Dictionary = s.port_request("dock", "ship1", "p1", {"clearance": "C1"})
+	_eq(bool(r.get("ok", false)), true, "port_request ok", str(r.get("reason", "")))
+	var rid := String(r.get("request_id", ""))
+	_ok(rid.begins_with("PR-"), "request id")
+	_eq(String(s.port_request("dock", "ship1", "p1", {}).get("reason", "")), "ship_busy",
+		"同舰第二请求拒绝")
+	# 状态机
+	_eq(String(s.port_permit(rid).get("status", "")), "GRANTED", "port_permit GRANTED")
+	_eq(String(s.port_approach(rid).get("status", "")), "APPROACH", "port_approach")
+	_eq(String(s.port_dock(rid).get("status", "")), "DOCKED", "port_dock DOCKED")
+	_ok((s.port_services(rid) as Array).size() >= 2, "port_services")
+	_eq(String(s.port_refuel(rid, 50.0).get("status", "")), "SERVICING", "port_refuel")
+	_eq(String(s.port_finish_service(rid).get("status", "")), "DOCKED", "port_finish_service")
+	_eq(String(s.port_repair(rid).get("status", "")), "SERVICING", "port_repair")
+	_eq(String(s.port_finish_service(rid).get("status", "")), "DOCKED", "repair finish")
+	_eq(String(s.port_undock(rid).get("status", "")), "DEPARTED", "port_undock DEPARTED")
+	var res: Dictionary = s.port_summary().get("resources", {})
+	_eq(int(res.get("berths_free", -1)), 1, "离港后泊位空闲")
+	_eq(int(res.get("drydock_free", -1)), 1, "维修后船坞空闲")
+	_ok(float(res.get("fuel_available_t", 0.0)) < 500.0, "加注消耗燃料")
+	# 失败不改状态
+	var before := _port_core(s)
+	_eq(String(s.port_dock("PR-999999").get("reason", "")), "unknown_request", "未知 request 拒绝")
+	_eq(String(s.port_refuel(rid, 1.0).get("reason", "")), "wrong_state", "DEPARTED refuel 拒绝")
+	_eq(String(s.port_undock(rid).get("reason", "")), "wrong_state", "重复 undock 拒绝")
+	_eq(_port_core(s), before, "失败不改 port 状态")
+	# 总线事件（flush）
+	s.flush_events()
+	var port_events: Array = s.bus.filter_events({"type": "port"})
+	_ok(port_events.size() > 0, "port.* 事件进 bus", str(port_events.size()))
+	var kinds: Dictionary = {}
+	for raw in port_events:
+		kinds[String((raw as Dictionary).get("type", ""))] = true
+	_ok(kinds.has("port.request_created"), "bus 含 request_created")
+	_ok(kinds.has("port.request_granted"), "bus 含 request_granted")
+	_ok(kinds.has("port.docked"), "bus 含 docked")
+	_ok(kinds.has("port.departed"), "bus 含 departed")
+	# tick 驱动时间且不自动
+	var r2: Dictionary = s.port_request("dock", "ship2", "p1", {"clearance": "C2"})
+	var rid2 := String(r2.get("request_id", ""))
+	var tk: Dictionary = s.tick(2.0)
+	_eq(bool(tk.get("ok", false)), true, "port tick ok")
+	_near(float(s.port_service.t_s), s.now_s(), 1.0e-6, "port t 与会话同步")
+	_eq(String(s.port_service.get_request(rid2).get("status", "")), "REQUESTED",
+		"tick 不自动 grant")
+	_eq(String(s.port_permit(rid2).get("status", "")), "GRANTED", "tick 后手动 permit")
+	_ok(bool(s.check_contracts().get("ok", false)), "port contracts ok")
+	# tow / shuttle（独立 session，避免泊位被占用）
+	var st = GameSession.new(_port_cfg_session())
+	var tw: Dictionary = st.port_tow("tugship", "p1", {"clearance": "CT"})
+	var tid := String(tw.get("request_id", ""))
+	_eq(String(st.port_permit(tid).get("status", "")), "GRANTED", "tow permit")
+	_eq(String(st.port_approach(tid).get("status", "")), "APPROACH", "tow approach")
+	_eq(String(st.port_dock(tid).get("status", "")), "DOCKED", "tow dock")
+	_eq(String(st.port_undock(tid).get("status", "")), "DEPARTED", "tow undock")
+	var sh: Dictionary = st.port_shuttle("shuttleship", "p1", {"clearance": "CS"})
+	_eq(bool(sh.get("ok", false)), true, "shuttle request ok")
+	_data_line("port", "request→permit→approach→dock→refuel/repair→undock · 事件 · tick 不自动")
+
+# ═══════════════════════════════════════════════════════════════════
+# 23. Combat 集成
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_combat_integration() -> void:
+	_section_begin("23 Combat 集成")
+	var s = GameSession.new(_combat_cfg_session())
+	_ok(bool(s.ready), "combat session ready", str(s.errors))
+	var vm: Dictionary = s.combat_vm()
+	_eq(String(vm.get("schema", "")), "combat_service.v1", "combat vm schema")
+	_eq(String(vm.get("roe", "")), "TIGHT", "初始 ROE TIGHT")
+	_eq(String(vm.get("own_id", "")), "session_ship", "own_id")
+	_ok(bool(s.combat_vm().get("writes", {}).get("v15", true)) == false, "combat 不写 v15")
+	# ROE
+	var roe_h: Dictionary = s.set_roe("HOLD")
+	_eq(bool(roe_h.get("ok", false)), true, "set_roe HOLD ok")
+	_eq(String(s.combat_vm().get("roe", "")), "HOLD", "ROE HOLD")
+	_eq(bool(s.set_roe("TIGHT").get("ok", false)), true, "set_roe TIGHT")
+	var bad_roe: Dictionary = s.set_roe("BOGUS")
+	_eq(bool(bad_roe.get("ok", true)), false, "非法 ROE 拒绝")
+	_eq(String(s.combat_vm().get("roe", "")), "TIGHT", "非法 ROE 不改状态")
+	# track/solution
+	var reg: Dictionary = s.combat_register_track("T1", {"identity": "hostile",
+		"threat": "hostile", "range_km": 500.0, "in_arc": true})
+	_eq(bool(reg.get("ok", false)), true, "register track ok")
+	var sol: Dictionary = s.combat_request_solution("T1", "railgun")
+	_eq(bool(sol.get("ok", false)), true, "request_solution ok", str(sol.get("reason", "")))
+	var tk: Dictionary = s.tick(5.0)
+	_eq(bool(tk.get("ok", false)), true, "combat tick drive ok")
+	_near(float(s.combat_service.t), s.now_s(), 1.0e-6, "combat t 与会话同步")
+	var sols: Array = s.combat_vm().get("solutions", [])
+	_eq(sols.size(), 1, "combat solutions 1")
+	_eq(String((sols[0] as Dictionary).get("status", "")), "READY", "solution READY")
+	# 授权
+	var ga: Dictionary = s.grant_authorization("FIRE", "target", "T1")
+	_eq(bool(ga.get("ok", false)), true, "grant FIRE target ok")
+	var chk: Dictionary = s.combat_authorization("FIRE", "T1", "railgun")
+	_ok(not chk.is_empty() and String(chk.get("scope_id", "")) == "T1", "check_authorization 返回 grant")
+	# 未确认 fire 拒绝
+	var ammo_before := _railgun_ammo(s)
+	var no_conf: Dictionary = s.request_fire("T1", "railgun", false)
+	_eq(bool(no_conf.get("ok", true)), false, "未确认 fire 拒绝")
+	_eq(_railgun_ammo(s), ammo_before, "未确认 fire 不耗弹")
+	# 确认 fire
+	var fire: Dictionary = s.request_fire("T1", "railgun", true)
+	_eq(bool(fire.get("ok", false)), true, "确认 fire ok", str(fire.get("reason", "")))
+	_eq(_railgun_ammo(s), ammo_before - 1, "fire 消耗弹药")
+	_ok(fire.has("hit"), "fire 返回命中")
+	# 事件进 bus（flush）
+	s.flush_events()
+	var combat_events: Array = s.bus.filter_events({"type": "combat"})
+	_ok(combat_events.size() > 0, "combat.* 事件进 bus", str(combat_events.size()))
+	var ckinds: Dictionary = {}
+	for raw in combat_events:
+		ckinds[String((raw as Dictionary).get("type", ""))] = true
+	_ok(ckinds.has("combat.weapon_launch"), "bus 含 weapon_launch")
+	_ok(ckinds.has("combat.combat_hit") or ckinds.has("combat.combat_miss"),
+		"bus 含 hit/miss")
+	# 冷却内再次 fire 失败且不改状态
+	var before_core := _combat_core(s)
+	var again: Dictionary = s.request_fire("T1", "railgun", true)
+	_eq(bool(again.get("ok", true)), false, "冷却内 fire 拒绝")
+	_eq(_combat_core(s), before_core, "失败 fire 不改 combat 状态")
+	# 未知目标/武器/授权
+	_eq(String(s.request_fire("TX", "railgun", true).get("reason", "")), "unknown_track",
+		"未知目标拒绝")
+	_eq(bool(s.combat_register_track("T2", {"identity": "friend", "threat": "none",
+		"range_km": 100.0, "in_arc": true}).get("ok", false)), true, "注册友方 track")
+	var friend_fire: Dictionary = s.request_fire("T2", "railgun", true)
+	_eq(bool(friend_fire.get("ok", true)), false, "友方 fire 拒绝")
+	var bad_grant: Dictionary = s.grant_authorization("BOGUS", "target", "T1")
+	_eq(bool(bad_grant.get("ok", true)), false, "非法授权级别拒绝")
+	var bad_check: Dictionary = s.combat_authorization("BOGUS")
+	_ok(bad_check.is_empty(), "非法 check 返回空")
+	# revoke
+	var rv: Dictionary = s.revoke_authorization()
+	_eq(bool(rv.get("ok", false)), true, "revoke_authorization ok")
+	_ok(bool(s.check_contracts().get("ok", false)), "combat contracts ok")
+	_data_line("combat", "set_roe/track/solution/READY/grant/fire/冷却拒绝/事件 · ROE 不改状态")
+
+func _railgun_ammo(s) -> int:
+	for w in (s.combat_vm().get("weapons", []) as Array):
+		if String((w as Dictionary).get("id", "")) == "railgun":
+			return int((w as Dictionary).get("ammo", -1))
+	return -1
+
+# ═══════════════════════════════════════════════════════════════════
+# 24. Port/Combat 存档
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_port_combat_save_load() -> void:
+	_section_begin("24 Port/Combat 存档")
+	var cfg := _port_cfg_session()
+	cfg["combat_service"] = (_combat_cfg_session()["combat_service"] as Dictionary)
+	var s = GameSession.new(cfg)
+	_ok(bool(s.ready), "port+combat session ready", str(s.errors))
+	# port 状态：DOCKED + refuel 后 SERVICING
+	var pr: Dictionary = s.port_request("dock", "ship1", "p1", {"clearance": "C1"})
+	var rid := String(pr.get("request_id", ""))
+	s.port_permit(rid)
+	s.port_approach(rid)
+	s.port_dock(rid)
+	s.port_refuel(rid, 25.0)
+	# combat 状态：solution READY + grant + fire
+	s.combat_register_track("T1", {"identity": "hostile", "threat": "hostile",
+		"range_km": 500.0, "in_arc": true})
+	s.combat_request_solution("T1", "railgun")
+	var tk: Dictionary = s.tick(5.0)
+	_ok(bool(tk.get("ok", false)), "save 前 tick ok")
+	s.grant_authorization("FIRE", "target", "T1")
+	s.request_fire("T1", "railgun", true)
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary, "save JSON 可解析")
+	if d is Dictionary:
+		_ok(String((d as Dictionary).get("port_service", "")) != "", "save 含 port_service")
+		_ok(String((d as Dictionary).get("combat_service", "")) != "", "save 含 combat_service")
+		var seed: Dictionary = (d as Dictionary).get("seed", {})
+		_ok(seed.has("port_service"), "seed 含 port_service 配置")
+		_ok(seed.has("combat_service"), "seed 含 combat_service 配置")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "port+combat load ok", str(lr.get("errors", [])))
+	_ok(s2.port_service != null and s2.combat_service != null, "load 重建 port/combat")
+	_ok(_norm_json(s.port_vm()) == _norm_json(s2.port_vm()), "load 后 port_vm 一致")
+	_ok(_norm_json(s.combat_vm()) == _norm_json(s2.combat_vm()), "load 后 combat_vm 一致")
+	_ok(_norm_json(s.snapshot()) == _norm_json(s2.snapshot()), "load 后 snapshot 一致")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load 后 contracts ok")
+	_near(float(s2.port_service.t_s), s2.now_s(), 1.0e-6, "load port t 同步")
+	_near(float(s2.combat_service.t), s2.now_s(), 1.0e-6, "load combat t 同步")
+	# 继续操作
+	_eq(String(s2.port_finish_service(rid).get("status", "")), "DOCKED", "load 后 finish_service")
+	_eq(String(s2.port_undock(rid).get("status", "")), "DEPARTED", "load 后 undock")
+	_eq(bool(s2.set_roe("HOLD").get("ok", false)), true, "load 后 set_roe")
+	# 旧存档兼容：删除组件字段和 seed 配置
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("port_service")
+	old.erase("combat_service")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("port_service")
+	old_seed.erase("combat_service")
+	old["seed"] = old_seed
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 port/combat 兼容", str(lr3.get("errors", [])))
+	_ok(s3.port_service == null, "旧存档 load 后 port 退化")
+	_ok(s3.combat_service == null, "旧存档 load 后 combat 退化")
+	# 确定性：两实例同操作
+	var a = GameSession.new(cfg)
+	var b = GameSession.new(cfg)
+	for sv in [a, b]:
+		var r: Dictionary = sv.port_request("dock", "ship1", "p1", {"clearance": "C"})
+		var xid := String(r.get("request_id", ""))
+		sv.port_permit(xid)
+		sv.port_approach(xid)
+		sv.port_dock(xid)
+		sv.port_refuel(xid, 10.0)
+		sv.combat_register_track("T1", {"identity": "hostile", "threat": "hostile",
+			"range_km": 500.0, "in_arc": true})
+		sv.combat_request_solution("T1", "railgun")
+		sv.tick(5.0)
+		sv.grant_authorization("FIRE", "target", "T1")
+		sv.request_fire("T1", "railgun", true)
+	_ok(_norm_json(a.snapshot()) == _norm_json(b.snapshot()), "port+combat 同操作 snapshot 一致")
+	_ok(_norm_json(JSON.parse_string(a.save_state())) == _norm_json(JSON.parse_string(b.save_state())),
+		"port+combat 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "确定性 contracts ok")
+	_data_line("pc_save", "save/load port+combat VM/snapshot 一致 · 继续操作 · 旧档兼容 · 确定性")
