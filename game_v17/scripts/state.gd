@@ -253,7 +253,7 @@ var av4412_dock_text: Dictionary = {}
 # ── P1c 传感器状态 ─────────────────────────────────────
 var racks: Dictionary = {}                 # ship_id -> [sensor...]（SensorModel）
 var sensor_on: Dictionary = {}             # ship_id -> {model: bool}（当前融合计划）
-var rack_ship := "harmattan"               # HUD 传感器架对应的舰
+var rack_ship := "apsis"                  # HUD 传感器架对应的舰（默认旗舰）
 var emission: Dictionary = {}              # 合并后的舰队暴露态
 var fleet_emissions: Array = []            # 各舰 emission_state
 var elint_hits: Array = []                 # 敌方 ELINT 截获记录
@@ -341,7 +341,7 @@ func _own_track_index() -> int:
 	return 0
 
 func _ship_id_for_track(track_id: String) -> String:
-	return String(TRACK_SHIP.get(track_id, "harmattan"))
+	return String(TRACK_SHIP.get(track_id, "apsis"))
 
 func _hud_sensor(s: Dictionary) -> Dictionary:
 	var t := String(s.get("type", ""))
@@ -1777,7 +1777,7 @@ func _reset_runtime() -> void:
 	tracks.clear()
 	racks = {}
 	sensor_on = {}
-	rack_ship = "harmattan"
+	rack_ship = "apsis"
 	emission = {}
 	fleet_emissions = []
 	elint_hits = []

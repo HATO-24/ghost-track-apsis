@@ -348,7 +348,7 @@ const DISPLAY_FIX := {
 # P3b：每行 ON/OFF chip 可操作（调 state.set_sensor）；行点击仍只切换当前模块。
 func _rack_ship() -> String:
 	var v = state.get("rack_ship")
-	return String(v) if v != null else "harmattan"
+	return String(v) if v != null else "apsis"
 
 func _rack_ship_name() -> String:
 	var tr := _rack_track()
