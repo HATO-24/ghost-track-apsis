@@ -7,6 +7,7 @@ extends RefCounted
 # 不实现剧情/物理；不写旧场景。
 
 const GameSession := preload("res://scripts/core/game_session.gd")
+const PreludeScenario := preload("res://scripts/core/prelude_scenario.gd")
 const SaveService := preload("res://scripts/core/save_service.gd")
 
 const TRANSFER_CACHE := "res://framework/content/transfer_l4_l1_cached.json"
@@ -19,6 +20,11 @@ var errors: Array[String] = []
 var warnings: Array[String] = []
 var signal_sync_result: Dictionary = {}
 var last_transponder_reply: Dictionary = {}
+var prelude = null
+var prelude_ready := false
+var used_prelude := false
+var prelude_title := ""
+var prelude_triggers: Array = []
 var track_vm: Dictionary = {}
 var sensor_vm: Dictionary = {}
 var sensor_result := ""
@@ -40,17 +46,41 @@ func boot() -> bool:
 	warnings.clear()
 	session = GameSession.new()
 	var sensor_cfg := _sensor_config()
-	var br: Dictionary = session.boot({
-		"track_table": true,
-		"story_state": true,
-		"sensor_service": sensor_cfg,
-		"signal_service": true,
-		"facility_registry": true,
-		"transponder_service": true,
-		"orders": [
-			{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
-		],
-	})
+	var seed: Dictionary = {}
+	prelude = PreludeScenario.new()
+	prelude.setup({})
+	prelude_ready = bool(prelude.ready)
+	used_prelude = false
+	if prelude_ready:
+		var pcfg: Dictionary = prelude.boot_config()
+		if not pcfg.is_empty():
+			seed = pcfg
+			seed["track_table"] = true
+			seed["story_state"] = true
+			seed["sensor_service"] = sensor_cfg
+			seed["orders"] = [
+				{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
+			]
+			used_prelude = true
+			prelude_title = String(prelude.content.get("title", "序章"))
+			prelude_triggers = prelude.triggers.duplicate(true)
+			print("[SHELL BINDER] prelude ready=true entities=", prelude.entities.size(), " triggers=", prelude.triggers.size(), " used=true")
+	else:
+		warnings.append("PreludeScenario 未 ready：fallback demo")
+		print("[SHELL BINDER] prelude ready=false errors=", str(prelude.errors))
+	if seed.is_empty():
+		seed = {
+			"track_table": true,
+			"story_state": true,
+			"sensor_service": sensor_cfg,
+			"signal_service": true,
+			"facility_registry": true,
+			"transponder_service": true,
+			"orders": [
+				{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
+			],
+		}
+	var br: Dictionary = session.boot(seed)
 	if not bool(br.get("ok", false)):
 		errors.append("GameSession boot failed: " + str(br.get("reason", "")))
 		return false
@@ -174,7 +204,12 @@ func _build_contacts() -> Array:
 		if name == "":
 			name = "TRACK " + String(tr.get("track_id", tr.get("id", "")))
 		var identity := String(tr.get("identity", "unknown"))
-		var ttype := "friendly" if identity in ["friend", "assumed_friend"] else ("unknown" if identity in ["unknown", "pending"] else "neutral")
+		var tside := String(e.get("side", identity)).to_lower() if not e.is_empty() else identity
+		var ttype := "friendly"
+		if tside in ["unknown", "hostile", "suspect"]:
+			ttype = "unknown"
+		elif tside == "neutral":
+			ttype = "neutral"
 		var sources: Array = tr.get("sources", []) if tr.get("sources", []) is Array else []
 		var bid := String(tr.get("batch", ""))
 		if bid == "":
@@ -187,7 +222,7 @@ func _build_contacts() -> Array:
 			"id": bid,
 			"entity_id": eid, "track_id": String(tr.get("track_id", "")),
 			"name": name, "cls": "TRACK %s · L%d" % [String(tr.get("track_id", "")), int(tr.get("level", 0))],
-			"type": ttype, "side": identity, "threat": String(tr.get("threat", "unknown")),
+			"type": ttype, "side": tside, "identity": identity, "threat": String(tr.get("threat", "unknown")),
 			"badge": "TRACK", "level": int(tr.get("level", 0)),
 			"range_km": float(tr.get("range_km", -1.0)), "sources": sources,
 		})
@@ -202,11 +237,40 @@ func _build_contacts() -> Array:
 			continue
 		var e: Dictionary = entity_by_id[eid]
 		var kind := String(e.get("kind", "ship"))
+		var eside := String(e.get("side", "friend")).to_lower()
+		var etype := "friendly"
+		if eside in ["unknown", "hostile", "suspect"]:
+			etype = "unknown"
+		elif eside == "neutral":
+			etype = "neutral"
+		elif kind == "station" or kind in ["fuel", "tank", "port", "otc", "relay"]:
+			etype = "station"
 		var row := {"id": String(e.get("batch", eid)), "entity_id": String(eid), "track_id": "",
 			"name": String(e.get("name", eid)), "cls": kind.to_upper(),
-			"type": "station" if kind == "station" else "friendly", "side": "friend",
-			"threat": "none", "badge": "ENTITY", "level": 0, "range_km": -1.0, "sources": []}
-		if kind == "station" and session != null and session.facility_registry != null:
+			"type": etype, "side": eside, "identity": String(e.get("identity", eside)),
+			"threat": "unknown" if etype == "unknown" else "none", "badge": "ENTITY", "level": 0, "range_km": -1.0, "sources": []}
+		var efac_id := String(e.get("facility_id", ""))
+		if efac_id != "" and session != null and session.facility_registry != null:
+			var f0: Dictionary = session.facility_lookup(efac_id)
+			var fac0: Dictionary = f0.get("facility", {}) if f0.get("facility", {}) is Dictionary else {}
+			if not fac0.is_empty():
+				var cl0: Dictionary = f0.get("cluster", {}) if f0.get("cluster", {}) is Dictionary else {}
+				row["facility_id"] = String(fac0.get("facility_id", efac_id))
+				row["facility_name"] = String(fac0.get("name", ""))
+				row["facility_code"] = String(fac0.get("facility_code", ""))
+				row["transponder_code"] = String(fac0.get("transponder_code", ""))
+				row["transponder_type"] = String(fac0.get("transponder_type", ""))
+				row["facility_class"] = String(fac0.get("facility_class", ""))
+				row["owner"] = String(fac0.get("owner", ""))
+				row["side"] = String(fac0.get("side", eside))
+				row["cluster_id"] = String(fac0.get("parent_cluster", ""))
+				row["cluster_name"] = String(cl0.get("name", ""))
+				row["services"] = (fac0.get("services", []) as Array).duplicate()
+				row["ports"] = (fac0.get("ports", []) as Array).duplicate(true)
+				row["physical"] = (fac0.get("physical", {}) as Dictionary).duplicate(true)
+				row["badge"] = "FACILITY"
+				row["cls"] = "设施 · " + String(fac0.get("facility_class", "")) + " · " + String(fac0.get("facility_code", "")) + " · " + String(fac0.get("transponder_code", ""))
+		elif kind == "station" and session != null and session.facility_registry != null:
 			var f: Dictionary = session.facility_for_entity(eid)
 			if not f.is_empty():
 				var card: Dictionary = session.facility_lookup(String(f.get("facility_id", "")))
@@ -493,7 +557,17 @@ func transponder_query(target: String, mode := "mode_s", opts := {}) -> Dictiona
 		return {"ok": false, "reason": "no_session", "reply": null}
 	if session.transponder_service == null:
 		return {"ok": false, "reason": "no_transponder_service", "reply": null}
-	var res: Dictionary = session.transponder_interrogate("apsis", target, mode, opts if opts is Dictionary else {})
+	# prelude 的 profile_id 与 entity_id 可能不同（ceres_2_demo）；按 entity 反查 profile_id。
+	var query_id := target
+	if not (target in session.transponder_service.profiles):
+		for pid in session.transponder_service.profiles.keys():
+			var p: Dictionary = session.transponder_service.profiles[pid] if session.transponder_service.profiles[pid] is Dictionary else {}
+			if String(p.get("entity_id", "")) == target:
+				query_id = String(pid)
+				break
+	var res: Dictionary = session.transponder_interrogate("apsis", query_id, mode, opts if opts is Dictionary else {})
+	res["query_target_id"] = query_id
+	res["requested_target_id"] = target
 	last_transponder_reply = res.duplicate(true)
 	return last_transponder_reply
 

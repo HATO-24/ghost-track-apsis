@@ -547,3 +547,43 @@ v1_hud.gd
 2. IFF 结果只做最小展示；无 spoof/captured 交互切换（服务状态可产生，UI 会显示 status/identity）。
 3. facility 页 TRANSPONDER 行只在有最近应答时显示；当前截图被 overlay 覆盖。
 4. 不实现剧情/物理/完整 IFF 权限流；未跑全量 regression。
+
+
+---
+
+## 20　方案B-14：Shell 接序章场景（task-169）
+
+### 20.1 PreludeScenario boot
+
+- ShellBinder 新增 `PreludeScenario` preload；boot 优先 `prelude.setup({}) → prelude.boot_config()`：
+  - 用 boot_config 的 entities（9：apsis/harmattan/ferry/watchtower/deepwell/ceres_2/av_4412/l1_station/chronos）、facility_registry、transponder_service、signal_service；
+  - 追加 track_table/story_state/sensor_service/orders；
+  - `PreludeScenario` 未 ready 或 boot 失败才回退旧 demo seed，并 warning。
+- 实测：`prelude ready=true entities=9 triggers=3 used=true`；contacts=9；默认 selected 旗舰 `[1000] apsis`。
+- 不重复建实体：seed 只来自 boot_config；signal target sync 后 9 targets。
+
+### 20.2 光学/识别 + IFF
+
+- IFF QUERY 通过 `binder.transponder_query`；profile_id 与 entity_id 不同时（ceres_2_demo）按 entity_id 反查 profile_id，仍走真实 `transponder_interrogate`。
+- 选中 Ceres-2：`IFF ceres_2 · FAILED · faulty`；reply status=no_reply，crypto FAIL，reason=faulty，trigger=`ceres_no_reply`；顶部 `TRIGGER ceres_no_reply · ceres_2 · faulty`；L4 不伪造（TRACK NOT READY）。
+- AV-4412：IFF 走 mode_5；显示 entity_type/identity/crypto；不做假 L4。
+- 灯语发给 Ceres-2：CODE 切到 `GUSHEN2_REQ`，LIGHT TX 真实失败 `out_of_range`（Ceres 超出灯语范围），RECV/ACK 显示 no_tx；不伪造 ACK。失败 reason/trigger 可在 SIGNAL/IDENT 面板看到。
+- 灯语码来自 PreludeScenario merged_codes；signal 配置与场景内容一致。
+
+### 20.3 触发横幅/日志
+
+- transponder reply trigger 或 binder.events 中出现 `ceres_no_reply/av4412_arrival/chronos_unrest` 时，顶栏显示 `TRIGGER ...`；不自动推进剧情。
+- 本次 Ceres IFF 真实收到 `ceres_no_reply`；AV/Chronos 触发为条件事件，未由 UI 自动触发，不伪造。
+
+### 20.4 截图 / 验证
+
+- `mockups/v1-hud-prelude-1920.png`（9 contacts，旗舰 [1000] selected，Ceres-2/AV-4412/Chronos 进入）
+- `mockups/v1-hud-ceres2-1920.png`（Ceres target、IFF faulty/no_reply、trigger banner、SIGNAL/IDENT、LIGHT out_of_range）
+- 均 `V1 HUD SHOT err=0`；headless prelude/ceres demo 一次；`v1_hud.gd/shell_binder.gd --check-only` 通过。
+
+### 20.5 未完成 / 边界
+
+1. 9 实体 contact 名称使用 entity id（Prelude 内容无中文名），非硬编码舰名。
+2. Ceres-2 灯语 out_of_range 是真实距离失败；未伪造发送/ACK。
+3. AV-4412 mode_5 显示真实 profile 字段；未做完整军用 IFF 权限/交战。
+4. 触发横幅只展示已收到事件；不自动推进剧情/物理；未跑全量 regression。

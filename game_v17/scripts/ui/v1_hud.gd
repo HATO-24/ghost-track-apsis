@@ -80,6 +80,7 @@ var _signal_msg := ""
 var _signal_code_index := 0
 var _txp_reply: Dictionary = {}
 var _txp_msg := ""
+var _trigger_banner := ""
 var _save_slots: Array = []
 var _save_load_buttons: Array = []
 var _save_overlay_msg := ""
@@ -185,7 +186,17 @@ func _load_data() -> void:
 	var dok: bool = _damage.setup({}, "apsis")
 	print("[V1 HUD] damage_model=", str(dok), " sections=", _damage.section_ids().size(), " combat=", str(_combat.ready), " roe=", String(_combat.roe) if _combat != null else "—", " roe_locked=", str(_roe_locked))
 	var view := OS.get_environment("DSH_V1_VIEW")
-	if view == "transponder":
+	if view == "ceres":
+		_overlay = "optical"
+		_page = "target"
+		for i in range(_contacts.size()):
+			if String((_contacts[i] as Dictionary).get("entity_id", "")) == "ceres_2":
+				_selected = i
+				_optical_target = "ceres_2"
+				_optical_track = _track_for_contact(_contacts[i])
+				break
+		call_deferred("_ceres_demo")
+	elif view == "transponder":
 		_overlay = "optical"
 		_page = "facility"
 		for i in range(_contacts.size()):
@@ -291,6 +302,20 @@ func _select_preserving(preferred_id := "") -> void:
 
 
 
+func _update_trigger_banner() -> void:
+	if _trigger_banner != "" or binder == null:
+		return
+	for raw in binder.events:
+		if raw is Dictionary:
+			var e: Dictionary = raw
+			var ty := String(e.get("type", ""))
+			var pl: Dictionary = e.get("payload", {}) if e.get("payload", {}) is Dictionary else {}
+			var tid := String(pl.get("trigger_id", ""))
+			if tid in ["ceres_no_reply", "av4412_arrival", "chronos_unrest"] or ty.find("ceres_no_reply") >= 0 or ty.find("av4412_arrival") >= 0 or ty.find("chronos_unrest") >= 0:
+				_trigger_banner = tid if tid != "" else ty
+				break
+
+
 func _process(delta: float) -> void:
 	_t += delta
 	if binder != null:
@@ -371,6 +396,8 @@ func _draw() -> void:
 		_top_dots.append({"rect": Rect2(dp - Vector2(10, 10), Vector2(20, 20)), "kind": ["save", "menu", "quit"][i]})
 	if _save_msg != "":
 		Painter.label(self, top.position.x + 300, top.position.y + 66, TM.fit(_save_msg, 520, true, 6), 6, P.PH if _save_ok else P.RED, true)
+	if _trigger_banner != "":
+		Painter.label(self, top.position.x + 840, top.position.y + 66, TM.fit("TRIGGER " + _trigger_banner, 480, true, 6), 6, P.AMBER, true)
 	# 左接触
 	Painter.panel(self, left, "接触 / CONTACTS", P.PH)
 	var ly := left.position.y + 34.0
@@ -878,6 +905,23 @@ func _transponder_recent_text(fid: String, c: Dictionary) -> String:
 	return "%s · %s · %s · crypto %s" % [String(_txp_reply.get("registration_code", "—")), String(_txp_reply.get("facility_code", "—")), String(_txp_reply.get("status", "—")), ("OK" if bool((_txp_reply.get("crypto", {}) as Dictionary).get("valid", false)) else "FAIL")]
 
 
+func _ceres_demo() -> void:
+	# 仅 DSH_V1_VIEW=ceres 截图样张：真实 Ceres-2 IFF + 灯语；不伪造。
+	_optical_action("IFF")
+	var codes: Array = []
+	if binder != null and binder.session != null and binder.session.signal_service != null:
+		codes = binder.session.signal_service.code_ids
+	for i in range(codes.size()):
+		if String(codes[i]) == "GUSHEN2_REQ":
+			_signal_code_index = i
+			_signal_code = "GUSHEN2_REQ"
+			break
+	_optical_action("LIGHT")
+	_optical_action("RECV")
+	_optical_action("ACK")
+	print("[V1 HUD] CERES DEMO ", _optical_msg, " | trigger=", _trigger_banner)
+
+
 func _transponder_demo() -> void:
 	# 仅 DSH_V1_VIEW=transponder 截图样张：真实 transponder_service 询问，不伪造。
 	_optical_action("IFF")
@@ -1063,7 +1107,8 @@ func _optical_action(kind: String) -> void:
 		"IR":
 			res = s.start_channel("ir", target)
 		"IFF":
-			res = binder.transponder_query(target, "mode_s")
+			var qmode := "mode_5" if target == "av_4412" else "mode_s"
+			res = binder.transponder_query(target, qmode)
 			var reply: Dictionary = res.get("reply", {}) if res.get("reply", {}) is Dictionary else {}
 			_txp_reply = reply
 			_txp_msg = "IFF " + target + " · " + ("REPLY " + String(reply.get("status", "")) if bool(reply.get("ok", false)) else "NO REPLY · " + String(res.get("reason", reply.get("reason", ""))))
@@ -1073,6 +1118,11 @@ func _optical_action(kind: String) -> void:
 					String(reply.get("transponder_code", "")), String(reply.get("registration_code", "")),
 					String(reply.get("facility_code", "")), ("OK" if bool((reply.get("crypto", {}) as Dictionary).get("valid", false)) else "FAIL"),
 					float(reply.get("confidence", 0.0)), String((reply.get("trigger", {}) as Dictionary).get("trigger_id", "")) if reply.get("trigger", {}) is Dictionary else ""]
+				var tid := String((reply.get("trigger", {}) as Dictionary).get("trigger_id", "")) if reply.get("trigger", {}) is Dictionary else ""
+				if tid != "":
+					_trigger_banner = tid + " · " + target + " · " + String(reply.get("status", "")) + " · " + String(reply.get("reason", ""))
+			elif String((res.get("trigger", {}) as Dictionary).get("trigger_id", "")) if res.get("trigger", {}) is Dictionary else "" != "":
+				_trigger_banner = String((res.get("trigger", {}) as Dictionary).get("trigger_id", "")) + " · " + target + " · " + String(res.get("reason", ""))
 			binder.refresh()
 		"LIGHT":
 			var codes: Array = []
