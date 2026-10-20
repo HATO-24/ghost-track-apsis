@@ -15,6 +15,7 @@ extends SceneTree
 
 const TransitSensors := preload("res://scripts/transit_sensors.gd")
 const Authority := preload("res://framework/sim/sensor_authority.gd")
+const FleetTransfer := preload("res://framework/sim/fleet_transfer.gd")
 const SHIP_IDS := ["apsis", "harmattan", "ferry", "watchtower", "deepwell"]
 const PORT_IDS := ["l4_02_hammer", "l1_meridian_05", "l1_anchorage_02", "l1_drydock_01"]
 
@@ -29,6 +30,7 @@ func _initialize() -> void:
 	print("════════════════════════════════════════════════════════════════")
 	_test_content()
 	_test_default_step()
+	_test_fleet_positions()
 	_test_ship_observers()
 	_test_targets_and_failures()
 	_test_arrival_ports()
@@ -212,6 +214,121 @@ func _test_default_step() -> void:
 
 
 # ── 3. 5 舰均可作为 observer ────────────────────────────────────
+
+func _arr_close(a: Variant, b: Variant, tol := 1.0e-5) -> bool:
+	if not (a is Array) or not (b is Array):
+		return false
+	var aa: Array = a
+	var bb: Array = b
+	if aa.size() < 3 or bb.size() < 3:
+		return false
+	for i in range(3):
+		if absf(float(aa[i]) - float(bb[i])) > tol:
+			return false
+	return true
+
+
+func _ship_row(vm: Dictionary, id: String) -> Dictionary:
+	for raw in (vm.get("ships", []) as Array):
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == id:
+			return raw
+	return {}
+
+
+func _test_fleet_positions() -> void:
+	print("")
+	print("── 3. 逐舰 fleet_transfer.sample(t) 位置 ──")
+	var ts = _new()
+	var ft = FleetTransfer.new()
+	var res: Dictionary = ft.plan({"use_cache": true})
+	_ok(bool(res.get("ok", false)), "fleet_transfer.plan(use_cache) ok", str(res.get("errors", [])))
+	_ok(bool(ts.fleet_ready), "transit_sensors fleet_ready", ts.fleet_error)
+	var vm: Dictionary = ts.step(18.0)
+	_eq(String(vm.get("fleet_source", "")), "fleet_transfer.sample", "VM fleet_source")
+	var fvm: Dictionary = vm.get("fleet", {}) as Dictionary
+	_ok(bool(fvm.get("ready", false)), "VM fleet.ready")
+	_ok(float(fvm.get("tof_s", 0.0)) > 0.0, "VM fleet.tof_s")
+	_ok((fvm.get("cache", {}) as Dictionary).has("path"), "VM fleet.cache 字段")
+	var sample: Dictionary = ft.sample(18.0)
+	_eq((sample.get("ships", []) as Array).size(), 5, "fleet sample 5 舰")
+	var positions: Array = []
+	for sid in SHIP_IDS:
+		var vm_ship := _ship_row(vm, sid)
+		_ok(not vm_ship.is_empty(), "VM 舰行 " + sid)
+		var smp: Dictionary = {}
+		for raw in (sample.get("ships", []) as Array):
+			if raw is Dictionary and String((raw as Dictionary).get("ship_id", "")) == sid:
+				smp = raw
+		_ok(not smp.is_empty(), "fleet sample 有 " + sid)
+		_ok(_arr_close(vm_ship.get("pos_km", []), smp.get("pos_rot_km", [])),
+			"位置与 fleet_transfer 一致 " + sid)
+		_ok(String(vm_ship.get("source", "")) == "fleet_transfer.sample", "source=fleet_transfer " + sid)
+		_ok(float(vm_ship.get("arrival_error_km", -1.0)) >= 0.0, "arrival_error 字段 " + sid)
+		_ok(float(vm_ship.get("arrival_speed_kmps", -1.0)) >= 0.0, "arrival_speed 字段 " + sid)
+		_ok(bool(vm_ship.get("within_gate", false)), "within_gate " + sid)
+		_ok((vm_ship.get("fleet_vel_kmps", []) as Array).size() == 3, "fleet_vel 字段 " + sid)
+		positions.append(vm_ship.get("pos_km", []))
+	for i in range(1, positions.size()):
+		var d := 0.0
+		for j in range(3):
+			d += pow(float((positions[i] as Array)[j]) - float((positions[0] as Array)[j]), 2.0)
+		_ok(sqrt(d) > 1.0, "独立位置可区分 #%d" % i, "d=%.3f" % sqrt(d))
+	var apsis := _ship_row(vm, "apsis")
+	_ok(float(apsis.get("rel_to_flagship_mag_km", -1.0)) <= 1.0e-6, "旗舰 rel_to_flagship≈0")
+	var harm := _ship_row(vm, "harmattan")
+	_ok(absf(float(harm.get("rel_to_flagship_mag_km", 0.0)) - 14.5904) < 0.5,
+		"harmattan 与 fleet sample 相对旗舰距离", str(harm.get("rel_to_flagship_mag_km")))
+	var target_rows: Array = vm.get("targets", []) as Array
+	var target_ok := true
+	for raw in target_rows:
+		if not (raw is Dictionary):
+			continue
+		var tr: Dictionary = raw
+		var sid2 := String(tr.get("id", ""))
+		if sid2 in ["apsis", "ferry", "watchtower", "deepwell"]:
+			var smp2: Dictionary = {}
+			for raw2 in (sample.get("ships", []) as Array):
+				if raw2 is Dictionary and String((raw2 as Dictionary).get("ship_id", "")) == sid2:
+					smp2 = raw2
+			if not _arr_close(tr.get("pos_km", []), smp2.get("pos_rot_km", [])):
+				target_ok = false
+	_ok(target_ok, "目标行位置随 fleet sample 更新")
+	var apsis_target: Dictionary = {}
+	for raw in target_rows:
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == "apsis":
+			apsis_target = raw
+	_ok(not apsis_target.is_empty(), "apsis target 行")
+	_ok(float(apsis_target.get("range_km", 0.0)) > 5.0 and float(apsis_target.get("range_km", 0.0)) < 40.0,
+		"逐舰相对距离真实", str(apsis_target.get("range_km")))
+	var port_rows: Array = vm.get("ports", []) as Array
+	var l4_port: Dictionary = {}
+	for raw in port_rows:
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == "l4_02_hammer":
+			l4_port = raw
+	_ok(not l4_port.is_empty(), "L4 港行")
+	var plan_src: Dictionary = ts.plan.get("source", {}) if ts.plan.get("source") is Dictionary else {}
+	_ok(_arr_close(l4_port.get("pos_km", []), plan_src.get("pos_rot_km", []), 1.0e-3),
+		"L4 港位仍按 planner source")
+	var ts2 = _new()
+	ts2.seek(ts2.tof_s)
+	var vm2: Dictionary = ts2.step(6.0)
+	var sample_end: Dictionary = ft.sample(ts2.tof_s)
+	var end_ok := true
+	for sid in SHIP_IDS:
+		var vr := _ship_row(vm2, sid)
+		var sr: Dictionary = {}
+		for raw in (sample_end.get("ships", []) as Array):
+			if raw is Dictionary and String((raw as Dictionary).get("ship_id", "")) == sid:
+				sr = raw
+		if not _arr_close(vr.get("pos_km", []), sr.get("pos_rot_km", [])):
+			end_ok = false
+		_ok(float(vr.get("arrival_error_km", -1.0)) >= 0.0, "抵达 arrival_error " + sid)
+	_ok(end_ok, "抵达段 5 舰位置与 fleet sample 一致")
+	_ok(_json_ok(vm2), "fleet arrival VM JSON")
+	_ok(_json_ok(fvm), "fleet VM JSON")
+	_ok(((vm.get("writes", {}) as Dictionary).get("track_table", true)) == false, "fleet 不写 TrackTable")
+	_ok(((vm.get("writes", {}) as Dictionary).get("v15", true)) == false, "fleet 不写 V15")
+
 
 func _test_ship_observers() -> void:
 	print("")

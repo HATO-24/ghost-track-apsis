@@ -190,12 +190,23 @@ func _sensors_vm() -> Dictionary:
 	return sim.sensors.vm()
 
 
+func _fleet_rows(plan: Dictionary) -> Array:
+	if sim != null and bool(sim.fleet_ready) and sim.fleet != null:
+		return sim.fleet.fleet()
+	return plan.get("fleet", []) if plan.get("fleet", []) is Array else []
+
+
 func _draw_fleet_panel(plan: Dictionary) -> void:
 	_panel(FLEET)
 	var vm := _sensors_vm()
 	var ships: Array = vm.get("ships", []) if vm.get("ships", []) is Array else []
 	var targets: Array = vm.get("targets", []) if vm.get("targets", []) is Array else []
 	var obs := String(vm.get("observer_ship", "")) if not vm.is_empty() else ""
+	var fleet_rows := _fleet_rows(plan)
+	var fleet_by_id: Dictionary = {}
+	for rawf in fleet_rows:
+		if rawf is Dictionary:
+			fleet_by_id[String((rawf as Dictionary).get("ship_id", (rawf as Dictionary).get("id", "")))] = rawf
 	_txt(cjk, FLEET.position.x + 12, FLEET.position.y + 18, "舰队 / FLEET · 5 舰", 9, P.PH)
 	_txt_r(mono, FLEET.end.x - 12, FLEET.position.y + 18, "点击切 observer", 6, P.a(P.FAINT, 0.9))
 	draw_line(Vector2(FLEET.position.x + 12, FLEET.position.y + 26), Vector2(FLEET.end.x - 12, FLEET.position.y + 26), P.a(P.LINE, 0.7), 1.0)
@@ -224,9 +235,14 @@ func _draw_fleet_panel(plan: Dictionary) -> void:
 		for rawc in chs:
 			if rawc is Dictionary and String((rawc as Dictionary).get("target_id", "")) == String(vm.get("selected_target", "")):
 				n_ch += 1
-		_txt(mono, rr.position.x + 6, y, "Δv %.0f m/s · ch %d · ETA %s" % [
-			float((plan.get("budget", {}) as Dictionary).get("total_dv_mps", 0.0)) if plan.get("budget", {}) is Dictionary else 0.0,
-			n_ch, _hms(maxf(0.0, float(sim.tof_s) - float(sim.t)) if sim != null else 0.0)], 6, P.a(P.FAINT, 0.9))
+		var frow: Dictionary = fleet_by_id.get(sid, {}) if fleet_by_id.get(sid, {}) is Dictionary else {}
+		if frow.is_empty():
+			_txt(mono, rr.position.x + 6, y, "FLEET NOT READY · ch %d" % n_ch, 6, P.AMBER)
+		else:
+			_txt(mono, rr.position.x + 6, y, "Δv %.1f · ARR %.1f km / %.3f km/s · %s" % [
+				float(frow.get("total_dv_mps", 0.0)), float(frow.get("arrival_error_km", 0.0)),
+				float(frow.get("arrival_speed_kmps", 0.0)), "GATE" if bool(frow.get("within_gate", false)) else "FAIL"], 6,
+				P.PH if bool(frow.get("within_gate", false)) else P.AMBER)
 		y += 18.0
 	# Contacts / levels / TWS
 	_txt(cjk, FLEET.position.x + 12, y, "接触 / 目标 · TWS", 8, P.PH)
@@ -280,6 +296,20 @@ func _draw_side_page(plan: Dictionary, budget: Dictionary, arrival: Dictionary, 
 	_txt(mono, SIDE.position.x + 12, sy, "TOF %.1f d · Δv %.1f m/s · ARR %.1f km" % [
 		float(tr.get("tof_days", 0.0)), float(budget.get("total_dv_mps", 0.0)), float(arrival.get("radius_km", 0.0))], 7, P.TXT)
 	sy += 14.0
+	if sim != null and bool(sim.fleet_ready) and sim.fleet != null:
+		var fsum: Dictionary = sim.fleet.summary()
+		var fa: Dictionary = fsum.get("arrival", {}) if fsum.get("arrival", {}) is Dictionary else {}
+		var fd: Dictionary = fsum.get("dv", {}) if fsum.get("dv", {}) is Dictionary else {}
+		_txt(mono, SIDE.position.x + 12, sy, "FLEET %d 舰 · all_gate %s · max_arr %.1f km" % [
+			int(fsum.get("ship_count", 0)), str(bool(fa.get("all_within_gate", false))), float(fa.get("max_error_km", 0.0))], 7,
+			P.PH if bool(fa.get("all_within_gate", false)) else P.AMBER)
+		sy += 12.0
+		_txt(mono, SIDE.position.x + 12, sy, "ΣΔv %.1f · avg %.1f · max %.1f m/s" % [
+			float(fd.get("sum_total_mps", 0.0)), float(fd.get("avg_total_mps", 0.0)), float(fd.get("max_total_mps", 0.0))], 7, P.DIM)
+		sy += 12.0
+	else:
+		_txt(mono, SIDE.position.x + 12, sy, "FLEET TRANSFER NOT READY", 7, P.AMBER)
+		sy += 12.0
 	draw_line(Vector2(SIDE.position.x + 12, sy), Vector2(SIDE.end.x - 12, sy), P.a(P.LINE, 0.6), 1.0)
 	sy += 14.0
 	if target_mode:
@@ -806,14 +836,6 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 	var p1 := _p_real(Vector3.ZERO, pr)
 	var re := maxf(7.0, C.R_EARTH_KM * sc)
 	var rm := maxf(4.0, C.R_MOON_KM * sc)
-	# 星座线
-	var cons := [0, 3, 7, 12, 18, 26, 35, 48, 63, 79]
-	for ci in range(cons.size() - 1):
-		var ha := (int(cons[ci]) * 1103515245 + 12345) & 0x7fffffff
-		var hb := (int(cons[ci + 1]) * 1103515245 + 12345) & 0x7fffffff
-		var pa := Vector2(MAP.position.x + 20.0 + float(ha % int(MAP.size.x - 40.0)), MAP.position.y + 20.0 + float((ha / 97) % int(MAP.size.y - 40.0)))
-		var pb := Vector2(MAP.position.x + 20.0 + float(hb % int(MAP.size.x - 40.0)), MAP.position.y + 20.0 + float((hb / 97) % int(MAP.size.y - 40.0)))
-		draw_line(pa, pb, P.a(P.TXT, 0.08), 1.0)
 	draw_arc(pe, 42164.0 * sc, 0, TAU, 64, P.a(P.PH, 0.10), 1.0, true)
 	draw_arc(pe, 384400.0 * sc, 0, TAU, 96, P.a(P.PH_DIM, 0.10), 1.0, true)
 	draw_circle(pe, re, P.a(P.BLUE, 0.10))
@@ -851,19 +873,28 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 		var pc := _p_real(_interp_pos(_frac()) - l1, pr)
 		draw_circle(pc, 3.0, P.PH)
 		_txt(cjk, pc.x + 8, pc.y - 8, "TRANSIT %s" % _phase_label(), 7, P.PH)
-		var fleet: Array = plan.get("fleet", []) if plan.get("fleet", []) is Array else []
-		for raw2 in fleet:
+		# 5 舰独立传播轨迹（fleet_transfer.samples/sample），不是旗舰 timeline+常量偏移
+		if sim != null and bool(sim.fleet_ready) and sim.fleet != null:
+			var sdata: Array = sim.fleet.samples_data()
+			for sidx in range(sdata.size()):
+				var srow: Dictionary = sdata[sidx]
+				for shs in (srow.get("ships", []) as Array):
+					var sp2 := _p_real(_v3((shs as Dictionary).get("pos_rot_km", [])) - l1, pr)
+					draw_circle(sp2, 1.0, P.a(P.PH_DIM, 0.22))
+		var fships: Array = sim.fleet_sample.get("ships", []) if sim != null and sim.fleet_sample.get("ships", []) is Array else []
+		for raw2 in fships:
 			var ship: Dictionary = raw2
-			var off := _v3(ship.get("offset_km", []))
-			var sp := _p_real(_interp_pos(_frac()) - l1 + off, pr)
-			var c: Color = P.PH if String(ship.get("id", "")) == "apsis" else P.PH_DIM
-			draw_circle(sp, 2.5, c)
+			var sp := _p_real(_v3(ship.get("pos_rot_km", [])) - l1, pr)
+			var sid2 := String(ship.get("ship_id", ""))
+			var c: Color = P.PH if sid2 == "apsis" else P.PH_DIM
+			draw_circle(sp, 2.8, c)
 			_txt(mono, sp.x + 5, sp.y - 5, String(ship.get("batch", "")), 6, P.a(c, 0.9))
-			var sp2 := _p_real(_interp_pos(minf(1.0, _frac() + 0.01)) - l1 + off, pr)
-			if (sp2 - sp).length() > 1.0:
-				draw_line(sp, sp + (sp2 - sp) * 6.0, P.a(P.PH_DIM, 0.45), 1.0)
+			var vv := _v3(ship.get("vel_rot_kmps", []))
+			if vv.length() > 1.0e-9:
+				var vd := Vector2(vv.x, -vv.y).normalized() * clampf(vv.length() * 260.0, 3.0, 18.0)
+				draw_line(sp, sp + vd, P.a(c, 0.55), 1.0)
 		_txt(cjk, MAP.position.x + 24, MAP.position.y + 42,
-			"真实 CR3BP/Lambert 轨迹 · 5 舰沿 timeline · scale %.0f km/px" % (1.0 / maxf(sc, 1.0e-9)), 7, P.a(P.PH_DIM, 0.9))
+			"5 舰独立 CR3BP 轨迹 · fleet_transfer · scale %.0f km/px" % (1.0 / maxf(sc, 1.0e-9)), 7, P.a(P.PH_DIM, 0.9))
 		_txt(cjk, MAP.position.x + 24, MAP.end.y - 26,
 			"L4-02 → L1 · timeline %d 段 · 折线为真实 pos_rot_km（减 L1）" % tl.size(), 7, P.a(P.FAINT, 0.9))
 	else:

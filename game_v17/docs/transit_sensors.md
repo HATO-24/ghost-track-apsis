@@ -1,7 +1,7 @@
-# 阶段2-TRANSIT-SENSOR-1/2 · 转场传感器数据层（雷达/IFF 控制）
+# 阶段2-TRANSIT-SENSOR-1/2/3 · 转场传感器数据层（逐舰位置 + 雷达/IFF）
 
-> task-103（数据层）→ **task-107（TRANSIT-CONTROLS-1：雷达/EMCON + 真实 IFF）**。
-> 工程 `game_v17`。只改三个文件：
+> task-103（数据层）→ task-107（雷达/EMCON + 真实 IFF）→ **task-113（逐舰
+> `fleet_transfer.sample(t)` 位置）**。工程 `game_v17`。只改三个文件：
 > `scripts/transit_sensors.gd`、`tests/transit_sensors_probe.gd`、`docs/transit_sensors.md`。
 > 未改 `transit.gd`/`transit_hud.gd`/`project.godot`、旧 HUD/state/bridge/core/sim；
 > 未接 UI；未写 world/TrackTable/V15；未 commit。
@@ -13,12 +13,12 @@ scenario_transit_l4_l1.json
   ├─ 5 舰 entities（apsis 1000 / harmattan 1001 / ferry 1002 / watchtower 1003 / deepwell 1004）
   └─ 4 港 ports（l4_02_hammer 3000；l1_meridian_05 3100、l1_anchorage_02 3101、l1_drydock_01 3102）
           │
-          ▼
-transfer_planner.plan()（静态缓存一次）
-  timeline[]（t_s / pos_rot_km / vel_rot_kmps）
-  fleet[]（offset_km / offset_kmps）
-  source/target port states
-          │  同一 bary_rot 帧；按 t/tof 线性插值 + 舰队偏移
+          ├── transfer_planner.plan()（缓存一次） → source/target 港位、tof
+          │
+          └── fleet_transfer.plan({"use_cache": true})（缓存优先）
+                 └─ sample(t) → 每舰独立 CR3BP 传播插值 pos_rot_km/vel_rot_kmps、
+                    earth_distance/distance_to_target/rel_to_flagship、arrival_error/speed
+          │  同一 bary_rot 帧；舰位=fleet_transfer.sample(t)，港位=planner source/target
           ▼
 transit_sensors.gd（本层）
   observer ship / target ship或port → snapshot(observer, targets, env)
@@ -33,22 +33,25 @@ transit_sensors.gd（本层）
           │
           ▼
 JSON VM：contacts / channels / optical / levels / events / warnings
-          radar_enabled / emcon / exposure / radar / iff / ships / ports / targets
+          radar_enabled / emcon / exposure / radar / iff / fleet / ships / ports / targets
           writes={track_table:false, v15:false}
 ```
 
-数据源全部只读；本层只推进自己的 `t`，不修改 `transit.gd` 的本地时间、场景、plan 或 V15。
+数据源全部只读；本层只推进自己的 `t`，不修改 `transit.gd` 的本地时间、场景、plan、
+fleet_transfer 缓存或 V15。
 
 ## 2　坐标 / 位置生成
 
-- 帧：**bary_rot（km, km/s, s）**，与 `transfer_planner` 输出一致；本层不换帧。
-- 基准位置：`timeline` 按 `t/tof_s` 线性插值 `pos_rot_km/vel_rot_kmps`。
-- 舰位：`base + fleet.offset_km`；速度使用共享 `base_vel`（`offset_kmps` 只作为数据元数据，不叠加相对速度；避免编队 1 m/s 差在 1 µrad IFOV 下被误判为拖影模糊）。
-- 港位：
-  - L4 源港：`plan.source.pos_rot_km`；
-  - L1 三港：`plan.target.pos_rot_km + (scenario_port.offset_km − l1_meridian_05.offset_km)`。
-- `step(dt)` 推进本地时间并 clamp 到 `tof_s`；`seek(t_s)` 直接定位（测试/将来 HUD 拖动时间轴用），
-  `seek` 后建议再 `step(6.0)` 触发一次雷达扫描。
+- 帧：**bary_rot（km, km/s, s）**，与 `transfer_planner`/`fleet_transfer` 输出一致；本层不换帧。
+- **舰位（task-113）**：`fleet_transfer.sample(t).ships[ship_id].pos_rot_km`；
+  不再用“旗舰 timeline + 编队偏移”。每舰来自独立 CR3BP 传播插值；`source` 字段为
+  `fleet_transfer.sample`（fleet_transfer 不可用时才回退 `timeline_fallback` 并 warning）。
+- **舰速**：传感模型仍用共享转移基线速度，逐舰真实速度放在 `ships[].fleet_vel_kmps`
+  仅展示/审计；避免 1 m/s 级编队差在 1 µrad IFOV 下被误判为拖影模糊（位置仍逐舰独立）。
+- **港位**：L4 源港=`plan.source.pos_rot_km`；L1 三港=`plan.target.pos_rot_km +
+  (scenario_port.offset_km − l1_meridian_05.offset_km)`；不随 fleet_transfer 改。
+- `step(dt)` 推进本地时间并 clamp 到 `fleet_transfer.tof_s`；`seek(t_s)` 直接定位
+  （测试/将来 HUD 拖动时间轴用），`seek` 后建议再 `step(6.0)` 触发一次雷达扫描。
 - 阶段：`departure`（t≤1）、`cruise`、`arrival`（t≥tof−1）。
 
 ## 3　API
@@ -93,11 +96,13 @@ ts.to_dict() -> Dictionary
 | `t` / `dt` / `step_count` / `tof_s` / `progress` / `phase` | 时间轴 |
 | `observer_ship` / `observer` | 当前观测舰 id/name/batch/pos/vel |
 | `selected_target` | 当前目标 id |
-| `ships[5]` | id/batch/name/role/class/side/pos/vel/range/observer/selected/loadout_fallbacks |
-| `ports[4]` | id/batch/name/lpoint/port_id/status/pos/vel/range/selected |
-| `targets[8]` | 非 observer 4 舰 + 4 港；level/level_support/contact_level/optical_level/range/visible/vis_status/ir_status/reason |
+| `ships[5]` | id/batch/name/role/class/side/**pos= fleet_transfer.sample**/vel/range/**fleet_vel_kmps**/**source**/earth_distance/distance_to_target/rel_to_flagship(_mag)/**arrival_error_km/arrival_speed_kmps/within_gate**/observer/selected/loadout_fallbacks |
+| `ports[4]` | id/batch/name/lpoint/port_id/status/pos/vel/range/selected（planner source/target） |
+| `targets[8]` | 非 observer 4 舰 + 4 港；level/level_support/contact_level/optical_level/range/visible/vis_status/ir_status/reason；舰目标随 fleet sample 更新 |
 | `contacts` | authority advisory contacts（含 target_id/level/level_support/range/bearing/identity/quality/level_evidence），附加 kind/name/selected |
 | `channels` | authority 全部通道：`radar.tws` + `optical` + `ir`；含 status/progress/FOV/IFOV/off-axis/occlusion/SNR/level |
+| `fleet` | `source=fleet_transfer.sample`、ready/error/tof_s/sample_t_s/sample_index、arrival{rows,max_error,max_speed,all_within_gate}、cache{path,schema,has_cache,sample_count}、warnings |
+| `fleet_source` | `"fleet_transfer.sample"` 或 `"timeline_fallback"`（后备时 warning） |
 | `optical` | `backend` / `available_backends` / `selected_target` / `vis` / `ir` / `channels`(仅 optical|ir) / `summary` |
 | `optical.vis` / `optical.ir` | 选中目标通道：status/level/reason/fov_deg/ifov_urad/snr_db/occluded/boresight/off_axis/n_px/... |
 | `levels` | `schema=transit_sensor_levels.v1`；`by_target{level,contact_level,optical_level,range_km,reason}`、`counts{0..4}`、`max_level`、`labels` |
@@ -126,6 +131,8 @@ ts.to_dict() -> Dictionary
 | FOV 竞争 | 同 kind 多通道共享云台视轴，非当前视轴目标 `fov_miss` |
 | 抵达 L1 | `phase=arrival`；L1 Meridian 近距（<1000 km）、L4 远距（>100k km）；L1 港雷达接触 |
 | 5 舰 observer | 每舰可 `select_ship`；缺能力用 fallback 并 warning，仍输出 contacts/channels/VM |
+| 5 舰独立位置 | VM ships 每舰 pos == `fleet_transfer.sample(t)` 同 id 的 `pos_rot_km`（误差<1e-5 km）；source=`fleet_transfer.sample`；arrival_error/speed/within_gate 来自 fleet_transfer；旗舰 rel≈0，其余 5–30 km 可区分；目标行/range 同步更新 |
+| 港位 | 仍按 planner source/target + scenario 港 offset；不随 fleet_transfer 改 |
 | 雷达开机 | `radar_enabled=true`、contacts≥5、`exposure.exposed=true`、ELINT 截获距离 45,000 km/20 s 定位字段 |
 | 雷达关闭/EMCON | `radar_enabled=false`、`emcon=true`、contacts=0、`exposure.exposed=false`；IFF 真实返回 `blocked` |
 | IFF friend | apsis/harmattan/ferry 的 `transponder=ok` → `status=friend`、identity=friend；L4 港 friend |
@@ -148,6 +155,7 @@ func _process(delta):
 #   vm.contacts -> 接触列表（level/range/bearing/identity）
 #   vm.optical.vis/ir -> SENSOR 面板 FOV/SNR/status/reason
 #   vm.levels.counts -> L0–L4 统计
+#   vm.fleet / vm.ships[].pos_km -> 逐舰位置（fleet_transfer）；source/arrival_error 可标注
 #   vm.radar_enabled / vm.exposure -> RADAR/EMCON 状态与暴露警示
 #   vm.iff.last/summary -> IFF 询问结果（friend/unknown…；hostile=0）
 #   vm.events/warnings -> 事件/warning 区
@@ -160,12 +168,15 @@ HUD 只需消费 VM；不修改 `transit.gd`/`transit_hud.gd` 时不存在依赖
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/transit_sensors_probe.gd
-# TRANSIT SENSOR PROBE RESULT: PASS=312 FAIL=0
+# TRANSIT SENSOR PROBE RESULT: PASS=380 FAIL=0
 # TRANSIT SENSOR PROBE OK（退出码 0）
 ```
 
-覆盖（312 checks）：
+覆盖（380 checks）：
 - 场景/plan：5 舰、4 港、批号、tof>0、VM schema/writes=false/JSON；
+- **逐舰位置**：`fleet_transfer.plan(use_cache)`；5 舰 VM pos 与 `sample(t)` 逐舰一致（<1e-5 km）、
+  source/arrival_error/arrival_speed/within_gate/fleet_vel/rel_to_flagship 字段；5 舰独立位置可区分；
+  目标行/相对距离随 fleet sample 更新；港位仍按 planner source/target；抵达段 5 舰位置一致；
 - 默认观测：contacts≥5、TWS 通道、VIS 锁定 L3、IR 锁定 L1、FOV/IFOV/SNR/off-axis、等级/事件/warnings；
 - 5 舰逐一切 observer：observer 字段、5 ships/4 ports/8 targets、contacts/channels、fallback 列表、JSON；
 - 目标：8 个目标可 set；未知目标/非法 kind/无匹配 stop 的失败；超距 VIS 失败 reason；
@@ -182,12 +193,16 @@ HUD 只需消费 VM；不修改 `transit.gd`/`transit_hud.gd` 时不存在依赖
 ## 8　边界 / 未完成
 
 - 本任务**不接 HUD/UI**；`transit_hud.gd` 仍显示 `SENSOR BRIDGE NOT WIRED`，下一任务消费本 VM。
+- 5 舰位置来自 `fleet_transfer.sample(t)`（缓存优先）；若 fleet_transfer/缓存不可用，回退
+  `timeline_fallback` 并 warning，不伪造独立传播结果。
 - 5 舰中 apsis/ferry/watchtower/deepwell 的场景能力不完整（尤其 watchtower/deepwell 仅通信）；
   数据层补 authority 默认挂载并**显式 warning + fallbacks**，不把补挂载写成 V15 能力。
+- 传感模型仍用共享基线速度，逐舰真实速度仅在 `ships[].fleet_vel_kmps` 展示；位置逐舰独立。
 - 转场自然几何没有地球背后的港群，故真实遮挡用底层 authority 几何在 probe 验证；
   transit VM 的 `reason` 会透传底层 `occluded`。
 - 港群位置由 scenario port offset + plan target state 重建；L4 只一个港，L1 三港同簇。
 - `set_radar_enabled(false)` 即 EMCON，真实阻断 IFF（blocked）；要恢复 IFF 先
   `set_radar_enabled(true)`（再 step 产生新雷达扫描/暴露）。这是本层演示语义，不是 V15 EMCON 权威写入。
 - IFF 结果只作为身份证据，不产生位置/接触、不自动判敌；未接 ELINT/EW/世界航迹/V15。
-- 未做 HUD 时间轴拖动/最终 exe 集成；plan 缓存为进程内静态；`restart`/新实例会复用（只读，无副作用）。
+- 未做 HUD 时间轴拖动/最终 exe 集成；`transit_sensors` 的 plan/fleet 缓存为进程内/文件只读，
+  新实例复用缓存；未跑全量回归，未 commit。

@@ -10,6 +10,7 @@ const TransitHUD := preload("res://scripts/transit_hud.gd")
 const TransitSensors := preload("res://scripts/transit_sensors.gd")
 const TeachingController := preload("res://scripts/teaching_controller.gd")
 const TransitDamage := preload("res://scripts/transit_damage.gd")
+const FleetTransfer := preload("res://framework/sim/fleet_transfer.gd")
 const Palette := preload("res://scripts/pal.gd")
 const Fonts := preload("res://scripts/fonts.gd")
 
@@ -30,6 +31,9 @@ var hud
 var sensors
 var teach
 var damage
+var fleet
+var fleet_sample: Dictionary = {}
+var fleet_ready := false
 var destination := "L1 Meridian"
 var damage_open := false
 var modal_page := ""
@@ -66,6 +70,10 @@ func _ready() -> void:
 	sensors = TransitSensors.new({})
 	teach = TeachingController.new("res://framework/content/teaching_l4_l1.json")
 	damage = TransitDamage.new({})
+	fleet = FleetTransfer.new()
+	var fr: Dictionary = fleet.plan({"use_cache": true})
+	fleet_ready = bool(fr.get("ok", false)) and bool(fleet.ready)
+	fleet_sample = fleet.sample(0.0) if fleet_ready else {}
 	destination = "L1 Meridian"
 	ui_mode = "ship"
 	var view := OS.get_environment("DSH_TRANSIT_VIEW")
@@ -109,6 +117,8 @@ func _ready() -> void:
 		if _shot_mode == "1":
 			frac = 1.0
 		t = clampf(frac, 0.0, 1.0) * tof_s
+		if fleet_ready and fleet != null:
+			fleet_sample = fleet.sample(t)
 		if sensors != null:
 			sensors.seek(t)
 			if view == "target":
@@ -130,10 +140,11 @@ func _ready() -> void:
 				sensors.seek(t)
 				optical_open = true
 		_update_phase()
-	print("TRANSIT READY plan_ok=%s tof_s=%.1f timeline=%d fleet=%d scenario=%s" % [
+	print("TRANSIT READY plan_ok=%s tof_s=%.1f timeline=%d fleet=%d scenario=%s fleet_ready=%s fleet_pos=%d" % [
 		str(bool(plan.get("ok", false))), tof_s, (plan.get("timeline", []) as Array).size() if plan.get("timeline", []) is Array else 0,
 		(plan.get("fleet", []) as Array).size() if plan.get("fleet", []) is Array else 0,
-		String(scenario.get("title", ""))])
+		String(scenario.get("title", "")),
+		str(fleet_ready), int(fleet_sample.get("ships", []).size()) if fleet_sample.get("ships", []) is Array else 0])
 	if _shot_path != "":
 		get_window().borderless = true
 		get_window().size = BASE
@@ -208,6 +219,8 @@ func _process(delta: float) -> void:
 	if tof_s > 0.0:
 		t = clampf(t, 0.0, tof_s)
 		_update_phase()
+	if fleet_ready and fleet != null:
+		fleet_sample = fleet.sample(t)
 	if _shot_path != "":
 		_frames += 1
 		if _frames >= 40:
@@ -233,6 +246,8 @@ func _frac() -> float:
 
 func seek_to(new_t: float) -> void:
 	t = clampf(new_t, 0.0, tof_s)
+	if fleet_ready and fleet != null:
+		fleet_sample = fleet.sample(t)
 	if sensors != null:
 		sensors.seek(t)
 	if teach != null:

@@ -26,6 +26,7 @@ extends RefCounted
 
 const ScenarioPath := "res://framework/content/scenario_transit_l4_l1.json"
 const Planner := preload("res://framework/sim/transfer_planner.gd")
+const FleetTransfer := preload("res://framework/sim/fleet_transfer.gd")
 const Authority := preload("res://framework/sim/sensor_authority.gd")
 const InfoWarfare := preload("res://framework/sim/information_warfare.gd")
 
@@ -78,6 +79,13 @@ var warnings: Array = []
 var notes: Array = []
 var scenario: Dictionary = {}
 var plan: Dictionary = {}
+var fleet_transfer = null
+var fleet_ready := false
+var fleet_error := ""
+var fleet_warnings: Array = []
+var fleet_sample: Dictionary = {}
+var fleet_sample_t := -1.0
+var fleet_rows: Dictionary = {}
 var t := 0.0
 var tof_s := 0.0
 var dt_last := 0.0
@@ -143,6 +151,13 @@ func setup(opts := {}) -> bool:
 	_last_vm = {}
 	_last_snapshot = {}
 	_warn_seen = {}
+	fleet_transfer = null
+	fleet_ready = false
+	fleet_error = ""
+	fleet_warnings = []
+	fleet_sample = {}
+	fleet_sample_t = -1.0
+	fleet_rows = {}
 	t = 0.0
 	tof_s = 0.0
 	dt_last = 0.0
@@ -153,6 +168,7 @@ func setup(opts := {}) -> bool:
 		return false
 	plan = _get_plan()
 	tof_s = float((plan.get("transfer", {}) as Dictionary).get("tof_s", 0.0))
+	_init_fleet_transfer()
 	if not bool(plan.get("ok", false)):
 		warnings.append("TRANSFER PLANNER NOT OK: %s（不伪造 timeline；传感器层仍尝试用场景 offset）" % String(plan.get("reason", "")))
 	if tof_s <= 0.0:
@@ -205,6 +221,28 @@ func _get_plan() -> Dictionary:
 		p = Planner.plan({})
 	_plan_cache = p.duplicate(true)
 	return _plan_cache.duplicate(true)
+
+
+## 5 舰位置唯一来源：fleet_transfer.sample(t)（缓存优先）。
+func _init_fleet_transfer() -> void:
+	fleet_transfer = FleetTransfer.new()
+	var res: Dictionary = fleet_transfer.plan({"use_cache": true})
+	fleet_ready = bool(res.get("ok", false))
+	fleet_error = "" if fleet_ready else "fleet_transfer.plan_failed"
+	fleet_warnings = (fleet_transfer.warnings as Array).duplicate()
+	if not fleet_ready:
+		_add_warning("FLEET TRANSFER NOT READY（%s）；舰位回退 timeline+offset，并标注 source" % str(fleet_transfer.errors))
+		return
+	var f_tof := float(fleet_transfer.tof_s)
+	if f_tof > 0.0:
+		tof_s = f_tof
+	for raw in (fleet_transfer.fleet() as Array):
+		if raw is Dictionary:
+			var fr: Dictionary = raw
+			var sid := String(fr.get("ship_id", fr.get("id", "")))
+			fleet_rows[sid] = fr.duplicate(true)
+	for w in fleet_warnings:
+		_add_warning("FLEET: " + String(w))
 
 
 func _build_ships() -> void:
@@ -358,23 +396,59 @@ func _base_state_at(t_s: float) -> Dictionary:
 			v0[2] + (v1[2] - v0[2]) * a]}
 
 
-func _observer_pos() -> Array:
-	var base := _base_state_at(t)
-	var sh: Dictionary = ship_by_id.get(selected_ship, {})
+func _current_fleet_sample() -> Dictionary:
+	if not fleet_ready or fleet_transfer == null:
+		return {}
+	if fleet_sample.is_empty() or absf(fleet_sample_t - t) > 1.0e-9:
+		fleet_sample = fleet_transfer.sample(t)
+		fleet_sample_t = t
+	return fleet_sample
+
+
+func _fleet_ship_row(id: String) -> Dictionary:
+	var s := _current_fleet_sample()
+	for raw in (s.get("ships", []) as Array):
+		if raw is Dictionary and String((raw as Dictionary).get("ship_id", "")) == id:
+			return raw
+	return {}
+
+
+func _fallback_ship_pos(id: String) -> Array:
+	var sh: Dictionary = ship_by_id.get(id, {})
 	if sh.is_empty():
-		return base.get("pos", [0.0, 0.0, 0.0])
-	return _add3(base.get("pos", [0.0, 0.0, 0.0]), _arr3(sh.get("offset_km", [0.0, 0.0, 0.0])))
+		return [0.0, 0.0, 0.0]
+	return _add3(_base_state_at(t).get("pos", []), _arr3(sh.get("offset_km", [0.0, 0.0, 0.0])))
+
+
+func _observer_pos() -> Array:
+	var row := _fleet_ship_row(selected_ship)
+	if not row.is_empty():
+		return _arr3(row.get("pos_rot_km", [0.0, 0.0, 0.0]))
+	return _fallback_ship_pos(selected_ship)
 
 
 func ship_state(id: String) -> Dictionary:
 	var sh: Dictionary = ship_by_id.get(id, {})
 	if sh.is_empty():
 		return {}
-	var base := _base_state_at(t)
-	var off := _arr3(sh.get("offset_km", [0.0, 0.0, 0.0]))
-	var pos := _add3(base.get("pos", []), off)
-	return {"pos_km": pos, "vel_kmps": _velocity_state(id),
-		"range_km": _dist3(pos, _observer_pos())}
+	var row := _fleet_ship_row(id)
+	var pos: Array = []
+	var source := "timeline_fallback"
+	if not row.is_empty():
+		pos = _arr3(row.get("pos_rot_km", [0.0, 0.0, 0.0]))
+		source = "fleet_transfer.sample"
+	else:
+		pos = _fallback_ship_pos(id)
+	# 传感模型用共享转移基线速度：逐舰位置来自 fleet_transfer，速度单独作为 fleet_vel_kmps 展示。
+	var out := {"pos_km": pos, "vel_kmps": _velocity_state(id),
+		"range_km": _dist3(pos, _observer_pos()), "source": source}
+	if not row.is_empty():
+		out["fleet_vel_kmps"] = _arr3(row.get("vel_rot_kmps", [0.0, 0.0, 0.0]))
+		out["rel_to_flagship_km"] = _arr3(row.get("rel_to_flagship_km", [0.0, 0.0, 0.0]))
+		out["rel_to_flagship_mag_km"] = float(row.get("rel_to_flagship_mag_km", 0.0))
+		out["distance_to_target_km"] = float(row.get("distance_to_target_km", 0.0))
+		out["earth_distance_km"] = float(row.get("earth_distance_km", 0.0))
+	return out
 
 
 func port_state(id: String) -> Dictionary:
@@ -838,17 +912,28 @@ func _rebuild(step_events: Array) -> void:
 		if sh.is_empty():
 			continue
 		var st := ship_state(sid)
-		ship_rows.append({
+		var fr: Dictionary = fleet_rows.get(sid, {}) if fleet_rows.get(sid) is Dictionary else {}
+		var srow := {
 			"id": sid, "batch": String(sh.get("batch", "")),
 			"name": String(sh.get("name", sid)), "role": String(sh.get("role", "")),
 			"class": String(sh.get("class", "")), "side": String(sh.get("side", "friend")),
 			"pos_km": st.get("pos_km", [0.0, 0.0, 0.0]),
 			"vel_kmps": st.get("vel_kmps", [0.0, 0.0, 0.0]),
+			"fleet_vel_kmps": st.get("fleet_vel_kmps", []),
+			"source": String(st.get("source", "timeline_fallback")),
+			"earth_distance_km": float(st.get("earth_distance_km", 0.0)),
+			"distance_to_target_km": float(st.get("distance_to_target_km", 0.0)),
+			"rel_to_flagship_km": st.get("rel_to_flagship_km", []),
+			"rel_to_flagship_mag_km": float(st.get("rel_to_flagship_mag_km", 0.0)),
+			"arrival_error_km": float(fr.get("arrival_error_km", -1.0)),
+			"arrival_speed_kmps": float(fr.get("arrival_speed_kmps", -1.0)),
+			"within_gate": bool(fr.get("within_gate", false)),
 			"range_km": float(st.get("range_km", 0.0)),
 			"observer": sid == selected_ship,
 			"selected": sid == selected_target,
 			"loadout_fallbacks": (_fallback_mounts.get(sid, []) as Array).duplicate(),
-		})
+		}
+		ship_rows.append(srow)
 	var port_rows: Array = []
 	for raw in ports:
 		var pt: Dictionary = raw
@@ -904,6 +989,7 @@ func _rebuild(step_events: Array) -> void:
 	}
 	var iff_vm: Dictionary = _iff_vm()
 	var exposure: Dictionary = _exposure_view(av)
+	var fleet_vm: Dictionary = _fleet_vm()
 	var recent: Array = []
 	for raw in _event_log:
 		recent.append(raw)
@@ -942,6 +1028,7 @@ func _rebuild(step_events: Array) -> void:
 		"radar": (av.get("radar", {}) as Dictionary).duplicate(true) if av.get("radar") is Dictionary else {},
 		"exposure": exposure,
 		"iff": iff_vm,
+		"fleet": fleet_vm, "fleet_source": String(fleet_vm.get("source", "timeline_fallback")),
 		"events": recent, "warnings": warnings.duplicate(), "errors": errors.duplicate(),
 		"notes": notes.duplicate(),
 		"counts": {
@@ -959,6 +1046,30 @@ func _rebuild(step_events: Array) -> void:
 			"summary": _authority_summary(av),
 		},
 	}
+
+
+func _fleet_vm() -> Dictionary:
+	var out := {
+		"source": "fleet_transfer.sample" if fleet_ready else "timeline_fallback",
+		"ready": fleet_ready, "error": fleet_error,
+		"tof_s": float(fleet_transfer.tof_s) if fleet_ready and fleet_transfer != null else 0.0,
+		"sample_t_s": float(fleet_sample.get("t_s", -1.0)) if not fleet_sample.is_empty() else -1.0,
+		"sample_index": int(fleet_sample.get("sample_index", -1)) if not fleet_sample.is_empty() else -1,
+		"warnings": fleet_warnings.duplicate(),
+		"arrival": {},
+		"cache": {},
+	}
+	if fleet_ready and fleet_transfer != null:
+		var sum: Dictionary = fleet_transfer.summary()
+		out["arrival"] = (sum.get("arrival", {}) as Dictionary).duplicate(true) if sum.get("arrival") is Dictionary else {}
+		var cache: Dictionary = sum.get("cache", {}) if sum.get("cache") is Dictionary else {}
+		out["cache"] = {
+			"schema": String(cache.get("schema", "")),
+			"path": String(cache.get("path", "")),
+			"has_cache": not cache.is_empty(),
+			"sample_count": int(sum.get("sample_count", 0)),
+		}
+	return out
 
 
 func _iff_vm() -> Dictionary:
