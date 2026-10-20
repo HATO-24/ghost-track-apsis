@@ -981,10 +981,11 @@ func _draw_combat_overlay(r: Rect2) -> void:
 		_combat_buttons.append({"rect": br, "kind": String(actions[i])})
 		Painter.button(self, br, String(actions[i]), true, P.PH if i < 3 else P.RED)
 	ry += 60.0
-	# 战斗事件
-	Painter.section(self, x, y + 235.0, x + r.size.x - 36, "COMBAT EVENTS / 战斗事件")
+	# 战斗事件：分界线跟随按钮区底部，至少保留 8px 间距，禁止写死 y 重叠
+	var events_y := maxf(y + 235.0, ry + 8.0)
+	Painter.section(self, x, events_y, x + r.size.x - 36, "COMBAT EVENTS / 战斗事件")
 	var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
-	var ey := y + 252.0
+	var ey := events_y + 17.0
 	if evs.is_empty():
 		Painter.label(self, x, ey, "NO COMBAT EVENTS · NOT READY", 7, P.FAINT, true)
 	for i in range(maxi(0, evs.size() - 5), evs.size()):
