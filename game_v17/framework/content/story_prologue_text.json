@@ -1,0 +1,221 @@
+{
+  "schema": "v17.story_text.v1",
+  "version": "1.0.0",
+  "title": "完整游戏-阶段3T 序章文本库",
+  "source": "docs/44_新剧本_2193.md（原样摘录，不改写）",
+  "source_path": "../docs/44_新剧本_2193.md",
+  "extracted_at": "2026-10-21",
+  "draft": true,
+  "entries": [
+    {
+      "text_key": "briefing.body",
+      "channel": "briefing",
+      "speaker_role": "command_briefing",
+      "listener_role": "commander",
+      "mode": "static",
+      "source_lines": [
+        56
+      ],
+      "draft": true,
+      "zh": "简报：三天前，位于Chronos 的燃料加注站发生爆炸，UEG 核查组前往调查后失联。第33舰队以“阻止火星分离主义者破坏行为”为由援引第七号令，试图接管储罐与进港航道。现在，Chronos 的储罐在事故后仍在泄漏，OCU 内部正因猜疑陷入混乱，OCUVF舰队之间同样或是陷入内讧，或是正在与清算者部队僵持。OCUVF-ID13 作为OCU辖下唯一仍可指挥的力量，现接 OCUVF 本部命令前往 Meridian，阻止清算者部队舰只进入Chronos战，作为“谈判主力”介入接管事件，调取一切有利证据。OCU方面直接命令：严格遵守ROE，不得首先开火。",
+      "en": "",
+      "vars": [],
+      "var_specs": {},
+      "note": "序章简报正文；原样摘录 docs/44 第56行（含“简报：”前缀）。",
+      "id": "STXT-0001"
+    },
+    {
+      "text_key": "deputy.hello",
+      "channel": "deputy",
+      "speaker_role": "deputy",
+      "listener_role": "commander",
+      "mode": "dialog",
+      "source_lines": [
+        74
+      ],
+      "draft": true,
+      "zh": "你好，指挥官。我是你的副官[姓名待补]，由于你尚未接受完整的军事训练，我将根据总部命令对你进行指挥指导。",
+      "en": "",
+      "vars": [
+        "deputy_name"
+      ],
+      "var_specs": {
+        "deputy_name": "[姓名待补]"
+      },
+      "note": "副官开场；姓名占位 [姓名待补]。",
+      "id": "STXT-0002"
+    },
+    {
+      "text_key": "deputy.terminal",
+      "channel": "deputy",
+      "speaker_role": "deputy",
+      "listener_role": "commander",
+      "mode": "dialog",
+      "source_lines": [
+        75
+      ],
+      "draft": true,
+      "zh": "这是舰队指挥终端，行动中的所有情报，信息处理和指挥操作都须经由它进行。",
+      "en": "",
+      "vars": [],
+      "var_specs": {},
+      "note": "指挥终端说明。",
+      "id": "STXT-0003"
+    },
+    {
+      "text_key": "deputy.nav",
+      "channel": "deputy",
+      "speaker_role": "deputy",
+      "listener_role": "commander",
+      "mode": "dialog",
+      "source_lines": [
+        76
+      ],
+      "draft": true,
+      "zh": "现在我们接到总部命令，需前往尽快 L1 Meridian ，在清算者部队入轨窗口前抵达 Chronos，进行谈判介入。指挥官，请开始航行准备（提示玩家点击导航页面）",
+      "en": "",
+      "vars": [],
+      "var_specs": {},
+      "note": "导航准备指令。",
+      "id": "STXT-0004"
+    },
+    {
+      "text_key": "deputy.nav_panel",
+      "channel": "deputy",
+      "speaker_role": "deputy",
+      "listener_role": "commander",
+      "mode": "dialog",
+      "source_lines": [
+        78
+      ],
+      "draft": true,
+      "zh": "这是舰队的导航面板，在这里你可以设置舰队航行目的地。无论是整支舰队（全选功能高亮），还是单独指挥船只（舰只单选框高亮），都在这里进行。航行时的轨道计算已交由电脑自动处理，您只需选择并确认目的地即可；不过，若是需要的话，您也可以点击手动轨道控制菜单，亲自设置轨道航行计划。（手动选项页高亮）",
+      "en": "",
+      "vars": [],
+      "var_specs": {},
+      "note": "导航面板说明（含全选/单选框/手动选项高亮）。",
+      "id": "STXT-0005"
+    },
+    {
+      "text_key": "deputy.command",
+      "channel": "deputy",
+      "speaker_role": "deputy",
+      "listener_role": "commander",
+      "mode": "dialog",
+      "source_lines": [
+        79
+      ],
+      "draft": true,
+      "zh": "指挥官，请下命令吧。",
+      "en": "",
+      "vars": [],
+      "var_specs": {},
+      "note": "副官请指挥官下令。",
+      "id": "STXT-0006"
+    },
+    {
+      "text_key": "nav.wrong_dest",
+      "channel": "nav",
+      "speaker_role": "navigation_system",
+      "listener_role": "commander",
+      "mode": "prompt",
+      "source_lines": [
+        82
+      ],
+      "draft": true,
+      "zh": "指挥官，似乎这不是正确的目的地，请重新选择。",
+      "en": "",
+      "vars": [],
+      "var_specs": {},
+      "note": "错误目的地提示。",
+      "id": "STXT-0007"
+    },
+    {
+      "text_key": "nav.correct",
+      "channel": "nav",
+      "speaker_role": "navigation_system",
+      "listener_role": "commander",
+      "mode": "prompt",
+      "source_lines": [
+        84
+      ],
+      "draft": true,
+      "zh": "很好，指挥官。现在请向港口申请离港和航行申请授权点火（申请离港、授权点火选项高亮），并等待回应。",
+      "en": "",
+      "vars": [],
+      "var_specs": {},
+      "note": "正确目的地提示。",
+      "id": "STXT-0008"
+    },
+    {
+      "text_key": "nav.depart_prompt",
+      "channel": "nav",
+      "speaker_role": "navigation_system",
+      "listener_role": "commander",
+      "mode": "prompt",
+      "source_lines": [
+        84
+      ],
+      "draft": true,
+      "zh": "很好，指挥官。现在请向港口申请离港和航行申请授权点火（申请离港、授权点火选项高亮），并等待回应。",
+      "en": "",
+      "vars": [],
+      "var_specs": {},
+      "note": "离港/授权点火提示；与 nav.correct 同源句（不得改写）。",
+      "id": "STXT-0009"
+    },
+    {
+      "text_key": "comms.hammer",
+      "channel": "comms",
+      "speaker_role": "hammer_port_control",
+      "listener_role": "id13",
+      "mode": "RDO",
+      "source_lines": [
+        86,
+        87
+      ],
+      "draft": true,
+      "zh": "ID13，重锤港务调度。离港许可已签发。前往 L1 Meridian 的变轨窗口为 T+00:18:00；请确认 Δv 预算与航线。完毕。",
+      "en": "",
+      "vars": [],
+      "var_specs": {},
+      "note": "Hammer 港务调度通信；只取正文行，from/to 行见 source_lines。",
+      "id": "STXT-0010"
+    },
+    {
+      "text_key": "comms.formation",
+      "channel": "comms",
+      "speaker_role": "apsis",
+      "listener_role": "fleet",
+      "mode": "LD",
+      "source_lines": [
+        88,
+        89
+      ],
+      "draft": true,
+      "zh": "全队，远地点。航线已设定：L4 Hammer → L1 Meridian。执行变轨后进入巡航。抵达 Meridian 前完成设备检查与接触准备。完毕。",
+      "en": "",
+      "vars": [],
+      "var_specs": {},
+      "note": "远地点号全队编队通信；只取正文行。",
+      "id": "STXT-0011"
+    },
+    {
+      "text_key": "nav.arrival_prompt",
+      "channel": "nav",
+      "speaker_role": "deputy",
+      "listener_role": "commander",
+      "mode": "prompt",
+      "source_lines": [
+        93
+      ],
+      "draft": true,
+      "zh": "指挥官，我们已顺利到达L1港群，请选择L1港群中的Chronos进行并轨操作，距离清算者部队到达还有一段时间，在此之前我个人希望您做好谈判准备。",
+      "en": "",
+      "vars": [],
+      "var_specs": {},
+      "note": "抵达 L1 港群/Chronos 并轨提示。",
+      "id": "STXT-0012"
+    }
+  ]
+}
