@@ -1164,6 +1164,10 @@ var _nav_to_id := ""
 var _nav_prev_paused := false
 var _info_page_open := false
 var _info_prev_paused := false
+var _docking_page_open := false
+var _docking_demo_pending := false
+var _dock_sel_port := ""
+var _docking_note := ""
 var _nav_open_on_ready := ""
 var _nav_rows: Array = []        # [{rect,id,kind}]
 var _nav_candidate_sel := 0
@@ -1314,6 +1318,13 @@ func _ready() -> void:
 			_optical_target = ""
 			_optical_demo_pending = true
 			_optical_state_note = ""
+		"docking_page":
+			# R6-DOCK-HUD-1 截图：真实 auto fw_docking 独立页
+			_demo_suppress_adjutant = true
+			_docking_page_open = true
+			_dock_sel_port = ""
+			_docking_note = "auto shadow：真实 state.fw_docking"
+			_docking_demo_pending = true
 		"layers":
 			# P10a 截图：图层/元素开关面板。
 			_demo_suppress_adjutant = true
@@ -1387,6 +1398,10 @@ func _process(delta: float) -> void:
 	if _fw_refresh_t >= 0.25:
 		_fw_refresh_t = 0.0
 		_refresh_fw()
+	# R6-DOCK-HUD-1 截图：auto 未 tick 时用真实 fw_docking select/update 驱动
+	if _docking_demo_pending:
+		_docking_demo_pending = false
+		_dock_prepare_real()
 	# R5-OPT-HUD-1 截图：真实 point/start/step（一次性；不伪造）
 	if _optical_demo_pending:
 		_optical_demo_pending = false
@@ -1569,6 +1584,9 @@ func _draw() -> void:
 		_draw_boot()
 		return
 	_draw_bezel()
+	if _docking_page_open:
+		_draw_docking_page()
+		return
 	if _info_page_open:
 		_draw_info_warfare_page()
 		return
@@ -1697,6 +1715,10 @@ func _sfx(n: String) -> void:
 
 func click(p: Vector2) -> void:
 	if state.boot_t < 1.7:
+		return
+	if _docking_page_open:
+		_handle_docking_page_click(p)
+		queue_redraw()
 		return
 	if _info_page_open:
 		return
@@ -1848,6 +1870,8 @@ func click(p: Vector2) -> void:
 			return
 
 func consumes(p: Vector2) -> bool:
+	if _docking_page_open:
+		return true
 	if _info_page_open:
 		return true
 	if _nav_page_open:
@@ -2976,6 +3000,365 @@ func _info_rules_panel(view: Dictionary) -> void:
 		_txt(cjk, INFO_RULES.position.x + 12.0, y, _ellipsis(cjk, String(line), 7, 636.0), 7, Palette.a(Palette.DIM, 0.95))
 		y += 12.0
 	_txt(cjk, INFO_RULES.position.x + 12.0, INFO_RULES.end.y - 16.0, "R5-INFO-UI-1 · SHADOW · 只读", 7, Palette.FAINT)
+
+
+# R6-DOCK-HUD-1：V17 对接/接近独立页（只读 fw_docking + 显式 API 按钮）
+const DOCK_HEADER := Rect2(40, 40, 1840, 72)
+const DOCK_PORTS := Rect2(60, 124, 520, 640)
+const DOCK_STATUS := Rect2(592, 124, 620, 640)
+const DOCK_GUIDE := Rect2(1224, 124, 616, 640)
+const DOCK_EVENTS := Rect2(60, 776, 1160, 220)
+const DOCK_CONTROLS := Rect2(1232, 776, 668, 220)
+const DOCK_BTN_SELECT := Rect2(1252, 796, 260, 32)
+const DOCK_BTN_HOLD := Rect2(1532, 796, 164, 32)
+const DOCK_BTN_RESUME := Rect2(1716, 796, 164, 32)
+const DOCK_BTN_ABORT := Rect2(1252, 842, 260, 32)
+const DOCK_BTN_RESET := Rect2(1532, 842, 164, 32)
+const DOCK_BTN_UNDOCK := Rect2(1716, 842, 164, 32)
+
+
+func _dock_view() -> Dictionary:
+	if state == null:
+		return {}
+	var v = state.get("fw_docking")
+	return v if v is Dictionary else {}
+
+
+func _dock_last() -> Dictionary:
+	var v := _dock_view()
+	return v.get("last", {}) if v.get("last", {}) is Dictionary else {}
+
+
+func _dock_guidance() -> Dictionary:
+	var l := _dock_last()
+	return l.get("guidance", {}) if l.get("guidance", {}) is Dictionary else {}
+
+
+func _dock_state_col(st: String) -> Color:
+	match st:
+		"docked":
+			return Palette.PH
+		"final", "alignment":
+			return Palette.AMBER
+		"corridor":
+			return Palette.BLUE
+		"hold":
+			return Palette.AMBER
+		"failed", "aborted":
+			return Palette.RED
+		_:
+			return Palette.DIM
+
+
+func _dock_select_port() -> void:
+	if state == null or not state.has_method("fw_docking_select_port"):
+		_docking_note = "docking API 未就绪"
+		return
+	var pid := String(_dock_sel_port)
+	if pid == "":
+		_docking_note = "先点选左侧端口"
+		return
+	var res = state.call("fw_docking_select_port", pid)
+	if res is Dictionary and not bool((res as Dictionary).get("ok", true)):
+		_docking_note = "SELECT: " + String((res as Dictionary).get("reason", "失败"))
+	else:
+		_docking_note = "SELECT PORT → %s" % pid
+	_refresh_fw()
+	queue_redraw()
+
+
+func _dock_call(method: String, label: String) -> void:
+	# state 暴露 select/update/hold/resume/abort/reset；undock 目前只在模型/bridge 实例上。
+	if method == "fw_docking_undock":
+		var fw = state.get("framework") if state != null else null
+		var dock = fw.get("docking") if fw != null else null
+		if dock != null and dock.has_method("undock"):
+			var ur = dock.call("undock", "hud_undock")
+			_docking_note = "UNDOCK · state=%s" % String((ur as Dictionary).get("state", "")) if ur is Dictionary else "UNDOCK"
+			_refresh_fw()
+			queue_redraw()
+			return
+		_docking_note = "UNDOCK: state 暂无 fw_docking_undock 包装"
+		return
+	if state == null or not state.has_method(method):
+		_docking_note = "docking API 未就绪"
+		return
+	var res = state.call(method)
+	if res is Dictionary and not bool((res as Dictionary).get("ok", true)):
+		_docking_note = "%s: %s" % [label, String((res as Dictionary).get("reason", "失败"))]
+	else:
+		_docking_note = "%s · state=%s" % [label, String((res as Dictionary).get("state", "")) if res is Dictionary else ""]
+	_refresh_fw()
+	queue_redraw()
+
+
+func _dock_port_rows() -> Array:
+	var v := _dock_view()
+	var ports: Array = v.get("ports", []) if v.get("ports", []) is Array else []
+	return ports
+
+
+func _dock_target_port() -> String:
+	var v := _dock_view()
+	return String(v.get("target_port_id", ""))
+
+
+func _dock_ready() -> bool:
+	return state != null and not _dock_view().is_empty()
+
+
+func _dock_prepare_real() -> void:
+	if state == null:
+		return
+	var pid := "chronos-dock-a"
+	var res = state.call("fw_docking_select_port", pid) if state.has_method("fw_docking_select_port") else null
+	_dock_sel_port = pid
+	# 用真实 V2/V15 接触（chronos_station）生成 LVLH rel；非伪造几何。
+	var tr: Dictionary = {}
+	var fw = state.get("framework")
+	var w = fw.get("world") if fw != null else null
+	if w != null and w.has_method("vm_contacts"):
+		var cs = w.call("vm_contacts")
+		if cs is Array:
+			for raw in (cs as Array):
+				if raw is Dictionary:
+					var row: Dictionary = raw
+					if String(row.get("entity_id", "")) == "chronos_station" or String(row.get("track_id", "")) == "0100":
+						tr = row
+						break
+	if tr.is_empty():
+		var tracks = state.get("tracks")
+		if tracks is Array:
+			for raw2 in (tracks as Array):
+				if raw2 is Dictionary:
+					var row2: Dictionary = raw2
+					if String(row2.get("entity_id", "")) == "chronos_station" or String(row2.get("id", "")) == "0100":
+						tr = row2
+						break
+	if not tr.is_empty() and state.has_method("fw_docking_update"):
+		var rng := float(tr.get("range_km", 0.0))
+		var brg := deg_to_rad(float(tr.get("bearing_deg", 0.0)))
+		var dr := Vector3(sin(brg) * rng, cos(brg) * rng, 0.0)
+		var att := {}
+		if dr.length() > 1.0e-9:
+			var ax := -dr.normalized()
+			att = {"chaser_port_axis": [ax.x, ax.y, ax.z]}
+		state.call("fw_docking_update", {"dr": [dr.x, dr.y, dr.z], "dv": [0.0, 0.0, 0.0]}, att, 1.0)
+		_docking_note = "REAL fw_docking select/update（V15 接触 0100 / L1 LVLH；auto 未 tick 时手动驱动）"
+	else:
+		_docking_note = "REAL fw_docking select_port；无 0100 接触，未伪造 rel"
+	if res is Dictionary and not bool((res as Dictionary).get("ok", true)):
+		_docking_note = "select: " + String((res as Dictionary).get("reason", "失败"))
+	_refresh_fw()
+	queue_redraw()
+
+
+func _draw_docking_page() -> void:
+	draw_rect(Rect2(0, 0, 1920, 1080), Color(0.015, 0.030, 0.024, 0.985))
+	_panel(DOCK_HEADER)
+	_txt(cjk, DOCK_HEADER.position.x + 20.0, DOCK_HEADER.position.y + 10.0, "对接 / 接近 · DOCKING / APPROACH", 12, Palette.PH)
+	_txt(cjk, DOCK_HEADER.position.x + 20.0, DOCK_HEADER.position.y + 32.0,
+		"V1 · SHADOW · 只读 fw_docking · 不落实体 / 不写 V15", 7, Palette.a(Palette.DIM, 0.95))
+	_txt_r(mono, DOCK_HEADER.end.x - 20.0, DOCK_HEADER.position.y + 10.0,
+		"authoritative=false · 不自动判敌 · B / ESC 返回", 7, Palette.a(Palette.AMBER, 0.9))
+	_txt_r(mono, DOCK_HEADER.end.x - 20.0, DOCK_HEADER.position.y + 32.0,
+		"state=%s · writes.v15=false" % String(_dock_view().get("state", "off")), 7, Palette.a(Palette.PH_DIM, 0.85))
+	if not _dock_ready():
+		var r := Rect2(480, 380, 960, 240)
+		_panel(r)
+		_txt(cjk, r.position.x + 24.0, r.position.y + 24.0, "DOCKING BRIDGE OFF", 14, Palette.AMBER)
+		_txt(cjk, r.position.x + 24.0, r.position.y + 54.0, "无 state.fw_docking / V17_DOCKING=off / bridge 未就绪。", 8, Palette.DIM)
+		_txt(cjk, r.position.x + 24.0, r.position.y + 78.0, "不显示旧值、不伪造端口/几何/制导；B 或 ESC 返回。", 8, Palette.DIM)
+		_txt(mono, r.position.x + 24.0, r.position.y + 116.0, "API: state.fw_docking_select_port/update/hold/resume/abort/reset", 7, Palette.a(Palette.FAINT, 0.9))
+		_txt(cjk, 60.0, 1052.0, "只读页 · 数据源 state.fw_docking · 不落实体 · 不写 V15", 7, Palette.FAINT)
+		return
+	var view := _dock_view()
+	var st := String(view.get("state", "far"))
+	var col := _dock_state_col(st)
+	var last := _dock_last()
+	# 端口列表
+	_info_panel(DOCK_PORTS, "端口 / PORTS", "SELECT", "点击行选中；SELECT PORT 调真实 API；docked 时不可换端口")
+	var y := DOCK_PORTS.position.y + 48.0
+	var ports := _dock_port_rows()
+	var target_pid := _dock_target_port()
+	if _dock_sel_port == "":
+		_dock_sel_port = target_pid if target_pid != "" else (String((ports[0] as Dictionary).get("port_id", "")) if not ports.is_empty() else "")
+	for i in range(mini(ports.size(), 8)):
+		var p: Dictionary = ports[i]
+		var pid := String(p.get("port_id", ""))
+		var rr := Rect2(DOCK_PORTS.position.x + 12.0, y, DOCK_PORTS.size.x - 24.0, 44.0)
+		var sel := pid == _dock_sel_port
+		var is_target := pid == target_pid
+		draw_rect(rr, Palette.a(Palette.PANEL2, 0.85 if sel else 0.25))
+		draw_rect(rr, Palette.a(Palette.PH if sel else Palette.LINE, 0.65 if sel else 0.45), false, 1.0)
+		_txt(mono, rr.position.x + 8.0, rr.position.y + 8.0, "%s%s" % [pid, "  [TARGET]" if is_target else ""], 8, Palette.PH if is_target else Palette.TXT)
+		var pst := String(p.get("status", ""))
+		_txt_r(mono, rr.end.x - 8.0, rr.position.y + 8.0, pst.to_upper(), 7,
+			Palette.PH if pst == "open" else (Palette.AMBER if pst == "occupied" else Palette.RED))
+		_txt(cjk, rr.position.x + 8.0, rr.position.y + 24.0,
+			_ellipsis(cjk, String(p.get("name", "")) + " · " + String(p.get("owner_id", "")), 7, 380.0), 7, Palette.DIM)
+		var ax: Array = p.get("axis", []) if p.get("axis", []) is Array else []
+		_txt(mono, rr.position.x + 8.0, rr.position.y + 36.0,
+			"kind=%s · r=%.1fm · axis=[%.0f,%.0f,%.0f] · compat=%s" % [
+				String(p.get("kind", "")), float(p.get("radius_m", 0.0)),
+				float(ax[0]) if ax.size() > 0 else 0.0, float(ax[1]) if ax.size() > 1 else 0.0,
+				float(ax[2]) if ax.size() > 2 else 0.0,
+				str(p.get("compatible", []))], 7, Palette.a(Palette.FAINT, 0.95))
+		y += 50.0
+		if y > DOCK_PORTS.end.y - 40.0:
+			break
+	# 状态 / 几何
+	_info_panel(DOCK_STATUS, "状态 / STATUS", "READ-ONLY", "真实 state.fw_docking + last snapshot")
+	var sy := DOCK_STATUS.position.y + 48.0
+	_txt(mono, DOCK_STATUS.position.x + 12.0, sy, "STATE %s" % st.to_upper(), 10, col)
+	sy += 18.0
+	_txt(mono, DOCK_STATUS.position.x + 12.0, sy, "TARGET PORT %s" % (target_pid if target_pid != "" else "—"), 8, Palette.TXT)
+	sy += 14.0
+	_txt(mono, DOCK_STATUS.position.x + 12.0, sy, "HOLD %s · FAILURE %s" % [
+		str(bool(view.get("hold_requested", false))), String(view.get("failure_reason", "—"))], 7, Palette.DIM)
+	sy += 16.0
+	if last.is_empty():
+		_txt(cjk, DOCK_STATUS.position.x + 12.0, sy, "— 无 last snapshot（auto 未步进 / 未 update）", 8, Palette.FAINT)
+	else:
+		var corr: Dictionary = last.get("corridor", {}) if last.get("corridor", {}) is Dictionary else {}
+		var dock: Dictionary = last.get("docking", {}) if last.get("docking", {}) is Dictionary else {}
+		_txt(mono, DOCK_STATUS.position.x + 12.0, sy, "RANGE %.3f km · CLOSING %.3f m/s" % [
+			float(last.get("range_km", 0.0)), float(last.get("closing_mps", 0.0))], 7, Palette.TXT)
+		sy += 12.0
+		_txt(mono, DOCK_STATUS.position.x + 12.0, sy, "AXIAL %.3f km · LATERAL %.3f km" % [
+			float(last.get("axial_km", 0.0)), float(last.get("lateral_km", 0.0))], 7, Palette.TXT)
+		sy += 12.0
+		_txt(mono, DOCK_STATUS.position.x + 12.0, sy, "ALIGN %.2f° · CHASER %.2f°" % [
+			float(last.get("align_angle_deg", 0.0)), float(last.get("chaser_align_angle_deg", -1.0))], 7, Palette.TXT)
+		sy += 12.0
+		_txt(mono, DOCK_STATUS.position.x + 12.0, sy, "CORRIDOR %s · inside=%s · speed=%s · angle=%s" % [
+			"OK" if bool(corr.get("ok", false)) else "NO", str(bool(corr.get("inside", false))),
+			str(bool(corr.get("speed_ok", false))), str(bool(corr.get("angle_ok", false)))], 7,
+			Palette.PH if bool(corr.get("ok", false)) else Palette.AMBER)
+		sy += 12.0
+		_txt(mono, DOCK_STATUS.position.x + 12.0, sy, "DOCKING %s · ok=%s · hard_fail=%s" % [
+			String(dock.get("status", "—")), str(bool(last.get("docking_ok", false))),
+			String(last.get("hard_fail", "—"))], 7, Palette.PH if bool(last.get("docking_ok", false)) else Palette.DIM)
+		sy += 12.0
+		_txt(mono, DOCK_STATUS.position.x + 12.0, sy, "ALIGN_READY %s · FINAL_READY %s" % [
+			str(bool(last.get("align_ready", false))), str(bool(last.get("final_ready", false)))], 7, Palette.DIM)
+	# 引导
+	_info_panel(DOCK_GUIDE, "制导 / GUIDANCE", "SUGGESTION", "仅建议 Δv/姿态；不执行物理/推力")
+	var gy := DOCK_GUIDE.position.y + 48.0
+	var gd := _dock_guidance()
+	if gd.is_empty():
+		_txt(cjk, DOCK_GUIDE.position.x + 12.0, gy, "— 无 guidance（等待 last snapshot）", 8, Palette.FAINT)
+	else:
+		_txt(mono, DOCK_GUIDE.position.x + 12.0, gy, "CLOSING DESIRED %.2f m/s · TGO %.1f s" % [
+			float(gd.get("closing_desired_mps", 0.0)), float(gd.get("time_to_go_s", -1.0))], 7, Palette.TXT)
+		gy += 14.0
+		_txt(mono, DOCK_GUIDE.position.x + 12.0, gy, "Δv SUGGESTED %.2f m/s · max %.1f" % [
+			float(gd.get("dv_magnitude_mps", 0.0)), float((gd.get("gates", {}) as Dictionary).get("dock_speed_mps", 0.1))], 7, Palette.AMBER)
+		gy += 12.0
+		var dv: Array = gd.get("dv_mps", []) if gd.get("dv_mps", []) is Array else []
+		_txt(mono, DOCK_GUIDE.position.x + 12.0, gy, "DV [%.3f, %.3f, %.3f] m/s" % [
+			float(dv[0]) if dv.size() > 0 else 0.0, float(dv[1]) if dv.size() > 1 else 0.0,
+			float(dv[2]) if dv.size() > 2 else 0.0], 7, Palette.TXT)
+		gy += 12.0
+		var ax: Array = gd.get("attitude_desired_axis", []) if gd.get("attitude_desired_axis", []) is Array else []
+		_txt(mono, DOCK_GUIDE.position.x + 12.0, gy, "ATTITUDE AXIS [%.2f, %.2f, %.2f] · ERR %.2f°" % [
+			float(ax[0]) if ax.size() > 0 else 0.0, float(ax[1]) if ax.size() > 1 else 0.0,
+			float(ax[2]) if ax.size() > 2 else 0.0, float(gd.get("attitude_error_deg", -1.0))], 7, Palette.TXT)
+		gy += 12.0
+		var gates: Dictionary = gd.get("gates", {}) if gd.get("gates", {}) is Dictionary else {}
+		_txt(mono, DOCK_GUIDE.position.x + 12.0, gy, "GATES final %.2fkm · align %.1f° · dock %.2fm/s" % [
+			float(gates.get("final_km", 0.25)), float(gates.get("align_tol_deg", 5.0)),
+			float(gates.get("dock_speed_mps", 0.1))], 7, Palette.DIM)
+		gy += 14.0
+		var warns: Array = gd.get("warnings", []) if gd.get("warnings", []) is Array else []
+		for i in range(mini(3, warns.size())):
+			_txt(cjk, DOCK_GUIDE.position.x + 12.0, gy, "WARN " + _ellipsis(cjk, String(warns[i]), 7, 580.0), 7, Palette.a(Palette.AMBER, 0.85))
+			gy += 12.0
+	# 事件
+	_info_panel(DOCK_EVENTS, "事件 / EVENTS", "LAST 6", "真实 state.fw_docking.events")
+	var ey := DOCK_EVENTS.position.y + 40.0
+	var events: Array = view.get("events", []) if view.get("events", []) is Array else []
+	if events.is_empty():
+		_txt(cjk, DOCK_EVENTS.position.x + 12.0, ey, "— 无事件", 8, Palette.FAINT)
+	else:
+		var start := maxi(0, events.size() - 6)
+		for i in range(start, events.size()):
+			var e: Dictionary = events[i]
+			_txt(mono, DOCK_EVENTS.position.x + 12.0, ey, "T+%.1f %s" % [float(e.get("t", 0.0)), String(e.get("kind", ""))], 7, Palette.a(Palette.DIM, 0.95))
+			_txt(cjk, DOCK_EVENTS.position.x + 190.0, ey, _ellipsis(cjk, String(e.get("text", "")), 7, 940.0), 7, Palette.TXT)
+			ey += 14.0
+	# 控制
+	_info_panel(DOCK_CONTROLS, "操作 / CONTROLS", "REAL API", "按钮按状态启用；调用 state.fw_docking_*")
+	var sel_enabled := st != "docked" and String(_dock_sel_port) != "" and String(_dock_sel_port) != target_pid
+	var hold_enabled := not (st in ["docked", "aborted", "failed"] or bool(view.get("hold_requested", false)))
+	var resume_enabled := st == "hold" or bool(view.get("hold_requested", false))
+	var abort_enabled := not st in ["aborted", "failed", "docked"]
+	var reset_enabled := true
+	var undock_enabled := st == "docked"
+	_cmd_btn(DOCK_BTN_SELECT, "SELECT PORT", sel_enabled, Palette.PH_DIM)
+	_cmd_btn(DOCK_BTN_HOLD, "HOLD", hold_enabled, Palette.AMBER)
+	_cmd_btn(DOCK_BTN_RESUME, "RESUME", resume_enabled, Palette.PH)
+	_cmd_btn(DOCK_BTN_ABORT, "ABORT", abort_enabled, Palette.RED)
+	_cmd_btn(DOCK_BTN_RESET, "RESET", reset_enabled, Palette.PH_DIM)
+	_cmd_btn(DOCK_BTN_UNDOCK, "UNDOCK", undock_enabled, Palette.PH)
+	_txt(cjk, DOCK_CONTROLS.position.x + 20.0, DOCK_CONTROLS.position.y + 144.0,
+		_ellipsis(cjk, _docking_note if _docking_note != "" else "选择端口后 SELECT PORT；HOLD/RESUME/ABORT/RESET/UNDOCK 走真实 API", 7, 620.0),
+		7, Palette.a(Palette.AMBER, 0.75))
+	_txt(cjk, DOCK_CONTROLS.position.x + 20.0, DOCK_CONTROLS.position.y + 166.0,
+		"boundary: 不落实体 · 不执行物理/推力 · docked 需上层落账", 7, Palette.FAINT)
+	_txt(cjk, DOCK_CONTROLS.position.x + 20.0, DOCK_CONTROLS.position.y + 184.0,
+		"B 开关本页 · ESC 返回 · 不覆盖导航/光学/信息页", 7, Palette.FAINT)
+	_txt(cjk, 60.0, 1052.0, "只读页 · 数据源 state.fw_docking · 显式 API 按钮仅状态机/建议 · 不写 V15", 7, Palette.FAINT)
+	_txt_r(cjk, 1860.0, 1052.0, "R6-DOCK-HUD-1 · SHADOW", 7, Palette.FAINT)
+
+
+func _handle_docking_page_click(p: Vector2) -> void:
+	# 端口行
+	var y := DOCK_PORTS.position.y + 48.0
+	var ports := _dock_port_rows()
+	for i in range(mini(ports.size(), 8)):
+		var row := Rect2(DOCK_PORTS.position.x + 12.0, y, DOCK_PORTS.size.x - 24.0, 44.0)
+		if row.has_point(p):
+			_dock_sel_port = String((ports[i] as Dictionary).get("port_id", ""))
+			_docking_note = "选中端口 %s（点 SELECT PORT 应用）" % _dock_sel_port
+			return
+		y += 50.0
+	var st := String(_dock_view().get("state", "far"))
+	var tv := _dock_view()
+	var target_pid := _dock_target_port()
+	if DOCK_BTN_SELECT.has_point(p):
+		if st == "docked" or String(_dock_sel_port) == "" or String(_dock_sel_port) == target_pid:
+			_docking_note = "SELECT 不可用（docked / 未选新端口）"
+		else:
+			_dock_select_port()
+		return
+	if DOCK_BTN_HOLD.has_point(p):
+		if st in ["docked", "aborted", "failed"] or bool(tv.get("hold_requested", false)):
+			_docking_note = "HOLD 不可用（当前状态）"
+		else:
+			_dock_call("fw_docking_hold", "HOLD")
+		return
+	if DOCK_BTN_RESUME.has_point(p):
+		if not (st == "hold" or bool(tv.get("hold_requested", false))):
+			_docking_note = "RESUME 不可用（未 hold）"
+		else:
+			_dock_call("fw_docking_resume", "RESUME")
+		return
+	if DOCK_BTN_ABORT.has_point(p):
+		if st in ["aborted", "failed", "docked"]:
+			_docking_note = "ABORT 不可用（当前状态）"
+		else:
+			_dock_call("fw_docking_abort", "ABORT")
+		return
+	if DOCK_BTN_RESET.has_point(p):
+		_dock_call("fw_docking_reset", "RESET")
+		return
+	if DOCK_BTN_UNDOCK.has_point(p):
+		if st != "docked":
+			_docking_note = "UNDOCK 不可用（非 docked）"
+		else:
+			_dock_call("fw_docking_undock", "UNDOCK")
+		return
 
 
 func _draw_info_warfare_page() -> void:
@@ -4492,6 +4875,7 @@ func toggle_info_page() -> void:
 	_info_page_open = not _info_page_open
 	if _info_page_open:
 		_optical_open = false
+		_docking_page_open = false
 		_layers_open = false
 		_sfx("ui_open")
 	else:
@@ -4510,10 +4894,35 @@ func close_info_page() -> void:
 		queue_redraw()
 
 
+func toggle_docking_page() -> void:
+	_docking_page_open = not _docking_page_open
+	if _docking_page_open:
+		_info_page_open = false
+		_optical_open = false
+		_dock_sel_port = _dock_target_port()
+		_docking_note = "auto shadow：真实 state.fw_docking"
+		_sfx("ui_open")
+	else:
+		_sfx("ui_back")
+	queue_redraw()
+
+
+func is_docking_page_open() -> bool:
+	return _docking_page_open
+
+
+func close_docking_page() -> void:
+	if _docking_page_open:
+		_docking_page_open = false
+		_sfx("ui_back")
+		queue_redraw()
+
+
 func toggle_optical_window() -> void:
 	_optical_open = not _optical_open
 	if _optical_open:
 		_info_page_open = false
+		_docking_page_open = false
 		_optical_target = _target_track_id()
 		_optical_state_note = ""
 		_sfx("ui_open")
@@ -8190,6 +8599,9 @@ func _draw_layers_panel() -> void:
 
 # ── Esc 层级：先关战术弹窗，再交给暂停菜单 ────────────
 func _close_top_popup() -> bool:
+	if _docking_page_open:
+		close_docking_page()
+		return true
 	if _info_page_open:
 		close_info_page()
 		return true

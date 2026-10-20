@@ -698,7 +698,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE and hud.has_method("close_nav_page"):
 			hud.call("close_nav_page")
 		return
+	# R6-DOCK-HUD-1：B 打开/关闭对接/接近页
+	if event.keycode == KEY_B:
+		if hud.has_method("toggle_docking_page"):
+			hud.call("toggle_docking_page")
+		return
 	if event.keycode == KEY_ESCAPE:
+		if hud.has_method("is_docking_page_open") and bool(hud.call("is_docking_page_open")):
+			hud.call("close_docking_page")
+			return
 		if hud.has_method("is_info_page_open") and bool(hud.call("is_info_page_open")):
 			hud.call("close_info_page")
 			return
