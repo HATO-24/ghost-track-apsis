@@ -6,30 +6,33 @@ extends Node3D
 ##   * sim/sensor_types.gd  → 型号能力记录（YW-R9 / MS-OT2 / CH-IR2 / MK-12 / ELINT）
 ##   * sim/radar.gd         → 球形搜索 R_eff / RCS / 刷新 / 暴露（ELINT 截获/定位）
 ##   * sim/tws.gd           → TWS 六态通道（SEARCH→…→FIRE_CONTROL）、quality/age/失锁/重捕
-##   * sim/optical.gd       → VIS/IR 凝视通道（光照/遮挡/凝视进度/锁定）
-##   * scripts/sensor_model.gd（V2 规则层）→ IFF 询问、ELINT 截获、发射特征
+##   * sim/optical.gd       → 旧 VIS/IR 凝视（保留 sim 回归；演示改用 vendored V2OpticalIRChannel）
+##   * ui/sx_optical_ir.gd  → V2 完整光学/IR（FOV/IFOV/遮挡/光照/SNR/凝视/锁定；版本与 game_v17 同步）
+##   * ui/sx_information_warfare.gd → V2 IFF/ELINT/COMINT/EW（vendored，独立 exe 自包含）
+##   * scripts/sensor_model.gd（V2 规则层）→ 旧 IFF/ELINT 参考（演示改用 information warfare）
 ##
 ## 视觉：V1 薄荷绿线框 / 1px 线 / 7–11pt 终端字体 / Palette；ImmediateMesh 线段，无贴图。
 ## 诚实标注（HUD 固定）：`V2 SIM MODEL — NOT YET AUTHORITATIVE IN V17`。
 ## 本演示是「传感器技术演示」：本舰固定在 L1 局部板坐标系原点，6 个目标按脚本轨迹运动；
-## 雷达球是**真实球形**（不是扇形）；光学视锥来自 V2 optical 通道的方位/俯仰。
+## 雷达球是**真实球形**（不是扇形）；光学视锥来自 V2 optical_ir 通道的真实 FOV。
 ##
 ## 控制：
 ##   LMB 拖拽旋转 · RMB/MMB 拖拽平移 · 滚轮缩放
 ##   TAB 循环目标 · 1–6 选择目标 · 0/F 相机焦点：本舰/选中目标 · R 重置
 ##   SPACE 暂停/播放 · -/= 时间倍率 1×/10×/100×/1000×
 ##   M 雷达开/EMCON · V VIS 通道开关 · I IR 通道开关 · E ELINT 接收机开关
-##   Q IFF 询问选中目标（2 s 冷却）
+##   Q IFF 询问选中目标（2 s 冷却）· X 注入一次 EW 演示效果
 ## 截图：
-##   DSH_SX_SHOT=<png> · DSH_SX_VIEW=overview|tws|optical|elint
+##   DSH_SX_SHOT=<png> · DSH_SX_VIEW=overview|tws|optical|elint|ew
 ##   可选 DSH_SX_TIME=<s>、DSH_SX_SPEED=<1|10|100|1000>、DSH_SX_PAUSE=1
-##   按视图自动预热到可观察状态（overview/tws=80 s，optical=120 s，elint=55 s），
+##   按视图自动预热到可观察状态（overview=80 s、tws=200 s、optical=120 s、elint=55 s、ew=165 s），
 ##   1920×1080 第 36 帧保存退出。
 
 const Types := preload("res://sim/sensor_types.gd")
 const RadarModel := preload("res://sim/radar.gd")
 const TwsModel := preload("res://sim/tws.gd")
-const OpticalModel := preload("res://sim/optical.gd")
+const OpticalIRModel := preload("res://ui/sx_optical_ir.gd")
+const InfoModel := preload("res://ui/sx_information_warfare.gd")
 const SM := preload("res://scripts/sensor_model.gd")
 const Pal := preload("res://scripts/pal.gd")
 const UiFonts := preload("res://scripts/fonts.gd")
@@ -43,7 +46,7 @@ const OWN_ID := "SX-01"
 const STATE_ORDER := ["SEARCH", "DETECT", "ACQUIRE", "TRACK", "STARE", "FIRE_CONTROL"]
 const STATE_SHORT := {"SEARCH": "SRCH", "DETECT": "DET", "ACQUIRE": "ACQ",
 	"TRACK": "TRK", "STARE": "STARE", "FIRE_CONTROL": "FC"}
-const VIEW_WARM := {"overview": 80.0, "tws": 200.0, "optical": 120.0, "elint": 55.0}
+const VIEW_WARM := {"overview": 80.0, "tws": 200.0, "optical": 120.0, "elint": 55.0, "ew": 165.0}
 
 var camera: Camera3D
 var mesh_instance: MeshInstance3D
@@ -57,7 +60,15 @@ var _ir_rec = null
 var _iff_rec = null
 var _elint_rec = null
 var _tws = null
-var _optical = null
+var _optical = null          # V2OpticalIRChannel（真实 FOV/遮挡/光照/SNR）
+var _info = null             # V2InformationWarfare（IFF/ELINT/COMINT/EW）
+var _optical_ir_out: Dictionary = {}
+var _info_out: Dictionary = {}
+var _info_last_event_t := -1.0
+var _info_last_seq := 0
+var _info_sig_event_t: Dictionary = {}
+var _info_iff_done: Array = []
+var _ew_done: Dictionary = {}
 
 # ── 仿真 / 场景状态 ─────────────────────────────────────────────
 var _t := 0.0
@@ -119,6 +130,8 @@ func _ready() -> void:
 	hud = get_node_or_null("HUDLayer/HUD") as Control
 	_setup_models()
 	_setup_targets()
+	_refresh_targets()
+	_setup_information_warfare()
 	_shot_path = OS.get_environment("DSH_SX_SHOT")
 	_shot_view = OS.get_environment("DSH_SX_VIEW")
 	var ss := OS.get_environment("DSH_SX_SPEED")
@@ -170,13 +183,9 @@ func _setup_models() -> void:
 	if _radar_rec != null:
 		cap = maxi(1, int(_radar_rec.track_capacity))
 	_tws = TwsModel.new(_radar_rec, {"id": "YW-R9", "max_channels": cap, "enabled": true})
-	_optical = OpticalModel.new({})
-	_optical.set_sensor("optical", _vis_rec)
-	_optical.set_sensor("ir", _ir_rec)
-	_optical.start("optical", "T1")
-	_optical.start("ir", "T1")
-	_optical.start("optical", "T3")
-	_optical.start("ir", "T6")
+	_optical = OpticalIRModel.new()
+	_optical.start_channel("optical", "T1")
+	_optical.start_channel("ir", "T6")
 
 
 func _setup_targets() -> void:
@@ -184,22 +193,22 @@ func _setup_targets() -> void:
 	# T4 距离振荡 → 进出 R_eff 球，可观察 TWS 失锁/重捕；T3 在 t∈[90,200) 进入阴影 → VIS 丢失/IR 仍在。
 	_target_defs = [
 		{"id": "T1", "name": "远地点", "range": 12000.0, "bearing": 40.0, "range_rate": 0.02,
-			"bearing_rate": 0.03, "rcs": 12.0, "emitter": false, "transponder": "ok",
+			"bearing_rate": 0.00001, "rcs": 12.0, "emitter": false, "transponder": "ok",
 			"iff_code": "CMP-119", "faction": "friend", "cls": "DDG", "temp_k": 300.0},
 		{"id": "T2", "name": "渡口", "range": 1900.0, "bearing": 120.0, "range_rate": -0.01,
-			"bearing_rate": -0.02, "rcs": 8.0, "emitter": true, "transponder": "off",
+			"bearing_rate": -0.00001, "rcs": 8.0, "emitter": true, "transponder": "off",
 			"iff_code": "", "faction": "neutral", "cls": "FFG", "temp_k": 295.0},
 		{"id": "T3", "name": "望楼", "range": 24000.0, "bearing": 205.0, "range_rate": 0.0,
-			"bearing_rate": 0.015, "rcs": 6.0, "emitter": false, "transponder": "ok",
+			"bearing_rate": 0.00001, "rcs": 6.0, "emitter": false, "transponder": "ok",
 			"iff_code": "CMP-211", "faction": "friend", "cls": "CV", "temp_k": 300.0},
 		{"id": "T4", "name": "深井", "range": 28500.0, "bearing": 300.0, "range_rate": 0.0,
-			"bearing_rate": -0.01, "rcs": 6.0, "emitter": false, "transponder": "faulty",
+			"bearing_rate": -0.00001, "rcs": 6.0, "emitter": false, "transponder": "faulty",
 			"iff_code": "CMP-034", "faction": "unknown", "cls": "DDG", "temp_k": 305.0},
 		{"id": "T5", "name": "传令者", "range": 28000.0, "bearing": 75.0, "range_rate": 0.0,
 			"bearing_rate": 0.0, "rcs": 10.0, "emitter": true, "transponder": "captured",
 			"iff_code": "REB-7", "faction": "hostile", "cls": "C2", "temp_k": 310.0},
 		{"id": "T6", "name": "谷神-2", "range": 1500.0, "bearing": 155.0, "range_rate": 0.015,
-			"bearing_rate": 0.02, "rcs": 10.0, "emitter": false, "transponder": "ok",
+			"bearing_rate": 0.00001, "rcs": 10.0, "emitter": false, "transponder": "ok",
 			"iff_code": "CMP-207", "faction": "friend", "cls": "DDG", "temp_k": 300.0},
 	]
 
@@ -228,22 +237,36 @@ func _refresh_targets() -> void:
 		var emissions: Array = []
 		if bool(d.get("emitter", false)):
 			emissions.append({"model": "YW-R9", "type": "radar", "on": true, "range_km": 30000.0})
+		var rrate := float(d.get("range_rate", 0.0))
+		var brad := deg_to_rad(float(d.get("bearing_rate", 0.0)))
+		var radial := Vector3(sin(brg), cos(brg), 0.0)
+		var tangent := Vector3(cos(brg), -sin(brg), 0.0)
+		var vel := radial * rrate + tangent * (rng * brad)
+		var cls := String(d.get("cls", ""))
+		var size_m := 50.0
+		if cls == "CV":
+			size_m = 300.0
+		elif cls == "C2":
+			size_m = 80.0
+		elif cls == "FFG":
+			size_m = 40.0
 		_targets.append({
 			"id": String(d.get("id", "")),
 			"name": String(d.get("name", "")),
 			"pos_km": pos,
+			"vel_kmps": [vel.x, vel.y, vel.z],
 			"range_km": range_km,
 			"bearing_deg": bearing,
 			"elevation_deg": 0.0,
 			"rcs_m2": float(d.get("rcs", 10.0)),
+			"size_m": size_m,
 			"temp_k": float(d.get("temp_k", 300.0)),
 			"area_m2": 1000.0,
 			"illum": _illum_at(d, _t),
 			"transponder": String(d.get("transponder", "off")),
 			"iff_code": String(d.get("iff_code", "")),
 			"faction": String(d.get("faction", "unknown")),
-			"classification": {"ship_class": String(d.get("cls", "")),
-				"role": "", "faction": String(d.get("faction", "unknown"))},
+			"classification": {"ship_class": cls, "role": "", "faction": String(d.get("faction", "unknown"))},
 			"emissions": emissions,
 		})
 
@@ -252,13 +275,196 @@ func _build_snapshot() -> Dictionary:
 	_refresh_targets()
 	return {
 		"t": _t,
-		"observer": {"id": OWN_ID, "pos_km": Vector3.ZERO, "maneuver_g": 0.0},
+		"observer": {"id": OWN_ID, "pos_km": Vector3.ZERO, "vel_kmps": Vector3.ZERO,
+			"maneuver_g": 0.0, "angular_rate_dps": [0.0, 0.0, 0.0]},
 		"targets": _targets.duplicate(true),
 		"sun_illum": 1.0,
+		"sun_dir": [1.0, 0.0, 0.0],
+		"earth_albedo": 0.03,
 		"jamming": _jamming_at(_t),
 		"los": true,
 		"shadow": false,
 	}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 1b. 信息作战（IFF/ELINT/COMINT/EW；V2InformationWarfare）
+# ═══════════════════════════════════════════════════════════════════
+
+func _setup_information_warfare() -> void:
+	_info = InfoModel.new()
+	var cfg: Dictionary = {
+		"observer_id": OWN_ID,
+		"observer": {"id": OWN_ID, "pos_km": [0.0, 0.0, 0.0], "emcon": false,
+			"mast_deployed": true, "damage": {"sensors": 1.0, "comms": 1.0}},
+		"targets": _info_target_rows(),
+		"stations": [
+			{"id": "SX-ELINT-A", "pos_km": [0.0, 0.0, 0.0], "sigma_bearing_deg": 1.0},
+			{"id": "SX-ELINT-B", "pos_km": [5000.0, 0.0, 0.0], "sigma_bearing_deg": 1.0},
+		],
+	}
+	_info.setup(cfg)
+	_info_out = _info.vm_information_warfare()
+	_info_last_event_t = -1.0
+	_info_last_seq = 0
+	_info_sig_event_t.clear()
+	_info_iff_done.clear()
+	_ew_done.clear()
+
+
+func _info_target_rows() -> Array:
+	var out: Array = []
+	for raw in _targets:
+		var tr: Dictionary = raw
+		var tid := String(tr.get("id", ""))
+		var emissions: Array = []
+		if bool(tr.get("emissions", []).size() > 0):
+			emissions.append({"model": "YW-R9", "type": "radar", "active": true,
+				"frequency_mhz": 9500.0, "power_dbm": 90.0, "gain_tx_dbi": 30.0})
+		var comms: Array = []
+		if tid == "T2":
+			comms.append({"from": "T2", "to": "T4", "mode": "radio", "text": "…",
+				"encrypted": true, "frequency_mhz": 300.0})
+		elif tid == "T5":
+			comms.append({"from": "T5", "to": "T2", "mode": "radio", "text": "航路确认",
+				"encrypted": false, "frequency_mhz": 300.0})
+		var pos: Vector3 = tr.get("pos_km", Vector3.ZERO)
+		out.append({
+			"id": tid, "name": String(tr.get("name", "")),
+			"pos_km": [pos.x, pos.y, pos.z],
+			"vel_kmps": (tr.get("vel_kmps", [0.0, 0.0, 0.0]) as Array),
+			"transponder": String(tr.get("transponder", "off")),
+			"registered": String(tr.get("faction", "")) == "friend",
+			"registry_match": String(tr.get("faction", "")) == "friend",
+			"crypto_epoch": "epoch-1", "reply_delay_s": 0.2,
+			"iff_codes": {"3/A": String(tr.get("iff_code", ""))},
+			"alt_ft": 25000.0,
+			"emissions": emissions,
+			"comms": comms,
+		})
+	return out
+
+
+func _info_iff_query(tid: String) -> Dictionary:
+	if _info == null:
+		return {}
+	var tr := _target_by_id(tid)
+	if tr.is_empty():
+		return {}
+	var code := String(tr.get("iff_code", ""))
+	var res: Dictionary = _info.interrogate_iff(tid, ["3/A"],
+		{"expected_codes": {"3/A": code}})
+	_last_iff = {
+		"target_id": tid, "status": String(res.get("status", "no_reply")),
+		"identity": String(res.get("identity", "unknown")),
+		"confidence": float(res.get("confidence", 0.0)),
+		"t": _t, "notes": res.get("warnings", []),
+	}
+	var text := "IFF 询问 %s %s → %s · identity=%s（不自动判敌）" % [
+		tid, _target_name(tid), String(res.get("status", "")), String(res.get("identity", "unknown"))]
+	_push_event("iff", text)
+	return res
+
+
+func _step_information(dt: float) -> void:
+	if _info == null:
+		return
+	_refresh_targets()
+	_info.set_targets(_info_target_rows())
+	# 脚本 IFF 时间线（真实 interrogate_iff）
+	var schedule := [[8.0, "T6"], [12.0, "T1"], [20.0, "T2"], [34.0, "T4"], [46.0, "T5"]]
+	for raw in schedule:
+		var it: Array = raw
+		var at := float(it[0])
+		var tid := String(it[1])
+		var key := "%s@%.0f" % [tid, at]
+		if _t >= at and not _info_iff_done.has(key):
+			_info_iff_done.append(key)
+			_info_iff_query(tid)
+	# EW 注入时间线（仅一次；真实 EWEffect）
+	if _t >= 150.0 and not _ew_done.has("base"):
+		_ew_done["base"] = true
+		_info.inject_noise_jamming("T5", OWN_ID, 0.7, 60.0)
+		_info.inject_comms_jamming("T5", OWN_ID, 0.5, 60.0)
+		_info.inject_deception("T5", OWN_ID, 0.7, 30.0, 2)
+		_info.inject_chaff("T5", OWN_ID, 2, 30.0)
+	if _t >= 152.0 and not _ew_done.has("spoof"):
+		_ew_done["spoof"] = true
+		_info.inject_comms_spoof("T5", OWN_ID, "接管航道，停止核查", 30.0)
+	if _t >= 160.0 and not _ew_done.has("dazzle"):
+		_ew_done["dazzle"] = true
+		_info.inject_laser_dazzle("T5", OWN_ID, 0.8, 10.0)
+		_info.apply_ew_effect({"effect": "lwr", "severity": 0.7, "target_id": OWN_ID,
+			"target_kinds": ["optical"], "duration_s": 10.0})
+	_info.step(dt)
+	_info_out = _info.vm_information_warfare()
+	_ingest_info_events()
+	_last_iff = _info.iff_state(_selected_id) if not _info.iff_state(_selected_id).is_empty() else _last_iff
+
+
+func _ingest_info_events() -> void:
+	var events: Array = _info_out.get("events", []) if _info_out.get("events", []) is Array else []
+	for raw in events:
+		if not (raw is Dictionary):
+			continue
+		var ev: Dictionary = raw
+		var et := float(ev.get("t", 0.0))
+		var seq := int(ev.get("seq", 0))
+		if seq <= _info_last_seq:
+			continue
+		_info_last_seq = seq
+		var typ := String(ev.get("type", ""))
+		var payload: Dictionary = ev.get("payload", {}) if ev.get("payload") is Dictionary else {}
+		match typ:
+			"iff.reply":
+				var status := String(payload.get("status", ""))
+				var identity := String(payload.get("identity", "unknown"))
+				_push_event("iff", "IFF %s → %s · identity=%s（不明≠敌意）" % [
+					String(payload.get("target_id", "")), status, identity])
+			"emitter.signal":
+				if String(payload.get("schema", "")) == "emitter_signal.v1":
+					var sid := String(payload.get("source_id", ""))
+					var last_sig_t := float(_info_sig_event_t.get(sid, -999.0))
+					if et - last_sig_t >= 8.0:
+						_info_sig_event_t[sid] = et
+						_push_event("elint", "ELINT %s · %s · 方位 %.1f° · 单站无接触" % [
+							sid, String(payload.get("signature", "?")),
+							float(payload.get("bearing_deg", 0.0))])
+				elif String(payload.get("schema", "")) == "signal_fix_candidate.v1":
+					_push_event("elint", "SIGNAL FIX 候选 %s · σ %.0f km（需确认）" % [
+						String(payload.get("source_id", "")), float(payload.get("sigma_range_km", 0.0))])
+			"comms.link":
+				var enc := bool(payload.get("encrypted", false))
+				_push_event("comint", "COMINT %s→%s · %s（%s）" % [
+					String(payload.get("from", "")), String(payload.get("to", "")),
+					String((payload.get("comms_content", {}) as Dictionary).get("mode", "radio")),
+					"加密/仅元数据" if enc else "明文"])
+			"ew.effect":
+				_push_event("ew", "EW %s · severity %.2f（事件总线，不判敌）" % [
+					String(payload.get("effect", "")), float(payload.get("severity", 0.0))])
+		if et > _info_last_event_t:
+			_info_last_event_t = et
+
+
+func _update_signals_from_info() -> void:
+	_elint_signals = []
+	if _info_out.is_empty():
+		return
+	var sigs: Array = (_info_out.get("elint", {}) as Dictionary).get("signals", [])
+	for raw in sigs:
+		if not (raw is Dictionary):
+			continue
+		var sig: Dictionary = raw
+		if not bool(sig.get("detected", false)):
+			continue
+		_elint_signals.append({
+			"target_id": String(sig.get("source_id", "")),
+			"signature": String(sig.get("signature", "")),
+			"bearing_deg": float(sig.get("bearing_deg", 0.0)),
+			"quality": float(sig.get("confidence", 0.0)),
+			"produces_contact": false,
+			"fix_candidate": false,
+		})
 
 
 func _sensor_dict(rec) -> Dictionary:
@@ -296,12 +502,13 @@ func _step_sim(dt: float) -> void:
 			_own_elint_exposure()
 	if _optical != null:
 		var opt_out: Dictionary = _optical.step(dt, snap)
+		_optical_ir_out = opt_out
 		_optical_out = opt_out
 		_ingest_optical_events(opt_out.get("events", []))
+	_step_information(dt)
+	_update_signals_from_info()
 	if _elint_on:
-		_elint_sweep(dt)
-	_scripted_iff()
-	_update_signals()
+		_own_elint_exposure()
 
 
 func _ingest_tws_events(events: Array) -> void:
@@ -342,13 +549,19 @@ func _ingest_optical_events(events: Array) -> void:
 		var kind := String(ev.get("kind", ""))
 		var ch := String(ev.get("channel", ""))
 		var tid := String(ev.get("target_id", ""))
-		var message := String(ev.get("message", ""))
 		var label := "VIS" if ch == "optical" else "IR"
-		if kind.find("lost") >= 0:
-			_push_event("optical_lost", "%s %s %s 丢失（%s）" % [label, tid,
-				_target_name(tid), message])
-		elif message != "":
-			_push_event("optical", "%s %s %s · %s" % [label, tid, _target_name(tid), message])
+		if kind == "channel_status":
+			var to := String(ev.get("to", ""))
+			var reason := String(ev.get("reason", ""))
+			if to == "locked":
+				_push_event("optical", "%s %s %s 锁定 · %s" % [label, tid, _target_name(tid), reason])
+			elif to == "lost":
+				_push_event("optical_lost", "%s %s %s 丢失（%s）" % [label, tid,
+					_target_name(tid), reason])
+			elif to == "staring":
+				_push_event("optical", "%s %s 凝视中（%s）" % [label, tid, reason])
+		elif kind == "channel_open":
+			_push_event("optical", "%s %s 通道建立" % [label, tid])
 
 
 func _own_elint_exposure() -> void:
@@ -362,77 +575,16 @@ func _own_elint_exposure() -> void:
 	_last_own_emit_t = _t
 
 
-func _elint_sweep(dt: float) -> void:
-	if _elint_rec == null:
-		return
-	if fmod(_t, 2.0) > dt + 1.0e-6:
-		return
-	var elint_sensor := _sensor_dict(_elint_rec)
-	for raw in _targets:
-		var tr: Dictionary = raw
-		var tid := String(tr.get("id", ""))
-		if (tr.get("emissions", []) as Array).is_empty():
-			continue
-		if not bool(tr.get("emitter_on", true)):
-			continue
-		var det: Dictionary = SM.detect_elint(elint_sensor, tr, {"los": true})
-		if not bool(det.get("detected", false)):
-			continue
-		var last := float(_last_elint_emit_t.get(tid, -999.0))
-		if _t - last + 1.0e-9 < 10.0:
-			continue
-		_last_elint_emit_t[tid] = _t
-		var sig: Dictionary = det.get("signal", {})
-		_push_event("elint", "ELINT 截获 %s %s · %s · 方位 %.0f°（仅信号/无接触）" % [
-			tid, _target_name(tid), String(sig.get("signature", "?")),
-			float(det.get("bearing_deg", 0.0))])
-
-
-func _scripted_iff() -> void:
-	var schedule := [[8.0, "T6"], [20.0, "T2"], [34.0, "T5"], [46.0, "T6"]]
-	for raw in schedule:
-		var it: Array = raw
-		var at := float(it[0])
-		var tid := String(it[1])
-		var key := "%s@%.0f" % [tid, at]
-		if _t >= at and not _auto_iff_done.has(key):
-			_auto_iff_done.append(key)
-			_iff_query(tid)
-
-
 func _iff_query(tid: String) -> void:
-	if _iff_rec == null:
+	if _info == null:
 		return
-	var tr := _target_by_id(tid)
-	if tr.is_empty():
-		return
-	var res: Dictionary = SM.interrogate_iff(_sensor_dict(_iff_rec), tr, {"los": true})
-	var status := String(res.get("iff_status", "no_reply"))
-	_last_iff = {"target_id": tid, "status": status, "t": _t, "notes": res.get("notes", [])}
-	var text := "IFF 询问 %s %s → %s" % [tid, _target_name(tid), status]
-	if not bool(res.get("detected", false)):
-		text = "IFF 询问 %s 失败：%s" % [tid, String(res.get("reason", "out_of_range"))]
-	_push_event("iff", text)
+	_info_iff_query(tid)
 	_iff_cooldown = 2.0
 
 
 func _update_signals() -> void:
-	_elint_signals = []
-	if not _elint_on or _elint_rec == null:
-		return
-	for raw in _targets:
-		var tr: Dictionary = raw
-		if (tr.get("emissions", []) as Array).is_empty():
-			continue
-		var det: Dictionary = SM.detect_elint(_sensor_dict(_elint_rec), tr, {"los": true})
-		if bool(det.get("detected", false)):
-			var sig: Dictionary = det.get("signal", {})
-			_elint_signals.append({
-				"target_id": String(tr.get("id", "")),
-				"signature": String(sig.get("signature", "")),
-				"bearing_deg": float(tr.get("bearing_deg", 0.0)),
-				"quality": float(det.get("quality", 0.0)),
-			})
+	# 兼容旧调用：ELINT 演示数据统一来自 V2InformationWarfare
+	_update_signals_from_info()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -475,6 +627,17 @@ func _optical_channel(kind: String, tid: String) -> Dictionary:
 	return ch
 
 
+func _optical_export(kind: String, tid: String) -> Dictionary:
+	var ch := _optical_channel(kind, tid)
+	if ch.is_empty():
+		return {}
+	if _optical != null and _optical.has_method("export_channel"):
+		var out = _optical.export_channel(ch)
+		if out is Dictionary:
+			return out
+	return ch.duplicate(true)
+
+
 # ═══════════════════════════════════════════════════════════════════
 # 4. 相机 / 视图
 # ═══════════════════════════════════════════════════════════════════
@@ -490,6 +653,9 @@ func _apply_view(mode: String) -> void:
 		"elint":
 			_selected_id = "T5"
 			_set_camera(90.0, -40.0, 28.0, "own")
+		"ew":
+			_selected_id = "T5"
+			_set_camera(95.0, -30.0, 32.0, "own")
 		_:
 			_selected_id = "T1"
 			_set_camera(85.0, -35.0, 30.0, "own")
@@ -738,13 +904,13 @@ func _add_optical_cone(arr: Array, kind: String, col: Color) -> void:
 	var st := String(ch.get("status", "idle"))
 	if st == "idle":
 		return
-	var brg := float(ch.get("bearing_deg", -999.0))
+	var brg := float(ch.get("boresight_deg", ch.get("bearing_deg", -999.0)))
 	if brg < -900.0:
 		return
-	var dir := _bearing_dir(brg, float(ch.get("elevation_deg", 0.0)))
+	var dir := _bearing_dir(brg, float(ch.get("boresight_el_deg", ch.get("elevation_deg", 0.0))))
 	var range_km := float(ch.get("slant_range_km", 0.0))
 	var cone_len := clampf(range_km / KM_PER_UNIT * 1.15, 3.0, 38.0)
-	var half := deg_to_rad(2.0) if kind == "optical" else deg_to_rad(3.2)
+	var half := deg_to_rad(maxf(0.05, float(ch.get("fov_deg", 2.0)) * 0.5))
 	var alpha := 0.34 if st == "locked" else 0.18
 	var up := Vector3.UP if absf(dir.dot(Vector3.UP)) < 0.98 else Vector3.RIGHT
 	var side := dir.cross(up).normalized()
@@ -840,7 +1006,12 @@ func _update_vm() -> void:
 			"age_s": float(ch.get("age_s", 0.0)),
 			"lost_lock_count": int(ch.get("lost_lock_count", 0)),
 			"vis_status": String(vis.get("status", "")),
+			"vis_level": int(vis.get("level_support", 0)),
+			"vis_snr": float(vis.get("snr_db", -999.0)),
+			"vis_occluded": bool(vis.get("occluded", false)),
+			"vis_fov": float(vis.get("fov_deg", 0.0)),
 			"ir_status": String(ir.get("status", "")),
+			"ir_level": int(ir.get("level_support", 0)),
 			"selected": tid == _selected_id,
 			"on_screen": on_screen,
 			"screen": screen,
@@ -853,8 +1024,13 @@ func _update_vm() -> void:
 	var selected: Dictionary = {}
 	if not sel.is_empty():
 		var iff_text := "no query"
-		if String(_last_iff.get("target_id", "")) == _selected_id:
-			iff_text = String(_last_iff.get("status", "no_reply"))
+		var iff_st: Dictionary = _info.iff_state(_selected_id) if _info != null else {}
+		if not iff_st.is_empty():
+			iff_text = "%s · identity=%s" % [String(iff_st.get("status", "unknown")),
+				String(iff_st.get("identity", "unknown"))]
+		elif String(_last_iff.get("target_id", "")) == _selected_id:
+			iff_text = "%s · identity=%s" % [String(_last_iff.get("status", "no_reply")),
+				String(_last_iff.get("identity", "unknown"))]
 		var emitter_text := "passive"
 		var emissions: Array = sel.get("emissions", [])
 		if not emissions.is_empty():
@@ -880,10 +1056,17 @@ func _update_vm() -> void:
 			"optical_text": "VIS %s · IR %s" % [_optical_brief(sel_vis), _optical_brief(sel_ir)],
 			"iff_text": iff_text,
 			"emitter_text": emitter_text,
-			"note": "transponder=%s · iff_code=%s · faction=%s" % [
+			"note": "transponder=%s · iff_code=%s · faction=%s · backend=optical_ir" % [
 				String(sel.get("transponder", "")), String(sel.get("iff_code", "")),
 				String(sel.get("faction", ""))],
 		}
+	var vis_detail := _optical_export("optical", "T1")
+	var ir_detail := _optical_export("ir", "T6")
+	var info := _info_out if not _info_out.is_empty() else {}
+	var info_iff: Dictionary = info.get("iff", {}) if info.get("iff", {}) is Dictionary else {}
+	var info_elint: Dictionary = info.get("elint", {}) if info.get("elint", {}) is Dictionary else {}
+	var info_comint: Dictionary = info.get("comint", {}) if info.get("comint", {}) is Dictionary else {}
+	var info_ew: Dictionary = info.get("ew", {}) if info.get("ew", {}) is Dictionary else {}
 	_vm = {
 		"t": _t,
 		"speed": SPEEDS[_speed_idx],
@@ -891,7 +1074,7 @@ func _update_vm() -> void:
 		"radar_on": _radar_on,
 		"elint_on": _elint_on,
 		"source": "v2_sim",
-		"model_note": "sim/{sensor_types,radar,tws,optical}.gd + scripts/sensor_model.gd（只读调用）",
+		"model_note": "sim/{sensor_types,radar,tws} + ui/{sx_optical_ir,sx_information_warfare}（vendored V2，只读调用）",
 		"targets": target_rows,
 		"by_state": by_state,
 		"channels": chans,
@@ -903,9 +1086,17 @@ func _update_vm() -> void:
 		"optical": {"vis_summary": vis_summary, "ir_summary": ir_summary,
 			"vis_total": vis_total, "vis_locked": vis_locked,
 			"ir_total": ir_total, "ir_locked": ir_locked,
-			"vis_locked_all": int(vstatus.get("locked", 0)), "by_status": vstatus},
-		"elint": {"signals": _elint_signals},
+			"vis_locked_all": int(vstatus.get("locked", 0)), "by_status": vstatus,
+			"backend": "optical_ir", "vis": vis_detail, "ir": ir_detail,
+			"channels": (_optical_ir_out.get("channels", []) if _optical_ir_out.get("channels", []) is Array else [])},
+		"elint": {"signals": _elint_signals,
+			"signals_raw": info_elint.get("signals", []),
+			"fix_candidates": info_elint.get("fix_candidates", []),
+			"summary": info_elint.get("summary", {})},
 		"iff": _last_iff,
+		"info": info,
+		"comint": info_comint,
+		"ew": info_ew,
 		"labels_3d": _label_notes(),
 	}
 
@@ -1014,25 +1205,29 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_V:
 				_vis_on = not _vis_on
 				if _vis_on:
-					_optical.start("optical", "T1")
-					_optical.start("optical", "T3")
+					_optical.start_channel("optical", "T1")
 				else:
-					_optical.stop("optical")
-				_push_event("optical", "VIS 全部通道 %s" % ("开机" if _vis_on else "关机"))
+					_optical.stop_channel("optical")
+				_push_event("optical", "VIS 通道 %s · optical_ir backend" % ("开机" if _vis_on else "关机"))
 			KEY_I:
 				_ir_on = not _ir_on
 				if _ir_on:
-					_optical.start("ir", "T1")
-					_optical.start("ir", "T6")
+					_optical.start_channel("ir", "T6")
 				else:
-					_optical.stop("ir")
-				_push_event("optical", "IR 全部通道 %s" % ("开机" if _ir_on else "关机"))
+					_optical.stop_channel("ir")
+				_push_event("optical", "IR 通道 %s · optical_ir backend" % ("开机" if _ir_on else "关机"))
 			KEY_E:
 				_elint_on = not _elint_on
 				_push_event("elint", "ELINT 接收机 %s" % ("开机" if _elint_on else "关机"))
 			KEY_Q:
 				if _iff_cooldown <= 0.0:
 					_iff_query(_selected_id)
+			KEY_X:
+				# 手动注入一组 EW 演示（真实 EWEffect 进事件总线；不自动判敌）
+				if _info != null:
+					_info.inject_noise_jamming("T5", OWN_ID, 0.8, 20.0)
+					_info.inject_laser_dazzle("T5", OWN_ID, 0.8, 5.0)
+					_push_event("ew", "手动 EW 注入：noise_jam + laser_dazzle（事件总线）")
 			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6:
 				var idx := int(kk.keycode - KEY_1)
 				if idx >= 0 and idx < _targets.size():
@@ -1052,8 +1247,15 @@ func _reset() -> void:
 	_last_iff = {}
 	_last_elint_emit_t.clear()
 	_auto_iff_done.clear()
+	_info_last_event_t = -1.0
+	_info_last_seq = 0
+	_info_sig_event_t.clear()
+	_info_iff_done.clear()
+	_ew_done.clear()
 	_setup_models()
 	_setup_targets()
+	_refresh_targets()
+	_setup_information_warfare()
 	_apply_view("overview")
 
 

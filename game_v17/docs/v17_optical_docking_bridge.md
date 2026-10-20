@@ -11,10 +11,14 @@
 
 - bridge 启动创建 `V2OpticalIRChannel`（VIS + IR 双通道）与 `V2DockingController`
   （默认端口样例：chronos-dock-a/b、chronos-berth-1、harmattan-port）。
-- 开关（默认 on）：`V17_OPTICAL_IR=on|off`、`V17_DOCKING=on|off`；
-  `off`/`0` 不创建实例，view 为空、显式 API 返回 `ok=false`；失败不阻塞 bridge。
-- **不自动**：光学不自动 aim/step（sync 只刷新只读 VM）；对接不自动 update，需调用方喂
-  `rel/attitude`。两者均不写 world/physics/TrackTable/V15、不接 HUD/plot。
+- 开关（R5-AUTO-SENSOR-1）：`V17_OPTICAL_IR`/`V17_DOCKING` = `auto|on|off`：
+  - `auto`（未设置/空 默认）：bridge `sync(dt)` **自动**为光学选目标 → start VIS/IR + aim + step，
+    并从 V2 world 实体 L1 相对状态生成对接 `rel/attitude` → `update(dt)`，让 HUD 打开即有真实 VM；
+  - `on`：只读 VM + 显式 API（不自动步进）；
+  - `off`/`0`：不创建实例，view 为空、自动停止、显式 API 返回 `ok=false`；
+  失败不阻塞 bridge。
+- 自动不落实体/不执行推力，不写 world/physics/TrackTable/V15、不接 HUD/plot；手动
+  `optical_ir_start/stop`、`docking_update/hold/abort` 会覆盖 auto（stop/update 抑制，start/reset/select 恢复）。
 - 模型边界沿用各自文档：光学 `level_support` VIS≤L3/IR≤L1、identity=unknown、无真实姿态
   （默认 LOS）；对接不落实体、不生成推力，`authoritative=false`。
 
@@ -67,7 +71,17 @@ classification/identity=unknown/reason/failures`（状态 idle/acquiring/staring
 
 off 时 `fw_optical_ir`/`fw_docking` 为空；显式 API 返回 `{ok:false,reason:"…not_ready"}`。
 
-## 5　最小验证
+## 5　自动数据（R5-AUTO-SENSOR-1）
+
+| 项目 | 行为 |
+| --- | --- |
+| 光学 auto | `sync(dt)`：选 `actions_target`（V15 选中批次）或首个 level≥1、非 bearing-only、range>0 的接触为 `optical_ir_auto_target`；无通道则启动 VIS+IR → `aim_at` → `optical_ir.step(dt, snapshot)`；`optical_ir_auto_step_count` 累计。手动 `stop` 置 `optical_ir_auto_suppressed=true` 暂停 auto；`start`/`set_optical_ir_auto(true)` 恢复。 |
+| 对接 auto | `sync(dt)`：端口未选则选 `docking_auto_target`（默认 `chronos-dock-a`）；从 `world.by_id` 的本舰/端口 owner 的 L1 `orbit.r/orbit.v` 生成 `dr=target-own`、`dv`，chaser 端口轴=`-dr.normalized()`；`docking.update(rel, attitude, dt)`；`docking_auto_step_count` 累计。手动 `docking_update/hold/abort` 抑制 auto；`docking_select_port/reset` 恢复。 |
+| 字段 | bridge：`optical_ir_auto_enabled/docking_auto_enabled`、`optical_ir_auto_suppressed/docking_auto_suppressed`、`optical_ir_auto_target/docking_auto_target`、`*_auto_step_count`；`bridge_state` 含 `optical_ir_auto/docking_auto` 等。 |
+| state | `fw_optical_ir_auto`、`fw_docking_auto`（`fw_sync` 刷新）；`fw_optical_ir`/`fw_docking` 每帧刷新；旧字段不变。 |
+| 安全性 | 只读/显式模型；不落实体、不执行推力、不写 V15；`writes.v15=false` 恒成立。 |
+
+## 6　最小验证
 
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
@@ -75,7 +89,14 @@ off 时 `fw_optical_ir`/`fw_docking` 为空；显式 API 返回 `{ok:false,reaso
 # V17 OPTICAL DOCKING PROBE RESULT: PASS=128 FAIL=0（exit 0，只跑一次）
 ```
 
-覆盖：
+另：自动 probe `tests/v17_optical_docking_auto_probe.gd`
+```powershell
+.\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
+    --path .\game_v17 --script res://tests/v17_optical_docking_auto_probe.gd
+# V17 OPTICAL DOCKING AUTO PROBE RESULT: PASS=68 FAIL=0（exit 0）
+```
+
+显式 probe 覆盖：
 1. boot：optical/docking ready、schema/sensors/ports=4、writes=false、bridge_state 字段；
 2. 光学：point/start(optical+ir)/多次 step → channels=2、status={optical:locked, ir:locked}、
    summary/writes_v15=false；stop 后 channels=0；
@@ -86,7 +107,12 @@ off 时 `fw_optical_ir`/`fw_docking` 为空；显式 API 返回 `{ok:false,reaso
 5. off 降级：V17_OPTICAL_IR=off + V17_DOCKING=off → view 空/API ok=false/state 空、不崩溃；
 6. JSON：optical/docking/fw_bridge_state 可回读。
 
-## 6　边界 / 未完成
+auto probe 覆盖：默认 auto（sync 30s → optical steps>0、channels=2 statuses=locked、docking
+steps>0、state=far/range≈277.7km、writes.v15=false、bridge_state auto 字段）；手动 stop/update 抑制
+auto、start/reset 恢复；state fw_*_auto=true 且 V15 tracks/等级/身份/clock 不变；显式 `on` 不自动；
+`off` 全停且 view/state 空；JSON 回读。
+
+## 7　边界 / 未完成
 
 - 光学/对接均为 **shadow 只读/显式**；不自动步进、不写 world/physics/TrackTable/V15、不接 HUD/plot。
 - 光学：无真实姿态/云台物理（默认 LOS/姿态）；VIS 分类仅 L3、IR 仅 L1；测距恒 -1。

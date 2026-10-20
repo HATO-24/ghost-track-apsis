@@ -44,9 +44,11 @@ var fw_sensor_compare: Dictionary = {}
 var fw_info_warfare: Dictionary = {}
 var fw_info_warfare_ready := false
 var fw_info_warfare_summary: Dictionary = {}
-# —— R5-OPT-DOCK-BRIDGE-1：光学/IR 与对接只读 VM（显式 API 包装）——
+# —— R5-OPT-DOCK-BRIDGE-1 / R5-AUTO-SENSOR-1：光学/IR 与对接只读 VM + auto 开关 ——
 var fw_optical_ir: Dictionary = {}
 var fw_docking: Dictionary = {}
+var fw_optical_ir_auto := false
+var fw_docking_auto := false
 
 # 演示用状态。真实 sim 会接管 clock / tracks / commands，
 # 这里的数值只服务于"把 GUI 长相对出来"。
@@ -1791,6 +1793,8 @@ func _reset_runtime() -> void:
 	fw_info_warfare_summary = {}
 	fw_optical_ir = {}
 	fw_docking = {}
+	fw_optical_ir_auto = false
+	fw_docking_auto = false
 
 # ── P1j：身份 / 通信格式 / 动态裁决提示 ─────────────────
 
@@ -2778,6 +2782,8 @@ func _fw_pull() -> void:
 		fw_info_warfare_summary = {}
 		fw_optical_ir = {}
 		fw_docking = {}
+		fw_optical_ir_auto = false
+		fw_docking_auto = false
 		return
 	fw_ready = true
 	fw_tutorial = (framework.tutorial_view() as Dictionary).duplicate(true)
@@ -2809,9 +2815,11 @@ func _fw_pull() -> void:
 	fw_info_warfare_ready = bool(framework.info_warfare_ready)
 	fw_info_warfare = (framework.info_warfare_view() as Dictionary).duplicate(true)
 	fw_info_warfare_summary = (framework.info_warfare_summary() as Dictionary).duplicate(true)
-	# R5-OPT-DOCK-BRIDGE-1：光学/IR + 对接只读 VM（显式 API 后刷新）
+	# R5-OPT-DOCK-BRIDGE-1 / R5-AUTO-SENSOR-1：光学/IR + 对接只读 VM（auto 每帧刷新）
 	fw_optical_ir = (framework.optical_ir_view() as Dictionary).duplicate(true)
 	fw_docking = (framework.docking_view() as Dictionary).duplicate(true)
+	fw_optical_ir_auto = bool(framework.optical_ir_auto_enabled)
+	fw_docking_auto = bool(framework.docking_auto_enabled)
 
 ## R6-AUTH-1：用当前 V15 board 数据生成物理对比（只读；显示层尚未切换）。
 ## 未就绪/关闭时清空，不报错、不写 V15。
@@ -3506,6 +3514,8 @@ func fw_bridge_state() -> Dictionary:
 		"info_warfare_summary": fw_info_warfare_summary.duplicate(true),
 		"optical_ir": fw_optical_ir.duplicate(true),
 		"docking": fw_docking.duplicate(true),
+		"optical_ir_auto": fw_optical_ir_auto,
+		"docking_auto": fw_docking_auto,
 		"exec_window_s": float(fw_flow.get("exec_window_s", 360.0)),
 		"exec_left": float(fw_flow.get("exec_left", 0.0)),
 		"exec_pct": float(fw_flow.get("exec_pct", 0.0)),

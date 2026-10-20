@@ -21,6 +21,8 @@ const Types := preload("res://sim/sensor_types.gd")
 const RadarModel := preload("res://sim/radar.gd")
 const TwsModel := preload("res://sim/tws.gd")
 const OpticalModel := preload("res://sim/optical.gd")
+const OpticalIR := preload("res://ui/sx_optical_ir.gd")
+const InfoModel := preload("res://ui/sx_information_warfare.gd")
 const SM := preload("res://scripts/sensor_model.gd")
 
 var ok := true
@@ -323,3 +325,114 @@ func _run() -> void:
 		tws_b.step(6.0, snap(float(k * 6), ss))
 	check(JSON.stringify(tws_a.to_dict()) == JSON.stringify(tws_b.to_dict()),
 		"确定性：同输入两次 TWS 运行结果一致")
+
+	# ── 9. 完整光学/IR（vendored V2OpticalIRChannel）─────────────
+	print("")
+	print("── 9. 完整光学/IR（optical_ir）──")
+	var om = OpticalIR.new()
+	check((om.errors as Array).is_empty(), "optical_ir setup 无错误", str(om.errors))
+	var osensor: Dictionary = om.sensors_view()["optical"]
+	var isensor: Dictionary = om.sensors_view()["ir"]
+	check(absf(float(osensor.get("fov_deg", 0.0)) - 0.2444) < 2.0e-4, "VIS FOV≈0.2444°")
+	check(absf(float(osensor.get("ifov_urad", 0.0)) - 1.0417) < 1.0e-3, "VIS IFOV≈1.04 µrad")
+	check(absf(float(isensor.get("fov_deg", 0.0)) - 0.7334) < 2.0e-4, "IR FOV≈0.7334°")
+	var o_obs := {"id": "SX-01", "pos_km": [7000.0, 0.0, 0.0], "vel_kmps": [0.0, 0.0, 0.0]}
+	var o_t1 := OpticalIR.make_target("T1", [7000.0, 8000.0, 0.0],
+		{"size_m": 50.0, "classification": {"ship_class": "DDG"}})
+	var o_snap := OpticalIR.make_snapshot(0.0, o_obs, [o_t1], {})
+	om.start_channel("optical", "T1")
+	om.start_channel("ir", "T1")
+	for i in range(100):
+		om.step(0.5, o_snap)
+	var ov: Dictionary = om.channel("optical", "T1")
+	var oi: Dictionary = om.channel("ir", "T1")
+	check(String(ov.get("status", "")) == "locked", "optical_ir VIS 锁定", String(ov.get("status", "")))
+	check(int(ov.get("level_support", 0)) == 3, "optical_ir VIS → L3/classification")
+	check(not (ov.get("classification", {}) as Dictionary).is_empty(), "optical_ir VIS classification")
+	check(String(oi.get("status", "")) == "locked" and int(oi.get("level_support", 0)) == 1,
+		"optical_ir IR 锁定 → L1")
+	check(float(ov.get("fov_deg", 0.0)) > 0.0 and float(ov.get("snr_db", 0.0)) > 0.0,
+		"optical_ir FOV/SNR 字段")
+	check(String(ov.get("reason", "")) != "occluded", "optical_ir 无遮挡")
+	# FOV 外
+	var o_off := OpticalIR.make_target("OFF", [15000.0, 0.0, 0.0], {"size_m": 50.0})
+	var om2 = OpticalIR.new()
+	om2.start_channel("optical", "OFF", {"boresight_deg": 0.0, "boresight_el_deg": 0.0})
+	om2.step(0.5, OpticalIR.make_snapshot(0.0, o_obs, [o_off], {}))
+	check(String(om2.channel("optical", "OFF").get("reason", "")) == "fov_miss",
+		"optical_ir 视轴外 → fov_miss")
+	# 地球遮挡
+	var o_behind := OpticalIR.make_target("BEHIND", [-7000.0, 0.0, 0.0], {"size_m": 50.0})
+	var om3 = OpticalIR.new()
+	om3.start_channel("optical", "BEHIND", {"boresight_deg": -90.0})
+	om3.step(1.0, OpticalIR.make_snapshot(0.0, o_obs, [o_behind], {}))
+	check(String(om3.channel("optical", "BEHIND").get("reason", "")) == "occluded",
+		"optical_ir 地球遮挡 → occluded")
+	# 角速度模糊
+	var o_blur := OpticalIR.make_target("BLUR", [7000.0, 8000.0, 0.0], {"size_m": 50.0,
+		"vel_kmps": [10.0, 0.0, 0.0]})
+	var om4 = OpticalIR.new()
+	om4.start_channel("optical", "BLUR")
+	om4.step(0.5, OpticalIR.make_snapshot(0.0, o_obs, [o_blur], {}))
+	check(String(om4.channel("optical", "BLUR").get("reason", "")) == "blurred",
+		"optical_ir 角速度 → blurred")
+	check(_json_ok(om.vm_optical_ir()), "optical_ir VM JSON 可序列化")
+	check(bool((om.vm_optical_ir().get("writes", {}) as Dictionary).get("track_table", true)) == false,
+		"optical_ir 不写 TrackTable")
+
+	# ── 10. 信息作战（vendored V2InformationWarfare）────────────
+	print("")
+	print("── 10. IFF / ELINT / COMINT / EW（information_warfare）──")
+	var info = InfoModel.new()
+	var i_cfg: Dictionary = {
+		"observer": {"id": "SX-01", "pos_km": [0.0, 0.0, 0.0]},
+		"targets": [
+			{"id": "F1", "pos_km": [0.0, 1500.0, 0.0], "transponder": "ok",
+				"registered": true, "crypto_epoch": "epoch-1",
+				"iff_codes": {"3/A": "CMP-119"}},
+			{"id": "F2", "pos_km": [0.0, 1000.0, 0.0], "transponder": "off"},
+			{"id": "E1", "pos_km": [0.0, 30000.0, 0.0], "transponder": "off",
+				"emissions": [{"model": "YW-R9", "type": "radar", "active": true,
+					"power_dbm": 90.0, "frequency_mhz": 9500.0}],
+				"comms": [{"from": "E1", "to": "F1", "mode": "radio",
+					"text": "SECRET", "encrypted": true, "frequency_mhz": 300.0}]},
+		],
+	}
+	info.setup(i_cfg)
+	var ir_friend: Dictionary = info.interrogate_iff("F1", ["3/A"],
+		{"expected_codes": {"3/A": "CMP-119"}})
+	check(String(ir_friend.get("status", "")) == "reply_ok"
+		and String(ir_friend.get("identity", "")) == "friend", "IFF 友方应答 → friend")
+	check(bool(ir_friend.get("produces_contact", true)) == false, "IFF 不产生接触/位置")
+	var ir_none: Dictionary = info.interrogate_iff("F2", ["3/A"])
+	check(String(ir_none.get("status", "")) == "no_reply"
+		and String(ir_none.get("identity", "")) == "unknown", "IFF 无应答 → unknown（不判敌）")
+	check(bool(ir_none.get("never_hostile", false)) and not bool(ir_none.get("hostile_allowed", true)),
+		"IFF never_hostile / hostile_allowed=false")
+	var sigs: Array = info.signals
+	var detected_sig := false
+	for raw_s in sigs:
+		if raw_s is Dictionary and String((raw_s as Dictionary).get("source_id", "")) == "E1":
+			detected_sig = bool((raw_s as Dictionary).get("detected", false))
+			check(bool((raw_s as Dictionary).get("produces_contact", true)) == false,
+				"ELINT 单站 produces_contact=false")
+			check(int((raw_s as Dictionary).get("level_support", 0)) <= 3,
+				"ELINT fingerprint ≤ L3")
+	check(detected_sig, "ELINT 截获 E1 信号")
+	var comint_ok := false
+	for raw_c in info.comint_events:
+		if raw_c is Dictionary:
+			if bool((raw_c as Dictionary).get("encrypted", false)):
+				comint_ok = String(((raw_c as Dictionary).get("comms_content", {}) as Dictionary).get("text", "x")) == ""
+	check(comint_ok, "COMINT 加密只给元数据、不解码")
+	info.inject_noise_jamming("E1", "SX-01", 0.7, 60.0)
+	var je: Dictionary = info.radar_effect(30000.0, 0.2)
+	check(absf(float(je.get("jam_factor", 0.0)) - 0.608) < 1e-6, "EW noise jam factor=0.608")
+	info.inject_deception("E1", "SX-01", 0.7, 30.0, 2)
+	check(info.phantom_candidates.size() == 2, "EW phantom=2（不产生真实接触）")
+	var i_vm: Dictionary = info.vm_information_warfare()
+	check(_json_ok(i_vm), "information_warfare VM JSON 可序列化")
+	check(int((i_vm.get("summary", {}) as Dictionary).get("iff_identity_hostile", -1)) == 0,
+		"information_warfare hostile=0")
+	check(bool((i_vm.get("writes", {}) as Dictionary).get("track_table", true)) == false,
+		"information_warfare 不写 TrackTable")

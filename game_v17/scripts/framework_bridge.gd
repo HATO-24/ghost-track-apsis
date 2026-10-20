@@ -108,6 +108,15 @@ var docking_update_last: Dictionary = {}
 var optical_docking_warnings: Array = []
 const MAX_OPT_WARNINGS := 32
 const INFO_RECENT_MAX := 8
+# —— R5-AUTO-SENSOR-1：bridge 自动光学/对接数据（默认 auto；on=手动；off=关闭）——
+var optical_ir_auto_enabled := true
+var docking_auto_enabled := true
+var optical_ir_auto_suppressed := false
+var docking_auto_suppressed := false
+var optical_ir_auto_target := ""
+var docking_auto_target := "chronos-dock-a"
+var optical_ir_auto_step_count := 0
+var docking_auto_step_count := 0
 
 # —— 运行时元数据 ——
 var sync_count := 0
@@ -162,6 +171,8 @@ func sync(dt: float) -> void:
 		_step_physics_shadow(step)
 		_step_sensor_shadow(step)
 		_step_info_warfare(step)
+		_auto_optical_ir(step)
+		_auto_docking(step)
 	sync_count += 1
 	synced_t = float(world.t)
 	refresh()
@@ -372,9 +383,16 @@ func bridge_state() -> Dictionary:
 		"optical_ir_summary": optical_ir_summary_data.duplicate(true),
 		"optical_ir_ready": optical_ir_ready,
 		"optical_ir_enabled": optical_ir_enabled,
+		"optical_ir_auto": optical_ir_auto_enabled,
+		"optical_ir_auto_suppressed": optical_ir_auto_suppressed,
+		"optical_ir_auto_target": optical_ir_auto_target,
+		"optical_ir_auto_step_count": optical_ir_auto_step_count,
 		"docking": docking_view_data.duplicate(true),
 		"docking_ready": docking_ready,
 		"docking_enabled": docking_enabled,
+		"docking_auto": docking_auto_enabled,
+		"docking_auto_suppressed": docking_auto_suppressed,
+		"docking_auto_step_count": docking_auto_step_count,
 		"docking_update_last": docking_update_last.duplicate(true),
 		"exec_window_s": exec_window_s,
 		"exec_left": exec_left,
@@ -1535,8 +1553,13 @@ func _init_optical_docking() -> void:
 	docking_view_data = {}
 	docking_update_last = {}
 	optical_docking_warnings.clear()
+	optical_ir_auto_suppressed = false
+	docking_auto_suppressed = false
+	optical_ir_auto_step_count = 0
+	docking_auto_step_count = 0
 	var oenv := OS.get_environment("V17_OPTICAL_IR").to_lower().strip_edges()
 	optical_ir_enabled = not (oenv == "off" or oenv == "0")
+	optical_ir_auto_enabled = optical_ir_enabled and (oenv == "" or oenv == "auto" or oenv == "1")
 	if optical_ir_enabled:
 		optical_ir = OpticalIRScript.new()
 		var ok: bool = optical_ir.setup({})
@@ -1546,6 +1569,7 @@ func _init_optical_docking() -> void:
 			optical_ir = null
 	var denv := OS.get_environment("V17_DOCKING").to_lower().strip_edges()
 	docking_enabled = not (denv == "off" or denv == "0")
+	docking_auto_enabled = docking_enabled and (denv == "" or denv == "auto" or denv == "1")
 	if docking_enabled:
 		docking = DockingScript.new()
 		var dok: bool = docking.setup(DockingScript.default_ports(), {})
@@ -1628,6 +1652,8 @@ func optical_ir_point(target_id: String) -> Dictionary:
 func optical_ir_start(kind: String, target_id: String, opts := {}) -> Dictionary:
 	if not optical_ir_ready or optical_ir == null:
 		return {"ok": false, "reason": "optical_ir_not_ready"}
+	optical_ir_auto_suppressed = false
+	optical_ir_auto_target = target_id
 	var res: Dictionary = optical_ir.start_channel(kind, target_id, opts)
 	_refresh_optical_docking()
 	return res
@@ -1644,6 +1670,7 @@ func optical_ir_stop(kind: String, target_id := "") -> void:
 	if not optical_ir_ready or optical_ir == null:
 		return
 	optical_ir.stop_channel(kind, target_id)
+	optical_ir_auto_suppressed = true
 	_refresh_optical_docking()
 
 ## 对接只读 VM（ports/target/last/events/config/writes=false）。
@@ -1654,6 +1681,8 @@ func docking_view() -> Dictionary:
 func docking_select_port(port_id: String) -> Dictionary:
 	if not docking_ready or docking == null:
 		return {"ok": false, "reason": "docking_not_ready"}
+	docking_auto_suppressed = false
+	docking_auto_target = port_id
 	var res: Dictionary = docking.select_target_port(port_id)
 	_refresh_optical_docking()
 	return res
@@ -1662,6 +1691,7 @@ func docking_select_port(port_id: String) -> Dictionary:
 func docking_update(rel, attitude := {}, dt := 0.0) -> Dictionary:
 	if not docking_ready or docking == null:
 		return {"ok": false, "reason": "docking_not_ready"}
+	docking_auto_suppressed = true
 	var res: Dictionary = docking.update(rel, attitude, maxf(0.0, float(dt)))
 	docking_update_last = res.duplicate(true)
 	_refresh_optical_docking()
@@ -1670,6 +1700,7 @@ func docking_update(rel, attitude := {}, dt := 0.0) -> Dictionary:
 func docking_hold(reason := "commander_hold") -> Dictionary:
 	if not docking_ready or docking == null:
 		return {"ok": false, "reason": "docking_not_ready"}
+	docking_auto_suppressed = true
 	var res: Dictionary = docking.hold(reason)
 	_refresh_optical_docking()
 	return res
@@ -1684,6 +1715,7 @@ func docking_resume() -> Dictionary:
 func docking_abort(reason := "commander_abort") -> Dictionary:
 	if not docking_ready or docking == null:
 		return {"ok": false, "reason": "docking_not_ready"}
+	docking_auto_suppressed = true
 	var res: Dictionary = docking.abort(reason)
 	_refresh_optical_docking()
 	return res
@@ -1692,5 +1724,132 @@ func docking_reset() -> Dictionary:
 	if not docking_ready or docking == null:
 		return {"ok": false, "reason": "docking_not_ready"}
 	docking.reset()
+	docking_auto_suppressed = false
 	_refresh_optical_docking()
 	return {"ok": true, "state": String(docking.state)}
+
+# ═══════════════════════════════════════════════════════════════════
+# R5-AUTO-SENSOR-1：自动光学/对接数据（HUD 打开即有真实 VM）
+#   - 默认 auto（V17_OPTICAL_IR/V17_DOCKING 未设或 =auto）；=on 显式手动；=off 关闭；
+#   - 光学：sync 自动选目标（bridge actions_target/首个接触）→ start VIS/IR + aim + step；
+#     手动 start/stop 可覆盖（stop 抑制 auto，start/resume 恢复）；
+#   - 对接：sync 从 V2 world 实体的 L1 相对状态生成 rel + chaser 端口轴 → update(dt)；
+#     不落实体/不执行推力/不写 V15；手动 update/hold/abort 可抑制 auto。
+# ═══════════════════════════════════════════════════════════════════
+
+func _auto_optical_ir(dt: float) -> void:
+	if not optical_ir_enabled or not optical_ir_auto_enabled:
+		return
+	if not optical_ir_ready or optical_ir == null:
+		return
+	if optical_ir_auto_suppressed:
+		return
+	var target := _auto_optical_target()
+	if target == "":
+		return
+	optical_ir_auto_target = target
+	if optical_ir.channels.is_empty():
+		for kind in OpticalIRScript.KINDS:
+			if optical_ir.has_sensor(kind):
+				optical_ir.start_channel(kind, target)
+	for kind in OpticalIRScript.KINDS:
+		if optical_ir.has_sensor(kind):
+			optical_ir.aim_at(kind, target)
+	optical_ir.step(maxf(0.0, dt), optical_ir_snapshot())
+	optical_ir_auto_step_count += 1
+	for raw in optical_ir.warnings:
+		_note_opt_warning(String(raw))
+	_refresh_optical_docking()
+
+func _auto_optical_target() -> String:
+	if actions_target != "":
+		for raw in contacts:
+			var c: Dictionary = raw
+			if String(c.get("track_id", "")) == actions_target \
+					or String(c.get("batch", "")) == actions_target:
+				return String(c.get("track_id", c.get("batch", actions_target)))
+		return actions_target
+	var own_id := String(world.own_id)
+	for raw in contacts:
+		var c2: Dictionary = raw
+		if bool(c2.get("bearing_only", false)):
+			continue
+		if String(c2.get("entity_id", "")) == "" or String(c2.get("entity_id", "")) == own_id:
+			continue
+		if float(c2.get("range_km", 0.0)) <= 0.0:
+			continue
+		if int(c2.get("level", 0)) < 1:
+			continue
+		return String(c2.get("track_id", c2.get("batch", "")))
+	return ""
+
+func _auto_docking(dt: float) -> void:
+	if not docking_enabled or not docking_auto_enabled:
+		return
+	if not docking_ready or docking == null:
+		return
+	if docking_auto_suppressed:
+		return
+	if docking.target_port_id == "" and docking_auto_target != "":
+		docking.select_target_port(docking_auto_target)
+	if docking.target_port().is_empty():
+		return
+	var rel := _auto_docking_rel()
+	if rel.is_empty():
+		return
+	var res: Dictionary = docking.update(rel.get("rel", {}), rel.get("attitude", {}),
+		maxf(0.0, dt))
+	docking_update_last = res.duplicate(true)
+	docking_auto_step_count += 1
+	for w in res.get("warnings", []):
+		_note_opt_warning(String(w))
+	_refresh_optical_docking()
+
+## 从 V2 world 实体 L1 相对状态生成对接 rel + chaser 端口轴（不落实体/不执行推力）。
+func _auto_docking_rel() -> Dictionary:
+	if docking == null:
+		return {}
+	var port: Dictionary = docking.target_port()
+	var owner_id := String(port.get("owner_id", ""))
+	var own_id := String(world.own_id)
+	if owner_id == "" or own_id == "":
+		return {}
+	var own_ent = world.by_id.get(own_id, null) if world != null else null
+	var tgt_ent = world.by_id.get(owner_id, null) if world != null else null
+	if own_ent == null or tgt_ent == null:
+		return {}
+	var own_rv := _entity_l1_rv(own_ent)
+	var tgt_rv := _entity_l1_rv(tgt_ent)
+	if own_rv.is_empty() or tgt_rv.is_empty():
+		return {}
+	var dr: Vector3 = tgt_rv["r"] - own_rv["r"]
+	var dv: Vector3 = tgt_rv["v"] - own_rv["v"]
+	var attitude := {}
+	if dr.length() > 1.0e-9:
+		var axis := -dr.normalized()
+		attitude = {"chaser_port_axis": [axis.x, axis.y, axis.z]}
+	return {
+		"rel": {"dr": [dr.x, dr.y, dr.z], "dv": [dv.x, dv.y, dv.z]},
+		"attitude": attitude,
+	}
+
+func _entity_l1_rv(e) -> Dictionary:
+	if e == null:
+		return {}
+	var orbit: Dictionary = e.orbit if e.orbit is Dictionary else {}
+	var r_raw = orbit.get("r", null)
+	var v_raw = orbit.get("v", null)
+	var r := _variant_vec3(r_raw, Vector3.ZERO) if r_raw != null else Vector3.ZERO
+	var v := _variant_vec3(v_raw, Vector3.ZERO) if v_raw != null else Vector3.ZERO
+	return {"r": r, "v": v}
+
+## 自动开关（运行时覆盖；off/on 由 _init 环境决定，auto 默认）。
+func set_optical_ir_auto(on: bool) -> void:
+	optical_ir_auto_enabled = on
+	if on:
+		optical_ir_auto_suppressed = false
+
+func set_docking_auto(on: bool) -> void:
+	docking_auto_enabled = on
+	if on:
+		docking_auto_suppressed = false

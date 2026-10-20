@@ -179,11 +179,11 @@ const TGT_ACTIONS := [
 	[4, "weapons_standby", "武装待命 / WEAPONS STANDBY"],
 ]
 const OPTICAL_RECT := Rect2(560, 220, 800, 600)
-const OPT_TAB_VIS := Rect2(588, 276, 160, 24)
-const OPT_TAB_IR := Rect2(752, 276, 160, 24)
-const OPT_STARE_BTN := Rect2(588, 712, 200, 32)
-const OPT_STOP_BTN := Rect2(800, 712, 200, 32)
-const OPT_CLOSE_BTN := Rect2(1128, 712, 200, 32)
+const OPT_TARGET_BTN := Rect2(580, 704, 152, 30)
+const OPT_START_VIS_BTN := Rect2(740, 704, 130, 30)
+const OPT_START_IR_BTN := Rect2(878, 704, 130, 30)
+const OPT_STOP_BTN := Rect2(1016, 704, 130, 30)
+const OPT_CLOSE_BTN := Rect2(1152, 704, 188, 30)
 const LAYERS_RECT := Rect2(620, 300, 680, 420)
 # P10a-ENG 图层键：contacts/labels/predictions/radar/stations/grid
 const LAYER_KEYS := ["contacts", "labels", "predictions", "radar", "stations", "grid"]
@@ -1124,6 +1124,8 @@ var _ctx_pos := Vector2(900.0, 360.0)
 var _ctx_track_id := ""
 var _ctx_hint := ""
 var _optical_open := false
+var _optical_demo_pending := false
+var _optical_step_t := 0.0
 var _optical_kind := "VIS"
 var _optical_target := ""
 var _optical_stare := 0.0
@@ -1305,6 +1307,13 @@ func _ready() -> void:
 			_optical_target = ""
 			_optical_stare = 0.42
 			_optical_state_note = "截图演示：channel_status() 进度；真实接口 start_optical_track/start_ir_track"
+		"optical_window":
+			# R5-OPT-HUD-1 截图：真实 fw_optical_ir point/start/step 后打开通道窗
+			_demo_suppress_adjutant = true
+			_optical_open = true
+			_optical_target = ""
+			_optical_demo_pending = true
+			_optical_state_note = ""
 		"layers":
 			# P10a 截图：图层/元素开关面板。
 			_demo_suppress_adjutant = true
@@ -1378,6 +1387,38 @@ func _process(delta: float) -> void:
 	if _fw_refresh_t >= 0.25:
 		_fw_refresh_t = 0.0
 		_refresh_fw()
+	# R5-OPT-HUD-1 截图：真实 point/start/step（一次性；不伪造）
+	if _optical_demo_pending:
+		_optical_demo_pending = false
+		if state != null:
+			var tid := _optical_pick_target()
+			if tid == "":
+				var raw_tracks = state.get("tracks")
+				if raw_tracks is Array:
+					for raw_tr in (raw_tracks as Array):
+						if raw_tr is Dictionary:
+							var tr: Dictionary = raw_tr
+							if not bool(tr.get("own", false)) and String(tr.get("id", "")) != "":
+								tid = String(tr.get("id", ""))
+								break
+			_optical_target = tid
+			if tid != "" and state.has_method("fw_optical_ir_point"):
+				state.call("fw_optical_ir_point", tid)
+				if state.has_method("fw_optical_ir_start"):
+					state.call("fw_optical_ir_start", "optical", tid, {})
+					state.call("fw_optical_ir_start", "ir", tid, {})
+				if state.has_method("fw_optical_ir_step"):
+					state.call("fw_optical_ir_step", 48.0)
+				_optical_state_note = "REAL point/start/step 48s · shadow"
+			else:
+				_optical_state_note = "无目标：无法启动通道"
+			queue_redraw()
+	# 窗口打开且 bridge auto 关闭时由 HUD 显式 step（真实 API；不伪造）
+	if _optical_open and state != null and not bool(state.get("fw_optical_ir_auto")):
+		_optical_step_t += delta
+		if _optical_step_t >= 0.25 and state.has_method("fw_optical_ir_step"):
+			state.call("fw_optical_ir_step", _optical_step_t)
+			_optical_step_t = 0.0
 	if _toast_t > 0.0:
 		_toast_t = maxf(0.0, _toast_t - delta)
 	if _optical_open and _optical_stare < 1.0 and not state.capture and not (state != null and state.has_method("channel_status")):
@@ -4445,6 +4486,51 @@ func toggle_nav_page() -> void:
 
 func is_nav_page_open() -> bool:
 	return _nav_page_open
+
+
+func toggle_info_page() -> void:
+	_info_page_open = not _info_page_open
+	if _info_page_open:
+		_optical_open = false
+		_layers_open = false
+		_sfx("ui_open")
+	else:
+		_sfx("ui_back")
+	queue_redraw()
+
+
+func is_info_page_open() -> bool:
+	return _info_page_open
+
+
+func close_info_page() -> void:
+	if _info_page_open:
+		_info_page_open = false
+		_sfx("ui_back")
+		queue_redraw()
+
+
+func toggle_optical_window() -> void:
+	_optical_open = not _optical_open
+	if _optical_open:
+		_info_page_open = false
+		_optical_target = _target_track_id()
+		_optical_state_note = ""
+		_sfx("ui_open")
+	else:
+		_sfx("ui_back")
+	queue_redraw()
+
+
+func is_optical_window_open() -> bool:
+	return _optical_open
+
+
+func close_optical_window() -> void:
+	if _optical_open:
+		_optical_open = false
+		_sfx("ui_back")
+		queue_redraw()
 
 
 func _nav_panel(rect: Rect2, cn: String, en: String, note := "") -> void:
@@ -7738,58 +7824,274 @@ func _optical_status_text() -> String:
 					return {"running": "跟踪中 / RUNNING", "locked": "已锁定 / LOCKED"}.get(st, st)
 	return "UI 演示 / DEMO"
 
+func _optical_fw_view() -> Dictionary:
+	if state == null:
+		return {}
+	var v = state.get("fw_optical_ir")
+	return v if v is Dictionary else {}
+
+
+func _optical_chan(kind: String, target_id := "") -> Dictionary:
+	var v := _optical_fw_view()
+	var rows: Array = v.get("channels", []) if v.get("channels", []) is Array else []
+	for raw in rows:
+		var ch: Dictionary = raw
+		if String(ch.get("channel", "")) != kind:
+			continue
+		if target_id != "" and String(ch.get("target_id", "")) != target_id:
+			continue
+		return ch
+	return {}
+
+
+func _optical_sensor(kind: String) -> Dictionary:
+	var v := _optical_fw_view()
+	var sensors: Dictionary = v.get("sensors", {}) if v.get("sensors", {}) is Dictionary else {}
+	return sensors.get(kind, {}) if sensors.get(kind, {}) is Dictionary else {}
+
+
+func _optical_pick_target() -> String:
+	# 优先非本舰的有效 V2 contact（光学 snapshot 不含本舰）；只读 vm_contacts。
+	if state == null:
+		return ""
+	var fw = state.get("framework")
+	if fw != null:
+		var w = fw.get("world")
+		if w != null and w.has_method("vm_contacts"):
+			var own_id := String(w.get("own_id")) if w.get("own_id") != null else ""
+			var contacts = w.call("vm_contacts")
+			if contacts is Array:
+				var best := ""
+				var best_size := -1.0
+				for raw in (contacts as Array):
+					if not (raw is Dictionary):
+						continue
+					var c: Dictionary = raw
+					if bool(c.get("bearing_only", false)):
+						continue
+					if String(c.get("entity_id", "")) == "" or String(c.get("entity_id", "")) == own_id:
+						continue
+					if float(c.get("range_km", 0.0)) <= 0.0:
+						continue
+					var cid := String(c.get("track_id", c.get("batch", "")))
+					if cid == "":
+						continue
+					if bool(c.get("selected", false)):
+						return cid
+					var sz := float(c.get("size_km", 0.0))
+					if sz > best_size:
+						best_size = sz
+						best = cid
+				if best != "":
+					return best
+	return _target_track_id()
+
+
+func _optical_target_label() -> String:
+	var tid := String(_optical_target)
+	if tid == "":
+		tid = _target_track_id()
+	var tr: Dictionary = _target_track() if state != null else {}
+	if not tr.is_empty() and String(tr.get("id", "")) == tid:
+		return "[%s] %s" % [String(tr.get("batch", "----")), _dn(_track_display_id(tr))]
+	return tid if tid != "" else "—"
+
+
+func _optical_class_text(cls: Dictionary) -> String:
+	if cls.is_empty():
+		return "—"
+	var parts: Array = []
+	for k in ["class", "hull", "role", "faction", "type"]:
+		if cls.has(k) and String(cls.get(k, "")) != "":
+			parts.append("%s=%s" % [k, String(cls.get(k))])
+		if parts.size() >= 2:
+			break
+	return " · ".join(parts) if not parts.is_empty() else "—"
+
+
+func _optical_status_col(st: String) -> Color:
+	match st:
+		"locked":
+			return Palette.PH
+		"staring":
+			return Palette.AMBER
+		"acquiring":
+			return Palette.BLUE
+		"lost":
+			return Palette.RED
+		_:
+			return Palette.DIM
+
+
+func _optical_state_note_set(text: String) -> void:
+	_optical_state_note = text
+
+
+func _optical_do_point() -> void:
+	if state == null:
+		_optical_state_note_set("state 未就绪")
+		return
+	var tid := String(_optical_target)
+	if tid == "":
+		tid = _optical_pick_target()
+		_optical_target = tid
+	if tid == "":
+		_optical_state_note_set("无可用目标（只读 contact 过滤后为空）")
+		return
+	if state.has_method("fw_optical_ir_point"):
+		var res = state.call("fw_optical_ir_point", tid)
+		if res is Dictionary and not bool((res as Dictionary).get("ok", true)):
+			_optical_state_note_set("POINT: " + String((res as Dictionary).get("reason", "失败")))
+			return
+	_optical_state_note_set("POINT 已对准 [%s]" % tid)
+
+
+func _optical_start(kind: String) -> void:
+	if state == null or not state.has_method("fw_optical_ir_start"):
+		_optical_state_note_set("光学 API 未就绪")
+		return
+	var tid := String(_optical_target)
+	if tid == "":
+		tid = _optical_pick_target()
+		_optical_target = tid
+	if tid == "":
+		_optical_state_note_set("无可用目标（只读 contact 过滤后为空）")
+		return
+	var key := "optical" if kind == "VIS" else "ir"
+	var pres = state.call("fw_optical_ir_point", tid) if state.has_method("fw_optical_ir_point") else null
+	var res = state.call("fw_optical_ir_start", key, tid, {})
+	if res is Dictionary and not bool((res as Dictionary).get("ok", true)):
+		_optical_state_note_set("START %s: %s" % [kind, String((res as Dictionary).get("reason", "失败"))])
+	else:
+		_optical_state_note_set("START %s · target %s · shadow（真实 API）" % [kind, tid])
+		if state.has_method("fw_optical_ir_step"):
+			state.call("fw_optical_ir_step", 0.2)
+	queue_redraw()
+
+
+func _optical_stop() -> void:
+	if state == null:
+		return
+	if state.has_method("fw_optical_ir_stop"):
+		state.call("fw_optical_ir_stop", "optical", String(_optical_target))
+		state.call("fw_optical_ir_stop", "ir", String(_optical_target))
+		_optical_state_note_set("STOP · VIS/IR 通道已停止（真实 API）")
+	queue_redraw()
+
+
 func _open_optical(kind: String, target_id: String, start_it := true) -> void:
 	_optical_open = true
-	_optical_kind = kind
-	_optical_target = target_id
+	_optical_kind = kind if kind in ["VIS", "IR"] else "VIS"
+	_optical_target = target_id if target_id != "" else _optical_pick_target()
 	_optical_stare = 0.0
 	_optical_state_note = ""
-	if start_it and state != null:
-		var meth := "start_optical_track" if kind == "VIS" else "start_ir_track"
-		if state.has_method(meth):
-			var res = state.call(meth, target_id)
-			if res is Dictionary:
-				_optical_state_note = String((res as Dictionary).get("message", ""))
-		elif state.has_method("start_optical" if kind == "VIS" else "start_ir"):
-			state.call("start_optical" if kind == "VIS" else "start_ir", target_id)
-		else:
-			_optical_state_note = "接口未就绪：需 state.%s(track_id)；当前为 UI 演示" % meth
+	_optical_do_point()
+	if start_it:
+		_optical_start(_optical_kind)
 	_sfx("sys_sensor_on")
+
 
 func _handle_optical_click(p: Vector2) -> void:
 	if OPT_CLOSE_BTN.has_point(p):
 		_optical_open = false
 		_sfx("ui_back")
 		return
-	if OPT_TAB_VIS.has_point(p):
-		_optical_kind = "VIS"
+	if OPT_TARGET_BTN.has_point(p):
+		_optical_target = _optical_pick_target()
+		_optical_do_point()
 		return
-	if OPT_TAB_IR.has_point(p):
-		_optical_kind = "IR"
+	if OPT_START_VIS_BTN.has_point(p):
+		_optical_target = _optical_target if _optical_target != "" else _target_track_id()
+		_optical_start("VIS")
 		return
-	if OPT_STARE_BTN.has_point(p):
-		_optical_stare = 0.0
-		if state != null:
-			var meth := "start_optical_track" if _optical_kind == "VIS" else "start_ir_track"
-			if state.has_method(meth):
-				state.call(meth, String(_optical_target))
-			else:
-				for m2 in ["stare_optical", "start_optical_stare", "stare_target"]:
-					if state.has_method(m2):
-						state.call(m2, String(_optical_target))
-						break
+	if OPT_START_IR_BTN.has_point(p):
+		_optical_target = _optical_target if _optical_target != "" else _target_track_id()
+		_optical_start("IR")
 		return
 	if OPT_STOP_BTN.has_point(p):
-		if state != null:
-			if state.has_method("stop_track"):
-				state.call("stop_track")
-			else:
-				for meth in ["stop_optical", "stop_ir", "stop_stare"]:
-					if state.has_method(meth):
-						state.call(meth)
-						break
-		_optical_stare = 0.0
+		_optical_stop()
 		return
+
+
+func _opt_channel_panel(r: Rect2, label: String, en: String, kind: String) -> void:
+	_panel(r)
+	var ch := _optical_chan(kind, String(_optical_target))
+	var st := String(ch.get("status", "idle")) if not ch.is_empty() else "idle"
+	var col := _optical_status_col(st)
+	_txt(cjk, r.position.x + 12.0, r.position.y + 8.0, label, 9, col)
+	_txt_r(mono, r.end.x - 12.0, r.position.y + 8.0, "%s / %s" % [en, st.to_upper()], 7, Palette.a(col, 0.9))
+	draw_line(Vector2(r.position.x + 12.0, r.position.y + 24.0), Vector2(r.end.x - 12.0, r.position.y + 24.0), Palette.a(Palette.LINE, 0.8), 1.0)
+	# 传感器窗（程序化视场/十字线/星点，无外部贴图）
+	var win := Rect2(r.position.x + 12.0, r.position.y + 32.0, r.size.x - 24.0, 112.0)
+	draw_rect(win, Color(0.004, 0.010, 0.008, 1.0))
+	draw_rect(win, Palette.a(Palette.LINE, 0.85), false, 1.0)
+	for i in range(64):
+		var h := (i * 1103515245 + 12345 + (17 if kind == "ir" else 0)) & 0x7fffffff
+		var px := win.position.x + float(h % 320) + 10.0
+		var py := win.position.y + float((h / 320) % 92) + 9.0
+		draw_rect(Rect2(px, py, 1, 1), Palette.a(Palette.TXT, 0.05 + 0.04 * float(i % 3)))
+	var c := win.get_center()
+	var ccol := Palette.BLUE if kind == "optical" else Palette.AMBER
+	draw_circle(c, 2.2, ccol)
+	draw_line(c - Vector2(28, 0), c + Vector2(28, 0), Palette.a(ccol, 0.55), 1.0)
+	draw_line(c - Vector2(0, 28), c + Vector2(0, 28), Palette.a(ccol, 0.55), 1.0)
+	draw_arc(c, 38.0, 0, TAU, 48, Palette.a(ccol, 0.35), 1.0, true)
+	if not ch.is_empty():
+		_txt(mono, win.position.x + 8.0, win.position.y + 14.0, "TGT %s" % String(ch.get("target_id", "")), 7, Palette.a(ccol, 0.9))
+		_txt_r(mono, win.position.x + win.size.x - 8.0, win.position.y + 14.0,
+			"SNR %.1f dB" % float(ch.get("snr_db", -999.0)), 7, Palette.a(Palette.TXT, 0.9))
+		_txt(mono, win.position.x + 8.0, win.position.y + win.size.y - 8.0,
+			"OFF-AXIS %.2f° · N_PX %.2f" % [float(ch.get("off_axis_deg", -1.0)), float(ch.get("n_px", 0.0))], 7, Palette.a(Palette.DIM, 0.9))
+	else:
+		_txt(mono, win.position.x + 8.0, win.position.y + 14.0, "NO ACTIVE CHANNEL", 7, Palette.a(Palette.FAINT, 0.9))
+	# 字段
+	var y := r.position.y + 158.0
+	if ch.is_empty():
+		var sen := _optical_sensor(kind)
+		_txt(mono, r.position.x + 12.0, y, "STATUS idle · 无活动通道", 8, Palette.FAINT)
+		y += 14.0
+		_txt(mono, r.position.x + 12.0, y, "FOV %.4f° · IFOV %.1f µrad" % [
+			float(sen.get("fov_deg", 0.0)), float(sen.get("ifov_eff_urad", 0.0))], 7, Palette.DIM)
+		y += 12.0
+		_txt(mono, r.position.x + 12.0, y, "MODEL %s · BAND %s" % [
+			String(sen.get("model", "")), String(sen.get("band", ""))], 7, Palette.DIM)
+		y += 14.0
+		if not _optical_fw_view().is_empty():
+			_txt(cjk, r.position.x + 12.0, y, "点击 START 开始 %s 凝视" % label, 7, Palette.FAINT)
+		return
+	var reason := String(ch.get("reason", ""))
+	var fails: Array = ch.get("failures", []) if ch.get("failures", []) is Array else []
+	var occluded := reason == "occluded" or fails.has("occluded")
+	_txt(mono, r.position.x + 12.0, y, "TARGET %s · STATUS %s" % [String(ch.get("target_id", "")), st.to_upper()], 8, col)
+	y += 14.0
+	_txt(mono, r.position.x + 12.0, y, "FOV %.4f° · IFOV %.1f µrad" % [
+		float(ch.get("fov_deg", 0.0)), float(ch.get("ifov_eff_urad", 0.0))], 7, Palette.TXT)
+	y += 12.0
+	_txt(mono, r.position.x + 12.0, y, "BORESIGHT %.1f°/%.1f° · OFF-AXIS %.2f°" % [
+		float(ch.get("boresight_deg", 0.0)), float(ch.get("boresight_el_deg", 0.0)),
+		float(ch.get("off_axis_deg", -1.0))], 7, Palette.TXT)
+	y += 12.0
+	_txt(mono, r.position.x + 12.0, y, "SNR %.1f dB · N_PX %.2f · SMEAR %.2f px" % [
+		float(ch.get("snr_db", -999.0)), float(ch.get("n_px", 0.0)), float(ch.get("smear_px", 0.0))], 7, Palette.TXT)
+	y += 12.0
+	_txt(mono, r.position.x + 12.0, y, "OCCLUDED %s · VISIBLE %s · DETECTED %s" % [
+		"YES" if occluded else "no", str(bool(ch.get("visible", false))).to_lower(),
+		str(bool(ch.get("detected", false))).to_lower()], 7, Palette.AMBER if occluded else Palette.DIM)
+	y += 12.0
+	_txt(mono, r.position.x + 12.0, y, "LEVEL L%d · %s · STARE %.1f/%.1fs" % [
+		int(ch.get("level_support", 0)), String(ch.get("level_cap", "")),
+		float(ch.get("stare_s", 0.0)), float(ch.get("required_s", 0.0))], 7, Palette.PH if int(ch.get("level_support", 0)) > 0 else Palette.DIM)
+	y += 12.0
+	var cls: Dictionary = ch.get("classification", {}) if ch.get("classification", {}) is Dictionary else {}
+	_txt(mono, r.position.x + 12.0, y, "CLASS %s" % _ellipsis(mono, _optical_class_text(cls), 7, r.size.x - 24.0), 7, Palette.TXT if not cls.is_empty() else Palette.FAINT)
+	y += 12.0
+	if reason != "":
+		_txt(mono, r.position.x + 12.0, y, "REASON %s" % reason, 7, Palette.RED)
+		y += 10.0
+	if not fails.is_empty():
+		_txt(mono, r.position.x + 12.0, y, "FAILURES %s" % str(fails).replace("[", "").replace("]", "").replace("\"", ""), 7, Palette.RED)
+	_txt(mono, r.position.x + 12.0, r.end.y - 12.0, "measured_range=-1 · passive · shadow", 7, Palette.FAINT)
+
 
 func _draw_optical_overlay() -> void:
 	if _optical_target == "":
@@ -7798,67 +8100,43 @@ func _draw_optical_overlay() -> void:
 	var r := OPTICAL_RECT
 	draw_rect(r, Palette.a(Palette.PANEL, 0.99))
 	draw_rect(r, Palette.a(Palette.PH, 0.65), false, 1.0)
-	_txt(cjk, r.position.x + 24.0, r.position.y + 32.0, "光学/红外通道 / OPTICAL CHANNEL", 16, Palette.PH)
-	var ot := _target_track()
-	if String(_optical_target) != "" and not ot.is_empty() and String(ot.get("id", "")) != String(_optical_target):
-		if state != null:
-			var t2 = state.call("track_by_id", String(_optical_target)) if state.has_method("track_by_id") else null
-			if t2 is Dictionary and not (t2 as Dictionary).is_empty():
-				ot = t2
-	var olabel := "[%s] %s · %s" % [String(ot.get("batch", "----")), _dn(_track_display_id(ot)) if not ot.is_empty() else "—",
-		_identity_cn(_track_identity(ot)) if not ot.is_empty() else "—"]
-	_txt_r(mono, r.end.x - 24.0, r.position.y + 32.0,
-		"%s · %s" % [_optical_kind, olabel], 8, Palette.a(Palette.FAINT, 0.95))
-	draw_line(Vector2(r.position.x, r.position.y + 48.0), Vector2(r.end.x, r.position.y + 48.0),
-		Palette.a(Palette.PH, 0.28), 1.0)
-	for i in range(2):
-		var trc: Rect2 = OPT_TAB_VIS if i == 0 else OPT_TAB_IR
-		var sel := (_optical_kind == "VIS") == (i == 0)
-		draw_rect(trc, Palette.a(Palette.PANEL2, 0.95 if sel else 0.4))
-		draw_rect(trc, Palette.a(Palette.PH, 0.75 if sel else 0.22), false, 1.0)
-		_txt(cjk, trc.position.x + 12.0, trc.position.y + 16.0,
-			"可见光 / VIS" if i == 0 else "红外 / IR", 9, Palette.PH if sel else Palette.DIM)
-	# 传感器窗（程序化星点/十字线，无外部贴图）
-	var win := Rect2(588, 316, 744, 300)
-	draw_rect(win, Color(0.005, 0.012, 0.01, 1.0))
-	draw_rect(win, Palette.a(Palette.LINE, 0.9), false, 1.0)
-	for i in range(90):
-		var h := (i * 1103515245 + 12345) & 0x7fffffff
-		var px := win.position.x + float(h % 700) + 14.0
-		var py := win.position.y + float((h / 700) % 280) + 10.0
-		draw_rect(Rect2(px, py, 1, 1), Palette.a(Palette.TXT, 0.06 + 0.05 * float(i % 3)))
-	var c := win.get_center()
-	draw_circle(c, 2.2 if _optical_kind == "VIS" else 2.8, Palette.BLUE if _optical_kind == "VIS" else Palette.AMBER)
-	draw_line(c - Vector2(24, 0), c + Vector2(24, 0), Palette.a(Palette.PH, 0.55), 1.0)
-	draw_line(c - Vector2(0, 24), c + Vector2(0, 24), Palette.a(Palette.PH, 0.55), 1.0)
-	draw_arc(c, 42.0, 0, TAU, 48, Palette.a(Palette.PH_FAINT, 0.5), 1.0, true)
-	_txt(mono, win.position.x + 10.0, win.position.y + 16.0,
-		"%s · %s" % ["VIS" if _optical_kind == "VIS" else "IR", _optical_status_text()], 7,
-		Palette.a(Palette.PH, 0.8))
-	# 数据与进度
-	var info := {}
-	if state != null and state.has_method("selected_info"):
-		var si = state.call("selected_info")
-		if si is Dictionary:
-			info = si
-	_txt(mono, 588, 646, "TARGET %s" % String(_optical_target), 8, Palette.TXT)
-	_txt(mono, 588, 664, "RANGE %s · REFRESH %.1fs" % [
-		"%.0f km" % float(info.get("range_km", 0.0)) if not info.is_empty() else "—",
-		float(_target_track().get("refresh_s", 8.0))], 7, Palette.DIM)
-	_txt(mono, 588, 682, "STARE", 7, Palette.FAINT)
-	var ch_prog := _channel_progress()
-	draw_rect(Rect2(644, 676, 360, 6), Palette.a(Palette.LINE, 0.9))
-	draw_rect(Rect2(644, 676, 360.0 * ch_prog, 6),
-		Palette.a(Palette.PH if _optical_kind == "VIS" else Palette.AMBER, 0.9))
-	_txt_r(mono, 1128, 682, "%d%%" % int(round(ch_prog * 100.0)), 8, Palette.TXT)
-	_cmd_btn(OPT_STARE_BTN, "开始凝视 / STARE", false, Palette.PH)
+	_txt(cjk, r.position.x + 24.0, r.position.y + 22.0, "光学 / 红外通道 / OPTICAL-IR CHANNEL", 12, Palette.PH)
+	_txt_r(mono, r.end.x - 24.0, r.position.y + 22.0, "V1 · SHADOW · READ-ONLY", 7, Palette.a(Palette.FAINT, 0.9))
+	_txt(cjk, r.position.x + 24.0, r.position.y + 40.0,
+		"目标 / TARGET：%s · 模式 VIS+IR · 不写 V15 / 不自动判敌" % _optical_target_label(), 7, Palette.a(Palette.DIM, 0.95))
+	draw_line(Vector2(r.position.x + 16.0, r.position.y + 50.0), Vector2(r.end.x - 16.0, r.position.y + 50.0), Palette.a(Palette.PH, 0.28), 1.0)
+	var view := _optical_fw_view()
+	if view.is_empty():
+		_txt(cjk, r.position.x + 40.0, r.position.y + 100.0, "OPTICAL / IR OFF", 14, Palette.AMBER)
+		_txt(cjk, r.position.x + 40.0, r.position.y + 128.0, "无 state.fw_optical_ir 数据 / V17_OPTICAL_IR=off；不伪造通道/数值。", 8, Palette.DIM)
+		_txt(mono, r.position.x + 40.0, r.position.y + 150.0, "API: state.fw_optical_ir_point/start/step/stop", 7, Palette.a(Palette.FAINT, 0.9))
+		_cmd_btn(OPT_CLOSE_BTN, "关闭 / CLOSE", false, Palette.RED)
+		_txt(cjk, r.end.x - 24.0, r.end.y - 24.0, "关闭后 HUD 保持原样；ESC 返回", 7, Palette.FAINT)
+		return
+	_opt_channel_panel(Rect2(572, 280, 372, 400), "可见光 / VIS", "MS-OT2", "optical")
+	_opt_channel_panel(Rect2(964, 280, 376, 400), "红外 / IR", "CH-IR2", "ir")
+	# 目标 / 控制按钮
+	_txt(mono, 580, 686, "TARGET %s" % String(_optical_target), 7, Palette.TXT)
+	_cmd_btn(OPT_TARGET_BTN, "目标=选中 / TARGET", false, Palette.PH_DIM)
+	_cmd_btn(OPT_START_VIS_BTN, "启动 VIS", false, Palette.PH)
+	_cmd_btn(OPT_START_IR_BTN, "启动 IR", false, Palette.AMBER)
 	_cmd_btn(OPT_STOP_BTN, "停止 / STOP", false, Palette.AMBER)
 	_cmd_btn(OPT_CLOSE_BTN, "关闭 / CLOSE", false, Palette.RED)
 	var note := _optical_state_note
 	if note == "":
-		note = "接口：start_optical_track/start_ir_track(track_id) · stop_track() · channel_status()"
-	_txt(cjk, r.position.x + 24.0, r.end.y - 38.0, _ellipsis(cjk, note, 7, 420.0), 7, Palette.a(Palette.AMBER, 0.7))
-	_txt_r(cjk, r.end.x - 24.0, r.end.y - 38.0, "ESC / CLOSE 返回", 7, Palette.a(Palette.FAINT, 0.9))
+		note = "真实 API：state.fw_optical_ir_point/start/step/stop · 页面只读数据 state.fw_optical_ir"
+	_txt(cjk, r.position.x + 24.0, 752.0, _ellipsis(cjk, note, 7, 720.0), 7, Palette.a(Palette.AMBER, 0.75))
+	var summary: Dictionary = view.get("summary", {}) if view.get("summary", {}) is Dictionary else {}
+	_txt(mono, r.position.x + 24.0, 768.0,
+		"CHANNELS %d · LOCKED %d · STARING %d · OPTICAL_L3 %d · IR_L1 %d · writes.v15=false" % [
+			int(summary.get("channels", 0)), int(summary.get("locked", 0)),
+			int(summary.get("staring", 0)), int(summary.get("optical_l3", 0)),
+			int(summary.get("ir_l1", 0))], 7, Palette.a(Palette.DIM, 0.95))
+	var warnings: Array = view.get("warnings", []) if view.get("warnings", []) is Array else []
+	if not warnings.is_empty():
+		_txt(cjk, r.position.x + 24.0, 784.0, _ellipsis(cjk, "WARN: " + str(warnings[0]), 7, 720.0), 7, Palette.a(Palette.AMBER, 0.8))
+	_txt_r(cjk, r.end.x - 24.0, r.end.y - 18.0, "ESC 关闭 · O 开关 · 不覆盖其他 HUD 常态", 7, Palette.a(Palette.FAINT, 0.9))
+
 
 # ── 图层 / 元素开关 ───────────────────────────────────
 func _toggle_layer(key: String, on: bool) -> void:
@@ -7912,6 +8190,9 @@ func _draw_layers_panel() -> void:
 
 # ── Esc 层级：先关战术弹窗，再交给暂停菜单 ────────────
 func _close_top_popup() -> bool:
+	if _info_page_open:
+		close_info_page()
+		return true
 	if _nav_page_open:
 		_close_nav_page()
 		return true

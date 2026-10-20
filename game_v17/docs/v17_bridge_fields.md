@@ -316,6 +316,8 @@ advisory_contacts 透传 sensor shadow。`sync(dt)` 中 `dt>0` 才 step；`dt=0`
 | bridge | `docking_select_port(port_id)` / `docking_update(rel,attitude,dt)` / `docking_hold/resume/abort/reset` | 显式对接状态机（rel={dr,dv} 或 [x,y,z,vx,vy,vz]；attitude={chaser_port_axis}） |
 | bridge | `bridge_state()` | 增 optical_ir/optical_ir_summary/ready/enabled、docking/docking_ready/docking_enabled/docking_update_last |
 | state | `fw_optical_ir` / `fw_docking` | 只读 VM 快照；`fw_sync` 刷新；off 为空 |
+| state | `fw_optical_ir_auto` / `fw_docking_auto` | auto 开关（默认 auto；on/off 由 V17_* 环境） |
+| bridge/state | auto 字段 | `optical_ir_auto_enabled`/`docking_auto_enabled`、suppressed、auto_target、`*_auto_step_count`；`bridge_state`/`fw_bridge_state` 同步暴露 |
 | state | `fw_optical_ir_view()/fw_docking_view()`、`fw_optical_ir_*`、`fw_docking_*` | 包装显式 API，调用后自动 `_fw_pull()`；旧字段不变 |
 
-详见 `game_v17/docs/v17_optical_docking_bridge.md`；最小 probe `tests/v17_optical_docking_probe.gd`（128/0）。
+详见 `game_v17/docs/v17_optical_docking_bridge.md`；最小 probe `tests/v17_optical_docking_probe.gd`（128/0）与 auto probe `tests/v17_optical_docking_auto_probe.gd`（68/0）。

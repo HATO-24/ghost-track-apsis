@@ -685,11 +685,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		if hud.has_method("toggle_nav_page"):
 			hud.call("toggle_nav_page")
 		return
+	# R5-INFO-UI-1 / R5-OPT-HUD-1：I 信息作战页，O 光学/IR 通道窗
+	if event.keycode == KEY_I:
+		if hud.has_method("toggle_info_page"):
+			hud.call("toggle_info_page")
+		return
+	if event.keycode == KEY_O:
+		if hud.has_method("toggle_optical_window"):
+			hud.call("toggle_optical_window")
+		return
 	if hud.has_method("is_nav_page_open") and bool(hud.call("is_nav_page_open")):
 		if event.keycode == KEY_ESCAPE and hud.has_method("close_nav_page"):
 			hud.call("close_nav_page")
 		return
 	if event.keycode == KEY_ESCAPE:
+		if hud.has_method("is_info_page_open") and bool(hud.call("is_info_page_open")):
+			hud.call("close_info_page")
+			return
+		if hud.has_method("is_optical_window_open") and bool(hud.call("is_optical_window_open")):
+			hud.call("close_optical_window")
+			return
 		if hud.pause_open:
 			hud.close_pause()
 		else:

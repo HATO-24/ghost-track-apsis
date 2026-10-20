@@ -1,19 +1,23 @@
-# SENSOR EXPLORER · 雷达 / 光电 / IFF / ELINT 独立技术演示
+# SENSOR EXPLORER · 雷达 / 光电 / IFF / ELINT / EW 独立技术演示
 
-> 任务 SENSOR-EXPLORER-1（task-60）。工程 `sensor_explorer/`；V1 线框视觉。
-> 本演示**只读调用** V2 传感器模型，不修改 `sim/*.gd` / `scripts/sensor_model.gd` / `project.godot`；
+> 任务 SENSOR-EXPLORER-1（task-60）→ **R5-DEMO-1（task-93）升级**。工程 `sensor_explorer/`；V1 线框视觉。
+> 本演示**只读调用** V2 传感器模型，不改 `sim/*.gd` / `scripts/sensor_model.gd` / `project.godot`；
+> 光学/IR 与信息作战使用 **vendored V2 模型**（`ui/sx_optical_ir.gd` / `ui/sx_information_warfare.gd`，
+> 与 game_v17 的 `V2OpticalIRChannel` / `V2InformationWarfare` 同源，独立 exe 自包含）。
 > HUD 固定标注 **`V2 SIM MODEL — NOT YET AUTHORITATIVE IN V17`**。
 
 ## 1　文件
 
 | 文件 | 作用 |
 | --- | --- |
-| `sensor_explorer.gd` | Node3D 场景：本舰 + 6 目标 + 球形雷达球/参考面 + TWS 目标环 + 光学视锥 + ELINT 方位线；相机/时间/选择/IFF/ELINT/截图 |
+| `sensor_explorer.gd` | Node3D 场景：本舰 + 6 目标 + 球形雷达球/参考面 + TWS 目标环 + 光学视锥 + ELINT 方位线；相机/时间/选择/IFF/ELINT/EW/截图 |
 | `sensor_explorer.tscn` | Node3D + Camera3D + MeshInstance3D + CanvasLayer/HUD（引用 `ui/sx_hud.gd`） |
-| `ui/sx_hud.gd` | V1 HUD：目标列表、选中详情、TWS 六态面板、事件时间线、传感器状态（暴露/ELINT/VIS-IR/IFF）、时间/倍率、图例/标签、页脚诚实标注 |
-| `tests/sensor_explorer_probe.gd` | headless probe：型号记录 / R_eff / 暴露 / TWS 六态 / 失锁重捕 / VIS-IR / IFF / ELINT / JSON / 确定性 |
+| `ui/sx_hud.gd` | V1 HUD：目标列表、选中详情、**OPTICAL/IR 完整通道**、**IFF/ELINT/COMINT**、**EW/INFO OPS**、TWS 六态、事件时间线、传感器状态、时间/倍率；页脚诚实标注 |
+| `ui/sx_optical_ir.gd` | vendored `V2OpticalIRChannel`（FOV/IFOV/遮挡/光照/SNR/凝视/锁定；与 game_v17 同源） |
+| `ui/sx_information_warfare.gd` | vendored `V2InformationWarfare`（IFF/ELINT/COMINT/EW 事件总线；与 game_v17 同源） |
+| `tests/sensor_explorer_probe.gd` | headless probe：旧雷达/TWS/光学/IFF/ELINT 回归 + 新 optical_ir + information_warfare（单次） |
 | `docs/sensor_explorer.md` | 本文件 |
-| `mockups/sensor-overview.png`、`sensor-tws.png`、`sensor-optical.png`、`sensor-elint.png` | 4 张 1920×1080 截图 |
+| `mockups/sensor-overview.png`、`sensor-tws.png`、`sensor-optical.png`、`sensor-elint.png`、`sensor-ew.png` | 5 张 1920×1080 截图 |
 
 ## 2　数据来源（V2 模型，只读）
 
@@ -125,3 +129,104 @@ JSON 可序列化；同输入两次 TWS 运行结果一致。
 - ELINT 只给方位线；未做多信号测向交叉定位（05 §S-05 说需与航迹按方位相关，留给后续）。
 - 时间倍率影响 V2 模型步进；1000× 下事件日志刷新很快（自动截断 80 条 / HUD 显示 8 条）。
 - 相机为环绕焦点相机；未做地形/遮挡碰撞；参考面为示意，不画真实地球弧（避免混合 L1 局部系与地心系）。
+
+
+---
+
+## 9　R5-DEMO-1：完整光学/IR + 信息作战升级
+
+> 任务 task-93。只改 `sensor_explorer.gd`、`ui/*`、`tests/*`、`docs/*`、`mockups/`；
+> 未改 `sim/*` / `project.godot` / game_v17；未 commit。
+
+### 9.1　模型来源（vendored，独立 exe 自包含）
+
+- `ui/sx_optical_ir.gd` = `V2OpticalIRChannel`（game_v17 task-86）的字节级 vendored 副本，仅把
+  `Types` 预加载路径改为 `res://sim/sensor_types.gd`；`sensor_explorer` 独立项目可直接 `preload`，
+  打包进 pck，无需外部 game_v17 文件。
+- `ui/sx_information_warfare.gd` = `V2InformationWarfare`（game_v17 task-75）的 vendored 副本，同样只改类型路径。
+- `sim/optical.gd`、`sim/{radar,tws,sensor_types}.gd` 与 `scripts/sensor_model.gd` **未修改**；
+  旧 probe 回归段落仍直接验证它们（保留旧路径回退/对照）。
+- 两 vendored 文件头部保留原 schema/公式；同步规则：game_v17 模型更新时手工同步这两个副本
+  （本任务不引入构建时依赖外部目录）。
+
+### 9.2　光学 / IR（HUD `OPTICAL / IR CHANNELS`）
+
+- 演示主通道：`VIS T1`（12,000 km，约 90 s 预算内锁定 → L3 + classification）与
+  `IR T6`（1,501 km → 4 s 锁定 → L1，不分类）。
+- HUD 显示：backend=`optical_ir`、status/progress/level、FOV/IFOV_eff、SNR(含 min_snr 对照)、
+  illum、boresight/off-axis、occluded、N_px、reason（fov_miss/occluded/too_dark/blurred/low_snr/…）。
+- 3D 视锥半角来自真实 `fov_deg/2`，方向来自 `boresight_deg/el`（不再是固定 2°/3.2°）。
+- 目标速度按脚本 range_rate/bearing_rate 换算；为避免 1 µrad IFOV 下脚本角速度必然
+  `blurred`（真实物理），演示轨迹的 bearing_rate 降至 0.00001°/s；range_rate 保留 km/s 量级。
+- T3 仍用目标 `illum=0.02` 表达阴影；新光学模型对 T3 VIS 判 `too_dark`，IR 仍可工作
+  （演示只主开 T1/T6 通道，避免同视轴多目标抢占）。
+
+### 9.3　信息作战（HUD `IFF / ELINT / COMINT` + `EW / INFO OPS`）
+
+- `V2InformationWarfare` 真实 step；observer=`SX-01`，2 个 ELINT 站（A 原点 / B 5000 km），
+  目标携带 IFF transponder/codes、雷达 emissions、COMINT comms。
+- 脚本 IFF 时间线：T6@8 s（friend）、T1@12 s（out_of_range，12,000>2,000）、T2@20 s（no_reply）、
+  T4@34 s（faulty）、T5@46 s（captured）；`Q` 可询问选中目标；所有结果 identity 仅
+  friend/unknown，**无 hostile/自动判敌**；HUD 显示 friend/unknown/hostile=0 计数。
+- ELINT：真实链预算截获（T2/T5 YW-R9 发射源）；单站只出信号（HUD `NO CONTACT`），
+  两站 `triangulate_all` 可出 `SIGNAL FIX` 候选（HUD 计数 + 事件）；事件日志节流 8 s/源。
+- COMINT：T2 加密（仅元数据/不解码）、T5 明文；HUD 显示 encrypted/decode=OFF。
+- EW 时间线：t=150 s 注入 noise_jam(0.7)、comms_jam(0.5)、deception(2)、chaff(2)；
+  t=152 s comms_spoof；t=160 s laser_dazzle + LWR。HUD 显示 effects 数/名称、
+  radar jam/R_eff、comms latency/loss、phantom、dazzle；事件全部来自 `ew.effect` 总线。
+  `X` 键手动注入 noise_jam+laser_dazzle。
+- 所有 IFF/ELINT/COMINT/EW 事件在 explorer 事件日志可见；不写 TrackTable/V15，不自动判敌。
+
+### 9.4　控制 / 截图
+
+- 控制新增：`E` ELINT RX 开关（信息作战扫描仍按模型 refresh）、`X` 手动 EW 演示；
+  `V` 重建 VIS T1 通道、`I` 重建 IR T6 通道（新 API `start_channel/stop_channel`）。
+- 截图视图：`DSH_SX_VIEW=overview|tws|optical|elint|ew`；`DSH_SX_SHOT=<png>`；
+  预热 `overview=80、tws=200、optical=120、elint=55、ew=165` 秒，第 36 帧保存 1920×1080。
+
+```powershell
+$godot = ".\tools\godot\Godot_v4.7.2-stable_win64_console.exe"; $mock = "D:\GHOST TRACK_APSIS\mockups"
+$env:DSH_SX_VIEW="overview"; $env:DSH_SX_SHOT="$mock\sensor-overview.png"; & $godot --path .\sensor_explorer
+$env:DSH_SX_VIEW="tws";      $env:DSH_SX_SHOT="$mock\sensor-tws.png";      & $godot --path .\sensor_explorer
+$env:DSH_SX_VIEW="optical";  $env:DSH_SX_SHOT="$mock\sensor-optical.png";  & $godot --path .\sensor_explorer
+$env:DSH_SX_VIEW="elint";    $env:DSH_SX_SHOT="$mock\sensor-elint.png";    & $godot --path .\sensor_explorer
+$env:DSH_SX_VIEW="ew";       $env:DSH_SX_SHOT="$mock\sensor-ew.png";       & $godot --path .\sensor_explorer
+Remove-Item Env:DSH_SX_VIEW,Env:DSH_SX_SHOT
+```
+
+实测 5 张 `SHOT err=0`：
+- `sensor-overview.png`：targets/TWS + 新 OPTICAL/INFO/EW 面板（t=80 s，VIS staring 83%、IR locked）。
+- `sensor-tws.png`：TWS 六态/通道/失锁重捕（t=200 s）。
+- `sensor-optical.png`：VIS T1 **locked/L3/classification**、IR T6 **locked/L1**、FOV/IFOV/SNR/遮挡全显示（t=120 s）。
+- `sensor-elint.png`：IFF friend/unknown 计数、ELINT 单站无接触、COMINT 加密/明文（t=55 s）。
+- `sensor-ew.png`：effects=7（noise_jam/comms_jam/deception/chaff/comms_spoof/laser_dazzle/lwr）、
+  radar jam=0.70→R_eff 18,420 km、comms 21 s/loss 45%、phantom 4、dazzle=Y（t=165 s）。
+
+### 9.5　单次 probe / 验证
+
+```powershell
+.\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
+    --path .\sensor_explorer --script res://tests/sensor_explorer_probe.gd
+# [SUMMARY] pass=78 fail=0 → SENSOR EXPLORER PROBE PASS；退出码 0
+```
+
+新增 §9/§10 覆盖：
+- `ui/sx_optical_ir.gd`：默认 FOV/IFOV（VIS 0.2444°/1.0417 µrad，IR 0.7334°）、
+  VIS 锁定→L3/classification、IR 锁定→L1、FOV 外 `fov_miss`、地球遮挡 `occluded`、
+  角速度 `blurred`、VM JSON/不写 TrackTable；
+- `ui/sx_information_warfare.gd`：IFF friend / no_reply + never_hostile、ELINT 单站
+  `produces_contact=false`/≤L3、COMINT 加密仅元数据、EW noise factor=0.608、phantom=2、
+  VM JSON、hostile=0、不写 TrackTable。
+- 旧雷达/TWS/旧光学/IFF/ELINT/JSON/确定性段落继续通过（保留旧路径回归）。
+- headless boot：`--headless --path .\sensor_explorer --quit` 无 SCRIPT ERROR，打印
+  `[SX] boot ...`；未做全量回归。
+
+### 9.6　限制 / 未完成
+
+- 技术演示，不是 V17 权威：本舰固定、目标脚本轨迹；HUD 页脚明示
+  `V2 SIM MODEL — NOT YET AUTHORITATIVE IN V17`。
+- vendored 模型是副本，需手工同步 game_v17；本任务不建立构建时共享依赖，避免破坏独立 exe。
+- 光学演示只用一条 VIS + 一条 IR 通道（同 sensor 共享云台视轴）；多通道/多相机交互未做。
+- IFF 目标为演示 transponder/codes；ELINT/COMINT 依脚本 emissions/comms；EW 依脚本时间线，
+  非玩家自由编辑；未接 V17 bridge/state/HUD，未做打包二次验证（留 exe 打包任务）。
+- 事件日志最多 80 条；ELINT 信号事件按 8 s/源节流；1000× 下仍可能刷屏。

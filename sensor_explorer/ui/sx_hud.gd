@@ -11,6 +11,9 @@ const UiFonts := preload("res://scripts/fonts.gd")
 
 const TARGET_RECT := Rect2(40.0, 88.0, 430.0, 250.0)
 const SELECT_RECT := Rect2(1450.0, 104.0, 430.0, 360.0)
+const OPTICAL_RECT := Rect2(40.0, 350.0, 430.0, 350.0)
+const INFO_RECT := Rect2(1450.0, 480.0, 430.0, 230.0)
+const EW_RECT := Rect2(1450.0, 720.0, 430.0, 78.0)
 const TWS_RECT := Rect2(40.0, 810.0, 540.0, 214.0)
 const EVENT_RECT := Rect2(600.0, 810.0, 660.0, 214.0)
 const SENSOR_RECT := Rect2(1280.0, 810.0, 600.0, 214.0)
@@ -69,6 +72,9 @@ func _draw() -> void:
 	_draw_time()
 	_draw_targets()
 	_draw_selected()
+	_draw_optical()
+	_draw_info()
+	_draw_ew()
 	_draw_tws()
 	_draw_events()
 	_draw_sensors()
@@ -144,7 +150,8 @@ func _draw_targets() -> void:
 		_txt(mono, TARGET_RECT.position.x + 300.0, y, _state_short(String(tr.get("state", ""))),
 			7, Pal.a(_state_col(String(tr.get("state", ""))), 0.95))
 		_txt_r(mono, TARGET_RECT.end.x - 10.0, y,
-			"q%.0f" % (float(tr.get("quality", 0.0)) * 100.0), 7, Pal.a(Pal.FAINT, 0.95))
+			"V%d I%d q%.0f" % [int(tr.get("vis_level", 0)), int(tr.get("ir_level", 0)),
+			float(tr.get("quality", 0.0)) * 100.0], 7, Pal.a(Pal.FAINT, 0.95))
 	# 提示
 	_txt(mono, TARGET_RECT.position.x + 12.0, TARGET_RECT.end.y - 10.0,
 		"TAB/1-6 选择 · Q IFF 询问 · M 雷达 · V/I 光学/IR · E ELINT",
@@ -185,6 +192,138 @@ func _draw_selected() -> void:
 	if note != "":
 		var fn: Font = cjk if UiFonts.has_cjk(note) else mono
 		_txt(fn, SELECT_RECT.position.x + 12.0, y + 4.0, note, 7, Pal.a(Pal.DIM, 0.85))
+
+
+func _draw_optical() -> void:
+	_panel(OPTICAL_RECT, "OPTICAL / IR CHANNELS", "完整相机 · FOV/遮挡/SNR")
+	var opt: Dictionary = vm.get("optical", {})
+	var vis: Dictionary = opt.get("vis", {}) if opt.get("vis", {}) is Dictionary else {}
+	var ir: Dictionary = opt.get("ir", {}) if opt.get("ir", {}) is Dictionary else {}
+	var x := OPTICAL_RECT.position.x + 12.0
+	var y := OPTICAL_RECT.position.y + 42.0
+	_txt(mono, x, y, "BACKEND optical_ir · VIS MS-OT2 · IR CH-IR2", 7, Pal.a(Pal.PH_FAINT, 0.95))
+	y += 17.0
+	var rows := [["VIS T1", vis], ["IR T6", ir]]
+	for raw in rows:
+		var it: Array = raw
+		var label := String(it[0])
+		var ch: Dictionary = it[1]
+		var col: Color = Pal.PH if String(ch.get("status", "")) == "locked" else Pal.DIM
+		_txt(mono, x, y, label, 8, Pal.a(col, 0.95))
+		_txt(mono, x + 70.0, y, "%s %d%%" % [String(ch.get("status", "off")),
+			int(float(ch.get("progress", 0.0)) * 100.0)], 8, Pal.a(col, 0.9))
+		_txt(mono, x + 220.0, y, "L%d" % int(ch.get("level_support", 0)), 8,
+			Pal.a(Pal.AMBER if int(ch.get("level_support", 0)) >= 3 else Pal.TXT, 0.9))
+		y += 15.0
+		if not ch.is_empty():
+			var fov := float(ch.get("fov_deg", 0.0))
+			var ifov := float(ch.get("ifov_eff_urad", ch.get("ifov_urad", 0.0)))
+			var snr := float(ch.get("snr_db", -999.0))
+			var occ := bool(ch.get("occluded", false))
+			var bores := float(ch.get("boresight_deg", -1.0))
+			var offax := float(ch.get("off_axis_deg", -1.0))
+			var npx := float(ch.get("n_px", 0.0))
+			var reason := String(ch.get("reason", ""))
+			_txt(mono, x + 10.0, y, "FOV %.3f° · IFOV %.2fµrad · Npx %.1f" % [fov, ifov, npx],
+				7, Pal.a(Pal.TXT, 0.86))
+			y += 13.0
+			_txt(mono, x + 10.0, y, "SNR %.1f dB · illum %.2f · SNR_OK %s" % [
+				snr, float(ch.get("illum", 0.0)), "Y" if snr >= float(ch.get("min_snr_db", 8.0)) else "N"],
+				7, Pal.a(Pal.TXT, 0.86))
+			y += 13.0
+			_txt(mono, x + 10.0, y, "BORESIGHT %.1f° · OFF-AXIS %.3f° · OCCLUDED %s" % [
+				bores, offax, "Y" if occ else "N"], 7,
+				Pal.a(Pal.AMBER if (occ or offax > fov * 0.5) else Pal.TXT, 0.86))
+			y += 13.0
+			if reason != "":
+				_txt(mono, x + 10.0, y, "REASON %s" % reason, 7, Pal.a(Pal.AMBER, 0.9))
+				y += 13.0
+		else:
+			_txt(mono, x + 10.0, y, "channel off", 7, Pal.a(Pal.FAINT, 0.9))
+			y += 13.0
+		y += 5.0
+	_txt(mono, x, OPTICAL_RECT.end.y - 18.0,
+		"VIS L3=classification · IR L1 only · NO RANGE MEASUREMENT", 7, Pal.a(Pal.FAINT, 0.9))
+
+
+func _draw_info() -> void:
+	_panel(INFO_RECT, "IFF / ELINT / COMINT", "V2InformationWarfare · 只读")
+	var info: Dictionary = vm.get("info", {})
+	var iff: Dictionary = info.get("iff", {}) if info.get("iff", {}) is Dictionary else {}
+	var elint: Dictionary = info.get("elint", {}) if info.get("elint", {}) is Dictionary else {}
+	var comint: Dictionary = info.get("comint", {}) if info.get("comint", {}) is Dictionary else {}
+	var x := INFO_RECT.position.x + 12.0
+	var y := INFO_RECT.position.y + 40.0
+	# IFF 最近结果 + friend/unknown 计数（永远没有 hostile）
+	var iff_rows: Array = []
+	var by_t: Dictionary = iff.get("by_target", {}) if iff.get("by_target", {}) is Dictionary else {}
+	var friend_n := 0
+	var unknown_n := 0
+	var last_iff: Dictionary = {}
+	var last_t := -1.0
+	for tid2 in by_t.keys():
+		var row: Dictionary = by_t[tid2] if by_t[tid2] is Dictionary else {}
+		iff_rows.append(row)
+		var idn := String(row.get("identity", "unknown"))
+		if idn == "friend":
+			friend_n += 1
+		else:
+			unknown_n += 1
+		if float(row.get("t", 0.0)) >= last_t:
+			last_t = float(row.get("t", 0.0))
+			last_iff = row
+	_txt(mono, x, y, "IFF friend %d · unknown %d · hostile 0 %s" % [
+		friend_n, unknown_n, String(last_iff.get("status", ""))], 7, Pal.a(Pal.PH, 0.9))
+	_txt(mono, x, y + 12.0, "last %s identity=%s；无应答/缴获码/超距 → unknown；NO AUTO HOSTILE" % [
+		String(last_iff.get("target_id", "—")), String(last_iff.get("identity", "unknown"))],
+		7, Pal.a(Pal.AMBER, 0.85))
+	y += 30.0
+	var sigs: Array = elint.get("signals", []) if elint.get("signals", []) is Array else []
+	var fixes: Array = elint.get("fix_candidates", []) if elint.get("fix_candidates", []) is Array else []
+	var last_sig: Dictionary = sigs[sigs.size() - 1] if not sigs.is_empty() else {}
+	_txt(mono, x, y, "ELINT signals %d · fix candidates %d" % [sigs.size(), fixes.size()],
+		7, Pal.a(Pal.PH_DIM, 0.95))
+	_txt(mono, x + 10.0, y + 13.0, "sig %s · %s · brg %.1f° · σ%.1f°" % [
+		String(last_sig.get("source_id", "—")), String(last_sig.get("signature", "—")),
+		float(last_sig.get("bearing_deg", 0.0)), float(last_sig.get("bearing_sigma_deg", 0.0))],
+		7, Pal.a(Pal.TXT, 0.85))
+	_txt(mono, x + 10.0, y + 25.0, "single station → NO CONTACT；FIX 仅为候选（需确认）", 7,
+		Pal.a(Pal.FAINT, 0.9))
+	y += 46.0
+	var cevents: Array = comint.get("events", []) if comint.get("events", []) is Array else []
+	var last_c: Dictionary = cevents[cevents.size() - 1] if not cevents.is_empty() else {}
+	var content: Dictionary = last_c.get("comms_content", {}) if last_c.get("comms_content", {}) is Dictionary else {}
+	_txt(mono, x, y, "COMINT %d · encrypted %s · decode=%s" % [
+		cevents.size(), "Y" if bool(content.get("encrypted", false)) else "N",
+		"OFF" if not bool(comint.get("auto_decode", false)) else "ON"], 7, Pal.a(Pal.TXT, 0.9))
+	_txt(mono, x + 10.0, y + 13.0, "%s→%s · %s" % [
+		String(last_c.get("from", "—")), String(last_c.get("to", "—")),
+		String(content.get("mode", "radio"))], 7, Pal.a(Pal.FAINT, 0.9))
+
+
+func _draw_ew() -> void:
+	_panel(EW_RECT, "EW / INFO OPS", "单一事件总线 · 无自动判敌")
+	var ew: Dictionary = vm.get("ew", {})
+	var radar: Dictionary = ew.get("radar", {}) if ew.get("radar", {}) is Dictionary else {}
+	var comms: Dictionary = ew.get("comms", {}) if ew.get("comms", {}) is Dictionary else {}
+	var optical: Dictionary = ew.get("optical", {}) if ew.get("optical", {}) is Dictionary else {}
+	var phantom: Dictionary = ew.get("phantom", {}) if ew.get("phantom", {}) is Dictionary else {}
+	var effects: Array = ew.get("effects", []) if ew.get("effects", []) is Array else []
+	var x := EW_RECT.position.x + 12.0
+	var y := EW_RECT.position.y + 40.0
+	var eff_names: Array = []
+	for raw in effects:
+		if raw is Dictionary:
+			eff_names.append(String((raw as Dictionary).get("effect", "")))
+	_txt(mono, x, y, "EFFECTS %d · %s" % [effects.size(), ",".join(eff_names)], 7,
+		Pal.a(Pal.AMBER if effects.size() > 0 else Pal.FAINT, 0.9))
+	_txt(mono, x, y + 12.0, "RADAR jam %.2f → R_eff %.0f km · COMMS %.1fs loss %.0f%%" % [
+		float(radar.get("jamming", 0.0)), float(radar.get("effective_radius_km", 0.0)),
+		float(comms.get("latency_s", 0.0)), float(comms.get("packet_loss", 0.0)) * 100.0],
+		7, Pal.a(Pal.TXT, 0.86))
+	_txt(mono, x + 250.0, y + 12.0, "PHANTOM %d · DAZZLE %s" % [
+		int(phantom.get("active", 0)), "Y" if bool(optical.get("dazzled", false)) else "N"],
+		7, Pal.a(Pal.AMBER, 0.9))
 
 
 func _draw_tws() -> void:
@@ -312,7 +451,8 @@ func _draw_labels() -> void:
 		if p.x < 0.0 or p.y < 0.0 or p.x > 1920.0 or p.y > 1080.0:
 			continue
 		if TARGET_RECT.has_point(p) or SELECT_RECT.has_point(p) or TWS_RECT.has_point(p) \
-				or EVENT_RECT.has_point(p) or SENSOR_RECT.has_point(p):
+				or EVENT_RECT.has_point(p) or SENSOR_RECT.has_point(p) \
+				or OPTICAL_RECT.has_point(p) or INFO_RECT.has_point(p) or EW_RECT.has_point(p):
 			continue
 		var sel := bool(tr.get("selected", false))
 		var stc := String(tr.get("state", ""))
