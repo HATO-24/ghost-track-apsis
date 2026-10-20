@@ -695,3 +695,30 @@ v1_hud.gd
 2. TBD 文本只显示 TBD/key，不生成假台词；报告/结局/handoff 未执行。
 3. 轨道来自 session snapshot 的 av_4412 真实 pos/vel；不写物理/世界。
 4. 不实现完整剧情分支/结局/物理；未跑全量 regression。
+
+
+---
+
+## 24　方案B-19：AV-4412 谈判选项可读性（task-181）
+
+### 24.1 字号 / 布局调整（仅可视性，逻辑未改）
+
+- 只改 `v1_hud.gd` 的 AV-4412 draw 布局；AV4412Chain 状态/文本/选项/动作全部不变。
+- 标题 15pt；当前原文/后续正文 10pt（行距 15）；四选项卡片：
+  - 选项名 11pt，正文 10pt，每卡最多两行，`TM.fit` 防截断；
+  - 四卡纵向排列，居左，高度按可用高度动态计算；选中项高亮。
+- 底部动作重排为三按钮 TRACK / WINDOW / ADVANCE（选项改为可点击卡片，不再与动作挤一行）。
+- THREAT/TRUST/ROE/REPUTATION/FLAGS/TRIGGERS/TBD/TRACK/WINDOW/EVENTS 保持 7–8pt 次级字号，不抢主文本。
+- 1920×1080 与 1600×900 均按 `r.size` 计算；选项区固定在底部上方，卡片与底部按钮不重叠。
+
+### 24.2 截图
+
+- `mockups/v1-hud-av4412-readable-1920.png`（1920×1080）
+- `mockups/v1-hud-av4412-readable-1600.png`（1600×900）
+- 两张均为真实 AV4412Chain 推进到 STRONG 状态：四选项/原文/后续可读，ROE TIGHT/fire_control_illumination 显示；逻辑未改。
+
+### 24.3 边界
+
+1. 仅 UI 字号/布局调整；不改变谈判逻辑/选项含义/文本内容。
+2. 选项卡每卡只展示两行预览，完整原文仍在文本库；不是伪造/截断数据。
+3. 1920/1600 之外尺寸未做完整回归。

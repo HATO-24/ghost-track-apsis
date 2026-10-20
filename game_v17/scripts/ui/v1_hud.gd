@@ -1148,132 +1148,132 @@ func _av4412_track() -> Dictionary:
 
 func _draw_av4412_overlay(r: Rect2) -> void:
 	var x := r.position.x + 16.0
-	var y := r.position.y + 28.0
-	Painter.label(self, x, y, "AV-4412 / 对峙 · 谈判", 12, P.PH)
-	Painter.label(self, x, y + 14, "state/原文/TRACK/WINDOW/四选项 · ROE TIGHT/TBD 明示 · 不自动开火/不自动推进", 7, P.a(P.AMBER, 0.9), true)
+	var y := r.position.y + 26.0
+	Painter.label(self, x, y, "AV-4412 / 对峙 · 谈判", 15, P.PH)
+	Painter.label(self, x, y + 18, "四选项大字可读 · 原文/后续 10pt · TBD 明示 · 不自动开火/推进", 8, P.a(P.AMBER, 0.9), true)
 	if binder == null or not binder.av4412_ready:
-		Painter.label(self, x, y + 44, "AV4412 NOT READY · no AV4412Chain", 9, P.AMBER)
+		Painter.label(self, x, y + 50, "AV4412 NOT READY · no AV4412Chain", 11, P.AMBER)
 		return
 	var vm: Dictionary = binder.av4412_vm()
 	var state := String(vm.get("state", "NOT READY"))
 	var states := ["ORBIT_DEPARTURE", "WINDOW_OPEN", "CONTACT", "COMMS", "NEGOTIATION", "OPTION", "RESOLUTION"]
 	var active_i := 0
 	match state:
-		"ORBIT_DEPARTURE":
-			active_i = 0
-		"WINDOW_OPEN":
-			active_i = 1
-		"EARLY_RADAR", "PASSIVE_CONTACT":
-			active_i = 2
-		"COMMS":
-			active_i = 3
-		"NEGOTIATION":
-			active_i = 4
-		"STRONG", "STANDARD", "QUESTION", "RETREAT":
-			active_i = 5
-		"RESOLUTION", "REPORT_HANDOFF":
-			active_i = 6
+		"ORBIT_DEPARTURE": active_i = 0
+		"WINDOW_OPEN": active_i = 1
+		"EARLY_RADAR", "PASSIVE_CONTACT": active_i = 2
+		"COMMS": active_i = 3
+		"NEGOTIATION": active_i = 4
+		"STRONG", "STANDARD", "QUESTION", "RETREAT": active_i = 5
+		"RESOLUTION", "REPORT_HANDOFF": active_i = 6
 	var sy := y + 38.0
 	for i in range(states.size()):
-		var cw := (r.size.x - 40.0) / states.size()
-		var cr := Rect2(x + float(i) * cw, sy, cw - 4, 18)
+		var cw := (r.size.x - 32.0) / states.size()
+		var cr := Rect2(x + float(i) * cw, sy, cw - 4, 19)
 		draw_rect(cr, P.a(P.AMBER if i <= active_i else P.LINE, 0.16 if i <= active_i else 0.05))
 		draw_rect(cr, P.a(P.AMBER if i == active_i else P.LINE, 0.75 if i == active_i else 0.25), false, 1.0)
-		Painter.label(self, cr.position.x + 4, cr.position.y + 13, states[i], 6, P.PH if i == active_i else P.FAINT, true)
-	# 当前原文
+		Painter.label(self, cr.position.x + 4, cr.position.y + 14, states[i], 7, P.PH if i == active_i else P.FAINT, true)
+	var left_w := floorf((r.size.x - 34.0) * 0.58)
+	var right_x := x + left_w + 16.0
+	var body_y := sy + 28.0
+	var options_y := r.end.y - 254.0
+	# 当前原文 / 后续（10pt）
+	Painter.section(self, x, body_y, x + left_w, "当前原文 / CURRENT TEXT")
+	var ty := body_y + 17.0
 	var keys: Array = []
 	match state:
-		"ORBIT_DEPARTURE", "WINDOW_OPEN":
-			keys = ["av4412.contact_rules"]
-		"EARLY_RADAR", "PASSIVE_CONTACT", "COMMS":
-			keys = ["av4412.opening"]
-		"NEGOTIATION":
-			keys = ["av4412.negotiation_rules"]
-		"STRONG":
-			keys = ["av4412.strong", "av4412.strong_aftermath"]
-		"STANDARD":
-			keys = ["av4412.standard", "av4412.standard_aftermath"]
-		"QUESTION":
-			keys = ["av4412.question", "av4412.question_aftermath"]
-		"RETREAT":
-			keys = ["av4412.retreat_rules"]
-	var ty := sy + 32.0
+		"ORBIT_DEPARTURE", "WINDOW_OPEN": keys = ["av4412.contact_rules"]
+		"EARLY_RADAR", "PASSIVE_CONTACT", "COMMS": keys = ["av4412.opening"]
+		"NEGOTIATION": keys = ["av4412.negotiation_rules"]
+		"STRONG": keys = ["av4412.strong", "av4412.strong_aftermath"]
+		"STANDARD": keys = ["av4412.standard", "av4412.standard_aftermath"]
+		"QUESTION": keys = ["av4412.question", "av4412.question_aftermath"]
+		"RETREAT": keys = ["av4412.retreat_rules"]
 	for k in keys:
 		var txt: String = binder.av4412_text(String(k))
 		if txt == "" or txt == "TBD":
 			txt = "TBD · " + String(k) + " · 未提供原文（不伪造）"
-		var lines := _wrap_text_cjk(txt, 96)
+		var lines := _wrap_text_cjk(txt, int(left_w / 10.0))
 		for line in lines:
-			if ty > r.end.y - 190.0:
+			if ty > options_y - 16.0:
 				break
-			Painter.label(self, x, ty, line, 7, P.TXT, true)
-			ty += 12.0
+			Painter.label(self, x, ty, line, 10, P.TXT, true)
+			ty += 15.0
 		ty += 4.0
-	# 选项原文（四选项，始终可读；TBD 显式）
-	ty += 2.0
-	Painter.section(self, x, ty, x + r.size.x * 0.6, "OPTIONS / 四选项原文")
-	ty += 14.0
-	for opt in ["strong", "standard", "question", "retreat"]:
-		var ot: String = binder.av4412_text("av4412." + String(opt))
-		var mark := "▶ " if String(vm.get("option", "")) == String(opt) else "· "
-		Painter.label(self, x, ty, TM.fit(mark + String(opt).to_upper() + " · " + ot, r.size.x * 0.58, true, 6), 6, P.PH if String(vm.get("option", "")) == String(opt) else P.DIM, true)
-		ty += 12.0
-	# TBD keys 明示
-	var tbd_keys: Array = []
-	for k in (vm.get("text_keys", []) if vm.get("text_keys", []) is Array else []):
-		if bool((binder.av4412_chain.text(String(k)) as Dictionary).get("tbd", false)):
-			tbd_keys.append(String(k))
-	if not tbd_keys.is_empty():
-		Painter.label(self, x, ty, "TBD KEYS " + ",".join(tbd_keys) + " · 不伪造", 6, P.AMBER, true)
-	# 右侧 stats
-	var rx := x + r.size.x * 0.63
-	var ry := sy + 32.0
-	Painter.section(self, rx, ry, r.end.x - 14, "THREAT / TRUST / ROE")
-	ry += 14.0
-	Painter.label(self, rx, ry, "THREAT %d · TRUST %d · CHOICE %s" % [int(vm.get("threat", 0)), int(vm.get("trust", 0)), String(vm.get("option", "—"))], 8, P.PH, true)
+	# 四选项大字卡片
+	Painter.section(self, x, options_y - 2.0, x + left_w, "OPTIONS / 四选项 · 点击选择")
+	var card_y := options_y + 15.0
+	var card_h := maxf(42.0, (r.end.y - 46.0 - card_y) / 4.0)
+	_av4412_buttons.clear()
+	for i in range(4):
+		var opt: String = String(["strong", "standard", "question", "retreat"][i])
+		var card := Rect2(x, card_y + float(i) * (card_h + 3.0), left_w - 4.0, card_h)
+		_av4412_buttons.append({"rect": card, "kind": String(opt).to_upper()})
+		var selected: bool = String(vm.get("option", "")) == opt
+		draw_rect(card, P.a(P.PANEL2, 0.45))
+		draw_rect(card, P.a(P.AMBER if selected else P.LINE, 0.85 if selected else 0.35), false, 1.0)
+		Painter.label(self, card.position.x + 8, card.position.y + 15, ("▶ " if selected else "") + String(opt).to_upper(), 11, P.PH if selected else P.TXT, true)
+		var ot: String = binder.av4412_text("av4412." + opt)
+		if ot == "" or ot == "TBD":
+			ot = "TBD · 未提供原文（不伪造）"
+		var ol := _wrap_text_cjk(ot, int((card.size.x - 12.0) / 10.0))
+		for j in range(mini(2, ol.size())):
+			Painter.label(self, card.position.x + 8, card.position.y + 30 + float(j) * 13.0, TM.fit(ol[j], card.size.x - 16.0, true, 10), 10, P.DIM, true)
+	# 右侧次级信息
+	var rw := r.end.x - right_x - 14.0
+	var ry := body_y
+	Painter.section(self, right_x, ry, r.end.x - 14, "THREAT / TRUST / ROE")
+	ry += 15.0
+	Painter.label(self, right_x, ry, "THREAT %d · TRUST %d · CHOICE %s" % [int(vm.get("threat", 0)), int(vm.get("trust", 0)), String(vm.get("option", "—"))], 8, P.PH, true)
 	ry += 14.0
 	var flags: Dictionary = vm.get("flags", {}) if vm.get("flags", {}) is Dictionary else {}
 	var roe_txt := "ROE TIGHT · fire_control_illumination · auto_fire=false" if bool(flags.get("roe_tight", false)) else "ROE " + String(binder.roe_text)
-	Painter.label(self, rx, ry, roe_txt, 7, P.AMBER if bool(flags.get("roe_tight", false)) else P.TXT, true)
+	Painter.label(self, right_x, ry, TM.fit(roe_txt, rw, true, 8), 8, P.AMBER if bool(flags.get("roe_tight", false)) else P.TXT, true)
 	ry += 14.0
-	var rw := maxf(240.0, r.end.x - rx - 14.0)
-	Painter.label(self, rx, ry, TM.fit("REPUTATION " + JSON.stringify(vm.get("reputation", {})), rw, true, 6), 6, P.a(P.DIM, 0.9), true)
-	ry += 14.0
-	Painter.label(self, rx, ry, TM.fit("FLAGS " + JSON.stringify(flags), rw, true, 6), 6, P.a(P.DIM, 0.9), true)
-	ry += 14.0
-	Painter.label(self, rx, ry, TM.fit("TRIGGERS " + ",".join(vm.get("trigger_ids", []) if vm.get("trigger_ids", []) is Array else []), rw, true, 6), 6, P.AMBER, true)
-	ry += 18.0
-	# TRACK / WINDOW
+	Painter.label(self, right_x, ry, TM.fit("REPUTATION " + JSON.stringify(vm.get("reputation", {})), rw, true, 7), 7, P.a(P.DIM, 0.9), true)
+	ry += 13.0
+	Painter.label(self, right_x, ry, TM.fit("FLAGS " + JSON.stringify(flags), rw, true, 7), 7, P.a(P.DIM, 0.9), true)
+	ry += 13.0
+	Painter.label(self, right_x, ry, TM.fit("TRIGGERS " + ",".join(vm.get("trigger_ids", []) if vm.get("trigger_ids", []) is Array else []), rw, true, 7), 7, P.AMBER, true)
+	ry += 20.0
 	var orb: Dictionary = vm.get("orbit", {}) if vm.get("orbit", {}) is Dictionary else {}
-	Painter.section(self, rx, ry, r.end.x - 14, "TRACK / WINDOW")
-	ry += 14.0
+	Painter.section(self, right_x, ry, r.end.x - 14, "TRACK / WINDOW")
+	ry += 15.0
 	if orb.is_empty():
-		Painter.label(self, rx, ry, "TRACK NOT READY · 需要真实 av4412 轨道", 7, P.AMBER, true)
+		Painter.label(self, right_x, ry, "TRACK NOT READY · 需要真实 av4412 轨道", 8, P.AMBER, true)
 	else:
-		Painter.label(self, rx, ry, "t=%.1fs · pos=%s · vel=%s" % [float(orb.get("t", 0.0)), str(orb.get("pos", [])), str(orb.get("vel", []))], 6, P.TXT, true)
-		ry += 12.0
-		Painter.label(self, rx, ry, "WINDOW %s · RADAR %s · DETECTED %s" % ["OPEN" if bool(binder.av4412_chain.window_open) else "CLOSED", str(bool(binder.av4412_chain.radar_active)), str(bool((vm.get("detection", {}) as Dictionary).get("detected", false)) if vm.get("detection", {}) is Dictionary else false)], 6, P.TXT, true)
-	ry += 18.0
-	Painter.section(self, rx, ry, r.end.x - 14, "EVENTS / COMMS")
+		Painter.label(self, right_x, ry, TM.fit("t=%.1fs · pos=%s" % [float(orb.get("t", 0.0)), str(orb.get("pos", []))], rw, true, 7), 7, P.TXT, true)
+		ry += 13.0
+		Painter.label(self, right_x, ry, "WINDOW %s · RADAR %s · DETECTED %s" % ["OPEN" if bool(binder.av4412_chain.window_open) else "CLOSED", str(bool(binder.av4412_chain.radar_active)), str(bool((vm.get("detection", {}) as Dictionary).get("detected", false)) if vm.get("detection", {}) is Dictionary else false)], 7, P.TXT, true)
+	ry += 20.0
+	Painter.section(self, right_x, ry, r.end.x - 14, "TBD / EVENTS / COMMS")
 	ry += 14.0
+	var tbd_keys: Array = []
+	for k2 in (vm.get("text_keys", []) if vm.get("text_keys", []) is Array else []):
+		if bool((binder.av4412_chain.text(String(k2)) as Dictionary).get("tbd", false)):
+			tbd_keys.append(String(k2))
+	if not tbd_keys.is_empty():
+		Painter.label(self, right_x, ry, TM.fit("TBD KEYS " + ",".join(tbd_keys) + " · 不伪造", rw, true, 7), 7, P.AMBER, true)
+		ry += 13.0
 	var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
 	for i in range(maxi(0, evs.size() - 3), evs.size()):
-		Painter.label(self, rx, ry, TM.fit(String((evs[i] as Dictionary).get("action", "")) + " · " + String((evs[i] as Dictionary).get("trigger_id", "")), 360, true, 6), 6, P.PH_DIM, true)
-		ry += 11.0
+		Painter.label(self, right_x, ry, TM.fit(String((evs[i] as Dictionary).get("action", "")) + " · " + String((evs[i] as Dictionary).get("trigger_id", "")), rw, true, 7), 7, P.PH_DIM, true)
+		ry += 12.0
 	for line in (binder.av4412_comms_lines if binder != null else []):
-		Painter.label(self, rx, ry, TM.fit(String(line), 360, true, 6), 6, P.DIM, true)
-		ry += 11.0
-	# 按钮
-	_av4412_buttons.clear()
-	var labels := [["TRACK", "TRACK"], ["WINDOW", "WINDOW"], ["ADVANCE", "ADVANCE"], ["STRONG", "STRONG"], ["STANDARD", "STANDARD"], ["QUESTION", "QUESTION"], ["RETREAT", "RETREAT"]]
+		if ry > r.end.y - 50.0:
+			break
+		Painter.label(self, right_x, ry, TM.fit(String(line), rw, true, 7), 7, P.DIM, true)
+		ry += 12.0
+	# 底部三按钮（重排，不再与选项挤一行）
 	var by := r.end.y - 34.0
-	for i in range(labels.size()):
-		var bw := (r.size.x - 32.0 - 8.0 * 6.0) / 7.0
-		var br := Rect2(x + float(i) * (bw + 8.0), by, bw, 22)
-		_av4412_buttons.append({"rect": br, "kind": String(labels[i][0])})
-		Painter.button(self, br, String(labels[i][1]), true, P.PH if i < 3 else P.PH_DIM)
+	var b2 := [["TRACK", "TRACK"], ["WINDOW", "WINDOW"], ["ADVANCE", "ADVANCE"]]
+	for i in range(3):
+		var bw := (r.size.x - 32.0 - 16.0) / 3.0
+		var br := Rect2(x + float(i) * (bw + 8.0), by, bw, 24)
+		_av4412_buttons.append({"rect": br, "kind": String(b2[i][0])})
+		Painter.button(self, br, String(b2[i][1]), true, P.PH)
 	if _av4412_msg != "":
-		Painter.label(self, x, by - 12, TM.fit(_av4412_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
+		Painter.label(self, x, by - 13, TM.fit(_av4412_msg, r.size.x - 32, true, 8), 8, P.AMBER, true)
 
 
 func _av4412_action(kind: String) -> void:
