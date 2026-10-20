@@ -126,6 +126,13 @@ const NAV_REQ_BTN := Rect2(1704, 716, 140, 24)
 const NAV_AUTH_BTN := Rect2(1556, 748, 136, 24)
 const NAV_ABORT_BTN := Rect2(1704, 748, 140, 24)
 const NAV_RETURN_BTN := Rect2(1704, 784, 140, 20)
+# R4-NAV-MANEUVER-UI-1：MANEUVER 页动作（真实 state.fw_nav_*）
+const NAV_MNV_PLAN := Rect2(1556, 704, 136, 22)
+const NAV_MNV_AUTH := Rect2(1704, 704, 140, 22)
+const NAV_MNV_QUEUE := Rect2(1556, 732, 136, 22)
+const NAV_MNV_EXEC := Rect2(1704, 732, 140, 22)
+const NAV_MNV_ABORT := Rect2(1556, 760, 136, 22)
+const NAV_MODE_CHIP_Y := 672.0
 const NAV_MODE_HOLD := Rect2(1556, 612, 138, 20)
 const NAV_MODE_AUTO := Rect2(1704, 612, 140, 20)
 const NAV_ROW0 := 184.0
@@ -1156,8 +1163,12 @@ var _nav_open_on_ready := ""
 var _nav_rows: Array = []        # [{rect,id,kind}]
 var _nav_candidate_sel := 0
 var _nav_planned_demo := false
+var _nav_maneuver_demo := false
 var _nav_last_action: Dictionary = {}
 var _nav_maneuver_plan_id := ""
+var _nav_oper_mode := "SEMI"        # SEMI / AUTO / BATTLE（真实机动操作模式）
+var _nav_budget_before: Dictionary = {}
+var _nav_mnv_last_note := ""
 var _damage_full_demo := false
 var _damage_full_action_rects: Array = []  # [{rect,action,section,priority}]
 var _comms_abort_rect := Rect2()
@@ -1258,6 +1269,11 @@ func _ready() -> void:
 			_demo_suppress_adjutant = true
 			_nav_open_on_ready = "routes"
 			_nav_planned_demo = true
+		"nav_maneuver":
+			# R4-NAV-MANEUVER-UI-1 截图：真实 planned_maneuvers + plan/authorize/queue/execute
+			_demo_suppress_adjutant = true
+			_nav_open_on_ready = "maneuver"
+			_nav_maneuver_demo = true
 		"fw_replay_drag":
 			# V17-UI-2 截图：回放时间轴拖动中
 			_demo_suppress_adjutant = true
@@ -1321,6 +1337,8 @@ func _ready() -> void:
 		_nav_open_on_ready = ""
 		if _nav_planned_demo:
 			_nav_planned_prepare()
+		if _nav_maneuver_demo:
+			_nav_maneuver_prepare()
 	# P9a 截图钩子：日志/队列页签、损管详情/航行准备长按已充能。
 	var ltab := OS.get_environment("DSH_LOG_TAB")
 	if ltab != "":
@@ -4027,7 +4045,9 @@ func _draw_nav_page() -> void:
 	draw_rect(Rect2(0, 0, 1920, 1080), Color(0, 0, 0, 0.32))
 	_panel(NAV_HEADER)
 	_txt(cjk, NAV_HEADER.position.x + 20.0, NAV_HEADER.position.y + 10.0, "导航 / NAVIGATION", 12, Palette.PH)
-	_txt(cjk, NAV_HEADER.position.x + 20.0, NAV_HEADER.position.y + 30.0, "ROUTE & TRAFFIC CONTROL · L1 MERIDIAN", 7, Palette.a(Palette.DIM, 0.95))
+	_txt(cjk, NAV_HEADER.position.x + 20.0, NAV_HEADER.position.y + 30.0,
+		"ROUTE & TRAFFIC CONTROL · L1 MERIDIAN" if _nav_mode != "maneuver"
+		else "MANEUVER PLANNING · PRE_ORDER→…→DONE/ABORTED · 无自动执行", 7, Palette.a(Palette.DIM, 0.95))
 	var tabs := [["航线 / ROUTES", NAV_TAB_ROUTES, "routes"], ["交通 / TRAFFIC", NAV_TAB_TRAFFIC, "traffic"], ["机动 / MANEUVER", NAV_TAB_MANEUVER, "maneuver"]]
 	for raw in tabs:
 		var item: Array = raw
@@ -4080,9 +4100,13 @@ func _draw_nav_page() -> void:
 	# ── 中：地月图（真实节点/候选路径）──
 	_nav_panel(NAV_MAP, "地月图 / CELESTIAL CHART", "V1 WIREFRAME · ABSTRACT", "节点抽象坐标 from state.fw_nav；R6 接真实位置")
 	_nav_draw_chart(nodes, routes)
-	# ── 右：计划 ──
-	_nav_panel(NAV_RIGHT, "航线计划 / ROUTE PLAN", "state.fw_nav", "")
-	_nav_draw_plan(ready, routes, ac)
+	# ── 右：计划 / 机动 ──
+	if _nav_mode == "maneuver":
+		_nav_panel(NAV_RIGHT, "机动执行 / MANEUVER", "state.fw_nav.planned_maneuvers", "PLAN → AUTHORIZE → QUEUE → EXECUTE；不自动执行")
+		_nav_draw_maneuver(ready)
+	else:
+		_nav_panel(NAV_RIGHT, "航线计划 / ROUTE PLAN", "state.fw_nav", "")
+		_nav_draw_plan(ready, routes, ac)
 	# ── 下左：事件/日志 ──
 	_nav_panel(NAV_BOT, "规划 / 交通 / 命令日志", "state.fw_nav.events", "")
 	for i in range(3):
@@ -4284,15 +4308,8 @@ func _nav_draw_plan(ready: bool, routes: Array, ac: Dictionary) -> void:
 	var last := _nav_last_action
 	if not last.is_empty():
 		_txt(cjk, r.position.x + 12.0, y, _ellipsis(cjk, "最近：%s %s" % [String(last.get("status", last.get("reason", ""))), String(last.get("reason_text", ""))], 7, r.size.x - 24.0), 7, Palette.a(Palette.PH_DIM, 0.9))
-	# 模式 chips
-	var modes := [["SEMI", "半自动"], ["AUTO", "自动"], ["BATTLE", "战斗机动"]]
-	for i in range(3):
-		var mr := Rect2(r.position.x + 12.0 + float(i) * 96.0, 672.0, 88.0, 20.0)
-		var sel := (_nav_mode == "maneuver" and i == 2) or (_nav_mode == "routes" and i == 0)
-		draw_rect(mr, Palette.a(Palette.PANEL2, 0.6 if sel else 0.3))
-		draw_rect(mr, Palette.a(Palette.PH if sel else Palette.LINE, 0.5), false, 1.0)
-		_txt(cjk, mr.position.x + 5.0, mr.position.y + 3.0, "%s %s" % [modes[i][0], modes[i][1]], 7, Palette.PH if sel else Palette.DIM)
-		_nav_rows.append({"rect": mr, "id": "mode%d" % i})
+	# 模式 chips（真实机动操作模式；BATTLE 自动切到 MANEUVER 页）
+	_nav_draw_mode_chips(r)
 	# 按钮
 	var btns := [["生成候选 / GEN", NAV_GEN_BTN, true], ["请求许可 / REQUEST", NAV_REQ_BTN, true],
 		["授权执行 / AUTHORIZE", NAV_AUTH_BTN, true], ["中断 / ABORT", NAV_ABORT_BTN, true], ["返回 / RETURN", NAV_RETURN_BTN, true]]
@@ -4390,10 +4407,34 @@ func _handle_nav_click(p: Vector2) -> void:
 			_nav_pick_candidate(int(rid.substr(4)), true)
 			_sfx("ui_click")
 			return
+		if rid.begins_with("oper"):
+			var mi := int(rid.substr(4))
+			if mi >= 0 and mi <= 2:
+				_nav_oper_mode = ["SEMI", "AUTO", "BATTLE"][mi]
+				if mi == 2:
+					_nav_mode = "maneuver"
+					_nav_mnv_last_note = "BATTLE：战斗机动模式；只规划/授权，结果显示回主 HUD/事件"
+				elif mi == 1:
+					_nav_mnv_last_note = "AUTO：仅计划/授权；QUEUE/EXECUTE 禁用（不自动执行）"
+				else:
+					_nav_mnv_last_note = "SEMI：允许单步执行 PLAN/AUTH/QUEUE/EXEC"
+				_toast("导航：机动模式 %s%s" % [["SEMI 半自动", "AUTO 自动", "BATTLE 战斗机动"][mi],
+					"（已切到 MANEUVER）" if mi == 2 else ""])
+			_sfx("ui_click")
+			return
+		if rid.begins_with("plan:"):
+			_nav_maneuver_plan_id = rid.substr(5)
+			_sfx("ui_click")
+			return
+		if rid.begins_with("mnv_"):
+			_nav_maneuver_action(rid.substr(4))
+			return
 		if rid.begins_with("mode"):
 			var m := int(rid.substr(4))
-			_nav_mode = "maneuver" if m == 2 else "routes"
-			_toast("导航：模式 %s（仅页面/浏览；规划 API 不变）" % ["半自动", "自动", "战斗机动"][m])
+			_nav_oper_mode = ["SEMI", "AUTO", "BATTLE"][clampi(m, 0, 2)]
+			if m == 2:
+				_nav_mode = "maneuver"
+			_toast("导航：机动模式 %s" % _nav_oper_mode)
 			return
 		if rid.begins_with("btn_"):
 			_nav_action(rid.substr(4))
@@ -4479,6 +4520,461 @@ func _nav_action(action: String) -> void:
 		if rab is Dictionary:
 			_nav_result(rab, "中断")
 		return
+
+
+# ═══════════════════════════════════════════════════════════════
+# R4-NAV-MANEUVER-UI-1：MANEUVER 页（真实 planned_maneuvers / FSM）
+# ═══════════════════════════════════════════════════════════════
+
+func _nav_plans() -> Array:
+	var n := _fw_nav()
+	return n.get("planned_maneuvers", []) if n.get("planned_maneuvers", []) is Array else []
+
+
+func _nav_maneuver_plan() -> Dictionary:
+	var plans := _nav_plans()
+	if plans.is_empty():
+		return {}
+	var pid := _nav_maneuver_plan_id
+	for raw in plans:
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == pid:
+			return raw
+	var last: Dictionary = plans[plans.size() - 1]
+	return last
+
+
+func _nav_maneuver_plan_by_id(pid: String) -> Dictionary:
+	for raw in _nav_plans():
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == pid:
+			return raw
+	return {}
+
+
+func _nav_maneuver_clearance(plan: Dictionary) -> Dictionary:
+	if plan.is_empty() or not bool(plan.get("requires_clearance", false)):
+		return {}
+	var cid := String(plan.get("clearance_id", ""))
+	# 模型 queue 时写入 clearance_id；未排队时按 active_clearance()（与 navigation_model 一致）
+	if cid == "":
+		return _nav_active_clearance()
+	for raw in _nav_clearances():
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == cid:
+			return raw
+	return {}
+
+
+func _nav_clearance_ok(plan: Dictionary) -> bool:
+	if plan.is_empty() or not bool(plan.get("requires_clearance", false)):
+		return true
+	var c := _nav_maneuver_clearance(plan)
+	if c.is_empty() or String(c.get("status", "")) != "granted":
+		return false
+	var exp := float(c.get("expires_t", -1.0))
+	if exp >= 0.0 and exp <= float(_fw_nav().get("t", 0.0)):
+		return false
+	return true
+
+
+func _nav_terminal_state(st: String) -> bool:
+	return st == "DONE" or st == "ABORTED"
+
+
+func _nav_state_color(st: String) -> Color:
+	match st:
+		"EXECUTING":
+			return Palette.AMBER
+		"QUEUED":
+			return Palette.BLUE
+		"DONE":
+			return Palette.PH
+		"ABORTED":
+			return Palette.RED
+		"AUTHORIZED":
+			return Palette.PH
+		_:
+			return Palette.DIM
+
+
+func _nav_state_short(st: String) -> String:
+	return st
+
+
+func _nav_draw_mode_chips(r: Rect2) -> void:
+	var modes := [["SEMI", "半自动"], ["AUTO", "自动"], ["BATTLE", "战斗机动"]]
+	for i in range(3):
+		var mr := Rect2(r.position.x + 12.0 + float(i) * 96.0, NAV_MODE_CHIP_Y, 88.0, 20.0)
+		var sel := _nav_oper_mode == String(modes[i][0])
+		draw_rect(mr, Palette.a(Palette.PANEL2, 0.65 if sel else 0.3))
+		draw_rect(mr, Palette.a(Palette.PH if sel else Palette.LINE, 0.7 if sel else 0.3), false, 1.0)
+		_txt(cjk, mr.position.x + 5.0, mr.position.y + 3.0, "%s %s" % [String(modes[i][0]), String(modes[i][1])], 7, Palette.PH if sel else Palette.DIM)
+		_nav_rows.append({"rect": mr, "id": "oper%d" % i})
+	var hint := "SEMI：单步执行（PLAN→AUTH→QUEUE→EXEC）"
+	if _nav_oper_mode == "AUTO":
+		hint = "AUTO：只 PLAN/AUTHORIZE，不自动 execute"
+	elif _nav_oper_mode == "BATTLE":
+		hint = "BATTLE：战斗机动规划/授权；结果显示回主 HUD/事件"
+	_txt(cjk, r.position.x + 12.0, NAV_MODE_CHIP_Y + 22.0, _ellipsis(cjk, hint, 7, r.size.x - 24.0), 7,
+		Palette.AMBER if _nav_oper_mode == "BATTLE" else Palette.FAINT)
+
+
+func _nav_maneuver_disabled_reason(action: String, plan: Dictionary) -> String:
+	if not _nav_ready():
+		return "navigation_ready=false（state.fw_nav 未就绪）"
+	var st := String(plan.get("state", "")) if not plan.is_empty() else ""
+	var semi := _nav_oper_mode == "SEMI"
+	match action:
+		"plan":
+			return ""
+		"auth":
+			if plan.is_empty():
+				return "先 PLAN BURN 建立机动计划"
+			if st != "PRE_ORDER":
+				return "state=%s（仅 PRE_ORDER 可授权）" % st
+			return ""
+		"queue":
+			if not semi:
+				return "%s：仅计划/授权，不自动执行；QUEUE/EXECUTE 仅在 SEMI 可用" % _nav_oper_mode
+			if plan.is_empty():
+				return "先 PLAN BURN 建立机动计划"
+			if st != "AUTHORIZED":
+				return "state=%s（仅 AUTHORIZED 可排队）" % st
+			if not _nav_clearance_ok(plan):
+				return "需要 granted 交通许可：TRAFFIC 页 REQUEST/GRANT（当前 %s）" % _nav_clearance_status_text(plan)
+			return ""
+		"exec":
+			if not semi:
+				return "%s：仅计划/授权，不自动执行；EXECUTE 仅在 SEMI 可用" % _nav_oper_mode
+			if plan.is_empty():
+				return "先 PLAN BURN 建立机动计划"
+			if st != "QUEUED":
+				return "state=%s（仅 QUEUED 可执行）" % st
+			if not _nav_clearance_ok(plan):
+				return "许可失效/未 granted（%s）" % _nav_clearance_status_text(plan)
+			return ""
+		"abort":
+			if plan.is_empty():
+				return "暂无机动计划可中断"
+			if _nav_terminal_state(st):
+				return "state=%s（终态不可中断）" % st
+			return ""
+	return ""
+
+
+func _nav_clearance_status_text(plan: Dictionary) -> String:
+	var c := _nav_maneuver_clearance(plan)
+	if c.is_empty():
+		return "NONE"
+	return "%s/%s" % [String(c.get("id", "—")), String(c.get("status", "—"))]
+
+
+func _nav_btn_rect(rect: Rect2, id: String, label: String, enabled: bool) -> void:
+	draw_rect(rect, Palette.a(Palette.AMBER if enabled else Palette.LINE, 0.10 if enabled else 0.04))
+	draw_rect(rect, Palette.a(Palette.AMBER if enabled else Palette.LINE, 0.55 if enabled else 0.25), false, 1.0)
+	_txt(cjk, rect.position.x + 6.0, rect.position.y + 4.0, label, 7, Palette.AMBER if enabled else Palette.FAINT)
+	_nav_rows.append({"rect": rect, "id": id})
+
+
+func _nav_capture_budget() -> void:
+	_nav_budget_before = _nav_budget().duplicate(true)
+
+
+func _nav_budget_after_text() -> String:
+	var b := _nav_budget()
+	if b.is_empty():
+		return "Δv —"
+	var a := float(b.get("dv_available_ms", 0.0))
+	var t := float(b.get("dv_total_ms", 0.0))
+	var used := float(b.get("dv_used_ms", 0.0))
+	var committed := float(b.get("dv_committed_ms", 0.0))
+	var s := "Δv 可用 %.0f / 总 %.0f · 已用 %.0f · 预留 %.0f m/s" % [a, t, used, committed]
+	if not _nav_budget_before.is_empty():
+		var before := float(_nav_budget_before.get("dv_available_ms", a))
+		var delta := a - before
+		if absf(delta) >= 1.0e-6:
+			s += " · 本次 %+.0f" % delta
+	return s
+
+
+func _nav_draw_maneuver(ready: bool) -> void:
+	var r := NAV_RIGHT
+	var x := r.position.x + 12.0
+	var w := r.size.x - 24.0
+	var y := r.position.y + 52.0
+	# 计划列表
+	_txt(cjk, x, y, "PLANNED MANEUVERS / 机动计划 · state.fw_nav", 7, Palette.PH)
+	y += 14.0
+	var plans := _nav_plans()
+	var shown := mini(4, plans.size())
+	if plans.is_empty():
+		_txt(cjk, x, y, "暂无机动计划：点 PLAN BURN 建立（真实 fw_nav_plan_maneuver）", 7, Palette.FAINT)
+		y += 18.0
+	else:
+		for i in range(shown):
+			var plan: Dictionary = plans[plans.size() - maxi(1, shown) + i] if plans.size() >= shown else plans[i]
+			var st := String(plan.get("state", ""))
+			var pid := String(plan.get("id", ""))
+			var sel := pid == String(_nav_maneuver_plan().get("id", ""))
+			var rr := Rect2(x, y, w, 24.0)
+			draw_rect(rr, Palette.a(Palette.PANEL2, 0.65 if sel else 0.28))
+			draw_rect(rr, Palette.a(_nav_state_color(st), 0.75 if sel else 0.25), false, 1.0)
+			_txt(mono, rr.position.x + 5.0, rr.position.y + 3.0, pid, 8, Palette.PH if sel else Palette.DIM)
+			_txt(cjk, rr.position.x + 68.0, rr.position.y + 2.0, "%s · %s" % [
+				String(plan.get("kind", "")), _nav_state_short(st)], 7, _nav_state_color(st))
+			_txt(mono, rr.position.x + 68.0, rr.position.y + 13.0, "Δv %.0f · %.0fs · %s" % [
+				float(plan.get("dv_ms", 0.0)), float(plan.get("duration_s", 0.0)),
+				String(plan.get("target", "—"))], 7, Palette.a(Palette.DIM, 0.95))
+			_txt(cjk, rr.position.x + w - 66.0, rr.position.y + 13.0,
+				_nav_clearance_status_text(plan), 7, Palette.AMBER)
+			_nav_rows.append({"rect": rr, "id": "plan:" + pid})
+			y += 26.0
+	if not _nav_maneuver_plan_id.is_empty():
+		var selected := _nav_maneuver_plan_by_id(_nav_maneuver_plan_id)
+		if not selected.is_empty():
+			pass
+	# 选中计划详情
+	var plan := _nav_maneuver_plan()
+	y += 3.0
+	draw_line(Vector2(x, y), Vector2(x + w, y), Palette.a(Palette.LINE, 0.8), 1.0)
+	y += 6.0
+	if plan.is_empty():
+		_txt(cjk, x, y, "选中 — · 无计划", 7, Palette.FAINT)
+		y += 14.0
+	else:
+		var st2 := String(plan.get("state", ""))
+		_txt(cjk, x, y, "SELECTED %s · %s" % [String(plan.get("id", "")), String(plan.get("label", plan.get("kind", "")))], 7, Palette.PH)
+		y += 13.0
+		_txt(cjk, x, y, "target %s · clearance %s" % [String(plan.get("target", "—")),
+			_nav_clearance_status_text(plan)], 7, Palette.TXT)
+		y += 12.0
+		_txt(cjk, x, y, "Δv %.0f / %.0f ms · 进度 %.0f%% · reserved %.0f · consumed %.0f" % [
+			float(plan.get("dv_ms", 0.0)), float(plan.get("duration_s", 0.0)),
+			float(plan.get("progress", 0.0)) * 100.0, float(plan.get("reserved_ms", 0.0)),
+			float(plan.get("consumed_ms", 0.0))], 7, Palette.TXT)
+		y += 13.0
+		# 六态链条（3×2，完整状态名；当前态高亮）
+		var states := ["PRE_ORDER", "AUTHORIZED", "QUEUED", "EXECUTING", "DONE", "ABORTED"]
+		for i in range(states.size()):
+			var col := i % 3
+			var row := i / 3
+			var sr := Rect2(x + float(col) * 98.0, y + float(row) * 20.0, 94.0, 17.0)
+			var active := st2 == String(states[i])
+			draw_rect(sr, Palette.a(_nav_state_color(String(states[i])), 0.22 if active else 0.05))
+			draw_rect(sr, Palette.a(_nav_state_color(String(states[i])) if active else Palette.LINE, 0.85 if active else 0.3), false, 1.0)
+			_txt(mono, sr.position.x + 4.0, sr.position.y + 3.0, String(states[i]), 7, Palette.PH if active else Palette.DIM)
+		y += 42.0
+		# 许可联动
+		if bool(plan.get("requires_clearance", false)):
+			var clr_ok := _nav_clearance_ok(plan)
+			_txt(cjk, x, y, "许可 / CLEARANCE：%s · %s" % [
+				_nav_clearance_status_text(plan), "OK" if clr_ok else "REQUIRED"],
+				7, Palette.PH if clr_ok else Palette.AMBER)
+			y += 12.0
+			if not clr_ok:
+				_txt(cjk, x, y, "→ TRAFFIC 页 REQUEST/GRANT；未 granted 时 QUEUE 禁用", 7, Palette.AMBER)
+				y += 12.0
+		else:
+			_txt(cjk, x, y, "许可 / CLEARANCE：该 kind 无需交通许可", 7, Palette.DIM)
+			y += 12.0
+	# 预算（执行后显示变化）
+	_txt(cjk, x, y, _nav_budget_after_text(), 7, Palette.TXT)
+	y += 12.0
+	_txt(cjk, x, y, "BUDGET：plan 不扣 / authorize 预留 / queue 交通 / execute 完成扣", 7, Palette.FAINT)
+	y += 14.0
+	# 真实状态迁移历史（来自 plan.history；最多最近 5 条）
+	if not plan.is_empty() and (plan.get("history", []) as Array).size() > 0:
+		_txt(cjk, x, y, "HISTORY / 状态迁移（真实）", 7, Palette.PH)
+		y += 12.0
+		var hist: Array = plan.get("history", [])
+		for hi in range(maxi(0, hist.size() - 5), hist.size()):
+			var hv: Dictionary = hist[hi]
+			var htext := "T+%.0f %s→%s · %s" % [float(hv.get("t", 0.0)),
+				String(hv.get("from", "")), String(hv.get("to", "")), String(hv.get("reason", ""))]
+			_txt(cjk, x, y, _ellipsis(cjk, htext, 7, w), 7, Palette.a(Palette.DIM, 0.95))
+			y += 11.0
+		y += 2.0
+	# 模式 chips + 按钮
+	_nav_draw_mode_chips(r)
+	_nav_btn_rect(NAV_MNV_PLAN, "mnv_plan", "计划点火 / PLAN BURN", ready)
+	var can_auth := ready and not plan.is_empty() and String(plan.get("state", "")) == "PRE_ORDER"
+	var can_queue := ready and not plan.is_empty() and String(plan.get("state", "")) == "AUTHORIZED" \
+		and _nav_oper_mode == "SEMI" and _nav_clearance_ok(plan)
+	var can_exec := ready and not plan.is_empty() and String(plan.get("state", "")) == "QUEUED" \
+		and _nav_oper_mode == "SEMI" and _nav_clearance_ok(plan)
+	var can_abort := ready and not plan.is_empty() and not _nav_terminal_state(String(plan.get("state", "")))
+	_nav_btn_rect(NAV_MNV_AUTH, "mnv_auth", "授权 / AUTHORIZE", can_auth)
+	_nav_btn_rect(NAV_MNV_QUEUE, "mnv_queue", "排队 / QUEUE", can_queue)
+	_nav_btn_rect(NAV_MNV_EXEC, "mnv_exec", "执行 / EXECUTE", can_exec)
+	_nav_btn_rect(NAV_MNV_ABORT, "mnv_abort", "中断 / ABORT", can_abort)
+	# 失败原因 / 当前提示
+	var disabled_reason := ""
+	for pair in [["auth", can_auth, NAV_MNV_AUTH], ["queue", can_queue, NAV_MNV_QUEUE],
+			["exec", can_exec, NAV_MNV_EXEC], ["abort", can_abort, NAV_MNV_ABORT]]:
+		var item: Array = pair
+		if not bool(item[1]):
+			var reason := _nav_maneuver_disabled_reason(String(item[0]), plan)
+			if reason != "":
+				disabled_reason = reason
+				break
+	if disabled_reason != "":
+		_txt(cjk, x, r.end.y - 46.0, _ellipsis(cjk, reason_prefix(disabled_reason), 7, w), 7, Palette.AMBER)
+	var last := _nav_last_action
+	if not last.is_empty():
+		var txt := "最近：%s %s" % [String(last.get("status", last.get("reason", ""))), String(last.get("reason_text", ""))]
+		_txt(cjk, x, r.end.y - 32.0, _ellipsis(cjk, txt, 7, w), 7, Palette.a(Palette.PH_DIM, 0.9))
+	if _nav_mnv_last_note != "":
+		_txt(cjk, x, r.end.y - 18.0, _ellipsis(cjk, _nav_mnv_last_note, 7, w), 7, Palette.AMBER)
+
+
+func reason_prefix(reason: String) -> String:
+	return "提示：" + reason
+
+
+func _nav_maneuver_action(action: String) -> void:
+	if state == null:
+		return
+	if not _nav_ready():
+		_nav_result({"ok": false, "reason": "navigation_ready=false",
+			"reason_text": "state.fw_nav 未就绪"}, action)
+		return
+	var plan := _nav_maneuver_plan()
+	var disabled := _nav_maneuver_disabled_reason(action, plan)
+	if disabled != "":
+		_nav_mnv_last_note = disabled
+		_toast("机动：" + disabled)
+		return
+	_nav_capture_budget()
+	var r: Dictionary = {}
+	match action:
+		"plan":
+			var target := _nav_to_id
+			if target == "":
+				target = "geo"
+			var opts := {"dv_ms": 84.0, "duration_s": 90.0}
+			var raw = state.call("fw_nav_plan_maneuver", "burn", target, opts)
+			if raw is Dictionary:
+				r = raw
+			if bool(r.get("ok", false)):
+				var pid := String(r.get("plan_id", ""))
+				if pid == "" and r.get("plan") is Dictionary:
+					pid = String((r.get("plan") as Dictionary).get("id", ""))
+				_nav_maneuver_plan_id = pid
+		"auth":
+			var ra = state.call("fw_nav_authorize", String(plan.get("id", "")))
+			if ra is Dictionary:
+				r = ra
+		"queue":
+			var cid := String(_nav_maneuver_clearance(plan).get("id", ""))
+			var rq = state.call("fw_nav_queue_maneuver", String(plan.get("id", "")), cid)
+			if rq is Dictionary:
+				r = rq
+		"exec":
+			var re = state.call("fw_nav_execute", String(plan.get("id", "")))
+			if re is Dictionary:
+				r = re
+		"abort":
+			var rb = state.call("fw_nav_abort", String(plan.get("id", "")), "commander_abort")
+			if rb is Dictionary:
+				r = rb
+	if r.is_empty():
+		r = {"ok": false, "reason": "no_result", "reason_text": "state.fw_nav API 无返回"}
+	_nav_result(r, action)
+	var b := _nav_budget()
+	var before_avail := float(_nav_budget_before.get("dv_available_ms", b.get("dv_available_ms", 0.0)))
+	var after_avail := float(b.get("dv_available_ms", 0.0))
+	var delta := after_avail - before_avail
+	_nav_mnv_last_note = "结果 %s · Δv %+.0f m/s（可用 %.0f → %.0f）" % [
+		String(r.get("status", "OK" if bool(r.get("ok", false)) else String(r.get("reason", "FAIL")))),
+		delta, before_avail, after_avail]
+	_fw_pull_state()
+
+
+## DSH_UI=nav_maneuver：真实 fw_nav 驱动 plan→authorize→queue→execute（仅当 API 允许）。
+## 不伪造结果：任一步失败即停并把真实 status/reason 留在 UI。
+func _nav_maneuver_prepare() -> void:
+	if state == null:
+		return
+	_nav_mode = "maneuver"
+	_nav_oper_mode = "SEMI"
+	_nav_from_id = "l1"
+	_nav_to_id = "geo"
+	_nav_maneuver_plan_id = ""
+	_nav_last_action = {}
+	_nav_mnv_last_note = ""
+	_nav_budget_before = {}
+	var plan_routes: Dictionary = {}
+	if state.has_method("fw_nav_plan_routes"):
+		var raw = state.call("fw_nav_plan_routes", _nav_from_id, _nav_to_id, {})
+		if raw is Dictionary:
+			plan_routes = raw
+	var cands: Array = plan_routes.get("candidates", []) if plan_routes.get("candidates", []) is Array else []
+	if cands.is_empty():
+		_nav_last_action = plan_routes
+		return
+	var hold_thr := float(_nav_limits().get("hold_exposure_threshold", 0.35))
+	var pick: Dictionary = {}
+	for want in ["economy", "covert", "fast"]:
+		for raw_c in cands:
+			if raw_c is Dictionary:
+				var c: Dictionary = raw_c
+				if String(c.get("profile", "")) == want and bool(c.get("feasible", true)) \
+						and float(c.get("exposure", 1.0)) < hold_thr:
+					pick = c
+					break
+		if not pick.is_empty():
+			break
+	if pick.is_empty():
+		pick = cands[0]
+	if state.has_method("fw_nav_select_route"):
+		state.call("fw_nav_select_route", pick)
+	# 真实请求许可；仅 granted 才继续 queue（否则保留真实 hold/denied 状态）
+	var clearance: Dictionary = {}
+	if state.has_method("fw_nav_request_clearance"):
+		var rc = state.call("fw_nav_request_clearance", pick, null, 3)
+		if rc is Dictionary:
+			clearance = rc
+	# PLAN BURN
+	var rp: Dictionary = {}
+	if state.has_method("fw_nav_plan_maneuver"):
+		var rawp = state.call("fw_nav_plan_maneuver", "burn", _nav_to_id,
+			{"dv_ms": 84.0, "duration_s": 90.0})
+		if rawp is Dictionary:
+			rp = rawp
+	var pid := String(rp.get("plan_id", ""))
+	if pid == "" and rp.get("plan") is Dictionary:
+		pid = String((rp.get("plan") as Dictionary).get("id", ""))
+	_nav_maneuver_plan_id = pid
+	_nav_last_action = rp
+	if pid == "":
+		return
+	_nav_capture_budget()
+	# AUTHORIZE
+	var ra: Dictionary = {}
+	if state.has_method("fw_nav_authorize"):
+		var raw2 = state.call("fw_nav_authorize", pid)
+		if raw2 is Dictionary:
+			ra = raw2
+	_nav_last_action = ra
+	if not bool(ra.get("ok", false)):
+		return
+	# QUEUE（需要 granted 许可）
+	var rq: Dictionary = {}
+	if state.has_method("fw_nav_queue_maneuver"):
+		var raw3 = state.call("fw_nav_queue_maneuver", pid, String(clearance.get("id", "")))
+		if raw3 is Dictionary:
+			rq = raw3
+	_nav_last_action = rq
+	if not bool(rq.get("ok", false)):
+		return
+	# EXECUTE（SEMI 单步执行；截图仅真实调用）
+	var re: Dictionary = {}
+	if state.has_method("fw_nav_execute"):
+		var raw4 = state.call("fw_nav_execute", pid)
+		if raw4 is Dictionary:
+			re = raw4
+	if not re.is_empty():
+		_nav_last_action = re
+	_fw_pull_state()
+
 
 func _draw_damage_page() -> void:
 	var full := _damage_full()

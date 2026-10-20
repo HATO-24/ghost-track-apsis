@@ -33,6 +33,9 @@ var fw_physics_mode := "off"
 # —— R6-AUTH-1：authoritative 物理适配层只读视图 / V15 对比 ——
 var fw_physics_authoritative: Dictionary = {}
 var fw_physics_adapter: Dictionary = {}
+# —— R6-DISPLAY-CORE-1：物理显示数据接口（只读；给 plot 用）——
+const PHYSICS_DISPLAY_ENV := "DSH_PHYSICS_DISPLAY"
+var fw_physics_display: Dictionary = {}
 
 # 演示用状态。真实 sim 会接管 clock / tracks / commands，
 # 这里的数值只服务于"把 GUI 长相对出来"。
@@ -1768,6 +1771,7 @@ func _reset_runtime() -> void:
 	fw_physics_mode = "off"
 	fw_physics_authoritative = {}
 	fw_physics_adapter = {}
+	fw_physics_display = {}
 
 # ── P1j：身份 / 通信格式 / 动态裁决提示 ─────────────────
 
@@ -2745,6 +2749,7 @@ func _fw_pull() -> void:
 		fw_physics_mode = "off"
 		fw_physics_authoritative = {}
 		fw_physics_adapter = {}
+		fw_physics_display = {}
 		return
 	fw_ready = true
 	fw_tutorial = (framework.tutorial_view() as Dictionary).duplicate(true)
@@ -2768,6 +2773,7 @@ func _fw_pull() -> void:
 	fw_physics = (framework.physics_view() as Dictionary).duplicate(true)
 	fw_physics_summary = (framework.physics_summary() as Dictionary).duplicate(true)
 	fw_physics_authoritative = (framework.physics_authoritative_view() as Dictionary).duplicate(true)
+	fw_physics_display = physics_display_frame()
 
 ## R6-AUTH-1：用当前 V15 board 数据生成物理对比（只读；显示层尚未切换）。
 ## 未就绪/关闭时清空，不报错、不写 V15。
@@ -2803,6 +2809,215 @@ func fw_physics_authoritative_view() -> Dictionary:
 ## 最近一次物理 vs V15 对比（只读）。
 func fw_physics_adapter_view() -> Dictionary:
 	return fw_physics_adapter
+
+## 物理显示数据字段的只读视图（同 fw_physics_display；DSH_PHYSICS_DISPLAY=0 时为空）。
+func fw_physics_display_view() -> Dictionary:
+	return fw_physics_display
+
+# ═══════════════════════════════════════════════════════════════════
+# R6-DISPLAY-CORE-1：物理显示数据接口（只读；供 plot 下一步消费）
+#   - 仅当前时刻；不用于历史回放/预测；不写 V15 tracks（display_switched 保持 false）。
+#   - available：V17_PHYSICS=authoritative 且 authoritative view.ready；
+#   - enabled：available 且 DSH_PHYSICS_DISPLAY != "0"（"1" 显式开；默认开）。
+#   - board 坐标：earth_rot 相对本舰（own 原点 (0,0,0)），与 physics 适配层一致。
+# ═══════════════════════════════════════════════════════════════════
+
+func _physics_display_authoritative_view() -> Dictionary:
+	if framework == null or not bool(framework.ready):
+		return {}
+	if not bool(framework.physics_ready):
+		return {}
+	if String(framework.physics_mode) != "authoritative":
+		return {}
+	if not framework.has_method("physics_authoritative_view"):
+		return {}
+	var view = framework.physics_authoritative_view()
+	if view is Dictionary and bool((view as Dictionary).get("ready", false)):
+		return view
+	return {}
+
+## 物理显示数据是否可用（authoritative 就绪；与用户开关无关）。
+func physics_display_available() -> bool:
+	return not _physics_display_authoritative_view().is_empty()
+
+## 物理显示是否启用（available + DSH_PHYSICS_DISPLAY 覆盖；默认开）。
+func physics_display_enabled() -> bool:
+	if not physics_display_available():
+		return false
+	if OS.get_environment(PHYSICS_DISPLAY_ENV).strip_edges() == "0":
+		return false
+	return true
+
+## 物理显示状态摘要（只读；HUD/plot 可用于灰显说明）。
+func physics_display_status() -> Dictionary:
+	var view := _physics_display_authoritative_view()
+	var avail := not view.is_empty()
+	var env := OS.get_environment(PHYSICS_DISPLAY_ENV).strip_edges()
+	var out := {
+		"schema": "v17_physics_display_status.v1",
+		"available": avail,
+		"enabled": physics_display_enabled(),
+		"override": env,
+		"mode": String(framework.physics_mode) if framework != null else "off",
+		"requested_mode": String(framework.physics_requested_mode) if framework != null else "off",
+		"display_switched": bool(view.get("display_switched", false)),
+		"reason": "",
+	}
+	if not avail:
+		out["reason"] = "authoritative 物理未就绪（V17_PHYSICS=authoritative 且 ready 时可用）"
+	elif env == "0":
+		out["reason"] = "DSH_PHYSICS_DISPLAY=0 关闭物理显示"
+	return out
+
+## 物理显示帧（只读 JSON 可序列化；未启用/未就绪返回空）。
+func physics_display_frame() -> Dictionary:
+	if not physics_display_enabled():
+		return {}
+	var view := _physics_display_authoritative_view()
+	if view.is_empty():
+		return {}
+	var own_row: Dictionary = view.get("own", {}) if view.get("own") is Dictionary else {}
+	var flag_row: Dictionary = view.get("flagship", {}) if view.get("flagship") is Dictionary else {}
+	var target_map := {}
+	for raw in (view.get("targets", []) as Array):
+		var trow: Dictionary = raw
+		target_map[String(trow.get("entity_id", ""))] = trow
+	var own_id := String(own_row.get("entity_id", ""))
+	var flag_id := String(flag_row.get("entity_id", ""))
+	var entries := {}
+	var missing: Array = []
+	var own_entry := {}
+	var flag_entry := {}
+	for raw in tracks:
+		var tr: Dictionary = raw
+		var tid := String(tr.get("id", ""))
+		if tid == "":
+			continue
+		var eid := _physics_entity_for_track_id(tid)
+		var row: Dictionary = {}
+		var role := ""
+		if eid != "" and eid == own_id:
+			row = own_row
+			role = "own"
+		elif eid != "" and eid == flag_id:
+			row = flag_row
+			role = "flagship"
+		elif eid != "" and target_map.has(eid):
+			row = target_map[eid]
+			role = "target"
+		if row.is_empty():
+			missing.append(tid)
+			continue
+		var entry := _physics_display_entry(tid, String(tr.get("batch", tid)), eid, role, row)
+		entries[tid] = entry
+		if role == "own" and own_entry.is_empty():
+			own_entry = entry.duplicate(true)
+		elif role == "flagship" and flag_entry.is_empty():
+			flag_entry = entry.duplicate(true)
+	if own_entry.is_empty():
+		own_entry = {"track_id": "", "batch": "", "entity_id": own_id, "role": "own",
+			"board_r": [0.0, 0.0, 0.0], "board_v": [0.0, 0.0, 0.0],
+			"range_km": 0.0, "bearing_deg": 0.0, "elevation_deg": 0.0,
+			"age_s": 0.0, "source": String(own_row.get("source", "")), "filled": false}
+	return {
+		"schema": "v17_physics_display.v1",
+		"available": true,
+		"enabled": true,
+		"mode": String(framework.physics_mode),
+		"requested_mode": String(framework.physics_requested_mode),
+		"display_switched": bool(view.get("display_switched", false)),
+		"source": String(view.get("source", "")),
+		"frame": (view.get("frame", {}) as Dictionary).duplicate(true),
+		"tau": tau(),
+		"physics_t": float(view.get("t", 0.0)),
+		"delta_t_s": tau() - float(view.get("t", 0.0)),
+		"replay_ok": false,
+		"note": "只读当前时刻；不用于历史回放/预测；V15 位置源/plot 尚未切换。",
+		"mapping_note": "entries 以 V15 track id（批号）为键；entity_id 由 bridge contacts/entities.batch 映射；无对应列入 missing，不伪造。",
+		"own": own_entry,
+		"flagship": flag_entry,
+		"entries": entries,
+		"missing": missing,
+		"warnings": (view.get("warnings", []) as Array).duplicate(true),
+	}
+
+func _physics_display_entry(track_id: String, batch: String, entity_id: String, role: String,
+		row: Dictionary) -> Dictionary:
+	return {
+		"track_id": track_id,
+		"batch": batch,
+		"entity_id": entity_id,
+		"role": role,
+		"board_r": ((row.get("board_r", []) as Array) as Array).duplicate(),
+		"board_v": ((row.get("board_v", []) as Array) as Array).duplicate(),
+		"range_km": float(row.get("range_km", 0.0)),
+		"bearing_deg": float(row.get("bearing_deg", 0.0)),
+		"elevation_deg": float(row.get("elevation_deg", 0.0)),
+		"range_rate_kmps": float(row.get("range_rate_kmps", 0.0)),
+		"closing_kmps": float(row.get("closing_kmps", 0.0)),
+		"age_s": float(row.get("age_s", 0.0)),
+		"source": String(row.get("source", "")),
+		"filled": true,
+	}
+
+## V15 track id（批号）→ 物理实体 id；找不到返回 ""（不伪造）。
+func _physics_entity_for_track_id(track_id: String) -> String:
+	var batch := track_id
+	for raw in tracks:
+		var tr: Dictionary = raw
+		if String(tr.get("id", "")) == track_id:
+			var direct := String(tr.get("entity_id", ""))
+			if direct != "":
+				return direct
+			batch = String(tr.get("batch", track_id))
+			break
+	for raw in fw_contacts:
+		var c: Dictionary = raw
+		if track_id == String(c.get("track_id", "")) or track_id == String(c.get("batch", "")) \
+				or batch == String(c.get("batch", "")):
+			var eid := String(c.get("entity_id", ""))
+			if eid != "":
+				return eid
+	if framework != null and framework.world != null:
+		for raw in framework.world.entities:
+			var e = raw
+			if String(e.batch) == track_id or String(e.batch) == batch or String(e.id) == track_id:
+				return String(e.id)
+	return ""
+
+## 物理显示 board 坐标（km，earth_rot 相对本舰）；未启用/无对应返回 []。
+func physics_display_board_for(id: String) -> Array:
+	var entry := physics_display_entry_for(id)
+	if entry.is_empty():
+		return []
+	return ((entry.get("board_r", []) as Array) as Array).duplicate()
+
+## 物理显示 board 速度（km/s，earth_rot 相对本舰）；未启用/无对应返回 []。
+func physics_display_velocity_for(id: String) -> Array:
+	var entry := physics_display_entry_for(id)
+	if entry.is_empty():
+		return []
+	return ((entry.get("board_v", []) as Array) as Array).duplicate()
+
+## 物理显示条目（支持 V15 track id/批号/entity id）；无对应返回空。
+func physics_display_entry_for(id: String) -> Dictionary:
+	var frame := physics_display_frame()
+	if frame.is_empty():
+		return {}
+	var entries: Dictionary = frame.get("entries", {})
+	if entries.has(id):
+		return (entries[id] as Dictionary).duplicate(true)
+	for raw in entries.values():
+		var e: Dictionary = raw
+		if String(e.get("entity_id", "")) == id:
+			return e.duplicate(true)
+	var own: Dictionary = frame.get("own", {})
+	if String(own.get("entity_id", "")) == id or String(own.get("track_id", "")) == id:
+		return own.duplicate(true)
+	var flag: Dictionary = frame.get("flagship", {})
+	if String(flag.get("entity_id", "")) == id or String(flag.get("track_id", "")) == id:
+		return flag.duplicate(true)
+	return {}
 
 ## V2 教学门控是否放行 V15 决策（截图/自动化/演示时自动放行）。
 func fw_tutorial_allows() -> bool:
@@ -3056,6 +3271,7 @@ func fw_bridge_state() -> Dictionary:
 		"physics_mode": fw_physics_mode,
 		"physics_authoritative": fw_physics_authoritative.duplicate(true),
 		"physics_adapter": fw_physics_adapter.duplicate(true),
+		"physics_display": fw_physics_display.duplicate(true),
 		"exec_window_s": float(fw_flow.get("exec_window_s", 360.0)),
 		"exec_left": float(fw_flow.get("exec_left", 0.0)),
 		"exec_pct": float(fw_flow.get("exec_pct", 0.0)),

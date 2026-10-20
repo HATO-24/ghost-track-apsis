@@ -98,6 +98,18 @@ var _up := Vector3.UP
 var _focal := 700.0
 var _planar_scale := 0.0014
 var _cam_env_done := false
+# R6-DISPLAY-UI-1：物理相对显示（fallback state.physics_display_* / R6-AUTH-1）
+var _phys_env_done := false
+var _phys_env := ""
+var _phys_requested := false
+var _phys_active := false
+var _phys_fallback := false
+var _phys_note := ""
+var _phys_boards: Dictionary = {}
+var _phys_metrics: Dictionary = {}
+var _phys_contract := false
+var _phys_t := 0.0
+var _phys_logged := false
 # R3-V17-GEO-1：可见站体/舰船线框几何层
 var geo_on := true
 var _geo_flash_t := 0.0
@@ -333,6 +345,7 @@ func _heading_dir() -> Vector2:
 func _draw() -> void:
 	_label_rects.clear()
 	_pending_contact_labels.clear()
+	_phys_refresh()
 	_update_camera()
 	draw_rect(Rect2(Vector2.ZERO, size), Palette.BG)
 	_draw_dots()
@@ -365,7 +378,7 @@ func _draw_3d() -> void:
 				var cp := _contact_pos3(tt)
 				if _ok(cp):
 					_label_rects.append(Rect2(cp + Vector2(10, -38), Vector2(250, 56)).grow(4.0))
-	if _layer_on("radar"):
+	if _layer_on("radar") and not _phys_active:
 		_draw_radar_sphere()
 	if _layer_on("contacts"):
 		_draw_contacts()
@@ -382,9 +395,10 @@ func _draw_3d() -> void:
 	if not _geo_close:
 		for it in _pending_contact_labels:
 			_draw_track_label(it["t"], it["p"], it["col"])
-	if _layer_on("radar"):
+	if _layer_on("radar") and not _phys_active:
 		_draw_sensor()
 	_draw_tasks()
+	_draw_physics_banner()
 	_draw_chrome()
 	_draw_target_menu()
 	_draw_command_queue()
@@ -1001,6 +1015,10 @@ func _track_vel(t: Dictionary, tau: float) -> Vector3:
 	return state.board_vel(t, tau)
 
 func _track_pos(t: Dictionary) -> Vector2:
+	if _phys_active:
+		var pb := _phys_board_km(String(t.get("id", "")))
+		if pb.length() < 1.0e20:
+			return _p3(pb * 1000.0)
 	return _p3(_track_km(t, _tau_now()) * 1000.0)
 
 # 历史（-60 s）+ 预测（+300 s）折线；按 id 缓存 0.25 s
@@ -1453,14 +1471,22 @@ func _draw_track_label(t: Dictionary, p: Vector2, col: Color) -> void:
 		th_tag = " · 威胁 %s" % String(t.get("threat_label", threat))
 	var idf := cjk if Fonts.has_cjk(nm) else mono
 	var stale_tag := " · 过期" if t.get("stale", false) else ""
+	var phys_m := _phys_contact_metrics(t)
 	var rng_label := _fmt_km(float(t.get("obs_range_km", -1.0)) if float(t.get("obs_range_km", -1.0)) >= 0.0 else float(t.get("range", 0.0)))
+	if not phys_m.is_empty():
+		rng_label = _fmt_km(float(phys_m.get("range_km", 0.0))) + " PHYS"
 	var sig := float((t.get("covariance", {}) as Dictionary).get("pos_sigma_km", 0.0))
 	match lv:
 		2:
 			_txt(idf, lx, ly, "[%s] %s" % [batch, nm], 11, Palette.a(col, dim))
 			if compact:
 				return
-			_txt(mono, lx, ly + 12.0, "%s%s · L2 · 方位%03d° 俯仰%+02d° · %s km · σ%.1f%s" % [ident, th_tag, int(t.get("az_deg", t.get("bearing", 0))), int(round(float(t.get("el_deg", 0.0)))), rng_label, sig, stale_tag], 8, Palette.a(col, 0.62 * dim))
+			var azv := int(t.get("az_deg", t.get("bearing", 0)))
+			var elv := int(round(float(t.get("el_deg", 0.0))))
+			if not phys_m.is_empty():
+				azv = int(round(float(phys_m.get("bearing_deg", azv))))
+				elv = int(round(float(phys_m.get("elevation_deg", elv))))
+			_txt(mono, lx, ly + 12.0, "%s%s · L2 · 方位%03d° 俯仰%+02d° · %s km · σ%.1f%s" % [ident, th_tag, azv, int(elv), rng_label, sig, stale_tag], 8, Palette.a(col, 0.62 * dim))
 		3:
 			var cls: Dictionary = t.get("classification", {})
 			_txt(idf, lx, ly, "[%s] %s" % [batch, nm], 11, Palette.a(col, dim))
@@ -1500,6 +1526,10 @@ func _focus_offset_km() -> Vector3:
 	var tr := _subject_track()
 	if tr.is_empty():
 		return Vector3.ZERO
+	if _phys_active:
+		var pb := _phys_board_km(String(tr.get("id", "")))
+		if pb.length() < 1.0e20:
+			return pb
 	var tau := _tau_now()
 	var st: Dictionary = state.track_at(tr, tau)
 	var ow: Dictionary = state.own_at(tau)
@@ -2376,6 +2406,196 @@ func _draw_planar_inset() -> void:
 	_txt(mono, r.position.x + 8.0, r.end.y - 10.0, "%s / Chronos · 3D LVLH" % String(state.datum), 7, Palette.a(Palette.PH, 0.55))
 
 # ── 界面装饰 ────────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════════════
+# R6-DISPLAY-UI-1：物理相对显示（只读；当前时刻；回放/历史回退 V15）
+# ═══════════════════════════════════════════════════════════════
+
+func _phys_refresh() -> void:
+	if state == null:
+		return
+	if not _phys_env_done:
+		_phys_env_done = true
+		_phys_env = OS.get_environment("DSH_PHYSICS_DISPLAY")
+	_phys_requested = false
+	_phys_active = false
+	_phys_fallback = false
+	_phys_note = ""
+	# 回放/回看时强制 V15（不混帧）
+	var rep = state.get("fw_replay")
+	if rep is Dictionary:
+		var rd: Dictionary = rep
+		if bool(rd.get("playing", false)) or bool(rd.get("paused", false)):
+			_phys_note = "REPLAY · V15"
+			if _phys_env != "":
+				_phys_requested = true
+			return
+	var state_enabled := false
+	var contract := false
+	if state.has_method("physics_display_enabled"):
+		state_enabled = bool(state.call("physics_display_enabled"))
+		contract = true
+	else:
+		var sv = state.get("physics_display_enabled")
+		if sv is bool:
+			state_enabled = bool(sv)
+			contract = true
+	if _phys_env == "0":
+		_phys_requested = true
+		_phys_note = "OFF · V15"
+		return
+	_phys_requested = state_enabled or _phys_env == "1"
+	if not _phys_requested:
+		return
+	_phys_contract = contract
+	_phys_boards.clear()
+	_phys_metrics.clear()
+	# 1) 新契约：physics_display_frame / physics_display_board_for（优先；字段缺失才回退 R6-AUTH）
+	if contract and state.has_method("physics_display_board_for"):
+		var fr: Dictionary = {}
+		if state.has_method("physics_display_frame"):
+			var raw_fr = state.call("physics_display_frame")
+			if raw_fr is Dictionary:
+				fr = raw_fr
+		if fr.is_empty():
+			_phys_active = false
+			_phys_note = "UNAVAILABLE · physics_display_frame 空（authoritative 未就绪）"
+			return
+		if fr.has("enabled") and not bool(fr.get("enabled", true)):
+			_phys_active = false
+			_phys_note = "DISABLED · " + String(fr.get("reason", "physics display disabled"))
+			return
+		_phys_active = true
+		_phys_contract = true
+		_phys_fallback = false
+		_phys_t = float(fr.get("physics_t", fr.get("tau", 0.0)))
+		if not _phys_logged:
+			_phys_logged = true
+			var ents: Dictionary = fr.get("entries", {}) if fr.get("entries", {}) is Dictionary else {}
+			print("V17 PHYS DISPLAY active=%s contract=true entries=%d missing=%d t=%.1f" % [
+				str(_phys_active), ents.size(), (fr.get("missing", []) as Array).size() if fr.get("missing", []) is Array else 0, _phys_t])
+		return
+	# 2) 回退 R6-AUTH-1：仅 authoritative + ready 时使用真实 board_r；不伪造
+	var auth = state.get("fw_physics_authoritative")
+	if not (auth is Dictionary) or (auth as Dictionary).is_empty():
+		_phys_note = "UNAVAILABLE · 无 physics_display / authoritative 视图"
+		return
+	var ad: Dictionary = auth
+	if not bool(ad.get("ready", false)) or not bool(ad.get("authoritative", false)):
+		_phys_note = "UNAVAILABLE · 需 V17_PHYSICS=authoritative"
+		return
+	_phys_fallback = true
+	_phys_active = true
+	_phys_t = float(ad.get("t", 0.0))
+	var own_row: Dictionary = ad.get("own", {}) if ad.get("own", {}) is Dictionary else {}
+	var flag_row: Dictionary = ad.get("flagship", {}) if ad.get("flagship", {}) is Dictionary else {}
+	# V15 track id → entity id（用于把 authoritative target 映射到接触）
+	var entity_of: Dictionary = {}
+	var own_id := String(own_row.get("entity_id", "harmattan"))
+	var flag_id := String(flag_row.get("entity_id", "apsis"))
+	entity_of["1001"] = own_id
+	entity_of["1000"] = flag_id
+	for raw in state.tracks:
+		var tr: Dictionary = raw
+		var tid := String(tr.get("id", ""))
+		var eid := String(tr.get("entity_id", ""))
+		if eid != "":
+			entity_of[tid] = eid
+	# authoritative targets by entity id
+	var by_entity: Dictionary = {}
+	for raw_t in (ad.get("targets", []) as Array):
+		var tw: Dictionary = raw_t
+		by_entity[String(tw.get("entity_id", ""))] = tw.get("board_r", [])
+	# V15 adapter rows（权威比较；含 track_id/entity/physics.board_r）
+	var adapter = state.get("fw_physics_adapter")
+	if adapter is Dictionary:
+		for raw_a in ((adapter as Dictionary).get("tracks", []) if (adapter as Dictionary).get("tracks", []) is Array else []):
+			var ar: Dictionary = raw_a
+			var tid2 := String(ar.get("track_id", ""))
+			var ph: Dictionary = ar.get("physics", {}) if ar.get("physics", {}) is Dictionary else {}
+			var br := _phys_vec(ph.get("board_r", []))
+			if tid2 != "" and br.length() < 1.0e20:
+				_phys_boards[tid2] = br
+				_phys_metrics[tid2] = {"range_km": float(ph.get("range_km", br.length())),
+					"bearing_deg": float(ph.get("bearing_deg", 0.0)),
+					"elevation_deg": float(ph.get("elevation_deg", 0.0))}
+	# authoritative targets fallback mapping
+	for tid3 in entity_of.keys():
+		var eid3 := String(entity_of[tid3])
+		if _phys_boards.has(tid3):
+			continue
+		if by_entity.has(eid3):
+			var br2 := _phys_vec(by_entity[eid3])
+			if br2.length() < 1.0e20:
+				_phys_boards[tid3] = br2
+	# own/flagship roles
+	_phys_boards["1001"] = Vector3.ZERO
+	if not flag_row.is_empty():
+		var fb := _phys_vec(flag_row.get("board_r", []))
+		if fb.length() < 1.0e20:
+			_phys_boards["1000"] = fb
+	if _phys_boards.is_empty():
+		_phys_active = false
+		_phys_note = "UNAVAILABLE · 无当前 board_r"
+	if not _phys_logged:
+		_phys_logged = true
+		print("V17 PHYS DISPLAY active=%s fallback=%s boards=%d t=%.0f note=%s" % [str(_phys_active), str(_phys_fallback), _phys_boards.size(), _phys_t, _phys_note])
+
+
+func _phys_vec(v) -> Vector3:
+	if v is Vector3:
+		return v
+	if v is Array and (v as Array).size() >= 3:
+		return Vector3(float((v as Array)[0]), float((v as Array)[1]), float((v as Array)[2]))
+	if v is Dictionary:
+		var d: Dictionary = v
+		for k in ["board_r", "pos_km", "r", "pos"]:
+			if d.has(k):
+				return _phys_vec(d[k])
+	return Vector3(1.0e30, 1.0e30, 1.0e30)
+
+
+func _phys_board_km(track_id: String) -> Vector3:
+	if not _phys_active or track_id == "":
+		return Vector3(1.0e30, 1.0e30, 1.0e30)
+	if _phys_contract and state != null and state.has_method("physics_display_board_for"):
+		var raw = state.call("physics_display_board_for", track_id)
+		return _phys_vec(raw)
+	return _phys_boards.get(track_id, Vector3(1.0e30, 1.0e30, 1.0e30))
+
+
+func _phys_contact_metrics(t: Dictionary) -> Dictionary:
+	if not _phys_active:
+		return {}
+	var tid := String(t.get("id", ""))
+	var b := _phys_board_km(tid)
+	if b.length() >= 1.0e20:
+		return {}
+	if _phys_metrics.has(tid):
+		return (_phys_metrics[tid] as Dictionary).duplicate()
+	var horiz := sqrt(b.x * b.x + b.y * b.y)
+	return {"range_km": b.length(), "bearing_deg": fposmod(rad_to_deg(atan2(b.x, b.y)), 360.0),
+		"elevation_deg": rad_to_deg(atan2(b.z, maxf(horiz, 1.0e-6)))}
+
+
+func _draw_physics_banner() -> void:
+	if not _phys_requested:
+		return
+	var txt := "PHYSICS DISPLAY / 物理相对 · ACTIVE"
+	var col := Palette.PH
+	if not _phys_active:
+		txt = "PHYSICS DISPLAY / 物理相对 · V15"
+		col = Palette.AMBER
+		if _phys_note != "":
+			txt += " · " + _phys_note
+	elif _phys_fallback:
+		txt += " · FALLBACK R6-AUTH-1"
+	if _phys_active:
+		txt += " · t=%.0f · 仅当前时刻" % _phys_t
+	_txt(mono, 16.0, 240.0, txt, 7, Palette.a(col, 0.9))
+	if _phys_active:
+		_txt(mono, 16.0, 254.0, "PHYS TWS/球形/接触距离：TWS/球形已隐藏；接触标签标 PHYS", 7, Palette.a(Palette.PH_DIM, 0.8))
+
 
 # ═══════════════════════════════════════════════════════════════
 # R3-V17-GEO-1：可见站体/舰船几何（V1 线框；G 切换；不写 state）
