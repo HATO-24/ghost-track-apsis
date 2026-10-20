@@ -1,9 +1,9 @@
 # 完整游戏-阶段2C/2H · GameSession 编排层（含 TrackTable/StoryState）
 
-> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）。工程 `game_v17`。
+> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=745 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=801 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -48,6 +48,11 @@ GameSession
   经白名单路由到 TrackTable（共享 target→track 映射，不重复建 track；elint.comms→elint；
   elint_fix→elint 类型归一）；`light_*` 事件映射为 `light_signal.*` 发布 EventBus；
   SignalService 不写 world/UI/V15。
+- **Signal→Track 实体绑定**：写 TrackTable 前补 `entity_id`/`batch`（observation 与 evidence
+  同一规则）：优先 `_sensor_target_meta[target_id]`（sensor 配置或 signal targets 自带
+  entity_id/batch）；其次 world 同名实体（id/batch/name/kind/side）；不硬编码具体舰名；
+  两者都缺失时保持空并在 session warnings 记一次（route 返回 `missing_meta/bound/world_bound`）。
+  绑定后的 track 具备 entity_id/batch（`track_table.vm().tracks` 可直接给 UI 使用）。
 - seed/demo 数据仅示例，**不进入关卡**。
 
 ## 2　boot(config)
@@ -124,7 +129,8 @@ config 可覆盖字段（省略用 demo）：
 6. `sensor_service.step(sim_dt)` → `take_events()` → 只路由 observation（support 1..2）/evidence
    到 TrackTable（target_id 映射到已建 track；support=0/>2 忽略；控制事件忽略）；
 7. `signal_service.step(sim_dt)`（ELINT/灯语超时）；outbox 白名单：
-   observation/evidence→TrackTable（不重复建 track）、light_*→`light_signal.*` bus；
+   observation/evidence→（补 entity_id/batch 绑定后）TrackTable（不重复建 track）、
+   light_*→`light_signal.*` bus；
 8. `port_service.tick(sim_dt)` / `combat_service.tick(sim_dt)`；各自 outbox 事件 → `port.*`/`combat.*`
    发布到 EventBus（tick 自动 flush；也可 `flush_events()` 显式拉取）；
 9. combat `combat_damage_event` 白名单 → DamageService（applied=true）；`damage_service.tick(sim_dt)`
@@ -177,6 +183,8 @@ config 可覆盖字段（省略用 demo）：
   （同步边界，不自动双写）。
 - **Signal 一致**：`signal_service.t == now_s()`、ready；ELINT observation/evidence 只进
   TrackTable（不重复建 track），light 事件只进 bus；不写 world/UI/V15；失败委托不改状态。
+- **Signal 绑定一致**：observation/evidence 的 entity_id/batch 来自 target_meta/world；
+  同一 target 的 evidence 复用 observation 建的 track；缺失绑定留空 + warning，不猜实体。
 - tick 失败/拒绝路径不静默：返回 `ok=false` + `errors/contract_errors`；失败订单不伪造状态。
 
 ## 5　内存 save/load（不写盘）
@@ -240,10 +248,10 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=745 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=801 FAIL=0（exit 0，只跑一次）
 ```
 
-覆盖（30 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
+覆盖（31 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
 （ISSUED→…→DONE、事件类型、delivery_id、订单-通信一致、终态拒绝）；通信/链路；失败/过期/
 撤销/拒绝；暂停/时标/时间单调；bus-world 分离与单写者；save/load snapshot 一致+二次 save；
 错误路径；JSON/确定性；**可选组件**（无配置/false 退化、true 启用、退化 save/load）；
@@ -274,6 +282,8 @@ shot_id 去重、失败不改状态）；**Damage 存档**（save 嵌入 damage 
   tick 不自动同步；无 physics 时 `position_of` 退回 world 只读。
 - SignalService 只输出 ELINT observation/evidence 与灯语事件；session 按白名单路由，不写
   world/UI/V15；ELINT 不判敌/不产生 contact；灯语只是可见光事件流。
+- Signal 目标→实体绑定只读 `target_meta`/world 既有字段；不硬编码舰名、不凭空发明
+  entity_id；无绑定 track 仍可用于方位/等级显示，但 UI 实体联动需等绑定或后续人工关联。
 - DamageService 只做多舰损管组合/事件/存档；combat 命中概率由 CombatService 决定，damage event
   经白名单应用；damage 不直接写 world/V15/UI。
 - PortService/CombatService 只输出状态/事件；session 不自动许可/对接/服务/开火；FIRE 永不自动，

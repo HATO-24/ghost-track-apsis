@@ -62,6 +62,7 @@ var _damage_enabled := false
 var _physics_enabled := false
 var _signal_enabled := false
 var _last_signal_route: Dictionary = {}
+var _signal_missing_meta_warned: Dictionary = {}
 var _damage_applied_shots: Dictionary = {}
 var _story_enabled := false
 var _track_writer := ""
@@ -145,6 +146,7 @@ func boot(config := {}) -> Dictionary:
 	physics_world_service = null
 	signal_service = null
 	_last_signal_route = {}
+	_signal_missing_meta_warned = {}
 	_damage_applied_shots = {}
 	_track_enabled = false
 	_story_enabled = false
@@ -355,6 +357,23 @@ func _setup_optional_components() -> void:
 			errors.append("signal_service 未就绪：" + str(signal_service.errors))
 		else:
 			_signal_enabled = true
+			# 允许 signal targets 自带 entity_id/batch：并入 target_meta（sensor 元数据优先，不覆盖）
+			for raw_st in (scfg.get("targets", []) as Array):
+				if not (raw_st is Dictionary):
+					continue
+				var sm: Dictionary = raw_st
+				var sid := String(sm.get("id", sm.get("target_id", "")))
+				if sid == "":
+					continue
+				var meta_cur: Dictionary = _sensor_target_meta.get(sid, {})
+				var e_new := String(sm.get("entity_id", ""))
+				var b_new := String(sm.get("batch", ""))
+				if String(meta_cur.get("entity_id", "")) == "" and e_new != "":
+					meta_cur["entity_id"] = e_new
+				if String(meta_cur.get("batch", "")) == "" and b_new != "":
+					meta_cur["batch"] = b_new
+				if not meta_cur.is_empty():
+					_sensor_target_meta[sid] = meta_cur
 	var pw = _seed.get("physics_world", null)
 	var pw_on := (pw is Dictionary) or (pw is bool and bool(pw))
 	if pw_on:
@@ -683,6 +702,58 @@ func _advance_signal(sim_dt: float) -> Dictionary:
 
 ## 白名单路由 SignalService outbox：observation/evidence → TrackTable（共享 target→track 映射，
 ## 不重复建 track）；light_* → EventBus（light_signal.*）；不写 world/UI。
+## Signal target → entity 绑定：优先 _sensor_target_meta[target_id] 的 entity_id/batch；
+## 其次 world 同名实体（id/batch/name/kind/side）；不硬编码具体舰名；缺失留空并 warning。
+func _signal_binding(target_id: String) -> Dictionary:
+	var entity_id := ""
+	var batch := ""
+	var source := ""
+	if _sensor_target_meta.has(target_id):
+		var meta: Dictionary = _sensor_target_meta[target_id]
+		entity_id = String(meta.get("entity_id", ""))
+		batch = String(meta.get("batch", ""))
+		if entity_id != "" or batch != "":
+			source = "sensor_target_meta"
+	if world != null and world.has_entity(target_id):
+		var we: Dictionary = world.entity(target_id)
+		if entity_id == "":
+			entity_id = String(we.get("id", target_id))
+			source = "world" if source == "" else source
+		if batch == "":
+			batch = String(we.get("batch", ""))
+		return {"entity_id": entity_id, "batch": batch, "source": source,
+			"name": String(we.get("name", we.get("label", ""))),
+			"kind": String(we.get("kind", "")), "side": String(we.get("side", ""))}
+	return {"entity_id": entity_id, "batch": batch, "source": source,
+		"name": "", "kind": "", "side": ""}
+
+## 给 signal observation/evidence 补 entity_id/batch（TrackTable 写入前；不改写已有非空值）。
+func _enrich_signal_binding(ev: Dictionary, out: Dictionary) -> void:
+	var tid := String(ev.get("target_id", ""))
+	var bind: Dictionary = _signal_binding(tid)
+	if String(ev.get("entity_id", "")) == "" and String(bind.get("entity_id", "")) != "":
+		ev["entity_id"] = String(bind.get("entity_id", ""))
+	if String(ev.get("batch", "")) == "" and String(bind.get("batch", "")) != "":
+		ev["batch"] = String(bind.get("batch", ""))
+	# 供 UI/诊断的实体元数据（TrackTable 只取 entity_id/batch，其余字段忽略）
+	if String(ev.get("entity_name", "")) == "" and String(bind.get("name", "")) != "":
+		ev["entity_name"] = String(bind.get("name", ""))
+	if String(ev.get("entity_kind", "")) == "" and String(bind.get("kind", "")) != "":
+		ev["entity_kind"] = String(bind.get("kind", ""))
+	if String(ev.get("side", "")) == "" and String(bind.get("side", "")) != "":
+		ev["side"] = String(bind.get("side", ""))
+	var bound_entity := String(ev.get("entity_id", ""))
+	var bound_batch := String(ev.get("batch", ""))
+	if bound_entity == "" and bound_batch == "":
+		out["missing_meta"] = int(out.get("missing_meta", 0)) + 1
+		if not _signal_missing_meta_warned.has(tid):
+			_signal_missing_meta_warned[tid] = true
+			warnings.append("signal target 缺少 entity/batch 绑定：" + tid)
+	else:
+		out["bound"] = int(out.get("bound", 0)) + 1
+		if String(bind.get("source", "")) == "world":
+			out["world_bound"] = int(out.get("world_bound", 0)) + 1
+
 func _flush_signal_events() -> Dictionary:
 	if signal_service == null:
 		return {"enabled": false}
@@ -704,7 +775,8 @@ func _flush_signal_events() -> Dictionary:
 			light.append(ev)
 	var out := {"enabled": true, "observations": 0, "evidence": 0,
 		"light": 0, "ignored": 0, "failed": 0, "skipped": 0,
-		"reasons": [], "track_created": 0}
+		"reasons": [], "track_created": 0, "bound": 0,
+		"world_bound": 0, "missing_meta": 0}
 	if track_table == null:
 		out["skipped"] = obs.size() + evid.size()
 	else:
@@ -725,6 +797,7 @@ func _flush_signal_events() -> Dictionary:
 			var tid := String(o.get("target_id", ""))
 			if _sensor_track_map.has(tid) and not o.has("track_id"):
 				o["track_id"] = String(_sensor_track_map[tid])
+			_enrich_signal_binding(o, out)
 			var r: Dictionary = track_table.handle_observation(o, _track_writer)
 			if bool(r.get("ok", false)):
 				out["observations"] = int(out["observations"]) + 1
@@ -745,6 +818,7 @@ func _flush_signal_events() -> Dictionary:
 			var tid2 := String(e.get("target_id", ""))
 			if _sensor_track_map.has(tid2) and not e.has("track_id"):
 				e["track_id"] = String(_sensor_track_map[tid2])
+			_enrich_signal_binding(e, out)
 			var r2: Dictionary = track_table.handle_evidence(e, _track_writer)
 			if bool(r2.get("ok", false)):
 				out["evidence"] = int(out["evidence"]) + 1

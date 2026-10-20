@@ -51,6 +51,7 @@ func _initialize() -> void:
 	_test_physics_save_load()
 	_test_signal_integration()
 	_test_signal_save_load()
+	_test_signal_binding()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -2030,3 +2031,148 @@ func _test_signal_save_load() -> void:
 	_ok(a.save_state() == b.save_state(), "signal 同操作 save 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "signal 确定性 contracts ok")
 	_data_line("signal_save", "save/load signal_vm/snapshot 一致 · 继续 · 旧档兼容 · emitters 配置 · 确定性")
+
+# ═══════════════════════════════════════════════════════════════════
+# 31. Signal→Track 实体绑定（entity_id/batch）
+# ═══════════════════════════════════════════════════════════════════
+
+func _bind_emitter(model: String, sig: String) -> Dictionary:
+	return {"type": "radar", "model": model, "signature_name": sig,
+		"active": true, "silent": false, "lpi": false,
+		"frequency_mhz": 9500.0, "power_dbm": 90.0, "gain_tx_dbi": 30.0,
+		"prf_hz": 1200.0, "scan_period_s": 1.0}
+
+func _binding_cfg() -> Dictionary:
+	return {"track_table": true,
+		"sensor_service": {"targets": [
+			{"id": "E1", "entity_id": "apsis", "batch": "B1"},
+			{"id": "harmattan", "entity_id": "harmattan", "batch": "META-B"}]},
+		"signal_service": {
+			"observer": {"id": "Obs", "pos_km": [0.0, 0.0, 0.0]},
+			"targets": [
+				{"id": "E1", "pos_km": [0.0, 1500.0, 0.0],
+					"emissions": [_bind_emitter("YW-R9", "YW-R9")]},
+				{"id": "apsis", "pos_km": [100.0, 1500.0, 0.0],
+					"emissions": [_bind_emitter("KD-R6", "KD-R6")]},
+				{"id": "harmattan", "pos_km": [200.0, 1500.0, 0.0],
+					"emissions": [_bind_emitter("KD-R7", "KD-R7")]},
+				{"id": "UNBOUND", "pos_km": [300.0, 1500.0, 0.0],
+					"emissions": [_bind_emitter("XX-R1", "XX-R1")]}],
+			"stations": [{"id": "S1", "pos_km": [0.0, 0.0, 0.0]}]}}
+
+func _track_for_entity(s, entity_id: String) -> Dictionary:
+	for tid in (s.track_table.tracks as Dictionary).keys():
+		var tr: Dictionary = s.track_table.tracks[tid]
+		if String(tr.get("entity_id", "")) == entity_id:
+			return tr
+	return {}
+
+func _track_rows_vm(s) -> Array:
+	return s.track_table.vm().get("tracks", []) as Array
+
+func _test_signal_binding() -> void:
+	_section_begin("31 Signal 实体绑定")
+	var s = GameSession.new(_binding_cfg())
+	_ok(bool(s.ready), "binding session ready", str(s.errors))
+	# 启动时 target_meta 来自 sensor 配置（优先） + signal 配置自带 meta 均可
+	var bind_e1: Dictionary = s._signal_binding("E1")
+	_eq(String(bind_e1.get("entity_id", "")), "apsis", "binding E1 entity=apsis")
+	_eq(String(bind_e1.get("batch", "")), "B1", "binding E1 batch=B1")
+	_eq(String(bind_e1.get("source", "")), "sensor_target_meta", "binding E1 source meta")
+	var bind_ap: Dictionary = s._signal_binding("apsis")
+	_eq(String(bind_ap.get("entity_id", "")), "apsis", "binding world entity")
+	_eq(String(bind_ap.get("source", "")), "world", "binding world source")
+	var bind_hm: Dictionary = s._signal_binding("harmattan")
+	_eq(String(bind_hm.get("entity_id", "")), "harmattan", "binding harmattan entity")
+	_eq(String(bind_hm.get("batch", "")), "META-B", "meta 优先于 world batch")
+	var bind_un: Dictionary = s._signal_binding("UNBOUND")
+	_eq(String(bind_un.get("entity_id", "")), "", "未知目标 entity 空")
+	_eq(String(bind_un.get("batch", "")), "", "未知目标 batch 空")
+	# 拦截后 track 具备 entity_id/batch（UI 可用）
+	var r: Dictionary = s.signal_intercept("E1")
+	_eq(bool(r.get("ok", false)), true, "intercept E1 ok")
+	var tr_e1: Dictionary = _track_for_entity(s, "apsis")
+	_ok(not tr_e1.is_empty(), "E1 track 有 entity_id=apsis")
+	_eq(String(tr_e1.get("batch", "")), "B1", "E1 track batch=B1")
+	_eq(int(tr_e1.get("level", 0)), 3, "E1 track evidence L3")
+	var tracks_before := _track_count(s)
+	var r2: Dictionary = s.signal_intercept("E1")
+	_eq(bool(r2.get("ok", false)), true, "重复 intercept ok")
+	_eq(_track_count(s), tracks_before, "重复拦截不重复建 track")
+	# evidence 复用同一 track（不新增、level 不退化）
+	var tr_e1b: Dictionary = _track_for_entity(s, "apsis")
+	_eq(String(tr_e1b.get("id", "")), String(tr_e1.get("id", "")), "evidence 复用同 track")
+	_ok(int(tr_e1b.get("level", 0)) >= 3, "evidence 后 L3")
+	# world 绑定目标
+	var ra: Dictionary = s.signal_intercept("apsis")
+	_eq(bool(ra.get("ok", false)), true, "intercept world apsis ok")
+	var tr_ap: Dictionary = _track_for_entity(s, "apsis")
+	_ok(not tr_ap.is_empty(), "world apsis track entity")
+	var tr_hm: Dictionary = _track_for_entity(s, "harmattan")
+	_ok(not tr_hm.is_empty(), "meta harmattan track entity")
+	_eq(String(tr_hm.get("batch", "")), "META-B", "meta 优先 batch 写入 track")
+	# 缺失目标元数据：留空 + warning（不硬编码）
+	var ru: Dictionary = s.signal_intercept("UNBOUND")
+	_eq(bool(ru.get("ok", false)), true, "intercept UNBOUND ok")
+	var route: Dictionary = s._last_signal_route
+	_ok(int(route.get("missing_meta", 0)) >= 1, "route missing_meta")
+	_ok(int(route.get("bound", 0)) >= 1, "route bound")
+	var warn_hit := false
+	for w in s.warnings:
+		if String(w).contains("UNBOUND") and String(w).contains("entity/batch"):
+			warn_hit = true
+	_ok(warn_hit, "缺失目标 warning")
+	var unbound_track := {}
+	for tid2 in (s.track_table.tracks as Dictionary).keys():
+		var tr2: Dictionary = s.track_table.tracks[tid2]
+		if String(tr2.get("entity_id", "")) == "":
+			unbound_track = tr2
+	_ok(not unbound_track.is_empty(), "缺失目标 track entity 保持空")
+	# UI track_vm 可用
+	var rows: Array = _track_rows_vm(s)
+	_ok(rows.size() >= 2, "track_vm rows")
+	var entity_rows := 0
+	var batch_rows := 0
+	for raw in rows:
+		var row: Dictionary = raw
+		_ok(String(row.get("id", "")) != "", "track_vm id")
+		_ok(row.has("entity_id"), "track_vm entity_id 字段")
+		_ok(row.has("batch"), "track_vm batch 字段")
+		_ok(int(row.get("level", 0)) >= 1, "track_vm level")
+		_ok(float(row.get("last_update", -1.0)) >= 0.0, "track_vm last_update")
+		if String(row.get("entity_id", "")) != "":
+			entity_rows += 1
+		if String(row.get("batch", "")) != "":
+			batch_rows += 1
+	_ok(entity_rows >= 2, "track_vm 多条有 entity_id", str(entity_rows))
+	_ok(batch_rows >= 2, "track_vm 多条有 batch", str(batch_rows))
+	_ok(JSON.parse_string(JSON.stringify(rows)) is Array, "track_vm JSON")
+	# 失败/未知目标不新增 track
+	var cnt := _track_count(s)
+	_eq(bool(s.signal_intercept("NOPE").get("ok", true)), false, "未知目标 false")
+	_eq(_track_count(s), cnt, "未知目标不新增 track")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "binding contracts ok")
+	# 存档/load 绑定保持
+	var save := s.save_state()
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "binding load ok", str(lr.get("errors", [])))
+	_ok(not _track_for_entity(s2, "apsis").is_empty(), "load 后 entity 绑定保持")
+	_eq(String(_track_for_entity(s2, "apsis").get("batch", "")), "B1",
+		"load 后 batch 保持")
+	_ok(_norm_json(s.snapshot()) == _norm_json(s2.snapshot()), "binding load snapshot 一致")
+	# 确定性
+	var a = GameSession.new(_binding_cfg())
+	var b = GameSession.new(_binding_cfg())
+	for x in [a, b]:
+		x.signal_intercept("E1")
+		x.signal_intercept("apsis")
+		x.signal_intercept("harmattan")
+		var rr: Dictionary = x._last_signal_route
+		ok_mirror = int(rr.get("bound", 0)) >= 1
+	_ok(ok_mirror, "binding 同操作 bound")
+	_ok(_norm_json(a.snapshot()) == _norm_json(b.snapshot()), "binding 同操作 snapshot 一致")
+	_ok(a.save_state() == b.save_state(), "binding 同操作 save 一致")
+	_data_line("binding", "target_meta 优先 entity/batch · world 兜底 · 缺失留空+warning · UI track_vm · 存档/确定性")
+
+var ok_mirror := false
