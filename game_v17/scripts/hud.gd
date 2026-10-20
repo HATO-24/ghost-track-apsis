@@ -3,6 +3,7 @@ extends Control
 
 const Fonts := preload("res://scripts/fonts.gd")
 const Palette := preload("res://scripts/pal.gd")
+const Cislunar := preload("res://framework/sim/cislunar_physics.gd")
 
 # ── 栅格与四区 ──────────────────────────────────────────
 # 4px 基础格：所有矩形的位置 / 尺寸必须落在 4 的倍数上。
@@ -181,6 +182,12 @@ const TGT_ACTIONS := [
 	[4, "weapons_standby", "武装待命 / WEAPONS STANDBY"],
 ]
 const OPTICAL_RECT := Rect2(560, 220, 800, 600)
+const OPTICAL_SMALL := Rect2(1180, 360, 320, 220)
+const OPTS_TARGET := Rect2(1192, 548, 58, 18)
+const OPTS_START_VIS := Rect2(1254, 548, 54, 18)
+const OPTS_START_IR := Rect2(1312, 548, 44, 18)
+const OPTS_STOP := Rect2(1360, 548, 46, 18)
+const OPTS_CLOSE := Rect2(1410, 548, 78, 18)
 const OPT_TARGET_BTN := Rect2(580, 704, 152, 30)
 const OPT_START_VIS_BTN := Rect2(740, 704, 130, 30)
 const OPT_START_IR_BTN := Rect2(878, 704, 130, 30)
@@ -1127,6 +1134,7 @@ var _ctx_track_id := ""
 var _ctx_hint := ""
 var _optical_open := false
 var _optical_demo_pending := false
+var _optical_compact := true
 var _optical_step_t := 0.0
 var _optical_kind := "VIS"
 var _optical_target := ""
@@ -1290,6 +1298,10 @@ func _ready() -> void:
 			# R5-INFO-UI-1 截图：独立只读信息作战页
 			_demo_suppress_adjutant = true
 			_info_page_open = true
+		"nav_real":
+			# R6-UI-B 截图：真实地月几何导航页
+			_demo_suppress_adjutant = true
+			_nav_open_on_ready = "routes"
 		"nav_maneuver":
 			# R4-NAV-MANEUVER-UI-1 截图：真实 planned_maneuvers + plan/authorize/queue/execute
 			_demo_suppress_adjutant = true
@@ -1326,6 +1338,13 @@ func _ready() -> void:
 			_optical_target = ""
 			_optical_demo_pending = true
 			_optical_state_note = ""
+		"optical_small":
+			# R6-UI-B 截图：右栏小窗（V15）真实 fw_optical_ir start/step
+			_demo_suppress_adjutant = true
+			_optical_open = true
+			_optical_compact = true
+			_optical_target = ""
+			_optical_demo_pending = true
 		"docking_page":
 			# R6-DOCK-HUD-1 截图：真实 auto fw_docking 独立页
 			_demo_suppress_adjutant = true
@@ -5162,65 +5181,112 @@ func _nav_projector_point(pr: Dictionary, node_id: String) -> Vector2:
 	return Vector2(rect.position.x + nx * rect.size.x, rect.position.y + (1.0 - ny) * rect.size.y)
 
 
+func _nav_transfer_view() -> Dictionary:
+	if state == null:
+		return {}
+	var t = state.get("fw_transfer")
+	return t if t is Dictionary else {}
+
+
 func _nav_draw_chart(nodes: Array, routes: Array) -> void:
 	var r := NAV_MAP
-	for gx in range(int(r.position.x + 24.0), int(r.end.x - 24.0), 96):
-		draw_line(Vector2(gx, r.position.y + 40.0), Vector2(gx, r.end.y - 62.0), Palette.a(Palette.LINE, 0.22), 1.0)
-	for gy in range(int(r.position.y + 40.0), int(r.end.y - 62.0), 96):
-		draw_line(Vector2(r.position.x + 24.0, gy), Vector2(r.end.x - 24.0, gy), Palette.a(Palette.LINE, 0.22), 1.0)
-	_txt(mono, r.position.x + 24.0, r.position.y + 40.0, "FRAME: ABSTRACT L1/ECI · SOURCE state.fw_nav · ROUTES %d" % routes.size(), 7, Palette.a(Palette.PH_DIM, 0.95))
-	var pr := _nav_node_projector(nodes)
-	if pr.is_empty():
-		_txt(cjk, r.position.x + 24.0, r.position.y + 72.0, "（节点位置为空）", 8, Palette.FAINT)
+	# 真实地月几何：cislunar L1 平衡点为原点；Earth/Moon/L4/L5 为旋转系真实位置。
+	var eq := Cislunar.equilibrium_points()
+	if eq.is_empty() or not eq.has("L1"):
+		_txt(cjk, r.position.x + 24.0, r.position.y + 56.0, "TRANSFER NOT READY · cislunar 几何不可用", 10, Palette.AMBER)
 		return
-	# 所有节点
-	for i in range(nodes.size()):
-		var raw: Dictionary = nodes[i]
-		var n: Dictionary = raw
-		var nid := String(n.get("id", ""))
-		var p := _nav_projector_point(pr, nid)
-		var kind := String(n.get("kind", ""))
-		var col := Palette.PH if kind == "station" else (Palette.AMBER if kind == "port" else Palette.BLUE)
-		if kind == "station":
-			draw_rect(Rect2(p - Vector2(5, 5), Vector2(10, 10)), Palette.a(col, 0.8), false, 1.0)
-		elif kind == "orbit_ring":
-			draw_arc(p, 8.0, 0, TAU, 24, Palette.a(col, 0.8), 1.0)
-		else:
-			draw_arc(p, 5.0, 0, TAU, 16, Palette.a(col, 0.8), 1.0)
-		var is_to := nid == _nav_to_id
-		var is_from := nid == _nav_from_id
-		var right_side := p.x < 900.0
-		var tx := p.x + (10.0 if right_side else -160.0)
-		var ty := p.y - 10.0 - float(i % 3) * 11.0
-		_txt(mono, tx, ty, nid, 8, Palette.AMBER if (is_to or is_from) else Palette.a(Palette.TXT, 0.9))
-		_txt(cjk, tx, ty + 11.0, _ellipsis(cjk, String(n.get("name", "")), 7, 150.0), 7, col)
-	# 候选路径
-	var sel := _nav_selected_route()
-	var sel_id := String(sel.get("candidate_id", ""))
-	for i in range(routes.size()):
-		var c: Dictionary = routes[i]
-		var path: Array = c.get("path", []) if c.get("path", []) is Array else []
-		if path.size() < 2:
-			continue
-		var col := Palette.AMBER if String(c.get("profile", "")) == "economy" else (Palette.BLUE if String(c.get("profile", "")) == "covert" else Palette.PH)
-		var is_sel := String(c.get("candidate_id", "")) == sel_id or i == _nav_candidate_sel
-		var prev := _nav_projector_point(pr, String(path[0]))
-		for j in range(1, path.size()):
-			var np := _nav_projector_point(pr, String(path[j]))
-			if prev.x > -500.0 and np.x > -500.0:
-				draw_line(prev, np, Palette.a(col, 0.9 if is_sel else 0.35), 2.0 if is_sel else 1.0)
-			prev = np
-		var mid := _nav_projector_point(pr, String(path[path.size() / 2]))
-		_txt(mono, mid.x + 8.0, mid.y + 12.0 + float(i) * 10.0, String(c.get("profile_label", c.get("profile", ""))), 7, col)
-	if routes.is_empty():
-		draw_dashed_line(Vector2(r.position.x + 500.0, r.position.y + 360.0), Vector2(r.end.x - 500.0, r.position.y + 260.0), Palette.a(Palette.AMBER, 0.25), 1.0, 6.0)
-		_txt(cjk, r.position.x + 24.0, r.position.y + 72.0, "尚未生成候选：右栏「生成候选 / GEN」调用 state.fw_nav_plan_routes(l1,to,{})", 8, Palette.a(Palette.AMBER, 0.85))
-	# 抽象坐标图例（非等比例，避免假装真实比例）
-	var sx := r.position.x + 24.0
-	var sy := r.end.y - 76.0
-	_txt(mono, sx, sy, "ABSTRACT X/Y · NODES 8 · NOT TO SCALE", 7, Palette.a(Palette.FAINT, 0.95))
-	_txt(cjk, sx, sy + 14.0, "节点位置来自 navigation_l1.json abstract_pos_km；X/Y 分别归一化", 7, Palette.a(Palette.FAINT, 0.9))
-	_txt_r(cjk, r.end.x - 24.0, sy + 14.0, "V1 线框；R6 替换真实位置/轨道/遮挡", 7, Palette.a(Palette.FAINT, 0.9))
+	var l1: Vector3 = (eq["L1"] as Dictionary).get("pos_rot", Vector3.ZERO)
+	var earth: Vector3 = Cislunar.earth_position_rot() - l1
+	var moon: Vector3 = Cislunar.moon_position_rot() - l1
+	var l4: Vector3 = (eq["L4"] as Dictionary).get("pos_rot", Vector3.ZERO) - l1
+	var l5: Vector3 = (eq["L5"] as Dictionary).get("pos_rot", Vector3.ZERO) - l1
+	# 自动缩放：适配地球/月球/L4/L5
+	var xs: Array[float] = [0.0, earth.x, moon.x, l4.x, l5.x]
+	var ys: Array[float] = [0.0, earth.y, moon.y, l4.y, l5.y]
+	var minx: float = float(xs.min()); var maxx: float = float(xs.max()); var miny: float = float(ys.min()); var maxy: float = float(ys.max())
+	var spanx := maxf(1.0, maxx - minx); var spany := maxf(1.0, maxy - miny)
+	var pad := 90.0
+	var sc := minf((r.size.x - pad * 2.0) / spanx, (r.size.y - pad * 2.0) / spany)
+	var cx := r.position.x + r.size.x * 0.5
+	var cy := r.position.y + r.size.y * 0.52
+	var prj := {"cx": cx, "cy": cy, "minx": minx, "maxx": maxx, "miny": miny, "maxy": maxy, "sc": sc}
+	# 网格（真实 km 标尺）
+	for gx in range(-4, 5):
+		var x := _nav_proj_real(Vector3(float(gx) * 100000.0, 0.0, 0.0), prj).x
+		draw_line(Vector2(x, r.position.y + 44.0), Vector2(x, r.end.y - 62.0), Palette.a(Palette.LINE, 0.14), 1.0)
+	for gy in range(-3, 4):
+		var y := _nav_proj_real(Vector3(0.0, float(gy) * 100000.0, 0.0), prj).y
+		draw_line(Vector2(r.position.x + 24.0, y), Vector2(r.end.x - 24.0, y), Palette.a(Palette.LINE, 0.14), 1.0)
+	_txt(mono, r.position.x + 24.0, r.position.y + 40.0,
+		"FRAME · L1 原点 · EARTH/MOON/L4/L5 = cislunar_physics · 1 px ≈ %.0f km" % (1.0 / maxf(sc, 1.0e-9)), 7, Palette.a(Palette.PH_DIM, 0.95))
+	# Earth
+	var pe := _nav_proj_real(earth, prj)
+	var re := maxf(7.0, Cislunar.R_EARTH_KM * sc)
+	draw_circle(pe, re, Palette.a(Palette.BLUE, 0.10))
+	draw_arc(pe, re, 0, TAU, 48, Palette.a(Palette.BLUE, 0.65), 1.0, true)
+	_txt(cjk, pe.x + re + 6.0, pe.y + 3.0, "EARTH / 地球", 8, Palette.a(Palette.BLUE, 0.9))
+	_txt(mono, pe.x + re + 6.0, pe.y + 15.0, "R 6,378 km", 7, Palette.FAINT)
+	# Moon
+	var pm := _nav_proj_real(moon, prj)
+	var rm := maxf(4.0, Cislunar.R_MOON_KM * sc)
+	draw_circle(pm, rm, Palette.a(Palette.DIM, 0.35))
+	draw_arc(pm, rm, 0, TAU, 32, Palette.a(Palette.DIM, 0.8), 1.0, true)
+	_txt(cjk, pm.x + rm + 6.0, pm.y + 3.0, "MOON / 月球", 8, Palette.a(Palette.TXT, 0.85))
+	# L4/L5 港群
+	for pair in [["L4", l4, "L4 ANVIL 港群"], ["L5", l5, "L5 港群"]]:
+		var lname := String(pair[0])
+		var lp := _nav_proj_real(pair[1] as Vector3, prj)
+		var lcol: Color = Palette.AMBER if lname == "L4" else Palette.PH_DIM
+		var pts := PackedVector2Array([lp + Vector2(0, -7), lp + Vector2(7, 0), lp + Vector2(0, 7), lp + Vector2(-7, 0), lp + Vector2(0, -7)])
+		draw_polyline(pts, Palette.a(lcol, 0.85), 1.0)
+		_txt(cjk, lp.x + 10.0, lp.y + 3.0, String(pair[2]), 8, Palette.a(lcol, 0.9))
+		_txt(mono, lp.x + 10.0, lp.y + 14.0, "%.0f km from L1" % (pair[1] as Vector3).length(), 7, Palette.FAINT)
+	# L1 港群（原点）
+	var p1 := _nav_proj_real(Vector3.ZERO, prj)
+	draw_arc(p1, 10.0, 0, TAU, 40, Palette.a(Palette.PH, 0.85), 1.0, true)
+	draw_line(p1 - Vector2(16, 0), p1 + Vector2(16, 0), Palette.a(Palette.PH, 0.7), 1.0)
+	draw_line(p1 - Vector2(0, 16), p1 + Vector2(0, 16), Palette.a(Palette.PH, 0.7), 1.0)
+	_txt(cjk, p1.x + 16.0, p1.y + 4.0, "L1 CHRONOS 港群 / 本舰", 8, Palette.PH)
+	_txt(mono, p1.x + 16.0, p1.y + 16.0, "ORIGIN · R_eff 真实位置", 7, Palette.a(Palette.PH_DIM, 0.9))
+	# 真实 transfer（如 bridge/state 提供）；否则 NOT READY，不画抽象航线
+	var tf := _nav_transfer_view()
+	var tl: Array = tf.get("timeline", []) if tf.get("timeline", []) is Array else []
+	if tl.is_empty():
+		_txt(cjk, r.position.x + 24.0, r.end.y - 72.0, "TRANSFER NOT READY · 无 state.fw_transfer timeline", 11, Palette.AMBER)
+		_txt(cjk, r.position.x + 24.0, r.end.y - 54.0, "不画抽象固定航线；仅展示真实地月/L1/L4 几何。", 8, Palette.FAINT)
+	else:
+		# timeline pos_rot_km 是 barycenter 旋转系；减 L1 后画真实折线
+		var pts: Array[Vector2] = []
+		for raw in tl:
+			if raw is Dictionary:
+				var row: Dictionary = raw
+				pts.append(_nav_proj_real(_nav_vec3(row.get("pos_rot_km", [])) - l1, prj))
+		if pts.size() >= 2:
+			for i in range(1, pts.size()):
+				draw_line(pts[i - 1], pts[i], Palette.a(Palette.AMBER, 0.85), 1.0)
+			_txt(cjk, pts[0].x + 8.0, pts[0].y - 8.0, "DEPART", 8, Palette.PH)
+			_txt(cjk, pts[pts.size() - 1].x + 8.0, pts[pts.size() - 1].y - 8.0, "ARRIVAL", 8, Palette.AMBER)
+	# 当前预览点：真实 nav candidate 坐标若存在
+	if not routes.is_empty():
+		_txt(mono, r.end.x - 24.0, r.end.y - 54.0, "ROUTES %d · 路线候选只读" % routes.size(), 7, Palette.a(Palette.FAINT, 0.9))
+	_txt(mono, r.position.x + 24.0, r.end.y - 34.0, "SOURCE cislunar_physics.equilibrium_points · 真实地月旋转系", 7, Palette.a(Palette.FAINT, 0.9))
+	_txt_r(cjk, r.end.x - 24.0, r.end.y - 34.0, "TRANSFER timeline 未接时明确 NOT READY", 7, Palette.a(Palette.AMBER, 0.85))
+
+
+func _nav_proj_real(p: Vector3, pr: Dictionary) -> Vector2:
+	var cx := float(pr.get("cx", 0.0)); var cy := float(pr.get("cy", 0.0))
+	var minx := float(pr.get("minx", 0.0)); var maxx := float(pr.get("maxx", 1.0))
+	var miny := float(pr.get("miny", 0.0)); var maxy := float(pr.get("maxy", 1.0))
+	var sc := float(pr.get("sc", 1.0))
+	return Vector2(cx + (p.x - (minx + maxx) * 0.5) * sc, cy - (p.y - (miny + maxy) * 0.5) * sc)
+
+
+func _nav_vec3(raw: Variant) -> Vector3:
+	if raw is Array and (raw as Array).size() >= 3:
+		return Vector3(float((raw as Array)[0]), float((raw as Array)[1]), float((raw as Array)[2]))
+	if raw is Vector3:
+		return raw
+	return Vector3.ZERO
 
 
 func _nav_draw_plan(ready: bool, routes: Array, ac: Dictionary) -> void:
@@ -5346,10 +5412,37 @@ func _nav_draw_traffic_block(r: Rect2, y0: float, ac: Dictionary) -> void:
 
 func _nav_draw_timeline() -> void:
 	var r := TIME
-	_nav_panel(r, "时间轴 / TIMELINE", "READ-ONLY", "")
+	_nav_panel(r, "时间轴 / 轨道预览", "READ-ONLY", "")
+	var tf := _nav_transfer_view()
+	var tl: Array = tf.get("timeline", []) if tf.get("timeline", []) is Array else []
+	if tl.is_empty():
+		_txt(cjk, r.position.x + 16.0, r.position.y + 42.0, "TRANSFER NOT READY · 无 state.fw_transfer timeline", 9, Palette.AMBER)
+		_txt(cjk, r.position.x + 16.0, r.position.y + 58.0, "不伪造出发/巡航/到达时间与 Δv；只显示真实 nav 许可/命令时间轴。", 7, Palette.FAINT)
+	else:
+		var t_end := float((tl[tl.size() - 1] as Dictionary).get("t_s", 1.0))
+		var t_end2 := maxf(1.0, t_end)
+		_txt(mono, r.position.x + 16.0, r.position.y + 42.0, "DEPART T+0 · CRUISE · ARRIVAL T+%.0fs · rows %d" % [t_end, tl.size()], 7, Palette.PH)
+		var stage := ["DEPART", "CRUISE", "ARRIVAL"]
+		for si in range(3):
+			var xx := r.position.x + 16.0 + (r.size.x - 32.0) * (0.0 if si == 0 else (0.5 if si == 1 else 1.0))
+			_txt(mono, xx + (0.0 if si < 2 else -40.0), r.position.y + 58.0, stage[si], 7, Palette.AMBER if si < 2 else Palette.PH)
+		var prev := Vector2(-1, -1)
+		for raw in tl:
+			var row: Dictionary = raw
+			var frac := clampf(float(row.get("t_s", 0.0)) / t_end2, 0.0, 1.0)
+			var px := r.position.x + 16.0 + (r.size.x - 32.0) * frac
+			var py := r.position.y + 78.0
+			var p := Vector2(px, py)
+			if prev.x > -1.0:
+				draw_line(prev, p, Palette.a(Palette.AMBER, 0.7), 1.0)
+			prev = p
+		_txt(cjk, r.position.x + 16.0, r.position.y + 102.0,
+			"Δv %.0f m/s · 到达误差 %.1f km · 当前 t 预览点" % [
+				float(tf.get("dv_total_ms", tf.get("dv_ms", 0.0))),
+				float((tl[tl.size() - 1] as Dictionary).get("error_km", 0.0))], 7, Palette.a(Palette.DIM, 0.95))
 	var x0 := r.position.x + 16.0
 	var x1 := r.end.x - 16.0
-	var ty := r.position.y + 70.0
+	var ty := r.position.y + 126.0
 	draw_line(Vector2(x0, ty), Vector2(x1, ty), Palette.a(Palette.LINE, 0.9), 1.0)
 	var total := 720.0
 	for i in range(9):
@@ -8478,6 +8571,9 @@ func _open_optical(kind: String, target_id: String, start_it := true) -> void:
 
 
 func _handle_optical_click(p: Vector2) -> void:
+	if _optical_compact:
+		_handle_optical_small_click(p)
+		return
 	if OPT_CLOSE_BTN.has_point(p):
 		_optical_open = false
 		_sfx("ui_back")
@@ -8580,6 +8676,9 @@ func _opt_channel_panel(r: Rect2, label: String, en: String, kind: String) -> vo
 
 
 func _draw_optical_overlay() -> void:
+	if _optical_compact:
+		_draw_optical_small()
+		return
 	if _optical_target == "":
 		_optical_target = _target_track_id()
 	draw_rect(Rect2(Vector2.ZERO, Vector2(1920, 1080)), Color(0.01, 0.03, 0.024, 0.62))
@@ -8622,6 +8721,83 @@ func _draw_optical_overlay() -> void:
 	if not warnings.is_empty():
 		_txt(cjk, r.position.x + 24.0, 784.0, _ellipsis(cjk, "WARN: " + str(warnings[0]), 7, 720.0), 7, Palette.a(Palette.AMBER, 0.8))
 	_txt_r(cjk, r.end.x - 24.0, r.end.y - 18.0, "ESC 关闭 · O 开关 · 不覆盖其他 HUD 常态", 7, Palette.a(Palette.FAINT, 0.9))
+
+
+func _draw_optical_small() -> void:
+	var r := OPTICAL_SMALL
+	draw_rect(Rect2(0, 0, 1920, 1080), Color(0.01, 0.03, 0.024, 0.35))
+	draw_rect(r, Palette.a(Palette.PANEL, 0.995))
+	draw_rect(r, Palette.a(Palette.PH, 0.65), false, 1.0)
+	_txt(cjk, r.position.x + 10.0, r.position.y + 6.0, "光学 / 红外 · 小窗", 8, Palette.PH)
+	_txt_r(mono, r.end.x - 10.0, r.position.y + 6.0, "V15 · 320×220", 6, Palette.a(Palette.FAINT, 0.9))
+	var tgt := String(_optical_target)
+	if tgt == "":
+		tgt = _optical_pick_target()
+		_optical_target = tgt
+	_txt(mono, r.position.x + 10.0, r.position.y + 18.0, "TGT %s · SHADOW" % (tgt if tgt != "" else "—"), 6, Palette.a(Palette.DIM, 0.95))
+	draw_line(Vector2(r.position.x + 8.0, r.position.y + 22.0), Vector2(r.end.x - 8.0, r.position.y + 22.0), Palette.a(Palette.LINE, 0.7), 1.0)
+	var view := _optical_fw_view()
+	if view.is_empty():
+		_txt(cjk, r.position.x + 10.0, r.position.y + 40.0, "OPTICAL / IR OFF", 10, Palette.AMBER)
+		_txt(cjk, r.position.x + 10.0, r.position.y + 54.0, "无 state.fw_optical_ir / V17_OPTICAL_IR=off", 6, Palette.FAINT)
+	else:
+		_opt_small_channel(Rect2(r.position.x + 8.0, r.position.y + 26.0, r.size.x - 16.0, 78.0), "VIS / 可见光", "optical")
+		_opt_small_channel(Rect2(r.position.x + 8.0, r.position.y + 104.0, r.size.x - 16.0, 78.0), "IR / 红外", "ir")
+	_cmd_btn(OPTS_TARGET, "TARGET", true, Palette.PH_DIM)
+	_cmd_btn(OPTS_START_VIS, "VIS", true, Palette.PH)
+	_cmd_btn(OPTS_START_IR, "IR", true, Palette.AMBER)
+	_cmd_btn(OPTS_STOP, "STOP", true, Palette.AMBER)
+	_cmd_btn(OPTS_CLOSE, "CLOSE", true, Palette.RED)
+	var note := _optical_state_note
+	if note == "":
+		note = "O 开关 · ESC 关闭 · 真实 fw_optical_ir · 不写 V15"
+	_txt(cjk, r.position.x + 10.0, r.end.y - 14.0, _ellipsis(cjk, note, 6, r.size.x - 20.0), 6, Palette.a(Palette.AMBER, 0.8))
+
+
+func _opt_small_channel(r: Rect2, label: String, kind: String) -> void:
+	var ch := _optical_chan(kind, String(_optical_target))
+	var st := String(ch.get("status", "idle")) if not ch.is_empty() else "idle"
+	var col := _optical_status_col(st)
+	draw_rect(r, Palette.a(Palette.PANEL2, 0.45))
+	draw_rect(r, Palette.a(col, 0.35), false, 1.0)
+	_txt(mono, r.position.x + 6.0, r.position.y + 10.0, "%s · %s" % [label, st.to_upper()], 7, col)
+	if ch.is_empty():
+		var sen := _optical_sensor(kind)
+		_txt(mono, r.position.x + 6.0, r.position.y + 24.0, "FOV %.3f° · IFOV %.1fµ" % [float(sen.get("fov_deg", 0.0)), float(sen.get("ifov_eff_urad", 0.0))], 6, Palette.DIM)
+		_txt(cjk, r.position.x + 6.0, r.position.y + 38.0, "无活动通道 · 点击启动", 6, Palette.FAINT)
+		return
+	_txt(mono, r.position.x + 6.0, r.position.y + 22.0, "TGT %s · FOV %.3f° · IFOV %.1fµ" % [
+		String(ch.get("target_id", "")), float(ch.get("fov_deg", 0.0)), float(ch.get("ifov_eff_urad", 0.0))], 6, Palette.TXT)
+	_txt(mono, r.position.x + 6.0, r.position.y + 32.0, "SNR %.1f dB · N_PX %.1f · SMEAR %.2f" % [
+		float(ch.get("snr_db", -999.0)), float(ch.get("n_px", 0.0)), float(ch.get("smear_px", 0.0))], 6, Palette.TXT)
+	var reason := String(ch.get("reason", ""))
+	var fails: Array = ch.get("failures", []) if ch.get("failures", []) is Array else []
+	var occ := reason == "occluded" or fails.has("occluded")
+	_txt(mono, r.position.x + 6.0, r.position.y + 42.0, "OCC %s · L%d · %s" % [
+		"YES" if occ else "no", int(ch.get("level_support", 0)), String(ch.get("level_cap", ""))], 6,
+		Palette.AMBER if occ else Palette.PH if bool(ch.get("locked", false)) else Palette.DIM)
+	if reason != "":
+		_txt(mono, r.position.x + 6.0, r.position.y + 52.0, "REASON %s" % reason, 6, Palette.RED)
+
+
+func _handle_optical_small_click(p: Vector2) -> void:
+	if OPTS_CLOSE.has_point(p):
+		_optical_open = false
+		_sfx("ui_back")
+		return
+	if OPTS_TARGET.has_point(p):
+		_optical_target = _optical_pick_target()
+		_optical_do_point()
+		return
+	if OPTS_START_VIS.has_point(p):
+		_optical_start("VIS")
+		return
+	if OPTS_START_IR.has_point(p):
+		_optical_start("IR")
+		return
+	if OPTS_STOP.has_point(p):
+		_optical_stop()
+		return
 
 
 # ── 图层 / 元素开关 ───────────────────────────────────

@@ -34,6 +34,19 @@ var errors: Array[String] = []
 var scenario: V2Scenario = null
 var world: V2World = null
 
+# ── 行动触发文本（阶段2 TEXT-ENGINE-1）────────────────────────────
+# story.triggers 定义：玩家动作/选择/命令/裁决/环境 → 既有 story.events /
+# story.radio_lines 条目（只引用索引，不复制、不发明文本）。
+const STORY_TRIGGER_SCHEMA := "v2_story_trigger.v1"
+const STORY_TRIGGER_ON := ["select", "action", "order", "prelude", "evidence",
+	"decision", "report", "environment", "flag"]
+var story_triggers: Array = []
+var fired_triggers: Dictionary = {}
+var trigger_log: Array = []
+var trigger_seq := 0
+var _story_events: Array = []
+var _story_radio: Array = []
+
 func _init() -> void:
 	phases = default_phases()
 	if phases.size() > 0:
@@ -76,6 +89,7 @@ func attach_scenario(s: V2Scenario) -> void:
 		for e in s.errors:
 			if not (e in errors):
 				errors.append(e)
+	_load_story_triggers()
 
 func attach_world(w: V2World) -> void:
 	world = w
@@ -83,6 +97,176 @@ func attach_world(w: V2World) -> void:
 func attach(w: V2World, s: V2Scenario) -> void:
 	attach_world(w)
 	attach_scenario(s)
+
+# —— 行动触发文本（TEXT-ENGINE-1）──────────────────────────────
+
+## 从 scenario.story.triggers 读取触发器；事件/无线电文本只按索引引用。
+func _load_story_triggers() -> void:
+	story_triggers.clear()
+	fired_triggers.clear()
+	trigger_log.clear()
+	trigger_seq = 0
+	_story_events = []
+	_story_radio = []
+	if scenario == null:
+		return
+	var st: Dictionary = scenario.story
+	_story_events = (st.get("events", []) as Array).duplicate(true)
+	_story_radio = (st.get("radio_lines", []) as Array).duplicate(true)
+	var raw: Variant = st.get("triggers", [])
+	if not (raw is Array):
+		errors.append("story.triggers: 必须是数组")
+		return
+	var seen: Dictionary = {}
+	for i in range((raw as Array).size()):
+		var item = (raw as Array)[i]
+		if not (item is Dictionary):
+			errors.append("story.triggers[%d]: 必须是对象" % i)
+			continue
+		var t: Dictionary = (item as Dictionary).duplicate(true)
+		var tid := String(t.get("id", ""))
+		if tid == "":
+			errors.append("story.triggers[%d]: 缺少 id" % i)
+			continue
+		if seen.has(tid):
+			errors.append("story.triggers: 重复 id " + tid)
+			continue
+		seen[tid] = true
+		var on := String(t.get("on", ""))
+		if not (on in STORY_TRIGGER_ON):
+			errors.append("story.triggers[%s]: 未知 on=%s" % [tid, on])
+			continue
+		var channel := String(t.get("channel", "event"))
+		if not (channel in ["event", "radio"]):
+			errors.append("story.triggers[%s]: channel 必须 event|radio" % tid)
+			continue
+		var idx := int(t.get("event_index" if channel == "event" else "radio_index", -1))
+		var entries: Array = _story_events if channel == "event" else _story_radio
+		if idx < 0 or idx >= entries.size():
+			errors.append("story.triggers[%s]: %s_index 越界 %d" % [tid, channel, idx])
+			continue
+		if on == "environment" and not (t.has("min_t") or t.has("at_t")):
+			errors.append("story.triggers[%s]: environment 需要 min_t/at_t" % tid)
+			continue
+		story_triggers.append({
+			"id": tid, "on": on, "action": String(t.get("action", "")),
+			"target": String(t.get("target", "")),
+			"targets": (t.get("targets", []) as Array).duplicate(),
+			"state": String(t.get("state", "")),
+			"channel": channel, "index": idx,
+			"min_t": float(t.get("min_t", t.get("at_t", -1.0))),
+			"once": bool(t.get("once", true)),
+			"text_key": String(t.get("text_key", "")),
+			"note": String(t.get("note", "")),
+		})
+
+## 玩家动作/选择/命令/裁决成功后调用；返回本次触发的文本条目（按触发器定义顺序）。
+## 同一条触发器 once 默认只触发一次；动作失败由调用方不调用本函数保证。
+func note_player_event(kind: String, action: String, target := "", extra: Dictionary = {}) -> Array:
+	var fired: Array = []
+	if not bool(extra.get("ok", true)):
+		return fired
+	var now := world.t if world != null else float(extra.get("now", 0.0))
+	for raw in story_triggers:
+		if not (raw is Dictionary):
+			continue
+		var t: Dictionary = raw
+		if String(t.get("on", "")) != kind or kind == "environment":
+			continue
+		if String(t.get("action", "")) != "" and String(t.get("action", "")) != action:
+			continue
+		if String(t.get("target", "")) != "" and String(t.get("target", "")) != target:
+			continue
+		var targets: Array = t.get("targets", []) as Array
+		if not targets.is_empty() and not (target in targets):
+			continue
+		if String(t.get("state", "")) != "" \
+				and String(t.get("state", "")) != String(extra.get("state", "")):
+			continue
+		var min_t := float(t.get("min_t", -1.0))
+		if min_t >= 0.0 and now + 1.0e-9 < min_t:
+			continue
+		if bool(t.get("once", true)) and fired_triggers.has(String(t.get("id", ""))):
+			continue
+		var item := _fire_trigger(t, kind, action, target, now)
+		if not item.is_empty():
+			fired.append(item)
+	return fired
+
+## 环境/倒计时触发器（只允许 story.triggers 中 on=="environment"；不占用玩家动作顺序）。
+func tick_environment(now: float) -> Array:
+	var fired: Array = []
+	for raw in story_triggers:
+		if not (raw is Dictionary):
+			continue
+		var t: Dictionary = raw
+		if String(t.get("on", "")) != "environment":
+			continue
+		if bool(t.get("once", true)) and fired_triggers.has(String(t.get("id", ""))):
+			continue
+		var min_t := float(t.get("min_t", -1.0))
+		if min_t < 0.0 or now + 1.0e-9 < min_t:
+			continue
+		var item := _fire_trigger(t, "environment", "", "", now)
+		if not item.is_empty():
+			fired.append(item)
+	return fired
+
+func _fire_trigger(t: Dictionary, kind: String, action: String, target: String, now: float) -> Dictionary:
+	var tid := String(t.get("id", ""))
+	var channel := String(t.get("channel", "event"))
+	var idx := int(t.get("index", -1))
+	var entries: Array = _story_events if channel == "event" else _story_radio
+	if idx < 0 or idx >= entries.size():
+		errors.append("story.trigger %s: 文本索引失效" % tid)
+		return {}
+	var entry: Dictionary = (entries[idx] as Dictionary).duplicate(true)
+	trigger_seq += 1
+	var item := {
+		"schema": STORY_TRIGGER_SCHEMA,
+		"trigger_id": tid, "channel": channel, "index": idx,
+		"text_key": String(t.get("text_key", "")),
+		"source": kind, "action": action, "target": target,
+		"seq": trigger_seq, "t": now,
+	}
+	if channel == "event":
+		item["event"] = entry
+	else:
+		item["radio"] = entry
+	fired_triggers[tid] = {"seq": trigger_seq, "t": now, "source": kind}
+	trigger_log.append(item.duplicate(true))
+	return item
+
+func reset_story_triggers(reload := true) -> void:
+	fired_triggers.clear()
+	trigger_log.clear()
+	trigger_seq = 0
+	if reload:
+		_load_story_triggers()
+
+## 触发器状态快照（JSON-safe；供 probe/诊断，不接 UI）。
+func trigger_snapshot() -> Dictionary:
+	var rows: Array = []
+	for raw in story_triggers:
+		var t: Dictionary = raw
+		rows.append({
+			"id": String(t.get("id", "")), "on": String(t.get("on", "")),
+			"action": String(t.get("action", "")), "target": String(t.get("target", "")),
+			"state": String(t.get("state", "")), "channel": String(t.get("channel", "")),
+			"index": int(t.get("index", -1)), "min_t": float(t.get("min_t", -1.0)),
+			"text_key": String(t.get("text_key", "")),
+			"fired": fired_triggers.has(String(t.get("id", ""))),
+		})
+	return {
+		"schema": STORY_TRIGGER_SCHEMA,
+		"trigger_count": story_triggers.size(),
+		"fired_count": fired_triggers.size(),
+		"log_count": trigger_log.size(),
+		"next_seq": trigger_seq,
+		"triggers": rows,
+		"log": trigger_log.duplicate(true),
+		"errors": errors.duplicate(),
+	}
 
 # —— 查询 ——
 

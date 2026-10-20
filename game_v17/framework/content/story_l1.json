@@ -107,7 +107,26 @@
     "report_fake": {
       "FIRE": "ID13 在执行窗口内未实施武器释放。Chronos 储罐区损伤系第七号令发布当日爆炸的后续影响；谷神-2（9001）因自身推进系统故障解体，未发现外部武器作用痕迹。ID13 已完成人员撤离并提交记录。建议按程序归档。"
     },
-    "events": [
+    "triggers": [
+      {"id": "TR-ARRIVE-NOTICE", "on": "prelude", "action": "execute", "channel": "event", "event_index": 0, "text_key": "TXT-0030", "note": "抵达/点火后播报接管声明"},
+      {"id": "TR-ARRIVE-RADIO-GREENWICH", "on": "prelude", "action": "execute", "channel": "radio", "radio_index": 0, "text_key": "TXT-0018"},
+      {"id": "TR-ARRIVE-RADIO-SEXTANT", "on": "prelude", "action": "execute", "channel": "radio", "radio_index": 1, "text_key": "TXT-0021"},
+      {"id": "TR-ARRIVE-RADIO-APSIS", "on": "prelude", "action": "execute", "channel": "radio", "radio_index": 2, "text_key": "TXT-0022"},
+      {"id": "TR-ARRIVE-RADIO-4412", "on": "prelude", "action": "execute", "channel": "radio", "radio_index": 3, "text_key": "TXT-0023"},
+      {"id": "TR-SELECT-CERES", "on": "select", "targets": ["ceres_2", "9001", "T9001"], "channel": "radio", "radio_index": 4, "text_key": "TXT-0024", "note": "玩家选中 9001 接触后，哈马丹报告 IFF 未应答"},
+      {"id": "TR-CROSSFIX-FALSE-ALARM", "on": "action", "action": "crossfix", "targets": ["9002", "T9002", "track_9002"], "channel": "event", "event_index": 1, "text_key": "TXT-0031"},
+      {"id": "TR-RADAR-ON", "on": "action", "action": "radar_illum", "targets": ["summons_4471", "2001", "T2001"], "channel": "event", "event_index": 2, "text_key": "TXT-0032"},
+      {"id": "TR-ORDER-RADAR-AUTH", "on": "order", "action": "radar_illum", "targets": ["summons_4471", "2001", "T2001"], "state": "AUTHORIZED", "channel": "radio", "radio_index": 5, "text_key": "TXT-0025"},
+      {"id": "TR-ORDER-RADAR-TX", "on": "order", "action": "radar_illum", "targets": ["summons_4471", "2001", "T2001"], "state": "TRANSMITTED", "channel": "radio", "radio_index": 6, "text_key": "TXT-0026"},
+      {"id": "TR-OPTICAL-CLASS", "on": "action", "action": "model_ident", "targets": ["summons_4471", "2001", "T2001"], "channel": "event", "event_index": 3, "text_key": "TXT-0033"},
+      {"id": "TR-OPTICAL-RADIO", "on": "action", "action": "model_ident", "targets": ["summons_4471", "2001", "T2001"], "channel": "radio", "radio_index": 9, "text_key": "TXT-0029"},
+      {"id": "TR-IFF-QUERY", "on": "action", "action": "iff_query", "targets": ["ceres_2", "9001", "T9001"], "channel": "event", "event_index": 4, "text_key": "TXT-0034"},
+      {"id": "TR-IFF-RADIO", "on": "action", "action": "iff_query", "targets": ["ceres_2", "9001", "T9001"], "channel": "radio", "radio_index": 11, "text_key": "TXT-0020"},
+      {"id": "TR-DECISION-OPEN-RADIO", "on": "decision", "action": "open", "channel": "radio", "radio_index": 7, "text_key": "TXT-0027"},
+      {"id": "TR-DECISION-COUNTDOWN", "on": "decision", "action": "open", "channel": "event", "event_index": 5, "text_key": "TXT-0035"},
+      {"id": "TR-DECISION-FIRE-REQUEST", "on": "decision", "action": "open", "channel": "radio", "radio_index": 10, "text_key": "TXT-0019"},
+      {"id": "TR-EVIDENCE-PORT", "on": "evidence", "action": "start", "targets": ["port_telemetry"], "channel": "radio", "radio_index": 8, "text_key": "TXT-0028"}
+    ],    "events": [
       {
         "t": 0.0,
         "type": "notice",

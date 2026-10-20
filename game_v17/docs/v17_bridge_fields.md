@@ -341,3 +341,27 @@ TrackTable/V15；state 在 `fw_sync` 后把 V2 advisory contacts 映射到 V15 �
 默认 shadow 不写；authoritative 显式启用；这是显示层权威，不是完整 detection/fusion 切换。
 详见 `game_v17/docs/v17_sensor_authority_display.md`；最小 probe
 `tests/v17_sensor_authority_display_probe.gd`（74/0）。
+## 19　transit 场景 + L4→L1 转移（阶段2-CORE-B）
+
+`V17_SCENARIO=transit|legacy`（**默认 legacy，不切启动**）。transit 时 bridge 加载
+`scenario_transit_l4_l1.json`（补空 tracks/phases 过校验），own=apsis；一次运行
+`transfer_planner.plan()` 并缓存；旧关卡实体不进入 V2 场景。**不接 HUD；V15 显示仍 legacy。**
+
+| 位置 | 字段 / API | 说明 |
+| --- | --- | --- |
+| bridge | `scenario_mode` / `scenario_requested_mode` / `scenario_fallback_reason` | legacy/transit、请求、回落原因 |
+| bridge | `scenario_view()` | v17_scenario_bridge.v1：mode/id/title/datum/own/entity_count/station_count/transfer_ready/source_port/target_port |
+| bridge | `own_reference()` | v17_own_reference.v1（transit: apsis/1000；legacy: harmattan/1001） |
+| bridge | `transfer_plan()` / `transfer_ready` | 缓存 `v17_transfer_l4_l1.v1`（timeline/fleet/arrival/Δv）；legacy 空/false |
+| bridge | `transfer_tick(t_s)` | v17_transfer_tick.v1：timeline 线性插值 pos/vel；clamp [0,tof]；phase=departure/cruise/arrival；progress/range；**不做新物理** |
+| bridge | `scenario_entity_list()` / `scenario_station_list()` | 场景实体/固定体只读行（id/batch/kind/side/name/fixed/orbit_*/tags） |
+| bridge | `bridge_state()` | 增 scenario/own_reference/scenario_entities/scenario_stations/transfer/transfer_ready/scenario_mode 等 |
+| state | `fw_transfer` / `fw_transfer_ready` | 转移计划只读（legacy 空/false） |
+| state | `fw_scenario` / `fw_own_reference` / `fw_scenario_entities` / `fw_scenario_stations` | 场景/本舰/实体/固定体只读映射（不改 state.tracks） |
+| state | `fw_transfer_tick(t_s)` | bridge tick 的只读包装 |
+| state | `fw_bridge_state()` | 增上述字段 |
+
+transit boot 规划一次（headless ~18–20s，缓存；restart 复用）；legacy 不规划。
+本次 transit：TOF 6.00 天、Δv 1,822.6 m/s、入轨 0.771 km / 0.969 km/s、timeline 11 点、fleet 5 舰。
+详见 `game_v17/docs/v17_transit_bridge.md` 与 `docs/transfer_l4_l1.md`；
+最小 probe `tests/v17_transit_bridge_probe.gd`（136/0）。

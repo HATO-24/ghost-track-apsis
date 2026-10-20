@@ -11,8 +11,9 @@ extends RefCounted
 #
 #   V2-CORE-2（V2-3 第一关端到端）追加：
 #     perform_action（7 个支持动作 → 观测/状态）、prelude_*、start_evidence/任务推进、
-#     open_decision/choose_ending/submit_report/end_summary/restart、自动时间线（story events/radio）、
-#     mission flag 联动。时间在前置航行完成/任务结束时会冻结（不自动做玩家识别动作）。
+#     open_decision/choose_ending/submit_report/end_summary/restart、mission flag 联动。
+#     TEXT-ENGINE-1：story 文本由玩家动作触发（mission.story_triggers），不再按 t 自动播报。
+#     时间在前置航行完成/任务结束时会冻结（不自动做玩家识别动作）。
 # ═══════════════════════════════════════════════════════════════════
 
 signal state_changed(reason: String)
@@ -304,6 +305,7 @@ func select(id: String) -> bool:
 		return false
 	selected_id = id
 	state_changed.emit("select")
+	_note_story_event("select", "select", id)
 	return true
 
 func select_batch(batch: String) -> bool:
@@ -355,8 +357,11 @@ func advance(dt: float) -> Dictionary:
 		out["frozen"] = true
 		return out
 	t += dt
-	out["events"] = _tick_timeline_events()
-	out["radio"] = _tick_timeline_radio()
+	# TEXT-ENGINE-1：story.events/radio_lines 不再按时间自动播报；
+	# 只有 story.triggers 的 environment 类（如需保留的纯倒计时）在 advance 内触发。
+	# 玩家动作触发的文本由各命令方法同步 push（_note_story_event）。
+	out["events"] = _tick_story_environment()
+	out["radio"] = []
 	out["tasks"] = _tick_evidence_tasks()
 	out["damage"] = advance_damage(dt)
 	out["damage_events"] = _advance_damage_models(dt)
@@ -550,6 +555,7 @@ func issue_order(action_id: String, target_id := "", params: Dictionary = {}) ->
 	var o := orders.issue(action_id, target_id, p, actor.id, tr.id if tr != null else "", t)
 	push_log("order", "预命令 %s · %s → %s（%s，不推进仿真）" % [o.id, action_id, target_id, actor.display_name()])
 	state_changed.emit("order")
+	_note_story_event("order", action_id, target_id, {"state": "PRE_ORDER"})
 	return {"ok": true, "reason": "", "order": o, "action": eval, "actor_id": actor.id}
 
 func authorize_order(order_id: String) -> Dictionary:
@@ -603,6 +609,12 @@ func _order_action(method: String, order_id: String, reason := "") -> Dictionary
 		_:
 			r = {"ok": false, "reason": "未知命令操作: " + method}
 	state_changed.emit("order")
+	if bool(r.get("ok", false)):
+		var oo: V2Orders.Order = orders.find(order_id)
+		var st := String(oo.state) if oo != null else ""
+		var act := String(oo.action) if oo != null else ""
+		var tgt := String(oo.target) if oo != null else ""
+		_note_story_event("order", act, tgt, {"state": st, "order_id": order_id, "method": method})
 	return r
 
 func order_of(order_id: String) -> V2Orders.Order:
@@ -633,6 +645,7 @@ func start_evidence(id: String) -> Dictionary:
 	push_log("evidence", "开始取证：%s%s" % [String(d.get("label", id)),
 		"（穿梭机）" if bool(d.get("shuttle", false)) else ""])
 	flow_changed.emit("evidence_start")
+	_note_story_event("evidence", "start", id)
 	return {"ok": true, "reason": "", "task": d.duplicate(true)}
 
 func evidence_start(id: String) -> bool:
@@ -653,6 +666,7 @@ func evidence_complete(id: String) -> bool:
 	push_log("evidence", "证据取得：%s" % String(d.get("label", id)))
 	_replay_capture(true)
 	flow_changed.emit("evidence_done")
+	_note_story_event("evidence", "complete", id)
 	return true
 
 ## 当前占用的穿梭机任务 id（"" 表示空闲）。
@@ -917,53 +931,45 @@ func vm_snapshot() -> Dictionary:
 	}
 
 # ═══════════════════════════════════════════════════════════════════
-# V2-CORE-2：自动时间线
-#   story.events / story.radio_lines 按 t 触发一次；type=="decision" 的事件自动打开决策。
-#   不做任何自动识别动作（教学门控：等级只能由玩家 perform_action / 外部观测推进）。
+# TEXT-ENGINE-1：行动触发文本
+#   story.events / story.radio_lines 只作为文本池（按索引引用），不再按 t 自动播报。
+#   mission.story_triggers 决定“哪个玩家动作 → 哪条文本”；世界只负责把命中条目
+#   写入 events/radio，并把顺序保留在 mission.trigger_log。
+#   仅 on=="environment" 的触发器可随 advance(t) 触发（不占用玩家动作顺序）。
 # ═══════════════════════════════════════════════════════════════════
 
-func _tick_timeline_events() -> Array:
-	var fired: Array = []
-	for i in range(story_events_data.size()):
-		if _fired_events.has(i):
-			continue
-		var raw = story_events_data[i]
-		if not (raw is Dictionary):
-			continue
-		var ev: Dictionary = raw
-		var due := float(ev.get("t", 0.0))
-		if t + 1.0e-9 < due:
-			continue
-		_fired_events[i] = true
-		var typ := String(ev.get("type", "event"))
-		var text := String(ev.get("text", ""))
-		push_log("timeline:" + typ, text)
-		var item := {"t": due, "fired_t": t, "type": typ, "text": text}
-		fired.append(item)
-		if typ == "decision":
-			open_decision()
-	return fired
+func _tick_story_environment() -> Array:
+	if mission == null or not mission.has_method("tick_environment"):
+		return []
+	return _push_story_items(mission.tick_environment(t))
 
-func _tick_timeline_radio() -> Array:
-	var fired: Array = []
-	for i in range(story_radio_data.size()):
-		if _fired_radio.has(i):
-			continue
-		var raw = story_radio_data[i]
+## 玩家动作成功后的统一通知入口（失败动作不要调用）。
+func _note_story_event(kind: String, action: String, target := "", extra: Dictionary = {}) -> Array:
+	if mission == null or not mission.has_method("note_player_event"):
+		return []
+	var fired: Array = mission.note_player_event(kind, action, target, extra)
+	return _push_story_items(fired)
+
+func _push_story_items(items: Array) -> Array:
+	var out: Array = []
+	for raw in items:
 		if not (raw is Dictionary):
 			continue
-		var line: Dictionary = raw
-		if t + 1.0e-9 < float(line.get("t", 0.0)):
-			continue
-		_fired_radio[i] = true
-		var d: Dictionary = line.duplicate(true)
-		radio.append(d)
-		while radio.size() > MAX_EVENT_LOG:
-			radio.pop_front()
-		fired.append(d.duplicate(true))
-	if not fired.is_empty():
-		state_changed.emit("radio")
-	return fired
+		var item: Dictionary = raw
+		var channel := String(item.get("channel", "event"))
+		if channel == "radio":
+			var line: Dictionary = (item.get("radio", {}) as Dictionary).duplicate(true)
+			if not line.has("t"):
+				line["t"] = t
+			push_radio(line)
+		else:
+			var ev: Dictionary = (item.get("event", {}) as Dictionary).duplicate(true)
+			var typ := String(ev.get("type", "event"))
+			push_log("story:" + typ, String(ev.get("text", "")))
+		out.append(item.duplicate(true))
+	if not out.is_empty():
+		state_changed.emit("story_trigger")
+	return out
 
 # ═══════════════════════════════════════════════════════════════════
 # V2-CORE-2：V2Mission 联动
@@ -1070,6 +1076,7 @@ func prelude_choose_route(id: String) -> Dictionary:
 	prelude["step"] = 1
 	push_log("prelude", "前置航行：目的地 %s（Δv %.0f m/s）" % [String(def.get("label", id)), float(def.get("dv_ms", 0.0))])
 	flow_changed.emit("prelude_route")
+	_note_story_event("prelude", "route", id)
 	return {"ok": true, "step": 1, "route_def": def}
 
 func prelude_choose_window(id: String) -> Dictionary:
@@ -1087,6 +1094,7 @@ func prelude_choose_window(id: String) -> Dictionary:
 	prelude["step"] = 2
 	push_log("prelude", "前置航行：变轨窗口 %s（Δv %.0f m/s）" % [String(def.get("label", id)), float(def.get("dv_ms", 0.0))])
 	flow_changed.emit("prelude_window")
+	_note_story_event("prelude", "window", id)
 	return {"ok": true, "step": 2, "window_def": def}
 
 func prelude_confirm() -> Dictionary:
@@ -1095,6 +1103,7 @@ func prelude_confirm() -> Dictionary:
 	prelude["confirmed"] = true
 	var data: Dictionary = (prelude.get("data", {}) as Dictionary)
 	flow_changed.emit("prelude_confirm")
+	_note_story_event("prelude", "confirm")
 	return {"ok": true, "confirmed": true, "confirm_text": String(data.get("confirm_text", ""))}
 
 func prelude_execute() -> Dictionary:
@@ -1122,6 +1131,7 @@ func prelude_execute() -> Dictionary:
 	push_log("prelude", "前置航行执行：点火完成，Δv %.0f m/s（时间开始流动）" % dv)
 	flow_changed.emit("prelude_executed")
 	state_changed.emit("prelude")
+	_note_story_event("prelude", "execute", String(prelude.get("route", "")))
 	return {"ok": true, "dv_spent_ms": dv, "execute_text": String(data.get("execute_text", "")),
 		"radio_count": (data.get("done_comm", []) as Array).size(), "flags": flow_flags.duplicate(true)}
 
@@ -1185,6 +1195,7 @@ func open_decision() -> Dictionary:
 		exec_left(), evidence_count(), evidence.size()])
 	flow_changed.emit("decision_open")
 	state_changed.emit("decision")
+	_note_story_event("decision", "open")
 	return {"ok": true, "prompt": scenario.decision_prompt() if scenario != null else "",
 		"evidence_count": evidence_count(), "can_expose": can_expose(),
 		"exec_window_s": exec_window_s, "exec_left": exec_left(),
@@ -1299,6 +1310,7 @@ func choose_ending(kind: String) -> Dictionary:
 	_replay_capture(true)
 	flow_changed.emit("decision")
 	state_changed.emit("decision")
+	_note_story_event("decision", "choose", k)
 	return {"ok": true, "kind": k, "ending": ending, "reply": reply,
 		"fire_release": bool(flow.get("fire_release", false)), "consequence": String(flow.get("consequence", "")),
 		"reputation": reputation.duplicate(true), "reputation_settled": rep_settled,
@@ -1368,6 +1380,7 @@ func submit_report(truth := true) -> Dictionary:
 	_replay_capture(true)
 	flow_changed.emit("report")
 	state_changed.emit("report")
+	_note_story_event("report", "submit", kind)
 	return {"ok": true, "report": report.duplicate(true), "audit_flag": audit,
 		"mission_phase": String(mission.phase) if mission != null else "", "ended": true}
 
@@ -1427,6 +1440,8 @@ func restart() -> Dictionary:
 	if m != null:
 		attach_mission(m)
 		m.reset()
+		if m.has_method("reset_story_triggers"):
+			m.reset_story_triggers()
 		_sync_mission_flags()
 		phase_context = String(m.kind)
 	push_log("flow", "任务重开：时间/航迹/证据/流程已复位")
@@ -1520,6 +1535,7 @@ func perform_action(action_id: String, target_id: String, params: Dictionary = {
 	_replay_capture(true)
 	flow_changed.emit("action")
 	state_changed.emit("action")
+	_note_story_event("action", action_id, target_id)
 	return {
 		"ok": true, "action": action_id, "action_label": String(eval.get("label", action_id)),
 		"target_id": target_id, "level": level_after,

@@ -52,6 +52,13 @@ var fw_optical_ir: Dictionary = {}
 var fw_docking: Dictionary = {}
 var fw_optical_ir_auto := false
 var fw_docking_auto := false
+# —— 阶段2-CORE-B：transit 场景 + L4→L1 转移只读（V17_SCENARIO=transit；默认 legacy）——
+var fw_transfer: Dictionary = {}
+var fw_transfer_ready := false
+var fw_scenario: Dictionary = {}
+var fw_own_reference: Dictionary = {}
+var fw_scenario_entities: Array = []
+var fw_scenario_stations: Array = []
 
 # 演示用状态。真实 sim 会接管 clock / tracks / commands，
 # 这里的数值只服务于"把 GUI 长相对出来"。
@@ -1800,6 +1807,12 @@ func _reset_runtime() -> void:
 	fw_docking = {}
 	fw_optical_ir_auto = false
 	fw_docking_auto = false
+	fw_transfer = {}
+	fw_transfer_ready = false
+	fw_scenario = {}
+	fw_own_reference = {}
+	fw_scenario_entities = []
+	fw_scenario_stations = []
 
 # ── P1j：身份 / 通信格式 / 动态裁决提示 ─────────────────
 
@@ -2792,6 +2805,12 @@ func _fw_pull() -> void:
 		fw_docking = {}
 		fw_optical_ir_auto = false
 		fw_docking_auto = false
+		fw_transfer = {}
+		fw_transfer_ready = false
+		fw_scenario = {}
+		fw_own_reference = {}
+		fw_scenario_entities = []
+		fw_scenario_stations = []
 		return
 	fw_ready = true
 	fw_tutorial = (framework.tutorial_view() as Dictionary).duplicate(true)
@@ -2828,6 +2847,13 @@ func _fw_pull() -> void:
 	fw_docking = (framework.docking_view() as Dictionary).duplicate(true)
 	fw_optical_ir_auto = bool(framework.optical_ir_auto_enabled)
 	fw_docking_auto = bool(framework.docking_auto_enabled)
+	# 阶段2-CORE-B：transit 场景/转移只读（legacy 时 transfer_ready=false）
+	fw_transfer = (framework.transfer_plan() as Dictionary).duplicate(true)
+	fw_transfer_ready = bool(framework.transfer_ready)
+	fw_scenario = (framework.scenario_view() as Dictionary).duplicate(true)
+	fw_own_reference = (framework.own_reference() as Dictionary).duplicate(true)
+	fw_scenario_entities = (framework.scenario_entity_list() as Array).duplicate(true)
+	fw_scenario_stations = (framework.scenario_station_list() as Array).duplicate(true)
 
 ## R6-AUTH-1：用当前 V15 board 数据生成物理对比（只读；显示层尚未切换）。
 ## 未就绪/关闭时清空，不报错、不写 V15。
@@ -3080,6 +3106,29 @@ func fw_docking_undock(reason := "commander_undock") -> Dictionary:
 	var res: Dictionary = framework.docking_undock(reason)
 	_fw_pull()
 	return res
+
+# ═══════════════════════════════════════════════════════════════════
+# 阶段2-CORE-B：transit 场景 / L4→L1 转移只读（默认 legacy；不接 HUD）
+# ═══════════════════════════════════════════════════════════════════
+
+## 只读转移 tick：按当前仿真时间从 timeline 插值（departure/cruise/arrival；clamp）。
+func fw_transfer_tick(t_s: float) -> Dictionary:
+	if framework == null:
+		return {"schema": "v17_transfer_tick.v1", "ok": false,
+			"reason": "framework 未就绪", "t_s": 0.0}
+	return framework.transfer_tick(t_s)
+
+func fw_transfer_view() -> Dictionary:
+	return fw_transfer
+
+func fw_scenario_view() -> Dictionary:
+	return fw_scenario
+
+func fw_scenario_entity_list() -> Array:
+	return fw_scenario_entities.duplicate(true)
+
+func fw_scenario_station_list() -> Array:
+	return fw_scenario_stations.duplicate(true)
 
 ## 当前 authoritative 只读视图（HUD 后续接 [未切换]）。
 func fw_physics_authoritative_view() -> Dictionary:
@@ -3603,6 +3652,12 @@ func fw_bridge_state() -> Dictionary:
 		"ready": fw_ready,
 		"t": fw_t,
 		"sync_count": fw_sync_count,
+		"scenario": fw_scenario.duplicate(true),
+		"own_reference": fw_own_reference.duplicate(true),
+		"scenario_entities": fw_scenario_entities.duplicate(true),
+		"scenario_stations": fw_scenario_stations.duplicate(true),
+		"transfer": fw_transfer.duplicate(true),
+		"transfer_ready": fw_transfer_ready,
 		"tutorial": fw_tutorial.duplicate(true),
 		"tutorial_ready": fw_tutorial_ready(),
 		"tutorial_allowed": fw_tutorial_allows(),

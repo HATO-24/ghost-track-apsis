@@ -24,14 +24,26 @@ const SensorAuthorityScript := preload("res://framework/sim/sensor_authority.gd"
 const InformationWarfareScript := preload("res://framework/sim/information_warfare.gd")
 const OpticalIRScript := preload("res://framework/sim/optical_ir_channel.gd")
 const DockingScript := preload("res://framework/sim/docking_controller.gd")
+const TransferPlannerScript := preload("res://framework/sim/transfer_planner.gd")
 
 const DEFAULT_SCENARIO := "res://framework/content/scenario_l1_v2.json"
+const TRANSIT_SCENARIO := "res://framework/content/scenario_transit_l4_l1.json"
 
 var scenario: V2Scenario
 var world: V2World
 var mission: V2Mission
 var ready := false
 var errors: Array[String] = []
+# —— 阶段2-CORE-B：transit 场景 + L4→L1 转移（V17_SCENARIO=transit|legacy；默认 legacy）——
+var scenario_mode := "legacy"
+var scenario_requested_mode := "legacy"
+var scenario_fallback_reason := ""
+var transfer_plan_data: Dictionary = {}
+var transfer_ready := false
+var transfer_tick_last: Dictionary = {}
+var own_reference_data: Dictionary = {}
+var scenario_entity_rows: Array = []
+var scenario_station_rows: Array = []
 
 # —— 归一化只读快照（state.fw_* 直接复制这些）——
 var tutorial: Dictionary = {}
@@ -129,7 +141,29 @@ var replay_index_pin := -1
 
 func boot(scenario_path := DEFAULT_SCENARIO) -> bool:
 	errors.clear()
-	scenario = ScenarioScript.load_file(scenario_path)
+	scenario_mode = "legacy"
+	scenario_requested_mode = "legacy"
+	scenario_fallback_reason = ""
+	transfer_plan_data = {}
+	transfer_ready = false
+	transfer_tick_last = {}
+	own_reference_data = {}
+	scenario_entity_rows = []
+	scenario_station_rows = []
+	var scenario_env := OS.get_environment("V17_SCENARIO").to_lower().strip_edges()
+	if scenario_env == "transit":
+		scenario_requested_mode = "transit"
+	if scenario_requested_mode == "transit":
+		var transit_scenario: V2Scenario = _load_transit_scenario()
+		if transit_scenario != null and transit_scenario.errors.is_empty():
+			scenario = transit_scenario
+			scenario_mode = "transit"
+		else:
+			scenario_fallback_reason = "transit 场景加载失败 → 回落 legacy"
+			errors.append(scenario_fallback_reason)
+			scenario = ScenarioScript.load_file(scenario_path)
+	else:
+		scenario = ScenarioScript.load_file(scenario_path)
 	if not scenario.errors.is_empty():
 		errors.append_array(scenario.errors)
 	world = WorldScript.new()
@@ -138,6 +172,8 @@ func boot(scenario_path := DEFAULT_SCENARIO) -> bool:
 		errors.append_array(world.errors)
 	mission = MissionScript.from_scenario(scenario)
 	world.attach_mission(mission)
+	# 阶段2-CORE-B：transit 转移规划（一次缓存；legacy 只建只读场景映射）
+	_init_transit()
 	# R4-CORE-2：导航/交通管制/机动规划（独立模型；失败不阻塞世界桥）
 	nav = NavigationScript.new()
 	nav_ready = bool(nav.setup())
@@ -342,6 +378,15 @@ func replay_view() -> Dictionary:
 func bridge_state() -> Dictionary:
 	return {
 		"ready": ready,
+		"scenario_mode": scenario_mode,
+		"scenario_requested_mode": scenario_requested_mode,
+		"scenario_fallback_reason": scenario_fallback_reason,
+		"scenario": scenario_view(),
+		"own_reference": own_reference_data.duplicate(true),
+		"scenario_entities": scenario_entity_rows.duplicate(true),
+		"scenario_stations": scenario_station_rows.duplicate(true),
+		"transfer": transfer_plan_data.duplicate(true),
+		"transfer_ready": transfer_ready,
 		"summary": summary(),
 		"tutorial": tutorial.duplicate(true),
 		"tutorial_ready": tutorial_ready,
@@ -631,6 +676,7 @@ func restart() -> Dictionary:
 	_init_sensor_shadow()
 	_init_info_warfare()
 	_init_optical_docking()
+	_init_transit()
 	refresh()
 	return r
 
@@ -1890,3 +1936,182 @@ func set_docking_auto(on: bool) -> void:
 	docking_auto_enabled = on
 	if on:
 		docking_auto_suppressed = false
+
+# ═══════════════════════════════════════════════════════════════════
+# 阶段2-CORE-B：transit 场景 + L4→L1 转移接 bridge/state
+#   - V17_SCENARIO=transit|legacy（默认 legacy；暂不切启动）；
+#   - transit：加载 scenario_transit_l4_l1.json（补 tracks/phases 空数组以通过校验），
+#     own=apsis；transfer_planner.plan() 只跑一次并缓存；legacy 不规划；
+#   - 场景实体/固定体只读映射；transfer_tick(t) 只按 timeline 线性插值（不做新物理）；
+#   - 不写 V15/不接 HUD；失败回落 legacy 并记录原因。
+# ═══════════════════════════════════════════════════════════════════
+
+func _load_transit_scenario() -> V2Scenario:
+	if not FileAccess.file_exists(TRANSIT_SCENARIO):
+		return null
+	var text := FileAccess.get_file_as_string(TRANSIT_SCENARIO)
+	if text == "":
+		return null
+	var parsed = JSON.parse_string(text)
+	if not (parsed is Dictionary):
+		return null
+	var data: Dictionary = (parsed as Dictionary).duplicate(true)
+	if not data.has("tracks"):
+		data["tracks"] = []
+	if not data.has("phases"):
+		data["phases"] = []
+	if not data.has("entities"):
+		return null
+	return ScenarioScript.from_dict(data, TRANSIT_SCENARIO)
+
+func _init_transit() -> void:
+	if scenario_mode == "transit" and transfer_plan_data.is_empty():
+		transfer_plan_data = TransferPlannerScript.plan()
+		transfer_ready = bool(transfer_plan_data.get("ok", false))
+		if not transfer_ready:
+			scenario_fallback_reason = "transit 转移规划失败（transfer_ready=false）"
+	_build_scenario_rows()
+	_build_own_reference()
+
+func _build_scenario_rows() -> void:
+	scenario_entity_rows = []
+	scenario_station_rows = []
+	if world == null:
+		return
+	for raw in world.entities:
+		var e: V2Entity = raw
+		var orbit: Dictionary = e.orbit if e.orbit is Dictionary else {}
+		var row := {
+			"id": e.id,
+			"batch": e.batch,
+			"kind": e.kind,
+			"side": e.side,
+			"name": e.display_name(),
+			"fixed": e.is_fixed(),
+			"orbit_frame": String(orbit.get("frame", "")),
+			"orbit_r": (orbit.get("r", []) as Array).duplicate(),
+			"orbit_v": (orbit.get("v", []) as Array).duplicate(),
+			"tags": e.tags.duplicate(),
+		}
+		scenario_entity_rows.append(row)
+		if e.is_fixed():
+			scenario_station_rows.append(row.duplicate(true))
+
+func _build_own_reference() -> void:
+	own_reference_data = {}
+	if world == null:
+		return
+	var own_id := String(world.own_id)
+	var own = world.by_id.get(own_id, null) if world.by_id != null else null
+	own_reference_data = {
+		"schema": "v17_own_reference.v1",
+		"scenario_mode": scenario_mode,
+		"scenario_id": String(scenario.id) if scenario != null else "",
+		"own_entity": own_id,
+		"batch": String(own.batch) if own != null else "",
+		"display_name": String(own.display_name()) if own != null else "",
+		"lpoint": String(scenario.datum) if scenario != null else "",
+		"source_port": "l4_02_hammer" if scenario_mode == "transit" else "",
+		"target_port": "l1_meridian_05" if scenario_mode == "transit" else "",
+	}
+
+## 场景只读视图（transit: transit_l4_l1 / legacy: 原默认场景）。
+func scenario_view() -> Dictionary:
+	return {
+		"schema": "v17_scenario_bridge.v1",
+		"mode": scenario_mode,
+		"requested_mode": scenario_requested_mode,
+		"fallback_reason": scenario_fallback_reason,
+		"scenario_id": String(scenario.id) if scenario != null else "",
+		"title": String(scenario.title) if scenario != null else "",
+		"datum": String(scenario.datum) if scenario != null else "",
+		"own_entity": String(world.own_id) if world != null else "",
+		"entity_count": scenario_entity_rows.size(),
+		"station_count": scenario_station_rows.size(),
+		"transfer_ready": transfer_ready,
+		"source_port": "l4_02_hammer" if scenario_mode == "transit" else "",
+		"target_port": "l1_meridian_05" if scenario_mode == "transit" else "",
+	}
+
+func scenario_entity_list() -> Array:
+	return scenario_entity_rows.duplicate(true)
+
+func scenario_station_list() -> Array:
+	return scenario_station_rows.duplicate(true)
+
+func transfer_plan() -> Dictionary:
+	return transfer_plan_data.duplicate(true)
+
+func own_reference() -> Dictionary:
+	return own_reference_data.duplicate(true)
+
+## 只读转移 tick：按当前仿真时间从 timeline 线性插值位置/速度/阶段；clamp 到 [0,tof]。
+func transfer_tick(t_s: float) -> Dictionary:
+	if not transfer_ready or transfer_plan_data.is_empty():
+		return {"schema": "v17_transfer_tick.v1", "ok": false,
+			"reason": "transfer_not_ready", "t_s": clampf(t_s, 0.0, 0.0)}
+	var transfer: Dictionary = transfer_plan_data.get("transfer", {})
+	var timeline: Array = transfer_plan_data.get("timeline", [])
+	var tof := float(transfer.get("tof_s", 0.0))
+	if timeline.is_empty() or tof <= 0.0:
+		return {"schema": "v17_transfer_tick.v1", "ok": false,
+			"reason": "no_timeline", "t_s": 0.0}
+	var requested := float(t_s)
+	var clamped_t := clampf(requested, 0.0, tof)
+	var clamped := absf(clamped_t - requested) > 1.0e-9
+	var phase := "departure"
+	if clamped_t >= tof - 1.0e-9:
+		phase = "arrival"
+	elif clamped_t > 1.0e-9:
+		phase = "cruise"
+	var idx := 0
+	for i in range(timeline.size()):
+		if float((timeline[i] as Dictionary).get("t_s", 0.0)) <= clamped_t + 1.0e-9:
+			idx = i
+	var row_a: Dictionary = timeline[idx]
+	var row_b: Dictionary = timeline[mini(idx + 1, timeline.size() - 1)]
+	var ta := float(row_a.get("t_s", 0.0))
+	var tb := float(row_b.get("t_s", ta))
+	var frac := 0.0
+	if tb > ta + 1.0e-9:
+		frac = clampf((clamped_t - ta) / (tb - ta), 0.0, 1.0)
+	var pos := _lerp3(row_a.get("pos_rot_km", []), row_b.get("pos_rot_km", []), frac)
+	var vel := _lerp3(row_a.get("vel_rot_kmps", []), row_b.get("vel_rot_kmps", []), frac)
+	var target_pos: Array = (transfer_plan_data.get("target", {}) as Dictionary).get("pos_rot_km", [])
+	var range_km := 0.0
+	if target_pos.size() >= 3:
+		var dx: float = float(pos[0]) - float(target_pos[0])
+		var dy: float = float(pos[1]) - float(target_pos[1])
+		var dz: float = float(pos[2]) - float(target_pos[2])
+		range_km = sqrt(dx * dx + dy * dy + dz * dz)
+	transfer_tick_last = {
+		"schema": "v17_transfer_tick.v1",
+		"ok": true,
+		"scenario_id": "transit_l4_l1",
+		"t_s": clamped_t,
+		"requested_t_s": requested,
+		"t_days": clamped_t / 86400.0,
+		"clamped": clamped,
+		"phase": phase,
+		"progress": clamped_t / tof,
+		"source_port": "l4_02_hammer",
+		"target_port": "l1_meridian_05",
+		"pos_rot_km": pos,
+		"vel_rot_kmps": vel,
+		"range_to_target_km": range_km,
+		"timeline_index": idx,
+		"tof_s": tof,
+	}
+	return transfer_tick_last.duplicate(true)
+
+func _lerp3(a: Variant, b: Variant, f: float) -> Array:
+	var out := [0.0, 0.0, 0.0]
+	if not (a is Array) or not (b is Array):
+		return out
+	var aa: Array = a
+	var bb: Array = b
+	if aa.size() < 3 or bb.size() < 3:
+		return out
+	for i in range(3):
+		out[i] = lerpf(float(aa[i]), float(bb[i]), f)
+	return out
