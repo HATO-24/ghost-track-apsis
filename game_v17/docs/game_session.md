@@ -1,9 +1,9 @@
 # 完整游戏-阶段2C/2H · GameSession 编排层（含 TrackTable/StoryState）
 
-> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）+ 3P（task-164）。工程 `game_v17`。
+> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）+ 3P（task-164）+ 3R（task-167）。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=979 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=1001 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -24,8 +24,10 @@ GameSession
  ├─ DamageService（可选） 每舰 V2DamageModel；combat damage 事件→分区伤害/维修
  ├─ PhysicsWorld（可选） 单一位置权威；固定步长 CR3BP/星历；显式同步 world
  ├─ SignalService（可选） ELINT/DF/灯语；observation/evidence→TrackTable，light→bus
+├─ EWService（可选） 干扰/欺骗/假目标/EMCON/通信 spoof/激光；effect 接口不写 world
  ├─ FacilityRegistry（可选） 全设施只读注册表；cluster/站/应答机/港口/物理参数
- └─ TransponderService（可选） 应答机行为；询问/广播/状态/加密/触发→evidence/events
+ ├─ TransponderService（可选） 应答机行为；询问/广播/状态/加密/触发→evidence/events
+ └─ IdentificationService（可选） 识别自动化/证据融合；自动询问/身份评估→identity.* 事件
 ```
 
 - **依赖方向**：OrderService 内部持有 CommsService；`tick` 时订单服务推进通信并消费其投递事件。
@@ -55,6 +57,11 @@ GameSession
   entity_id/batch）；其次 world 同名实体（id/batch/name/kind/side）；不硬编码具体舰名；
   两者都缺失时保持空并在 session warnings 记一次（route 返回 `missing_meta/bound/world_bound`）。
   绑定后的 track 具备 entity_id/batch（`track_table.vm().tracks` 可直接给 UI 使用）。
+- **IdentificationService（3R）**：证据融合/识别自动化；`identity_assessment`（L1–L4、
+  confidence、sources、contradictions、spoof_suspicion、age）；自动分类最高 suspect/L3，
+  hostile 需人工/授权，L4 需人工/授权或至少两类独立高置信证据；只输出
+  `identity.<kind>` 事件，不写 world/TrackTable；自动询问只产生 query_request，
+  由 session 经 TransponderService 执行（不发射武器）。
 - **TransponderService（3P）**：应答机行为层（ship 绑 entity，station/port/fuel/tank/otc/relay
   绑 FacilityRegistry）；询问/广播输出 `track_evidence.v1`（→TrackTable 白名单）与
   `transponder_event.v1`（→bus `transponder.<kind>`）；不写 world；触发只输出 trigger_id/event，
@@ -94,8 +101,10 @@ config 可覆盖字段（省略用 demo）：
 | `damage_service` | **可选**：`true` 或 DamageService 配置（`content_path`(damage_l1)/`ships[]`/`default_ship`）；缺省/`false` → 不组合 |
 | `physics_world` | **可选**：`true` 或 PhysicsWorld 配置（`step_s`≤60/`sun`/`ephemeris_path`/`entities[]`/`auto_seed`）；缺省/`false` → 不组合；启用时 seed 实体自动灌入（auto_seed=false 可关） |
 | `signal_service` | **可选**：`true` 或 SignalService 配置（`observer`/`targets`/`stations`/`elint`/`codes_path`/`light_codes`/`emitters[]`/`month`/`time`）；缺省/`false` → 不组合；启用时 ELINT/灯语可用 |
+| `ew_service` | **可选**：`true` 或 EWService 配置（`observer`/`targets`/`emcon`）；缺省/`false` → 不组合；启用时 tick/事件 bus/效果接口/存档可用 |
 | `facility_registry` | **可选**：`true`（默认设施内容）或 `{content_path/content}`；缺省/`false` → 不组合；只读注册表 |
 | `transponder_service` | **可选**：`true`（默认序章内容）或配置 `{content_path/content/max_range_km/max_latency_s/jam}`；缺省/`false` → 不组合；station 绑定自动注入 FacilityRegistry |
+| `identification_service` | **可选**：`true` 或配置 `{auto{enabled,interval_s,modes,max_range_km,...}/evidence_ttl_s/decay_half_life_s}`；缺省/`false` → 不组合 |
 
 - boot 建 5 个必需组件 + 可选 TrackTable/StoryState；任一启用组件 `ready=false` → `ok=false` + errors，不伪造。
 - TrackTable 默认 writer = `<session writer>_fusion`；StoryState 时间在 boot 时对齐 session 时间。
@@ -137,7 +146,12 @@ config 可覆盖字段（省略用 demo）：
 | `transponder_interrogate/transponder_broadcast/transponder_passive_listen/transponder_lookup_code` | 应答机询问/广播/被动监听/注册码查询；evidence→TrackTable、事件→bus |
 | `transponder_set_status/transponder_set_crypto/transponder_set_jam/transponder_set_occlusion` | 应答机状态/加密/干扰/遮挡（失败不改状态） |
 | `transponder_upsert_profile/transponder_remove_profile/transponder_profile/transponder_vm/transponder_summary/transponder_trigger_ids` | profile 管理/只读 VM/摘要/触发 ID |
+| `identification_ingest/identification_step/identification_assess/identification_get/identification_auto_tick` | 身份证据融合/推进/评估/只读/自动询问（auto_tick 经 transponder 执行请求并回灌） |
+| `identification_set_auto/identification_manual_confirm/identification_authorize_hostile/identification_clear_manual` | 自动策略/人工确认/授权 hostile/清除人工 |
+| `identification_set_target_state/identification_vm/identification_summary/identification_take_query_requests` | 询问条件/只读 VM/摘要/取 query_request |
 | `light_send/light_receive/light_ack/signal_vm/signal_summary/signal_flush_events` | 可见光灯语发送/接收/确认、只读 VM/摘要、显式拉取 Signal outbox |
+| `apply_ew/ew_observation_effect/ew_comms_effect/ew_transponder_effect/ew_active/ew_vm` | EW 效果应用/观测-通信-应答机影响/活动效果/只读 VM；apply 记录 log 可 replay |
+| `set_ew_emcon` | EW EMCON 开关（独立于 sensor `set_emcon`；只写 EWService） |
 | `order(id)` / `comms_pending()` | 只读查询 |
 | `snapshot()` / `to_dict()` / `to_json()` | 只读快照（time/world/orders/comms/bus 最近 32 事件/track/story/contracts/errors） |
 | `save_state() -> String` / `load_state(json) -> Dictionary` | **内存 JSON**：seed + 操作日志重放 + track/story/bus 快照 |
@@ -155,6 +169,7 @@ config 可覆盖字段（省略用 demo）：
 7. `signal_service.step(sim_dt)`（ELINT/灯语超时）；outbox 白名单：
    observation/evidence→（补 entity_id/batch 绑定后）TrackTable（不重复建 track）、
    light_*→`light_signal.*` bus；
+8. `ew_service.step(sim_dt)`（效果过期/衰减）；EW 事件 → `ew.<kind>` bus；不写 world/TrackTable；
 8. `port_service.tick(sim_dt)` / `combat_service.tick(sim_dt)`；各自 outbox 事件 → `port.*`/`combat.*`
    发布到 EventBus（tick 自动 flush；也可 `flush_events()` 显式拉取）；
 9. combat `combat_damage_event` 白名单 → DamageService（applied=true）；`damage_service.tick(sim_dt)`
@@ -216,6 +231,9 @@ config 可覆盖字段（省略用 demo）：
 - **Transponder 一致**：`transponder_service.t == now_s()`、ready、contracts ok；evidence 只走
   TrackTable 白名单、事件只走 bus；不写 world；captured/spoofed 不改 identity 为 hostile；
   触发只输出 trigger_id/event，不写剧情文本。
+- **Identification 一致**：`identification_service.t == now_s()`、ready、contracts ok；
+  自动身份永不 hostile；hostile 必须 authorized；L4 需 manual/授权或两类独立高置信证据；
+  自动询问只经 transponder 执行、不发射武器；不写 world/TrackTable。
 - tick 失败/拒绝路径不静默：返回 `ok=false` + `errors/contract_errors`；失败订单不伪造状态。
 
 ## 5　内存 save/load（不写盘）
@@ -235,8 +253,10 @@ config 可覆盖字段（省略用 demo）：
   damage_service: <DamageService.save_state() JSON> | "",
   physics_world: <PhysicsWorld.save_state() JSON> | "",
   signal_service: <SignalService.save_state() JSON> | "",
+ew_service: <EWService.save_state() JSON> | "",
   facility_registry: <FacilityRegistry.to_dict()> | null,
   transponder_service: <TransponderService.save_state() JSON> | "",
+  identification_service: <IdentificationService.save_state() JSON> | "",
   bus: {seq, events[]}
 }
 ```
@@ -261,9 +281,15 @@ signal VM/snapshot 一致、t 同步、TrackTable/bus 历史一致、可继续 i
 load boot(seed) 重建 + 快照恢复（校验后应用）；load 后 facility_vm/summary 一致、contracts ok、
 不再写 world；旧存档缺 `facility_registry` 字段/seed 配置 → 组件退化。
 
+**EW 存档**：save 嵌入 EWService 快照（effects/events/emcon/t/seq）；load boot+log 重放后恢复，load 后 ew VM/snapshot 一致、可继续 tick/效果查询；旧存档缺 `ew_service` 字段/seed 配置 → 组件退化、EW replay 跳过（skipped:no_ew_service）。`apply_ew`/`ew_emcon` 记录操作日志。
+
 **Transponder 存档**：save 嵌入 TransponderService 快照（profiles 运行时状态/events/evidence/
 triggers/jam/occlusion）；load 校验 profile 后恢复；load 后 transponder_vm/snapshot 一致、
 t 同步、可继续询问/广播；旧存档缺字段/seed 配置 → 组件退化。
+
+**Identification 存档**：save 嵌入 IdentificationService 快照（evidence/assessments/
+target_states/auto/query_requests/events）；load 校验后恢复；load 后 identification_vm/
+snapshot 一致、t 同步、可继续 assess/auto/manual；旧存档缺字段/seed 配置 → 组件退化。
 
 **Port/Combat 存档**：save 嵌入二者 `save_state()` JSON；load 时先 boot(seed) 重建并按 log 重放
 （port/combat 委托操作 + tick），再恢复快照；load 后 VM/snapshot 一致、时间与 session 同步、
@@ -289,10 +315,10 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=979 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=1001 FAIL=0（exit 0，只跑一次）
 ```
 
-覆盖（34 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
+覆盖（35 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
 （ISSUED→…→DONE、事件类型、delivery_id、订单-通信一致、终态拒绝）；通信/链路；失败/过期/
 撤销/拒绝；暂停/时标/时间单调；bus-world 分离与单写者；save/load snapshot 一致+二次 save；
 错误路径；JSON/确定性；**可选组件**（无配置/false 退化、true 启用、退化 save/load）；
@@ -312,7 +338,7 @@ tow/shuttle、port.* 事件进 bus、tick 不自动、失败不改状态）；**
 solution/READY/grant/check/confirmed fire/冷却拒绝/未知目标/友方拒绝/非法 ROE、combat.* 事件）；
 **Port/Combat 存档**（save 嵌入两快照、load 后 VM/snapshot 一致、继续操作、旧档兼容、同操作确定性）；
 **Damage 集成**（可选退化、直接伤害/维修/tick、damage.* 事件、combat incoming damage 白名单路由、
-shot_id 去重、失败不改状态）；**Damage 存档**（save 嵌入 damage 快照、load VM/snapshot 一致、
+shot_id 去重、失败不改状态）；**EW 集成**（可选退化、apply/tick/bus、observation/comms/transponder 接口、EMCON、save/load）；**Damage 存档**（save 嵌入 damage 快照、load VM/snapshot 一致、
 继续维修/tick、旧档兼容、同操作确定性）。
 
 ## 7　边界 / 未完成
@@ -321,6 +347,7 @@ shot_id 去重、失败不改状态）；**Damage 存档**（save 嵌入 damage 
 - TrackTable/StoryState/SensorService/PortService/CombatService/DamageService/PhysicsWorld/SignalService 为**可选组合**；未配置时相关 API 返回空/`no_*`，session 退化运行。
 - PhysicsWorld 启用时是实体位置唯一权威；world 位置只在显式 sync 后更新（单写者仍是 session），
   tick 不自动同步；无 physics 时 `position_of` 退回 world 只读。
+- EWService 只输出效果/接口/事件；不写 world/TrackTable/transponder/UI；EMCON 只作用于 EWService，不直接关外部传感器；假目标只给候选；通信 spoof 不自动执行。
 - SignalService 只输出 ELINT observation/evidence 与灯语事件；session 按白名单路由，不写
   world/UI/V15；ELINT 不判敌/不产生 contact；灯语只是可见光事件流。
 - Signal 目标→实体绑定只读 `target_meta`/world 既有字段；不硬编码舰名、不凭空发明
@@ -331,6 +358,9 @@ shot_id 去重、失败不改状态）；**Damage 存档**（save 嵌入 damage 
   `ports[]` 只是数据绑定（port_id 供上层引用）；月同步站名 TBD 提案、物理参数原型占位。
 - TransponderService 是行为/证据/触发层：不写 world/TrackTable/UI、不模拟真实 SSR/IFF 波形/
   Mode 5 密码学；不决定敌我；触发只输出 ID/event/reason 供 StoryRuntime 消费。
+- IdentificationService 只做证据融合/识别建议：自动最高 suspect/L3，hostile 需授权，
+  L4 需人工/授权或两类独立高置信证据；自动询问不发射武器；不写 world/TrackTable/UI；
+  confidence/阈值是可调游戏参数，不复刻真实 IFF 概率模型。
 - DamageService 只做多舰损管组合/事件/存档；combat 命中概率由 CombatService 决定，damage event
   经白名单应用；damage 不直接写 world/V15/UI。
 - PortService/CombatService 只输出状态/事件；session 不自动许可/对接/服务/开火；FIRE 永不自动，

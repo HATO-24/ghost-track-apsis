@@ -55,6 +55,7 @@ func _initialize() -> void:
 	_test_signal_dynamic_targets()
 	_test_facility_registry()
 	_test_transponder_integration()
+	_test_ew_integration()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -2627,3 +2628,220 @@ func _test_transponder_integration() -> void:
 	_ok(a.save_state() == b.save_state(), "transponder 同操作 save 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "transponder contracts ok 2")
 	_data_line("transponder", "询问/广播/lookup/状态/加密/干扰/遮挡/trigger · evidence→TrackTable L4 · bus · 存档/旧档/确定性")
+
+# ── EWService 可选接入 ─────────────────────────────────────────
+
+func _test_ew_integration() -> void:
+	_section_begin("ew")
+	var off = GameSession.new({})
+	_ok(off.ew_service == null, "未配置 ew 退化")
+	_ok(not bool(off.apply_ew({"effect": "noise_jam", "source_id": "x"}).get("ok", true)),
+		"未配置 apply_ew false")
+	var cfg := {"ew_service": {"observer": {"id": "own"},
+		"targets": [{"id": "T1", "pos_km": [100.0, 0.0, 0.0]}]}}
+	var s = GameSession.new(cfg)
+	_ok(bool(s.ready), "ew session ready", str(s.errors))
+	_ok(s.ew_service != null and bool(s.ew_service.ready), "ew_service ready")
+	_ok(s.snapshot().get("ew") is Dictionary, "snapshot ew")
+	var ap: Dictionary = s.apply_ew({"effect": "noise_jam", "source_id": "jammer",
+		"target_id": "T1", "severity": 0.8, "duration_s": 20.0})
+	_ok(bool(ap.get("ok", false)), "session apply_ew")
+	_ok((s.ew_active("T1") as Array).size() >= 1, "ew_active")
+	_ok(float(s.ew_observation_effect("T1").get("confidence_mult", 1.0)) < 1.0,
+		"ew observation effect")
+	var tk: Dictionary = s.tick(2.0)
+	_ok(bool(tk.get("ok", false)), "ew session tick")
+	_ok(bool((tk.get("components", {}) as Dictionary).get("ew", false)), "components ew")
+	var ew_step: Dictionary = tk.get("ew_step", {}) if tk.get("ew_step") is Dictionary else {}
+	_ok(bool(ew_step.get("enabled", false)), "ew_step enabled")
+	_ok(int(ew_step.get("events", 0)) >= 1, "ew_step events")
+	var bus_ok := false
+	for raw in (s.snapshot().get("events", []) as Array):
+		if raw is Dictionary and String((raw as Dictionary).get("type", "")).begins_with("ew."):
+			bus_ok = true
+	_ok(bus_ok, "EW 事件 bus")
+	_ok(bool(s.set_ew_emcon(true).get("ok", false)), "session ew emcon")
+	_ok(bool(s.ew_service.emcon_active), "ew emcon active")
+	_ok(bool(s.ew_comms_effect("T1").has("ok")), "session comms effect")
+	_ok(bool(s.ew_transponder_effect("T1").has("ok")), "session transponder effect")
+	var txt: String = s.save_state()
+	_ok(txt.length() > 100 and (JSON.parse_string(txt) as Dictionary).has("ew_service"),
+		"save 含 ew_service")
+	var s2 = GameSession.new(cfg)
+	var lr: Dictionary = s2.load_state(txt)
+	_ok(bool(lr.get("ok", false)), "load ew session", str(lr.get("errors", [])))
+	_ok(s2.ew_service != null, "load ew service")
+	_ok(_norm_json(s.snapshot().get("ew")) == _norm_json(s2.snapshot().get("ew")),
+		"load ew snapshot 一致")
+	_ok((s2.ew_active("T1") as Array).size() >= 1, "load ew active")
+	_data_line("ew", "可选退化 · apply/tick/bus · observation/comms/transponder 接口 · EMCON · 存档")
+
+# ═══════════════════════════════════════════════════════════════════
+# 35. IdentificationService 集成（识别自动化/证据融合）
+# ═══════════════════════════════════════════════════════════════════
+
+func _identification_cfg() -> Dictionary:
+	return {"facility_registry": true, "transponder_service": true,
+		"identification_service": {"auto": {"enabled": true, "interval_s": 2.0,
+			"modes": ["mode_s"], "max_range_km": 5000.0,
+			"max_requests_per_tick": 2}}}
+
+func _test_identification_integration() -> void:
+	_section_begin("35 Identification 集成")
+	# 可选退化
+	var plain = _new_session()
+	_ok(plain.identification_service == null, "默认无 identification_service")
+	_eq(plain.identification_vm().size(), 0, "无 identification VM 空")
+	_eq(plain.identification_summary().size(), 0, "无 identification summary 空")
+	_eq(plain.identification_get("x").size(), 0, "无 identification get 空")
+	_eq(String(plain.identification_ingest({}).get("reason", "")),
+		"no_identification_service", "无 identification ingest 拒绝")
+	_eq(String(plain.identification_assess("x").get("reason", "")),
+		"no_identification_service", "无 identification assess 拒绝")
+	_eq(String(plain.identification_auto_tick(1.0).get("reason", "")),
+		"no_identification_service", "无 identification auto 拒绝")
+	_eq(String(plain.identification_set_auto(true).get("reason", "")),
+		"no_identification_service", "无 identification set_auto 拒绝")
+	_eq(String(plain.identification_manual_confirm("x", "friend").get("reason", "")),
+		"no_identification_service", "无 identification manual 拒绝")
+	_eq(String(plain.identification_authorize_hostile("x").get("reason", "")),
+		"no_identification_service", "无 identification authorize 拒绝")
+	_eq((plain.identification_take_query_requests() as Array).size(), 0,
+		"无 identification query_requests 空")
+	# 启用
+	var s = GameSession.new(_identification_cfg())
+	_ok(bool(s.ready), "identification session ready", str(s.errors))
+	_ok(s.identification_service != null, "identification 启用")
+	_eq(String(s.identification_vm().get("schema", "")), "v17.identification_service.v1",
+		"identification vm schema")
+	_eq(int(s.identification_summary().get("targets", 0)), 0, "identification 初始 0")
+	_near(float(s.identification_service.t), s.now_s(), 1.0e-6, "identification boot 时间同步")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "identification boot contracts ok")
+	_ok(bool((s.tick(0.0).get("components", {}) as Dictionary).get("identification", false)),
+		"tick components.identification")
+	# 证据融合
+	var r: Dictionary = s.identification_ingest({"target_id": "apsis",
+		"source": "transponder", "identity": "friend", "confidence": 0.9,
+		"mode": "mode_s", "t": 0.0})
+	_eq(bool(r.get("ok", false)), true, "identification ingest ok")
+	_eq(String(r.get("assessment", {}).get("identity", "")), "friend",
+		"identification friend")
+	_eq(int(r.get("assessment", {}).get("level", 0)), 3, "identification 单源 L3")
+	_ok("apsis" in s.transponder_service.profile_ids(), "transponder profile apsis")
+	# 双源 L4
+	var r2: Dictionary = s.identification_ingest({"target_id": "apsis",
+		"source": "optical", "identity": "friend", "confidence": 0.85,
+		"category": "sensor", "t": 0.0})
+	_eq(int(r2.get("assessment", {}).get("level", 0)), 4, "identification 双源 L4")
+	_eq(String(s.identification_get("apsis").get("identity", "")), "friend",
+		"identification get")
+	var ass: Dictionary = s.identification_assess("apsis")
+	_eq(bool(ass.get("ok", false)), true, "identification assess ok")
+	# 矛盾/欺骗
+	s.identification_ingest({"target_id": "C1", "source": "transponder",
+		"identity": "friend", "confidence": 0.9})
+	s.identification_ingest({"target_id": "C1", "source": "optical",
+		"identity": "hostile", "confidence": 0.9, "category": "sensor"})
+	var ac: Dictionary = s.identification_get("C1")
+	_eq(String(ac.get("identity", "")), "suspect", "identification 冲突 suspect")
+	_ok((ac.get("contradictions", []) as Array).size() > 0, "identification contradictions")
+	_ok(int(ac.get("level", 4)) <= 3, "identification 冲突 <=L3")
+	var sp: Dictionary = s.identification_ingest({"target_id": "S1",
+		"source": "transponder", "identity": "friend", "confidence": 0.9,
+		"spoofed": true, "status": "captured"})
+	_ok(float(sp.get("assessment", {}).get("spoof_suspicion", 0.0)) >= 0.5,
+		"identification spoof_suspicion")
+	# 人工确认/授权
+	var mc: Dictionary = s.identification_manual_confirm("M1", "friend",
+		{"authority": "captain"})
+	_eq(bool(mc.get("ok", false)), true, "identification manual ok")
+	_eq(int(mc.get("assessment", {}).get("level", 0)), 4, "identification manual L4")
+	var ah: Dictionary = s.identification_authorize_hostile("M2", "weapons")
+	_eq(String(ah.get("assessment", {}).get("identity", "")), "hostile",
+		"identification authorize hostile")
+	_eq(bool(ah.get("assessment", {}).get("authorized", false)), true,
+		"identification authorized")
+	_eq(int(ah.get("assessment", {}).get("level", 0)), 4, "identification hostile L4")
+	_eq(bool(s.identification_clear_manual("M1").get("ok", false)), true,
+		"identification clear_manual")
+	# 自动询问（transponder 执行）
+	s.identification_set_target_state("apsis", {"range_km": 100.0,
+		"los": true, "emcon": false})
+	var ev_before := int(s.identification_get("apsis").get("evidence_count", 0))
+	var at: Dictionary = s.identification_auto_tick(3.0)
+	_eq(bool(at.get("ok", false)), true, "identification auto_tick ok")
+	_ok((at.get("requests", []) as Array).size() >= 1, "identification auto requests")
+	_ok((at.get("executed", []) as Array).size() >= 1, "identification auto executed")
+	var ev_after := int(s.identification_get("apsis").get("evidence_count", 0))
+	_ok(ev_after > ev_before, "identification auto 回灌证据", "%d->%d" % [ev_before, ev_after])
+	var reqs: Array = s.identification_take_query_requests()
+	_ok(reqs is Array, "identification query_requests 数组")
+	# tick 自动推进
+	var t0 := float(s.identification_service.t)
+	var tick_res: Dictionary = s.tick(3.0)
+	_eq(bool(tick_res.get("ok", false)), true, "identification tick ok")
+	_ok(bool((tick_res.get("identification_tick", {}) as Dictionary).get("enabled", false)),
+		"identification_tick enabled")
+	_near(float(s.identification_service.t), s.now_s(), 1.0e-6, "identification t 同步")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "identification tick contracts ok")
+	# 事件 bus
+	var bus_types: Array = []
+	for raw in s.bus.recent(300):
+		bus_types.append(String((raw as Dictionary).get("type", "")))
+	_ok("identification.assessment" in bus_types, "bus identification.assessment")
+	_ok("identification.evidence_ingested" in bus_types, "bus identification.evidence_ingested")
+	_ok("identification.query_request" in bus_types, "bus identification.query_request")
+	_ok("identification.manual_confirm" in bus_types, "bus identification.manual_confirm")
+	# 不改 world
+	_eq(JSON.stringify((s.world.entity("apsis") as Dictionary).get("pos_km", [])),
+		"[0.0,0.0,0.0]", "identification 不改实体位置")
+	# 失败不改状态
+	var before_core := _norm_json(s.identification_vm())
+	_ok(not bool(s.identification_ingest({"target_id": "X", "source": "sensor",
+		"identity": "bogus"}).get("ok", true)), "identification 非法证据拒绝")
+	_eq(bool(s.identification_manual_confirm("X", "bogus").get("ok", true)), false,
+		"identification 非法 manual 拒绝")
+	_ok(_norm_json(s.identification_vm()) != "", "identification VM 可用")
+	# 存档/load
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary and (d as Dictionary).has("identification_service"),
+		"save 含 identification_service")
+	var seed: Dictionary = (d as Dictionary).get("seed", {})
+	_ok(seed.has("identification_service"), "seed 含 identification_service")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "identification load ok", str(lr.get("errors", [])))
+	_ok(s2.identification_service != null, "load 重建 identification")
+	_ok(_norm_json(s.identification_vm()) == _norm_json(s2.identification_vm()),
+		"load 后 identification_vm 一致")
+	_ok(_norm_json(s.snapshot()) == _norm_json(s2.snapshot()), "load 后 snapshot 一致")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load 后 contracts ok")
+	_ok(bool(s2.identification_assess("apsis").get("ok", false)), "load 后 assess")
+	# 旧存档兼容
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("identification_service")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("identification_service")
+	old["seed"] = old_seed
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 identification 兼容", str(lr3.get("errors", [])))
+	_ok(s3.identification_service == null, "旧存档 load 后 identification 退化")
+	# 确定性
+	var a = GameSession.new(_identification_cfg())
+	var b = GameSession.new(_identification_cfg())
+	for sv in [a, b]:
+		sv.identification_ingest({"target_id": "apsis", "source": "transponder",
+			"identity": "friend", "confidence": 0.9, "t": 0.0})
+		sv.identification_ingest({"target_id": "apsis", "source": "optical",
+			"identity": "friend", "confidence": 0.8, "category": "sensor", "t": 0.0})
+		sv.identification_authorize_hostile("M2", "weapons")
+		sv.identification_set_target_state("apsis", {"range_km": 100.0,
+			"los": true, "emcon": false})
+		sv.identification_auto_tick(2.0)
+	_ok(_norm_json(a.identification_vm()) == _norm_json(b.identification_vm()),
+		"identification 同操作 VM 一致")
+	_ok(a.save_state() == b.save_state(), "identification 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "identification contracts ok 2")
+	_data_line("identification", "融合/冲突/欺骗/人工/授权 · 自动询问经 transponder 回灌 · bus · 存档/旧档/确定性")

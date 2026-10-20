@@ -25,8 +25,10 @@ const CombatServiceScript := preload("res://scripts/core/combat_service.gd")
 const DamageServiceScript := preload("res://scripts/core/damage_service.gd")
 const PhysicsWorldScript := preload("res://scripts/core/physics_world.gd")
 const SignalServiceScript := preload("res://scripts/core/signal_service.gd")
+const EWServiceScript := preload("res://scripts/core/ew_service.gd")
 const FacilityRegistryScript := preload("res://scripts/core/facility_registry.gd")
 const TransponderServiceScript := preload("res://scripts/core/transponder_service.gd")
+const IdentificationServiceScript := preload("res://scripts/core/identification_service.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -55,8 +57,10 @@ var combat_service = null
 var damage_service = null
 var physics_world_service = null
 var signal_service = null
+var ew_service = null
 var facility_registry = null
 var transponder_service = null
+var identification_service = null
 
 var _track_enabled := false
 var _sensor_enabled := false
@@ -65,8 +69,10 @@ var _combat_enabled := false
 var _damage_enabled := false
 var _physics_enabled := false
 var _signal_enabled := false
+var _ew_enabled := false
 var _facility_enabled := false
 var _transponder_enabled := false
+var _identification_enabled := false
 var _last_signal_route: Dictionary = {}
 var _signal_missing_meta_warned: Dictionary = {}
 var _damage_applied_shots: Dictionary = {}
@@ -126,7 +132,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "facility_registry", "transponder_service"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -151,8 +157,10 @@ func boot(config := {}) -> Dictionary:
 	damage_service = null
 	physics_world_service = null
 	signal_service = null
+	ew_service = null
 	facility_registry = null
 	transponder_service = null
+	identification_service = null
 	_last_signal_route = {}
 	_signal_missing_meta_warned = {}
 	_damage_applied_shots = {}
@@ -205,9 +213,13 @@ func boot(config := {}) -> Dictionary:
 		extra_ok = false
 	if _signal_enabled and signal_service != null and not bool(signal_service.ready):
 		extra_ok = false
+	if _ew_enabled and ew_service != null and not bool(ew_service.ready):
+		extra_ok = false
 	if _facility_enabled and facility_registry != null and not bool(facility_registry.ready):
 		extra_ok = false
 	if _transponder_enabled and transponder_service != null and not bool(transponder_service.ready):
+		extra_ok = false
+	if _identification_enabled and identification_service != null and not bool(identification_service.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -266,8 +278,12 @@ func boot(config := {}) -> Dictionary:
 		physics_world_service.set_time(now_s()) if now_s() > 0.0 else null
 	if signal_service != null:
 		signal_service.t = now_s()
+	if ew_service != null:
+		ew_service.t = now_s()
 	if transponder_service != null:
 		transponder_service.set_time(now_s())
+	if identification_service != null:
+		identification_service.set_time(now_s())
 	_damage_applied_shots = {}
 	_last_bus_routed_index = bus.count()
 	_flush_component_events()
@@ -388,6 +404,15 @@ func _setup_optional_components() -> void:
 					meta_cur["batch"] = b_new
 				if not meta_cur.is_empty():
 					_sensor_target_meta[sid] = meta_cur
+	var ew = _seed.get("ew_service", null)
+	var ew_on := (ew is Dictionary) or (ew is bool and bool(ew))
+	if ew_on:
+		var ewcfg: Dictionary = {} if (ew is bool) else (ew as Dictionary).duplicate(true)
+		ew_service = EWServiceScript.new(ewcfg)
+		if not bool(ew_service.ready):
+			errors.append("ew_service 未就绪：" + str(ew_service.errors))
+		else:
+			_ew_enabled = true
 	var fac = _seed.get("facility_registry", null)
 	var fac_on := (fac is Dictionary) or (fac is bool and bool(fac))
 	if fac_on:
@@ -408,6 +433,15 @@ func _setup_optional_components() -> void:
 			errors.append("transponder_service 未就绪：" + str(transponder_service.errors))
 		else:
 			_transponder_enabled = true
+	var idf = _seed.get("identification_service", null)
+	var idf_on := (idf is Dictionary) or (idf is bool and bool(idf))
+	if idf_on:
+		var icfg: Dictionary = {} if (idf is bool) else (idf as Dictionary).duplicate(true)
+		identification_service = IdentificationServiceScript.new(icfg)
+		if not bool(identification_service.ready):
+			errors.append("identification_service 未就绪：" + str(identification_service.errors))
+		else:
+			_identification_enabled = true
 	var pw = _seed.get("physics_world", null)
 	var pw_on := (pw is Dictionary) or (pw is bool and bool(pw))
 	if pw_on:
@@ -599,11 +633,13 @@ func tick(dt: float) -> Dictionary:
 	_advance_components(sim_dt)
 	var sensor_route: Dictionary = _advance_sensors(sim_dt)
 	var signal_step: Dictionary = _advance_signal(sim_dt)
+	var ew_step: Dictionary = _advance_ew(sim_dt)
 	var port_combat: Dictionary = _advance_port_combat(sim_dt)
 	_flush_component_events()
 	var signal_route: Dictionary = _last_signal_route.duplicate(true)
 	var damage_tick: Dictionary = _advance_damage(sim_dt)
 	var transponder_tick: Dictionary = _advance_transponder(sim_dt)
+	var identification_tick: Dictionary = _advance_identification(sim_dt)
 	_flush_component_events()
 	var routed: Array = _route_pending_bus_events()
 	_reconcile_standalone(pending_before)
@@ -623,16 +659,20 @@ func tick(dt: float) -> Dictionary:
 			"sensor": sensor_service != null,
 			"physics": physics_world_service != null,
 			"signal": signal_service != null,
+			"ew": ew_service != null,
 			"facility": facility_registry != null,
 			"transponder": transponder_service != null,
+			"identification": identification_service != null,
 		},
 		"sensor_route": sensor_route,
 		"port_combat": port_combat,
 		"damage_tick": damage_tick,
 		"physics_tick": physics_tick,
 		"signal_step": signal_step,
+		"ew_step": ew_step,
 		"signal_route": signal_route,
 		"transponder_tick": transponder_tick,
+		"identification_tick": identification_tick,
 		"contracts": contracts}
 
 func _check_post() -> void:
@@ -739,6 +779,24 @@ func _advance_signal(sim_dt: float) -> Dictionary:
 	return {"enabled": true, "t": float(signal_service.t),
 		"step_count": int(signal_service.step_count)}
 
+## tick 驱动 EWService：效果过期/衰减 + 事件发布到 bus；不写 world/TrackTable/UI。
+func _advance_ew(sim_dt: float) -> Dictionary:
+	if ew_service == null:
+		return {"enabled": false}
+	var r: Dictionary = ew_service.step(sim_dt)
+	var n := 0
+	for raw in ew_service.take_events():
+		if not (raw is Dictionary):
+			continue
+		var ev: Dictionary = raw
+		var payload: Dictionary = ev.get("payload", {}) if ev.get("payload") is Dictionary else {}
+		_publish({"type": "ew." + String(ev.get("kind", "event")), "t": now_s(),
+			"source": "ew_service", "target": String(ev.get("target_id", "")),
+			"payload": payload.duplicate(true), "text_key": ""})
+		n += 1
+	return {"enabled": true, "ok": bool(r.get("ok", true)), "events": n,
+		"active": int((r.get("counts", {}) as Dictionary).get("active", 0)),
+		"emcon": bool(ew_service.emcon_active), "t": float(ew_service.t)}
 ## 白名单路由 SignalService outbox：observation/evidence → TrackTable（共享 target→track 映射，
 ## 不重复建 track）；light_* → EventBus（light_signal.*）；不写 world/UI。
 ## Signal target → entity 绑定：优先 _sensor_target_meta[target_id] 的 entity_id/batch；
@@ -950,6 +1008,9 @@ func _flush_component_events() -> void:
 	if transponder_service != null:
 		var tres: Dictionary = _flush_transponder_outputs()
 		n += int(tres.get("events", 0))
+	if identification_service != null:
+		var ires: Dictionary = _flush_identification_outputs()
+		n += int(ires.get("events", 0))
 	if n > 0:
 		_last_bus_routed_index = bus.events.size()
 
@@ -1068,6 +1129,95 @@ func _flush_transponder_outputs(extra_events := [], extra_evidence := []) -> Dic
 			"payload": {"event_id": str(tev.get("event_id", "")),
 				"kind": str(tev.get("kind", "")),
 				"trigger_id": str(tev.get("trigger_id", "")),
+				"data": payload.duplicate(true)},
+			"text_key": ""})
+		out["events"] = int(out["events"]) + 1
+	return out
+
+## tick 推进识别：auto 开启时产生 query_request 并由 transponder 执行；否则仅 step。
+func _advance_identification(sim_dt: float) -> Dictionary:
+	if identification_service == null:
+		return {"enabled": false}
+	var auto_enabled := bool(identification_service.cfg_auto.get("enabled", false))
+	var res: Dictionary = {}
+	if auto_enabled:
+		res = identification_service.auto_query_tick(sim_dt)
+	else:
+		res = identification_service.step(sim_dt)
+	var executed: Array = []
+	var requests: Array = res.get("requests", []) if res.get("requests") is Array else []
+	if auto_enabled and transponder_service != null:
+		for raw in requests:
+			if raw is Dictionary:
+				var ex: Dictionary = _execute_identification_query(raw as Dictionary)
+				if bool(ex.get("ok", false)):
+					executed.append(ex)
+	_flush_identification_outputs()
+	return {"enabled": true, "t": float(identification_service.t),
+		"auto": auto_enabled, "requests": requests.size(),
+		"executed": executed.size(), "targets": identification_service.assessments.size()}
+
+## 自动询问执行：transponder 询问 → 把 reply 作为证据回灌识别；不写 world。
+func _execute_identification_query(req: Dictionary) -> Dictionary:
+	var target := String(req.get("target_id", ""))
+	if target == "" or transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service"}
+	var prof_id := _transponder_profile_id_for(target)
+	if prof_id == "":
+		return {"ok": false, "reason": "no_transponder_profile", "target_id": target}
+	var state: Dictionary = req.get("state", {}) if req.get("state") is Dictionary else {}
+	var opts := {"range_km": float(state.get("range_km", 0.0)),
+		"occluded": false, "jam": 0.0, "latency_s": 0.0}
+	var r: Dictionary = transponder_service.interrogate(String(req.get("source_id", "identification")),
+		prof_id, String(req.get("mode", "")), opts)
+	_flush_transponder_outputs(r.get("events", []), r.get("evidence", []))
+	var reply = r.get("reply", null)
+	var ingest_ev: Dictionary = {"target_id": target, "source": "transponder",
+		"t": now_s(), "mode": String(req.get("mode", "")),
+		"range_km": float(state.get("range_km", 0.0)),
+		"los": bool(state.get("los", true)), "emcon": bool(state.get("emcon", false))}
+	if reply is Dictionary and bool((reply as Dictionary).get("ok", false)):
+		var rp: Dictionary = reply
+		ingest_ev["identity"] = String(rp.get("identity", "unknown"))
+		ingest_ev["confidence"] = clampf(float(rp.get("confidence", 0.5)), 0.0, 1.0)
+		ingest_ev["status"] = String(rp.get("status", ""))
+		ingest_ev["spoofed"] = bool(rp.get("spoofed", false))
+		ingest_ev["evidence_type"] = "transponder"
+	else:
+		ingest_ev["identity"] = "unknown"
+		ingest_ev["confidence"] = 0.2
+		ingest_ev["status"] = String(r.get("reason", "no_reply"))
+	var ir: Dictionary = identification_service.ingest(ingest_ev)
+	return {"ok": bool(ir.get("ok", false)), "target_id": target,
+		"profile_id": prof_id, "reply_status": String((reply as Dictionary).get("status", "")) if reply is Dictionary else "no_reply"}
+
+func _transponder_profile_id_for(target: String) -> String:
+	if transponder_service == null:
+		return ""
+	if not transponder_service.profile(target).is_empty():
+		return target
+	for pid in transponder_service.profile_ids():
+		var p: Dictionary = transponder_service.profile(String(pid))
+		if String(p.get("entity_id", "")) == target or String(p.get("facility_id", "")) == target:
+			return String(pid)
+	return ""
+
+## 识别事件 → EventBus（identification.<kind>）；不写 TrackTable/world。
+func _flush_identification_outputs() -> Dictionary:
+	if identification_service == null:
+		return {"enabled": false, "events": 0}
+	var out := {"enabled": true, "events": 0}
+	for raw in identification_service.take_events():
+		if not (raw is Dictionary):
+			continue
+		var ev: Dictionary = raw
+		var payload: Dictionary = ev.get("payload", {}) if ev.get("payload") is Dictionary else {}
+		var assessment: Dictionary = payload.get("assessment", {}) if payload.get("assessment") is Dictionary else {}
+		_publish({"type": "identification." + str(ev.get("kind", "event")),
+			"t": now_s(), "source": "identification_service",
+			"target": str(assessment.get("target_id", payload.get("target_id", ""))),
+			"payload": {"event_id": str(ev.get("event_id", "")),
+				"kind": str(ev.get("kind", "")),
 				"data": payload.duplicate(true)},
 			"text_key": ""})
 		out["events"] = int(out["events"]) + 1
@@ -1321,6 +1471,51 @@ func query_iff(target_id := "") -> Dictionary:
 	_record({"op": "query_iff", "target_id": String(res.get("target_id", target_id))})
 	return res
 
+# ── EWService 包装（可选；效果只读接口 + 显式 apply/emcon）──────
+
+func ew_vm() -> Dictionary:
+	return ew_service.vm() if ew_service != null else {}
+
+
+func apply_ew(effect: Dictionary) -> Dictionary:
+	if ew_service == null:
+		return {"ok": false, "reason": "no_ew_service"}
+	var res: Dictionary = ew_service.apply(effect)
+	if bool(res.get("ok", false)):
+		_record({"op": "apply_ew", "effect": effect.duplicate(true)})
+	return res
+
+
+func set_ew_emcon(on: bool) -> Dictionary:
+	if ew_service == null:
+		return {"ok": false, "reason": "no_ew_service"}
+	var res: Dictionary = ew_service.set_emcon(bool(on))
+	if bool(res.get("ok", false)):
+		_record({"op": "ew_emcon", "on": bool(on)})
+	return res
+
+
+## 显式效果查询（不写 world/TrackTable）：观测/通信/应答机。
+func ew_observation_effect(target_id := "", sensor_kind := "radar") -> Dictionary:
+	if ew_service == null:
+		return {"ok": false, "reason": "no_ew_service"}
+	return ew_service.observation_effect(target_id, sensor_kind)
+
+
+func ew_comms_effect(target_id := "") -> Dictionary:
+	if ew_service == null:
+		return {"ok": false, "reason": "no_ew_service"}
+	return ew_service.comms_effect(target_id)
+
+
+func ew_transponder_effect(target_id := "") -> Dictionary:
+	if ew_service == null:
+		return {"ok": false, "reason": "no_ew_service"}
+	return ew_service.transponder_effect(target_id)
+
+
+func ew_active(target_id := "", kind := "") -> Array:
+	return ew_service.active(target_id, kind) if ew_service != null else []
 # ── 订单包装 ────────────────────────────────────────────────────
 
 ## 创建并发出订单（依赖通信投递；失败/拒绝会体现在 order/status）。
@@ -2250,6 +2445,107 @@ func transponder_trigger_ids() -> Array:
 	if transponder_service == null:
 		return []
 	return transponder_service.trigger_ids()
+# ── IdentificationService 委托（识别自动化/证据融合；可选）──────
+
+func identification_ingest(evidence) -> Dictionary:
+	if identification_service == null:
+		return {"ok": false, "reason": "no_identification_service"}
+	var res: Dictionary = identification_service.ingest(evidence)
+	if bool(res.get("ok", false)) and not bool(res.get("duplicate", false)):
+		_record({"op": "identification_ingest", "evidence": evidence})
+		_flush_identification_outputs()
+	return res
+
+func identification_step(dt: float) -> Dictionary:
+	if identification_service == null:
+		return {"ok": false, "reason": "no_identification_service"}
+	var res: Dictionary = identification_service.step(dt)
+	_flush_identification_outputs()
+	return res
+
+func identification_assess(target_id: String) -> Dictionary:
+	if identification_service == null:
+		return {"ok": false, "reason": "no_identification_service"}
+	var res: Dictionary = identification_service.assess(target_id)
+	_flush_identification_outputs()
+	return res
+
+func identification_get(target_id: String) -> Dictionary:
+	if identification_service == null:
+		return {}
+	return identification_service.get_assessment(target_id)
+
+func identification_auto_tick(dt: float) -> Dictionary:
+	if identification_service == null:
+		return {"ok": false, "reason": "no_identification_service"}
+	var res: Dictionary = identification_service.auto_query_tick(dt)
+	var executed: Array = []
+	for raw in (res.get("requests", []) as Array):
+		if raw is Dictionary:
+			var ex: Dictionary = _execute_identification_query(raw as Dictionary)
+			if bool(ex.get("ok", false)):
+				executed.append(ex)
+	_flush_identification_outputs()
+	res["executed"] = executed
+	return res
+
+func identification_set_auto(enabled: bool, opts := {}) -> Dictionary:
+	if identification_service == null:
+		return {"ok": false, "reason": "no_identification_service"}
+	var res: Dictionary = identification_service.set_auto(enabled, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "identification_set_auto", "enabled": enabled, "opts": opts})
+	_flush_identification_outputs()
+	return res
+
+func identification_manual_confirm(target_id: String, identity: String, opts := {}) -> Dictionary:
+	if identification_service == null:
+		return {"ok": false, "reason": "no_identification_service"}
+	var res: Dictionary = identification_service.manual_confirm(target_id, identity, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "identification_manual_confirm", "target_id": target_id,
+			"identity": identity, "opts": opts})
+	_flush_identification_outputs()
+	return res
+
+func identification_authorize_hostile(target_id: String, authority := "command", opts := {}) -> Dictionary:
+	if identification_service == null:
+		return {"ok": false, "reason": "no_identification_service"}
+	var res: Dictionary = identification_service.authorize_hostile(target_id, authority, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "identification_authorize_hostile", "target_id": target_id,
+			"authority": authority, "opts": opts})
+	_flush_identification_outputs()
+	return res
+
+func identification_clear_manual(target_id: String) -> Dictionary:
+	if identification_service == null:
+		return {"ok": false, "reason": "no_identification_service"}
+	var res: Dictionary = identification_service.clear_manual(target_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "identification_clear_manual", "target_id": target_id})
+	_flush_identification_outputs()
+	return res
+
+func identification_set_target_state(target_id: String, state: Dictionary) -> Dictionary:
+	if identification_service == null:
+		return {"ok": false, "reason": "no_identification_service"}
+	return identification_service.set_target_state(target_id, state)
+
+func identification_vm() -> Dictionary:
+	if identification_service == null:
+		return {}
+	return identification_service.vm()
+
+func identification_summary() -> Dictionary:
+	if identification_service == null:
+		return {}
+	return identification_service.summary()
+
+func identification_take_query_requests() -> Array:
+	if identification_service == null:
+		return []
+	return identification_service.take_query_requests()
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -2341,6 +2637,14 @@ func check_contracts() -> Dictionary:
 				str(transponder_service.t), str(now_s())])
 		if not bool(transponder_service.check_contracts().get("ok", false)):
 			v.append("transponder 不变量失败")
+	if identification_service != null:
+		if not bool(identification_service.ready):
+			v.append("identification_service 未就绪")
+		if absf(float(identification_service.t) - now_s()) > 1.0e-6:
+			v.append("identification 时间与会话不一致：%s != %s" % [
+				str(identification_service.t), str(now_s())])
+		if not bool(identification_service.check_contracts().get("ok", false)):
+			v.append("identification 不变量失败")
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -2395,8 +2699,10 @@ func snapshot() -> Dictionary:
 		"damage": damage_service.vm() if damage_service != null else null,
 		"physics": physics_world_service.snapshot() if physics_world_service != null else null,
 		"signal": signal_service.vm() if signal_service != null else null,
+		"ew": ew_service.vm() if ew_service != null else null,
 		"facilities": facility_registry.summary() if facility_registry != null else null,
 		"transponder": transponder_service.vm() if transponder_service != null else null,
+		"identification": identification_service.vm() if identification_service != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -2430,8 +2736,10 @@ func save_state() -> String:
 		"damage_service": damage_service.save_state() if damage_service != null else "",
 		"physics_world": physics_world_service.save_state() if physics_world_service != null else "",
 		"signal_service": signal_service.save_state() if signal_service != null else "",
+		"ew_service": ew_service.save_state() if ew_service != null else "",
 		"facility_registry": facility_registry.to_dict() if facility_registry != null else null,
 		"transponder_service": transponder_service.save_state() if transponder_service != null else "",
+		"identification_service": identification_service.save_state() if identification_service != null else "",
 		"bus": {
 			"seq": bus.current_seq(),
 			"events": JSON.parse_string(JSON.stringify(bus.events)),
@@ -2532,6 +2840,14 @@ func load_state(json_text: String) -> Dictionary:
 			var sr: Dictionary = signal_service.load_state(saved_signal)
 			if not bool(sr.get("ok", false)):
 				replay_errors.append("signal_service 快照恢复失败：" + str(sr.get("errors", [])))
+	var saved_ew = data.get("ew_service", null)
+	if saved_ew != null and String(saved_ew) != "":
+		if ew_service == null:
+			replay_errors.append("存档含 ew_service 快照但 boot 未启用 ew_service")
+		else:
+			var ewr: Dictionary = ew_service.load_state(saved_ew)
+			if not bool(ewr.get("ok", false)):
+				replay_errors.append("ew_service 快照恢复失败：" + str(ewr.get("reason", "")))
 	var saved_fac = data.get("facility_registry", null)
 	if saved_fac != null:
 		if facility_registry == null:
@@ -2550,6 +2866,14 @@ func load_state(json_text: String) -> Dictionary:
 			var txr: Dictionary = transponder_service.load_state(saved_txp)
 			if not bool(txr.get("ok", false)):
 				replay_errors.append("transponder_service 快照恢复失败：" + str(txr.get("errors", [])))
+	var saved_idf = data.get("identification_service", null)
+	if saved_idf != null and String(saved_idf) != "":
+		if identification_service == null:
+			replay_errors.append("存档含 identification_service 快照但 boot 未启用 identification_service")
+		else:
+			var idr: Dictionary = identification_service.load_state(saved_idf)
+			if not bool(idr.get("ok", false)):
+				replay_errors.append("identification_service 快照恢复失败：" + str(idr.get("errors", [])))
 	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:
@@ -2575,6 +2899,14 @@ func load_state(json_text: String) -> Dictionary:
 func _replay_op(op: Dictionary) -> Dictionary:
 	var kind := String(op.get("op", ""))
 	match kind:
+		"apply_ew":
+			if ew_service == null:
+				return {"ok": true, "skipped": "no_ew_service"}
+			return ew_service.apply(op.get("effect", {}))
+		"ew_emcon":
+			if ew_service == null:
+				return {"ok": true, "skipped": "no_ew_service"}
+			return ew_service.set_emcon(bool(op.get("on", false)))
 		"tick":
 			return tick(float(op.get("dt", 0.0)))
 		"issue_order":
@@ -2827,6 +3159,32 @@ func _replay_op(op: Dictionary) -> Dictionary:
 			if transponder_service == null:
 				return {"ok": true, "skipped": "no_transponder_service"}
 			return transponder_remove_profile(str(op.get("profile_id", "")))
+		"identification_ingest":
+			if identification_service == null:
+				return {"ok": true, "skipped": "no_identification_service"}
+			return identification_ingest(op.get("evidence", {}))
+		"identification_step":
+			if identification_service == null:
+				return {"ok": true, "skipped": "no_identification_service"}
+			return identification_step(float(op.get("dt", 0.0)))
+		"identification_set_auto":
+			if identification_service == null:
+				return {"ok": true, "skipped": "no_identification_service"}
+			return identification_set_auto(bool(op.get("enabled", false)), op.get("opts", {}))
+		"identification_manual_confirm":
+			if identification_service == null:
+				return {"ok": true, "skipped": "no_identification_service"}
+			return identification_manual_confirm(str(op.get("target_id", "")),
+				str(op.get("identity", "unknown")), op.get("opts", {}))
+		"identification_authorize_hostile":
+			if identification_service == null:
+				return {"ok": true, "skipped": "no_identification_service"}
+			return identification_authorize_hostile(str(op.get("target_id", "")),
+				str(op.get("authority", "command")), op.get("opts", {}))
+		"identification_clear_manual":
+			if identification_service == null:
+				return {"ok": true, "skipped": "no_identification_service"}
+			return identification_clear_manual(str(op.get("target_id", "")))
 		"pause":
 			return pause()
 		"resume":
