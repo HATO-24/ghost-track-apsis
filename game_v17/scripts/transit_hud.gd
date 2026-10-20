@@ -29,12 +29,23 @@ const OPT_START_IR := Rect2(1268, 536, 58, 20)
 const OPT_STOP := Rect2(1332, 536, 56, 20)
 const OPT_CLOSE := Rect2(1394, 536, 94, 20)
 const OPT_OPEN := Rect2(1704, 636, 140, 20)
+const SHIP_DAMAGE_BTN := Rect2(1556, 684, 136, 20)
+const SHIP_RADAR_BTN := Rect2(1704, 684, 140, 20)
+const SHIP_EMCON_BTN := Rect2(1556, 708, 136, 20)
+const SHIP_IFF_BTN := Rect2(1704, 708, 140, 20)
+const SHIP_DEST_BTN := Rect2(1556, 732, 288, 20)
+const DMG_CLOSE := Rect2(1432, 864, 100, 22)
+const DMG_FIX := Rect2(1252, 864, 120, 22)
+const DMG_PRI := Rect2(1380, 864, 48, 22)
+const DMG_CANCEL := Rect2(1304, 864, 72, 22)
+const DMG_PANEL := Rect2(300, 140, 1320, 752)
 
 var sim
 var mono: Font
 var cjk: Font
 var _fleet_rects: Array = []
 var _target_rects: Array = []
+var _dmg_sel_section := ""
 
 
 func _ready() -> void:
@@ -162,6 +173,8 @@ func _draw() -> void:
 	# Overlays: optical small + teaching popup
 	_draw_optical_small()
 	_draw_tutorial_popup()
+	_draw_damage_page()
+	_draw_modal_page()
 
 
 func _sensors_vm() -> Dictionary:
@@ -288,7 +301,21 @@ func _draw_side_page(plan: Dictionary, budget: Dictionary, arrival: Dictionary, 
 				String(trow.get("vis_status", "off")), String(trow.get("ir_status", "off"))], 7, P.TXT)
 			sy += 12.0
 			_txt(cjk, SIDE.position.x + 12, sy, "reason %s" % String(trow.get("reason", "—")), 7, P.a(P.AMBER, 0.9))
-			sy += 18.0
+			sy += 16.0
+			var iff := _iff_for(String(trow.get("id", "")))
+			if iff.is_empty():
+				_txt(mono, SIDE.position.x + 12, sy, "IFF — · never hostile · 不判敌", 7, P.FAINT)
+			else:
+				_txt(mono, SIDE.position.x + 12, sy, "IFF %s · identity %s · hostile %s" % [
+					String(iff.get("status", "—")), String(iff.get("identity", "unknown")), str(bool(iff.get("hostile", false)))], 7,
+					P.AMBER if String(iff.get("status", "")) != "friend" else P.PH)
+			sy += 12.0
+			var exp := _exposure()
+			_txt(mono, SIDE.position.x + 12, sy, "RADAR %s · exposed %s · EMCON %s" % [
+				"ON" if _radar_on() else "OFF", str(bool(exp.get("exposed", false))), str(_emcon_on())], 7, P.DIM)
+			sy += 12.0
+			_txt(cjk, SIDE.position.x + 12, sy, "光学证据 VIS %s · IR %s" % [String(trow.get("vis_status", "off")), String(trow.get("ir_status", "off"))], 7, P.TXT)
+			sy += 16.0
 			_txt(cjk, SIDE.position.x + 12, sy, "非己方目标：只读识别/接触/光学证据；", 7, P.FAINT)
 			_txt(cjk, SIDE.position.x + 12, sy + 12, "无指挥/损管操作。", 7, P.FAINT)
 	else:
@@ -320,12 +347,28 @@ func _draw_side_page(plan: Dictionary, budget: Dictionary, arrival: Dictionary, 
 			_txt(mono, SIDE.position.x + 12, sy, "OPT VIS %s · IR %s" % [
 				String(vis.get("status", "off")), String(ir.get("status", "off"))], 7, P.PH if not vis.is_empty() or not ir.is_empty() else P.FAINT)
 			sy += 12.0
-			_txt(cjk, SIDE.position.x + 12, sy, "DAMAGE: NO DAMAGE DATA", 7, P.AMBER)
+			var exp0 := _exposure()
+			var counts0: Dictionary = vm.get("counts", {}) if vm.get("counts", {}) is Dictionary else {}
+			_txt(mono, SIDE.position.x + 12, sy, "RADAR %s · EXPOSED %s · contacts %d" % [
+				"ON" if _radar_on() else "OFF", str(bool(exp0.get("exposed", false))), int(counts0.get("contacts", 0))], 7, P.DIM)
 			sy += 14.0
-			_txt(cjk, SIDE.position.x + 12, sy, "损管入口不可伪造；等真实 damage 数据。", 6, P.FAINT)
-			sy += 16.0
+			var dsum := _damage_summary_for(String(ship.get("id", "")))
+			if dsum.is_empty():
+				_txt(cjk, SIDE.position.x + 12, sy, "DAMAGE: NO DAMAGE DATA", 7, P.AMBER)
+			else:
+				_txt(mono, SIDE.position.x + 12, sy, "DAMAGE %.1f%% · fire %d · decomp %d · unpowered %d" % [
+					float(dsum.get("integrity_avg", 0.0)) * 100.0, int(dsum.get("on_fire", 0)),
+					int(dsum.get("decompressed", 0)), int(dsum.get("unpowered", 0))], 7, P.AMBER if int(dsum.get("needs_attention", 0)) > 0 else P.PH_DIM)
+				sy += 12.0
+				_txt(mono, SIDE.position.x + 12, sy, "repair %d · queued %d · sections %d" % [
+					int(dsum.get("repairing", 0)), int(dsum.get("queued", 0)), int(dsum.get("total", 0))], 7, P.DIM)
+			sy += 14.0
+			_btn(SHIP_DAMAGE_BTN, "损管页 / DAMAGE", sim != null and bool(sim.damage_open), P.AMBER)
+			_btn(SHIP_RADAR_BTN, "RADAR ON/OFF", _radar_on(), P.PH)
+			_btn(SHIP_EMCON_BTN, "EMCON ON/OFF", _emcon_on(), P.AMBER)
+			_btn(SHIP_IFF_BTN, "IFF 询问", true, P.PH_DIM)
+			_btn(SHIP_DEST_BTN, "SET DEST → L1 MERIDIAN", true, P.PH)
 			_btn(OPT_OPEN, "打开光学小窗 / OPTICAL", sim != null and bool(sim.optical_open), P.PH)
-			sy += 20.0
 			_btn(Rect2(SIDE.position.x + 12, SIDE.end.y - 196, 140, 20), "教学 / TUTORIAL", sim != null and bool(sim.tutorial_open), P.AMBER)
 	# 教学摘要
 	_txt(cjk, SIDE.position.x + 12, SIDE.end.y - 84, "教学 / TUTORIAL", 7, P.FAINT)
@@ -474,6 +517,143 @@ func _draw_tutorial_popup() -> void:
 	_txt(cjk, r.position.x + 20, r.end.y - 20, "manual_only=true · auto_complete=false · 文本来自 teaching_l4_l1.json · 未自动完成", 6, P.a(P.FAINT, 0.9))
 
 
+func _damage_summary_for(ship_id: String) -> Dictionary:
+	if sim == null or sim.damage == null:
+		return {}
+	var sm: Dictionary = sim.damage.summary()
+	var rows: Array = sm.get("ships", []) if sm.get("ships", []) is Array else []
+	for raw in rows:
+		if raw is Dictionary and String((raw as Dictionary).get("ship_id", "")) == ship_id:
+			return (raw as Dictionary).get("summary", {}) if (raw as Dictionary).get("summary", {}) is Dictionary else {}
+	return {}
+
+
+func _radar_on() -> bool:
+	var vm := _sensors_vm()
+	return bool(vm.get("radar_enabled", false)) if not vm.is_empty() else false
+
+
+func _emcon_on() -> bool:
+	var vm := _sensors_vm()
+	return bool(vm.get("emcon", false)) if not vm.is_empty() else false
+
+
+func _exposure() -> Dictionary:
+	var vm := _sensors_vm()
+	return vm.get("exposure", {}) if vm.get("exposure", {}) is Dictionary else {}
+
+
+func _iff_for(id: String) -> Dictionary:
+	var vm := _sensors_vm()
+	var iff: Dictionary = vm.get("iff", {}) if vm.get("iff", {}) is Dictionary else {}
+	var by: Dictionary = iff.get("by_target", {}) if iff.get("by_target", {}) is Dictionary else {}
+	var row = by.get(id)
+	return row if row is Dictionary else {}
+
+
+func _draw_damage_page() -> void:
+	if sim == null or not bool(sim.damage_open):
+		return
+	var r := DMG_PANEL
+	draw_rect(Rect2(0, 0, 1920, 1080), Color(0.01, 0.02, 0.016, 0.72))
+	draw_rect(r, P.a(P.PANEL, 0.995))
+	draw_rect(r, P.a(P.AMBER, 0.7), false, 1.0)
+	var sid := String(sim.sensors.selected_ship) if sim.sensors != null else "harmattan"
+	var vm: Dictionary = sim.damage.vm(sid) if sim.damage != null else {}
+	_txt(cjk, r.position.x + 20, r.position.y + 24, "损管 / DAMAGE CONTROL · %s" % String(vm.get("name", sid)), 12, P.AMBER)
+	_txt(mono, r.end.x - 20, r.position.y + 24, "V2DamageModel · 7 sections · no weapon source", 7, P.a(P.FAINT, 0.9))
+	draw_line(Vector2(r.position.x + 20, r.position.y + 36), Vector2(r.end.x - 20, r.position.y + 36), P.a(P.AMBER, 0.35), 1.0)
+	var sm: Dictionary = vm.get("summary", {}) if vm.get("summary", {}) is Dictionary else {}
+	_txt(mono, r.position.x + 20, r.position.y + 54, "INTEGRITY %.1f%% · NOMINAL %d · DAMAGED %d · FIRE %d · DECOMP %d · REPAIR %d" % [
+		float(sm.get("integrity_avg", 0.0)) * 100.0, int(sm.get("nominal", 0)), int(sm.get("damaged", 0)),
+		int(sm.get("on_fire", 0)), int(sm.get("decompressed", 0)), int(sm.get("repairing", 0))], 7, P.TXT)
+	var sections: Array = vm.get("sections", []) if vm.get("sections", []) is Array else []
+	if _dmg_sel_section == "" and not sections.is_empty():
+		_dmg_sel_section = String((sections[0] as Dictionary).get("id", ""))
+	var sy := r.position.y + 72.0
+	_txt(cjk, r.position.x + 20, sy, "分区 / SECTIONS（点击选择）", 8, P.PH)
+	sy += 12.0
+	for i in range(mini(7, sections.size())):
+		var sec: Dictionary = sections[i]
+		var sec_id := String(sec.get("id", ""))
+		var rr := Rect2(r.position.x + 20, sy - 8, r.size.x - 40, 25)
+		var sel := sec_id == _dmg_sel_section
+		if sel:
+			draw_rect(rr, P.a(P.AMBER, 0.10))
+		var st := String(sec.get("state", ""))
+		var col := P.PH if st == "nominal" else (P.AMBER if st in ["degraded", "damaged"] else P.RED)
+		var fire: Dictionary = sec.get("fire", {}) if sec.get("fire", {}) is Dictionary else {}
+		var dec: Dictionary = sec.get("decompression", {}) if sec.get("decompression", {}) is Dictionary else {}
+		_txt(mono, rr.position.x + 6, sy, "%s %-10s" % [sec_id, String(sec.get("label", ""))], 7, P.TXT)
+		_txt(mono, rr.position.x + 250, sy, "INT %.1f%% · %s" % [float(sec.get("integrity_pct", 0.0)), st.to_upper()], 7, col)
+		_txt(mono, rr.position.x + 500, sy, "fire %s · decomp %s · power %s" % [
+			"Y" if bool(fire.get("active", false)) else "n", "Y" if bool(dec.get("active", false)) else "n",
+			"Y" if bool(sec.get("powered", true)) else "N"], 7, P.AMBER if bool(fire.get("active", false)) or bool(dec.get("active", false)) else P.DIM)
+		var rep: Dictionary = sec.get("repair", {}) if sec.get("repair", {}) is Dictionary else {}
+		_txt(mono, rr.position.x + 820, sy, "repair %s" % String(rep.get("status", "—")), 7, P.FAINT)
+		sy += 25.0
+	# actions selected
+	var sel_sec: Dictionary = {}
+	for raw in sections:
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == _dmg_sel_section:
+			sel_sec = raw
+	if not _dmg_sel_section.is_empty():
+		_txt(mono, DMG_FIX.position.x - 250, DMG_FIX.position.y + 6, "SELECTED %s" % _dmg_sel_section, 7, P.PH)
+	_btn(DMG_FIX, "FIX / 维修", not sel_sec.is_empty(), P.PH)
+	_btn(DMG_PRI, "PRI 1", not sel_sec.is_empty(), P.AMBER)
+	_btn(DMG_CANCEL, "CANCEL", not sel_sec.is_empty(), P.RED)
+	_btn(DMG_CLOSE, "关闭 / CLOSE", true, P.RED)
+	# queue/resources/events
+	var qy := r.position.y + 338.0
+	_txt(cjk, r.position.x + 20, qy, "维修队列 / QUEUE", 8, P.PH)
+	qy += 14.0
+	var queue: Array = vm.get("queue", []) if vm.get("queue", []) is Array else []
+	if queue.is_empty():
+		_txt(cjk, r.position.x + 20, qy, "— 无维修队列", 7, P.FAINT)
+	else:
+		for raw in queue:
+			var job: Dictionary = raw
+			_txt(mono, r.position.x + 20, qy, "%s · PRI %d · %s · %.0f%% · remaining %.0fs" % [String(job.get("section", "")), int(job.get("priority", 0)), String(job.get("status", "")), float(job.get("progress_pct", 0.0)), float(job.get("remaining_s", 0.0))], 7, P.TXT)
+			qy += 12.0
+	var res: Dictionary = vm.get("resources", {}) if vm.get("resources", {}) is Dictionary else {}
+	var qy2 := r.position.y + 500.0
+	_txt(cjk, r.position.x + 20, qy2, "资源 / RESOURCES", 8, P.PH)
+	qy2 += 14.0
+	for k in ["repair_teams", "spare_parts", "power_kw", "crew"]:
+		if res.has(k):
+			_txt(mono, r.position.x + 20, qy2, "%s: %s" % [k, str(res.get(k))], 7, P.TXT)
+			qy2 += 12.0
+	var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
+	var ey := r.position.y + 500.0
+	_txt(cjk, r.position.x + 620, ey, "事件 / EVENTS", 8, P.PH)
+	ey += 14.0
+	for i in range(mini(8, evs.size())):
+		var ev: Dictionary = evs[i]
+		_txt(mono, r.position.x + 620, ey, "%s · %s" % [String(ev.get("kind", "")), _ellipsis(mono, String(ev.get("text", "")), 6, 650.0)], 6, P.a(P.DIM, 0.9))
+		ey += 11.0
+	_txt(cjk, r.position.x + 20, r.end.y - 20, "真实 V2DamageModel（TransitDamage）· apply_hit 仅诊断；不写 world/V15 · FIX/PRI/CANCEL 走真实 API", 6, P.a(P.FAINT, 0.9))
+
+
+func _draw_modal_page() -> void:
+	if sim == null or String(sim.modal_page) == "":
+		return
+	var page := String(sim.modal_page)
+	var r := Rect2(520, 260, 880, 520)
+	draw_rect(Rect2(0, 0, 1920, 1080), Color(0.01, 0.02, 0.016, 0.72))
+	draw_rect(r, P.a(P.PANEL, 0.995))
+	draw_rect(r, P.a(P.AMBER, 0.7), false, 1.0)
+	var title: String = String({"roe": "ROE / 交战规则", "hold": "DECISION / HOLD", "report": "REPORT / 内部报告"}.get(page, page.to_upper()))
+	_txt(cjk, r.position.x + 20, r.position.y + 24, String(title), 12, P.AMBER)
+	var vm := _teach_vm()
+	var cur: Dictionary = vm.get("current", {}) if vm.get("current", {}) is Dictionary else {}
+	_txt(cjk, r.position.x + 20, r.position.y + 52, "教学步骤：%s · %s" % [String(cur.get("step_id", "—")), String(cur.get("title", "—"))], 8, P.TXT)
+	_txt(cjk, r.position.x + 20, r.position.y + 72, "目标：%s" % _ellipsis(cjk, String(cur.get("objective", "")), 8, 820.0), 7, P.DIM)
+	_txt(cjk, r.position.x + 20, r.position.y + 92, "操作：%s" % _ellipsis(cjk, String(cur.get("player_action", "")), 8, 820.0), 7, P.TXT)
+	_txt(cjk, r.position.x + 20, r.position.y + 128, "此页为教学模态；关闭后不自动完成步骤。真实动作请按页面/游戏入口执行。", 7, P.FAINT)
+	_btn(Rect2(r.end.x - 140, r.end.y - 40, 120, 24), "关闭 / CLOSE", true, P.RED)
+	_txt(cjk, r.position.x + 20, r.end.y - 20, "07 教学目标 · teaching_l4_l1.json · manual_only=true · auto_complete=false", 6, P.a(P.FAINT, 0.9))
+
+
 func _phase_label() -> String:
 	if sim == null:
 		return "not_ready"
@@ -599,19 +779,44 @@ func _p_real(p: Vector3, pr: Dictionary) -> Vector2:
 func handle_click(p: Vector2) -> bool:
 	if sim == null:
 		return false
+	# damage page
+	if bool(sim.damage_open):
+		if DMG_CLOSE.has_point(p):
+			sim.damage_open = false; return true
+		if DMG_FIX.has_point(p) and _dmg_sel_section != "":
+			sim.ui_damage_fix(_dmg_sel_section); return true
+		if DMG_PRI.has_point(p) and _dmg_sel_section != "":
+			sim.ui_damage_priority(_dmg_sel_section, 1); return true
+		if DMG_CANCEL.has_point(p) and _dmg_sel_section != "":
+			sim.ui_damage_cancel(_dmg_sel_section); return true
+		var vm_d: Dictionary = sim.damage.vm(String(sim.sensors.selected_ship)) if sim.damage != null else {}
+		var secs: Array = vm_d.get("sections", []) if vm_d.get("sections", []) is Array else []
+		for i in range(mini(7, secs.size())):
+			var rr := Rect2(DMG_PANEL.position.x + 20, DMG_PANEL.position.y + 76 + float(i) * 25 - 8, DMG_PANEL.size.x - 40, 25)
+			if rr.has_point(p):
+				_dmg_sel_section = String((secs[i] as Dictionary).get("id", ""))
+				return true
+		return true
+	if String(sim.modal_page) != "":
+		if Rect2(1260, 740, 120, 24).has_point(p) or not Rect2(520, 260, 880, 520).has_point(p):
+			sim.modal_page = ""
+		return true
 	# teaching popup
 	if bool(sim.tutorial_open):
 		if TUT_CLOSE.has_point(p):
 			sim.tutorial_open = false
 			return true
 		var vmt := _teach_vm()
-		var acts := [["set_destination", "meridian"], ["sensor_toggle", "harmattan/YW-R9"],
-			["iff_query", "2001"], ["open_roe_card", ""], ["decision", "HOLD"],
-			["report_submit", "INTERNAL_AFTER_ACTION"]]
-		for i in range(acts.size()):
+		for i in range(6):
 			var br := Rect2(360 + 20 + float(i) * 158.0, 180 + 660 - 64, 148, 20)
 			if br.has_point(p):
-				sim.teach_note(String((acts[i] as Array)[0]), String((acts[i] as Array)[1]))
+				match i:
+					0: sim.ui_set_destination()
+					1: sim.ui_set_radar(not _radar_on())
+					2: sim.ui_iff()
+					3: sim.ui_open_modal("roe")
+					4: sim.ui_open_modal("hold")
+					5: sim.ui_open_modal("report")
 				return true
 		return true
 	# teaching button / optical
@@ -641,6 +846,16 @@ func handle_click(p: Vector2) -> bool:
 		if tr.has_point(p):
 			sim.ui_select_target(String((raw2 as Dictionary)["id"]))
 			return true
+	if SHIP_DAMAGE_BTN.has_point(p):
+		sim.ui_toggle_damage(); _dmg_sel_section = ""; return true
+	if SHIP_RADAR_BTN.has_point(p):
+		sim.ui_set_radar(not _radar_on()); return true
+	if SHIP_EMCON_BTN.has_point(p):
+		sim.ui_set_emcon(not _emcon_on()); return true
+	if SHIP_IFF_BTN.has_point(p):
+		sim.ui_iff(); return true
+	if SHIP_DEST_BTN.has_point(p):
+		sim.ui_set_destination(); return true
 	if BTN_IGN.has_point(p):
 		sim.ui_ignite(); return true
 	if BTN_ARR.has_point(p):

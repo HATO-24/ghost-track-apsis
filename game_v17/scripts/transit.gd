@@ -9,10 +9,12 @@ const TransferPlanner := preload("res://framework/sim/transfer_planner.gd")
 const TransitHUD := preload("res://scripts/transit_hud.gd")
 const TransitSensors := preload("res://scripts/transit_sensors.gd")
 const TeachingController := preload("res://scripts/teaching_controller.gd")
+const TransitDamage := preload("res://scripts/transit_damage.gd")
 const Palette := preload("res://scripts/pal.gd")
 const Fonts := preload("res://scripts/fonts.gd")
 
 const SCENARIO_PATH := "res://framework/content/scenario_transit_l4_l1.json"
+const PLAN_CACHE_PATH := "res://framework/content/transfer_l4_l1_cached.json"
 const BASE := Vector2i(1920, 1080)
 
 var scenario: Dictionary = {}
@@ -25,6 +27,10 @@ var phase := "departure"
 var hud
 var sensors
 var teach
+var damage
+var destination := "L1 Meridian"
+var damage_open := false
+var modal_page := ""
 var ui_mode := "ship"
 var optical_open := false
 var tutorial_open := false
@@ -48,12 +54,21 @@ func _ready() -> void:
 	_plan_transfer()
 	sensors = TransitSensors.new({})
 	teach = TeachingController.new("res://framework/content/teaching_l4_l1.json")
+	damage = TransitDamage.new({})
+	destination = "L1 Meridian"
 	ui_mode = "ship"
 	var view := OS.get_environment("DSH_TRANSIT_VIEW")
 	if view == "target":
 		ui_mode = "target"
 	elif view == "tutorial":
 		tutorial_open = true
+	elif view == "damage":
+		ui_mode = "ship"
+		damage_open = true
+	elif view == "iff":
+		ui_mode = "target"
+	elif view == "radar":
+		ui_mode = "ship"
 	hud = TransitHUD.new()
 	hud.sim = self
 	hud.position = Vector2.ZERO
@@ -70,6 +85,15 @@ func _ready() -> void:
 			sensors.seek(t)
 			if view == "target":
 				sensors.set_target("l1_meridian_05")
+			elif view == "damage":
+				sensors.select_ship("harmattan")
+			elif view == "iff":
+				sensors.select_ship("harmattan")
+				sensors.set_target("l1_meridian_05")
+				sensors.iff_query("l1_meridian_05")
+			elif view == "radar":
+				sensors.select_ship("harmattan")
+				sensors.set_radar_enabled(true)
 			elif view == "sensor":
 				sensors.select_ship("harmattan")
 				sensors.set_target("l1_meridian_05")
@@ -104,8 +128,19 @@ func _load_scenario() -> void:
 
 
 func _plan_transfer() -> void:
-	# 真实 transfer_planner 计算一次并缓存；失败不伪造轨迹。
-	plan = TransferPlanner.plan({})
+	# 优先加载预计算缓存，避免启动时 19s 规划卡顿；缓存在写入时已验证 ok=true。
+	plan = {}
+	if FileAccess.file_exists(PLAN_CACHE_PATH):
+		var cf := FileAccess.open(PLAN_CACHE_PATH, FileAccess.READ)
+		if cf != null:
+			var ctxt := cf.get_as_text()
+			cf.close()
+			var cparsed = JSON.parse_string(ctxt)
+			if cparsed is Dictionary and bool((cparsed as Dictionary).get("ok", false)):
+				plan = cparsed
+	if plan.is_empty():
+		# 缓存缺失/损坏才重算；失败不伪造轨迹。
+		plan = TransferPlanner.plan({})
 	var tr: Dictionary = plan.get("transfer", {}) if plan.get("transfer", {}) is Dictionary else {}
 	tof_s = float(tr.get("tof_s", 0.0))
 	playing = false
@@ -126,6 +161,8 @@ func _process(delta: float) -> void:
 				sensors.seek(t)
 		if teach != null:
 			teach.tick(t)
+		if damage != null:
+			damage.step(delta)
 	if tof_s > 0.0:
 		t = clampf(t, 0.0, tof_s)
 		_update_phase()
@@ -229,6 +266,91 @@ func teach_note(action: String, target := "", extra := {}) -> void:
 		return
 	var r: Dictionary = teach.note(action, target, extra)
 	last_note = "TEACH %s · %s" % [action, "ok " + String(r.get("matched_step_id", "")) if bool(r.get("ok", false)) else String(r.get("reason", ""))]
+	queue_redraw()
+
+
+func ui_toggle_damage() -> void:
+	damage_open = not damage_open
+	modal_page = ""
+	queue_redraw()
+
+
+func ui_damage_fix(section_id: String) -> void:
+	if damage == null:
+		return
+	var r: Dictionary = damage.assign_repair(String(sensors.selected_ship), section_id, 2)
+	last_note = "DAMAGE FIX %s · %s" % [section_id, "ok" if bool(r.get("ok", false)) else String(r.get("reason", "fail"))]
+	queue_redraw()
+
+
+func ui_damage_priority(section_id: String, priority: int) -> void:
+	if damage == null:
+		return
+	var r: Dictionary = damage.set_priority(String(sensors.selected_ship), section_id, priority)
+	last_note = "DAMAGE PRI %s → %d · %s" % [section_id, priority, "ok" if bool(r.get("ok", false)) else String(r.get("reason", "fail"))]
+	queue_redraw()
+
+
+func ui_damage_cancel(section_id: String) -> void:
+	if damage == null:
+		return
+	var r: Dictionary = damage.cancel_repair(String(sensors.selected_ship), section_id)
+	last_note = "DAMAGE CANCEL %s · %s" % [section_id, "ok" if bool(r.get("ok", false)) else String(r.get("reason", "fail"))]
+	queue_redraw()
+
+
+func ui_set_radar(on: bool) -> void:
+	if sensors == null:
+		return
+	var r: Dictionary = sensors.set_radar_enabled(on)
+	last_note = "RADAR %s · EMCON=%s" % ["ON" if bool(r.get("radar_enabled", false)) else "OFF", str(bool(r.get("emcon", false)))]
+	if bool(r.get("ok", false)) and teach != null:
+		var tr: Dictionary = teach.note("sensor_toggle", "harmattan/YW-R9", {"value": "on" if on else "off"})
+		last_note += " · teach=" + String(tr.get("reason", "")) if not bool(tr.get("ok", false)) else " · teach✓"
+	queue_redraw()
+
+
+func ui_set_emcon(on: bool) -> void:
+	if sensors == null:
+		return
+	var r: Dictionary = sensors.set_emcon(on)
+	last_note = "EMCON %s" % ("ON" if bool(r.get("emcon", false)) else "OFF")
+	queue_redraw()
+
+
+func ui_iff() -> void:
+	if sensors == null:
+		return
+	var tgt := String(sensors.selected_target)
+	var r: Dictionary = sensors.iff_query(tgt)
+	ui_mode = "target"
+	last_note = "IFF %s · %s · hostile=%s" % [tgt, String(r.get("status", "fail")), str(bool(r.get("hostile", false)))]
+	if bool(r.get("ok", false)) and teach != null:
+		var tr: Dictionary = teach.note("iff_query", tgt, {"track": tgt})
+		last_note += " · teach=" + String(tr.get("reason", "")) if not bool(tr.get("ok", false)) else " · teach✓"
+	queue_redraw()
+
+
+func ui_set_destination() -> void:
+	destination = "L1 Meridian"
+	last_note = "DESTINATION → L1 Meridian"
+	if teach != null:
+		var tr: Dictionary = teach.note("set_destination", "meridian")
+		last_note += " · teach✓" if bool(tr.get("ok", false)) else " · teach=" + String(tr.get("reason", ""))
+	queue_redraw()
+
+
+func ui_open_modal(page: String) -> void:
+	modal_page = page
+	last_note = "MODAL " + page
+	if teach != null:
+		match page:
+			"roe":
+				teach.note("open_roe_card")
+			"hold":
+				teach.note("decision", "HOLD")
+			"report":
+				teach.note("report_submit", "INTERNAL_AFTER_ACTION")
 	queue_redraw()
 
 
