@@ -73,7 +73,8 @@ const COMPARE_THRESHOLDS := {"range_km": 5.0, "bearing_deg": 5.0, "position_km":
 # —— R5-SENSOR-BRIDGE-1：传感器 shadow（V2SensorAuthority；只读 advisory）——
 var sensor_shadow = null
 var sensor_authority_requested_mode := "shadow"  # V17_SENSOR_AUTHORITY 请求
-var sensor_shadow_mode := "off"                  # shadow / off（authoritative 不实现）
+var sensor_authority_mode := "off"               # shadow / authoritative(显示层) / off
+var sensor_shadow_mode := "off"                  # 模型有效模式：shadow / off（authoritative 仅显示层）
 var sensor_shadow_ready := false
 var sensor_shadow_view_data: Dictionary = {}
 var sensor_shadow_summary_data: Dictionary = {}
@@ -369,6 +370,8 @@ func bridge_state() -> Dictionary:
 		"sensor_shadow_ready": sensor_shadow_ready,
 		"sensor_shadow_mode": sensor_shadow_mode,
 		"sensor_authority_requested_mode": sensor_authority_requested_mode,
+		"sensor_authority_mode": sensor_authority_mode,
+		"sensor_authority_display": sensor_authority_display(),
 		"sensor_shadow_fallback_reason": sensor_shadow_fallback_reason,
 		"sensor_compare": sensor_compare_last.duplicate(true),
 		"info_warfare": info_warfare_view_data.duplicate(true),
@@ -1265,16 +1268,19 @@ func _init_sensor_shadow() -> void:
 	var env := OS.get_environment("V17_SENSOR_AUTHORITY").to_lower().strip_edges()
 	if env == "off":
 		sensor_authority_requested_mode = "off"
+		sensor_authority_mode = "off"
 		sensor_shadow_mode = "off"
 		return
 	if env == "authoritative" or env == "auth" or env == "v2":
 		sensor_authority_requested_mode = "authoritative"
-		sensor_shadow_fallback_reason = "authoritative 未实现：保持 shadow advisory（不伪称 authoritative）"
+		sensor_authority_mode = "authoritative"
+		sensor_shadow_mode = "shadow"
+		sensor_shadow_fallback_reason = ""
+		_note_sensor_warning("authoritative 显示层：state 只映射显示字段（level/identity/sources）；bridge 不写 TrackTable/V15")
 	else:
 		sensor_authority_requested_mode = "shadow"
-	sensor_shadow_mode = "shadow"
-	if sensor_shadow_fallback_reason != "":
-		_note_sensor_warning(sensor_shadow_fallback_reason)
+		sensor_authority_mode = "shadow"
+		sensor_shadow_mode = "shadow"
 	sensor_shadow = SensorAuthorityScript.new()
 	var cfg := _sensor_shadow_config()
 	var ok: bool = sensor_shadow.setup(cfg)
@@ -1377,6 +1383,27 @@ func sensor_compare(legacy_tracks) -> Dictionary:
 	var r = sensor_shadow.compare(legacy_tracks)
 	sensor_compare_last = (r as Dictionary).duplicate(true) if r is Dictionary else {}
 	return r if r is Dictionary else {}
+
+## R5-AUTHORITY-DISPLAY-1：authoritative_display 只读摘要（显示层权威；bridge 不写 TrackTable）。
+func sensor_authority_display() -> Dictionary:
+	var active := sensor_authority_mode == "authoritative" and sensor_shadow_ready
+	var advisories: Array = sensor_shadow_view_data.get("advisory_contacts", []) if not sensor_shadow_view_data.is_empty() else []
+	return {
+		"schema": "v17_sensor_authority_display.v1",
+		"mode": sensor_authority_mode,
+		"requested_mode": sensor_authority_requested_mode,
+		"ready": bool(sensor_shadow_ready),
+		"active": active,
+		"display_only": true,
+		"authoritative_display_only": true,
+		"writes_track_table": false,
+		"writes_v15_physics": false,
+		"writes_v15_display_fields": active,
+		"display_fields": ["level", "identity", "sources", "sensor"],
+		"untouched_fields": ["r", "v", "own", "off", "task", "damage", "threat", "side", "role", "action"],
+		"advisory_count": advisories.size(),
+		"note": "显示层权威：state 只映射 V15 显示字段（level/identity/sources）；不改 r/v/任务/损管/威胁；bridge 不写 TrackTable；默认 shadow，需 V17_SENSOR_AUTHORITY=authoritative 显式启用。",
+	}
 
 # ═══════════════════════════════════════════════════════════════════
 # R5-INFO-BRIDGE-1：信息作战 shadow 接入（IFF/ELINT/COMINT/EW；只读 advisory）
@@ -1727,6 +1754,16 @@ func docking_reset() -> Dictionary:
 	docking_auto_suppressed = false
 	_refresh_optical_docking()
 	return {"ok": true, "state": String(docking.state)}
+
+## R5-AUTHORITY-DISPLAY-1：UNDOCK 包装（调用模型 undock；刷新 view；无实例 ok=false）。
+func docking_undock(reason := "commander_undock") -> Dictionary:
+	if not docking_ready or docking == null:
+		return {"ok": false, "reason": "docking_not_ready"}
+	var res: Dictionary = docking.undock(reason)
+	docking_auto_suppressed = true
+	docking_update_last = res.duplicate(true) if res is Dictionary else {}
+	_refresh_optical_docking()
+	return res
 
 # ═══════════════════════════════════════════════════════════════════
 # R5-AUTO-SENSOR-1：自动光学/对接数据（HUD 打开即有真实 VM）

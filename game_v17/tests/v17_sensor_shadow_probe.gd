@@ -237,15 +237,18 @@ func _test_authoritative_request() -> void:
 	_set_mode("authoritative")
 	var br = _make_bridge()
 	_eq(br.sensor_authority_requested_mode, "authoritative", "requested=authoritative")
-	_eq(br.sensor_shadow_mode, "shadow", "有效模式仍 shadow（未实现 authoritative）")
-	_ok(String(br.sensor_shadow_fallback_reason).contains("未实现"), "fallback_reason 明示未实现",
-		br.sensor_shadow_fallback_reason)
+	_eq(br.sensor_authority_mode, "authoritative", "authority 模式=authoritative（显示层）")
+	_eq(br.sensor_shadow_mode, "shadow", "模型有效模式仍 shadow（显示层权威）")
+	_eq(br.sensor_shadow_fallback_reason, "", "无回落 reason（R5-AUTHORITY-DISPLAY-1 已支持）")
 	var view: Dictionary = br.sensor_shadow_view()
-	_eq(bool(view.get("authoritative", true)), false, "view.authoritative=false（不伪称）")
+	_eq(bool(view.get("authoritative", true)), false, "view.authoritative=false（模型 shadow）")
 	_eq(String(view.get("mode", "")), "shadow", "view.mode=shadow")
 	_eq(br.sensor_shadow_ready, true, "shadow 仍 ready")
+	var disp: Dictionary = br.sensor_authority_display()
+	_eq(bool(disp.get("active", false)), true, "authority display active")
+	_eq(bool(disp.get("writes_track_table", true)), false, "display 不写 TrackTable")
 	_clear_env()
-	_data_line("authoritative", "请求 authoritative → 仍 shadow，fallback_reason 明示未实现")
+	_data_line("authoritative", "authoritative 显示层：模型 shadow，state 映射显示字段，bridge 不写 TrackTable")
 
 # ═══════════════════════════════════════════════════════════════════
 # 5. off 降级

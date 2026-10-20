@@ -40,6 +40,9 @@ var fw_physics_display: Dictionary = {}
 var fw_sensor_shadow: Dictionary = {}
 var fw_sensor_shadow_ready := false
 var fw_sensor_compare: Dictionary = {}
+# —— R5-AUTHORITY-DISPLAY-1：V2 传感器权威显示层（显式 authoritative；默认 shadow 不写）——
+var fw_sensor_authority := "legacy_v15"
+var fw_sensor_authority_diff: Dictionary = {}
 # —— R5-INFO-BRIDGE-1：信息作战 shadow 只读（IFF/ELINT/COMINT/EW）——
 var fw_info_warfare: Dictionary = {}
 var fw_info_warfare_ready := false
@@ -1788,6 +1791,8 @@ func _reset_runtime() -> void:
 	fw_sensor_shadow = {}
 	fw_sensor_shadow_ready = false
 	fw_sensor_compare = {}
+	fw_sensor_authority = "legacy_v15"
+	fw_sensor_authority_diff = {}
 	fw_info_warfare = {}
 	fw_info_warfare_ready = false
 	fw_info_warfare_summary = {}
@@ -2739,6 +2744,7 @@ func fw_sync(dt: float) -> void:
 	_fw_pull()
 	_fw_update_physics_adapter()
 	_fw_update_sensor_compare()
+	_fw_apply_sensor_authority_display()
 	# 决策挂起：V15 决策窗口已到但教学未完成 → 完成后自动打开（不自动完成识别）
 	if fw_decision_deferred and not decision_open and not report_open and not consequence_open \
 			and fw_tutorial_allows():
@@ -2777,6 +2783,8 @@ func _fw_pull() -> void:
 		fw_sensor_shadow = {}
 		fw_sensor_shadow_ready = false
 		fw_sensor_compare = {}
+		fw_sensor_authority = "legacy_v15"
+		fw_sensor_authority_diff = {}
 		fw_info_warfare = {}
 		fw_info_warfare_ready = false
 		fw_info_warfare_summary = {}
@@ -2872,6 +2880,109 @@ func _fw_update_sensor_compare() -> void:
 		})
 	fw_sensor_compare = framework.sensor_compare(rows)
 
+## R5-AUTHORITY-DISPLAY-1：authoritative 显示层（显式 env；默认 shadow 不写）。
+## 用 V2 advisory contacts 映射 V15 显示字段 level/identity/sources(/sensor)；
+## 只改显示字段，不改 r/v/own/off/任务/损管/威胁；映射缺失不写；bridge 不写 TrackTable。
+func _fw_apply_sensor_authority_display() -> void:
+	fw_sensor_authority_diff = {}
+	if framework == null or not bool(framework.ready):
+		fw_sensor_authority = "legacy_v15"
+		return
+	var mode := String(framework.sensor_authority_mode)
+	if mode == "off":
+		fw_sensor_authority = "off"
+		return
+	if mode != "authoritative" or not bool(framework.sensor_shadow_ready):
+		fw_sensor_authority = "legacy_v15"
+		return
+	fw_sensor_authority = "v2_display"
+	var view: Dictionary = framework.sensor_shadow_view()
+	var advisories: Array = view.get("advisory_contacts", []) if not view.is_empty() else []
+	var adv_map := {}
+	for raw in advisories:
+		var ac: Dictionary = raw
+		for key in [String(ac.get("batch", "")), String(ac.get("track_id", "")),
+				String(ac.get("id", ""))]:
+			if key != "" and not adv_map.has(key):
+				adv_map[key] = ac
+	var applied := 0
+	var skipped := 0
+	var changed := 0
+	var unchanged := 0
+	var rows: Array = []
+	for raw in tracks:
+		var tr: Dictionary = raw
+		if bool(tr.get("own", false)):
+			continue
+		var tid := String(tr.get("id", ""))
+		var batch := String(tr.get("batch", tid))
+		var ac: Dictionary = {}
+		if adv_map.has(tid):
+			ac = adv_map[tid]
+		elif adv_map.has(batch):
+			ac = adv_map[batch]
+		if ac.is_empty():
+			skipped += 1
+			continue
+		var before_level := int(tr.get("level", 0))
+		var before_identity := String(tr.get("identity", ""))
+		var before_sources: Array = (tr.get("sources", []) as Array).duplicate()
+		var new_level := int(ac.get("level", before_level))
+		var new_identity := String(ac.get("identity", ""))
+		if new_identity == "":
+			new_identity = before_identity
+		var new_sources: Array = []
+		if ac.get("sources") is Array:
+			new_sources = (ac.get("sources") as Array).duplicate()
+		var is_changed := before_level != new_level or before_identity != new_identity \
+			or before_sources != new_sources
+		tr["level"] = new_level
+		tr["identity"] = new_identity
+		tr["sources"] = new_sources.duplicate()
+		tr["sensor"] = String(new_sources[0]) if not new_sources.is_empty() else ""
+		applied += 1
+		if is_changed:
+			changed += 1
+		else:
+			unchanged += 1
+		rows.append({
+			"track_id": tid, "batch": batch,
+			"entity_id": String(ac.get("entity_id", "")),
+			"before": {"level": before_level, "identity": before_identity,
+				"sources": before_sources},
+			"after": {"level": new_level, "identity": new_identity,
+				"sources": new_sources.duplicate(true)},
+			"changed": is_changed,
+		})
+	fw_sensor_authority_diff = {
+		"schema": "v17_sensor_authority_display_diff.v1",
+		"mode": "authoritative",
+		"applied": applied,
+		"skipped_missing": skipped,
+		"changed": changed,
+		"unchanged": unchanged,
+		"advisory_count": advisories.size(),
+		"rows": rows,
+		"display_fields": ["level", "identity", "sources", "sensor"],
+		"untouched_fields": ["r", "v", "own", "off", "task", "damage", "threat",
+			"side", "role", "action"],
+		"writes_track_table": false,
+		"note": "每帧只映射显示字段；映射失败/缺失不写；不改 r/v/任务/损管/威胁；默认 shadow 不写。",
+	}
+
+## R5-AUTHORITY-DISPLAY-1：authoritative_display 只读摘要（含最近 diff 与 bridge 摘要）。
+func fw_sensor_authority_display() -> Dictionary:
+	var bridge_part: Dictionary = {}
+	if framework != null and framework.has_method("sensor_authority_display"):
+		bridge_part = (framework.sensor_authority_display() as Dictionary).duplicate(true)
+	return {
+		"schema": "v17_sensor_authority_display_state.v1",
+		"authority": fw_sensor_authority,
+		"mode": String(framework.sensor_authority_mode) if framework != null else "off",
+		"diff": fw_sensor_authority_diff.duplicate(true),
+		"bridge": bridge_part,
+	}
+
 ## 传感器 shadow 只读 vm / compare 的 getter。
 func fw_sensor_shadow_view() -> Dictionary:
 	return fw_sensor_shadow
@@ -2959,6 +3070,14 @@ func fw_docking_reset() -> Dictionary:
 	if framework == null:
 		return {"ok": false, "reason": "framework 未就绪"}
 	var res: Dictionary = framework.docking_reset()
+	_fw_pull()
+	return res
+
+## R5-AUTHORITY-DISPLAY-1：UNDOCK 包装（调模型 undock；刷新；无实例 ok=false）。
+func fw_docking_undock(reason := "commander_undock") -> Dictionary:
+	if framework == null:
+		return {"ok": false, "reason": "framework 未就绪"}
+	var res: Dictionary = framework.docking_undock(reason)
 	_fw_pull()
 	return res
 
@@ -3476,6 +3595,7 @@ func fw_restart() -> void:
 	_fw_pull()
 	_fw_update_physics_adapter()
 	_fw_update_sensor_compare()
+	_fw_apply_sensor_authority_display()
 
 ## HUD 一帧总览（其余字段仍可按需读 state.fw_*）。
 func fw_bridge_state() -> Dictionary:
@@ -3509,6 +3629,8 @@ func fw_bridge_state() -> Dictionary:
 		"sensor_shadow": fw_sensor_shadow.duplicate(true),
 		"sensor_shadow_ready": fw_sensor_shadow_ready,
 		"sensor_compare": fw_sensor_compare.duplicate(true),
+		"sensor_authority": fw_sensor_authority,
+		"sensor_authority_diff": fw_sensor_authority_diff.duplicate(true),
 		"info_warfare": fw_info_warfare.duplicate(true),
 		"info_warfare_ready": fw_info_warfare_ready,
 		"info_warfare_summary": fw_info_warfare_summary.duplicate(true),

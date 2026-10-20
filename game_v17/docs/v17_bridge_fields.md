@@ -321,3 +321,23 @@ advisory_contacts 透传 sensor shadow。`sync(dt)` 中 `dt>0` 才 step；`dt=0`
 | state | `fw_optical_ir_view()/fw_docking_view()`、`fw_optical_ir_*`、`fw_docking_*` | 包装显式 API，调用后自动 `_fw_pull()`；旧字段不变 |
 
 详见 `game_v17/docs/v17_optical_docking_bridge.md`；最小 probe `tests/v17_optical_docking_probe.gd`（128/0）与 auto probe `tests/v17_optical_docking_auto_probe.gd`（68/0）。
+## 18　传感器权威显示 + UNDOCK（R5-AUTHORITY-DISPLAY-1）
+
+**显示层权威**：`V17_SENSOR_AUTHORITY=authoritative`（显式；默认 shadow）时，bridge 仍不写
+TrackTable/V15；state 在 `fw_sync` 后把 V2 advisory contacts 映射到 V15 显示字段
+`level/identity/sources(/sensor)`；不改 r/v/任务/损管/威胁；映射失败/缺失不写。
+
+| 位置 | 字段 / API | 说明 |
+| --- | --- | --- |
+| bridge | `sensor_authority_mode` | shadow/authoritative/off（有效显示权威） |
+| bridge | `sensor_authority_display()` | 只读摘要：mode/active/display_only/writes_track_table:false/writes_v15_physics:false/writes_v15_display_fields/advisory_count/display_fields/untouched_fields/note |
+| bridge | `docking_undock(reason)` | 调 `docking.undock()`；无实例/未 docked ok=false；docked 返回 VM |
+| state | `fw_sensor_authority` | `legacy_v15`/`v2_display`/`off` |
+| state | `fw_sensor_authority_diff` | 最近映射 diff（applied/changed/skipped_missing/rows/before/after；只显示字段） |
+| state | `fw_sensor_authority_display()` | 只读摘要（authority/mode/diff/bridge） |
+| state | `fw_docking_undock(reason)` | UNDOCK 包装（刷新 fw_docking；无实例 ok=false） |
+| state | `fw_bridge_state()` | 增 `sensor_authority`/`sensor_authority_diff` |
+
+默认 shadow 不写；authoritative 显式启用；这是显示层权威，不是完整 detection/fusion 切换。
+详见 `game_v17/docs/v17_sensor_authority_display.md`；最小 probe
+`tests/v17_sensor_authority_display_probe.gd`（74/0）。
