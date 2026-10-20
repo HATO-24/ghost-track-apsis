@@ -120,3 +120,36 @@ top bar 显示 T+now_s / L1 港内 epoch_abs_s / scale / paused
 4. 三色点只 publish `save.request`；没有任何存档实现。
 5. 选接触只发 `contact.select`，不驱动任务/剧情。
 6. 未跑全量 regression；未改核心/旧场景/project。
+
+
+---
+
+## 9　阶段1D：右栏舰船/目标页 + 底部命令队列/事件日志（task-125）
+
+### 9.1 右栏（`right_panel.gd`，约 344×H）
+
+- 顶部 `SHIP / TARGET` tab（可点击）；来源标签显示 `DEMO · NO SESSION`（无 GameSession 时明确 DEMO），有 session 时 `GAME SESSION`。
+- 舰船页字段：舰名/批号/身份/BADGE、距离/CLASS、传感器摘要、损管摘要、ROE、Δv（DEP/ARR/TOT）、按钮槽位 `NAV / DAMAGE / OPTICAL / INFO OPS`。
+- 目标页：`AV-4412 传唤者` 示例目标，UNKNOWN / IFF SHADOW / contact L0 / radar-off，明确 `DEMO TARGET · NO SESSION`；不伪造实时目标。
+- 无 selected/无数据时字段显示 `NOT READY`；按钮仅发 `page_action` 信号 + 日志，不接剧情/物理/存档。
+- 坐标：右栏容器 `PanelContainer` W344min；内部自绘 0..W，tab y4，标题 y36，字段 14–15px 行距，按钮槽位固定底部。
+
+### 9.2 底部（`command_log.gd`，H132）
+
+- 左：命令队列（DEMO，明确 `DEMO · NO GAMESESSION`）：`id / state / sender → receiver / action / mode / delay`；无数据 `NO COMMAND DATA · NOT READY`。
+- 右：事件日志（真实 EventBus）：`t + type + text`，最多 4 条；无事件 `NO EVENT DATA · NOT READY`。
+- 命令队列与事件日志分栏绘制，不重叠；只读。
+- 数据源：`EventBus.recent(8)`（ui_proto `_refresh_command_log` 每 10 帧）；三色点仍 publish `save.request`。
+
+### 9.3 截图 / 验证
+
+- `mockups/ui-proto-panels-1920.png`（1920×1080）：右栏舰船页 + 命令队列/事件日志。
+- `UI PROTO SHOT size=(1920,1080) err=0`；headless 场景加载一次；未跑全量 regression。
+
+### 9.4 未完成 / 限制
+
+1. 当前 ui_proto 未 boot GameSession；命令队列为 DEMO，右栏字段为 DEMO/NOT READY，不能宣称已接 session 实时数据。
+2. 事件日志只读 EventBus recent；无 GameSession 时无命令/剧情事件。
+3. 右栏按钮只发信号/日志，未接导航/损管/光学/信息作战。
+4. 目标页为 DEMO 示例；无真实 target snapshot。
+5. 未实现剧情/物理/存档；未跑全量。

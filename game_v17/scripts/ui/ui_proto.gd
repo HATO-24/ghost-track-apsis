@@ -11,6 +11,8 @@ const ContactList := preload("res://scripts/ui/contact_list.gd")
 const CustomCursor := preload("res://scripts/ui/custom_cursor.gd")
 const TimeService := preload("res://scripts/core/time_service.gd")
 const EventBus := preload("res://scripts/core/event_bus.gd")
+const RightPanel := preload("res://scripts/ui/right_panel.gd")
+const CommandLog := preload("res://scripts/ui/command_log.gd")
 const CONTACT_SOURCE := "res://framework/content/scenario_transit_l4_l1.json"
 
 var _top
@@ -24,6 +26,9 @@ var _target_size := Vector2i(1920, 1080)
 var _log_lines: Array[String] = []
 var _time = null
 var _bus = null
+var _right_panel = null
+var _command_log = null
+var _selected_contact: Dictionary = {}
 
 
 func _ready() -> void:
@@ -51,6 +56,7 @@ func _ready() -> void:
 	_top.bind_services(_time, _bus)
 	_load_contacts()
 	_seed_events()
+	_refresh_command_log()
 	set_process(true)
 	if _shot_path != "":
 		get_window().size = _target_size
@@ -101,55 +107,22 @@ func _build_shell() -> void:
 	var map := MapShell.new()
 	map.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	cv.add_child(map)
-	# Right info
+	# Right panel（舰船/目标页 + 按钮槽位）
 	var right := PanelContainer.new()
 	right.custom_minimum_size = Vector2(344, 0)
 	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(right)
-	var rv := VBoxContainer.new()
-	rv.add_theme_constant_override("separation", 5)
-	right.add_child(rv)
-	rv.add_child(UiTheme.make_label("任务 / MISSION", false, 11, P.PH))
-	rv.add_child(UiTheme.make_label("L4-02 Hammer → L1 Meridian", false, 9, P.TXT))
-	rv.add_child(UiTheme.make_label("TOF 6 d 00 h · Δv 1822.6 m/s", true, 8, P.AMBER))
-	rv.add_child(UiTheme.make_label("ARRIVAL 188.8 km / 0.97 km/s · GATE PASS", true, 8, P.PH_DIM))
-	rv.add_child(UiTheme.make_label("ROE · WEAPONS HOLD / 仅自衛", false, 8, P.TXT))
-	var sep := HSeparator.new()
-	sep.add_theme_constant_override("separation", 4)
-	rv.add_child(sep)
-	rv.add_child(UiTheme.make_label("舰队 / FLEET", false, 9, P.PH_DIM))
-	for row in [["[1000] APSIS", "FLAG · 0.8 km"], ["[1001] HARMATTAN", "CMD · 244.3 km"], ["[1002] FERRY", "ESC · 316.1 km"], ["[1003] WATCHTOWER", "RLY · 609.3 km"], ["[1004] DEEPWELL", "TNK · 744.0 km"]]:
-		var h := HBoxContainer.new()
-		var l := UiTheme.make_label(String(row[0]), true, 8, P.TXT)
-		var r := UiTheme.make_label(String(row[1]), true, 8, P.a(P.DIM, 0.9))
-		r.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_child(l)
-		h.add_child(r)
-		rv.add_child(h)
-	rv.add_child(UiTheme.make_label("系统 / SYSTEMS", false, 9, P.PH_DIM))
-	for sys in [["SENSOR", "READY"], ["LINK", "OK"], ["DAMAGE", "NOMINAL"], ["IFF", "SHADOW"], ["TEACHING", "0/20"]]:
-		var h2 := HBoxContainer.new()
-		h2.add_child(UiTheme.make_label(String(sys[0]), true, 7, P.a(P.FAINT, 0.9)))
-		var r2 := UiTheme.make_label(String(sys[1]), true, 7, P.TXT)
-		r2.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		r2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h2.add_child(r2)
-		rv.add_child(h2)
-	var b := Button.new()
-	b.text = "打开任务日志 / LOG"
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.pressed.connect(func(): _on_log("MISSION LOG OPEN (壳原型)"))
-	rv.add_child(b)
-	# Bottom log
+	_right_panel = RightPanel.new()
+	_right_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_right_panel.page_action.connect(func(kind): _on_log("ACTION " + kind + " · READ-ONLY / NOT WIRED"))
+	right.add_child(_right_panel)
+	# Bottom command queue + event log
 	var bottom := PanelContainer.new()
-	bottom.custom_minimum_size = Vector2(0, 96)
+	bottom.custom_minimum_size = Vector2(0, 132)
 	root_v.add_child(bottom)
-	var bv := VBoxContainer.new()
-	bottom.add_child(bv)
-	bv.add_child(UiTheme.make_label("指挥日志 / COMMAND LOG", false, 8, P.PH_DIM))
-	_log_label = UiTheme.make_label("UI PROTO READY · Control + Theme + 9-Slice shell", true, 8, P.a(P.DIM, 0.95))
-	bv.add_child(_log_label)
+	_command_log = CommandLog.new()
+	_command_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	bottom.add_child(_command_log)
 	# custom cursor last
 	_cursor = CustomCursor.new()
 	_cursor.custom_minimum_size = Vector2.ZERO
@@ -183,6 +156,8 @@ func _load_contacts() -> void:
 	if rows.is_empty():
 		rows = [{"id": "----", "name": "NO CONTACT DATA", "cls": "content 未加载", "type": "unknown", "side": "unknown", "threat": "pending", "badge": "NOT READY"}]
 	_contacts.set_contacts(rows)
+	if not rows.is_empty() and _right_panel != null:
+		_right_panel.set_selected(rows[0])
 	_on_log("CONTACTS loaded from scenario_transit_l4_l1.json · %d" % rows.size())
 
 
@@ -194,9 +169,23 @@ func _seed_events() -> void:
 	_on_log("EVENTBUS seeded 3 tactical.timer · time_service t=%.1fs" % _time.now_s())
 
 
+func _refresh_command_log() -> void:
+	if _command_log == null or _bus == null:
+		return
+	var events: Array = _bus.recent(8)
+	var demo_commands: Array = [
+		{"id": "ORD-0007", "state": "QUEUED", "actor": "指挥官", "target": "哈马丹 1001", "action": "SHADOW", "mode": "LD", "delay": "8.0s"},
+		{"id": "ORD-0008", "state": "TRANSMITTED", "actor": "哈马丹 1001", "target": "L1 港", "action": "SCAN", "mode": "LR", "delay": "1.0s"},
+		{"id": "ORD-0009", "state": "EXECUTING", "actor": "指挥官", "target": "远地点 1000", "action": "HOLD", "mode": "LD", "delay": "—"},
+	]
+	_command_log.set_data(demo_commands, events, "DEMO · NO GAMESESSION", "EVENTBUS · REAL")
+
+
 func _process(delta: float) -> void:
 	if _time != null:
 		_time.tick(delta)
+	if _frames % 10 == 0:
+		_refresh_command_log()
 	if _shot_path == "":
 		return
 	_frames += 1
@@ -237,6 +226,9 @@ func _on_dot_action(kind: String) -> void:
 
 
 func _on_contact(index: int, data: Dictionary) -> void:
+	_selected_contact = data.duplicate(true)
+	if _right_panel != null:
+		_right_panel.set_selected(_selected_contact)
 	_on_log("CONTACT.SELECT [%s] %s" % [String(data.get("id", "")), String(data.get("name", ""))])
 	if _bus != null:
 		_bus.publish({"type": "contact.select", "t": _time.now_s(), "source": "ui_proto.contact_list",
@@ -248,8 +240,8 @@ func _on_log(text: String) -> void:
 	_log_lines.append(text)
 	while _log_lines.size() > 4:
 		_log_lines.pop_front()
-	if _log_label != null:
-		_log_label.text = " · ".join(_log_lines)
+	if _command_log != null:
+		_refresh_command_log()
 
 
 
