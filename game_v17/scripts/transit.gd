@@ -7,6 +7,8 @@ extends Control
 
 const TransferPlanner := preload("res://framework/sim/transfer_planner.gd")
 const TransitHUD := preload("res://scripts/transit_hud.gd")
+const TransitSensors := preload("res://scripts/transit_sensors.gd")
+const TeachingController := preload("res://scripts/teaching_controller.gd")
 const Palette := preload("res://scripts/pal.gd")
 const Fonts := preload("res://scripts/fonts.gd")
 
@@ -21,6 +23,12 @@ var playing := false
 var speed := 100.0
 var phase := "departure"
 var hud
+var sensors
+var teach
+var ui_mode := "ship"
+var optical_open := false
+var tutorial_open := false
+var last_note := ""
 var _frames := 0
 var _shot_path := ""
 var _shot_mode := ""
@@ -38,6 +46,14 @@ func _ready() -> void:
 	_shot_mode = OS.get_environment("DSH_TRANSIT_ARRIVAL")
 	_load_scenario()
 	_plan_transfer()
+	sensors = TransitSensors.new({})
+	teach = TeachingController.new("res://framework/content/teaching_l4_l1.json")
+	ui_mode = "ship"
+	var view := OS.get_environment("DSH_TRANSIT_VIEW")
+	if view == "target":
+		ui_mode = "target"
+	elif view == "tutorial":
+		tutorial_open = true
 	hud = TransitHUD.new()
 	hud.sim = self
 	hud.position = Vector2.ZERO
@@ -50,7 +66,18 @@ func _ready() -> void:
 		if _shot_mode == "1":
 			frac = 1.0
 		t = clampf(frac, 0.0, 1.0) * tof_s
-	_update_phase()
+		if sensors != null:
+			sensors.seek(t)
+			if view == "target":
+				sensors.set_target("l1_meridian_05")
+			elif view == "sensor":
+				sensors.select_ship("harmattan")
+				sensors.set_target("l1_meridian_05")
+				sensors.start_optical("optical", "l1_meridian_05")
+				sensors.start_optical("ir", "l1_meridian_05")
+				sensors.seek(t)
+				optical_open = true
+		_update_phase()
 	print("TRANSIT READY plan_ok=%s tof_s=%.1f timeline=%d fleet=%d scenario=%s" % [
 		str(bool(plan.get("ok", false))), tof_s, (plan.get("timeline", []) as Array).size() if plan.get("timeline", []) is Array else 0,
 		(plan.get("fleet", []) as Array).size() if plan.get("fleet", []) is Array else 0,
@@ -90,6 +117,15 @@ func _process(delta: float) -> void:
 		playing = false
 	elif playing:
 		t += delta * speed
+	if sensors != null:
+		if playing:
+			var vm_s: Dictionary = sensors.step(delta * speed)
+			t = clampf(float(sensors.t), 0.0, tof_s) if tof_s > 0.0 else t
+		else:
+			if absf(float(sensors.t) - t) > 1.0e-6:
+				sensors.seek(t)
+		if teach != null:
+			teach.tick(t)
 	if tof_s > 0.0:
 		t = clampf(t, 0.0, tof_s)
 		_update_phase()
@@ -114,6 +150,86 @@ func _update_phase() -> void:
 
 func _frac() -> float:
 	return clampf(t / maxf(1.0, tof_s), 0.0, 1.0)
+
+
+func seek_to(new_t: float) -> void:
+	t = clampf(new_t, 0.0, tof_s)
+	if sensors != null:
+		sensors.seek(t)
+	if teach != null:
+		teach.tick(t)
+	_update_phase()
+
+
+func ui_select_ship(ship_id: String) -> void:
+	if sensors == null:
+		return
+	var r: Dictionary = sensors.select_ship(ship_id)
+	ui_mode = "ship"
+	last_note = "SELECT SHIP " + ship_id + ("" if bool(r.get("ok", false)) else " · " + String(r.get("reason", "")))
+	if teach != null and bool(r.get("ok", false)):
+		var tr: Dictionary = teach.note("select_ship", ship_id)
+		last_note += " · teach=" + String(tr.get("reason", "")) if not bool(tr.get("ok", false)) else " · teach✓"
+	queue_redraw()
+
+
+func ui_select_target(target_id: String) -> void:
+	if sensors == null:
+		return
+	var r: Dictionary = sensors.set_target(target_id)
+	ui_mode = "target"
+	last_note = "TARGET " + target_id + ("" if bool(r.get("ok", false)) else " · " + String(r.get("reason", "")))
+	if teach != null and bool(r.get("ok", false)):
+		var tr2: Dictionary = teach.note("open_contact_list", target_id)
+		last_note += " · teach=" + String(tr2.get("reason", "")) if not bool(tr2.get("ok", false)) else " · teach✓"
+	queue_redraw()
+
+
+func ui_optical_start(kind: String) -> void:
+	if sensors == null:
+		return
+	var tgt := String(sensors.selected_target)
+	var r: Dictionary = sensors.start_optical(kind, tgt)
+	optical_open = true
+	last_note = "OPTICAL %s %s" % [kind, "START" if bool(r.get("ok", false)) else String(r.get("reason", "fail"))]
+	if teach != null and bool(r.get("ok", false)):
+		var tr3: Dictionary = teach.note("optical_channel", tgt, {"track_level": 3})
+		last_note += " · teach=" + String(tr3.get("reason", "")) if not bool(tr3.get("ok", false)) else " · teach✓"
+	queue_redraw()
+
+
+func ui_optical_stop() -> void:
+	if sensors != null:
+		var r: Dictionary = sensors.stop_optical()
+		last_note = "OPTICAL STOP" if bool(r.get("ok", false)) else "OPTICAL STOP · " + String(r.get("reason", "fail"))
+	optical_open = false
+	queue_redraw()
+
+
+func ui_ignite() -> void:
+	seek_to(0.0)
+	if teach != null:
+		var tr: Dictionary = teach.note("confirm_burn")
+		last_note = "IGNITE · teach=" + String(tr.get("reason", "")) if not bool(tr.get("ok", false)) else "IGNITE · teach✓"
+	playing = false
+	queue_redraw()
+
+
+func ui_arrive() -> void:
+	seek_to(tof_s)
+	if teach != null:
+		var tr: Dictionary = teach.note("arrive_l1")
+		last_note = "ARRIVE · teach=" + String(tr.get("reason", "")) if not bool(tr.get("ok", false)) else "ARRIVE · teach✓"
+	playing = false
+	queue_redraw()
+
+
+func teach_note(action: String, target := "", extra := {}) -> void:
+	if teach == null:
+		return
+	var r: Dictionary = teach.note(action, target, extra)
+	last_note = "TEACH %s · %s" % [action, "ok " + String(r.get("matched_step_id", "")) if bool(r.get("ok", false)) else String(r.get("reason", ""))]
+	queue_redraw()
 
 
 func _save_shot() -> void:
