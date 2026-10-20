@@ -52,6 +52,7 @@ func _initialize() -> void:
 	_test_signal_integration()
 	_test_signal_save_load()
 	_test_signal_binding()
+	_test_signal_dynamic_targets()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -2176,3 +2177,157 @@ func _test_signal_binding() -> void:
 	_data_line("binding", "target_meta 优先 entity/batch · world 兜底 · 缺失留空+warning · UI track_vm · 存档/确定性")
 
 var ok_mirror := false
+
+# ═══════════════════════════════════════════════════════════════════
+# 32. Signal 动态目标（Session 包装；side 不拒绝灯语）
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_signal_dynamic_targets() -> void:
+	_section_begin("32 Signal 动态目标")
+	# 可选退化
+	var plain = _new_session()
+	_eq(String(plain.signal_upsert_target({"id": "X", "side": "hostile"}).get("reason", "")),
+		"no_signal_service", "无 signal upsert 拒绝")
+	_eq(String(plain.signal_remove_target("X").get("reason", "")), "no_signal_service",
+		"无 signal remove 拒绝")
+	_eq(String(plain.signal_set_targets([]).get("reason", "")), "no_signal_service",
+		"无 signal set_targets 拒绝")
+	_eq(String(plain.signal_sync_targets([]).get("reason", "")), "no_signal_service",
+		"无 signal sync_targets 拒绝")
+	_eq((plain.signal_target_ids() as Array).size(), 0, "无 signal target_ids 空")
+	_eq(plain.signal_target("X").size(), 0, "无 signal target 空")
+	_eq(String(plain.signal_sync_from_world().get("reason", "")), "no_signal_service",
+		"无 signal sync_from_world 拒绝")
+	_eq(String(plain.signal_sync_from_contacts().get("reason", "")), "no_signal_service",
+		"无 signal sync_from_contacts 拒绝")
+	# 启用（绑定配置同时有 track_table）
+	var s = GameSession.new(_binding_cfg())
+	_ok(bool(s.ready), "dynamic session ready", str(s.errors))
+	_ok("E1" in s.signal_target_ids(), "初始 target_ids 含 E1")
+	# 跑一次绑定路由，让 contacts 有 track
+	s.signal_intercept("E1")
+	s.signal_intercept("harmattan")
+	# upsert 动态目标（hostile/neutral/unknown）
+	var up: Dictionary = s.signal_upsert_target({"id": "H1", "side": "hostile",
+		"entity_id": "apsis", "batch": "B-DYN", "pos_km": [0.0, 20.0, 0.0],
+		"light_capable": true, "receiver_facing": true})
+	_eq(bool(up.get("ok", false)), true, "session upsert hostile ok")
+	_eq(String(s.signal_target("H1").get("side", "")), "hostile", "session H1 side")
+	_eq(String(s.signal_target("H1").get("entity_id", "")), "apsis", "session H1 entity")
+	s.signal_upsert_target({"id": "N1", "side": "neutral", "pos_km": [0.0, 20.0, 0.0]})
+	s.signal_upsert_target({"id": "U1", "side": "unknown", "pos_km": [0.0, 20.0, 0.0]})
+	# 灯语不因 side 拒绝；ACK 由能力决定
+	for id in ["H1", "N1", "U1"]:
+		var snd: Dictionary = s.light_send("APPROACH_REQ", String(id))
+		_eq(bool(snd.get("ok", false)), true, "session 灯语可发 " + String(id))
+		var tx := String((snd.get("tx", {}) as Dictionary).get("tx_id", ""))
+		_eq(bool(s.light_receive(tx).get("ok", false)), true, "session 可收 " + String(id))
+		_eq(bool(s.light_ack(tx).get("ok", false)), true, "session ACK " + String(id))
+	# 能力失败
+	s.signal_upsert_target({"id": "CAP", "side": "hostile",
+		"pos_km": [0.0, 20.0, 0.0], "light_capable": false})
+	var scap: Dictionary = s.light_send("APPROACH_REQ", "CAP")
+	var txcap := String((scap.get("tx", {}) as Dictionary).get("tx_id", ""))
+	s.light_receive(txcap)
+	_eq(String(s.light_ack(txcap).get("reason", "")), "not_light_capable",
+		"session 无能力 ack 拒绝")
+	_eq(String(s.signal_resolve(txcap).get("status", "")), "RECEIVED",
+		"session 失败不伪造 ACK")
+	# remove / set / sync
+	_eq(bool(s.signal_remove_target("U1").get("ok", false)), true, "session remove ok")
+	_ok(not ("U1" in s.signal_target_ids()), "session remove 后不在")
+	_eq(bool(s.signal_remove_target("U1").get("ok", true)), false, "session remove 未知拒绝")
+	var ids_before: Array = s.signal_target_ids()
+	_eq(bool(s.signal_set_targets([{"id": "X1", "side": "hostile"},
+		{"id": "X1", "side": "neutral"}]).get("ok", true)), false,
+		"session set 重复拒绝")
+	_eq(s.signal_target_ids(), ids_before, "session set 失败不改状态")
+	var setr: Dictionary = s.signal_set_targets([
+		{"id": "S1", "side": "hostile", "pos_km": [0.0, 20.0, 0.0]},
+		{"id": "S2", "side": "neutral", "pos_km": [0.0, 20.0, 0.0]}])
+	_eq(bool(setr.get("ok", false)), true, "session set_targets ok")
+	_eq(s.signal_target_ids(), ["S1", "S2"], "session set 后目标")
+	var sy: Dictionary = s.signal_sync_targets([
+		{"id": "S1", "batch": "B-S"}, {"id": "S3", "side": "friend",
+			"pos_km": [0.0, 20.0, 0.0]}])
+	_eq(bool(sy.get("ok", false)), true, "session sync_targets ok")
+	_eq(int(sy.get("added", -1)), 1, "session sync added")
+	_eq(int(sy.get("updated", -1)), 1, "session sync updated")
+	_eq(String(s.signal_target("S1").get("side", "")), "hostile", "session sync 保留 side")
+	# 从 world 同步（只读 world，不写）
+	var wp_before := JSON.stringify((s.world.entity("apsis") as Dictionary).get("pos_km", []))
+	var sw: Dictionary = s.signal_sync_from_world()
+	_eq(bool(sw.get("ok", false)), true, "sync_from_world ok")
+	_eq(String(sw.get("source", "")), "world", "sync_from_world source")
+	_ok("apsis" in s.signal_target_ids(), "world 目标 apsis 加入")
+	_ok("harmattan" in s.signal_target_ids(), "world 目标 harmattan 加入")
+	_eq(String(s.signal_target("apsis").get("entity_id", "")), "apsis", "world target entity")
+	_eq(JSON.stringify((s.world.entity("apsis") as Dictionary).get("pos_km", [])), wp_before,
+		"sync_from_world 不写 world")
+	# 从 contacts（TrackTable）同步
+	var sc: Dictionary = s.signal_sync_from_contacts()
+	_eq(bool(sc.get("ok", false)), true, "sync_from_contacts ok")
+	_eq(String(sc.get("source", "")), "contacts", "sync_from_contacts source")
+	_ok(int(sc.get("count", 0)) > 0, "contacts 目标数")
+	var contact_ids: Array = s.signal_target_ids()
+	var has_entity_target := false
+	for tid in contact_ids:
+		var tr: Dictionary = s.signal_target(String(tid))
+		if String(tr.get("source", "")) == "contact" or String(tr.get("track_id", "")) != "":
+			has_entity_target = true
+	_ok(has_entity_target, "contacts 目标带 track_id/source")
+	# 失败不改状态
+	var ids_now: Array = s.signal_target_ids()
+	_eq(bool(s.signal_upsert_target({"id": "BAD", "side": "enemy"}).get("ok", true)),
+		false, "session 非法 side 拒绝")
+	_eq(bool(s.signal_sync_targets([{"id": "BAD2", "side": "bad"}]).get("ok", true)),
+		false, "session 非法 sync 拒绝")
+	_eq(s.signal_target_ids(), ids_now, "失败不改动态目标")
+	# 为存档/load 再注册动态目标（前面 set_targets 已替换掉 H1/CAP）
+	s.signal_upsert_target({"id": "H1", "side": "hostile", "entity_id": "apsis",
+		"batch": "B-DYN", "pos_km": [0.0, 20.0, 0.0], "light_capable": true})
+	s.signal_upsert_target({"id": "CAP", "side": "hostile",
+		"pos_km": [0.0, 20.0, 0.0], "light_capable": false})
+	# 存档/load
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	var signal_json := String((d as Dictionary).get("signal_service", ""))
+	_ok(signal_json != "", "session save 含 signal_service")
+	var sigd = JSON.parse_string(signal_json)
+	_ok(sigd is Dictionary and (sigd as Dictionary).has("targets"),
+		"signal 快照含 targets")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "dynamic target load ok", str(lr.get("errors", [])))
+	_eq(s2.signal_target_ids(), s.signal_target_ids(), "load 后 target_ids 一致")
+	_eq(String(s2.signal_target("H1").get("side", "")), "hostile", "load 后 H1 side")
+	_eq(bool(s2.signal_target("CAP").get("light_capable", true)), false,
+		"load 后 CAP 能力")
+	var send2: Dictionary = s2.light_send("APPROACH_REQ", "H1")
+	_eq(bool(send2.get("ok", false)), true, "load 后灯语可发")
+	# 旧 signal 快照缺 targets：保留 boot targets
+	var old_sig: Dictionary = (sigd as Dictionary).duplicate(true)
+	old_sig.erase("targets")
+	var old_session: Dictionary = (d as Dictionary).duplicate(true)
+	old_session["signal_service"] = JSON.stringify(old_sig)
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old_session))
+	_eq(bool(lr3.get("ok", false)), true, "旧 signal 快照兼容", str(lr3.get("errors", [])))
+	_ok((s3.signal_target_ids() as Array).size() > 0, "旧快照按 log 重建目标列表")
+	# 确定性
+	var a = GameSession.new(_binding_cfg())
+	var b = GameSession.new(_binding_cfg())
+	for sv in [a, b]:
+		sv.signal_upsert_target({"id": "DX", "side": "hostile",
+			"pos_km": [0.0, 20.0, 0.0]})
+		var sd: Dictionary = sv.light_send("APPROACH_REQ", "DX")
+		var stx := String((sd.get("tx", {}) as Dictionary).get("tx_id", ""))
+		sv.light_receive(stx)
+		sv.light_ack(stx)
+		sv.signal_sync_from_world()
+		sv.tick(1.0)
+	_ok(_norm_json(a.signal_vm()) == _norm_json(b.signal_vm()),
+		"dynamic 同操作 signal_vm 一致")
+	_ok(a.save_state() == b.save_state(), "dynamic 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "dynamic contracts ok")
+	_data_line("dynamic_targets", "side 不拒绝灯语 · ACK 由能力/状态 · 增删/替换/同步 world+contacts · 存档/确定性")

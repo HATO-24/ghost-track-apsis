@@ -1,9 +1,9 @@
 # 完整游戏-阶段3K · ELINT / 可见光灯语服务
 
-> 任务 task-155。工程 `game_v17`。**只新增 4 个文件**：
-> `scripts/core/signal_service.gd`、`tests/signal_probe.gd`、
-> `docs/signal_service.md`、`framework/content/light_codes_l1.json`。
-> 未改旧 world/UI/bridge/core/sim/project；不写 TrackTable/world/V15；未 commit。
+> 任务 task-155 + 阶段3N（task-160 动态目标注册）。工程 `game_v17`。
+> 改动：`scripts/core/signal_service.gd`、`tests/signal_probe.gd`、本文件；
+> 另由 game_session 包装（见 `game_session.md`）。未改旧 world/UI/bridge/core/sim；
+> 不写 TrackTable/world/V15；未 commit。
 
 ## 1　定位与数据流
 
@@ -81,8 +81,13 @@ s.resolve(fix_id_or_tx_id) -> {ok,type/status,...}
 
 s.light_send(code_id, target_id, {timeout_s,range_km,occluded,los,misread,...})
 s.light_receive(tx_id, {occluded,misread,misread_chance})
-s.light_ack(tx_id)
-s.resolve_light(tx_id)
+s.light_ack(tx_id) / s.resolve_light(tx_id)
+
+# 动态目标（阶段3N）
+s.upsert_target({id,entity_id,batch,side,identity,pos_km,emissions,
+                 light_capable,receiver_facing,occluded,active,destroyed,...})
+s.remove_target(id) / s.set_targets(rows) / s.sync_targets(rows,{replace_metadata})
+s.target_ids() / s.target(id)
 
 s.vm() / s.summary() / s.to_dict() / s.to_json()
 s.events / s.events_since(seq) / s.take_events()
@@ -130,6 +135,25 @@ resolve(tx_id) → 当前状态/是否待 ack
 - 所有动作产生 `signal_event.v1` 事件（`light_send/light_receive/light_ack/
   light_timeout/light_occluded/light_misread`），tx 数据结构为 `light_signal.v1`。
 
+### 3.4 动态目标注册 / side / ACK
+
+- 目标 schema（动态 API 归一后）：
+  `id`(必填) / `entity_id` / `batch` / `side`∈{friend,neutral,hostile,unknown} /
+  `identity` / `pos_km`[3 finite] / `emissions[]` / `light_capable`(默认 true) /
+  `receiver_facing`(默认 true) / `occluded` / `active`(默认 true) / `destroyed`(默认 false)；
+  额外字段透传（comms/模型/备注等）。
+- `upsert_target`：同 id 增量更新（未提供字段保留）；非法 id/side/pos/emissions 拒绝且不改状态。
+- `set_targets(rows)`：全量替换，重复 id/非法行整体拒绝（原子）。
+- `sync_targets(rows,{replace_metadata:false})`：按 id 合并（新追加、已有覆盖字段但保留缺失字段）；
+  `replace_metadata=true` 时对列表中的已有 id 用提供字段整体替换（未提供字段回默认）。
+- `remove_target(id)` 未知拒绝；`target_ids()` 排序；`target(id)` 只读副本；动态更新同步到内部 ELINT。
+- **灯语不因 side 拒绝发送**：hostile/neutral/unknown 均可 `light_send`（仍受 target 存在/距离/遮挡约束）；
+  tx 记录 `target_side/target_entity_id/target_batch`。
+- **ACK 由目标能力/状态决定，与 side 无关**：`light_receive` 后 `light_ack` 需要目标
+  `active=true` 且未 `destroyed`、`light_capable=true`、`receiver_facing=true`；
+  不满足分别返回 `target_unavailable/not_light_capable/not_facing`，状态保持 RECEIVED，
+  不伪造 ACK 事件；目标被移除后 ACK 返回 `unknown_target`。
+
 ## 4　VM / 事件 / save
 
 ```text
@@ -143,9 +167,10 @@ writes={track_table:false,world:false,v15:false,ui:false}
 
 - events schema `signal_event.v1`：`{seq,t,kind,payload,shadow,writes_v15:false}`；
   observations/evidence 也进 events；
-- `save_state` JSON schema `v17.signal_service_save.v1` v1.0.0：t、light tx、
+- `save_state` JSON schema `v17.signal_service_save.v1` v1.0.0：t、**targets**、light tx、
   ELINT signals/COMINT/fingerprints/candidates/observations/evidence/events/seq；
-  `load_state` 校验 schema/version/数组后恢复；损坏/旧/未来版本拒绝；
+  `load_state` 校验 schema/version/数组后恢复；旧存档缺 `targets` → 保留当前目标列表（兼容）；
+  非法 targets（非数组/重复 id/非法 side）整体拒绝且不改状态；损坏/未来版本拒绝；
 - JSON-safe、确定性；相同输入/命令序列 VM 逐字节一致。
 
 ## 5　接入 / 边界
@@ -160,16 +185,19 @@ writes={track_table:false,world:false,v15:false,ui:false}
   不实现灯语自动重发/多帧纠错/视觉渲染/AI 识别；`misread_chance` 默认 0，
   需要时可配置或 opts 强制；
 - 灯语 range 为直线距离，无地形/地球曲率/大气；不写剧情，谷神-2 仅代码示例；
+- 动态目标只是服务内部注册表；不写 world/contact；从 world/contact 同步由 GameSession
+  包装（只读 source，不双写）；ACK 能力字段由上层注册/配置提供，不推断真实平台能力。
 - save/load 恢复服务输出/灯语 tx；ELINT 模型本身不序列化，恢复后 `step/intercept`
   会重新扫描（避免把模型内部状态当权威存档）。
-- probe 157 checks（代码表/ELINT 单多站/指纹/LPI/COMINT/灯语全状态/JSON/save/
-  确定性/不写）；只单次运行，未跑全量回归；未 commit。
+- probe 257 checks（代码表/ELINT 单多站/指纹/LPI/COMINT/灯语全状态/JSON/save/
+  确定性/不写；动态目标增删改/同步/side/ACK 能力/存档/确定性）；只单次运行，
+  未跑全量回归；未 commit。
 
 ## 6　验证
 
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/signal_probe.gd
-# SIGNAL SERVICE PROBE RESULT: PASS=157 FAIL=0
+# SIGNAL SERVICE PROBE RESULT: PASS=257 FAIL=0
 # SIGNAL SERVICE PROBE OK（退出码 0）
 ```

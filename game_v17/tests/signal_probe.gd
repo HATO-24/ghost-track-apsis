@@ -24,6 +24,7 @@ func _initialize() -> void:
 	_test_elint_multi_df()
 	_test_light_codes()
 	_test_save_load_json()
+	_test_dynamic_targets()
 	print("────────────────────────────────────────────────────────────────")
 	print("SIGNAL SERVICE PROBE RESULT: PASS=%d FAIL=%d" % [_pass, _fail])
 	if _fail > 0:
@@ -368,3 +369,197 @@ func _events_kind(s, kind: String) -> int:
 		if raw is Dictionary and String((raw as Dictionary).get("kind", "")) == kind:
 			n += 1
 	return n
+
+# ── 6. 动态目标注册 / side / ACK 能力 ─────────────────────────
+
+func _dyn_target(id: String, side: String, opts := {}) -> Dictionary:
+	var d: Dictionary = {"id": id, "side": side, "pos_km": [0.0, 20.0, 0.0]}
+	for k in (opts as Dictionary).keys():
+		d[String(k)] = (opts as Dictionary)[k]
+	return d
+
+func _txid(res: Dictionary) -> String:
+	return String((res.get("tx", {}) as Dictionary).get("tx_id", ""))
+
+func _test_dynamic_targets() -> void:
+	print("")
+	print("── 6. 动态目标注册 / side / ACK 能力 ──")
+	var s = _service(false)
+	var base_ids: Array = s.target_ids()
+	_eq(base_ids.size(), 6, "初始 6 目标")
+	_ok("E1" in base_ids, "初始含 E1")
+	_ok("C1" in base_ids, "初始含 C1")
+	# upsert 四类 side
+	var H: Dictionary = s.upsert_target(_dyn_target("H1", "hostile",
+		{"entity_id": "apsis", "batch": "B-H"}))
+	_eq(bool(H.get("ok", false)), true, "upsert hostile ok")
+	_eq(bool(H.get("created", false)), true, "hostile created")
+	_eq(String((H.get("target", {}) as Dictionary).get("side", "")), "hostile",
+		"hostile side")
+	_eq(String((s.target("H1")).get("entity_id", "")), "apsis", "target entity_id")
+	_eq(String((s.target("H1")).get("batch", "")), "B-H", "target batch")
+	var N: Dictionary = s.upsert_target(_dyn_target("N1", "neutral"))
+	_eq(bool(N.get("ok", false)), true, "upsert neutral ok")
+	var F: Dictionary = s.upsert_target(_dyn_target("FR1", "friend"))
+	_eq(bool(F.get("ok", false)), true, "upsert friend ok")
+	var U: Dictionary = s.upsert_target(_dyn_target("U1", "unknown"))
+	_eq(bool(U.get("ok", false)), true, "upsert unknown ok")
+	for id in ["H1", "N1", "FR1", "U1"]:
+		_ok(String(id) in s.target_ids(), "target_ids 含 " + String(id))
+	# 增量 upsert：未提供字段保留
+	var H2: Dictionary = s.upsert_target({"id": "H1", "batch": "B-H2"})
+	_eq(bool(H2.get("created", true)), false, "upsert 已存在 created=false")
+	_eq(String(s.target("H1").get("side", "")), "hostile", "upsert 保留 side")
+	_eq(String(s.target("H1").get("batch", "")), "B-H2", "upsert 更新 batch")
+	_eq(String(s.target("H1").get("entity_id", "")), "apsis", "upsert 保留 entity")
+	# 非法 upsert 不改状态
+	var ids_before: Array = s.target_ids()
+	var h1_before := JSON.stringify(s.target("H1"))
+	_eq(bool(s.upsert_target({}).get("ok", true)), false, "空目标拒绝")
+	_eq(bool(s.upsert_target({"id": "BAD", "side": "enemy"}).get("ok", true)), false,
+		"非法 side 拒绝")
+	_eq(bool(s.upsert_target({"id": "BAD2", "pos_km": [0.0, 1.0]}).get("ok", true)),
+		false, "非法 pos 拒绝")
+	_eq(bool(s.upsert_target({"id": "BAD3",
+		"pos_km": [NAN, 0.0, 0.0]}).get("ok", true)), false, "NaN pos 拒绝")
+	_eq(bool(s.upsert_target({"id": "BAD4", "emissions": "x"}).get("ok", true)),
+		false, "非法 emissions 拒绝")
+	_eq(s.target_ids(), ids_before, "非法 upsert 不改 ids")
+	_eq(JSON.stringify(s.target("H1")), h1_before, "非法 upsert 不改目标")
+	# 灯语发送：不因 side 拒绝
+	for id2 in ["H1", "N1", "FR1", "U1"]:
+		var snd: Dictionary = s.light_send("APPROACH_REQ", String(id2))
+		_eq(bool(snd.get("ok", false)), true, "灯语可发 " + String(id2))
+		_eq(String((snd.get("tx", {}) as Dictionary).get("target_side", "")),
+			String(s.target(String(id2)).get("side", "")), "tx 记录 target_side " + String(id2))
+		var tid := _txid(snd)
+		var rcv: Dictionary = s.light_receive(tid)
+		_eq(bool(rcv.get("ok", false)), true, "灯语可收 " + String(id2))
+		var ack: Dictionary = s.light_ack(tid)
+		_eq(bool(ack.get("ok", false)), true, "能力正常时 ACK 与 side 无关 " + String(id2))
+	# ACK 能力：light_capable=false
+	s.upsert_target(_dyn_target("CAP", "hostile", {"light_capable": false}))
+	var sc: Dictionary = s.light_send("APPROACH_REQ", "CAP")
+	var txc := _txid(sc)
+	_eq(bool(s.light_receive(txc).get("ok", false)), true, "CAP 可接收")
+	var ack_cap: Dictionary = s.light_ack(txc)
+	_eq(bool(ack_cap.get("ok", true)), false, "无灯语能力不可 ACK")
+	_eq(String(ack_cap.get("reason", "")), "not_light_capable", "not_light_capable")
+	_eq(String((s.resolve_light(txc).get("status", ""))), "RECEIVED", "失败后仍 RECEIVED")
+	# receiver_facing=false
+	s.upsert_target(_dyn_target("FAC", "neutral", {"receiver_facing": false}))
+	var txf := _txid(s.light_send("APPROACH_REQ", "FAC"))
+	s.light_receive(txf)
+	var ack_f: Dictionary = s.light_ack(txf)
+	_eq(bool(ack_f.get("ok", true)), false, "不朝向不可 ACK")
+	_eq(String(ack_f.get("reason", "")), "not_facing", "not_facing")
+	# destroyed / inactive
+	s.upsert_target(_dyn_target("DES", "hostile", {"destroyed": true}))
+	var txd := _txid(s.light_send("APPROACH_REQ", "DES"))
+	s.light_receive(txd)
+	_eq(String(s.light_ack(txd).get("reason", "")), "target_unavailable", "destroyed ACK")
+	s.upsert_target(_dyn_target("OFF", "friend", {"active": false}))
+	var txo := _txid(s.light_send("APPROACH_REQ", "OFF"))
+	s.light_receive(txo)
+	_eq(String(s.light_ack(txo).get("reason", "")), "target_unavailable", "inactive ACK")
+	# 目标被移除后 ack 不伪造
+	s.upsert_target(_dyn_target("GONE", "hostile"))
+	var txg := _txid(s.light_send("APPROACH_REQ", "GONE"))
+	s.light_receive(txg)
+	_eq(bool(s.remove_target("GONE").get("ok", false)), true, "remove 已接收目标 ok")
+	_eq(String(s.light_ack(txg).get("reason", "")), "unknown_target", "目标移除后 ACK 拒绝")
+	# 事件
+	_ok(_events_kind(s, "target_upserted") >= 1, "target_upserted 事件")
+	_ok(_events_kind(s, "target_removed") >= 1, "target_removed 事件")
+	# remove/set/sync
+	_eq(bool(s.remove_target("H1").get("ok", false)), true, "remove_target ok")
+	_ok(not ("H1" in s.target_ids()), "remove 后 ids 不含")
+	_eq(bool(s.remove_target("H1").get("ok", true)), false, "remove 未知拒绝")
+	var setr: Dictionary = s.set_targets([
+		{"id": "S1", "side": "hostile", "pos_km": [0.0, 20.0, 0.0]},
+		{"id": "S2", "side": "neutral", "pos_km": [0.0, 20.0, 0.0],
+			"light_capable": false}])
+	_eq(bool(setr.get("ok", false)), true, "set_targets ok")
+	_eq(s.target_ids(), ["S1", "S2"], "set 后仅 2 目标")
+	var before_set: Array = s.target_ids()
+	_eq(bool(s.set_targets([{"id": "X1", "side": "hostile"},
+		{"id": "X1", "side": "neutral"}]).get("ok", true)), false, "重复 id set 拒绝")
+	_eq(s.target_ids(), before_set, "非法 set 不改状态")
+	_eq(bool(s.set_targets([{"id": "X2", "side": "bad"}]).get("ok", true)), false,
+		"非法 side set 拒绝")
+	_eq(s.target_ids(), before_set, "非法 side set 不改状态")
+	# sync：merge 保留缺失字段
+	var sy: Dictionary = s.sync_targets([
+		{"id": "S1", "entity_id": "apsis", "batch": "B-S"},
+		{"id": "S3", "side": "friend", "pos_km": [0.0, 20.0, 0.0]}])
+	_eq(bool(sy.get("ok", false)), true, "sync merge ok")
+	_eq(int(sy.get("added", -1)), 1, "sync added=1")
+	_eq(int(sy.get("updated", -1)), 1, "sync updated=1")
+	_eq(String(s.target("S1").get("side", "")), "hostile", "sync 保留 side")
+	_eq(String(s.target("S1").get("entity_id", "")), "apsis", "sync 更新 entity")
+	_ok("S3" in s.target_ids(), "sync 新增 S3")
+	# replace_metadata：缺省字段回默认（batch/entity 清空）
+	var sy2: Dictionary = s.sync_targets([{"id": "S1", "side": "friend"}],
+		{"replace_metadata": true})
+	_eq(bool(sy2.get("ok", false)), true, "sync replace ok")
+	_eq(bool(sy2.get("replace_metadata", false)), true, "sync replace flag")
+	_eq(String(s.target("S1").get("entity_id", "")), "", "replace 后 entity 默认空")
+	_eq(String(s.target("S1").get("side", "")), "friend", "replace 后 side")
+	# 非法 sync 原子拒绝
+	var ids_sync: Array = s.target_ids()
+	_eq(bool(s.sync_targets([{"id": "S9", "side": "neutral"},
+		{"id": "S10", "side": "bad"}]).get("ok", true)), false, "非法 sync 拒绝")
+	_eq(s.target_ids(), ids_sync, "非法 sync 不改状态")
+	# vm/summary
+	var vm: Dictionary = s.vm()
+	_eq(int(vm.get("target_count", -1)), s.target_ids().size(), "VM target_count")
+	_eq(int(s.summary().get("targets", -1)), s.target_ids().size(), "summary targets")
+	_ok(_json_ok(vm.get("targets", [])), "targets JSON")
+	for raw in (vm.get("targets", []) as Array):
+		var row: Dictionary = raw
+		_ok(row.has("side"), "target row side 字段")
+		_ok(row.has("light_capable"), "target row light_capable")
+		_ok(row.has("receiver_facing"), "target row receiver_facing")
+	# 存档：targets 往返
+	var save: String = String(s.save_state())
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary, "save JSON")
+	if d is Dictionary:
+		_ok((d as Dictionary).has("targets"), "save 含 targets")
+	var s2 = _service(false)
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "动态目标 save/load ok")
+	_eq(s2.target_ids(), s.target_ids(), "load target_ids 一致")
+	_eq(String(s2.target("S1").get("side", "")), "friend", "load S1 side")
+	_eq(bool(s2.target("S2").get("light_capable", true)), false, "load capability")
+	# 旧存档缺 targets：保留当前目标
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("targets")
+	var s3 = _service(false)
+	var old_ids: Array = s3.target_ids()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 targets 兼容")
+	_eq(s3.target_ids(), old_ids, "旧存档保留当前目标")
+	# 非法存档 targets 拒绝且不改状态
+	var bad: Dictionary = (d as Dictionary).duplicate(true)
+	bad["targets"] = [{"id": "Z", "side": "bad"}]
+	var s4 = _service(false)
+	var before_ids: Array = s4.target_ids()
+	_eq(bool(s4.load_state(JSON.stringify(bad)).get("ok", true)), false,
+		"非法 targets 存档拒绝")
+	_eq(s4.target_ids(), before_ids, "非法存档不改目标")
+	# 确定性
+	var a = _service(false)
+	var b = _service(false)
+	for x in [a, b]:
+		x.upsert_target(_dyn_target("DX", "hostile"))
+		x.upsert_target(_dyn_target("DN", "neutral", {"light_capable": false}))
+		x.sync_targets([{"id": "DX", "batch": "B"}])
+		var tx := _txid(x.light_send("APPROACH_REQ", "DX"))
+		x.light_receive(tx)
+		x.light_ack(tx)
+	_eq(JSON.stringify(a.vm()), JSON.stringify(b.vm()), "动态目标同操作 VM 一致")
+	_eq(a.save_state(), b.save_state(), "动态目标同操作 save 一致")
+	# 灯语发送未知目标仍拒绝（非 side）
+	_eq(String(s.light_send("APPROACH_REQ", "NO_SUCH").get("reason", "")),
+		"unknown_target", "未知目标发送拒绝 reason")

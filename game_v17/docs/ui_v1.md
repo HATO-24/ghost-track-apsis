@@ -426,3 +426,45 @@ v1_hud.gd
 2. 灯语选中码为第一个 real code；无完整选码/码表交互（面板显示 codes/TX）。
 3. signal_service 为 shadow；不写 world/V15；不实现剧情/物理。
 4. 未跑全量 regression。
+
+
+---
+
+## 17　方案B-11：动态目标/灯语全目标 UI（task-161）
+
+### 17.1 ShellBinder 同步动态 targets
+
+- `ShellBinder.refresh()` 每次构建 contacts 后调用 `_sync_signal_targets()`：
+  - 把当前 contacts/world 实体写入 `session.signal_sync_targets(rows, {"replace_metadata": false})`；
+  - 行字段：id/target_id/entity_id/batch/side/identity/pos_km/light_capable/active/destroyed；
+  - `replace_metadata=false` 保留 core signal target 的已有 emissions/occlusion/light_capable 元数据；
+  - 空/失败写 warning（`signal_service 未启用` / `signal targets 同步失败：reason`），不伪造。
+- core `signal_service.targets` 中的动态 L1/O1（side unknown）补入接触列表，badge=`SIGNAL`，供任意 side 选择；非伪造 world 实体，明确来源 signal target。
+
+### 17.2 光学/信号页
+
+- target = 当前选中接触（可为任意 side）；SIGNAL 面板显示 `TARGET side=... identity=...`、ELINT counts、codes/selected、TX counts/状态、last TX reason；无 signal_service 显示 NO SIGNAL。
+- LIGHT TX：`session.light_send(selected_code,target)`；CODE ◀/▶ 在 `signal_service.code_ids` 中切换真实选码；RECV/ACK：`light_receive/light_ack(tx_id)`；失败 reason 显示。
+- ELINT：`signal_intercept` + `signal_df`；显示 observations/evidence/fingerprints/candidates；ELINT evidence 已在 signal vm 中，track 若无可映射 entity 显示 TRACK NOT READY，不伪造 L3/L4。
+- 任意 side 不阻止发送；ACK 是否成功由 target `light_capable/active/occluded` 等 capability 决定，无 ACK 时显示真实 reason。
+
+### 17.3 实测（DSH_V1_VIEW=signal）
+
+- binder：`signal targets synced added=1 updated=2 count=5`（后续 updated=3）。
+- 样张 target=L1（动态 SIGNAL target，side=unknown）：
+  - `ELINT L1 · FAILED · no_signal`（L1 无 emitter，真实原因）；
+  - `LIGHT L1 · OK` → `RECV L1 · OK` → `ACK L1 · OK`；
+  - SIGNAL 面板 ELINT signals 81 / evidence 2 / codes 10 / selected APPROACH_REQ / last TX ACKED。
+- 联系人列表：[1000] 旗舰、[1001]、[3100]、L1 SIGNAL、O1 SIGNAL。
+
+### 17.4 截图 / 验证
+
+- `mockups/v1-hud-signal-all-sides-1920.png`（1920×1080：target L1 side=unknown、SIGNAL 面板、CODE ◀/▶、LIGHT TX/RECV/ACK、SIGNAL contacts）
+- `V1 HUD SHOT err=0`；headless signal demo 一次；`v1_hud.gd/shell_binder.gd --check-only` 通过。
+
+### 17.5 未完成 / 边界
+
+1. 当前 world 没有敌方实体；样张用 core 动态 SIGNAL target L1（side unknown）演示任意 side；敌方/中立流程同一 API，未另行造实体。
+2. L1 无 emitter，所以 ELINT 失败 reason 真实；harmattan ELINT 在上一版已实测 OK。
+3. 无完整码表交互（仅 ◀/▶ 切换 10 个 real codes）；无完整 ACK 重试流程。
+4. signal_service 为 shadow；不写 world/V15；不实现剧情/物理；未跑全量 regression。

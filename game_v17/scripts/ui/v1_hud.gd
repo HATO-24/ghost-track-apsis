@@ -77,6 +77,7 @@ var _combat_roe_buttons: Array = []
 var _signal_code := ""
 var _signal_tx_id := ""
 var _signal_msg := ""
+var _signal_code_index := 0
 var _save_slots: Array = []
 var _save_load_buttons: Array = []
 var _save_overlay_msg := ""
@@ -803,22 +804,39 @@ func _track_for_contact(c: Dictionary) -> Dictionary:
 
 func _signal_demo() -> void:
 	# 仅 DSH_V1_VIEW=signal 截图样张：走真实 ELINT/灯语 API，不伪造。
-	# 从 signal vm 的真实 emitters/targets 选一个可截获目标，不写死/不伪造。
+	# 样张优先选任意非友方 SIGNAL 动态 target，展示 all-sides；发送/ACK 仍由真实 target 能力决定。
 	if binder != null and binder.session != null and binder.session.signal_service != null:
-		var svm: Dictionary = binder.session.signal_service.vm()
-		var stargets: Array = svm.get("targets", []) if svm.get("targets", []) is Array else []
-		for raw_t in stargets:
-			if raw_t is Dictionary and bool((raw_t as Dictionary).get("has_emitter", not (raw_t.get("emissions", []) as Array).is_empty())) and not bool((raw_t as Dictionary).get("occluded", false)):
-				var tid := String((raw_t as Dictionary).get("id", ""))
-				if tid != "":
-					_optical_target = tid
+		# 优先真正的动态 SIGNAL target（L1/O1 等），展示任意 side；不选 harmattan 发射器。
+		for i in range(_contacts.size()):
+			var sc: Dictionary = _contacts[i]
+			if bool(sc.get("signal_target", false)):
+				_selected = i
+				var seid := String(sc.get("entity_id", ""))
+				if seid == "":
+					seid = String(sc.get("id", ""))
+				_optical_target = seid
+				_optical_track = _track_for_contact(sc)
+				break
+		if _optical_target == "":
+			for raw_t in (binder.session.signal_service.targets if binder.session.signal_service.targets is Array else []):
+				if raw_t is Dictionary and String((raw_t as Dictionary).get("side", "unknown")) != "friend":
+					_optical_target = String((raw_t as Dictionary).get("id", ""))
 					break
-		if _optical_target != "":
-			for i in range(_contacts.size()):
-				if String((_contacts[i] as Dictionary).get("entity_id", (_contacts[i] as Dictionary).get("id", ""))) == _optical_target:
-					_selected = i
-					_optical_track = binder.selected_track(_contacts[i]) if binder != null else {}
-					break
+		if _optical_target == "":
+			var svm2: Dictionary = binder.session.signal_service.vm()
+			var stargets: Array = svm2.get("targets", []) if svm2.get("targets", []) is Array else []
+			for raw_t in stargets:
+				if raw_t is Dictionary and not (raw_t.get("emissions", []) as Array).is_empty() and not bool((raw_t as Dictionary).get("occluded", false)):
+					var tid := String((raw_t as Dictionary).get("id", ""))
+					if tid != "":
+						_optical_target = tid
+						break
+			if _optical_target != "":
+				for i in range(_contacts.size()):
+					if String((_contacts[i] as Dictionary).get("entity_id", (_contacts[i] as Dictionary).get("id", ""))) == _optical_target:
+						_selected = i
+						_optical_track = _track_for_contact(_contacts[i])
+						break
 	print("[V1 HUD] SIGNAL DEMO start target=", _optical_target, " contacts=", _contacts.size(), " sensor=", str(binder != null and binder.session != null and binder.session.sensor_service != null), " signal=", str(binder != null and binder.session != null and binder.session.signal_service != null))
 	_optical_action("ELINT")
 	_optical_action("LIGHT")
@@ -895,7 +913,7 @@ func _draw_optical_overlay(r: Rect2) -> void:
 	draw_string(F.mono(), Vector2(ow.position.x + 8, ow.end.y - 12), "VIS/IR · SNR " + str(snr) + " · TRACK L%d" % level, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
 	# 按钮
 	_optical_buttons.clear()
-	var labels := [["VIS", "VIS / 可见光"], ["IR", "IR / 红外"], ["IFF", "IFF QUERY"], ["ELINT", "ELINT"], ["LIGHT", "LIGHT TX"], ["RECV", "LIGHT RECV"], ["ACK", "LIGHT ACK"]]
+	var labels := [["VIS", "VIS / 可见光"], ["IR", "IR / 红外"], ["IFF", "IFF QUERY"], ["ELINT", "ELINT"], ["LIGHT", "LIGHT TX"], ["RECV", "LIGHT RECV"], ["ACK", "LIGHT ACK"], ["CODE_PREV", "CODE ◀"], ["CODE_NEXT", "CODE ▶"]]
 	var by := r.end.y - 36.0
 	for i in range(labels.size()):
 		var br := Rect2(x + float(i) * 104.0, by, 98, 22)
@@ -919,7 +937,8 @@ func _draw_optical_overlay(r: Rect2) -> void:
 		var codes: Array = light.get("codes", []) if light.get("codes", []) is Array else []
 		if _signal_code == "" and not codes.is_empty():
 			_signal_code = String(codes[0])
-		Painter.label(self, sr.position.x + 10, sr.position.y + 40, "ELINT signals %d · fixes/candidates %d · obs %d · evidence %d" % [int(lc.get("signals", 0)), int(lc.get("candidates", 0)), int(lc.get("observations", 0)), int(lc.get("evidence", 0))], 7, P.TXT, true)
+		var side := String(c.get("side", c.get("type", "unknown")))
+		Painter.label(self, sr.position.x + 10, sr.position.y + 40, "TARGET side=%s identity=%s · ELINT signals %d · fixes/candidates %d · obs %d · evidence %d" % [side, String(tr.get("identity", side)) if not tr.is_empty() else side, int(lc.get("signals", 0)), int(lc.get("candidates", 0)), int(lc.get("observations", 0)), int(lc.get("evidence", 0))], 7, P.TXT, true)
 		Painter.label(self, sr.position.x + 10, sr.position.y + 54, "CODES %d · selected %s · TX sent %d recv %d ack %d timeout %d occluded %d misread %d" % [codes.size(), _signal_code, int(lcounts.get("sent", 0)), int(lcounts.get("received", 0)), int(lcounts.get("acked", 0)), int(lcounts.get("timeout", 0)), int(lcounts.get("occluded", 0)), int(lcounts.get("misread", 0))], 6, P.DIM, true)
 		Painter.label(self, sr.position.x + 10, sr.position.y + 68, "TX " + (_signal_tx_id if _signal_tx_id != "" else "NONE") + " · FIXES/指纹/置信度来自 signal vm", 7, P.PH_DIM, true)
 		# 最近 code/tx 摘要
@@ -937,7 +956,7 @@ func _optical_action(kind: String) -> void:
 	if binder == null or binder.session == null:
 		_optical_msg = "NOT READY · no session"
 		return
-	var signal_kind := kind in ["ELINT", "LIGHT", "RECV", "ACK"]
+	var signal_kind := kind in ["ELINT", "LIGHT", "RECV", "ACK", "CODE_PREV", "CODE_NEXT"]
 	if signal_kind:
 		if binder.session.signal_service == null:
 			_optical_msg = "SIGNAL NOT READY · no signal_service"
@@ -981,6 +1000,15 @@ func _optical_action(kind: String) -> void:
 				res = {"ok": false, "reason": "no_tx"}
 			else:
 				res = binder.session.light_ack(_signal_tx_id)
+		"CODE_PREV", "CODE_NEXT":
+			var code_ids: Array = binder.session.signal_service.code_ids if binder.session.signal_service != null else []
+			if code_ids.is_empty():
+				res = {"ok": false, "reason": "no_light_codes"}
+			else:
+				_signal_code_index = int(_signal_code_index) + (-1 if kind == "CODE_PREV" else 1)
+				_signal_code_index = posmod(_signal_code_index, code_ids.size())
+				_signal_code = String(code_ids[_signal_code_index])
+				res = {"ok": true, "code_id": _signal_code}
 		"ELINT":
 			res = binder.session.signal_intercept(target)
 			var df: Dictionary = binder.session.signal_df(target)

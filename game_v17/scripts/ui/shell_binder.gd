@@ -17,6 +17,7 @@ var save_service = null
 var ready := false
 var errors: Array[String] = []
 var warnings: Array[String] = []
+var signal_sync_result: Dictionary = {}
 var track_vm: Dictionary = {}
 var sensor_vm: Dictionary = {}
 var sensor_result := ""
@@ -142,6 +143,7 @@ func refresh() -> void:
 	story_vm = session.story_vm() if session.story_state != null else {}
 	sensor_vm = session.sensor_service.vm() if session.sensor_service != null else {}
 	contacts = _build_contacts()
+	_sync_signal_targets()
 	commands = _build_commands()
 	events = session.bus.recent(8) if session.bus != null else []
 	# ROE：真实 story_state 存在时显示默认交战规则；不伪造裁决。
@@ -201,6 +203,25 @@ func _build_contacts() -> Array:
 			"name": String(e.get("name", eid)), "cls": kind.to_upper(),
 			"type": "station" if kind == "station" else "friendly", "side": "friend",
 			"threat": "none", "badge": "ENTITY", "level": 0, "range_km": -1.0, "sources": []})
+	# 动态 signal targets（core signal_service.targets）补进接触列表，供任意 side 灯语/ELINT；
+	# 明确 badge=SIGNAL，不是伪造 world 实体。
+	if session != null and session.signal_service != null:
+		var known: Dictionary = {}
+		for row in rows:
+			known[String((row as Dictionary).get("entity_id", (row as Dictionary).get("id", "")))] = true
+		for raw_t in (session.signal_service.targets if session.signal_service.targets is Array else []):
+			if not (raw_t is Dictionary):
+				continue
+			var t: Dictionary = raw_t
+			var tid := String(t.get("id", ""))
+			if tid == "" or known.has(tid):
+				continue
+			var tside := String(t.get("side", "unknown"))
+			var ttype := "unknown" if tside in ["unknown", "hostile", "suspect"] else ("neutral" if tside == "neutral" else "friendly")
+			rows.append({"id": tid, "entity_id": String(t.get("entity_id", tid)), "track_id": "",
+				"name": "SIGNAL " + tid, "cls": "SIGNAL TARGET", "type": ttype, "side": tside,
+				"threat": "unknown" if ttype == "unknown" else "none", "badge": "SIGNAL",
+				"level": 0, "range_km": float(t.get("range_km", -1.0)), "sources": [], "signal_target": true})
 	return rows
 
 
@@ -221,6 +242,50 @@ func _build_commands() -> Array:
 			"delay": "%.1fs" % float(o.get("delivery_delay_s", 0.0)),
 		})
 	return out
+
+
+func _sync_signal_targets() -> void:
+	signal_sync_result = {}
+	if session == null or session.signal_service == null:
+		warnings.append("signal_service 未启用；动态 targets 未同步")
+		return
+	var entities: Array = snapshot.get("entities", []) if snapshot.get("entities", []) is Array else []
+	var ent_by_id: Dictionary = {}
+	for raw in entities:
+		if raw is Dictionary:
+			ent_by_id[String((raw as Dictionary).get("id", ""))] = raw
+	var rows: Array = []
+	for raw in contacts:
+		if not (raw is Dictionary):
+			continue
+		var c: Dictionary = raw
+		var tid := String(c.get("entity_id", c.get("id", "")))
+		if tid == "":
+			continue
+		var e: Dictionary = ent_by_id.get(String(c.get("entity_id", "")), {}) if ent_by_id.get(String(c.get("entity_id", "")), {}) is Dictionary else {}
+		var side := "friend"
+		match String(c.get("type", "")):
+			"unknown":
+				side = "unknown"
+			"neutral":
+				side = "neutral"
+			"station":
+				side = "friend"
+		var pos: Array = e.get("pos_km", []) if e.get("pos_km", []) is Array else [0.0, 0.0, 0.0]
+		if pos.size() != 3:
+			pos = [0.0, 0.0, 0.0]
+		rows.append({"id": tid, "target_id": tid, "entity_id": String(c.get("entity_id", "")),
+			"batch": String(c.get("id", "")), "side": side, "identity": side,
+			"pos_km": pos, "light_capable": true, "active": true, "destroyed": false})
+	if rows.is_empty():
+		warnings.append("signal targets 同步：contacts 无有效 target")
+		return
+	var res: Dictionary = session.signal_sync_targets(rows, {"replace_metadata": false})
+	signal_sync_result = res.duplicate(true)
+	if not bool(res.get("ok", false)):
+		warnings.append("signal targets 同步失败：" + String(res.get("reason", "")))
+	else:
+		print("[SHELL BINDER] signal targets synced added=", int(res.get("added", 0)), " updated=", int(res.get("updated", 0)), " count=", int(res.get("count", 0)))
 
 
 func selected_entity(row: Dictionary) -> Dictionary:

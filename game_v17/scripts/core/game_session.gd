@@ -1871,6 +1871,140 @@ func signal_summary() -> Dictionary:
 
 func signal_flush_events() -> Dictionary:
 	return _flush_signal_events()
+# ── Signal 动态目标包装（灯语/ELINT；不写 world）────────────────
+
+func signal_upsert_target(target) -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	var res: Dictionary = signal_service.upsert_target(target)
+	if bool(res.get("ok", false)):
+		_record({"op": "signal_upsert_target", "target": target})
+		_flush_component_events()
+	return res
+
+func signal_remove_target(target_id: String) -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	var res: Dictionary = signal_service.remove_target(target_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "signal_remove_target", "target_id": target_id})
+		_flush_component_events()
+	return res
+
+func signal_set_targets(rows) -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	var res: Dictionary = signal_service.set_targets(rows)
+	if bool(res.get("ok", false)):
+		_record({"op": "signal_set_targets", "targets": rows})
+		_flush_component_events()
+	return res
+
+func signal_sync_targets(rows, opts := {}) -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	var res: Dictionary = signal_service.sync_targets(rows, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "signal_sync_targets", "targets": rows, "opts": opts})
+		_flush_component_events()
+	return res
+
+func signal_target_ids() -> Array:
+	if signal_service == null:
+		return []
+	return signal_service.target_ids()
+
+func signal_target(target_id: String) -> Dictionary:
+	if signal_service == null:
+		return {}
+	return signal_service.target(target_id)
+
+## 从 world 实体同步目标（只读 world；不写 world）。opts: replace_metadata/light_capable/
+## receiver_facing/default_side。
+func signal_sync_from_world(opts := {}) -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	if world == null:
+		return {"ok": false, "reason": "no_world"}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var rows: Array = []
+	for raw in world.entities_sorted():
+		if not (raw is Dictionary):
+			continue
+		var we: Dictionary = raw
+		var eid := String(we.get("id", ""))
+		if eid == "":
+			continue
+		var pos = we.get("pos_km", [0.0, 0.0, 0.0])
+		if not (pos is Array) or (pos as Array).size() != 3:
+			pos = [0.0, 0.0, 0.0]
+		rows.append({
+			"id": eid, "entity_id": eid,
+			"batch": String(we.get("batch", "")),
+			"side": _scene_side(String(we.get("side", we.get("identity",
+				o.get("default_side", "unknown"))))),
+			"pos_km": (pos as Array).duplicate(),
+			"occluded": bool(we.get("occluded", false)),
+			"light_capable": bool(we.get("light_capable", o.get("light_capable", true))),
+			"receiver_facing": bool(we.get("receiver_facing", o.get("receiver_facing", true))),
+			"active": bool(we.get("active", true)),
+			"destroyed": bool(we.get("destroyed", false)),
+			"source": "world"})
+	var res: Dictionary = signal_sync_targets(rows, {"replace_metadata": bool(o.get("replace_metadata", false))})
+	res["source"] = "world"
+	return res
+
+## 从 TrackTable 接触（track_vm）同步目标：id 优先 entity_id，其次 track_id。
+func signal_sync_from_contacts(opts := {}) -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	if track_table == null:
+		return {"ok": false, "reason": "no_track_table"}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var rows: Array = []
+	for raw in track_table.vm().get("tracks", []):
+		if not (raw is Dictionary):
+			continue
+		var tr: Dictionary = raw
+		var entity_id := String(tr.get("entity_id", ""))
+		var tid := entity_id if entity_id != "" else String(tr.get("id", ""))
+		if tid == "":
+			continue
+		rows.append({
+			"id": tid, "entity_id": entity_id,
+			"batch": String(tr.get("batch", "")),
+			"side": _track_side(tr), "identity": String(tr.get("identity", "unknown")),
+			"pos_km": [0.0, 0.0, 0.0],
+			"light_capable": bool(o.get("light_capable", true)),
+			"receiver_facing": bool(o.get("receiver_facing", true)),
+			"source": "contact", "track_id": String(tr.get("id", "")),
+			"track_level": int(tr.get("level", 0))})
+	var res: Dictionary = signal_sync_targets(rows, {"replace_metadata": bool(o.get("replace_metadata", false))})
+	res["source"] = "contacts"
+	return res
+
+func _scene_side(side: String) -> String:
+	var s := side.to_lower()
+	if s in ["friend", "friendly", "assumed_friend"]:
+		return "friend"
+	if s in ["neutral"]:
+		return "neutral"
+	if s in ["hostile", "enemy", "suspect"]:
+		return "hostile"
+	return "unknown"
+
+func _track_side(tr: Dictionary) -> String:
+	var ident := String(tr.get("identity", "unknown")).to_lower()
+	if ident in ["friend", "assumed_friend"]:
+		return "friend"
+	if ident == "neutral":
+		return "neutral"
+	if ident in ["hostile", "suspect"]:
+		return "hostile"
+	var threat := String(tr.get("threat", "none")).to_lower()
+	if threat == "hostile":
+		return "hostile"
+	return "unknown"
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -2365,6 +2499,22 @@ func _replay_op(op: Dictionary) -> Dictionary:
 			if signal_service == null:
 				return {"ok": true, "skipped": "no_signal_service"}
 			return light_ack(String(op.get("tx_id", "")))
+		"signal_upsert_target":
+			if signal_service == null:
+				return {"ok": true, "skipped": "no_signal_service"}
+			return signal_upsert_target(op.get("target", {}))
+		"signal_remove_target":
+			if signal_service == null:
+				return {"ok": true, "skipped": "no_signal_service"}
+			return signal_remove_target(String(op.get("target_id", "")))
+		"signal_set_targets":
+			if signal_service == null:
+				return {"ok": true, "skipped": "no_signal_service"}
+			return signal_set_targets(op.get("targets", []))
+		"signal_sync_targets":
+			if signal_service == null:
+				return {"ok": true, "skipped": "no_signal_service"}
+			return signal_sync_targets(op.get("targets", []), op.get("opts", {}))
 		"pause":
 			return pause()
 		"resume":

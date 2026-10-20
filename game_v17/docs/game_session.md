@@ -1,9 +1,9 @@
 # 完整游戏-阶段2C/2H · GameSession 编排层（含 TrackTable/StoryState）
 
-> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）。工程 `game_v17`。
+> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=801 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=862 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -53,6 +53,12 @@ GameSession
   entity_id/batch）；其次 world 同名实体（id/batch/name/kind/side）；不硬编码具体舰名；
   两者都缺失时保持空并在 session warnings 记一次（route 返回 `missing_meta/bound/world_bound`）。
   绑定后的 track 具备 entity_id/batch（`track_table.vm().tracks` 可直接给 UI 使用）。
+- **Signal 动态目标（3N）**：session 包装 `signal_upsert_target/signal_remove_target/
+  signal_set_targets/signal_sync_targets/signal_target_ids/signal_target`；
+  `signal_sync_from_world()` 从 world 实体（只读）同步目标，`signal_sync_from_contacts()`
+  从 TrackTable 接触同步目标（id 优先 entity_id）；均只写 SignalService，不写 world。
+  灯语不因 `side` 拒绝（hostile/neutral/unknown 均可发）；ACK 由目标
+  `light_capable/receiver_facing/active/destroyed` 能力/状态决定，失败保持 RECEIVED、不伪造回应。
 - seed/demo 数据仅示例，**不进入关卡**。
 
 ## 2　boot(config)
@@ -113,6 +119,8 @@ config 可覆盖字段（省略用 demo）：
 | `upsert_physics_entity/remove_physics_entity/set_physics_time` | 物理实体增删/显式设置物理时间（向前推进整个 session；暂停/回退拒绝） |
 | `sync_world_from_physics` | **显式同步边界**：把 physics 位置/速度应用有 world 实体；不自动同步、不双写 |
 | `signal_intercept/signal_df/signal_resolve` | ELINT 拦截/多站 DF/候选 fix 解析；失败不改状态 |
+| `signal_upsert_target/signal_remove_target/signal_set_targets/signal_sync_targets` | Signal 动态目标增删/全量替换/增量同步（side/light_capable/receiver_facing 等）；失败不改状态 |
+| `signal_target_ids/signal_target/signal_sync_from_world/signal_sync_from_contacts` | 目标只读/从 world 实体或 TrackTable 接触同步（只读 source，不写 world） |
 | `light_send/light_receive/light_ack/signal_vm/signal_summary/signal_flush_events` | 可见光灯语发送/接收/确认、只读 VM/摘要、显式拉取 Signal outbox |
 | `order(id)` / `comms_pending()` | 只读查询 |
 | `snapshot()` / `to_dict()` / `to_json()` | 只读快照（time/world/orders/comms/bus 最近 32 事件/track/story/contracts/errors） |
@@ -185,6 +193,8 @@ config 可覆盖字段（省略用 demo）：
   TrackTable（不重复建 track），light 事件只进 bus；不写 world/UI/V15；失败委托不改状态。
 - **Signal 绑定一致**：observation/evidence 的 entity_id/batch 来自 target_meta/world；
   同一 target 的 evidence 复用 observation 建的 track；缺失绑定留空 + warning，不猜实体。
+- **Signal 目标一致**：动态目标 side/能力字段只存在于 SignalService；world/contacts 同步
+  只读、不双写；灯语发送不看 side；ACK 只看目标能力/状态（无能力时不伪造回应）。
 - tick 失败/拒绝路径不静默：返回 `ok=false` + `errors/contract_errors`；失败订单不伪造状态。
 
 ## 5　内存 save/load（不写盘）
@@ -218,11 +228,11 @@ physics VM/snapshot 一致、t 同步、可继续 tick，再次 save 一致。�
 `physics_world` 字段/seed 配置 → physics 操作 replay 跳过（skipped:no_physics_world）、
 组件退化；不自动把旧 world 位置搬入 physics。
 
-**Signal 存档**：save 嵌入 SignalService 快照（ELINT/DF/候选/observations/evidence/灯语
-transmissions/events）；load boot(seed)+log 重放+signal 快照恢复；load 后 signal VM/snapshot
-一致、t 同步、TrackTable/bus 历史一致、可继续 intercept/灯语/tick、再次 save 一致。
+**Signal 存档**：save 嵌入 SignalService 快照（ELINT/DF/候选/observations/evidence/**动态
+targets**/灯语 transmissions/events）；load boot(seed)+log 重放+signal 快照恢复；load 后
+signal VM/snapshot 一致、t 同步、TrackTable/bus 历史一致、可继续 intercept/灯语/tick、再次 save 一致。
 旧存档缺 `signal_service` 字段/seed 配置 → signal 操作 replay 跳过（skipped:no_signal_service）、
-组件退化。
+组件退化；旧 signal 快照缺 `targets` → 按 boot+log 重建目标列表。
 
 **Port/Combat 存档**：save 嵌入二者 `save_state()` JSON；load 时先 boot(seed) 重建并按 log 重放
 （port/combat 委托操作 + tick），再恢复快照；load 后 VM/snapshot 一致、时间与 session 同步、
@@ -248,10 +258,10 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=801 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=862 FAIL=0（exit 0，只跑一次）
 ```
 
-覆盖（31 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
+覆盖（32 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
 （ISSUED→…→DONE、事件类型、delivery_id、订单-通信一致、终态拒绝）；通信/链路；失败/过期/
 撤销/拒绝；暂停/时标/时间单调；bus-world 分离与单写者；save/load snapshot 一致+二次 save；
 错误路径；JSON/确定性；**可选组件**（无配置/false 退化、true 启用、退化 save/load）；
@@ -284,6 +294,8 @@ shot_id 去重、失败不改状态）；**Damage 存档**（save 嵌入 damage 
   world/UI/V15；ELINT 不判敌/不产生 contact；灯语只是可见光事件流。
 - Signal 目标→实体绑定只读 `target_meta`/world 既有字段；不硬编码舰名、不凭空发明
   entity_id；无绑定 track 仍可用于方位/等级显示，但 UI 实体联动需等绑定或后续人工关联。
+- Signal 动态目标是服务内部注册表；从 world/contacts 同步只读、不写 world；灯语 send 不按
+  side 过滤；ACK 能力字段由上层配置/注册提供，不推断真实平台能力，无能力时不伪造 ACK。
 - DamageService 只做多舰损管组合/事件/存档；combat 命中概率由 CombatService 决定，damage event
   经白名单应用；damage 不直接写 world/V15/UI。
 - PortService/CombatService 只输出状态/事件；session 不自动许可/对接/服务/开火；FIRE 永不自动，

@@ -106,8 +106,16 @@ func setup(cfg := {}) -> bool:
 	targets = []
 	if config.get("targets") is Array:
 		for raw in (config.get("targets") as Array):
-			if raw is Dictionary:
-				targets.append((raw as Dictionary).duplicate(true))
+			if not (raw is Dictionary):
+				continue
+			# 统一归一（side/entity_id/batch/pos/light_capable/receiver_facing 默认字段），
+			# 保证 setup 与 save/load 往返结构一致。
+			var nr: Dictionary = _normalize_dynamic_target(raw as Dictionary, {})
+			if bool(nr.get("ok", false)):
+				targets.append(nr.get("target", {}))
+			else:
+				warnings.append("忽略非法 targets 行：%s" % str(
+					(raw as Dictionary).get("id", (raw as Dictionary).get("target_id", ""))))
 	_reindex_targets()
 	stations = []
 	if config.get("stations") is Array:
@@ -231,6 +239,186 @@ func _target(id: String) -> Dictionary:
 	if _targets_by_id.has(id):
 		return _targets_by_id[id]
 	return {}
+
+
+# ── 动态目标注册（灯语/ELINT；不因 side 拒绝发送）────────────────
+
+const TARGET_SIDES := ["friend", "neutral", "hostile", "unknown"]
+
+## 校验/归一动态目标：id/entity_id/batch/side/identity/pos_km/emissions/
+## light_capable/receiver_facing/occluded/active/destroyed + 透传额外字段。
+## base 非空时为增量 upsert（未提供的字段保留）。
+func _normalize_dynamic_target(raw: Dictionary, base := {}) -> Dictionary:
+	var out: Dictionary = (base as Dictionary).duplicate(true) if base is Dictionary and not (base as Dictionary).is_empty() else {}
+	var id := String(raw.get("id", raw.get("target_id", out.get("id", ""))))
+	if id == "" or id.strip_edges() != id:
+		return {"ok": false, "reason": "invalid_target_id"}
+	out["id"] = id
+	for key in raw.keys():
+		out[String(key)] = raw[key]
+	if raw.get("target_id", null) != null and raw.get("id", null) == null:
+		out["id"] = String(raw.get("target_id"))
+	var side := String(out.get("side", out.get("identity", "unknown"))).to_lower()
+	if not (side in TARGET_SIDES):
+		return {"ok": false, "reason": "invalid_side", "target_id": id, "side": side}
+	out["side"] = side
+	if String(out.get("identity", "")) == "":
+		out["identity"] = side
+	out["entity_id"] = String(out.get("entity_id", ""))
+	out["batch"] = String(out.get("batch", ""))
+	if out.has("pos_km"):
+		var pos = out.get("pos_km")
+		if not (pos is Array) or (pos as Array).size() != 3:
+			return {"ok": false, "reason": "invalid_pos", "target_id": id}
+		for v in (pos as Array):
+			if not (v is int or v is float) or not is_finite(float(v)):
+				return {"ok": false, "reason": "invalid_pos", "target_id": id}
+	else:
+		out["pos_km"] = [0.0, 0.0, 0.0]
+	if out.has("emissions") and not (out.get("emissions") is Array):
+		return {"ok": false, "reason": "invalid_emissions", "target_id": id}
+	if not out.has("emissions"):
+		out["emissions"] = []
+	if not out.has("light_capable"):
+		out["light_capable"] = true
+	else:
+		out["light_capable"] = bool(out.get("light_capable"))
+	if not out.has("receiver_facing"):
+		out["receiver_facing"] = true
+	else:
+		out["receiver_facing"] = bool(out.get("receiver_facing"))
+	if not out.has("occluded"):
+		out["occluded"] = false
+	if not out.has("active"):
+		out["active"] = true
+	if not out.has("destroyed"):
+		out["destroyed"] = false
+	return {"ok": true, "reason": "", "target": out}
+
+## 新增/更新目标：同 id 覆盖（未提供字段保留）。返回 {ok,created,target}。
+func upsert_target(target) -> Dictionary:
+	if not (target is Dictionary) or (target as Dictionary).is_empty():
+		return {"ok": false, "reason": "invalid_target"}
+	if not (target is Dictionary):
+		return {"ok": false, "reason": "invalid_target"}
+	var td: Dictionary = target
+	var existing: Dictionary = _targets_by_id.get(String(td.get("id", td.get("target_id", ""))), {})
+	var nr: Dictionary = _normalize_dynamic_target(td, existing)
+	if not bool(nr.get("ok", false)):
+		return nr
+	var row: Dictionary = nr.get("target", {})
+	var is_new := not _targets_by_id.has(String(row.get("id", "")))
+	var idx := -1
+	for i in range(targets.size()):
+		if targets[i] is Dictionary and String((targets[i] as Dictionary).get("id", "")) == String(row.get("id", "")):
+			idx = i
+			break
+	if idx >= 0:
+		targets[idx] = row
+	else:
+		targets.append(row)
+	_reindex_targets()
+	_sync_iw_targets()
+	_push_event("target_upserted", {"id": String(row.get("id", "")),
+		"side": String(row.get("side", "")), "created": is_new})
+	return {"ok": true, "reason": "", "created": is_new, "target": row.duplicate(true)}
+
+## 删除目标：未知目标拒绝；成功推送 target_removed 事件。
+func remove_target(target_id: String) -> Dictionary:
+	if not _targets_by_id.has(target_id):
+		return {"ok": false, "reason": "unknown_target", "target_id": target_id}
+	for i in range(targets.size() - 1, -1, -1):
+		if targets[i] is Dictionary and String((targets[i] as Dictionary).get("id", "")) == target_id:
+			targets.remove_at(i)
+	_reindex_targets()
+	_sync_iw_targets()
+	_push_event("target_removed", {"id": target_id})
+	return {"ok": true, "reason": "", "removed": true, "target_id": target_id}
+
+## 全量替换目标列表：全部校验通过才写入（失败不改状态）。
+func set_targets(rows) -> Dictionary:
+	if not (rows is Array):
+		return {"ok": false, "reason": "invalid_targets"}
+	var normalized: Array = []
+	var seen: Dictionary = {}
+	for raw in (rows as Array):
+		if not (raw is Dictionary):
+			return {"ok": false, "reason": "invalid_target"}
+		var nr: Dictionary = _normalize_dynamic_target(raw as Dictionary, {})
+		if not bool(nr.get("ok", false)):
+			return nr
+		var row: Dictionary = nr.get("target", {})
+		var id := String(row.get("id", ""))
+		if seen.has(id):
+			return {"ok": false, "reason": "duplicate_target_id", "target_id": id}
+		seen[id] = true
+		normalized.append(row)
+	targets = normalized
+	_reindex_targets()
+	_sync_iw_targets()
+	_push_event("targets_set", {"count": targets.size()})
+	return {"ok": true, "reason": "", "count": targets.size(), "target_ids": target_ids()}
+
+## 增量同步目标列表：默认按 id 合并（新目标追加、已有目标字段覆盖但保留缺失字段）；
+## opts.replace_metadata=true 时对列表中已有 id 用提供字段整体替换（丢失缺省字段）。
+func sync_targets(rows, opts := {}) -> Dictionary:
+	if not (rows is Array):
+		return {"ok": false, "reason": "invalid_targets"}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var replace := bool(o.get("replace_metadata", false))
+	var normalized: Array = []
+	var seen: Dictionary = {}
+	for raw in (rows as Array):
+		if not (raw is Dictionary):
+			return {"ok": false, "reason": "invalid_target"}
+		var rid := String((raw as Dictionary).get("id", (raw as Dictionary).get("target_id", "")))
+		var base: Dictionary = {} if replace else _targets_by_id.get(rid, {})
+		var nr: Dictionary = _normalize_dynamic_target(raw as Dictionary, base)
+		if not bool(nr.get("ok", false)):
+			return nr
+		var row: Dictionary = nr.get("target", {})
+		if seen.has(String(row.get("id", ""))):
+			return {"ok": false, "reason": "duplicate_target_id"}
+		seen[String(row.get("id", ""))] = true
+		normalized.append(row)
+	var added := 0
+	var updated := 0
+	var index_by_id: Dictionary = {}
+	for i in range(targets.size()):
+		if targets[i] is Dictionary:
+			index_by_id[String((targets[i] as Dictionary).get("id", ""))] = i
+	for row in normalized:
+		var rid2 := String((row as Dictionary).get("id", ""))
+		if index_by_id.has(rid2):
+			targets[int(index_by_id[rid2])] = row
+			updated += 1
+		else:
+			targets.append(row)
+			added += 1
+	_reindex_targets()
+	_sync_iw_targets()
+	_push_event("targets_synced", {"added": added, "updated": updated,
+		"replace_metadata": replace, "count": targets.size()})
+	return {"ok": true, "reason": "", "added": added, "updated": updated,
+		"count": targets.size(), "replace_metadata": replace, "target_ids": target_ids()}
+
+func target_ids() -> Array:
+	var out: Array = []
+	for raw in targets:
+		if raw is Dictionary:
+			var id := String((raw as Dictionary).get("id", ""))
+			if id != "":
+				out.append(id)
+	out.sort()
+	return out
+
+## 只读目标副本（含 side/entity_id/batch/light_capable/receiver_facing）。
+func target(target_id: String) -> Dictionary:
+	return _target(target_id).duplicate(true) if not _target(target_id).is_empty() else {}
+
+func _sync_iw_targets() -> void:
+	if _iw != null:
+		_iw.set_targets(targets.duplicate(true))
 
 
 # ── ELINT ─────────────────────────────────────────────────────
@@ -524,6 +712,9 @@ func light_send(code_id: String, target_id: String, opts := {}) -> Dictionary:
 		"category": String(c.get("category", "")),
 		"scenario_tags": c.get("scenario_tags", []),
 		"target_id": target_id, "sender_id": String(observer.get("id", "")),
+		"target_side": String(tr.get("side", tr.get("identity", "unknown"))),
+		"target_entity_id": String(tr.get("entity_id", "")),
+		"target_batch": String(tr.get("batch", "")),
 		"sent_t": t, "expires_t": t + maxf(1.0, timeout),
 		"timeout_s": timeout, "range_km": range_km,
 		"ack_required": bool(c.get("ack_required", defaults.get("ack_required", true))),
@@ -586,6 +777,20 @@ func light_ack(tx_id: String) -> Dictionary:
 	var rec: Dictionary = tx
 	if String(rec.get("status", "")) != "RECEIVED":
 		return {"ok": false, "reason": "not_received", "status": String(rec.get("status", ""))}
+	# ACK 由目标能力/状态决定（与 side 无关；不因 friend/hostile/neutral 拒绝）
+	var target_row := _target(String(rec.get("target_id", "")))
+	if target_row.is_empty():
+		return {"ok": false, "reason": "unknown_target",
+			"target_id": String(rec.get("target_id", "")), "tx": rec.duplicate(true)}
+	if bool(target_row.get("destroyed", false)) or not bool(target_row.get("active", true)):
+		return {"ok": false, "reason": "target_unavailable",
+			"target_id": String(rec.get("target_id", "")), "tx": rec.duplicate(true)}
+	if not bool(target_row.get("light_capable", true)):
+		return {"ok": false, "reason": "not_light_capable",
+			"target_id": String(rec.get("target_id", "")), "tx": rec.duplicate(true)}
+	if not bool(target_row.get("receiver_facing", true)):
+		return {"ok": false, "reason": "not_facing",
+			"target_id": String(rec.get("target_id", "")), "tx": rec.duplicate(true)}
 	if bool(rec.get("ack_required", false)) and t + 1.0e-9 >= float(rec.get("expires_t", 0.0)):
 		rec["status"] = "TIMEOUT"
 		rec["reason"] = "ack_timeout"
@@ -686,6 +891,7 @@ func vm() -> Dictionary:
 		"ready": ready, "t": t, "dt": dt_last, "step_count": step_count,
 		"observer": observer.duplicate(true), "stations": stations.duplicate(true),
 		"targets": targets.duplicate(true),
+		"target_count": targets.size(),
 		"elint": elint, "light": light,
 		"observations": observations.duplicate(true), "evidence": evidence.duplicate(true),
 		"events": events.duplicate(true),
@@ -717,7 +923,7 @@ func summary() -> Dictionary:
 		"elint_signals": elint_signals.size(), "fingerprints": fingerprints.size(),
 		"candidates": candidates.size(), "observations": observations.size(),
 		"evidence": evidence.size(), "transmissions": transmissions.size(),
-		"codes": code_ids.size(),
+		"codes": code_ids.size(), "targets": targets.size(),
 		"writes": {"track_table": false, "world": false, "v15": false}}
 
 
@@ -762,6 +968,7 @@ func _roll(seed_text: String) -> float:
 func save_state() -> String:
 	var payload := {
 		"schema": SAVE_SCHEMA, "version": SAVE_VERSION, "t": t,
+		"targets": JSON.parse_string(JSON.stringify(targets)),
 		"transmissions": light_transmissions(),
 		"elint_signals": elint_signals.duplicate(true),
 		"comms_signals": comms_signals.duplicate(true),
@@ -797,6 +1004,24 @@ func load_state(data: Variant) -> Dictionary:
 		return {"ok": false, "reason": "unsupported_version"}
 	if not (p.get("transmissions") is Array) or not (p.get("elint_signals") is Array):
 		return {"ok": false, "reason": "invalid_payload"}
+	# 目标列表（旧存档可缺省）：先全量校验，再在成功路径应用
+	var restored_targets: Array = []
+	if p.has("targets"):
+		if not (p.get("targets") is Array):
+			return {"ok": false, "reason": "invalid_targets"}
+		var seen_ids: Dictionary = {}
+		for raw_t in (p.get("targets") as Array):
+			if not (raw_t is Dictionary):
+				return {"ok": false, "reason": "invalid_targets"}
+			var nt: Dictionary = _normalize_dynamic_target(raw_t as Dictionary, {})
+			if not bool(nt.get("ok", false)):
+				return nt
+			var row: Dictionary = nt.get("target", {})
+			var rid := String(row.get("id", ""))
+			if seen_ids.has(rid):
+				return {"ok": false, "reason": "duplicate_target_id"}
+			seen_ids[rid] = true
+			restored_targets.append(row)
 	t = float(p.get("t", 0.0))
 	transmissions = (p.get("transmissions") as Array).duplicate(true)
 	elint_signals = (p.get("elint_signals") as Array).duplicate(true)
@@ -814,5 +1039,9 @@ func load_state(data: Variant) -> Dictionary:
 	_seq_tx = int(seq.get("tx", 0))
 	warnings = (p.get("warnings", []) as Array).duplicate() if p.get("warnings") is Array else []
 	errors = (p.get("errors", []) as Array).duplicate() if p.get("errors") is Array else []
+	if p.has("targets"):
+		targets = restored_targets
+		_reindex_targets()
+		_sync_iw_targets()
 	_outbox = []
 	return {"ok": true, "reason": "", "t": t, "transmissions": transmissions.size()}
