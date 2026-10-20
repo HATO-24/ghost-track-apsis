@@ -1,0 +1,556 @@
+{
+ "schema": "v17.incident_templates.v1",
+ "version": "1.0.0",
+ "title": "完整游戏-阶段3Y 未来事故记录模板",
+ "source": "docs/48 A1-A9 + docs/46/49/50; 用户复核接受",
+ "types": [
+  {
+   "code": "A1",
+   "key": "airlock_failure",
+   "name": "气密门失效",
+   "name_en": "Airlock seal failure",
+   "severity": [
+    1,
+    4
+   ],
+   "classes": [
+    "station",
+    "port",
+    "research",
+    "observation"
+   ],
+   "impact": {
+    "casualties": "none",
+    "berths_closed": 0,
+    "cargo_lost_t": 0.0,
+    "power_loss": false,
+    "evacuation": false
+   },
+   "disposition": {
+    "response": "isolate_passage",
+    "status": "contained",
+    "reporting": "delayed"
+   },
+   "anomalies": [
+    "gap",
+    "edit"
+   ],
+   "telemetry_channels": [
+    "passage_pressure_kpa",
+    "door_state",
+    "temp_c",
+    "power_kw"
+   ],
+   "note": "门体/密封条/闭锁机构失效，通道无法保压；记录可出现人工补录缺口。",
+   "description": "门体/密封条/闭锁机构失效，通道无法保压；记录可出现人工补录缺口。"
+  },
+  {
+   "code": "A2",
+   "key": "tank_explosion",
+   "name": "储罐爆炸",
+   "name_en": "Tank explosion",
+   "severity": [
+    3,
+    5
+   ],
+   "classes": [
+    "depot",
+    "station",
+    "port"
+   ],
+   "impact": {
+    "casualties": "minor",
+    "berths_closed": 1,
+    "cargo_lost_t": 80.0,
+    "power_loss": true,
+    "evacuation": true
+   },
+   "disposition": {
+    "response": "burst_disc_and_isolate",
+    "status": "contained",
+    "reporting": "immediate"
+   },
+   "anomalies": [
+    "gap",
+    "timestamp_jump",
+    "power_spike"
+   ],
+   "telemetry_channels": [
+    "tank_pressure_kpa",
+    "tank_temp_c",
+    "flow_tph",
+    "power_kw"
+   ],
+   "note": "罐内爆燃/超压，罐体或顶部破裂；邻近管线自动切断。",
+   "description": "罐内爆燃/超压，罐体或顶部破裂；邻近管线自动切断。"
+  },
+  {
+   "code": "A3",
+   "key": "tank_leak",
+   "name": "储罐泄漏",
+   "name_en": "Tank leak",
+   "severity": [
+    2,
+    4
+   ],
+   "classes": [
+    "depot",
+    "station",
+    "port"
+   ],
+   "impact": {
+    "casualties": "none",
+    "berths_closed": 0,
+    "cargo_lost_t": 12.0,
+    "power_loss": false,
+    "evacuation": false
+   },
+   "disposition": {
+    "response": "isolate_tank",
+    "status": "contained",
+    "reporting": "delayed"
+   },
+   "anomalies": [
+    "gap",
+    "edit"
+   ],
+   "telemetry_channels": [
+    "tank_level_pct",
+    "tank_pressure_kpa",
+    "flow_tph",
+    "temp_c"
+   ],
+   "note": "阀门/法兰/罐壁泄漏，压力或液位下降。",
+   "description": "阀门/法兰/罐壁泄漏，压力或液位下降。"
+  },
+  {
+   "code": "A4",
+   "key": "module_depress",
+   "name": "外部舱段失压",
+   "name_en": "External module decompression",
+   "severity": [
+    2,
+    5
+   ],
+   "classes": [
+    "station",
+    "research",
+    "observation",
+    "port"
+   ],
+   "impact": {
+    "casualties": "none",
+    "berths_closed": 0,
+    "cargo_lost_t": 0.0,
+    "power_loss": false,
+    "evacuation": true
+   },
+   "disposition": {
+    "response": "close_bulkhead",
+    "status": "contained",
+    "reporting": "immediate"
+   },
+   "anomalies": [
+    "gap",
+    "timestamp_jump"
+   ],
+   "telemetry_channels": [
+    "module_pressure_kpa",
+    "o2_pct",
+    "temp_c",
+    "power_kw"
+   ],
+   "note": "外壁穿孔/密封失效，舱段压力下降；隔舱关闭。",
+   "description": "外壁穿孔/密封失效，舱段压力下降；隔舱关闭。"
+  },
+  {
+   "code": "A5",
+   "key": "solar_panel_damage",
+   "name": "太阳能板损坏",
+   "name_en": "Solar array damage",
+   "severity": [
+    1,
+    3
+   ],
+   "classes": [
+    "station",
+    "depot",
+    "relay",
+    "observation"
+   ],
+   "impact": {
+    "casualties": "none",
+    "berths_closed": 0,
+    "cargo_lost_t": 0.0,
+    "power_loss": true,
+    "evacuation": false
+   },
+   "disposition": {
+    "response": "switch_backup_power",
+    "status": "degraded",
+    "reporting": "routine"
+   },
+   "anomalies": [
+    "power_spike",
+    "edit"
+   ],
+   "telemetry_channels": [
+    "solar_output_kw",
+    "bus_voltage_v",
+    "power_kw",
+    "temp_c"
+   ],
+   "note": "太阳翼/电池串/展开机构损坏，输出下降。",
+   "description": "太阳翼/电池串/展开机构损坏，输出下降。"
+  },
+  {
+   "code": "A6",
+   "key": "radiator_panel_damage",
+   "name": "散热板损坏",
+   "name_en": "Radiator panel damage",
+   "severity": [
+    1,
+    3
+   ],
+   "classes": [
+    "station",
+    "depot",
+    "research",
+    "observation"
+   ],
+   "impact": {
+    "casualties": "none",
+    "berths_closed": 0,
+    "cargo_lost_t": 0.0,
+    "power_loss": false,
+    "evacuation": false
+   },
+   "disposition": {
+    "response": "isolate_coolant_loop",
+    "status": "degraded",
+    "reporting": "routine"
+   },
+   "anomalies": [
+    "gap",
+    "edit"
+   ],
+   "telemetry_channels": [
+    "coolant_pressure_kpa",
+    "coolant_temp_c",
+    "flow_tph",
+    "power_kw"
+   ],
+   "note": "散热回路/板体损坏，散热能力下降。",
+   "description": "散热回路/板体损坏，散热能力下降。"
+  },
+  {
+   "code": "A7",
+   "key": "docking_failure",
+   "name": "对接口失效",
+   "name_en": "Docking mechanism failure",
+   "severity": [
+    2,
+    4
+   ],
+   "classes": [
+    "port",
+    "station",
+    "depot"
+   ],
+   "impact": {
+    "casualties": "none",
+    "berths_closed": 1,
+    "cargo_lost_t": 0.0,
+    "power_loss": false,
+    "evacuation": false
+   },
+   "disposition": {
+    "response": "abort_docking",
+    "status": "out_of_service",
+    "reporting": "immediate"
+   },
+   "anomalies": [
+    "gap",
+    "edit"
+   ],
+   "telemetry_channels": [
+    "docking_state",
+    "latch_current_a",
+    "berth_pressure_kpa",
+    "power_kw"
+   ],
+   "note": "对接机构无法动作/锁紧，泊位暂停使用。",
+   "description": "对接机构无法动作/锁紧，泊位暂停使用。"
+  },
+  {
+   "code": "A8",
+   "key": "docking_depress",
+   "name": "对接口失压",
+   "name_en": "Docking port decompression",
+   "severity": [
+    2,
+    4
+   ],
+   "classes": [
+    "port",
+    "station",
+    "depot"
+   ],
+   "impact": {
+    "casualties": "none",
+    "berths_closed": 1,
+    "cargo_lost_t": 0.0,
+    "power_loss": false,
+    "evacuation": true
+   },
+   "disposition": {
+    "response": "evacuate_vestibule",
+    "status": "out_of_service",
+    "reporting": "immediate"
+   },
+   "anomalies": [
+    "gap",
+    "timestamp_jump"
+   ],
+   "telemetry_channels": [
+    "berth_pressure_kpa",
+    "o2_pct",
+    "temp_c",
+    "power_kw"
+   ],
+   "note": "对接环密封失效，泊位/过渡舱压力下降。",
+   "description": "对接环密封失效，泊位/过渡舱压力下降。"
+  },
+  {
+   "code": "A9",
+   "key": "docking_damage",
+   "name": "对接口损坏",
+   "name_en": "Docking port structural damage",
+   "severity": [
+    2,
+    5
+   ],
+   "classes": [
+    "port",
+    "station",
+    "depot"
+   ],
+   "impact": {
+    "casualties": "none",
+    "berths_closed": 1,
+    "cargo_lost_t": 0.0,
+    "power_loss": false,
+    "evacuation": false
+   },
+   "disposition": {
+    "response": "replace_guide_vane",
+    "status": "out_of_service",
+    "reporting": "delayed"
+   },
+   "anomalies": [
+    "edit",
+    "timestamp_jump"
+   ],
+   "telemetry_channels": [
+    "docking_state",
+    "structural_vibration_mm_s",
+    "berth_pressure_kpa",
+    "power_kw"
+   ],
+   "note": "对接环结构/导向件变形，无法硬连接。",
+   "description": "对接环结构/导向件变形，无法硬连接。"
+  }
+ ],
+ "facility_class_weights": {
+  "station": {
+   "A1": 3.0,
+   "A2": 0.5,
+   "A3": 0.5,
+   "A4": 2.0,
+   "A5": 1.5,
+   "A6": 1.5,
+   "A7": 2.0,
+   "A8": 1.0,
+   "A9": 1.0
+  },
+  "port": {
+   "A1": 1.0,
+   "A2": 1.0,
+   "A3": 1.0,
+   "A4": 1.0,
+   "A5": 1.0,
+   "A6": 1.0,
+   "A7": 3.0,
+   "A8": 2.0,
+   "A9": 2.0
+  },
+  "depot": {
+   "A1": 0.5,
+   "A2": 2.0,
+   "A3": 3.0,
+   "A4": 1.0,
+   "A5": 1.0,
+   "A6": 1.5,
+   "A7": 1.0,
+   "A8": 0.5,
+   "A9": 0.5
+  },
+  "relay": {
+   "A1": 1.0,
+   "A2": 0.5,
+   "A3": 0.5,
+   "A4": 1.0,
+   "A5": 2.0,
+   "A6": 2.0,
+   "A7": 1.0,
+   "A8": 0.5,
+   "A9": 0.5
+  },
+  "observation": {
+   "A1": 1.0,
+   "A2": 0.5,
+   "A3": 0.5,
+   "A4": 1.5,
+   "A5": 2.0,
+   "A6": 2.0,
+   "A7": 1.0,
+   "A8": 0.5,
+   "A9": 0.5
+  },
+  "research": {
+   "A1": 2.0,
+   "A2": 0.5,
+   "A3": 0.5,
+   "A4": 1.0,
+   "A5": 1.0,
+   "A6": 1.0,
+   "A7": 1.0,
+   "A8": 0.5,
+   "A9": 0.5
+  },
+  "default": {
+   "A1": 1,
+   "A2": 1,
+   "A3": 1,
+   "A4": 1,
+   "A5": 1,
+   "A6": 1,
+   "A7": 1,
+   "A8": 1,
+   "A9": 1
+  }
+ },
+ "anomaly_patterns": {
+  "gap": {
+   "label": "遥测缺口",
+   "clue_kind": "timestamp_gap",
+   "clue_label": "遥测采样缺口/回填",
+   "severity": 1,
+   "description": "前后采样之间存在一段缺失，时间戳不连续。"
+  },
+  "timestamp_jump": {
+   "label": "时间戳跳变",
+   "clue_kind": "timestamp_jump",
+   "clue_label": "记录时间戳跳变",
+   "severity": 2,
+   "description": "事故窗口内时间戳出现非单调/跳变痕迹。"
+  },
+  "duplicate_track": {
+   "label": "重复追踪号",
+   "clue_kind": "duplicate_track",
+   "clue_label": "OTC 重复追踪号/同码多目标",
+   "severity": 2,
+   "description": "同一 track_id 或应答机码在多条记录中重复出现。"
+  },
+  "edit": {
+   "label": "后期编辑痕迹",
+   "clue_kind": "edit_mark",
+   "clue_label": "日志/黑匣子编辑痕迹",
+   "severity": 3,
+   "description": "记录存在覆盖写/补录/校验不一致痕迹。"
+  },
+  "power_spike": {
+   "label": "功率尖峰",
+   "clue_kind": "power_spike",
+   "clue_label": "遥测功率尖峰",
+   "severity": 1,
+   "description": "功率通道出现无法解释的尖峰。"
+  }
+ },
+ "record_schema": {
+  "accident_log": "incident_accident_log.v1",
+  "telemetry": "incident_telemetry.v1",
+  "otc": "incident_otc_record.v1",
+  "clue": "incident_ghost_track_clue.v1"
+ },
+ "fields": {
+  "accident_log": [
+   "incident_id",
+   "t_s",
+   "t_iso",
+   "facility_id",
+   "facility_code",
+   "cluster_id",
+   "type",
+   "type_key",
+   "severity",
+   "impact",
+   "disposition",
+   "record_integrity",
+   "operator",
+   "summary"
+  ],
+  "telemetry": [
+   "incident_id",
+   "facility_code",
+   "window",
+   "samples",
+   "channels",
+   "gaps",
+   "anomalies",
+   "edit_marks",
+   "hash",
+   "record_integrity"
+  ],
+  "otc": [
+   "incident_id",
+   "facility_code",
+   "tracks",
+   "clearances",
+   "handoffs",
+   "deleted_records",
+   "rewritten_records",
+   "duplicate_codes",
+   "hash",
+   "record_integrity"
+  ],
+  "clue": [
+   "clue_id",
+   "incident_id",
+   "facility_code",
+   "kind",
+   "severity",
+   "evidence_ref",
+   "description",
+   "confidence"
+  ]
+ },
+ "schedule": {
+  "base_interval_days": 16.0,
+  "min_interval_days": 2.0,
+  "pressure_scale": 0.65,
+  "jitter_min": 0.75,
+  "jitter_max": 1.3,
+  "default_pressure": 0.5,
+  "max_incidents": 400,
+  "telemetry_samples_before": 4,
+  "telemetry_samples_after": 4,
+  "telemetry_sample_interval_s": 60.0
+ },
+ "format": {
+  "accident_header": "[事故记录]",
+  "telemetry_header": "[遥测记录]",
+  "otc_header": "[OTC/交通记录]",
+  "no_person_dialogue": true
+ }
+}
