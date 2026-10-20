@@ -2882,6 +2882,10 @@ func physics_display_frame() -> Dictionary:
 	for raw in (view.get("targets", []) as Array):
 		var trow: Dictionary = raw
 		target_map[String(trow.get("entity_id", ""))] = trow
+	var fixed_map := {}
+	for raw in (view.get("fixed", []) as Array):
+		var frow: Dictionary = raw
+		fixed_map[String(frow.get("entity_id", ""))] = frow
 	var own_id := String(own_row.get("entity_id", ""))
 	var flag_id := String(flag_row.get("entity_id", ""))
 	var entries := {}
@@ -2905,6 +2909,9 @@ func physics_display_frame() -> Dictionary:
 		elif eid != "" and target_map.has(eid):
 			row = target_map[eid]
 			role = "target"
+		elif eid != "" and fixed_map.has(eid):
+			row = fixed_map[eid]
+			role = "fixed"
 		if row.is_empty():
 			missing.append(tid)
 			continue
@@ -2916,9 +2923,39 @@ func physics_display_frame() -> Dictionary:
 			flag_entry = entry.duplicate(true)
 	if own_entry.is_empty():
 		own_entry = {"track_id": "", "batch": "", "entity_id": own_id, "role": "own",
+			"entity_kind": "ship", "name": String(own_row.get("name", "")), "fixed": false,
 			"board_r": [0.0, 0.0, 0.0], "board_v": [0.0, 0.0, 0.0],
 			"range_km": 0.0, "bearing_deg": 0.0, "elevation_deg": 0.0,
 			"age_s": 0.0, "source": String(own_row.get("source", "")), "filled": false}
+	# R6-FIXED-CORE-1：固定站体列表（含 V15 track id 映射；无映射时 track_id 为空）
+	var fixed_list: Array = []
+	var fixed_ids: Array = []
+	for raw in (view.get("fixed", []) as Array):
+		var frow: Dictionary = raw
+		var feid := String(frow.get("entity_id", ""))
+		if feid == "":
+			continue
+		var ftrack := ""
+		var fbatch := String(frow.get("batch", ""))
+		for trraw in tracks:
+			var tr2: Dictionary = trraw
+			var tid2 := String(tr2.get("id", ""))
+			if tid2 == "":
+				continue
+			if _physics_entity_for_track_id(tid2) == feid:
+				ftrack = tid2
+				fbatch = String(tr2.get("batch", tid2))
+				break
+		if ftrack == "":
+			var cmap := _physics_display_contact_for_entity(feid)
+			ftrack = String(cmap.get("track_id", ""))
+			if fbatch == "":
+				fbatch = String(cmap.get("batch", ftrack))
+		var fentry := _physics_display_entry(ftrack, fbatch, feid, "fixed", frow)
+		fixed_list.append(fentry)
+		fixed_ids.append(feid)
+		if ftrack != "" and not entries.has(ftrack):
+			entries[ftrack] = fentry.duplicate(true)
 	return {
 		"schema": "v17_physics_display.v1",
 		"available": true,
@@ -2933,9 +2970,11 @@ func physics_display_frame() -> Dictionary:
 		"delta_t_s": tau() - float(view.get("t", 0.0)),
 		"replay_ok": false,
 		"note": "只读当前时刻；不用于历史回放/预测；V15 位置源/plot 尚未切换。",
-		"mapping_note": "entries 以 V15 track id（批号）为键；entity_id 由 bridge contacts/entities.batch 映射；无对应列入 missing，不伪造。",
+		"mapping_note": "entries 以 V15 track id（批号）为键；entity_id 由 bridge contacts/entities.batch 映射；固定站体 role=fixed；无对应列入 missing，不伪造。",
 		"own": own_entry,
 		"flagship": flag_entry,
+		"fixed": fixed_list,
+		"fixed_ids": fixed_ids,
 		"entries": entries,
 		"missing": missing,
 		"warnings": (view.get("warnings", []) as Array).duplicate(true),
@@ -2948,6 +2987,9 @@ func _physics_display_entry(track_id: String, batch: String, entity_id: String, 
 		"batch": batch,
 		"entity_id": entity_id,
 		"role": role,
+		"entity_kind": String(row.get("entity_kind", row.get("kind", ""))),
+		"name": String(row.get("name", "")),
+		"fixed": bool(row.get("fixed", role == "fixed")),
 		"board_r": ((row.get("board_r", []) as Array) as Array).duplicate(),
 		"board_v": ((row.get("board_v", []) as Array) as Array).duplicate(),
 		"range_km": float(row.get("range_km", 0.0)),
@@ -2959,6 +3001,25 @@ func _physics_display_entry(track_id: String, batch: String, entity_id: String, 
 		"source": String(row.get("source", "")),
 		"filled": true,
 	}
+
+## 物理 entity id → bridge 归一接触的 {track_id,batch}（固定站体映射；无返回空）。
+func _physics_display_contact_for_entity(entity_id: String) -> Dictionary:
+	if entity_id == "":
+		return {}
+	for raw in fw_contacts:
+		var c: Dictionary = raw
+		if String(c.get("entity_id", "")) != entity_id:
+			continue
+		var tid := String(c.get("track_id", c.get("id", "")))
+		return {"track_id": tid, "batch": String(c.get("batch", tid))}
+	if framework != null and framework.world != null:
+		for raw in framework.world.vm_contacts():
+			var c2: Dictionary = raw
+			if String(c2.get("entity_id", "")) != entity_id:
+				continue
+			var tid2 := String(c2.get("track_id", ""))
+			return {"track_id": tid2, "batch": String(c2.get("batch", tid2))}
+	return {}
 
 ## V15 track id（批号）→ 物理实体 id；找不到返回 ""（不伪造）。
 func _physics_entity_for_track_id(track_id: String) -> String:
@@ -3017,6 +3078,18 @@ func physics_display_entry_for(id: String) -> Dictionary:
 	var flag: Dictionary = frame.get("flagship", {})
 	if String(flag.get("entity_id", "")) == id or String(flag.get("track_id", "")) == id:
 		return flag.duplicate(true)
+	return {}
+
+## 固定站体物理显示条目（R6-FIXED-CORE-1）：支持 V15 track id/批号/entity id；非固定/无对应返回空。
+func physics_display_fixed_for(id: String) -> Dictionary:
+	var frame := physics_display_frame()
+	if frame.is_empty():
+		return {}
+	for raw in (frame.get("fixed", []) as Array):
+		var e: Dictionary = raw
+		if String(e.get("entity_id", "")) == id or String(e.get("track_id", "")) == id \
+				or String(e.get("batch", "")) == id:
+			return e.duplicate(true)
 	return {}
 
 ## V2 教学门控是否放行 V15 决策（截图/自动化/演示时自动放行）。

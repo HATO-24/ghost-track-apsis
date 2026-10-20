@@ -36,6 +36,7 @@
 | `physics_display_board_for(id)` | Array[3] | 相对板坐标 km；支持 V15 track id/批号/entity id；无对应返回 `[]` |
 | `physics_display_velocity_for(id)` | Array[3] | 相对板速度 km/s；同上 |
 | `physics_display_entry_for(id)` | Dictionary | 完整条目（track_id/batch/entity_id/role/board_r/board_v/range/bearing/elevation/...）；无对应 `{}` |
+| `physics_display_fixed_for(id)` | Dictionary | **固定站体**条目（role=fixed）；支持 V15 track id/批号/entity id；非固定/无对应 `{}`（R6-FIXED-CORE-1） |
 | `fw_physics_display` | Dictionary | 每帧 `fw_sync` 刷新的显示帧；`DSH_PHYSICS_DISPLAY=0` 时为空 |
 | `fw_bridge_state()` | Dictionary | 增 `physics_display` 字段 |
 
@@ -57,7 +58,12 @@
           board_r:[0,0,0], board_v:[0,0,0], range_km:0, bearing_deg:0, elevation_deg:0,
           age_s:0, source:"...", filled:true },
   "flagship":{ track_id:"1000", entity_id:"apsis", role:"flagship", board_r/board_v/... },
-  "entries":{"1000":{...flagship...},"1001":{...own...},"2001":{...target...},...},
+  "fixed":[{ track_id:"0100", batch:"0100", entity_id:"chronos_station", role:"fixed",
+             entity_kind:"station", name:"...", fixed:true, board_r/board_v/range/bearing/... },
+           { track_id:"0101", entity_id:"tank_farm", role:"fixed", entity_kind:"tank", ... }],
+  "fixed_ids":["chronos_station","tank_farm"],
+  "entries":{"1000":{...flagship...},"1001":{...own...},"2001":{...target...},
+             "0100":{...fixed...},"0101":{...fixed...},...},
   "missing":["9002",...],
   "warnings":[...]
 }
@@ -80,8 +86,9 @@
 | `1004` | `deepwell` | target | 深井 |
 | `2001` | `summons_4471` | target | AV-4412 传唤者 |
 | `9001` | `ceres_2` | target | 谷神-2 |
-| `9002` | （无实体） | — | 虚警/残骸回波 → `missing` |
-| `0100`/`0101` | 站体/储罐 | — | 物理 authoritative 视图当前只列 ships → `missing`（不伪造） |
+| `9002` | （无实体） | — | 虚警/残骸回波 → `missing`（不伪造） |
+| `0100` | `chronos_station` | fixed | Chronos 加注站（固定，station） |
+| `0101` | `tank_farm` | fixed | Chronos 储罐群（固定，tank） |
 
 映射实现：state 先查 V15 track 的 `entity_id/batch`，再查 `fw_contacts`（bridge 归一接触）
 的 `track_id/batch → entity_id`，最后查 `framework.world.entities` 的 `batch/id`；
@@ -99,6 +106,12 @@ if state.physics_display_enabled():
             continue                     # 缺失不伪造；继续用 V15 位置
         var p := _scene(Vector3(board[0], board[1], board[2]))   # 或就地叠加 overlay
         draw_marker(p, "PHYS")           # 建议用不同样式/角标区分
+    # 固定站体（V15 无对应 track 时也可用 frame.fixed 列表）：
+    for raw in state.physics_display_frame().get("fixed", []):
+        var f: Dictionary = raw
+        var fb: Array = f.get("board_r", [])
+        if fb.size() >= 3:
+            draw_station_marker(_scene(Vector3(fb[0], fb[1], fb[2])), String(f.get("entity_kind", "")))
     # 可选：在 HUD/日志显示 state.physics_display_status()
 ```
 
@@ -113,12 +126,12 @@ if state.physics_display_enabled():
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/v17_physics_display_probe.gd
-# V17 PHYSICS DISPLAY PROBE RESULT: PASS=137 FAIL=0（exit 0）
+# V17 PHYSICS DISPLAY PROBE RESULT: PASS=197 FAIL=0（exit 0）
 ```
 
-覆盖（8 节）：available/enabled（默认 + `DSH_PHYSICS_DISPLAY` 0/1 覆盖、available 与开关解耦）；
+覆盖（9 节）：available/enabled（默认 + `DSH_PHYSICS_DISPLAY` 0/1 覆盖、available 与开关解耦）；
 frame 字段/own=0/flagship=apsis 与 authoritative view 一致；targets（2001 range/bearing/board）与
-`board_for/velocity_for/entry_for`；映射缺失（9002 等不伪造、未知返回空）；shadow/off 模式空且不崩溃；
+`board_for/velocity_for/entry_for`；**固定站体**（0100/0101 映射、board/range/bearing、`fixed_for`、entries/fixed 列表、view 一致、disabled 空）；映射缺失（9002 等不伪造、未知返回空）；shadow/off 模式空且不崩溃；
 `fw_sync` 刷新（physics_t 前进）且 **V15 tracks/等级/clock 不变**；JSON/status 可回读。
 
 回归（同任务）：`v17_physics_authoritative_probe` 154/0、`v17_physics_shadow_probe` 277/0、
@@ -129,7 +142,6 @@ frame 字段/own=0/flagship=apsis 与 authoritative view 一致；targets（2001
 - **只读、仅当前时刻**：不写 V15 tracks/HUD/plot、不做历史回放/预测；`display_switched=false`。
 - 只在 `V17_PHYSICS=authoritative` 且 ready 时可用；shadow/off 下为空（不伪造）。
 - 物理非 JPL 星历；实体初始状态为 V2 L1 局部近似/固定占位；float32（~0.03 km@38 万 km）。
-- 站体/储罐当前不在 authoritative targets（ships-only）→ `missing`；后续如需站体显示，
-  扩展 bridge authoritative 视图后再接。
+- 固定站体（0100/0101）已在桥 `fixed/stations` 与显示帧 `fixed` 列表中；坐标为 V2 L1 局部近似/固定站保持占位（非真实星历），不做推进/预报。
 - plot 尚未接线（本任务不改 plot）；切换为正式位置源需后续统一坐标系/门限。
 - 未 commit。

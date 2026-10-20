@@ -25,6 +25,7 @@ func _initialize() -> void:
 	_test_available_enabled()
 	_test_frame_own_flagship()
 	_test_targets_and_helpers()
+	_test_fixed()
 	_test_mapping_and_missing()
 	_test_display_override()
 	_test_modes()
@@ -221,11 +222,87 @@ func _test_targets_and_helpers() -> void:
 	_data_line("targets", "2001(summons_4471) board/range/bearing 与 view 一致；board_for/velocity_for/entry_for")
 
 # ═══════════════════════════════════════════════════════════════════
-# 4. 映射 / 缺失
+# 4. 固定站体（R6-FIXED-CORE-1）
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_fixed() -> void:
+	_section_begin("4 固定站体")
+	var st = _make_state("authoritative", "")
+	var snap0 := _track_snapshot(st)
+	var frame: Dictionary = st.physics_display_frame()
+	var fixed_list: Array = frame.get("fixed", [])
+	_ok(fixed_list.size() >= 2, "frame.fixed 列表 ≥2（站体+储罐）", str(fixed_list.size()))
+	var by_eid := {}
+	for raw in fixed_list:
+		by_eid[String((raw as Dictionary).get("entity_id", ""))] = raw
+	_ok(by_eid.has("chronos_station"), "fixed 含 chronos_station")
+	_ok(by_eid.has("tank_farm"), "fixed 含 tank_farm")
+	var station: Dictionary = by_eid.get("chronos_station", {})
+	var tank: Dictionary = by_eid.get("tank_farm", {})
+	_eq(String(station.get("track_id", "")), "0100", "chronos_station track_id=0100")
+	_eq(String(tank.get("track_id", "")), "0101", "tank_farm track_id=0101")
+	_eq(String(station.get("entity_kind", "")), "station", "chronos_station kind=station")
+	_eq(String(tank.get("entity_kind", "")), "tank", "tank_farm kind=tank")
+	_eq(String(station.get("role", "")), "fixed", "station role=fixed")
+	_eq(String(tank.get("role", "")), "fixed", "tank role=fixed")
+	_eq(bool(station.get("fixed", false)), true, "station.fixed=true")
+	for key in ["track_id", "batch", "entity_id", "role", "entity_kind", "name", "fixed",
+			"board_r", "board_v", "range_km", "bearing_deg", "elevation_deg", "age_s",
+			"source", "filled"]:
+		_ok(station.has(key), "fixed entry 含字段: " + key)
+	_ok(_vec(station.get("board_r", [])).length() > 0.0, "station board_r 有效")
+	_ok(float(station.get("range_km", 0.0)) > 0.0, "station range>0")
+	_near(_vec(station.get("board_r", [])).length(), float(station.get("range_km", 0.0)),
+		1.0e-3, "station |board_r| = range")
+	var bearing := float(station.get("bearing_deg", -1.0))
+	_ok(bearing >= 0.0 and bearing < 360.0, "station bearing∈[0,360)")
+	var entries: Dictionary = frame.get("entries", {})
+	for tid in ["0100", "0101"]:
+		_ok(entries.has(tid), "entries 含 fixed track " + tid)
+	_eq(String((entries.get("0100", {}) as Dictionary).get("entity_id", "")), "chronos_station",
+		"entries[0100].entity_id")
+	_ok(not ("0100" in (frame.get("missing", []) as Array)), "0100 不在 missing")
+	var board: Array = st.physics_display_board_for("0100")
+	_ok(board.size() >= 3, "board_for(0100) 可取")
+	_near((_vec(board) - _vec(station.get("board_r", []))).length(), 0.0, 1.0e-6,
+		"board_for(0100)=fixed entry board_r")
+	var vel: Array = st.physics_display_velocity_for("tank_farm")
+	_ok(vel.size() >= 3, "velocity_for(tank_farm) 可取")
+	var f1: Dictionary = st.physics_display_fixed_for("0100")
+	_eq(String(f1.get("entity_id", "")), "chronos_station", "fixed_for(0100).entity_id")
+	var f2: Dictionary = st.physics_display_fixed_for("tank_farm")
+	_eq(String(f2.get("track_id", "")), "0101", "fixed_for(tank_farm).track_id")
+	_eq(st.physics_display_fixed_for("2001"), {}, "fixed_for(非固定 2001) 空")
+	_eq(st.physics_display_fixed_for("no_such"), {}, "fixed_for(未知) 空")
+	var view_fixed := {}
+	for raw in (st.fw_physics_authoritative.get("fixed", []) as Array):
+		view_fixed[String((raw as Dictionary).get("entity_id", ""))] = raw
+	for eid in ["chronos_station", "tank_farm"]:
+		var vrow: Dictionary = view_fixed.get(eid, {})
+		var frow: Dictionary = by_eid.get(eid, {})
+		_near((_vec(frow.get("board_r", [])) - _vec(vrow.get("board_r", []))).length(), 0.0,
+			1.0e-6, "%s board_r 与 authoritative view 一致" % eid)
+		_near(float(frow.get("range_km", 0.0)), float(vrow.get("range_km", -1.0)), 1.0e-6,
+			"%s range 与 view 一致" % eid)
+	var snap1 := _track_snapshot(st)
+	_eq(snap1.get("r"), snap0.get("r"), "fixed 读取后 V15 轨迹 r 不变")
+	_eq(snap1.get("level"), snap0.get("level"), "fixed 读取后 V15 等级不变")
+	var js := JSON.stringify(fixed_list)
+	_ok(js.length() > 300, "fixed 列表 JSON 可序列化", "len=%d" % js.length())
+	_ok(JSON.parse_string(js) is Array, "fixed 列表 JSON 回读 Array")
+	_set_display("0")
+	st.fw_sync(0.0)
+	_eq(st.physics_display_frame(), {}, "disabled 时 frame 空")
+	_eq(st.physics_display_fixed_for("0100"), {}, "disabled 时 fixed_for 空")
+	_clear_env()
+	_data_line("fixed", "fixed=2（0100 chronos_station / 0101 tank_farm）· board/range/bearing · view 一致 · disabled 空")
+
+# ═══════════════════════════════════════════════════════════════════
+# 5. 映射 / 缺失
 # ═══════════════════════════════════════════════════════════════════
 
 func _test_mapping_and_missing() -> void:
-	_section_begin("4 映射 / 缺失")
+	_section_begin("5 映射 / 缺失")
 	var st = _make_state("authoritative", "")
 	var frame: Dictionary = st.physics_display_frame()
 	var entries: Dictionary = frame.get("entries", {})
@@ -233,6 +310,9 @@ func _test_mapping_and_missing() -> void:
 	for tid in ["1000", "1001", "2001"]:
 		_ok(entries.has(tid) or missing.has(tid), "track %s 有映射或明确缺失" % tid)
 	_ok(missing.size() > 0, "存在明确缺失条目（不伪造）", str(missing))
+	_ok(entries.has("0100") and entries.has("0101"), "固定站体（0100/0101）已映射进 entries")
+	_ok(not ("0100" in missing), "0100 不再 missing（固定站体已映射）")
+	_ok(st.physics_display_fixed_for("0100").size() > 0, "fixed_for(0100) 可用")
 	# 无实体/非 ship 的 track 应缺失
 	_ok(("9002" in missing) or (not entries.has("9002")), "9002 不伪造（缺失/无对应）")
 	_eq(st.physics_display_board_for("9002"), [], "board_for(9002) 空")
@@ -244,7 +324,7 @@ func _test_mapping_and_missing() -> void:
 		var e: Dictionary = raw
 		_ok(String(e.get("track_id", "")) != "", "entry.track_id 非空")
 		_ok(String(e.get("entity_id", "")) != "", "entry.entity_id 非空")
-		_ok(String(e.get("role", "")) in ["own", "flagship", "target"], "entry.role 合法")
+		_ok(String(e.get("role", "")) in ["own", "flagship", "target", "fixed"], "entry.role 合法")
 	_clear_env()
 	_data_line("mapping", "entries=%d missing=%d（9002 等不伪造）" % [entries.size(), missing.size()])
 
@@ -253,7 +333,7 @@ func _test_mapping_and_missing() -> void:
 # ═══════════════════════════════════════════════════════════════════
 
 func _test_display_override() -> void:
-	_section_begin("5 显示开关覆盖")
+	_section_begin("6 显示开关覆盖")
 	var st = _make_state("authoritative", "0")
 	_eq(st.physics_display_available(), true, "override=0 时 available 仍 true")
 	_eq(st.physics_display_enabled(), false, "DSH_PHYSICS_DISPLAY=0 → enabled=false")
@@ -278,7 +358,7 @@ func _test_display_override() -> void:
 # ═══════════════════════════════════════════════════════════════════
 
 func _test_modes() -> void:
-	_section_begin("6 模式")
+	_section_begin("7 模式")
 	var shadow = _make_state("shadow", "")
 	_eq(shadow.physics_display_available(), false, "shadow → available=false")
 	_eq(shadow.physics_display_enabled(), false, "shadow → enabled=false")
@@ -298,7 +378,7 @@ func _test_modes() -> void:
 # ═══════════════════════════════════════════════════════════════════
 
 func _test_refresh_and_v15_unchanged() -> void:
-	_section_begin("7 刷新 / V15 不变")
+	_section_begin("8 刷新 / V15 不变")
 	var st = _make_state("authoritative", "")
 	var snap0 := _track_snapshot(st)
 	var t0 := float(st.physics_display_frame().get("physics_t", -1.0))
@@ -322,7 +402,7 @@ func _test_refresh_and_v15_unchanged() -> void:
 # ═══════════════════════════════════════════════════════════════════
 
 func _test_json_and_status() -> void:
-	_section_begin("8 JSON / status")
+	_section_begin("9 JSON / status")
 	var st = _make_state("authoritative", "")
 	var frame: Dictionary = st.physics_display_frame()
 	var js := JSON.stringify(frame)

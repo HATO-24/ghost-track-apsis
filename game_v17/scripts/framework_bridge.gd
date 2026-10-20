@@ -989,6 +989,8 @@ func _build_authoritative_view() -> Dictionary:
 		"own": {},
 		"flagship": {},
 		"targets": [],
+		"fixed": [],
+		"stations": [],
 		"flags": {},
 		"warnings": physics_warnings.duplicate(),
 		"error": "",
@@ -996,12 +998,12 @@ func _build_authoritative_view() -> Dictionary:
 	if physics == null or not physics_ready:
 		out["error"] = "physics 未就绪（mode=%s requested=%s）" % [physics_mode, physics_requested_mode]
 		out["flags"] = {"authoritative_ready": false, "display_switched": false,
-			"fallback_reason": physics_fallback_reason}
+			"fixed_ids": [], "fallback_reason": physics_fallback_reason}
 		return out
 	if physics_mode != "authoritative":
 		out["error"] = "authoritative 未启用（mode=%s；shadow 只读）" % physics_mode
 		out["flags"] = {"authoritative_ready": false, "display_switched": false,
-			"fallback_reason": physics_fallback_reason}
+			"fixed_ids": [], "fallback_reason": physics_fallback_reason}
 		return out
 	var rows := {}
 	for raw in (physics_view_data.get("entities", []) as Array):
@@ -1033,12 +1035,33 @@ func _build_authoritative_view() -> Dictionary:
 		targets.append(trow)
 		target_ids.append(e.id)
 	out["targets"] = targets
+	# R6-FIXED-CORE-1：固定站体（chronos_station / tank_farm 等）的物理相对状态
+	var fixed_rows: Array = []
+	var fixed_ids: Array = []
+	for raw in world.entities:
+		var fe: V2Entity = raw
+		if fe.id == own_id or fe.id == flagship_id:
+			continue
+		if not fe.is_fixed():
+			continue
+		if not rows.has(fe.id):
+			continue
+		var frow := _auth_relative_row(rows[fe.id], own_row, fe.id, "fixed")
+		frow["side"] = String(fe.side)
+		frow["name"] = fe.display_name()
+		frow["entity_kind"] = String(fe.kind)
+		frow["fixed"] = true
+		fixed_rows.append(frow)
+		fixed_ids.append(fe.id)
+	out["fixed"] = fixed_rows
+	out["stations"] = fixed_rows.duplicate(true)   # 兼容别名（当前 fixed 均为站体/储罐）
 	out["flags"] = {
 		"authoritative_ready": true,
 		"display_switched": false,
 		"own_id": own_id,
 		"flagship_id": flagship_id,
 		"target_ids": target_ids,
+		"fixed_ids": fixed_ids,
 		"fallback_reason": physics_fallback_reason,
 	}
 	return out

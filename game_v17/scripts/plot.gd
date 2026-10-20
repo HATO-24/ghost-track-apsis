@@ -2625,7 +2625,7 @@ func _geo_fixed_contacts() -> Array:
 
 
 func _geo_fixed_anchor(c: Dictionary) -> Vector3:
-	return _world(float(c.get("bearing_deg", 0.0)), float(c.get("range_km", 0.0)), 0.0)
+	return _fixed_world(c, false)
 
 
 func _geo_close_anchor() -> Vector3:
@@ -2921,7 +2921,11 @@ func _draw_geo_panel() -> void:
 	draw_rect(r, Palette.a(Palette.PANEL, 0.92))
 	draw_rect(r, Palette.a(Palette.PH, 0.35), false, 1.0)
 	_txt(cjk, r.position.x + 8.0, r.position.y + 8.0, "%s · 站体几何" % title.substr(0, 12), 8, Palette.PH)
-	_txt(mono, r.position.x + r.size.x - 8.0, r.position.y + 8.0, "GEO / G", 7, Palette.a(Palette.FAINT, 0.85))
+	var src_tag := "V15"
+	if _phys_active:
+		var fb := _fixed_phys_board(c)
+		src_tag = "PHYS FIX" if fb.length() < 1.0e20 else "V15 FIX"
+	_txt(mono, r.position.x + r.size.x - 8.0, r.position.y + 8.0, "GEO / G · " + src_tag, 7, Palette.a(Palette.PH if src_tag.begins_with("PHYS") else Palette.FAINT, 0.85))
 	_txt(mono, r.position.x + 8.0, r.position.y + 24.0, "MOD CORE · HAB×2 · TANK×2", 7, Palette.a(Palette.TXT, 0.9))
 	_txt(mono, r.position.x + 8.0, r.position.y + 36.0, "TRUSS · SOLAR×2 · RADIATOR×2", 7, Palette.a(Palette.TXT, 0.9))
 	_txt(mono, r.position.x + 8.0, r.position.y + 48.0, "COMMS · DOCK×2 · PORTS DOCK-A/B", 7, Palette.a(Palette.TXT, 0.9))
@@ -2940,6 +2944,51 @@ func _draw_geo_panel() -> void:
 	_txt(mono, r.position.x + 8.0, r.position.y + 80.0, sel_note, 7, Palette.a(Palette.FAINT, 0.85))
 
 
+# R6-FIXED-UI-1：固定站体物理 board（缺失回退 V15，不伪造）
+var _fixed_phys_logged := false
+
+func _fixed_phys_ids(c: Dictionary) -> Array:
+	var out: Array = []
+	for k in ["track_id", "entity_id", "batch", "id"]:
+		var v := String(c.get(k, ""))
+		if v != "" and not out.has(v):
+			out.append(v)
+	return out
+
+
+func _fixed_phys_board(c: Dictionary) -> Vector3:
+	if not _phys_active or state == null:
+		return Vector3(1.0e30, 1.0e30, 1.0e30)
+	for fid in _fixed_phys_ids(c):
+		if state.has_method("physics_display_board_for"):
+			var raw = state.call("physics_display_board_for", String(fid))
+			var b := _phys_vec(raw)
+			if b.length() < 1.0e20:
+				return b
+		if _phys_boards.has(String(fid)):
+			var b2: Vector3 = _phys_boards[fid]
+			if b2.length() < 1.0e20:
+				return b2
+	return Vector3(1.0e30, 1.0e30, 1.0e30)
+
+
+func _fixed_world(c: Dictionary, planar_view: bool) -> Vector3:
+	if not planar_view:
+		var b := _fixed_phys_board(c)
+		if b.length() < 1.0e20:
+			return b * 1000.0
+	return _world(float(c.get("bearing_deg", 0.0)), float(c.get("range_km", 0.0)), 0.0)
+
+
+func _fixed_source_tag(c: Dictionary, planar_view: bool) -> String:
+	if planar_view or not _phys_active:
+		return ""
+	var b := _fixed_phys_board(c)
+	if b.length() < 1.0e20:
+		return " · PHYS FIX"
+	return " · V15 FIX"
+
+
 func _draw_fixed_assets(planar_view: bool) -> void:
 	var list = state.fw_contacts if state != null and state.get("fw_contacts") != null else []
 	if not (list is Array):
@@ -2955,8 +3004,12 @@ func _draw_fixed_assets(planar_view: bool) -> void:
 		var rkm := float(c.get("range_km", 0.0))
 		if rkm <= 0.0:
 			continue
-		var wp := _world(b, rkm, 0.0)
+		var wp := _fixed_world(c, planar_view)
 		var p := _p2(wp) if planar_view else _p3(wp)
+		var fix_tag := _fixed_source_tag(c, planar_view)
+		if not _fixed_phys_logged and _phys_active and not planar_view:
+			_fixed_phys_logged = true
+			print("V17 PHYS FIX id=%s source=%s tag=%s board=%s" % [String(c.get("track_id", c.get("entity_id", ""))), "physics" if fix_tag.begins_with(" · PHYS") else "v15_fallback", fix_tag, str(_fixed_phys_board(c))])
 		if not _ok(p):
 			continue
 		var col: Color = Palette.PH_DIM if String(c.get("side", "friend")) == "friend" else Palette.AMBER
@@ -2969,7 +3022,7 @@ func _draw_fixed_assets(planar_view: bool) -> void:
 				var tr := Rect2(p.x - sz * 0.5 + float(ti) * sz * 0.38, p.y - sz * 0.35, sz * 0.28, sz * 0.7)
 				draw_rect(tr, Palette.a(col, 0.10))
 				draw_rect(tr, Palette.a(col, 0.55), false, 1.0)
-			_txt(mono, p.x + sz * 0.7, p.y + 2.0, "[%s] %s" % [batch, "储罐组" if name == "" else name], 7, Palette.a(col, 0.9))
+			_txt(mono, p.x + sz * 0.7, p.y + 2.0, "[%s] %s%s" % [batch, "储罐组" if name == "" else name, fix_tag], 7, Palette.a(col, 0.9))
 		else:
 			var sr := Rect2(p.x - sz * 0.7, p.y - sz * 0.42, sz * 1.4, sz * 0.84)
 			draw_rect(sr, Palette.a(col, 0.08))
@@ -2977,7 +3030,7 @@ func _draw_fixed_assets(planar_view: bool) -> void:
 			draw_line(Vector2(sr.position.x, sr.position.y + sr.size.y * 0.5), Vector2(sr.end.x, sr.position.y + sr.size.y * 0.5), Palette.a(col, 0.45), 1.0)
 			draw_line(Vector2(p.x, sr.position.y), Vector2(p.x, sr.end.y), Palette.a(col, 0.35), 1.0)
 			draw_circle(p, 1.5, Palette.a(col, 0.85))
-			_txt(mono, p.x + sz * 0.8, p.y + 2.0, "[%s] %s" % [batch, "站体" if name == "" else name], 7, Palette.a(col, 0.9))
+			_txt(mono, p.x + sz * 0.8, p.y + 2.0, "[%s] %s%s" % [batch, "站体" if name == "" else name, fix_tag], 7, Palette.a(col, 0.9))
 
 func _draw_chrome() -> void:
 	if ortho:

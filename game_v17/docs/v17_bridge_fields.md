@@ -241,13 +241,16 @@ moon_port 到月≈1,737.4、lunar_leo 绕月≈1,837.4 km；off 时 l1 回退 a
 | 位置 | 字段 / API | 说明 |
 | --- | --- | --- |
 | bridge | `physics_requested_mode` / `physics_mode` / `physics_fallback_reason` | 请求/有效模式/回落原因（authoritative 初始化失败 → mode=shadow） |
-| bridge | `physics_authoritative_view()` | own/flagship/targets 的 `state_earth_eci`/`state_earth_rot` + 相对 own 的 `board_r/board_v`、`range_km/bearing_deg/elevation_deg/range_rate/closing`、`age_s`、`source`、`warnings`、`flags{authoritative_ready,display_switched,own_id,flagship_id,target_ids}` |
+| bridge | `physics_authoritative_view()` | own/flagship/targets 的 `state_earth_eci`/`state_earth_rot` + 相对 own 的 `board_r/board_v`、`range_km/bearing_deg/elevation_deg/range_rate/closing`、`age_s`、`source`、`warnings`、`flags{authoritative_ready,display_switched,own_id,flagship_id,target_ids,fixed_ids}`；另含 `fixed`/`stations`（固定站体，见下） |
 | bridge | `physics_adapter_compare(v15_own, v15_tracks)` | 物理 vs V15 board 只读对比：rows{physics,v15,errors{range_km,bearing_deg,position_km}} + summary{compared,max_*_err,within_threshold} + thresholds{5km,5°,50km} + frame_mismatch_note |
 | bridge | `physics_summary()` / `bridge_state()` | 增 requested_mode/authoritative/fallback_reason/display_switched；bridge_state 增 physics_authoritative/physics_adapter |
 | state | `fw_physics_authoritative` | authoritative 视图深拷贝（`fw_physics_authoritative_view()`） |
 | state | `fw_physics_adapter` | 每帧 `fw_sync` 用 V15 `own_at/board_pos/board_vel` 自动对比（只读） |
 | state | `fw_bridge_state()` | 增 physics_authoritative/physics_adapter |
 
+- 固定站体（R6-FIXED-CORE-1）：`fixed`/`stations` 数组含 `chronos_station`、`tank_farm`（role=fixed，
+  `entity_kind`/`name`/`fixed` 字段，board 相对 own）；V15 fixed 标识 `0100`/`0101` 经 bridge contacts
+  映射；state 显示帧 `fixed`/`fixed_ids` 与 `physics_display_fixed_for(id)` 读取。
 - 坐标系：相对板 `board_r = earth_rot(target) − earth_rot(own)`；bearing=atan2(x,y)，
   elevation=atan2(z,horiz)（与 V15 `_derive` 同式）；`frame.inertial=earth_eci`、
   `frame.rotating=earth_rot`。
