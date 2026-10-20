@@ -197,3 +197,35 @@ v1_hud.gd
 3. HOLD/NAV 走 order API；EMCON/IFF/ROE 走 sensor/combat API；无完整命令录入/权限流。
 4. ROE 默认 prelude 锁定；未接正式授权/战斗。
 5. 不实现剧情/物理/完整通信；未跑全量 regression。
+
+
+---
+
+## 11　方案B-5：通信页布局/旗舰默认修复（task-149）
+
+### 11.1 默认目标/接触排序
+
+- 接触排序：`_normalize_contacts()` 将旗舰 entity/id=`apsis` 归一为 batch `1000` 并固定第一；其余接触保持原顺序（友军/站体/未知规则不变）。
+- 初始 selected = `1000`（若刷新已选则保持 selected id；`_select_preserving(old_sel)`）。
+- `COMMS` 默认 target = 当前选中 contact 的 `entity_id`；不再写死 `harmattan`（本次选中旗舰后 target=`apsis`）。
+- HOLD/NAV/EMCON/IFF/ROE 命令面板显示当前 target；点击接触列表同步 target。
+
+### 11.2 通信页布局
+
+- COMMAND PANEL 固定宽 380px；左侧 MESSAGE STREAM 宽度 `r.size.x - 380 - 28`，不压左侧。
+- 消息每条一行：`[from 至 to]-[mode]-[content]`；按行高 14px、`TextMetrics.fit` 截断；最多按可用高度截取；交替行底；无消息显示 `NO MESSAGES · NOT READY`。
+- 命令队列/ABORT/REVOKE 固定在右侧面板底部，不与消息区重叠；消息区高度扣除底部按钮区。
+- 命令类型/目标/发送保留；发送后刷新 binder。
+
+### 11.3 截图 / 验证
+
+- `mockups/v1-hud-comms-fixed-1920.png`：旗舰 `[1000]` 第一/选中；COMMS target `apsis`；消息流两行不叠；右侧固定面板；命令队列/ABORT/REVOKE 不重叠。
+- `mockups/v1-hud-live-1920.png` 重截：旗舰 1000 置顶且默认选中。
+- 均 `V1 HUD SHOT err=0`；headless v1_hud 加载一次；`v1_hud.gd --check-only` 通过。
+
+### 11.4 边界 / 未完成
+
+1. 消息内容仍为 text_key/结构化 fallback，无完整剧本文本。
+2. COMMS 默认目标随选中接触；当前默认旗舰 apsis（批号1000），不是 harmattan。
+3. 命令/ROE/损管仍为最小交互，不接完整剧情/授权/物理。
+4. 未跑全量 regression。

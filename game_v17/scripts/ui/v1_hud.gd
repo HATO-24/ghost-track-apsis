@@ -131,6 +131,8 @@ func _load_data() -> void:
 		if String((_contacts[i] as Dictionary).get("id", "")) == "1000":
 			_selected = i
 			break
+	if _contacts.size() > 0:
+		_comms_target = String((_contacts[_selected] as Dictionary).get("entity_id", (_contacts[_selected] as Dictionary).get("id", "")))
 	if FileAccess.file_exists(TRANSFER):
 		var d = JSON.parse_string(FileAccess.get_file_as_string(TRANSFER))
 		if d is Dictionary:
@@ -146,7 +148,7 @@ func _load_data() -> void:
 	binder.seed_timers()
 	_selected_cmd = 0 if binder != null and binder.commands.size() > 0 else -1
 	if binder != null and binder.contacts.size() > 0:
-		_comms_target = String((binder.contacts[0] as Dictionary).get("entity_id", (binder.contacts[0] as Dictionary).get("id", "")))
+		_comms_target = String((_contacts[_selected] as Dictionary).get("entity_id", (_contacts[_selected] as Dictionary).get("id", "")))
 	_seed_comms_sample()
 	# CombatService（ROE 四档）与 DamageModel（损管页）为会话外挂的 shadow 组件；
 	# GameSession 当前未内置 damage_vm；损管明确标注 MODEL，不伪造。
@@ -199,6 +201,35 @@ func _normalize_contacts() -> void:
 			c["id"] = "1000"
 			c["badge"] = "FLAG"
 			_contacts[i] = c
+	# 旗舰 1000 固定第一；其余保持原顺序（友军/中立/未知规则不变）。
+	var flag: Dictionary = {}
+	var rest: Array = []
+	for raw in _contacts:
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == "1000":
+			flag = raw
+		else:
+			rest.append(raw)
+	_contacts = ([flag] + rest) if not flag.is_empty() else rest
+	_selected = clampi(_selected, 0, maxi(0, _contacts.size() - 1))
+	if _contacts.size() > 0:
+		_comms_target = String((_contacts[_selected] as Dictionary).get("entity_id", (_contacts[_selected] as Dictionary).get("id", "")))
+
+
+func _select_preserving(preferred_id := "") -> void:
+	var old_id := preferred_id
+	if old_id == "" and _selected >= 0 and _selected < _contacts.size():
+		old_id = String((_contacts[_selected] as Dictionary).get("id", ""))
+	_normalize_contacts()
+	_selected = 0
+	if old_id != "":
+		for i in range(_contacts.size()):
+			if String((_contacts[i] as Dictionary).get("id", "")) == old_id:
+				_selected = i
+				break
+	if String((_contacts[_selected] as Dictionary).get("id", "")) != "":
+		_comms_target = String((_contacts[_selected] as Dictionary).get("entity_id", (_contacts[_selected] as Dictionary).get("id", "")))
+
+
 
 
 func _process(delta: float) -> void:
@@ -207,9 +238,12 @@ func _process(delta: float) -> void:
 		binder.tick(delta)
 		_timers = binder.timers() if binder.timers() is Array else []
 		if _frames % 10 == 0:
+			var old_sel := ""
+			if _selected >= 0 and _selected < _contacts.size():
+				old_sel = String((_contacts[_selected] as Dictionary).get("id", ""))
 			binder.refresh()
 			_contacts = binder.contacts.duplicate(true) if binder.contacts is Array else _contacts
-			_normalize_contacts()
+			_select_preserving(old_sel)
 	queue_redraw()
 	if _shot_path == "":
 		return
@@ -499,7 +533,8 @@ func _draw_comms_overlay(r: Rect2) -> void:
 	var y := r.position.y + 34.0
 	Painter.label(self, x, y, "通信 / COMMS · 命令 / ORDERS", 12, P.PH)
 	Painter.label(self, x, y + 14, "from/to/mode 来自 session/comms 事件；内容来自 text_key，缺失用结构化 fallback", 7, P.a(P.AMBER, 0.9), true)
-	var left_w := r.size.x * 0.55
+	var right_w := 380.0
+	var left_w := maxf(420.0, r.size.x - right_w - 28.0)
 	var vm: Dictionary = binder.session.comms.vm() if binder != null and binder.session != null and binder.session.comms != null else {}
 	var modes := ["LD", "LR", "RDO", "IR", "VIS"]
 	var chx := x
@@ -519,8 +554,9 @@ func _draw_comms_overlay(r: Rect2) -> void:
 	Painter.section(self, x, my, x + left_w - 10, "MESSAGE STREAM")
 	my += 16.0
 	if evs.is_empty():
-		Painter.label(self, x, my, "NO COMMS DATA · NOT READY", 7, P.FAINT, true)
-	for i in range(maxi(0, evs.size() - 8), evs.size()):
+		Painter.label(self, x, my, "NO MESSAGES · NOT READY", 7, P.FAINT, true)
+	var row_capacity := maxi(1, int((r.end.y - my - 100.0) / 14.0))
+	for i in range(maxi(0, evs.size() - row_capacity), evs.size()):
 		var ev: Dictionary = evs[i]
 		var from := String(ev.get("from_name", ev.get("from", "—")))
 		var to := String(ev.get("to_name", ev.get("to", "—")))
@@ -530,10 +566,14 @@ func _draw_comms_overlay(r: Rect2) -> void:
 			content = String(ev.get("text_key", "TEXT KEY 未提供"))
 		if content == "":
 			content = "[" + String(ev.get("kind", "comms")) + " · " + String(ev.get("reason", "")) + "]"
-		Painter.label(self, x, my + float(i - maxi(0, evs.size() - 8)) * 14.0,
-			TM.fit("[%s 至 %s]-[%s]-[%s]" % [from, to, mode, content], left_w - 20, true, 7), 7, P.TXT, true)
+		var row := i - maxi(0, evs.size() - row_capacity)
+		var row_rect := Rect2(x - 2, my + float(row) * 14.0 - 9, left_w - 12, 13)
+		if row % 2 == 1:
+			draw_rect(row_rect, P.a(P.PANEL2, 0.35))
+		Painter.label(self, x, my + float(row) * 14.0,
+			TM.fit("[%s 至 %s]-[%s]-[%s]" % [from, to, mode, content], left_w - 18, true, 7), 7, P.TXT, true)
 	# 右侧命令面板
-	var px := x + left_w + 10.0
+	var px := x + left_w + 12.0
 	var py := y + 34.0
 	Painter.section(self, px, py, r.end.x - 14, "COMMAND PANEL / 命令面板")
 	py += 16.0
