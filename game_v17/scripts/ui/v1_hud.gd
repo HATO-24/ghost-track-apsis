@@ -78,6 +78,8 @@ var _signal_code := ""
 var _signal_tx_id := ""
 var _signal_msg := ""
 var _signal_code_index := 0
+var _txp_reply: Dictionary = {}
+var _txp_msg := ""
 var _save_slots: Array = []
 var _save_load_buttons: Array = []
 var _save_overlay_msg := ""
@@ -183,7 +185,17 @@ func _load_data() -> void:
 	var dok: bool = _damage.setup({}, "apsis")
 	print("[V1 HUD] damage_model=", str(dok), " sections=", _damage.section_ids().size(), " combat=", str(_combat.ready), " roe=", String(_combat.roe) if _combat != null else "—", " roe_locked=", str(_roe_locked))
 	var view := OS.get_environment("DSH_V1_VIEW")
-	if view == "facility":
+	if view == "transponder":
+		_overlay = "optical"
+		_page = "facility"
+		for i in range(_contacts.size()):
+			if String((_contacts[i] as Dictionary).get("facility_id", "")) != "":
+				_selected = i
+				_optical_target = String((_contacts[i] as Dictionary).get("entity_id", (_contacts[i] as Dictionary).get("id", "")))
+				_optical_track = _track_for_contact(_contacts[i])
+				break
+		call_deferred("_transponder_demo")
+	elif view == "facility":
 		_page = "facility"
 		for i in range(_contacts.size()):
 			if String((_contacts[i] as Dictionary).get("facility_id", "")) != "":
@@ -501,6 +513,7 @@ func _draw_facility_page(r: Rect2, x: float, right: float, y: float, c: Dictiona
 	var rows := [
 		["ID / CODE", fid + " · " + String(c.get("facility_code", "—"))],
 		["TRANSPONDER", String(c.get("transponder_code", "—")) + " · " + String(c.get("transponder_type", "—"))],
+		["IFF RECENT", _transponder_recent_text(fid, c)],
 		["CLUSTER", String(c.get("cluster_id", "—")) + " · " + String(c.get("cluster_name", "—"))],
 		["OWNER / SIDE", String(c.get("owner", "—")) + " · " + String(c.get("side", "—"))],
 		["SERVICES", ",".join(c.get("services", []) if c.get("services", []) is Array else [])],
@@ -856,6 +869,21 @@ func _track_for_contact(c: Dictionary) -> Dictionary:
 	return {}
 
 
+func _transponder_recent_text(fid: String, c: Dictionary) -> String:
+	if _txp_reply.is_empty():
+		return "NOT QUERIED"
+	var target := String(_txp_reply.get("target_id", ""))
+	if target != fid and target != String(c.get("entity_id", "")) and target != String(c.get("id", "")):
+		return "NOT QUERIED"
+	return "%s · %s · %s · crypto %s" % [String(_txp_reply.get("registration_code", "—")), String(_txp_reply.get("facility_code", "—")), String(_txp_reply.get("status", "—")), ("OK" if bool((_txp_reply.get("crypto", {}) as Dictionary).get("valid", false)) else "FAIL")]
+
+
+func _transponder_demo() -> void:
+	# 仅 DSH_V1_VIEW=transponder 截图样张：真实 transponder_service 询问，不伪造。
+	_optical_action("IFF")
+	print("[V1 HUD] TRANSPONDER DEMO ", _txp_msg)
+
+
 func _signal_demo() -> void:
 	# 仅 DSH_V1_VIEW=signal 截图样张：走真实 ELINT/灯语 API，不伪造。
 	# 样张优先选任意非友方 SIGNAL 动态 target，展示 all-sides；发送/ACK 仍由真实 target 能力决定。
@@ -974,7 +1002,7 @@ func _draw_optical_overlay(r: Rect2) -> void:
 		_optical_buttons.append({"rect": br, "kind": String(labels[i][0])})
 		Painter.button(self, br, String(labels[i][1]), true, P.PH if i < 3 else P.PH_DIM)
 	# SIGNAL 小面板
-	var sr := Rect2(x + 570.0, y + 350.0, maxf(420.0, r.size.x - 600.0), 160.0)
+	var sr := Rect2(x + 570.0, y + 350.0, maxf(420.0, r.size.x - 600.0), 185.0)
 	draw_rect(sr, P.a(P.PANEL2, 0.35))
 	draw_rect(sr, P.a(P.LINE, 0.6), false, 1.0)
 	Painter.label(self, sr.position.x + 10, sr.position.y + 18, "SIGNAL / ELINT · LIGHT", 9, P.PH)
@@ -1000,6 +1028,9 @@ func _draw_optical_overlay(r: Rect2) -> void:
 		if not txs.is_empty():
 			var tx: Dictionary = txs[txs.size() - 1]
 			Painter.label(self, sr.position.x + 10, sr.position.y + 84, "LAST TX %s · code %s · %s · reason %s" % [String(tx.get("tx_id", "")), String(tx.get("code_id", "")), String(tx.get("status", "")), String(tx.get("reason", ""))], 6, P.TXT, true)
+	if not _txp_reply.is_empty():
+		Painter.label(self, sr.position.x + 10, sr.position.y + 100, "IFF " + String(_txp_reply.get("entity_type", "")) + " · status " + String(_txp_reply.get("status", "")) + " · identity " + String(_txp_reply.get("identity", "")) + " · code " + String(_txp_reply.get("transponder_code", "—")) + " · reg " + String(_txp_reply.get("registration_code", "—")), 7, P.TXT, true)
+		Painter.label(self, sr.position.x + 10, sr.position.y + 113, "facility " + String(_txp_reply.get("facility_code", "—")) + " · crypto " + ("OK" if bool((_txp_reply.get("crypto", {}) as Dictionary).get("valid", false)) else "FAIL") + " · conf " + ("%.2f" % float(_txp_reply.get("confidence", 0.0))) + " · reason " + String(_txp_reply.get("reason", "")) + " · trigger " + String((_txp_reply.get("trigger", {}) as Dictionary).get("trigger_id", "")) if _txp_reply.get("trigger", {}) is Dictionary else "", 6, P.PH_DIM, true)
 	if _signal_msg != "":
 		Painter.label(self, sr.position.x + 10, sr.end.y - 12, TM.fit(_signal_msg, sr.size.x - 20, true, 7), 7, P.AMBER, true)
 	if _optical_msg != "":
@@ -1032,7 +1063,17 @@ func _optical_action(kind: String) -> void:
 		"IR":
 			res = s.start_channel("ir", target)
 		"IFF":
-			res = s.query_iff(target)
+			res = binder.transponder_query(target, "mode_s")
+			var reply: Dictionary = res.get("reply", {}) if res.get("reply", {}) is Dictionary else {}
+			_txp_reply = reply
+			_txp_msg = "IFF " + target + " · " + ("REPLY " + String(reply.get("status", "")) if bool(reply.get("ok", false)) else "NO REPLY · " + String(res.get("reason", reply.get("reason", ""))))
+			if bool(reply.get("ok", false)):
+				_txp_msg += " · %s/%s · code %s · reg %s · fac %s · crypto %s · conf %.2f · trigger %s" % [
+					String(reply.get("entity_type", "")), String(reply.get("identity", "")),
+					String(reply.get("transponder_code", "")), String(reply.get("registration_code", "")),
+					String(reply.get("facility_code", "")), ("OK" if bool((reply.get("crypto", {}) as Dictionary).get("valid", false)) else "FAIL"),
+					float(reply.get("confidence", 0.0)), String((reply.get("trigger", {}) as Dictionary).get("trigger_id", "")) if reply.get("trigger", {}) is Dictionary else ""]
+			binder.refresh()
 		"LIGHT":
 			var codes: Array = []
 			if binder.session.signal_service != null:

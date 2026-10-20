@@ -509,3 +509,41 @@ v1_hud.gd
 2. port_page 仍用旧 Control 布局；仅数据源切到 FacilityRegistry；PortService 资源为 8 个 registry port 的示例容量，不写剧情/物理/存档。
 3. 设施实体仅 l1_station→Chronos；其余 L1 设施在 port_page 列表展示，无 world entity 绑定。
 4. 不实现剧情/物理/完整港务流程；未跑全量 regression。
+
+
+---
+
+## 19　方案B-13：应答机 IFF/TRANSPONDER UI（task-165）
+
+### 19.1 数据 / boot
+
+- `ShellBinder.boot()` 增加 `"transponder_service": true`；GameSession 创建 TransponderService（facility_registry 内容 + `transponders_prologue.json` profiles）。
+- ShellBinder 提供 `transponder_query(target, mode="mode_s", opts={})`，内部 `session.transponder_interrogate("apsis", target, mode, opts)`，保存 `last_transponder_reply`，不伪造。
+
+### 19.2 光学/识别页 IFF QUERY
+
+- IFF QUERY → `binder.transponder_query(target,"mode_s")`（当前选中 target，可为 ship/station/facility）。
+- 显示真实 reply 字段：
+  - `ok`：entity_type（ship/station/port/fuel/tank/otc/relay）/status/identity/transponder_code/registration_code/facility_code/crypto(valid)/confidence/trigger_id；
+  - 无应答：`NO REPLY · reason`；captured/spoofed 由 reply.status/identity 显示；失败不伪造。
+- 结果进入 SIGNAL/IDENT 小面板（IFF 两行），证据由 session.flush transponder evidence 路由到 track；本次 L4 IDENTITY、EVIDENCE 5 ids。
+- 查询后 `binder.refresh()`；设施页 `TRANSPONDER` 行显示最近应答（注册码/设施码/status/crypto）或 `NOT QUERIED`。
+
+### 19.3 实测
+
+- 样张 target=`l1_station`（L1 港/Chronos 设施）：
+  - `IFF l1_station · OK`
+  - reply: `station / neutral / TXP-L1-05 / REG-L1-05-ELINT / FC-L1-05 / crypto OK / conf 1.00 / trigger (none)`
+  - 光学页 L4 IDENTITY，EVIDENCE 5 ids，SIGNAL 面板显示真实 IFF 行。
+
+### 19.4 截图 / 验证
+
+- `mockups/v1-hud-transponder-1920.png`（1920×1080：IFF QUERY、L4 IDENTITY、SIGNAL/IDENT IFF 两行、contact FACILITY）
+- `V1 HUD SHOT err=0`；headless transponder demo 一次；`v1_hud.gd/shell_binder.gd --check-only` 通过。
+
+### 19.5 未完成 / 边界
+
+1. trigger 为空表示服务未触发规则，UI 显示空；不伪造 trigger。
+2. IFF 结果只做最小展示；无 spoof/captured 交互切换（服务状态可产生，UI 会显示 status/identity）。
+3. facility 页 TRANSPONDER 行只在有最近应答时显示；当前截图被 overlay 覆盖。
+4. 不实现剧情/物理/完整 IFF 权限流；未跑全量 regression。

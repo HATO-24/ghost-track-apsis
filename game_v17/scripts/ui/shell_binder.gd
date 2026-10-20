@@ -18,6 +18,7 @@ var ready := false
 var errors: Array[String] = []
 var warnings: Array[String] = []
 var signal_sync_result: Dictionary = {}
+var last_transponder_reply: Dictionary = {}
 var track_vm: Dictionary = {}
 var sensor_vm: Dictionary = {}
 var sensor_result := ""
@@ -45,6 +46,7 @@ func boot() -> bool:
 		"sensor_service": sensor_cfg,
 		"signal_service": true,
 		"facility_registry": true,
+		"transponder_service": true,
 		"orders": [
 			{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
 		],
@@ -484,6 +486,16 @@ func timers() -> Array:
 	while out.size() > 4:
 		out.pop_front()
 	return out
+
+
+func transponder_query(target: String, mode := "mode_s", opts := {}) -> Dictionary:
+	if session == null:
+		return {"ok": false, "reason": "no_session", "reply": null}
+	if session.transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service", "reply": null}
+	var res: Dictionary = session.transponder_interrogate("apsis", target, mode, opts if opts is Dictionary else {})
+	last_transponder_reply = res.duplicate(true)
+	return last_transponder_reply
 
 
 func signal_event(type: String, target := "", payload := {}) -> void:
