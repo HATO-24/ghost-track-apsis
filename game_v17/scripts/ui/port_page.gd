@@ -304,8 +304,8 @@ func _depart() -> void:
 		_result({"ok": false, "reason": "not_departed · 先 UNDOCK"}, "DEPART")
 		return
 	_flow_write("shell")
-	_logs.append("FLOW DEPART → game_shell.tscn · name=" + _name)
-	get_tree().change_scene_to_file("res://game_shell.tscn")
+	_logs.append("FLOW DEPART → v1_hud.tscn · name=" + _name)
+	get_tree().change_scene_to_file("res://v1_hud.tscn")
 
 
 func _process(_delta: float) -> void:

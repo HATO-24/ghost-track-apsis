@@ -125,3 +125,15 @@ $env:DSH_FLOW_SMOKE="1"
 3. 缺失 flow_state 时 fallback 到页面自 boot；日志明确 `FLOW fallback`。
 4. smoke 使用显式 UI API 链，不代表手动点击事件测试；正常按钮仍手动。
 5. 不实现物理/剧情分支；未跑全量 regression。
+
+
+---
+
+## 7　阶段3F/3H 后：V1 HUD 替换 Shell（task-145）
+
+- 流程最终为 `prologue → nav_page → port_page → v1_hud.tscn`。
+- `port_page.DEPART` 写 flow phase=shell 后切 `v1_hud.tscn`；`game_shell.tscn` 保留但正常流程不再进入。
+- v1_hud 从 flow_state 读取玩家名，boot GameSession（track/story/sensor）+ SaveService；真实接触/右栏/命令/事件/计时/Δv/ROE；三色点保存。
+- 回退：直接运行 `game_shell.tscn` 可看旧 Control 壳；直接运行 `v1_hud.tscn` 为独立 live 样张。
+- 截图：`mockups/v1-hud-live-1920.png`。
+- 边界：v1_hud 的 damage 无 session 组件；命令仅 demo seed；地图为示意；不实现剧情/物理。

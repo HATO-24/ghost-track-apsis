@@ -9,6 +9,7 @@ const F := preload("res://scripts/fonts.gd")
 const Tokens := preload("res://scripts/ui/layout_tokens.gd")
 const TM := preload("res://scripts/ui/text_metrics.gd")
 const Painter := preload("res://scripts/ui/panel_painter.gd")
+const ShellBinder := preload("res://scripts/ui/shell_binder.gd")
 
 const SCENARIO := "res://framework/content/scenario_transit_l4_l1.json"
 const TRANSFER := "res://framework/content/transfer_l4_l1_cached.json"
@@ -33,6 +34,11 @@ var _target_size := Vector2i(1920, 1080)
 var _commander := "指挥官 · 沧澜"
 var _delta_v := 0.0
 var _transfer_ok := false
+var binder = null
+var _save_msg := ""
+var _save_ok := true
+var _sensor_msg := ""
+var _right_buttons: Array = []
 
 
 func _ready() -> void:
@@ -66,44 +72,71 @@ func _ready() -> void:
 	if _shot_path != "":
 		get_window().size = _target_size
 		Input.warp_mouse(Vector2(_target_size) * 0.5)
+	if OS.get_environment("DSH_FLOW_SMOKE") == "1":
+		call_deferred("_flow_smoke_v1")
+	if OS.get_environment("DSH_V1_SAVE_TEST") == "1":
+		call_deferred("_run_save_test")
 
 
 func _load_data() -> void:
-	_contacts = []
-	var parsed = null
-	if FileAccess.file_exists(SCENARIO):
-		parsed = JSON.parse_string(FileAccess.get_file_as_string(SCENARIO))
-	if parsed is Dictionary:
-		for raw in (parsed.get("entities", []) if parsed.get("entities", []) is Array else []):
-			if not (raw is Dictionary):
-				continue
-			var e: Dictionary = raw
-			var kind := String(e.get("kind", "ship"))
-			_contacts.append({"id": String(e.get("batch", e.get("id", ""))), "name": String(e.get("name", "")),
-				"cls": kind.to_upper(), "type": "station" if kind == "station" else "friendly",
-				"badge": "PORT" if kind == "station" else ("FLAG" if String(e.get("id", "")) == "apsis" else "FRIEND"),
-				"threat": "none", "demo": false})
-	# 明确一个 DEMO 接触，避免把示例当真实目标。
-	_contacts.append({"id": "DEMO-2001", "name": "AV-4412 传唤者", "cls": "DEMO TARGET", "type": "unknown",
-		"badge": "DEMO", "threat": "unknown", "demo": true})
-	while _contacts.size() < 8:
-		var i := _contacts.size()
-		_contacts.append({"id": "DEMO-%03d" % i, "name": "接触样张 DEMO %d" % i, "cls": "DEMO", "type": "neutral",
-			"badge": "DEMO", "threat": "none", "demo": true})
+	binder = ShellBinder.new()
+	var flow: Dictionary = {}
+	var root := get_tree().root
+	if root.has_meta("flow_state") and root.get_meta("flow_state") is Dictionary:
+		flow = (root.get_meta("flow_state") as Dictionary).duplicate(true)
+	var pname := String(flow.get("player_name", ""))
+	if pname == "":
+		pname = OS.get_environment("DSH_PLAYER_NAME")
+	if pname == "":
+		pname = _commander.trim_prefix("指挥官 · ")
+	if pname == "":
+		pname = "沧澜"
+	binder.commander = "指挥官 · " + pname
+	var ok: bool = binder.boot()
+	print("[V1 HUD] binder boot=", str(ok), " errors=", str(binder.errors), " contacts=", binder.contacts.size(), " orders=", binder.commands.size())
+	_contacts = binder.contacts.duplicate(true) if binder.contacts is Array else []
+	if _contacts.is_empty():
+		# 无 session 时保留明确 fallback 样张；不让页面空/假实时。
+		_contacts = [{"id": "----", "name": "NO SESSION / NO TRACK", "cls": "NOT READY", "type": "unknown",
+			"badge": "NOT READY", "threat": "unknown", "demo": true}]
+	_normalize_contacts()
 	_selected = 0
+	for i in range(_contacts.size()):
+		if String((_contacts[i] as Dictionary).get("id", "")) == "1000":
+			_selected = i
+			break
 	if FileAccess.file_exists(TRANSFER):
 		var d = JSON.parse_string(FileAccess.get_file_as_string(TRANSFER))
 		if d is Dictionary:
 			var budget: Dictionary = d.get("budget", {}) if d.get("budget", {}) is Dictionary else {}
 			_delta_v = float(budget.get("total_dv_mps", 0.0))
 			_transfer_ok = _delta_v > 0.0
+	if not bool(binder.delta_v_ready):
+		_delta_v = 0.0
+		_transfer_ok = false
+	else:
+		_delta_v = float(binder.delta_v_mps)
+		_transfer_ok = true
+	binder.seed_timers()
+
+func _normalize_contacts() -> void:
+	for i in range(_contacts.size()):
+		var c: Dictionary = _contacts[i]
+		if String(c.get("entity_id", "")) == "apsis" or String(c.get("id", "")) == "apsis":
+			c["id"] = "1000"
+			c["badge"] = "FLAG"
+			_contacts[i] = c
 
 
 func _process(delta: float) -> void:
 	_t += delta
-	for item in _timers:
-		var d: Dictionary = item
-		d["remain"] = maxf(0.0, float(d.get("remain", 0.0)) - delta)
+	if binder != null:
+		binder.tick(delta)
+		_timers = binder.timers() if binder.timers() is Array else []
+		if _frames % 10 == 0:
+			binder.refresh()
+			_contacts = binder.contacts.duplicate(true) if binder.contacts is Array else _contacts
+			_normalize_contacts()
 	queue_redraw()
 	if _shot_path == "":
 		return
@@ -142,7 +175,9 @@ func _draw() -> void:
 	Painter.panel(self, top, "", P.PH)
 	Painter.label(self, top.position.x + 14, top.position.y + 22, "GHOST TRACK // APSIS", 11, P.PH, true)
 	Painter.label(self, top.position.x + 14, top.position.y + 43, _commander, 15, P.PH)
-	Painter.label(self, top.position.x + 14, top.position.y + 58, "MISSION T+%s · L1 港内 %s · DEMO SAMPLE" % [_clock(12 * 60 + 8 + _t), _clock(6 * 3600 + 42 * 60 + 17)], 7, P.a(P.DIM, 0.95), true)
+	var live := binder != null and bool(binder.ready)
+	var now_s := float(binder.session.now_s()) if binder != null and binder.session != null else _t
+	Painter.label(self, top.position.x + 14, top.position.y + 58, "MISSION T+%s · L1 港内 %s · %s" % [_clock(now_s), _clock(6 * 3600 + 42 * 60 + 17), "SESSION LIVE" if live else "FALLBACK DEMO"], 7, P.a(P.DIM, 0.95), true)
 	var tx := top.position.x + 300.0
 	Painter.label(self, tx, top.position.y + 20, "动态计时 / TIMERS", 7, P.a(P.FAINT, 0.95), false)
 	for i in range(_timers.size()):
@@ -159,7 +194,7 @@ func _draw() -> void:
 	Painter.label(self, rx, top.position.y + 20, "链路 / 时标 / Δv / ROE", 7, P.a(P.PH, 0.75), false)
 	Painter.label(self, rx, top.position.y + 35, "LINK OK · 無線電 8s", 6, P.TXT, true)
 	Painter.label(self, rx, top.position.y + 48, "×1 · Δv %s" % ("%.1f m/s" % _delta_v if _transfer_ok else "NOT READY"), 6, P.a(P.DIM, 0.95), true)
-	Painter.label(self, rx, top.position.y + 60, "ROE WEAPONS HOLD / 仅自衛", 6, P.a(P.DIM, 0.95), true)
+	Painter.label(self, rx, top.position.y + 60, TM.fit(String(binder.roe_text) if binder != null else "ROE NOT READY", 180, true, 6), 6, P.a(P.DIM, 0.95), true)
 	# 三色点
 	_top_dots.clear()
 	for i in range(3):
@@ -168,6 +203,8 @@ func _draw() -> void:
 		draw_circle(dp, 6.0, P.a(cols[i], 0.2))
 		draw_circle(dp, 3.5, P.a(cols[i], 0.95))
 		_top_dots.append({"rect": Rect2(dp - Vector2(10, 10), Vector2(20, 20)), "kind": ["save", "menu", "quit"][i]})
+	if _save_msg != "":
+		Painter.label(self, top.position.x + 300, top.position.y + 66, TM.fit(_save_msg, 520, true, 6), 6, P.PH if _save_ok else P.RED, true)
 	# 左接触
 	Painter.panel(self, left, "接触 / CONTACTS", P.PH)
 	var ly := left.position.y + 34.0
@@ -225,13 +262,15 @@ func _draw_map(r: Rect2) -> void:
 	draw_line(Vector2(area.position.x + 12, ty), Vector2(area.end.x - 12, ty), P.a(P.LINE2, 0.7), 1.0)
 	draw_line(Vector2(area.position.x + 12 + area.size.x * 0.42, ty - 7), Vector2(area.position.x + 12 + area.size.x * 0.42, ty + 7), P.a(P.AMBER, 0.85), 1.0)
 	Painter.label(self, area.position.x + 12, ty - 12, "T+00:00 · TOF 144:00:00 · WINDOW OPEN 18:00 / CLOSE 24:00", 7, P.TXT, true)
-	Painter.label(self, area.position.x + 12, area.end.y - 14, "DEMO SAMPLE · TOKEN LAYOUT · V1 PALETTE", 6, P.a(P.FAINT, 0.9), true)
+	Painter.label(self, area.position.x + 12, area.end.y - 14, ("SESSION LIVE · TRACK/SENSOR/STORY" if binder != null and bool(binder.ready) else "FALLBACK DEMO · TOKEN LAYOUT") + " · V1 PALETTE", 6, P.a(P.FAINT, 0.9), true)
 
 
 func _draw_right(r: Rect2) -> void:
 	var x := r.position.x + 12.0
 	var right := r.end.x - 12.0
 	var y := r.position.y + 34.0
+	var c: Dictionary = _contacts[_selected] if _selected >= 0 and _selected < _contacts.size() else {}
+	var fields: Dictionary = binder.ship_fields(c, _page) if binder != null else {"title": "NOT READY", "source": "NO SESSION", "lines": []}
 	_tabs = [{"rect": Rect2(x, r.position.y + 4, 70, 18), "page": "ship"}, {"rect": Rect2(x + 76, r.position.y + 4, 76, 18), "page": "target"}]
 	for tab in _tabs:
 		var active := String(tab.get("page", "")) == _page
@@ -239,63 +278,89 @@ func _draw_right(r: Rect2) -> void:
 		draw_rect(tr, P.a(P.PH if active else P.LINE, 0.10 if active else 0.04))
 		draw_rect(tr, P.a(P.PH if active else P.LINE, 0.65 if active else 0.25), false, 1.0)
 		Painter.label(self, tr.position.x + 6, tr.position.y + 13, "SHIP" if String(tab.get("page", "")) == "ship" else "TARGET", 7, P.PH if active else P.FAINT, true)
-	var c: Dictionary = _contacts[_selected] if _selected >= 0 and _selected < _contacts.size() else {}
-	Painter.label(self, x, y + 8, String(c.get("name", "NOT READY")), 12, P.TXT)
-	Painter.label(self, x, y + 22, "BATCH %s · %s · %s" % [String(c.get("id", "—")), String(c.get("type", "unknown")).to_upper(), String(c.get("badge", "—"))], 7, P.PH_DIM, true)
-	y += 40.0
+	Painter.label(self, right - TM.width(String(fields.get("source", "")), true, 6), r.position.y + 14, String(fields.get("source", "NOT READY")), 6, P.a(P.AMBER, 0.9), true)
+	Painter.label(self, x, y + 8, TM.fit(String(fields.get("title", "NOT READY")), r.size.x - 24, false, 12), 12, P.TXT)
+	Painter.label(self, x, y + 22, "LIVE DATABASE FIELD · SESSION/TRACK", 7, P.PH_DIM, true)
+	y += 38.0
+	for raw in (fields.get("lines", []) as Array):
+		var line := String(raw)
+		var col := P.TXT
+		if line.begins_with("DAMAGE") or line.begins_with("SENSOR NOT"):
+			col = P.AMBER
+		Painter.label(self, x, y, TM.fit(line, r.size.x - 24, true, 7), 7, col, true)
+		y += 13.0
+	y += 5.0
 	Painter.section(self, x, y, right, "SENSOR / 传感器")
 	y += 14.0
-	Painter.label(self, x, y, "SENSOR DEMO · RADAR ON · OPTICAL OFF", 7, P.TXT, true)
-	y += 13.0
-	Painter.label(self, x, y, "OBS 0 · IFF 0 · CH 0 · TRACK L2", 7, P.a(P.DIM, 0.9), true)
-	y += 18.0
-	Painter.section(self, x, y, right, "DAMAGE / 损管")
-	y += 14.0
-	Painter.label(self, x, y, "INTEGRITY 100% · FIRE 0 · NOMINAL", 7, P.TXT, true)
+	var ss: Dictionary = binder.sensor_state() if binder != null else {"ready": false, "text": "SENSOR NOT READY"}
+	if bool(ss.get("ready", false)):
+		Painter.label(self, x, y, "RADAR %s · EMCON %s · OBS %d" % ["ON" if bool(ss.get("radar", false)) else "OFF", str(bool(ss.get("emcon", false))), int(ss.get("obs", 0))], 7, P.TXT, true)
+		y += 12.0
+		Painter.label(self, x, y, "IFF EVID %d · OPTICAL %d · CH %d" % [int(ss.get("iff", 0)), int(ss.get("optical", 0)), int(ss.get("channels", 0))], 7, P.a(P.DIM, 0.9), true)
+	else:
+		Painter.label(self, x, y, "SENSOR NOT READY · 无 sensor_service", 7, P.AMBER, true)
 	y += 18.0
 	Painter.section(self, x, y, right, "ROE / Δv")
 	y += 14.0
-	Painter.key_value(self, x, y, right, "ROE", "WEAPONS HOLD", P.AMBER)
+	Painter.key_value(self, x, y, right, "ROE", TM.fit(String(binder.roe_text) if binder != null else "ROE NOT READY", 190, true, 7), P.AMBER)
 	y += 12.0
 	Painter.key_value(self, x, y, right, "Δv", "%.1f m/s" % _delta_v if _transfer_ok else "NOT READY", P.TXT)
-	y += 22.0
-	Painter.section(self, x, y, right, "ACTIONS")
+	y += 20.0
+	Painter.section(self, x, y, right, "SENSOR CONTROLS / 只读最小交互")
 	y += 10.0
-	var labels := ["NAV / 导航", "DAMAGE / 损管", "OPTICAL / 光学", "INFO / 信息"]
+	_right_buttons.clear()
+	var labels := [["RADAR", "RADAR ON/OFF"], ["EMCON", "EMCON"], ["IFF", "IFF QUERY"], ["ROE", "ROE / HOLD"]]
 	for i in range(labels.size()):
 		var bw := (r.size.x - 32.0) * 0.5 - 4.0
-		var br := Rect2(x + float(i % 2) * (bw + 8.0), y + float(i / 2) * 28.0, bw, 22.0)
-		Painter.button(self, br, labels[i], true, P.PH)
-	Painter.label(self, x, r.end.y - 14, "READ-ONLY SAMPLE · 不实现玩法", 6, P.a(P.FAINT, 0.9), true)
-
+		var br := Rect2(x + float(i % 2) * (bw + 8.0), y + float(i / 2) * 26.0, bw, 21.0)
+		_right_buttons.append({"rect": br, "kind": String(labels[i][0])})
+		Painter.button(self, br, String(labels[i][1]), true, P.PH)
+	if _sensor_msg != "":
+		Painter.label(self, x, y + 60, TM.fit(_sensor_msg, r.size.x - 24, true, 7), 7, P.AMBER, true)
+	Painter.label(self, x, r.end.y - 14, "LIVE SESSION · 只读/最小交互 · 无玩法", 6, P.a(P.FAINT, 0.9), true)
 
 func _draw_bottom(r: Rect2) -> void:
 	var split := r.position.x + floorf(r.size.x * 0.56)
 	var y := r.position.y + 40.0
-	Painter.label(self, r.position.x + 12, r.position.y + 20, "命令队列 / COMMAND QUEUE · DEMO", 8, P.PH, false)
-	Painter.label(self, split + 12, r.position.y + 20, "事件日志 / EVENT LOG · DEMO", 8, P.PH, false)
+	var live := binder != null and bool(binder.ready)
+	Painter.label(self, r.position.x + 12, r.position.y + 20, "命令队列 / COMMAND QUEUE · " + ("GAME SESSION" if live else "FALLBACK DEMO"), 8, P.PH, false)
+	Painter.label(self, split + 12, r.position.y + 20, "事件日志 / EVENT LOG · " + ("SESSION BUS" if live else "FALLBACK DEMO"), 8, P.PH, false)
 	Painter.divider(self, r.position.x + 10, r.position.y + 26, r.end.x - 10)
 	draw_line(Vector2(split, r.position.y + 10), Vector2(split, r.end.y - 10), P.a(P.LINE, 0.8), 1.0)
-	var cmds := [
-		["CMD-01", "QUEUED", "指挥官", "哈马丹", "LD", "8.0s"],
-		["CMD-02", "TRANSMITTED", "哈马丹", "L1 港", "LR", "1.0s"],
-		["CMD-03", "EXECUTING", "指挥官", "远地点", "LD", "—"],
-	]
-	for i in range(cmds.size()):
-		var c: Array = cmds[i]
-		var col := P.PH if c[1] == "EXECUTING" else (P.AMBER if c[1] == "QUEUED" else P.DIM)
-		Painter.label(self, r.position.x + 12, y + float(i) * 14.0, "%s %s · %s → %s · %s · %s" % [String(c[0]), String(c[1]), String(c[2]), String(c[3]), String(c[4]), String(c[5])], 7, col, true)
-	var evs := [
-		["0.0s", "tactical.timer", "BURN WINDOW"],
-		["0.1s", "order.issued", "COMMAND ISSUED"],
-		["0.1s", "sensor.radar", "RADAR OBS"],
-		["0.2s", "teaching.note", "STEP T07-G1-S2"],
-	]
-	for i in range(evs.size()):
-		var e: Array = evs[i]
-		Painter.label(self, split + 12, y + float(i) * 14.0, "%s  %s" % [String(e[0]), String(e[1])], 7, P.PH_DIM if i == 0 else P.DIM, true)
-		Painter.label(self, split + 154, y + float(i) * 14.0, String(e[2]), 7, P.TXT, false)
-	Painter.label(self, r.position.x + 12, r.end.y - 8, "DEMO DATA · NO GAMESESSION · 自绘 V1 HUD SAMPLE", 6, P.a(P.AMBER, 0.85), true)
+	var cmds: Array = binder.commands if binder != null else []
+	if cmds.is_empty():
+		Painter.label(self, r.position.x + 12, y, "NO COMMAND DATA · NOT READY", 7, P.FAINT, true)
+	else:
+		for i in range(mini(4, cmds.size())):
+			var c: Dictionary = cmds[i]
+			var state := String(c.get("state", "—"))
+			var col := P.PH if state in ["EXECUTING", "DONE", "TRANSMITTED"] else (P.AMBER if state in ["QUEUED", "ISSUED"] else P.DIM)
+			Painter.label(self, r.position.x + 12, y + float(i) * 14.0, "%s %s · %s → %s · %s · %s" % [
+				String(c.get("id", "")), state, String(c.get("actor", "")), String(c.get("target", "")),
+				String(c.get("action", "")), String(c.get("delay", ""))], 7, col, true)
+	var events: Array = binder.events if binder != null else []
+	if events.is_empty():
+		Painter.label(self, split + 12, y, "NO EVENT DATA · NOT READY", 7, P.FAINT, true)
+	else:
+		for i in range(mini(4, events.size())):
+			var e: Dictionary = events[i]
+			var payload: Dictionary = e.get("payload", {}) if e.get("payload", {}) is Dictionary else {}
+			var text := String(payload.get("label", ""))
+			if text == "":
+				text = String(e.get("type", ""))
+			Painter.label(self, split + 12, y + float(i) * 14.0, "%5.1fs  %s" % [float(e.get("t", 0.0)), String(e.get("type", "—"))], 7, P.PH_DIM if i == 0 else P.DIM, true)
+			Painter.label(self, split + 154, y + float(i) * 14.0, TM.fit(text, r.size.x - (split - r.position.x) - 180, false, 7), 7, P.TXT, false)
+	Painter.label(self, r.position.x + 12, r.end.y - 8, ("GAME SESSION · TRACK/SENSOR/STORY · 自绘 V1 HUD" if live else "FALLBACK DEMO · 无 session") + " · 三色点保存", 6, P.a(P.AMBER if not live else P.FAINT, 0.85), true)
+
+func _run_save_test() -> void:
+	_do_save("save")
+	var meta: Dictionary = binder.save_service.load_metadata("save") if binder != null and binder.save_service != null else {}
+	print("[V1 HUD] SAVE TEST metadata=", str(bool(meta.get("ok", false))), " slot=", String((meta.get("meta", {}) as Dictionary).get("slot", "")))
+
+
+func _flow_smoke_v1() -> void:
+	print("[V1 HUD] FLOW SMOKE COMPLETE name=", _commander, " contacts=", _contacts.size(), " commands=", binder.commands.size() if binder != null else 0)
+	get_tree().quit()
 
 
 func _clock(s: float) -> String:
@@ -303,12 +368,42 @@ func _clock(s: float) -> String:
 	return "%02d:%02d:%02d" % [sec / 3600, (sec / 60) % 60, sec % 60]
 
 
+func _do_save(kind: String) -> void:
+	var intent := "save"
+	if kind == "menu":
+		intent = "save_and_menu"
+	elif kind == "quit":
+		intent = "save_and_quit"
+	if binder == null:
+		return
+	var res: Dictionary = binder.save(intent)
+	_save_ok = bool(res.get("ok", false))
+	_save_msg = binder.last_save_text
+	print("[V1 HUD] SAVE ", intent, " · ", _save_msg)
+
+
+func _do_right_action(kind: String) -> void:
+	if binder == null:
+		return
+	if kind in ["RADAR", "EMCON", "IFF"]:
+		var res: Dictionary = binder.sensor_command(kind)
+		_sensor_msg = "%s · %s%s" % [kind, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+		print("[V1 HUD] SENSOR ", _sensor_msg)
+	else:
+		_sensor_msg = "ROE " + String(binder.roe_text)
+	queue_redraw()
+
+
 func _gui_input(event: InputEvent) -> void:
 	if not (event is InputEventMouseButton) or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	for d in _top_dots:
 		if (d["rect"] as Rect2).has_point(event.position):
-			print("[V1 HUD] dot ", String(d.get("kind", "")), " · sample only / no save")
+			_do_save(String(d.get("kind", "")))
+			return
+	for b in _right_buttons:
+		if (b["rect"] as Rect2).has_point(event.position):
+			_do_right_action(String(b.get("kind", "")))
 			return
 	for c in _contact_rects:
 		if (c["rect"] as Rect2).has_point(event.position):

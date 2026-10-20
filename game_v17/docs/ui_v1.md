@@ -63,3 +63,52 @@
 3. TextMetrics 基线为 token 校准（CJK baseline = size+3px），未做真实字形 metrics/kerning。
 4. 地图为内容路线示意，不是权威导航图；5 舰点未做真实逐帧插值。
 5. 未跑全量 regression；未改 project/main_scene。
+
+
+---
+
+## 8　方案B-2：V1 HUD 接真实 Session（task-145）
+
+### 8.1 数据流
+
+```
+v1_hud.gd
+  ├─ ShellBinder.boot()
+  │   ├─ GameSession.boot({track_table:true, story_state:true, sensor_service:true})
+  │   ├─ _seed_tracks / sensor step / track_vm
+  │   ├─ SaveService user://saves
+  │   └─ contacts/commands/events/sensor_vm/story_vm
+  ├─ 玩家名：flow_state.player_name → DSH_PLAYER_NAME → fallback「沧澜」
+  ├─ 接触：binder.contacts（track_vm + entities）；默认选中 id=1000（旗舰 APSIS）
+  ├─ 右栏：binder.ship_fields / sensor_state；真实 track/session 字段
+  ├─ 顶栏：binder.session.now_s、binder.timers、binder.roe_text、binder.delta_v
+  ├─ 底栏：binder.commands / binder.events
+  └─ 三色点：ShellBinder.save(intent) → SaveService；显示 SAVED/失败
+```
+
+- 真实字段：旗舰 `[1000] 远地点` 默认选中；接触列表 `[1001] 哈马丹`、`[3100] L1 港`；右侧 SENSOR RADAR/EMCON/OBS、ROE phase prelude、Δv 1822.6 m/s、命令 `O-000001 QUEUED`、事件 `order.issued/order.delayed/order.transmitting/order.delivered`。
+- 另保留 fallback：无 session/track 时显示 `NO SESSION / NO TRACK`，不伪造。
+- `t` / 会话 tick 来自 binder；不自动推进剧情/物理。
+
+### 8.2 替换流程 Shell
+
+- 流程改为：`prologue → nav_page → port_page → v1_hud.tscn`。
+- `port_page.DEPART` 现在写 flow phase=shell 后切 `v1_hud.tscn`；`game_shell.tscn` 文件保留但流程不再进入。
+- 手动入口：`game_shell.tscn`（旧 Control 壳）仍可直接运行；正常流程以 v1_hud 为准。
+- Control 仅用于 IME/系统弹窗；v1_hud 页面为纯自绘。
+
+### 8.3 截图 / 验证
+
+- `mockups/v1-hud-live-1920.png`（1920×1080，SESSION LIVE + `[1000]` 旗舰 + SAVE 结果 + 真实命令/事件）。
+- `V1 HUD SHOT err=0`；headless 主流程 smoke：
+  `prologue(briefing/navigation) → nav restore COMPLETE → port（phase=port）→ v1_hud`，
+  最终 `[V1 HUD] FLOW SMOKE COMPLETE name=指挥官 · 沧澜 contacts=3 commands=1`。
+- Save test：`SAVED slot=save · 15811B · cfc9fed3`，metadata=true。
+
+### 8.4 边界 / 未完成
+
+1. 右栏 sensors 未接 damage_service；DAMAGE 行显示 session 无组件 `NOT READY`，不伪造。
+2. 命令队列只有 demo seed 1 条 HOLD；无完整命令操作。
+3. 三色点 SaveService 实际写 `user://saves/save.json`；黄/红返回菜单/退出意图但不切 UI/退出。
+4. 地图仍为路线示意，不是实时导航权威图；无 IME/剧情/物理。
+5. `game_shell.tscn` 保留但不再进入流程；未跑全量 regression。
