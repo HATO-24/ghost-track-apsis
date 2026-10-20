@@ -61,3 +61,62 @@ $env:DSH_PROTO_SIZE="1920x1080"
 4. custom cursor 的 point/drag 为视觉推断（hover/按住），未接具体控件命令。
 5. 9-slice 为程序化纹理；无 atlas/DPI 多倍图。
 6. 未跑全量 regression；未接入旧场景。
+
+
+---
+
+## 8　阶段1C：UI 壳接真实 TimeService / EventBus（task-120）
+
+### 8.1 数据流
+
+```
+ui_proto.gd
+  ├─ TimeService.setup({epoch_s:760.8, scale:1.0})
+  ├─ EventBus.setup({})
+  ├─ top_bar.bind_services(time_service, event_bus)
+  │    ├─ subscribe("tactical", _on_bus_event)
+  │    └─ _process 只读 time_service.now_s() 判断 deadline；无本地倒计时
+  ├─ _load_contacts() ← res://framework/content/scenario_transit_l4_l1.json:entities
+  │    └─ ContactList.set_contacts(rows)
+  └─ _seed_events() → EventBus.publish("tactical.timer", payload{label,duration_s,kind})
+
+ui_proto._process(delta) → TimeService.tick(delta)
+top bar 显示 T+now_s / L1 港内 epoch_abs_s / scale / paused
+```
+
+- 计时器由 EventBus `tactical.timer` 事件动态生成；`deadline_s = event.t + duration_s`；TopBar `_process` 用 `TimeService.now_s()` 过滤过期项（移除），不靠 UI 本地计时。
+- 时标/暂停：`SPACE` 暂停/继续，`1/2/3/4` 切 ×1/×10/×60/×300；TopBar 显示 `RUNNING/PAUSED` 和时标。
+
+### 8.2 事件 schema
+
+```json
+{"type":"tactical.timer","t":0.0,"source":"ui_proto","target":"top_bar",
+ "payload":{"label":"变轨窗口 / BURN WINDOW","duration_s":30.0,"kind":"burn"}}
+{"type":"contact.select","t":0.0,"source":"ui_proto.contact_list",
+ "target":"1000","payload":{"index":0,"contact":{...}}}
+{"type":"save.request","t":0.0,"source":"ui_proto.top_bar",
+ "target":"save|menu|quit","payload":{"kind":"save","save_implemented":false}}
+```
+
+- 三色圆点点击仅 publish `save.request`；不实现存档。
+- 接触列表：数据来自 scenario `entities`（9 条：5 ship + 4 station）；不硬编码；友军可折叠，no-threat 默认隐藏，选中 publish `contact.select`。
+- 自定义指针沿用 `custom_cursor.gd`：hover Control→point，按住→drag，`set_disabled(true)`→disabled。
+
+### 8.3 截图 / 验证
+
+| 文件 | 分辨率 |
+| --- | --- |
+| `mockups/ui-proto-live-1920.png` | 1920×1080 |
+| `mockups/ui-proto-live-1600.png` | 1600×900 |
+
+- 均 `UI PROTO SHOT size=... err=0`；headless 场景加载一次。
+- 顶栏显示真实 `MISSION T+...` / `L1 港内 ...` / `×1 RUNNING`；EventBus 计时器 `变轨窗口/入轨/链路` 有真实倒计时；底日志输出 CONTACTS/EVENTBUS 加载。
+
+### 8.4 未完成 / 限制
+
+1. TimeService 只驱动 UI 时间显示/计时器过期；未接剧情/物理/存档。
+2. 示例计时事件由 UI 启动时发布，不是剧情时间线；过期后仅移除，不触发任务结果。
+3. 接触数据来自 transit scenario entities，不是完整 track 表；无实时传感器/航迹更新。
+4. 三色点只 publish `save.request`；没有任何存档实现。
+5. 选接触只发 `contact.select`，不驱动任务/剧情。
+6. 未跑全量 regression；未改核心/旧场景/project。

@@ -9,6 +9,9 @@ const UiTheme := preload("res://scripts/ui/ui_theme.gd")
 const TopBar := preload("res://scripts/ui/top_bar.gd")
 const ContactList := preload("res://scripts/ui/contact_list.gd")
 const CustomCursor := preload("res://scripts/ui/custom_cursor.gd")
+const TimeService := preload("res://scripts/core/time_service.gd")
+const EventBus := preload("res://scripts/core/event_bus.gd")
+const CONTACT_SOURCE := "res://framework/content/scenario_transit_l4_l1.json"
 
 var _top
 var _contacts
@@ -19,6 +22,8 @@ var _shot_path := ""
 var _target_size := Vector2i(1920, 1080)
 
 var _log_lines: Array[String] = []
+var _time = null
+var _bus = null
 
 
 func _ready() -> void:
@@ -38,7 +43,14 @@ func _ready() -> void:
 	theme = UiTheme.build()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	_time = TimeService.new({})
+	_time.setup({"epoch_s": 760.8, "scale": 1.0})
+	_bus = EventBus.new({})
+	_bus.setup({})
 	_build_shell()
+	_top.bind_services(_time, _bus)
+	_load_contacts()
+	_seed_events()
 	set_process(true)
 	if _shot_path != "":
 		get_window().size = _target_size
@@ -146,6 +158,78 @@ func _build_shell() -> void:
 	add_child(_cursor)
 
 
+func _load_contacts() -> void:
+	var rows: Array = []
+	if FileAccess.file_exists(CONTACT_SOURCE):
+		var f := FileAccess.open(CONTACT_SOURCE, FileAccess.READ)
+		if f != null:
+			var txt := f.get_as_text()
+			f.close()
+			var parsed = JSON.parse_string(txt)
+			if parsed is Dictionary:
+				var ents: Array = parsed.get("entities", []) if parsed.get("entities", []) is Array else []
+				for raw in ents:
+					if not (raw is Dictionary):
+						continue
+					var e: Dictionary = raw
+					var kind := String(e.get("kind", "ship"))
+					var side := String(e.get("side", "friend"))
+					var ttype := "station" if kind == "station" else ("friendly" if side == "friend" else ("unknown" if side == "unknown" else "neutral"))
+					var threat := "none" if side == "friend" else ("med" if side == "unknown" else "low")
+					var badge := "PORT" if kind == "station" else ("FLAGSHIP" if side == "friend" and String(e.get("id", "")) == "apsis" else ("UNKNOWN" if side == "unknown" else "FRIENDLY"))
+					rows.append({"id": String(e.get("batch", e.get("id", ""))), "name": String(e.get("name", "")),
+						"cls": String(e.get("class", e.get("role", ""))), "type": ttype, "side": side,
+						"threat": threat, "badge": badge})
+	if rows.is_empty():
+		rows = [{"id": "----", "name": "NO CONTACT DATA", "cls": "content 未加载", "type": "unknown", "side": "unknown", "threat": "pending", "badge": "NOT READY"}]
+	_contacts.set_contacts(rows)
+	_on_log("CONTACTS loaded from scenario_transit_l4_l1.json · %d" % rows.size())
+
+
+func _seed_events() -> void:
+	# UI 只发布示例 tactical.timer 事件；顶栏从 EventBus 订阅，过期由 TimeService 判定。
+	for item in [["变轨窗口 / BURN WINDOW", 30.0, "burn"], ["入轨 / ARRIVAL", 120.0, "arrival"], ["链路 / LINK", 15.0, "link"]]:
+		_bus.publish({"type": "tactical.timer", "t": _time.now_s(), "source": "ui_proto",
+			"target": "top_bar", "payload": {"label": String(item[0]), "duration_s": float(item[1]), "kind": String(item[2])}})
+	_on_log("EVENTBUS seeded 3 tactical.timer · time_service t=%.1fs" % _time.now_s())
+
+
+func _process(delta: float) -> void:
+	if _time != null:
+		_time.tick(delta)
+	if _shot_path == "":
+		return
+	_frames += 1
+	if _frames >= 36:
+		var img := get_viewport().get_texture().get_image()
+		if img != null:
+			var err := img.save_png(_shot_path)
+			print("UI PROTO SHOT size=%s err=%d → %s" % [str(img.get_size()), err, _shot_path])
+		get_tree().quit()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if _time == null:
+		return
+	match event.keycode:
+		KEY_SPACE:
+			if _time.paused:
+				_time.resume()
+			else:
+				_time.pause()
+			_on_log("TIME %s · scale ×%.0f" % ["PAUSED" if _time.paused else "RUNNING", _time.scale])
+		KEY_1:
+			_time.set_scale(1.0); _on_log("TIMESCALE ×1")
+		KEY_2:
+			_time.set_scale(10.0); _on_log("TIMESCALE ×10")
+		KEY_3:
+			_time.set_scale(60.0); _on_log("TIMESCALE ×60")
+		KEY_4:
+			_time.set_scale(300.0); _on_log("TIMESCALE ×300")
+
+
 func _on_dot_action(kind: String) -> void:
 	_on_log("DOT " + kind + " · signal only · save not implemented")
 	if _cursor != null:
@@ -153,7 +237,10 @@ func _on_dot_action(kind: String) -> void:
 
 
 func _on_contact(index: int, data: Dictionary) -> void:
-	_on_log("SELECT [%s] %s" % [String(data.get("id", "")), String(data.get("name", ""))])
+	_on_log("CONTACT.SELECT [%s] %s" % [String(data.get("id", "")), String(data.get("name", ""))])
+	if _bus != null:
+		_bus.publish({"type": "contact.select", "t": _time.now_s(), "source": "ui_proto.contact_list",
+			"target": String(data.get("id", "")), "payload": {"index": index, "contact": data.duplicate(true)}})
 
 
 func _on_log(text: String) -> void:
@@ -165,16 +252,7 @@ func _on_log(text: String) -> void:
 		_log_label.text = " · ".join(_log_lines)
 
 
-func _process(_delta: float) -> void:
-	if _shot_path == "":
-		return
-	_frames += 1
-	if _frames >= 36:
-		var img := get_viewport().get_texture().get_image()
-		if img != null:
-			var err := img.save_png(_shot_path)
-			print("UI PROTO SHOT size=%s err=%d → %s" % [str(img.get_size()), err, _shot_path])
-		get_tree().quit()
+
 
 
 func _input(event: InputEvent) -> void:

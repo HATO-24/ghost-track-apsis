@@ -13,21 +13,22 @@ var collapsed := false
 var show_no_threat := false
 var selected := 0
 var _rects: Array = []
-var _samples := [
-	{"id": "1000", "name": "远地点 / APSIS", "cls": "远地点级 · 旗舰", "type": "friendly", "side": "friend", "threat": "none", "badge": "FLAGSHIP"},
-	{"id": "1001", "name": "哈马丹 / HARMATTAN", "cls": "托盘-5 改 · 指挥", "type": "friendly", "side": "friend", "threat": "low", "badge": "COMMAND"},
-	{"id": "1002", "name": "渡口 / FERRY", "cls": "赤铁-6 改 · 护卫", "type": "friendly", "side": "friend", "threat": "low", "badge": "ESCORT"},
-	{"id": "1003", "name": "望楼 / WATCHTOWER", "cls": "安海-1 · 中继", "type": "friendly", "side": "friend", "threat": "none", "badge": "RELAY"},
-	{"id": "2001", "name": "AV-4412 传唤者", "cls": "传唤级 · 不明", "type": "unknown", "side": "unknown", "threat": "med", "badge": "UNKNOWN"},
-	{"id": "9001", "name": "谷神-2 / CERES-2", "cls": "民用工作船", "type": "neutral", "side": "neutral", "threat": "none", "badge": "CIVILIAN"},
-	{"id": "3000", "name": "Hammer 母港", "cls": "L4-02 · 站体", "type": "station", "side": "friend", "threat": "none", "badge": "PORT"},
-	{"id": "3100", "name": "Meridian-05", "cls": "L1 · 目标港", "type": "station", "side": "neutral", "threat": "none", "badge": "TARGET"},
-]
+var _samples: Array = []  # 由 UI 层从 content/schema 加载；不再硬编码
+
 
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(320, 0)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+func set_contacts(rows: Array) -> void:
+	_samples = []
+	for raw in rows:
+		if raw is Dictionary:
+			_samples.append((raw as Dictionary).duplicate(true))
+	selected = clampi(selected, 0, maxi(0, _samples.size() - 1))
+	queue_redraw()
 
 
 func _type_col(t: Dictionary) -> Color:
@@ -76,6 +77,9 @@ func _draw() -> void:
 		draw_string(cjk, Vector2(12, 60), "（已折叠 · 点击顶部展开）", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, P.FAINT)
 		return
 	var y := 50.0
+	if _samples.is_empty():
+		draw_string(cjk, Vector2(12, 64), "NO CONTACT DATA · 未加载内容文件", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, P.AMBER)
+		return
 	var rows := _visible_rows()
 	for i in range(rows.size()):
 		var entry: Dictionary = rows[i]
