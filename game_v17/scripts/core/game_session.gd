@@ -24,6 +24,7 @@ const PortServiceScript := preload("res://scripts/core/port_service.gd")
 const CombatServiceScript := preload("res://scripts/core/combat_service.gd")
 const DamageServiceScript := preload("res://scripts/core/damage_service.gd")
 const PhysicsWorldScript := preload("res://scripts/core/physics_world.gd")
+const SignalServiceScript := preload("res://scripts/core/signal_service.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -51,6 +52,7 @@ var port_service = null
 var combat_service = null
 var damage_service = null
 var physics_world_service = null
+var signal_service = null
 
 var _track_enabled := false
 var _sensor_enabled := false
@@ -58,6 +60,8 @@ var _port_enabled := false
 var _combat_enabled := false
 var _damage_enabled := false
 var _physics_enabled := false
+var _signal_enabled := false
+var _last_signal_route: Dictionary = {}
 var _damage_applied_shots: Dictionary = {}
 var _story_enabled := false
 var _track_writer := ""
@@ -115,7 +119,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -139,6 +143,8 @@ func boot(config := {}) -> Dictionary:
 	combat_service = null
 	damage_service = null
 	physics_world_service = null
+	signal_service = null
+	_last_signal_route = {}
 	_damage_applied_shots = {}
 	_track_enabled = false
 	_story_enabled = false
@@ -186,6 +192,8 @@ func boot(config := {}) -> Dictionary:
 	if _damage_enabled and damage_service != null and not bool(damage_service.ready):
 		extra_ok = false
 	if _physics_enabled and physics_world_service != null and not bool(physics_world_service.ready):
+		extra_ok = false
+	if _signal_enabled and signal_service != null and not bool(signal_service.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -242,6 +250,8 @@ func boot(config := {}) -> Dictionary:
 		damage_service.t = now_s()
 	if physics_world_service != null:
 		physics_world_service.set_time(now_s()) if now_s() > 0.0 else null
+	if signal_service != null:
+		signal_service.t = now_s()
 	_damage_applied_shots = {}
 	_last_bus_routed_index = bus.count()
 	_flush_component_events()
@@ -336,6 +346,15 @@ func _setup_optional_components() -> void:
 			errors.append("damage_service 未就绪：" + str(damage_service.errors))
 		else:
 			_damage_enabled = true
+	var sig = _seed.get("signal_service", null)
+	var sig_on := (sig is Dictionary) or (sig is bool and bool(sig))
+	if sig_on:
+		var scfg: Dictionary = _demo_signal_config() if (sig is bool) else _signal_config(sig as Dictionary)
+		signal_service = SignalServiceScript.new(scfg)
+		if not bool(signal_service.ready):
+			errors.append("signal_service 未就绪：" + str(signal_service.errors))
+		else:
+			_signal_enabled = true
 	var pw = _seed.get("physics_world", null)
 	var pw_on := (pw is Dictionary) or (pw is bool and bool(pw))
 	if pw_on:
@@ -363,6 +382,73 @@ func _demo_damage_config() -> Dictionary:
 	return {"content_path": "res://framework/content/damage_l1.json",
 		"ships": ["apsis", "harmattan", "ferry", "watchtower", "deepwell"],
 		"default_ship": "apsis"}
+
+## 示例 SignalService 配置（boot signal_service=true）：observer/targets 来自 seed 实体；
+## 再加一个照明目标 L1（可见光灯语用）与一个遮挡目标 O1。
+func _demo_signal_config() -> Dictionary:
+	var ents: Array = _seed.get("entities", [])
+	var observer_pos: Array = [0.0, 0.0, 0.0]
+	var observer_id := "session_ship"
+	var targets: Array = []
+	for raw in ents:
+		if not (raw is Dictionary):
+			continue
+		var e: Dictionary = raw
+		var id := String(e.get("id", ""))
+		if id == "":
+			continue
+		var pos = e.get("pos_km", [0.0, 0.0, 0.0])
+		if not (pos is Array) or (pos as Array).size() < 3:
+			pos = [0.0, 0.0, 0.0]
+		if id == "apsis":
+			observer_pos = (pos as Array).duplicate()
+			observer_id = "apsis"
+		else:
+			targets.append({"id": id, "pos_km": (pos as Array).duplicate(),
+				"emissions": [{"type": "radar", "model": "YW-R9",
+					"signature_name": "YW-R9", "active": true, "silent": false,
+					"lpi": false, "frequency_mhz": 9500.0, "power_dbm": 90.0,
+					"gain_tx_dbi": 30.0, "prf_hz": 1200.0, "scan_period_s": 1.0}]})
+	targets.append({"id": "L1", "pos_km": [observer_pos[0], observer_pos[1] + 20.0,
+		observer_pos[2]]})
+	targets.append({"id": "O1", "pos_km": [observer_pos[0], observer_pos[1] + 20.0,
+		observer_pos[2]], "occluded": true})
+	return {"observer": {"id": observer_id, "pos_km": observer_pos},
+		"targets": targets,
+		"elint": {"enabled": true, "range_km": 60000.0, "refresh_s": 1.0}}
+
+## 兼容 boot config：emitters[] → 目标 emissions；light_codes → codes_content；
+## month/time 原样保留（服务端可扩展），不写 UI。
+func _signal_config(raw: Dictionary) -> Dictionary:
+	var c: Dictionary = raw.duplicate(true)
+	if c.get("light_codes") is Dictionary and not c.has("codes_content"):
+		c["codes_content"] = (c.get("light_codes") as Dictionary).duplicate(true)
+	var emitters = c.get("emitters", null)
+	if emitters is Array:
+		var targets: Array = c.get("targets", []) if c.get("targets") is Array else []
+		for raw_e in (emitters as Array):
+			if not (raw_e is Dictionary):
+				continue
+			var em: Dictionary = (raw_e as Dictionary).duplicate(true)
+			var tid := String(em.get("id", em.get("target_id", "")))
+			if tid == "":
+				continue
+			var found := false
+			for i in range(targets.size()):
+				if targets[i] is Dictionary and String((targets[i] as Dictionary).get("id", "")) == tid:
+					var tgt: Dictionary = targets[i]
+					var ems: Array = tgt.get("emissions", []) if tgt.get("emissions") is Array else []
+					ems.append(em)
+					tgt["emissions"] = ems
+					targets[i] = tgt
+					found = true
+					break
+			if not found:
+				var ne: Dictionary = {"id": tid, "pos_km": em.get("pos_km", [0.0, 0.0, 0.0]),
+					"emissions": [em]}
+				targets.append(ne)
+		c["targets"] = targets
+	return c
 
 ## 把实体位置权威移入 PhysicsWorld：优先 config.entities；否则从 session seed entities 自动灌入
 ## （auto_seed=false 可关闭）。位置/速度数组按 bary_rot 解释；失败记录 error 不伪造。
@@ -459,8 +545,10 @@ func tick(dt: float) -> Dictionary:
 	_flush_order_events()
 	_advance_components(sim_dt)
 	var sensor_route: Dictionary = _advance_sensors(sim_dt)
+	var signal_step: Dictionary = _advance_signal(sim_dt)
 	var port_combat: Dictionary = _advance_port_combat(sim_dt)
 	_flush_component_events()
+	var signal_route: Dictionary = _last_signal_route.duplicate(true)
 	var damage_tick: Dictionary = _advance_damage(sim_dt)
 	var routed: Array = _route_pending_bus_events()
 	_reconcile_standalone(pending_before)
@@ -479,11 +567,14 @@ func tick(dt: float) -> Dictionary:
 			"story": story_state != null,
 			"sensor": sensor_service != null,
 			"physics": physics_world_service != null,
+			"signal": signal_service != null,
 		},
 		"sensor_route": sensor_route,
 		"port_combat": port_combat,
 		"damage_tick": damage_tick,
 		"physics_tick": physics_tick,
+		"signal_step": signal_step,
+		"signal_route": signal_route,
 		"contracts": contracts}
 
 func _check_post() -> void:
@@ -582,6 +673,97 @@ func _enrich_track_id(ev: Dictionary) -> void:
 	if tid != "" and _sensor_track_map.has(tid) and not ev.has("track_id"):
 		ev["track_id"] = String(_sensor_track_map[tid])
 
+## tick 驱动 SignalService（ELINT/灯语超时）；输出由 _flush_component_events 白名单路由。
+func _advance_signal(sim_dt: float) -> Dictionary:
+	if signal_service == null:
+		return {"enabled": false}
+	signal_service.step(sim_dt)
+	return {"enabled": true, "t": float(signal_service.t),
+		"step_count": int(signal_service.step_count)}
+
+## 白名单路由 SignalService outbox：observation/evidence → TrackTable（共享 target→track 映射，
+## 不重复建 track）；light_* → EventBus（light_signal.*）；不写 world/UI。
+func _flush_signal_events() -> Dictionary:
+	if signal_service == null:
+		return {"enabled": false}
+	var evs: Array = signal_service.take_events()
+	var obs: Array = []
+	var evid: Array = []
+	var light: Array = []
+	for raw in evs:
+		if not (raw is Dictionary):
+			continue
+		var ev: Dictionary = raw
+		var schema := String(ev.get("schema", ""))
+		var kind := String(ev.get("kind", ""))
+		if schema == "sensor_observation.v1" and kind == "observation":
+			obs.append(ev)
+		elif schema == "track_evidence.v1" and kind == "evidence":
+			evid.append(ev)
+		elif schema == "signal_event.v1" and kind.begins_with("light_"):
+			light.append(ev)
+	var out := {"enabled": true, "observations": 0, "evidence": 0,
+		"light": 0, "ignored": 0, "failed": 0, "skipped": 0,
+		"reasons": [], "track_created": 0}
+	if track_table == null:
+		out["skipped"] = obs.size() + evid.size()
+	else:
+		for raw_obs in obs:
+			var o: Dictionary = (raw_obs as Dictionary).duplicate(true)
+			var sensor := String(o.get("sensor", ""))
+			if sensor == "elint.comms":
+				o["sensor"] = "elint"
+				o["detail"] = String(o.get("detail", "")) + "|comint"
+			elif not (sensor in ["radar", "radar.tws", "optical", "ir", "elint",
+					"crossfix", "datalink", "visual"]):
+				out["ignored"] = int(out["ignored"]) + 1
+				continue
+			var support := int(o.get("support", o.get("level_support", 1)))
+			if support < 1 or support > 2:
+				out["ignored"] = int(out["ignored"]) + 1
+				continue
+			var tid := String(o.get("target_id", ""))
+			if _sensor_track_map.has(tid) and not o.has("track_id"):
+				o["track_id"] = String(_sensor_track_map[tid])
+			var r: Dictionary = track_table.handle_observation(o, _track_writer)
+			if bool(r.get("ok", false)):
+				out["observations"] = int(out["observations"]) + 1
+				var tr = r.get("track", {})
+				if tr is Dictionary and String((tr as Dictionary).get("id", "")) != "":
+					_sensor_track_map[tid] = String((tr as Dictionary).get("id", ""))
+				if bool(r.get("created", false)):
+					out["track_created"] = int(out["track_created"]) + 1
+			else:
+				out["failed"] = int(out["failed"]) + 1
+				out["reasons"].append("observation:" + str(r.get("reason", "")))
+		for raw_ev in evid:
+			var e: Dictionary = (raw_ev as Dictionary).duplicate(true)
+			var etype := String(e.get("evidence_type", e.get("type", "elint")))
+			if not (etype in ["optical", "elint", "iff", "datalink", "visual",
+					"manual", "database", "track_update"]):
+				e["evidence_type"] = "elint"
+			var tid2 := String(e.get("target_id", ""))
+			if _sensor_track_map.has(tid2) and not e.has("track_id"):
+				e["track_id"] = String(_sensor_track_map[tid2])
+			var r2: Dictionary = track_table.handle_evidence(e, _track_writer)
+			if bool(r2.get("ok", false)):
+				out["evidence"] = int(out["evidence"]) + 1
+			else:
+				out["failed"] = int(out["failed"]) + 1
+				out["reasons"].append("evidence:" + str(r2.get("reason", "")))
+	for raw_l in light:
+		var le: Dictionary = raw_l
+		var lkind := String(le.get("kind", "light_event"))
+		var payload: Dictionary = le.get("payload", {}) if le.get("payload") is Dictionary else {}
+		_publish({"type": "light_signal." + lkind.substr(6), "t": now_s(),
+			"source": "signal_service", "target": String(payload.get("target_id", "")),
+			"payload": payload.duplicate(true), "text_key": ""})
+		out["light"] = int(out["light"]) + 1
+	if out["skipped"] > 0:
+		out["note"] = "track_table 未启用，signal observation/evidence 已跳过"
+	_last_signal_route = out.duplicate(true)
+	return out
+
 ## tick 驱动 PortService/CombatService（手动状态机本身不自动执行）。
 func _advance_port_combat(sim_dt: float) -> Dictionary:
 	var out := {"port": false, "combat": false}
@@ -639,6 +821,9 @@ func _flush_component_events() -> void:
 				"source": "damage_service", "target": String(detail3.get("ship_id", "")),
 				"payload": detail3.duplicate(true), "text_key": ""})
 			n += 1
+	if signal_service != null:
+		var sres: Dictionary = _flush_signal_events()
+		n += int(sres.get("light", 0))
 	if physics_world_service != null:
 		for raw4 in physics_world_service.take_events():
 			if not (raw4 is Dictionary):
@@ -1544,6 +1729,74 @@ func _emit_physics_sync_event(entity_id: String, st: Dictionary) -> void:
 		"payload": {"id": entity_id, "r": (st.get("r", []) as Array).duplicate(),
 			"v": (st.get("v", []) as Array).duplicate(), "frame": "bary_rot"},
 		"text_key": ""})
+# ── SignalService 委托（ELINT / 可见光灯语；可选）──────────────
+
+func signal_intercept(target_id := "", opts := {}) -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	var res: Dictionary = signal_service.intercept(target_id, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "signal_intercept", "target_id": target_id, "opts": opts})
+	_flush_component_events()
+	return res
+
+func signal_df(target_id := "") -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	var res: Dictionary = signal_service.df(target_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "signal_df", "target_id": target_id})
+	_flush_component_events()
+	return res
+
+func signal_resolve(entity_or_fix_id: String) -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	var res: Dictionary = signal_service.resolve(entity_or_fix_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "signal_resolve", "id": entity_or_fix_id})
+	return res
+
+func light_send(code_id: String, target_id: String, opts := {}) -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	var res: Dictionary = signal_service.light_send(code_id, target_id, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "light_send", "code_id": code_id,
+			"target_id": target_id, "opts": opts})
+	_flush_component_events()
+	return res
+
+func light_receive(tx_id: String, opts := {}) -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	var res: Dictionary = signal_service.light_receive(tx_id, opts)
+	if bool(res.get("ok", false)):
+		_record({"op": "light_receive", "tx_id": tx_id, "opts": opts})
+	_flush_component_events()
+	return res
+
+func light_ack(tx_id: String) -> Dictionary:
+	if signal_service == null:
+		return {"ok": false, "reason": "no_signal_service"}
+	var res: Dictionary = signal_service.light_ack(tx_id)
+	if bool(res.get("ok", false)):
+		_record({"op": "light_ack", "tx_id": tx_id})
+	_flush_component_events()
+	return res
+
+func signal_vm() -> Dictionary:
+	if signal_service == null:
+		return {}
+	return signal_service.vm()
+
+func signal_summary() -> Dictionary:
+	if signal_service == null:
+		return {}
+	return signal_service.summary()
+
+func signal_flush_events() -> Dictionary:
+	return _flush_signal_events()
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -1616,6 +1869,12 @@ func check_contracts() -> Dictionary:
 				str(physics_world_service.t), str(now_s())])
 		if not bool(physics_world_service.check_contracts().get("ok", false)):
 			v.append("physics 不变量失败")
+	if signal_service != null:
+		if not bool(signal_service.ready):
+			v.append("signal_service 未就绪")
+		if absf(float(signal_service.t) - now_s()) > 1.0e-6:
+			v.append("signal 时间与会话不一致：%s != %s" % [
+				str(signal_service.t), str(now_s())])
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -1669,6 +1928,7 @@ func snapshot() -> Dictionary:
 		"combat": combat_service.vm() if combat_service != null else null,
 		"damage": damage_service.vm() if damage_service != null else null,
 		"physics": physics_world_service.snapshot() if physics_world_service != null else null,
+		"signal": signal_service.vm() if signal_service != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -1701,6 +1961,7 @@ func save_state() -> String:
 		"combat_service": combat_service.save_state() if combat_service != null else "",
 		"damage_service": damage_service.save_state() if damage_service != null else "",
 		"physics_world": physics_world_service.save_state() if physics_world_service != null else "",
+		"signal_service": signal_service.save_state() if signal_service != null else "",
 		"bus": {
 			"seq": bus.current_seq(),
 			"events": JSON.parse_string(JSON.stringify(bus.events)),
@@ -1793,6 +2054,14 @@ func load_state(json_text: String) -> Dictionary:
 			var pr: Dictionary = physics_world_service.load_state(saved_physics)
 			if not bool(pr.get("ok", false)):
 				replay_errors.append("physics_world 快照恢复失败：" + str(pr.get("errors", [])))
+	var saved_signal = data.get("signal_service", null)
+	if saved_signal != null and String(saved_signal) != "":
+		if signal_service == null:
+			replay_errors.append("存档含 signal_service 快照但 boot 未启用 signal_service")
+		else:
+			var sr: Dictionary = signal_service.load_state(saved_signal)
+			if not bool(sr.get("ok", false)):
+				replay_errors.append("signal_service 快照恢复失败：" + str(sr.get("errors", [])))
 	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:
@@ -1997,6 +2266,31 @@ func _replay_op(op: Dictionary) -> Dictionary:
 			if physics_world_service == null:
 				return {"ok": true, "skipped": "no_physics_world"}
 			return sync_world_from_physics()
+		"signal_intercept":
+			if signal_service == null:
+				return {"ok": true, "skipped": "no_signal_service"}
+			return signal_intercept(String(op.get("target_id", "")), op.get("opts", {}))
+		"signal_df":
+			if signal_service == null:
+				return {"ok": true, "skipped": "no_signal_service"}
+			return signal_df(String(op.get("target_id", "")))
+		"signal_resolve":
+			if signal_service == null:
+				return {"ok": true, "skipped": "no_signal_service"}
+			return signal_resolve(String(op.get("id", "")))
+		"light_send":
+			if signal_service == null:
+				return {"ok": true, "skipped": "no_signal_service"}
+			return light_send(String(op.get("code_id", "")),
+				String(op.get("target_id", "")), op.get("opts", {}))
+		"light_receive":
+			if signal_service == null:
+				return {"ok": true, "skipped": "no_signal_service"}
+			return light_receive(String(op.get("tx_id", "")), op.get("opts", {}))
+		"light_ack":
+			if signal_service == null:
+				return {"ok": true, "skipped": "no_signal_service"}
+			return light_ack(String(op.get("tx_id", "")))
 		"pause":
 			return pause()
 		"resume":

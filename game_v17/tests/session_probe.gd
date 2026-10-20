@@ -49,6 +49,8 @@ func _initialize() -> void:
 	_test_damage_save_load()
 	_test_physics_integration()
 	_test_physics_save_load()
+	_test_signal_integration()
+	_test_signal_save_load()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -1777,3 +1779,254 @@ func _test_physics_save_load() -> void:
 	_ok(bool(a.check_contracts().get("ok", false)), "physics 确定性 contracts ok")
 	_data_line("physics_save", "save/load physics_vm/snapshot 一致 · 继续 tick · 旧档兼容 · 确定性")
 
+
+# ═══════════════════════════════════════════════════════════════════
+# 29. SignalService 集成（ELINT/证据路由/灯语）
+# ═══════════════════════════════════════════════════════════════════
+
+func _signal_emitter(model: String, sig: String, lpi := false) -> Dictionary:
+	return {"type": "radar", "model": model, "signature_name": sig,
+		"active": true, "silent": false, "lpi": lpi,
+		"frequency_mhz": 9500.0, "power_dbm": 90.0, "gain_tx_dbi": 30.0,
+		"prf_hz": 1200.0, "scan_period_s": 1.0}
+
+func _signal_cfg_session() -> Dictionary:
+	return {"track_table": true, "signal_service": {
+		"observer": {"id": "Obs", "pos_km": [0.0, 0.0, 0.0]},
+		"targets": [
+			{"id": "E1", "pos_km": [0.0, 1500.0, 0.0],
+				"emissions": [_signal_emitter("YW-R9", "YW-R9")]},
+			{"id": "E2", "pos_km": [500.0, 1500.0, 0.0],
+				"emissions": [_signal_emitter("KD-R6", "KD-R6", true)]},
+			{"id": "E3", "pos_km": [0.0, 500.0, 0.0],
+				"emissions": [{"type": "radar", "model": "YW-R9", "signature_name": "YW-R9",
+					"active": true, "silent": true, "lpi": false,
+					"frequency_mhz": 9500.0, "power_dbm": 90.0}]},
+			{"id": "L1", "pos_km": [0.0, 20.0, 0.0]},
+			{"id": "O1", "pos_km": [0.0, 20.0, 0.0], "occluded": true}],
+		"stations": [
+			{"id": "S1", "pos_km": [0.0, 0.0, 0.0], "enabled": true,
+				"sigma_bearing_deg": 1.0},
+			{"id": "S2", "pos_km": [1000.0, 0.0, 0.0], "enabled": true,
+				"sigma_bearing_deg": 1.0}],
+		"elint": {"enabled": true, "range_km": 60000.0, "refresh_s": 1.0},
+		"month": 10, "time": "night"}}
+
+func _signal_core(s) -> String:
+	var vm: Dictionary = s.signal_vm()
+	return _norm_json({"t": vm.get("t", 0.0),
+		"observations": vm.get("observations", []),
+		"evidence": vm.get("evidence", []),
+		"transmissions": (vm.get("light", {}) as Dictionary).get("transmissions", [])})
+
+func _track_count(s) -> int:
+	return (s.track_table.tracks as Dictionary).size()
+
+func _test_signal_integration() -> void:
+	_section_begin("29 Signal 集成")
+	# 可选退化
+	var plain = _new_session()
+	_ok(plain.signal_service == null, "默认无 signal_service")
+	_eq(plain.signal_vm().size(), 0, "无 signal VM 空")
+	_eq(plain.signal_summary().size(), 0, "无 signal summary 空")
+	_eq(String(plain.signal_intercept("E1").get("reason", "")), "no_signal_service",
+		"无 signal intercept 拒绝")
+	_eq(String(plain.signal_df("E1").get("reason", "")), "no_signal_service",
+		"无 signal df 拒绝")
+	_eq(String(plain.signal_resolve("x").get("reason", "")), "no_signal_service",
+		"无 signal resolve 拒绝")
+	_eq(String(plain.light_send("APPROACH_REQ", "L1").get("reason", "")),
+		"no_signal_service", "无 signal light_send 拒绝")
+	_eq(String(plain.light_receive("x").get("reason", "")), "no_signal_service",
+		"无 signal light_receive 拒绝")
+	_eq(String(plain.light_ack("x").get("reason", "")), "no_signal_service",
+		"无 signal light_ack 拒绝")
+	# 启用 + track_table
+	var s = GameSession.new(_signal_cfg_session())
+	_ok(bool(s.ready), "signal session ready", str(s.errors))
+	_ok(s.signal_service != null, "signal 启用")
+	_eq(String(s.signal_vm().get("schema", "")), "signal_service.v1", "signal vm schema")
+	_eq(bool(s.signal_summary().get("ready", false)), true, "signal summary ready")
+	_eq(int(s.signal_summary().get("codes", 0)), 7, "signal 7 灯语码")
+	_near(float(s.signal_service.t), s.now_s(), 1.0e-6, "signal boot 时间同步")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "signal boot contracts ok")
+	_ok(bool((s.tick(0.0).get("components", {}) as Dictionary).get("signal", false)),
+		"tick components.signal")
+	var tracks0 := _track_count(s)
+	_ok(tracks0 > 0, "boot ELINT 已路由建 track", str(tracks0))
+	# ELINT intercept → observation/evidence 白名单路由
+	var r: Dictionary = s.signal_intercept("E1")
+	_eq(bool(r.get("ok", false)), true, "intercept E1 ok")
+	_ok((r.get("observations", []) as Array).size() > 0, "intercept observations")
+	var route: Dictionary = s._last_signal_route
+	_eq(bool(route.get("enabled", false)), true, "signal route enabled")
+	_ok(int(route.get("observations", 0)) > 0, "route observations")
+	_eq(_track_count(s), tracks0, "intercept 不重复建 track", str(_track_count(s)))
+	var lvl_max := 0
+	for tid in s.track_table.tracks.keys():
+		var tr: Dictionary = s.track_table.tracks[tid]
+		lvl_max = maxi(lvl_max, int(tr.get("level", 0)))
+	_ok(lvl_max >= 3, "ELINT evidence 融合到 L3", str(lvl_max))
+	# 重复 intercept 不新增 track
+	var r2: Dictionary = s.signal_intercept("E1")
+	_eq(bool(r2.get("ok", false)), true, "重复 intercept ok")
+	_eq(_track_count(s), tracks0, "重复 intercept 不新增 track")
+	# DF 多站 L1/L2 + evidence 路由
+	var d: Dictionary = s.signal_df("E1")
+	_eq(bool(d.get("ok", false)), true, "signal_df ok", str(d.get("reason", "")))
+	_ok((d.get("l1", []) as Array).size() > 0, "DF L1")
+	_ok((d.get("candidates", []) as Array).size() > 0, "DF candidates")
+	_eq(_track_count(s), tracks0, "DF 不重复建 track")
+	_ok(int(s._last_signal_route.get("evidence", 0)) > 0, "DF evidence 路由")
+	var cand: Dictionary = (d.get("candidates", []) as Array)[0]
+	_eq(int(cand.get("level_support", 0)), 2, "DF candidate L2")
+	var fixid := String(cand.get("fix_id", ""))
+	var rr: Dictionary = s.signal_resolve(fixid)
+	_eq(bool(rr.get("ok", false)), true, "signal_resolve fix ok")
+	_eq(String(rr.get("type", "")), "elint_fix", "resolve type")
+	_eq(bool(s.signal_resolve("NOPE").get("ok", true)), false, "resolve 未知 false")
+	# 静默/未知目标失败
+	_eq(String(s.signal_intercept("E3").get("reason", "")), "no_emission",
+		"静默目标 no_emission")
+	_eq(bool(s.signal_intercept("NOPE").get("ok", true)), false, "未知目标 intercept false")
+	# 灯语 send/receive/ack → bus light_signal.*
+	var send: Dictionary = s.light_send("APPROACH_REQ", "L1")
+	_eq(bool(send.get("ok", false)), true, "light_send ok", str(send.get("reason", "")))
+	var txid := String((send.get("tx", {}) as Dictionary).get("tx_id", ""))
+	_ok(txid != "", "light tx_id")
+	_eq(String((send.get("tx", {}) as Dictionary).get("status", "")), "SENT", "light SENT")
+	var recv: Dictionary = s.light_receive(txid)
+	_eq(bool(recv.get("ok", false)), true, "light_receive ok")
+	_eq(String((recv.get("tx", {}) as Dictionary).get("status", "")), "RECEIVED",
+		"light RECEIVED")
+	var ack: Dictionary = s.light_ack(txid)
+	_eq(bool(ack.get("ok", false)), true, "light_ack ok")
+	_eq(String((ack.get("tx", {}) as Dictionary).get("status", "")), "ACKED", "light ACKED")
+	_eq(String(s.signal_resolve(txid).get("status", "")), "ACKED", "resolve ACKED")
+	var bus_types: Array = []
+	for raw in s.bus.recent(120):
+		bus_types.append(String((raw as Dictionary).get("type", "")))
+	_ok("light_signal.send" in bus_types, "bus light_signal.send")
+	_ok("light_signal.receive" in bus_types, "bus light_signal.receive")
+	_ok("light_signal.ack" in bus_types, "bus light_signal.ack")
+	# 灯语失败：遮挡/超距/未知/误读
+	_eq(String(s.light_send("APPROACH_REQ", "O1").get("reason", "")), "occluded",
+		"目标遮挡 occluded")
+	_eq(String(s.light_send("APPROACH_REQ", "L1", {"occluded": true}).get("reason", "")),
+		"occluded", "显式遮挡 occluded")
+	_eq(String(s.light_send("APPROACH_REQ", "E1").get("reason", "")), "out_of_range",
+		"超距 out_of_range")
+	_eq(bool(s.light_send("NOPE", "L1").get("ok", true)), false, "未知 code false")
+	_eq(bool(s.light_send("APPROACH_REQ", "NOPE").get("ok", true)), false,
+		"未知 target false")
+	var send3: Dictionary = s.light_send("APPROACH_ACK", "L1")
+	var tx3 := String((send3.get("tx", {}) as Dictionary).get("tx_id", ""))
+	var mis: Dictionary = s.light_receive(tx3, {"misread": true})
+	_eq(bool(mis.get("ok", true)), false, "误读 false")
+	_eq(String(mis.get("reason", "")), "misread", "误读 reason")
+	var bus_mis: Array = []
+	for raw_m in s.bus.recent(240):
+		bus_mis.append(String((raw_m as Dictionary).get("type", "")))
+	_ok("light_signal.misread" in bus_mis, "bus light_signal.misread")
+	# 超时：tick 驱动 signal.step
+	var send2: Dictionary = s.light_send("MAYDAY", "L1", {"timeout_s": 1.0})
+	var tx2 := String((send2.get("tx", {}) as Dictionary).get("tx_id", ""))
+	var tk: Dictionary = s.tick(2.0)
+	_eq(bool(tk.get("ok", false)), true, "signal tick ok")
+	_near(float(s.signal_service.t), s.now_s(), 1.0e-6, "tick 后 signal t 同步")
+	_eq(String(s.signal_resolve(tx2).get("status", "")), "TIMEOUT", "灯语超时 TIMEOUT")
+	_eq(bool(s.light_receive(tx2).get("ok", true)), false, "超时后 receive false")
+	_eq(bool(s.light_ack(tx2).get("ok", true)), false, "超时后 ack false")
+	var bus2: Array = []
+	for raw2 in s.bus.recent(200):
+		bus2.append(String((raw2 as Dictionary).get("type", "")))
+	_ok("light_signal.timeout" in bus2, "bus light_signal.timeout")
+	# 失败不改状态
+	var before := _signal_core(s)
+	_eq(String(s.signal_intercept("NOPE").get("reason", "")), "no_signal",
+		"未知 ELINT 目标 reason")
+	_ok(not bool(s.signal_intercept("NOPE").get("ok", true)), "未知 ELINT 目标拒绝")
+	# 未知目标 intercept 仍会做一次被动扫描（SignalService 行为）；以下失败不应改状态
+	before = _signal_core(s)
+	_eq(bool(s.light_receive("NOPE").get("ok", true)), false, "未知 tx receive false")
+	_eq(bool(s.light_ack("NOPE").get("ok", true)), false, "未知 tx ack false")
+	_eq(bool(s.signal_resolve("NOPE").get("ok", true)), false, "未知 signal id false")
+	_eq(_signal_core(s), before, "signal 失败不改状态")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "signal contracts ok")
+	_data_line("signal", "ELINT L1/L2/evidence→TrackTable 不重复建 track · light_signal.*→bus · 超时/遮挡/误读")
+
+func _test_signal_save_load() -> void:
+	_section_begin("30 Signal 存档")
+	var cfg := _signal_cfg_session()
+	var s = GameSession.new(cfg)
+	s.track_table.tracks.clear()
+	s.signal_intercept("E1")
+	s.signal_df("E1")
+	var send: Dictionary = s.light_send("APPROACH_REQ", "L1")
+	var txid := String((send.get("tx", {}) as Dictionary).get("tx_id", ""))
+	s.light_receive(txid)
+	s.tick(3.0)
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary, "signal save JSON 可解析")
+	if d is Dictionary:
+		_ok(String((d as Dictionary).get("signal_service", "")) != "",
+			"save 含 signal_service")
+		var seed: Dictionary = (d as Dictionary).get("seed", {})
+		_ok(seed.has("signal_service"), "seed 含 signal_service 配置")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "signal load ok", str(lr.get("errors", [])))
+	_ok(s2.signal_service != null, "load 重建 signal_service")
+	_ok(_norm_json(s.signal_vm()) == _norm_json(s2.signal_vm()), "load 后 signal_vm 一致")
+	_ok(_norm_json(s.snapshot()) == _norm_json(s2.snapshot()), "load 后 snapshot 一致")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load 后 contracts ok")
+	_near(float(s2.signal_service.t), s2.now_s(), 1.0e-6, "load signal t 同步")
+	# load 后继续操作/推进
+	var ok_mirror := false
+	_ok(bool(s2.signal_intercept("E2").get("ok", false)), "load 后继续 intercept")
+	var send2: Dictionary = s2.light_send("HOLD_POSITION", "L1")
+	_eq(bool(send2.get("ok", false)), true, "load 后继续 light_send")
+	ok_mirror = bool(s.signal_intercept("E2").get("ok", false))
+	ok_mirror = ok_mirror and bool(s.light_send("HOLD_POSITION", "L1").get("ok", false))
+	_ok(ok_mirror, "原始实例镜像持续操作")
+	s.tick(2.0)
+	s2.tick(2.0)
+	_ok(_norm_json(s.signal_vm()) == _norm_json(s2.signal_vm()), "load 后同 tick signal 一致")
+	_ok(bool(s2.check_contracts().get("ok", false)), "继续后 contracts ok")
+	# 旧存档兼容：删除 signal 字段 + seed 配置
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("signal_service")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("signal_service")
+	old["seed"] = old_seed
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 signal 兼容", str(lr3.get("errors", [])))
+	_ok(s3.signal_service == null, "旧存档 load 后 signal 退化")
+	# 启动配置 emitters/light_codes/month/time
+	var em_cfg: Dictionary = {"track_table": true, "signal_service": {
+		"observer": {"id": "Obs", "pos_km": [0.0, 0.0, 0.0]},
+		"targets": [],
+		"emitters": [{"id": "E1", "target_id": "E1", "pos_km": [0.0, 1500.0, 0.0],
+			"type": "radar", "model": "YW-R9", "signature_name": "YW-R9",
+			"active": true, "silent": false, "lpi": false,
+			"frequency_mhz": 9500.0, "power_dbm": 90.0}],
+		"month": 10, "time": "night"}}
+	var s4 = GameSession.new(em_cfg)
+	_ok(bool(s4.ready), "emitters/month/time boot ready", str(s4.errors))
+	_ok(bool(s4.signal_intercept("E1").get("ok", false)), "emitters 配置 E1 可拦截")
+	# 确定性：两实例同操作
+	var a = GameSession.new(_signal_cfg_session())
+	var b = GameSession.new(_signal_cfg_session())
+	for sv in [a, b]:
+		sv.signal_intercept("E1")
+		sv.signal_df("E1")
+		var sd: Dictionary = sv.light_send("APPROACH_REQ", "L1")
+		var stx := String((sd.get("tx", {}) as Dictionary).get("tx_id", ""))
+		sv.light_receive(stx)
+		sv.tick(3.0)
+	_ok(_norm_json(a.signal_vm()) == _norm_json(b.signal_vm()), "signal 同操作 VM 一致")
+	_ok(a.save_state() == b.save_state(), "signal 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "signal 确定性 contracts ok")
+	_data_line("signal_save", "save/load signal_vm/snapshot 一致 · 继续 · 旧档兼容 · emitters 配置 · 确定性")
