@@ -1,0 +1,449 @@
+{
+  "schema": "v17.prelude_scenario.v1",
+  "version": "1.0.0",
+  "title": "完整游戏-阶段3S 序章专用场景内容",
+  "source": "task-168；序章 Ceres-2/AV-4412/Chronos 实体与灯语/触发",
+  "refs": {
+    "facilities_content": "res://framework/content/facilities_system.json",
+    "transponders_content": "res://framework/content/transponders_prologue.json",
+    "light_codes_content": "res://framework/content/light_codes_l1.json"
+  },
+  "entities": [
+    {
+      "id": "apsis",
+      "name": "APSIS",
+      "batch": "OCUVF-ID13",
+      "kind": "ship",
+      "side": "friend",
+      "identity": "friend",
+      "pos_km": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "vel_kmps": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "transponder_profile": "apsis",
+      "light_capable": true,
+      "facility_id": ""
+    },
+    {
+      "id": "harmattan",
+      "name": "Harmattan",
+      "batch": "OCUVF-ID13",
+      "kind": "ship",
+      "side": "friend",
+      "identity": "friend",
+      "pos_km": [
+        10.0,
+        0.0,
+        0.0
+      ],
+      "vel_kmps": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "transponder_profile": "harmattan",
+      "light_capable": true,
+      "facility_id": ""
+    },
+    {
+      "id": "ferry",
+      "name": "Ferry",
+      "batch": "CIV-FERRY-2",
+      "kind": "ship",
+      "side": "neutral",
+      "identity": "unknown",
+      "pos_km": [
+        100.0,
+        200.0,
+        0.0
+      ],
+      "vel_kmps": [
+        0.0,
+        0.0,
+        -0.01
+      ],
+      "transponder_profile": "ferry_prologue",
+      "light_capable": true,
+      "facility_id": ""
+    },
+    {
+      "id": "watchtower",
+      "name": "Watchtower",
+      "batch": "L1-PATROL",
+      "kind": "ship",
+      "side": "neutral",
+      "identity": "unknown",
+      "pos_km": [
+        300.0,
+        800.0,
+        0.0
+      ],
+      "vel_kmps": [
+        0.01,
+        0.0,
+        0.0
+      ],
+      "transponder_profile": "watchtower_prologue",
+      "light_capable": true,
+      "facility_id": ""
+    },
+    {
+      "id": "deepwell",
+      "name": "Deepwell",
+      "batch": "CIV-TANKER-9",
+      "kind": "ship",
+      "side": "neutral",
+      "identity": "unknown",
+      "pos_km": [
+        600.0,
+        1200.0,
+        0.0
+      ],
+      "vel_kmps": [
+        0.0,
+        0.01,
+        0.0
+      ],
+      "transponder_profile": "deepwell_prologue",
+      "light_capable": true,
+      "facility_id": ""
+    },
+    {
+      "id": "ceres_2",
+      "name": "Ceres-2",
+      "batch": "CIV-CERES-2",
+      "kind": "ship",
+      "side": "unknown",
+      "identity": "unknown",
+      "pos_km": [
+        42.0,
+        120.0,
+        0.0
+      ],
+      "vel_kmps": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "transponder_profile": "ceres_2_demo",
+      "light_capable": true,
+      "facility_id": ""
+    },
+    {
+      "id": "av_4412",
+      "name": "AV-4412",
+      "batch": "UEG-AV-4412",
+      "kind": "ship",
+      "side": "ueg",
+      "identity": "unknown",
+      "pos_km": [
+        500.0,
+        1500.0,
+        0.0
+      ],
+      "vel_kmps": [
+        0.02,
+        0.0,
+        0.0
+      ],
+      "transponder_profile": "av_4412",
+      "light_capable": true,
+      "military": true,
+      "facility_id": ""
+    },
+    {
+      "id": "l1_station",
+      "name": "L1 station",
+      "batch": "L1-05",
+      "kind": "station",
+      "side": "neutral",
+      "identity": "station",
+      "pos_km": [
+        0.0,
+        0.0,
+        10.0
+      ],
+      "vel_kmps": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "transponder_profile": "l1_station",
+      "light_capable": true,
+      "facility_id": "L1-05"
+    },
+    {
+      "id": "chronos",
+      "name": "Chronos",
+      "batch": "L1-05-FUEL",
+      "kind": "fuel",
+      "side": "neutral",
+      "identity": "station",
+      "pos_km": [
+        2.0,
+        0.0,
+        10.0
+      ],
+      "vel_kmps": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "transponder_profile": "chronos",
+      "light_capable": true,
+      "facility_id": "L1-05"
+    }
+  ],
+  "transponder_profiles": [
+    {
+      "profile_id": "ferry_prologue",
+      "name": "Ferry",
+      "entity_type": "ship",
+      "entity_id": "ferry",
+      "facility_id": "",
+      "facility_code": "",
+      "transponder_code": "TXP-FERRY-PRO",
+      "registration_code": "REG-CIV-FERRY-2",
+      "side": "neutral",
+      "identity": "unknown",
+      "modes": [
+        "mode_s"
+      ],
+      "default_mode": "mode_s",
+      "status": "normal",
+      "range_km": 1200.0,
+      "silent": true,
+      "broadcast": {
+        "interval_s": 30.0,
+        "enabled": false,
+        "modes": [
+          "mode_s"
+        ]
+      },
+      "crypto": {
+        "epoch": 2,
+        "valid": true,
+        "key_id": "CIV-2",
+        "captured": false
+      },
+      "trigger_map": {},
+      "note": "序章渡船（民用）。"
+    },
+    {
+      "profile_id": "watchtower_prologue",
+      "name": "Watchtower",
+      "entity_type": "ship",
+      "entity_id": "watchtower",
+      "facility_id": "",
+      "facility_code": "",
+      "transponder_code": "TXP-WATCH-PRO",
+      "registration_code": "REG-L1-PATROL",
+      "side": "neutral",
+      "identity": "unknown",
+      "modes": [
+        "mode_s"
+      ],
+      "default_mode": "mode_s",
+      "status": "normal",
+      "range_km": 1500.0,
+      "silent": true,
+      "broadcast": {
+        "interval_s": 30.0,
+        "enabled": false,
+        "modes": [
+          "mode_s"
+        ]
+      },
+      "crypto": {
+        "epoch": 2,
+        "valid": true,
+        "key_id": "OCU-2",
+        "captured": false
+      },
+      "trigger_map": {},
+      "note": "序章警戒船。"
+    },
+    {
+      "profile_id": "deepwell_prologue",
+      "name": "Deepwell",
+      "entity_type": "ship",
+      "entity_id": "deepwell",
+      "facility_id": "",
+      "facility_code": "",
+      "transponder_code": "TXP-DEEP-PRO",
+      "registration_code": "REG-CIV-TANKER-9",
+      "side": "neutral",
+      "identity": "unknown",
+      "modes": [
+        "mode_s"
+      ],
+      "default_mode": "mode_s",
+      "status": "normal",
+      "range_km": 1000.0,
+      "silent": true,
+      "broadcast": {
+        "interval_s": 30.0,
+        "enabled": false,
+        "modes": [
+          "mode_s"
+        ]
+      },
+      "crypto": {
+        "epoch": 2,
+        "valid": true,
+        "key_id": "CIV-2",
+        "captured": false
+      },
+      "trigger_map": {},
+      "note": "序章油轮。"
+    },
+    {
+      "profile_id": "av_4412",
+      "name": "AV-4412",
+      "entity_type": "ship",
+      "entity_id": "av_4412",
+      "facility_id": "",
+      "facility_code": "",
+      "transponder_code": "TXP-AV-4412",
+      "registration_code": "REG-UEG-AV-4412",
+      "side": "ueg",
+      "identity": "unknown",
+      "modes": [
+        "mode_5"
+      ],
+      "default_mode": "mode_5",
+      "status": "normal",
+      "range_km": 8000.0,
+      "silent": true,
+      "military": true,
+      "broadcast": {
+        "interval_s": 30.0,
+        "enabled": false,
+        "modes": [
+          "mode_5"
+        ]
+      },
+      "crypto": {
+        "epoch": 9,
+        "valid": true,
+        "key_id": "UEG-9",
+        "captured": false
+      },
+      "trigger_map": {},
+      "note": "序章 UEG 港出发目标；Mode 5/加密/军用。"
+    }
+  ],
+  "light_codes": {
+    "schema": "light_codes.v1",
+    "title": "序章灯语（谷神-2 应急/通用询问确认）",
+    "defaults": {
+      "range_km": 50.0,
+      "timeout_s": 30.0,
+      "ack_required": true,
+      "misread_chance": 0.0
+    },
+    "codes": [
+      {
+        "id": "GUSHEN2_REQ",
+        "code": "1101",
+        "mode": "blink",
+        "meaning": "谷神-2 请求对接",
+        "ack_required": true,
+        "category": "emergency",
+        "scenario_tags": [
+          "gushen2"
+        ]
+      },
+      {
+        "id": "GUSHEN2_ACK_PRO",
+        "code": "1102",
+        "mode": "blink",
+        "meaning": "谷神-2 确认",
+        "ack_required": false,
+        "category": "emergency",
+        "scenario_tags": [
+          "gushen2"
+        ]
+      },
+      {
+        "id": "GUSHEN2_MAYDAY",
+        "code": "1111",
+        "mode": "blink",
+        "meaning": "谷神-2 遇险",
+        "ack_required": true,
+        "category": "emergency",
+        "scenario_tags": [
+          "gushen2"
+        ]
+      },
+      {
+        "id": "QUERY_STATUS",
+        "code": "1000",
+        "mode": "blink",
+        "meaning": "通用询问",
+        "ack_required": true,
+        "category": "query"
+      },
+      {
+        "id": "QUERY_ACK",
+        "code": "1001",
+        "mode": "blink",
+        "meaning": "通用确认",
+        "ack_required": false,
+        "category": "query"
+      },
+      {
+        "id": "HOLD_POSITION_PRO",
+        "code": "0101",
+        "mode": "steady",
+        "meaning": "保持位置",
+        "ack_required": true,
+        "category": "command"
+      }
+    ]
+  },
+  "triggers": [
+    {
+      "trigger_id": "ceres_no_reply",
+      "event": "no_reply",
+      "target_id": "ceres_2",
+      "source_entity_id": "ceres_2",
+      "condition": {
+        "status": "faulty",
+        "transponder_profile": "ceres_2_demo"
+      },
+      "light_code": "GUSHEN2_REQ",
+      "story_flag": "ceres2_no_reply"
+    },
+    {
+      "trigger_id": "av4412_arrival",
+      "event": "entity_arrival",
+      "target_id": "av_4412",
+      "source_entity_id": "av_4412",
+      "condition": {
+        "facility_id": "L1-05",
+        "range_km_lt": 5000.0
+      },
+      "light_code": "QUERY_STATUS",
+      "story_flag": "av4412_arriving"
+    },
+    {
+      "trigger_id": "chronos_unrest",
+      "event": "light_signal",
+      "target_id": "chronos",
+      "source_entity_id": "chronos",
+      "condition": {
+        "facility_id": "L1-05",
+        "code": "GUSHEN2_MAYDAY"
+      },
+      "light_code": "GUSHEN2_MAYDAY",
+      "story_flag": "chronos_incident"
+    }
+  ]
+}
