@@ -56,6 +56,8 @@ func _ready() -> void:
 	set_process(true)
 	if OS.get_environment("DSH_SHELL_SAVE_TEST") == "1":
 		call_deferred("_run_save_test")
+	if OS.get_environment("DSH_SHELL_SENSOR_TEST") == "1":
+		call_deferred("_run_sensor_test")
 	if _shot_path != "":
 		get_window().size = _target_size
 		Input.warp_mouse(Vector2(_target_size) * 0.5)
@@ -109,7 +111,7 @@ func _build_shell() -> void:
 	body.add_child(right_panel)
 	_right = ProdRight.new()
 	_right.binder = binder
-	_right.page_action.connect(func(kind): _log("ACTION " + kind + " · signal only / no gameplay"))
+	_right.page_action.connect(_on_right_action)
 	right_panel.add_child(_right)
 	var bottom := PanelContainer.new()
 	bottom.custom_minimum_size = Vector2(0, 132)
@@ -138,6 +140,17 @@ func _refresh_ui() -> void:
 		_top.queue_redraw()
 
 
+func _on_right_action(kind: String) -> void:
+	if kind in ["RADAR", "EMCON", "IFF", "VIS", "IR"]:
+		var res: Dictionary = binder.sensor_command(kind)
+		_log("SENSOR %s · %s · %s" % [kind, "OK" if bool(res.get("ok", false)) else "FAILED", String(res.get("reason", ""))])
+		if _right != null:
+			_right.set_sensor_result(binder.sensor_result)
+		_refresh_ui()
+	else:
+		_log("ACTION " + kind + " · signal only / no gameplay")
+
+
 func _on_contact(index: int, data: Dictionary) -> void:
 	_selected = data.duplicate(true)
 	_page = "target" if String(data.get("type", "")) in ["unknown", "neutral"] else "ship"
@@ -146,6 +159,14 @@ func _on_contact(index: int, data: Dictionary) -> void:
 		_right.set_page(_page)
 	_log("SELECT [%s] %s · track=%s" % [String(data.get("id", "")), String(data.get("name", "")), String(data.get("track_id", "—"))])
 	binder.signal_event("contact.select", String(data.get("id", "")), {"contact": data.duplicate(true), "index": index})
+
+
+func _run_sensor_test() -> void:
+	# 真实 SensorService API 一次：RADAR/EMCON/IFF/VIS/IR；结果写日志/右栏，不实现玩法。
+	for kind in ["RADAR", "EMCON", "IFF", "VIS", "IR"]:
+		_on_right_action(kind)
+	if _right != null:
+		_right.set_sensor_result("SENSOR TEST " + binder.sensor_result)
 
 
 func _run_save_test() -> void:
@@ -350,6 +371,8 @@ class ProdRight extends Control:
 	var page := "ship"
 	var _tabs: Array = []
 	var _actions: Array = []
+	var _sensor_actions: Array = []
+	var _sensor_result := ""
 
 	func _ready() -> void:
 		custom_minimum_size = Vector2(344, 0)
@@ -363,6 +386,10 @@ class ProdRight extends Control:
 		page = "target" if p == "target" else "ship"
 		queue_redraw()
 
+	func set_sensor_result(text: String) -> void:
+		_sensor_result = text
+		queue_redraw()
+
 	func _gui_input(event: InputEvent) -> void:
 		if not (event is InputEventMouseButton) or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
 			return
@@ -371,6 +398,10 @@ class ProdRight extends Control:
 				set_page(String(tab["page"]))
 				return
 		for a in _actions:
+			if (a["rect"] as Rect2).has_point(event.position):
+				page_action.emit(String(a["kind"]))
+				return
+		for a in _sensor_actions:
 			if (a["rect"] as Rect2).has_point(event.position):
 				page_action.emit(String(a["kind"]))
 				return
@@ -395,9 +426,25 @@ class ProdRight extends Control:
 		for line in (f.get("lines", []) as Array):
 			draw_string(mono, Vector2(12, y), _fit(String(line), 60), HORIZONTAL_ALIGNMENT_LEFT, -1, 8, PP.TXT if line != "DAMAGE NOT READY · 无 damage 组件" else PP.AMBER)
 			y += 15.0
-		y += 10.0
+		y += 6.0
 		draw_line(Vector2(10, y), Vector2(size.x - 10, y), PP.a(PP.LINE, 0.75), 1.0)
-		y += 14.0
+		y += 12.0
+		# 真实 sensor 控制按钮（session.sensor_service）
+		_sensor_actions.clear()
+		draw_string(cjk, Vector2(12, y), "传感器 / SENSOR CONTROL", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, PP.PH_DIM)
+		y += 6.0
+		var sl := [["RADAR", "RADAR ON/OFF"], ["EMCON", "EMCON"], ["IFF", "IFF QUERY"], ["VIS", "VIS"], ["IR", "IR"]]
+		for si in range(sl.size()):
+			var sw := (size.x - 30.0) / 3.0 - 4.0
+			var srect := Rect2(12.0 + float(si % 3) * (sw + 6.0), y + float(si / 3) * 24.0, sw, 19.0)
+			_sensor_actions.append({"rect": srect, "kind": String(sl[si][0])})
+			draw_rect(srect, PP.a(PP.PANEL2, 0.75))
+			draw_rect(srect, PP.a(PP.LINE2, 0.6), false, 1.0)
+			draw_string(mono, Vector2(srect.position.x + 5, srect.position.y + 13), String(sl[si][1]), HORIZONTAL_ALIGNMENT_LEFT, -1, 6, PP.TXT)
+		y += 50.0
+		if _sensor_result != "":
+			draw_string(mono, Vector2(12, y), _fit(_sensor_result, 48), HORIZONTAL_ALIGNMENT_LEFT, -1, 6, PP.AMBER)
+		y += 12.0
 		draw_string(cjk, Vector2(12, y), "按钮槽位 / ACTIONS", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, PP.FAINT)
 		_actions.clear()
 		var labels := [["NAV", "导航 / NAV"], ["DMG", "损管 / DAMAGE"], ["OPT", "光学 / OPTICAL"], ["INFO", "信息 / INFO OPS"]]

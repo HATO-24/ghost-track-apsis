@@ -18,6 +18,8 @@ var ready := false
 var errors: Array[String] = []
 var warnings: Array[String] = []
 var track_vm: Dictionary = {}
+var sensor_vm: Dictionary = {}
+var sensor_result := ""
 var story_vm: Dictionary = {}
 var snapshot: Dictionary = {}
 var contacts: Array = []
@@ -35,9 +37,11 @@ func boot() -> bool:
 	errors.clear()
 	warnings.clear()
 	session = GameSession.new()
+	var sensor_cfg := _sensor_config()
 	var br: Dictionary = session.boot({
 		"track_table": true,
 		"story_state": true,
+		"sensor_service": sensor_cfg,
 		"orders": [
 			{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
 		],
@@ -49,11 +53,42 @@ func boot() -> bool:
 	if not bool(save_service.setup(SAVE_ROOT)):
 		errors.append("SaveService setup failed")
 		return false
-	_seed_tracks()
+	if session.sensor_service == null:
+		_seed_tracks()
 	_load_delta_v()
+	# 先推进一小步让 SensorService→TrackTable 产生真实 L1-L2 观测；失败仍显式 NOT READY。
+	if session.sensor_service != null:
+		session.tick(0.1)
 	refresh()
 	ready = errors.is_empty()
 	return ready
+
+
+func _sensor_config() -> Dictionary:
+	# observer=apsis；targets 示例来自 GameSession demo seed 实体；不写旧场景。
+	var targets: Array = [
+		{"id": "harmattan", "target_id": "harmattan", "entity_id": "harmattan", "batch": "1001",
+			"pos_km": [20.0, 0.0, 0.0], "vel_kmps": [0.0, 0.0, 0.0], "rcs_m2": 10.0,
+			"temp_k": 300.0, "area_m2": 1000.0, "size_m": 50.0, "illum": 1.0,
+			"transponder": "ok", "iff_code": "FRIEND-1001", "registered": true,
+			"crypto_epoch": "epoch-1", "side": "friend", "faction": "OCUVF",
+			"classification": {"ship_class": "DDG", "role": "escort", "faction": "friend"}},
+		{"id": "l1_station", "target_id": "l1_station", "entity_id": "l1_station", "batch": "3100",
+			"pos_km": [0.0, 0.0, 10.0], "vel_kmps": [0.0, 0.0, 0.0], "rcs_m2": 100.0,
+			"temp_k": 300.0, "area_m2": 5000.0, "size_m": 200.0, "illum": 1.0,
+			"transponder": "ok", "iff_code": "FRIEND-3100", "registered": true,
+			"crypto_epoch": "epoch-1", "side": "friend", "faction": "OCUVF",
+			"classification": {"ship_class": "STATION", "role": "port", "faction": "friend"}},
+	]
+	return {
+		"observer": {"id": "apsis", "pos_km": [0.0, 0.0, 0.0], "vel_kmps": [0.0, 0.0, 0.0],
+			"attitude_quat": [0.0, 0.0, 0.0, 1.0], "mast_deployed": true, "emcon": false,
+			"damage": {"sensors": 1.0, "comms": 1.0, "propulsion": 1.0}},
+		"mounts": [],  # 空 → SensorService/Authority 默认装配
+		"targets": targets,
+		"snapshot": {"sun_dir": [0.0, 0.0, 1.0], "sun_illum": 1.0, "jamming": 0.0, "shadow": false, "los": true},
+		"options": {"radar_enabled": true, "emcon": false, "iff_enabled": true},
+	}
 
 
 func _seed_tracks() -> void:
@@ -104,6 +139,7 @@ func refresh() -> void:
 	snapshot = session.snapshot()
 	track_vm = session.track_vm({}) if session.track_table != null else {}
 	story_vm = session.story_vm() if session.story_state != null else {}
+	sensor_vm = session.sensor_service.vm() if session.sensor_service != null else {}
 	contacts = _build_contacts()
 	commands = _build_commands()
 	events = session.bus.recent(8) if session.bus != null else []
@@ -208,10 +244,12 @@ func ship_fields(row: Dictionary, page := "ship") -> Dictionary:
 		if tr.is_empty():
 			return {"title": "TARGET NOT READY", "source": "NO TRACK DATA", "lines": ["target track 未就绪", "不伪造目标"]}
 		var sources: Array = tr.get("sources", []) if tr.get("sources", []) is Array else []
-		return {"title": "TRACK %s · TARGET" % String(tr.get("track_id", "")), "source": "TRACK TABLE",
-			"lines": ["LEVEL L%d / %s" % [int(tr.get("level", 0)), String(tr.get("level_name", ""))],
-				"IDENTITY %s · THREAT %s" % [String(tr.get("identity_label", tr.get("identity", " — "))), String(tr.get("threat", "—"))],
-				"SOURCES " + ",".join(sources), "RANGE %.1f km" % float(tr.get("range_km", -1.0))]}
+		var tlines: Array = ["LEVEL L%d / %s" % [int(tr.get("level", 0)), String(tr.get("level_name", ""))],
+			"IDENTITY %s · THREAT %s" % [String(tr.get("identity_label", tr.get("identity", " — "))), String(tr.get("threat", "—"))],
+			"SOURCES " + ",".join(sources), "RANGE %.1f km" % float(tr.get("range_km", -1.0))]
+		var ss := sensor_state()
+		tlines.append("SENSOR " + ("RADAR ON" if bool(ss.get("radar", false)) else "RADAR OFF") + " · EMCON " + str(bool(ss.get("emcon", false))) + " · OBS " + str(int(ss.get("obs", 0))) + " · IFF " + str(int(ss.get("iff", 0))))
+		return {"title": "TRACK %s · TARGET" % String(tr.get("track_id", "")), "source": "TRACK TABLE · SENSOR", "lines": tlines}
 	var e := selected_entity(row)
 	var tr2 := selected_track(row)
 	if e.is_empty():
@@ -230,11 +268,55 @@ func ship_fields(row: Dictionary, page := "ship") -> Dictionary:
 	var lines: Array = []
 	lines.append("BATCH %s · %s · %s" % [String(e.get("batch", e.get("id", ""))), String(e.get("kind", "ship")).to_upper(), "FLAGSHIP" if bool(flags.get("flagship", false)) else "FRIEND"])
 	lines.append("RANGE %.1f km %s" % [range_km, "· track L%d" % int(tr2.get("level", 0)) if not tr2.is_empty() else "· track NOT READY"])
-	lines.append("SENSOR " + ("TRACK SOURCES " + ",".join(tr2.get("sources", [])) if not tr2.is_empty() else "NOT READY"))
+	var sens_lines: Array = []
+	if session.sensor_service != null:
+		var svm: Dictionary = session.sensor_service.vm()
+		var counts: Dictionary = svm.get("counts", {}) if svm.get("counts", {}) is Dictionary else {}
+		sens_lines.append("RADAR %s · EMCON %s · OBS %d" % ["ON" if bool(svm.get("radar_enabled", false)) else "OFF", str(bool(svm.get("emcon", false))), int(counts.get("observations", 0))])
+		sens_lines.append("IFF EVID %d · OPTICAL EVID %d · CH %d" % [int(counts.get("iff_evidence", 0)), int(counts.get("optical_evidence", 0)), int(counts.get("channels", 0))])
+	else:
+		sens_lines.append("SENSOR NOT READY · sensor_service 未启用")
+	for sl in sens_lines:
+		lines.append(sl)
 	lines.append("DAMAGE NOT READY · 无 damage 组件")
 	lines.append("ROE " + roe_text)
 	lines.append("Δv " + ("%.1f m/s · transfer cache" % delta_v_mps if delta_v_ready else "NOT READY"))
 	return {"title": String(e.get("name", "NOT READY")), "source": "GAME SESSION · TRACK", "lines": lines}
+
+
+func sensor_command(kind: String) -> Dictionary:
+	if session == null or session.sensor_service == null:
+		return {"ok": false, "reason": "sensor_not_ready", "text": "SENSOR NOT READY"}
+	var s = session.sensor_service
+	var res: Dictionary = {}
+	match kind:
+		"RADAR":
+			res = s.set_radar_enabled(not bool(s.radar_enabled))
+		"EMCON":
+			res = s.set_emcon(not bool(s.emcon))
+		"IFF":
+			var tid := String(s.selected_target) if String(s.selected_target) != "" else "harmattan"
+			res = s.query_iff(tid)
+		"VIS":
+			res = s.start_channel("optical", String(s.selected_target) if String(s.selected_target) != "" else "harmattan", {"mode": "vis"})
+		"IR":
+			res = s.start_channel("ir", String(s.selected_target) if String(s.selected_target) != "" else "harmattan", {})
+		_:
+			res = {"ok": false, "reason": "unknown_sensor_command"}
+	sensor_result = "%s · %s" % [kind, "OK" if bool(res.get("ok", false)) else String(res.get("reason", "FAILED"))]
+	refresh()
+	return res
+
+
+func sensor_state() -> Dictionary:
+	if session == null or session.sensor_service == null:
+		return {"ready": false, "text": "SENSOR NOT READY"}
+	var s = session.sensor_service
+	var svm: Dictionary = s.vm()
+	var counts: Dictionary = svm.get("counts", {}) if svm.get("counts", {}) is Dictionary else {}
+	return {"ready": bool(s.ready), "radar": bool(s.radar_enabled), "emcon": bool(s.emcon),
+		"obs": int(counts.get("observations", 0)), "iff": int(counts.get("iff_evidence", 0)),
+		"optical": int(counts.get("optical_evidence", 0)), "channels": int(counts.get("channels", 0))}
 
 
 func save(intent: String) -> Dictionary:

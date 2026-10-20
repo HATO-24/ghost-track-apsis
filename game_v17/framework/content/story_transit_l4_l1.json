@@ -1,0 +1,158 @@
+{
+  "schema": "v17.story_content.v1",
+  "version": "1.0.0",
+  "scenario_id": "transit_l4_l1",
+  "title_key": "TXT-0001",
+  "teaching_file": "res://framework/content/teaching_l4_l1.json",
+  "notes": [
+    "示例剧情：L4-02 Hammer → L1 Meridian 段；只给步骤/动作/文本 key/条件，不写长文案。",
+    "manual_only=true：只由玩家 note(action,target) 推进；不按时间自动完成。",
+    "text_key 引用 docs/23 的 TXT- key；teaching_step_ids 引用 teaching_l4_l1.json 的步骤。"
+  ],
+  "manual_only": true,
+  "auto_complete": false,
+  "chapters": [
+    {"id": "ch_prologue", "title_key": "TXT-0001", "phase": "prelude", "order": 1},
+    {"id": "ch_departure", "title_key": "TXT-0004", "phase": "command", "order": 2},
+    {"id": "ch_contact", "title_key": "TXT-0011", "phase": "read", "order": 3},
+    {"id": "ch_decision", "title_key": "TXT-0257", "phase": "decision", "order": 4}
+  ],
+  "steps": [
+    {
+      "id": "S1",
+      "chapter": "ch_prologue",
+      "phase": "prelude",
+      "order": 1,
+      "title_key": "TXT-0001",
+      "objective_key": "TXT-0004",
+      "teaching_step_ids": ["T07-G1-S1"],
+      "text_keys": ["TXT-0001", "TXT-0257"],
+      "actions": [
+        {"id": "a_ack", "action": "acknowledge_brief", "target": "",
+         "label_key": "TXT-0001", "gate": {},
+         "effects": {"flags": ["prelude_acked"]}, "advance": true}
+      ]
+    },
+    {
+      "id": "S2",
+      "chapter": "ch_departure",
+      "phase": "command",
+      "order": 2,
+      "title_key": "TXT-0004",
+      "objective_key": "TXT-0004",
+      "teaching_step_ids": ["T07-G1-S2"],
+      "text_keys": ["TXT-0004"],
+      "actions": [
+        {"id": "a_course", "action": "set_course", "target": "l1_meridian",
+         "label_key": "TXT-0004", "gate": {},
+         "effects": {"flags": ["course_set"]}, "advance": true},
+        {"id": "a_fire_locked", "action": "order_fire", "target": "contact_2001",
+         "label_key": "TXT-0257", "gate": {"flags": ["fire_authorized"]},
+         "effects": {}, "advance": false, "locked_reason": "no_fire_authority"}
+      ]
+    },
+    {
+      "id": "S3",
+      "chapter": "ch_departure",
+      "phase": "command",
+      "order": 3,
+      "title_key": "TXT-0004",
+      "objective_key": "TXT-0004",
+      "teaching_step_ids": ["T07-G1-S3"],
+      "text_keys": ["TXT-0004"],
+      "actions": [
+        {"id": "a_burn", "action": "order_burn", "target": "l1_meridian",
+         "label_key": "TXT-0004", "gate": {"flags_any": ["course_set"]},
+         "effects": {"flags": ["burn_ordered"], "trust": 5.0}, "advance": true}
+      ]
+    },
+    {
+      "id": "S4",
+      "chapter": "ch_contact",
+      "phase": "read",
+      "order": 4,
+      "title_key": "TXT-0011",
+      "objective_key": "TXT-0011",
+      "teaching_step_ids": ["T07-G2-S1"],
+      "text_keys": ["TXT-0011"],
+      "actions": [
+        {"id": "a_contacts", "action": "open_contact_list", "target": "",
+         "label_key": "TXT-0011", "gate": {},
+         "effects": {"flags": ["contacts_open"]}, "advance": true}
+      ]
+    },
+    {
+      "id": "S5",
+      "chapter": "ch_contact",
+      "phase": "read",
+      "order": 5,
+      "title_key": "TXT-0011",
+      "objective_key": "TXT-0011",
+      "teaching_step_ids": ["T07-G2-S2"],
+      "text_keys": ["TXT-0011"],
+      "actions": [
+        {"id": "a_identify", "action": "identify_contact", "target": "contact_2001",
+         "label_key": "TXT-0011", "gate": {},
+         "effects": {"flags": ["contact_identified"], "evidence": ["ev_contact_2001"],
+           "trust": 2.0}, "advance": true}
+      ]
+    },
+    {
+      "id": "S6",
+      "chapter": "ch_contact",
+      "phase": "command",
+      "order": 6,
+      "title_key": "TXT-0011",
+      "objective_key": "TXT-0011",
+      "teaching_step_ids": ["T07-G3-S1"],
+      "text_keys": ["TXT-0011"],
+      "actions": [
+        {"id": "a_radar", "action": "order_radar", "target": "harmattan",
+         "label_key": "TXT-0011", "gate": {},
+         "effects": {"flags": ["radar_ordered"], "trust": 5.0}, "advance": true}
+      ]
+    },
+    {
+      "id": "S7",
+      "chapter": "ch_decision",
+      "phase": "decision",
+      "order": 7,
+      "title_key": "TXT-0257",
+      "objective_key": "TXT-0257",
+      "teaching_step_ids": ["T07-G4-S1"],
+      "text_keys": ["TXT-0257"],
+      "actions": [
+        {"id": "a_hold", "action": "decide", "target": "hold",
+         "label_key": "TXT-0257", "gate": {},
+         "effects": {"flags": ["choice_hold"], "choice": "choice_hold"},
+         "advance": true, "ending": "END_HOLD"},
+        {"id": "a_expose", "action": "decide", "target": "expose",
+         "label_key": "TXT-0257", "gate": {"trust_min": 55.0},
+         "effects": {"flags": ["choice_expose"], "choice": "choice_expose",
+           "trust": -5.0}, "advance": true, "ending": "END_EXPOSE"},
+        {"id": "a_evac_locked", "action": "decide", "target": "evacuate",
+         "label_key": "TXT-0257", "gate": {"flags": ["evac_authorized"]},
+         "effects": {}, "advance": false, "locked_reason": "no_evac_authority"}
+      ]
+    },
+    {
+      "id": "S8",
+      "chapter": "ch_decision",
+      "phase": "consequence",
+      "order": 8,
+      "title_key": "TXT-0257",
+      "objective_key": "TXT-0257",
+      "teaching_step_ids": ["T07-G4-S6"],
+      "text_keys": ["TXT-0257"],
+      "actions": [
+        {"id": "a_report", "action": "submit_report", "target": "",
+         "label_key": "TXT-0257", "gate": {},
+         "effects": {"flags": ["report_submitted"], "reputation": 3.0}, "advance": true}
+      ]
+    }
+  ],
+  "endings": [
+    {"id": "END_HOLD", "title_key": "TXT-0257", "flags": ["choice_hold"]},
+    {"id": "END_EXPOSE", "title_key": "TXT-0257", "flags": ["choice_expose"]}
+  ]
+}

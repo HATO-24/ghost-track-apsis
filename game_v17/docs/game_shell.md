@@ -70,3 +70,46 @@ game_shell.gd
 4. 三色点已实际写 user://saves；黄/红只返回菜单/退出意图，不切 UI/退出。
 5. 页面按钮只发信号/log，未接玩法。
 6. 未跑全量 regression；未修改 project main_scene。
+
+
+---
+
+## 7　阶段1G：Shell 接 SensorService（task-133）
+
+### 7.1 boot / 数据流
+
+- `ShellBinder.boot()` 在 GameSession boot 配置中启用：
+  - `track_table: true`、`story_state: true`、`sensor_service: true 配置`；
+  - observer=`apsis`（pos 0,0,0）；targets 示例=`harmattan`(1001)、`l1_station`(3100)，含 rcs/transponder/iff/classification；mounts 留空→SensorService/Authority 默认装配。
+- GameSession 每 tick：`sensor_service.step` → observations/evidence → track_table（白名单路由）；`game_shell._process` → `ShellBinder.tick` → `session.tick(delta)`；每 10 帧刷新 UI。
+- 接触列表：`session.track_vm().tracks`（L2 radar/TWS） + 未入 track 的 session entities；右栏 sensor 摘要：`session.sensor_service.vm()`；
+  - RADAR ON/OFF、EMCON、OBS count、IFF evidence、optical evidence、CH count。
+- 顶栏：session time/scale/paused、EventBus `tactical.timer`、Δv（transfer cache）、ROE（story phase）；三色 SaveService 保留。
+
+### 7.2 按钮（真实 session API）
+
+`game_shell._on_right_action` → `ShellBinder.sensor_command(kind)`：
+
+| 按钮 | 调用 |
+| --- | --- |
+| RADAR | `sensor_service.set_radar_enabled(not current)` |
+| EMCON | `sensor_service.set_emcon(not current)` |
+| IFF | `sensor_service.query_iff(selected_target or harmattan)` |
+| VIS | `sensor_service.start_channel("optical", target)` |
+| IR | `sensor_service.start_channel("ir", target)` |
+
+- 结果显示在右栏 `SENSOR TEST ...` / 日志；只在 UI 侧调用，不写 V15/world；不实现玩法。
+- 本场景测试（`DSH_SHELL_SENSOR_TEST=1`）结果：RADAR/EMCON/IFF/VIS/IR 全部 OK，右栏 OBS 125、IFF EVID 4、CH 4；SaveService 同时 `SAVED save · 15749B · 0ff15439`，metadata=true。
+
+### 7.3 截图 / 验证
+
+- `mockups/game-shell-sensor-1920.png`（1920×1080）：真实 track 接触、右栏 sensor 摘要、sensor 按钮、SAVED。
+- `GAME SHELL SHOT err=0`；headless boot=true contacts=3 orders=1；Sensor API 全部 OK；`shell_binder.gd/game_shell.gd --check-only` 通过。
+
+### 7.4 边界 / 未完成
+
+1. Sensor target 为 GameSession demo 实体示例（harmattan/l1_station）；不是完整关卡 sensor plan。
+2. track 目前为 radar L2 observation；L3/L4 evidence 未在本次截图流程中全部触发；不伪造。
+3. 按钮仅调用真实 SensorService shadow API；不产生剧情/物理/伤害后果；不写 V15。
+4. 无 sensor/无 track 时右栏/接触仍会显式 NOT READY。
+5. 未跑全量 regression；未改核心/旧场景/project。
