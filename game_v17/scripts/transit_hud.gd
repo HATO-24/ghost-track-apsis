@@ -52,6 +52,8 @@ var cjk: Font
 var _fleet_rects: Array = []
 var _target_rects: Array = []
 var _dmg_sel_section := ""
+var _ship_label_rects: Array = []
+var _map_ship_rects: Array = []
 
 
 func _ready() -> void:
@@ -196,6 +198,33 @@ func _fleet_rows(plan: Dictionary) -> Array:
 	return plan.get("fleet", []) if plan.get("fleet", []) is Array else []
 
 
+func _event_lines(max_n: int = 8) -> Array:
+	var out: Array = []
+	if sim == null:
+		return out
+	if sim.sensors != null:
+		var vm: Dictionary = sim.sensors.vm()
+		var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
+		for i in range(maxi(0, evs.size() - max_n)):
+			var e: Dictionary = evs[i]
+			out.append("SENSOR %s · %s" % [String(e.get("kind", "")), _ellipsis(cjk, String(e.get("msg", e.get("text", ""))), 7, 600.0)])
+	if sim.teach != null:
+		var tv: Dictionary = sim.teach.vm()
+		var te: Array = tv.get("events", []) if tv.get("events", []) is Array else []
+		for i in range(maxi(0, te.size() - 3), te.size()):
+			var t: Dictionary = te[i]
+			out.append("TEACH %s · %s" % [String(t.get("kind", "")), _ellipsis(cjk, String(t.get("action", t.get("reason", ""))), 7, 600.0)])
+	if String(sim.decision_state) != "":
+		out.append("DECISION %s · FIRE=%s" % [String(sim.decision_state), str(bool(sim.fire_authorized))])
+	if bool(sim.report_submitted):
+		out.append("REPORT SUBMITTED")
+	if String(sim.last_note) != "":
+		out.append("LAST " + _ellipsis(cjk, String(sim.last_note), 7, 620.0))
+	while out.size() > max_n:
+		out.pop_front()
+	return out
+
+
 func _draw_fleet_panel(plan: Dictionary) -> void:
 	_panel(FLEET)
 	var vm := _sensors_vm()
@@ -263,6 +292,17 @@ func _draw_fleet_panel(plan: Dictionary) -> void:
 		_txt_r(mono, rr2.end.x - 4, y, "%s/%s" % [String(t.get("vis_status", "off")), String(t.get("ir_status", "off"))], 6, P.a(P.DIM, 0.9))
 		y += 22.0
 		shown += 1
+	# EVENT LOG / mission log（真实 sensors/teaching/decision/report）
+	var log_y := minf(y + 12.0, FLEET.end.y - 150.0)
+	_txt(cjk, FLEET.position.x + 12, log_y, "EVENT LOG / MISSION", 7, P.PH)
+	log_y += 12.0
+	var logs := _event_lines(8)
+	if logs.is_empty():
+		_txt(cjk, FLEET.position.x + 12, log_y, "— 无事件", 7, P.FAINT)
+	else:
+		for line in logs:
+			_txt(mono, FLEET.position.x + 12, log_y, _ellipsis(mono, String(line), 6, 292.0), 6, P.a(P.DIM, 0.9))
+			log_y += 11.0
 	_txt(cjk, FLEET.position.x + 12, FLEET.end.y - 36, "教学：阶段2转场 / 手动目标", 7, P.a(P.PH_DIM, 0.9))
 	_btn(TUT_BTN if false else Rect2(FLEET.position.x + 8, FLEET.end.y - 28, 150, 20), "教学 / TUTORIAL", sim != null and bool(sim.tutorial_open), P.AMBER)
 	_txt(cjk, FLEET.position.x + 172, FLEET.end.y - 16, String(sim.last_note) if sim != null else "", 6, P.a(P.AMBER, 0.8))
@@ -375,6 +415,19 @@ func _draw_side_page(plan: Dictionary, budget: Dictionary, arrival: Dictionary, 
 			sy += 13.0
 			_txt(mono, SIDE.position.x + 12, sy, "RANGE %.1f km · RCS %.0f m²" % [float(ship.get("range_km", 0.0)), _ship_rcs(String(ship.get("id", "")))], 7, P.TXT)
 			sy += 12.0
+			var frow: Dictionary = {}
+			for rawf in _fleet_rows(plan):
+				if rawf is Dictionary and String((rawf as Dictionary).get("ship_id", "")) == String(ship.get("id", "")):
+					frow = rawf
+					break
+			if not frow.is_empty():
+				_txt(mono, SIDE.position.x + 12, sy, "Δv DEP %.1f · ARR %.1f · TOT %.1f m/s" % [
+					float(frow.get("departure_dv_mps", 0.0)), float(frow.get("arrival_dv_mps", 0.0)), float(frow.get("total_dv_mps", 0.0))], 7, P.TXT)
+				sy += 12.0
+				_txt(mono, SIDE.position.x + 12, sy, "ARRIVAL %.1f km · %.3f km/s · %s" % [
+					float(frow.get("arrival_error_km", 0.0)), float(frow.get("arrival_speed_kmps", 0.0)),
+					"GATE" if bool(frow.get("within_gate", false)) else "FAIL"], 7, P.PH if bool(frow.get("within_gate", false)) else P.AMBER)
+				sy += 12.0
 			var fallbacks: Array = ship.get("loadout_fallbacks", [])
 			_txt(mono, SIDE.position.x + 12, sy, "SENSORS %s · fallback %d" % ["AUTHORITY", fallbacks.size()], 7, P.DIM if fallbacks.is_empty() else P.AMBER)
 			sy += 12.0
@@ -400,6 +453,8 @@ func _draw_side_page(plan: Dictionary, budget: Dictionary, arrival: Dictionary, 
 				_txt(mono, SIDE.position.x + 12, sy, "repair %d · queued %d · sections %d" % [
 					int(dsum.get("repairing", 0)), int(dsum.get("queued", 0)), int(dsum.get("total", 0))], 7, P.DIM)
 			sy += 14.0
+			_txt(cjk, SIDE.position.x + 12, sy, "教学 %s" % _teach_current_text(), 6, P.a(P.PH_DIM, 0.9))
+			sy += 12.0
 			_btn(SHIP_DAMAGE_BTN, "损管页 / DAMAGE", sim != null and bool(sim.damage_open), P.AMBER)
 			_btn(SHIP_RADAR_BTN, "RADAR ON/OFF", _radar_on(), P.PH)
 			_btn(SHIP_EMCON_BTN, "EMCON ON/OFF", _emcon_on(), P.AMBER)
@@ -888,13 +943,29 @@ func _draw_map(plan: Dictionary, ok: bool, tl: Array) -> void:
 			var sid2 := String(ship.get("ship_id", ""))
 			var c: Color = P.PH if sid2 == "apsis" else P.PH_DIM
 			draw_circle(sp, 2.8, c)
-			_txt(mono, sp.x + 5, sp.y - 5, String(ship.get("batch", "")), 6, P.a(c, 0.9))
+			var frw: Dictionary = {}
+			for rawf2 in _fleet_rows(plan):
+				if rawf2 is Dictionary and String((rawf2 as Dictionary).get("ship_id", "")) == sid2:
+					frw = rawf2
+					break
+			var lab := "%s %s · %.1fkm %s" % [String(ship.get("batch", "")), String(ship.get("name", ship.get("ship_id", ""))),
+				float(frw.get("arrival_error_km", 0.0)), "GATE" if bool(frw.get("within_gate", false)) else "FAIL"]
+			# labels separated: fixed right stack + leader lines; true positions unchanged
+			var idx := fships.find(ship)
+			var lp := Vector2(MAP.end.x - 310.0, MAP.position.y + 112.0 + float(maxi(0, idx)) * 18.0)
+			var lr := Rect2(lp + Vector2(-4, -8), Vector2(286, 13))
+			_ship_label_rects.append(lr)
+			_map_ship_rects.append({"rect": Rect2(sp - Vector2(7, 7), Vector2(14, 14)), "id": sid2})
+			_map_ship_rects.append({"rect": lr, "id": sid2})
+			draw_line(sp, Vector2(lp.x - 5, lp.y + 3), P.a(c, 0.42), 1.0)
+			_txt(mono, lp.x + 6, lp.y, _ellipsis(mono, lab, 7, 272.0), 7, P.a(c, 0.95))
+			draw_rect(Rect2(lp.x, lp.y - 7, 3, 10), P.a(c, 0.9))
 			var vv := _v3(ship.get("vel_rot_kmps", []))
 			if vv.length() > 1.0e-9:
 				var vd := Vector2(vv.x, -vv.y).normalized() * clampf(vv.length() * 260.0, 3.0, 18.0)
 				draw_line(sp, sp + vd, P.a(c, 0.55), 1.0)
 		_txt(cjk, MAP.position.x + 24, MAP.position.y + 42,
-			"5 舰独立 CR3BP 轨迹 · fleet_transfer · scale %.0f km/px" % (1.0 / maxf(sc, 1.0e-9)), 7, P.a(P.PH_DIM, 0.9))
+			"5 舰独立 CR3BP 轨迹 · fleet_transfer · scale %.0f km/px · POSITIONS REAL · LABELS SEPARATED" % (1.0 / maxf(sc, 1.0e-9)), 7, P.a(P.PH_DIM, 0.9))
 		_txt(cjk, MAP.position.x + 24, MAP.end.y - 26,
 			"L4-02 → L1 · timeline %d 段 · 折线为真实 pos_rot_km（减 L1）" % tl.size(), 7, P.a(P.FAINT, 0.9))
 	else:
@@ -1008,6 +1079,12 @@ func handle_click(p: Vector2) -> bool:
 			sim.ui_optical_stop(); return true
 		if OPT_CLOSE.has_point(p):
 			sim.optical_open = false; return true
+	# map ship markers/labels
+	for rawm in _map_ship_rects:
+		var mr: Rect2 = (rawm as Dictionary)["rect"]
+		if mr.has_point(p):
+			sim.ui_select_ship(String((rawm as Dictionary)["id"]))
+			return true
 	# fleet / targets
 	for raw in _fleet_rects:
 		var fr: Rect2 = (raw as Dictionary)["rect"]
