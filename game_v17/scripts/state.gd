@@ -36,6 +36,10 @@ var fw_physics_adapter: Dictionary = {}
 # —— R6-DISPLAY-CORE-1：物理显示数据接口（只读；给 plot 用）——
 const PHYSICS_DISPLAY_ENV := "DSH_PHYSICS_DISPLAY"
 var fw_physics_display: Dictionary = {}
+# —— R5-SENSOR-BRIDGE-1：传感器 shadow 只读 advisory / compare ——
+var fw_sensor_shadow: Dictionary = {}
+var fw_sensor_shadow_ready := false
+var fw_sensor_compare: Dictionary = {}
 
 # 演示用状态。真实 sim 会接管 clock / tracks / commands，
 # 这里的数值只服务于"把 GUI 长相对出来"。
@@ -1772,6 +1776,9 @@ func _reset_runtime() -> void:
 	fw_physics_authoritative = {}
 	fw_physics_adapter = {}
 	fw_physics_display = {}
+	fw_sensor_shadow = {}
+	fw_sensor_shadow_ready = false
+	fw_sensor_compare = {}
 
 # ── P1j：身份 / 通信格式 / 动态裁决提示 ─────────────────
 
@@ -2715,6 +2722,7 @@ func fw_sync(dt: float) -> void:
 	framework.sync(step)
 	_fw_pull()
 	_fw_update_physics_adapter()
+	_fw_update_sensor_compare()
 	# 决策挂起：V15 决策窗口已到但教学未完成 → 完成后自动打开（不自动完成识别）
 	if fw_decision_deferred and not decision_open and not report_open and not consequence_open \
 			and fw_tutorial_allows():
@@ -2750,6 +2758,9 @@ func _fw_pull() -> void:
 		fw_physics_authoritative = {}
 		fw_physics_adapter = {}
 		fw_physics_display = {}
+		fw_sensor_shadow = {}
+		fw_sensor_shadow_ready = false
+		fw_sensor_compare = {}
 		return
 	fw_ready = true
 	fw_tutorial = (framework.tutorial_view() as Dictionary).duplicate(true)
@@ -2774,6 +2785,9 @@ func _fw_pull() -> void:
 	fw_physics_summary = (framework.physics_summary() as Dictionary).duplicate(true)
 	fw_physics_authoritative = (framework.physics_authoritative_view() as Dictionary).duplicate(true)
 	fw_physics_display = physics_display_frame()
+	# R5-SENSOR-BRIDGE-1：传感器 shadow 只读快照（compare 在 fw_sync 里用 state.tracks 生成）
+	fw_sensor_shadow_ready = bool(framework.sensor_shadow_ready)
+	fw_sensor_shadow = (framework.sensor_shadow_view() as Dictionary).duplicate(true)
 
 ## R6-AUTH-1：用当前 V15 board 数据生成物理对比（只读；显示层尚未切换）。
 ## 未就绪/关闭时清空，不报错、不写 V15。
@@ -2801,6 +2815,37 @@ func _fw_update_physics_adapter() -> void:
 			"board_v": [bvel.x, bvel.y, bvel.z],
 		})
 	fw_physics_adapter = framework.physics_adapter_compare(own_state, rows)
+
+## R5-SENSOR-BRIDGE-1：用当前 V15 tracks 生成只读 compare（不写任何轨道）。
+func _fw_update_sensor_compare() -> void:
+	fw_sensor_compare = {}
+	if framework == null or not bool(framework.ready):
+		return
+	if not bool(framework.sensor_shadow_ready):
+		return
+	if String(framework.sensor_shadow_mode) != "shadow":
+		return
+	var rows: Array = []
+	for raw in tracks:
+		var tr: Dictionary = raw
+		if bool(tr.get("own", false)):
+			continue
+		rows.append({
+			"id": String(tr.get("id", "")),
+			"batch": String(tr.get("batch", tr.get("id", ""))),
+			"level": int(tr.get("level", 0)),
+			"identity": String(tr.get("identity", "")),
+			"range_km": float(tr.get("range_3d_km", tr.get("range", -1.0))),
+			"bearing_deg": float(tr.get("bearing", tr.get("az_deg", -1.0))),
+		})
+	fw_sensor_compare = framework.sensor_compare(rows)
+
+## 传感器 shadow 只读 vm / compare 的 getter。
+func fw_sensor_shadow_view() -> Dictionary:
+	return fw_sensor_shadow
+
+func fw_sensor_compare_view() -> Dictionary:
+	return fw_sensor_compare
 
 ## 当前 authoritative 只读视图（HUD 后续接 [未切换]）。
 func fw_physics_authoritative_view() -> Dictionary:
@@ -3315,6 +3360,7 @@ func fw_restart() -> void:
 	framework.restart()
 	_fw_pull()
 	_fw_update_physics_adapter()
+	_fw_update_sensor_compare()
 
 ## HUD 一帧总览（其余字段仍可按需读 state.fw_*）。
 func fw_bridge_state() -> Dictionary:
@@ -3345,6 +3391,9 @@ func fw_bridge_state() -> Dictionary:
 		"physics_authoritative": fw_physics_authoritative.duplicate(true),
 		"physics_adapter": fw_physics_adapter.duplicate(true),
 		"physics_display": fw_physics_display.duplicate(true),
+		"sensor_shadow": fw_sensor_shadow.duplicate(true),
+		"sensor_shadow_ready": fw_sensor_shadow_ready,
+		"sensor_compare": fw_sensor_compare.duplicate(true),
 		"exec_window_s": float(fw_flow.get("exec_window_s", 360.0)),
 		"exec_left": float(fw_flow.get("exec_left", 0.0)),
 		"exec_pct": float(fw_flow.get("exec_pct", 0.0)),

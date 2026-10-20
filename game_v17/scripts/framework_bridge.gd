@@ -20,6 +20,7 @@ const WorldScript := preload("res://framework/core/world.gd")
 const MissionScript := preload("res://framework/core/mission.gd")
 const NavigationScript := preload("res://framework/core/navigation_model.gd")
 const PhysicsScript := preload("res://framework/sim/cislunar_physics.gd")
+const SensorAuthorityScript := preload("res://framework/sim/sensor_authority.gd")
 
 const DEFAULT_SCENARIO := "res://framework/content/scenario_l1_v2.json"
 
@@ -66,6 +67,17 @@ var physics_warnings: Array = []
 const PHYSICS_STEP_S := 60.0
 const MAX_PHYSICS_WARNINGS := 32
 const COMPARE_THRESHOLDS := {"range_km": 5.0, "bearing_deg": 5.0, "position_km": 50.0}
+# —— R5-SENSOR-BRIDGE-1：传感器 shadow（V2SensorAuthority；只读 advisory）——
+var sensor_shadow = null
+var sensor_authority_requested_mode := "shadow"  # V17_SENSOR_AUTHORITY 请求
+var sensor_shadow_mode := "off"                  # shadow / off（authoritative 不实现）
+var sensor_shadow_ready := false
+var sensor_shadow_view_data: Dictionary = {}
+var sensor_shadow_summary_data: Dictionary = {}
+var sensor_shadow_warnings: Array = []
+var sensor_shadow_fallback_reason := ""
+var sensor_compare_last: Dictionary = {}
+const MAX_SENSOR_WARNINGS := 32
 
 # —— 运行时元数据 ——
 var sync_count := 0
@@ -94,6 +106,8 @@ func boot(scenario_path := DEFAULT_SCENARIO) -> bool:
 	# R6-SHADOW-1：CR3BP/RK4 物理 shadow（只读；V17_PHYSICS=off 关闭）
 	_init_physics_shadow()
 	_bind_nav_position_provider()
+	# R5-SENSOR-BRIDGE-1：传感器 shadow（只读 advisory；V17_SENSOR_AUTHORITY=off 关闭）
+	_init_sensor_shadow()
 	ready = ok
 	# V15 自己有 PRELUDE 覆盖层；默认跳过 V2 prelude，避免“执行前冻结”双门控。
 	if ready and OS.get_environment("DSH_V2_PRELUDE") != "1":
@@ -112,6 +126,7 @@ func sync(dt: float) -> void:
 		if nav_ready and nav != null:
 			nav.step(step)
 		_step_physics_shadow(step)
+		_step_sensor_shadow(step)
 	sync_count += 1
 	synced_t = float(world.t)
 	refresh()
@@ -129,6 +144,7 @@ func refresh() -> void:
 	contacts = world.vm_contacts()
 	_refresh_nav()
 	_refresh_physics()
+	_refresh_sensor_shadow()
 	tutorial_ready = bool(tutorial.get("ready", false))
 	exec_window_s = float(world.exec_window_s)
 	exec_left = world.exec_left()
@@ -300,6 +316,13 @@ func bridge_state() -> Dictionary:
 		"physics_fallback_reason": physics_fallback_reason,
 		"physics_authoritative": physics_authoritative_view_data.duplicate(true),
 		"physics_adapter": physics_adapter_last.duplicate(true),
+		"sensor_shadow": sensor_shadow_view_data.duplicate(true),
+		"sensor_shadow_summary": sensor_shadow_summary_data.duplicate(true),
+		"sensor_shadow_ready": sensor_shadow_ready,
+		"sensor_shadow_mode": sensor_shadow_mode,
+		"sensor_authority_requested_mode": sensor_authority_requested_mode,
+		"sensor_shadow_fallback_reason": sensor_shadow_fallback_reason,
+		"sensor_compare": sensor_compare_last.duplicate(true),
 		"exec_window_s": exec_window_s,
 		"exec_left": exec_left,
 		"exec_pct": exec_pct,
@@ -531,6 +554,7 @@ func restart() -> Dictionary:
 		nav.reset()
 	_init_physics_shadow()
 	_bind_nav_position_provider()
+	_init_sensor_shadow()
 	refresh()
 	return r
 
@@ -1148,3 +1172,135 @@ func _variant_vec3(value: Variant, fallback: Vector3) -> Vector3:
 			if d.has(k):
 				return _variant_vec3(d.get(k), fallback)
 	return fallback
+
+# ═══════════════════════════════════════════════════════════════════
+# R5-SENSOR-BRIDGE-1：传感器 shadow 接入（只读 advisory；不写 TrackTable/V15）
+#   - V2SensorAuthority 从 world/entity snapshot 喂 step；V17_SENSOR_AUTHORITY=shadow|off；
+#     authoritative 不实现（传入也只 shadow 并记录 reason，不伪称）；
+#   - sensor_shadow_view()/sensor_shadow_summary()/sensor_compare(legacy_tracks)；
+#   - dt=0（暂停）不推进；初始化失败不阻塞 bridge；不接 HUD/plot。
+# ═══════════════════════════════════════════════════════════════════
+
+func _init_sensor_shadow() -> void:
+	sensor_shadow = null
+	sensor_shadow_ready = false
+	sensor_shadow_view_data = {}
+	sensor_shadow_summary_data = {}
+	sensor_shadow_warnings.clear()
+	sensor_compare_last = {}
+	sensor_shadow_fallback_reason = ""
+	var env := OS.get_environment("V17_SENSOR_AUTHORITY").to_lower().strip_edges()
+	if env == "off":
+		sensor_authority_requested_mode = "off"
+		sensor_shadow_mode = "off"
+		return
+	if env == "authoritative" or env == "auth" or env == "v2":
+		sensor_authority_requested_mode = "authoritative"
+		sensor_shadow_fallback_reason = "authoritative 未实现：保持 shadow advisory（不伪称 authoritative）"
+	else:
+		sensor_authority_requested_mode = "shadow"
+	sensor_shadow_mode = "shadow"
+	if sensor_shadow_fallback_reason != "":
+		_note_sensor_warning(sensor_shadow_fallback_reason)
+	sensor_shadow = SensorAuthorityScript.new()
+	var cfg := _sensor_shadow_config()
+	var ok: bool = sensor_shadow.setup(cfg)
+	if not ok:
+		sensor_shadow_ready = false
+		_note_sensor_warning("sensor shadow 初始化失败：" + str(sensor_shadow.errors))
+		sensor_shadow = null
+		return
+	sensor_shadow_ready = bool(sensor_shadow.ready)
+	# 首帧 priming：dt=0 初始化一次扫描/观测（不推进时间；之后运行时 dt=0 仍不推进）
+	if sensor_shadow_ready:
+		sensor_shadow.step(0.0, _build_sensor_snapshot())
+	_refresh_sensor_shadow()
+
+## world/entity snapshot（V2 sensor world_snapshot 契约；只读；帧 = V15/V2 L1 局部板）。
+func _build_sensor_snapshot() -> Dictionary:
+	var own_id := String(world.own_id)
+	var observer := SensorAuthorityScript.default_observer(own_id)
+	observer["pos_km"] = [0.0, 0.0, 0.0]
+	observer["vel_kmps"] = [0.0, 0.0, 0.0]
+	observer["mast_deployed"] = true
+	observer["emcon"] = false
+	if world.has_method("vm_damage_full"):
+		var full: Dictionary = world.vm_damage_full()
+		var eff: Dictionary = (full.get("effects", {}) as Dictionary) if full.get("effects") is Dictionary else {}
+		var sens: Dictionary = (eff.get("sensors", {}) as Dictionary) if eff.get("sensors") is Dictionary else {}
+		observer["damage"] = {"sensors": float(sens.get("mult", 1.0)), "comms": 1.0, "propulsion": 1.0}
+	var targets: Array = []
+	for raw in world.vm_contacts():
+		var c: Dictionary = raw
+		if bool(c.get("bearing_only", false)):
+			continue
+		if String(c.get("entity_id", "")) == "" or String(c.get("entity_id", "")) == own_id:
+			continue
+		var rng := float(c.get("range_km", 0.0))
+		if rng <= 0.0:
+			continue
+		targets.append(SensorAuthorityScript.make_target(String(c.get("track_id", c.get("batch", ""))),
+			rng, float(c.get("bearing_deg", 0.0)), {
+				"entity_id": String(c.get("entity_id", "")),
+				"batch": String(c.get("batch", "")),
+				"name": String(c.get("name", "")),
+				"faction": String(c.get("faction", "unknown")),
+				"transponder": "off",
+			}))
+	return SensorAuthorityScript.make_snapshot(float(world.t), observer, targets,
+		{"sun_illum": 1.0, "jamming": 0.0, "shadow": false, "los": true})
+
+func _sensor_shadow_config() -> Dictionary:
+	var own_id := String(world.own_id)
+	return {
+		"observer_id": own_id,
+		"mounts": SensorAuthorityScript.default_mounts(own_id),
+		"snapshot": _build_sensor_snapshot(),
+		"level_tolerance": 0,
+		"range_tolerance_km": 5.0,
+	}
+
+func _refresh_sensor_shadow() -> void:
+	if sensor_shadow_mode != "shadow" or not sensor_shadow_ready or sensor_shadow == null:
+		sensor_shadow_view_data = {}
+		sensor_shadow_summary_data = {}
+		return
+	sensor_shadow_view_data = sensor_shadow.vm_sensor()
+	sensor_shadow_summary_data = sensor_shadow.summary()
+	for raw in sensor_shadow.warnings:
+		_note_sensor_warning(String(raw))
+
+func _step_sensor_shadow(dt: float) -> void:
+	if sensor_shadow_mode != "shadow" or not sensor_shadow_ready or sensor_shadow == null:
+		return
+	if dt <= 0.0:
+		return
+	sensor_shadow.step(dt, _build_sensor_snapshot())
+	_refresh_sensor_shadow()
+
+func _note_sensor_warning(text: String) -> void:
+	if text == "" or sensor_shadow_warnings.has(text):
+		return
+	sensor_shadow_warnings.append(text)
+	while sensor_shadow_warnings.size() > MAX_SENSOR_WARNINGS:
+		sensor_shadow_warnings.pop_front()
+
+## 传感器 shadow 只读 vm（advisory contacts/channels/radar sphere/optical/warnings）。
+func sensor_shadow_view() -> Dictionary:
+	return sensor_shadow_view_data
+
+func sensor_shadow_summary() -> Dictionary:
+	return sensor_shadow_summary_data
+
+## 只读 compare：advisory shadow vs legacy/state tracks（模型 compare；不写任何轨道）。
+func sensor_compare(legacy_tracks) -> Dictionary:
+	if sensor_shadow_mode != "shadow" or not sensor_shadow_ready or sensor_shadow == null:
+		var fail := {"ok": false, "reason": "sensor shadow 未就绪",
+			"mode": sensor_shadow_mode, "requested_mode": sensor_authority_requested_mode,
+			"authoritative": false, "read_only": true,
+			"fallback_reason": sensor_shadow_fallback_reason}
+		sensor_compare_last = fail.duplicate(true)
+		return fail
+	var r = sensor_shadow.compare(legacy_tracks)
+	sensor_compare_last = (r as Dictionary).duplicate(true) if r is Dictionary else {}
+	return r if r is Dictionary else {}

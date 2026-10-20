@@ -259,3 +259,23 @@ moon_port 到月≈1,737.4、lunar_leo 绕月≈1,837.4 km；off 时 l1 回退 a
 - 边界：V15 board（L1 局部差）与 physics board（earth_rot 差）坐标系未统一，compare 的
   bearing/位置误差含旋转差异，range 可直接比；thresholds 仅供切换评估。详见
   `game_v17/docs/v17_physics_authoritative.md`；测试 `tests/v17_physics_authoritative_probe.gd`（154/0）。
+## 15　传感器 shadow 字段（R5-SENSOR-BRIDGE-1）
+
+模型 `framework/sim/sensor_authority.gd`（`V2SensorAuthority`）以 **shadow advisory only** 接入：
+不写 TrackTable/V15、不接 HUD/plot；`V17_SENSOR_AUTHORITY=shadow|off`（默认 shadow），
+`authoritative` 请求不实现（仍 shadow + `sensor_shadow_fallback_reason` 明示）。
+
+| 位置 | 字段 / API | 说明 |
+| --- | --- | --- |
+| bridge | `sensor_shadow_mode` / `sensor_authority_requested_mode` / `sensor_shadow_ready` / `sensor_shadow_fallback_reason` | 有效/请求/就绪/回落说明 |
+| bridge | `sensor_shadow_view()` | `vm_sensor()`：schema/mode/authoritative=false/ready/t/observer/mounts/radar(sphere/exposure)/channels/advisory_contacts/advisory_observations/optical_summary/warnings/writes{track_table:false,v15:false}/counts |
+| bridge | `sensor_shadow_summary()` | mode/ready/t/observer/mounts/contacts/observations/channels/warnings/radar_active + writes=false |
+| bridge | `sensor_compare(legacy_tracks)` | 只读 compare：advisory/legacy/matched/only_*/diffs[{level_delta,identity_diff,range/bearing delta}]+summary{level_equal,advisory_higher/lower,only_*,avg deltas,level_gate_pass,within_tolerance}+tolerances+READ-ONLY warnings |
+| bridge | `bridge_state()` | 增 `sensor_shadow/sensor_shadow_summary/sensor_shadow_ready/sensor_shadow_mode/sensor_authority_requested_mode/sensor_shadow_fallback_reason/sensor_compare` |
+| state | `fw_sensor_shadow` / `fw_sensor_shadow_ready` / `fw_sensor_compare` | 只读快照；`fw_sync` 刷新；compare 用 state.tracks（只读）；off/未就绪为空；旧字段不变 |
+| state | `fw_sensor_shadow_view()` / `fw_sensor_compare_view()` | getter |
+
+snapshot 由 bridge 构造：observer=harmattan（L1 板原点，damage.sensors 取完整损管 effects.mult）；
+targets 取 `world.vm_contacts()` 中非 bearing-only、range>0、有 entity_id 的行（make_target range/bearing）。
+boot 做一次 `step(0.0)` priming（不推进时间）使 advisory 立即可读；运行时 `dt=0` 不推进。
+详见 `game_v17/docs/v17_sensor_shadow.md`；最小 probe `tests/v17_sensor_shadow_probe.gd`（105/0）。
