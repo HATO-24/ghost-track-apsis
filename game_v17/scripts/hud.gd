@@ -3070,6 +3070,15 @@ func _dock_select_port() -> void:
 func _dock_call(method: String, label: String) -> void:
 	# state 暴露 select/update/hold/resume/abort/reset；undock 目前只在模型/bridge 实例上。
 	if method == "fw_docking_undock":
+		if state != null and state.has_method("fw_docking_undock"):
+			var ur0 = state.call("fw_docking_undock", "hud_undock")
+			if ur0 is Dictionary and bool((ur0 as Dictionary).get("ok", false)):
+				_docking_note = "UNDOCK · state=%s" % String((ur0 as Dictionary).get("state", ""))
+			else:
+				_docking_note = "UNDOCK: " + String((ur0 as Dictionary).get("reason", "失败")) if ur0 is Dictionary else "UNDOCK 失败"
+			_refresh_fw()
+			queue_redraw()
+			return
 		var fw = state.get("framework") if state != null else null
 		var dock = fw.get("docking") if fw != null else null
 		if dock != null and dock.has_method("undock"):
