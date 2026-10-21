@@ -68,6 +68,8 @@ func _ready() -> void:
 	var view := OS.get_environment("DSH_MAIN_MENU_VIEW")
 	if view in ["load", "settings", "quit"]:
 		_overlay = view
+	if OS.get_environment("DSH_SETTINGS_TEST") == "1":
+		call_deferred("_settings_test")
 	set_process(true)
 	if _shot_path != "":
 		get_window().size = _target_size
@@ -94,6 +96,19 @@ func _refresh_slots() -> void:
 			if slot in ["save", "menu", "autosave"] and (_latest.is_empty() or upd > float((_latest.get("metadata", {}) as Dictionary).get("updated_at", 0.0))):
 				_latest = row.duplicate(true)
 		_slots.append(row)
+
+
+func _settings_test() -> void:
+	if _settings_svc == null or not bool(_settings_svc.ready):
+		print("[MAIN MENU] SETTINGS TEST NOT READY ", _settings_source)
+		return
+	_settings["master"] = 0.55
+	_push_settings_to_service()
+	var sr: Dictionary = _settings_svc.save()
+	var ar: Dictionary = _settings_svc.apply_audio()
+	print("[MAIN MENU] SETTINGS TEST ready=", _settings_svc.ready, " save=", str(sr.get("ok", false)), " path=", String(_settings_svc.path), " apply_audio=", str(ar.get("ok", false)), " master=", _settings_svc.get_setting("master_volume", null))
+	_settings_msg = "TEST · SettingsService save=" + str(bool(sr.get("ok", false))) + " · " + String(_settings_svc.path)
+	queue_redraw()
 
 
 func _draw() -> void:
@@ -134,7 +149,7 @@ func _draw() -> void:
 		elif k == "LOAD":
 			sub = "SLOTS save/menu/quit/autosave"
 		elif k == "SETTINGS":
-			sub = "占位 · 未接设置"
+			sub = "语言 / 音量 / 字幕 / 显示"
 		var col := P.PH if enabled else P.FAINT
 		draw_rect(br, P.a(P.PANEL2, 0.55 if enabled else 0.20))
 		draw_rect(br, P.a(col, 0.70 if enabled else 0.20), false, 1.0)
@@ -339,7 +354,7 @@ func _draw_overlay(w: float, h: float) -> void:
 		Painter.button(self, cl, "CLOSE", true, P.PH_DIM)
 	elif _overlay == "settings":
 		Painter.label(self, x, y, "SETTINGS / 设置", 15, P.PH)
-		Painter.label(self, x, y + 16, _settings_source + " · user://settings_v1.json", 7, P.a(P.AMBER, 0.9), true)
+		Painter.label(self, x, y + 16, _settings_source, 7, P.a(P.AMBER, 0.9), true)
 		_settings_rows.clear()
 		var col_w2 := (r.size.x - 44.0 - 20.0) * 0.5
 		var sx := x
