@@ -26,6 +26,8 @@ var sensor_rings: Array = []
 var sensor_tws: Array = []
 var sensor_obs: Array = []
 var sensor_ew: Dictionary = {}
+var fire_control: Dictionary = {}
+var commands: Dictionary = {}
 var focus := Vector3.ZERO
 var _focus_target := Vector3.ZERO
 var label_conflicts := 0
@@ -82,6 +84,10 @@ func setup(binder) -> void:
 				sensor_tws = (sensors.get("tws", []) as Array).duplicate(true)
 				sensor_obs = (sensors.get("observations", []) as Array).duplicate(true)
 				sensor_ew = (sensors.get("ew", {}) as Dictionary).duplicate(true) if sensors.get("ew", {}) is Dictionary else {}
+			if binder.has_method("plot_fire_control"):
+				fire_control = binder.plot_fire_control().duplicate(true)
+			if binder.has_method("plot_commands"):
+				commands = binder.plot_commands().duplicate(true)
 			_load_json_arrays()
 			contacts = binder.contacts.duplicate(true) if binder.contacts is Array else []
 			_bounds_cic()
@@ -476,6 +482,7 @@ func _draw_cic(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> 
 	_draw_stars(canvas, rect)
 	_draw_orbit_grid(canvas, rect)
 	_draw_sensor_layer(canvas, rect)
+	_draw_fire_control(canvas, rect, selected_id)
 	# 选中目标：相机 focus 平滑趋近（L2+ 用 estimate；L1 仅 ownship 方位，不读位置）
 	_focus_target = Vector3.ZERO
 	for raw_focus in cic_tracks:
@@ -600,6 +607,132 @@ func _draw_orbit_grid(canvas: CanvasItem, rect: Rect2) -> void:
 		var bc := _project(_unit(_rel_own(bp)), rect)
 		_draw_ellipse(canvas, bc, 28.0, 8.0, P.a(P.PH if bk == "earth" else P.PH_DIM, 0.18))
 		_draw_ellipse(canvas, bc, 8.0, 28.0, P.a(P.PH_DIM, 0.12))
+
+
+func _draw_fire_control(canvas: CanvasItem, rect: Rect2, selected_id: String) -> void:
+	if not bool(fire_control.get("ready", false)):
+		canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.position.y + 48), "FIRE CONTROL NOT READY", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.AMBER, 0.9))
+		return
+	var own := _project(_unit(own_cic), rect)
+	# 武器包线（真实 weapons.range）
+	for raw in (fire_control.get("weapons", []) as Array):
+		if not (raw is Dictionary):
+			continue
+		var w: Dictionary = raw
+		var rng := float(w.get("range_km", 0.0))
+		if rng <= 0.0:
+			continue
+		var edge := _project(_unit(own_cic) + Vector3(rng, 0.0, 0.0) / span * 2.0, rect)
+		var rr := own.distance_to(edge)
+		if rr > minf(rect.size.x, rect.size.y) * 0.65:
+			continue
+		rr = maxf(rr, 10.0)
+		var wkind := String(w.get("kind", ""))
+		var col: Color = P.AMBER if wkind in ["kinetic", "guided"] else P.PH_DIM
+		_draw_dashed_arc(canvas, own, rr, P.a(col, 0.24))
+		canvas.draw_string(F.mono(), own + Vector2(6, rr - 4), String(w.get("label", w.get("id", ""))) + " " + ("%.0f km" % rng), HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(col, 0.55))
+	# 选中目标交战线（只用 CIC estimate，不读 truth）
+	var sel_est: Array = []
+	for raw2 in cic_tracks:
+		if raw2 is Dictionary and String((raw2 as Dictionary).get("id", "")) == selected_id:
+			var e: Array = (raw2 as Dictionary).get("estimate_km", []) if (raw2 as Dictionary).get("estimate_km", []) is Array else []
+			if e.size() >= 3:
+				sel_est = e
+			break
+	if sel_est.is_empty():
+		var ft := String(fire_control.get("selected_target", ""))
+		for raw3 in cic_tracks:
+			if raw3 is Dictionary and String((raw3 as Dictionary).get("id", "")) == ft:
+				var e2: Array = (raw3 as Dictionary).get("estimate_km", []) if (raw3 as Dictionary).get("estimate_km", []) is Array else []
+				if e2.size() >= 3:
+					sel_est = e2
+				break
+	if not sel_est.is_empty():
+		var tp := _project(_unit(_rel_own(sel_est)), rect)
+		var ready := false
+		var computing := false
+		var quality := float(fire_control.get("prediction", {}).get("hit_probability", 0.0)) if fire_control.get("prediction", {}) is Dictionary else 0.0
+		var err_km := float(fire_control.get("prediction", {}).get("error_km", -1.0)) if fire_control.get("prediction", {}) is Dictionary else -1.0
+		var tof := float(fire_control.get("prediction", {}).get("time_of_flight_s", -1.0)) if fire_control.get("prediction", {}) is Dictionary else -1.0
+		for raws in (fire_control.get("solutions", []) as Array):
+			if raws is Dictionary and String((raws as Dictionary).get("target_id", "")) == String(fire_control.get("selected_target", "")):
+				var st := String((raws as Dictionary).get("status", ""))
+				ready = st == "READY"
+				computing = st == "COMPUTING"
+				quality = float((raws as Dictionary).get("quality", quality))
+				err_km = float((raws as Dictionary).get("error_km", err_km))
+		var line_col: Color = P.AMBER if ready else (P.PH_DIM if computing else P.a(P.PH_DIM, 0.55))
+		if ready or computing:
+			canvas.draw_line(own, tp, P.a(line_col, 0.85), 1.0)
+		else:
+			_draw_dashed_line(canvas, own, tp, P.a(line_col, 0.40), 5.0)
+		canvas.draw_rect(Rect2(tp - Vector2(10, 10), Vector2(20, 20)), P.a(line_col, 0.8), false, 1.0)
+		_queue_label(tp + Vector2(12, -10), "FC %s · Q %.2f · err %.2f km · TOF %.1fs" % ["READY" if ready else ("COMPUTING" if computing else "NO SOLUTION"), quality, err_km, tof], line_col, 6, 3, "fire")
+	# ROE / 授权 / incoming 角标
+	var auth: Dictionary = fire_control.get("authorization", {}) if fire_control.get("authorization", {}) is Dictionary else {}
+	var auth_ok := bool(auth.get("ok", auth.get("allowed", false)))
+	var roe := String(fire_control.get("roe", "—"))
+	var tag := "ROE " + roe + " · AUTH " + ("OK" if auth_ok else "NO-FIRE")
+	var tw := TM.width(tag, true, 6) + 12.0
+	var tr := Rect2(rect.position.x + 10.0, rect.position.y + 42.0, tw, 13.0)
+	canvas.draw_rect(tr, P.a(P.PANEL, 0.85))
+	canvas.draw_rect(tr, P.a(P.PH if auth_ok else P.RED, 0.55), false, 1.0)
+	canvas.draw_string(F.mono(), tr.position + Vector2(6, 10), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.PH if auth_ok else P.RED, 0.9))
+	var incoming: Array = fire_control.get("incoming", []) if fire_control.get("incoming", []) is Array else []
+	if not incoming.is_empty():
+		var inc_tag := "INCOMING ×%d" % incoming.size()
+		var ir := Rect2(rect.end.x - 132.0, rect.position.y + 42.0, 122.0, 14.0)
+		canvas.draw_rect(ir, P.a(P.RED, 0.18))
+		canvas.draw_rect(ir, P.a(P.RED, 0.8), false, 1.0)
+		canvas.draw_string(F.mono(), ir.position + Vector2(6, 10), inc_tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.RED)
+		canvas.draw_arc(own, 20.0, 0, TAU, 32, P.a(P.RED, 0.55), 1.0, true)
+	# 命令节点（点火/阵位）与幽灵线
+	for rawc in (commands.get("nodes", []) as Array):
+		if not (rawc is Dictionary):
+			continue
+		var node: Dictionary = rawc
+		var act := String(node.get("action", ""))
+		var np: Array = node.get("pos_km", []) if node.get("pos_km", []) is Array else []
+		if np.size() < 3:
+			continue
+		var nc := _project(_unit(np), rect)
+		if not rect.has_point(nc):
+			continue
+		_draw_dashed_line(canvas, own, nc, P.a(P.PH_DIM, 0.30), 6.0)
+		if act == "BURN":
+			canvas.draw_line(nc + Vector2(-7, 0), nc + Vector2(7, 0), P.a(P.AMBER, 0.8), 1.0)
+			canvas.draw_line(nc + Vector2(0, -7), nc + Vector2(0, 7), P.a(P.AMBER, 0.8), 1.0)
+			canvas.draw_line(nc + Vector2(-4, -4), nc + Vector2(4, 4), P.a(P.AMBER, 0.7), 1.0)
+			canvas.draw_line(nc + Vector2(-4, 4), nc + Vector2(4, -4), P.a(P.AMBER, 0.7), 1.0)
+		else:
+			canvas.draw_rect(Rect2(nc - Vector2(5, 5), Vector2(10, 10)), P.a(P.PH_DIM, 0.8), false, 1.0)
+		canvas.draw_string(F.mono(), nc + Vector2(9, -8), "CMD " + act, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.AMBER, 0.9))
+		_queue_label(nc + Vector2(9, 2), String(node.get("status", "")) + " · exec " + ("—" if float(node.get("exec_t", -1.0)) < 0.0 else ("T+%.0fs" % float(node.get("exec_t", 0.0)))), P.PH_DIM, 6, 1, "command")
+	var node_count := (commands.get("nodes", []) as Array).size()
+	var cmd_tag := "CMD NODES %d · PEND %d · TX %d" % [node_count, int(commands.get("pending", 0)), int(commands.get("transmitted", 0))]
+	var cw := TM.width(cmd_tag, true, 6) + 12.0
+	var cr := Rect2(rect.position.x + 10.0, rect.position.y + 58.0, cw, 13.0)
+	canvas.draw_rect(cr, P.a(P.PANEL, 0.85))
+	canvas.draw_rect(cr, P.a(P.AMBER if node_count > 0 else P.PH_DIM, 0.55), false, 1.0)
+	canvas.draw_string(F.mono(), cr.position + Vector2(6, 10), cmd_tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.AMBER if node_count > 0 else P.PH_DIM, 0.9))
+	if node_count == 0:
+		canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.position.y + 72), "COMMAND PLAN EMPTY", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.8))
+
+
+func _draw_dashed_line(canvas: CanvasItem, a: Vector2, b: Vector2, col: Color, dash := 5.0) -> void:
+	var d := a.distance_to(b)
+	if d < 2.0:
+		return
+	var n := maxi(1, int(d / dash))
+	for i in range(n):
+		if i % 2 == 0:
+			canvas.draw_line(a.lerp(b, float(i) / float(n)), a.lerp(b, float(i + 1) / float(n)), col, 1.0)
+
+
+func _draw_dashed_arc(canvas: CanvasItem, c: Vector2, r: float, col: Color) -> void:
+	for i in range(18):
+		if i % 2 == 0:
+			canvas.draw_arc(c, r, TAU * float(i) / 18.0, TAU * float(i + 1) / 18.0, 8, col, 1.0, true)
 
 
 func _draw_sensor_layer(canvas: CanvasItem, rect: Rect2) -> void:

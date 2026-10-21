@@ -1020,3 +1020,37 @@ v1_hud.gd
 2. 当前 live TWS tracks=2（均 L2 unknown）；L1=0，stale 行无样例；ELINT ring 从真实配置读取。
 3. EW effects 当前 0；角标仅显示服务状态，不伪造干扰。
 4. 火控/命令计划界面仍在下一批；不写 world/物理；未跑全量 regression。
+
+
+---
+
+## 35　方案B-30：火控/命令计划层（task-202）
+
+### 35.1 数据（只读）
+
+- `plot_fire_control()`：CombatService vm（roe/weapons/tracks/solutions/grants/incoming/counts）；选中 target+weapon 的 `predict_shot`（只读几何/概率，不请求 solution）、`check_authorization`（只读）。
+- `plot_commands()`：OrderService vm orders/pending/status；节点含 order_id/action/status/target_id/pos_km/exec_t/params；target pos 来自 plot_positions physics；无 orders 空。
+- headless：`plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=2 solutions=0 grants=0 incoming=0 pred=true`；`plot_commands ready=true orders=1 pending=1 transmitted=0 executed=0`。
+- **未执行 fire/authorize；不请求新 solution。**
+
+### 35.2 绘制
+
+- 武器包线：真实 weapons `range_km` 的虚线圆（kinetic/guided 琥珀，pd 等 PH_DIM）；标签 label+km。
+- 选中目标交战线：READY 实线 / COMPUTING 虚线 / 无 solution 预测虚线；label `FC READY/COMPUTING/NO SOLUTION · Q · err km · TOF s`。
+- ROE/授权角标：`ROE WPN TIGHT · AUTH OK/NO-FIRE`；NO-FIRE 红色。
+- incoming：`INCOMING ×N` 红角标 + own 红圈；当前 0。
+- 命令节点：BURN 十字点火节点；HOLD/STATION 方框阵位；幽灵虚线；标签 `CMD action / status / exec`；`CMD NODES n · PEND n · TX n` 角标。
+- 标签避让沿用 selected>ships>facilities>命令低优先级。
+
+### 35.3 截图 / 验证
+
+- `mockups/v1-hud-firecontrol-1920.png`
+- `mockups/v1-hud-firecontrol-1600.png`
+- 均 SHOT err=0；headless v1_hud 一次；`v1_hud.gd/shell_binder.gd/plot3d.gd --check-only` 通过。
+
+### 35.4 未完成 / 边界
+
+1. 当前 live **solutions=0**（未请求新 solution）；画面显示只读 prediction + `NO SOLUTION`，不是 READY/COMPUTING 样例。
+2. 当前 orders=1（HOLD pending）；无 BURN 点火节点样例；无 incoming；AUTH=NO-FIRE（ROE TIGHT + 未授权）。
+3. 修复 v1_hud 初始化顺序：CombatService 先建再 `_seed_combat_tracks()`（之前 tracks=0）。
+4. 火控为解算层、命令为计划层；不执行 fire/authorize；下一批子界面统一/相机打磨；不写 world/物理；未跑全量 regression。

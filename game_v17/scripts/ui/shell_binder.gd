@@ -756,6 +756,86 @@ func traffic_clues(track_id := "") -> Array:
 	return traffic_service.clues_for(track_id) if traffic_service != null else []
 
 
+func plot_fire_control() -> Dictionary:
+	var out: Dictionary = {"ready": false, "roe": "—", "weapons": [], "tracks": [], "solutions": [], "grants": [],
+		"incoming": [], "counts": {}, "selected_target": "", "selected_weapon": "", "prediction": {}, "authorization": {},
+		"source": "COMBAT NOT READY"}
+	var cs = session.combat_service if session != null else null
+	if cs == null:
+		return out
+	var vm: Dictionary = cs.vm()
+	out["ready"] = bool(vm.get("ready", false))
+	out["roe"] = String(vm.get("roe_label_en", vm.get("roe", "—")))
+	out["weapons"] = (vm.get("weapons", []) as Array).duplicate(true) if vm.get("weapons", []) is Array else []
+	out["tracks"] = (vm.get("tracks", []) as Array).duplicate(true) if vm.get("tracks", []) is Array else []
+	out["solutions"] = (vm.get("solutions", []) as Array).duplicate(true) if vm.get("solutions", []) is Array else []
+	out["grants"] = (vm.get("grants", []) as Array).duplicate(true) if vm.get("grants", []) is Array else []
+	out["incoming"] = (vm.get("incoming", []) as Array).duplicate(true) if vm.get("incoming", []) is Array else []
+	out["counts"] = (vm.get("counts", {}) as Dictionary).duplicate(true) if vm.get("counts", {}) is Dictionary else {}
+	var target := ""
+	for raw in out["tracks"]:
+		if raw is Dictionary and not bool((raw as Dictionary).get("destroyed", false)):
+			target = String((raw as Dictionary).get("id", ""))
+			break
+	var weapon := ""
+	for raw2 in out["weapons"]:
+		if raw2 is Dictionary and String((raw2 as Dictionary).get("kind", "")) in ["kinetic", "guided"]:
+			weapon = String((raw2 as Dictionary).get("id", ""))
+			break
+	out["selected_target"] = target
+	out["selected_weapon"] = weapon
+	if target != "" and weapon != "":
+		out["prediction"] = cs.predict_shot(target, weapon)
+		out["authorization"] = cs.check_authorization("FIRE", target, weapon)
+	out["source"] = "COMBAT SERVICE / TRACK VM / WEAPONS"
+	print("[SHELL BINDER] plot_fire_control ready=", out["ready"], " roe=", out["roe"], " weapons=", (out["weapons"] as Array).size(), " tracks=", (out["tracks"] as Array).size(), " solutions=", (out["solutions"] as Array).size(), " grants=", (out["grants"] as Array).size(), " incoming=", (out["incoming"] as Array).size(), " pred=", str(out["prediction"].get("ok", false)))
+	return out
+
+
+func plot_commands() -> Dictionary:
+	var out: Dictionary = {"ready": false, "orders": [], "pending": 0, "transmitted": 0, "nodes": [], "source": "ORDERS NOT READY"}
+	if session == null or session.orders == null:
+		return out
+	var vm: Dictionary = session.orders.vm()
+	out["ready"] = bool(vm.get("ready", false))
+	var orders: Array = (vm.get("orders", []) as Array).duplicate(true) if vm.get("orders", []) is Array else []
+	out["orders"] = orders
+	out["pending"] = (vm.get("pending_orders", []) as Array).size() if vm.get("pending_orders", []) is Array else 0
+	var transmitted := 0
+	var executed := 0
+	var nodes: Array = []
+	# CIC/physics target positions（仅已知/估计，不读 truth）
+	var pos_rows: Dictionary = {}
+	var pp: Dictionary = plot_positions()
+	for rawp in (pp.get("positions", []) as Array):
+		if rawp is Dictionary:
+			pos_rows[String((rawp as Dictionary).get("id", ""))] = (rawp as Dictionary).get("pos_km", [])
+	for raw in orders:
+		if not (raw is Dictionary):
+			continue
+		var o: Dictionary = raw
+		var st := String(o.get("status", ""))
+		if st in ["DELIVERED", "PENDING_EFFECT", "AUTHORIZED", "EXECUTING", "COMPLETE", "COMPLETED"]:
+			transmitted += 1
+		if st in ["EXECUTING", "COMPLETE", "COMPLETED"]:
+			executed += 1
+		var action := String(o.get("action", ""))
+		var tids: Array = o.get("target_ids", []) if o.get("target_ids", []) is Array else []
+		var tpos: Array = []
+		if not tids.is_empty():
+			tpos = pos_rows.get(String(tids[0]), [])
+		nodes.append({"order_id": String(o.get("order_id", "")), "action": action, "status": st,
+			"target_id": String(tids[0]) if not tids.is_empty() else "", "pos_km": tpos,
+			"exec_t": float(o.get("exec_t", -1.0)), "fired": false,
+			"params": (o.get("params", {}) as Dictionary).duplicate(true) if o.get("params", {}) is Dictionary else {}})
+	out["nodes"] = nodes
+	out["transmitted"] = transmitted
+	out["executed"] = executed
+	out["source"] = "ORDER SERVICE / COMMS"
+	print("[SHELL BINDER] plot_commands ready=", out["ready"], " orders=", orders.size(), " pending=", out["pending"], " transmitted=", transmitted, " executed=", executed)
+	return out
+
+
 func plot_sensors() -> Dictionary:
 	var out: Dictionary = {"ready": false, "rings": [], "observations": [], "tws": [], "ew": {}, "emcon": false, "radar_enabled": false, "source": "SENSOR NOT READY"}
 	if session == null or session.sensor_service == null:

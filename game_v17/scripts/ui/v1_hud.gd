@@ -195,13 +195,13 @@ func _load_data() -> void:
 	if binder != null and binder.contacts.size() > 0:
 		_comms_target = String((_contacts[_selected] as Dictionary).get("entity_id", (_contacts[_selected] as Dictionary).get("id", "")))
 	_seed_comms_sample()
-	_seed_combat_tracks()
 	# CombatService（ROE 四档）与 DamageModel（损管页）为会话外挂的 shadow 组件；
 	# GameSession 当前未内置 damage_vm；损管明确标注 MODEL，不伪造。
 	_combat = CombatService.new({})
 	if _combat != null and bool(_combat.ready) and binder.session != null:
 		binder.session.combat_service = _combat
 		_combat.t = float(binder.session.now_s())
+	_seed_combat_tracks()
 	_roe_locked = String(binder.story_vm.get("phase", "prelude")) == "prelude"
 	if OS.get_environment("DSH_V1_ROE_UNLOCK") == "1":
 		_roe_locked = false
