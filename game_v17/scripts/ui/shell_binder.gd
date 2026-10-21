@@ -125,6 +125,7 @@ func boot() -> bool:
 			seed["orders"] = [
 				{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
 			]
+			seed["physics_world"] = true
 			used_prelude = true
 			prelude_title = String(prelude.content.get("title", "序章"))
 			prelude_triggers = prelude.triggers.duplicate(true)
@@ -208,6 +209,9 @@ func boot() -> bool:
 	# 先推进一小步让 SensorService→TrackTable 产生真实 L1-L2 观测；失败仍显式 NOT READY。
 	if session.sensor_service != null:
 		session.tick(0.1)
+	var _pp: Dictionary = plot_positions()
+	var _pf: Dictionary = plot_facilities()
+	print("[SHELL BINDER] physics ready=", physics_world_ready(), " plot_source=", String(_pp.get("source", "")), " positions=", (_pp.get("positions", []) as Array).size(), " facilities=", (_pf.get("facilities", []) as Array).size(), " facility_source=", String(_pf.get("source", "")))
 	refresh()
 	ready = errors.is_empty()
 	return ready
@@ -743,6 +747,81 @@ func traffic_disguise(track_id: String, disguise: Dictionary, opts := {}) -> Dic
 
 func traffic_clues(track_id := "") -> Array:
 	return traffic_service.clues_for(track_id) if traffic_service != null else []
+
+
+func physics_world_ready() -> bool:
+	return session != null and session.physics_world_service != null and bool(session.physics_world_service.ready)
+
+
+func plot_positions() -> Dictionary:
+	var out: Dictionary = {"source": "contacts", "reference": "apsis", "positions": [], "reference_pos": [0.0, 0.0, 0.0]}
+	var ref: Array = [0.0, 0.0, 0.0]
+	var physics := physics_world_ready()
+	if physics:
+		var states: Dictionary = session.physics_positions("bary_rot")
+		if states.has("apsis"):
+			var a: Dictionary = states["apsis"]
+			if a.get("r", []) is Array and (a.get("r", []) as Array).size() >= 3:
+				ref = (a.get("r", []) as Array).duplicate()
+		for id in states.keys():
+			var st: Dictionary = states[id]
+			var r: Array = st.get("r", []) if st.get("r", []) is Array else []
+			var v: Array = st.get("v", []) if st.get("v", []) is Array else []
+			if r.size() >= 3:
+				out["positions"].append({"id": String(id), "pos_km": [float(r[0]) - float(ref[0]), float(r[1]) - float(ref[1]), float(r[2]) - float(ref[2])], "vel_kmps": v.duplicate() if v is Array else []})
+		out["source"] = "physics"
+		out["reference"] = "apsis"
+		out["reference_pos"] = ref
+		return out
+	# fallback contacts/session entities（相对 apsis）
+	var ents: Dictionary = {}
+	var snap: Dictionary = snapshot if snapshot is Dictionary else {}
+	for raw in (snap.get("entities", []) if snap.get("entities", []) is Array else []):
+		if raw is Dictionary:
+			var e: Dictionary = raw
+			var p: Array = e.get("pos_km", []) if e.get("pos_km", []) is Array else []
+			if p.size() >= 3:
+				ents[String(e.get("id", ""))] = p
+	if ents.has("apsis"):
+		ref = (ents["apsis"] as Array).duplicate()
+	for id in ents.keys():
+		var p2: Array = ents[id]
+		out["positions"].append({"id": String(id), "pos_km": [float(p2[0]) - float(ref[0]), float(p2[1]) - float(ref[1]), float(p2[2]) - float(ref[2])], "vel_kmps": []})
+	out["source"] = "contacts"
+	out["reference_pos"] = ref
+	return out
+
+
+func plot_facilities() -> Dictionary:
+	var out: Dictionary = {"source": "none", "facilities": [], "reference_pos": [0.0, 0.0, 0.0]}
+	if session == null or session.facility_registry == null:
+		return out
+	var ref: Array = [0.0, 0.0, 0.0]
+	if physics_world_ready():
+		var a: Dictionary = session.physics_state("apsis", "bary_rot")
+		if a.get("r", []) is Array and (a.get("r", []) as Array).size() >= 3:
+			ref = (a.get("r", []) as Array).duplicate()
+	var list: Array = []
+	for raw in session.facility_registry.facilities:
+		if not (raw is Dictionary):
+			continue
+		var f: Dictionary = raw
+		if String(f.get("parent_cluster", "")) != "L1_MERIDIAN":
+			continue
+		var phys: Dictionary = f.get("physical", {}) if f.get("physical", {}) is Dictionary else {}
+		var orb: Dictionary = phys.get("orbit", {}) if phys.get("orbit", {}) is Dictionary else {}
+		var pos: Array = orb.get("position_km", []) if orb.get("position_km", []) is Array else []
+		if pos.size() < 3:
+			continue
+		list.append({"facility_id": String(f.get("facility_id", "")), "name": String(f.get("name", "")),
+			"facility_class": String(f.get("facility_class", "")), "facility_code": String(f.get("facility_code", "")),
+			"transponder_code": String(f.get("transponder_code", "")),
+			"pos_km": [float(pos[0]) - float(ref[0]), float(pos[1]) - float(ref[1]), float(pos[2]) - float(ref[2])]})
+	list.sort_custom(func(a, b): return String(a.get("facility_id", "")) < String(b.get("facility_id", "")))
+	out["facilities"] = list.slice(0, mini(12, list.size()))
+	out["source"] = "facility_registry_l1"
+	out["reference_pos"] = ref
+	return out
 
 
 func report_sync() -> Dictionary:

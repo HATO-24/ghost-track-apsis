@@ -849,3 +849,36 @@ v1_hud.gd
 2. 站体符号来自 binder contacts/session entities；未绘制全部设施注册表站体。
 3. 标签避让为简单碰撞偏移，极端缩放下可能重叠。
 4. 无数据回退旧简易线；未跑全量 regression。
+
+
+---
+
+## 30　方案B-25：3D 战术图接 PhysicsWorld（task-193）
+
+### 30.1 physics boot / 数据源
+
+- ShellBinder boot 的 Prelude 与 fallback 两个 seed 分支均增加 `physics_world: true`。
+- 实测：`physics ready=true plot_source=physics positions=9 facilities=12 facility_source=facility_registry_l1`。
+- `plot_positions()`：取 `session.physics_positions("bary_rot")`，以 apsis 为 reference，返回相对 km；physics 缺失回退 contacts/scenario entities（source=contacts）。
+- `plot_facilities()`：从 FacilityRegistry 取 `L1_MERIDIAN` 设施（Chronos/Greenwich/Sextant/Astrolabe/OTC/储罐/加注等最多 12），facility_code/type/pos_km；无数据空。
+
+### 30.2 plot3d
+
+- setup 优先 `binder.plot_positions()` 的 physics source 与 `plot_facilities()`；`source=physics`。
+- `draw_plot` physics 分支：`SOURCE SESSION PHYSICS`、L1 设施符号（station/depot/otc/tank/fuel 分类色）+ facility_code 标签、fleet 物理位置/速度矢量、selected 高亮、flagship/radar ring、相机图例。
+- cache 只在无 physics/positions 时使用；不伪造 physics 数据。
+- 相机仍局部 yaw/pitch/dist/focus，拖拽/滚轮/R；不写 world/session。
+
+### 30.3 截图 / 验证
+
+- `mockups/v1-hud-plot3d-physics-1920.png`
+- `mockups/v1-hud-plot3d-physics-1600.png`
+- 均 SHOT err=0；headless v1_hud 一次；`v1_hud.gd/shell_binder.gd/plot3d.gd --check-only` 通过。
+- 截图可见 source=physics、12 个 L1 设施符号/标签、9 个 physics positions/fleet 标记。
+
+### 30.4 未完成 / 边界
+
+1. physics 位置为 bary_rot 相对旗舰 km；不是轨迹积分显示。
+2. 设施符号来自 registry physical.orbit.position_km，非真实仿真站体。
+3. 设施/舰队标签密集时仍可能重叠（简单避让）；cache fallback 保留。
+4. 不写 world/物理；未跑全量 regression。

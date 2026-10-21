@@ -11,6 +11,9 @@ const TM := preload("res://scripts/ui/text_metrics.gd")
 const TRANSFER_PATH := "res://framework/content/transfer_l4_l1_cached.json"
 const FLEET_PATH := "res://framework/content/transfer_l4_l1_fleet_cached.json"
 
+var source := "cache"
+var physics_rows: Array = []
+var facility_rows: Array = []
 var timeline: Array = []
 var fleet_samples: Array = []
 var contacts: Array = []
@@ -27,11 +30,23 @@ var _frames := 0
 
 
 func setup(binder) -> void:
+	source = "cache"
+	physics_rows = []
+	facility_rows = []
 	timeline = []
 	fleet_samples = []
 	contacts = []
 	entity_pos = {}
-	_load_json_arrays()
+	if binder != null and binder.has_method("plot_positions"):
+		var pp: Dictionary = binder.plot_positions()
+		if String(pp.get("source", "")) == "physics" and not (pp.get("positions", []) as Array).is_empty():
+			source = "physics"
+			physics_rows = (pp.get("positions", []) as Array).duplicate(true)
+			var pf: Dictionary = binder.plot_facilities()
+			facility_rows = (pf.get("facilities", []) as Array).duplicate(true)
+			contacts = binder.contacts.duplicate(true) if binder.contacts is Array else []
+			_bounds_physics()
+			return
 	if binder != null:
 		contacts = binder.contacts.duplicate(true) if binder.contacts is Array else []
 		var snap: Dictionary = binder.snapshot if binder.snapshot is Dictionary else {}
@@ -42,6 +57,33 @@ func setup(binder) -> void:
 				if pos.size() >= 3:
 					entity_pos[String(e.get("id", ""))] = Vector3(float(pos[0]), float(pos[1]), float(pos[2]))
 	_bounds()
+
+
+func _bounds_physics() -> void:
+	var pts: Array = []
+	for row in physics_rows:
+		if row is Dictionary:
+			var p: Array = (row as Dictionary).get("pos_km", [])
+			if p.size() >= 3:
+				pts.append(p)
+	for row in facility_rows:
+		if row is Dictionary:
+			var p2: Array = (row as Dictionary).get("pos_km", [])
+			if p2.size() >= 3:
+				pts.append(p2)
+	if pts.is_empty():
+		center = Vector3.ZERO
+		span = 1.0
+		return
+	var mn := Vector3(1.0e30, 1.0e30, 1.0e30)
+	var mx := Vector3(-1.0e30, -1.0e30, -1.0e30)
+	for raw in pts:
+		var p3: Array = raw
+		var v := Vector3(float(p3[0]), float(p3[1]), float(p3[2]))
+		mn = Vector3(minf(mn.x, v.x), minf(mn.y, v.y), minf(mn.z, v.z))
+		mx = Vector3(maxf(mx.x, v.x), maxf(mx.y, v.y), maxf(mx.z, v.z))
+	center = (mn + mx) * 0.5
+	span = maxf(1.0, maxf(mx.x - mn.x, maxf(mx.y - mn.y, mx.z - mn.z)))
 
 
 func _load_json_arrays() -> void:
@@ -164,6 +206,9 @@ func _label(canvas: CanvasItem, pos: Vector2, text: String, col: Color, size := 
 
 
 func draw_plot(canvas: CanvasItem, rect: Rect2, binder, selected_id := "") -> bool:
+	if source == "physics" and not physics_rows.is_empty():
+		_draw_physics(canvas, rect, binder, selected_id)
+		return true
 	if timeline.is_empty():
 		return false
 	_label_pts.clear()
@@ -260,6 +305,63 @@ func draw_plot(canvas: CanvasItem, rect: Rect2, binder, selected_id := "") -> bo
 	canvas.draw_string(F.mono(), Vector2(rect.end.x - 220, rect.position.y + 16), "YAW %.2f · PITCH %.2f · DIST %.2f" % [yaw, pitch, dist], HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.AMBER, 0.9))
 	canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.end.y - 10), "DRAG ROTATE · WHEEL ZOOM · R RESET · CAMERA LOCAL ONLY", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
 	return true
+
+
+func _draw_physics(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> void:
+	_label_pts.clear()
+	canvas.draw_rect(rect, P.a(P.EARTH, 0.38))
+	canvas.draw_rect(rect, P.a(P.LINE, 0.65), false, 1.0)
+	for i in range(20):
+		var gx := rect.position.x + rect.size.x * float(i) / 20.0
+		canvas.draw_line(Vector2(gx, rect.position.y), Vector2(gx, rect.end.y), P.a(P.LINE, 0.06), 1.0)
+	for j in range(12):
+		var gy := rect.position.y + rect.size.y * float(j) / 12.0
+		canvas.draw_line(Vector2(rect.position.x, gy), Vector2(rect.end.x, gy), P.a(P.LINE, 0.06), 1.0)
+	canvas.draw_string(F.mono(), rect.position + Vector2(10, 16), "V1 PLOT3D · SOURCE SESSION PHYSICS · POSITIONS RELATIVE FLAGSHIP", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.PH, 0.9))
+	canvas.draw_string(F.mono(), Vector2(rect.end.x - 260, rect.position.y + 16), "YAW %.2f · PITCH %.2f · DIST %.2f" % [yaw, pitch, dist], HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.AMBER, 0.9))
+	# facility symbols (L1 registry)
+	var fac_cols := {"station": P.PH, "depot": P.AMBER, "port": P.BLUE, "otc": P.PH_DIM, "tank": P.AMBER, "fuel": P.AMBER, "commercial": P.PH}
+	for i in range(facility_rows.size()):
+		var f: Dictionary = facility_rows[i]
+		var p: Array = f.get("pos_km", [])
+		if p.size() < 3:
+			continue
+		var sp := _project(_unit(p), rect)
+		if sp.x < rect.position.x or sp.x > rect.end.x or sp.y < rect.position.y or sp.y > rect.end.y:
+			continue
+		var cls := String(f.get("facility_class", "station"))
+		var col: Color = fac_cols.get(cls, P.PH_DIM)
+		var sz := 4.0
+		canvas.draw_rect(Rect2(sp - Vector2(sz, sz), Vector2(sz * 2, sz * 2)), P.a(col, 0.7), false, 1.0)
+		canvas.draw_line(sp + Vector2(-sz - 3, 0), sp + Vector2(sz + 3, 0), P.a(col, 0.5), 1.0)
+		canvas.draw_line(sp + Vector2(0, -sz - 3), sp + Vector2(0, sz + 3), P.a(col, 0.5), 1.0)
+		_label(canvas, sp + Vector2(7, -6), String(f.get("name", f.get("facility_id", ""))) + " · " + String(f.get("facility_code", "")), col, 6)
+	# fleet / physics entities
+	for i in range(physics_rows.size()):
+		var row: Dictionary = physics_rows[i]
+		var p2: Array = row.get("pos_km", [])
+		if p2.size() < 3:
+			continue
+		var sp2 := _project(_unit(p2), rect)
+		var sid := String(row.get("id", ""))
+		var sel := sid == selected_id
+		if sp2.x < rect.position.x or sp2.x > rect.end.x or sp2.y < rect.position.y or sp2.y > rect.end.y:
+			continue
+		canvas.draw_circle(sp2, 5.0 if sel else 3.0, P.AMBER if sel else P.PH)
+		canvas.draw_arc(sp2, 9.0 if sel else 6.0, 0, TAU, 24, P.a(P.PH, 0.5), 1.0, true)
+		var vel: Array = row.get("vel_kmps", []) if row.get("vel_kmps", []) is Array else []
+		if vel.size() >= 3:
+			var vv := Vector3(float(vel[0]), float(vel[1]), float(vel[2])) * 900.0
+			var q := _project(_unit(p2) + vv / span * 2.0, rect)
+			canvas.draw_line(sp2, q, P.a(P.PH_DIM, 0.8), 1.0)
+		_label(canvas, sp2 + Vector2(7, -6), sid + " · " + ("%.0f km" % Vector3(float(p2[0]), float(p2[1]), float(p2[2])).length()), P.AMBER if sel else P.PH, 6)
+	# radar ring around flagships / origin
+	var origin := _project(Vector3.ZERO, rect)
+	canvas.draw_arc(origin, 30.0, 0, TAU, 48, P.a(P.AMBER, 0.30), 1.0, true)
+	canvas.draw_arc(origin, 56.0, 0, TAU, 64, P.a(P.PH, 0.16), 1.0, true)
+	_label(canvas, origin + Vector2(-8, -34), "FLAGSHIP / RADAR RING", P.a(P.AMBER, 0.8), 6)
+	_label(canvas, rect.position + Vector2(10, rect.size.y - 12), "L1 FACILITIES %d · SESSION PHYSICS · DRAG/WHEEL/R" % facility_rows.size(), P.a(P.FAINT, 0.9), 6)
+	canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.end.y - 10), "DRAG ROTATE · WHEEL ZOOM · R RESET · CAMERA LOCAL ONLY", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
 
 
 func _draw_limb(canvas: CanvasItem, rect: Rect2, u: Vector3, rad_u: float, col: Color, label: String) -> void:
