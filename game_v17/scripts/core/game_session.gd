@@ -32,6 +32,7 @@ const IdentificationServiceScript := preload("res://scripts/core/identification_
 const LegalStatusServiceScript := preload("res://scripts/core/legal_status_service.gd")
 const TrafficControlServiceScript := preload("res://scripts/core/traffic_control_service.gd")
 const PhysicsScript := preload("res://framework/sim/cislunar_physics.gd")
+const CombatBallisticsScript := preload("res://scripts/core/combat_ballistics.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -66,6 +67,7 @@ var transponder_service = null
 var identification_service = null
 var legal_status_service = null
 var traffic_control = null
+var combat_ballistics = null
 
 var _track_enabled := false
 var _sensor_enabled := false
@@ -81,6 +83,7 @@ var _transponder_enabled := false
 var _identification_enabled := false
 var _legal_enabled := false
 var _traffic_enabled := false
+var _ballistics_enabled := false
 var _last_signal_route: Dictionary = {}
 var _signal_missing_meta_warned: Dictionary = {}
 var _damage_applied_shots: Dictionary = {}
@@ -140,7 +143,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "prelude", "seed_frame", "frame_origin"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "prelude", "seed_frame", "frame_origin"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -171,6 +174,7 @@ func boot(config := {}) -> Dictionary:
 	identification_service = null
 	legal_status_service = null
 	traffic_control = null
+	combat_ballistics = null
 	_last_signal_route = {}
 	_signal_missing_meta_warned = {}
 	_damage_applied_shots = {}
@@ -183,6 +187,7 @@ func boot(config := {}) -> Dictionary:
 	_identification_enabled = false
 	_legal_enabled = false
 	_traffic_enabled = false
+	_ballistics_enabled = false
 	_physics_enabled = false
 	_physics_frame_meta = {}
 	_track_writer = ""
@@ -239,6 +244,8 @@ func boot(config := {}) -> Dictionary:
 	if _legal_enabled and legal_status_service != null and not bool(legal_status_service.ready):
 		extra_ok = false
 	if _traffic_enabled and traffic_control != null and not bool(traffic_control.ready):
+		extra_ok = false
+	if _ballistics_enabled and combat_ballistics != null and not bool(combat_ballistics.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -307,6 +314,8 @@ func boot(config := {}) -> Dictionary:
 		legal_status_service.t = now_s()
 	if traffic_control != null:
 		traffic_control.t = now_s()
+	if combat_ballistics != null:
+		combat_ballistics.t = now_s()
 	_damage_applied_shots = {}
 	_last_bus_routed_index = bus.count()
 	_flush_component_events()
@@ -483,6 +492,15 @@ func _setup_optional_components() -> void:
 			errors.append("traffic_control 未就绪：" + str(traffic_control.errors))
 		else:
 			_traffic_enabled = true
+	var cb = _seed.get("combat_ballistics", null)
+	var cb_on := (cb is Dictionary) or (cb is bool and bool(cb))
+	if cb_on:
+		var bcfg: Dictionary = {} if (cb is bool) else (cb as Dictionary).duplicate(true)
+		combat_ballistics = CombatBallisticsScript.new(bcfg)
+		if not bool(combat_ballistics.ready):
+			errors.append("combat_ballistics 未就绪：" + str(combat_ballistics.errors))
+		else:
+			_ballistics_enabled = true
 	var pw = _seed.get("physics_world", null)
 	var pw_on := (pw is Dictionary) or (pw is bool and bool(pw))
 	if pw_on:
@@ -828,6 +846,7 @@ func tick(dt: float) -> Dictionary:
 		warnings.append("orders tick 失败：" + str(ot.get("reason", "")))
 	_flush_order_events()
 	_advance_components(sim_dt)
+	var ballistics_step: Dictionary = _advance_ballistics(sim_dt)
 	var sensor_route: Dictionary = _advance_sensors(sim_dt)
 	var signal_step: Dictionary = _advance_signal(sim_dt)
 	var ew_step: Dictionary = _advance_ew(sim_dt)
@@ -864,6 +883,7 @@ func tick(dt: float) -> Dictionary:
 			"identification": identification_service != null,
 			"legal_status": legal_status_service != null,
 			"traffic": traffic_control != null,
+			"combat_ballistics": combat_ballistics != null,
 		},
 		"sensor_route": sensor_route,
 		"port_combat": port_combat,
@@ -876,6 +896,7 @@ func tick(dt: float) -> Dictionary:
 		"identification_tick": identification_tick,
 		"legal_status_tick": legal_tick,
 		"traffic_step": traffic_step,
+		"ballistics_step": ballistics_step,
 		"contracts": contracts}
 
 func _check_post() -> void:
@@ -1252,6 +1273,9 @@ func _route_combat_damage(dmg_ev: Dictionary) -> Dictionary:
 func _damage_ship_for_target(target_id: String) -> String:
 	if damage_service == null:
 		return ""
+	# ballistics/world 目标 id 直接是 damage ship 时优先（4H）
+	if target_id != "" and (damage_service.ships as Dictionary).has(target_id):
+		return target_id
 	var ship := ""
 	if combat_service != null:
 		var tr = combat_service.track(target_id)
@@ -1406,6 +1430,100 @@ func _advance_traffic(sim_dt: float) -> Dictionary:
 	return {"enabled": true, "ok": true, "t": float(traffic_control.t),
 		"events": (traffic_control.events as Array).size(),
 		"routed": routed, "counts": traffic_control._counts()}
+
+## 从 session 实体（physics 优先，否则 world）构造 Ballistics states；
+## 只读，不写世界；has_pd 来自实体 has_pd/配置 pd_platform_id。
+func _ballistics_states() -> Dictionary:
+	var ids: Dictionary = {}
+	if physics_world_service != null:
+		for id in physics_world_service.entity_ids():
+			ids[String(id)] = true
+	if world != null:
+		for raw in world.entities_sorted():
+			if raw is Dictionary:
+				ids[String((raw as Dictionary).get("id", ""))] = true
+	var pd_platform := ""
+	if combat_ballistics != null and combat_ballistics.config is Dictionary:
+		pd_platform = str(combat_ballistics.config.get("pd_platform_id", "own"))
+	var out: Dictionary = {}
+	for id in ids.keys():
+		var pos: Dictionary = position_of(str(id))
+		if not bool(pos.get("ok", false)):
+			continue
+		var r = pos.get("r", pos.get("pos_km", []))
+		var v = pos.get("v", pos.get("vel_kmps", []))
+		if not (r is Array) or (r as Array).size() < 3:
+			continue
+		var ent: Dictionary = {}
+		if world != null and world.has_entity(str(id)):
+			ent = world.entity(str(id))
+		var flags: Dictionary = ent.get("flags", {}) if ent.get("flags") is Dictionary else {}
+		var side := str(ent.get("side", flags.get("side", "")))
+		var has_pd := bool(ent.get("has_pd", flags.get("has_pd", false)))
+		if pd_platform != "" and str(id) == pd_platform:
+			has_pd = true
+		out[str(id)] = {"id": str(id), "pos_km": (r as Array).duplicate(),
+			"vel_kmps": (v as Array).duplicate() if v is Array else [0.0, 0.0, 0.0],
+			"radius_km": float(ent.get("radius_km", 0.0)),
+			"has_pd": has_pd, "side": side}
+	return out
+
+## tick 推进弹道：step 用 session 状态；outbox 事件 → bus（ballistics.<kind>）；
+## impact.damage_event 白名单 → DamageService（shot_id 去重）。不写 world/TrackTable/UI。
+func _advance_ballistics(sim_dt: float) -> Dictionary:
+	if combat_ballistics == null:
+		return {"enabled": false}
+	var states: Dictionary = _ballistics_states()
+	var step: Dictionary = combat_ballistics.step(sim_dt, states)
+	if not bool(step.get("ok", false)):
+		warnings.append("combat_ballistics step 失败：" + str(step.get("reason", "")))
+		return {"enabled": true, "ok": false, "reason": str(step.get("reason", ""))}
+	var routed := 0
+	var applied := 0
+	var duplicates := 0
+	var damage_failed := 0
+	for raw in combat_ballistics.take_events():
+		if not (raw is Dictionary):
+			continue
+		var ev: Dictionary = raw
+		var kind := str(ev.get("kind", ""))
+		var payload := (ev.get("payload", {}) as Dictionary).duplicate(true) \
+			if ev.get("payload") is Dictionary else {}
+		if kind == "impact" and payload.get("damage_event") is Dictionary:
+			var dmg: Dictionary = (payload.get("damage_event") as Dictionary).duplicate(true)
+			if damage_service != null:
+				var route: Dictionary = _route_combat_damage(dmg)
+				if bool(route.get("applied", false)):
+					dmg["applied"] = true
+					if bool(route.get("duplicate", false)):
+						duplicates += 1
+					else:
+						applied += 1
+				else:
+					dmg["applied"] = false
+					damage_failed += 1
+			else:
+				dmg["applied"] = false
+				damage_failed += 1
+			payload["damage_event"] = dmg
+		var out := _mk_event("ballistics." + kind,
+			str(payload.get("target_id", payload.get("shooter_id", ""))), {
+				"schema": str(ev.get("schema", "ballistics_event.v1")),
+				"kind": kind, "seq": int(ev.get("seq", 0)), "t": float(ev.get("t", 0.0)),
+				"shadow": bool(ev.get("shadow", true)), "writes_v15": false,
+				"payload": payload})
+		var pub: Dictionary = bus.publish(out)
+		if bool(pub.get("ok", false)):
+			routed += 1
+			_tick_events.append(pub.get("event", {}))
+		else:
+			warnings.append("ballistics 事件发布失败：" + kind)
+	return {"enabled": true, "ok": true, "t": float(combat_ballistics.t),
+		"active": (combat_ballistics.active_projectiles() as Array).size(),
+		"intercepts": (combat_ballistics.intercept_records() as Array).size(),
+		"impacts": (combat_ballistics.impact_records() as Array).size(),
+		"routes": routed, "damage_applied": applied, "damage_duplicates": duplicates,
+		"damage_failed": damage_failed}
 
 ## 自动询问执行：transponder 询问 → 把 reply 作为证据回灌识别；不写 world。
 func _execute_identification_query(req: Dictionary) -> Dictionary:
@@ -2942,6 +3060,67 @@ func apply_traffic_request(track_id: String, lane_id: String, opts := {}) -> Dic
 func apply_traffic_disguise(track_id: String, disguise := {}, opts := {}) -> Dictionary:
 	return traffic_disguise(track_id, disguise, opts)
 
+# ── 战斗弹道（可选组件）────────────────────────────────────────
+
+func combat_ballistics_vm() -> Dictionary:
+	return combat_ballistics.vm() if combat_ballistics != null else {}
+
+func combat_ballistics_summary() -> Dictionary:
+	return combat_ballistics.summary() if combat_ballistics != null else {}
+
+func combat_ballistics_active() -> Array:
+	return combat_ballistics.active_projectiles() if combat_ballistics != null else []
+
+func combat_ballistics_projectiles() -> Array:
+	return combat_ballistics.projectiles_all() if combat_ballistics != null else []
+
+func combat_ballistics_intercepts() -> Array:
+	return combat_ballistics.intercept_records() if combat_ballistics != null else []
+
+func combat_ballistics_impacts() -> Array:
+	return combat_ballistics.impact_records() if combat_ballistics != null else []
+
+func combat_ballistics_pd() -> Dictionary:
+	return combat_ballistics.pd_state() if combat_ballistics != null else {}
+
+func combat_ballistics_launch(shooter: String, target: String, weapon: String,
+		opts := {}) -> Dictionary:
+	if combat_ballistics == null:
+		return {"ok": false, "reason": "no_combat_ballistics"}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var states: Dictionary = _ballistics_states()
+	var ss: Dictionary = (o.get("shooter_state") as Dictionary) \
+		if o.get("shooter_state") is Dictionary else (states.get(shooter, {}) as Dictionary)
+	var ts: Dictionary = (o.get("target_state") as Dictionary) \
+		if o.get("target_state") is Dictionary else (states.get(target, {}) as Dictionary)
+	if ss.is_empty() or ts.is_empty():
+		return {"ok": false, "reason": "unknown_entity",
+			"shooter": shooter, "target": target}
+	var res: Dictionary = combat_ballistics.launch(shooter, target, weapon, ss, ts, o)
+	if bool(res.get("ok", false)):
+		_record({"op": "combat_ballistics_launch", "shooter": shooter,
+			"target": target, "weapon": weapon, "opts": _json_norm(o)})
+	return res
+
+func combat_predict(shooter: String, target: String, weapon: String,
+		opts := {}) -> Dictionary:
+	if combat_ballistics == null:
+		return {"ok": false, "reason": "no_combat_ballistics"}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var states: Dictionary = _ballistics_states()
+	var ss: Dictionary = (o.get("shooter_state") as Dictionary) \
+		if o.get("shooter_state") is Dictionary else (states.get(shooter, {}) as Dictionary)
+	var ts: Dictionary = (o.get("target_state") as Dictionary) \
+		if o.get("target_state") is Dictionary else (states.get(target, {}) as Dictionary)
+	if ss.is_empty() or ts.is_empty():
+		return {"ok": false, "reason": "unknown_entity",
+			"shooter": shooter, "target": target}
+	return combat_ballistics.predict(ss, ts, weapon, o)
+
+# 别名（UI/脚本）
+func ballistics_launch(shooter: String, target: String, weapon: String, opts := {}) -> Dictionary:
+	return combat_ballistics_launch(shooter, target, weapon, opts)
+
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -3058,6 +3237,17 @@ func check_contracts() -> Dictionary:
 		if bool(tw.get("world", false)) or bool(tw.get("track_table", false)) \
 				or bool(tw.get("ui", false)) or bool(tw.get("v15", false)):
 			v.append("traffic 声明写 world/track_table/ui/v15")
+	if combat_ballistics != null:
+		if not bool(combat_ballistics.ready):
+			v.append("combat_ballistics 未就绪")
+		if absf(float(combat_ballistics.t) - now_s()) > 1.0e-6:
+			v.append("ballistics 时间与会话不一致：%s != %s" % [
+				str(combat_ballistics.t), str(now_s())])
+		var bw = (combat_ballistics.vm().get("writes", {}) as Dictionary) \
+			if combat_ballistics.vm().get("writes") is Dictionary else {}
+		if bool(bw.get("world", false)) or bool(bw.get("track_table", false)) \
+				or bool(bw.get("ui", false)) or bool(bw.get("v15", false)):
+			v.append("ballistics 声明写 world/track_table/ui/v15")
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -3119,6 +3309,7 @@ func snapshot() -> Dictionary:
 		"identification": identification_service.vm() if identification_service != null else null,
 		"legal_status": legal_status_service.vm() if legal_status_service != null else null,
 		"traffic_control": traffic_control.vm() if traffic_control != null else null,
+		"combat_ballistics": combat_ballistics.vm() if combat_ballistics != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -3158,6 +3349,7 @@ func save_state() -> String:
 		"identification_service": identification_service.save_state() if identification_service != null else "",
 		"legal_status_service": legal_status_service.save_state() if legal_status_service != null else "",
 		"traffic_control": traffic_control.save_state() if traffic_control != null else "",
+		"combat_ballistics": combat_ballistics.save_state() if combat_ballistics != null else "",
 		"bus": {
 			"seq": bus.current_seq(),
 			"events": JSON.parse_string(JSON.stringify(bus.events)),
@@ -3308,6 +3500,14 @@ func load_state(json_text: String) -> Dictionary:
 			var trc: Dictionary = traffic_control.load_state(saved_traffic)
 			if not bool(trc.get("ok", false)):
 				replay_errors.append("traffic_control 快照恢复失败：" + str(trc.get("reason", trc.get("errors", []))))
+	var saved_ball = data.get("combat_ballistics", null)
+	if saved_ball != null and String(saved_ball) != "":
+		if combat_ballistics == null:
+			replay_errors.append("存档含 combat_ballistics 快照但 boot 未启用 combat_ballistics")
+		else:
+			var br: Dictionary = combat_ballistics.load_state(saved_ball)
+			if not bool(br.get("ok", false)):
+				replay_errors.append("combat_ballistics 快照恢复失败：" + str(br.get("reason", br.get("errors", []))))
 	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:
@@ -3655,6 +3855,11 @@ func _replay_op(op: Dictionary) -> Dictionary:
 				return {"ok": true, "skipped": "no_traffic_control"}
 			return traffic_disguise(str(op.get("track_id", "")),
 				op.get("disguise", {}), op.get("opts", {}))
+		"combat_ballistics_launch":
+			if combat_ballistics == null:
+				return {"ok": true, "skipped": "no_combat_ballistics"}
+			return combat_ballistics_launch(str(op.get("shooter", "")),
+				str(op.get("target", "")), str(op.get("weapon", "")), op.get("opts", {}))
 		"pause":
 			return pause()
 		"resume":

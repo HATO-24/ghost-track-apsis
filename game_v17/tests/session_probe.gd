@@ -52,6 +52,7 @@ func _initialize() -> void:
 	_test_physics_integration()
 	_test_physics_save_load()
 	_test_physics_frame_conversion()
+	_test_combat_ballistics_integration()
 	_test_signal_integration()
 	_test_signal_save_load()
 	_test_signal_binding()
@@ -3291,3 +3292,194 @@ func _test_physics_frame_conversion() -> void:
 		"帧 meta 确定")
 	_eq(_norm_json(c1.physics_vm()), _norm_json(c2.physics_vm()), "帧 physics 确定")
 	_data_line("frame", "L1 offset=%s · apsis Earth=%.1f km Moon=%.1f km · bary异常=%.1f km · 9实体相对/速度/无重复/存档" % [str(off), earth_dist, moon_dist, bary_earth_dist])
+
+# ═══════════════════════════════════════════════════════════════════
+# 39. CombatBallistics 集成（发射/step/命中→Damage/PD/存档）
+# ═══════════════════════════════════════════════════════════════════
+
+func _ballistics_cfg(with_damage := true) -> Dictionary:
+	var c := {"combat_ballistics": true}
+	if with_damage:
+		c["damage_service"] = true
+	return c
+
+func _duel_cfg(pd_platform := "") -> Dictionary:
+	var c := {"combat_ballistics": true, "damage_service": true,
+		"entities": [
+			{"id": "apsis", "batch": "1", "kind": "ship", "name": "APSIS",
+				"pos_km": [0.0, 0.0, 0.0], "vel_kmps": [0.0, 0.0, 0.0]},
+			{"id": "harmattan", "batch": "2", "kind": "ship", "name": "HAMATTAN",
+				"pos_km": [100.0, 0.0, 0.0], "vel_kmps": [0.0, 0.0, 0.0]}],
+		"nodes": [{"id": "apsis"}, {"id": "harmattan"}],
+		"links": [{"a": "apsis", "b": "harmattan", "mode": "LD"}]}
+	if pd_platform != "":
+		c["combat_ballistics"] = {"pd_platform_id": pd_platform}
+	return c
+
+func _test_combat_ballistics_integration() -> void:
+	_section_begin("39 CombatBallistics 集成")
+	# 默认不启用 → 退化
+	var off = _new_session()
+	_ok(off.combat_ballistics == null, "默认无 combat_ballistics")
+	_eq(off.combat_ballistics_vm().size(), 0, "无 ballistics VM 空")
+	_eq(off.combat_ballistics_summary().size(), 0, "无 ballistics summary 空")
+	_eq(off.combat_ballistics_active().size(), 0, "无 ballistics active 空")
+	_eq(off.combat_ballistics_intercepts().size(), 0, "无 ballistics intercepts 空")
+	_eq(off.combat_ballistics_impacts().size(), 0, "无 ballistics impacts 空")
+	_eq(off.combat_ballistics_pd().size(), 0, "无 ballistics pd 空")
+	_eq(str(off.combat_ballistics_launch("apsis", "harmattan", "railgun").get("reason", "")),
+		"no_combat_ballistics", "无 ballistics launch 拒绝")
+	_eq(str(off.combat_predict("apsis", "harmattan", "railgun").get("reason", "")),
+		"no_combat_ballistics", "无 ballistics predict 拒绝")
+	_ok(off.snapshot().get("combat_ballistics") == null, "无 ballistics snapshot null")
+	var off_save = JSON.parse_string(off.save_state())
+	_ok(off_save is Dictionary and off_save.get("combat_ballistics", "x") == "",
+		"无 ballistics save 字段空")
+	# 启用 + damage
+	var s = GameSession.new(_ballistics_cfg(true))
+	_ok(bool(s.ready), "ballistics session ready", str(s.errors))
+	_ok(s.combat_ballistics != null and bool(s.combat_ballistics.ready), "ballistics ready")
+	_near(float(s.combat_ballistics.t), s.now_s(), 1.0e-6, "ballistics boot 时间同步")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "ballistics boot contracts ok")
+	var sum: Dictionary = s.combat_ballistics_summary()
+	_eq(str(sum.get("schema", "")), "combat_ballistics.v1", "ballistics summary schema")
+	_eq(int(sum.get("projectiles", 0)), 0, "初始 projectiles 0")
+	_eq(bool((sum.get("writes", {}) as Dictionary).get("world", true)), false,
+		"ballistics 不写 world")
+	_ok(s.snapshot().get("combat_ballistics") is Dictionary, "snapshot ballistics")
+	# predict/launch
+	var pred: Dictionary = s.combat_predict("apsis", "harmattan", "railgun")
+	_eq(bool(pred.get("ok", false)), true, "predict ok")
+	_eq(str(pred.get("schema", "")), "ballistic_prediction.v1", "predict schema")
+	_ok(float(pred.get("time_of_flight_s", -1.0)) > 0.0, "predict tof")
+	var launch: Dictionary = s.combat_ballistics_launch("apsis", "harmattan", "railgun")
+	_eq(bool(launch.get("ok", false)), true, "launch ok")
+	_eq(s.combat_ballistics_active().size(), 1, "launch active 1")
+	var pid := str(launch.get("projectile_id", ""))
+	_ok(pid.begins_with("PRJ-"), "projectile id")
+	# 失败不改状态
+	var vm_before := _norm_json(s.combat_ballistics_vm())
+	_ok(not bool(s.combat_ballistics_launch("NOPE", "harmattan", "railgun").get("ok", true)),
+		"未知 shooter 拒绝")
+	_ok(not bool(s.combat_ballistics_launch("apsis", "harmattan", "bogus").get("ok", true)),
+		"未知武器 拒绝")
+	_ok(not bool(s.combat_ballistics_launch("apsis", "NOPE", "railgun").get("ok", true)),
+		"未知 target 拒绝")
+	_eq(_norm_json(s.combat_ballistics_vm()), vm_before, "失败不改 ballistics VM")
+	# tick 命中→Damage
+	var world_before := _norm_json(s.world.entities_sorted())
+	var tk: Dictionary = s.tick(2.0)
+	_eq(bool(tk.get("ok", false)), true, "ballistics tick ok")
+	var step: Dictionary = tk.get("ballistics_step", {})
+	_eq(bool(step.get("enabled", false)), true, "ballistics_step enabled")
+	_eq(bool(step.get("ok", false)), true, "ballistics_step ok")
+	_ok(int(step.get("impacts", 0)) >= 1, "ballistics tick impacts")
+	_eq(int(step.get("damage_applied", 0)), 1, "damage_applied 1")
+	_eq(s.combat_ballistics_impacts().size(), 1, "impact records 1")
+	_eq(s.combat_ballistics_active().size(), 0, "hit 后 active 0")
+	_eq(_norm_json(s.world.entities_sorted()), world_before, "ballistics 不改 world")
+	_near(float(s.combat_ballistics.t), s.now_s(), 1.0e-6, "tick 后 ballistics t 同步")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "ballistics tick contracts")
+	# 伤害真的进 DamageService
+	var dmg_vm: Dictionary = s.damage_ship_vm("harmattan")
+	var dsum: Dictionary = dmg_vm.get("summary", {}) as Dictionary
+	_ok(float(dsum.get("integrity_avg", 1.0)) < 1.0, "Damage integrity 下降",
+		str(dsum.get("integrity_avg")))
+	_ok(int(dsum.get("needs_attention", 0)) >= 1, "Damage needs_attention")
+	# bus 事件 / damage_event applied true
+	var types: Array = _event_types(s.bus.recent(300))
+	for t in ["ballistics.launch", "ballistics.impact"]:
+		_ok(str(t) in types, "bus " + str(t))
+	var impact_event_ok := false
+	for raw_ev in s.bus.recent(300):
+		if raw_ev is Dictionary and str((raw_ev as Dictionary).get("type", "")) == "ballistics.impact":
+			var payload: Dictionary = (raw_ev as Dictionary).get("payload", {})
+			var inner: Dictionary = payload.get("payload", {}) if payload.get("payload") is Dictionary else {}
+			var de: Dictionary = inner.get("damage_event", {})
+			if bool(de.get("applied", false)) and str(de.get("shot_id", "")) == pid:
+				impact_event_ok = true
+	_ok(impact_event_ok, "impact damage_event applied=true")
+	# 不重复应用：再 tick，damage 不变
+	var impacts_before := s.combat_ballistics_impacts().size()
+	var tk2: Dictionary = s.tick(2.0)
+	_eq(int((tk2.get("ballistics_step", {}) as Dictionary).get("damage_applied", 0)), 0,
+		"重复 tick 不重复应用")
+	_eq(s.combat_ballistics_impacts().size(), impacts_before, "impact 记录不重复")
+	# save/load
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary and (d as Dictionary).has("combat_ballistics"), "save 含 ballistics")
+	_ok((d as Dictionary).get("combat_ballistics", "") != "", "save ballistics 非空")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "ballistics load ok", str(lr.get("errors", [])))
+	_ok(s2.combat_ballistics != null, "load 重建 ballistics")
+	_eq(_norm_json(s.combat_ballistics_vm()), _norm_json(s2.combat_ballistics_vm()),
+		"load ballistics VM 一致")
+	_eq(_norm_json(s.damage_ship_vm("harmattan")), _norm_json(s2.damage_ship_vm("harmattan")),
+		"load damage 一致")
+	_eq(_norm_json(s.snapshot()), _norm_json(s2.snapshot()), "load snapshot 一致")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load contracts ok")
+	# 旧存档兼容
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("combat_ballistics")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("combat_ballistics")
+	old["seed"] = old_seed
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 ballistics 兼容", str(lr3.get("errors", [])))
+	_ok(s3.combat_ballistics == null, "旧存档 ballistics 退化")
+	# 非法快照
+	var bad: Dictionary = (d as Dictionary).duplicate(true)
+	bad["combat_ballistics"] = "{\"schema\":\"bad\"}"
+	var s4 = GameSession.new()
+	_eq(bool(s4.load_state(JSON.stringify(bad)).get("ok", true)), false,
+		"非法 ballistics 快照拒绝")
+	# 无 DamageService 时命中：applied=false
+	var s_nd = GameSession.new(_ballistics_cfg(false))
+	s_nd.combat_ballistics_launch("apsis", "harmattan", "railgun")
+	var tnd: Dictionary = s_nd.tick(2.0)
+	var ndstep: Dictionary = tnd.get("ballistics_step", {})
+	_ok(int(ndstep.get("impacts", 0)) >= 1, "无 damage 命中")
+	_eq(int(ndstep.get("damage_applied", 0)), 0, "无 damage applied 0")
+	var nd_applied := false
+	for raw2 in s_nd.bus.recent(200):
+		if raw2 is Dictionary and str((raw2 as Dictionary).get("type", "")) == "ballistics.impact":
+			var p2: Dictionary = (raw2 as Dictionary).get("payload", {})
+			var inner2: Dictionary = p2.get("payload", {}) if p2.get("payload") is Dictionary else {}
+			if not bool((inner2.get("damage_event", {}) as Dictionary).get("applied", true)):
+				nd_applied = true
+	_ok(nd_applied, "无 damage 事件 applied=false")
+	# PD 自动拦截
+	var spd = GameSession.new(_duel_cfg("apsis"))
+	var lpd: Dictionary = spd.combat_ballistics_launch("harmattan", "apsis", "missile",
+		{"force_pd": true})
+	_eq(bool(lpd.get("ok", false)), true, "PD 场景 missile launch")
+	var pd_before: Dictionary = spd.combat_ballistics_pd()
+	_eq(int(pd_before.get("ammo", 0)), 80, "PD 初始弹药 80")
+	var tpd: Dictionary = spd.tick(1.0)
+	var pdstep: Dictionary = tpd.get("ballistics_step", {})
+	_eq(int(pdstep.get("intercepts", 0)), 1, "PD intercept 1")
+	_eq(spd.combat_ballistics_active().size(), 0, "PD 后主动弹 0")
+	_eq(int(spd.combat_ballistics_pd().get("ammo", 0)), 79, "PD 耗弹 1")
+	var inter: Array = spd.combat_ballistics_intercepts()
+	_eq(inter.size(), 1, "PD intercept 记录")
+	_eq(bool((inter[0] as Dictionary).get("intercepted", false)), true, "PD 拦截成功")
+	var ptypes: Array = _event_types(spd.bus.recent(200))
+	_ok("ballistics.pd_launch" in ptypes, "bus pd_launch")
+	_ok("ballistics.projectile_intercepted" in ptypes, "bus projectile_intercepted")
+	# 坏配置
+	var sbad = GameSession.new({"combat_ballistics": {"content_path": "/no/such.json"}})
+	_ok(not bool(sbad.ready), "ballistics 坏 content 配置拒绝")
+	# 确定性
+	var a = GameSession.new(_ballistics_cfg(true))
+	var b = GameSession.new(_ballistics_cfg(true))
+	for sv in [a, b]:
+		sv.combat_ballistics_launch("apsis", "harmattan", "railgun")
+		sv.tick(2.0)
+	_eq(_norm_json(a.combat_ballistics_vm()), _norm_json(b.combat_ballistics_vm()),
+		"ballistics 同操作 VM 一致")
+	_eq(a.save_state(), b.save_state(), "ballistics 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "ballistics contracts ok 2")
+	_data_line("ballistics", "可选退化 · predict/launch · tick 命中→Damage applied · PD 拦截 · bus · 存档/旧档/确定性")
