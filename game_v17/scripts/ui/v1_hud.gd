@@ -37,6 +37,11 @@ var _target_size := Vector2i(1920, 1080)
 var _plot3d = null
 var _plot_surface: Control = null
 var _plot3d_rect := Rect2()
+# 方案B-32：overlay 独立层（位于 plot 之上 + 裁剪）；_cv 是当前 overlay 绘制画布。
+var _overlay_layer: Control = null
+var _overlay_local := Rect2()
+var _overlay_offset := Vector2.ZERO
+var _cv: CanvasItem = null
 var _commander := "指挥官 · 沧澜"
 var _delta_v := 0.0
 var _transfer_ok := false
@@ -147,6 +152,16 @@ func _ready() -> void:
 	_plot_surface.set_script(load("res://scripts/ui/plot_surface.gd"))
 	_plot_surface.set("host", self)
 	add_child(_plot_surface)
+	# 方案B-32：overlay 层必须在 plot_surface 之后加入，保证弹层盖住战术图且被裁剪。
+	_overlay_layer = Control.new()
+	_overlay_layer.name = "OverlayLayer"
+	_overlay_layer.clip_contents = true
+	_overlay_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_overlay_layer.set_script(load("res://scripts/ui/overlay_layer.gd"))
+	_overlay_layer.set("host", self)
+	_overlay_layer.visible = false
+	add_child(_overlay_layer)
+	_cv = self
 	if _shot_path != "":
 		get_window().size = _target_size
 		Input.warp_mouse(Vector2(_target_size) * 0.5)
@@ -767,20 +782,92 @@ func _flow_smoke_v1() -> void:
 	get_tree().quit()
 
 
-func _draw_overlay(l: Dictionary) -> void:
+func _overlay_rect(l: Dictionary) -> Rect2:
+	# 方案B-32：所有子界面共用同一弹层几何（中间区 + 右栏），四周留 6px 边距。
 	var center: Rect2 = l.center
 	var right: Rect2 = l.right
-	var r := Rect2(center.position.x, center.position.y, right.end.x - center.position.x, center.size.y)
-	if _overlay == "comms":
-		r.size.y = minf(r.size.y, 600.0)
-		r.position.y = center.position.y + 20.0
-	if _overlay == "optical":
-		r.size.y = minf(r.size.y, 600.0)
-		r.position.y = center.position.y + 12.0
-	draw_rect(r, P.a(P.PANEL, 0.985))
-	draw_rect(r, P.a(P.PH, 0.7), false, 1.0)
+	var m := 6.0
+	return Rect2(center.position.x + m, center.position.y + m, right.end.x - center.position.x - m * 2.0, center.size.y - m * 2.0)
+
+
+const OV_PAD := 16.0
+const OV_HEADER_H := 52.0
+const OV_BTN_H := 24.0
+const OV_BTN_GAP := 6.0
+
+
+# 方案B-32：统一模态帧。页头（标题 12pt / 副标题 7pt / 右对齐状态 chip）+ 分隔线 +
+# 内容区 + 页脚按钮区。返回 body/footer/header 三个 rect，子界面只往这三块里排内容。
+func _overlay_frame(r: Rect2, title: String, subtitle: String, accent: Color = P.PH, chips := "", footer_rows := 1) -> Dictionary:
+	var cv := _cv
+	var x := r.position.x + OV_PAD
+	var top := r.position.y
+	Painter.label(cv, x, top + 28.0, TM.fit(title, r.size.x - 280.0, false, 12), 12, accent)
+	Painter.label(cv, x, top + 43.0, TM.fit(subtitle, r.size.x - 280.0, true, 7), 7, P.a(P.AMBER, 0.85), true)
+	if chips != "":
+		Painter.label_right(cv, r.end.x - 112.0, top + 20.0, TM.fit(chips, 320.0, true, 7), 7, P.PH_DIM, true)
+	cv.draw_line(Vector2(x - 4, top + OV_HEADER_H), Vector2(r.end.x - OV_PAD + 4, top + OV_HEADER_H), P.a(P.LINE, 0.85), 1.0)
+	var rows := maxi(0, footer_rows)
+	var footer_h := float(rows) * OV_BTN_H + float(maxi(0, rows - 1)) * OV_BTN_GAP
+	var footer := Rect2(x, r.end.y - OV_PAD - footer_h, r.size.x - OV_PAD * 2.0, footer_h)
+	var body_bottom := (footer.position.y - 14.0) if rows > 0 else (r.end.y - OV_PAD)
+	var body := Rect2(x, top + OV_HEADER_H + 10.0, r.size.x - OV_PAD * 2.0, body_bottom - (top + OV_HEADER_H + 10.0))
+	if rows > 0:
+		cv.draw_line(Vector2(x - 4, footer.position.y - 8.0), Vector2(r.end.x - OV_PAD + 4, footer.position.y - 8.0), P.a(P.LINE, 0.7), 1.0)
+	return {"body": body, "footer": footer, "header": Rect2(x, top, r.size.x - OV_PAD * 2.0, OV_HEADER_H)}
+
+
+# 方案B-32：统一页脚按钮条。items = [[kind, label] 或 [kind, label, color]]；
+# 宽度按可用区域等分，cols>0 时按列数换行，单行过宽时收窄居中。返回命中区（弹层局部坐标）。
+func _button_bar(rect: Rect2, items: Array, cols := 0) -> Array:
+	var out: Array = []
+	if items.is_empty():
+		return out
+	var n := items.size()
+	var per_row := cols if cols > 0 else n
+	per_row = maxi(1, mini(per_row, n))
+	var rows := int(ceil(float(n) / float(per_row)))
+	var bh := minf(OV_BTN_H, (rect.size.y - OV_BTN_GAP * float(rows - 1)) / float(rows))
+	var bw := floorf((rect.size.x - OV_BTN_GAP * float(per_row - 1)) / float(per_row))
+	var row_w := float(per_row) * bw + OV_BTN_GAP * float(per_row - 1)
+	if per_row >= n and bw > 220.0:
+		bw = 220.0
+		row_w = float(per_row) * bw + OV_BTN_GAP * float(per_row - 1)
+	var x0 := rect.position.x + maxf(0.0, (rect.size.x - row_w) * 0.5)
+	for i in range(n):
+		var item: Array = items[i]
+		var br := Rect2(x0 + float(i % per_row) * (bw + OV_BTN_GAP), rect.position.y + float(i / per_row) * (bh + OV_BTN_GAP), bw, bh)
+		var col: Color = P.PH
+		if item.size() > 2:
+			col = item[2]
+		Painter.button(_cv, br, String(item[1]), true, col)
+		out.append({"rect": br, "kind": String(item[0])})
+	return out
+
+
+func _draw_overlay(l: Dictionary) -> void:
+	# 方案B-32：父画布只负责定位 overlay 层，实际绘制交给 OverlayLayer（盖住 plot、可裁剪）。
+	if _overlay_layer == null:
+		return
+	if _overlay == "":
+		_overlay_layer.visible = false
+		return
+	var r := _overlay_rect(l)
+	_overlay_local = Rect2(Vector2.ZERO, r.size)
+	_overlay_offset = r.position
+	_overlay_layer.position = r.position
+	_overlay_layer.size = r.size
+	_overlay_layer.visible = true
+	_overlay_layer.queue_redraw()
+
+
+func _draw_overlay_layer(cv: CanvasItem) -> void:
+	_cv = cv
+	var r := _overlay_local
+	cv.draw_rect(r, P.a(P.PANEL, 0.985))
+	cv.draw_rect(r, P.a(P.PH, 0.7), false, 1.0)
 	_overlay_close = Rect2(r.end.x - 96, r.position.y + 8, 84, 20)
-	Painter.button(self, _overlay_close, "关闭 / CLOSE", true, P.RED)
+	Painter.button(cv, _overlay_close, "关闭 / CLOSE", true, P.RED)
 	if _overlay == "damage":
 		_draw_damage_overlay(r)
 	elif _overlay == "roe":
@@ -803,29 +890,30 @@ func _draw_overlay(l: Dictionary) -> void:
 		_draw_combat_overlay(r)
 	elif _overlay == "save":
 		_draw_save_overlay(r)
+	_cv = self
 
 
 func _draw_comms_overlay(r: Rect2) -> void:
-	var gap := 12.0
-	var left_w := floorf((r.size.x - 28.0 - gap) * 0.58)
-	var right_w := r.size.x - 28.0 - gap - left_w
-	var lp := Rect2(r.position.x + 14.0, r.position.y + 14.0, left_w, r.size.y - 28.0)
-	var rp := Rect2(lp.end.x + gap, lp.position.y, right_w, lp.size.y)
-	# 独立双栏面板边框
-	draw_rect(lp, P.a(P.PANEL2, 0.42))
-	draw_rect(lp, P.a(P.LINE2, 0.65), false, 1.0)
-	draw_rect(rp, P.a(P.PANEL2, 0.42))
-	draw_rect(rp, P.a(P.LINE2, 0.65), false, 1.0)
-	Painter.label(self, lp.position.x + 10, lp.position.y + 20, "通信 / COMMS · 双栏", 11, P.PH)
-	Painter.label(self, rp.position.x + 10, rp.position.y + 20, "命令 / ORDERS · 双栏", 11, P.PH)
 	var vm: Dictionary = binder.session.comms.vm() if binder != null and binder.session != null and binder.session.comms != null else {}
 	var events: Array = vm.get("events", []) if vm.get("events", []) is Array else []
 	var links: Array = vm.get("links", []) if vm.get("links", []) is Array else []
-	# 左栏 CHANNELS 表
-	var cy := lp.position.y + 38.0
-	Painter.section(self, lp.position.x + 10, cy, lp.end.x - 10, "CHANNELS / 频道")
+	var fr := _overlay_frame(r, "通信 / COMMS · 命令 / ORDERS", "双栏 · 消息流 / 链路明细 / 命令面板 · 不写 world", P.PH, "TARGET " + (_comms_target if _comms_target != "" else "—"))
+	var body: Rect2 = fr.body
+	var gap := 12.0
+	var left_w := floorf((body.size.x - gap) * 0.56)
+	var right_w := body.size.x - left_w - gap
+	var lp := Rect2(body.position.x, body.position.y, left_w, body.size.y)
+	var rp := Rect2(lp.end.x + gap, body.position.y, right_w, body.size.y)
+	_cv.draw_rect(lp, P.a(P.PANEL2, 0.42))
+	_cv.draw_rect(lp, P.a(P.LINE2, 0.65), false, 1.0)
+	_cv.draw_rect(rp, P.a(P.PANEL2, 0.42))
+	_cv.draw_rect(rp, P.a(P.LINE2, 0.65), false, 1.0)
+	Painter.label(_cv, lp.position.x + 10, lp.position.y + 18, "通信 / COMMS", 11, P.PH)
+	Painter.label(_cv, rp.position.x + 10, rp.position.y + 18, "命令 / ORDERS", 11, P.PH)
+	var cy := lp.position.y + 36.0
+	Painter.section(_cv, lp.position.x + 10, cy, lp.end.x - 10, "CHANNELS / 频道")
 	cy += 15.0
-	Painter.label(self, lp.position.x + 10, cy, "MODE     STATUS     LATENCY   EVENTS", 6, P.a(P.FAINT, 0.9), true)
+	Painter.label(_cv, lp.position.x + 10, cy, "MODE     STATUS     LATENCY   EVENTS", 6, P.a(P.FAINT, 0.9), true)
 	cy += 12.0
 	var modes := ["LD", "LR", "RDO", "IR", "VIS"]
 	for i in range(modes.size()):
@@ -849,18 +937,17 @@ func _draw_comms_overlay(r: Rect2) -> void:
 				n_ev += 1
 		var y := cy + float(i) * 17.0
 		var col := P.PH if st == "OPEN" else (P.AMBER if st in ["OCCLUDED", "JAMMED"] else P.RED)
-		draw_rect(Rect2(lp.position.x + 10, y - 9, lp.size.x - 20, 13), P.a(P.PANEL, 0.35) if i % 2 == 0 else P.a(P.PANEL2, 0.2))
-		Painter.label(self, lp.position.x + 14, y, mode, 7, P.TXT, true)
-		Painter.label(self, lp.position.x + 80, y, st, 7, col, true)
-		Painter.label(self, lp.position.x + 156, y, lat, 7, P.DIM, true)
-		Painter.label_right(self, lp.end.x - 14, y, str(n_ev), 7, P.TXT, true)
-	# 左栏 MESSAGE STREAM
+		_cv.draw_rect(Rect2(lp.position.x + 10, y - 9, lp.size.x - 20, 13), P.a(P.PANEL, 0.35) if i % 2 == 0 else P.a(P.PANEL2, 0.2))
+		Painter.label(_cv, lp.position.x + 14, y, mode, 7, P.TXT, true)
+		Painter.label(_cv, lp.position.x + 80, y, st, 7, col, true)
+		Painter.label(_cv, lp.position.x + 156, y, lat, 7, P.DIM, true)
+		Painter.label_right(_cv, lp.end.x - 14, y, str(n_ev), 7, P.TXT, true)
 	var my := cy + 5.0 * 17.0 + 14.0
-	Painter.section(self, lp.position.x + 10, my, lp.end.x - 10, "MESSAGE STREAM / 消息")
+	Painter.section(_cv, lp.position.x + 10, my, lp.end.x - 10, "MESSAGE STREAM / 消息")
 	my += 16.0
 	if events.is_empty():
-		Painter.label(self, lp.position.x + 12, my, "NO MESSAGES · NOT READY", 7, P.FAINT, true)
-	var row_capacity := mini(10, maxi(1, int((lp.end.y - my - 12.0) / 16.0)))
+		Painter.label(_cv, lp.position.x + 12, my, "NO MESSAGES · NOT READY", 7, P.FAINT, true)
+	var row_capacity := mini(10, maxi(1, int((lp.end.y - my - 140.0) / 16.0)))
 	for i in range(maxi(0, events.size() - row_capacity), events.size()):
 		var ev: Dictionary = events[i]
 		var from := String(ev.get("from_name", ev.get("from", "—")))
@@ -874,116 +961,98 @@ func _draw_comms_overlay(r: Rect2) -> void:
 		var row := i - maxi(0, events.size() - row_capacity)
 		var yy := my + float(row) * 16.0
 		if row % 2 == 1:
-			draw_rect(Rect2(lp.position.x + 10, yy - 11, lp.size.x - 20, 14), P.a(P.PANEL, 0.30))
-		Painter.label(self, lp.position.x + 12, yy, TM.fit("[%s 至 %s]-[%s]-[%s]" % [from, to, mode, content], lp.size.x - 24, true, 7), 7, P.TXT, true)
-	# ChronosChain 真实通信文本追加到 MESSAGE STREAM 下方
-	if binder != null and not binder.chronos_comms_lines.is_empty():
-		var chain_cy := my + float(mini(row_capacity, maxi(events.size(), 0))) * 16.0 + 4.0
-		Painter.label(self, lp.position.x + 12, chain_cy, "CHRONOS CHAIN COMMS", 6, P.AMBER, true)
-		chain_cy += 11.0
-		for i in range(mini(2, binder.chronos_comms_lines.size())):
-			Painter.label(self, lp.position.x + 12, chain_cy, TM.fit(String(binder.chronos_comms_lines[i]), lp.size.x - 24, true, 7), 7, P.PH_DIM, true)
-			chain_cy += 14.0
-	if binder != null and not binder.av4412_comms_lines.is_empty():
-		var av_cy := my + 112.0
-		Painter.label(self, lp.position.x + 12, av_cy, "AV-4412 COMMS", 6, P.AMBER, true)
-		av_cy += 11.0
-		for i in range(mini(2, binder.av4412_comms_lines.size())):
-			Painter.label(self, lp.position.x + 12, av_cy, TM.fit(String(binder.av4412_comms_lines[i]), lp.size.x - 24, true, 7), 7, P.PH_DIM, true)
-			av_cy += 14.0
-	if binder != null and not binder.report_comms_lines.is_empty():
-		var rp_cy := my + 140.0
-		Painter.label(self, lp.position.x + 12, rp_cy, "REPORT EVENTS", 6, P.AMBER, true)
-		rp_cy += 11.0
-		for i in range(mini(2, binder.report_comms_lines.size())):
-			Painter.label(self, lp.position.x + 12, rp_cy, TM.fit(String(binder.report_comms_lines[i]), lp.size.x - 24, true, 7), 7, P.PH_DIM, true)
-			rp_cy += 14.0
-	if binder != null and not binder.traffic_comms_lines.is_empty():
-		var tf_cy := my + 168.0
-		Painter.label(self, lp.position.x + 12, tf_cy, "TRAFFIC EVENTS", 6, P.AMBER, true)
-		tf_cy += 11.0
-		for i in range(mini(2, binder.traffic_comms_lines.size())):
-			Painter.label(self, lp.position.x + 12, tf_cy, TM.fit(String(binder.traffic_comms_lines[i]), lp.size.x - 24, true, 7), 7, P.PH_DIM, true)
-			tf_cy += 14.0
-	# 链路明细，填满左栏下部（真实 comms vm links）
-	var link_y := lp.end.y - 174.0
-	Painter.section(self, lp.position.x + 10, link_y, lp.end.x - 10, "LINK DETAIL / 链路明细")
+			_cv.draw_rect(Rect2(lp.position.x + 10, yy - 11, lp.size.x - 20, 14), P.a(P.PANEL, 0.30))
+		Painter.label(_cv, lp.position.x + 12, yy, TM.fit("[%s 至 %s]-[%s]-[%s]" % [from, to, mode, content], lp.size.x - 24, true, 7), 7, P.TXT, true)
+	# 各链真实通信文本：统一从消息流下方依次排，不再写死 y 偏移
+	var chain_y := my + float(mini(row_capacity, maxi(events.size(), 0))) * 16.0 + 4.0
+	var chains := [["CHRONOS CHAIN COMMS", binder.chronos_comms_lines if binder != null else []],
+		["AV-4412 COMMS", binder.av4412_comms_lines if binder != null else []],
+		["REPORT EVENTS", binder.report_comms_lines if binder != null else []],
+		["TRAFFIC EVENTS", binder.traffic_comms_lines if binder != null else []]]
+	for ch in chains:
+		var lines: Array = ch[1]
+		if lines.is_empty() or chain_y > lp.end.y - 190.0:
+			continue
+		Painter.label(_cv, lp.position.x + 12, chain_y, String(ch[0]), 6, P.AMBER, true)
+		chain_y += 11.0
+		for i in range(mini(2, lines.size())):
+			Painter.label(_cv, lp.position.x + 12, chain_y, TM.fit(String(lines[i]), lp.size.x - 24, true, 7), 7, P.PH_DIM, true)
+			chain_y += 14.0
+	var link_y := lp.end.y - 132.0
+	Painter.section(_cv, lp.position.x + 10, link_y, lp.end.x - 10, "LINK DETAIL / 链路明细")
 	link_y += 15.0
 	if links.is_empty():
-		Painter.label(self, lp.position.x + 12, link_y, "NO LINKS · NOT READY", 7, P.FAINT, true)
+		Painter.label(_cv, lp.position.x + 12, link_y, "NO LINKS · NOT READY", 7, P.FAINT, true)
 	for i in range(mini(5, links.size())):
 		var l: Dictionary = links[i]
 		var la := String(l.get("a", l.get("from", "—")))
 		var lb := String(l.get("b", l.get("to", "—")))
 		var lm := String(l.get("mode", "—"))
-		var st := "OPEN"
+		var st2 := "OPEN"
 		if bool(l.get("disabled", false)):
-			st = "CLOSED"
+			st2 = "CLOSED"
 		elif bool(l.get("occluded", false)):
-			st = "OCCLUDED"
+			st2 = "OCCLUDED"
 		elif float(l.get("jam", 0.0)) >= 0.7:
-			st = "JAMMED"
-		Painter.label(self, lp.position.x + 12, link_y + float(i) * 14.0, TM.fit("%s → %s · %s · %s · %s" % [la, lb, lm, st, "%.1fs" % float(l.get("latency_s", l.get("latency", 0.0)))], lp.size.x - 24, true, 7), 7, P.PH_DIM if st == "OPEN" else P.AMBER, true)
+			st2 = "JAMMED"
+		Painter.label(_cv, lp.position.x + 12, link_y + float(i) * 14.0, TM.fit("%s → %s · %s · %s · %s" % [la, lb, lm, st2, "%.1fs" % float(l.get("latency_s", l.get("latency", 0.0)))], lp.size.x - 24, true, 7), 7, P.PH_DIM if st2 == "OPEN" else P.AMBER, true)
 	# 右栏命令面板
 	var px := rp.position.x + 10.0
-	var py := rp.position.y + 38.0
-	Painter.section(self, px, py, rp.end.x - 10, "COMMAND PANEL / 命令面板")
+	var py := rp.position.y + 36.0
+	Painter.section(_cv, px, py, rp.end.x - 10, "COMMAND PANEL / 命令面板")
 	py += 16.0
 	_comms_type_buttons.clear()
 	var types := ["HOLD", "NAV", "EMCON", "IFF", "ROE"]
+	var tw2 := floorf((right_w - 26.0 - 4.0 * 6.0) / 5.0)
 	for i in range(types.size()):
-		var tr := Rect2(px + float(i % 3) * (right_w - 28.0) / 3.0, py + float(i / 3) * 24.0, (right_w - 40.0) / 3.0, 20.0)
+		var tr := Rect2(px + float(i) * (tw2 + 6.0), py, tw2, 20.0)
 		_comms_type_buttons.append({"rect": tr, "kind": String(types[i])})
 		var active := _comms_type == String(types[i])
-		Painter.button(self, tr, String(types[i]), true, P.PH if active else P.PH_DIM)
-	py += 52.0
-	Painter.label(self, px, py, "TARGET " + (_comms_target if _comms_target != "" else "NOT READY"), 7, P.TXT, true)
+		Painter.button(_cv, tr, String(types[i]), true, P.PH if active else P.PH_DIM)
+	py += 28.0
+	Painter.label(_cv, px, py, TM.fit("TARGET " + (_comms_target if _comms_target != "" else "NOT READY"), right_w - 20.0, true, 7), 7, P.TXT, true)
 	py += 13.0
-	Painter.label(self, px, py, "ISSUER apsis · MODE " + ("LD" if _comms_type in ["HOLD", "NAV"] else "SENSOR/ROE"), 6, P.DIM, true)
-	py += 20.0
-	_comms_send_rect = Rect2(px, py, 160, 22)
-	Painter.button(self, _comms_send_rect, "SEND / 发送", true, P.PH)
-	py += 29.0
-	if _comms_msg != "":
-		Painter.label(self, px, py, TM.fit(_comms_msg, rp.size.x - 28, true, 7), 7, P.AMBER, true)
+	Painter.label(_cv, px, py, "ISSUER apsis · MODE " + ("LD" if _comms_type in ["HOLD", "NAV"] else "SENSOR/ROE"), 6, P.DIM, true)
 	py += 16.0
 	var auth_txt := ""
 	for lv in ["TRACK", "SOLUTION", "FIRE"]:
 		var au: Dictionary = binder.session.combat_authorization(lv, _comms_target, "") if binder != null and binder.session != null else {}
 		auth_txt += "%s:%s " % [lv, "OK" if bool(au.get("ok", false)) else "LOCK"]
-	Painter.label(self, px, py, "AUTH " + auth_txt, 6, P.a(P.PH_DIM, 0.9), true)
+	Painter.label(_cv, px, py, TM.fit("AUTH " + auth_txt, right_w - 20.0, true, 6), 6, P.a(P.PH_DIM, 0.9), true)
 	py += 14.0
-	Painter.section(self, px, py, rp.end.x - 10, "COMMAND QUEUE / 命令队列")
+	Painter.section(_cv, px, py, rp.end.x - 10, "COMMAND QUEUE / 命令队列")
 	py += 15.0
 	_comms_cmd_rows.clear()
 	_comms_cmd_buttons.clear()
 	var cmds: Array = binder.commands if binder != null else []
 	for i in range(mini(3, cmds.size())):
 		var c: Dictionary = cmds[i]
-		var rr := Rect2(px, py + float(i) * 17.0, rp.size.x - 20, 15)
+		var rr := Rect2(px, py + float(i) * 17.0, right_w - 20.0, 15)
 		_comms_cmd_rows.append({"rect": rr, "index": i})
 		if i == _selected_cmd:
-			draw_rect(rr, P.a(P.PH, 0.10))
-		Painter.label(self, px, rr.position.y + 11, TM.fit("%s %s · %s → %s" % [String(c.get("id", "")), String(c.get("state", "")), String(c.get("actor", "")), String(c.get("target", ""))], rr.size.x, true, 7), 7, P.PH if i == _selected_cmd else P.DIM, true)
-	# 选中命令详情 + ROE/授权，填满右栏下部
-	var detail_y := rp.end.y - 174.0
-	Painter.section(self, px, detail_y, rp.end.x - 10, "SELECTED COMMAND / 命令详情")
+			_cv.draw_rect(rr, P.a(P.PH, 0.10))
+		Painter.label(_cv, px, rr.position.y + 11, TM.fit("%s %s · %s → %s" % [String(c.get("id", "")), String(c.get("state", "")), String(c.get("actor", "")), String(c.get("target", ""))], rr.size.x, true, 7), 7, P.PH if i == _selected_cmd else P.DIM, true)
+	var detail_y := rp.end.y - 140.0
+	Painter.section(_cv, px, detail_y, rp.end.x - 10, "SELECTED COMMAND / 命令详情")
 	detail_y += 15.0
 	if _selected_cmd >= 0 and _selected_cmd < cmds.size():
 		var sc: Dictionary = cmds[_selected_cmd]
-		Painter.label(self, px, detail_y, "ID " + String(sc.get("id", "—")) + " · " + String(sc.get("state", "—")), 7, P.TXT, true)
-		Painter.label(self, px, detail_y + 13, "ACTOR → TARGET  " + String(sc.get("actor", "—")) + " → " + String(sc.get("target", "—")), 7, P.TXT, true)
-		Painter.label(self, px, detail_y + 26, "ACTION " + String(sc.get("action", "—")) + " · MODE " + String(sc.get("mode", "—")) + " · DELAY " + String(sc.get("delay", "—")), 7, P.DIM, true)
+		Painter.label(_cv, px, detail_y, TM.fit("ID " + String(sc.get("id", "—")) + " · " + String(sc.get("state", "—")), right_w - 20.0, true, 7), 7, P.TXT, true)
+		Painter.label(_cv, px, detail_y + 13, TM.fit("ACTOR → TARGET  " + String(sc.get("actor", "—")) + " → " + String(sc.get("target", "—")), right_w - 20.0, true, 7), 7, P.TXT, true)
+		Painter.label(_cv, px, detail_y + 26, TM.fit("ACTION " + String(sc.get("action", "—")) + " · MODE " + String(sc.get("mode", "—")) + " · DELAY " + String(sc.get("delay", "—")), right_w - 20.0, true, 7), 7, P.DIM, true)
 	else:
-		Painter.label(self, px, detail_y, "NO COMMAND SELECTED", 7, P.FAINT, true)
+		Painter.label(_cv, px, detail_y, "NO COMMAND SELECTED", 7, P.FAINT, true)
 	detail_y += 46.0
-	Painter.label(self, px, detail_y, "ROE " + (String(_combat.roe) if _combat != null else "NOT READY") + " · ROE 不授予 FIRE 授权", 7, P.AMBER, true)
-	var by := rp.end.y - 34.0
-	_comms_cmd_buttons.append({"rect": Rect2(px, by, 84, 18), "kind": "ABORT"})
-	_comms_cmd_buttons.append({"rect": Rect2(px + 90, by, 84, 18), "kind": "REVOKE"})
-	Painter.button(self, _comms_cmd_buttons[0]["rect"], "ABORT", _selected_cmd >= 0, P.AMBER)
-	Painter.button(self, _comms_cmd_buttons[1]["rect"], "REVOKE", _selected_cmd >= 0, P.RED)
-	Painter.label(self, px, rp.end.y - 12, "双栏 · COMMS 600H · 默认旗舰 target", 6, P.a(P.FAINT, 0.9), true)
+	Painter.label(_cv, px, detail_y, TM.fit("ROE " + (String(_combat.roe) if _combat != null else "NOT READY") + " · ROE 不授予 FIRE 授权", right_w - 20.0, true, 7), 7, P.AMBER, true)
+	# 动作按钮：统一页脚条（SEND / ABORT / REVOKE）
+	_comms_send_rect = Rect2()
+	var bar: Array = _button_bar(fr.footer, [["SEND", "SEND / 发送", P.PH], ["ABORT", "ABORT", P.AMBER], ["REVOKE", "REVOKE", P.RED]])
+	for b in bar:
+		_comms_cmd_buttons.append(b)
+		if String(b.get("kind", "")) == "SEND":
+			_comms_send_rect = b.get("rect", Rect2())
+	if _comms_msg != "":
+		Painter.label(_cv, body.position.x, (fr.footer as Rect2).position.y - 12.0, TM.fit(_comms_msg, body.size.x, true, 7), 7, P.AMBER, true)
 
 
 func _comms_action(kind: String) -> void:
@@ -1162,11 +1231,11 @@ func _signal_demo() -> void:
 
 
 func _draw_ceres_panel(sr: Rect2) -> void:
-	draw_rect(sr, P.a(P.PANEL, 0.98))
-	draw_rect(sr, P.a(P.AMBER, 0.65), false, 1.0)
+	_cv.draw_rect(sr, P.a(P.PANEL, 0.98))
+	_cv.draw_rect(sr, P.a(P.AMBER, 0.65), false, 1.0)
 	var vm: Dictionary = binder.ceres_vm() if binder != null else {}
 	var stage := String(vm.get("state", "NOT READY"))
-	Painter.label(self, sr.position.x + 10, sr.position.y + 18, "CERES / 谷神-2 识别链 · STAGE " + stage, 9, P.AMBER)
+	Painter.label(_cv, sr.position.x + 10, sr.position.y + 18, "CERES / 谷神-2 识别链 · STAGE " + stage, 9, P.AMBER)
 	var chain := ["L1", "L2", "L3", "LIGHT_READ", "L4_TYPE", "RESCUE_PROMPT"]
 	var found := false
 	for i in range(chain.size()):
@@ -1175,9 +1244,9 @@ func _draw_ceres_panel(sr: Rect2) -> void:
 		var active := stage == st or (stage in ["RESCUED", "IGNORED", "COMPLETE"] and st == "RESCUE_PROMPT")
 		if active and not found:
 			found = true
-		draw_rect(Rect2(cx, sr.position.y + 28, (sr.size.x - 20.0) / 6.0 - 3, 16), P.a(P.AMBER if active else P.LINE, 0.20 if active else 0.06))
-		draw_rect(Rect2(cx, sr.position.y + 28, (sr.size.x - 20.0) / 6.0 - 3, 16), P.a(P.AMBER if active else P.LINE, 0.75 if active else 0.25), false, 1.0)
-		Painter.label(self, cx + 4, sr.position.y + 40, st, 6, P.PH if active else P.FAINT, true)
+		_cv.draw_rect(Rect2(cx, sr.position.y + 28, (sr.size.x - 20.0) / 6.0 - 3, 16), P.a(P.AMBER if active else P.LINE, 0.20 if active else 0.06))
+		_cv.draw_rect(Rect2(cx, sr.position.y + 28, (sr.size.x - 20.0) / 6.0 - 3, 16), P.a(P.AMBER if active else P.LINE, 0.75 if active else 0.25), false, 1.0)
+		Painter.label(_cv, cx + 4, sr.position.y + 40, st, 6, P.PH if active else P.FAINT, true)
 	var key := "ceres.fault"
 	match stage:
 		"L2":
@@ -1195,26 +1264,40 @@ func _draw_ceres_panel(sr: Rect2) -> void:
 		"IGNORED":
 			key = "ceres.rescue_no"
 	var txt: String = binder.ceres_text(key) if binder != null else ""
-	var lines := _wrap_text_cjk(txt, 58)
+	var lines := _wrap_text_cjk(txt, sr.size.x - 20.0, 7, true)
 	var ty := sr.position.y + 58.0
 	for i in range(mini(lines.size(), 4)):
-		Painter.label(self, sr.position.x + 10, ty, lines[i], 7, P.TXT, true)
+		Painter.label(_cv, sr.position.x + 10, ty, lines[i], 7, P.TXT, true)
 		ty += 13.0
-	Painter.label(self, sr.position.x + 10, sr.end.y - 42, "EMERGENCY CODE " + (binder.ceres_emergency_code() if binder != null else "—") + " · EVIDENCE %d · TRIGGERS %s" % [int((vm.get("evidence", []) as Array).size()), ",".join(vm.get("trigger_ids", []) if vm.get("trigger_ids", []) is Array else [])], 6, P.PH_DIM, true)
+	Painter.label(_cv, sr.position.x + 10, sr.end.y - 42, "EMERGENCY CODE " + (binder.ceres_emergency_code() if binder != null else "—") + " · EVIDENCE %d · TRIGGERS %s" % [int((vm.get("evidence", []) as Array).size()), ",".join(vm.get("trigger_ids", []) if vm.get("trigger_ids", []) is Array else [])], 6, P.PH_DIM, true)
 	var rep: Dictionary = vm.get("reputation", {}) if vm.get("reputation", {}) is Dictionary else {}
-	Painter.label(self, sr.position.x + 10, sr.end.y - 30, "REPUTATION " + JSON.stringify(rep) + " · 不自动完成", 6, P.a(P.FAINT, 0.9), true)
+	Painter.label(_cv, sr.position.x + 10, sr.end.y - 30, "REPUTATION " + JSON.stringify(rep) + " · 不自动完成", 6, P.a(P.FAINT, 0.9), true)
 	if _ceres_msg != "":
-		Painter.label(self, sr.position.x + 10, sr.end.y - 16, TM.fit(_ceres_msg, sr.size.x - 20, true, 6), 6, P.AMBER, true)
+		Painter.label(_cv, sr.position.x + 10, sr.end.y - 16, TM.fit(_ceres_msg, sr.size.x - 20, true, 6), 6, P.AMBER, true)
 
 
-func _wrap_text_cjk(text: String, width: int) -> Array:
+func _wrap_text_cjk(text: String, max_px: float, size := 7, mono := true) -> Array:
+	# 方案B-32：按真实像素宽度折行。CJK 可任意字间断行，优先在标点/空格后断，
+	# 避免旧实现「未遇到标点就不断行」导致长段文字溢出面板。
 	var out: Array = []
+	if text == "":
+		return out
+	var breaks := ["，", "。", "；", "、", "：", "）", "】", " ", ",", ".", ";", "/", "·", "-"]
 	var cur := ""
-	for i in text.length():
-		cur += text.substr(i, 1)
-		if cur.length() >= width and text.substr(i, 1) in ["，", "。", "；", " ", "、", "）", "】"]:
-			out.append(cur)
-			cur = ""
+	var last_break := -1
+	for i in range(text.length()):
+		var ch := text.substr(i, 1)
+		cur += ch
+		if ch in breaks:
+			last_break = cur.length()
+		if TM.width(cur, mono, size) > max_px and cur.length() > 1:
+			if last_break > 0 and last_break < cur.length():
+				out.append(cur.substr(0, last_break))
+				cur = cur.substr(last_break)
+			else:
+				out.append(cur.substr(0, cur.length() - 1))
+				cur = ch
+			last_break = -1
 	if cur != "":
 		out.append(cur)
 	return out
@@ -1314,24 +1397,25 @@ func _traffic_demo() -> void:
 
 
 func _draw_traffic_overlay(r: Rect2) -> void:
-	var x := r.position.x + 16.0
-	var y := r.position.y + 28.0
-	Painter.label(self, x, y, "TRAFFIC / OTC · 交通管制", 15, P.PH)
-	Painter.label(self, x, y + 17, "OTC 19 · lanes 18 · NPC/queue · REQUEST/PERMIT/OCCUPY/RELEASE · DISGUISE anomalies", 8, P.a(P.AMBER, 0.9), true)
+	var vm0: Dictionary = binder.traffic_vm() if binder != null and binder.traffic_ready else {}
+	var chips := ""
+	if binder != null and binder.traffic_ready:
+		chips = "SOURCE " + String(binder.traffic_source).to_upper() + " · t=" + ("%.0f" % float(vm0.get("t", 0.0)))
+	var fr := _overlay_frame(r, "TRAFFIC / OTC · 交通管制", "OTC 19 · lanes 18 · NPC/queue · REQUEST/PERMIT/OCCUPY/RELEASE · DISGUISE anomalies", P.PH, chips)
+	var body: Rect2 = fr.body
+	var x := body.position.x
 	if binder == null or not binder.traffic_ready:
-		Painter.label(self, x, y + 46, "TRAFFIC NOT READY · no TrafficControlService", 11, P.AMBER)
+		Painter.label(_cv, x, body.position.y + 20, "TRAFFIC NOT READY · no TrafficControlService", 11, P.AMBER)
 		return
-	var vm: Dictionary = binder.traffic_vm()
-	var source := String(binder.traffic_source)
-	Painter.label(self, x + r.size.x - 220.0, y + 17, "SOURCE " + source.to_upper() + " · t=" + ("%.0f" % float(vm.get("t", 0.0))), 7, P.PH_DIM, true)
+	var vm: Dictionary = vm0
 	var gap := 12.0
-	var col_w := floorf((r.size.x - 32.0 - gap * 2.0) / 3.0)
+	var col_w := floorf((body.size.x - gap * 2.0) / 3.0)
 	var lx := x
 	var mx := x + col_w + gap
 	var rx := x + col_w * 2.0 + gap * 2.0
-	var top := y + 45.0
-	# OTC 列表分组
-	Painter.section(self, lx, top, lx + col_w, "OTC / 19 · CLUSTER")
+	var top := body.position.y
+	var bottom := body.end.y
+	Painter.section(_cv, lx, top, lx + col_w, "OTC / 19 · CLUSTER")
 	_traffic_otc_rows.clear()
 	var grouped: Dictionary = {}
 	for raw in binder.traffic_otc_rows():
@@ -1342,33 +1426,38 @@ func _draw_traffic_overlay(r: Rect2) -> void:
 			(grouped[cid] as Array).append(raw)
 	var oy := top + 15.0
 	for cid in grouped.keys():
-		Painter.label(self, lx, oy, String(cid), 7, P.PH_DIM, true)
+		if oy > bottom - 16.0:
+			break
+		Painter.label(_cv, lx, oy, String(cid), 7, P.PH_DIM, true)
 		oy += 11.0
 		for raw2 in (grouped[cid] as Array):
+			if oy > bottom - 6.0:
+				break
 			var o: Dictionary = raw2
 			var rr := Rect2(lx, oy - 9.0, col_w - 4.0, 20.0)
 			_traffic_otc_rows.append({"rect": rr, "id": String(o.get("facility_id", ""))})
 			if String(o.get("facility_id", "")) == _traffic_otc:
-				draw_rect(rr, P.a(P.PH, 0.10))
-			Painter.label(self, lx + 4, oy, TM.fit(String(o.get("facility_id", "")) + " · " + String(o.get("facility_code", "")), col_w - 10, true, 7), 7, P.PH if String(o.get("facility_id", "")) == _traffic_otc else P.TXT, true)
+				_cv.draw_rect(rr, P.a(P.PH, 0.10))
+			Painter.label(_cv, lx + 4, oy, TM.fit(String(o.get("facility_id", "")) + " · " + String(o.get("facility_code", "")), col_w - 10, true, 7), 7, P.PH if String(o.get("facility_id", "")) == _traffic_otc else P.TXT, true)
 			var phys_o: Dictionary = o.get("physical", {}) if o.get("physical", {}) is Dictionary else {}
 			var orb_o: Dictionary = phys_o.get("orbit", {}) if phys_o.get("orbit", {}) is Dictionary else {}
 			var orb_txt := String(orb_o.get("type", "")) + " · " + str(orb_o.get("position_km", []))
-			Painter.label(self, lx + 8, oy + 10, TM.fit(String(o.get("transponder_code", "")) + " · " + orb_txt, col_w - 14, true, 6), 6, P.a(P.FAINT, 0.9), true)
+			Painter.label(_cv, lx + 8, oy + 10, TM.fit(String(o.get("transponder_code", "")) + " · " + orb_txt, col_w - 14, true, 6), 6, P.a(P.FAINT, 0.9), true)
 			oy += 20.0
-	# 航道列表
-	Painter.section(self, mx, top, mx + col_w, "LANES / 18")
+	Painter.section(_cv, mx, top, mx + col_w, "LANES / 18")
 	_traffic_lane_rows.clear()
 	var ly := top + 15.0
 	for raw3 in binder.traffic_lane_rows():
+		if ly > bottom - 6.0:
+			break
 		var lane3: Dictionary = raw3
 		var lid := String(lane3.get("lane_id", ""))
 		var occ: Dictionary = binder.traffic_service.lane_occupancy(lid) if binder.traffic_service != null else {}
 		var rr2 := Rect2(mx, ly - 9.0, col_w - 4.0, 20.0)
 		_traffic_lane_rows.append({"rect": rr2, "id": lid})
 		if lid == _traffic_lane:
-			draw_rect(rr2, P.a(P.AMBER, 0.10))
-		Painter.label(self, mx + 4, ly, TM.fit(lid + " · " + String(lane3.get("name", "")), col_w - 10, true, 7), 7, P.AMBER if lid == _traffic_lane else P.TXT, true)
+			_cv.draw_rect(rr2, P.a(P.AMBER, 0.10))
+		Painter.label(_cv, mx + 4, ly, TM.fit(lid + " · " + String(lane3.get("name", "")), col_w - 10, true, 7), 7, P.AMBER if lid == _traffic_lane else P.TXT, true)
 		var freetxt := "free %d/%d · queue %d" % [int(occ.get("free", occ.get("free_capacity", 0))), int(lane3.get("capacity", 0)), int((occ.get("queue", []) as Array).size()) if occ.get("queue", []) is Array else int(occ.get("queue_count", 0))]
 		var from_e: Dictionary = lane3.get("from", {}) if lane3.get("from", {}) is Dictionary else {}
 		var to_e: Dictionary = lane3.get("to", {}) if lane3.get("to", {}) is Dictionary else {}
@@ -1376,53 +1465,51 @@ func _draw_traffic_overlay(r: Rect2) -> void:
 		var win_txt := "—"
 		if not wins.is_empty() and wins[0] is Dictionary:
 			win_txt = "%.0f–%.0f" % [float((wins[0] as Dictionary).get("open_t", 0.0)), float((wins[0] as Dictionary).get("close_t", 0.0))]
-		Painter.label(self, mx + 8, ly + 9, TM.fit(String(from_e.get("id", "")) + "→" + String(to_e.get("id", "")) + " · cap " + str(lane3.get("capacity", "")) + " · win " + win_txt + " · pri " + str(lane3.get("priority", "")) + " · " + freetxt, col_w - 14, true, 6), 6, P.a(P.FAINT, 0.9), true)
+		Painter.label(_cv, mx + 8, ly + 9, TM.fit(String(from_e.get("id", "")) + "→" + String(to_e.get("id", "")) + " · cap " + str(lane3.get("capacity", "")) + " · win " + win_txt + " · pri " + str(lane3.get("priority", "")) + " · " + freetxt, col_w - 14, true, 6), 6, P.a(P.FAINT, 0.9), true)
 		ly += 20.0
-	# 右栏：NPC/操作/伪装
 	var ry := top
-	Painter.section(self, rx, ry, r.end.x - 14, "NPC / QUEUE / OCCUPANCY")
+	Painter.section(_cv, rx, ry, rx + col_w, "NPC / QUEUE / OCCUPANCY")
 	ry += 15.0
 	var nrow := 0
 	for raw4 in binder.traffic_npc_rows():
 		if nrow >= 4:
 			break
 		var n: Dictionary = raw4
-		Painter.label(self, rx, ry, TM.fit(String(n.get("npc_id", "")) + " · " + String(n.get("callsign", "")) + " · " + String(n.get("ship_class", "")), r.end.x - rx - 14, true, 7), 7, P.TXT, true)
+		Painter.label(_cv, rx, ry, TM.fit(String(n.get("npc_id", "")) + " · " + String(n.get("callsign", "")) + " · " + String(n.get("ship_class", "")), col_w - 4.0, true, 7), 7, P.TXT, true)
 		ry += 12.0
 		nrow += 1
 	var occrows: Array = vm.get("occupancies", []) if vm.get("occupancies", []) is Array else []
 	for i in range(mini(3, occrows.size())):
 		var o2: Dictionary = occrows[i]
-		Painter.label(self, rx, ry, TM.fit("OCC " + String(o2.get("lane_id", "")) + " · " + String(o2.get("occupant_id", o2.get("track_id", ""))), r.end.x - rx - 14, true, 6), 6, P.PH_DIM, true)
+		Painter.label(_cv, rx, ry, TM.fit("OCC " + String(o2.get("lane_id", "")) + " · " + String(o2.get("occupant_id", o2.get("track_id", ""))), col_w - 4.0, true, 6), 6, P.PH_DIM, true)
 		ry += 11.0
-	Painter.label(self, rx, ry, "SEL OTC " + (_traffic_otc if _traffic_otc != "" else "—") + " · LANE " + (_traffic_lane if _traffic_lane != "" else "—"), 7, P.PH, true)
-	ry += 16.0
-	# 操作按钮 2 行
-	_traffic_buttons.clear()
-	var b_labels := [["REQUEST", "REQUEST"], ["PERMIT", "PERMIT"], ["OCCUPY", "OCCUPY"], ["RELEASE", "RELEASE"], ["DISGUISE", "DISGUISE"]]
-	var bw := (r.end.x - rx - 14.0 - 8.0) / 2.0
-	for i in range(b_labels.size()):
-		var br := Rect2(rx + float(i % 2) * (bw + 8.0), ry + float(i / 2) * 26.0, bw, 22)
-		_traffic_buttons.append({"rect": br, "kind": String(b_labels[i][0])})
-		Painter.button(self, br, String(b_labels[i][1]), true, P.PH if i < 4 else P.AMBER)
-	ry += 60.0
-	Painter.section(self, rx, ry, r.end.x - 14, "DISGUISE / ANOMALY")
+	Painter.label(_cv, rx, ry, TM.fit("SEL OTC " + (_traffic_otc if _traffic_otc != "" else "—") + " · LANE " + (_traffic_lane if _traffic_lane != "" else "—"), col_w - 4.0, true, 7), 7, P.PH, true)
+	ry += 18.0
+	Painter.section(_cv, rx, ry, rx + col_w, "DISGUISE / ANOMALY")
 	ry += 14.0
 	if _traffic_last.is_empty():
-		Painter.label(self, rx, ry, "NO DISGUISE RECORD · anomalies —", 7, P.FAINT, true)
+		Painter.label(_cv, rx, ry, "NO DISGUISE RECORD · anomalies —", 7, P.FAINT, true)
 	else:
-		Painter.label(self, rx, ry, TM.fit("p=" + ("%.2f" % float(_traffic_last.get("probability", 0.0))) + " · detected=" + str(bool(_traffic_last.get("detected", false))) + " · anomalies=" + ",".join(_traffic_last.get("anomalies", []) if _traffic_last.get("anomalies", []) is Array else []), r.end.x - rx - 14, true, 7), 7, P.TXT, true)
+		Painter.label(_cv, rx, ry, TM.fit("p=" + ("%.2f" % float(_traffic_last.get("probability", 0.0))) + " · detected=" + str(bool(_traffic_last.get("detected", false))) + " · anomalies=" + ",".join(_traffic_last.get("anomalies", []) if _traffic_last.get("anomalies", []) is Array else []), col_w - 4.0, true, 7), 7, P.TXT, true)
 		ry += 12.0
-		Painter.label(self, rx, ry, TM.fit("clues=" + str((_traffic_last.get("clue_ids", []) as Array).size()) + " · clue ids " + ",".join(_traffic_last.get("clue_ids", []) if _traffic_last.get("clue_ids", []) is Array else []), r.end.x - rx - 14, true, 6), 6, P.PH_DIM, true)
+		Painter.label(_cv, rx, ry, TM.fit("clues=" + str((_traffic_last.get("clue_ids", []) as Array).size()) + " · clue ids " + ",".join(_traffic_last.get("clue_ids", []) if _traffic_last.get("clue_ids", []) is Array else []), col_w - 4.0, true, 6), 6, P.PH_DIM, true)
 	ry += 16.0
-	Painter.label(self, rx, ry, "EVENTS", 7, P.PH_DIM, true)
+	Painter.label(_cv, rx, ry, "EVENTS", 7, P.PH_DIM, true)
 	ry += 11.0
 	var evs2: Array = vm.get("events", []) if vm.get("events", []) is Array else []
 	for i in range(maxi(0, evs2.size() - 3), evs2.size()):
-		Painter.label(self, rx, ry, TM.fit(JSON.stringify((evs2[i] as Dictionary).get("payload", {})), r.end.x - rx - 14, true, 6), 6, P.a(P.FAINT, 0.9), true)
+		if ry > bottom - 4.0:
+			break
+		Painter.label(_cv, rx, ry, TM.fit(JSON.stringify((evs2[i] as Dictionary).get("payload", {})), col_w - 4.0, true, 6), 6, P.a(P.FAINT, 0.9), true)
 		ry += 10.0
+	_traffic_buttons.clear()
+	var b_labels := [["REQUEST", "REQUEST"], ["PERMIT", "PERMIT"], ["OCCUPY", "OCCUPY"], ["RELEASE", "RELEASE"], ["DISGUISE", "DISGUISE"]]
+	var items: Array = []
+	for i in range(b_labels.size()):
+		items.append([String(b_labels[i][0]), String(b_labels[i][1]), P.PH if i < 4 else P.AMBER])
+	_traffic_buttons = _button_bar(fr.footer, items)
 	if _traffic_msg != "":
-		Painter.label(self, x, r.end.y - 14, TM.fit(_traffic_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
+		Painter.label(_cv, x, (fr.footer as Rect2).position.y - 12.0, TM.fit(_traffic_msg, body.size.x, true, 7), 7, P.AMBER, true)
 
 
 func _report_action(kind: String) -> void:
@@ -1494,19 +1581,21 @@ func _report_demo(show_complete: bool) -> void:
 
 
 func _draw_report_overlay(r: Rect2) -> void:
-	var x := r.position.x + 16.0
-	var y := r.position.y + 28.0
-	Painter.label(self, x, y, "AFTER ACTION REPORT / 行动报告", 15, P.PH)
-	Painter.label(self, x, y + 17, "chain 汇总 → report/上报选择/branch hint · 原文本自 story_report · 不伪造结局", 8, P.a(P.AMBER, 0.9), true)
+	var fr := _overlay_frame(r, "AFTER ACTION REPORT / 行动报告", "chain 汇总 → report/上报选择/branch hint · 原文本自 story_report · 不伪造结局", P.PH)
+	var body: Rect2 = fr.body
+	var x := body.position.x
+	var y := body.position.y
 	if binder == null or not binder.report_ready:
-		Painter.label(self, x, y + 46, "REPORT NOT READY · no AfterActionReport", 11, P.AMBER)
+		Painter.label(_cv, x, y + 20, "REPORT NOT READY · no AfterActionReport", 11, P.AMBER)
 		return
 	var vm: Dictionary = binder.report_vm()
 	var inputs: Dictionary = vm.get("inputs", {}) if vm.get("inputs", {}) is Dictionary else {}
-	var left_w := floorf((r.size.x - 34.0) * 0.46)
-	# 行动清单
-	var ly := y + 42.0
-	Painter.section(self, x, ly, x + left_w, "RECORD / 行动清单")
+	var gap := 16.0
+	var left_w := floorf((body.size.x - gap) * 0.46)
+	var right_x := x + left_w + gap
+	var right_w := body.size.x - left_w - gap
+	var ly := y
+	Painter.section(_cv, x, ly, x + left_w, "RECORD / 行动清单")
 	ly += 17.0
 	var ceres := String(inputs.get("ceres", ""))
 	var ch: Dictionary = inputs.get("chronos", {}) if inputs.get("chronos", {}) is Dictionary else {}
@@ -1521,111 +1610,103 @@ func _draw_report_overlay(r: Rect2) -> void:
 		"ID13 状态： " + String(inputs.get("legal_status", "UNLISTED")),
 	]
 	for line in lines:
-		Painter.label(self, x, ly, TM.fit(line, left_w - 8, true, 10), 10, P.TXT, true)
+		Painter.label(_cv, x, ly, TM.fit(line, left_w - 8.0, true, 10), 10, P.TXT, true)
 		ly += 16.0
 	ly += 6.0
-	Painter.section(self, x, ly, x + left_w, "MISSING ITEMS")
+	Painter.section(_cv, x, ly, x + left_w, "MISSING ITEMS")
 	ly += 16.0
 	var miss: Array = vm.get("missing_items", []) if vm.get("missing_items", []) is Array else binder.report_missing()
 	if miss.is_empty():
-		Painter.label(self, x, ly, "MISSING · NONE", 10, P.PH, true)
+		Painter.label(_cv, x, ly, "MISSING · NONE", 10, P.PH, true)
 	else:
 		for m in miss:
-			Painter.label(self, x, ly, "· " + String(m), 9, P.AMBER, true)
+			if ly > body.end.y - 12.0:
+				break
+			Painter.label(_cv, x, ly, "· " + String(m), 9, P.AMBER, true)
 			ly += 13.0
-	# 报告正文
-	var rx := x + left_w + 16.0
-	var rw := r.end.x - rx - 14.0
-	var ry := y + 42.0
-	Painter.section(self, rx, ry, r.end.x - 14, "REPORT BODY / 原文")
+	var ry := y
+	Painter.section(_cv, right_x, ry, right_x + right_w, "REPORT BODY / 原文")
 	ry += 16.0
-	var report_vm: Dictionary = vm.get("composed", {}) if vm.get("composed", {}) is Dictionary else {}
 	var rtxt: String = binder.report_text()
 	if rtxt == "":
 		rtxt = "NO REPORT YET · COMPOSE REPORT"
 	var rtb := bool((vm.get("report", {}) as Dictionary).get("tbd", false)) if vm.get("report", {}) is Dictionary else false
 	if rtb or rtxt == "TBD":
 		rtxt = "TBD · report.standard_missing_tbd · 不伪造报告正文"
-	var rlines := _wrap_text_cjk(rtxt, int(rw / 9.0))
+	var rlines := _wrap_text_cjk(rtxt, right_w, 9, true)
 	for line2 in rlines:
-		if ry > r.end.y - 160.0:
+		if ry > body.end.y - 96.0:
 			break
-		Painter.label(self, rx, ry, line2, 9, P.TXT, true)
+		Painter.label(_cv, right_x, ry, line2, 9, P.TXT, true)
 		ry += 14.0
 	ry += 6.0
 	var bh: String = binder.report_branch_hint()
-	Painter.label(self, rx, ry, "BRANCH HINT " + (bh if bh != "" else "—"), 10, P.AMBER, true)
+	Painter.label(_cv, right_x, ry, TM.fit("BRANCH HINT " + (bh if bh != "" else "—"), right_w, true, 10), 10, P.AMBER, true)
 	ry += 15.0
 	var binfo: Dictionary = binder.report_branch_info(bh)
-	Painter.label(self, rx, ry, TM.fit("BRANCH " + String(binfo.get("label", "—")), rw, true, 8), 8, P.PH_DIM, true)
+	Painter.label(_cv, right_x, ry, TM.fit("BRANCH " + String(binfo.get("label", "—")), right_w, true, 8), 8, P.PH_DIM, true)
 	ry += 14.0
 	var btext: String = binder.report_branch_text(bh)
 	if btext != "":
-		var blines := _wrap_text_cjk(btext, int(rw / 8.0))
+		var blines := _wrap_text_cjk(btext, right_w, 8, true)
 		for j in range(mini(3, blines.size())):
-			Painter.label(self, rx, ry, TM.fit(blines[j], rw, true, 8), 8, P.DIM, true)
+			Painter.label(_cv, right_x, ry, TM.fit(blines[j], right_w, true, 8), 8, P.DIM, true)
 			ry += 12.0
-	# 按钮
 	_report_buttons.clear()
 	var labels := [["COMPOSE", "COMPOSE REPORT"], ["SUBMIT", "SUBMIT EVIDENCE"], ["WITHHOLD", "WITHHOLD EVIDENCE"], ["COMPLETE", "COMPLETE PROLOGUE"]]
-	var by := r.end.y - 36.0
+	var items: Array = []
 	for i in range(labels.size()):
-		var bw := (r.size.x - 32.0 - 8.0 * 3.0) / 4.0
-		var br := Rect2(x + float(i) * (bw + 8.0), by, bw, 24)
-		_report_buttons.append({"rect": br, "kind": String(labels[i][0])})
-		Painter.button(self, br, String(labels[i][1]), true, P.PH)
+		items.append([String(labels[i][0]), String(labels[i][1]), P.PH])
+	_report_buttons = _button_bar(fr.footer, items)
 	if _report_msg != "":
-		Painter.label(self, x, by - 12, TM.fit(_report_msg, r.size.x - 32, true, 8), 8, P.AMBER, true)
+		Painter.label(_cv, x, (fr.footer as Rect2).position.y - 12.0, TM.fit(_report_msg, body.size.x, true, 8), 8, P.AMBER, true)
 
 
 func _draw_complete_overlay(r: Rect2) -> void:
-	var x := r.position.x + 16.0
-	var y := r.position.y + 28.0
-	Painter.label(self, x, y, "序章完成 / PROLOGUE COMPLETE", 18, P.PH)
-	Painter.label(self, x, y + 18, "DEMO · 仅显示完成画面/分支提示 · 不切主菜单/不执行真结局", 9, P.a(P.AMBER, 0.95), true)
+	var fr := _overlay_frame(r, "序章完成 / PROLOGUE COMPLETE", "DEMO · 仅显示完成画面/分支提示 · 不切主菜单/不执行真结局", P.PH)
+	var body: Rect2 = fr.body
+	var x := body.position.x
+	var y := body.position.y
 	if binder == null or not binder.report_ready:
-		Painter.label(self, x, y + 52, "REPORT NOT READY", 11, P.AMBER)
+		Painter.label(_cv, x, y + 20, "REPORT NOT READY", 11, P.AMBER)
 		return
 	var vm: Dictionary = binder.report_vm()
 	var report: Dictionary = vm.get("report", {}) if vm.get("report", {}) is Dictionary else {}
 	var rh: String = binder.report_branch_hint()
-	Painter.section(self, x, y + 48, r.end.x - 14, "PROLOGUE RESULT")
-	var ty := y + 66.0
-	Painter.label(self, x, ty, "BRANCH HINT " + (rh if rh != "" else "—"), 11, P.AMBER, true)
+	Painter.section(_cv, x, y, body.end.x, "PROLOGUE RESULT")
+	var ty := y + 18.0
+	Painter.label(_cv, x, ty, TM.fit("BRANCH HINT " + (rh if rh != "" else "—"), body.size.x, true, 11), 11, P.AMBER, true)
 	ty += 18.0
-	Painter.label(self, x, ty, "ENDING EXECUTED false · PROLOGUE COMPLETE true", 8, P.DIM, true)
+	Painter.label(_cv, x, ty, "ENDING EXECUTED false · PROLOGUE COMPLETE true", 8, P.DIM, true)
 	ty += 22.0
-	var body := String(report.get("zh", ""))
-	if body == "" or bool(report.get("tbd", false)):
-		body = "TBD · 报告正文未提供，不伪造"
-	var lines := _wrap_text_cjk(body, 110)
+	var body_txt := String(report.get("zh", ""))
+	if body_txt == "" or bool(report.get("tbd", false)):
+		body_txt = "TBD · 报告正文未提供，不伪造"
+	var lines := _wrap_text_cjk(body_txt, body.size.x, 9, true)
 	for line in lines:
-		if ty > r.end.y - 120.0:
+		if ty > body.end.y - 48.0:
 			break
-		Painter.label(self, x, ty, line, 10, P.TXT, true)
+		Painter.label(_cv, x, ty, line, 10, P.TXT, true)
 		ty += 15.0
 	ty += 10.0
-	Painter.section(self, x, ty, r.end.x - 14, "ACTION SUMMARY")
+	Painter.section(_cv, x, ty, body.end.x, "ACTION SUMMARY")
 	ty += 16.0
 	var inputs: Dictionary = vm.get("inputs", {}) if vm.get("inputs", {}) is Dictionary else {}
-	Painter.label(self, x, ty, "CERES " + String(inputs.get("ceres", "—")) + " · AV " + String(inputs.get("av4412", "—")) + " · EVIDENCE " + ",".join(inputs.get("evidence", []) if inputs.get("evidence", []) is Array else []), 8, P.PH_DIM, true)
+	Painter.label(_cv, x, ty, TM.fit("CERES " + String(inputs.get("ceres", "—")) + " · AV " + String(inputs.get("av4412", "—")) + " · EVIDENCE " + ",".join(inputs.get("evidence", []) if inputs.get("evidence", []) is Array else []), body.size.x, true, 8), 8, P.PH_DIM, true)
 	ty += 14.0
-	Painter.label(self, x, ty, "ID13 STATUS " + String(inputs.get("legal_status", "UNLISTED")) + " · 不写 world/不执行结局", 8, P.a(P.FAINT, 0.9), true)
+	Painter.label(_cv, x, ty, TM.fit("ID13 STATUS " + String(inputs.get("legal_status", "UNLISTED")) + " · 不写 world/不执行结局", body.size.x, true, 8), 8, P.a(P.FAINT, 0.9), true)
 	_report_buttons.clear()
-	var br := Rect2(r.end.x - 200.0, r.end.y - 38.0, 180, 24)
-	_report_buttons.append({"rect": br, "kind": "CLOSE"})
-	Painter.button(self, br, "返回 HUD / CLOSE", true, P.PH)
+	_report_buttons = _button_bar(fr.footer, [["CLOSE", "返回 HUD / CLOSE"]])
 	if _report_msg != "":
-		Painter.label(self, x, r.end.y - 16, TM.fit(_report_msg, r.size.x - 240, true, 8), 8, P.AMBER, true)
+		Painter.label(_cv, x, (fr.footer as Rect2).position.y - 12.0, TM.fit(_report_msg, body.size.x, true, 8), 8, P.AMBER, true)
 
 
 func _draw_av4412_overlay(r: Rect2) -> void:
-	var x := r.position.x + 16.0
-	var y := r.position.y + 26.0
-	Painter.label(self, x, y, "AV-4412 / 对峙 · 谈判", 15, P.PH)
-	Painter.label(self, x, y + 18, "四选项大字可读 · 原文/后续 10pt · TBD 明示 · 不自动开火/推进", 8, P.a(P.AMBER, 0.9), true)
+	var fr := _overlay_frame(r, "AV-4412 / 对峙 · 谈判", "四选项大字可读 · 原文/后续 10pt · TBD 明示 · 不自动开火/推进", P.PH)
+	var body: Rect2 = fr.body
+	var x := body.position.x
 	if binder == null or not binder.av4412_ready:
-		Painter.label(self, x, y + 50, "AV4412 NOT READY · no AV4412Chain", 11, P.AMBER)
+		Painter.label(_cv, x, body.position.y + 20, "AV4412 NOT READY · no AV4412Chain", 11, P.AMBER)
 		return
 	var vm: Dictionary = binder.av4412_vm()
 	var state := String(vm.get("state", "NOT READY"))
@@ -1639,19 +1720,19 @@ func _draw_av4412_overlay(r: Rect2) -> void:
 		"NEGOTIATION": active_i = 4
 		"STRONG", "STANDARD", "QUESTION", "RETREAT": active_i = 5
 		"RESOLUTION", "REPORT_HANDOFF": active_i = 6
-	var sy := y + 38.0
+	var sy := body.position.y
+	var scw := floorf((body.size.x - 6.0 * float(states.size() - 1)) / float(states.size()))
 	for i in range(states.size()):
-		var cw := (r.size.x - 32.0) / states.size()
-		var cr := Rect2(x + float(i) * cw, sy, cw - 4, 19)
-		draw_rect(cr, P.a(P.AMBER if i <= active_i else P.LINE, 0.16 if i <= active_i else 0.05))
-		draw_rect(cr, P.a(P.AMBER if i == active_i else P.LINE, 0.75 if i == active_i else 0.25), false, 1.0)
-		Painter.label(self, cr.position.x + 4, cr.position.y + 14, states[i], 7, P.PH if i == active_i else P.FAINT, true)
-	var left_w := floorf((r.size.x - 34.0) * 0.58)
-	var right_x := x + left_w + 16.0
-	var body_y := sy + 28.0
-	var options_y := r.end.y - 254.0
-	# 当前原文 / 后续（10pt）
-	Painter.section(self, x, body_y, x + left_w, "当前原文 / CURRENT TEXT")
+		var cr := Rect2(x + float(i) * (scw + 6.0), sy, scw, 19)
+		_cv.draw_rect(cr, P.a(P.AMBER if i <= active_i else P.LINE, 0.16 if i <= active_i else 0.05))
+		_cv.draw_rect(cr, P.a(P.AMBER if i == active_i else P.LINE, 0.75 if i == active_i else 0.25), false, 1.0)
+		Painter.label(_cv, cr.position.x + 4, cr.position.y + 14, TM.fit(String(states[i]), scw - 8.0, true, 7), 7, P.PH if i == active_i else P.FAINT, true)
+	var gap := 16.0
+	var left_w := floorf(body.size.x * 0.58)
+	var right_x := x + left_w + gap
+	var right_w := body.size.x - left_w - gap
+	var body_y := sy + 30.0
+	Painter.section(_cv, x, body_y, x + left_w, "当前原文 / CURRENT TEXT")
 	var ty := body_y + 17.0
 	var keys: Array = []
 	match state:
@@ -1662,91 +1743,85 @@ func _draw_av4412_overlay(r: Rect2) -> void:
 		"STANDARD": keys = ["av4412.standard", "av4412.standard_aftermath"]
 		"QUESTION": keys = ["av4412.question", "av4412.question_aftermath"]
 		"RETREAT": keys = ["av4412.retreat_rules"]
+	var opt_h := maxf(4.0 * 44.0, body.size.y * 0.42)
+	var options_y := body.end.y - opt_h
 	for k in keys:
 		var txt: String = binder.av4412_text(String(k))
 		if txt == "" or txt == "TBD":
 			txt = "TBD · " + String(k) + " · 未提供原文（不伪造）"
-		var lines := _wrap_text_cjk(txt, int(left_w / 10.0))
+		var lines := _wrap_text_cjk(txt, left_w, 10, true)
 		for line in lines:
 			if ty > options_y - 16.0:
 				break
-			Painter.label(self, x, ty, line, 10, P.TXT, true)
+			Painter.label(_cv, x, ty, line, 10, P.TXT, true)
 			ty += 15.0
 		ty += 4.0
-	# 四选项大字卡片
-	Painter.section(self, x, options_y - 2.0, x + left_w, "OPTIONS / 四选项 · 点击选择")
+	Painter.section(_cv, x, options_y - 2.0, x + left_w, "OPTIONS / 四选项 · 点击选择")
 	var card_y := options_y + 15.0
-	var card_h := maxf(42.0, (r.end.y - 46.0 - card_y) / 4.0)
+	var card_h := maxf(34.0, (body.end.y - card_y - 3.0 * 3.0) / 4.0)
 	_av4412_buttons.clear()
 	for i in range(4):
 		var opt: String = String(["strong", "standard", "question", "retreat"][i])
-		var card := Rect2(x, card_y + float(i) * (card_h + 3.0), left_w - 4.0, card_h)
+		var card := Rect2(x, card_y + float(i) * (card_h + 3.0), left_w, card_h)
 		_av4412_buttons.append({"rect": card, "kind": String(opt).to_upper()})
 		var selected: bool = String(vm.get("option", "")) == opt
-		draw_rect(card, P.a(P.PANEL2, 0.45))
-		draw_rect(card, P.a(P.AMBER if selected else P.LINE, 0.85 if selected else 0.35), false, 1.0)
-		Painter.label(self, card.position.x + 8, card.position.y + 15, ("▶ " if selected else "") + String(opt).to_upper(), 11, P.PH if selected else P.TXT, true)
+		_cv.draw_rect(card, P.a(P.PANEL2, 0.75 if selected else 0.5))
+		_cv.draw_rect(card, P.a(P.AMBER if selected else P.LINE2, 0.9 if selected else 0.55), false, 1.0)
+		Painter.label(_cv, card.position.x + 8, card.position.y + 15, ("▶ " if selected else "") + String(opt).to_upper(), 11, P.PH if selected else P.TXT, true)
 		var ot: String = binder.av4412_text("av4412." + opt)
 		if ot == "" or ot == "TBD":
 			ot = "TBD · 未提供原文（不伪造）"
-		var ol := _wrap_text_cjk(ot, int((card.size.x - 12.0) / 10.0))
+		var ol := _wrap_text_cjk(ot, card.size.x - 16.0, 10, true)
 		for j in range(mini(2, ol.size())):
-			Painter.label(self, card.position.x + 8, card.position.y + 30 + float(j) * 13.0, TM.fit(ol[j], card.size.x - 16.0, true, 10), 10, P.DIM, true)
-	# 右侧次级信息
-	var rw := r.end.x - right_x - 14.0
+			Painter.label(_cv, card.position.x + 8, card.position.y + 30 + float(j) * 13.0, TM.fit(ol[j], card.size.x - 16.0, true, 10), 10, P.DIM, true)
 	var ry := body_y
-	Painter.section(self, right_x, ry, r.end.x - 14, "THREAT / TRUST / ROE")
+	Painter.section(_cv, right_x, ry, right_x + right_w, "THREAT / TRUST / ROE")
 	ry += 15.0
-	Painter.label(self, right_x, ry, "THREAT %d · TRUST %d · CHOICE %s" % [int(vm.get("threat", 0)), int(vm.get("trust", 0)), String(vm.get("option", "—"))], 8, P.PH, true)
+	Painter.label(_cv, right_x, ry, TM.fit("THREAT %d · TRUST %d · CHOICE %s" % [int(vm.get("threat", 0)), int(vm.get("trust", 0)), String(vm.get("option", "—"))], right_w, true, 8), 8, P.PH, true)
 	ry += 14.0
 	var flags: Dictionary = vm.get("flags", {}) if vm.get("flags", {}) is Dictionary else {}
 	var roe_txt := "ROE TIGHT · fire_control_illumination · auto_fire=false" if bool(flags.get("roe_tight", false)) else "ROE " + String(binder.roe_text)
-	Painter.label(self, right_x, ry, TM.fit(roe_txt, rw, true, 8), 8, P.AMBER if bool(flags.get("roe_tight", false)) else P.TXT, true)
+	Painter.label(_cv, right_x, ry, TM.fit(roe_txt, right_w, true, 8), 8, P.AMBER if bool(flags.get("roe_tight", false)) else P.TXT, true)
 	ry += 14.0
-	Painter.label(self, right_x, ry, TM.fit("REPUTATION " + JSON.stringify(vm.get("reputation", {})), rw, true, 7), 7, P.a(P.DIM, 0.9), true)
+	Painter.label(_cv, right_x, ry, TM.fit("REPUTATION " + JSON.stringify(vm.get("reputation", {})), right_w, true, 7), 7, P.a(P.DIM, 0.9), true)
 	ry += 13.0
-	Painter.label(self, right_x, ry, TM.fit("FLAGS " + JSON.stringify(flags), rw, true, 7), 7, P.a(P.DIM, 0.9), true)
+	Painter.label(_cv, right_x, ry, TM.fit("FLAGS " + JSON.stringify(flags), right_w, true, 7), 7, P.a(P.DIM, 0.9), true)
 	ry += 13.0
-	Painter.label(self, right_x, ry, TM.fit("TRIGGERS " + ",".join(vm.get("trigger_ids", []) if vm.get("trigger_ids", []) is Array else []), rw, true, 7), 7, P.AMBER, true)
+	Painter.label(_cv, right_x, ry, TM.fit("TRIGGERS " + ",".join(vm.get("trigger_ids", []) if vm.get("trigger_ids", []) is Array else []), right_w, true, 7), 7, P.AMBER, true)
 	ry += 20.0
 	var orb: Dictionary = vm.get("orbit", {}) if vm.get("orbit", {}) is Dictionary else {}
-	Painter.section(self, right_x, ry, r.end.x - 14, "TRACK / WINDOW")
+	Painter.section(_cv, right_x, ry, right_x + right_w, "TRACK / WINDOW")
 	ry += 15.0
 	if orb.is_empty():
-		Painter.label(self, right_x, ry, "TRACK NOT READY · 需要真实 av4412 轨道", 8, P.AMBER, true)
+		Painter.label(_cv, right_x, ry, "TRACK NOT READY · 需要真实 av4412 轨道", 8, P.AMBER, true)
 	else:
-		Painter.label(self, right_x, ry, TM.fit("t=%.1fs · pos=%s" % [float(orb.get("t", 0.0)), str(orb.get("pos", []))], rw, true, 7), 7, P.TXT, true)
+		Painter.label(_cv, right_x, ry, TM.fit("t=%.1fs · pos=%s" % [float(orb.get("t", 0.0)), str(orb.get("pos", []))], right_w, true, 7), 7, P.TXT, true)
 		ry += 13.0
-		Painter.label(self, right_x, ry, "WINDOW %s · RADAR %s · DETECTED %s" % ["OPEN" if bool(binder.av4412_chain.window_open) else "CLOSED", str(bool(binder.av4412_chain.radar_active)), str(bool((vm.get("detection", {}) as Dictionary).get("detected", false)) if vm.get("detection", {}) is Dictionary else false)], 7, P.TXT, true)
+		Painter.label(_cv, right_x, ry, TM.fit("WINDOW %s · RADAR %s · DETECTED %s" % ["OPEN" if bool(binder.av4412_chain.window_open) else "CLOSED", str(bool(binder.av4412_chain.radar_active)), str(bool((vm.get("detection", {}) as Dictionary).get("detected", false)) if vm.get("detection", {}) is Dictionary else false)], right_w, true, 7), 7, P.TXT, true)
 	ry += 20.0
-	Painter.section(self, right_x, ry, r.end.x - 14, "TBD / EVENTS / COMMS")
+	Painter.section(_cv, right_x, ry, right_x + right_w, "TBD / EVENTS / COMMS")
 	ry += 14.0
 	var tbd_keys: Array = []
 	for k2 in (vm.get("text_keys", []) if vm.get("text_keys", []) is Array else []):
 		if bool((binder.av4412_chain.text(String(k2)) as Dictionary).get("tbd", false)):
 			tbd_keys.append(String(k2))
 	if not tbd_keys.is_empty():
-		Painter.label(self, right_x, ry, TM.fit("TBD KEYS " + ",".join(tbd_keys) + " · 不伪造", rw, true, 7), 7, P.AMBER, true)
+		Painter.label(_cv, right_x, ry, TM.fit("TBD KEYS " + ",".join(tbd_keys) + " · 不伪造", right_w, true, 7), 7, P.AMBER, true)
 		ry += 13.0
 	var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
 	for i in range(maxi(0, evs.size() - 3), evs.size()):
-		Painter.label(self, right_x, ry, TM.fit(String((evs[i] as Dictionary).get("action", "")) + " · " + String((evs[i] as Dictionary).get("trigger_id", "")), rw, true, 7), 7, P.PH_DIM, true)
+		Painter.label(_cv, right_x, ry, TM.fit(String((evs[i] as Dictionary).get("action", "")) + " · " + String((evs[i] as Dictionary).get("trigger_id", "")), right_w, true, 7), 7, P.PH_DIM, true)
 		ry += 12.0
 	for line in (binder.av4412_comms_lines if binder != null else []):
-		if ry > r.end.y - 50.0:
+		if ry > body.end.y - 14.0:
 			break
-		Painter.label(self, right_x, ry, TM.fit(String(line), rw, true, 7), 7, P.DIM, true)
+		Painter.label(_cv, right_x, ry, TM.fit(String(line), right_w, true, 7), 7, P.DIM, true)
 		ry += 12.0
-	# 底部三按钮（重排，不再与选项挤一行）
-	var by := r.end.y - 34.0
-	var b2 := [["TRACK", "TRACK"], ["WINDOW", "WINDOW"], ["ADVANCE", "ADVANCE"]]
-	for i in range(3):
-		var bw := (r.size.x - 32.0 - 16.0) / 3.0
-		var br := Rect2(x + float(i) * (bw + 8.0), by, bw, 24)
-		_av4412_buttons.append({"rect": br, "kind": String(b2[i][0])})
-		Painter.button(self, br, String(b2[i][1]), true, P.PH)
+	var bar: Array = _button_bar(fr.footer, [["TRACK", "TRACK"], ["WINDOW", "WINDOW"], ["ADVANCE", "ADVANCE"]])
+	for b in bar:
+		_av4412_buttons.append(b)
 	if _av4412_msg != "":
-		Painter.label(self, x, by - 13, TM.fit(_av4412_msg, r.size.x - 32, true, 8), 8, P.AMBER, true)
+		Painter.label(_cv, x, (fr.footer as Rect2).position.y - 12.0, TM.fit(_av4412_msg, body.size.x, true, 8), 8, P.AMBER, true)
 
 
 func _av4412_action(kind: String) -> void:
@@ -1804,12 +1879,11 @@ func _av4412_demo() -> void:
 
 
 func _draw_chronos_overlay(r: Rect2) -> void:
-	var x := r.position.x + 16.0
-	var y := r.position.y + 30.0
-	Painter.label(self, x, y, "CHRONOS / 港务 · 私人通信 · 行动", 12, P.PH)
-	Painter.label(self, x, y + 14, "Ceres 后链 · 文本来自 story_chronos · 接受/拒绝互斥 · 不自动完成/不自动开 4412", 7, P.a(P.AMBER, 0.9), true)
+	var fr := _overlay_frame(r, "CHRONOS / 港务 · 私人通信 · 行动", "Ceres 后链 · 文本来自 story_chronos · 接受/拒绝互斥 · 不自动完成/不自动开 4412", P.PH)
+	var body: Rect2 = fr.body
+	var x := body.position.x
 	if binder == null or not binder.chronos_ready:
-		Painter.label(self, x, y + 44, "CHRONOS NOT READY · no ChronosChain", 9, P.AMBER)
+		Painter.label(_cv, x, body.position.y + 20, "CHRONOS NOT READY · no ChronosChain", 9, P.AMBER)
 		return
 	var vm: Dictionary = binder.chronos_vm()
 	var stage := String(vm.get("state", "NOT READY"))
@@ -1818,14 +1892,18 @@ func _draw_chronos_overlay(r: Rect2) -> void:
 	for i in range(states.size()):
 		if String(states[i]) == stage:
 			active_i = i
-	var sy := y + 40.0
+	var sy := body.position.y
+	var scw := floorf((body.size.x - 6.0 * float(states.size() - 1)) / float(states.size()))
 	for i in range(states.size()):
-		var cw := (r.size.x - 40.0) / states.size()
-		var cr := Rect2(x + float(i) * cw, sy, cw - 4, 18)
-		draw_rect(cr, P.a(P.AMBER if i <= active_i else P.LINE, 0.16 if i <= active_i else 0.05))
-		draw_rect(cr, P.a(P.AMBER if i == active_i else P.LINE, 0.75 if i == active_i else 0.25), false, 1.0)
-		Painter.label(self, cr.position.x + 4, cr.position.y + 13, states[i], 6, P.PH if i == active_i else P.FAINT, true)
-	# 当前阶段文本
+		var cr := Rect2(x + float(i) * (scw + 6.0), sy, scw, 18)
+		_cv.draw_rect(cr, P.a(P.AMBER if i <= active_i else P.LINE, 0.16 if i <= active_i else 0.05))
+		_cv.draw_rect(cr, P.a(P.AMBER if i == active_i else P.LINE, 0.75 if i == active_i else 0.25), false, 1.0)
+		Painter.label(_cv, cr.position.x + 4, cr.position.y + 13, TM.fit(String(states[i]), scw - 8.0, true, 6), 6, P.PH if i == active_i else P.FAINT, true)
+	var gap := 16.0
+	var left_w := floorf(body.size.x * 0.58)
+	var right_x := x + left_w + gap
+	var right_w := body.size.x - left_w - gap
+	var ty := sy + 30.0
 	var keys: Array = []
 	match stage:
 		"WAIT_DOCK":
@@ -1844,57 +1922,49 @@ func _draw_chronos_overlay(r: Rect2) -> void:
 			keys = ["chronos.window_teaching"]
 		_:
 			keys = []
-	var ty := sy + 34.0
 	for k in keys:
 		var txt: String = binder.chronos_text(String(k))
-		var lines := _wrap_text_cjk(txt, 96)
+		var lines := _wrap_text_cjk(txt, left_w, 9, true)
 		for line in lines:
-			if ty > r.end.y - 150.0:
+			if ty > body.end.y - 70.0:
 				break
-			Painter.label(self, x, ty, line, 7, P.TXT, true)
-			ty += 12.0
+			Painter.label(_cv, x, ty, line, 9, P.TXT, true)
+			ty += 14.0
 		ty += 4.0
-	# 通信日志（chain 真实文本）
 	ty += 4.0
-	Painter.label(self, x, ty, "COMMS LOG", 8, P.PH_DIM)
+	Painter.label(_cv, x, ty, "COMMS LOG", 8, P.PH_DIM)
 	ty += 14.0
 	var log_lines: Array = binder.chronos_comms_lines
 	if log_lines.is_empty():
-		Painter.label(self, x, ty, "NO CHRONOS COMMS · 尚未触发", 7, P.FAINT, true)
+		Painter.label(_cv, x, ty, "NO CHRONOS COMMS · 尚未触发", 7, P.FAINT, true)
 	else:
 		for i in range(maxi(0, log_lines.size() - 3), log_lines.size()):
-			Painter.label(self, x, ty, TM.fit(String(log_lines[i]), r.size.x * 0.58, true, 6), 6, P.PH_DIM, true)
+			Painter.label(_cv, x, ty, TM.fit(String(log_lines[i]), left_w, true, 6), 6, P.PH_DIM, true)
 			ty += 12.0
-	# 右栏 trust/flags/reputation/actions
-	var rx := x + r.size.x * 0.62
-	var ry := sy + 34.0
-	Painter.section(self, rx, ry, r.end.x - 14, "TRUST / STATE")
+	var ry := sy + 30.0
+	Painter.section(_cv, right_x, ry, right_x + right_w, "TRUST / STATE")
 	ry += 15.0
-	Painter.label(self, rx, ry, "TRUST %d · %s · CHOICE %s" % [int(vm.get("trust", 0)), String(vm.get("trust_state", "")), String(vm.get("choice", "—"))], 8, P.PH, true)
+	Painter.label(_cv, right_x, ry, TM.fit("TRUST %d · %s · CHOICE %s" % [int(vm.get("trust", 0)), String(vm.get("trust_state", "")), String(vm.get("choice", "—"))], right_w, true, 8), 8, P.PH, true)
 	ry += 14.0
-	Painter.label(self, rx, ry, "ACTIONS " + ",".join(vm.get("actions", []) if vm.get("actions", []) is Array else []), 7, P.TXT, true)
+	Painter.label(_cv, right_x, ry, TM.fit("ACTIONS " + ",".join(vm.get("actions", []) if vm.get("actions", []) is Array else []), right_w, true, 7), 7, P.TXT, true)
 	ry += 14.0
-	Painter.label(self, rx, ry, "FLAGS " + JSON.stringify(vm.get("flags", {})), 6, P.a(P.DIM, 0.9), true)
+	Painter.label(_cv, right_x, ry, TM.fit("FLAGS " + JSON.stringify(vm.get("flags", {})), right_w, true, 6), 6, P.a(P.DIM, 0.9), true)
 	ry += 14.0
-	Painter.label(self, rx, ry, "REPUTATION " + JSON.stringify(vm.get("reputation", {})), 6, P.a(P.DIM, 0.9), true)
+	Painter.label(_cv, right_x, ry, TM.fit("REPUTATION " + JSON.stringify(vm.get("reputation", {})), right_w, true, 6), 6, P.a(P.DIM, 0.9), true)
 	ry += 14.0
-	Painter.label(self, rx, ry, "TRIGGERS " + ",".join(vm.get("trigger_ids", []) if vm.get("trigger_ids", []) is Array else []), 6, P.AMBER, true)
+	Painter.label(_cv, right_x, ry, TM.fit("TRIGGERS " + ",".join(vm.get("trigger_ids", []) if vm.get("trigger_ids", []) is Array else []), right_w, true, 6), 6, P.AMBER, true)
 	ry += 20.0
-	Painter.section(self, rx, ry, r.end.x - 14, "WINDOW / 494")
+	Painter.section(_cv, right_x, ry, right_x + right_w, "WINDOW / 494")
 	ry += 15.0
 	var flags: Dictionary = vm.get("flags", {}) if vm.get("flags", {}) is Dictionary else {}
-	Painter.label(self, rx, ry, "WINDOW " + ("ENDED" if bool(flags.get("window_ended", false)) else ("OPEN" if bool(flags.get("window_open", false)) else "NOT OPEN")) + " · 不自动开 4412", 7, P.AMBER, true)
-	# 按钮
-	_chronos_buttons.clear()
+	Painter.label(_cv, right_x, ry, TM.fit("WINDOW " + ("ENDED" if bool(flags.get("window_ended", false)) else ("OPEN" if bool(flags.get("window_open", false)) else "NOT OPEN")) + " · 不自动开 4412", right_w, true, 7), 7, P.AMBER, true)
 	var labels := [["PORT", "PORT COMM"], ["EVAC", "EVAC"], ["PRIVATE", "PRIVATE"], ["ACCEPT", "ACCEPT"], ["REJECT", "REJECT"], ["OPEN", "OPEN ACTIONS"], ["BLACKBOX", "BLACKBOX"], ["TELEMETRY", "TELEMETRY"], ["WINDOW", "WINDOW END"]]
-	var by := r.end.y - 36.0
+	var items: Array = []
 	for i in range(labels.size()):
-		var bw := (r.size.x - 32.0 - 8.0 * 8.0) / 9.0
-		var br := Rect2(x + float(i) * (bw + 8.0), by, bw, 22)
-		_chronos_buttons.append({"rect": br, "kind": String(labels[i][0])})
-		Painter.button(self, br, String(labels[i][1]), true, P.PH if i in [5, 6, 7, 8] else P.PH_DIM)
+		items.append([String(labels[i][0]), String(labels[i][1]), P.PH if i in [5, 6, 7, 8] else P.PH_DIM])
+	_chronos_buttons = _button_bar(fr.footer, items)
 	if _chronos_msg != "":
-		Painter.label(self, x, by - 12, TM.fit(_chronos_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
+		Painter.label(_cv, x, (fr.footer as Rect2).position.y - 12.0, TM.fit(_chronos_msg, body.size.x, true, 7), 7, P.AMBER, true)
 
 
 func _chronos_action(kind: String) -> void:
@@ -1942,10 +2012,6 @@ func _chronos_demo() -> void:
 
 
 func _draw_optical_overlay(r: Rect2) -> void:
-	var x := r.position.x + 16.0
-	var y := r.position.y + 34.0
-	Painter.label(self, x, y, "光学 / 识别 · OPTICAL / IDENTIFICATION", 12, P.PH)
-	Painter.label(self, x, y + 14, "目标=当前选中 track/entity · 数据来自 track_vm / sensor_vm · 不伪造 L3/L4", 7, P.a(P.AMBER, 0.9), true)
 	var c: Dictionary = _contacts[_selected] if _selected >= 0 and _selected < _contacts.size() else {}
 	var tr: Dictionary = _optical_track
 	if tr.is_empty() and binder != null:
@@ -1953,81 +2019,86 @@ func _draw_optical_overlay(r: Rect2) -> void:
 	var target_id := String(_optical_target)
 	if target_id == "":
 		target_id = String(c.get("entity_id", c.get("id", "")))
-	Painter.label(self, x, y + 40, "TARGET  " + String(c.get("name", "NOT READY")) + " · " + String(c.get("id", target_id)), 9, P.TXT)
-	Painter.label(self, x, y + 56, "ENTITY/TRACK " + target_id + " · " + (String(tr.get("track_id", "TRACK NOT READY")) if not tr.is_empty() else "TRACK NOT READY"), 7, P.PH_DIM, true)
-	# 左侧识别链
-	var ly := y + 82.0
-	Painter.section(self, x, ly, x + 540, "IDENTIFICATION CHAIN / L1–L4")
-	ly += 16.0
 	var level := int(tr.get("level", 0)) if not tr.is_empty() else 0
+	var is_ceres := target_id == "ceres_2" and binder != null and bool(binder.ceres_ready)
+	var labels := [["VIS", "VIS / 可见光"], ["IR", "IR / 红外"], ["IFF", "IFF QUERY"], ["ELINT", "ELINT"], ["LIGHT", "LIGHT TX"], ["RECV", "LIGHT RECV"], ["ACK", "LIGHT ACK"], ["CODE_PREV", "CODE ◀"], ["CODE_NEXT", "CODE ▶"]]
+	if is_ceres:
+		labels = [["DATA_LINK", "DATA LINK"], ["VIS", "VIS"], ["ELINT", "ELINT"], ["IFF", "IFF QUERY"], ["READ_LIGHT", "READ LIGHT"], ["TYPE_L4", "TYPE L4"], ["RESCUE_PROMPT", "RESCUE PROMPT"], ["RESCUE", "RESCUE"], ["IGNORE", "IGNORE"]]
+	var fr := _overlay_frame(r, "光学 / 识别 · OPTICAL / IDENTIFICATION", "目标=当前选中 track/entity · 数据来自 track_vm / sensor_vm · 不伪造 L3/L4", P.PH, "TRACK L%d · %s" % [level, String(c.get("id", target_id))])
+	var body: Rect2 = fr.body
+	var x := body.position.x
+	var y := body.position.y
+	var gap := 16.0
+	var left_w := floorf(body.size.x * 0.5 - gap * 0.5)
+	var right_x := x + left_w + gap
+	var right_w := body.size.x - left_w - gap
+	Painter.label(_cv, x, y + 10, TM.fit("TARGET  " + String(c.get("name", "NOT READY")) + " · " + String(c.get("id", target_id)), left_w, false, 9), 9, P.TXT)
+	Painter.label(_cv, x, y + 24, TM.fit("ENTITY/TRACK " + target_id + " · " + (String(tr.get("track_id", "TRACK NOT READY")) if not tr.is_empty() else "TRACK NOT READY"), left_w, true, 7), 7, P.PH_DIM, true)
+	var ly := y + 48.0
+	Painter.section(_cv, x, ly, x + left_w, "IDENTIFICATION CHAIN / L1–L4")
+	ly += 16.0
 	var lv_names := ["NO TRACK", "L1 BEARING", "L2 POSITION", "L3 CLASSIFIED", "L4 IDENTIFIED"]
 	var level_name := String(lv_names[clampi(level, 0, 4)])
 	var lv_cols := [P.FAINT, P.DIM, P.BLUE, P.AMBER, P.PH]
+	var cw := floorf((left_w - 3.0 * 6.0) / 4.0)
 	for i in range(1, 5):
 		var active := level >= i
-		var cr := Rect2(x + float(i - 1) * 132.0, ly, 124, 20)
-		draw_rect(cr, P.a(lv_cols[i], 0.12 if active else 0.03))
-		draw_rect(cr, P.a(lv_cols[i], 0.7 if active else 0.22), false, 1.0)
-		Painter.label(self, cr.position.x + 5, cr.position.y + 14, "L%d %s" % [i, String(lv_names[i])], 7, lv_cols[i] if active else P.FAINT, true)
+		var cr := Rect2(x + float(i - 1) * (cw + 6.0), ly, cw, 20)
+		_cv.draw_rect(cr, P.a(lv_cols[i], 0.12 if active else 0.03))
+		_cv.draw_rect(cr, P.a(lv_cols[i], 0.7 if active else 0.22), false, 1.0)
+		Painter.label(_cv, cr.position.x + 5, cr.position.y + 14, TM.fit("L%d %s" % [i, String(lv_names[i])], cw - 10.0, true, 7), 7, lv_cols[i] if active else P.FAINT, true)
 	ly += 30.0
-	Painter.key_value(self, x, ly, x + 540, "LEVEL", "L%d · %s" % [level, level_name], P.PH if level >= 3 else P.AMBER)
-	ly += 13.0
-	Painter.key_value(self, x, ly, x + 540, "IDENTITY", String(tr.get("identity_label", tr.get("identity", "—"))) if not tr.is_empty() else "NOT READY", P.TXT)
-	ly += 13.0
+	var kv_right := minf(x + left_w, x + 460.0)
+	Painter.key_value(_cv, x, ly, kv_right, "LEVEL", "L%d · %s" % [level, level_name], P.PH if level >= 3 else P.AMBER)
+	ly += 15.0
+	Painter.key_value(_cv, x, ly, kv_right, "IDENTITY", String(tr.get("identity_label", tr.get("identity", "—"))) if not tr.is_empty() else "NOT READY", P.TXT)
+	ly += 15.0
 	var sources: Array = tr.get("sources", []) if not tr.is_empty() and tr.get("sources", []) is Array else []
 	var evidence: Array = tr.get("evidence_ids", []) if not tr.is_empty() and tr.get("evidence_ids", []) is Array else []
-	Painter.key_value(self, x, ly, x + 540, "SOURCES", ",".join(sources) if not sources.is_empty() else "NOT READY", P.TXT)
-	ly += 13.0
-	Painter.key_value(self, x, ly, x + 540, "EVIDENCE", str(evidence.size()) + " ids", P.TXT)
-	ly += 13.0
-	Painter.key_value(self, x, ly, x + 540, "RANGE / BRG", ("%.1f km / %.0f°" % [float(tr.get("range_km", -1.0)), float(tr.get("bearing_deg", -1.0))]) if not tr.is_empty() else "NOT READY", P.TXT)
-	ly += 13.0
-	# FOV/SNR 从 sensor vm channels 查
+	Painter.key_value(_cv, x, ly, kv_right, "SOURCES", ",".join(sources) if not sources.is_empty() else "NOT READY", P.TXT)
+	ly += 15.0
+	Painter.key_value(_cv, x, ly, kv_right, "EVIDENCE", str(evidence.size()) + " ids", P.TXT)
+	ly += 15.0
+	Painter.key_value(_cv, x, ly, kv_right, "RANGE / BRG", ("%.1f km / %.0f°" % [float(tr.get("range_km", -1.0)), float(tr.get("bearing_deg", -1.0))]) if not tr.is_empty() else "NOT READY", P.TXT)
+	ly += 15.0
 	var fov := "—"
 	var snr := "—"
 	if binder != null:
-		var svm: Dictionary = binder.sensor_vm
-		var chans: Array = svm.get("channels", []) if svm.get("channels", []) is Array else []
+		var svm0: Dictionary = binder.sensor_vm
+		var chans: Array = svm0.get("channels", []) if svm0.get("channels", []) is Array else []
 		for raw in chans:
 			if raw is Dictionary and (String((raw as Dictionary).get("target_id", "")) == target_id or String((raw as Dictionary).get("target", "")) == target_id):
 				fov = str((raw as Dictionary).get("fov_deg", (raw as Dictionary).get("fov", "—")))
 				snr = str((raw as Dictionary).get("snr_db", (raw as Dictionary).get("snr", "—")))
 				break
-	Painter.key_value(self, x, ly, x + 540, "FOV / SNR", "%s / %s" % [fov, snr], P.TXT)
-	# 右光学小窗
-	var ow := Rect2(x + 570, y + 80, 330, 250)
-	draw_rect(ow, P.a(P.EARTH, 0.7))
-	draw_rect(ow, P.a(P.LINE2, 0.6), false, 1.0)
-	draw_string(F.mono(), Vector2(ow.position.x + 8, ow.position.y + 16), "V1 OPTICAL / 瞄准框 · FOV " + str(fov), HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.PH, 0.9))
+	Painter.key_value(_cv, x, ly, kv_right, "FOV / SNR", "%s / %s" % [fov, snr], P.TXT)
+	var ow_h := minf(right_w * 0.75, body.size.y * 0.42)
+	var ow := Rect2(right_x, y, right_w, ow_h)
+	_cv.draw_rect(ow, P.a(P.EARTH, 0.7))
+	_cv.draw_rect(ow, P.a(P.LINE2, 0.6), false, 1.0)
+	_cv.draw_string(F.mono(), Vector2(ow.position.x + 8, ow.position.y + 16), "V1 OPTICAL / 瞄准框 · FOV " + str(fov), HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.PH, 0.9))
 	var cen := ow.position + ow.size * 0.5
-	draw_line(Vector2(cen.x - ow.size.x * 0.4, cen.y), Vector2(cen.x - 12, cen.y), P.a(P.PH, 0.65), 1.0)
-	draw_line(Vector2(cen.x + 12, cen.y), Vector2(cen.x + ow.size.x * 0.4, cen.y), P.a(P.PH, 0.65), 1.0)
-	draw_line(Vector2(cen.x, cen.y - ow.size.y * 0.4), Vector2(cen.x, cen.y - 12), P.a(P.PH, 0.65), 1.0)
-	draw_line(Vector2(cen.x, cen.y + 12), Vector2(cen.x, cen.y + ow.size.y * 0.4), P.a(P.PH, 0.65), 1.0)
-	draw_rect(Rect2(cen - Vector2(44, 44), Vector2(88, 88)), P.a(P.AMBER, 0.7), false, 1.0)
-	draw_circle(cen, 2.0, P.PH)
-	draw_string(F.mono(), Vector2(ow.position.x + 8, ow.end.y - 12), "VIS/IR · SNR " + str(snr) + " · TRACK L%d" % level, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
-	# 按钮
+	_cv.draw_line(Vector2(cen.x - ow.size.x * 0.4, cen.y), Vector2(cen.x - 12, cen.y), P.a(P.PH, 0.65), 1.0)
+	_cv.draw_line(Vector2(cen.x + 12, cen.y), Vector2(cen.x + ow.size.x * 0.4, cen.y), P.a(P.PH, 0.65), 1.0)
+	_cv.draw_line(Vector2(cen.x, cen.y - ow.size.y * 0.4), Vector2(cen.x, cen.y - 12), P.a(P.PH, 0.65), 1.0)
+	_cv.draw_line(Vector2(cen.x, cen.y + 12), Vector2(cen.x, cen.y + ow.size.y * 0.4), P.a(P.PH, 0.65), 1.0)
+	_cv.draw_rect(Rect2(cen - Vector2(44, 44), Vector2(88, 88)), P.a(P.AMBER, 0.7), false, 1.0)
+	_cv.draw_circle(cen, 2.0, P.PH)
+	_cv.draw_string(F.mono(), Vector2(ow.position.x + 8, ow.end.y - 12), "VIS/IR · SNR " + str(snr) + " · TRACK L%d" % level, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
 	_optical_buttons.clear()
-	var is_ceres := target_id == "ceres_2" and binder != null and bool(binder.ceres_ready)
-	var labels := [["VIS", "VIS / 可见光"], ["IR", "IR / 红外"], ["IFF", "IFF QUERY"], ["ELINT", "ELINT"], ["LIGHT", "LIGHT TX"], ["RECV", "LIGHT RECV"], ["ACK", "LIGHT ACK"], ["CODE_PREV", "CODE ◀"], ["CODE_NEXT", "CODE ▶"]]
-	if is_ceres:
-		labels = [["DATA_LINK", "DATA LINK"], ["VIS", "VIS"], ["ELINT", "ELINT"], ["IFF", "IFF QUERY"], ["READ_LIGHT", "READ LIGHT"], ["TYPE_L4", "TYPE L4"], ["RESCUE_PROMPT", "RESCUE PROMPT"], ["RESCUE", "RESCUE"], ["IGNORE", "IGNORE"]]
-	var by := r.end.y - 36.0
+	var items: Array = []
 	for i in range(labels.size()):
-		var br := Rect2(x + float(i) * 104.0, by, 98, 22)
-		_optical_buttons.append({"rect": br, "kind": String(labels[i][0])})
-		Painter.button(self, br, String(labels[i][1]), true, P.PH if i < 3 else P.PH_DIM)
-	# SIGNAL 小面板
-	var sr := Rect2(x + 570.0, y + 350.0, maxf(420.0, r.size.x - 600.0), 185.0)
-	draw_rect(sr, P.a(P.PANEL2, 0.35))
-	draw_rect(sr, P.a(P.LINE, 0.6), false, 1.0)
-	Painter.label(self, sr.position.x + 10, sr.position.y + 18, "SIGNAL / ELINT · LIGHT", 9, P.PH)
+		items.append([String(labels[i][0]), String(labels[i][1]), P.PH if i < 3 else P.PH_DIM])
+	_optical_buttons = _button_bar(fr.footer, items)
+	var sr := Rect2(right_x, ow.end.y + 10.0, right_w, maxf(120.0, body.end.y - ow.end.y - 10.0))
+	_cv.draw_rect(sr, P.a(P.PANEL2, 0.35))
+	_cv.draw_rect(sr, P.a(P.LINE, 0.6), false, 1.0)
+	Painter.label(_cv, sr.position.x + 10, sr.position.y + 18, "SIGNAL / ELINT · LIGHT", 9, P.PH)
 	var svm: Dictionary = {}
 	if binder != null and binder.session != null and binder.session.signal_service != null:
 		svm = binder.session.signal_service.vm()
 	if svm.is_empty():
-		Painter.label(self, sr.position.x + 10, sr.position.y + 40, "NO SIGNAL · signal_service NOT READY", 8, P.AMBER)
+		Painter.label(_cv, sr.position.x + 10, sr.position.y + 40, "NO SIGNAL · signal_service NOT READY", 8, P.AMBER)
 	else:
 		var ec: Dictionary = svm.get("elint", {}) if svm.get("elint", {}) is Dictionary else {}
 		var lc: Dictionary = ec.get("counts", {}) if ec.get("counts", {}) is Dictionary else {}
@@ -2037,23 +2108,22 @@ func _draw_optical_overlay(r: Rect2) -> void:
 		if _signal_code == "" and not codes.is_empty():
 			_signal_code = String(codes[0])
 		var side := String(c.get("side", c.get("type", "unknown")))
-		Painter.label(self, sr.position.x + 10, sr.position.y + 40, "TARGET side=%s identity=%s · ELINT signals %d · fixes/candidates %d · obs %d · evidence %d" % [side, String(tr.get("identity", side)) if not tr.is_empty() else side, int(lc.get("signals", 0)), int(lc.get("candidates", 0)), int(lc.get("observations", 0)), int(lc.get("evidence", 0))], 7, P.TXT, true)
-		Painter.label(self, sr.position.x + 10, sr.position.y + 54, "CODES %d · selected %s · TX sent %d recv %d ack %d timeout %d occluded %d misread %d" % [codes.size(), _signal_code, int(lcounts.get("sent", 0)), int(lcounts.get("received", 0)), int(lcounts.get("acked", 0)), int(lcounts.get("timeout", 0)), int(lcounts.get("occluded", 0)), int(lcounts.get("misread", 0))], 6, P.DIM, true)
-		Painter.label(self, sr.position.x + 10, sr.position.y + 68, "TX " + (_signal_tx_id if _signal_tx_id != "" else "NONE") + " · FIXES/指纹/置信度来自 signal vm", 7, P.PH_DIM, true)
-		# 最近 code/tx 摘要
+		Painter.label(_cv, sr.position.x + 10, sr.position.y + 40, TM.fit("TARGET side=%s identity=%s · ELINT signals %d · fixes/candidates %d · obs %d · evidence %d" % [side, String(tr.get("identity", side)) if not tr.is_empty() else side, int(lc.get("signals", 0)), int(lc.get("candidates", 0)), int(lc.get("observations", 0)), int(lc.get("evidence", 0))], sr.size.x - 20.0, true, 7), 7, P.TXT, true)
+		Painter.label(_cv, sr.position.x + 10, sr.position.y + 54, TM.fit("CODES %d · selected %s · TX sent %d recv %d ack %d timeout %d occluded %d misread %d" % [codes.size(), _signal_code, int(lcounts.get("sent", 0)), int(lcounts.get("received", 0)), int(lcounts.get("acked", 0)), int(lcounts.get("timeout", 0)), int(lcounts.get("occluded", 0)), int(lcounts.get("misread", 0))], sr.size.x - 20.0, true, 6), 6, P.DIM, true)
+		Painter.label(_cv, sr.position.x + 10, sr.position.y + 68, TM.fit("TX " + (_signal_tx_id if _signal_tx_id != "" else "NONE") + " · FIXES/指纹/置信度来自 signal vm", sr.size.x - 20.0, true, 7), 7, P.PH_DIM, true)
 		var txs: Array = light.get("transmissions", []) if light.get("transmissions", []) is Array else []
 		if not txs.is_empty():
 			var tx: Dictionary = txs[txs.size() - 1]
-			Painter.label(self, sr.position.x + 10, sr.position.y + 84, "LAST TX %s · code %s · %s · reason %s" % [String(tx.get("tx_id", "")), String(tx.get("code_id", "")), String(tx.get("status", "")), String(tx.get("reason", ""))], 6, P.TXT, true)
+			Painter.label(_cv, sr.position.x + 10, sr.position.y + 84, TM.fit("LAST TX %s · code %s · %s · reason %s" % [String(tx.get("tx_id", "")), String(tx.get("code_id", "")), String(tx.get("status", "")), String(tx.get("reason", ""))], sr.size.x - 20.0, true, 6), 6, P.TXT, true)
 	if not _txp_reply.is_empty():
-		Painter.label(self, sr.position.x + 10, sr.position.y + 100, "IFF " + String(_txp_reply.get("entity_type", "")) + " · status " + String(_txp_reply.get("status", "")) + " · identity " + String(_txp_reply.get("identity", "")) + " · code " + String(_txp_reply.get("transponder_code", "—")) + " · reg " + String(_txp_reply.get("registration_code", "—")), 7, P.TXT, true)
-		Painter.label(self, sr.position.x + 10, sr.position.y + 113, "facility " + String(_txp_reply.get("facility_code", "—")) + " · crypto " + ("OK" if bool((_txp_reply.get("crypto", {}) as Dictionary).get("valid", false)) else "FAIL") + " · conf " + ("%.2f" % float(_txp_reply.get("confidence", 0.0))) + " · reason " + String(_txp_reply.get("reason", "")) + " · trigger " + String((_txp_reply.get("trigger", {}) as Dictionary).get("trigger_id", "")) if _txp_reply.get("trigger", {}) is Dictionary else "", 6, P.PH_DIM, true)
+		Painter.label(_cv, sr.position.x + 10, sr.position.y + 100, TM.fit("IFF " + String(_txp_reply.get("entity_type", "")) + " · status " + String(_txp_reply.get("status", "")) + " · identity " + String(_txp_reply.get("identity", "")) + " · code " + String(_txp_reply.get("transponder_code", "—")) + " · reg " + String(_txp_reply.get("registration_code", "—")), sr.size.x - 20.0, true, 7), 7, P.TXT, true)
+		Painter.label(_cv, sr.position.x + 10, sr.position.y + 113, TM.fit("facility " + String(_txp_reply.get("facility_code", "—")) + " · crypto " + ("OK" if bool((_txp_reply.get("crypto", {}) as Dictionary).get("valid", false)) else "FAIL") + " · conf " + ("%.2f" % float(_txp_reply.get("confidence", 0.0))) + " · reason " + String(_txp_reply.get("reason", "")) + " · trigger " + String((_txp_reply.get("trigger", {}) as Dictionary).get("trigger_id", "")) if _txp_reply.get("trigger", {}) is Dictionary else "", sr.size.x - 20.0, true, 6), 6, P.PH_DIM, true)
 	if _signal_msg != "":
-		Painter.label(self, sr.position.x + 10, sr.end.y - 12, TM.fit(_signal_msg, sr.size.x - 20, true, 7), 7, P.AMBER, true)
+		Painter.label(_cv, sr.position.x + 10, sr.end.y - 12, TM.fit(_signal_msg, sr.size.x - 20, true, 7), 7, P.AMBER, true)
 	if is_ceres:
 		_draw_ceres_panel(sr)
 	if _optical_msg != "":
-		Painter.label(self, x, by - 12, TM.fit(_optical_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
+		Painter.label(_cv, x, (fr.footer as Rect2).position.y - 12.0, TM.fit(_optical_msg, body.size.x, true, 7), 7, P.AMBER, true)
 
 
 func _optical_action(kind: String) -> void:
@@ -2177,101 +2247,97 @@ func _seed_combat_tracks() -> void:
 
 
 func _draw_combat_overlay(r: Rect2) -> void:
-	var x := r.position.x + 16.0
-	var y := r.position.y + 34.0
-	Painter.label(self, x, y, "战斗终端 / COMBAT TERMINAL", 12, P.PH)
-	Painter.label(self, x, y + 14, "目标/武器/ROE/授权/预测 · CombatService shadow · NO PHYSICS HIT", 7, P.a(P.AMBER, 0.9), true)
+	var vm0: Dictionary = _combat.vm() if _combat != null and bool(_combat.ready) else {}
+	var chips := ""
+	if not vm0.is_empty():
+		chips = "ROE " + String(vm0.get("roe", "—")) + " · TGT " + (_combat_target if _combat_target != "" else "—")
+	var fr := _overlay_frame(r, "战斗终端 / COMBAT TERMINAL", "目标/武器/ROE/授权/预测 · CombatService shadow · NO PHYSICS HIT", P.PH, chips)
+	var body: Rect2 = fr.body
+	var x := body.position.x
+	var y := body.position.y
 	if _combat == null or not bool(_combat.ready):
-		Painter.label(self, x, y + 44, "COMBAT NOT READY · no CombatService", 9, P.AMBER)
+		Painter.label(_cv, x, y + 20, "COMBAT NOT READY · no CombatService", 9, P.AMBER)
 		return
-	var vm: Dictionary = _combat.vm()
+	var vm: Dictionary = vm0
 	var track_rows: Array = vm.get("tracks", []) if vm.get("tracks", []) is Array else []
 	var weapon_rows: Array = vm.get("weapons", []) if vm.get("weapons", []) is Array else []
-	# 目标列表
-	var tw := 300.0
-	Painter.section(self, x, y + 42.0, x + tw, "TARGETS / 目标")
+	var gap := 16.0
+	var tw := floorf(body.size.x * 0.24)
+	var wx := x + tw + gap
+	var ww := floorf(body.size.x * 0.30)
+	var rx := wx + ww + gap
+	var rw := body.size.x - tw - ww - gap * 2.0
+	var ev_h := minf(120.0, body.size.y * 0.22)
+	var ev_top := body.end.y - ev_h
+	Painter.section(_cv, x, y, x + tw, "TARGETS / 目标")
 	_combat_target_rows.clear()
-	var ty := y + 60.0
+	var ty := y + 18.0
 	for i in range(mini(5, track_rows.size())):
 		var tr: Dictionary = track_rows[i]
 		var tid := String(tr.get("id", ""))
-		var tr_rect := Rect2(x, ty + float(i) * 28.0, tw - 8, 25.0)
+		var tr_rect := Rect2(x, ty + float(i) * 28.0, tw, 25.0)
 		_combat_target_rows.append({"rect": tr_rect, "id": tid})
 		if tid == _combat_target:
-			draw_rect(tr_rect, P.a(P.AMBER, 0.12))
-		Painter.label(self, x, tr_rect.position.y + 11, "L%d %s · %s" % [int(tr.get("level", 0)), tid, String(tr.get("identity", "unknown"))], 7, P.PH if tid == _combat_target else P.TXT, true)
+			_cv.draw_rect(tr_rect, P.a(P.AMBER, 0.12))
+		Painter.label(_cv, x, tr_rect.position.y + 11, TM.fit("L%d %s · %s" % [int(tr.get("level", 0)), tid, String(tr.get("identity", "unknown"))], tw - 4.0, true, 7), 7, P.PH if tid == _combat_target else P.TXT, true)
 		var rng := float(tr.get("range_km", -1.0))
-		Painter.label(self, x + 8, tr_rect.position.y + 22, "threat %s · %s" % [String(tr.get("threat", "—")), ("%.1f km" % rng) if rng >= 0.0 else "RANGE NOT READY"], 6, P.a(P.DIM, 0.9), true)
-	# 武器架
-	var wx := x + tw + 16.0
-	Painter.section(self, wx, y + 42.0, wx + 360.0, "WEAPON RACK / 武器架")
+		Painter.label(_cv, x + 8, tr_rect.position.y + 22, TM.fit("threat %s · %s" % [String(tr.get("threat", "—")), ("%.1f km" % rng) if rng >= 0.0 else "RANGE NOT READY"], tw - 12.0, true, 6), 6, P.a(P.DIM, 0.9), true)
+	Painter.section(_cv, wx, y, wx + ww, "WEAPON RACK / 武器架")
 	_combat_weapon_rows.clear()
-	var wy := y + 60.0
+	var wy := y + 18.0
 	for i in range(mini(6, weapon_rows.size())):
 		var w: Dictionary = weapon_rows[i]
 		var wid := String(w.get("id", ""))
-		var wr := Rect2(wx, wy + float(i) * 28.0, 352, 25.0)
+		var wr := Rect2(wx, wy + float(i) * 28.0, ww, 25.0)
 		_combat_weapon_rows.append({"rect": wr, "id": wid})
 		if wid == _combat_weapon:
-			draw_rect(wr, P.a(P.PH, 0.10))
-		Painter.label(self, wx, wr.position.y + 11, "%s · %s" % [wid, String(w.get("kind", ""))], 7, P.PH if wid == _combat_weapon else P.TXT, true)
-		Painter.label(self, wx + 190, wr.position.y + 11, "AMMO %s · CD %s · RANGE %s" % [
-			str(w.get("ammo", "—")), str(w.get("cooldown_remaining_s", w.get("cooldown_s", "—"))), str(w.get("range_km", "—"))], 6, P.a(P.DIM, 0.9), true)
-	# 右: ROE/授权/预测
-	var rx := x + tw + 390.0
-	var ry := y + 42.0
-	Painter.section(self, rx, ry, r.end.x - 14, "ROE / AUTHORIZATION")
+			_cv.draw_rect(wr, P.a(P.PH, 0.10))
+		Painter.label(_cv, wx, wr.position.y + 11, TM.fit("%s · %s" % [wid, String(w.get("kind", ""))], ww, true, 7), 7, P.PH if wid == _combat_weapon else P.TXT, true)
+		Painter.label(_cv, wx + 8, wr.position.y + 22, TM.fit("AMMO %s · CD %s · RANGE %s" % [
+			str(w.get("ammo", "—")), str(w.get("cooldown_remaining_s", w.get("cooldown_s", "—"))), str(w.get("range_km", "—"))], ww - 12.0, true, 6), 6, P.a(P.DIM, 0.9), true)
+	var ry := y
+	Painter.section(_cv, rx, ry, rx + rw, "ROE / AUTHORIZATION")
 	ry += 16.0
-	Painter.label(self, rx, ry, "ROE " + String(vm.get("roe", "—")) + " · " + String(vm.get("roe_label", "")), 8, P.PH, true)
+	Painter.label(_cv, rx, ry, TM.fit("ROE " + String(vm.get("roe", "—")) + " · " + String(vm.get("roe_label", "")), rw, true, 8), 8, P.PH, true)
 	ry += 14.0
 	_combat_roe_buttons.clear()
 	var roes := ["DEFEND", "HOLD", "TIGHT", "FREE"]
+	var rbtn_w := floorf((rw - 3.0 * 6.0) / 4.0)
 	for i in range(roes.size()):
-		var br := Rect2(rx + float(i) * 83.0, ry, 78, 18)
+		var br := Rect2(rx + float(i) * (rbtn_w + 6.0), ry, rbtn_w, 18)
 		_combat_roe_buttons.append({"rect": br, "kind": String(roes[i])})
-		Painter.button(self, br, String(roes[i]), true, P.PH if String(vm.get("roe", "")) == String(roes[i]) else P.PH_DIM)
+		Painter.button(_cv, br, String(roes[i]), true, P.PH if String(vm.get("roe", "")) == String(roes[i]) else P.PH_DIM)
 	ry += 28.0
 	for lvl in ["TRACK", "SOLUTION", "FIRE"]:
 		var au: Dictionary = binder.session.combat_authorization(lvl, _combat_target, _combat_weapon) if binder != null and binder.session != null else {}
-		Painter.label(self, rx, ry, "%s AUTHORIZATION" % lvl, 7, P.a(P.PH_DIM, 0.9), true)
-		Painter.label_right(self, r.end.x - 14, ry, "OK" if bool(au.get("ok", false)) else String(au.get("reason", "LOCKED")), 7, P.PH if bool(au.get("ok", false)) else P.AMBER, true)
+		Painter.label(_cv, rx, ry, "%s AUTHORIZATION" % lvl, 7, P.a(P.PH_DIM, 0.9), true)
+		Painter.label_right(_cv, rx + rw, ry, TM.fit("OK" if bool(au.get("ok", false)) else String(au.get("reason", "LOCKED")), rw * 0.5, true, 7), 7, P.PH if bool(au.get("ok", false)) else P.AMBER, true)
 		ry += 13.0
-	# 预测接口
 	ry += 6.0
-	Painter.section(self, rx, ry, r.end.x - 14, "PREDICTION / INTERFACE · NO PHYSICS")
+	Painter.section(_cv, rx, ry, rx + rw, "PREDICTION / INTERFACE · NO PHYSICS")
 	ry += 15.0
 	var pred: Dictionary = _combat.predict_shot(_combat_target, _combat_weapon) if _combat_target != "" and _combat_weapon != "" else {}
 	if bool(pred.get("ok", false)):
-		Painter.label(self, rx, ry, "TOF %.1fs · HIT %d%% · ERR %.2f km" % [float(pred.get("time_of_flight_s", -1.0)), int(float(pred.get("hit_probability", 0.0)) * 100.0), float(pred.get("error_km", 0.0))], 7, P.TXT, true)
-		Painter.label(self, rx, ry + 12, "trajectory=" + String(pred.get("trajectory", "interface_only")) + " · no_physics=" + str(bool(pred.get("no_physics", true))), 6, P.a(P.FAINT, 0.9), true)
+		Painter.label(_cv, rx, ry, TM.fit("TOF %.1fs · HIT %d%% · ERR %.2f km" % [float(pred.get("time_of_flight_s", -1.0)), int(float(pred.get("hit_probability", 0.0)) * 100.0), float(pred.get("error_km", 0.0))], rw, true, 7), 7, P.TXT, true)
+		Painter.label(_cv, rx, ry + 12, TM.fit("trajectory=" + String(pred.get("trajectory", "interface_only")) + " · no_physics=" + str(bool(pred.get("no_physics", true))), rw, true, 6), 6, P.a(P.FAINT, 0.9), true)
 	else:
-		Painter.label(self, rx, ry, "PREDICTION NOT READY · " + String(pred.get("reason", "no target/weapon")), 7, P.AMBER, true)
-	ry += 38.0
-	# 操作按钮：按可用宽度等分两列，避免固定宽度在不同分辨率下越界/错位
-	_combat_buttons.clear()
-	var actions := ["TRACK", "SOLUTION", "AUTHORIZE FIRE", "FIRE"]
-	var btn_gap := 8.0
-	var btn_avail := maxf(120.0, r.end.x - 14.0 - rx)
-	var btn_w := floorf((btn_avail - btn_gap) * 0.5)
-	for i in range(actions.size()):
-		var col := i % 2
-		var row := i / 2
-		var br := Rect2(rx + float(col) * (btn_w + btn_gap), ry + float(row) * 26.0, btn_w, 21)
-		_combat_buttons.append({"rect": br, "kind": String(actions[i])})
-		Painter.button(self, br, String(actions[i]), true, P.PH if i < 3 else P.RED)
-	ry += 60.0
-	# 战斗事件：分界线跟随按钮区底部，至少保留 8px 间距，禁止写死 y 重叠
-	var events_y := maxf(y + 235.0, ry + 8.0)
-	Painter.section(self, x, events_y, x + r.size.x - 36, "COMBAT EVENTS / 战斗事件")
+		Painter.label(_cv, rx, ry, TM.fit("PREDICTION NOT READY · " + String(pred.get("reason", "no target/weapon")), rw, true, 7), 7, P.AMBER, true)
+	Painter.section(_cv, x, ev_top, body.end.x, "COMBAT EVENTS / 战斗事件")
 	var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
-	var ey := events_y + 17.0
+	var ey := ev_top + 17.0
 	if evs.is_empty():
-		Painter.label(self, x, ey, "NO COMBAT EVENTS · NOT READY", 7, P.FAINT, true)
+		Painter.label(_cv, x, ey, "NO COMBAT EVENTS · NOT READY", 7, P.FAINT, true)
 	for i in range(maxi(0, evs.size() - 5), evs.size()):
 		var ev: Dictionary = evs[i]
-		Painter.label(self, x, ey + float(i - maxi(0, evs.size() - 5)) * 12.0, "%5.1fs %s · %s" % [float(ev.get("t", 0.0)), String(ev.get("kind", "")), TM.fit(JSON.stringify(ev.get("payload", {})), 520, true, 6)], 6, P.a(P.DIM, 0.9), true)
+		Painter.label(_cv, x, ey + float(i - maxi(0, evs.size() - 5)) * 12.0, TM.fit("%5.1fs %s · %s" % [float(ev.get("t", 0.0)), String(ev.get("kind", "")), JSON.stringify(ev.get("payload", {}))], body.size.x, true, 6), 6, P.a(P.DIM, 0.9), true)
+	_combat_buttons.clear()
+	var actions := ["TRACK", "SOLUTION", "AUTHORIZE FIRE", "FIRE"]
+	var items: Array = []
+	for i in range(actions.size()):
+		items.append([String(actions[i]), String(actions[i]), P.PH if i < 3 else P.RED])
+	_combat_buttons = _button_bar(fr.footer, items)
 	if _combat_msg != "":
-		Painter.label(self, x, r.end.y - 14, TM.fit(_combat_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
+		Painter.label(_cv, x, (fr.footer as Rect2).position.y - 12.0, TM.fit(_combat_msg, body.size.x, true, 7), 7, P.AMBER, true)
 
 
 func _combat_action(kind: String) -> void:
@@ -2298,85 +2364,92 @@ func _combat_action(kind: String) -> void:
 
 
 func _draw_damage_overlay(r: Rect2) -> void:
-	var x := r.position.x + 14.0
-	var y := r.position.y + 34.0
-	Painter.label(self, x, y, "损管 / DAMAGE · 7 SECTIONS", 12, P.PH)
-	Painter.label(self, x, y + 14, "SOURCE · V2DamageModel shadow (session 无 damage_vm) · 只读/最小交互", 7, P.a(P.AMBER, 0.9), true)
+	var fr := _overlay_frame(r, "损管 / DAMAGE · 7 SECTIONS", "SOURCE · V2DamageModel shadow (session 无 damage_vm) · 只读/最小交互", P.PH)
+	var body: Rect2 = fr.body
+	var x := body.position.x
+	var y := body.position.y
 	_damage_rows.clear()
 	_damage_buttons.clear()
 	if _damage == null or not bool(_damage.ready):
-		Painter.label(self, x, y + 40, "DAMAGE NOT READY · 无模型/内容", 9, P.AMBER)
+		Painter.label(_cv, x, y + 20, "DAMAGE NOT READY · 无模型/内容", 9, P.AMBER)
 		return
 	var vm: Dictionary = _damage.vm_damage()
 	var secs: Array = vm.get("sections", []) if vm.get("sections", []) is Array else []
-	var sy := y + 44.0
+	var gap := 16.0
+	var left_w := floorf(body.size.x * 0.55)
+	var rx := x + left_w + gap
+	var rw := body.size.x - left_w - gap
+	var sy := y
 	for i in range(secs.size()):
 		var sec: Dictionary = secs[i]
-		var sr := Rect2(x, sy + float(i) * 36.0, r.size.x * 0.55, 32.0)
+		var sr := Rect2(x, sy + float(i) * 36.0, left_w, 32.0)
 		var selected := String(sec.get("id", "")) == _selected_section
 		var fire: Dictionary = sec.get("fire", {}) if sec.get("fire", {}) is Dictionary else {}
 		var dec: Dictionary = sec.get("decompression", {}) if sec.get("decompression", {}) is Dictionary else {}
-		Painter.list_row(self, sr, "%s · %s" % [String(sec.get("id", "")), String(sec.get("label", ""))],
+		Painter.list_row(_cv, sr, "%s · %s" % [String(sec.get("id", "")), String(sec.get("label", ""))],
 			"%.1f%% %s%s%s" % [float(sec.get("integrity_pct", 0.0)), String(sec.get("state", "")),
 			" · FIRE" if bool(fire.get("active", false)) else "", " · DEC" if bool(dec.get("active", false)) else ""],
 			P.RED if float(sec.get("integrity", 0.0)) < 0.25 else P.PH_DIM, selected)
 		_damage_rows.append({"rect": sr, "id": String(sec.get("id", ""))})
-	_damage_buttons.clear()
-	var bx := x
-	var by := r.end.y - 34.0
-	for i in range(3):
-		var br := Rect2(bx + float(i) * 128.0, by, 118, 22.0)
-		_damage_buttons.append({"rect": br, "kind": ["FIX", "PRI", "CANCEL"][i]})
-		Painter.button(self, br, ["FIX / 维修", "PRI / 优先级", "CANCEL / 取消"][i], true, P.PH if i < 2 else P.AMBER)
-	Painter.label(self, bx + 400, by + 15, "选择的 section / 点击列表选中", 7, P.a(P.FAINT, 0.9), true)
-	# 右侧资源/队列/事件
-	var rx := x + r.size.x * 0.57
-	var ry := y + 44.0
-	Painter.section(self, rx, ry, r.end.x - 14, "RESOURCES / 队伍")
+	var ry := y
+	Painter.section(_cv, rx, ry, rx + rw, "RESOURCES / 队伍")
 	ry += 15.0
 	var res: Dictionary = vm.get("resources", {}) if vm.get("resources", {}) is Dictionary else {}
-	Painter.label(self, rx, ry, "TEAMS %s · SPARES %s · PERSONNEL %s" % [str(res.get("teams_available", "")), str(res.get("spares", "")), str(res.get("personnel", ""))], 7, P.TXT, true)
+	Painter.label(_cv, rx, ry, TM.fit("TEAMS %s · SPARES %s · PERSONNEL %s" % [str(res.get("teams_available", "")), str(res.get("spares", "")), str(res.get("personnel", ""))], rw, true, 7), 7, P.TXT, true)
 	ry += 18.0
-	Painter.section(self, rx, ry, r.end.x - 14, "QUEUE / 队列")
+	Painter.section(_cv, rx, ry, rx + rw, "QUEUE / 队列")
 	ry += 15.0
 	var jobs: Array = vm.get("queue", []) if vm.get("queue", []) is Array else []
 	if jobs.is_empty():
-		Painter.label(self, rx, ry, "NO REPAIR JOBS", 7, P.FAINT, true)
+		Painter.label(_cv, rx, ry, "NO REPAIR JOBS", 7, P.FAINT, true)
 	for i in range(mini(3, jobs.size())):
 		var job: Dictionary = jobs[i]
-		Painter.label(self, rx, ry + float(i) * 12.0, "%s · P%s · %.0f%%" % [String(job.get("section", "")), str(job.get("priority", "")), float(job.get("progress_pct", 0.0))], 7, P.TXT, true)
+		Painter.label(_cv, rx, ry + float(i) * 12.0, TM.fit("%s · P%s · %.0f%%" % [String(job.get("section", "")), str(job.get("priority", "")), float(job.get("progress_pct", 0.0))], rw, true, 7), 7, P.TXT, true)
 	ry += 48.0
-	Painter.section(self, rx, ry, r.end.x - 14, "EVENTS / 事件")
+	Painter.section(_cv, rx, ry, rx + rw, "EVENTS / 事件")
 	ry += 15.0
 	var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
 	for i in range(mini(3, maxi(0, evs.size() - 3))):
 		var ev: Dictionary = evs[evs.size() - 1 - i]
-		Painter.label(self, rx, ry + float(i) * 12.0, TM.fit(String(ev.get("text", ev.get("type", ""))), r.size.x * 0.4, false, 7), 7, P.DIM, true)
+		Painter.label(_cv, rx, ry + float(i) * 12.0, TM.fit(String(ev.get("text", ev.get("type", ""))), rw, true, 7), 7, P.DIM, true)
+	var items: Array = [["FIX", "FIX / 维修", P.PH], ["PRI", "PRI / 优先级", P.PH], ["CANCEL", "CANCEL / 取消", P.AMBER]]
+	_damage_buttons = _button_bar(fr.footer, items)
 	if _damage_msg != "":
-		Painter.label(self, x, r.end.y - 48, TM.fit(_damage_msg, r.size.x - 28, true, 7), 7, P.AMBER, true)
+		Painter.label(_cv, x, (fr.footer as Rect2).position.y - 12.0, TM.fit(_damage_msg, body.size.x, true, 7), 7, P.AMBER, true)
 
 
 func _draw_roe_overlay(r: Rect2) -> void:
-	var x := r.position.x + 24.0
-	var y := r.position.y + 40.0
-	Painter.label(self, x, y, "ROE / 交战规则 · 四档", 12, P.PH)
-	Painter.label(self, x, y + 16, "session.set_roe(DEFEND/HOLD/TIGHT/FREE) · 当前 " + (String(_combat.roe) if _combat != null else "NOT READY"), 8, P.PH_DIM, true)
+	var cur := String(_combat.roe) if _combat != null else "NOT READY"
+	var fr := _overlay_frame(r, "ROE / 交战规则 · 四档", "session.set_roe(DEFEND/HOLD/TIGHT/FREE) · 当前 " + cur, P.PH, "LOCKED" if _roe_locked else "UNLOCKED", 0)
+	var body: Rect2 = fr.body
+	var x := body.position.x
+	var y := body.position.y
 	if _roe_locked:
-		Painter.label(self, x, y + 40, "LOCKED · 序章未解锁 · 仅显示当前档位", 9, P.AMBER)
+		Painter.label(_cv, x, y + 6, "LOCKED · 序章未解锁 · 仅显示当前档位", 9, P.AMBER)
 	else:
-		Painter.label(self, x, y + 40, "UNLOCKED · 点击档位调用真实 session.set_roe", 8, P.TXT, true)
+		Painter.label(_cv, x, y + 6, "UNLOCKED · 点击档位调用真实 session.set_roe", 8, P.TXT, true)
 	_roe_buttons.clear()
-	var labels := [["DEFEND", "DEFEND / 防御"], ["HOLD", "HOLD / 保持"], ["TIGHT", "TIGHT / 严格"], ["FREE", "FREE / 自由"]]
+	var labels := [["DEFEND", "DEFEND / 防御", "只在对自身被攻击时还击"], ["HOLD", "HOLD / 保持", "需三级手动授权，默认不交战"], ["TIGHT", "TIGHT / 严格", "TRACK 自动，SOLUTION/FIRE 一次确认"], ["FREE", "FREE / 自由", "敌对目标自动 TRACK/SOLUTION，FIRE 手动"]]
+	var gap := 12.0
+	var cw := floorf((body.size.x - gap) * 0.5)
+	var ch := minf(96.0, (body.size.y - 40.0 - gap) * 0.5)
+	var grid_h := 2.0 * ch + gap
+	var gy := y + 24.0 + maxf(0.0, (body.size.y - 40.0 - grid_h) * 0.5)
 	for i in range(labels.size()):
-		var br := Rect2(x + float(i % 2) * 220.0, y + 60.0 + float(i / 2) * 42.0, 210, 30.0)
+		var br := Rect2(x + float(i % 2) * (cw + gap), gy + float(i / 2) * (ch + gap), cw, ch)
 		_roe_buttons.append({"rect": br, "kind": String(labels[i][0])})
 		var active := _combat != null and String(_combat.roe) == String(labels[i][0])
-		Painter.button(self, br, String(labels[i][1]), not _roe_locked, P.PH if active else P.PH_DIM)
+		_cv.draw_rect(br, P.a(P.PANEL2, 0.45))
+		_cv.draw_rect(br, P.a(P.PH if active else P.LINE, 0.85 if active else 0.35), false, 1.0)
+		Painter.label(_cv, br.position.x + 12, br.position.y + 24, TM.fit(String(labels[i][1]), cw - 24.0, false, 14), 14, P.PH if active else P.TXT)
+		Painter.label(_cv, br.position.x + 12, br.position.y + 44, TM.fit(String(labels[i][2]), cw - 24.0, false, 9), 9, P.DIM)
 		if active:
-			Painter.label(self, br.position.x + 4, br.end.y - 3, "CURRENT", 6, P.PH, true)
-	Painter.label(self, x, y + 180, "授权提示：ROE 只改交战规则，不授予开火许可；需另行授权。", 8, P.a(P.DIM, 0.95), false)
+			Painter.label(_cv, br.end.x - 60, br.position.y + 20, "CURRENT", 8, P.PH, true)
+		elif _roe_locked:
+			Painter.label(_cv, br.end.x - 60, br.position.y + 20, "LOCKED", 8, P.FAINT, true)
+	Painter.label(_cv, x, body.end.y - 16, "授权提示：ROE 只改交战规则，不授予开火许可；需另行授权。", 9, P.a(P.DIM, 0.95))
 	if _roe_msg != "":
-		Painter.label(self, x, y + 204, TM.fit(_roe_msg, r.size.x - 48, true, 8), 8, P.AMBER, true)
+		Painter.label(_cv, x, body.end.y - 2, TM.fit(_roe_msg, body.size.x, true, 8), 8, P.AMBER, true)
 
 
 func _do_save(kind: String) -> void:
@@ -2441,47 +2514,50 @@ func _rebuild_save_slots() -> void:
 
 
 func _draw_save_overlay(r: Rect2) -> void:
-	var x := r.position.x + 16.0
-	var y := r.position.y + 34.0
-	Painter.label(self, x, y, "存档 / SAVE · LOAD", 12, P.PH)
-	Painter.label(self, x, y + 14, "三色点：绿=save · 黄=menu+打开 · 红=quit+退出确认（不退出） · SaveService user://saves", 7, P.a(P.AMBER, 0.9), true)
+	var fr := _overlay_frame(r, "存档 / SAVE · LOAD", "三色点：绿=save · 黄=menu+打开 · 红=quit+退出确认（不退出） · SaveService user://saves", P.PH, "", 0)
+	var body: Rect2 = fr.body
+	var x := body.position.x
+	var y := body.position.y
 	_rebuild_save_slots()
-	var sy := y + 44.0
 	_save_load_buttons.clear()
-	Painter.section(self, x, sy, r.end.x - 14, "SLOTS / 槽位")
-	sy += 16.0
+	Painter.section(_cv, x, y, body.end.x, "SLOTS / 槽位")
+	var gap := 12.0
+	var note_h := 64.0
+	var card_w := floorf((body.size.x - gap) * 0.5)
+	var card_h := minf(132.0, floorf((body.end.y - note_h - (y + 18.0) - gap) * 0.5))
 	for i in range(_save_slots.size()):
 		var row: Dictionary = _save_slots[i]
-		var rr := Rect2(x, sy + float(i) * 92.0, r.size.x - 28, 86)
-		draw_rect(rr, P.a(P.PANEL2, 0.35))
+		var rr := Rect2(x + float(i % 2) * (card_w + gap), y + 18.0 + float(i / 2) * (card_h + gap), card_w, card_h)
+		_cv.draw_rect(rr, P.a(P.PANEL2, 0.35))
 		var corrupted := bool(row.get("corrupt", false))
 		var exists := bool(row.get("exists", false))
 		var col := P.RED if corrupted else (P.PH if exists else P.FAINT)
-		Painter.label(self, rr.position.x + 8, rr.position.y + 18, String(row.get("slot", "")).to_upper(), 10, col, true)
+		_cv.draw_rect(rr, P.a(col, 0.5), false, 1.0)
+		Painter.label(_cv, rr.position.x + 10, rr.position.y + 20, String(row.get("slot", "")).to_upper(), 12, col, true)
 		var state := "CORRUPTED · " + String(row.get("reason", "")) if corrupted else ("EXISTS" if exists else "EMPTY · NO SAVE")
-		Painter.label(self, rr.position.x + 8, rr.position.y + 34, "STATE " + state, 7, col, true)
+		Painter.label(_cv, rr.position.x + 10, rr.position.y + 36, TM.fit("STATE " + state, card_w - 130.0, true, 7), 7, col, true)
 		var m: Dictionary = row.get("meta", {}) if row.get("meta", {}) is Dictionary else {}
 		if exists and not corrupted:
-			Painter.label(self, rr.position.x + 220, rr.position.y + 18, "UPDATED " + _fmt_time(float(m.get("updated_at", 0.0))), 7, P.TXT, true)
-			Painter.label(self, rr.position.x + 220, rr.position.y + 34, "CHAPTER %s · LOCATION %s" % [String(m.get("chapter", "—")), String(m.get("location", "—"))], 7, P.DIM, true)
-			Painter.label(self, rr.position.x + 220, rr.position.y + 50, "SIZE %dB · t=%.1fs" % [int(row.get("size", 0)), float(m.get("t_s", 0.0))], 7, P.DIM, true)
-			Painter.label(self, rr.position.x + 8, rr.position.y + 58, TM.fit("PATH " + String(row.get("path", "")), r.size.x - 180, true, 6), 6, P.a(P.FAINT, 0.9), true)
+			Painter.label(_cv, rr.position.x + 10, rr.position.y + 54, TM.fit("UPDATED " + _fmt_time(float(m.get("updated_at", 0.0))), card_w - 20.0, true, 7), 7, P.TXT, true)
+			Painter.label(_cv, rr.position.x + 10, rr.position.y + 68, TM.fit("CHAPTER %s · LOCATION %s" % [String(m.get("chapter", "—")), String(m.get("location", "—"))], card_w - 20.0, true, 7), 7, P.DIM, true)
+			Painter.label(_cv, rr.position.x + 10, rr.position.y + 82, TM.fit("SIZE %dB · t=%.1fs" % [int(row.get("size", 0)), float(m.get("t_s", 0.0))], card_w - 20.0, true, 7), 7, P.DIM, true)
+			Painter.label(_cv, rr.position.x + 10, rr.position.y + 96, TM.fit("PATH " + String(row.get("path", "")), card_w - 130.0, true, 6), 6, P.a(P.FAINT, 0.9), true)
 		else:
-			Painter.label(self, rr.position.x + 220, rr.position.y + 22, "PATH " + String(row.get("path", "")), 6, P.a(P.FAINT, 0.9), true)
-		var br := Rect2(rr.end.x - 108, rr.position.y + 28, 96, 22)
+			Painter.label(_cv, rr.position.x + 10, rr.position.y + 54, TM.fit("PATH " + String(row.get("path", "")), card_w - 20.0, true, 6), 6, P.a(P.FAINT, 0.9), true)
+		var br := Rect2(rr.end.x - 108, rr.position.y + 24, 96, 22)
 		if exists and not corrupted:
 			_save_load_buttons.append({"rect": br, "slot": String(row.get("slot", ""))})
-			Painter.button(self, br, "LOAD / 读档", true, P.PH)
+			Painter.button(_cv, br, "LOAD / 读档", true, P.PH)
 		else:
-			Painter.button(self, br, "LOAD · N/A", false, P.FAINT)
-	var py := sy + 4.0 * 92.0 + 6.0
-	Painter.section(self, x, py, r.end.x - 14, "ACTIONS / 占位")
-	Painter.label(self, x, py + 16, "NEW GAME / 新建：占位（未接剧情流程） · CONTINUE / 继续：由 LOAD 读档恢复", 7, P.DIM, false)
-	Painter.label(self, x, py + 30, "不覆盖主菜单/退出；黄色只显示 SAVE+MENU 意图，红色只显示 QUIT 意图。", 6, P.a(P.FAINT, 0.9), true)
+			Painter.button(_cv, br, "LOAD · N/A", false, P.FAINT)
+	var py := body.end.y - note_h + 10.0
+	Painter.section(_cv, x, py, body.end.x, "ACTIONS / 说明")
+	Painter.label(_cv, x, py + 18, TM.fit("NEW GAME / 新建：占位（未接剧情流程） · CONTINUE / 继续：由 LOAD 读档恢复", body.size.x, true, 7), 7, P.DIM)
+	Painter.label(_cv, x, py + 32, TM.fit("不覆盖主菜单/退出；黄色只显示 SAVE+MENU 意图，红色只显示 QUIT 意图。", body.size.x, true, 6), 6, P.a(P.FAINT, 0.9), true)
 	if _exit_intent:
-		Painter.label(self, x, py + 48, "EXIT CONFIRMATION · 已写入 quit 槽，但未退出游戏（intent only）", 8, P.RED, false)
+		Painter.label(_cv, x, py + 48, "EXIT CONFIRMATION · 已写入 quit 槽，但未退出游戏（intent only）", 8, P.RED)
 	if _save_overlay_msg != "":
-		Painter.label(self, x, r.end.y - 14, TM.fit(_save_overlay_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
+		Painter.label(_cv, x, py + 48, TM.fit(_save_overlay_msg, body.size.x, true, 7), 7, P.AMBER, true)
 
 
 func _load_slot(slot: String) -> void:
@@ -2642,46 +2718,14 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	var pos := (event as InputEventMouseButton).position
 	if _overlay != "":
-		if _overlay_close.has_point(pos):
+		# 方案B-32：overlay 按钮 rect 存在弹层局部坐标，命中判定需先换算。
+		var lpos := pos - _overlay_offset
+		if _overlay_close.has_point(lpos):
 			_overlay = ""
 			accept_event()
 			return
-		if _overlay == "traffic":
-			for row in _traffic_otc_rows:
-				if (row["rect"] as Rect2).has_point(pos):
-					_traffic_otc = String(row.get("id", ""))
-					queue_redraw()
-					accept_event()
-					return
-			for row in _traffic_lane_rows:
-				if (row["rect"] as Rect2).has_point(pos):
-					_traffic_lane = String(row.get("id", ""))
-					queue_redraw()
-					accept_event()
-					return
-			for b in _traffic_buttons:
-				if (b["rect"] as Rect2).has_point(pos):
-					_traffic_action(String(b.get("kind", "")))
-					accept_event()
-					return
-		if _overlay == "report" or _overlay == "complete":
-			for b in _report_buttons:
-				if (b["rect"] as Rect2).has_point(pos):
-					_report_action(String(b.get("kind", "")))
-					accept_event()
-					return
-		if _overlay == "chronos":
-			for b in _chronos_buttons:
-				if (b["rect"] as Rect2).has_point(pos):
-					_chronos_action(String(b.get("kind", "")))
-					accept_event()
-					return
-		if _overlay == "av4412":
-			for b in _av4412_buttons:
-				if (b["rect"] as Rect2).has_point(pos):
-					_av4412_action(String(b.get("kind", "")))
-					accept_event()
-					return
+		if _overlay_hit(lpos):
+			accept_event()
 		return
 	for d in _top_dots:
 		if (d["rect"] as Rect2).has_point(pos):
@@ -2708,6 +2752,104 @@ func _gui_input(event: InputEvent) -> void:
 			_do_right_action(String(b.get("kind", "")))
 			accept_event()
 			return
+
+
+func _overlay_hit(lp: Vector2) -> bool:
+	# 方案B-32：统一子界面命中分发（全部使用弹层局部坐标）。返回 true 表示已消费点击。
+	match _overlay:
+		"traffic":
+			for row in _traffic_otc_rows:
+				if (row["rect"] as Rect2).has_point(lp):
+					_traffic_otc = String(row.get("id", ""))
+					queue_redraw()
+					return true
+			for row in _traffic_lane_rows:
+				if (row["rect"] as Rect2).has_point(lp):
+					_traffic_lane = String(row.get("id", ""))
+					queue_redraw()
+					return true
+			for b in _traffic_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_traffic_action(String(b.get("kind", "")))
+					return true
+		"report", "complete":
+			for b in _report_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_report_action(String(b.get("kind", "")))
+					return true
+		"chronos":
+			for b in _chronos_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_chronos_action(String(b.get("kind", "")))
+					return true
+		"av4412":
+			for b in _av4412_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_av4412_action(String(b.get("kind", "")))
+					return true
+		"optical":
+			for b in _optical_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_optical_action(String(b.get("kind", "")))
+					return true
+		"comms":
+			for b in _comms_type_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_comms_action(String(b.get("kind", "")))
+					return true
+			for row in _comms_cmd_rows:
+				if (row["rect"] as Rect2).has_point(lp):
+					_selected_cmd = int(row.get("index", 0))
+					queue_redraw()
+					return true
+			for b in _comms_cmd_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					var k := String(b.get("kind", ""))
+					if k == "SEND":
+						_comms_send()
+					else:
+						_command_action(k)
+					return true
+		"combat":
+			for row in _combat_target_rows:
+				if (row["rect"] as Rect2).has_point(lp):
+					_combat_target = String(row.get("id", ""))
+					queue_redraw()
+					return true
+			for row in _combat_weapon_rows:
+				if (row["rect"] as Rect2).has_point(lp):
+					_combat_weapon = String(row.get("id", ""))
+					queue_redraw()
+					return true
+			for b in _combat_roe_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_combat_action(String(b.get("kind", "")))
+					return true
+			for b in _combat_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_combat_action(String(b.get("kind", "")))
+					return true
+		"damage":
+			for row in _damage_rows:
+				if (row["rect"] as Rect2).has_point(lp):
+					_selected_section = String(row.get("id", ""))
+					queue_redraw()
+					return true
+			for b in _damage_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_damage_action(String(b.get("kind", "")))
+					return true
+		"roe":
+			for b in _roe_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_roe_action(String(b.get("kind", "")))
+					return true
+		"save":
+			for b in _save_load_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_load_slot(String(b.get("slot", "")))
+					return true
+	return false
 
 
 func _return_to_main_menu() -> void:

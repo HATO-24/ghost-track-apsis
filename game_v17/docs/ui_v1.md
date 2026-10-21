@@ -1094,3 +1094,79 @@ v1_hud.gd
 2. 目标菜单只展示 CIC 字段；L1 live=0，BEARING ONLY 路径已实现但无 live 样例。
 3. plot 拾取只对 L2+ estimate 生效；L1 bearing ray 不拾取。
 4. 不改核心/旧 plot；不写 world/物理；未跑全量 regression。
+
+
+---
+
+## 37　方案B-32：子界面统一（task-204）
+
+### 37.1 层级修正（根因）
+
+- 旧实现：overlay 由 HUD 父画布在 `_draw()` 末尾绘制，而 `plot_surface` 是子 Control ——
+  子节点永远画在父之后，导致 **3D 图接触标签 / TARGET MENU 压在弹层之上**（B-31 截图中
+  标题被目标牌遮住）。
+- 新增 `scripts/ui/overlay_layer.gd`：`clip_contents=true` 的 Control，**在 plot_surface
+  之后 add_child**，因此永远盖住战术图，且内容被裁剪在弹层内。
+- 弹层绘制迁入该层：`_draw_overlay()` 只负责定位层矩形，`_draw_overlay_layer(cv)` 负责绘制；
+  12 个 overlay 绘制函数统一用 `_cv`（当前画布）而非 `self`，共重定向 224 处 Painter 调用、
+  36 处 draw_* 调用。
+- 弹层使用局部坐标：`r = Rect2(0,0,size)`，`_overlay_offset` 记录全局偏移；命中判定
+  `lpos = pos - _overlay_offset`。
+
+### 37.2 统一模态帧
+
+`_overlay_frame(r, title, subtitle, accent, chips, footer_rows)` 返回 `body / footer / header`：
+
+| 区 | 规格 |
+| --- | --- |
+| 页头 | 标题 12pt（accent）+ 副标题 7pt（AMBER 0.85）+ 右侧状态 chip（右对齐 `r.end.x-112`）+ CLOSE 84×20 |
+| 分隔线 | 页头 y=52 全宽 1px；页脚上方 1px |
+| 内容区 | 左右内边距 16，起始 y=62 |
+| 页脚 | 按钮 24 高，间距 6，`footer_rows` 决定行数（0 = 无页脚） |
+| 弹层矩形 | 中间区 + 右栏，四周 6px 边距，全部 overlay 共用 |
+
+`_button_bar(rect, items, cols)`：等分宽度、超宽自动换行、单行超过 220px 收窄并居中；
+返回命中区（局部坐标），各 overlay 的按钮数组由此统一生成。
+
+### 37.3 逐界面改造
+
+| overlay | 改造 |
+| --- | --- |
+| optical / ceres | 左右 50/50 响应式分栏；L1–L4 链按栏宽等分；key-value 右界收在 460px；SIGNAL 面板填充右栏剩余高度；9 个按钮统一页脚 |
+| comms | 双栏改为 body 内 56/44；消息流 + 4 条链文本改为**顺序排版**（旧实现写死 `my+112/140/168` 会重叠）；SEND/ABORT/REVOKE 移到页脚 |
+| traffic | 3 栏按 body 等分；`r.end.x-14` 全部改为列右界；5 个操作按钮统一页脚 |
+| report / complete | 左 46% 清单 + 右 54% 正文；正文按像素折行；按钮统一页脚 |
+| av4412 | 阶段条按 body 等分；四选项卡片改 `body` 下半，未选中卡加强底/边 |
+| chronos | 左 58% 正文 + 右 42% 状态；正文 7pt→9pt 并按左栏宽度折行（旧实现用整幅宽度，压到右栏） |
+| combat | 三栏 24/30/46；事件区固定在 body 底部；ROE 四档按栏宽等分；动作按钮统一页脚 |
+| damage | 左 55% 7 段列表 + 右 45% 资源/队列/事件；按钮统一页脚 |
+| roe | 四档改 2×2 大卡（14pt + 说明），垂直居中；无页脚 |
+| save | 4 槽位改 2×2 卡片（高度上限 132），说明区固定底部；无页脚 |
+
+### 37.4 折行与命中
+
+- `_wrap_text_cjk(text, max_px, size, mono)` 改为**真实像素测量**：优先在标点/空格后断，
+  否则硬断。旧实现只在「已超过字符数且当前字是标点」时断行，长段落会整段溢出。
+- 新增 `_overlay_hit(lp)`：统一分发 11 类 overlay 的行/按钮点击（traffic/report/complete/
+  chronos/av4412/optical/comms/combat/damage/roe/save）。此前 optical/combat/damage/roe/
+  save/comms 的按钮只有数组、**没有命中判定**，只能靠 demo 触发。
+
+### 37.5 截图 / 验证
+
+- `mockups/v1-hud-overlay-optical-1920/1600.png`
+- `mockups/v1-hud-overlay-combat-1920/1600.png`
+- `mockups/v1-hud-overlay-traffic-1920/1600.png`
+- `mockups/v1-hud-overlay-av4412-1920/1600.png`
+- `mockups/v1-hud-overlay-report-1920.png`、`v1-hud-overlay-save-1920.png`、
+  `v1-hud-overlay-damage-1920.png`、`v1-hud-overlay-roe-1920.png`、`v1-hud-overlay-chronos-1920.png`
+- 1920/1600 全部 `SHOT err=0`；`--check-only` 通过。
+- headless：`DSH_V1_TEST=1` 交互链路全通（damage/roe/command/comms/optical/combat 均执行到
+  真实服务并返回业务结果）；`DSH_FLOW_SMOKE=1` 输出 `FLOW SMOKE COMPLETE contacts=9 commands=1`。
+- headless labels/conflict 仍 `labels=19 conflicts=7 hidden_facility=8`。
+
+### 37.6 边界 / 下一批
+
+1. 弹层数据稀疏（combat 2 track/5 weapon、traffic 部分列表），中段留白属数据不足，非布局缺陷。
+2. optical 左栏 FOV 以下、damage 右栏事件以下无内容；不伪造数据填充。
+3. `_overlay_hit` 只处理左键；键盘快捷键（ESC 关闭）沿用原有 `_unhandled_input`。
+4. 不改 core/world/物理；未跑全量 regression（仅 v1_hud 两条 smoke）。
