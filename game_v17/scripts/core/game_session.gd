@@ -31,6 +31,7 @@ const TransponderServiceScript := preload("res://scripts/core/transponder_servic
 const IdentificationServiceScript := preload("res://scripts/core/identification_service.gd")
 const LegalStatusServiceScript := preload("res://scripts/core/legal_status_service.gd")
 const TrafficControlServiceScript := preload("res://scripts/core/traffic_control_service.gd")
+const PhysicsScript := preload("res://framework/sim/cislunar_physics.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -72,6 +73,7 @@ var _port_enabled := false
 var _combat_enabled := false
 var _damage_enabled := false
 var _physics_enabled := false
+var _physics_frame_meta: Dictionary = {}
 var _signal_enabled := false
 var _ew_enabled := false
 var _facility_enabled := false
@@ -138,7 +140,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "prelude", "seed_frame", "frame_origin"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -181,6 +183,8 @@ func boot(config := {}) -> Dictionary:
 	_identification_enabled = false
 	_legal_enabled = false
 	_traffic_enabled = false
+	_physics_enabled = false
+	_physics_frame_meta = {}
 	_track_writer = ""
 	_last_track_t = 0.0
 	_last_story_revision = 0
@@ -575,15 +579,31 @@ func _signal_config(raw: Dictionary) -> Dictionary:
 	return c
 
 ## 把实体位置权威移入 PhysicsWorld：优先 config.entities；否则从 session seed entities 自动灌入
-## （auto_seed=false 可关闭）。位置/速度数组按 bary_rot 解释；失败记录 error 不伪造。
+## （auto_seed=false 可关闭）。
+##
+## 帧语义（4F）：
+## - Prelude/scenario_prologue 的 pos/vel 是 **L1 相对 km**；PhysicsWorld 是 bary_rot。
+##   默认 seed_frame="auto"：检测到 prelude seed（prelude 标记/特定实体 id）时，
+##   把 r 平移到 L1 bary 位置（CR3BP μ/D 常数），v 保持；否则按 bary_rot 直灌。
+## - seed_frame = auto/l1/bary_rot/none；frame_origin = auto/l1/数组[km]/bary_rot/none；
+##   显式 frame_origin 可覆盖 L1 原点或显式关闭转换；非法配置 warning 并回退 bary。
+## - 只转换本次 boot 的 seed 实体，不重复转换；显式 physics_world.entities 视为
+##   已 bary_rot（除非显式 seed_frame=l1/frame_origin 要求转换）。
 func _seed_physics_entities(pwcfg: Dictionary) -> void:
 	if physics_world_service == null:
 		return
 	var source: Array = []
+	var source_is_seed := false
 	if pwcfg.get("entities") is Array:
 		source = (pwcfg.get("entities") as Array)
 	elif bool(pwcfg.get("auto_seed", true)):
 		source = (_seed.get("entities", []) as Array)
+		source_is_seed = true
+	var frame := _resolve_seed_frame(pwcfg, source_is_seed)
+	var offset: Array = (frame.get("offset_km", [0.0, 0.0, 0.0]) as Array)
+	var apply := bool(frame.get("applied", false))
+	var converted := 0
+	var skipped := 0
 	for raw in source:
 		if not (raw is Dictionary):
 			continue
@@ -607,9 +627,149 @@ func _seed_physics_entities(pwcfg: Dictionary) -> void:
 			body["mass_kg"] = float(d.get("mass_kg", 1000.0))
 		if body.get("r", null) == null or body.get("v", null) == null:
 			continue
+		if apply and (source_is_seed or bool(frame.get("explicit", false))):
+			if _apply_physics_frame_offset(body, offset):
+				converted += 1
+			else:
+				skipped += 1
+				warnings.append("physics seed 帧转换跳过 %s：r 非有限三维" % id)
 		var res: Dictionary = physics_world_service.upsert_entity(id, body)
 		if not bool(res.get("ok", false)):
 			warnings.append("physics seed 失败 %s：%s" % [id, str(res.get("reason", ""))])
+	_physics_frame_meta = frame.duplicate(true)
+	_physics_frame_meta["source_is_seed"] = source_is_seed
+	_physics_frame_meta["converted"] = converted
+	_physics_frame_meta["skipped"] = skipped
+	_physics_frame_meta["conversion_count"] = 1 if converted > 0 else 0
+	_physics_frame_meta["entities"] = source.size()
+
+## 解析 seed_frame/frame_origin；返回 {seed_frame,frame_origin,offset_km,applied,
+## explicit,auto_prelude,reason}。
+func _resolve_seed_frame(pwcfg: Dictionary, source_is_seed: bool) -> Dictionary:
+	var raw_seed := str(pwcfg.get("seed_frame",
+		_seed.get("seed_frame", "auto"))).strip_edges().to_lower()
+	var raw_origin = pwcfg.get("frame_origin", _seed.get("frame_origin", ""))
+	var auto_prelude := _is_prelude_seed()
+	var explicit_entities := not source_is_seed
+	var out := {"seed_frame": "bary_rot", "frame_origin": "bary_rot",
+		"offset_km": [0.0, 0.0, 0.0], "applied": false, "explicit": false,
+		"auto_prelude": auto_prelude, "reason": "default_bary_rot"}
+	if raw_seed in ["none", "off", "disabled", "bary_rot", "barycenter"]:
+		out["reason"] = "explicit_bary_rot"
+		return out
+	var origin_l1 := false
+	var origin_array: Array = []
+	var origin_explicit := false
+	if raw_origin is Array and (raw_origin as Array).size() == 3:
+		var okv := true
+		for x in (raw_origin as Array):
+			if not (x is int or x is float) or not is_finite(float(x)):
+				okv = false
+		if okv:
+			origin_array = [(raw_origin as Array)[0], (raw_origin as Array)[1],
+				(raw_origin as Array)[2]]
+			origin_explicit = true
+		else:
+			warnings.append("physics frame_origin 数组非法，按 bary_rot 处理")
+	elif raw_origin is String:
+		var os := (raw_origin as String).strip_edges().to_lower()
+		if os in ["l1", "l1_bary", "meridian_l1"]:
+			origin_l1 = true
+		elif os in ["bary_rot", "barycenter", "none", "off", "disabled"]:
+			out["reason"] = "explicit_bary_rot"
+			return out
+		elif os != "" and os != "auto":
+			warnings.append("physics frame_origin 非法：" + os + "，按 bary_rot 处理")
+			out["reason"] = "invalid_origin"
+			return out
+	var want_l1 := false
+	var reason := ""
+	if raw_seed == "l1":
+		want_l1 = true
+		reason = "seed_frame_l1"
+	elif raw_seed == "auto":
+		if origin_explicit or origin_l1:
+			want_l1 = true
+			reason = "frame_origin"
+		elif auto_prelude:
+			want_l1 = true
+			reason = "auto_prelude"
+		else:
+			out["reason"] = "auto_bary_rot"
+			return out
+	else:
+		warnings.append("physics seed_frame 非法：" + raw_seed + "，按 bary_rot 处理")
+		out["reason"] = "invalid_seed_frame"
+		return out
+	var off: Array = [0.0, 0.0, 0.0]
+	if origin_array.size() == 3:
+		off = origin_array.duplicate()
+	elif origin_l1 or raw_seed == "l1" or (raw_seed == "auto" and auto_prelude):
+		off = _l1_bary_position()
+		if off.size() != 3:
+			warnings.append("physics L1 bary 位置不可用，按 bary_rot 处理")
+			out["reason"] = "l1_unavailable"
+			return out
+	if explicit_entities and not origin_explicit and not origin_l1 \
+			and not (raw_seed == "l1"):
+		# 显式 physics entities 默认视为 bary_rot；仅当显式请求 l1 才转换
+		out["reason"] = "explicit_entities_bary_rot"
+		return out
+	out["seed_frame"] = "l1"
+	out["frame_origin"] = "explicit" if origin_explicit else "l1"
+	out["offset_km"] = [float(off[0]), float(off[1]), float(off[2])]
+	out["applied"] = true
+	out["explicit"] = origin_explicit or origin_l1 or raw_seed == "l1"
+	out["reason"] = reason
+	return out
+
+func _is_prelude_seed() -> bool:
+	if _seed.get("prelude") is Dictionary and not (_seed.get("prelude") as Dictionary).is_empty():
+		return true
+	var origin := str(_seed.get("scenario_origin", "")).to_lower()
+	if origin == "l1" or origin == "l1_local":
+		return true
+	for raw in (_seed.get("entities", []) as Array):
+		if raw is Dictionary:
+			var id := String((raw as Dictionary).get("id", ""))
+			if id in ["ceres_2", "av_4412", "ferry", "watchtower", "deepwell",
+					"chronos"]:
+				return true
+	return false
+
+func _l1_bary_position() -> Array:
+	var eq: Dictionary = PhysicsScript.equilibrium_points()
+	if eq.has("L1") and (eq["L1"] as Dictionary).get("pos_rot", null) is Vector3:
+		var p: Vector3 = (eq["L1"] as Dictionary)["pos_rot"]
+		return [p.x, p.y, p.z]
+	return []
+
+func _apply_physics_frame_offset(body: Dictionary, offset: Array) -> bool:
+	if offset.size() != 3:
+		return false
+	var r = body.get("r", null)
+	if not (r is Array) or (r as Array).size() != 3:
+		return false
+	for x in (r as Array):
+		if not (x is int or x is float) or not is_finite(float(x)):
+			return false
+	var new_r := [float((r as Array)[0]) + float(offset[0]),
+		float((r as Array)[1]) + float(offset[1]),
+		float((r as Array)[2]) + float(offset[2])]
+	body["r"] = new_r
+	if body.has("pos_km"):
+		body["pos_km"] = new_r.duplicate()
+	body["frame"] = "bary_rot"
+	body["seed_frame_input"] = "l1"
+	body["seed_frame_converted"] = true
+	return true
+
+## 4F 帧转换只读元数据（转换/未转换/偏移/原因）。
+func physics_frame_meta() -> Dictionary:
+	return _physics_frame_meta.duplicate(true)
+
+func physics_l1_position() -> Array:
+	return _l1_bary_position()
 
 func _mk_event(event_type: String, target := "", payload := {}) -> Dictionary:
 	return {"type": event_type, "t": time.now_s() if time != null else 0.0,
@@ -2951,6 +3111,7 @@ func snapshot() -> Dictionary:
 		"combat": combat_service.vm() if combat_service != null else null,
 		"damage": damage_service.vm() if damage_service != null else null,
 		"physics": physics_world_service.snapshot() if physics_world_service != null else null,
+		"physics_frame": physics_frame_meta(),
 		"signal": signal_service.vm() if signal_service != null else null,
 		"ew": ew_service.vm() if ew_service != null else null,
 		"facilities": facility_registry.summary() if facility_registry != null else null,

@@ -3,7 +3,7 @@
 > 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）+ 3P（task-164）+ 3R（task-167）。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=1127 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=1231 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -50,6 +50,14 @@ GameSession
 - **Physics 位置权威**：启用 `physics_world` 时实体位置/速度以 PhysicsWorld 为准（`position_of/
   physics_state` 读 physics）；tick 不自动改 world（不双写），只提供显式 `sync_world_from_physics()`
   把 physics 位置应用到 world（world 写仍由 session）；仅 PhysicsWorld 内部推进位置。
+- **Physics 帧（4F）**：Prelude/`scenario_prologue` 的 `pos_km/vel_kmps` 是 **L1 相对 km**，
+  PhysicsWorld 默认 **bary_rot**。boot 自动灌入 seed 时，`_seed_physics_entities` 默认
+  `seed_frame=auto`：检测到 prelude（`prelude` 标记/特定实体 id）→ 把 r 平移到 L1 bary
+  （`cislunar_physics.equilibrium_points()["L1"].pos_rot`，CR3BP μ/D），**v 保持不变**；
+  显式 `seed_frame=l1` 可强制，`bary_rot/none` 可显式关闭；`frame_origin` 可指定 L1/数组
+  origin；非法帧 warning 并按 bary 处理。只转换本次 boot 的 seed 实体、不重复转换；
+  显式 `physics_world.entities[]` 默认视为已 bary（除非显式请求 l1）。转换元数据见
+  `physics_frame_meta()`/`snapshot().physics_frame`；world 实体仍保留 L1 相对坐标（不写 world）。
 - **Signal → TrackTable/EventBus**：SignalService 的 `sensor_observation.v1`/`track_evidence.v1`
   经白名单路由到 TrackTable（共享 target→track 映射，不重复建 track；elint.comms→elint；
   elint_fix→elint 类型归一）；`light_*` 事件映射为 `light_signal.*` 发布 EventBus；
@@ -110,7 +118,7 @@ config 可覆盖字段（省略用 demo）：
 | `port_service` | **可选**：`true` 或 PortService 配置（`ports[]` 泊位/船坞/拖船/燃料/窗口/许可/services）；缺省/`false` → 不组合 |
 | `combat_service` | **可选**：`true` 或 CombatService 配置（`content_path`(weapons_l1)/`roe`/`own_id`/`fleet_id`）；缺省/`false` → 不组合 |
 | `damage_service` | **可选**：`true` 或 DamageService 配置（`content_path`(damage_l1)/`ships[]`/`default_ship`）；缺省/`false` → 不组合 |
-| `physics_world` | **可选**：`true` 或 PhysicsWorld 配置（`step_s`≤60/`sun`/`ephemeris_path`/`entities[]`/`auto_seed`）；缺省/`false` → 不组合；启用时 seed 实体自动灌入（auto_seed=false 可关） |
+| `physics_world` | **可选**：`true` 或 PhysicsWorld 配置（`step_s`≤60/`sun`/`ephemeris_path`/`entities[]`/`auto_seed`/`seed_frame`/`frame_origin`）；缺省/`false` → 不组合；启用时 seed 实体自动灌入（auto_seed=false 可关）。4F 帧：`seed_frame=auto/l1/bary_rot/none`、`frame_origin=auto/l1/[x,y,z]/bary_rot/none`，也可放 top-level |
 | `signal_service` | **可选**：`true` 或 SignalService 配置（`observer`/`targets`/`stations`/`elint`/`codes_path`/`light_codes`/`emitters[]`/`month`/`time`）；缺省/`false` → 不组合；启用时 ELINT/灯语可用 |
 | `ew_service` | **可选**：`true` 或 EWService 配置（`observer`/`targets`/`emcon`）；缺省/`false` → 不组合；启用时 tick/事件 bus/效果接口/存档可用 |
 | `facility_registry` | **可选**：`true`（默认设施内容）或 `{content_path/content}`；缺省/`false` → 不组合；只读注册表 |
@@ -149,6 +157,7 @@ config 可覆盖字段（省略用 demo）：
 | `damage_apply_event/damage_apply_hit/damage_repair/damage_fix/damage_cancel_repair/damage_set_priority` | DamageService 委托（直接伤害/维修；失败不改状态） |
 | `damage_vm/damage_ship_vm/damage_summary/damage_ships` | 只读损管 VM/摘要/舰列表 |
 | `physics_vm/physics_summary/physics_state/physics_entity_ids/physics_positions/position_of` | PhysicsWorld 只读 VM/状态/位置权威读取（position_of 无 physics 时退回 world 只读） |
+| `physics_frame_meta()` / `physics_l1_position()` | 4F 帧转换元数据（seed_frame/frame_origin/offset/applied/converted/conversion_count/reason）与 L1 bary 位置 |
 | `upsert_physics_entity/remove_physics_entity/set_physics_time` | 物理实体增删/显式设置物理时间（向前推进整个 session；暂停/回退拒绝） |
 | `sync_world_from_physics` | **显式同步边界**：把 physics 位置/速度应用有 world 实体；不自动同步、不双写 |
 | `signal_intercept/signal_df/signal_resolve` | ELINT 拦截/多站 DF/候选 fix 解析；失败不改状态 |
@@ -281,6 +290,7 @@ config 可覆盖字段（省略用 demo）：
   combat_service: <CombatService.save_state() JSON> | "",
   damage_service: <DamageService.save_state() JSON> | "",
   physics_world: <PhysicsWorld.save_state() JSON> | "",
+  physics_frame: <帧转换 meta> | null,
   signal_service: <SignalService.save_state() JSON> | "",
 ew_service: <EWService.save_state() JSON> | "",
   facility_registry: <FacilityRegistry.to_dict()> | null,
@@ -328,6 +338,11 @@ thresholds/weights/impacts/t/seq）；load 校验后恢复；load 后 legal_vm/s
 记录操作日志；旧存档缺字段/seed 配置 → 组件退化、对应 legal replay 跳过
 （`skipped:no_legal_status_service`），不报错。
 
+**Physics 帧**：boot 以 seed 配置重建并做一次 L1→bary 转换（snapshot().physics_frame 记录）；
+load 先 boot（按 seed/config 重新解析帧）再恢复 PhysicsWorld 快照，因此不会重复平移；
+旧存档无 `physics_frame` 字段仍可加载（按 seed/config 推导）；`save_state` 的 seed 保留
+`seed_frame/frame_origin/prelude`。
+
 **Traffic 存档**：save 嵌入 TrafficControlService 快照（t/requests/clearances/
 occupancies/active_npc/disguises/clues/records/events/seq）；load 校验后恢复；
 load 后 traffic_vm/summary/snapshot 一致、可继续 request/permit/occupy/disguise；
@@ -359,7 +374,7 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=1127 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=1231 FAIL=0（exit 0，只跑一次）
 ```
 
 覆盖（35 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
@@ -385,7 +400,7 @@ solution/READY/grant/check/confirmed fire/冷却拒绝/未知目标/友方拒绝
 shot_id 去重、失败不改状态）；**EW 集成**（可选退化、apply/tick/bus、observation/comms/transponder 接口、EMCON、save/load）；**Damage 存档**（save 嵌入 damage 快照、load VM/snapshot 一致、
 继续维修/tick、旧档兼容、同操作确定性）；**LegalStatus 集成**（可选退化、初始 UNLISTED、
 apply_event/去重/影响接口、tick、save/load/旧档兼容、确定性）。
-当前 `V17 SESSION PROBE RESULT: PASS=1127 FAIL=0`（含 legal/traffic；exit 0，只跑一次）。
+当前 `V17 SESSION PROBE RESULT: PASS=1231 FAIL=0`（含 legal/traffic/帧转换；exit 0，只跑一次）。
 
 ## 7　边界 / 未完成
 
@@ -407,6 +422,9 @@ apply_event/去重/影响接口、tick、save/load/旧档兼容、确定性）�
 - IdentificationService 只做证据融合/识别建议：自动最高 suspect/L3，hostile 需授权，
   L4 需人工/授权或两类独立高置信证据；自动询问不发射武器；不写 world/TrackTable/UI；
   confidence/阈值是可调游戏参数，不复刻真实 IFF 概率模型。
+- 4F 帧转换只发生在 boot physics seed 灌入（L1 相对→bary_rot）；world 实体不被改写，
+  `sync_world_from_physics()` 若被调用则把 bary 坐标写回 world（调用方自行决定帧语义）；
+  不要混用 L1 相对坐标与 bary_rot 坐标。
 - TrafficControlService 只做 OTC/航道/NPC/伪装线索：申请/许可/占用/释放由显式 API 驱动；
   `traffic.*` 只读事件进 bus；不写 world/TrackTable/UI/V15；不做物理/泊位/身份判定。
 - LegalStatusService 只做 ID13 法律状态与影响标志：heat/阈值迁移、去重、log；

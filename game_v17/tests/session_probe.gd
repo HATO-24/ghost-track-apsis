@@ -11,6 +11,8 @@ extends SceneTree
 # ═══════════════════════════════════════════════════════════════════
 
 const GameSession := preload("res://scripts/core/game_session.gd")
+const PreludeScenario := preload("res://scripts/core/prelude_scenario.gd")
+const CislunarPhysics := preload("res://framework/sim/cislunar_physics.gd")
 
 var _pass := 0
 var _fail := 0
@@ -49,6 +51,7 @@ func _initialize() -> void:
 	_test_damage_save_load()
 	_test_physics_integration()
 	_test_physics_save_load()
+	_test_physics_frame_conversion()
 	_test_signal_integration()
 	_test_signal_save_load()
 	_test_signal_binding()
@@ -3130,3 +3133,161 @@ func _test_traffic_integration() -> void:
 	_eq(a.save_state(), b.save_state(), "traffic 同操作 save 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "traffic contracts ok 2")
 	_data_line("traffic", "可选退化 · 110 设施/18 航道 · API/失败 · NPC tick · 伪装/线索 · bus · 存档/旧档/确定性")
+
+# ═══════════════════════════════════════════════════════════════════
+# 38. Prelude L1→bary_rot 帧转换（4F）
+# ═══════════════════════════════════════════════════════════════════
+
+func _prelude_physics_cfg(frame_cfg: Dictionary, top_level := {}) -> Dictionary:
+	var p = PreludeScenario.new()
+	var cfg: Dictionary = p.boot_config()
+	cfg["physics_world"] = frame_cfg
+	for k in top_level.keys():
+		cfg[k] = top_level[k]
+	return cfg
+
+func _r_vec(s, id: String) -> Array:
+	return (s.physics_state(id).get("r", []) as Array).duplicate()
+
+func _dist3(a: Array, b: Array) -> float:
+	return Vector3(float(a[0]), float(a[1]), float(a[2])).distance_to(
+		Vector3(float(b[0]), float(b[1]), float(b[2])))
+
+func _test_physics_frame_conversion() -> void:
+	_section_begin("38 L1→bary 帧转换")
+	var p = PreludeScenario.new()
+	_ok(bool(p.ready), "prelude scenario ready")
+	var l1pos: Array = []
+	var eq: Dictionary = CislunarPhysics.equilibrium_points()
+	if eq.get("L1") is Dictionary:
+		var lp: Vector3 = (eq["L1"] as Dictionary).get("pos_rot", Vector3.ZERO)
+		l1pos = [lp.x, lp.y, lp.z]
+	_eq(l1pos.size(), 3, "L1 bary 位置可用")
+	var earth: Vector3 = CislunarPhysics.earth_position_rot()
+	var moon: Vector3 = CislunarPhysics.moon_position_rot()
+	# 默认 auto：检测到 prelude → L1 相对转 bary
+	var cfg := _prelude_physics_cfg({"seed_frame": "auto"})
+	var s = GameSession.new(cfg)
+	_ok(bool(s.ready), "prelude physics ready", str(s.errors))
+	_ok(s.physics_world_service != null, "prelude physics 启用")
+	var meta: Dictionary = s.physics_frame_meta()
+	_eq(str(meta.get("seed_frame", "")), "l1", "auto 解析 l1")
+	_eq(bool(meta.get("applied", false)), true, "auto applied")
+	_eq(bool(meta.get("auto_prelude", false)), true, "auto prelude 检测")
+	_eq(int(meta.get("converted", 0)), 9, "转换 9 实体")
+	_eq(int(meta.get("conversion_count", 0)), 1, "conversion_count 1")
+	var off: Array = meta.get("offset_km", []) as Array
+	_eq(off.size(), 3, "offset 3")
+	for i in range(3):
+		_ok(absf(float(off[i]) - float(l1pos[i])) <= 1.0e-3, "offset= L1[%d]" % i)
+	# apsis: L1 相对 0 → bary L1
+	var apsis_r := _r_vec(s, "apsis")
+	for i2 in range(3):
+		_ok(absf(float(apsis_r[i2]) - float(l1pos[i2])) <= 1.0e-3,
+			"apsis bary= L1[%d]" % i2)
+	# ceres 相对 42,120 → bary = L1 + 局部
+	var ceres_r := _r_vec(s, "ceres_2")
+	_ok(absf(float(ceres_r[0]) - (float(l1pos[0]) + 42.0)) <= 1.0e-3, "ceres x +42")
+	_ok(absf(float(ceres_r[1]) - (float(l1pos[1]) + 120.0)) <= 1.0e-3, "ceres y +120")
+	_ok(absf(float(ceres_r[2]) - float(l1pos[2])) <= 1.0e-3, "ceres z")
+	# Earth/Moon 距旗舰（转换后）
+	var earth_dist := _dist3(apsis_r, [earth.x, earth.y, earth.z])
+	var moon_dist := _dist3(apsis_r, [moon.x, moon.y, moon.z])
+	_ok(earth_dist > 300000.0, "Earth 距旗舰 > 300000 km", str(earth_dist))
+	_ok(moon_dist < 100000.0, "Moon 距旗舰 < 100000 km", str(moon_dist))
+	_ok(earth_dist > 100000.0, "Earth 距离不再是 4670 异常", str(earth_dist))
+	# 世界实体保持 L1 相对（不写 world）
+	var w_apsis: Array = p.entity("apsis").get("pos_km", [])
+	var w_ceres: Array = p.entity("ceres_2").get("pos_km", [])
+	_eq(s.world.entity("apsis").get("pos_km", []), w_apsis, "世界 apsis 保持局部")
+	_eq(s.world.entity("ceres_2").get("pos_km", []), w_ceres, "世界 ceres 保持局部")
+	# 所有 prelude 实体：physics r - L1 = world 局部（保持相对关系）
+	for raw in (p.entity_ids() as Array):
+		var eid := str(raw)
+		var ent := p.entity(eid)
+		var local: Array = ent.get("pos_km", [0.0, 0.0, 0.0])
+		var br := _r_vec(s, eid)
+		var rel := [float(br[0]) - float(l1pos[0]), float(br[1]) - float(l1pos[1]),
+			float(br[2]) - float(l1pos[2])]
+		_ok(absf(float(rel[0]) - float(local[0])) <= 1.0e-3,
+			"相对 x " + eid)
+		_ok(absf(float(rel[1]) - float(local[1])) <= 1.0e-3,
+			"相对 y " + eid)
+		_ok(absf(float(rel[2]) - float(local[2])) <= 1.0e-3,
+			"相对 z " + eid)
+		# 速度保持
+		var vel: Array = ent.get("vel_kmps", [0.0, 0.0, 0.0])
+		var pv: Array = s.physics_state(eid).get("v", [])
+		for k in range(3):
+			_ok(absf(float(pv[k]) - float(vel[k])) <= 1.0e-6, "速度保持 " + eid)
+	_ok(bool(s.check_contracts().get("ok", false)), "prelude physics contracts")
+	_ok(s.snapshot().get("physics_frame") is Dictionary, "snapshot physics_frame")
+	# 显式 bary_rot（关闭转换）→ 复现 4670 异常但符合显式帧
+	var cfg_bary := _prelude_physics_cfg({"seed_frame": "bary_rot"})
+	var sb = GameSession.new(cfg_bary)
+	_ok(bool(sb.ready), "bary session ready", str(sb.errors))
+	var mb = sb.physics_frame_meta()
+	_eq(bool(mb.get("applied", true)), false, "bary 关闭转换")
+	var bary_apsis := _r_vec(sb, "apsis")
+	_ok(absf(float(bary_apsis[0])) <= 1.0e-6, "bary apsis x=0")
+	var bary_earth_dist := _dist3(bary_apsis, [earth.x, earth.y, earth.z])
+	_near(bary_earth_dist, absf(earth.x), 1.0, "显式 bary Earth 距离 4670")
+	# 显式 frame_origin 数组
+	var cfg_off := _prelude_physics_cfg({"seed_frame": "l1",
+		"frame_origin": [1000.0, 2000.0, 3000.0]})
+	var so = GameSession.new(cfg_off)
+	var mo = so.physics_frame_meta()
+	_eq(str(mo.get("frame_origin", "")), "explicit", "显式 origin")
+	_eq(so.physics_state("apsis").get("r", []), [1000.0, 2000.0, 3000.0],
+		"显式 offset apsis")
+	# frame_origin=l1 + auto（无 prelude marker 也可）
+	var cfg_origin := _prelude_physics_cfg({"seed_frame": "auto",
+		"frame_origin": "l1"})
+	var so2 = GameSession.new(cfg_origin)
+	_eq(bool(so2.physics_frame_meta().get("applied", false)), true, "origin l1 applied")
+	_eq(str(so2.physics_frame_meta().get("frame_origin", "")), "l1", "origin l1")
+	# 显式关闭
+	var cfg_none := _prelude_physics_cfg({"seed_frame": "l1",
+		"frame_origin": "none"})
+	var sn = GameSession.new(cfg_none)
+	_eq(bool(sn.physics_frame_meta().get("applied", true)), false, "frame_origin none 关闭")
+	_eq(sn.physics_state("apsis").get("r", []), [0.0, 0.0, 0.0], "none apsis bary 0")
+	# 顶层 seed_frame 支持
+	var cfg_top := _prelude_physics_cfg({}, {"seed_frame": "l1"})
+	var st = GameSession.new(cfg_top)
+	_eq(bool(st.physics_frame_meta().get("applied", false)), true, "顶层 seed_frame")
+	# 非 prelude demo：auto 不转换
+	var s_demo = GameSession.new({"physics_world": true})
+	var md = s_demo.physics_frame_meta()
+	_eq(bool(md.get("applied", false)), false, "demo auto bary")
+	_eq(s_demo.physics_state("apsis").get("r", []), [0.0, 0.0, 0.0],
+		"demo apsis bary 0")
+	# 无重复转换：同 config 重新 boot 只加一次
+	var apsis_before := _r_vec(s, "apsis")
+	s.boot(cfg)
+	var meta2: Dictionary = s.physics_frame_meta()
+	_eq(int(meta2.get("conversion_count", 0)), 1, "reboot conversion_count 1")
+	_eq(_r_vec(s, "apsis"), apsis_before, "reboot 不重复偏移")
+	# save/load 不重复
+	var save := s.save_state()
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "frame load ok", str(lr.get("errors", [])))
+	_eq(int(s2.physics_frame_meta().get("conversion_count", 0)), 1,
+		"load conversion_count 1")
+	_eq(_r_vec(s2, "apsis"), apsis_before, "load 不重复偏移")
+	_eq(JSON.stringify(s2.physics_vm()), JSON.stringify(s.physics_vm()),
+		"load physics VM 一致")
+	# 非法 seed_frame/origin warning 且不转换
+	var cfg_bad := _prelude_physics_cfg({"seed_frame": "bogus"})
+	var sbad = GameSession.new(cfg_bad)
+	_ok(bool(sbad.ready), "非法帧 config 不致命")
+	_eq(bool(sbad.physics_frame_meta().get("applied", true)), false, "非法帧不转换")
+	_ok((sbad.warnings as Array).size() >= 1, "非法帧 warning")
+	# 确定性
+	var c1 = GameSession.new(cfg)
+	var c2 = GameSession.new(cfg)
+	_eq(_norm_json(c1.physics_frame_meta()), _norm_json(c2.physics_frame_meta()),
+		"帧 meta 确定")
+	_eq(_norm_json(c1.physics_vm()), _norm_json(c2.physics_vm()), "帧 physics 确定")
+	_data_line("frame", "L1 offset=%s · apsis Earth=%.1f km Moon=%.1f km · bary异常=%.1f km · 9实体相对/速度/无重复/存档" % [str(off), earth_dist, moon_dist, bary_earth_dist])
