@@ -185,6 +185,11 @@ func _load_data() -> void:
 		if String((_contacts[i] as Dictionary).get("id", "")) == "1000":
 			_selected = i
 			break
+	if OS.get_environment("DSH_V1_SELECT_TRACK") == "1":
+		for i2 in range(_contacts.size()):
+			if String((_contacts[i2] as Dictionary).get("track_id", "")) != "":
+				_selected = i2
+				break
 	if _contacts.size() > 0:
 		_comms_target = String((_contacts[_selected] as Dictionary).get("entity_id", (_contacts[_selected] as Dictionary).get("id", "")))
 	if FileAccess.file_exists(TRANSFER):
@@ -523,12 +528,7 @@ func _draw_plot_surface(canvas: CanvasItem) -> void:
 	var selected_id := ""
 	if _selected >= 0 and _selected < _contacts.size():
 		var c: Dictionary = _contacts[_selected]
-		selected_id = String(c.get("track_id", c.get("entity_id", c.get("id", ""))))
-	if selected_id == "" and binder != null and binder.has_method("plot_cic"):
-		var cv: Dictionary = binder.plot_cic()
-		var crows: Array = cv.get("tracks", []) if cv.get("tracks", []) is Array else []
-		if not crows.is_empty():
-			selected_id = String((crows[0] as Dictionary).get("id", ""))
+		selected_id = String(c.get("track_id", ""))
 	if not bool(_plot3d.draw_plot(canvas, local, binder, selected_id)):
 		canvas.draw_rect(local, P.a(P.EARTH, 0.55))
 		canvas.draw_rect(local, P.a(P.LINE, 0.6), false, 1.0)
@@ -2632,6 +2632,9 @@ func _clock(s: float) -> String:
 
 func _gui_input(event: InputEvent) -> void:
 	if _plot3d != null and _plot3d_rect.size.x > 0.0 and bool(_plot3d.handle_input(event, _plot3d_rect)):
+		var picked := String(_plot3d.consume_pick()) if _plot3d.has_method("consume_pick") else ""
+		if picked != "":
+			_select_track_contact(picked)
 		accept_event()
 		queue_redraw()
 		return
@@ -2712,8 +2715,19 @@ func _return_to_main_menu() -> void:
 	get_tree().change_scene_to_file("res://main_menu.tscn")
 
 
+func _select_track_contact(track_id: String) -> void:
+	for i in range(_contacts.size()):
+		var c: Dictionary = _contacts[i]
+		if String(c.get("track_id", "")) == track_id:
+			_selected = i
+			_comms_target = String(c.get("entity_id", c.get("id", "")))
+			_optical_track = _track_for_contact(c)
+			_optical_target = _comms_target
+			return
+
+
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and (event as InputEventKey).pressed and (event as InputEventKey).keycode == KEY_R and _plot3d != null:
-		_plot3d.reset()
-		queue_redraw()
+	if _plot3d != null and _plot3d_rect.size.x > 0.0 and bool(_plot3d.handle_input(event, _plot3d_rect)):
 		accept_event()
+		queue_redraw()
+		return

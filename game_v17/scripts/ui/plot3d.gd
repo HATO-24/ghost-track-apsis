@@ -30,6 +30,22 @@ var fire_control: Dictionary = {}
 var commands: Dictionary = {}
 var focus := Vector3.ZERO
 var _focus_target := Vector3.ZERO
+var focus_lerp := 0.16
+var sensitivity := 0.006
+var pitch_min := -1.25
+var pitch_max := 1.25
+var zoom_min := 1.4
+var zoom_max := 8.0
+var yaw_vel := 0.0
+var pitch_vel := 0.0
+var inertia := 0.82
+var camera_mode := "selected"
+var menu_open := true
+var last_pick_id := ""
+var _last_selected_id := ""
+var _plot_rect := Rect2()
+var _press_pos := Vector2.ZERO
+var _moved := false
 var label_conflicts := 0
 var labels_hidden := 0
 var labels_total := 0
@@ -261,12 +277,30 @@ func _project(u: Vector3, rect: Rect2) -> Vector2:
 
 
 func rotate_input(delta: Vector2) -> void:
-	yaw += delta.x * 0.006
-	pitch = clampf(pitch - delta.y * 0.006, -1.35, 1.35)
+	var dy := delta.x * sensitivity
+	var dp := -delta.y * sensitivity
+	yaw += dy
+	pitch = clampf(pitch + dp, pitch_min, pitch_max)
+	yaw_vel = dy
+	pitch_vel = dp
 
 
 func zoom_input(delta: float) -> void:
-	dist = clampf(dist * pow(1.12, -delta), 1.4, 8.0)
+	dist = clampf(dist * pow(1.12, -delta), zoom_min, zoom_max)
+
+
+func _camera_step() -> void:
+	if not dragging:
+		yaw += yaw_vel
+		pitch = clampf(pitch + pitch_vel, pitch_min, pitch_max)
+		yaw_vel *= inertia
+		pitch_vel *= inertia
+		if absf(yaw_vel) < 1.0e-5:
+			yaw_vel = 0.0
+		if absf(pitch_vel) < 1.0e-5:
+			pitch_vel = 0.0
+	_focus_target = _focus_target.limit_length(2.4)
+	focus = focus.lerp(_focus_target, focus_lerp)
 
 
 func reset() -> void:
@@ -275,6 +309,9 @@ func reset() -> void:
 	dist = 4.0
 	focus = Vector3.ZERO
 	_focus_target = Vector3.ZERO
+	yaw_vel = 0.0
+	pitch_vel = 0.0
+	camera_mode = "selected"
 
 
 func handle_input(event: InputEvent, rect: Rect2) -> bool:
@@ -288,20 +325,97 @@ func handle_input(event: InputEvent, rect: Rect2) -> bool:
 				zoom_input(-1.0)
 				return true
 			if mb.button_index == MOUSE_BUTTON_LEFT:
-				dragging = mb.pressed
-				_drag_last = mb.position
+				if mb.pressed:
+					dragging = true
+					_moved = false
+					_press_pos = mb.position
+					_drag_last = mb.position
+					if mb.double_click:
+						camera_mode = "selected"
+						_focus_target = _selected_world_focus()
+						focus = _focus_target
+				else:
+					dragging = false
+					if not _moved:
+						_pick_at(mb.position)
+						if mb.double_click:
+							camera_mode = "selected"
+							_focus_target = _selected_world_focus()
+							focus = _focus_target
+					_press_pos = Vector2.ZERO
 				return true
 	if event is InputEventMouseMotion and dragging:
 		var mm := event as InputEventMouseMotion
-		rotate_input(mm.position - _drag_last)
+		if mm.position.distance_to(_press_pos) > 3.0:
+			_moved = true
+		if _moved:
+			rotate_input(mm.position - _drag_last)
 		_drag_last = mm.position
 		return true
 	if event is InputEventKey:
 		var ke := event as InputEventKey
-		if ke.pressed and (ke.keycode == KEY_R):
-			reset()
-			return true
+		if ke.pressed and not ke.echo:
+			if ke.keycode == KEY_R:
+				reset()
+				return true
+			if ke.keycode == KEY_F:
+				camera_mode = "selected"
+				_focus_target = _selected_world_focus()
+				return true
+			if ke.keycode == KEY_C:
+				var modes := ["own", "selected", "earth", "moon"]
+				camera_mode = modes[(modes.find(camera_mode) + 1) % modes.size()]
+				return true
+			if ke.keycode == KEY_M:
+				menu_open = not menu_open
+				return true
+			if ke.keycode == KEY_ESCAPE:
+				menu_open = false
+				return true
 	return false
+
+
+func _pick_at(pos: Vector2) -> void:
+	last_pick_id = ""
+	if _plot_rect.size.x <= 0.0:
+		return
+	var best := 14.0
+	for raw in cic_tracks:
+		if not (raw is Dictionary):
+			continue
+		var tr: Dictionary = raw
+		var est: Array = tr.get("estimate_km", []) if tr.get("estimate_km", []) is Array else []
+		if est.size() < 3:
+			continue
+		var sp := _project(_unit(_rel_own(est)), _plot_rect)
+		var dd := sp.distance_to(pos)
+		if dd < best:
+			best = dd
+			last_pick_id = String(tr.get("id", ""))
+
+
+func consume_pick() -> String:
+	var out := last_pick_id
+	last_pick_id = ""
+	return out
+
+
+func _selected_world_focus() -> Vector3:
+	for raw in cic_tracks:
+		if not (raw is Dictionary):
+			continue
+		var tr: Dictionary = raw
+		if String(tr.get("id", "")) != _last_selected_id:
+			continue
+		var est: Array = tr.get("estimate_km", []) if tr.get("estimate_km", []) is Array else []
+		if est.size() >= 3:
+			return _unit(_rel_own(est))
+	return Vector3.ZERO
+
+
+func camera_status() -> Dictionary:
+	return {"yaw": yaw, "pitch": pitch, "dist": dist, "mode": camera_mode,
+		"focus": focus, "menu_open": menu_open, "selected": _last_selected_id}
 
 
 func _queue_label(anchor_pos: Vector2, text: String, col: Color, size: int, prio: int, kind: String) -> void:
@@ -367,6 +481,9 @@ func _label(canvas: CanvasItem, pos: Vector2, text: String, col: Color, size := 
 
 
 func draw_plot(canvas: CanvasItem, rect: Rect2, binder, selected_id := "") -> bool:
+	_plot_rect = rect
+	_last_selected_id = selected_id
+	_camera_step()
 	if source == "cic":
 		_draw_cic(canvas, rect, binder, selected_id)
 		return true
@@ -483,15 +600,16 @@ func _draw_cic(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> 
 	_draw_orbit_grid(canvas, rect)
 	_draw_sensor_layer(canvas, rect)
 	_draw_fire_control(canvas, rect, selected_id)
-	# 选中目标：相机 focus 平滑趋近（L2+ 用 estimate；L1 仅 ownship 方位，不读位置）
-	_focus_target = Vector3.ZERO
-	for raw_focus in cic_tracks:
-		if raw_focus is Dictionary and String((raw_focus as Dictionary).get("id", "")) == selected_id:
-			var est_focus: Array = (raw_focus as Dictionary).get("estimate_km", []) if (raw_focus as Dictionary).get("estimate_km", []) is Array else []
-			if est_focus.size() >= 3:
-				_focus_target = _unit(_rel_own(est_focus))
-			break
-	focus = focus.lerp(_focus_target, 0.16)
+	# 相机 focus 模式：own / selected / earth；平滑阻尼在 _camera_step 内
+	match camera_mode:
+		"own":
+			_focus_target = Vector3.ZERO
+		"earth", "moon":
+			var eb: Dictionary = bodies.get(camera_mode, {}) if bodies.get(camera_mode, {}) is Dictionary else {}
+			var ep: Array = eb.get("pos_km", []) if eb.get("pos_km", []) is Array else []
+			_focus_target = _unit(_rel_own(ep)) if ep.size() >= 3 else Vector3.ZERO
+		_:
+			_focus_target = _selected_world_focus()
 	canvas.draw_string(F.mono(), rect.position + Vector2(10, 16), "V1 PLOT3D · SOURCE CIC VIEW · truth=false · L1 bearing / L2 estimate", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.PH, 0.9))
 	canvas.draw_string(F.mono(), Vector2(rect.end.x - 260, rect.position.y + 16), "YAW %.2f · PITCH %.2f · DIST %.2f" % [yaw, pitch, dist], HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.AMBER, 0.9))
 	# ownship known
@@ -577,6 +695,7 @@ func _draw_cic(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> 
 	# summary footer
 	var summary: Dictionary = cic.get("summary", {}) if cic.get("summary", {}) is Dictionary else {}
 	_flush_labels(canvas)
+	_draw_target_menu(canvas, rect, selected_id)
 	canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.end.y - 10), "CIC tracks %d · levels %s · truth=false · L1 bearing-only / L2+ estimate" % [cic_tracks.size(), str(summary.get("levels", {}))], HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
 	canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.end.y - 22), "VISUAL · STARFIELD / ORBITAL GRID / LIMB LAT-LONG / LOW-POLY FACILITIES / FOCUS SELECTED", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.PH_DIM, 0.75))
 
@@ -837,6 +956,49 @@ func _draw_station(canvas: CanvasItem, c: Vector2, cls: String, scale: float, co
 				canvas.draw_line(c + Vector2(sx, 0), c + Vector2(sx * 0.7, 0), P.a(col, 0.5), 1.0)
 		_:
 			canvas.draw_rect(Rect2(c - Vector2(r, r), Vector2(r * 2, r * 2)), P.a(col, 0.6), false, 1.0)
+
+
+func _draw_target_menu(canvas: CanvasItem, rect: Rect2, selected_id: String) -> void:
+	if not menu_open:
+		canvas.draw_string(F.mono(), Vector2(rect.end.x - 150, rect.position.y + 34), "TARGET MENU [M]", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.8))
+		return
+	var tr: Dictionary = {}
+	for raw in cic_tracks:
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == selected_id:
+			tr = raw
+			break
+	var pw := 264.0
+	var ph := 150.0
+	var pr := Rect2(rect.end.x - pw - 12.0, rect.position.y + 70.0, pw, ph)
+	canvas.draw_rect(pr, P.a(P.PANEL, 0.92))
+	canvas.draw_rect(pr, P.a(P.PH_DIM, 0.65), false, 1.0)
+	if tr.is_empty():
+		canvas.draw_string(F.mono(), pr.position + Vector2(8, 18), "TARGET MENU · NO SELECTION", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.AMBER, 0.9))
+		canvas.draw_string(F.mono(), pr.position + Vector2(8, 34), "click contact / plot target · M close", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.8))
+		return
+	var level := int(tr.get("level", 1))
+	var est: Array = tr.get("estimate_km", []) if tr.get("estimate_km", []) is Array else []
+	canvas.draw_string(F.mono(), pr.position + Vector2(8, 17), "TARGET · " + String(tr.get("id", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 8, P.AMBER)
+	var rows := [
+		["BATCH", String(tr.get("batch", "—"))],
+		["LEVEL", "L%d %s" % [level, String(tr.get("level_name", ""))]],
+		["IDENTITY", String(tr.get("identity", "unknown"))],
+		["THREAT", String(tr.get("threat", "unknown"))],
+		["QUALITY", "%.2f" % float(tr.get("quality", 0.0))],
+		["AGE", "%.1fs" % float(tr.get("age_s", 0.0))],
+		["SOURCES", ", ".join(tr.get("sources", [])) if tr.get("sources", []) is Array else "—"],
+	]
+	var yy := pr.position.y + 33.0
+	for r in rows:
+		canvas.draw_string(F.mono(), Vector2(pr.position.x + 8, yy), String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
+		canvas.draw_string(F.mono(), Vector2(pr.position.x + 78, yy), TM.fit(String(r[1]), pw - 88.0, true, 6), HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.TXT)
+		yy += 13.0
+	if level == 1 or est.is_empty():
+		canvas.draw_string(F.mono(), Vector2(pr.position.x + 8, pr.end.y - 15), "BEARING ONLY · " + ("±%.1f°" % float(tr.get("uncertainty_deg", 0.0)) if tr.get("uncertainty_deg", null) != null else "NO POSITION"), HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.AMBER)
+	else:
+		var unc: Variant = tr.get("uncertainty_km", null)
+		canvas.draw_string(F.mono(), Vector2(pr.position.x + 8, pr.end.y - 15), "UNCERTAINTY " + ("±%.1f km" % float(unc) if unc != null else "—") + ("  STALE" if bool(tr.get("stale", false)) else ""), HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.PH_DIM)
+	canvas.draw_string(F.mono(), Vector2(pr.end.x - 90, pr.position.y + 17), "M CLOSE", HORIZONTAL_ALIGNMENT_LEFT, -1, 5, P.a(P.FAINT, 0.7))
 
 
 func _draw_physics(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> void:

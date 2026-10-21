@@ -1054,3 +1054,43 @@ v1_hud.gd
 2. 当前 orders=1（HOLD pending）；无 BURN 点火节点样例；无 incoming；AUTH=NO-FIRE（ROE TIGHT + 未授权）。
 3. 修复 v1_hud 初始化顺序：CombatService 先建再 `_seed_combat_tracks()`（之前 tracks=0）。
 4. 火控为解算层、命令为计划层；不执行 fire/authorize；下一批子界面统一/相机打磨；不写 world/物理；未跑全量 regression。
+
+
+---
+
+## 36　方案B-31：相机聚焦/目标菜单（task-203）
+
+### 36.1 相机
+
+- 参数：`sensitivity=0.006`（rad/px）、`pitch_min/max=-1.25/1.25`、`zoom_min/max=1.4/8.0`、`focus_lerp=0.16`、`inertia=0.82`。
+- 拖拽：位移→yaw/pitch 增量，release 后速度按 inertia 衰减；pitch 限位；滚轮 dist clamp。
+- focus：`_focus_target.limit_length(2.4)` + lerp；相机模式 `own / selected / earth / moon`。
+- 快捷键：`F` 聚焦选中、`C` 循环 own/selected/earth/moon、`R` 重置、`M`/`ESC` 关闭目标菜单；双击目标聚焦。
+- 点击目标（估算点附近 14px）拾取并同步左侧 contact；拖拽阈值 3px，避免误选。
+
+### 36.2 目标菜单
+
+- 选中 CIC track 时在绘图区右侧显示面板：id/batch/level/identity/threat/quality/age/sources；底部 uncertainty/stale。
+- L1 或无 estimate：显示 `BEARING ONLY · ±cone°`，不伪造位置。
+- 无选中：`TARGET MENU · NO SELECTION`；`M` 关闭后显示 `TARGET MENU [M]`。
+- 面板不显示 truth 字段。
+
+### 36.3 左侧同步
+
+- 左侧 contact 点击：`_selected` → contact.track_id → plot `selected_id`；目标菜单/相机 focus 跟随。
+- plot 点击：plot3d `consume_pick()` → v1_hud `_select_track_contact(track_id)` → 左侧高亮同步。
+- 截图用 `DSH_V1_SELECT_TRACK=1` 选首条 track（harmattan/T0001），验证同步与菜单；正常默认仍 apsis flag（无 CIC track 时菜单显示 NO SELECTION）。
+
+### 36.4 截图 / 验证
+
+- `mockups/v1-hud-camera-1920.png`
+- `mockups/v1-hud-camera-1600.png`
+- 均 SHOT err=0；headless v1_hud 一次；`v1_hud.gd/shell_binder.gd/plot3d.gd --check-only` 通过。
+- headless labels/conflict 仍 `labels=19 conflicts=7 hidden_facility=8`。
+
+### 36.5 边界
+
+1. 相机为局部线框相机，不是物理相机；惯性/限位为 UI 参数，非真实飞控。
+2. 目标菜单只展示 CIC 字段；L1 live=0，BEARING ONLY 路径已实现但无 live 样例。
+3. plot 拾取只对 L2+ estimate 生效；L1 bearing ray 不拾取。
+4. 不改核心/旧 plot；不写 world/物理；未跑全量 regression。
