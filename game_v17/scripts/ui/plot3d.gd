@@ -14,6 +14,15 @@ const FLEET_PATH := "res://framework/content/transfer_l4_l1_fleet_cached.json"
 var source := "cache"
 var physics_rows: Array = []
 var facility_rows: Array = []
+var bodies: Dictionary = {}
+var label_conflicts := 0
+var labels_hidden := 0
+var labels_total := 0
+var _label_queue: Array = []
+var _label_boxes: Array = []
+var _plot_safe := Rect2()
+var _label_anchor_map: Dictionary = {}
+var _stats_logged := false
 var timeline: Array = []
 var fleet_samples: Array = []
 var contacts: Array = []
@@ -44,6 +53,8 @@ func setup(binder) -> void:
 			physics_rows = (pp.get("positions", []) as Array).duplicate(true)
 			var pf: Dictionary = binder.plot_facilities()
 			facility_rows = (pf.get("facilities", []) as Array).duplicate(true)
+			if binder.has_method("plot_bodies"):
+				bodies = binder.plot_bodies().duplicate(true)
 			contacts = binder.contacts.duplicate(true) if binder.contacts is Array else []
 			_bounds_physics()
 			return
@@ -71,6 +82,11 @@ func _bounds_physics() -> void:
 			var p2: Array = (row as Dictionary).get("pos_km", [])
 			if p2.size() >= 3:
 				pts.append(p2)
+	for bk in ["earth", "moon"]:
+		if bodies.get(bk) is Dictionary:
+			var bp: Array = (bodies[bk] as Dictionary).get("pos_km", [])
+			if bp.size() >= 3:
+				pts.append(bp)
 	if pts.is_empty():
 		center = Vector3.ZERO
 		span = 1.0
@@ -194,6 +210,57 @@ func handle_input(event: InputEvent, rect: Rect2) -> bool:
 	return false
 
 
+func _queue_label(anchor_pos: Vector2, text: String, col: Color, size: int, prio: int, kind: String) -> void:
+	_label_queue.append({"anchor": anchor_pos, "text": text, "col": col, "size": size, "prio": prio, "kind": kind})
+
+
+func _flush_labels(canvas: CanvasItem) -> void:
+	label_conflicts = 0
+	labels_hidden = 0
+	labels_total = _label_queue.size()
+	_label_queue.sort_custom(func(a, b): return int(a.get("prio", 0)) > int(b.get("prio", 0)))
+	for raw in _label_queue:
+		var e: Dictionary = raw
+		var text := String(e.get("text", ""))
+		var size := int(e.get("size", 6))
+		var w: float = TM.width(text, true, size)
+		var h := float(size + 4)
+		var offsets := [Vector2(0, 0), Vector2(0, -11), Vector2(0, 11), Vector2(0, -21), Vector2(0, 21)]
+		var placed := false
+		for off in offsets:
+			var p: Vector2 = (e.get("anchor", Vector2.ZERO) as Vector2) + (off as Vector2)
+			var rr := Rect2(p.x, p.y - float(size), w + 2.0, h)
+			if not _plot_safe.encloses(rr):
+				continue
+			var hit := false
+			for bx in _label_boxes:
+				if (bx as Rect2).intersects(rr):
+					hit = true
+					break
+			if hit:
+				continue
+			if off != Vector2.ZERO:
+				label_conflicts += 1
+				canvas.draw_line(e.get("anchor", Vector2.ZERO), p + Vector2(0, -2), P.a(P.a(e.get("col", P.TXT), 0.45), 0.6), 1.0)
+			canvas.draw_string(F.cjk(), p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, e.get("col", P.TXT))
+			_label_boxes.append(rr)
+			placed = true
+			break
+		if not placed:
+			if String(e.get("kind", "")) == "facility":
+				labels_hidden += 1
+			else:
+				label_conflicts += 1
+				canvas.draw_string(F.cjk(), e.get("anchor", Vector2.ZERO), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, e.get("col", P.TXT))
+	if not _stats_logged:
+		_stats_logged = true
+		print("[V1 PLOT3D] labels=", labels_total, " conflicts=", label_conflicts, " hidden_facility=", labels_hidden, " bodies=", bodies.get("source", "—"))
+
+
+func label_stats() -> Dictionary:
+	return {"labels": labels_total, "conflicts": label_conflicts, "hidden": labels_hidden, "bodies_source": String(bodies.get("source", ""))}
+
+
 func _label(canvas: CanvasItem, pos: Vector2, text: String, col: Color, size := 7, align_right := false) -> void:
 	var p := pos
 	for q in _label_pts:
@@ -309,6 +376,9 @@ func draw_plot(canvas: CanvasItem, rect: Rect2, binder, selected_id := "") -> bo
 
 func _draw_physics(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> void:
 	_label_pts.clear()
+	_label_queue.clear()
+	_label_boxes.clear()
+	_plot_safe = Rect2(rect.position + Vector2(8, 26), rect.size - Vector2(16, 58))
 	canvas.draw_rect(rect, P.a(P.EARTH, 0.38))
 	canvas.draw_rect(rect, P.a(P.LINE, 0.65), false, 1.0)
 	for i in range(20):
@@ -317,9 +387,19 @@ func _draw_physics(canvas: CanvasItem, rect: Rect2, binder, selected_id: String)
 	for j in range(12):
 		var gy := rect.position.y + rect.size.y * float(j) / 12.0
 		canvas.draw_line(Vector2(rect.position.x, gy), Vector2(rect.end.x, gy), P.a(P.LINE, 0.06), 1.0)
-	canvas.draw_string(F.mono(), rect.position + Vector2(10, 16), "V1 PLOT3D · SOURCE SESSION PHYSICS · POSITIONS RELATIVE FLAGSHIP", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.PH, 0.9))
+	canvas.draw_string(F.mono(), rect.position + Vector2(10, 16), "V1 PLOT3D · SOURCE SESSION PHYSICS / " + String(bodies.get("source", "—")) + " · POSITIONS RELATIVE FLAGSHIP", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.PH, 0.9))
 	canvas.draw_string(F.mono(), Vector2(rect.end.x - 260, rect.position.y + 16), "YAW %.2f · PITCH %.2f · DIST %.2f" % [yaw, pitch, dist], HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.AMBER, 0.9))
-	# facility symbols (L1 registry)
+	# Earth / Moon limbs from plot_bodies (physics bary, relative flagship)
+	for bk in ["earth", "moon"]:
+		var b: Dictionary = bodies.get(bk, {}) if bodies.get(bk, {}) is Dictionary else {}
+		var bp: Array = b.get("pos_km", []) if b.get("pos_km", []) is Array else []
+		if bp.size() < 3:
+			continue
+		var sc := _project(_unit(bp), rect)
+		var rad_px := minf(rect.size.x, rect.size.y) * (0.055 if bk == "earth" else 0.028) * (2.8 / maxf(0.8, dist))
+		_draw_body(canvas, sc, rad_px, P.PH if bk == "earth" else P.PH_DIM)
+		_queue_label(sc + Vector2(rad_px + 8, -rad_px), str(b.get("label", bk.to_upper())) + " · r=" + str(b.get("radius_km", "")) + "km", P.PH if bk == "earth" else P.PH_DIM, 7, 2, "body")
+	# facility symbols
 	var fac_cols := {"station": P.PH, "depot": P.AMBER, "port": P.BLUE, "otc": P.PH_DIM, "tank": P.AMBER, "fuel": P.AMBER, "commercial": P.PH}
 	for i in range(facility_rows.size()):
 		var f: Dictionary = facility_rows[i]
@@ -331,11 +411,10 @@ func _draw_physics(canvas: CanvasItem, rect: Rect2, binder, selected_id: String)
 			continue
 		var cls := String(f.get("facility_class", "station"))
 		var col: Color = fac_cols.get(cls, P.PH_DIM)
-		var sz := 4.0
-		canvas.draw_rect(Rect2(sp - Vector2(sz, sz), Vector2(sz * 2, sz * 2)), P.a(col, 0.7), false, 1.0)
-		canvas.draw_line(sp + Vector2(-sz - 3, 0), sp + Vector2(sz + 3, 0), P.a(col, 0.5), 1.0)
-		canvas.draw_line(sp + Vector2(0, -sz - 3), sp + Vector2(0, sz + 3), P.a(col, 0.5), 1.0)
-		_label(canvas, sp + Vector2(7, -6), String(f.get("name", f.get("facility_id", ""))) + " · " + String(f.get("facility_code", "")), col, 6)
+		canvas.draw_rect(Rect2(sp - Vector2(4, 4), Vector2(8, 8)), P.a(col, 0.7), false, 1.0)
+		canvas.draw_line(sp + Vector2(-7, 0), sp + Vector2(7, 0), P.a(col, 0.5), 1.0)
+		canvas.draw_line(sp + Vector2(0, -7), sp + Vector2(0, 7), P.a(col, 0.5), 1.0)
+		_queue_label(sp + Vector2(7, -7), String(f.get("name", f.get("facility_id", ""))) + " · " + String(f.get("facility_code", "")), col, 6, 1, "facility")
 	# fleet / physics entities
 	for i in range(physics_rows.size()):
 		var row: Dictionary = physics_rows[i]
@@ -354,14 +433,32 @@ func _draw_physics(canvas: CanvasItem, rect: Rect2, binder, selected_id: String)
 			var vv := Vector3(float(vel[0]), float(vel[1]), float(vel[2])) * 900.0
 			var q := _project(_unit(p2) + vv / span * 2.0, rect)
 			canvas.draw_line(sp2, q, P.a(P.PH_DIM, 0.8), 1.0)
-		_label(canvas, sp2 + Vector2(7, -6), sid + " · " + ("%.0f km" % Vector3(float(p2[0]), float(p2[1]), float(p2[2])).length()), P.AMBER if sel else P.PH, 6)
-	# radar ring around flagships / origin
+		_queue_label(sp2 + Vector2(7, -7), sid + " · " + ("%.0f km" % Vector3(float(p2[0]), float(p2[1]), float(p2[2])).length()), P.AMBER if sel else P.PH, 6, 3 if sel else 2, "ship")
+	# radar ring around flagship / origin
 	var origin := _project(Vector3.ZERO, rect)
 	canvas.draw_arc(origin, 30.0, 0, TAU, 48, P.a(P.AMBER, 0.30), 1.0, true)
 	canvas.draw_arc(origin, 56.0, 0, TAU, 64, P.a(P.PH, 0.16), 1.0, true)
-	_label(canvas, origin + Vector2(-8, -34), "FLAGSHIP / RADAR RING", P.a(P.AMBER, 0.8), 6)
-	_label(canvas, rect.position + Vector2(10, rect.size.y - 12), "L1 FACILITIES %d · SESSION PHYSICS · DRAG/WHEEL/R" % facility_rows.size(), P.a(P.FAINT, 0.9), 6)
-	canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.end.y - 10), "DRAG ROTATE · WHEEL ZOOM · R RESET · CAMERA LOCAL ONLY", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
+	_queue_label(origin + Vector2(-8, -34), "FLAGSHIP / RADAR RING", P.a(P.AMBER, 0.8), 6, 2, "radar")
+	_flush_labels(canvas)
+	canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.end.y - 10), "DRAG ROTATE · WHEEL ZOOM · R RESET · LABELS selected>ships>facilities", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
+
+
+func _draw_body(canvas: CanvasItem, c: Vector2, rad: float, col: Color) -> void:
+	canvas.draw_arc(c, rad, 0, TAU, 64, P.a(col, 0.75), 1.0, true)
+	canvas.draw_arc(c, rad * 0.62, 0, TAU, 48, P.a(col, 0.30), 1.0, true)
+	canvas.draw_line(c + Vector2(-rad, 0), c + Vector2(rad, 0), P.a(col, 0.35), 1.0)
+	canvas.draw_line(c + Vector2(0, -rad), c + Vector2(0, rad), P.a(col, 0.35), 1.0)
+	# 简化的 1px 纬线/经线
+	_draw_ellipse(canvas, c, rad, rad * 0.36, P.a(col, 0.28))
+	_draw_ellipse(canvas, c, rad * 0.36, rad, P.a(col, 0.22))
+
+
+func _draw_ellipse(canvas: CanvasItem, c: Vector2, rx: float, ry: float, col: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in range(33):
+		var a := TAU * float(i) / 32.0
+		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry))
+	canvas.draw_polyline(pts, col, 1.0)
 
 
 func _draw_limb(canvas: CanvasItem, rect: Rect2, u: Vector3, rad_u: float, col: Color, label: String) -> void:

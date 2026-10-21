@@ -882,3 +882,38 @@ v1_hud.gd
 2. 设施符号来自 registry physical.orbit.position_km，非真实仿真站体。
 3. 设施/舰队标签密集时仍可能重叠（简单避让）；cache fallback 保留。
 4. 不写 world/物理；未跑全量 regression。
+
+
+---
+
+## 31　方案B-26：3D 地球/月球 + 标签避让（task-194）
+
+### 31.1 plot_bodies()
+
+- ShellBinder `plot_bodies()`：
+  - physics ready 时从 PhysicsWorld `_earth_pos()/_moon_pos()` 取 **bary_rot 同帧** Earth/Moon（CR3BP bary + μ），以 apsis physics 位置为参考转相对 km；
+  - 返回 `earth/moon {pos_km,radius_km,label}`，`source=physics`、`frame=bary_rot`、`reference=apsis`；
+  - 无 physics 时回退固定战略位置，source=fallback_strategic。
+- headless 实测：`plot_bodies source=physics earth=[-4670.68,0,0] moon=[379729.31,0,0]`。
+
+### 31.2 plot3d 绘制 / 标签避让
+
+- physics 分支绘制 Earth/Moon limb 圆 + 1px 经纬/十字基准 + 标签（不画贴图/近景）。
+- 标签队列按优先级绘制：selected ship > ships/body/radar > facilities。
+- 标签屏幕矩形碰撞；冲突时上下偏移并画引线；仍冲突则隐藏设施标签（舰船/选中不静默隐藏）。
+- `_plot_safe` 避开顶部 source/camera 行与底部时间轴/状态行。
+- 实测标签统计：`labels=24 conflicts=12 hidden_facility=8 bodies=physics`。
+- 相机/拖拽/滚轮/R 不变；不写 world。
+
+### 31.3 截图 / 验证
+
+- `mockups/v1-hud-plot3d-bodies-1920.png`
+- `mockups/v1-hud-plot3d-bodies-1600.png`
+- 均 SHOT err=0；headless v1_hud 一次；`v1_hud.gd/shell_binder.gd/plot3d.gd --check-only` 通过。
+
+### 31.4 未完成 / 边界
+
+1. Earth/Moon 为 CR3BP bary 同帧相对位置，非 ephemeris 高精度表；半径使用固定 6371/1737 km。
+2. 设施/舰船投影仍是线框；标签避让为简单矩形+固定偏移，极端缩放仍可能隐藏设施标签。
+3. cache fallback 保留；无 physics 时 body 用固定战略位置；不写 world/物理。
+4. 未跑全量 regression。

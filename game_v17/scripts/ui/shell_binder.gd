@@ -792,6 +792,32 @@ func plot_positions() -> Dictionary:
 	return out
 
 
+func plot_bodies() -> Dictionary:
+	var earth := [0.0, 0.0, 0.0]
+	var moon := [384400.0, 0.0, 0.0]
+	var src := "fallback_strategic"
+	var ref: Array = [0.0, 0.0, 0.0]
+	if physics_world_ready() and session.physics_world_service != null:
+		var pw = session.physics_world_service
+		var e_abs = pw.call("_earth_pos") if pw.has_method("_earth_pos") else [0.0, 0.0, 0.0]
+		var m_abs = pw.call("_moon_pos") if pw.has_method("_moon_pos") else moon
+		if e_abs is Array and (e_abs as Array).size() >= 3:
+			earth = (e_abs as Array).duplicate()
+		if m_abs is Array and (m_abs as Array).size() >= 3:
+			moon = (m_abs as Array).duplicate()
+		var a: Dictionary = session.physics_state("apsis", "bary_rot")
+		if a.get("r", []) is Array and (a.get("r", []) as Array).size() >= 3:
+			ref = (a.get("r", []) as Array).duplicate()
+		src = "physics"
+	earth = [float(earth[0]) - float(ref[0]), float(earth[1]) - float(ref[1]), float(earth[2]) - float(ref[2])]
+	moon = [float(moon[0]) - float(ref[0]), float(moon[1]) - float(ref[1]), float(moon[2]) - float(ref[2])]
+	print("[SHELL BINDER] plot_bodies source=", src, " earth=", str(earth), " moon=", str(moon))
+	return {"source": src, "frame": "bary_rot", "reference": "apsis",
+		"earth": {"pos_km": earth, "radius_km": 6371.0, "label": "EARTH"},
+		"moon": {"pos_km": moon, "radius_km": 1737.0, "label": "MOON"},
+		"writes": {"world": false, "ui": false, "v15": false}}
+
+
 func plot_facilities() -> Dictionary:
 	var out: Dictionary = {"source": "none", "facilities": [], "reference_pos": [0.0, 0.0, 0.0]}
 	if session == null or session.facility_registry == null:
