@@ -979,6 +979,7 @@ func _advance_sensors(sim_dt: float) -> Dictionary:
 			var r2: Dictionary = track_table.handle_evidence(ev2, _track_writer)
 			if bool(r2.get("ok", false)):
 				out["evidence"] = int(out["evidence"]) + 1
+				_bridge_identity_evidence(ev2)
 				var tr2 = r2.get("track", {})
 				if tr2 is Dictionary and String((tr2 as Dictionary).get("id", "")) != "":
 					_sensor_track_map[String(ev2.get("target_id", ""))] = String((tr2 as Dictionary).get("id", ""))
@@ -1143,6 +1144,7 @@ func _flush_signal_events() -> Dictionary:
 			var r2: Dictionary = track_table.handle_evidence(e, _track_writer)
 			if bool(r2.get("ok", false)):
 				out["evidence"] = int(out["evidence"]) + 1
+				_bridge_identity_evidence(e)
 			else:
 				out["failed"] = int(out["failed"]) + 1
 				out["reasons"].append("evidence:" + str(r2.get("reason", "")))
@@ -1340,6 +1342,7 @@ func _flush_transponder_outputs(extra_events := [], extra_evidence := []) -> Dic
 			var r: Dictionary = track_table.handle_evidence(e, _track_writer)
 			if bool(r.get("ok", false)):
 				out["evidence"] = int(out["evidence"]) + 1
+				_bridge_identity_evidence(e)
 			else:
 				out["failed"] = int(out["failed"]) + 1
 				out["reasons"].append("evidence:" + str(r.get("reason", "")))
@@ -1365,6 +1368,9 @@ func _flush_transponder_outputs(extra_events := [], extra_evidence := []) -> Dic
 func _advance_identification(sim_dt: float) -> Dictionary:
 	if identification_service == null:
 		return {"enabled": false}
+	# 时钟对齐：证据 t 来自 now_s()（应答机/传感器同一时基），识别服务若只按 dt 累加
+	# 会落后于任务时钟，导致证据 age 被 clamp 成 0、时间衰减失效。先同步再 step。
+	identification_service.set_time(now_s())
 	var auto_enabled := bool(identification_service.cfg_auto.get("enabled", false))
 	var res: Dictionary = {}
 	if auto_enabled:
@@ -1666,6 +1672,8 @@ func _apply_routed_event(ev: Dictionary, publish := false) -> Dictionary:
 		if not evd2.has("t"):
 			evd2["t"] = now_s()
 		var res5: Dictionary = track_table.handle_evidence(evd2, _track_writer)
+		if bool(res5.get("ok", false)):
+			_bridge_identity_evidence(evd2)
 		if publish and bool(res5.get("ok", false)):
 			_publish(ev)
 		return res5
@@ -1731,6 +1739,7 @@ func handle_evidence(evidence: Dictionary) -> Dictionary:
 		evn["t"] = now_s()
 	var res: Dictionary = track_table.handle_evidence(evn, _track_writer)
 	if bool(res.get("ok", false)):
+		_bridge_identity_evidence(evn)
 		_record({"op": "handle_evidence", "event": evn})
 	return res
 
@@ -1835,6 +1844,7 @@ func query_iff(target_id := "") -> Dictionary:
 			warnings.append("IFF evidence 路由失败：" + String(rr.get("reason", "")))
 		else:
 			routed = true
+			_bridge_identity_evidence(iff_ev)
 	res["routed"] = routed
 	_record({"op": "query_iff", "target_id": String(res.get("target_id", target_id))})
 	return res
@@ -2814,6 +2824,57 @@ func transponder_trigger_ids() -> Array:
 		return []
 	return transponder_service.trigger_ids()
 # ── IdentificationService 委托（识别自动化/证据融合；可选）──────
+
+## 识别证据桥：track_evidence.v1 → IdentificationService（身份融合）。
+## 只搬运证据自带字段（identity/confidence/status/spoofed/mode），不做任何身份推断；
+## TrackTable 仍是航迹权威，识别服务只输出评估，不写 world/TrackTable。
+func _bridge_identity_evidence(ev: Dictionary) -> void:
+	if identification_service == null:
+		return
+	var tid := str(ev.get("target_id", ""))
+	if tid == "":
+		return
+	var et := str(ev.get("evidence_type", ev.get("type", "")))
+	var raw_source := str(ev.get("source", ""))
+	var ident_source := "track"
+	if raw_source == "transponder_service":
+		ident_source = "transponder"
+	elif et == "iff":
+		ident_source = "iff"
+	elif et in ["optical", "visual", "ir"]:
+		ident_source = "optical"
+	elif et == "elint":
+		ident_source = "elint"
+	elif et == "database":
+		ident_source = "database"
+	elif raw_source == "sensor_service":
+		ident_source = "sensor"
+	identification_service.ingest({
+		"target_id": tid, "source": ident_source,
+		"t": float(ev.get("t", now_s())),
+		"identity": str(ev.get("identity", "unknown")),
+		"confidence": float(ev.get("confidence", 0.5)),
+		"spoofed": bool(ev.get("spoofed", false)),
+		"status": str(ev.get("status", "")),
+		"mode": str(ev.get("mode", "")),
+		"evidence_type": et if et != "" else ident_source,
+	})
+
+
+## 识别服务是否可用（未在 seed 启用时为 false，UI 必须显示 NOT READY）。
+func identification_enabled() -> bool:
+	return identification_service != null
+
+
+## 某目标的证据列表（按时间升序，只读副本；不写 world）。
+func identification_evidence(target_id: String) -> Array:
+	if identification_service == null:
+		return []
+	var raw = identification_service.evidence_by_target.get(target_id, [])
+	if not (raw is Array):
+		return []
+	return (raw as Array).duplicate(true)
+
 
 func identification_ingest(evidence) -> Dictionary:
 	if identification_service == null:

@@ -1168,5 +1168,96 @@ v1_hud.gd
 
 1. 弹层数据稀疏（combat 2 track/5 weapon、traffic 部分列表），中段留白属数据不足，非布局缺陷。
 2. optical 左栏 FOV 以下、damage 右栏事件以下无内容；不伪造数据填充。
-3. `_overlay_hit` 只处理左键；键盘快捷键（ESC 关闭）沿用原有 `_unhandled_input`。
+3. `_overlay_hit` 只处理左键；键盘 ESC 关闭在 B-33 才补上（见 §38.3 末尾），此前只能点 CLOSE。
 4. 不改 core/world/物理；未跑全量 regression（仅 v1_hud 两条 smoke）。
+
+
+---
+
+## 38　方案B-33：识别融合可视化（task-205）
+
+清单里「EW/识别 UI 可视化」长期 pending。接手时先核实真实状态，结论比清单写的更严重：
+不是「服务有、界面没画」，而是**整条链路在实机里没开**。
+
+### 38.1 现状核实（接手前）
+
+| 环节 | 事实 |
+| --- | --- |
+| `IdentificationService` | 679 行，证据融合/置信度/矛盾/欺骗/自动询问/L4 人工授权齐备；`tests/identification_probe.gd` PASS=310 |
+| `GameSession` | 委托齐全（ingest/assess/manual_confirm/clear_manual/set_auto/vm…），但 `_seed` 里没有 `identification_service` |
+| `ShellBinder` | seed 不含识别服务 → `identification_service == null` → 实机永远走 NOT READY |
+| 证据输入 | 全仓仅 `identification_ingest` 一处入口；`track_evidence.v1` 只进 `TrackTable`，**从不进识别服务** |
+| 结果 | `targets=0 / evidence={}`，服务即便启用也无评估 |
+
+另有一处时钟缺陷：识别服务只在 `boot()` 同步过一次 `now_s()`，之后靠 `step(dt)` 累加；
+而证据 `t` 来自 `now_s()`（应答机/传感器同一时基）。两者一旦分叉，`age` 被 clamp 成 0，
+时间衰减与 TTL 全部失效。→ 在 `_advance_identification` 里每 tick 先 `set_time(now_s())`。
+
+### 38.2 数据接线（core / binder）
+
+- `GameSession._bridge_identity_evidence(ev)`：把 `track_evidence.v1` 的
+  `identity/confidence/status/spoofed/mode` **原样**搬给识别服务，source 归一为
+  `transponder/iff/optical/elint/database/sensor/track`（服务按 `CATEGORY_BY_SOURCE` 归类）。
+  **不做任何身份推断**；`TrackTable` 仍是航迹权威。
+- 接入点 6 处（漏一处就会出现「某些证据不参与融合」的幽灵 bug）：
+  传感器输出路由、信号输出路由、应答机输出路由、`route_event(track.evidence)`、
+  `handle_evidence()`、`query_iff()`。
+- `ShellBinder` seed 增 `identification_service`，**默认 `auto.enabled=false`**：
+  序章开局不应静默产生应答机询问副作用；自动询问由 IDENT 弹层 `AUTO` 显式打开。
+- 新增 binder 门面：`ident_target_id / ident_enabled / ident_auto_on / ident_view /
+  ident_interrogate / ident_iff / ident_confirm / ident_clear / ident_set_auto / ident_vm`。
+  `ident_view(row, with_evidence=false)` 列表用轻量版（不复制证据数组），弹层才拉证据。
+
+### 38.3 UI（三处，全部只读服务输出）
+
+1. **接触行**：`cls` 行追加 `来源族 置信度` 短标签（`IFF 0.54` / `M 0.62` 人工 / `⚠` 矛盾）。
+   颜色：无评估 FAINT、有评估 PH_DIM、人工 AMBER、矛盾/欺骗 RED。无评估显示 `—`。
+2. **右栏 TARGET 页**：`IDENT <identity> <conf> · <sources>`，矛盾追加 `⚠n`；
+   无证据时 `IDENT FUSION NO EVIDENCE · 需 INTERROGATE/IFF`；服务未启用时 `NOT READY`。
+   （第二行 `IDENTITY 友方` 是 TrackTable 身份，`IDENT` 是融合身份，两层不同，均保留。）
+3. **IDENT 弹层**（右栏第 10 个按钮，5×2 网格不新增行）：沿用 B-32 统一帧与按钮条，
+   三段式 —— `ASSESSMENT`（身份/置信度条/来源/类别/证据数/欺骗/人工/授权/矛盾）｜
+   `EVIDENCE`（最近 8 条：SRC/IDENTITY/CONF/STATUS/MODE/AGE）｜`RULES`（真实阈值）。
+   下方接 `ALL TARGETS`（全目标板，按置信度降序）与 `FUSION LOG`（过滤 `step` 噪声后的事件流）。
+   按钮：`INTERROGATE / IFF / CLEAR / AUTO` + `FRIEND / NEUTRAL / SUSPECT / HOSTILE(L4)`。
+
+唯一偏离 B-32 的地方：识别弹层高度收敛到 620 并垂直居中（宽度仍与其它弹层一致）。
+理由：内容量小于其它弹层，满高会留 300px 以上空白。已在 `_draw_overlay_layer` 内注释。
+
+顺带补齐 §37.6 第 3 条记录的错误：v1_hud 此前**没有任何** ESC 处理（`_unhandled_input`
+只转发给 plot3d）。本批在 `_unhandled_input` 里加了 ESC 关闭弹层，全部 13 个弹层受益。
+
+### 38.4 规则是真的（不是文案）
+
+`ShellBinder._ident_selftest()` 用临时 `IdentificationService` 实例跑三条 fixture，
+每次启动打印真实输出（`identification_probe` 之外的运行时证明）：
+
+```
+IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+IDENT SELFTEST spoof    identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+```
+
+对应弹层 `RULES` 栏展示的阈值：TTL 120s / 半衰 60s、独立类别加成 `0.6+0.15×类别数(≤3)`、
+矛盾封顶 0.70 且降 suspect、欺骗 ≥0.50 封顶 0.60、IFF/应答单独不得 hostile、自动上限 L3。
+
+### 38.5 截图 / 验证
+
+- `mockups/v1-hud-ident-1920.png`、`v1-hud-ident-1600.png`（询问后：FRIEND 0.54，证据 2 条）
+- `mockups/v1-hud-ident-empty-1920.png`（未询问：NO EVIDENCE + 解释为什么没有）
+- 全部 `SHOT err=0`；`--check-only` 通过（v1_hud / shell_binder / game_session）。
+- `DSH_V1_TEST=1`：`ident=CLEAR harmattan · OK`，
+  `ident_state known=true identity=friend conf=0.62 sources=["transponder","iff"] evidence=3`
+  （INTERROGATE/IFF/AUTO/CONFIRM SUSPECT/CLEAR 五步全走真实服务）。
+- `DSH_FLOW_SMOKE=1`：`FLOW SMOKE COMPLETE contacts=9 commands=1`、`IDENT SUMMARY enabled=true targets=0`。
+- 探针：`identification_probe` PASS=310/FAIL=0、`session_probe` PASS=1305/FAIL=0。
+
+### 38.6 边界 / 下一批
+
+1. 序章应答机全静默（`silent=true`、`broadcast.enabled=false`），**被动监听拿不到证据**，
+   必须主动询问 —— 这是内容设定，不是 UI 缺陷；因此 `targets=0` 是正确初始状态。
+2. 矛盾/欺骗的真实样例在序章不存在；这两条路径由 `_ident_selftest` fixture 证明，
+   等 4412/UEG 港内容接入后才有实机样例。
+3. 自动询问（AUTO）已接 `set_auto`，但「自动询问 → 执行 → 回灌」的链路只在 tick 内生效；
+   未做询问节流提示（`max_requests_per_tick` 只在策略栏展示）。
+4. 不改 world/物理/武器；识别只输出评估与事件。未跑全量 regression。

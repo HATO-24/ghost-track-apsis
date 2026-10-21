@@ -61,6 +61,10 @@ var _damage_msg := ""
 var _roe_buttons: Array = []
 var _roe_msg := ""
 var _roe_locked := true
+# 识别融合（IDENT 弹层）：目标快照 + 按钮命中区 + 结果消息。
+var _ident_row: Dictionary = {}
+var _ident_buttons: Array = []
+var _ident_msg := ""
 var _command_rows: Array = []
 var _command_buttons: Array = []
 var _selected_cmd := -1
@@ -238,6 +242,17 @@ func _load_data() -> void:
 	var dok: bool = _damage.setup({}, "apsis")
 	print("[V1 HUD] damage_model=", str(dok), " sections=", _damage.section_ids().size(), " combat=", str(_combat.ready), " roe=", String(_combat.roe) if _combat != null else "—", " roe_locked=", str(_roe_locked))
 	var view := OS.get_environment("DSH_V1_VIEW")
+	if view == "target":
+		# 右栏 TARGET 页样张：选中第一条有 track 的接触，展示识别融合行。
+		_page = "target"
+		for i in range(_contacts.size()):
+			if String((_contacts[i] as Dictionary).get("track_id", "")) != "":
+				_selected = i
+				break
+		if OS.get_environment("DSH_IDENT_ASK") == "1":
+			_ident_row = (_contacts[_selected] as Dictionary).duplicate(true) if _selected >= 0 else {}
+			call_deferred("_ident_demo")
+		return
 	if view == "traffic":
 		_overlay = "traffic"
 		call_deferred("_traffic_demo")
@@ -306,6 +321,14 @@ func _load_data() -> void:
 				_selected_section = String(ids[0])
 	elif view == "roe":
 		_overlay = "roe"
+	elif view == "ident":
+		_overlay = "ident"
+		for i in range(_contacts.size()):
+			if String((_contacts[i] as Dictionary).get("track_id", "")) != "":
+				_selected = i
+				_ident_row = (_contacts[i] as Dictionary).duplicate(true)
+				break
+		call_deferred("_ident_demo")
 	elif view == "comms":
 		_overlay = "comms"
 	elif view == "save":
@@ -326,6 +349,18 @@ func _load_data() -> void:
 					_optical_track = _track_for_contact(_contacts[i])
 					break
 			call_deferred("_signal_demo")
+
+## 仅 DSH_V1_VIEW=ident 截图样张：真实调用 INTERROGATE + IFF，让证据真实进入融合后截图。
+## 不是伪造数据：两条动作与界面按钮走同一代码路径。
+func _ident_demo() -> void:
+	if binder == null or _ident_row.is_empty():
+		return
+	# DSH_IDENT_NOASK=1 时保持「无证据」原始状态，用于对照样张。
+	if OS.get_environment("DSH_IDENT_NOASK") != "1":
+		_ident_action("INTERROGATE")
+		_ident_action("IFF")
+	queue_redraw()
+
 
 func _seed_comms_sample() -> void:
 	# 通过真实 session.send_comms 生成消息流；from/to 来自 session 实体，不硬编码舰名。
@@ -498,7 +533,18 @@ func _draw() -> void:
 			var tr := Rect2(left.position.x + 8, row_y, left.size.x - 16, rh)
 			_contact_rects.append({"rect": tr, "index": i})
 			Painter.list_row(self, tr, "[%s] %s" % [String(c.get("id", "")), String(c.get("name", ""))], String(c.get("badge", "")), _type_col(c), i == _selected)
-			Painter.label(self, tr.position.x + 8, tr.position.y + 31, TM.fit(String(c.get("cls", "")), tr.size.x - 16, true, 6), 6, P.a(P.FAINT, 0.95), true)
+			# 识别融合短标签（来源族 + 置信度 + 人工/矛盾标记）；无评估显示 —，不伪造。
+			var cls_txt := String(c.get("cls", ""))
+			var idn: Dictionary = c.get("ident", {}) if c.get("ident", {}) is Dictionary else {}
+			var itag := String(idn.get("tag", "—"))
+			var icol := P.a(P.FAINT, 0.95)
+			if bool(idn.get("warn", false)):
+				icol = P.RED
+			elif bool(idn.get("manual", false)):
+				icol = P.AMBER
+			elif bool(idn.get("known", false)):
+				icol = P.PH_DIM
+			Painter.label(self, tr.position.x + 8, tr.position.y + 31, TM.fit(cls_txt + " · " + itag, tr.size.x - 16, true, 6), 6, icol, true)
 			row_y += rh + 4.0
 	# 中图
 	Painter.panel(self, center, "战术图 / TACTICAL PLOT", P.PH)
@@ -625,7 +671,7 @@ func _draw_right(r: Rect2) -> void:
 	Painter.section(self, x, y, right, "SENSOR CONTROLS / 只读最小交互")
 	y += 10.0
 	_right_buttons.clear()
-	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["COMBAT", "COMBAT / 战斗"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["CHRONOS", "CHRONOS / 行动"], ["AV4412", "AV-4412 / 对峙"], ["TRAFFIC", "TRAFFIC / OTC"]]
+	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["COMBAT", "COMBAT / 战斗"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["IDENT", "IDENT / 识别"], ["CHRONOS", "CHRONOS / 行动"], ["AV4412", "AV-4412 / 对峙"], ["TRAFFIC", "TRAFFIC / OTC"]]
 	for i in range(labels.size()):
 		var bw := (r.size.x - 32.0) * 0.5 - 4.0
 		var col := i % 2
@@ -766,7 +812,24 @@ func _run_interaction_test() -> void:
 	_combat_action("SOLUTION")
 	_combat_action("AUTHORIZE FIRE")
 	_combat_action("FIRE")
-	print("[V1 HUD] INTERACTION TEST damage=", _damage_msg, " roe=", _roe_msg, " command=", _command_msg, " comms=", _comms_msg, " optical=", _optical_msg, " combat=", _combat_msg)
+	# 识别融合：走真实 UI 动作路径（INTERROGATE/IFF/AUTO/CONFIRM/CLEAR）。
+	_do_right_action("IDENT")
+	for i in range(_contacts.size()):
+		if String((_contacts[i] as Dictionary).get("track_id", "")) != "":
+			_selected = i
+			_ident_row = (_contacts[i] as Dictionary).duplicate(true)
+			break
+	_ident_action("INTERROGATE")
+	_ident_action("IFF")
+	_ident_action("AUTO")
+	_ident_action("SUSPECT")
+	_ident_action("CLEAR")
+	print("[V1 HUD] INTERACTION TEST damage=", _damage_msg, " roe=", _roe_msg, " command=", _command_msg, " comms=", _comms_msg, " optical=", _optical_msg, " combat=", _combat_msg, " ident=", _ident_msg)
+	var iv: Dictionary = binder.ident_view(_ident_row) if binder != null else {}
+	print("[V1 HUD] INTERACTION TEST ident_state known=", bool(iv.get("known", false)),
+		" identity=", String(iv.get("identity", "")), " conf=%.2f" % float(iv.get("confidence", 0.0)),
+		" sources=", str(iv.get("sources", [])), " contradictions=", str(iv.get("contradictions", [])),
+		" auto=", bool(iv.get("auto_on", false)), " evidence=", int(iv.get("evidence_count", 0)))
 
 
 func _run_save_test() -> void:
@@ -779,6 +842,12 @@ func _run_save_test() -> void:
 
 func _flow_smoke_v1() -> void:
 	print("[V1 HUD] FLOW SMOKE COMPLETE name=", _commander, " contacts=", _contacts.size(), " commands=", binder.commands.size() if binder != null else 0)
+	# 识别融合：真实服务摘要（targets/identity 分布/自动开关），未启用时明确 false。
+	if binder != null and binder.session != null:
+		var ienabled: bool = binder.session.identification_enabled()
+		var isum: Dictionary = binder.session.identification_summary() if ienabled else {}
+		print("[V1 HUD] IDENT SUMMARY enabled=", ienabled, " targets=", int(isum.get("targets", 0)),
+			" by_identity=", str(isum.get("by_identity", {})), " auto=", bool(isum.get("auto_enabled", false)))
 	get_tree().quit()
 
 
@@ -864,6 +933,9 @@ func _draw_overlay(l: Dictionary) -> void:
 func _draw_overlay_layer(cv: CanvasItem) -> void:
 	_cv = cv
 	var r := _overlay_local
+	# 识别弹层内容量小：高度收敛到 620 并垂直居中，宽度仍与其它弹层一致。
+	if _overlay == "ident" and r.size.y > 620.0:
+		r = Rect2(r.position.x, r.position.y + (r.size.y - 620.0) * 0.5, r.size.x, 620.0)
 	cv.draw_rect(r, P.a(P.PANEL, 0.985))
 	cv.draw_rect(r, P.a(P.PH, 0.7), false, 1.0)
 	_overlay_close = Rect2(r.end.x - 96, r.position.y + 8, 84, 20)
@@ -890,6 +962,8 @@ func _draw_overlay_layer(cv: CanvasItem) -> void:
 		_draw_combat_overlay(r)
 	elif _overlay == "save":
 		_draw_save_overlay(r)
+	elif _overlay == "ident":
+		_draw_ident_overlay(r)
 	_cv = self
 
 
@@ -2452,6 +2526,308 @@ func _draw_roe_overlay(r: Rect2) -> void:
 		Painter.label(_cv, x, body.end.y - 2, TM.fit(_roe_msg, body.size.x, true, 8), 8, P.AMBER, true)
 
 
+# 方案B-33：识别融合弹层。数据全部来自 IdentificationService 评估/证据表；
+# 未启用或无证据时明确 NOT READY，不伪造身份与置信度。
+func _ident_col(identity: String) -> Color:
+	match identity:
+		"friend":
+			return P.ID_FRIEND
+		"neutral":
+			return P.ID_NEUTRAL
+		"suspect":
+			return P.ID_SUSPECT
+		"hostile":
+			return P.ID_HOSTILE
+		"station":
+			return P.BLUE
+	return P.ID_UNKNOWN
+
+
+func _draw_ident_overlay(r: Rect2) -> void:
+	var row := _ident_row
+	var iv: Dictionary = binder.ident_view(row, true) if binder != null else {}
+	var enabled := bool(iv.get("enabled", false))
+	var known := bool(iv.get("known", false))
+	var conf := float(iv.get("confidence", 0.0))
+	var ident := String(iv.get("identity", "unknown"))
+	var sources: Array = iv.get("sources", []) if iv.get("sources", []) is Array else []
+	var categories: Array = iv.get("categories", []) if iv.get("categories", []) is Array else []
+	var contradictions: Array = iv.get("contradictions", []) if iv.get("contradictions", []) is Array else []
+	var evidence: Array = iv.get("evidence", []) if iv.get("evidence", []) is Array else []
+	var auto_txt := "AUTO " + ("ON" if bool(iv.get("auto_on", false)) else "OFF")
+	var fr := _overlay_frame(r, "识别融合 / IDENTIFICATION FUSION",
+		"目标 " + String(row.get("name", "—")) + " · 证据 transponder/IFF/ELINT/光学 · 只融合、不推断身份、不写航迹",
+		P.PH, auto_txt + " · truth=false", 2)
+	var body: Rect2 = fr.body
+	var footer: Rect2 = fr.footer
+	# 按钮条：动作行（询问/清除/自动）+ 人工确认行（L4）
+	_ident_buttons.clear()
+	_ident_buttons.append_array(_button_bar(Rect2(footer.position, Vector2(footer.size.x, OV_BTN_H)),
+		[["INTERROGATE", "询问 / INTERROGATE"], ["IFF", "IFF 询问"],
+		 ["CLEAR", "清除人工确认"], ["AUTO", "AUTO " + ("OFF" if bool(iv.get("auto_on", false)) else "ON")]]))
+	_ident_buttons.append_array(_button_bar(Rect2(footer.position + Vector2(0.0, OV_BTN_H + OV_BTN_GAP),
+		Vector2(footer.size.x, OV_BTN_H)),
+		[["FRIEND", "确认 FRIEND"], ["NEUTRAL", "确认 NEUTRAL"],
+		 ["SUSPECT", "确认 SUSPECT", P.AMBER], ["HOSTILE", "授权 HOSTILE / L4", P.RED]]))
+	# 三段式：评估（左，固定宽） / 证据（中） / 规则与边界（右，固定宽）
+	var gap := 16.0
+	var rules_w := 250.0
+	var left_w := 380.0
+	var mid_x := body.position.x + left_w + gap
+	var mid_w := body.size.x - left_w - rules_w - gap * 2.0
+	var rules_x := mid_x + mid_w + gap
+	Painter.section(_cv, body.position.x, body.position.y, body.position.x + left_w, "ASSESSMENT / 评估")
+	Painter.section(_cv, mid_x, body.position.y, mid_x + mid_w, "EVIDENCE / 证据（最近 %d）" % evidence.size())
+	Painter.section(_cv, rules_x, body.position.y, body.end.x, "RULES / 融合规则")
+	var y := body.position.y + 20.0
+	if not enabled:
+		Painter.label(_cv, body.position.x, y + 6, "IDENTIFICATION SERVICE", 10, P.AMBER)
+		Painter.label(_cv, body.position.x, y + 22, "NOT READY · identification_service 未启用", 8, P.AMBER, true)
+		Painter.label(_cv, body.position.x, y + 40, "session seed 未启用识别服务时不显示任何身份/置信度。", 7, P.DIM, true)
+		y += 60.0
+	elif not known:
+		Painter.label(_cv, body.position.x, y + 6, "NO EVIDENCE", 14, P.AMBER)
+		Painter.label(_cv, body.position.x, y + 26, "尚未形成评估 · 不显示推断身份", 8, P.TXT, true)
+		Painter.label(_cv, body.position.x, y + 44, "序章应答机全静默：silent=true 且 broadcast.enabled=false，", 7, P.DIM, true)
+		Painter.label(_cv, body.position.x, y + 56, "因此被动监听拿不到证据，必须主动 INTERROGATE 或 IFF 询问。", 7, P.DIM, true)
+		Painter.label(_cv, body.position.x, y + 74, "询问产生的 track_evidence 会回灌融合，此处才出现置信度。", 7, P.a(P.FAINT, 0.95), true)
+		y += 86.0
+	else:
+		Painter.label(_cv, body.position.x, y + 12, ident.to_upper(), 18, _ident_col(ident))
+		Painter.label_right(_cv, body.position.x + left_w, y + 8,
+			"L%d · %s" % [int(iv.get("level", 1)), String(iv.get("level_name", ""))], 7, P.PH_DIM, true)
+		y += 22.0
+		var bar_w := left_w - 6.0
+		_cv.draw_rect(Rect2(body.position.x, y, bar_w, 6.0), P.a(P.LINE, 0.65))
+		_cv.draw_rect(Rect2(body.position.x, y, maxf(0.0, bar_w * conf), 6.0), P.a(_ident_col(ident), 0.9))
+		y += 18.0
+		Painter.label(_cv, body.position.x, y, "CONFIDENCE %.2f" % conf, 7, P.TXT, true)
+		Painter.label_right(_cv, body.position.x + left_w, y,
+			"MANUAL" if bool(iv.get("manual", false)) else "AUTO FUSION", 6,
+			P.AMBER if bool(iv.get("manual", false)) else P.a(P.FAINT, 0.95), true)
+		y += 16.0
+		var spoof := float(iv.get("spoof", 0.0))
+		var kv := [
+			["SOURCES", ",".join(sources) if not sources.is_empty() else "—"],
+			["CATEGORIES", ",".join(categories) if not categories.is_empty() else "—"],
+			["EVIDENCE", "%d 条 · 最近 %.0fs" % [int(iv.get("evidence_count", 0)), float(iv.get("age", 0.0))]],
+			["SPOOF", "%.2f" % spoof],
+			["MANUAL ID", String(iv.get("manual_identity", "")) if String(iv.get("manual_identity", "")) != "" else "—"],
+			["AUTHORIZED", "YES · L4" if bool(iv.get("authorized", false)) else "NO"],
+		]
+		for pair in kv:
+			var kcol := P.TXT
+			if String(pair[0]) == "SPOOF" and spoof >= 0.5:
+				kcol = P.RED
+			elif String(pair[0]) == "AUTHORIZED" and bool(iv.get("authorized", false)):
+				kcol = P.AMBER
+			Painter.label(_cv, body.position.x, y, TM.fit(String(pair[0]), 110.0, true, 7), 7, P.a(P.FAINT, 0.95), true)
+			Painter.label(_cv, body.position.x + 116.0, y, TM.fit(String(pair[1]), left_w - 116.0, true, 7), 7, kcol, true)
+			y += 14.0
+		y += 8.0
+		Painter.label(_cv, body.position.x, y, "CONTRADICTIONS / 矛盾", 7, P.PH_DIM)
+		_cv.draw_line(Vector2(body.position.x, y + 4.0), Vector2(body.position.x + left_w, y + 4.0), P.a(P.LINE, 0.55), 1.0)
+		y += 16.0
+		if contradictions.is_empty():
+			Painter.label(_cv, body.position.x, y, "无矛盾项", 7, P.a(P.FAINT, 0.95), true)
+		else:
+			for raw in contradictions:
+				Painter.label(_cv, body.position.x, y, TM.fit("⚠ " + String(raw), left_w, true, 7), 7, P.RED, true)
+				y += 13.0
+	# 中栏证据表
+	var ey := body.position.y + 20.0
+	var c_src := mid_x
+	var c_id := mid_x + 112.0
+	var c_conf := mid_x + 202.0
+	var c_status := mid_x + 250.0
+	var c_mode := mid_x + 352.0
+	Painter.label(_cv, c_src, ey, "SRC", 6, P.a(P.FAINT, 0.95), true)
+	Painter.label(_cv, c_id, ey, "IDENTITY", 6, P.a(P.FAINT, 0.95), true)
+	Painter.label(_cv, c_conf, ey, "CONF", 6, P.a(P.FAINT, 0.95), true)
+	Painter.label(_cv, c_status, ey, "STATUS", 6, P.a(P.FAINT, 0.95), true)
+	Painter.label(_cv, c_mode, ey, "MODE", 6, P.a(P.FAINT, 0.95), true)
+	Painter.label_right(_cv, mid_x + mid_w, ey, "AGE", 6, P.a(P.FAINT, 0.95), true)
+	ey += 7.0
+	_cv.draw_line(Vector2(mid_x, ey), Vector2(mid_x + mid_w, ey), P.a(P.LINE, 0.55), 1.0)
+	ey += 14.0
+	if evidence.is_empty():
+		Painter.label(_cv, mid_x, ey, "无证据记录（未询问 / 未广播）", 7, P.a(P.FAINT, 0.95), true)
+	else:
+		for raw in evidence:
+			if not (raw is Dictionary):
+				continue
+			var e: Dictionary = raw
+			var eff := float(e.get("effective_confidence", e.get("confidence", 0.0)))
+			var st := String(e.get("status", ""))
+			var scol := P.TXT
+			if st in ["captured", "spoofed", "crypto_fail"]:
+				scol = P.RED
+			elif st in ["wrong_code", "faulty", "no_reply", "silent"]:
+				scol = P.AMBER
+			Painter.label(_cv, c_src, ey, TM.fit(String(e.get("source", "")), 106.0, true, 6), 6, P.PH_DIM, true)
+			Painter.label(_cv, c_id, ey, TM.fit(String(e.get("identity", "")), 86.0, true, 6), 6, _ident_col(String(e.get("identity", "unknown"))), true)
+			Painter.label(_cv, c_conf, ey, "%.2f" % eff, 6, P.TXT, true)
+			Painter.label(_cv, c_status, ey, TM.fit(st if st != "" else "—", 98.0, true, 6), 6, scol, true)
+			Painter.label(_cv, c_mode, ey, TM.fit(String(e.get("mode", "")) if String(e.get("mode", "")) != "" else "—", 76.0, true, 6), 6, P.a(P.DIM, 0.95), true)
+			Painter.label_right(_cv, mid_x + mid_w, ey, "%.0fs" % float(e.get("age_s", 0.0)), 6, P.a(P.FAINT, 0.95), true)
+			ey += 13.0
+			if ey > body.end.y - 18.0:
+				Painter.label(_cv, mid_x, ey, "… 其余证据省略", 6, P.a(P.FAINT, 0.9), true)
+				break
+	# 右栏规则（真实阈值，来自 IdentificationService 默认配置与 _recompute）
+	var ry := body.position.y + 20.0
+	var rules := [
+		"证据 TTL 120s · 半衰 60s：过期即失效",
+		"有效置信 = confidence × 0.5^(age/60)",
+		"独立类别加成 0.6+0.15×类别数(≤3)",
+		"≥2 种身份并存 → confidence ≤0.70",
+		"矛盾命中 → 身份降级为 suspect",
+		"spoof ≥0.50 → confidence ≤0.60",
+		"IFF/应答单独不得判 hostile",
+		"自动分类上限 L3；L4 需人工或 ≥2 类证据",
+	]
+	for line in rules:
+		Painter.label(_cv, rules_x, ry, TM.fit("· " + line, rules_w, true, 6), 6, P.a(P.DIM, 0.95), true)
+		ry += 12.0
+	ry += 8.0
+	Painter.label(_cv, rules_x, ry, "边界：不改 world / TrackTable / 武器；", 6, P.a(P.FAINT, 0.95), true)
+	ry += 11.0
+	Painter.label(_cv, rules_x, ry, "仅输出评估与事件，UI 不写状态。", 6, P.a(P.FAINT, 0.95), true)
+	# 全目标板（真实 assessments，按置信度降序，最多 10 行）
+	var ivm: Dictionary = binder.ident_vm() if binder != null else {}
+	var all_rows: Array = ivm.get("assessments", []) if ivm.get("assessments", []) is Array else []
+	var board: Array = []
+	for raw in all_rows:
+		if raw is Dictionary:
+			board.append(raw)
+	board.sort_custom(func(x, y): return float((x as Dictionary).get("confidence", 0.0)) > float((y as Dictionary).get("confidence", 0.0)))
+	var by := y + 18.0
+	Painter.label(_cv, body.position.x, by, "ALL TARGETS / 已评估 %d" % board.size(), 7, P.PH_DIM)
+	_cv.draw_line(Vector2(body.position.x, by + 4.0), Vector2(body.position.x + left_w, by + 4.0), P.a(P.LINE, 0.55), 1.0)
+	by += 16.0
+	if board.is_empty():
+		Painter.label(_cv, body.position.x, by, "尚无评估目标", 7, P.a(P.FAINT, 0.95), true)
+	else:
+		for raw in board:
+			if by > body.end.y - 16.0:
+				break
+			var a: Dictionary = raw
+			var aid := String(a.get("target_id", ""))
+			var aident := String(a.get("identity", "unknown"))
+			var acol := _ident_col(aident)
+			if aid == String(iv.get("target_id", "")):
+				acol = P.PH
+			Painter.label(_cv, body.position.x, by, TM.fit(aid, 150.0, true, 6), 6, acol, true)
+			Painter.label(_cv, body.position.x + 156.0, by, aident.to_upper(), 6, _ident_col(aident), true)
+			Painter.label_right(_cv, body.position.x + left_w, by, "%.2f" % float(a.get("confidence", 0.0)), 6, P.a(P.DIM, 0.95), true)
+			by += 12.0
+	# 询问策略（真实 cfg_auto，来自 identification_vm().auto）
+	var auto_cfg: Dictionary = ivm.get("auto", {}) if ivm.get("auto", {}) is Dictionary else {}
+	if not auto_cfg.is_empty():
+		by += 14.0
+		Painter.label(_cv, body.position.x, by, "QUERY POLICY / 询问策略", 7, P.PH_DIM)
+		_cv.draw_line(Vector2(body.position.x, by + 4.0), Vector2(body.position.x + left_w, by + 4.0), P.a(P.LINE, 0.55), 1.0)
+		by += 16.0
+		var pol := [
+			["AUTO", "ON" if bool(auto_cfg.get("enabled", false)) else "OFF（手动询问）"],
+			["INTERVAL", "%.0fs" % float(auto_cfg.get("interval_s", 0.0))],
+			["MODES", ",".join(auto_cfg.get("modes", []) if auto_cfg.get("modes", []) is Array else [])],
+			["MIN CONF", "%.2f" % float(auto_cfg.get("min_confidence", 0.0))],
+			["MIN AGE", "%.0fs · 最多 %d 次/帧" % [float(auto_cfg.get("min_age_s", 0.0)), int(auto_cfg.get("max_requests_per_tick", 0))]],
+		]
+		for pair in pol:
+			if by > body.end.y - 16.0:
+				break
+			Painter.label(_cv, body.position.x, by, TM.fit(String(pair[0]), 110.0, true, 6), 6, P.a(P.FAINT, 0.95), true)
+			Painter.label(_cv, body.position.x + 116.0, by, TM.fit(String(pair[1]), left_w - 116.0, true, 6), 6, P.TXT, true)
+			by += 12.0
+	# 融合日志（真实事件流，最近 12 条，倒序）
+	var all_events: Array = ivm.get("events", []) if ivm.get("events", []) is Array else []
+	# 过滤每帧 step 噪声，只保留有信息量的事件（证据/评估/人工/自动配置）。
+	var events: Array = []
+	for raw in all_events:
+		if not (raw is Dictionary):
+			continue
+		if String((raw as Dictionary).get("kind", "")) == "step":
+			continue
+		events.append(raw)
+	var ly := ey + 18.0
+	Painter.label(_cv, mid_x, ly, "FUSION LOG / 融合事件 %d" % events.size(), 7, P.PH_DIM)
+	_cv.draw_line(Vector2(mid_x, ly + 4.0), Vector2(mid_x + mid_w, ly + 4.0), P.a(P.LINE, 0.55), 1.0)
+	ly += 16.0
+	if events.is_empty():
+		Painter.label(_cv, mid_x, ly, "无事件（尚未 ingest/assess）", 7, P.a(P.FAINT, 0.95), true)
+	else:
+		var shown := 0
+		for i in range(events.size() - 1, -1, -1):
+			if shown >= 12 or ly > body.end.y - 16.0:
+				break
+			var ev: Dictionary = events[i] if events[i] is Dictionary else {}
+			var kind := String(ev.get("kind", ""))
+			var payload: Dictionary = ev.get("payload", {}) if ev.get("payload") is Dictionary else {}
+			var tgt := String(payload.get("target_id", ""))
+			var ecol := P.a(P.DIM, 0.95)
+			if kind == "assessment":
+				ecol = P.PH_DIM
+			elif kind == "evidence_ingested":
+				ecol = P.TXT
+			Painter.label(_cv, mid_x, ly, TM.fit("%6.1fs" % float(ev.get("t", 0.0)), 52.0, true, 6), 6, P.a(P.FAINT, 0.95), true)
+			Painter.label(_cv, mid_x + 58.0, ly, TM.fit(kind, 120.0, true, 6), 6, ecol, true)
+			Painter.label(_cv, mid_x + 182.0, ly, TM.fit(tgt, 120.0, true, 6), 6, P.a(P.DIM, 0.95), true)
+			var extra := String(payload.get("identity", payload.get("reason", "")))
+			Painter.label(_cv, mid_x + 306.0, ly, TM.fit(extra, maxf(40.0, mid_w - 306.0), true, 6), 6, P.a(P.FAINT, 0.95), true)
+			ly += 12.0
+			shown += 1
+	if _ident_msg != "":
+		Painter.label(_cv, body.position.x, body.end.y - 2.0, TM.fit(_ident_msg, body.size.x, true, 7), 7, P.AMBER, true)
+
+
+func _ident_action(kind: String) -> void:
+	if binder == null:
+		return
+	if _ident_row.is_empty():
+		_ident_msg = "NO TARGET · 先选中一条接触"
+		queue_redraw()
+		return
+	var res: Dictionary = {}
+	match kind:
+		"INTERROGATE":
+			res = binder.ident_interrogate(_ident_row)
+			_ident_msg = "INTERROGATE %s · %s%s" % [String(res.get("target_id", "")),
+				"OK" if bool(res.get("ok", false)) else "FAILED",
+				(" · status " + String(res.get("status", ""))) if bool(res.get("ok", false)) else (" · " + String(res.get("reason", "")))]
+		"IFF":
+			res = binder.ident_iff(_ident_row)
+			_ident_msg = "IFF %s · %s%s" % [String(res.get("target_id", "")),
+				"OK" if bool(res.get("ok", false)) else "FAILED",
+				(" · identity " + String(res.get("identity", ""))) if bool(res.get("ok", false)) else (" · " + String(res.get("reason", "")))]
+		"CLEAR":
+			res = binder.ident_clear(_ident_row)
+			_ident_msg = "CLEAR %s · %s%s" % [String(res.get("target_id", "")),
+				"OK" if bool(res.get("ok", false)) else "FAILED",
+				"" if bool(res.get("ok", false)) else (" · " + String(res.get("reason", "")))]
+		"AUTO":
+			var iv: Dictionary = binder.ident_view(_ident_row)
+			var turn_on := not bool(iv.get("auto_on", false))
+			res = binder.ident_set_auto(turn_on)
+			_ident_msg = "AUTO %s · %s" % ["ON" if turn_on else "OFF", "OK" if bool(res.get("ok", false)) else ("FAILED · " + String(res.get("reason", "")))]
+		"FRIEND", "NEUTRAL", "SUSPECT", "HOSTILE":
+			res = binder.ident_confirm(_ident_row, kind.to_lower())
+			_ident_msg = "CONFIRM %s · %s%s" % [kind, "OK · L4" if bool(res.get("ok", false)) else "FAILED",
+				"" if bool(res.get("ok", false)) else (" · " + String(res.get("reason", "")))]
+		_:
+			_ident_msg = "ACTION " + kind + " · 未接线"
+	print("[V1 HUD] IDENT ", kind, " · ", _ident_msg)
+	# 评估变化后同步接触行标签（列表数据来自 binder.contacts 快照）。
+	if binder != null:
+		binder.refresh()
+		_contacts = binder.contacts.duplicate(true) if binder.contacts is Array else []
+		_normalize_contacts()
+		if _selected >= 0 and _selected < _contacts.size():
+			_ident_row = (_contacts[_selected] as Dictionary).duplicate(true)
+	queue_redraw()
+
+
 func _do_save(kind: String) -> void:
 	var intent := "save"
 	if kind == "menu":
@@ -2653,6 +3029,10 @@ func _do_right_action(kind: String) -> void:
 			_overlay = "av4412"
 		"TRAFFIC":
 			_overlay = "traffic"
+		"IDENT":
+			_overlay = "ident"
+			_ident_msg = ""
+			_ident_row = _contacts[_selected].duplicate(true) if _selected >= 0 and _selected < _contacts.size() else {}
 		_:
 			_sensor_msg = "ACTION " + kind + " · 未接线"
 	queue_redraw()
@@ -2849,6 +3229,11 @@ func _overlay_hit(lp: Vector2) -> bool:
 				if (b["rect"] as Rect2).has_point(lp):
 					_load_slot(String(b.get("slot", "")))
 					return true
+		"ident":
+			for b in _ident_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_ident_action(String(b.get("kind", "")))
+					return true
 	return false
 
 
@@ -2873,3 +3258,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		accept_event()
 		queue_redraw()
 		return
+	# ESC 关闭当前弹层（B-33 补齐：此前只有 CLOSE 按钮可关）。
+	if event is InputEventKey and _overlay != "":
+		var key := event as InputEventKey
+		if key.pressed and not key.echo and key.keycode == KEY_ESCAPE:
+			_overlay = ""
+			accept_event()
+			queue_redraw()
+			return

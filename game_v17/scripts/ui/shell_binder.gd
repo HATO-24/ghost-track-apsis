@@ -14,6 +14,7 @@ const AV4412Chain := preload("res://scripts/core/av4412_chain.gd")
 const AfterActionReport := preload("res://scripts/core/after_action_report.gd")
 const TrafficControlService := preload("res://scripts/core/traffic_control_service.gd")
 const CICView := preload("res://scripts/core/cic_view.gd")
+const IdentificationService := preload("res://scripts/core/identification_service.gd")
 const SaveService := preload("res://scripts/core/save_service.gd")
 
 const TRANSFER_CACHE := "res://framework/content/transfer_l4_l1_cached.json"
@@ -53,6 +54,7 @@ var cic_view = null
 var cic_ready := false
 var cic_vm: Dictionary = {}
 var _cic_logged := false
+var _ident_logged := false
 var load_slot_requested := ""
 var load_ok := false
 var load_error := ""
@@ -132,6 +134,11 @@ func boot() -> bool:
 			]
 			seed["physics_world"] = true
 			seed["ew_service"] = true
+			# 识别融合：默认关闭自动询问（避免开局静默产生应答机询问副作用）；
+			# UI 侧 IDENT 弹层可手动 INTERROGATE 或打开 AUTO。
+			seed["identification_service"] = {"auto": {"enabled": false, "interval_s": 10.0,
+				"modes": ["mode_s"], "min_confidence": 0.75, "min_age_s": 3.0,
+				"max_requests_per_tick": 2}}
 			used_prelude = true
 			prelude_title = String(prelude.content.get("title", "序章"))
 			prelude_triggers = prelude.triggers.duplicate(true)
@@ -147,6 +154,7 @@ func boot() -> bool:
 			"signal_service": true,
 			"facility_registry": true,
 			"transponder_service": true,
+			"identification_service": {"auto": {"enabled": false}},
 			"traffic_control": true,
 			"orders": [
 				{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
@@ -343,14 +351,24 @@ func _build_contacts() -> Array:
 			bid = eid
 		if bid == "":
 			bid = String(tr.get("track_id", ""))
-		rows.append({
+		var row := {
 			"id": bid,
 			"entity_id": eid, "track_id": String(tr.get("track_id", "")),
 			"name": name, "cls": "TRACK %s · L%d" % [String(tr.get("track_id", "")), int(tr.get("level", 0))],
 			"type": ttype, "side": tside, "identity": identity, "threat": String(tr.get("threat", "unknown")),
 			"badge": "TRACK", "level": int(tr.get("level", 0)),
 			"range_km": float(tr.get("range_km", -1.0)), "sources": sources,
-		})
+		}
+		# 识别融合：列表行只带轻量评估（不拉证据数组，避免每帧复制）。
+		var iv: Dictionary = ident_view(row)
+		row["ident"] = {"known": bool(iv.get("known", false)),
+			"identity": String(iv.get("identity", "unknown")),
+			"confidence": float(iv.get("confidence", 0.0)),
+			"tag": String(iv.get("tag", "—")), "warn": bool(iv.get("warn", false)),
+			"manual": bool(iv.get("manual", false)), "enabled": bool(iv.get("enabled", false)),
+			"contradictions": (iv.get("contradictions", []) as Array).size(),
+			"spoof": float(iv.get("spoof", 0.0))}
+		rows.append(row)
 	# 未产生 track 的 session 实体（站体等）仍以真实实体列入，不硬编码数据。
 	for eid in entity_by_id.keys():
 		var found := false
@@ -469,6 +487,14 @@ func _build_contacts() -> Array:
 				"name": "SIGNAL " + tid, "cls": "SIGNAL TARGET", "type": ttype, "side": tside,
 				"threat": "unknown" if ttype == "unknown" else "none", "badge": "SIGNAL",
 				"level": 0, "range_km": float(t.get("range_km", -1.0)), "sources": [], "signal_target": true})
+	# 识别融合：所有行统一带 ident 结构（track 行已在上面按评估填充）；无证据即 known=false。
+	for row2 in rows:
+		var rr0: Dictionary = row2
+		if rr0.has("ident"):
+			continue
+		rr0["ident"] = {"known": false, "identity": String(rr0.get("identity", "unknown")),
+			"confidence": 0.0, "tag": "—", "warn": false, "manual": false,
+			"enabled": ident_enabled(), "contradictions": 0, "spoof": 0.0}
 	return rows
 
 
@@ -560,6 +586,17 @@ func ship_fields(row: Dictionary, page := "ship") -> Dictionary:
 		var tlines: Array = ["LEVEL L%d / %s" % [int(tr.get("level", 0)), String(tr.get("level_name", ""))],
 			"IDENTITY %s · THREAT %s" % [String(tr.get("identity_label", tr.get("identity", " — "))), String(tr.get("threat", "—"))],
 			"SOURCES " + ",".join(sources), "RANGE %.1f km" % float(tr.get("range_km", -1.0))]
+		# 识别融合行：来自 IdentificationService 评估（truth=false），未启用/无证据时明示。
+		var iv := ident_view(row)
+		if not bool(iv.get("enabled", false)):
+			tlines.append("IDENT FUSION NOT READY · identification_service 未启用")
+		elif not bool(iv.get("known", false)):
+			tlines.append("IDENT FUSION NO EVIDENCE · 需 INTERROGATE/IFF")
+		else:
+			tlines.append("IDENT %s %.2f · %s%s" % [String(iv.get("identity", "")).to_upper(),
+				float(iv.get("confidence", 0.0)),
+				",".join(iv.get("sources", []) if iv.get("sources", []) is Array else []),
+				(" · ⚠%d" % (iv.get("contradictions", []) as Array).size()) if not (iv.get("contradictions", []) as Array).is_empty() else ""])
 		var ss := sensor_state()
 		tlines.append("SENSOR " + ("RADAR ON" if bool(ss.get("radar", false)) else "RADAR OFF") + " · EMCON " + str(bool(ss.get("emcon", false))) + " · OBS " + str(int(ss.get("obs", 0))) + " · IFF " + str(int(ss.get("iff", 0))))
 		return {"title": "TRACK %s · TARGET" % String(tr.get("track_id", "")), "source": "TRACK TABLE · SENSOR", "lines": tlines}
@@ -926,6 +963,49 @@ func _refresh_cic() -> void:
 		_cic_logged = true
 		print("[SHELL BINDER] CICView ready=", cic_ready, " truth=", str(bool(cic_vm.get("truth", false))), " tracks=", (cic_vm.get("tracks", []) as Array).size(), " levels=", str((cic_vm.get("summary", {}) as Dictionary).get("levels", {})), " facilities=", (cic_vm.get("facilities", []) as Array).size())
 		_cic_selftest()
+		_ident_selftest()
+	# 识别融合一次性自检：服务是否启用、评估/证据是否真在增长（不伪造）。
+	if not _ident_logged and session != null:
+		_ident_logged = true
+		var ienabled: bool = session.identification_enabled()
+		var isum: Dictionary = session.identification_service.summary() if ienabled else {}
+		var ev_counts: Dictionary = {}
+		if ienabled:
+			ev_counts = session.identification_service._evidence_counts()
+		print("[SHELL BINDER] identification ready=", ienabled,
+			" targets=", int(isum.get("targets", 0)),
+			" by_identity=", str(isum.get("by_identity", {})),
+			" evidence=", str(ev_counts), " auto=", bool(isum.get("auto_enabled", false)))
+
+
+## 仅自检：用临时 IdentificationService 实例验证「矛盾/欺骗/IFF 单独」三条规则；
+## 不写 session、不进 UI，只为证明 IDENT 弹层展示的规则是真实行为而非文案。
+func _ident_selftest() -> void:
+	var svc = IdentificationService.new({})
+	if not bool(svc.ready):
+		print("[SHELL BINDER] IDENT SELFTEST not_ready ", str(svc.errors))
+		return
+	# A：transponder=friend 与 elint=hostile 并存 → 矛盾，身份降 suspect，confidence ≤0.70
+	svc.ingest({"target_id": "T-CONFLICT", "source": "transponder", "identity": "friend", "confidence": 0.9, "t": 0.0})
+	svc.ingest({"target_id": "T-CONFLICT", "source": "elint", "identity": "hostile", "confidence": 0.9, "t": 0.0})
+	var a1: Dictionary = svc.get_assessment("T-CONFLICT")
+	# B：仅 IFF 且 spoofed → 不得 hostile；spoof ≥0.5 → confidence ≤0.60
+	svc.ingest({"target_id": "T-SPOOF", "source": "iff", "identity": "hostile", "confidence": 1.0, "status": "spoofed", "t": 0.0})
+	var a2: Dictionary = svc.get_assessment("T-SPOOF")
+	# C：两类来源均报同一 hostile 但状态 captured/spoofed → spoof≥0.5，confidence ≤0.60
+	svc.ingest({"target_id": "T-SPOOF2", "source": "iff", "identity": "hostile", "confidence": 1.0, "status": "captured", "t": 0.0})
+	svc.ingest({"target_id": "T-SPOOF2", "source": "elint", "identity": "hostile", "confidence": 1.0, "status": "spoofed", "t": 0.0})
+	var a3: Dictionary = svc.get_assessment("T-SPOOF2")
+	print("[SHELL BINDER] IDENT SELFTEST conflict identity=", String(a1.get("identity", "")),
+		" conf=%.2f" % float(a1.get("confidence", 0.0)),
+		" contradictions=", str(a1.get("contradictions", [])))
+	print("[SHELL BINDER] IDENT SELFTEST spoof identity=", String(a2.get("identity", "")),
+		" conf=%.2f" % float(a2.get("confidence", 0.0)),
+		" spoof=%.2f" % float(a2.get("spoof_suspicion", 0.0)),
+		" contradictions=", str(a2.get("contradictions", [])))
+	print("[SHELL BINDER] IDENT SELFTEST spoof_cap identity=", String(a3.get("identity", "")),
+		" conf=%.2f" % float(a3.get("confidence", 0.0)),
+		" spoof=%.2f" % float(a3.get("spoof_suspicion", 0.0)))
 
 
 func _cic_selftest() -> void:
@@ -1285,6 +1365,144 @@ func transponder_query(target: String, mode := "mode_s", opts := {}) -> Dictiona
 	res["requested_target_id"] = target
 	last_transponder_reply = res.duplicate(true)
 	return last_transponder_reply
+
+
+# ── 识别融合（IdentificationService：身份/置信度/来源/矛盾/人工确认）──
+# 只读服务评估 + 显式动作（询问/确认/清除/自动开关）；不写 world/TrackTable。
+
+## 识别目标键：证据以 entity_id 为 target_id；回退 track_id / 接触批号。
+func ident_target_id(row: Dictionary) -> String:
+	for key in ["entity_id", "track_id", "id"]:
+		var v := String(row.get(key, ""))
+		if v != "":
+			return v
+	return ""
+
+
+func ident_enabled() -> bool:
+	return session != null and session.identification_enabled()
+
+
+func ident_auto_on() -> bool:
+	if not ident_enabled():
+		return false
+	var s: Dictionary = session.identification_summary()
+	return bool(s.get("auto_enabled", false))
+
+
+## 单接触识别评估。with_evidence=true 时附最近 8 条证据（弹层用；列表用 false 省开销）。
+## 无评估时 known=false，identity 保持 unknown —— 不伪造身份。
+func ident_view(row: Dictionary, with_evidence := false) -> Dictionary:
+	var tid := ident_target_id(row)
+	var out := {"target_id": tid, "known": false, "enabled": ident_enabled(),
+		"identity": "unknown", "confidence": 0.0, "level": 1,
+		"level_name": "L1_BEARING", "sources": [], "categories": [],
+		"contradictions": [], "spoof": 0.0, "evidence_count": 0, "age": 0.0,
+		"manual": false, "authorized": false, "manual_identity": "",
+		"auto_on": ident_auto_on(), "evidence": [], "tag": "—", "warn": false}
+	if not ident_enabled() or tid == "":
+		return out
+	var a: Dictionary = session.identification_get(tid)
+	if a.is_empty():
+		return out
+	out["known"] = true
+	out["identity"] = String(a.get("identity", "unknown"))
+	out["confidence"] = float(a.get("confidence", 0.0))
+	out["level"] = int(a.get("level", 1))
+	out["level_name"] = String(a.get("level_name", "L1_BEARING"))
+	out["sources"] = (a.get("sources", []) as Array).duplicate() if a.get("sources") is Array else []
+	out["categories"] = (a.get("categories", []) as Array).duplicate() if a.get("categories") is Array else []
+	out["contradictions"] = (a.get("contradictions", []) as Array).duplicate() if a.get("contradictions") is Array else []
+	out["spoof"] = float(a.get("spoof_suspicion", 0.0))
+	out["evidence_count"] = int(a.get("evidence_count", 0))
+	out["age"] = float(a.get("age", 0.0))
+	out["manual"] = bool(a.get("manual", false))
+	out["authorized"] = bool(a.get("authorized", false))
+	out["manual_identity"] = String(a.get("manual_identity", ""))
+	out["warn"] = not (out["contradictions"] as Array).is_empty() or float(out["spoof"]) >= 0.5
+	# 列表用短标签：来源族 + 置信度；人工确认加 M，矛盾/欺骗加 ⚠。
+	var src_tag := "—"
+	var cats: Array = out["categories"]
+	if cats.has("iff"):
+		src_tag = "IFF"
+	elif cats.has("sensor"):
+		src_tag = "OPT"
+	elif cats.has("elint"):
+		src_tag = "ELINT"
+	elif cats.has("database"):
+		src_tag = "DB"
+	elif not cats.is_empty():
+		src_tag = String(cats[0]).to_upper().substr(0, 4)
+	var tag := "%s %.2f" % [src_tag, float(out["confidence"])]
+	if bool(out["manual"]):
+		tag = "M·" + tag
+	if bool(out["warn"]):
+		tag += " ⚠"
+	out["tag"] = tag
+	if with_evidence:
+		var ev: Array = session.identification_evidence(tid)
+		var tail: Array = ev.slice(maxi(0, ev.size() - 8), ev.size())
+		out["evidence"] = tail
+	return out
+
+
+## 手动应答机询问（mode_s）；证据经 session 桥回灌识别融合。
+func ident_interrogate(row: Dictionary, mode := "mode_s") -> Dictionary:
+	var tid := ident_target_id(row)
+	if tid == "":
+		return {"ok": false, "reason": "no_target", "target_id": ""}
+	var res: Dictionary = transponder_query(tid, mode)
+	var reply: Dictionary = res.get("reply", {}) if res.get("reply") is Dictionary else {}
+	return {"ok": bool(res.get("ok", false)), "target_id": tid,
+		"reason": String(res.get("reason", "")),
+		"status": String(reply.get("status", "")),
+		"identity": String(reply.get("identity", ""))}
+
+
+## IFF 询问（sensor_service）；identity 只会是 friend/unknown，永不 hostile。
+func ident_iff(row: Dictionary) -> Dictionary:
+	var tid := ident_target_id(row)
+	if session == null:
+		return {"ok": false, "reason": "no_session", "target_id": tid}
+	var res: Dictionary = session.query_iff(tid)
+	return {"ok": bool(res.get("ok", false)), "target_id": tid,
+		"reason": String(res.get("reason", "")),
+		"identity": String(res.get("identity", ""))}
+
+
+## 人工确认（L4）：hostile 走 authorize 语义，需显式授权标记。
+func ident_confirm(row: Dictionary, identity: String) -> Dictionary:
+	var tid := ident_target_id(row)
+	if session == null:
+		return {"ok": false, "reason": "no_session", "target_id": tid}
+	var res: Dictionary = session.identification_manual_confirm(tid, identity,
+		{"authority": "cic_operator", "authorized": identity == "hostile"})
+	return {"ok": bool(res.get("ok", false)), "target_id": tid, "identity": identity,
+		"reason": String(res.get("reason", ""))}
+
+
+func ident_clear(row: Dictionary) -> Dictionary:
+	var tid := ident_target_id(row)
+	if session == null:
+		return {"ok": false, "reason": "no_session", "target_id": tid}
+	var res: Dictionary = session.identification_clear_manual(tid)
+	return {"ok": bool(res.get("ok", false)), "target_id": tid,
+		"reason": String(res.get("reason", ""))}
+
+
+func ident_set_auto(on: bool) -> Dictionary:
+	if session == null:
+		return {"ok": false, "reason": "no_session"}
+	var res: Dictionary = session.identification_set_auto(on)
+	return {"ok": bool(res.get("ok", false)), "auto": on,
+		"reason": String(res.get("reason", ""))}
+
+
+## 识别服务 VM（assessments / events / auto）；弹层用于全目标板与融合日志。
+func ident_vm() -> Dictionary:
+	if not ident_enabled():
+		return {}
+	return session.identification_vm()
 
 
 func signal_event(type: String, target := "", payload := {}) -> void:
