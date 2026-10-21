@@ -12,6 +12,7 @@ const Painter := preload("res://scripts/ui/panel_painter.gd")
 const ShellBinder := preload("res://scripts/ui/shell_binder.gd")
 const DamageModel := preload("res://framework/core/damage_model.gd")
 const CombatService := preload("res://scripts/core/combat_service.gd")
+const Plot3D := preload("res://scripts/ui/plot3d.gd")
 
 const SCENARIO := "res://framework/content/scenario_transit_l4_l1.json"
 const TRANSFER := "res://framework/content/transfer_l4_l1_cached.json"
@@ -33,6 +34,8 @@ var _tabs: Array = []
 var _frames := 0
 var _shot_path := ""
 var _target_size := Vector2i(1920, 1080)
+var _plot3d = null
+var _plot3d_rect := Rect2()
 var _commander := "指挥官 · 沧澜"
 var _delta_v := 0.0
 var _transfer_ok := false
@@ -486,6 +489,26 @@ func PersonPainterDivider(r: Rect2, y: float) -> void:
 
 
 func _draw_map(r: Rect2) -> void:
+	var area := Rect2(r.position.x + 12, r.position.y + 34, r.size.x - 24, r.size.y - 46)
+	_plot3d_rect = area
+	if _plot3d == null:
+		_plot3d = Plot3D.new()
+		_plot3d.setup(binder)
+	var selected_id := ""
+	if _selected >= 0 and _selected < _contacts.size():
+		var c: Dictionary = _contacts[_selected]
+		selected_id = String(c.get("entity_id", c.get("id", "")))
+	if _plot3d != null and bool(_plot3d.draw_plot(self, area, binder, selected_id)):
+		# 保留标题/时间轴/状态（旧 plot 只在 wrapper 内绘制这些）
+		var ty := area.end.y - 28.0
+		draw_line(Vector2(area.position.x + 12, ty), Vector2(area.end.x - 12, ty), P.a(P.LINE2, 0.7), 1.0)
+		Painter.label(self, area.position.x + 12, ty + 8, "T+00:00 · TOF 144:00:00 · WINDOW OPEN 18:00 / CLOSE 24:00", 7, P.TXT, true)
+		Painter.label(self, area.position.x + 12, area.end.y - 10, "SESSION LIVE · PLOT3D TRANSFER CACHE/BINDER · V1 WIREFRAME · 不写 WORLD", 6, P.a(P.FAINT, 0.9), true)
+		return
+	_draw_map_legacy(r)
+
+
+func _draw_map_legacy(r: Rect2) -> void:
 	var area := Rect2(r.position.x + 12, r.position.y + 34, r.size.x - 24, r.size.y - 46)
 	draw_rect(area, P.a(P.EARTH, 0.55))
 	draw_rect(area, P.a(P.LINE, 0.6), false, 1.0)
@@ -2582,6 +2605,10 @@ func _clock(s: float) -> String:
 
 
 func _gui_input(event: InputEvent) -> void:
+	if _plot3d != null and _plot3d_rect.size.x > 0.0 and bool(_plot3d.handle_input(event, _plot3d_rect)):
+		accept_event()
+		queue_redraw()
+		return
 	if not (event is InputEventMouseButton) or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	var pos := (event as InputEventMouseButton).position
@@ -2657,3 +2684,10 @@ func _gui_input(event: InputEvent) -> void:
 func _return_to_main_menu() -> void:
 	print("[V1 HUD] LOAD FAILED → main_menu.tscn · ", binder.load_error if binder != null else "")
 	get_tree().change_scene_to_file("res://main_menu.tscn")
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and (event as InputEventKey).pressed and (event as InputEventKey).keycode == KEY_R and _plot3d != null:
+		_plot3d.reset()
+		queue_redraw()
+		accept_event()

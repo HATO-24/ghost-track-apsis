@@ -806,3 +806,46 @@ v1_hud.gd
 2. NPC 排队/占用只读展示；未做 NPC AI/调度移动。
 3. DISGUISE 选择使用当前选中 OTC+lane，未做独立三下拉选择器；不写 world/物理。
 4. 未跑全量 regression。
+
+
+---
+
+## 28　方案B-23：主菜单 SETTINGS / 徽记（task-191）
+
+- 主菜单 SETTINGS 改为接真实 `SettingsService`：LANGUAGE/MASTER/MUSIC/SFX/SUBTITLES/TEXT SPEED/DEFAULT TIMESCALE/DISPLAY MODE/UI SCALE；SAVE/APPLY/RESET/CLOSE 全部走服务。
+- 实测 `SettingsService READY · save=true · apply_audio=true`；未 ready 会显式 NOT READY。
+- 徽记优先加载 `assets/emblems/id13.png`/`ghost_track.png`；当前资产缺失，回退程序化并明确标注 `NO PNG ASSET · PROCEDURAL FALLBACK`。
+- 截图 `mockups/main-menu-settings-1920.png`、`main-menu-emblem-1920.png`。
+- 边界：v1_hud ESC 入口未做；无图片徽记资产；SettingsService 不含实际音频/显示后端实现。
+
+
+---
+
+## 29　方案B-24：V1 线框 3D 战术图（task-192）
+
+### 29.1 新 Plot3D
+
+- 新增 `scripts/ui/plot3d.gd`（RefCounted）；不改旧 `flight_map.gd`/transit。
+- 数据：`transfer_l4_l1_cached.json` timeline + `transfer_l4_l1_fleet_cached.json` samples；binder contacts/session entities 位置；不读旧 plot state。
+- 相机：局部 yaw/pitch/dist/focus；鼠标拖拽旋转、滚轮缩放、R 重置；不写 world/session。
+- V1 线框：地球/月球 limb 圆 + 经纬十字、L4-02 HAMMER/L1 MERIDIAN 标记、转移轨迹、fleet 点+速度矢量、站体/接触符号、radar 圈、选中高亮、简单标签避让、相机/操作图例。
+
+### 29.2 v1_hud 接入
+
+- `_draw_map` 改为 `Plot3D.draw_plot`；无 timeline 数据时调用旧 `_draw_map_legacy` 简易线。
+- 输入在 `_gui_input` 先转发 plot：拖拽旋转、滚轮缩放；R 键重置。
+- 保留 tactical panel 标题、底部时间轴/窗口/状态行；不破坏 overlay/按钮/接触交互。
+
+### 29.3 截图 / 验证
+
+- `mockups/v1-hud-plot3d-1920.png`
+- `mockups/v1-hud-plot3d-1600.png`
+- 均 `V1 HUD SHOT err=0`；headless v1_hud 一次；`v1_hud.gd/plot3d.gd --check-only` 通过。
+- 实测数据：transfer timeline 11 点，fleet samples 11，5 舰；Earth/Moon 标记、L4/L1、radar 圈、camera yaw=-0.65 pitch=0.32 dist=4.0。
+
+### 29.4 未完成 / 边界
+
+1. 3D 为线框示意投影，不是物理轨道积分；相机仅 UI 局部。
+2. 站体符号来自 binder contacts/session entities；未绘制全部设施注册表站体。
+3. 标签避让为简单碰撞偏移，极端缩放下可能重叠。
+4. 无数据回退旧简易线；未跑全量 regression。
