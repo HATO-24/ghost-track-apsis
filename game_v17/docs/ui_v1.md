@@ -917,3 +917,39 @@ v1_hud.gd
 2. 设施/舰船投影仍是线框；标签避让为简单矩形+固定偏移，极端缩放仍可能隐藏设施标签。
 3. cache fallback 保留；无 physics 时 body 用固定战略位置；不写 world/物理。
 4. 未跑全量 regression。
+
+
+---
+
+## 32　方案B-27：3D 图接 CICView（task-199）
+
+### 32.1 数据
+
+- ShellBinder `_refresh_cic()`：
+  - 用 `track_vm` + ownship（physics apsis 位置，回退 world）+ `facility_registry` 构建 CICView；
+  - 暴露 `plot_cic()`；CICView 自身 `truth=false`。
+- headless 实测：`CICView ready=true truth=false tracks=2 levels={"1":0,"2":2,"3":0,"4":0} facilities=110`。
+- live 当前 track table 只有 2 条 L2，无 L1；CIC 自检 fixture 验证：`CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50,0,0]`。
+
+### 32.2 plot3d CIC 分支
+
+- 优先 `plot_cic()`；source 标注 `CIC VIEW`、`truth=false`。
+- ownship/facilities：CIC `ownship`/`facilities`（known，L1_MERIDIAN 最多 12 个符号）。
+- L1 track：只画 bearing ray + cone，**不画点/estimate**；label `L1 ... BEARING`。
+- L2+：画 `estimate_km` 点 + `uncertainty_km` 圈（最小 8px 可读）+ level/identity/threat；不读 session entity/physics truth。
+- selected：当前接触 track_id；无匹配时取首条 CIC track 作为默认高亮。
+- Earth/Moon 继续来自 binder plot_bodies；标签避让 selected>ships>facilities。
+
+### 32.3 截图 / 验证
+
+- `mockups/v1-hud-cic-1920.png`
+- `mockups/v1-hud-cic-1600.png`
+- 均 SHOT err=0；headless v1_hud 一次；`v1_hud.gd/shell_binder.gd/plot3d.gd --check-only` 通过。
+- 截图 source=CIC VIEW；live L1=0，L2 T0001/T0002 有 estimate+±1km uncertainty；标签 stats 见运行时。
+
+### 32.4 未完成 / 边界
+
+1. live track table 无 L1（levels L1=0）；L1 渲染路径与自检已通过，截图无 L1 数据。
+2. CIC 只读 track_vm，不用 physics/session truth 画未知接触；L3/L4 身份/威胁来自 track_vm。
+3. 设施只取 L1_MERIDIAN 最多 12 个符号；不确定圈为屏幕投影示意。
+4. 不写 world/物理；未跑全量 regression。

@@ -497,7 +497,12 @@ func _draw_map(r: Rect2) -> void:
 	var selected_id := ""
 	if _selected >= 0 and _selected < _contacts.size():
 		var c: Dictionary = _contacts[_selected]
-		selected_id = String(c.get("entity_id", c.get("id", "")))
+		selected_id = String(c.get("track_id", c.get("entity_id", c.get("id", ""))))
+	if selected_id == "" and binder != null and binder.has_method("plot_cic"):
+		var cv: Dictionary = binder.plot_cic()
+		var crows: Array = cv.get("tracks", []) if cv.get("tracks", []) is Array else []
+		if not crows.is_empty():
+			selected_id = String((crows[0] as Dictionary).get("id", ""))
 	if _plot3d != null and bool(_plot3d.draw_plot(self, area, binder, selected_id)):
 		# 保留标题/时间轴/状态（旧 plot 只在 wrapper 内绘制这些）
 		var ty := area.end.y - 28.0

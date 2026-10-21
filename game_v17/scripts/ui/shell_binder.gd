@@ -13,6 +13,7 @@ const ChronosChain := preload("res://scripts/core/chronos_chain.gd")
 const AV4412Chain := preload("res://scripts/core/av4412_chain.gd")
 const AfterActionReport := preload("res://scripts/core/after_action_report.gd")
 const TrafficControlService := preload("res://scripts/core/traffic_control_service.gd")
+const CICView := preload("res://scripts/core/cic_view.gd")
 const SaveService := preload("res://scripts/core/save_service.gd")
 
 const TRANSFER_CACHE := "res://framework/content/transfer_l4_l1_cached.json"
@@ -48,6 +49,10 @@ var traffic_service = null
 var traffic_ready := false
 var traffic_source := ""
 var traffic_comms_lines: Array = []
+var cic_view = null
+var cic_ready := false
+var cic_vm: Dictionary = {}
+var _cic_logged := false
 var load_slot_requested := ""
 var load_ok := false
 var load_error := ""
@@ -293,6 +298,7 @@ func refresh() -> void:
 	track_vm = session.track_vm({}) if session.track_table != null else {}
 	story_vm = session.story_vm() if session.story_state != null else {}
 	sensor_vm = session.sensor_service.vm() if session.sensor_service != null else {}
+	_refresh_cic()
 	contacts = _build_contacts()
 	_sync_signal_targets()
 	commands = _build_commands()
@@ -747,6 +753,58 @@ func traffic_disguise(track_id: String, disguise: Dictionary, opts := {}) -> Dic
 
 func traffic_clues(track_id := "") -> Array:
 	return traffic_service.clues_for(track_id) if traffic_service != null else []
+
+
+func _refresh_cic() -> void:
+	cic_ready = false
+	cic_vm = {}
+	if session == null:
+		return
+	var own := {"id": "apsis", "pos_km": [0.0, 0.0, 0.0], "heading_deg": 0.0}
+	if session.physics_world_service != null and bool(session.physics_world_service.ready):
+		var st: Dictionary = session.physics_state("apsis", "bary_rot")
+		if st.get("r", []) is Array and (st.get("r", []) as Array).size() >= 3:
+			own["pos_km"] = (st.get("r", []) as Array).duplicate()
+	var cfg: Dictionary = {"track_table_vm": track_vm, "ownship": own}
+	if session.facility_registry != null:
+		cfg["facility_registry"] = session.facility_registry
+	cic_view = CICView.new(cfg)
+	cic_ready = bool(cic_view.ready)
+	if cic_ready:
+		cic_vm = cic_view.build().duplicate(true)
+	if not _cic_logged:
+		_cic_logged = true
+		print("[SHELL BINDER] CICView ready=", cic_ready, " truth=", str(bool(cic_vm.get("truth", false))), " tracks=", (cic_vm.get("tracks", []) as Array).size(), " levels=", str((cic_vm.get("summary", {}) as Dictionary).get("levels", {})), " facilities=", (cic_vm.get("facilities", []) as Array).size())
+		_cic_selftest()
+
+
+func _cic_selftest() -> void:
+	# 仅 headless 自检：用 fixture 验证 CICView L1 bearing-only / L2 estimate 规则；不进 UI。
+	var fixture: Dictionary = {"t": 10.0, "tracks": [
+		{"id": "T-L1", "level": 1, "bearing_deg": 45.0, "range_km": 100.0,
+			"quality": 0.5, "sources": ["radar"], "last_update": 10.0, "entity_id": "unknown_a"},
+		{"id": "T-L2", "level": 2, "bearing_deg": 90.0, "range_km": 50.0,
+			"quality": 0.8, "sources": ["radar", "ir"], "last_update": 10.0, "entity_id": "unknown_b"},
+	]}
+	var test = CICView.new({"track_table_vm": fixture, "ownship": {"id": "apsis", "pos_km": [0.0, 0.0, 0.0]}})
+	if not bool(test.ready):
+		print("[SHELL BINDER] CIC SELFTEST not_ready ", str(test.errors))
+		return
+	var v: Dictionary = test.build()
+	var rows: Array = v.get("tracks", []) if v.get("tracks", []) is Array else []
+	var l1_est = null
+	var l2_est = null
+	for raw in rows:
+		if raw is Dictionary:
+			if String((raw as Dictionary).get("id", "")) == "T-L1":
+				l1_est = (raw as Dictionary).get("estimate_km", null)
+			elif String((raw as Dictionary).get("id", "")) == "T-L2":
+				l2_est = (raw as Dictionary).get("estimate_km", null)
+	print("[SHELL BINDER] CIC SELFTEST truth=", str(bool(v.get("truth", true))), " L1_estimate=", str(l1_est), " L2_estimate=", str(l2_est))
+
+
+func plot_cic() -> Dictionary:
+	return cic_vm.duplicate(true) if cic_ready else {"ready": false, "truth": false, "tracks": [], "facilities": [], "ownship": {}, "source": "CIC NOT READY"}
 
 
 func physics_world_ready() -> bool:

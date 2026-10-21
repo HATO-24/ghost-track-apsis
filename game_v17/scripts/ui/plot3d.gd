@@ -15,6 +15,11 @@ var source := "cache"
 var physics_rows: Array = []
 var facility_rows: Array = []
 var bodies: Dictionary = {}
+var cic: Dictionary = {}
+var own_cic: Array = []
+var cic_tracks: Array = []
+var cic_facilities: Array = []
+var cic_source := "CIC VIEW"
 var label_conflicts := 0
 var labels_hidden := 0
 var labels_total := 0
@@ -46,6 +51,24 @@ func setup(binder) -> void:
 	fleet_samples = []
 	contacts = []
 	entity_pos = {}
+	if binder != null and binder.has_method("plot_cic"):
+		var cv: Dictionary = binder.plot_cic()
+		if bool(cv.get("ready", false)) and (cv.get("tracks", []) as Array).size() + (cv.get("facilities", []) as Array).size() > 0:
+			source = "cic"
+			cic = cv.duplicate(true)
+			cic_tracks = (cv.get("tracks", []) as Array).duplicate(true)
+			own_cic = (cv.get("ownship", {}) as Dictionary).get("pos_km", [0.0, 0.0, 0.0]) if cv.get("ownship", {}) is Dictionary else [0.0, 0.0, 0.0]
+			var raw_f: Array = (cv.get("facilities", []) as Array)
+			for rawf in raw_f:
+				if rawf is Dictionary and String((rawf as Dictionary).get("cluster_id", "")) == "L1_MERIDIAN":
+					cic_facilities.append(rawf)
+					if cic_facilities.size() >= 12:
+						break
+			if binder.has_method("plot_bodies"):
+				bodies = binder.plot_bodies().duplicate(true)
+			contacts = binder.contacts.duplicate(true) if binder.contacts is Array else []
+			_bounds_cic()
+			return
 	if binder != null and binder.has_method("plot_positions"):
 		var pp: Dictionary = binder.plot_positions()
 		if String(pp.get("source", "")) == "physics" and not (pp.get("positions", []) as Array).is_empty():
@@ -68,6 +91,51 @@ func setup(binder) -> void:
 				if pos.size() >= 3:
 					entity_pos[String(e.get("id", ""))] = Vector3(float(pos[0]), float(pos[1]), float(pos[2]))
 	_bounds()
+
+
+func _bounds_cic() -> void:
+	var pts: Array = []
+	pts.append(own_cic)
+	for raw in cic_tracks:
+		if not (raw is Dictionary):
+			continue
+		var tr: Dictionary = raw
+		var est: Array = tr.get("estimate_km", []) if tr.get("estimate_km", []) is Array else []
+		if est.size() >= 3:
+			pts.append(est)
+		else:
+			var b = tr.get("bearing_deg", null)
+			if b is int or b is float:
+				var cone := float(tr.get("uncertainty_deg", 2.0))
+				var ray_len := 6000.0
+				pts.append([float(own_cic[0]) + cos(deg_to_rad(float(b))) * ray_len, float(own_cic[1]) + sin(deg_to_rad(float(b))) * ray_len, float(own_cic[2])])
+	for raw2 in cic_facilities:
+		if raw2 is Dictionary and (raw2 as Dictionary).get("pos_km", []) is Array and ((raw2 as Dictionary).get("pos_km", []) as Array).size() >= 3:
+			pts.append((raw2 as Dictionary).get("pos_km"))
+	for bk in ["earth", "moon"]:
+		if bodies.get(bk) is Dictionary:
+			var bp: Array = (bodies[bk] as Dictionary).get("pos_km", [])
+			if bp.size() >= 3:
+				pts.append(bp)
+	if pts.is_empty():
+		center = Vector3.ZERO
+		span = 1.0
+		return
+	var mn := Vector3(1.0e30, 1.0e30, 1.0e30)
+	var mx := Vector3(-1.0e30, -1.0e30, -1.0e30)
+	for raw3 in pts:
+		var p3: Array = raw3
+		var v := Vector3(float(p3[0]), float(p3[1]), float(p3[2]))
+		mn = Vector3(minf(mn.x, v.x), minf(mn.y, v.y), minf(mn.z, v.z))
+		mx = Vector3(maxf(mx.x, v.x), maxf(mx.y, v.y), maxf(mx.z, v.z))
+	center = (mn + mx) * 0.5
+	span = maxf(1.0, maxf(mx.x - mn.x, maxf(mx.y - mn.y, mx.z - mn.z)))
+
+
+func _rel_own(raw: Array) -> Array:
+	if raw.size() < 3:
+		return raw
+	return [float(raw[0]) - float(own_cic[0]), float(raw[1]) - float(own_cic[1]), float(raw[2]) - float(own_cic[2])]
 
 
 func _bounds_physics() -> void:
@@ -273,6 +341,9 @@ func _label(canvas: CanvasItem, pos: Vector2, text: String, col: Color, size := 
 
 
 func draw_plot(canvas: CanvasItem, rect: Rect2, binder, selected_id := "") -> bool:
+	if source == "cic":
+		_draw_cic(canvas, rect, binder, selected_id)
+		return true
 	if source == "physics" and not physics_rows.is_empty():
 		_draw_physics(canvas, rect, binder, selected_id)
 		return true
@@ -372,6 +443,90 @@ func draw_plot(canvas: CanvasItem, rect: Rect2, binder, selected_id := "") -> bo
 	canvas.draw_string(F.mono(), Vector2(rect.end.x - 220, rect.position.y + 16), "YAW %.2f · PITCH %.2f · DIST %.2f" % [yaw, pitch, dist], HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.AMBER, 0.9))
 	canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.end.y - 10), "DRAG ROTATE · WHEEL ZOOM · R RESET · CAMERA LOCAL ONLY", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
 	return true
+
+
+func _draw_cic(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> void:
+	_label_pts.clear()
+	_label_queue.clear()
+	_label_boxes.clear()
+	_label_boxes.clear()
+	_plot_safe = Rect2(rect.position + Vector2(8, 26), rect.size - Vector2(16, 58))
+	canvas.draw_rect(rect, P.a(P.EARTH, 0.38))
+	canvas.draw_rect(rect, P.a(P.LINE, 0.65), false, 1.0)
+	for i in range(20):
+		var gx := rect.position.x + rect.size.x * float(i) / 20.0
+		canvas.draw_line(Vector2(gx, rect.position.y), Vector2(gx, rect.end.y), P.a(P.LINE, 0.06), 1.0)
+	for j in range(12):
+		var gy := rect.position.y + rect.size.y * float(j) / 12.0
+		canvas.draw_line(Vector2(rect.position.x, gy), Vector2(rect.end.x, gy), P.a(P.LINE, 0.06), 1.0)
+	canvas.draw_string(F.mono(), rect.position + Vector2(10, 16), "V1 PLOT3D · SOURCE CIC VIEW · truth=false · L1 bearing / L2 estimate", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.PH, 0.9))
+	canvas.draw_string(F.mono(), Vector2(rect.end.x - 260, rect.position.y + 16), "YAW %.2f · PITCH %.2f · DIST %.2f" % [yaw, pitch, dist], HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.AMBER, 0.9))
+	# ownship known
+	var own_screen := _project(_unit(own_cic), rect)
+	canvas.draw_circle(own_screen, 5.0, P.PH)
+	canvas.draw_arc(own_screen, 10.0, 0, TAU, 24, P.a(P.PH, 0.6), 1.0, true)
+	_queue_label(own_screen + Vector2(9, -7), "OWNSHIP apsis · KNOWN", P.PH, 7, 3, "own")
+	# Earth/Moon limbs
+	for bk in ["earth", "moon"]:
+		var b: Dictionary = bodies.get(bk, {}) if bodies.get(bk, {}) is Dictionary else {}
+		var bp: Array = b.get("pos_km", []) if b.get("pos_km", []) is Array else []
+		if bp.size() < 3:
+			continue
+		var sc := _project(_unit(_rel_own(bp)), rect)
+		var rad_px := minf(rect.size.x, rect.size.y) * (0.052 if bk == "earth" else 0.027) * (2.8 / maxf(0.8, dist))
+		_draw_body(canvas, sc, rad_px, P.PH if bk == "earth" else P.PH_DIM)
+		_queue_label(sc + Vector2(rad_px + 8, -rad_px), String(b.get("label", bk.to_upper())) + " · " + String(b.get("source", "")), P.PH if bk == "earth" else P.PH_DIM, 6, 2, "body")
+	# known L1 facilities from CIC
+	for i in range(cic_facilities.size()):
+		var f: Dictionary = cic_facilities[i]
+		var fp: Array = f.get("pos_km", []) if f.get("pos_km", []) is Array else []
+		if fp.size() < 3:
+			continue
+		var sp := _project(_unit(_rel_own(fp)), rect)
+		if not rect.has_point(sp):
+			continue
+		canvas.draw_rect(Rect2(sp - Vector2(3, 3), Vector2(6, 6)), P.a(P.PH_DIM, 0.7), false, 1.0)
+		_queue_label(sp + Vector2(6, -6), String(f.get("name", f.get("facility_id", ""))) + " · " + String(f.get("facility_code", "")), P.PH_DIM, 6, 1, "facility")
+	# tracks from CIC only：L1 bearing，L2+ estimate+uncertainty；绝不读 session truth
+	for raw in cic_tracks:
+		if not (raw is Dictionary):
+			continue
+		var tr: Dictionary = raw
+		var tid := String(tr.get("id", ""))
+		var level := int(tr.get("level", 1))
+		var sel := tid == selected_id
+		var bdeg = tr.get("bearing_deg", null)
+		if level == 1:
+			if bdeg == null:
+				continue
+			var b = float(bdeg)
+			var cone := float(tr.get("uncertainty_deg", 2.0))
+			var ray_len := span * 0.75
+			var dir := Vector3(cos(deg_to_rad(b)) * ray_len, sin(deg_to_rad(b)) * ray_len, 0.0)
+			var p1 := _project(_unit(own_cic) + dir / span * 2.0, rect)
+			canvas.draw_line(own_screen, p1, P.a(P.PH if not sel else P.AMBER, 0.7), 1.0)
+			var p2 := _project(_unit(own_cic) + Vector3(cos(deg_to_rad(b + cone)) * ray_len, sin(deg_to_rad(b + cone)) * ray_len, 0.0) / span * 2.0, rect)
+			var p3 := _project(_unit(own_cic) + Vector3(cos(deg_to_rad(b - cone)) * ray_len, sin(deg_to_rad(b - cone)) * ray_len, 0.0) / span * 2.0, rect)
+			canvas.draw_line(own_screen, p2, P.a(P.PH_DIM, 0.35), 1.0)
+			canvas.draw_line(own_screen, p3, P.a(P.PH_DIM, 0.35), 1.0)
+			_queue_label(p1 + Vector2(6, -8), "L1 " + tid + " · BEARING " + ("%.0f°" % b), P.PH if not sel else P.AMBER, 7, 2, "l1")
+			continue
+		var est: Array = tr.get("estimate_km", []) if tr.get("estimate_km", []) is Array else []
+		if est.size() < 3:
+			continue
+		var sp2 := _project(_unit(_rel_own(est)), rect)
+		if not rect.has_point(sp2):
+			continue
+		var unc := float(tr.get("uncertainty_km", 1.0)) if tr.get("uncertainty_km", null) != null else 1.0
+		var rad2 := clampf(unc / maxf(1.0, span) * minf(rect.size.x, rect.size.y) * 1.8, 8.0, 90.0)
+		canvas.draw_circle(sp2, 5.0 if sel else 3.0, P.AMBER if sel else P.PH)
+		canvas.draw_arc(sp2, rad2, 0, TAU, 48, P.a(P.AMBER if sel else P.PH, 0.42), 1.0, true)
+		canvas.draw_arc(sp2, rad2 * 0.55, 0, TAU, 32, P.a(P.PH, 0.22), 1.0, true)
+		_queue_label(sp2 + Vector2(rad2 + 7, -7), "L%d %s · ±%.0fkm · %s/%s" % [level, tid, unc, String(tr.get("identity", "unknown")), String(tr.get("threat", "unknown"))], P.AMBER if sel else P.PH, 7, 3 if sel else 2, "l2")
+	# summary footer
+	var summary: Dictionary = cic.get("summary", {}) if cic.get("summary", {}) is Dictionary else {}
+	_flush_labels(canvas)
+	canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.end.y - 10), "CIC tracks %d · levels %s · truth=false · L1 bearing-only / L2+ estimate" % [cic_tracks.size(), str(summary.get("levels", {}))], HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
 
 
 func _draw_physics(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> void:
