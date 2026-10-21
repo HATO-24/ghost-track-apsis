@@ -131,6 +131,7 @@ func boot() -> bool:
 				{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
 			]
 			seed["physics_world"] = true
+			seed["ew_service"] = true
 			used_prelude = true
 			prelude_title = String(prelude.content.get("title", "序章"))
 			prelude_triggers = prelude.triggers.duplicate(true)
@@ -753,6 +754,72 @@ func traffic_disguise(track_id: String, disguise: Dictionary, opts := {}) -> Dic
 
 func traffic_clues(track_id := "") -> Array:
 	return traffic_service.clues_for(track_id) if traffic_service != null else []
+
+
+func plot_sensors() -> Dictionary:
+	var out: Dictionary = {"ready": false, "rings": [], "observations": [], "tws": [], "ew": {}, "emcon": false, "radar_enabled": false, "source": "SENSOR NOT READY"}
+	if session == null or session.sensor_service == null:
+		return out
+	var svm: Dictionary = sensor_vm if not sensor_vm.is_empty() else session.sensor_service.vm()
+	out["ready"] = bool(svm.get("ready", false))
+	out["source"] = "SENSOR SERVICE / CIC TRACKS / EW"
+	out["emcon"] = bool(svm.get("emcon", false))
+	out["radar_enabled"] = bool(svm.get("radar_enabled", false))
+	out["observations"] = (svm.get("observations", []) as Array).duplicate(true) if svm.get("observations", []) is Array else []
+	# 真实型号 records 的 range_km（不伪造）
+	var records: Dictionary = {}
+	var auth = session.sensor_service._authority
+	if auth != null:
+		var rr = auth.get("records")
+		if rr is Dictionary:
+			records = rr
+	var ranges: Dictionary = {}
+	for key in ["radar", "optical", "ir"]:
+		var rec = records.get(key, null)
+		var rv := 0.0
+		if rec is Dictionary:
+			rv = float(rec.get("range_km", 0.0))
+		elif rec != null:
+			var got = rec.get("range_km")
+			if got is int or got is float:
+				rv = float(got)
+		if rv > 0.0:
+			ranges[key] = rv
+	var rings: Array = []
+	for key in ["radar", "optical", "ir"]:
+		if ranges.has(key):
+			var label: String = String({"radar": "RADAR / TWS", "optical": "OPTICAL", "ir": "IR"}.get(key, key))
+			rings.append({"kind": key, "label": String(label), "range_km": float(ranges[key])})
+	if session.signal_service != null:
+		var ecfg: Dictionary = {}
+		var iw = session.signal_service._iw
+		if iw != null and iw.get("elint_cfg") is Dictionary:
+			ecfg = (iw.get("elint_cfg") as Dictionary).duplicate(true)
+		if ecfg.is_empty():
+			var scfg: Dictionary = session.signal_service.config if session.signal_service.config is Dictionary else {}
+			ecfg = scfg.get("elint", {}) if scfg.get("elint", {}) is Dictionary else {}
+		if float(ecfg.get("range_km", 0.0)) > 0.0:
+			rings.append({"kind": "elint", "label": "ELINT", "range_km": float(ecfg.get("range_km"))})
+	out["rings"] = rings
+	# TWS rows = CIC tracks（identity/level）；不用 truth
+	var tws: Array = []
+	for raw in (cic_vm.get("tracks", []) if cic_vm.get("tracks", []) is Array else []):
+		if not (raw is Dictionary):
+			continue
+		var tr: Dictionary = raw
+		tws.append({"id": String(tr.get("id", "")), "level": int(tr.get("level", 1)),
+			"identity": String(tr.get("identity", "unknown")), "threat": String(tr.get("threat", "unknown")),
+			"estimate_km": tr.get("estimate_km", null), "uncertainty_km": tr.get("uncertainty_km", null),
+			"bearing_deg": tr.get("bearing_deg", null), "stale": bool(tr.get("stale", false)),
+			"quality": float(tr.get("quality", 0.0)), "sources": (tr.get("sources", []) as Array).duplicate() if tr.get("sources", []) is Array else []})
+	out["tws"] = tws
+	var ew: Dictionary = session.ew_vm() if session.ew_service != null else {}
+	out["ew"] = { "ready": bool(ew.get("ready", false)), "emcon": bool(ew.get("emcon", false)),
+		"active": int((ew.get("counts", {}) as Dictionary).get("active", 0)) if ew.get("counts", {}) is Dictionary else 0,
+		"by_type": (ew.get("counts", {}) as Dictionary).get("by_type", {}) if ew.get("counts", {}) is Dictionary else {},
+		"effective": (ew.get("counts", {}) as Dictionary).get("active", 0) if ew.get("counts", {}) is Dictionary else 0}
+	print("[SHELL BINDER] plot_sensors ready=", out["ready"], " rings=", rings.size(), " obs=", (out["observations"] as Array).size(), " tws=", tws.size(), " emcon=", out["emcon"], " ew_ready=", bool(out["ew"].get("ready", false)))
+	return out
 
 
 func _refresh_cic() -> void:

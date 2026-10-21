@@ -983,3 +983,40 @@ v1_hud.gd
 2. transfer trajectory 为缓存弧；未单独绘制 physics 全轨迹（CIC 仍读 track_vm）。
 3. live L1=0（当前 track table 无 L1）；L1 bearing 渲染路径保留。
 4. TWS/火控/命令计划视觉与交互仍在下一批；不写 world/物理；未跑全量 regression。
+
+
+---
+
+## 34　方案B-29：TWS/传感器层（task-201）
+
+### 34.1 数据（binder.plot_sensors）
+
+- ShellBinder 启用 `ew_service: true`（Prelude/fallback 两分支）。
+- `plot_sensors()`：
+  - sensor vm：observer/mounts/counts/radar_enabled/emcon/observations/channels；
+  - sensor authority records 的 `range_km` → radar/TWS、optical、ir rings；
+  - signal_service `_iw.elint_cfg.range_km` → ELINT ring（仅真实配置存在时）；
+  - CIC tracks → TWS rows（level/identity/threat/estimate/uncertainty/stale）；
+  - ew_service vm → active effects/emcon。
+- headless：`plot_sensors ready=true rings=4 obs=4 tws=2 emcon=false ew_ready=true`。
+
+### 34.2 绘制
+
+- ownship 为中心的距离环：radar/TWS、optical、IR、ELINT；环上标签 range/km；真实 range 才画。
+- observations：仅 sensor observations 的 bearing/range 方位线+扇区，不画 truth。
+- TWS identity symbol：unknown 菱形、friend 圆、neutral 方、suspect 三角、hostile 倒三角；stale 虚线/断点；selected 外框高亮；uncertainty 圈保留。
+- EMCON/EW 角标：`EMCON OFF/ACTIVE · EW n EFFECTS`，EMCON/effects 活跃时琥珀警示。
+- 星空/轨道/limb/站体低模保持；CIC 规则不变（L1 bearing-only、L2+ estimate、truth=false）。
+
+### 34.3 截图 / 验证
+
+- `mockups/v1-hud-tws-1920.png`
+- `mockups/v1-hud-tws-1600.png`
+- 均 SHOT err=0；headless v1_hud 一次；`v1_hud.gd/shell_binder.gd/plot3d.gd --check-only` 通过。
+
+### 34.4 边界 / 下一批
+
+1. TWS 是信息层，不是物理 truth；身份来自 track_vm/CIC，不读 entity truth。
+2. 当前 live TWS tracks=2（均 L2 unknown）；L1=0，stale 行无样例；ELINT ring 从真实配置读取。
+3. EW effects 当前 0；角标仅显示服务状态，不伪造干扰。
+4. 火控/命令计划界面仍在下一批；不写 world/物理；未跑全量 regression。

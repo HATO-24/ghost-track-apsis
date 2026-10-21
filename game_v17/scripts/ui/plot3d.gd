@@ -21,6 +21,11 @@ var cic_tracks: Array = []
 var cic_facilities: Array = []
 var cic_source := "CIC VIEW"
 var facility_visual: Array = []
+var sensors: Dictionary = {}
+var sensor_rings: Array = []
+var sensor_tws: Array = []
+var sensor_obs: Array = []
+var sensor_ew: Dictionary = {}
 var focus := Vector3.ZERO
 var _focus_target := Vector3.ZERO
 var label_conflicts := 0
@@ -71,6 +76,12 @@ func setup(binder) -> void:
 				bodies = binder.plot_bodies().duplicate(true)
 			if binder.has_method("plot_facilities"):
 				facility_visual = (binder.plot_facilities().get("facilities", []) as Array).duplicate(true)
+			if binder.has_method("plot_sensors"):
+				sensors = binder.plot_sensors().duplicate(true)
+				sensor_rings = (sensors.get("rings", []) as Array).duplicate(true)
+				sensor_tws = (sensors.get("tws", []) as Array).duplicate(true)
+				sensor_obs = (sensors.get("observations", []) as Array).duplicate(true)
+				sensor_ew = (sensors.get("ew", {}) as Dictionary).duplicate(true) if sensors.get("ew", {}) is Dictionary else {}
 			_load_json_arrays()
 			contacts = binder.contacts.duplicate(true) if binder.contacts is Array else []
 			_bounds_cic()
@@ -464,6 +475,7 @@ func _draw_cic(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> 
 	canvas.draw_rect(rect, P.a(P.LINE, 0.65), false, 1.0)
 	_draw_stars(canvas, rect)
 	_draw_orbit_grid(canvas, rect)
+	_draw_sensor_layer(canvas, rect)
 	# 选中目标：相机 focus 平滑趋近（L2+ 用 estimate；L1 仅 ownship 方位，不读位置）
 	_focus_target = Vector3.ZERO
 	for raw_focus in cic_tracks:
@@ -550,7 +562,8 @@ func _draw_cic(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> 
 			continue
 		var unc := float(tr.get("uncertainty_km", 1.0)) if tr.get("uncertainty_km", null) != null else 1.0
 		var rad2 := clampf(unc / maxf(1.0, span) * minf(rect.size.x, rect.size.y) * 1.8, 8.0, 90.0)
-		canvas.draw_circle(sp2, 5.0 if sel else 3.0, P.AMBER if sel else P.PH)
+		var ident2 := String(tr.get("identity", "unknown"))
+		_draw_tws_symbol(canvas, sp2, ident2, sel, bool(tr.get("stale", false)))
 		canvas.draw_arc(sp2, rad2, 0, TAU, 48, P.a(P.AMBER if sel else P.PH, 0.42), 1.0, true)
 		canvas.draw_arc(sp2, rad2 * 0.55, 0, TAU, 32, P.a(P.PH, 0.22), 1.0, true)
 		_queue_label(sp2 + Vector2(rad2 + 7, -7), "L%d %s · ±%.0fkm · %s/%s" % [level, tid, unc, String(tr.get("identity", "unknown")), String(tr.get("threat", "unknown"))], P.AMBER if sel else P.PH, 7, 3 if sel else 2, "l2")
@@ -587,6 +600,81 @@ func _draw_orbit_grid(canvas: CanvasItem, rect: Rect2) -> void:
 		var bc := _project(_unit(_rel_own(bp)), rect)
 		_draw_ellipse(canvas, bc, 28.0, 8.0, P.a(P.PH if bk == "earth" else P.PH_DIM, 0.18))
 		_draw_ellipse(canvas, bc, 8.0, 28.0, P.a(P.PH_DIM, 0.12))
+
+
+func _draw_sensor_layer(canvas: CanvasItem, rect: Rect2) -> void:
+	if not bool(sensors.get("ready", false)):
+		canvas.draw_string(F.mono(), Vector2(rect.end.x - 210, rect.position.y + 30), "SENSOR NOT READY", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.AMBER, 0.9))
+		return
+	var own := _project(_unit(own_cic), rect)
+	var colors := {"radar": P.AMBER, "tws": P.AMBER, "optical": P.BLUE, "ir": P.PH_DIM, "elint": P.PH}
+	for raw in sensor_rings:
+		if not (raw is Dictionary):
+			continue
+		var ring: Dictionary = raw
+		var rng := float(ring.get("range_km", 0.0))
+		if rng <= 0.0:
+			continue
+		var edge := _project(_unit(own_cic) + Vector3(rng, 0.0, 0.0) / span * 2.0, rect)
+		var rr := own.distance_to(edge)
+		if rr < 8.0 or rr > minf(rect.size.x, rect.size.y) * 0.55:
+			continue
+		var kind := String(ring.get("kind", "radar"))
+		var col: Color = colors.get(kind, P.PH_DIM)
+		canvas.draw_arc(own, rr, 0, TAU, 96, P.a(col, 0.22), 1.0, true)
+		canvas.draw_arc(own, rr * 0.5, 0, TAU, 64, P.a(col, 0.10), 1.0, true)
+		canvas.draw_string(F.mono(), own + Vector2(6, -rr - 3), String(ring.get("label", kind)) + " " + ("%.0f km" % rng), HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(col, 0.65))
+	# observations：方位线/扇区，仅 observations，不画 truth
+	for raw2 in sensor_obs:
+		if not (raw2 is Dictionary):
+			continue
+		var ob: Dictionary = raw2
+		var br = ob.get("bearing_deg", null)
+		var rg = ob.get("range_km", null)
+		if br == null or rg == null or float(rg) <= 0.0:
+			continue
+		var sensor := String(ob.get("sensor", ob.get("kind", "")))
+		var col2: Color = colors.get(sensor, P.PH_DIM)
+		var q := _project(_unit(own_cic) + Vector3(cos(deg_to_rad(float(br))) * float(rg), sin(deg_to_rad(float(br))) * float(rg), 0.0) / span * 2.0, rect)
+		canvas.draw_line(own, q, P.a(col2, 0.38), 1.0)
+		canvas.draw_circle(q, 2.0, P.a(col2, 0.6))
+		canvas.draw_string(F.mono(), q + Vector2(4, -4), TM.fit(String(sensor) + " OBS " + ("%.0f°" % float(br)), 160, true, 6), HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(col2, 0.65))
+	# EMCON / EW 角标
+	var emcon := bool(sensors.get("emcon", false))
+	var ew_active := int(sensor_ew.get("active", 0)) if sensor_ew.get("active", 0) is int or sensor_ew.get("active", 0) is float else 0
+	var tag := "EMCON " + ("ACTIVE" if emcon else "OFF") + " · EW " + str(ew_active) + " EFFECTS"
+	var tw := TM.width(tag, true, 6) + 12.0
+	var tr := Rect2(rect.end.x - tw - 10.0, rect.position.y + 25.0, tw, 13.0)
+	canvas.draw_rect(tr, P.a(P.PANEL, 0.85))
+	canvas.draw_rect(tr, P.a(P.AMBER if emcon or ew_active > 0 else P.PH_DIM, 0.55), false, 1.0)
+	canvas.draw_string(F.mono(), tr.position + Vector2(6, 10), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.AMBER if emcon or ew_active > 0 else P.PH_DIM, 0.9))
+	canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.position.y + 34), "TWS %d · OBS %d · RINGS %d · RADAR %s" % [sensor_tws.size(), sensor_obs.size(), sensor_rings.size(), "ON" if bool(sensors.get("radar_enabled", false)) else "OFF"], HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.PH_DIM, 0.75))
+
+
+func _draw_tws_symbol(canvas: CanvasItem, c: Vector2, ident: String, sel: bool, stale: bool) -> void:
+	var col: Color = P.AMBER if sel else {"friend": P.PH, "neutral": P.BLUE, "suspect": P.AMBER, "hostile": P.RED}.get(ident, P.PH_DIM)
+	var r := 7.0 if sel else 5.0
+	match ident:
+		"friend":
+			canvas.draw_arc(c, r, 0, TAU, 24, col, 1.0, true)
+		"neutral":
+			canvas.draw_rect(Rect2(c - Vector2(r, r) * 0.8, Vector2(r, r) * 1.6), col, false, 1.0)
+		"suspect":
+			var pts := PackedVector2Array([c + Vector2(0, -r), c + Vector2(r * 0.9, r * 0.7), c + Vector2(-r * 0.9, r * 0.7), c + Vector2(0, -r)])
+			canvas.draw_polyline(pts, col, 1.0)
+		"hostile":
+			var pts2 := PackedVector2Array([c + Vector2(0, r), c + Vector2(r * 0.9, -r * 0.7), c + Vector2(-r * 0.9, -r * 0.7), c + Vector2(0, r)])
+			canvas.draw_polyline(pts2, col, 1.0)
+		_:
+			var pts3 := PackedVector2Array([c + Vector2(0, -r), c + Vector2(r, 0), c + Vector2(0, r), c + Vector2(-r, 0), c + Vector2(0, -r)])
+			canvas.draw_polyline(pts3, col, 1.0)
+	if stale:
+		for i in range(8):
+			var a0 := TAU * float(i) / 8.0
+			var a1 := a0 + TAU / 16.0
+			canvas.draw_arc(c, r + 3.0, a0, a1, 8, P.a(col, 0.45), 1.0, true)
+	if sel:
+		canvas.draw_rect(Rect2(c - Vector2(r + 7, r + 7), Vector2(r + 7, r + 7) * 2.0), P.a(P.AMBER, 0.55), false, 1.0)
 
 
 func _draw_station(canvas: CanvasItem, c: Vector2, cls: String, scale: float, col: Color) -> void:
