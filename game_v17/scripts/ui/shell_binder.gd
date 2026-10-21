@@ -362,6 +362,9 @@ func _build_contacts() -> Array:
 			continue
 		var e: Dictionary = entity_by_id[eid]
 		var kind := String(e.get("kind", "ship"))
+		# 天体/物理基准不是接触；不得出现在 CONTACTS（Earth/Moon 由 PhysicsWorld 种入）
+		if kind in ["body", "planet", "moon", "star", "celestial", "anchor"] 				or String(eid) in ["earth", "moon", "sun", "luna"]:
+			continue
 		var eside := String(e.get("side", "friend")).to_lower()
 		var etype := "friendly"
 		if eside in ["unknown", "hostile", "suspect"]:
