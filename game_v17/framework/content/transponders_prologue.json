@@ -194,8 +194,12 @@
       "entity_id": "ceres_2",
       "facility_id": "",
       "facility_code": "",
-      "transponder_code": "TXP-CERES2-DEMO",
-      "registration_code": "REG-CERES2-DEMO",
+      "transponder_code": "0417",
+      "registration_code": "FRC-OW-CER2-0417-C",
+      "call_sign": "OUTER 0417",
+      "emergency_code": "7600",
+      "emergency_light_code": "7600",
+      "light_codes": ["L3-0417", "L4-0417"],
       "side": "unknown",
       "identity": "unknown",
       "modes": [
@@ -223,7 +227,7 @@
         "no_reply": "ceres_no_reply",
         "faulty": "ceres_no_reply"
       },
-      "note": "demo 故障/无应答目标（名称引用 ceres_2；不接剧情文本）。"
+      "note": "谷神-2 故障/无应答（登记 FRC-OW-CER2-0417-C，常码 0417，应急 7600，灯语 L3-0417/L4-0417；不接剧情文本）。"
     }
   ]
 }

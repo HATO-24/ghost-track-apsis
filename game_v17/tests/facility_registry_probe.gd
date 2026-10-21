@@ -39,6 +39,7 @@ func _initialize() -> void:
 	print("STAGE3O PROBE · FacilityRegistry")
 	print("════════════════════════════════════════════════════════════")
 	_test_coverage()
+	_test_extension()
 	_test_schema_unique()
 	_test_queries()
 	_test_invalid_atomic()
@@ -109,16 +110,30 @@ func _bad_from(r) -> Dictionary:
 func _test_coverage() -> void:
 	_section_begin("1 覆盖/名称")
 	var r = _new_registry()
-	var expected_clusters: Array = CLUSTERS.duplicate(); expected_clusters.sort()
-	_eq(r.cluster_ids(), expected_clusters, "cluster 7 个")
-	_eq(r.count(), 29, "facility 29 个")
-	_eq((r.facility_ids() as Array).size(), 29, "facility_ids 29")
+	var expected_clusters: Array = (CLUSTERS + ["LEO", "FAR"])
+	expected_clusters.sort()
+	_eq(r.cluster_ids(), expected_clusters, "cluster 9 个（7 base+LEO/FAR）")
+	_eq(r.count(), 110, "facility total 110")
+	_eq((r.facility_ids() as Array).size(), 110, "facility_ids 110")
+	_eq(r.base_count(), 29, "base facility 29")
+	_eq(r.extension_count(), 81, "extension facility 81")
 	var s: Dictionary = r.summary()
-	_eq(int(s.get("clusters", 0)), 7, "summary clusters 7")
-	_eq(int(s.get("facilities", 0)), 29, "summary facilities 29")
-	_eq(int(s.get("facility_codes", 0)), 29, "summary facility_codes 29")
-	_eq(int(s.get("transponders", 0)), 29, "summary transponders 29")
-	_eq(int(s.get("ports", 0)), 57, "summary ports 57")
+	# 旧字段保持 base 语义
+	_eq(int(s.get("clusters", 0)), 7, "summary clusters base 7")
+	_eq(int(s.get("facilities", 0)), 29, "summary facilities base 29")
+	_eq(int(s.get("facility_codes", 0)), 29, "summary facility_codes base 29")
+	_eq(int(s.get("transponders", 0)), 29, "summary transponders base 29")
+	_eq(int(s.get("ports", 0)), 57, "summary ports base 57")
+	# 4B 总计/扩展
+	_eq(int(s.get("total_clusters", 0)), 9, "summary total_clusters 9")
+	_eq(int(s.get("total_facilities", 0)), 110, "summary total_facilities 110")
+	_eq(int(s.get("total_facility_codes", 0)), 110, "summary total_codes 110")
+	_eq(int(s.get("total_transponders", 0)), 110, "summary total_txp 110")
+	_eq(int(s.get("total_ports", 0)), 138, "summary total_ports 138")
+	_eq(int(s.get("extension_facilities", 0)), 81, "summary extension 81")
+	_eq(int(s.get("otc_satellites", 0)), 19, "summary OTC 19")
+	_eq(int(s.get("fuel_facilities", 0)), 62, "summary fuel 62")
+	_eq(int(s.get("orbital_nodes", 0)), 2, "summary orbital nodes 2")
 	var per: Dictionary = s.get("per_cluster", {})
 	_eq(int(per.get("L1_MERIDIAN", 0)), 4, "L1 4 站")
 	_eq(int(per.get("L2_KARMAN", 0)), 4, "L2 4 站")
@@ -142,8 +157,10 @@ func _test_coverage() -> void:
 		var nf := _fac(r, str(fid2))
 		_eq(str(nf.get("name", "")), str(NE_NAMES[fid2]), "NESSOSS 名称 " + str(fid2))
 		_eq(str(nf.get("parent_cluster", "")), "NESOSS", "NESSOSS parent " + str(fid2))
-	_eq((r.facilities_by_cluster("NESOSS") as Array).size(), 6, "NESSOSS cluster 6")
-	_eq((r.facilities_by_cluster("LUNSYNC") as Array).size(), 3, "LUNSYNC cluster 3")
+	_eq((r.facilities_by_cluster("NESOSS") as Array).size(), 6, "NESSOSS base 6")
+	_eq((r.facilities_by_cluster("LUNSYNC") as Array).size(), 3, "LUNSYNC base 3")
+	_eq((r.all_facilities_by_cluster("NESOSS") as Array).size(), 21, "NESSOSS all 21")
+	_eq((r.all_facilities_by_cluster("LUNSYNC") as Array).size(), 11, "LUNSYNC all 11")
 	# LUNSYNC TBD 提案
 	for fid3 in ["LUNSYNC-01", "LUNSYNC-02", "LUNSYNC-03"]:
 		var lf := _fac(r, str(fid3))
@@ -151,6 +168,13 @@ func _test_coverage() -> void:
 		_ok(str(lf.get("name", "")).to_upper() == "TBD", "LUNSYNC name TBD " + str(fid3))
 		_ok(str(lf.get("name_zh", "")).contains("TBD"), "LUNSYNC 提案标注 TBD " + str(fid3))
 		_eq(str(lf.get("side", "")), "unknown", "LUNSYNC side unknown " + str(fid3))
+	# 扩展 cluster 元数据
+	for cid0 in ["LEO", "FAR"]:
+		var node: Dictionary = r.cluster(str(cid0))
+		_ok(not node.is_empty(), "orbital cluster 存在 " + str(cid0))
+		_ok(str(node.get("name", "")) != "", "orbital cluster name " + str(cid0))
+		_ok(str(node.get("kind", "")) != "", "orbital cluster kind " + str(cid0))
+		_eq(str(node.get("registry_group", "")), "orbital_node", "orbital group " + str(cid0))
 	# cluster 元数据
 	for cid in CLUSTERS:
 		var c: Dictionary = r.cluster(str(cid))
@@ -162,7 +186,104 @@ func _test_coverage() -> void:
 	_ok(str(r.cluster("L3_ALBORADA").get("name", "")) == "Alborada", "L3=Alborada")
 	_ok(str(r.cluster("L4_ANVIL").get("name", "")) == "Anvil", "L4=Anvil")
 	_ok(str(r.cluster("L5_NEW_LAGOS").get("name", "")) == "New Lagos", "L5=New Lagos")
-	_data_line("coverage", "7 cluster / 29 facility（20 港群+6 NESOSS+3 LUNSYNC）/ 57 ports")
+	_data_line("coverage", "base 7 cluster/29 facility/57 ports · total 9/110/138 · OTC19+fuel62+orbital2")
+
+# ═══════════════════════════════════════════════════════════════════
+# 1b. 4B 扩展：OTC 19 / TNK+FUL 62 / LEO/FAR 节点
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_extension() -> void:
+	_section_begin("1b 扩展/OTC/燃料/节点")
+	var r = _new_registry()
+	_eq(r.otc_count(), 19, "OTC 19")
+	_eq(r.fuel_count(), 62, "fuel 62")
+	_eq(r.orbital_node_count(), 2, "orbital nodes 2")
+	_eq(r.extension_count(), 81, "extension 81")
+	# OTC 查询
+	var otc_ids: Array = r.otc_satellite_ids()
+	_eq(otc_ids.size(), 19, "OTC ids 19")
+	var otc_parents: Dictionary = {}
+	for oid in otc_ids:
+		var sid := str(oid)
+		_ok(sid.begins_with("OTC-"), "OTC id 前缀 " + sid)
+		var f: Dictionary = _fac(r, sid)
+		_ok(not f.is_empty(), "OTC facility " + sid)
+		_eq(str(f.get("facility_class", "")), "otc", "OTC class " + sid)
+		_eq(str(f.get("registry_group", "")), "otc_satellite", "OTC group " + sid)
+		_ok(str(f.get("facility_code", "")).begins_with("FC-OTC-"), "OTC code " + sid)
+		_ok(str(f.get("transponder_code", "")).begins_with("TXP-OTC-"), "OTC txp " + sid)
+		_ok(f.get("physical") is Dictionary, "OTC physical " + sid)
+		_ok((f.get("ports", []) as Array).size() >= 1, "OTC ports " + sid)
+		otc_parents[str(f.get("parent_cluster", ""))] = true
+		# by code / txp / card
+		_eq(str(r.by_code(str(f.get("facility_code", ""))).get("facility_id", "")), sid,
+			"OTC by_code " + sid)
+		_eq(str(r.by_transponder_code(str(f.get("transponder_code", ""))).get("facility_id", "")),
+			sid, "OTC by_txp " + sid)
+		var card: Dictionary = _card(r, sid)
+		_eq(str(card.get("registry_group", "")), "otc_satellite", "OTC card group " + sid)
+	_eq(otc_parents.size(), 9, "OTC parent clusters 9")
+	# fuel 查询：TNK/FUL 各 31
+	var fuel_ids: Array = r.fuel_facility_ids()
+	_eq(fuel_ids.size(), 62, "fuel ids 62")
+	var tnk := 0
+	var ful := 0
+	for fid in fuel_ids:
+		var sid2 := str(fid)
+		var f2: Dictionary = _fac(r, sid2)
+		_ok(not f2.is_empty(), "fuel facility " + sid2)
+		var cls := str(f2.get("facility_class", ""))
+		if cls == "tank":
+			tnk += 1
+		elif cls == "fuel":
+			ful += 1
+		_ok(cls in ["tank", "fuel"], "fuel class " + sid2)
+		_eq(str(f2.get("registry_group", "")), "fuel_facility", "fuel group " + sid2)
+		_ok(str(f2.get("facility_id", "")).begins_with("TNK-")
+			or str(f2.get("facility_id", "")).begins_with("FUL-"), "fuel id 前缀 " + sid2)
+		_ok(f2.get("physical") is Dictionary, "fuel physical " + sid2)
+		_ok((f2.get("ports", []) as Array).size() >= 1, "fuel ports " + sid2)
+		_eq(str(r.by_code(str(f2.get("facility_code", ""))).get("facility_id", "")), sid2,
+			"fuel by_code " + sid2)
+	_eq(tnk, 31, "TNK 31")
+	_eq(ful, 31, "FUL 31")
+	# 轨道节点 LEO/FAR
+	for cid in ["LEO", "FAR"]:
+		var node: Dictionary = r.orbital_node(str(cid))
+		_ok(not node.is_empty(), "orbital_node " + str(cid))
+		_eq(str(node.get("cluster_id", "")), str(cid), "orbital id " + str(cid))
+		_eq(str(r.cluster(str(cid)).get("registry_group", "")), "orbital_node",
+			"cluster group " + str(cid))
+		_ok((r.facilities_by_cluster(str(cid)) as Array).size() >= 1,
+			"cluster " + str(cid) + " 可查")
+	_eq((r.facilities_by_cluster("LEO") as Array).size(), 5, "LEO 5 设施")
+	_eq((r.facilities_by_cluster("FAR") as Array).size(), 4, "FAR 4 设施")
+	_eq((r.extension_facilities_for_cluster("LEO") as Array).size(), 5,
+		"LEO extension 5")
+	# 旧 29 回归
+	_eq(r.base_facility_ids().size(), 29, "base ids 29")
+	for old in ["L1-01", "L1-05", "L2-02", "L3-04", "L4-02", "L5-01",
+			"NESOSS-01", "LUNSYNC-01"]:
+		_ok(not _fac(r, str(old)).is_empty(), "旧设施回归 " + str(old))
+	_eq(str(_fac(r, "L1-05").get("name", "")), "Chronos", "旧设施 L1-05 Chronos")
+	_eq((r.ports_for("L1-05") as Array).size(), 2, "旧设施端口 2")
+	# entity_ids 扩展支持
+	var content: Dictionary = r.to_dict()
+	var otc0: Dictionary = (content["otc_satellites"] as Array)[0]
+	otc0["entity_ids"] = ["otc_entity_probe"]
+	var r2 = FacilityRegistry.new()
+	_ok(bool(r2.load_data(content)), "扩展 entity_ids 加载")
+	_eq(str(r2.facility_for_entity("otc_entity_probe").get("facility_id", "")),
+		str(otc0.get("facility_id", "")), "扩展 entity 绑定")
+	var ext_card: Dictionary = r2.facility_card(str(otc0.get("facility_id", "")))
+	_eq(str(ext_card.get("registry_group", "")), "otc_satellite", "扩展 entity card")
+	# merged 视图
+	var md: Dictionary = r.to_merged_dict()
+	_eq((md.get("clusters", []) as Array).size(), 9, "merged clusters 9")
+	_eq((md.get("facilities", []) as Array).size(), 110, "merged facilities 110")
+	_eq(int((md.get("summary", {}) as Dictionary).get("total_facilities", 0)), 110,
+		"merged summary 110")
+	_data_line("extension", "OTC 19 · TNK31+FUL31=62 · LEO/FAR 节点 · 旧29/57回归 · 扩展 entity_ids · merged")
 
 # ═══════════════════════════════════════════════════════════════════
 # 2. schema / 唯一性 / 物理 / 港口
@@ -219,10 +340,11 @@ func _test_schema_unique() -> void:
 			_ok(float(p.get("max_length_m", 0.0)) > 0.0, "port max_length>0 " + pid)
 		if f.has("entity_ids"):
 			_ok(f.get("entity_ids") is Array, "entity_ids 数组 " + sid)
-	_eq(codes.size(), 29, "facility_code 29 唯一")
-	_eq(txps.size(), 29, "transponder 29 唯一")
-	_eq(port_ids.size(), 57, "port_id 57 唯一")
+	_eq(codes.size(), 110, "facility_code total 110 唯一")
+	_eq(txps.size(), 110, "transponder total 110 唯一")
+	_eq(port_ids.size(), 138, "port_id total 138 唯一")
 	_ok(parents.has("NESOSS") and parents.has("LUNSYNC"), "parent 含 NESOSS/LUNSYNC")
+	_ok(parents.has("LEO") and parents.has("FAR"), "parent 含 LEO/FAR")
 	# entity 绑定
 	var f105 := _fac(r, "L1-05")
 	_ok((f105.get("entity_ids", []) as Array).has("l1_station"),
@@ -235,7 +357,7 @@ func _test_schema_unique() -> void:
 	_ok((r.port_ids_for("L1-05") as Array).has("PORT-L1-05-1"), "port_ids_for")
 	_ok((r.ports_for("no_such") as Array).is_empty(), "未知 facility ports 空")
 	_ok(bool(r.check_contracts().get("ok", false)), "contracts ok")
-	_data_line("schema", "required 全过 · code/transponder 29 唯一 · port 57 唯一 · 物理字段 · entity/port 绑定")
+	_data_line("schema", "required 全过 · code/transponder 110 唯一 · port 138 唯一 · 物理字段 · entity/port 绑定")
 
 # ═══════════════════════════════════════════════════════════════════
 # 3. 查询 / transponder / card
@@ -294,10 +416,18 @@ func _test_queries() -> void:
 	expected_l1.sort()
 	_eq(sorted_ids, expected_l1, "cluster 内排序")
 	_ok((r.facilities_by_cluster("NOPE") as Array).is_empty(), "未知 cluster 空")
-	_eq((r.facilities_by_parent("NESOSS") as Array).size(), 6, "by_parent NESOSS 6")
+	_eq((r.facilities_by_parent("NESOSS") as Array).size(), 6, "by_parent NESOSS base 6")
+	_eq((r.all_facilities_by_cluster("L1_MERIDIAN") as Array).size(), 14,
+		"all L1 14")
+	_eq((r.all_facilities_by_cluster("NESOSS") as Array).size(), 21,
+		"all NESOSS 21")
+	_eq((r.facilities_by_cluster("LEO") as Array).size(), 5, "LEO 5")
+	_eq((r.facilities_by_cluster("FAR") as Array).size(), 4, "FAR 4")
 	_ok(JSON.parse_string(JSON.stringify(r.facility_card("L1-05"))) is Dictionary,
 		"card JSON")
-	_data_line("queries", "id/code/transponder(大小写)/card/classify/cluster 排序/未知拒绝")
+	_ok(JSON.parse_string(JSON.stringify(r.facility_card("OTC-L1_MERIDIAN-01"))) is Dictionary,
+		"OTC card JSON")
+	_data_line("queries", "id/code/transponder(大小写)/card/classify/cluster 排序/base+extension 查询/未知拒绝")
 
 # ═══════════════════════════════════════════════════════════════════
 # 4. 非法内容（原子拒绝）
@@ -360,6 +490,21 @@ func _test_invalid_atomic() -> void:
 	var d16 := _bad_from(r)
 	d16["clusters"] = []
 	bads.append(d16)
+	var d17 := _bad_from(r)
+	(d17["otc_satellites"] as Array)[0]["facility_id"] = (d17["facilities"] as Array)[0]["facility_id"]
+	bads.append(d17)
+	var d18 := _bad_from(r)
+	(d18["fuel_facilities"] as Array)[0]["transponder_code"] = "TXP-L1-05"
+	bads.append(d18)
+	var d19 := _bad_from(r)
+	(d19["otc_satellites"] as Array)[0]["ports"][0]["port_id"] = "PORT-L1-05-1"
+	bads.append(d19)
+	var d20 := _bad_from(r)
+	(d20["orbital_nodes"] as Array)[0]["cluster_id"] = "L1_MERIDIAN"
+	bads.append(d20)
+	var d21 := _bad_from(r)
+	d21["otc_satellites"] = "bad"
+	bads.append(d21)
 	for i in range(bads.size()):
 		var brok: bool = r.load_data(bads[i])
 		_ok(not brok, "非法内容拒绝 #" + str(i))
@@ -374,7 +519,7 @@ func _test_invalid_atomic() -> void:
 	var r2 = FacilityRegistry.new({"content_path": "/no/such.json"})
 	_ok(not bool(r2.ready), "不存在内容拒绝")
 	_eq(bool(r2.check_contracts().get("ok", true)), false, "未 ready contracts false")
-	_data_line("invalid", "16 类坏数据原子拒绝 · 非对象/不存在文件拒绝 · 旧状态不变")
+	_data_line("invalid", "21 类坏数据（含扩展重复/非法）原子拒绝 · 非对象/不存在文件拒绝 · 旧状态不变")
 
 # ═══════════════════════════════════════════════════════════════════
 # 5. JSON / 确定性 / contracts
@@ -388,14 +533,23 @@ func _test_json_determinism() -> void:
 	var d: Dictionary = r.to_dict()
 	_eq(str(d.get("schema", "")), "v17.facilities_system.v1", "to_dict schema")
 	_eq(str(d.get("version", "")), "1.0.0", "to_dict version")
-	_eq((d.get("clusters", []) as Array).size(), 7, "to_dict clusters")
-	_eq((d.get("facilities", []) as Array).size(), 29, "to_dict facilities")
+	_eq((d.get("clusters", []) as Array).size(), 7, "to_dict base clusters 7")
+	_eq((d.get("facilities", []) as Array).size(), 29, "to_dict base facilities 29")
+	_eq((d.get("otc_satellites", []) as Array).size(), 19, "to_dict OTC 19")
+	_eq((d.get("fuel_facilities", []) as Array).size(), 62, "to_dict fuel 62")
+	_eq((d.get("orbital_nodes", []) as Array).size(), 2, "to_dict orbital 2")
 	_ok(str(d.get("source", "")) != "", "to_dict source")
 	# 往返
 	var r2 = _new_registry()
 	_ok(bool(r2.load_data(d)), "load_data(to_dict) ok")
 	_eq(JSON.stringify(r2.to_dict()), JSON.stringify(d), "to_dict load 往返一致")
-	_eq(r2.facility_ids(), r.facility_ids(), "往返 ids")
+	_eq(r2.facility_ids(), r.facility_ids(), "往返 ids 110")
+	_eq(r2.count(), 110, "往返 count 110")
+	_eq(JSON.stringify(r2.summary()), JSON.stringify(r.summary()), "往返 summary 一致")
+	_eq(str(r2.facility("OTC-L1_MERIDIAN-01").get("facility_code", "")),
+		"FC-OTC-L1_MERIDIAN-01", "往返 OTC 查询")
+	_eq(str(r2.facility("FUL-L1-05").get("facility_code", "")), "FC-FUL-L1-05",
+		"往返 FUL 查询")
 	_eq(JSON.stringify(r2.facility_card("L1-05")), JSON.stringify(r.facility_card("L1-05")),
 		"往返 card")
 	# 确定性
@@ -416,4 +570,4 @@ func _test_json_determinism() -> void:
 	var s: Dictionary = a.summary()
 	_eq(bool((s.get("writes", {}) as Dictionary).get("world", true)), false, "不写 world")
 	_eq(bool((s.get("writes", {}) as Dictionary).get("ui", true)), false, "不写 UI")
-	_data_line("json", "to_dict/to_json 往返 · 两次加载/card 确定 · contracts · 不写 world/UI")
+	_data_line("json", "to_dict 基础+扩展 · 往返 ids110/summary/OTC/FUL · 两次加载/card 确定 · contracts")

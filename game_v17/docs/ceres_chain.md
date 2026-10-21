@@ -17,9 +17,13 @@ L1 → L2 → L3 → LIGHT_READ → L4_TYPE → RESCUE_PROMPT
 - `L2` 需数据链/多传感器定位证据（`data_link=true` 且 `sensor_sources>=2`，或通过
   `ingest` 预置 data_link + ≥2 sensor 证据）。
 - `L3` 需 L2 证据/识别输入（level L2/L3/L4 或识别证据）。
-- `LIGHT_READ` 需可见光四位应急代码匹配（内容 `emergency_light_code="7700"`，
-  演示占位；原剧本未给定具体码）。
+- `LIGHT_READ` 需可见光四位应急代码匹配（内容 `emergency_light_code="7600"`，
+  无线电失效码；docs/49 复核）。
 - `L4_TYPE` 需先完成 light read；识别为 `ceres_2` 型作业船。
+- **Ceres-2 编号（4A 同步）**：登记号 `FRC-OW-CER2-0417-C`；应答机常码 `0417`；
+  应急码 `7600`；灯语序列 `L3-0417 → L4-0417`。以上字段在
+  `story_ceres.json`、`scenario_prologue.json` 实体、`transponders_prologue.json`
+  profile 三处一致；不强加未定内容（呼号 `OUTER 0417` 仅为已复核提案引用）。
 - `RESCUE_PROMPT` 后才可选择救援：`rescue` / `ignore` **互斥且只能一次**；
   选择后需手动 `complete` 才到 COMPLETE。
 - 乱序/重复动作 → `invalid_transition`，失败不改状态。
@@ -39,7 +43,9 @@ L1 → L2 → L3 → LIGHT_READ → L4_TYPE → RESCUE_PROMPT
   - `ceres.rescue_yes` / `ceres.rescue_no`（183/185）
   - `ceres.optional_note`（可选项纳入声望，189）
 - 文本内容 schema：`v17.story_ceres.v1`，含 `entity_id`、`chain`、`triggers`、
-  `reputation{rescue,ignore}`、`texts[]`（`text_key/zh/en/source_lines/usage/draft`）。
+  `reputation{rescue,ignore}`、`texts[]`（`text_key/zh/en/source_lines/usage/draft`）；
+  4A 增补 `registration_code/transponder_code/emergency_light_code/light_codes/
+  light_sequence`，不改变状态机/剧情文本。
 
 ## 3　API
 
@@ -77,7 +83,7 @@ seq/content_path；`load_state` 校验 schema/version/state/flags/evidence/event
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/ceres_chain_probe.gd
-# V17 CERES CHAIN PROBE RESULT: PASS=505 FAIL=0（exit 0，只跑一次）
+# V17 CERES CHAIN PROBE RESULT: PASS=510 FAIL=0（exit 0，只跑一次）
 ```
 
 覆盖（7 节）：setup/9 文本逐字 docs/44；happy path L1→…→COMPLETE + 声望/触发；

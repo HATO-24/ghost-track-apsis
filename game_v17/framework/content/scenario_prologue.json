@@ -117,7 +117,12 @@
     {
       "id": "ceres_2",
       "name": "Ceres-2",
-      "batch": "CIV-CERES-2",
+      "batch": "FRC-OW-CER2-0417-C",
+      "registration": "FRC-OW-CER2-0417-C",
+      "transponder_code": "0417",
+      "emergency_code": "7600",
+      "emergency_light_code": "7600",
+      "light_codes": ["L3-0417", "L4-0417"],
       "kind": "ship",
       "side": "unknown",
       "identity": "unknown",

@@ -45,12 +45,16 @@ triggers: [{
 | ferry | ship | CIV-FERRY-2 | neutral/unknown | ferry_prologue | — |
 | watchtower | ship | L1-PATROL | neutral/unknown | watchtower_prologue | — |
 | deepwell | ship | CIV-TANKER-9 | neutral/unknown | deepwell_prologue | — |
-| **ceres_2** | ship | **CIV-CERES-2** | unknown/unknown | **ceres_2_demo**（faulty/no_reply） | — |
+| **ceres_2** | ship | **FRC-OW-CER2-0417-C** | unknown/unknown | **ceres_2_demo**（faulty/no_reply；常码 0417/应急 7600） | — |
 | **av_4412** | ship | **UEG-AV-4412** | ueg/unknown | **av_4412**（mode_5/crypto/military） | — |
 | l1_station | station | L1-05 | neutral/station | l1_station（外部，station_beacon） | **L1-05** |
 | chronos | fuel | L1-05-FUEL | neutral/station | chronos（外部，station_beacon） | **L1-05** |
 
 - 合并应答机 profiles：外部 6 + 序章补充 4 = 10；实体引用全部校验。
+- **Ceres-2 4A 同步**：实体 `batch/registration=FRC-OW-CER2-0417-C`、`transponder_code=0417`、
+  `emergency_code/emergency_light_code=7600`、灯语 `L3-0417/L4-0417`；与
+  `story_ceres.json`、`transponders_prologue.json` 的 `ceres_2_demo` profile 一致；
+  entity id 仍 `ceres_2`，不改状态机/剧情文本。
 - 灯语码合并外部 7 + 序章 6 = 13，含谷神-2 应急（`GUSHEN2_REQ/GUSHEN2_ACK_PRO/
   GUSHEN2_MAYDAY`）与通用询问/确认（`QUERY_STATUS/QUERY_ACK`）；4 位 code/mode 校验。
 - 触发：
@@ -99,7 +103,7 @@ target 存在/light_code 引用存在/story_flag 非空/合并 profiles 通过 T
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/prelude_scenario_probe.gd
-# V17 PRELUDE SCENARIO PROBE RESULT: PASS=403 FAIL=0（exit 0，只跑一次）
+# V17 PRELUDE SCENARIO PROBE RESULT: PASS=411 FAIL=0（exit 0，只跑一次）
 ```
 
 覆盖（5 节）：9 实体/字段/唯一/Ceres-2 独立；profiles/引用/外部内容；灯语码/触发；

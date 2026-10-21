@@ -5,6 +5,14 @@
   "source": "docs/44_新剧本_2193.md（当前副本第163-191行；任务原始行73-86）",
   "source_path": "../docs/44_新剧本_2193.md",
   "entity_id": "ceres_2",
+  "registration_code": "FRC-OW-CER2-0417-C",
+  "transponder_code": "0417",
+  "call_sign": "OUTER 0417",
+  "light_codes": {
+    "L3": "L3-0417",
+    "L4": "L4-0417"
+  },
+  "light_sequence": ["L3-0417", "L4-0417"],
   "chain": [
     "L1",
     "L2",
@@ -16,8 +24,8 @@
     "IGNORED",
     "COMPLETE"
   ],
-  "emergency_light_code": "7700",
-  "light_code_note": "可见光应急代码（演示占位；原剧本未给定具体四位码）",
+  "emergency_light_code": "7600",
+  "light_code_note": "无线电失效应急码 7600（docs/49 复核）；灯语 L3-0417→L4-0417。",
   "triggers": {
     "light_read": "ceres_light_read",
     "rescue_prompt": "ceres_rescue_prompt",

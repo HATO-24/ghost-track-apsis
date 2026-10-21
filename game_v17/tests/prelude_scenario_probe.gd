@@ -120,7 +120,11 @@ func _test_entities() -> void:
 			"%s kind" % eid)
 	# 明确不得以 Harmattan 代替 Ceres-2
 	var c2: Dictionary = p.entity("ceres_2")
-	_eq(str(c2.get("batch", "")), "CIV-CERES-2", "Ceres-2 batch")
+	_eq(str(c2.get("batch", "")), "FRC-OW-CER2-0417-C", "Ceres-2 batch")
+	_eq(str(c2.get("registration", "")), "FRC-OW-CER2-0417-C", "Ceres-2 registration")
+	_eq(str(c2.get("transponder_code", "")), "0417", "Ceres-2 transponder 0417")
+	_eq(str(c2.get("emergency_code", "")), "7600", "Ceres-2 emergency 7600")
+	_eq((c2.get("light_codes", []) as Array), ["L3-0417", "L4-0417"], "Ceres-2 light codes")
 	_ok(str(c2.get("id", "")) != "harmattan", "Ceres-2 不是 Harmattan")
 	_eq(str(c2.get("kind", "")), "ship", "Ceres-2 ship")
 	_eq(str(p.entity("av_4412").get("batch", "")), "UEG-AV-4412", "AV-4412 batch")
@@ -170,6 +174,10 @@ func _test_profiles_refs() -> void:
 	# Ceres-2 故障/无应答
 	var c2p: Dictionary = p.profile("ceres_2_demo")
 	_eq(str(c2p.get("status", "")), "faulty", "ceres profile faulty")
+	_eq(str(c2p.get("transponder_code", "")), "0417", "ceres profile txp 0417")
+	_eq(str(c2p.get("registration_code", "")), "FRC-OW-CER2-0417-C", "ceres profile reg")
+	_eq(str(c2p.get("emergency_code", "")), "7600", "ceres profile emergency 7600")
+	_eq((c2p.get("light_codes", []) as Array), ["L3-0417", "L4-0417"], "ceres profile light codes")
 	_eq(str((c2p.get("trigger_map", {}) as Dictionary).get("no_reply", "")),
 		"ceres_no_reply", "ceres no_reply trigger")
 	# AV-4412 mode5/crypto/military

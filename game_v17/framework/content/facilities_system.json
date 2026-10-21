@@ -1,8 +1,8 @@
 {
   "schema": "v17.facilities_system.v1",
   "version": "1.0.0",
-  "title": "完整游戏-阶段3O 全设施注册表",
-  "source": "legacy docs/20 港群与站点 + docs/42 legacy迭代记录（NESOSS/月同步提案）",
+  "title": "完整游戏-阶段3Z 全港设施注册表（含 OTC/储罐/加注扩展）",
+  "source": "legacy docs/20 港群与站点 + docs/42 legacy迭代 + docs/20 §7 OTC/燃料/交通管制提案",
   "generated_at": "2026-10-21",
   "clusters": [
     {
@@ -1606,6 +1606,3837 @@
         "period_s": 2360591.5
       },
       "note": "月同步轨道站群提案；站名 TBD，待用户确认。",
+      "entity_ids": []
+    }
+  ],
+  "orbital_nodes": [
+    {
+      "cluster_id": "LEO",
+      "name": "Low Earth Orbit",
+      "name_en": "LEO",
+      "name_zh": "近地轨道",
+      "kind": "leo",
+      "point": "LEO",
+      "description": "近地商业/海关/救援交通节点"
+    },
+    {
+      "cluster_id": "FAR",
+      "name": "Far Orbit",
+      "name_en": "FAR",
+      "name_zh": "远地轨道",
+      "kind": "far",
+      "point": "FAR",
+      "description": "远地中继/深空补给交通节点"
+    }
+  ],
+  "otc_satellites": [
+    {
+      "facility_id": "OTC-L1_MERIDIAN-01",
+      "name": "Meridian OTC 1",
+      "name_en": "Meridian OTC 1",
+      "name_zh": "Meridian 交通管制卫星 1",
+      "facility_code": "FC-OTC-L1_MERIDIAN-01",
+      "transponder_code": "TXP-OTC-L1_MERIDIAN-01",
+      "transponder_type": "otc",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-L1_MERIDIAN-01",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -51900.0,
+            0.0,
+            15200.0
+          ]
+        },
+        "mass_kg": 800000.0,
+        "radius_km": 0.035,
+        "cross_section_m2": 1200.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 6.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-L1_MERIDIAN-02",
+      "name": "Meridian OTC 2",
+      "name_en": "Meridian OTC 2",
+      "name_zh": "Meridian 交通管制卫星 2",
+      "facility_code": "FC-OTC-L1_MERIDIAN-02",
+      "transponder_code": "TXP-OTC-L1_MERIDIAN-02",
+      "transponder_type": "otc",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-L1_MERIDIAN-02",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -52000.0,
+            500.0,
+            15100.0
+          ]
+        },
+        "mass_kg": 800000.0,
+        "radius_km": 0.035,
+        "cross_section_m2": 1200.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 6.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-L2_KARMAN-01",
+      "name": "Karman OTC 1",
+      "name_en": "Karman OTC 1",
+      "name_zh": "Karman 交通管制卫星 1",
+      "facility_code": "FC-OTC-L2_KARMAN-01",
+      "transponder_code": "TXP-OTC-L2_KARMAN-01",
+      "transponder_type": "otc",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-L2_KARMAN-01",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            448000.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 800000.0,
+        "radius_km": 0.035,
+        "cross_section_m2": 1200.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 8.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-L2_KARMAN-02",
+      "name": "Karman OTC 2",
+      "name_en": "Karman OTC 2",
+      "name_zh": "Karman 交通管制卫星 2",
+      "facility_code": "FC-OTC-L2_KARMAN-02",
+      "transponder_code": "TXP-OTC-L2_KARMAN-02",
+      "transponder_type": "otc",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-L2_KARMAN-02",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            449000.0,
+            0.0,
+            1000.0
+          ]
+        },
+        "mass_kg": 800000.0,
+        "radius_km": 0.035,
+        "cross_section_m2": 1200.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 8.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-L3_ALBORADA-01",
+      "name": "Alborada OTC 1",
+      "name_en": "Alborada OTC 1",
+      "name_zh": "Alborada 交通管制卫星 1",
+      "facility_code": "FC-OTC-L3_ALBORADA-01",
+      "transponder_code": "TXP-OTC-L3_ALBORADA-01",
+      "transponder_type": "otc",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-L3_ALBORADA-01",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -384400.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 800000.0,
+        "radius_km": 0.035,
+        "cross_section_m2": 1200.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 8.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-L4_ANVIL-01",
+      "name": "Anvil OTC 1",
+      "name_en": "Anvil OTC 1",
+      "name_zh": "Anvil 交通管制卫星 1",
+      "facility_code": "FC-OTC-L4_ANVIL-01",
+      "transponder_code": "TXP-OTC-L4_ANVIL-01",
+      "transponder_type": "otc",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-L4_ANVIL-01",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            384400.0,
+            -1000.0,
+            0.0
+          ]
+        },
+        "mass_kg": 800000.0,
+        "radius_km": 0.035,
+        "cross_section_m2": 1200.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 8.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-L4_ANVIL-02",
+      "name": "Anvil OTC 2",
+      "name_en": "Anvil OTC 2",
+      "name_zh": "Anvil 交通管制卫星 2",
+      "facility_code": "FC-OTC-L4_ANVIL-02",
+      "transponder_code": "TXP-OTC-L4_ANVIL-02",
+      "transponder_type": "otc",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-L4_ANVIL-02",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            385000.0,
+            500.0,
+            0.0
+          ]
+        },
+        "mass_kg": 800000.0,
+        "radius_km": 0.035,
+        "cross_section_m2": 1200.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 8.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-L5_NEW_LAGOS-01",
+      "name": "New Lagos OTC 1",
+      "name_en": "New Lagos OTC 1",
+      "name_zh": "New Lagos 交通管制卫星 1",
+      "facility_code": "FC-OTC-L5_NEW_LAGOS-01",
+      "transponder_code": "TXP-OTC-L5_NEW_LAGOS-01",
+      "transponder_type": "otc",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-L5_NEW_LAGOS-01",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            384400.0,
+            1000.0,
+            0.0
+          ]
+        },
+        "mass_kg": 800000.0,
+        "radius_km": 0.035,
+        "cross_section_m2": 1200.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 8.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-L5_NEW_LAGOS-02",
+      "name": "New Lagos OTC 2",
+      "name_en": "New Lagos OTC 2",
+      "name_zh": "New Lagos 交通管制卫星 2",
+      "facility_code": "FC-OTC-L5_NEW_LAGOS-02",
+      "transponder_code": "TXP-OTC-L5_NEW_LAGOS-02",
+      "transponder_type": "otc",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-L5_NEW_LAGOS-02",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            384400.0,
+            2000.0,
+            0.0
+          ]
+        },
+        "mass_kg": 800000.0,
+        "radius_km": 0.035,
+        "cross_section_m2": 1200.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 8.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-NESOSS-01",
+      "name": "NESOSS OTC 1",
+      "name_en": "NESOSS OTC 1",
+      "name_zh": "NESOSS 交通管制卫星 1",
+      "facility_code": "FC-OTC-NESOSS-01",
+      "transponder_code": "TXP-OTC-NESOSS-01",
+      "transponder_type": "otc",
+      "parent_cluster": "NESOSS",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-NESOSS-01",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42164.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 900000.0,
+        "radius_km": 0.04,
+        "cross_section_m2": 1400.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 12.0
+        },
+        "period_s": 86164.0
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-NESOSS-02",
+      "name": "NESOSS OTC 2",
+      "name_en": "NESOSS OTC 2",
+      "name_zh": "NESOSS 交通管制卫星 2",
+      "facility_code": "FC-OTC-NESOSS-02",
+      "transponder_code": "TXP-OTC-NESOSS-02",
+      "transponder_type": "otc",
+      "parent_cluster": "NESOSS",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-NESOSS-02",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42164.0,
+            1000.0,
+            0.0
+          ]
+        },
+        "mass_kg": 900000.0,
+        "radius_km": 0.04,
+        "cross_section_m2": 1400.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 12.0
+        },
+        "period_s": 86164.0
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-NESOSS-03",
+      "name": "NESOSS OTC 3",
+      "name_en": "NESOSS OTC 3",
+      "name_zh": "NESOSS 交通管制卫星 3",
+      "facility_code": "FC-OTC-NESOSS-03",
+      "transponder_code": "TXP-OTC-NESOSS-03",
+      "transponder_type": "otc",
+      "parent_cluster": "NESOSS",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-NESOSS-03",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42164.0,
+            -1000.0,
+            0.0
+          ]
+        },
+        "mass_kg": 900000.0,
+        "radius_km": 0.04,
+        "cross_section_m2": 1400.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 12.0
+        },
+        "period_s": 86164.0
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-LEO-01",
+      "name": "LEO OTC 1",
+      "name_en": "LEO OTC 1",
+      "name_zh": "LEO 交通管制卫星 1",
+      "facility_code": "FC-OTC-LEO-01",
+      "transponder_code": "TXP-OTC-LEO-01",
+      "transponder_type": "otc",
+      "parent_cluster": "LEO",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-LEO-01",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "leo",
+          "position_km": [
+            7000.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 700000.0,
+        "radius_km": 0.03,
+        "cross_section_m2": 900.0,
+        "station_keeping": {
+          "mode": "leo",
+          "dv_m_s_year": 80.0
+        },
+        "period_s": 5820.0
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-LEO-02",
+      "name": "LEO OTC 2",
+      "name_en": "LEO OTC 2",
+      "name_zh": "LEO 交通管制卫星 2",
+      "facility_code": "FC-OTC-LEO-02",
+      "transponder_code": "TXP-OTC-LEO-02",
+      "transponder_type": "otc",
+      "parent_cluster": "LEO",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-LEO-02",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "leo",
+          "position_km": [
+            7100.0,
+            500.0,
+            0.0
+          ]
+        },
+        "mass_kg": 700000.0,
+        "radius_km": 0.03,
+        "cross_section_m2": 900.0,
+        "station_keeping": {
+          "mode": "leo",
+          "dv_m_s_year": 80.0
+        },
+        "period_s": 5820.0
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-LEO-03",
+      "name": "LEO OTC 3",
+      "name_en": "LEO OTC 3",
+      "name_zh": "LEO 交通管制卫星 3",
+      "facility_code": "FC-OTC-LEO-03",
+      "transponder_code": "TXP-OTC-LEO-03",
+      "transponder_type": "otc",
+      "parent_cluster": "LEO",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-LEO-03",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "leo",
+          "position_km": [
+            7200.0,
+            -500.0,
+            0.0
+          ]
+        },
+        "mass_kg": 700000.0,
+        "radius_km": 0.03,
+        "cross_section_m2": 900.0,
+        "station_keeping": {
+          "mode": "leo",
+          "dv_m_s_year": 80.0
+        },
+        "period_s": 5820.0
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-FAR-01",
+      "name": "FAR OTC 1",
+      "name_en": "FAR OTC 1",
+      "name_zh": "FAR 交通管制卫星 1",
+      "facility_code": "FC-OTC-FAR-01",
+      "transponder_code": "TXP-OTC-FAR-01",
+      "transponder_type": "otc",
+      "parent_cluster": "FAR",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-FAR-01",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "far",
+          "position_km": [
+            500000.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 750000.0,
+        "radius_km": 0.03,
+        "cross_section_m2": 1000.0,
+        "station_keeping": {
+          "mode": "far",
+          "dv_m_s_year": 20.0
+        },
+        "period_s": 5200000.0
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-FAR-02",
+      "name": "FAR OTC 2",
+      "name_en": "FAR OTC 2",
+      "name_zh": "FAR 交通管制卫星 2",
+      "facility_code": "FC-OTC-FAR-02",
+      "transponder_code": "TXP-OTC-FAR-02",
+      "transponder_type": "otc",
+      "parent_cluster": "FAR",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-FAR-02",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "far",
+          "position_km": [
+            510000.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 750000.0,
+        "radius_km": 0.03,
+        "cross_section_m2": 1000.0,
+        "station_keeping": {
+          "mode": "far",
+          "dv_m_s_year": 20.0
+        },
+        "period_s": 5200000.0
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-LUNSYNC-01",
+      "name": "LUNSYNC OTC 1",
+      "name_en": "LUNSYNC OTC 1",
+      "name_zh": "LUNSYNC 交通管制卫星 1",
+      "facility_code": "FC-OTC-LUNSYNC-01",
+      "transponder_code": "TXP-OTC-LUNSYNC-01",
+      "transponder_type": "otc",
+      "parent_cluster": "LUNSYNC",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-LUNSYNC-01",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "moon_sync",
+          "position_km": [
+            384400.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 850000.0,
+        "radius_km": 0.04,
+        "cross_section_m2": 1300.0,
+        "station_keeping": {
+          "mode": "moon_sync",
+          "dv_m_s_year": 16.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "OTC-LUNSYNC-02",
+      "name": "LUNSYNC OTC 2",
+      "name_en": "LUNSYNC OTC 2",
+      "name_zh": "LUNSYNC 交通管制卫星 2",
+      "facility_code": "FC-OTC-LUNSYNC-02",
+      "transponder_code": "TXP-OTC-LUNSYNC-02",
+      "transponder_type": "otc",
+      "parent_cluster": "LUNSYNC",
+      "facility_class": "otc",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "traffic_control",
+        "radar",
+        "surveillance"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-OTC-LUNSYNC-02",
+          "kind": "control",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "moon_sync",
+          "position_km": [
+            384400.0,
+            0.0,
+            1000.0
+          ]
+        },
+        "mass_kg": 850000.0,
+        "radius_km": 0.04,
+        "cross_section_m2": 1300.0,
+        "station_keeping": {
+          "mode": "moon_sync",
+          "dv_m_s_year": 16.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "OTC 交通管制卫星（docs/20 §7.1 提案等效轨道/物理参数）",
+      "entity_ids": []
+    }
+  ],
+  "fuel_facilities": [
+    {
+      "facility_id": "TNK-L1-01-01",
+      "name": "Greenwich Tank 1",
+      "name_en": "Greenwich Tank 1",
+      "name_zh": "格林尼治 储罐 1",
+      "facility_code": "FC-TNK-L1-01-01",
+      "transponder_code": "TXP-TNK-L1-01-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "tank",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L1-01-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -51750.0,
+            0.0,
+            15200.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L1-01",
+      "name": "Greenwich Fuel",
+      "name_en": "Greenwich Fuel",
+      "name_zh": "格林尼治 加注站",
+      "facility_code": "FC-FUL-L1-01",
+      "transponder_code": "TXP-FUL-L1-01",
+      "transponder_type": "fuel",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "fuel",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L1-01",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -51600.0,
+            0.0,
+            15200.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L1-03-01",
+      "name": "Sextant Tank 1",
+      "name_en": "Sextant Tank 1",
+      "name_zh": "六分仪 储罐 1",
+      "facility_code": "FC-TNK-L1-03-01",
+      "transponder_code": "TXP-TNK-L1-03-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "tank",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L1-03-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -44650.0,
+            0.0,
+            8800.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 5.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L1-03",
+      "name": "Sextant Fuel",
+      "name_en": "Sextant Fuel",
+      "name_zh": "六分仪 加注站",
+      "facility_code": "FC-FUL-L1-03",
+      "transponder_code": "TXP-FUL-L1-03",
+      "transponder_type": "fuel",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "fuel",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L1-03",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -44500.0,
+            0.0,
+            8800.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 5.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L1-05-01",
+      "name": "Chronos Tank 1",
+      "name_en": "Chronos Tank 1",
+      "name_zh": "柯罗诺斯 储罐 1",
+      "facility_code": "FC-TNK-L1-05-01",
+      "transponder_code": "TXP-TNK-L1-05-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "tank",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L1-05-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -50050.0,
+            0.0,
+            14100.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 6.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L1-05",
+      "name": "Chronos Fuel",
+      "name_en": "Chronos Fuel",
+      "name_zh": "柯罗诺斯 加注站",
+      "facility_code": "FC-FUL-L1-05",
+      "transponder_code": "TXP-FUL-L1-05",
+      "transponder_type": "fuel",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "fuel",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L1-05",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -49900.0,
+            0.0,
+            14100.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 6.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L1-08-01",
+      "name": "Astrolabe Tank 1",
+      "name_en": "Astrolabe Tank 1",
+      "name_zh": "星盘 储罐 1",
+      "facility_code": "FC-TNK-L1-08-01",
+      "transponder_code": "TXP-TNK-L1-08-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "tank",
+      "owner": "Neutral",
+      "side": "neutral",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L1-08-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -57050.0,
+            0.0,
+            17300.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 3.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L1-08",
+      "name": "Astrolabe Fuel",
+      "name_en": "Astrolabe Fuel",
+      "name_zh": "星盘 加注站",
+      "facility_code": "FC-FUL-L1-08",
+      "transponder_code": "TXP-FUL-L1-08",
+      "transponder_type": "fuel",
+      "parent_cluster": "L1_MERIDIAN",
+      "facility_class": "fuel",
+      "owner": "Neutral",
+      "side": "neutral",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L1-08",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -56900.0,
+            0.0,
+            17300.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 3.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L2-02-01",
+      "name": "Janus Tank 1",
+      "name_en": "Janus Tank 1",
+      "name_zh": "雅努斯 储罐 1",
+      "facility_code": "FC-TNK-L2-02-01",
+      "transponder_code": "TXP-TNK-L2-02-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "tank",
+      "owner": "UEG-leaning",
+      "side": "ueg",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L2-02-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            48850.0,
+            0.0,
+            -9100.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L2-02",
+      "name": "Janus Fuel",
+      "name_en": "Janus Fuel",
+      "name_zh": "雅努斯 加注站",
+      "facility_code": "FC-FUL-L2-02",
+      "transponder_code": "TXP-FUL-L2-02",
+      "transponder_type": "fuel",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "fuel",
+      "owner": "UEG-leaning",
+      "side": "ueg",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L2-02",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            49000.0,
+            0.0,
+            -9100.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L2-04-01",
+      "name": "Argus Tank 1",
+      "name_en": "Argus Tank 1",
+      "name_zh": "阿耳戈斯 储罐 1",
+      "facility_code": "FC-TNK-L2-04-01",
+      "transponder_code": "TXP-TNK-L2-04-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "tank",
+      "owner": "Neutral",
+      "side": "neutral",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L2-04-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            51750.0,
+            0.0,
+            -12900.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 4.8
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L2-04",
+      "name": "Argus Fuel",
+      "name_en": "Argus Fuel",
+      "name_zh": "阿耳戈斯 加注站",
+      "facility_code": "FC-FUL-L2-04",
+      "transponder_code": "TXP-FUL-L2-04",
+      "transponder_type": "fuel",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "fuel",
+      "owner": "Neutral",
+      "side": "neutral",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L2-04",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            51900.0,
+            0.0,
+            -12900.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 4.8
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L2-07-01",
+      "name": "Horizon Tank 1",
+      "name_en": "Horizon Tank 1",
+      "name_zh": "地平线 储罐 1",
+      "facility_code": "FC-TNK-L2-07-01",
+      "transponder_code": "TXP-TNK-L2-07-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "tank",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L2-07-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            55050.0,
+            0.0,
+            -16500.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 5.2
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L2-07",
+      "name": "Horizon Fuel",
+      "name_en": "Horizon Fuel",
+      "name_zh": "地平线 加注站",
+      "facility_code": "FC-FUL-L2-07",
+      "transponder_code": "TXP-FUL-L2-07",
+      "transponder_type": "fuel",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "fuel",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L2-07",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            55200.0,
+            0.0,
+            -16500.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 5.2
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L2-09-01",
+      "name": "Silent Tank 1",
+      "name_en": "Silent Tank 1",
+      "name_zh": "寂静 储罐 1",
+      "facility_code": "FC-TNK-L2-09-01",
+      "transponder_code": "TXP-TNK-L2-09-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "tank",
+      "owner": "Neutral/Black",
+      "side": "neutral",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L2-09-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            57550.0,
+            0.0,
+            -20200.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 7.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L2-09",
+      "name": "Silent Fuel",
+      "name_en": "Silent Fuel",
+      "name_zh": "寂静 加注站",
+      "facility_code": "FC-FUL-L2-09",
+      "transponder_code": "TXP-FUL-L2-09",
+      "transponder_type": "fuel",
+      "parent_cluster": "L2_KARMAN",
+      "facility_class": "fuel",
+      "owner": "Neutral/Black",
+      "side": "neutral",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L2-09",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            57700.0,
+            0.0,
+            -20200.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 7.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L3-01-01",
+      "name": "Aurora Tank 1",
+      "name_en": "Aurora Tank 1",
+      "name_zh": "欧若拉 储罐 1",
+      "facility_code": "FC-TNK-L3-01-01",
+      "transponder_code": "TXP-TNK-L3-01-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "tank",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L3-01-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -382450.0,
+            0.0,
+            5100.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L3-01",
+      "name": "Aurora Fuel",
+      "name_en": "Aurora Fuel",
+      "name_zh": "欧若拉 加注站",
+      "facility_code": "FC-FUL-L3-01",
+      "transponder_code": "TXP-FUL-L3-01",
+      "transponder_type": "fuel",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "fuel",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L3-01",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -382300.0,
+            0.0,
+            5100.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L3-04-01",
+      "name": "Ceres Tank 1",
+      "name_en": "Ceres Tank 1",
+      "name_zh": "谷神 储罐 1",
+      "facility_code": "FC-TNK-L3-04-01",
+      "transponder_code": "TXP-TNK-L3-04-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "tank",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L3-04-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -379150.0,
+            0.0,
+            8200.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.2
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L3-04",
+      "name": "Ceres Fuel",
+      "name_en": "Ceres Fuel",
+      "name_zh": "谷神 加注站",
+      "facility_code": "FC-FUL-L3-04",
+      "transponder_code": "TXP-FUL-L3-04",
+      "transponder_type": "fuel",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "fuel",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L3-04",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -379000.0,
+            0.0,
+            8200.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.2
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L3-06-01",
+      "name": "Dew Tank 1",
+      "name_en": "Dew Tank 1",
+      "name_zh": "白露 储罐 1",
+      "facility_code": "FC-TNK-L3-06-01",
+      "transponder_code": "TXP-TNK-L3-06-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "tank",
+      "owner": "OCU/Neutral",
+      "side": "mixed",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L3-06-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -383950.0,
+            0.0,
+            10900.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 3.8
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L3-06",
+      "name": "Dew Fuel",
+      "name_en": "Dew Fuel",
+      "name_zh": "白露 加注站",
+      "facility_code": "FC-FUL-L3-06",
+      "transponder_code": "TXP-FUL-L3-06",
+      "transponder_type": "fuel",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "fuel",
+      "owner": "OCU/Neutral",
+      "side": "mixed",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L3-06",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -383800.0,
+            0.0,
+            10900.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 3.8
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L3-10-01",
+      "name": "Demeter Tank 1",
+      "name_en": "Demeter Tank 1",
+      "name_zh": "得墨忒耳 储罐 1",
+      "facility_code": "FC-TNK-L3-10-01",
+      "transponder_code": "TXP-TNK-L3-10-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "tank",
+      "owner": "Corporate",
+      "side": "neutral",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L3-10-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -388850.0,
+            0.0,
+            15400.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 5.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L3-10",
+      "name": "Demeter Fuel",
+      "name_en": "Demeter Fuel",
+      "name_zh": "得墨忒耳 加注站",
+      "facility_code": "FC-FUL-L3-10",
+      "transponder_code": "TXP-FUL-L3-10",
+      "transponder_type": "fuel",
+      "parent_cluster": "L3_ALBORADA",
+      "facility_class": "fuel",
+      "owner": "Corporate",
+      "side": "neutral",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L3-10",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -388700.0,
+            0.0,
+            15400.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 5.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L4-02-01",
+      "name": "Hammer Tank 1",
+      "name_en": "Hammer Tank 1",
+      "name_zh": "重锤 储罐 1",
+      "facility_code": "FC-TNK-L4-02-01",
+      "transponder_code": "TXP-TNK-L4-02-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "tank",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L4-02-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            44850.0,
+            0.0,
+            6200.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 5.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L4-02",
+      "name": "Hammer Fuel",
+      "name_en": "Hammer Fuel",
+      "name_zh": "重锤 加注站",
+      "facility_code": "FC-FUL-L4-02",
+      "transponder_code": "TXP-FUL-L4-02",
+      "transponder_type": "fuel",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "fuel",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L4-02",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            45000.0,
+            0.0,
+            6200.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 5.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L4-05-01",
+      "name": "Vulcan Tank 1",
+      "name_en": "Vulcan Tank 1",
+      "name_zh": "武尔坎努斯 储罐 1",
+      "facility_code": "FC-TNK-L4-05-01",
+      "transponder_code": "TXP-TNK-L4-05-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "tank",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L4-05-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            47350.0,
+            0.0,
+            9300.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.6
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L4-05",
+      "name": "Vulcan Fuel",
+      "name_en": "Vulcan Fuel",
+      "name_zh": "武尔坎努斯 加注站",
+      "facility_code": "FC-FUL-L4-05",
+      "transponder_code": "TXP-FUL-L4-05",
+      "transponder_type": "fuel",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "fuel",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L4-05",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            47500.0,
+            0.0,
+            9300.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.6
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L4-08-01",
+      "name": "Crucible Tank 1",
+      "name_en": "Crucible Tank 1",
+      "name_zh": "坩埚 储罐 1",
+      "facility_code": "FC-TNK-L4-08-01",
+      "transponder_code": "TXP-TNK-L4-08-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "tank",
+      "owner": "Neutral/Black Market",
+      "side": "neutral",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L4-08-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            49950.0,
+            0.0,
+            12600.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 6.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L4-08",
+      "name": "Crucible Fuel",
+      "name_en": "Crucible Fuel",
+      "name_zh": "坩埚 加注站",
+      "facility_code": "FC-FUL-L4-08",
+      "transponder_code": "TXP-FUL-L4-08",
+      "transponder_type": "fuel",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "fuel",
+      "owner": "Neutral/Black Market",
+      "side": "neutral",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L4-08",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            50100.0,
+            0.0,
+            12600.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "lissajous",
+          "dv_m_s_year": 6.5
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L4-12-01",
+      "name": "Ingot Tank 1",
+      "name_en": "Ingot Tank 1",
+      "name_zh": "铸锭 储罐 1",
+      "facility_code": "FC-TNK-L4-12-01",
+      "transponder_code": "TXP-TNK-L4-12-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "tank",
+      "owner": "OCU/UEG",
+      "side": "contested",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L4-12-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            52450.0,
+            0.0,
+            15900.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.3
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L4-12",
+      "name": "Ingot Fuel",
+      "name_en": "Ingot Fuel",
+      "name_zh": "铸锭 加注站",
+      "facility_code": "FC-FUL-L4-12",
+      "transponder_code": "TXP-FUL-L4-12",
+      "transponder_type": "fuel",
+      "parent_cluster": "L4_ANVIL",
+      "facility_class": "fuel",
+      "owner": "OCU/UEG",
+      "side": "contested",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L4-12",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            52600.0,
+            0.0,
+            15900.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.3
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L5-01-01",
+      "name": "Eko Tank 1",
+      "name_en": "Eko Tank 1",
+      "name_zh": "埃科 储罐 1",
+      "facility_code": "FC-TNK-L5-01-01",
+      "transponder_code": "TXP-TNK-L5-01-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "tank",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L5-01-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -361950.0,
+            0.0,
+            2400.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.8
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L5-01",
+      "name": "Eko Fuel",
+      "name_en": "Eko Fuel",
+      "name_zh": "埃科 加注站",
+      "facility_code": "FC-FUL-L5-01",
+      "transponder_code": "TXP-FUL-L5-01",
+      "transponder_type": "fuel",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "fuel",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L5-01",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -361800.0,
+            0.0,
+            2400.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.8
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L5-03-01",
+      "name": "Zuma Tank 1",
+      "name_en": "Zuma Tank 1",
+      "name_zh": "祖马 储罐 1",
+      "facility_code": "FC-TNK-L5-03-01",
+      "transponder_code": "TXP-TNK-L5-03-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "tank",
+      "owner": "OCU/Neutral",
+      "side": "mixed",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L5-03-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -359150.0,
+            0.0,
+            5300.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L5-03",
+      "name": "Zuma Fuel",
+      "name_en": "Zuma Fuel",
+      "name_zh": "祖马 加注站",
+      "facility_code": "FC-FUL-L5-03",
+      "transponder_code": "TXP-FUL-L5-03",
+      "transponder_type": "fuel",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "fuel",
+      "owner": "OCU/Neutral",
+      "side": "mixed",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L5-03",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -359000.0,
+            0.0,
+            5300.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.0
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L5-07-01",
+      "name": "Savannah Tank 1",
+      "name_en": "Savannah Tank 1",
+      "name_zh": "稀树草原 储罐 1",
+      "facility_code": "FC-TNK-L5-07-01",
+      "transponder_code": "TXP-TNK-L5-07-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "tank",
+      "owner": "Neutral",
+      "side": "neutral",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L5-07-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -355650.0,
+            0.0,
+            8700.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.4
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L5-07",
+      "name": "Savannah Fuel",
+      "name_en": "Savannah Fuel",
+      "name_zh": "稀树草原 加注站",
+      "facility_code": "FC-FUL-L5-07",
+      "transponder_code": "TXP-FUL-L5-07",
+      "transponder_type": "fuel",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "fuel",
+      "owner": "Neutral",
+      "side": "neutral",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L5-07",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -355500.0,
+            0.0,
+            8700.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.4
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-L5-11-01",
+      "name": "Victoria Tank 1",
+      "name_en": "Victoria Tank 1",
+      "name_zh": "维多利亚 储罐 1",
+      "facility_code": "FC-TNK-L5-11-01",
+      "transponder_code": "TXP-TNK-L5-11-01",
+      "transponder_type": "tank",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "tank",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-L5-11-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -351750.0,
+            0.0,
+            12100.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.1
+        },
+        "period_s": 1555200.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-L5-11",
+      "name": "Victoria Fuel",
+      "name_en": "Victoria Fuel",
+      "name_zh": "维多利亚 加注站",
+      "facility_code": "FC-FUL-L5-11",
+      "transponder_code": "TXP-FUL-L5-11",
+      "transponder_type": "fuel",
+      "parent_cluster": "L5_NEW_LAGOS",
+      "facility_class": "fuel",
+      "owner": "OCU",
+      "side": "ocu",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-L5-11",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "lagrange_halo",
+          "position_km": [
+            -351600.0,
+            0.0,
+            12100.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "halo",
+          "dv_m_s_year": 4.1
+        },
+        "period_s": 1555200.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-NESOSS-01-01",
+      "name": "Polaris Tank 1",
+      "name_en": "Polaris Tank 1",
+      "name_zh": "北极星 储罐 1",
+      "facility_code": "FC-TNK-NESOSS-01-01",
+      "transponder_code": "TXP-TNK-NESOSS-01-01",
+      "transponder_type": "tank",
+      "parent_cluster": "NESOSS",
+      "facility_class": "tank",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-NESOSS-01-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42314.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.0
+        },
+        "period_s": 86164.1
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-NESOSS-01",
+      "name": "Polaris Fuel",
+      "name_en": "Polaris Fuel",
+      "name_zh": "北极星 加注站",
+      "facility_code": "FC-FUL-NESOSS-01",
+      "transponder_code": "TXP-FUL-NESOSS-01",
+      "transponder_type": "fuel",
+      "parent_cluster": "NESOSS",
+      "facility_class": "fuel",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-NESOSS-01",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42464.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.0
+        },
+        "period_s": 86164.1
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-NESOSS-02-01",
+      "name": "Arclight Tank 1",
+      "name_en": "Arclight Tank 1",
+      "name_zh": "弧光 储罐 1",
+      "facility_code": "FC-TNK-NESOSS-02-01",
+      "transponder_code": "TXP-TNK-NESOSS-02-01",
+      "transponder_type": "tank",
+      "parent_cluster": "NESOSS",
+      "facility_class": "tank",
+      "owner": "Commercial",
+      "side": "neutral",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-NESOSS-02-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42314.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.2
+        },
+        "period_s": 86164.1
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-NESOSS-02",
+      "name": "Arclight Fuel",
+      "name_en": "Arclight Fuel",
+      "name_zh": "弧光 加注站",
+      "facility_code": "FC-FUL-NESOSS-02",
+      "transponder_code": "TXP-FUL-NESOSS-02",
+      "transponder_type": "fuel",
+      "parent_cluster": "NESOSS",
+      "facility_class": "fuel",
+      "owner": "Commercial",
+      "side": "neutral",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-NESOSS-02",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42464.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.2
+        },
+        "period_s": 86164.1
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-NESOSS-03-01",
+      "name": "Hyperion Tank 1",
+      "name_en": "Hyperion Tank 1",
+      "name_zh": "亥伯龙 储罐 1",
+      "facility_code": "FC-TNK-NESOSS-03-01",
+      "transponder_code": "TXP-TNK-NESOSS-03-01",
+      "transponder_type": "tank",
+      "parent_cluster": "NESOSS",
+      "facility_class": "tank",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-NESOSS-03-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42314.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.4
+        },
+        "period_s": 86164.1
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-NESOSS-03",
+      "name": "Hyperion Fuel",
+      "name_en": "Hyperion Fuel",
+      "name_zh": "亥伯龙 加注站",
+      "facility_code": "FC-FUL-NESOSS-03",
+      "transponder_code": "TXP-FUL-NESOSS-03",
+      "transponder_type": "fuel",
+      "parent_cluster": "NESOSS",
+      "facility_class": "fuel",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-NESOSS-03",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42464.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.4
+        },
+        "period_s": 86164.1
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-NESOSS-04-01",
+      "name": "Vega Prime Tank 1",
+      "name_en": "Vega Prime Tank 1",
+      "name_zh": "织女一 储罐 1",
+      "facility_code": "FC-TNK-NESOSS-04-01",
+      "transponder_code": "TXP-TNK-NESOSS-04-01",
+      "transponder_type": "tank",
+      "parent_cluster": "NESOSS",
+      "facility_class": "tank",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-NESOSS-04-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42314.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.6
+        },
+        "period_s": 86164.1
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-NESOSS-04",
+      "name": "Vega Prime Fuel",
+      "name_en": "Vega Prime Fuel",
+      "name_zh": "织女一 加注站",
+      "facility_code": "FC-FUL-NESOSS-04",
+      "transponder_code": "TXP-FUL-NESOSS-04",
+      "transponder_type": "fuel",
+      "parent_cluster": "NESOSS",
+      "facility_class": "fuel",
+      "owner": "UEG",
+      "side": "ueg",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-NESOSS-04",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42464.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.6
+        },
+        "period_s": 86164.1
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-NESOSS-05-01",
+      "name": "Saturnus Tank 1",
+      "name_en": "Saturnus Tank 1",
+      "name_zh": "萨图尔努斯 储罐 1",
+      "facility_code": "FC-TNK-NESOSS-05-01",
+      "transponder_code": "TXP-TNK-NESOSS-05-01",
+      "transponder_type": "tank",
+      "parent_cluster": "NESOSS",
+      "facility_class": "tank",
+      "owner": "Commercial",
+      "side": "neutral",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-NESOSS-05-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42314.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.1
+        },
+        "period_s": 86164.1
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-NESOSS-05",
+      "name": "Saturnus Fuel",
+      "name_en": "Saturnus Fuel",
+      "name_zh": "萨图尔努斯 加注站",
+      "facility_code": "FC-FUL-NESOSS-05",
+      "transponder_code": "TXP-FUL-NESOSS-05",
+      "transponder_type": "fuel",
+      "parent_cluster": "NESOSS",
+      "facility_class": "fuel",
+      "owner": "Commercial",
+      "side": "neutral",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-NESOSS-05",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42464.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.1
+        },
+        "period_s": 86164.1
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-NESOSS-06-01",
+      "name": "Noah Tank 1",
+      "name_en": "Noah Tank 1",
+      "name_zh": "诺亚 储罐 1",
+      "facility_code": "FC-TNK-NESOSS-06-01",
+      "transponder_code": "TXP-TNK-NESOSS-06-01",
+      "transponder_type": "tank",
+      "parent_cluster": "NESOSS",
+      "facility_class": "tank",
+      "owner": "Industrial",
+      "side": "neutral",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-NESOSS-06-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42314.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.8
+        },
+        "period_s": 86164.1
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-NESOSS-06",
+      "name": "Noah Fuel",
+      "name_en": "Noah Fuel",
+      "name_zh": "诺亚 加注站",
+      "facility_code": "FC-FUL-NESOSS-06",
+      "transponder_code": "TXP-FUL-NESOSS-06",
+      "transponder_type": "fuel",
+      "parent_cluster": "NESOSS",
+      "facility_class": "fuel",
+      "owner": "Industrial",
+      "side": "neutral",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-NESOSS-06",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "geo",
+          "position_km": [
+            42464.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "geo",
+          "dv_m_s_year": 2.8
+        },
+        "period_s": 86164.1
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-LUNSYNC-01-01",
+      "name": "TBD Tank 1",
+      "name_en": "TBD Tank 1",
+      "name_zh": "TBD（提案：月脊站） 储罐 1",
+      "facility_code": "FC-TNK-LUNSYNC-01-01",
+      "transponder_code": "TXP-TNK-LUNSYNC-01-01",
+      "transponder_type": "tank",
+      "parent_cluster": "LUNSYNC",
+      "facility_class": "tank",
+      "owner": "TBD",
+      "side": "unknown",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-LUNSYNC-01-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "moon_sync",
+          "position_km": [
+            384550.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "moon_sync",
+          "dv_m_s_year": 18.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-LUNSYNC-01",
+      "name": "TBD Fuel",
+      "name_en": "TBD Fuel",
+      "name_zh": "TBD（提案：月脊站） 加注站",
+      "facility_code": "FC-FUL-LUNSYNC-01",
+      "transponder_code": "TXP-FUL-LUNSYNC-01",
+      "transponder_type": "fuel",
+      "parent_cluster": "LUNSYNC",
+      "facility_class": "fuel",
+      "owner": "TBD",
+      "side": "unknown",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-LUNSYNC-01",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "moon_sync",
+          "position_km": [
+            384700.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "moon_sync",
+          "dv_m_s_year": 18.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-LUNSYNC-02-01",
+      "name": "TBD Tank 1",
+      "name_en": "TBD Tank 1",
+      "name_zh": "TBD（提案：静海站） 储罐 1",
+      "facility_code": "FC-TNK-LUNSYNC-02-01",
+      "transponder_code": "TXP-TNK-LUNSYNC-02-01",
+      "transponder_type": "tank",
+      "parent_cluster": "LUNSYNC",
+      "facility_class": "tank",
+      "owner": "TBD",
+      "side": "unknown",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-LUNSYNC-02-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "moon_sync",
+          "position_km": [
+            384550.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "moon_sync",
+          "dv_m_s_year": 20.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-LUNSYNC-02",
+      "name": "TBD Fuel",
+      "name_en": "TBD Fuel",
+      "name_zh": "TBD（提案：静海站） 加注站",
+      "facility_code": "FC-FUL-LUNSYNC-02",
+      "transponder_code": "TXP-FUL-LUNSYNC-02",
+      "transponder_type": "fuel",
+      "parent_cluster": "LUNSYNC",
+      "facility_class": "fuel",
+      "owner": "TBD",
+      "side": "unknown",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-LUNSYNC-02",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "moon_sync",
+          "position_km": [
+            384700.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "moon_sync",
+          "dv_m_s_year": 20.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-LUNSYNC-03-01",
+      "name": "TBD Tank 1",
+      "name_en": "TBD Tank 1",
+      "name_zh": "TBD（提案：月港站） 储罐 1",
+      "facility_code": "FC-TNK-LUNSYNC-03-01",
+      "transponder_code": "TXP-TNK-LUNSYNC-03-01",
+      "transponder_type": "tank",
+      "parent_cluster": "LUNSYNC",
+      "facility_class": "tank",
+      "owner": "TBD",
+      "side": "unknown",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-LUNSYNC-03-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "moon_sync",
+          "position_km": [
+            384550.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "moon_sync",
+          "dv_m_s_year": 16.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-LUNSYNC-03",
+      "name": "TBD Fuel",
+      "name_en": "TBD Fuel",
+      "name_zh": "TBD（提案：月港站） 加注站",
+      "facility_code": "FC-FUL-LUNSYNC-03",
+      "transponder_code": "TXP-FUL-LUNSYNC-03",
+      "transponder_type": "fuel",
+      "parent_cluster": "LUNSYNC",
+      "facility_class": "fuel",
+      "owner": "TBD",
+      "side": "unknown",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-LUNSYNC-03",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "moon_sync",
+          "position_km": [
+            384700.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "moon_sync",
+          "dv_m_s_year": 16.0
+        },
+        "period_s": 2360591.5
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；等效物理参数）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-LEO-01",
+      "name": "LEO Tank 1",
+      "name_en": "LEO Tank 1",
+      "name_zh": "LEO 储罐 1",
+      "facility_code": "FC-TNK-LEO-01",
+      "transponder_code": "TXP-TNK-LEO-01",
+      "transponder_type": "tank",
+      "parent_cluster": "LEO",
+      "facility_class": "tank",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-LEO-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "leo",
+          "position_km": [
+            7200.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "leo",
+          "dv_m_s_year": 80.0
+        },
+        "period_s": 5820.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；LEO/FAR 等效）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-LEO-01",
+      "name": "LEO Fuel",
+      "name_en": "LEO Fuel",
+      "name_zh": "LEO 加注站",
+      "facility_code": "FC-FUL-LEO-01",
+      "transponder_code": "TXP-FUL-LEO-01",
+      "transponder_type": "fuel",
+      "parent_cluster": "LEO",
+      "facility_class": "fuel",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-LEO-01",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "leo",
+          "position_km": [
+            7400.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "leo",
+          "dv_m_s_year": 80.0
+        },
+        "period_s": 5820.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；LEO/FAR 等效）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "TNK-FAR-01",
+      "name": "FAR Tank 1",
+      "name_en": "FAR Tank 1",
+      "name_zh": "FAR 储罐 1",
+      "facility_code": "FC-TNK-FAR-01",
+      "transponder_code": "TXP-TNK-FAR-01",
+      "transponder_type": "tank",
+      "parent_cluster": "FAR",
+      "facility_class": "tank",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "storage",
+        "fuel"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-TNK-FAR-01",
+          "kind": "tank_bay",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "far",
+          "position_km": [
+            500200.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "far",
+          "dv_m_s_year": 20.0
+        },
+        "period_s": 5200000.0
+      },
+      "note": "燃料/冰储罐（docs/20 §7.2；LEO/FAR 等效）",
+      "entity_ids": []
+    },
+    {
+      "facility_id": "FUL-FAR-01",
+      "name": "FAR Fuel",
+      "name_en": "FAR Fuel",
+      "name_zh": "FAR 加注站",
+      "facility_code": "FC-FUL-FAR-01",
+      "transponder_code": "TXP-FUL-FAR-01",
+      "transponder_type": "fuel",
+      "parent_cluster": "FAR",
+      "facility_class": "fuel",
+      "owner": "UEG/OCU",
+      "side": "contested",
+      "services": [
+        "refuel",
+        "fuel",
+        "tankfarm",
+        "repair"
+      ],
+      "ports": [
+        {
+          "port_id": "PORT-FUL-FAR-01",
+          "kind": "fuel",
+          "berths": 1,
+          "max_length_m": 100.0
+        }
+      ],
+      "physical": {
+        "orbit": {
+          "frame": "bary_rot",
+          "type": "far",
+          "position_km": [
+            500400.0,
+            0.0,
+            0.0
+          ]
+        },
+        "mass_kg": 1200000.0,
+        "radius_km": 0.06,
+        "cross_section_m2": 1800.0,
+        "station_keeping": {
+          "mode": "far",
+          "dv_m_s_year": 20.0
+        },
+        "period_s": 5200000.0
+      },
+      "note": "加注站/加注接口（docs/20 §7.2；LEO/FAR 等效）",
       "entity_ids": []
     }
   ]

@@ -109,7 +109,7 @@ func _drive(data := {}) -> Object:
 	var c = _fresh()
 	c.advance("data_link_l2", {"data_link": true, "sensor_sources": 2})
 	c.advance("identify_l3", {"level": "L2"})
-	c.advance("read_light", {"light_code": "7700"})
+	c.advance("read_light", {"light_code": "7600"})
 	c.advance("classify_l4")
 	c.advance("rescue_prompt")
 	if str(data.get("choice", "")) == "rescue":
@@ -128,9 +128,9 @@ func _to(state: String) -> Object:
 		"L3":
 			var c3 = _fresh(); c3.advance("data_link_l2", {"data_link": true, "sensor_sources": 2}); c3.advance("identify_l3", {"level": "L2"}); return c3
 		"LIGHT_READ":
-			var c4 = _fresh(); c4.advance("data_link_l2", {"data_link": true, "sensor_sources": 2}); c4.advance("identify_l3", {"level": "L2"}); c4.advance("read_light", {"light_code": "7700"}); return c4
+			var c4 = _fresh(); c4.advance("data_link_l2", {"data_link": true, "sensor_sources": 2}); c4.advance("identify_l3", {"level": "L2"}); c4.advance("read_light", {"light_code": "7600"}); return c4
 		"L4_TYPE":
-			var c5 = _fresh(); c5.advance("data_link_l2", {"data_link": true, "sensor_sources": 2}); c5.advance("identify_l3", {"level": "L2"}); c5.advance("read_light", {"light_code": "7700"}); c5.advance("classify_l4"); return c5
+			var c5 = _fresh(); c5.advance("data_link_l2", {"data_link": true, "sensor_sources": 2}); c5.advance("identify_l3", {"level": "L2"}); c5.advance("read_light", {"light_code": "7600"}); c5.advance("classify_l4"); return c5
 		"RESCUE_PROMPT":
 			return _drive()
 		"RESCUED":
@@ -196,7 +196,16 @@ func _test_setup_texts() -> void:
 	# content schema 字段
 	_eq(str(c.content.get("schema", "")), "v17.story_ceres.v1", "content schema")
 	_eq(str(c.content.get("chain", [])), str(STATES), "chain 顺序")
-	_eq(str(c.content.get("emergency_light_code", "")), "7700", "light code")
+	_eq(str(c.content.get("emergency_light_code", "")), "7600", "light code 7600")
+	_eq(str(c.content.get("registration_code", "")), "FRC-OW-CER2-0417-C",
+		"registration FRC-OW-CER2-0417-C")
+	_eq(str(c.content.get("transponder_code", "")), "0417", "transponder 0417")
+	_eq(str((c.content.get("light_codes", {}) as Dictionary).get("L3", "")),
+		"L3-0417", "light L3-0417")
+	_eq(str((c.content.get("light_codes", {}) as Dictionary).get("L4", "")),
+		"L4-0417", "light L4-0417")
+	_eq((c.content.get("light_sequence", []) as Array),
+		["L3-0417", "L4-0417"], "light sequence L3/L4")
 	_eq((c.content.get("chain", []) as Array).size(), 9, "9 状态")
 	_data_line("setup/texts", "9 状态 · 9 文本逐字匹配 docs/44 · 应答机/灯语/VIS/救援是/否 · en 空")
 
@@ -217,7 +226,7 @@ func _test_happy_paths() -> void:
 	_eq(bool(r2.get("ok", false)), true, "L2→L3 ok")
 	_eq(str(c.current_state()), "L3", "current L3")
 	_eq(bool(c.get_flag("l3_identified")), true, "L3 flag")
-	var r3: Dictionary = c.advance("read_light", {"light_code": "7700"})
+	var r3: Dictionary = c.advance("read_light", {"light_code": "7600"})
 	_eq(bool(r3.get("ok", false)), true, "L3→LIGHT_READ ok")
 	_eq(str(c.current_state()), "LIGHT_READ", "current LIGHT_READ")
 	_eq(str(r3.get("trigger_id", "")), "ceres_light_read", "light trigger")
@@ -269,7 +278,7 @@ func _test_happy_paths() -> void:
 	var ci = _fresh()
 	ci.advance("data_link_l2", {"data_link": true, "sensor_sources": 2})
 	ci.advance("identify_l3", {"level": "L2"})
-	ci.advance("read_light", {"light_code": "7700"})
+	ci.advance("read_light", {"light_code": "7600"})
 	ci.advance("classify_l4")
 	ci.advance("rescue_prompt")
 	var ri: Dictionary = ci.advance("ignore")
@@ -367,7 +376,7 @@ func _test_evidence_inputs() -> void:
 	_eq(str(c6.advance("read_light", {"light_code": "0000"}).get("reason", "")),
 		"wrong_light_code", "错误灯语码")
 	_eq(str(c6.current_state()), "L3", "灯语失败不改状态")
-	_eq(bool(c6.advance("read_light", {"light_code": "7700"}).get("ok", false)), true,
+	_eq(bool(c6.advance("read_light", {"light_code": "7600"}).get("ok", false)), true,
 		"正确灯语码")
 	# 未读灯语不可 L4（构造 L3 后直接 classify 是乱序 invalid_transition；验证 can_advance）
 	_eq(c6.can_advance("classify_l4"), true, "读灯后可 L4")
@@ -415,7 +424,7 @@ func _test_save_load() -> void:
 	_eq(str(m2.current_state()), "L3", "mid state")
 	_eq(_norm(mid.vm()), _norm(m2.vm()), "mid VM 一致")
 	# load 后继续
-	_eq(bool(m2.advance("read_light", {"light_code": "7700"}).get("ok", false)), true,
+	_eq(bool(m2.advance("read_light", {"light_code": "7600"}).get("ok", false)), true,
 		"load 后继续")
 	# 终态
 	var fin = _drive({"choice": "rescue"})
