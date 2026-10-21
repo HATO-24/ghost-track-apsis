@@ -953,3 +953,33 @@ v1_hud.gd
 2. CIC 只读 track_vm，不用 physics/session truth 画未知接触；L3/L4 身份/威胁来自 track_vm。
 3. 设施只取 L1_MERIDIAN 最多 12 个符号；不确定圈为屏幕投影示意。
 4. 不写 world/物理；未跑全量 regression。
+
+
+---
+
+## 33　方案B-28：3D 图视觉层级第一批（task-200）
+
+### 33.1 视觉层（CIC 数据规则不变）
+
+- 确定性星空：哈希星点 + 弱 alpha；不闪/不贴图。
+- 轨道网格：L1 ownship 参考环（两个透视椭圆）、基准十字；Earth/Moon 参考环。
+- Earth/Moon limb：limb 圆、1px 经线/纬线椭圆、terminator 弧、每 30° 刻度与 0/90/180/270° 标签；不画贴图。
+- 轨道/转移弧：transfer cache timeline 分段投影（暗琥珀线+分段点），仅视觉；不参与 CIC 接触判断。
+- L1 站体低模：按 facility_class 画 OTC 六边形+太阳能板、tank/fuel/depot 圆柱、station/port 矩形+环面、默认方块；尺度 4–8px，无近景/贴图。
+- 标签：CIC 源；selected>ships>facilities；selected 前景、不确定区保留。
+- 相机 focus：selected L2 estimate 作为 focus target，`lerp 0.16` 平滑趋近；拖拽/滚轮/R 仍可用，R 重置 focus。
+- 保持 CICView：L1 仅 bearing ray/cone、L2+ estimate+uncertainty、truth=false；不使用 session entity/physics truth 画未知 track。
+
+### 33.2 截图 / 验证
+
+- `mockups/v1-hud-plot3d-visual-1920.png`
+- `mockups/v1-hud-plot3d-visual-1600.png`
+- 均 SHOT err=0；headless v1_hud 一次；`v1_hud.gd/shell_binder.gd/plot3d.gd --check-only` 通过。
+- 截图显示星空/轨道环/limb 经纬刻度/转移弧/低模站体/选中 focus；CIC source/truth 规则未变。
+
+### 33.3 边界 / 下一批
+
+1. 视觉线框仍为示意；Earth/Moon 半径固定、linb 为屏幕投影；不是高精度光照。
+2. transfer trajectory 为缓存弧；未单独绘制 physics 全轨迹（CIC 仍读 track_vm）。
+3. live L1=0（当前 track table 无 L1）；L1 bearing 渲染路径保留。
+4. TWS/火控/命令计划视觉与交互仍在下一批；不写 world/物理；未跑全量 regression。

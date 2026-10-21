@@ -20,6 +20,9 @@ var own_cic: Array = []
 var cic_tracks: Array = []
 var cic_facilities: Array = []
 var cic_source := "CIC VIEW"
+var facility_visual: Array = []
+var focus := Vector3.ZERO
+var _focus_target := Vector3.ZERO
 var label_conflicts := 0
 var labels_hidden := 0
 var labels_total := 0
@@ -66,6 +69,9 @@ func setup(binder) -> void:
 						break
 			if binder.has_method("plot_bodies"):
 				bodies = binder.plot_bodies().duplicate(true)
+			if binder.has_method("plot_facilities"):
+				facility_visual = (binder.plot_facilities().get("facilities", []) as Array).duplicate(true)
+			_load_json_arrays()
 			contacts = binder.contacts.duplicate(true) if binder.contacts is Array else []
 			_bounds_cic()
 			return
@@ -221,14 +227,15 @@ func _unit(raw: Array) -> Vector3:
 
 
 func _project(u: Vector3, rect: Rect2) -> Vector2:
+	var uu := u - focus
 	var cy := cos(yaw)
 	var sy := sin(yaw)
-	var x := u.x * cy + u.z * sy
-	var z := -u.x * sy + u.z * cy
+	var x := uu.x * cy + uu.z * sy
+	var z := -uu.x * sy + uu.z * cy
 	var cp := cos(pitch)
 	var sp := sin(pitch)
-	var yy := u.y * cp - z * sp
-	var zz := u.y * sp + z * cp
+	var yy := uu.y * cp - z * sp
+	var zz := uu.y * sp + z * cp
 	var denom := dist + zz
 	if denom <= 0.15:
 		return Vector2(-9999, -9999)
@@ -249,6 +256,8 @@ func reset() -> void:
 	yaw = -0.65
 	pitch = 0.32
 	dist = 4.0
+	focus = Vector3.ZERO
+	_focus_target = Vector3.ZERO
 
 
 func handle_input(event: InputEvent, rect: Rect2) -> bool:
@@ -453,12 +462,17 @@ func _draw_cic(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> 
 	_plot_safe = Rect2(rect.position + Vector2(8, 26), rect.size - Vector2(16, 58))
 	canvas.draw_rect(rect, P.a(P.EARTH, 0.38))
 	canvas.draw_rect(rect, P.a(P.LINE, 0.65), false, 1.0)
-	for i in range(20):
-		var gx := rect.position.x + rect.size.x * float(i) / 20.0
-		canvas.draw_line(Vector2(gx, rect.position.y), Vector2(gx, rect.end.y), P.a(P.LINE, 0.06), 1.0)
-	for j in range(12):
-		var gy := rect.position.y + rect.size.y * float(j) / 12.0
-		canvas.draw_line(Vector2(rect.position.x, gy), Vector2(rect.end.x, gy), P.a(P.LINE, 0.06), 1.0)
+	_draw_stars(canvas, rect)
+	_draw_orbit_grid(canvas, rect)
+	# 选中目标：相机 focus 平滑趋近（L2+ 用 estimate；L1 仅 ownship 方位，不读位置）
+	_focus_target = Vector3.ZERO
+	for raw_focus in cic_tracks:
+		if raw_focus is Dictionary and String((raw_focus as Dictionary).get("id", "")) == selected_id:
+			var est_focus: Array = (raw_focus as Dictionary).get("estimate_km", []) if (raw_focus as Dictionary).get("estimate_km", []) is Array else []
+			if est_focus.size() >= 3:
+				_focus_target = _unit(_rel_own(est_focus))
+			break
+	focus = focus.lerp(_focus_target, 0.16)
 	canvas.draw_string(F.mono(), rect.position + Vector2(10, 16), "V1 PLOT3D · SOURCE CIC VIEW · truth=false · L1 bearing / L2 estimate", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.PH, 0.9))
 	canvas.draw_string(F.mono(), Vector2(rect.end.x - 260, rect.position.y + 16), "YAW %.2f · PITCH %.2f · DIST %.2f" % [yaw, pitch, dist], HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.AMBER, 0.9))
 	# ownship known
@@ -476,6 +490,17 @@ func _draw_cic(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> 
 		var rad_px := minf(rect.size.x, rect.size.y) * (0.052 if bk == "earth" else 0.027) * (2.8 / maxf(0.8, dist))
 		_draw_body(canvas, sc, rad_px, P.PH if bk == "earth" else P.PH_DIM)
 		_queue_label(sc + Vector2(rad_px + 8, -rad_px), String(b.get("label", bk.to_upper())) + " · " + String(b.get("source", "")), P.PH if bk == "earth" else P.PH_DIM, 6, 2, "body")
+	# transfer/physics trajectory：分段投影，仅视觉参考，不参与 CIC 接触判断
+	if not timeline.is_empty():
+		var prev_t := Vector2(-9999, -9999)
+		for raw_t in timeline:
+			if raw_t is Dictionary:
+				var tp: Array = (raw_t as Dictionary).get("pos_rot_km", [])
+				var tq := _project(_unit(tp), rect)
+				if prev_t.x > -9000:
+					canvas.draw_line(prev_t, tq, P.a(P.AMBER, 0.22), 1.0)
+					canvas.draw_circle(tq, 1.0, P.a(P.AMBER, 0.38))
+				prev_t = tq
 	# known L1 facilities from CIC
 	for i in range(cic_facilities.size()):
 		var f: Dictionary = cic_facilities[i]
@@ -485,8 +510,14 @@ func _draw_cic(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> 
 		var sp := _project(_unit(_rel_own(fp)), rect)
 		if not rect.has_point(sp):
 			continue
-		canvas.draw_rect(Rect2(sp - Vector2(3, 3), Vector2(6, 6)), P.a(P.PH_DIM, 0.7), false, 1.0)
-		_queue_label(sp + Vector2(6, -6), String(f.get("name", f.get("facility_id", ""))) + " · " + String(f.get("facility_code", "")), P.PH_DIM, 6, 1, "facility")
+		var fv: Dictionary = {}
+		for raw_v in facility_visual:
+			if raw_v is Dictionary and String((raw_v as Dictionary).get("facility_id", "")) == String(f.get("facility_id", "")):
+				fv = raw_v
+				break
+		var cls_f := String(fv.get("facility_class", "station"))
+		_draw_station(canvas, sp, cls_f, 4.0, P.PH_DIM)
+		_queue_label(sp + Vector2(7, -7), String(f.get("name", f.get("facility_id", ""))) + " · " + String(f.get("facility_code", "")), P.PH_DIM, 6, 1, "facility")
 	# tracks from CIC only：L1 bearing，L2+ estimate+uncertainty；绝不读 session truth
 	for raw in cic_tracks:
 		if not (raw is Dictionary):
@@ -527,6 +558,64 @@ func _draw_cic(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> 
 	var summary: Dictionary = cic.get("summary", {}) if cic.get("summary", {}) is Dictionary else {}
 	_flush_labels(canvas)
 	canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.end.y - 10), "CIC tracks %d · levels %s · truth=false · L1 bearing-only / L2+ estimate" % [cic_tracks.size(), str(summary.get("levels", {}))], HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.FAINT, 0.9))
+	canvas.draw_string(F.mono(), Vector2(rect.position.x + 10, rect.end.y - 22), "VISUAL · STARFIELD / ORBITAL GRID / LIMB LAT-LONG / LOW-POLY FACILITIES / FOCUS SELECTED", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.PH_DIM, 0.75))
+
+
+func _draw_stars(canvas: CanvasItem, rect: Rect2) -> void:
+	for i in range(72):
+		var hh := (i * 1103515245 + 12345) & 0x7fffffff
+		var sx := rect.position.x + 8.0 + float(hh % int(maxf(1.0, rect.size.x - 16.0)))
+		var sy := rect.position.y + 8.0 + float((hh / 97) % int(maxf(1.0, rect.size.y - 16.0)))
+		var a := 0.08 + 0.10 * float(i % 4)
+		canvas.draw_rect(Rect2(sx, sy, 1, 1), P.a(P.TXT, a))
+
+
+func _draw_orbit_grid(canvas: CanvasItem, rect: Rect2) -> void:
+	# L1 参考环 / 基准十字，透视椭圆
+	var own_screen := _project(_unit(own_cic), rect)
+	for rr in [42.0, 84.0]:
+		_draw_ellipse(canvas, own_screen, rr, rr * 0.30, P.a(P.AMBER, 0.20))
+		_draw_ellipse(canvas, own_screen, rr * 0.30, rr, P.a(P.PH, 0.12))
+	canvas.draw_line(own_screen + Vector2(-26, 0), own_screen + Vector2(26, 0), P.a(P.AMBER, 0.35), 1.0)
+	canvas.draw_line(own_screen + Vector2(0, -26), own_screen + Vector2(0, 26), P.a(P.AMBER, 0.35), 1.0)
+	# Earth 参考轨道环
+	for bk in ["earth", "moon"]:
+		var b: Dictionary = bodies.get(bk, {}) if bodies.get(bk, {}) is Dictionary else {}
+		var bp: Array = b.get("pos_km", []) if b.get("pos_km", []) is Array else []
+		if bp.size() < 3:
+			continue
+		var bc := _project(_unit(_rel_own(bp)), rect)
+		_draw_ellipse(canvas, bc, 28.0, 8.0, P.a(P.PH if bk == "earth" else P.PH_DIM, 0.18))
+		_draw_ellipse(canvas, bc, 8.0, 28.0, P.a(P.PH_DIM, 0.12))
+
+
+func _draw_station(canvas: CanvasItem, c: Vector2, cls: String, scale: float, col: Color) -> void:
+	var r := clampf(scale, 3.0, 8.0)
+	match cls:
+		"otc", "relay":
+			var pts := PackedVector2Array()
+			for i in range(7):
+				var a := TAU * float(i) / 6.0
+				pts.append(c + Vector2(cos(a), sin(a)) * r * 1.4)
+			canvas.draw_polyline(pts, P.a(col, 0.75), 1.0)
+			canvas.draw_line(c + Vector2(-r * 2.0, 0), c + Vector2(r * 2.0, 0), P.a(col, 0.55), 1.0)
+			canvas.draw_line(c + Vector2(-r * 2.0, -r * 0.25), c + Vector2(-r * 2.0, r * 0.25), P.a(col, 0.55), 1.0)
+			canvas.draw_line(c + Vector2(r * 2.0, -r * 0.25), c + Vector2(r * 2.0, r * 0.25), P.a(col, 0.55), 1.0)
+		"tank", "fuel", "depot":
+			var top := c + Vector2(0, -r)
+			var bot := c + Vector2(0, r * 1.3)
+			canvas.draw_arc(top, r * 0.8, 0, TAU, 24, P.a(col, 0.7), 1.0, true)
+			canvas.draw_line(top + Vector2(-r * 0.8, 0), bot + Vector2(-r * 0.8, 0), P.a(col, 0.6), 1.0)
+			canvas.draw_line(top + Vector2(r * 0.8, 0), bot + Vector2(r * 0.8, 0), P.a(col, 0.6), 1.0)
+			_draw_ellipse(canvas, bot, r * 0.8, r * 0.25, P.a(col, 0.6))
+		"station", "commercial", "port", "logistics":
+			canvas.draw_rect(Rect2(c - Vector2(r * 1.2, r * 0.7), Vector2(r * 2.4, r * 1.4)), P.a(col, 0.65), false, 1.0)
+			_draw_ellipse(canvas, c + Vector2(0, -r * 0.7), r * 1.2, r * 0.30, P.a(col, 0.55))
+			_draw_ellipse(canvas, c + Vector2(0, r * 0.7), r * 1.2, r * 0.30, P.a(col, 0.55))
+			for sx in [-r * 1.7, r * 1.7]:
+				canvas.draw_line(c + Vector2(sx, 0), c + Vector2(sx * 0.7, 0), P.a(col, 0.5), 1.0)
+		_:
+			canvas.draw_rect(Rect2(c - Vector2(r, r), Vector2(r * 2, r * 2)), P.a(col, 0.6), false, 1.0)
 
 
 func _draw_physics(canvas: CanvasItem, rect: Rect2, binder, selected_id: String) -> void:
@@ -599,13 +688,25 @@ func _draw_physics(canvas: CanvasItem, rect: Rect2, binder, selected_id: String)
 
 
 func _draw_body(canvas: CanvasItem, c: Vector2, rad: float, col: Color) -> void:
-	canvas.draw_arc(c, rad, 0, TAU, 64, P.a(col, 0.75), 1.0, true)
-	canvas.draw_arc(c, rad * 0.62, 0, TAU, 48, P.a(col, 0.30), 1.0, true)
-	canvas.draw_line(c + Vector2(-rad, 0), c + Vector2(rad, 0), P.a(col, 0.35), 1.0)
-	canvas.draw_line(c + Vector2(0, -rad), c + Vector2(0, rad), P.a(col, 0.35), 1.0)
-	# 简化的 1px 纬线/经线
-	_draw_ellipse(canvas, c, rad, rad * 0.36, P.a(col, 0.28))
-	_draw_ellipse(canvas, c, rad * 0.36, rad, P.a(col, 0.22))
+	# limb + day/night terminator + lat/long grid + tick marks（纯线框，无贴图）
+	canvas.draw_arc(c, rad, 0, TAU, 96, P.a(col, 0.78), 1.0, true)
+	canvas.draw_arc(c, rad * 0.62, 0, TAU, 64, P.a(col, 0.22), 1.0, true)
+	canvas.draw_line(c + Vector2(-rad, 0), c + Vector2(rad, 0), P.a(col, 0.38), 1.0)
+	canvas.draw_line(c + Vector2(0, -rad), c + Vector2(0, rad), P.a(col, 0.38), 1.0)
+	for k in [-0.65, -0.3, 0.3, 0.65]:
+		_draw_ellipse(canvas, c + Vector2(0, rad * float(k)), rad * sqrt(maxf(0.05, 1.0 - float(k) * float(k))), rad * 0.12, P.a(col, 0.20))
+	for k2 in [-0.65, -0.25, 0.25, 0.65]:
+		_draw_ellipse(canvas, c, rad * 0.14, rad * sqrt(maxf(0.05, 1.0 - float(k2) * float(k2))), P.a(col, 0.16))
+	# terminator：夜侧弧
+	canvas.draw_arc(c, rad, PI * 0.5, PI * 1.5, 32, P.a(col, 0.36), 1.0, true)
+	# 刻度
+	for i in range(12):
+		var a := TAU * float(i) / 12.0
+		var p0 := c + Vector2(cos(a), sin(a)) * (rad - 3.0)
+		var p1 := c + Vector2(cos(a), sin(a)) * (rad + 3.0)
+		canvas.draw_line(p0, p1, P.a(col, 0.35), 1.0)
+		if i % 3 == 0:
+			canvas.draw_string(F.mono(), p1 + Vector2(3, 4), "%d°" % (i * 30), HORIZONTAL_ALIGNMENT_LEFT, -1, 5, P.a(col, 0.55))
 
 
 func _draw_ellipse(canvas: CanvasItem, c: Vector2, rx: float, ry: float, col: Color) -> void:
