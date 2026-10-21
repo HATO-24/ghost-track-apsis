@@ -770,3 +770,39 @@ v1_hud.gd
 - 主菜单标题/版本/OCUVF-ID13 程序化徽记；1920/1600 自适应。
 - 截图 `mockups/main-menu-1920.png`、`main-menu-1600.png`。
 - 边界：无 `assets/emblems` 图片，使用程序化徽记；SETTINGS 占位；未跑全量 regression。
+
+
+---
+
+## 27　方案B-22：交通管制/OTC UI（task-189）
+
+### 27.1 数据源
+
+- ShellBinder 优先使用 `session.traffic_control`；当前 GameSession 无该组件，**fallback 直连** `TrafficControlService`：
+  - content `facilities_system.json` + `lanes_system.json`；
+  - 启动日志：`TrafficControl source=direct-fallback ready=true lanes=18 otc=19 npc=6`。
+- ShellBinder 提供 `traffic_vm/lane_rows/otc_rows/npc_rows/request/permit/occupy/release/disguise/clues`。
+
+### 27.2 TRAFFIC/OTC overlay
+
+- 三栏 V1 自绘：
+  - 左：19 颗 OTC 按 cluster 分组（facility_id/facility_code/transponder/orbit）；
+  - 中：18 条航道（lane_id/name、from→to、capacity、window、priority、free/queue）；
+  - 右：NPC 列表、SELECTED OTC/LANE、操作按钮、DISGUISE/ANOMALY、EVENTS。
+- 操作：REQUEST CLEARANCE、PERMIT、OCCUPY、RELEASE 全部真实 TrafficControlService。
+- DISGUISE：选 OTC（transponder/facility）与 lane（route），`record_disguise` 显示 anomalies/probability/detected/clues；失败 reason 显示。
+- 空状态 `TRAFFIC NOT READY`；source 明确显示 `DIRECT-FALLBACK` 或 `SESSION`。
+
+### 27.3 实测 / 截图
+
+- 真实操作：`REQUEST LANE-L1-IN-01 · OK → PERMIT OK → OCCUPY OK → DISGUISE OK · detected=true p=0.60 anomalies=1`；request=REQ-00001，clearance=CLR-00001。
+- 通信/日志追加 OTC REQUEST/PERMIT/OCCUPY/RELEASE/DISGUISE 行；COMMS 页 TRAFFIC EVENTS。
+- 截图 `mockups/v1-hud-traffic-1920.png`、`v1-hud-traffic-1600.png`（1920×1080 / 1600×900）。
+- headless v1_hud 一次；`v1_hud.gd/shell_binder.gd --check-only` 通过。
+
+### 27.4 未完成 / 边界
+
+1. `session.traffic_control` 当前不存在，截图 source=direct-fallback；真实数据来自同一 core 服务。
+2. NPC 排队/占用只读展示；未做 NPC AI/调度移动。
+3. DISGUISE 选择使用当前选中 OTC+lane，未做独立三下拉选择器；不写 world/物理。
+4. 未跑全量 regression。

@@ -57,6 +57,7 @@ func _initialize() -> void:
 	_test_transponder_integration()
 	_test_ew_integration()
 	_test_legal_status_integration()
+	_test_traffic_integration()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -2961,3 +2962,171 @@ func _test_legal_status_integration() -> void:
 	_eq(a.save_state(), b.save_state(), "legal 同操作 save 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "legal contracts ok 2")
 	_data_line("legal", "可选退化 · 初始 UNLISTED · 事件/去重/影响接口 · tick · save/load/旧档 · 确定")
+
+# ═══════════════════════════════════════════════════════════════════
+# 37. TrafficControl 集成（OTC/航道/NPC/伪装/事件/存档）
+# ═══════════════════════════════════════════════════════════════════
+
+func _traffic_cfg() -> Dictionary:
+	return {"traffic_control": true}
+
+func _test_traffic_integration() -> void:
+	_section_begin("37 TrafficControl 集成")
+	# 默认不启用 → 退化
+	var off = _new_session()
+	_ok(off.traffic_control == null, "默认无 traffic_control")
+	_eq(off.traffic_vm().size(), 0, "无 traffic VM 空")
+	_eq(off.traffic_summary().size(), 0, "无 traffic summary 空")
+	_eq(off.traffic_clues().size(), 0, "无 traffic clues 空")
+	_eq(off.traffic_lane("LANE-L1-IN-01").size(), 0, "无 traffic lane 空")
+	_eq(off.traffic_otc_for("L1_MERIDIAN").size(), 0, "无 traffic otc 空")
+	_eq(str(off.traffic_request("T1", "LANE-L1-IN-01").get("reason", "")),
+		"no_traffic_control", "无 traffic request 拒绝")
+	_eq(str(off.traffic_permit("R1").get("reason", "")), "no_traffic_control",
+		"无 traffic permit 拒绝")
+	_eq(str(off.traffic_occupy("LANE-L1-IN-01", "T1").get("reason", "")),
+		"no_traffic_control", "无 traffic occupy 拒绝")
+	_eq(str(off.traffic_release("LANE-L1-IN-01").get("reason", "")),
+		"no_traffic_control", "无 traffic release 拒绝")
+	_eq(str(off.traffic_disguise("T1").get("reason", "")), "no_traffic_control",
+		"无 traffic disguise 拒绝")
+	_ok(off.snapshot().get("traffic_control") == null, "无 traffic snapshot null")
+	var off_save = JSON.parse_string(off.save_state())
+	_ok(off_save is Dictionary and off_save.get("traffic_control", "x") == "",
+		"无 traffic save 字段空")
+	# 启用
+	var s = GameSession.new(_traffic_cfg())
+	_ok(bool(s.ready), "traffic session ready", str(s.errors))
+	_ok(s.traffic_control != null and bool(s.traffic_control.ready), "traffic ready")
+	_near(float(s.traffic_control.t), s.now_s(), 1.0e-6, "traffic boot 时间同步")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "traffic boot contracts ok")
+	var sum: Dictionary = s.traffic_summary()
+	_eq(str(sum.get("schema", "")), "traffic_control.v1", "traffic summary schema")
+	_eq(int(sum.get("facilities", 0)), 110, "traffic facilities 110")
+	_eq(int(sum.get("lanes", 0)), 18, "traffic lanes 18")
+	_eq(bool((sum.get("writes", {}) as Dictionary).get("world", true)), false,
+		"traffic 不写 world")
+	var vm: Dictionary = s.traffic_vm()
+	_eq(str(vm.get("schema", "")), "traffic_control.v1", "traffic VM schema")
+	_eq(bool((vm.get("writes", {}) as Dictionary).get("track_table", true)), false,
+		"traffic 不写 track_table")
+	_eq(str(s.traffic_lane("LANE-L1-IN-01").get("name", "")), "Meridian 进港主航道",
+		"traffic lane query")
+	_ok(s.traffic_otc_for("L1_MERIDIAN").size() >= 2, "traffic otc query")
+	_eq(s.traffic_lane("NOPE").size(), 0, "traffic 未知 lane 空")
+	_ok(s.snapshot().get("traffic_control") is Dictionary, "snapshot traffic")
+	# tick / NPC / bus
+	var world_before := _norm_json(s.world.entities_sorted())
+	var tk0: Dictionary = s.tick(0.0)
+	_eq(bool(tk0.get("ok", false)), true, "traffic tick 0 ok")
+	_ok(bool((tk0.get("components", {}) as Dictionary).get("traffic", false)),
+		"components.traffic")
+	_ok(bool((tk0.get("traffic_step", {}) as Dictionary).get("enabled", false)),
+		"traffic_step enabled")
+	_near(float(s.traffic_control.t), s.now_s(), 1.0e-6, "tick 后 traffic t 同步")
+	var tk: Dictionary = s.tick(5.0)
+	_eq(bool(tk.get("ok", false)), true, "traffic tick 5 ok")
+	var npc_count := int(s.traffic_summary().get("npc", 0))
+	_ok(npc_count >= 1, "NPC 被 tick 激活", str(npc_count))
+	_eq(_norm_json(s.world.entities_sorted()), world_before, "traffic 不改 world")
+	# API request/permit/occupy/release
+	var req: Dictionary = s.traffic_request("TRK-1", "LANE-L1-IN-01",
+		{"priority": 1, "width": 1})
+	_eq(bool(req.get("ok", false)), true, "traffic request ok")
+	var rid := str(req.get("request_id", ""))
+	var perm: Dictionary = s.traffic_permit(rid)
+	_eq(bool(perm.get("ok", false)), true, "traffic permit ok")
+	var cid := str(perm.get("clearance_id", ""))
+	var occ: Dictionary = s.traffic_occupy("LANE-L1-IN-01", "TRK-1",
+		{"clearance_id": cid})
+	_eq(bool(occ.get("ok", false)), true, "traffic occupy ok")
+	var occ_id := str(occ.get("occupancy_id", ""))
+	_ok(occ_id != "", "occupancy id")
+	_eq(bool(s.traffic_release("LANE-L1-IN-01", "TRK-1").get("ok", false)), true,
+		"traffic release ok")
+	# 失败不改状态
+	var before_fail := _norm_json(s.traffic_vm())
+	_ok(not bool(s.traffic_permit("NOPE").get("ok", true)), "未知 request 拒绝")
+	_ok(not bool(s.traffic_request("T2", "NOPE").get("ok", true)), "未知 lane 拒绝")
+	_eq(_norm_json(s.traffic_vm()), before_fail, "失败不改 traffic VM")
+	# 伪装/线索/文本
+	var dis: Dictionary = s.traffic_disguise("TRK-1",
+		{"transponder_code": "TXP-L1-05", "facility_code": "FC-L1-05",
+			"lane_id": "LANE-L1-IN-01", "claimed_class": "fuel"},
+		{"force_detected": true})
+	_eq(bool(dis.get("ok", false)), true, "traffic disguise ok")
+	_eq(bool(dis.get("detected", false)), true, "disguise force detected")
+	_ok((dis.get("clue_ids", []) as Array).size() >= 1, "disguise clues")
+	_ok(s.traffic_clues("TRK-1").size() >= 1, "traffic clues 查询")
+	_ok(s.traffic_clues("").size() >= s.traffic_clues("TRK-1").size(),
+		"traffic 全线索")
+	# tick 将 API/伪装产生的 outbox 事件白名单发布到 bus
+	var tk2: Dictionary = s.tick(0.0)
+	_ok(int((tk2.get("traffic_step", {}) as Dictionary).get("routed", 0)) >= 1,
+		"traffic tick routed")
+	_eq(bool(tk2.get("ok", false)), true, "traffic tick2 ok")
+	# 事件白名单进 bus
+	var types: Array = _event_types(s.bus.recent(300))
+	for t in ["traffic.lane_record", "traffic.otc_event", "traffic.clue"]:
+		_ok(str(t) in types, "bus " + str(t))
+	var traffic_ev_ok := true
+	for raw in s.bus.recent(300):
+		if raw is Dictionary and str((raw as Dictionary).get("type", "")).begins_with("traffic."):
+			var ev: Dictionary = raw
+			if not str(ev.get("type", "")) in ["traffic.lane_record",
+					"traffic.otc_event", "traffic.clue"]:
+				traffic_ev_ok = false
+			if not (ev.get("payload") is Dictionary):
+				traffic_ev_ok = false
+	_ok(traffic_ev_ok, "traffic bus 仅白名单 payload")
+	# save/load
+	var save := s.save_state()
+	var d = JSON.parse_string(save)
+	_ok(d is Dictionary and (d as Dictionary).has("traffic_control"), "save 含 traffic")
+	_ok((d as Dictionary).get("traffic_control", "") != "", "save traffic 非空")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "traffic load ok", str(lr.get("errors", [])))
+	_ok(s2.traffic_control != null, "load 重建 traffic")
+	_eq(_norm_json(s.traffic_vm()), _norm_json(s2.traffic_vm()), "load traffic VM 一致")
+	_eq(_norm_json(s.traffic_summary()), _norm_json(s2.traffic_summary()),
+		"load traffic summary 一致")
+	_eq(_norm_json(s.snapshot()), _norm_json(s2.snapshot()), "load snapshot 一致")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load contracts ok")
+	# load 后继续 API
+	var r2: Dictionary = s2.traffic_request("TRK-2", "LANE-L1-OUT-01",
+		{"priority": 2, "width": 1})
+	_eq(bool(r2.get("ok", false)), true, "load 后 request")
+	# 旧存档兼容：删除字段+seed 配置
+	var old: Dictionary = (d as Dictionary).duplicate(true)
+	old.erase("traffic_control")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("traffic_control")
+	old["seed"] = old_seed
+	var s3 = GameSession.new()
+	var lr3: Dictionary = s3.load_state(JSON.stringify(old))
+	_eq(bool(lr3.get("ok", false)), true, "旧存档缺 traffic 兼容", str(lr3.get("errors", [])))
+	_ok(s3.traffic_control == null, "旧存档 traffic 退化")
+	# 非法 traffic 快照
+	var bad: Dictionary = (d as Dictionary).duplicate(true)
+	bad["traffic_control"] = "{\"schema\":\"bad\"}"
+	var s4 = GameSession.new()
+	_eq(bool(s4.load_state(JSON.stringify(bad)).get("ok", true)), false,
+		"非法 traffic 快照拒绝")
+	# 坏配置
+	var sbad = GameSession.new({"traffic_control": {"lanes_path": "/no/such.json"}})
+	_ok(not bool(sbad.ready), "traffic 坏 lanes 配置拒绝")
+	# 确定性
+	var a = GameSession.new(_traffic_cfg())
+	var b = GameSession.new(_traffic_cfg())
+	for sv in [a, b]:
+		sv.tick(5.0)
+		sv.traffic_request("TRK-D", "LANE-L1-IN-01", {"priority": 1})
+		sv.traffic_disguise("TRK-D", {"transponder_code": "TXP-L1-05",
+			"facility_code": "FC-L1-05", "lane_id": "LANE-L1-IN-01"},
+			{"force_detected": true})
+	_eq(_norm_json(a.traffic_vm()), _norm_json(b.traffic_vm()),
+		"traffic 同操作 VM 一致")
+	_eq(a.save_state(), b.save_state(), "traffic 同操作 save 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "traffic contracts ok 2")
+	_data_line("traffic", "可选退化 · 110 设施/18 航道 · API/失败 · NPC tick · 伪装/线索 · bus · 存档/旧档/确定性")

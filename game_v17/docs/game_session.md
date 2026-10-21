@@ -3,7 +3,7 @@
 > 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）+ 3P（task-164）+ 3R（task-167）。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=1001 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=1127 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -28,7 +28,8 @@ GameSession
  ├─ FacilityRegistry（可选） 全设施只读注册表；cluster/站/应答机/港口/物理参数
  ├─ TransponderService（可选） 应答机行为；询问/广播/状态/加密/触发→evidence/events
  └─ IdentificationService（可选） 识别自动化/证据融合；自动询问/身份评估→identity.* 事件
- └─ LegalStatusService（可选） ID13 法律状态/影响标志；UNLISTED→HUNTED/CLEARED；不写 world
+ ├─ LegalStatusService（可选） ID13 法律状态/影响标志；UNLISTED→HUNTED/CLEARED；不写 world
+ └─ TrafficControlService（可选） OTC/航道/NPC/伪装线索；申请-许可-占用-释放；不写 world/TrackTable/UI
 ```
 
 - **依赖方向**：OrderService 内部持有 CommsService；`tick` 时订单服务推进通信并消费其投递事件。
@@ -68,6 +69,10 @@ GameSession
   heat/阈值迁移，去重、log、reason；`impact()` 只输出 `port_access(UEG/共管)/
   iff_watch_flag/combat_roe_modifier/ending_branch_hint`，**不**改 world side/
   港口/ROE/法律文本；不写 UI；CLEARED 锁定。
+- **TrafficControlService（4D）**：可选 OTC/航道/NPC/伪装线索服务；session 在 tick
+  调 `step(sim_dt)`（NPC 定时/窗口/clearance 过期/队列），API 委托申请/许可/占用/
+  释放/伪装；事件白名单 `lane_record/otc_event/clue` 映射为 `traffic.*` 发布 EventBus；
+  不写 world/TrackTable/UI；存档嵌入服务快照。
 - **TransponderService（3P）**：应答机行为层（ship 绑 entity，station/port/fuel/tank/otc/relay
   绑 FacilityRegistry）；询问/广播输出 `track_evidence.v1`（→TrackTable 白名单）与
   `transponder_event.v1`（→bus `transponder.<kind>`）；不写 world；触发只输出 trigger_id/event，
@@ -112,6 +117,7 @@ config 可覆盖字段（省略用 demo）：
 | `transponder_service` | **可选**：`true`（默认序章内容）或配置 `{content_path/content/max_range_km/max_latency_s/jam}`；缺省/`false` → 不组合；station 绑定自动注入 FacilityRegistry |
 | `identification_service` | **可选**：`true` 或配置 `{auto{enabled,interval_s,modes,max_range_km,...}/evidence_ttl_s/decay_half_life_s}`；缺省/`false` → 不组合 |
 | `legal_status` | **可选**：`true` 或配置 `{thresholds/weights/impacts/decay_per_day/allow_deescalation}`；缺省/`false` → 不组合；旧档兼容 |
+| `traffic_control` | **可选**：`true` 或配置 `{facilities_path/lanes_path/facilities_content/lanes_content}`；缺省/`false` → 不组合；旧档兼容 |
 
 - boot 建 5 个必需组件 + 可选 TrackTable/StoryState；任一启用组件 `ready=false` → `ok=false` + errors，不伪造。
 - TrackTable 默认 writer = `<session writer>_fusion`；StoryState 时间在 boot 时对齐 session 时间。
@@ -159,6 +165,8 @@ config 可覆盖字段（省略用 demo）：
 | `legal_apply_event/apply_legal_event/legal_set_status/legal_tick` | ID13 法律状态事件/显式设置/时间推进（可选组件；失败不改状态） |
 | `legal_vm/legal_summary/legal_impact/legal_status_text` | 只读 VM/摘要/影响标志/当前状态 |
 | `legal_port_access/legal_iff_watch_flag/legal_combat_roe_modifier/legal_ending_branch_hint` | UEG/共管港访问、IFF watch、ROE 修正、结局分支提示（只输出标志） |
+| `traffic_vm/traffic_summary/traffic_lane/traffic_otc_for/traffic_clues` | OTC/航道/NPC/伪装线索只读查询（可选组件；无组件返回空） |
+| `traffic_request/traffic_permit/traffic_occupy/traffic_release/traffic_disguise` | 交通申请/许可/占用/释放/伪装（服务显式 API 委托；失败不改状态） |
 | `light_send/light_receive/light_ack/signal_vm/signal_summary/signal_flush_events` | 可见光灯语发送/接收/确认、只读 VM/摘要、显式拉取 Signal outbox |
 | `apply_ew/ew_observation_effect/ew_comms_effect/ew_transponder_effect/ew_active/ew_vm` | EW 效果应用/观测-通信-应答机影响/活动效果/只读 VM；apply 记录 log 可 replay |
 | `set_ew_emcon` | EW EMCON 开关（独立于 sensor `set_emcon`；只写 EWService） |
@@ -186,6 +194,9 @@ config 可覆盖字段（省略用 demo）：
    推进火灾/失压/断电/维修；damage.* 事件发布到 bus；
 9b. `legal_status_service.tick(sim_dt)`（可选；decay/状态变化只写 LegalStatusService 日志与
    `legal_status_tick` 返回；**不**写 world/TrackTable/其他组件）；
+9c. `traffic_control.step(sim_dt)`（可选；NPC/窗口/队列；outbox 白名单
+   `lane_record/otc_event/clue` → `traffic.*` EventBus；**不**写 world/TrackTable/UI；
+   结果在 `traffic_step`，components.traffic=true）；
 10. 白名单总线路由：tick 处理 bus 中未被路由且类型在白名单的事件（`track.observation` 等）；
 11. standalone `send_comms` 的投递对账：tick 后 pending 消失 → 发布 `comms.delivered`；
 12. 事件 bus 只接收发布；不改变 world 实体（probe 断言 tick 前后 world 不变；physics 也
@@ -249,6 +260,9 @@ config 可覆盖字段（省略用 demo）：
 - **LegalStatus 一致**：`legal_status_service.ready` 且自身 contracts ok（status/heat/log/
   阈值递增）；只输出 impact 标志，不改 world side/港口/ROE/法律文本；CLEARED 锁定；
   日志中的 legal op 在未启用组件的旧档中跳过。
+- **Traffic 一致**：`traffic_control.ready`、`t == now_s()`、vm().writes 全 false；
+  `traffic.*` 事件只读发布，不由 bus 回写 world/TrackTable；旧档缺字段/seed 配置 →
+  组件退化、traffic replay 跳过（skipped:no_traffic_control）。
 - tick 失败/拒绝路径不静默：返回 `ok=false` + `errors/contract_errors`；失败订单不伪造状态。
 
 ## 5　内存 save/load（不写盘）
@@ -273,6 +287,7 @@ ew_service: <EWService.save_state() JSON> | "",
   transponder_service: <TransponderService.save_state() JSON> | "",
   identification_service: <IdentificationService.save_state() JSON> | "",
   legal_status_service: <LegalStatusService.save_state() JSON> | "",
+  traffic_control: <TrafficControlService.save_state() JSON> | "",
   bus: {seq, events[]}
 }
 ```
@@ -313,6 +328,13 @@ thresholds/weights/impacts/t/seq）；load 校验后恢复；load 后 legal_vm/s
 记录操作日志；旧存档缺字段/seed 配置 → 组件退化、对应 legal replay 跳过
 （`skipped:no_legal_status_service`），不报错。
 
+**Traffic 存档**：save 嵌入 TrafficControlService 快照（t/requests/clearances/
+occupancies/active_npc/disguises/clues/records/events/seq）；load 校验后恢复；
+load 后 traffic_vm/summary/snapshot 一致、可继续 request/permit/occupy/disguise；
+`traffic_request/traffic_permit/traffic_occupy/traffic_release/traffic_disguise`
+记录操作日志；旧存档缺字段/seed 配置 → 组件退化、对应 traffic replay 跳过
+（`skipped:no_traffic_control`），不报错。
+
 **Port/Combat 存档**：save 嵌入二者 `save_state()` JSON；load 时先 boot(seed) 重建并按 log 重放
 （port/combat 委托操作 + tick），再恢复快照；load 后 VM/snapshot 一致、时间与 session 同步、
 可继续操作/再次 save。旧存档缺 `port_service/combat_service` 字段与 seed 配置时，replay 对应操作
@@ -337,7 +359,7 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=1001 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=1127 FAIL=0（exit 0，只跑一次）
 ```
 
 覆盖（35 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
@@ -363,7 +385,7 @@ solution/READY/grant/check/confirmed fire/冷却拒绝/未知目标/友方拒绝
 shot_id 去重、失败不改状态）；**EW 集成**（可选退化、apply/tick/bus、observation/comms/transponder 接口、EMCON、save/load）；**Damage 存档**（save 嵌入 damage 快照、load VM/snapshot 一致、
 继续维修/tick、旧档兼容、同操作确定性）；**LegalStatus 集成**（可选退化、初始 UNLISTED、
 apply_event/去重/影响接口、tick、save/load/旧档兼容、确定性）。
-当前 `V17 SESSION PROBE RESULT: PASS=1057 FAIL=0`（含 legal；exit 0，只跑一次）。
+当前 `V17 SESSION PROBE RESULT: PASS=1127 FAIL=0`（含 legal/traffic；exit 0，只跑一次）。
 
 ## 7　边界 / 未完成
 
@@ -385,6 +407,8 @@ apply_event/去重/影响接口、tick、save/load/旧档兼容、确定性）�
 - IdentificationService 只做证据融合/识别建议：自动最高 suspect/L3，hostile 需授权，
   L4 需人工/授权或两类独立高置信证据；自动询问不发射武器；不写 world/TrackTable/UI；
   confidence/阈值是可调游戏参数，不复刻真实 IFF 概率模型。
+- TrafficControlService 只做 OTC/航道/NPC/伪装线索：申请/许可/占用/释放由显式 API 驱动；
+  `traffic.*` 只读事件进 bus；不写 world/TrackTable/UI/V15；不做物理/泊位/身份判定。
 - LegalStatusService 只做 ID13 法律状态与影响标志：heat/阈值迁移、去重、log；
   `impact()` 只读输出 port_access/iff_watch/roe_modifier/ending_hint，**不**改 world side、
   港口放行、战斗 ROE 或法律文本；CLEARED 锁定；不写 UI/V15。

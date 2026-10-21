@@ -30,6 +30,7 @@ const FacilityRegistryScript := preload("res://scripts/core/facility_registry.gd
 const TransponderServiceScript := preload("res://scripts/core/transponder_service.gd")
 const IdentificationServiceScript := preload("res://scripts/core/identification_service.gd")
 const LegalStatusServiceScript := preload("res://scripts/core/legal_status_service.gd")
+const TrafficControlServiceScript := preload("res://scripts/core/traffic_control_service.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -63,6 +64,7 @@ var facility_registry = null
 var transponder_service = null
 var identification_service = null
 var legal_status_service = null
+var traffic_control = null
 
 var _track_enabled := false
 var _sensor_enabled := false
@@ -76,6 +78,7 @@ var _facility_enabled := false
 var _transponder_enabled := false
 var _identification_enabled := false
 var _legal_enabled := false
+var _traffic_enabled := false
 var _last_signal_route: Dictionary = {}
 var _signal_missing_meta_warned: Dictionary = {}
 var _damage_applied_shots: Dictionary = {}
@@ -135,7 +138,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -165,6 +168,7 @@ func boot(config := {}) -> Dictionary:
 	transponder_service = null
 	identification_service = null
 	legal_status_service = null
+	traffic_control = null
 	_last_signal_route = {}
 	_signal_missing_meta_warned = {}
 	_damage_applied_shots = {}
@@ -176,6 +180,7 @@ func boot(config := {}) -> Dictionary:
 	_damage_enabled = false
 	_identification_enabled = false
 	_legal_enabled = false
+	_traffic_enabled = false
 	_track_writer = ""
 	_last_track_t = 0.0
 	_last_story_revision = 0
@@ -228,6 +233,8 @@ func boot(config := {}) -> Dictionary:
 	if _identification_enabled and identification_service != null and not bool(identification_service.ready):
 		extra_ok = false
 	if _legal_enabled and legal_status_service != null and not bool(legal_status_service.ready):
+		extra_ok = false
+	if _traffic_enabled and traffic_control != null and not bool(traffic_control.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -294,6 +301,8 @@ func boot(config := {}) -> Dictionary:
 		identification_service.set_time(now_s())
 	if legal_status_service != null:
 		legal_status_service.t = now_s()
+	if traffic_control != null:
+		traffic_control.t = now_s()
 	_damage_applied_shots = {}
 	_last_bus_routed_index = bus.count()
 	_flush_component_events()
@@ -461,6 +470,15 @@ func _setup_optional_components() -> void:
 			errors.append("legal_status_service 未就绪：" + str(legal_status_service.errors))
 		else:
 			_legal_enabled = true
+	var traffic = _seed.get("traffic_control", null)
+	var traffic_on := (traffic is Dictionary) or (traffic is bool and bool(traffic))
+	if traffic_on:
+		var tcfg: Dictionary = {} if (traffic is bool) else (traffic as Dictionary).duplicate(true)
+		traffic_control = TrafficControlServiceScript.new(tcfg)
+		if not bool(traffic_control.ready):
+			errors.append("traffic_control 未就绪：" + str(traffic_control.errors))
+		else:
+			_traffic_enabled = true
 	var pw = _seed.get("physics_world", null)
 	var pw_on := (pw is Dictionary) or (pw is bool and bool(pw))
 	if pw_on:
@@ -660,6 +678,7 @@ func tick(dt: float) -> Dictionary:
 	var transponder_tick: Dictionary = _advance_transponder(sim_dt)
 	var identification_tick: Dictionary = _advance_identification(sim_dt)
 	var legal_tick: Dictionary = _advance_legal_status(sim_dt)
+	var traffic_step: Dictionary = _advance_traffic(sim_dt)
 	_flush_component_events()
 	var routed: Array = _route_pending_bus_events()
 	_reconcile_standalone(pending_before)
@@ -684,6 +703,7 @@ func tick(dt: float) -> Dictionary:
 			"transponder": transponder_service != null,
 			"identification": identification_service != null,
 			"legal_status": legal_status_service != null,
+			"traffic": traffic_control != null,
 		},
 		"sensor_route": sensor_route,
 		"port_combat": port_combat,
@@ -695,6 +715,7 @@ func tick(dt: float) -> Dictionary:
 		"transponder_tick": transponder_tick,
 		"identification_tick": identification_tick,
 		"legal_status_tick": legal_tick,
+		"traffic_step": traffic_step,
 		"contracts": contracts}
 
 func _check_post() -> void:
@@ -1190,6 +1211,41 @@ func _advance_legal_status(sim_dt: float) -> Dictionary:
 	return {"enabled": true, "ok": true, "status": str(res.get("status", "")),
 		"heat": float(res.get("heat", 0.0)), "changed": bool(res.get("changed", false)),
 		"t": float(legal_status_service.t)}
+
+## tick 推进 OTC/交通管制：step 驱动 NPC/窗口/队列；白名单事件发布 bus；
+## 不写 world/TrackTable/UI。
+func _advance_traffic(sim_dt: float) -> Dictionary:
+	if traffic_control == null:
+		return {"enabled": false}
+	var step: Dictionary = traffic_control.step(sim_dt)
+	if not bool(step.get("ok", true)):
+		warnings.append("traffic_control step 失败：" + str(step.get("reason", "")))
+		return {"enabled": true, "ok": false, "reason": str(step.get("reason", ""))}
+	var routed := 0
+	for raw in traffic_control.take_events():
+		if not (raw is Dictionary):
+			continue
+		var ev: Dictionary = raw
+		var kind := str(ev.get("kind", ""))
+		if not (kind in ["lane_record", "otc_event", "clue"]):
+			continue
+		var payload := (ev.get("payload", {}) as Dictionary).duplicate(true) \
+			if ev.get("payload") is Dictionary else {}
+		var out := _mk_event("traffic." + kind, str(payload.get("lane_id",
+			payload.get("track_id", ""))), {
+				"schema": str(ev.get("schema", "traffic_event.v1")),
+				"kind": kind, "seq": int(ev.get("seq", 0)), "t": float(ev.get("t", 0.0)),
+				"shadow": bool(ev.get("shadow", true)),
+				"writes_v15": false, "payload": payload})
+		var pub: Dictionary = bus.publish(out)
+		if bool(pub.get("ok", false)):
+			routed += 1
+			_tick_events.append(pub.get("event", {}))
+		else:
+			warnings.append("traffic 事件发布失败：" + kind)
+	return {"enabled": true, "ok": true, "t": float(traffic_control.t),
+		"events": (traffic_control.events as Array).size(),
+		"routed": routed, "counts": traffic_control._counts()}
 
 ## 自动询问执行：transponder 询问 → 把 reply 作为证据回灌识别；不写 world。
 func _execute_identification_query(req: Dictionary) -> Dictionary:
@@ -2652,6 +2708,80 @@ func legal_status() -> String:
 func legal_status_get_status() -> String:
 	return legal_status_text()
 
+# ── 交通管制（OTC/航道/NPC；可选组件）──────────────────────────
+
+func traffic_vm() -> Dictionary:
+	return traffic_control.vm() if traffic_control != null else {}
+
+func traffic_summary() -> Dictionary:
+	return traffic_control.summary() if traffic_control != null else {}
+
+func traffic_request(track_id: String, lane_id: String, opts := {}) -> Dictionary:
+	if traffic_control == null:
+		return {"ok": false, "reason": "no_traffic_control"}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var r: Dictionary = traffic_control.request_clearance(track_id, lane_id, o)
+	if bool(r.get("ok", false)):
+		_record({"op": "traffic_request", "track_id": track_id, "lane_id": lane_id,
+			"opts": _json_norm(o)})
+	return r
+
+func traffic_permit(request_id: String, opts := {}) -> Dictionary:
+	if traffic_control == null:
+		return {"ok": false, "reason": "no_traffic_control"}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var r: Dictionary = traffic_control.permit(request_id, o)
+	if bool(r.get("ok", false)):
+		_record({"op": "traffic_permit", "request_id": request_id,
+			"opts": _json_norm(o)})
+	return r
+
+func traffic_occupy(lane_id: String, occupant_id: String, opts := {}) -> Dictionary:
+	if traffic_control == null:
+		return {"ok": false, "reason": "no_traffic_control"}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var r: Dictionary = traffic_control.occupy(lane_id, occupant_id, o)
+	if bool(r.get("ok", false)):
+		_record({"op": "traffic_occupy", "lane_id": lane_id,
+			"occupant_id": occupant_id, "opts": _json_norm(o)})
+	return r
+
+func traffic_release(lane_id: String, occupant_id := "") -> Dictionary:
+	if traffic_control == null:
+		return {"ok": false, "reason": "no_traffic_control"}
+	var r: Dictionary = traffic_control.release(lane_id, occupant_id)
+	if bool(r.get("ok", false)):
+		_record({"op": "traffic_release", "lane_id": lane_id,
+			"occupant_id": occupant_id})
+	return r
+
+func traffic_disguise(track_id: String, disguise := {}, opts := {}) -> Dictionary:
+	if traffic_control == null:
+		return {"ok": false, "reason": "no_traffic_control"}
+	var d: Dictionary = disguise if disguise is Dictionary else {}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var r: Dictionary = traffic_control.record_disguise(track_id, d, o)
+	if bool(r.get("ok", false)):
+		_record({"op": "traffic_disguise", "track_id": track_id,
+			"disguise": _json_norm(d), "opts": _json_norm(o)})
+	return r
+
+func traffic_clues(track_id := "") -> Array:
+	return traffic_control.clues_for(track_id) if traffic_control != null else []
+
+func traffic_lane(lane_id: String) -> Dictionary:
+	return traffic_control.lane(lane_id) if traffic_control != null else {}
+
+func traffic_otc_for(cluster_id: String) -> Array:
+	return traffic_control.otc_for(cluster_id) if traffic_control != null else []
+
+# 兼容别名（脚本/UI 事件驱动）
+func apply_traffic_request(track_id: String, lane_id: String, opts := {}) -> Dictionary:
+	return traffic_request(track_id, lane_id, opts)
+
+func apply_traffic_disguise(track_id: String, disguise := {}, opts := {}) -> Dictionary:
+	return traffic_disguise(track_id, disguise, opts)
+
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -2757,6 +2887,17 @@ func check_contracts() -> Dictionary:
 		if not bool(legal_status_service.check_contracts().get("ok", false)):
 			v.append("legal 不变量失败：" + str(
 				legal_status_service.check_contracts().get("violations", [])))
+	if traffic_control != null:
+		if not bool(traffic_control.ready):
+			v.append("traffic_control 未就绪")
+		if absf(float(traffic_control.t) - now_s()) > 1.0e-6:
+			v.append("traffic 时间与会话不一致：%s != %s" % [
+				str(traffic_control.t), str(now_s())])
+		var tw = (traffic_control.vm().get("writes", {}) as Dictionary) \
+			if traffic_control.vm().get("writes") is Dictionary else {}
+		if bool(tw.get("world", false)) or bool(tw.get("track_table", false)) \
+				or bool(tw.get("ui", false)) or bool(tw.get("v15", false)):
+			v.append("traffic 声明写 world/track_table/ui/v15")
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -2816,6 +2957,7 @@ func snapshot() -> Dictionary:
 		"transponder": transponder_service.vm() if transponder_service != null else null,
 		"identification": identification_service.vm() if identification_service != null else null,
 		"legal_status": legal_status_service.vm() if legal_status_service != null else null,
+		"traffic_control": traffic_control.vm() if traffic_control != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -2854,6 +2996,7 @@ func save_state() -> String:
 		"transponder_service": transponder_service.save_state() if transponder_service != null else "",
 		"identification_service": identification_service.save_state() if identification_service != null else "",
 		"legal_status_service": legal_status_service.save_state() if legal_status_service != null else "",
+		"traffic_control": traffic_control.save_state() if traffic_control != null else "",
 		"bus": {
 			"seq": bus.current_seq(),
 			"events": JSON.parse_string(JSON.stringify(bus.events)),
@@ -2996,6 +3139,14 @@ func load_state(json_text: String) -> Dictionary:
 			var lr: Dictionary = legal_status_service.load_state(saved_legal)
 			if not bool(lr.get("ok", false)):
 				replay_errors.append("legal_status_service 快照恢复失败：" + str(lr.get("errors", [])))
+	var saved_traffic = data.get("traffic_control", null)
+	if saved_traffic != null and String(saved_traffic) != "":
+		if traffic_control == null:
+			replay_errors.append("存档含 traffic_control 快照但 boot 未启用 traffic_control")
+		else:
+			var trc: Dictionary = traffic_control.load_state(saved_traffic)
+			if not bool(trc.get("ok", false)):
+				replay_errors.append("traffic_control 快照恢复失败：" + str(trc.get("reason", trc.get("errors", []))))
 	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:
@@ -3319,6 +3470,30 @@ func _replay_op(op: Dictionary) -> Dictionary:
 			if legal_status_service == null:
 				return {"ok": true, "skipped": "no_legal_status_service"}
 			return legal_tick(float(op.get("dt", 0.0)))
+		"traffic_request":
+			if traffic_control == null:
+				return {"ok": true, "skipped": "no_traffic_control"}
+			return traffic_request(str(op.get("track_id", "")),
+				str(op.get("lane_id", "")), op.get("opts", {}))
+		"traffic_permit":
+			if traffic_control == null:
+				return {"ok": true, "skipped": "no_traffic_control"}
+			return traffic_permit(str(op.get("request_id", "")), op.get("opts", {}))
+		"traffic_occupy":
+			if traffic_control == null:
+				return {"ok": true, "skipped": "no_traffic_control"}
+			return traffic_occupy(str(op.get("lane_id", "")),
+				str(op.get("occupant_id", "")), op.get("opts", {}))
+		"traffic_release":
+			if traffic_control == null:
+				return {"ok": true, "skipped": "no_traffic_control"}
+			return traffic_release(str(op.get("lane_id", "")),
+				str(op.get("occupant_id", "")))
+		"traffic_disguise":
+			if traffic_control == null:
+				return {"ok": true, "skipped": "no_traffic_control"}
+			return traffic_disguise(str(op.get("track_id", "")),
+				op.get("disguise", {}), op.get("opts", {}))
 		"pause":
 			return pause()
 		"resume":

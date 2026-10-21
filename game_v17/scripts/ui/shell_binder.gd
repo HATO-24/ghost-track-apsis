@@ -12,6 +12,7 @@ const CeresChain := preload("res://scripts/core/ceres_chain.gd")
 const ChronosChain := preload("res://scripts/core/chronos_chain.gd")
 const AV4412Chain := preload("res://scripts/core/av4412_chain.gd")
 const AfterActionReport := preload("res://scripts/core/after_action_report.gd")
+const TrafficControlService := preload("res://scripts/core/traffic_control_service.gd")
 const SaveService := preload("res://scripts/core/save_service.gd")
 
 const TRANSFER_CACHE := "res://framework/content/transfer_l4_l1_cached.json"
@@ -43,6 +44,10 @@ var av4412_comms_lines: Array = []
 var after_action = null
 var report_ready := false
 var report_comms_lines: Array = []
+var traffic_service = null
+var traffic_ready := false
+var traffic_source := ""
+var traffic_comms_lines: Array = []
 var load_slot_requested := ""
 var load_ok := false
 var load_error := ""
@@ -116,6 +121,7 @@ func boot() -> bool:
 			seed["track_table"] = true
 			seed["story_state"] = true
 			seed["sensor_service"] = sensor_cfg
+			seed["traffic_control"] = true
 			seed["orders"] = [
 				{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
 			]
@@ -134,6 +140,7 @@ func boot() -> bool:
 			"signal_service": true,
 			"facility_registry": true,
 			"transponder_service": true,
+			"traffic_control": true,
 			"orders": [
 				{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
 			],
@@ -183,6 +190,18 @@ func boot() -> bool:
 		warnings.append("AfterActionReport 未 ready：" + str(after_action.errors))
 	else:
 		print("[SHELL BINDER] AfterActionReport ready branches=", after_action.branch_ids().size(), " templates=", after_action.report_templates.size())
+	if session != null and session.get("traffic_control") != null:
+		traffic_service = session.get("traffic_control")
+		traffic_source = "session"
+		traffic_ready = bool(traffic_service.ready) if traffic_service.get("ready") != null else true
+	else:
+		traffic_service = TrafficControlService.new({"facilities_path": "res://framework/content/facilities_system.json", "lanes_path": "res://framework/content/lanes_system.json"})
+		traffic_source = "direct-fallback"
+		traffic_ready = bool(traffic_service.ready)
+	if not traffic_ready:
+		warnings.append("TrafficControlService 未 ready：" + str(traffic_service.errors))
+	else:
+		print("[SHELL BINDER] TrafficControl source=", traffic_source, " ready=", traffic_ready, " lanes=", traffic_service.lanes_list.size(), " otc=", traffic_service.otc_satellites.size(), " npc=", traffic_service.npc_ships.size())
 	if session.sensor_service == null:
 		_seed_tracks()
 	_load_delta_v()
@@ -645,6 +664,85 @@ func timers() -> Array:
 	while out.size() > 4:
 		out.pop_front()
 	return out
+
+
+func traffic_vm() -> Dictionary:
+	return traffic_service.vm() if traffic_service != null else {}
+
+
+func traffic_lane(lane_id: String) -> Dictionary:
+	return traffic_service.lane(lane_id) if traffic_service != null else {}
+
+
+func traffic_lane_rows() -> Array:
+	if traffic_service == null:
+		return []
+	var out: Array = []
+	for lid in traffic_service.lanes_list:
+		var lane_row: Dictionary = traffic_service.lane(String(lid))
+		if not lane_row.is_empty():
+			out.append(lane_row)
+	return out
+
+
+func traffic_otc_rows() -> Array:
+	if traffic_service == null:
+		return []
+	return traffic_service.otc_satellites.duplicate(true)
+
+
+func traffic_npc_rows() -> Array:
+	if traffic_service == null:
+		return []
+	var out: Array = []
+	for raw in traffic_service.npc_ships.values():
+		if raw is Dictionary:
+			out.append((raw as Dictionary).duplicate(true))
+	return out
+
+
+func traffic_request(track_id: String, lane_id: String, opts := {}) -> Dictionary:
+	if traffic_service == null:
+		return {"ok": false, "reason": "no_traffic_service"}
+	var res: Dictionary = traffic_service.request_clearance(track_id, lane_id, opts)
+	traffic_comms_lines.append("[OTC 至 " + track_id + "]-[RDO]-[REQUEST " + lane_id + " · " + ("OK " + String(res.get("request_id", "")) if bool(res.get("ok", false)) else "FAILED " + String(res.get("reason", ""))) + "]")
+	return res
+
+
+func traffic_permit(request_id: String, opts := {}) -> Dictionary:
+	if traffic_service == null:
+		return {"ok": false, "reason": "no_traffic_service"}
+	var res: Dictionary = traffic_service.permit(request_id, opts)
+	traffic_comms_lines.append("[OTC 至 " + request_id + "]-[RDO]-[PERMIT · " + ("OK " + String(res.get("clearance_id", "")) if bool(res.get("ok", false)) else "FAILED " + String(res.get("reason", ""))) + "]")
+	return res
+
+
+func traffic_occupy(lane_id: String, occupant: String, opts := {}) -> Dictionary:
+	if traffic_service == null:
+		return {"ok": false, "reason": "no_traffic_service"}
+	var res: Dictionary = traffic_service.occupy(lane_id, occupant, opts)
+	traffic_comms_lines.append("[OTC 至 " + occupant + "]-[RDO]-[OCCUPY " + lane_id + " · " + ("OK " + String(res.get("occupancy_id", "")) if bool(res.get("ok", false)) else "FAILED " + String(res.get("reason", ""))) + "]")
+	return res
+
+
+func traffic_release(lane_id: String, occupant := "") -> Dictionary:
+	if traffic_service == null:
+		return {"ok": false, "reason": "no_traffic_service"}
+	var res: Dictionary = traffic_service.release(lane_id, occupant)
+	traffic_comms_lines.append("[OTC 至 " + occupant + "]-[RDO]-[RELEASE " + lane_id + " · " + ("OK" if bool(res.get("ok", false)) else "FAILED " + String(res.get("reason", ""))) + "]")
+	return res
+
+
+func traffic_disguise(track_id: String, disguise: Dictionary, opts := {}) -> Dictionary:
+	if traffic_service == null:
+		return {"ok": false, "reason": "no_traffic_service"}
+	var res: Dictionary = traffic_service.record_disguise(track_id, disguise, opts)
+	traffic_comms_lines.append("[DISGUISE " + track_id + "]-[RDO]-[" + ("DETECTED" if bool(res.get("detected", false)) else "ACTIVE") + " · anomalies " + str((res.get("anomalies", []) as Array).size()) + "]")
+	return res
+
+
+func traffic_clues(track_id := "") -> Array:
+	return traffic_service.clues_for(track_id) if traffic_service != null else []
 
 
 func report_sync() -> Dictionary:

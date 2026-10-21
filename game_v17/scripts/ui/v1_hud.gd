@@ -88,6 +88,15 @@ var _av4412_msg := ""
 var _av4412_buttons: Array = []
 var _report_msg := ""
 var _report_buttons: Array = []
+var _traffic_msg := ""
+var _traffic_buttons: Array = []
+var _traffic_otc_rows: Array = []
+var _traffic_lane_rows: Array = []
+var _traffic_otc := ""
+var _traffic_lane := ""
+var _traffic_request_id := ""
+var _traffic_clearance_id := ""
+var _traffic_last: Dictionary = {}
 var _save_slots: Array = []
 var _save_load_buttons: Array = []
 var _save_overlay_msg := ""
@@ -197,7 +206,10 @@ func _load_data() -> void:
 	var dok: bool = _damage.setup({}, "apsis")
 	print("[V1 HUD] damage_model=", str(dok), " sections=", _damage.section_ids().size(), " combat=", str(_combat.ready), " roe=", String(_combat.roe) if _combat != null else "—", " roe_locked=", str(_roe_locked))
 	var view := OS.get_environment("DSH_V1_VIEW")
-	if view == "report" or view == "prologue_complete":
+	if view == "traffic":
+		_overlay = "traffic"
+		call_deferred("_traffic_demo")
+	elif view == "report" or view == "prologue_complete":
 		_overlay = "report"
 		call_deferred("_report_demo", view == "prologue_complete")
 		return
@@ -549,7 +561,7 @@ func _draw_right(r: Rect2) -> void:
 	Painter.section(self, x, y, right, "SENSOR CONTROLS / 只读最小交互")
 	y += 10.0
 	_right_buttons.clear()
-	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["COMBAT", "COMBAT / 战斗"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["CHRONOS", "CHRONOS / 行动"], ["AV4412", "AV-4412 / 对峙"]]
+	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["COMBAT", "COMBAT / 战斗"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["CHRONOS", "CHRONOS / 行动"], ["AV4412", "AV-4412 / 对峙"], ["TRAFFIC", "TRAFFIC / OTC"]]
 	for i in range(labels.size()):
 		var bw := (r.size.x - 32.0) * 0.5 - 4.0
 		var col := i % 2
@@ -732,6 +744,8 @@ func _draw_overlay(l: Dictionary) -> void:
 		_draw_chronos_overlay(r)
 	elif _overlay == "av4412":
 		_draw_av4412_overlay(r)
+	elif _overlay == "traffic":
+		_draw_traffic_overlay(r)
 	elif _overlay == "report":
 		_draw_report_overlay(r)
 	elif _overlay == "complete":
@@ -835,6 +849,13 @@ func _draw_comms_overlay(r: Rect2) -> void:
 		for i in range(mini(2, binder.report_comms_lines.size())):
 			Painter.label(self, lp.position.x + 12, rp_cy, TM.fit(String(binder.report_comms_lines[i]), lp.size.x - 24, true, 7), 7, P.PH_DIM, true)
 			rp_cy += 14.0
+	if binder != null and not binder.traffic_comms_lines.is_empty():
+		var tf_cy := my + 168.0
+		Painter.label(self, lp.position.x + 12, tf_cy, "TRAFFIC EVENTS", 6, P.AMBER, true)
+		tf_cy += 11.0
+		for i in range(mini(2, binder.traffic_comms_lines.size())):
+			Painter.label(self, lp.position.x + 12, tf_cy, TM.fit(String(binder.traffic_comms_lines[i]), lp.size.x - 24, true, 7), 7, P.PH_DIM, true)
+			tf_cy += 14.0
 	# 链路明细，填满左栏下部（真实 comms vm links）
 	var link_y := lp.end.y - 174.0
 	Painter.section(self, lp.position.x + 10, link_y, lp.end.x - 10, "LINK DETAIL / 链路明细")
@@ -1165,6 +1186,194 @@ func _av4412_track() -> Dictionary:
 	radar = bool(ss.get("radar", false))
 	return {"t": float(binder.session.now_s()) if binder != null and binder.session != null else 0.0,
 		"pos": pos, "vel": vel, "window_open": true, "radar_active": radar}
+
+
+func _traffic_action(kind: String) -> void:
+	if binder == null or not binder.traffic_ready:
+		_traffic_msg = "TRAFFIC NOT READY"
+		return
+	var track := "apsis"
+	if _selected >= 0 and _selected < _contacts.size():
+		var c: Dictionary = _contacts[_selected]
+		if String(c.get("track_id", "")) != "":
+			track = String(c.get("track_id"))
+		elif String(c.get("entity_id", "")) != "":
+			track = String(c.get("entity_id"))
+		elif String(c.get("id", "")) != "":
+			track = String(c.get("id"))
+	var lane := _traffic_lane
+	if lane == "":
+		var lr: Array = binder.traffic_lane_rows()
+		lane = String((lr[0] as Dictionary).get("lane_id", "")) if not lr.is_empty() else ""
+	var otc := _traffic_otc
+	var row_otc: Dictionary = {}
+	for raw in binder.traffic_otc_rows():
+		if raw is Dictionary and String((raw as Dictionary).get("facility_id", "")) == otc:
+			row_otc = raw
+			break
+	var res: Dictionary = {}
+	match kind:
+		"REQUEST":
+			var opts := {"direction": String(binder.traffic_lane(lane).get("direction", "bidirectional"))}
+			if not row_otc.is_empty():
+				opts["facility_code"] = String(row_otc.get("facility_code", ""))
+				opts["transponder_code"] = String(row_otc.get("transponder_code", ""))
+			res = binder.traffic_request(track, lane, opts)
+			if bool(res.get("ok", false)):
+				_traffic_request_id = String(res.get("request_id", ""))
+		"PERMIT":
+			res = binder.traffic_permit(_traffic_request_id, {})
+			if bool(res.get("ok", false)):
+				_traffic_clearance_id = String(res.get("clearance_id", ""))
+		"OCCUPY":
+			res = binder.traffic_occupy(lane, track, {"clearance_id": _traffic_clearance_id, "width": 1})
+		"RELEASE":
+			res = binder.traffic_release(lane, track)
+		"DISGUISE":
+			var d := {"lane_id": lane, "claimed_class": "freighter"}
+			if not row_otc.is_empty():
+				d["transponder_code"] = String(row_otc.get("transponder_code", ""))
+				d["facility_code"] = String(row_otc.get("facility_code", ""))
+				d["claimed_class"] = String(row_otc.get("facility_class", "freighter"))
+			res = binder.traffic_disguise(track, d, {})
+		_:
+			res = {"ok": false, "reason": "unknown_action"}
+	_traffic_last = res.duplicate(true)
+	_traffic_msg = kind + " " + lane + " · " + ("OK" if bool(res.get("ok", false)) else "FAILED · " + String(res.get("reason", "")))
+	if kind == "DISGUISE" and bool(res.get("ok", false)):
+		_traffic_msg += " · detected=" + str(bool(res.get("detected", false))) + " p=" + ("%.2f" % float(res.get("probability", 0.0))) + " anomalies=" + str((res.get("anomalies", []) as Array).size())
+	print("[V1 HUD] TRAFFIC ", _traffic_msg)
+	queue_redraw()
+
+
+func _traffic_demo() -> void:
+	# 仅截图/调试：真实 TrafficControlService fallback，不伪造 OTC/航道。
+	if binder == null or not binder.traffic_ready:
+		return
+	var lanes: Array = binder.traffic_lane_rows()
+	var otcs: Array = binder.traffic_otc_rows()
+	_traffic_otc = String((otcs[0] as Dictionary).get("facility_id", "")) if not otcs.is_empty() else ""
+	_traffic_lane = String((lanes[0] as Dictionary).get("lane_id", "")) if not lanes.is_empty() else ""
+	_traffic_action("REQUEST")
+	if bool(_traffic_last.get("ok", false)):
+		_traffic_action("PERMIT")
+		_traffic_action("OCCUPY")
+	_traffic_action("DISGUISE")
+	_traffic_msg = "TRACE · lane=" + _traffic_lane + " · req=" + _traffic_request_id + " · clr=" + _traffic_clearance_id + " · " + _traffic_msg
+	print("[V1 HUD] TRAFFIC DEMO ", _traffic_msg, " source=", binder.traffic_source)
+	queue_redraw()
+
+
+func _draw_traffic_overlay(r: Rect2) -> void:
+	var x := r.position.x + 16.0
+	var y := r.position.y + 28.0
+	Painter.label(self, x, y, "TRAFFIC / OTC · 交通管制", 15, P.PH)
+	Painter.label(self, x, y + 17, "OTC 19 · lanes 18 · NPC/queue · REQUEST/PERMIT/OCCUPY/RELEASE · DISGUISE anomalies", 8, P.a(P.AMBER, 0.9), true)
+	if binder == null or not binder.traffic_ready:
+		Painter.label(self, x, y + 46, "TRAFFIC NOT READY · no TrafficControlService", 11, P.AMBER)
+		return
+	var vm: Dictionary = binder.traffic_vm()
+	var source := String(binder.traffic_source)
+	Painter.label(self, x + r.size.x - 220.0, y + 17, "SOURCE " + source.to_upper() + " · t=" + ("%.0f" % float(vm.get("t", 0.0))), 7, P.PH_DIM, true)
+	var gap := 12.0
+	var col_w := floorf((r.size.x - 32.0 - gap * 2.0) / 3.0)
+	var lx := x
+	var mx := x + col_w + gap
+	var rx := x + col_w * 2.0 + gap * 2.0
+	var top := y + 45.0
+	# OTC 列表分组
+	Painter.section(self, lx, top, lx + col_w, "OTC / 19 · CLUSTER")
+	_traffic_otc_rows.clear()
+	var grouped: Dictionary = {}
+	for raw in binder.traffic_otc_rows():
+		if raw is Dictionary:
+			var cid := String((raw as Dictionary).get("parent_cluster", "—"))
+			if not grouped.has(cid):
+				grouped[cid] = []
+			(grouped[cid] as Array).append(raw)
+	var oy := top + 15.0
+	for cid in grouped.keys():
+		Painter.label(self, lx, oy, String(cid), 7, P.PH_DIM, true)
+		oy += 11.0
+		for raw2 in (grouped[cid] as Array):
+			var o: Dictionary = raw2
+			var rr := Rect2(lx, oy - 9.0, col_w - 4.0, 20.0)
+			_traffic_otc_rows.append({"rect": rr, "id": String(o.get("facility_id", ""))})
+			if String(o.get("facility_id", "")) == _traffic_otc:
+				draw_rect(rr, P.a(P.PH, 0.10))
+			Painter.label(self, lx + 4, oy, TM.fit(String(o.get("facility_id", "")) + " · " + String(o.get("facility_code", "")), col_w - 10, true, 7), 7, P.PH if String(o.get("facility_id", "")) == _traffic_otc else P.TXT, true)
+			var phys_o: Dictionary = o.get("physical", {}) if o.get("physical", {}) is Dictionary else {}
+			var orb_o: Dictionary = phys_o.get("orbit", {}) if phys_o.get("orbit", {}) is Dictionary else {}
+			var orb_txt := String(orb_o.get("type", "")) + " · " + str(orb_o.get("position_km", []))
+			Painter.label(self, lx + 8, oy + 10, TM.fit(String(o.get("transponder_code", "")) + " · " + orb_txt, col_w - 14, true, 6), 6, P.a(P.FAINT, 0.9), true)
+			oy += 20.0
+	# 航道列表
+	Painter.section(self, mx, top, mx + col_w, "LANES / 18")
+	_traffic_lane_rows.clear()
+	var ly := top + 15.0
+	for raw3 in binder.traffic_lane_rows():
+		var lane3: Dictionary = raw3
+		var lid := String(lane3.get("lane_id", ""))
+		var occ: Dictionary = binder.traffic_service.lane_occupancy(lid) if binder.traffic_service != null else {}
+		var rr2 := Rect2(mx, ly - 9.0, col_w - 4.0, 20.0)
+		_traffic_lane_rows.append({"rect": rr2, "id": lid})
+		if lid == _traffic_lane:
+			draw_rect(rr2, P.a(P.AMBER, 0.10))
+		Painter.label(self, mx + 4, ly, TM.fit(lid + " · " + String(lane3.get("name", "")), col_w - 10, true, 7), 7, P.AMBER if lid == _traffic_lane else P.TXT, true)
+		var freetxt := "free %d/%d · queue %d" % [int(occ.get("free", occ.get("free_capacity", 0))), int(lane3.get("capacity", 0)), int((occ.get("queue", []) as Array).size()) if occ.get("queue", []) is Array else int(occ.get("queue_count", 0))]
+		var from_e: Dictionary = lane3.get("from", {}) if lane3.get("from", {}) is Dictionary else {}
+		var to_e: Dictionary = lane3.get("to", {}) if lane3.get("to", {}) is Dictionary else {}
+		var wins: Array = lane3.get("windows", []) if lane3.get("windows", []) is Array else []
+		var win_txt := "—"
+		if not wins.is_empty() and wins[0] is Dictionary:
+			win_txt = "%.0f–%.0f" % [float((wins[0] as Dictionary).get("open_t", 0.0)), float((wins[0] as Dictionary).get("close_t", 0.0))]
+		Painter.label(self, mx + 8, ly + 9, TM.fit(String(from_e.get("id", "")) + "→" + String(to_e.get("id", "")) + " · cap " + str(lane3.get("capacity", "")) + " · win " + win_txt + " · pri " + str(lane3.get("priority", "")) + " · " + freetxt, col_w - 14, true, 6), 6, P.a(P.FAINT, 0.9), true)
+		ly += 20.0
+	# 右栏：NPC/操作/伪装
+	var ry := top
+	Painter.section(self, rx, ry, r.end.x - 14, "NPC / QUEUE / OCCUPANCY")
+	ry += 15.0
+	var nrow := 0
+	for raw4 in binder.traffic_npc_rows():
+		if nrow >= 4:
+			break
+		var n: Dictionary = raw4
+		Painter.label(self, rx, ry, TM.fit(String(n.get("npc_id", "")) + " · " + String(n.get("callsign", "")) + " · " + String(n.get("ship_class", "")), r.end.x - rx - 14, true, 7), 7, P.TXT, true)
+		ry += 12.0
+		nrow += 1
+	var occrows: Array = vm.get("occupancies", []) if vm.get("occupancies", []) is Array else []
+	for i in range(mini(3, occrows.size())):
+		var o2: Dictionary = occrows[i]
+		Painter.label(self, rx, ry, TM.fit("OCC " + String(o2.get("lane_id", "")) + " · " + String(o2.get("occupant_id", o2.get("track_id", ""))), r.end.x - rx - 14, true, 6), 6, P.PH_DIM, true)
+		ry += 11.0
+	Painter.label(self, rx, ry, "SEL OTC " + (_traffic_otc if _traffic_otc != "" else "—") + " · LANE " + (_traffic_lane if _traffic_lane != "" else "—"), 7, P.PH, true)
+	ry += 16.0
+	# 操作按钮 2 行
+	_traffic_buttons.clear()
+	var b_labels := [["REQUEST", "REQUEST"], ["PERMIT", "PERMIT"], ["OCCUPY", "OCCUPY"], ["RELEASE", "RELEASE"], ["DISGUISE", "DISGUISE"]]
+	var bw := (r.end.x - rx - 14.0 - 8.0) / 2.0
+	for i in range(b_labels.size()):
+		var br := Rect2(rx + float(i % 2) * (bw + 8.0), ry + float(i / 2) * 26.0, bw, 22)
+		_traffic_buttons.append({"rect": br, "kind": String(b_labels[i][0])})
+		Painter.button(self, br, String(b_labels[i][1]), true, P.PH if i < 4 else P.AMBER)
+	ry += 60.0
+	Painter.section(self, rx, ry, r.end.x - 14, "DISGUISE / ANOMALY")
+	ry += 14.0
+	if _traffic_last.is_empty():
+		Painter.label(self, rx, ry, "NO DISGUISE RECORD · anomalies —", 7, P.FAINT, true)
+	else:
+		Painter.label(self, rx, ry, TM.fit("p=" + ("%.2f" % float(_traffic_last.get("probability", 0.0))) + " · detected=" + str(bool(_traffic_last.get("detected", false))) + " · anomalies=" + ",".join(_traffic_last.get("anomalies", []) if _traffic_last.get("anomalies", []) is Array else []), r.end.x - rx - 14, true, 7), 7, P.TXT, true)
+		ry += 12.0
+		Painter.label(self, rx, ry, TM.fit("clues=" + str((_traffic_last.get("clue_ids", []) as Array).size()) + " · clue ids " + ",".join(_traffic_last.get("clue_ids", []) if _traffic_last.get("clue_ids", []) is Array else []), r.end.x - rx - 14, true, 6), 6, P.PH_DIM, true)
+	ry += 16.0
+	Painter.label(self, rx, ry, "EVENTS", 7, P.PH_DIM, true)
+	ry += 11.0
+	var evs2: Array = vm.get("events", []) if vm.get("events", []) is Array else []
+	for i in range(maxi(0, evs2.size() - 3), evs2.size()):
+		Painter.label(self, rx, ry, TM.fit(JSON.stringify((evs2[i] as Dictionary).get("payload", {})), r.end.x - rx - 14, true, 6), 6, P.a(P.FAINT, 0.9), true)
+		ry += 10.0
+	if _traffic_msg != "":
+		Painter.label(self, x, r.end.y - 14, TM.fit(_traffic_msg, r.size.x - 32, true, 7), 7, P.AMBER, true)
 
 
 func _report_action(kind: String) -> void:
@@ -2317,6 +2526,8 @@ func _do_right_action(kind: String) -> void:
 			_overlay = "chronos"
 		"AV4412":
 			_overlay = "av4412"
+		"TRAFFIC":
+			_overlay = "traffic"
 		_:
 			_sensor_msg = "ACTION " + kind + " · 未接线"
 	queue_redraw()
@@ -2379,6 +2590,24 @@ func _gui_input(event: InputEvent) -> void:
 			_overlay = ""
 			accept_event()
 			return
+		if _overlay == "traffic":
+			for row in _traffic_otc_rows:
+				if (row["rect"] as Rect2).has_point(pos):
+					_traffic_otc = String(row.get("id", ""))
+					queue_redraw()
+					accept_event()
+					return
+			for row in _traffic_lane_rows:
+				if (row["rect"] as Rect2).has_point(pos):
+					_traffic_lane = String(row.get("id", ""))
+					queue_redraw()
+					accept_event()
+					return
+			for b in _traffic_buttons:
+				if (b["rect"] as Rect2).has_point(pos):
+					_traffic_action(String(b.get("kind", "")))
+					accept_event()
+					return
 		if _overlay == "report" or _overlay == "complete":
 			for b in _report_buttons:
 				if (b["rect"] as Rect2).has_point(pos):
