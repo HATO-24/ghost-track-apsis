@@ -86,6 +86,8 @@ var _chronos_msg := ""
 var _chronos_buttons: Array = []
 var _av4412_msg := ""
 var _av4412_buttons: Array = []
+var _report_msg := ""
+var _report_buttons: Array = []
 var _save_slots: Array = []
 var _save_load_buttons: Array = []
 var _save_overlay_msg := ""
@@ -191,6 +193,10 @@ func _load_data() -> void:
 	var dok: bool = _damage.setup({}, "apsis")
 	print("[V1 HUD] damage_model=", str(dok), " sections=", _damage.section_ids().size(), " combat=", str(_combat.ready), " roe=", String(_combat.roe) if _combat != null else "—", " roe_locked=", str(_roe_locked))
 	var view := OS.get_environment("DSH_V1_VIEW")
+	if view == "report" or view == "prologue_complete":
+		_overlay = "report"
+		call_deferred("_report_demo", view == "prologue_complete")
+		return
 	if view == "av4412":
 		_overlay = "av4412"
 		for i in range(_contacts.size()):
@@ -722,6 +728,10 @@ func _draw_overlay(l: Dictionary) -> void:
 		_draw_chronos_overlay(r)
 	elif _overlay == "av4412":
 		_draw_av4412_overlay(r)
+	elif _overlay == "report":
+		_draw_report_overlay(r)
+	elif _overlay == "complete":
+		_draw_complete_overlay(r)
 	elif _overlay == "combat":
 		_draw_combat_overlay(r)
 	elif _overlay == "save":
@@ -814,6 +824,13 @@ func _draw_comms_overlay(r: Rect2) -> void:
 		for i in range(mini(2, binder.av4412_comms_lines.size())):
 			Painter.label(self, lp.position.x + 12, av_cy, TM.fit(String(binder.av4412_comms_lines[i]), lp.size.x - 24, true, 7), 7, P.PH_DIM, true)
 			av_cy += 14.0
+	if binder != null and not binder.report_comms_lines.is_empty():
+		var rp_cy := my + 140.0
+		Painter.label(self, lp.position.x + 12, rp_cy, "REPORT EVENTS", 6, P.AMBER, true)
+		rp_cy += 11.0
+		for i in range(mini(2, binder.report_comms_lines.size())):
+			Painter.label(self, lp.position.x + 12, rp_cy, TM.fit(String(binder.report_comms_lines[i]), lp.size.x - 24, true, 7), 7, P.PH_DIM, true)
+			rp_cy += 14.0
 	# 链路明细，填满左栏下部（真实 comms vm links）
 	var link_y := lp.end.y - 174.0
 	Painter.section(self, lp.position.x + 10, link_y, lp.end.x - 10, "LINK DETAIL / 链路明细")
@@ -1144,6 +1161,200 @@ func _av4412_track() -> Dictionary:
 	radar = bool(ss.get("radar", false))
 	return {"t": float(binder.session.now_s()) if binder != null and binder.session != null else 0.0,
 		"pos": pos, "vel": vel, "window_open": true, "radar_active": radar}
+
+
+func _report_action(kind: String) -> void:
+	if binder == null or not binder.report_ready:
+		_report_msg = "REPORT NOT READY"
+		return
+	match kind:
+		"COMPOSE":
+			var res: Dictionary = binder.report_compose()
+			_report_msg = "COMPOSE · " + ("OK · branch=" + String(res.get("branch_hint", "")) if bool(res.get("ok", false)) else "FAILED · " + String(res.get("reason", "")))
+		"SUBMIT", "WITHHOLD":
+			var c := "submit_evidence" if kind == "SUBMIT" else "withhold_evidence"
+			var res2: Dictionary = binder.report_choose(c)
+			_report_msg = kind + " · " + ("OK · " + c if bool(res2.get("ok", false)) else "FAILED · " + String(res2.get("reason", "")))
+		"COMPLETE":
+			var vm2: Dictionary = binder.report_vm()
+			if bool(vm2.get("prologue_complete", false)):
+				_overlay = "complete"
+				_report_msg = "PROLOGUE COMPLETE · demo only · 不切主菜单/不真结局"
+				binder.report_comms_lines.append("[ID13 至 OCJC]-[RDO]-[PROLOGUE COMPLETE · demo only]")
+			else:
+				_report_msg = "COMPLETE BLOCKED · COMPOSE REQUIRED"
+		"CLOSE":
+			_overlay = ""
+		_:
+			_report_msg = "UNKNOWN"
+	queue_redraw()
+
+
+func _report_demo(show_complete: bool) -> void:
+	# 截图/调试：用真实 chain 状态汇总给 AfterActionReport；不伪造结局。
+	if binder == null:
+		return
+	# Ceres: 推进到 RESCUED
+	for a in ["data_link_l2", "identify_l3", "read_light", "classify_l4", "rescue_prompt", "rescue"]:
+		var pl := {}
+		if a == "data_link_l2":
+			pl = {"data_link": true, "sensor_sources": 2}
+		elif a == "identify_l3":
+			pl = {"kind": "identification", "source": "vis", "level": "L3"}
+		elif a == "read_light":
+			pl = {"light_code": binder.ceres_emergency_code()}
+		binder.ceres_advance(a, pl)
+	# Chronos: 推进到 ACTIONS 并完成 evac/blackbox/telemetry
+	for a2 in ["port_comm", "action_evac", "private_comm", "choose_accept", "open_actions", "evac", "blackbox", "telemetry"]:
+		binder.chronos_advance(a2, {})
+	# AV: 真实轨道/窗口/接触/谈判/QUESTION
+	binder.av4412_update_orbit(_av4412_track())
+	binder.av4412_advance("window_open", {})
+	var radar_now := bool(binder.av4412_chain.radar_active) if binder.av4412_chain != null else false
+	binder.av4412_advance("early_radar" if radar_now else "passive_contact", {})
+	binder.av4412_advance("comms", {})
+	binder.av4412_advance("negotiation", {})
+	binder.av4412_advance("question", {})
+	# 真实 ELINT/通信证据（若 core signal_service 可用），不伪造。
+	if binder.session != null and binder.session.signal_service != null:
+		binder.session.signal_intercept("harmattan")
+		binder.session.signal_df("harmattan")
+		if binder.session.track_table != null:
+			binder.session.tick(0.1)
+	binder.report_sync()
+	binder.report_choose("withhold_evidence")
+	var comp: Dictionary = binder.report_compose()
+	_overlay = "complete" if show_complete else "report"
+	_report_msg = "REPORT DEMO · branch=" + binder.report_branch_hint() + " · compose=" + str(bool(comp.get("ok", false)))
+	_trigger_banner = "report_composed · " + binder.report_branch_hint()
+	print("[V1 HUD] REPORT DEMO ", _report_msg, " missing=", str(binder.report_missing()))
+	queue_redraw()
+
+
+func _draw_report_overlay(r: Rect2) -> void:
+	var x := r.position.x + 16.0
+	var y := r.position.y + 28.0
+	Painter.label(self, x, y, "AFTER ACTION REPORT / 行动报告", 15, P.PH)
+	Painter.label(self, x, y + 17, "chain 汇总 → report/上报选择/branch hint · 原文本自 story_report · 不伪造结局", 8, P.a(P.AMBER, 0.9), true)
+	if binder == null or not binder.report_ready:
+		Painter.label(self, x, y + 46, "REPORT NOT READY · no AfterActionReport", 11, P.AMBER)
+		return
+	var vm: Dictionary = binder.report_vm()
+	var inputs: Dictionary = vm.get("inputs", {}) if vm.get("inputs", {}) is Dictionary else {}
+	var left_w := floorf((r.size.x - 34.0) * 0.46)
+	# 行动清单
+	var ly := y + 42.0
+	Painter.section(self, x, ly, x + left_w, "RECORD / 行动清单")
+	ly += 17.0
+	var ceres := String(inputs.get("ceres", ""))
+	var ch: Dictionary = inputs.get("chronos", {}) if inputs.get("chronos", {}) is Dictionary else {}
+	var ev: Array = inputs.get("evidence", []) if inputs.get("evidence", []) is Array else []
+	var lines := [
+		"CERES-2 救援： " + (ceres.to_upper() if ceres != "" else "—"),
+		"CHRONOS 撤离： " + ("YES" if bool(ch.get("evac", false)) else "NO"),
+		"CHRONOS 黑匣子： " + ("YES" if bool(ch.get("blackbox", false)) else "NO"),
+		"CHRONOS 遥测： " + ("YES" if bool(ch.get("telemetry", false)) else "NO"),
+		"AV-4412 选项： " + (String(inputs.get("av4412", "")).to_upper() if String(inputs.get("av4412", "")) != "" else "—"),
+		"证据： " + (",".join(ev) if not ev.is_empty() else "—"),
+		"ID13 状态： " + String(inputs.get("legal_status", "UNLISTED")),
+	]
+	for line in lines:
+		Painter.label(self, x, ly, TM.fit(line, left_w - 8, true, 10), 10, P.TXT, true)
+		ly += 16.0
+	ly += 6.0
+	Painter.section(self, x, ly, x + left_w, "MISSING ITEMS")
+	ly += 16.0
+	var miss: Array = vm.get("missing_items", []) if vm.get("missing_items", []) is Array else binder.report_missing()
+	if miss.is_empty():
+		Painter.label(self, x, ly, "MISSING · NONE", 10, P.PH, true)
+	else:
+		for m in miss:
+			Painter.label(self, x, ly, "· " + String(m), 9, P.AMBER, true)
+			ly += 13.0
+	# 报告正文
+	var rx := x + left_w + 16.0
+	var rw := r.end.x - rx - 14.0
+	var ry := y + 42.0
+	Painter.section(self, rx, ry, r.end.x - 14, "REPORT BODY / 原文")
+	ry += 16.0
+	var report_vm: Dictionary = vm.get("composed", {}) if vm.get("composed", {}) is Dictionary else {}
+	var rtxt: String = binder.report_text()
+	if rtxt == "":
+		rtxt = "NO REPORT YET · COMPOSE REPORT"
+	var rtb := bool((vm.get("report", {}) as Dictionary).get("tbd", false)) if vm.get("report", {}) is Dictionary else false
+	if rtb or rtxt == "TBD":
+		rtxt = "TBD · report.standard_missing_tbd · 不伪造报告正文"
+	var rlines := _wrap_text_cjk(rtxt, int(rw / 9.0))
+	for line2 in rlines:
+		if ry > r.end.y - 160.0:
+			break
+		Painter.label(self, rx, ry, line2, 9, P.TXT, true)
+		ry += 14.0
+	ry += 6.0
+	var bh: String = binder.report_branch_hint()
+	Painter.label(self, rx, ry, "BRANCH HINT " + (bh if bh != "" else "—"), 10, P.AMBER, true)
+	ry += 15.0
+	var binfo: Dictionary = binder.report_branch_info(bh)
+	Painter.label(self, rx, ry, TM.fit("BRANCH " + String(binfo.get("label", "—")), rw, true, 8), 8, P.PH_DIM, true)
+	ry += 14.0
+	var btext: String = binder.report_branch_text(bh)
+	if btext != "":
+		var blines := _wrap_text_cjk(btext, int(rw / 8.0))
+		for j in range(mini(3, blines.size())):
+			Painter.label(self, rx, ry, TM.fit(blines[j], rw, true, 8), 8, P.DIM, true)
+			ry += 12.0
+	# 按钮
+	_report_buttons.clear()
+	var labels := [["COMPOSE", "COMPOSE REPORT"], ["SUBMIT", "SUBMIT EVIDENCE"], ["WITHHOLD", "WITHHOLD EVIDENCE"], ["COMPLETE", "COMPLETE PROLOGUE"]]
+	var by := r.end.y - 36.0
+	for i in range(labels.size()):
+		var bw := (r.size.x - 32.0 - 8.0 * 3.0) / 4.0
+		var br := Rect2(x + float(i) * (bw + 8.0), by, bw, 24)
+		_report_buttons.append({"rect": br, "kind": String(labels[i][0])})
+		Painter.button(self, br, String(labels[i][1]), true, P.PH)
+	if _report_msg != "":
+		Painter.label(self, x, by - 12, TM.fit(_report_msg, r.size.x - 32, true, 8), 8, P.AMBER, true)
+
+
+func _draw_complete_overlay(r: Rect2) -> void:
+	var x := r.position.x + 16.0
+	var y := r.position.y + 28.0
+	Painter.label(self, x, y, "序章完成 / PROLOGUE COMPLETE", 18, P.PH)
+	Painter.label(self, x, y + 18, "DEMO · 仅显示完成画面/分支提示 · 不切主菜单/不执行真结局", 9, P.a(P.AMBER, 0.95), true)
+	if binder == null or not binder.report_ready:
+		Painter.label(self, x, y + 52, "REPORT NOT READY", 11, P.AMBER)
+		return
+	var vm: Dictionary = binder.report_vm()
+	var report: Dictionary = vm.get("report", {}) if vm.get("report", {}) is Dictionary else {}
+	var rh: String = binder.report_branch_hint()
+	Painter.section(self, x, y + 48, r.end.x - 14, "PROLOGUE RESULT")
+	var ty := y + 66.0
+	Painter.label(self, x, ty, "BRANCH HINT " + (rh if rh != "" else "—"), 11, P.AMBER, true)
+	ty += 18.0
+	Painter.label(self, x, ty, "ENDING EXECUTED false · PROLOGUE COMPLETE true", 8, P.DIM, true)
+	ty += 22.0
+	var body := String(report.get("zh", ""))
+	if body == "" or bool(report.get("tbd", false)):
+		body = "TBD · 报告正文未提供，不伪造"
+	var lines := _wrap_text_cjk(body, 110)
+	for line in lines:
+		if ty > r.end.y - 120.0:
+			break
+		Painter.label(self, x, ty, line, 10, P.TXT, true)
+		ty += 15.0
+	ty += 10.0
+	Painter.section(self, x, ty, r.end.x - 14, "ACTION SUMMARY")
+	ty += 16.0
+	var inputs: Dictionary = vm.get("inputs", {}) if vm.get("inputs", {}) is Dictionary else {}
+	Painter.label(self, x, ty, "CERES " + String(inputs.get("ceres", "—")) + " · AV " + String(inputs.get("av4412", "—")) + " · EVIDENCE " + ",".join(inputs.get("evidence", []) if inputs.get("evidence", []) is Array else []), 8, P.PH_DIM, true)
+	ty += 14.0
+	Painter.label(self, x, ty, "ID13 STATUS " + String(inputs.get("legal_status", "UNLISTED")) + " · 不写 world/不执行结局", 8, P.a(P.FAINT, 0.9), true)
+	_report_buttons.clear()
+	var br := Rect2(r.end.x - 200.0, r.end.y - 38.0, 180, 24)
+	_report_buttons.append({"rect": br, "kind": "CLOSE"})
+	Painter.button(self, br, "返回 HUD / CLOSE", true, P.PH)
+	if _report_msg != "":
+		Painter.label(self, x, r.end.y - 16, TM.fit(_report_msg, r.size.x - 240, true, 8), 8, P.AMBER, true)
 
 
 func _draw_av4412_overlay(r: Rect2) -> void:
@@ -2164,6 +2375,12 @@ func _gui_input(event: InputEvent) -> void:
 			_overlay = ""
 			accept_event()
 			return
+		if _overlay == "report" or _overlay == "complete":
+			for b in _report_buttons:
+				if (b["rect"] as Rect2).has_point(pos):
+					_report_action(String(b.get("kind", "")))
+					accept_event()
+					return
 		if _overlay == "chronos":
 			for b in _chronos_buttons:
 				if (b["rect"] as Rect2).has_point(pos):

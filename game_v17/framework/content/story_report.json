@@ -1,0 +1,184 @@
+{
+  "schema": "v17.story_report.v1",
+  "version": "1.0.0",
+  "title": "完整游戏-阶段4C 事后报告/分支判定文本",
+  "source": "docs/44_新剧本_2193.md（当前副本第263-293行；任务原始行117-131）",
+  "source_path": "../docs/44_新剧本_2193.md",
+  "report_templates": [
+    {
+      "text_key": "report.program_justice",
+      "zh": "ID13 于执行窗口内保持对 Chronos 储罐区与进港航道的卡位，未让出检查边界，未首先开火。清算者的最终封存程序未完成；在执行窗口内取得 Chronos 港务遥测、核查组记录副本与未登记特征码，ID13 依据 OCJC 授权要求轨道事务委员会复核第七号令，向 OCJC 监察与 UEG 轨道事务委员会提交联合调查请求。人员伤亡：无。证据：传感器日志、通信记录、Chronos 港务遥测，黑匣子记录。",
+      "en": "",
+      "source_lines": [
+        269
+      ],
+      "usage": "program_justice",
+      "draft": true,
+      "note": "完成黑匣子/撤离/遥测/质疑/上报后的报告文本（原文）。"
+    },
+    {
+      "text_key": "report.ghost_track",
+      "zh": "ID13 于执行窗口内保持对 Chronos 储罐区与进港航道的卡位，未让出检查边界，未首先开火。清算者的最终封存程序未完成；在执行窗口内取得 Chronos 港务遥测、核查组记录副本与未登记特征码，ID13 依据 OCJC 授权要求轨道事务委员会复核第七号令，向 OCJC 监察与 UEG 轨道事务委员会提交联合调查请求。人员伤亡：无。证据：传感器日志、通信记录、Chronos 港务遥测，黑匣子记录。",
+      "en": "",
+      "source_lines": [
+        275
+      ],
+      "usage": "ghost_track",
+      "draft": true,
+      "note": "完成黑匣子/撤离/遥测、普通或强硬回应且未上报的报告文本（原文）。"
+    },
+    {
+      "text_key": "report.standard_missing_tbd",
+      "zh": "TBD",
+      "en": "",
+      "source_lines": [],
+      "usage": "standard_missing",
+      "draft": true,
+      "tbd": true,
+      "note": "其他组合的标准报告文本未在 docs/44 给出，明示 TBD，不伪造。"
+    }
+  ],
+  "branch_texts": [
+    {
+      "text_key": "branch.program_justice",
+      "zh": "进入“程序正义线”，玩家的上报让黑匣子数据得以曝光，但迅速被UEG内部中与清算者部队关系密切的高层压下了舆论，玩家会在后续游玩过程中获取的剧情文本得知联合调查由于“数据损坏，证据不充分”不了了之，如果玩家后续依旧进程中在报告环节选择直接上报调查内容，副官会停止给玩家提供有关GHOST TRACK调查线的情报建议，游戏会在持续进行标准流程一段时间后以UEG方面开始向OCU高层内应施压，OCUVF最终被解散的结局结束（结局名不谙世事的愚忠）；如果玩家不仅选择上报，甚至态度保持强硬，则会在进行一段时间后，以UEG方面开始向OCU高层内应施压，OCUVF内部被买通，玩家突然被宣布为分离主义非法武装舰队，最终被多方围剿，在战斗中被剿灭的结局结束（结局名吹哨人终有一死）；如果玩家在后续的剿灭战中，以近乎不可能的方式成功在整个清算者部队，OCUVF另外12支分遣群的围剿下存活并胜利，则进入最难达成的终极隐藏结局（结局名繁星之下的奇迹，另类的救世主）。",
+      "en": "",
+      "source_lines": [
+        271
+      ],
+      "usage": "program_justice",
+      "draft": true,
+      "note": "程序正义线分支说明（原文）。"
+    },
+    {
+      "text_key": "branch.ghost_track",
+      "zh": "进入“GHOST TRACK”/“错付正义线”/“守口如瓶”线：",
+      "en": "",
+      "source_lines": [
+        277
+      ],
+      "usage": "ghost_track",
+      "draft": true,
+      "note": "GHOST TRACK/错付正义/守口如瓶线总说明（原文）。"
+    },
+    {
+      "text_key": "branch.colonial_savior",
+      "zh": "如果玩家接下来表现出对恢复太空殖民地自制独立有明确意图，同时表现出对空间站事故与接管借口背后的阴谋性质有明确怀疑，进行了调查行为后才会解锁GHOST TRACK线，此剧情线要求玩家全程不上报特殊调查内容，于后续事件交互中保持上述政治倾向，且与副官保持高好感度，则会在后续添加的证据解密部分中逐步解开GHOST TRACK部队的真相，并最终与其展开决战。决战难度极高，即使玩家在后期编制出作战能力极高、设备最先进，甚至在后期交互事件中成功建立包括OCUVF其他分遣群的舰只的超大型联合舰队，在战斗中依然会被GHOST TRACK部队的最新锐舰船跨代压制，此决战及其考验玩家的策略、电子战、情报判读、甚至是单纯的运气，玩家胜利后成功回收GHOST TRACK部队的命令日志，航行记录，黑匣子数据等情报，并通过所有渠道公开。清算者部队以栽赃行动制造借口的真相得以大白，OCU方面借此严厉要求UEG方面做出回应，UEG鹰派彻底倒台，殖民地自治权得到捍卫，玩家成为了各殖民地眼中的救世主，功成身退，退休后在某年某日于居所内身中33枪自杀身亡。（结局名殖民地的救世主，在黑色幽默中迎来终焉）。",
+      "en": "",
+      "source_lines": [
+        279
+      ],
+      "usage": "colonial_savior",
+      "draft": true,
+      "note": "殖民地的救世主分支（原文）。"
+    },
+    {
+      "text_key": "branch.wrong_justice_butterfly",
+      "zh": "如果玩家接下来表现出对恢复太空殖民地自制独立有明确意图，同时表现出对空间站事故与接管借口背后的阴谋性质有明确怀疑，进行了调查行为后才会解锁错付正义线，此剧情线要求玩家全程不上报特殊调查内容，于后续事件交互中保持上述政治倾向，但是没有与副官保持高好感度/错过调查窗口导致线索不全，后期UEG向OCU方面施压，要求解散OCUVF武装时（低概率事件，除非玩家频繁错过阻止清算者部队的窗口，或者在窗口剩余时间低于特定值时才会错失线索，因为在此情况下情报已经被清算者部队进行了处理，自然无法再寻获，线索包括遥测数据，相关黑匣子，港区监控，OTC监控数据等）），副官会向玩家坦白对清算者部队内部有幽灵部队专门进行栽赃行动以制造接管借口的怀疑，以及前任指挥官被刺杀的真相，随后他会请求玩家将OCUVF-ID13的指挥权交予他，由他来完成前任指挥官未完成的事业，到此刻玩家可选择拒绝移交指挥权，将副官的言论认定为纯粹的阴谋论，游戏会正常继续，但副官会离开舰队，玩家可以正常继续游玩，直到内置计时器结束，最终以UEG方面开始向OCU高层内应施压，OCUVF最终被解散的结局结束（结局名你永远叫不醒一个装睡的人）；如果玩家与副官好感度足够高，选择不移交后，副官会请求玩家以全频段释放已有的一切证据，同时要求玩家向位于NESOSS-01的UEOF总部发起突袭，最终玩家进入最后一场面对清算者部队全军的自杀式袭击，如果玩家战胜，则触发分支一：玩家发送的证据虽然被证实是清算者部队进行的栽赃行动，但玩家的行为表面了OCUVF内部存在“严重且危险的内部分离主义倾向”，OCU方面接受UEG中央安全委员会提出的联合内部人员审查，OCUVF解散，殖民地方面开始出现严重的立场动摇，支持与反对玩家做法的意见碰撞日益激烈，最终演变为遍布全地月系殖民地的广泛游行与冲突事件，UEG借机施压，最终殖民地接受UEG执法力量入驻，殖民地自治权名存实亡。OCUVF-ID13成员全员被判处军事罪行，唯有玩家被免除死刑，得以亲眼目睹自己的行为如何达成反效果，后悔终生（结局名错付的正义）；如果玩家与副官好感度足够高，且选择移交，进入分支二，玩家正式将ID13指挥权移交给了副官，自己则退出OCUVF编制，回归平民生活，几日后在新闻中得以目睹副官进行的全频段广播，当中公布了玩家已知的一切证据，以及一段副官进行的反UEG集权演说，新闻最终以“该非法武装船队向位于NESOSS-01的地球联合政府空天军轨道舰队总部发起了自杀式袭击，船队随后被击沉结束。那天之后，全地月系范围内爆发了强烈的反UEG运动，一个名为AUEG（反地球联合政府组织）的非法武装力量出现，开始了地月系范围内长期的游击破坏行动，殖民地生活质量开始大幅下滑，名为后叛乱时代的动荡时期正式拉开了帷幕，游戏在此结束（结局名蝴蝶效应）。",
+      "en": "",
+      "source_lines": [
+        281
+      ],
+      "usage": "wrong_justice_butterfly",
+      "draft": true,
+      "note": "错付的正义/蝴蝶效应分支（原文；一段同时含两结局）。"
+    },
+    {
+      "text_key": "branch.sleeping",
+      "zh": "如果玩家接下来政治倾向不强烈，但是与副官保持高好感度，，会进入守口如瓶线，当后期UEG向OCU方面施压，要求解散OCUVF武装时（低概率事件，除非玩家频繁错过阻止清算者部队的窗口，或者在窗口剩余时间低于特定值时才会错失线索，因为在此情况下情报已经被清算者部队进行了处理，自然无法再寻获，线索包括遥测数据，相关黑匣子，港区监控，OTC监控数据等））副官会向玩家坦白对清算者部队内部有幽灵部队专门进行栽赃行动以制造接管借口的怀疑，以及前任指挥官被刺杀的真相，并表示事已至此，我们已无力回天。最终OCUVF解散，玩家与副官分道扬镳，回归平民生活（结局名我曾有过一个翻天覆地的机会）。",
+      "en": "",
+      "source_lines": [
+        283
+      ],
+      "usage": "sleeping",
+      "draft": true,
+      "note": "你永远叫不醒一个装睡的人分支（原文）。"
+    }
+  ],
+  "branches": [
+    {
+      "branch_id": "program_justice",
+      "label": "程序正义线",
+      "text_key": "branch.program_justice",
+      "hint": "program_justice"
+    },
+    {
+      "branch_id": "ghost_track",
+      "label": "GHOST TRACK/守口如瓶线",
+      "text_key": "branch.ghost_track",
+      "hint": "ghost_track"
+    },
+    {
+      "branch_id": "colonial_savior",
+      "label": "殖民地的救世主",
+      "text_key": "branch.colonial_savior",
+      "hint": "colonial_savior"
+    },
+    {
+      "branch_id": "wrong_justice",
+      "label": "错付的正义",
+      "text_key": "branch.wrong_justice_butterfly",
+      "hint": "wrong_justice"
+    },
+    {
+      "branch_id": "butterfly",
+      "label": "蝴蝶效应",
+      "text_key": "branch.wrong_justice_butterfly",
+      "hint": "butterfly"
+    },
+    {
+      "branch_id": "sleeping",
+      "label": "你永远叫不醒一个装睡的人",
+      "text_key": "branch.sleeping",
+      "hint": "sleeping"
+    }
+  ],
+  "reuse_notes": [
+    "2.4中的两句远地点号与港务对话文本，在玩家行动菜单中点击相应行动后与信息流菜单中出现。",
+    "2.3中AV-4412的喊话内容。",
+    "3.1中的报告文本。"
+  ],
+  "rules": {
+    "core_requirements": [
+      "ceres_rescued",
+      "chronos_evac",
+      "chronos_blackbox",
+      "chronos_telemetry"
+    ],
+    "program_requirements": [
+      "ceres_rescued",
+      "chronos_evac",
+      "chronos_blackbox",
+      "chronos_telemetry",
+      "av4412_question",
+      "report_submit",
+      "evidence_blackbox",
+      "evidence_telemetry",
+      "evidence_elint",
+      "evidence_comms"
+    ],
+    "ghost_requirements": [
+      "ceres_rescued",
+      "chronos_evac",
+      "chronos_blackbox",
+      "chronos_telemetry",
+      "report_withhold"
+    ],
+    "political_threshold": 0.6,
+    "trust_threshold": 0.6
+  },
+  "missing_labels": {
+    "ceres_rescued": "Ceres-2 救援",
+    "chronos_evac": "Chronos 协助撤离",
+    "chronos_blackbox": "黑匣子取回",
+    "chronos_telemetry": "港务遥测调度",
+    "av4412_question": "谈判质疑",
+    "report_submit": "报告上报",
+    "report_withhold": "报告保密",
+    "evidence_blackbox": "黑匣子证据",
+    "evidence_telemetry": "遥测证据",
+    "evidence_elint": "ELINT 证据",
+    "evidence_comms": "通信记录证据"
+  },
+  "draft": true
+}

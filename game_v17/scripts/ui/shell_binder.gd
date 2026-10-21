@@ -11,6 +11,7 @@ const PreludeScenario := preload("res://scripts/core/prelude_scenario.gd")
 const CeresChain := preload("res://scripts/core/ceres_chain.gd")
 const ChronosChain := preload("res://scripts/core/chronos_chain.gd")
 const AV4412Chain := preload("res://scripts/core/av4412_chain.gd")
+const AfterActionReport := preload("res://scripts/core/after_action_report.gd")
 const SaveService := preload("res://scripts/core/save_service.gd")
 
 const TRANSFER_CACHE := "res://framework/content/transfer_l4_l1_cached.json"
@@ -39,6 +40,9 @@ var av4412_chain = null
 var av4412_ready := false
 var last_av4412_result: Dictionary = {}
 var av4412_comms_lines: Array = []
+var after_action = null
+var report_ready := false
+var report_comms_lines: Array = []
 var track_vm: Dictionary = {}
 var sensor_vm: Dictionary = {}
 var sensor_result := ""
@@ -123,6 +127,13 @@ func boot() -> bool:
 		warnings.append("AV4412Chain 未 ready：" + str(av4412_chain.errors))
 	else:
 		print("[SHELL BINDER] AV4412Chain ready state=", av4412_chain.current_state(), " entity=", av4412_chain.entity_id, " texts=", av4412_chain.text_keys.size(), " threat=", av4412_chain.get_threat(), " trust=", av4412_chain.get_trust())
+	after_action = AfterActionReport.new()
+	var rpt: bool = after_action.setup({"content_path": AfterActionReport.DEFAULT_CONTENT})
+	report_ready = rpt
+	if not rpt:
+		warnings.append("AfterActionReport 未 ready：" + str(after_action.errors))
+	else:
+		print("[SHELL BINDER] AfterActionReport ready branches=", after_action.branch_ids().size(), " templates=", after_action.report_templates.size())
 	if session.sensor_service == null:
 		_seed_tracks()
 	_load_delta_v()
@@ -585,6 +596,90 @@ func timers() -> Array:
 	while out.size() > 4:
 		out.pop_front()
 	return out
+
+
+func report_sync() -> Dictionary:
+	if after_action == null:
+		return {"ok": false, "reason": "no_after_action_report"}
+	var patch: Dictionary = {}
+	if ceres_chain != null:
+		var cs: String = ceres_chain.current_state()
+		if cs == "RESCUED" or cs == "COMPLETE":
+			patch["ceres_status"] = "rescued"
+		elif cs == "IGNORED":
+			patch["ceres_status"] = "ignored"
+	if chronos_chain != null:
+		var fl: Dictionary = chronos_chain.get_flags()
+		patch["chronos"] = {"evac": bool(fl.get("evac_done", false)),
+			"blackbox": bool(fl.get("blackbox_done", false)),
+			"telemetry": bool(fl.get("telemetry_done", false)),
+			"choice": String(chronos_chain.choice)}
+	if av4412_chain != null:
+		var av: String = String(av4412_chain.chosen())
+		if av != "":
+			patch["av4412_choice"] = av
+		patch["threat"] = av4412_chain.get_threat()
+	var ev: Array = []
+	if chronos_chain != null:
+		var f2: Dictionary = chronos_chain.get_flags()
+		if bool(f2.get("blackbox_done", false)): ev.append("blackbox")
+		if bool(f2.get("telemetry_done", false)): ev.append("telemetry")
+	if session != null and session.signal_service != null:
+		var svm2: Dictionary = session.signal_service.vm()
+		var elint: Dictionary = svm2.get("elint", {}) if svm2.get("elint", {}) is Dictionary else {}
+		if int((elint.get("counts", {}) as Dictionary).get("evidence", 0)) > 0: ev.append("elint")
+		if int((elint.get("counts", {}) as Dictionary).get("signals", 0)) > 0: ev.append("comms")
+	patch["evidence"] = ev
+	patch["trust"] = clampf(float(maxi(0, chronos_chain.get_trust())) / 6.0, 0.0, 1.0) if chronos_chain != null else 0.5
+	patch["political"] = 0.8 if (av4412_chain != null and String(av4412_chain.chosen()) in ["strong", "question"]) else 0.5
+	var res: Dictionary = after_action.ingest(patch)
+	if bool(res.get("ok", false)):
+		print("[SHELL BINDER] REPORT sync inputs=", JSON.stringify(after_action.vm().get("inputs", {})))
+	return res
+
+
+func report_choose(choice: String) -> Dictionary:
+	if after_action == null:
+		return {"ok": false, "reason": "no_after_action_report"}
+	var res: Dictionary = after_action.choose_report(choice)
+	if bool(res.get("ok", false)):
+		report_comms_lines.append("[ID13 至 OCJC]-[RDO]-[报告选择 " + String(res.get("report_choice", choice)) + "]")
+	return res
+
+
+func report_compose() -> Dictionary:
+	if after_action == null:
+		return {"ok": false, "reason": "no_after_action_report"}
+	var res: Dictionary = after_action.compose()
+	if bool(res.get("ok", false)):
+		report_comms_lines.append("[ID13 至 OCJC]-[RDO]-[AFTER ACTION REPORT · branch " + String(res.get("branch_hint", "")) + "]")
+	return res
+
+
+func report_vm() -> Dictionary:
+	return after_action.vm() if after_action != null else {}
+
+
+func report_text() -> String:
+	return after_action.report_text() if after_action != null else ""
+
+
+func report_branch_hint() -> String:
+	return after_action.branch_hint() if after_action != null else ""
+
+
+func report_missing() -> Array:
+	return after_action.missing_items() if after_action != null else []
+
+
+func report_branch_info(branch_id: String) -> Dictionary:
+	return after_action.branch_info(branch_id) if after_action != null else {}
+
+
+func report_branch_text(branch_id: String) -> String:
+	if after_action == null:
+		return ""
+	return str(after_action.branch_text(branch_id).get("zh", ""))
 
 
 func av4412_state() -> String:

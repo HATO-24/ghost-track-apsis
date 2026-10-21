@@ -722,3 +722,39 @@ v1_hud.gd
 1. 仅 UI 字号/布局调整；不改变谈判逻辑/选项含义/文本内容。
 2. 选项卡每卡只展示两行预览，完整原文仍在文本库；不是伪造/截断数据。
 3. 1920/1600 之外尺寸未做完整回归。
+
+
+---
+
+## 25　方案B-20：行动报告/序章完成 UI（task-186）
+
+### 25.1 数据 / API
+
+- ShellBinder 创建 `AfterActionReport`（story_report.json）；提供 `report_sync / report_choose / report_compose / report_vm / report_text / report_branch_hint / report_missing / report_branch_info / report_branch_text`。
+- `report_sync` 从已有 chain 真实状态汇总：
+  - CeresChain → rescued/ignored；
+  - ChronosChain → evac/blackbox/telemetry/choice；
+  - AV4412Chain → option/threat；证据 → blackbox/telemetry（+ signal ELINT/comms 当真实可用）；
+  - trust/political/ID13 status。
+- report 正文原文来自 story_report；缺失项来自核心 `missing_items`；TBD 保持 TBD，不伪造。
+
+### 25.2 REPORT overlay
+
+- 右栏/report env 打开；显示 RECORD 行动清单、MISSING ITEMS、REPORT BODY 原文、BRANCH HINT/branch 文本。
+- 按钮：COMPOSE REPORT / SUBMIT EVIDENCE / WITHHOLD EVIDENCE / COMPLETE PROLOGUE；真实 `report_choose/report_compose`；未 compose 点 COMPLETE 返回 `COMPLETE BLOCKED · COMPOSE REQUIRED`。
+- 本次真实输入：Ceres rescued、Chronos evac/blackbox/telemetry、AV question；missing=`evidence_elint/evidence_comms`；withhold → branch_hint=`wrong_justice`，正文 `report.ghost_track` 原文；ending_executed=false。
+- COMPLETE PROLOGUE 仅把 overlay 切到完成画面，不切主菜单、不执行结局；完成画面显式 `ENDING EXECUTED false · PROLOGUE COMPLETE true`。
+- 通信/日志追加 REPORT EVENTS（binder report_comms_lines + COMMS 页）。
+
+### 25.3 截图 / 验证
+
+- `mockups/v1-hud-report-1920.png`（1920×1080：action checklist、missing items、report body、branch hint wrong_justice、四按钮）
+- `mockups/v1-hud-prologue-complete-1920.png`（序章完成画面/BRANCH HINT/报告原文/ACTION SUMMARY/返回 HUD）
+- 均 SHOT err=0；headless report demo 一次；`v1_hud.gd/shell_binder.gd --check-only` 通过。
+
+### 25.4 未完成 / 边界
+
+1. demo 为 withhold 选择 → branch_hint wrong_justice；SUBMIT 按钮真实可切换，未在截图提交。
+2. missing evidence_elint/evidence_comms 为真实缺口（未伪造证据）；影响 branch hint。
+3. 不执行完整结局/主菜单切换；不写 world/物理/存档。
+4. 未跑全量 regression。
