@@ -119,6 +119,10 @@ func _ready() -> void:
 	else:
 		_commander = "指挥官 · " + _commander
 	_load_data()
+	if binder != null and String(binder.load_slot_requested) != "" and not bool(binder.load_ok):
+		_save_ok = false
+		_save_msg = "LOAD FAILED · " + String(binder.load_error) + " · 返回主菜单"
+		call_deferred("_return_to_main_menu")
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_process(true)
@@ -2419,3 +2423,8 @@ func _gui_input(event: InputEvent) -> void:
 			_do_right_action(String(b.get("kind", "")))
 			accept_event()
 			return
+
+
+func _return_to_main_menu() -> void:
+	print("[V1 HUD] LOAD FAILED → main_menu.tscn · ", binder.load_error if binder != null else "")
+	get_tree().change_scene_to_file("res://main_menu.tscn")

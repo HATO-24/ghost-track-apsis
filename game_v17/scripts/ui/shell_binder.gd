@@ -43,6 +43,9 @@ var av4412_comms_lines: Array = []
 var after_action = null
 var report_ready := false
 var report_comms_lines: Array = []
+var load_slot_requested := ""
+var load_ok := false
+var load_error := ""
 var track_vm: Dictionary = {}
 var sensor_vm: Dictionary = {}
 var sensor_result := ""
@@ -57,6 +60,43 @@ var roe_text := "ROE NOT READY"
 var commander := "指挥官 · 沧澜"
 var last_save_text := ""
 var last_save_ok := false
+
+
+func _load_requested_slot(slot: String) -> void:
+	load_ok = false
+	load_error = ""
+	if save_service == null:
+		load_error = "no_save_service"
+		return
+	var raw: Dictionary = save_service.call("_read_slot_raw", slot)
+	if not bool(raw.get("ok", false)):
+		load_error = String(raw.get("reason", "read_failed"))
+		errors.append("LOAD slot=" + slot + " failed: " + load_error)
+		print("[SHELL BINDER] LOAD FAILED slot=", slot, " reason=", load_error)
+		return
+	var payload: Dictionary = raw.get("payload", {}) if raw.get("payload", {}) is Dictionary else {}
+	var save_text := String(payload.get("session_save", ""))
+	if save_text == "":
+		load_error = "empty_session_save"
+		errors.append("LOAD slot=" + slot + " failed: " + load_error)
+		return
+	var parsed = JSON.parse_string(save_text)
+	if parsed is Dictionary:
+		var seed: Dictionary = parsed.get("seed", {}) if parsed.get("seed", {}) is Dictionary else {}
+		if not seed.has("combat_service"):
+			seed["combat_service"] = {}
+			parsed["seed"] = seed
+			save_text = JSON.stringify(parsed)
+	var lr: Dictionary = session.load_state(save_text)
+	if not bool(lr.get("ok", false)):
+		load_error = String(lr.get("reason", "session_load_failed"))
+		errors.append("LOAD slot=" + slot + " failed: " + load_error)
+		print("[SHELL BINDER] LOAD FAILED slot=", slot, " reason=", load_error)
+		return
+	load_ok = true
+	if String(load_slot_requested) != "":
+		OS.set_environment("DSH_LOAD_SLOT", "")
+	print("[SHELL BINDER] LOAD OK slot=", slot, " t=", session.now_s())
 
 
 func boot() -> bool:
@@ -106,6 +146,15 @@ func boot() -> bool:
 	if not bool(save_service.setup(SAVE_ROOT)):
 		errors.append("SaveService setup failed")
 		return false
+	# 主菜单指定 load slot：优先 raw payload + 当前已 boot 的可选组件 load_state。
+	var req_slot := OS.get_environment("DSH_LOAD_SLOT")
+	if req_slot == "":
+		var ml = Engine.get_main_loop()
+		if ml is SceneTree and (ml as SceneTree).root != null and (ml as SceneTree).root.has_meta("load_slot"):
+			req_slot = String((ml as SceneTree).root.get_meta("load_slot", ""))
+	load_slot_requested = req_slot
+	if req_slot != "":
+		_load_requested_slot(req_slot)
 	ceres_chain = CeresChain.new()
 	var cerr: bool = ceres_chain.setup({"content_path": CeresChain.DEFAULT_CONTENT})
 	ceres_ready = cerr

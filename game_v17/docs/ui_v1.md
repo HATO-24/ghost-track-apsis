@@ -758,3 +758,15 @@ v1_hud.gd
 2. missing evidence_elint/evidence_comms 为真实缺口（未伪造证据）；影响 branch hint。
 3. 不执行完整结局/主菜单切换；不写 world/物理/存档。
 4. 未跑全量 regression。
+
+
+---
+
+## 26　方案B-21：V1 主菜单/新游戏/继续（task-187）
+
+- 新增 `main_menu.tscn` + V1 自绘 `main_menu.gd`；`project.godot` main_scene→`main_menu.tscn`。
+- 菜单：NEW GAME→prologue、CONTINUE（save/menu/autosave 最新有效槽）、LOAD（四槽列表）、SETTINGS 占位、QUIT 确认。
+- 读档：root meta/env `load_slot` → `v1_hud.tscn`；ShellBinder `_load_requested_slot` raw payload + 当前 session `load_state`；失败 v1_hud 回主菜单并显示 reason。
+- 主菜单标题/版本/OCUVF-ID13 程序化徽记；1920/1600 自适应。
+- 截图 `mockups/main-menu-1920.png`、`main-menu-1600.png`。
+- 边界：无 `assets/emblems` 图片，使用程序化徽记；SETTINGS 占位；未跑全量 regression。
