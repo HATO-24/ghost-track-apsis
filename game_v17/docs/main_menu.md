@@ -23,3 +23,18 @@
 2. 读档使用 raw payload + 当前 session 组件恢复；标准 load_session 不覆盖可选组件。
 3. 主菜单是 V1 自绘 Control 根（页面壳），非旧 HUD 面板。
 4. 未跑全量 regression。
+
+
+---
+
+## 设置面板 / SETTINGS（task-191）
+
+- `SETTINGS` 打开 V1 自绘设置面板；数据源 `SettingsService`（`scripts/core/settings_service.gd`）：
+  - `language`（中/日/英）、`master_volume`/`music_volume`/`sfx_volume`（0–100%）、`subtitles`；
+  - `text_speed`、`default_time_scale`、`display_mode`、`ui_scale`；
+  - `SAVE` → SettingsService.save()；`APPLY` → apply_audio/apply_display + time_scale；`RESET` → SettingsService.reset()；`CLOSE`。
+- 服务 ready 显示 `SettingsService READY · user://settings.json`；未 ready 明确 NOT READY。
+- 实测：`SETTINGS TEST ready=true save=true path=user://settings.json apply_audio=true master=0.55`。
+- 主菜单徽记：优先 `res://assets/emblems/id13.png` / `ghost_track.png`；当前工程这两个 PNG 不存在，回退程序化徽记并显示 `NO PNG ASSET · PROCEDURAL FALLBACK`，不谎称图片资产。
+- 截图 `mockups/main-menu-settings-1920.png`、`main-menu-emblem-1920.png`。
+- v1_hud ESC 入口未做；SettingsService 只做数据/接口（音频/显示后端由服务 apply_* 决定），不改 world/物理。
