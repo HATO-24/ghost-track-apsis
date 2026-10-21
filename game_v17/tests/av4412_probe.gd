@@ -24,7 +24,7 @@ const TEXT_KEYS := ["av4412.contact_rules", "av4412.negotiation_rules",
 	"av4412.retreat_ending", "av4412.standard_av_reply_tbd",
 	"av4412.question_av_reply_tbd", "av4412.av_return_threat_tbd",
 	"av4412.retreat_deputy_warn_1_tbd", "av4412.retreat_deputy_warn_2_tbd",
-	"av4412.retreat_deputy_warn_3_tbd"]
+	"av4412.retreat_deputy_warn_3_tbd", "av4412.retreat_deputy_warn_4_tbd", "av4412.retreat_deputy_warn_5_tbd"]
 const DOCS44 := "../docs/44_新剧本_2193.md"
 
 var _pass := 0
@@ -122,7 +122,7 @@ func _doc_lines() -> Array:
 	f.close()
 	return ls
 
-func _drive(option: String, radar := false, warnings := 3) -> Object:
+func _drive(option: String, radar := false, warnings := 5) -> Object:
 	var c = _fresh()
 	c.update_orbit(_track(true, radar))
 	c.advance("window_open")
@@ -136,7 +136,7 @@ func _drive(option: String, radar := false, warnings := 3) -> Object:
 	c.advance("report_handoff")
 	return c
 
-func _to_option(option: String, warnings := 3) -> Object:
+func _to_option(option: String, warnings := 5) -> Object:
 	var c = _fresh()
 	c.update_orbit(_track(true, false))
 	c.advance("window_open")
@@ -207,10 +207,10 @@ func _test_setup_texts() -> void:
 	_eq(str(sum.get("entity_id", "")), "av_4412", "entity_id")
 	_eq(bool(sum.get("auto_fire", true)), false, "不自动开火")
 	_eq(bool(sum.get("writes_v15", true)), false, "不写 v15")
-	_eq((c.text_keys_list() as Array).size(), 17, "17 文本 key")
+	_eq((c.text_keys_list() as Array).size(), 19, "19 文本 key")
 	_eq((c.content.get("chain", []) as Array).size(), 12, "12 状态")
 	_eq((c.content.get("options", []) as Array).size(), 4, "4 谈判选项")
-	_eq(int(c.content.get("retreat_required_warnings", 0)), 3, "退让劝阻 3 次")
+	_eq(int(c.content.get("retreat_required_warnings", 0)), 5, "退让劝阻 5 次")
 	# 文本结构 / TBD
 	var doc: Array = _doc_lines()
 	_ok(doc.size() > 250, "docs/44 可读")
@@ -235,7 +235,7 @@ func _test_setup_texts() -> void:
 					matched = true
 					break
 			_ok(matched, "逐字匹配 docs/44 " + str(key))
-	_eq(tbd_count, 6, "6 个 TBD 占位")
+	_eq(tbd_count, 8, "8 个 TBD 占位")
 	# 关键句
 	_ok(str(c.text("av4412.opening").get("zh", "")).contains("远地点号，AV-4412 传唤者"), "开场喊话")
 	_ok(str(c.text("av4412.opening").get("zh", "")).contains("接管 Chronos 加注站"), "接管条文")
@@ -245,7 +245,7 @@ func _test_setup_texts() -> void:
 	_ok(str(c.text("av4412.question").get("zh", "")).contains("遥测数据"), "质疑遥测")
 	_ok(str(c.text("av4412.retreat_rules").get("zh", "")).contains("多次弹出信息窗口劝阻"), "退让劝阻")
 	_ok(str(c.text("av4412.retreat_ending").get("zh", "")).contains("彩蛋结局"), "退让彩蛋结局")
-	_data_line("setup/texts", "12 状态/4 选项 · 17 文本（11 原文+6 TBD）· 开场/强硬/标准/质疑/退让 · TBD 不伪造")
+	_data_line("setup/texts", "12 状态/4 选项 · 19 文本（11 原文+8 TBD）· 开场/强硬/标准/质疑/退让 · TBD 不伪造")
 
 # ═══════════════════════════════════════════════════════════════════
 # 2. 轨道 / 窗口 / 雷达
@@ -357,7 +357,7 @@ func _test_four_options() -> void:
 	_eq(bool(q.get_flag("question_av_reply_tbd")), true, "question TBD flag")
 	_ok("av4412_question" in q.trigger_ids(), "question trigger")
 	# retreat
-	var r = _drive("retreat", false, 3)
+	var r = _drive("retreat", false, 5)
 	_eq(str(r.current_state()), "REPORT_HANDOFF", "retreat handoff")
 	_eq(str(r.get_resolution()), "death_ending", "retreat death ending")
 	_eq(bool(r.get_flag("death_ending")), true, "retreat death flag")
@@ -428,7 +428,13 @@ func _test_retreat_warnings() -> void:
 	var w3: Dictionary = c.advance("deputy_warn")
 	_eq(int(w3.get("retreat_warnings", 0)), 3, "warn3 count")
 	_eq(str(w3.get("warning_key", "")), "av4412.retreat_deputy_warn_3_tbd", "warn3 key")
-	_eq(int(c.get_trust()), -3, "warnings trust 降低")
+	var w4: Dictionary = c.advance("deputy_warn")
+	_eq(int(w4.get("retreat_warnings", 0)), 4, "warn4 count")
+	_eq(str(w4.get("warning_key", "")), "av4412.retreat_deputy_warn_4_tbd", "warn4 key")
+	var w5: Dictionary = c.advance("deputy_warn")
+	_eq(int(w5.get("retreat_warnings", 0)), 5, "warn5 count")
+	_eq(str(w5.get("warning_key", "")), "av4412.retreat_deputy_warn_5_tbd", "warn5 key")
+	_eq(int(c.get_trust()), -5, "warnings trust 降低")
 	# 已到最大再劝阻拒绝
 	_eq(bool(c.advance("deputy_warn").get("ok", true)), false, "warn 超限拒绝")
 	# 可退让
@@ -445,7 +451,7 @@ func _test_retreat_warnings() -> void:
 	# 退让仅一次（到报告后无选项）
 	_eq(c.available_actions(), [], "REPORT_HANDOFF 无 actions")
 	_eq(bool(c.advance("retreat").get("ok", true)), false, "再次 retreat 拒绝")
-	_data_line("retreat", "需 3 次劝阻 · TBD 文本 key · trust 降低 · death/demo_end · 仅一次")
+	_data_line("retreat", "需 5 次劝阻 · TBD 文本 key · trust 降低 · death/demo_end · 仅一次")
 
 # ═══════════════════════════════════════════════════════════════════
 # 6. note / save-load

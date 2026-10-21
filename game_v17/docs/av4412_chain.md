@@ -17,7 +17,7 @@ ORBIT_DEPARTURE → WINDOW_OPEN → EARLY_RADAR / PASSIVE_CONTACT
 - 窗口期结束/提前雷达**二选一**：雷达开启只能走 `early_radar`，未开雷达只能走
   `passive_contact`；二者互斥。
 - 谈判**四选一**：`strong/standard/question/retreat`；选择后不可改选。
-- **退让需副官多次劝阻**：`deputy_warn` 累计 3 次（内容可配）后才允许
+- **退让需副官多次劝阻**：`deputy_warn` 累计 5 次（内容可配）后才允许
   `retreat`；劝阻文本为 TBD key，不伪造。
 - 四选项都经 `resolve → REPORT_HANDOFF` 手动收尾；退让标记 `death_ending/demo_end`。
 - 乱序/重复/未满足前置 → 明确 reason（`invalid_transition/window_closed/
@@ -50,7 +50,7 @@ ORBIT_DEPARTURE → WINDOW_OPEN → EARLY_RADAR / PASSIVE_CONTACT
 | strong 强硬 | `roe_tight` + `fire_control_illumination` 事件；`auto_fire=false`；AV-4412 撤离 | +2 | 0 | ocu+2/meridian+1 | av4412_strong |
 | standard 标准 | 威胁后离开；AV 回话 TBD | +1 | 0 | ocu+1 | av4412_standard |
 | question 质疑 | 展示遥测证据；上级叫停/AV 返回；完整返回威胁文本 TBD | 0 | +1 | ocu+2/meridian+1 | av4412_question |
-| retreat 退让 | 3 次劝阻后可选；死亡结局/`demo_end`；仅一次 | −1 | 劝阻 −1/次 + 退让 −3 | ocu−3/meridian−2 | av4412_retreat / av4412_death_ending |
+| retreat 退让 | 5 次劝阻后可选；死亡结局/`demo_end`；仅一次 | −1 | 劝阻 −1/次 + 退让 −3 | ocu−3/meridian−2 | av4412_retreat / av4412_death_ending |
 
 - 强硬只做 ROE 切换与火控照射，**不自动开火**（无 weapon_launch 事件/flag）。
 - 事件 schema `av4412_chain_event.v1`：transition + `roe_tight`/

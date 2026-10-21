@@ -44,7 +44,7 @@ var options_cfg: Array = []
 var threat_cfg: Dictionary = {}
 var trust_cfg: Dictionary = {}
 var reputation_cfg: Dictionary = {}
-var retreat_required_warnings := 3
+var retreat_required_warnings := 5
 var texts: Dictionary = {}
 var text_keys: Array = []
 
@@ -107,7 +107,7 @@ func _apply_content(d: Dictionary) -> void:
 	threat_cfg = (d.get("threat", {}) as Dictionary).duplicate(true)
 	trust_cfg = (d.get("trust", {}) as Dictionary).duplicate(true)
 	reputation_cfg = (d.get("reputation", {}) as Dictionary).duplicate(true)
-	retreat_required_warnings = maxi(1, int(d.get("retreat_required_warnings", 3)))
+	retreat_required_warnings = maxi(1, int(d.get("retreat_required_warnings", 5)))
 	texts = {}
 	text_keys = []
 	for raw in (d.get("texts", []) as Array):

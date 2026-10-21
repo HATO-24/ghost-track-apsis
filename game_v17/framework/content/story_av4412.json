@@ -37,7 +37,7 @@
     "question",
     "retreat"
   ],
-  "retreat_required_warnings": 3,
+  "retreat_required_warnings": 5,
   "threat": {
     "strong": 2,
     "standard": 1,
@@ -260,6 +260,26 @@
       "draft": true,
       "tbd": true,
       "note": "缺失：第三次退让劝阻/极端处置前文本（不伪造）。"
+    },
+    {
+      "text_key": "av4412.retreat_deputy_warn_4_tbd",
+      "zh": "TBD",
+      "en": "",
+      "source_lines": [],
+      "usage": "retreat_deputy_warn_4",
+      "draft": true,
+      "tbd": true,
+      "note": "副官第 4 次劝阻；待用户润色"
+    },
+    {
+      "text_key": "av4412.retreat_deputy_warn_5_tbd",
+      "zh": "TBD",
+      "en": "",
+      "source_lines": [],
+      "usage": "retreat_deputy_warn_5",
+      "draft": true,
+      "tbd": true,
+      "note": "副官第 5 次劝阻；待用户润色"
     }
   ],
   "draft": true
