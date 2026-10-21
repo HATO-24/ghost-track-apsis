@@ -35,6 +35,7 @@ var _frames := 0
 var _shot_path := ""
 var _target_size := Vector2i(1920, 1080)
 var _plot3d = null
+var _plot_surface: Control = null
 var _plot3d_rect := Rect2()
 var _commander := "指挥官 · 沧澜"
 var _delta_v := 0.0
@@ -138,6 +139,14 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_process(true)
+	# 独立裁剪层：战术图不得溢出中间区域
+	_plot_surface = Control.new()
+	_plot_surface.name = "TacticalPlotSurface"
+	_plot_surface.clip_contents = true
+	_plot_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_plot_surface.set_script(load("res://scripts/ui/plot_surface.gd"))
+	_plot_surface.set("host", self)
+	add_child(_plot_surface)
 	if _shot_path != "":
 		get_window().size = _target_size
 		Input.warp_mouse(Vector2(_target_size) * 0.5)
@@ -494,6 +503,23 @@ func _draw_map(r: Rect2) -> void:
 	if _plot3d == null:
 		_plot3d = Plot3D.new()
 		_plot3d.setup(binder)
+	# 绘制区只到时间轴上方；底部时间/状态仍由父 HUD 画
+	var plot_area := Rect2(area.position, Vector2(area.size.x, maxf(40.0, area.size.y - 32.0)))
+	if _plot_surface != null:
+		_plot_surface.position = plot_area.position
+		_plot_surface.size = plot_area.size
+		_plot_surface.visible = true
+		_plot_surface.queue_redraw()
+	var ty := area.end.y - 28.0
+	draw_line(Vector2(area.position.x + 12, ty), Vector2(area.end.x - 12, ty), P.a(P.LINE2, 0.7), 1.0)
+	Painter.label(self, area.position.x + 12, ty + 8, "T+00:00 · TOF 144:00:00 · WINDOW OPEN 18:00 / CLOSE 24:00", 7, P.TXT, true)
+	Painter.label(self, area.position.x + 12, area.end.y - 10, "SESSION LIVE · CIC VIEW · V1 WIREFRAME · 不写 WORLD", 6, P.a(P.FAINT, 0.9), true)
+
+
+func _draw_plot_surface(canvas: CanvasItem) -> void:
+	if _plot3d == null or _plot_surface == null:
+		return
+	var local := Rect2(Vector2.ZERO, _plot_surface.size)
 	var selected_id := ""
 	if _selected >= 0 and _selected < _contacts.size():
 		var c: Dictionary = _contacts[_selected]
@@ -503,14 +529,9 @@ func _draw_map(r: Rect2) -> void:
 		var crows: Array = cv.get("tracks", []) if cv.get("tracks", []) is Array else []
 		if not crows.is_empty():
 			selected_id = String((crows[0] as Dictionary).get("id", ""))
-	if _plot3d != null and bool(_plot3d.draw_plot(self, area, binder, selected_id)):
-		# 保留标题/时间轴/状态（旧 plot 只在 wrapper 内绘制这些）
-		var ty := area.end.y - 28.0
-		draw_line(Vector2(area.position.x + 12, ty), Vector2(area.end.x - 12, ty), P.a(P.LINE2, 0.7), 1.0)
-		Painter.label(self, area.position.x + 12, ty + 8, "T+00:00 · TOF 144:00:00 · WINDOW OPEN 18:00 / CLOSE 24:00", 7, P.TXT, true)
-		Painter.label(self, area.position.x + 12, area.end.y - 10, "SESSION LIVE · PLOT3D TRANSFER CACHE/BINDER · V1 WIREFRAME · 不写 WORLD", 6, P.a(P.FAINT, 0.9), true)
-		return
-	_draw_map_legacy(r)
+	if not bool(_plot3d.draw_plot(canvas, local, binder, selected_id)):
+		canvas.draw_rect(local, P.a(P.EARTH, 0.55))
+		canvas.draw_rect(local, P.a(P.LINE, 0.6), false, 1.0)
 
 
 func _draw_map_legacy(r: Rect2) -> void:
