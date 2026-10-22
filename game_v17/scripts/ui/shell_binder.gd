@@ -120,12 +120,14 @@ func _load_requested_slot(slot: String) -> void:
 func boot() -> bool:
 	errors.clear()
 	warnings.clear()
-	# 版本剖面：full（剧情本体）/ combat_sim（作战模拟器）。读不到就回退 full。
+	# 版本剖面：full（剧情本体）/ orbital_sim（正式拟真）/ sandbox（开发测试）/
+	# combat_sim（旧演示，deprecated）。读不到就回退 full。
 	build_profile = BuildProfile.new()
 	build_profile.setup({})
 	for w in (build_profile.warnings as Array):
 		warnings.append("build_profile: " + String(w))
 	save_root = String(build_profile.save_root)
+	_log_build_profile()
 	print("[SHELL BINDER] BUILD profile=", String(build_profile.id),
 		" mode=", String(build_profile.boot_mode),
 		" label=", String(build_profile.label),
@@ -137,11 +139,12 @@ func boot() -> bool:
 	prelude.setup({})
 	prelude_ready = bool(prelude.ready)
 	used_prelude = false
-	if build_profile.is_sandbox():
-		# 作战模拟器：不跑序章，直接装 sandbox 场景（真实地月系几何）
-		seed = _sandbox_seed(sensor_cfg)
+	if build_profile.is_simulation():
+		# 模拟器/沙盒：不跑序章，直接装场景（真实地月系几何）；story_state 只在
+		# 剖面开启 story 时装（orbital_sim 无剧情状态、不报错、不伪造 story VM）。
+		seed = _scenario_seed(sensor_cfg)
 		if seed.is_empty():
-			warnings.append("sandbox seed 为空，回退序章")
+			warnings.append("scenario seed 为空，回退序章")
 			build_profile.boot_mode = "prelude"
 		else:
 			print("[SHELL BINDER] SANDBOX entities=",
@@ -199,6 +202,7 @@ func boot() -> bool:
 			],
 		}
 	var br: Dictionary = session.boot(seed)
+	_log_systems()
 	if not bool(br.get("ok", false)):
 		errors.append("GameSession boot failed: " + str(br.get("reason", "")))
 		return false
@@ -294,6 +298,92 @@ func quick_restart() -> Dictionary:
 		"t_before": prev_t, "t_after": now_t, "errors": errors.duplicate()}
 
 
+## 启动日志契约：剖面基本行 + 每功能 ON/OFF 原因 + 每条能力边界。
+## 轨迹/测试按行 grep，格式不要随意改。
+func _log_build_profile() -> void:
+	print("[BUILD PROFILE] id=", String(build_profile.id),
+		" mode=", String(build_profile.boot_mode),
+		" scene=", String(build_profile.entry_scene),
+		" scenario=", String(build_profile.scenario),
+		" save_root=", String(build_profile.save_root))
+	var fsv: Dictionary = build_profile.feature_status_vm()
+	for k in BuildProfile.FEATURES:
+		var row: Dictionary = fsv.get(k, {}) if fsv.get(k, {}) is Dictionary else {}
+		if bool(row.get("enabled", false)):
+			print("[BUILD PROFILE] SYSTEM ", String(k), "=ON")
+		else:
+			print("[BUILD PROFILE] SYSTEM ", String(k), "=OFF reason=", String(row.get("reason", "未启用")))
+	for lim in (build_profile.limitations as Array):
+		print("[BUILD PROFILE][LIMITATION] ", String(lim))
+	for w in (build_profile.warnings as Array):
+		print("[BUILD PROFILE] WARN ", String(w))
+	for e in (build_profile.errors as Array):
+		print("[BUILD PROFILE] ERROR ", String(e))
+
+
+## 系统就绪日志：全部从真实服务对象读取（缺服务就是 false，不硬编码 true）。
+func _log_systems() -> void:
+	var sv: Dictionary = systems_vm()
+	print("[SHELL BINDER] SYSTEMS physics=", _state_str(sv.get("physics", false)),
+		" sensors=", _state_str(sv.get("sensors", false)),
+		" track_table=", _state_str(sv.get("track_table", false)),
+		" combat=", _state_str(sv.get("combat", false)),
+		" ballistics=", _state_str(sv.get("ballistics", false)),
+		" damage=", _state_str(sv.get("damage", false)),
+		" ew=", _state_str(sv.get("ew", false)),
+		" identification=", _state_str(sv.get("identification", false)),
+		" traffic=", _state_str(sv.get("traffic", false)),
+		" port=", _state_str(sv.get("port", false)),
+		" ship_catalog=", _state_str(sv.get("ship_catalog", false)),
+		" refit=", _state_str(sv.get("refit", false)),
+		" story=", String(sv.get("story", "false")))
+
+
+func _state_str(v: Variant) -> String:
+	return "true" if bool(v) else "false"
+
+
+## 系统就绪 VM（探针/测试用）：与 [SHELL BINDER] SYSTEMS 日志同源。
+##   physics..refit: 服务对象存在且 ready 才 true；
+##   story: "disabled"（剖面关闭剧情）/ "ready" / "false"（剖面要剧情但未装载）。
+func systems_vm() -> Dictionary:
+	var out: Dictionary = {
+		"schema": "shell_binder.systems.v1",
+		"profile": String(build_profile.id) if build_profile != null else "",
+		"mode": String(build_profile.boot_mode) if build_profile != null else "",
+		"scenario": String(build_profile.scenario) if build_profile != null else "",
+		"physics": _svc_ready(session.physics_world_service if session != null else null),
+		"sensors": _svc_ready(session.sensor_service if session != null else null),
+		"track_table": _svc_ready(session.track_table if session != null else null),
+		"combat": _svc_ready(session.combat_service if session != null else null),
+		"ballistics": _svc_ready(session.combat_ballistics if session != null else null),
+		"damage": _svc_ready(session.damage_service if session != null else null),
+		"ew": _svc_ready(session.ew_service if session != null else null),
+		"identification": _svc_ready(session.identification_service if session != null else null),
+		"traffic": _svc_ready(session.traffic_control if session != null else null),
+		"port": _svc_ready(session.port_service if session != null else null),
+		"ship_catalog": _svc_ready(session.ship_catalog if session != null else null),
+		"refit": _svc_ready(session.refit_service if session != null else null),
+		"story": _story_status(),
+		"writes": {"world": false, "track_table": false, "ui": false}
+	}
+	return out
+
+
+func _svc_ready(svc) -> bool:
+	if svc == null:
+		return false
+	return bool(svc.ready)
+
+
+func _story_status() -> String:
+	if build_profile != null and not build_profile.enabled("story"):
+		return "disabled"
+	if session != null and session.story_state != null and bool(session.story_state.ready):
+		return "ready"
+	return "false"
+
+
 func _sensor_config() -> Dictionary:
 	# observer=apsis；targets 示例来自 GameSession demo seed 实体；不写旧场景。
 	var targets: Array = [
@@ -321,19 +411,20 @@ func _sensor_config() -> Dictionary:
 	}
 
 
-## 作战模拟器：把 sandbox 场景（真实地月系几何）翻成 session seed。
-## 不启序章/剧情/触发器；其余系统按版本剖面开关装。
-func _sandbox_seed(sensor_cfg: Dictionary) -> Dictionary:
+## 模拟器/沙盒剖面：把场景（真实地月系几何）翻成 session seed。
+## 不启序章/剧情/触发器；系统按 build profile 开关装；story_state 只在
+## profile 开启 story 时装（正式拟真剖面 orbital_sim 不装剧情状态）。
+func _scenario_seed(sensor_cfg: Dictionary) -> Dictionary:
 	var path := String(build_profile.scenario)
 	if path == "":
 		path = SANDBOX_DEFAULT_SCENARIO
 	var sc := _read_json(path)
 	if sc.is_empty():
-		warnings.append("sandbox 场景不可读：" + path)
+		warnings.append("场景不可读：" + path)
 		return {}
 	var ents: Array = sc.get("entities", []) if sc.get("entities") is Array else []
 	if ents.is_empty():
-		warnings.append("sandbox 场景无实体：" + path)
+		warnings.append("场景无实体：" + path)
 		return {}
 	var cb: Dictionary = sc.get("combat", {}) if sc.get("combat") is Dictionary else {}
 	var own := String(sc.get("own_entity", "apsis"))
@@ -350,22 +441,29 @@ func _sandbox_seed(sensor_cfg: Dictionary) -> Dictionary:
 			"roe": String(cb.get("roe", "TIGHT")),
 			"own_id": String(cb.get("own_id", own)),
 			"fleet_id": String(cb.get("fleet_id", "fleet")),
-			# 沙盒便利项：只在 sandbox 剖面生效（build_profile 对 full 恒返回 false）
+			# 便利项只在 boot_mode=sandbox 生效；orbital_sim 恒为 false（拟真）
 			"unlimited_ammo": build_profile.sandbox_opt("unlimited_ammo", false),
 			"auto_authorize": build_profile.sandbox_opt("auto_authorize", false)},
 		"combat_ballistics": {"pd_platform_id": String(cb.get("pd_platform_id", "own"))},
 		"damage_service": build_profile.enabled("damage"),
 		"ew_service": build_profile.enabled("combat"),
-		"identification_service": {"auto": {"enabled": false, "interval_s": 10.0,
-			"modes": ["mode_s"], "min_confidence": 0.75, "min_age_s": 3.0,
-			"max_requests_per_tick": 2}},
 		"traffic_control": build_profile.enabled("traffic"),
-		"prelude": {"scenario": "combat_sandbox",
+		"port_service": build_profile.enabled("port"),
+		"ship_catalog": build_profile.enabled("ship_catalog"),
+		"refit": build_profile.enabled("refit"),
+		# 港口/交通需要设施注册表做实体→设施映射与态势图设施层
+		"facility_registry": build_profile.enabled("port") or build_profile.enabled("traffic"),
+		"prelude": {"scenario": String(sc.get("id", "scenario")),
 			"title": String(sc.get("title", "作战演练"))},
-		# sandbox 场景坐标已是 bary_rot 绝对坐标，禁止再做 L1 相对帧转换
+		# 场景坐标已是 bary_rot 绝对坐标，禁止再做 L1 相对帧转换
 		"seed_frame": String(sc.get("frame", "bary_rot")),
 		"frame_origin": "bary_rot",
 	}
+	if build_profile.enabled("identification"):
+		# 识别融合：默认关闭自动询问（避免开局静默产生应答机询问副作用）。
+		seed["identification_service"] = {"auto": {"enabled": false, "interval_s": 10.0,
+			"modes": ["mode_s"], "min_confidence": 0.75, "min_age_s": 3.0,
+			"max_requests_per_tick": 2}}
 	# 信号/灯语：观测者=本舰，目标=全部实体（与序章同构，供 OPTICAL/ELINT 链路使用）
 	if build_profile.enabled("signal"):
 		var sig_targets: Array = []
@@ -388,6 +486,11 @@ func _sandbox_seed(sensor_cfg: Dictionary) -> Dictionary:
 	if build_profile.enabled("story"):
 		seed["story_state"] = true
 	return seed
+
+
+## 兼容旧名（旧测试/文档可能仍引用 _sandbox_seed）；语义已泛化为场景 seed。
+func _sandbox_seed(sensor_cfg: Dictionary) -> Dictionary:
+	return _scenario_seed(sensor_cfg)
 
 
 func _signal_side(side: String) -> String:

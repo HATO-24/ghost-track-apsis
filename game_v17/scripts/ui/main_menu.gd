@@ -49,11 +49,11 @@ const SETTINGS_DEFAULTS := {
 
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
-	# 版本剖面：作战模拟器版本跳过主菜单，直接进战术台（截图/显式禁用时除外）
+	# 版本剖面：模拟器/沙盒剖面跳过主菜单，直接进战术台（截图/显式禁用时除外）
 	_profile = BuildProfile.new()
 	_profile.setup({})
 	_save_root = String(_profile.save_root)
-	if _profile.is_sandbox() and _shot_path == "" \
+	if _profile.is_simulation() and _shot_path == "" \
 			and OS.get_environment("DSH_NO_AUTOSKIP") != "1":
 		var target := String(_profile.entry_scene)
 		if target != "" and target != "res://main_menu.tscn":
