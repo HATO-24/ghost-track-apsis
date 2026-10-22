@@ -15,7 +15,7 @@
 #      is evidence. See PR body.
 #
 #   2) "Full matrix (baseline-aware; known legacy FAILs shown, red only on new
-#      regressions)" — runs ALL 72 cases (67 probes + 1 E2E + 4 boot smokes) with
+#      regressions)" — runs ALL cases declared in probe_matrix.json (Phase A1.1 adds the entity-metadata authority probe) with
 #      `-Baseline game_v17/tests/known_baseline_failures.json`.
 #      The 8 known pre-existing failures are STILL EXECUTED, STILL REPORTED AS
 #      FAIL (never renamed PASS, never skipped, no continue-on-error).
@@ -276,7 +276,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          # All 72 cases are executed. Known pre-existing failures stay FAIL in the
+          # All matrix cases are executed. Known pre-existing failures stay FAIL in the
           # output/report. Strict fail-closed semantics: exit 0 only when every
           # declared baseline entry ran as expected FAIL with matching counts, and
           # there is no NEW failure, drift, timeout, unexpected NOT RUN, unverified
@@ -342,7 +342,7 @@ jobs:
           $lines = @(
             '## Full regression matrix (baseline-aware, NOT a claim that all tests pass)',
             '',
-            'All 72 cases were executed. Known pre-existing failures below are still FAIL records — they are not skipped, renamed or silenced.',
+            'All matrix cases were executed. Known pre-existing failures below are still FAIL records — they are not skipped, renamed or silenced.',
             'STRICT fail-closed: this check turns red if any declared baseline entry is NOT RUN / blocked / filtered out / missing / count-mismatched, or on NEW failures, drift, timeouts or unexpected NOT RUN.',
             'The baseline gate self-test step must also be green (proves blocked and filtered-out baseline entries fail).',
             ''

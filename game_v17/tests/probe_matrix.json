@@ -633,6 +633,19 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.a1_entity_metadata_authority",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A1.1: entity static metadata authority (scenario -> runtime), ballistics/PD reads authority, contacts stay UNKNOWN without evidence, truth not auto-copied to player view",
+      "script": "res://tests/a1_entity_metadata_authority_probe.gd",
+      "expected_markers": [
+        "A1 ENTITY METADATA AUTHORITY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
       "id": "integration.av4412_probe",
       "category": "integration",
       "profile": "",
