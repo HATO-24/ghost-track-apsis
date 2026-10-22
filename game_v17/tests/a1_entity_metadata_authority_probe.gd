@@ -370,6 +370,8 @@ func _check_display_fields(eid: String, row: Dictionary, truth: Dictionary) -> v
 	_ok(did != "" and dname != "" and dcls != "" and dsrc != "",
 		"display fields present: " + eid,
 		"id=%s name=%s class=%s source=%s" % [did, dname, dcls, dsrc])
+	# 内部引用必须保留：选择/传感器/交战仍用真实 entity_id，而不是显示 ID。
+	_eq(String(row.get("entity_id", "")), eid, "internal entity_id preserved: " + eid)
 	if dsrc == "facility_registry":
 		# Facility registry public fields are an allowed, explicitly-sourced exception.
 		var fid := String(row.get("facility_id", ""))

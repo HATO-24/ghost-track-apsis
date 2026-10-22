@@ -110,7 +110,7 @@ TrackTable（玩家航迹；side/identity 只来自观测/证据/授权）
   name/batch/ship_class/side/identity/entity_id；设施注册表公开字段例外必须
   单独标记 `facility_registry` 并对照 registry 值；
 - 修复前该探针 FAIL（metadata API 缺失、默认值错误、friend 回退、显示字段缺失/
-  泄露真值），修复后 PASS（304 断言）。
+  泄露真值），修复后 PASS（312 断言）。
 
 ```powershell
 .\run_tests.ps1 -Only '^integration\.a1_entity_metadata_authority$' -Ci
