@@ -438,7 +438,8 @@ func _contains_truth(value: String, truth: Dictionary, eid: String, include_name
 		keys.append("name")
 	for k in keys:
 		var t := String(truth.get(k, "")).to_lower()
-		if t != "" and v.find(t) >= 0:
+		# Generic "unknown"/"none" values are not identifying truth; UNKNOWN display is allowed.
+		if t != "" and t not in ["unknown", "none", "pending"] and v.find(t) >= 0:
 			return true
 	if eid != "" and v.find(eid.to_lower()) >= 0:
 		return true

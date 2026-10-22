@@ -57,9 +57,42 @@ TrackTable（玩家航迹；side/identity 只来自观测/证据/授权）
   （`type="station"`），不代表友方。
 - **设施行**：side 来自 `facility_registry`（内容/数据库），显式标记
   `side_source="facility_registry"`；identity 仍不自动填充。
-- **SIGNAL 行**：signal target registry 的世界内部 side 不再自动显示；
+- **SIGNAL 行**：signal target registry 的世界内部 side/name/batch 不再自动显示；
   保持 unknown。
 - `binder.contacts` 中任何非设施行都不允许默认 `friend` 或泄露 catalog truth。
+
+### 4.1 玩家显示字段（A1.1 聚焦修复：无证据不泄露真值）
+
+每个 contact 行提供独立的安全显示字段，HUD 统一通过
+`ShellBinder.contact_display(row)` 读取：
+
+| 字段 | 含义 |
+|---|---|
+| `display_id` / `display_name` / `display_class` | 玩家可见 ID / 名称 / 类别（安全值） |
+| `display_source` | 来源：`track` / `anonymous` / `anonymous_signal` / `facility_registry` / `ownship` |
+| `entity_id` / `track_id` / `facility_id` / `signal_target_id` | **内部引用**（选择/传感器/交战/设施查询），不用于显示 |
+
+规则：
+
+- **TRACK**：`display_id = track_id`（航迹编号）、`display_name = "UNKNOWN TRACK"`、
+  `display_class = "TRACK L<level>"`、`display_source = "track"`；不读取实体
+  name/batch/ship_class。
+- **ENTITY（无 track/证据）**：显示为匿名未知接触，`display_id = "UNKNOWN-<序号>"`
+  （按实体 id 排序的确定性序号）、`display_name = "UNKNOWN CONTACT"`、
+  `display_class = "UNKNOWN"`、`display_source = "anonymous"`；不显示实体
+  id/name/batch/ship_class。无证据实体保留为匿名接触（不隐藏），内部
+  `entity_id` 引用不变。
+- **SIGNAL**：`display_id = "SIGNAL-<序号>"`、`display_name = "UNKNOWN SIGNAL"`、
+  `display_class = "SIGNAL"`、`display_source = "anonymous_signal"`；signal target
+  registry 的 world side/name/batch 不显示；内部 `signal_target_id` 保留。
+- **设施注册表例外**：`display_id = facility_code`（或 transponder_code）、
+  `display_name/display_class` 来自 `facility_registry` 公开字段、
+  `display_source = "facility_registry"`；identity 仍不自动填充。这是唯一允许
+  展示注册表公开内容并显式标记来源的例外。
+- **本舰**：HUD 显示 `1000 / OWN SHIP / FLAGSHIP`，`display_source = "ownship"`；
+  内部 `entity_id` 仍为真实本舰 id。
+- 为兼容其它 UI 路径，legacy `id/name/cls` 同步为上述安全显示值；任何路径都不得
+  从 world truth 回填 name/batch/ship_class/side/identity。
 
 > 世界内部仍知道 truth（战斗/PD 需要）；玩家视图必须通过观测/证据/授权链获得结论。
 
@@ -72,7 +105,12 @@ TrackTable（玩家航迹；side/identity 只来自观测/证据/授权）
 - 从 `scenario_orbital_sim.json` 直读 7 实体真值，逐实体断言 10 个静态字段可找回；
 - 断言弹道/PD state 使用 catalog 值且 `radius_source="catalog"`；
 - 断言 contacts 无证据时保持 `unknown`、无 `friend` 默认、无 truth side/identity 泄露；
-- 修复前该探针 FAIL（metadata API 缺失、默认值错误、friend 回退），修复后 PASS。
+- 断言玩家显示字段（`display_id/display_name/display_class/display_source`）与 HUD
+  `contact_display(row)`：TRACK/ENTITY/SIGNAL 不得包含 truth 的
+  name/batch/ship_class/side/identity/entity_id；设施注册表公开字段例外必须
+  单独标记 `facility_registry` 并对照 registry 值；
+- 修复前该探针 FAIL（metadata API 缺失、默认值错误、friend 回退、显示字段缺失/
+  泄露真值），修复后 PASS（304 断言）。
 
 ```powershell
 .\run_tests.ps1 -Only '^integration\.a1_entity_metadata_authority$' -Ci

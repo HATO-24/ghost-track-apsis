@@ -432,11 +432,34 @@ func _seed_comms_sample() -> void:
 	print("[V1 HUD] COMMS seed LD=", str(bool(res1.get("ok", false))), " LR=", str(bool(res2.get("ok", false))), " events=", (binder.session.comms.vm().get("events", []) as Array).size())
 
 
+## A1.1：HUD 统一显示字段；无安全字段时返回匿名值，绝不回退世界真值。
+func _contact_display(c: Dictionary) -> Dictionary:
+	if binder != null and binder.has_method("contact_display"):
+		return binder.contact_display(c)
+	var did := String(c.get("display_id", ""))
+	var dname := String(c.get("display_name", ""))
+	var dcls := String(c.get("display_class", ""))
+	if did == "":
+		did = "UNKNOWN"
+	if dname == "":
+		dname = "UNKNOWN CONTACT"
+	if dcls == "":
+		dcls = "UNKNOWN"
+	return {"id": did, "name": dname, "cls": dcls, "source": String(c.get("display_source", "unknown"))}
+
+
 func _normalize_contacts() -> void:
 	for i in range(_contacts.size()):
 		var c: Dictionary = _contacts[i]
 		if String(c.get("entity_id", "")) == "apsis" or String(c.get("id", "")) == "apsis":
+			# 本舰是玩家已知对象；显示仍走独立安全字段，不回读世界真值名称。
 			c["id"] = "1000"
+			c["display_id"] = "1000"
+			c["name"] = "OWN SHIP"
+			c["display_name"] = "OWN SHIP"
+			c["cls"] = "FLAGSHIP"
+			c["display_class"] = "FLAGSHIP"
+			c["display_source"] = "ownship"
 			c["badge"] = "FLAG"
 			_contacts[i] = c
 	# 旗舰 1000 固定第一；其余保持原顺序（友军/中立/未知规则不变）。
@@ -688,9 +711,10 @@ func _draw() -> void:
 				break
 			var tr := Rect2(left.position.x + 8, row_y, left.size.x - 16, rh)
 			_contact_rects.append({"rect": tr, "index": i})
-			Painter.list_row(self, tr, "[%s] %s" % [String(c.get("id", "")), String(c.get("name", ""))], String(c.get("badge", "")), _type_col(c), i == _selected)
+			var disp := _contact_display(c)
+			Painter.list_row(self, tr, "[%s] %s" % [String(disp.get("id", "UNKNOWN")), String(disp.get("name", "UNKNOWN CONTACT"))], String(c.get("badge", "")), _type_col(c), i == _selected)
 			# 识别融合短标签（来源族 + 置信度 + 人工/矛盾标记）；无评估显示 —，不伪造。
-			var cls_txt := String(c.get("cls", ""))
+			var cls_txt := String(disp.get("cls", "UNKNOWN"))
 			var idn: Dictionary = c.get("ident", {}) if c.get("ident", {}) is Dictionary else {}
 			var itag := String(idn.get("tag", "—"))
 			var icol := P.a(P.FAINT, 0.95)
@@ -1363,11 +1387,12 @@ func _track_for_contact(c: Dictionary) -> Dictionary:
 	if not tr.is_empty():
 		return tr
 	var eid := String(c.get("entity_id", ""))
-	var cid := String(c.get("id", ""))
+	var tid := String(c.get("track_id", ""))
 	for raw in (binder.track_vm.get("tracks", []) if binder.track_vm.get("tracks", []) is Array else []):
 		if raw is Dictionary:
 			var rt: Dictionary = raw
-			if (eid != "" and String(rt.get("entity_id", "")) == eid) or (cid != "" and String(rt.get("batch", "")) == cid):
+			if (tid != "" and String(rt.get("track_id", "")) == tid) \
+					or (eid != "" and String(rt.get("entity_id", "")) == eid):
 				return rt
 	return {}
 
@@ -1376,7 +1401,7 @@ func _transponder_recent_text(fid: String, c: Dictionary) -> String:
 	if _txp_reply.is_empty():
 		return "NOT QUERIED"
 	var target := String(_txp_reply.get("target_id", ""))
-	if target != fid and target != String(c.get("entity_id", "")) and target != String(c.get("id", "")):
+	if target != fid and target != String(c.get("entity_id", "")):
 		return "NOT QUERIED"
 	return "%s · %s · %s · crypto %s" % [String(_txp_reply.get("registration_code", "—")), String(_txp_reply.get("facility_code", "—")), String(_txp_reply.get("status", "—")), ("OK" if bool((_txp_reply.get("crypto", {}) as Dictionary).get("valid", false)) else "FAIL")]
 
@@ -1466,7 +1491,7 @@ func _signal_demo() -> void:
 				_selected = i
 				var seid := String(sc.get("entity_id", ""))
 				if seid == "":
-					seid = String(sc.get("id", ""))
+					continue
 				_optical_target = seid
 				_optical_track = _track_for_contact(sc)
 				break
@@ -1599,8 +1624,6 @@ func _traffic_action(kind: String) -> void:
 			track = String(c.get("track_id"))
 		elif String(c.get("entity_id", "")) != "":
 			track = String(c.get("entity_id"))
-		elif String(c.get("id", "")) != "":
-			track = String(c.get("id"))
 	var lane := _traffic_lane
 	if lane == "":
 		var lr: Array = binder.traffic_lane_rows()
@@ -2286,13 +2309,13 @@ func _draw_optical_overlay(r: Rect2) -> void:
 		tr = _track_for_contact(c)
 	var target_id := String(_optical_target)
 	if target_id == "":
-		target_id = String(c.get("entity_id", c.get("id", "")))
+		target_id = String(c.get("entity_id", ""))
 	var level := int(tr.get("level", 0)) if not tr.is_empty() else 0
 	var is_ceres := target_id == "ceres_2" and binder != null and bool(binder.ceres_ready)
 	var labels := [["VIS", "VIS / 可见光"], ["IR", "IR / 红外"], ["IFF", "IFF QUERY"], ["ELINT", "ELINT"], ["LIGHT", "LIGHT TX"], ["RECV", "LIGHT RECV"], ["ACK", "LIGHT ACK"], ["CODE_PREV", "CODE ◀"], ["CODE_NEXT", "CODE ▶"]]
 	if is_ceres:
 		labels = [["DATA_LINK", "DATA LINK"], ["VIS", "VIS"], ["ELINT", "ELINT"], ["IFF", "IFF QUERY"], ["READ_LIGHT", "READ LIGHT"], ["TYPE_L4", "TYPE L4"], ["RESCUE_PROMPT", "RESCUE PROMPT"], ["RESCUE", "RESCUE"], ["IGNORE", "IGNORE"]]
-	var fr := _overlay_frame(r, "光学 / 识别 · OPTICAL / IDENTIFICATION", "目标=当前选中 track/entity · 数据来自 track_vm / sensor_vm · 不伪造 L3/L4", P.PH, "TRACK L%d · %s" % [level, String(c.get("id", target_id))])
+	var fr := _overlay_frame(r, "光学 / 识别 · OPTICAL / IDENTIFICATION", "目标=当前选中 track/entity · 数据来自 track_vm / sensor_vm · 不伪造 L3/L4", P.PH, "TRACK L%d · %s" % [level, String(_contact_display(c).get("id", target_id))])
 	var body: Rect2 = fr.body
 	var x := body.position.x
 	var y := body.position.y
@@ -2300,7 +2323,8 @@ func _draw_optical_overlay(r: Rect2) -> void:
 	var left_w := floorf(body.size.x * 0.5 - gap * 0.5)
 	var right_x := x + left_w + gap
 	var right_w := body.size.x - left_w - gap
-	Painter.label(_cv, x, y + 10, TM.fit("TARGET  " + String(c.get("name", "NOT READY")) + " · " + String(c.get("id", target_id)), left_w, false, 9), 9, P.TXT)
+	var disp_t := _contact_display(c)
+	Painter.label(_cv, x, y + 10, TM.fit("TARGET  " + String(disp_t.get("name", "UNKNOWN CONTACT")) + " · " + String(disp_t.get("id", "UNKNOWN")), left_w, false, 9), 9, P.TXT)
 	Painter.label(_cv, x, y + 24, TM.fit("ENTITY/TRACK " + target_id + " · " + (String(tr.get("track_id", "TRACK NOT READY")) if not tr.is_empty() else "TRACK NOT READY"), left_w, true, 7), 7, P.PH_DIM, true)
 	var ly := y + 48.0
 	Painter.section(_cv, x, ly, x + left_w, "IDENTIFICATION CHAIN / L1–L4")
