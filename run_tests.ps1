@@ -17,8 +17,22 @@
                 or SCRIPT ERROR / parse error in a boot case
       TIMEOUT   per-case process timeout (killed; counted as failure)
       NOT RUN   declared blocked case (declared in matrix) or missing script/scene/import
-    Exit codes: 0 all run cases passed; 1 any FAIL/TIMEOUT/unexpected NOT RUN;
-                2 environment/setup blocked (no Godot, import preflight failed, bad args).
+
+    Baseline-aware mode (-Baseline <file>, schema known_baseline_failures.v1):
+    every case keeps its original status (a FAIL stays FAIL; nothing is renamed PASS,
+    hidden, skipped or continue-on-error). On top of that each FAIL is classified as
+    known+expected (counts/exit match the declared baseline), baseline drift (declared
+    failure whose counts changed, or a declared failure that now passes), or new failure
+    (not declared). The console/report print `BASELINE CHECK: known_fail=N new_fail=N
+    drift=N`; summary.json gains a `baseline` block and totals known_fail/new_fail/
+    baseline_drift. Exit is 0 only when new_fail==0 AND baseline_drift==0 AND timeout==0
+    AND unexpected NOT RUN==0; otherwise 1. Without -Baseline behaviour is unchanged:
+    any FAIL/TIMEOUT/unexpected NOT RUN -> exit 1.
+
+    Exit codes: 0 all run cases passed (baseline mode: only declared known failures);
+                1 any FAIL/TIMEOUT/unexpected NOT RUN (baseline mode: any new failure or
+                baseline drift); 2 environment/setup blocked (no Godot, import preflight
+                failed, unknown gate, missing/invalid baseline file, bad args).
 
 .PARAMETER GodotBin
     Explicit Godot executable path. Discovery order when omitted:
@@ -29,6 +43,12 @@
 
 .PARAMETER Only
     Regular-expression filter matched against case id and target (script/scene path).
+
+.PARAMETER Gate
+    Run only the case ids declared in probe_matrix.json gates.<name> (e.g. phase0 =
+    profile.build_profile_probe, e2e.orbital_sim and the four boot smoke cases).
+    Composable with -Category / -Only. Unknown or empty gate -> exit 2 with the list
+    of available gates.
 
 .PARAMETER List
     Print the resolved matrix (after filters) and exit 0 without requiring Godot.
@@ -48,6 +68,13 @@
 .PARAMETER ResultsDir
     Results root directory (default .test-results). A unique run dir is created inside.
 
+.PARAMETER Baseline
+    Baseline-aware mode. Path to a known_baseline_failures.v1 file (default candidate:
+    game_v17/tests/known_baseline_failures.json). Case statuses are never changed:
+    declared legacy failures stay FAIL (they are only classified and tagged
+    KNOWN-BASELINE); any new failure or baseline drift turns the run red. See
+    .DESCRIPTION for the exact classification and exit-code semantics.
+
 .EXAMPLE
     pwsh ./run_tests.ps1 -List
 
@@ -59,6 +86,12 @@
 
 .EXAMPLE
     $env:GODOT_BIN = 'C:\tools\Godot_v4.7.2-stable_win64_console.exe'; pwsh ./run_tests.ps1 -Category boot
+
+.EXAMPLE
+    pwsh ./run_tests.ps1 -Gate phase0 -Ci
+
+.EXAMPLE
+    pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json -Ci
 #>
 [CmdletBinding()]
 param(
@@ -70,7 +103,9 @@ param(
     [int]$TimeoutSec = 0,
     [switch]$Ci,
     [string]$Matrix = '',
-    [string]$ResultsDir = ''
+    [string]$ResultsDir = '',
+    [string]$Gate = '',
+    [string]$Baseline = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -95,6 +130,9 @@ $script:MatrixData = $null
 $script:Godot = $null
 $script:RunId = ''
 $script:RunDir = ''
+$script:GateProvided = $PSBoundParameters.ContainsKey('Gate')
+$script:BaselineProvided = $PSBoundParameters.ContainsKey('Baseline')
+$script:BaselineData = $null
 
 # ── console helpers ────────────────────────────────────────────────────────
 function Write-Info([string]$Text) { Write-Host $Text }
@@ -321,6 +359,202 @@ function Select-MatrixCases {
 
 function Get-MatrixCategories {
     return @(@($script:MatrixData.cases) | ForEach-Object { [string]$_.category } | Sort-Object -Unique)
+}
+
+# ── gates (probe_matrix.v1 "gates" section) ────────────────────────────────
+function Get-MatrixGateNames {
+    if ($null -eq $script:MatrixData -or $null -eq $script:MatrixData.gates) { return @() }
+    return @($script:MatrixData.gates.PSObject.Properties | ForEach-Object { [string]$_.Name } | Sort-Object)
+}
+
+function Get-CaseGateMembership {
+    $membership = @{}
+    if ($null -ne $script:MatrixData -and $null -ne $script:MatrixData.gates) {
+        foreach ($gp in $script:MatrixData.gates.PSObject.Properties) {
+            foreach ($cid in @($gp.Value)) {
+                $key = [string]$cid
+                if (-not $membership.ContainsKey($key)) { $membership[$key] = @() }
+                $membership[$key] = @($membership[$key]) + [string]$gp.Name
+            }
+        }
+    }
+    return $membership
+}
+
+function Select-GateCases {
+    param($Candidates)
+    if (-not $script:GateProvided) { return @($Candidates) }
+    $available = @(Get-MatrixGateNames)
+    if ($available.Count -eq 0) {
+        throw "matrix has no 'gates' section; -Gate '$Gate' is unavailable"
+    }
+    if ([string]::IsNullOrWhiteSpace($Gate)) {
+        throw ("empty -Gate value. Available gates: " + ($available -join ', '))
+    }
+    $prop = $script:MatrixData.gates.PSObject.Properties[$Gate]
+    if ($null -eq $prop) {
+        throw ("unknown gate '$Gate'. Available gates: " + ($available -join ', '))
+    }
+    $gateIds = @(@($prop.Value) | ForEach-Object { [string]$_ } | Where-Object { $_ -ne '' })
+    if ($gateIds.Count -eq 0) { throw "gate '$Gate' declares no case ids" }
+    $candidateIds = @(@($Candidates) | ForEach-Object { [string]$_.id })
+    $missing = @($gateIds | Where-Object { $candidateIds -notcontains $_ })
+    if ($missing.Count -gt 0) {
+        throw ("gate '$Gate' references case id(s) not present in matrix: " + ($missing -join ', '))
+    }
+    $selected = @()
+    foreach ($c in @($Candidates)) {
+        if ($gateIds -contains [string]$c.id) { $selected += $c }
+    }
+    return @($selected)
+}
+
+# ── baseline (known_baseline_failures.v1) ──────────────────────────────────
+function Load-Baseline {
+    param([string]$PathValue)
+    $resolved = Resolve-RepoPath $PathValue
+    if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) {
+        throw "baseline file not found: $resolved"
+    }
+    $raw = Get-Content -LiteralPath $resolved -Raw -Encoding UTF8
+    try { $b = $raw | ConvertFrom-Json }
+    catch { throw "invalid baseline JSON in ${resolved}: $($_.Exception.Message)" }
+    if ($null -eq $b) { throw "empty baseline JSON: $resolved" }
+    if ([string]$b.schema -ne 'known_baseline_failures.v1') {
+        throw "unsupported baseline schema in ${resolved}: '$([string]$b.schema)' (expected known_baseline_failures.v1)"
+    }
+    if ($null -eq $b.failures -or @($b.failures).Count -eq 0) {
+        throw "baseline file has no failures[] entries: $resolved"
+    }
+    $map = @{}
+    foreach ($f in @($b.failures)) {
+        if ($null -eq $f -or [string]::IsNullOrWhiteSpace([string]$f.id)) {
+            throw "baseline entry missing 'id' in $resolved"
+        }
+        $id = [string]$f.id
+        if ($map.ContainsKey($id)) { throw "duplicate baseline entry for case '$id' in $resolved" }
+        foreach ($req in @('expected_exit', 'expected_pass', 'expected_fail')) {
+            $prop = $f.PSObject.Properties[$req]
+            if ($null -eq $prop -or $null -eq $prop.Value) {
+                throw "baseline entry '$id' is missing required field '$req' in $resolved"
+            }
+        }
+        $map[$id] = $f
+    }
+    $sha = ''
+    try { $sha = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash.ToLowerInvariant() } catch { $sha = '' }
+    return [pscustomobject]@{
+        absolute_path = $resolved
+        path          = (Format-RepoRelative $resolved)
+        schema        = [string]$b.schema
+        commit        = [string]$b.baseline_commit
+        environment   = $b.environment
+        provenance    = [string]$b.evidence_provenance
+        file_sha256   = $sha
+        map           = $map
+        entries_total = [int]@($map.Keys).Count
+        raw           = $b
+    }
+}
+
+function Get-CaseBaselineInfo {
+    param($Result, $BaselineData)
+    if ($null -eq $BaselineData) { return $null }
+    $id = [string]$Result.id
+    $status = [string]$Result.status
+    if (-not $BaselineData.map.ContainsKey($id)) {
+        if ($status -eq 'FAIL') {
+            return [ordered]@{
+                known    = $false
+                matches  = $false
+                expected = $false
+                reason   = 'case is not listed in known_baseline_failures.json'
+            }
+        }
+        return $null
+    }
+    $entry = $BaselineData.map[$id]
+    $expExit = [int]$entry.expected_exit
+    $expPass = [int]$entry.expected_pass
+    $expFail = [int]$entry.expected_fail
+    if ($status -eq 'FAIL') {
+        $actExit = $Result.exit_code
+        $actPass = $Result.pass_count
+        $actFail = $Result.fail_count
+        $exitOk = ($null -ne $actExit) -and ([int]$actExit -eq $expExit)
+        $countsOk = ($null -ne $actPass) -and ($null -ne $actFail) -and ([int]$actPass -eq $expPass) -and ([int]$actFail -eq $expFail)
+        if ($exitOk -and $countsOk) {
+            return [ordered]@{
+                known    = $true
+                matches  = $true
+                expected = $true
+                reason   = [string]$entry.reason
+            }
+        }
+        $actualExit = '?'
+        if ($null -ne $actExit) { $actualExit = [string]$actExit }
+        $actualPass = '?'
+        if ($null -ne $actPass) { $actualPass = [string]$actPass }
+        $actualFail = '?'
+        if ($null -ne $actFail) { $actualFail = [string]$actFail }
+        return [ordered]@{
+            known    = $true
+            matches  = $false
+            expected = $false
+            reason   = ('expected exit={0} pass={1} fail={2}, got exit={3} pass={4} fail={5}' -f $expExit, $expPass, $expFail, $actualExit, $actualPass, $actualFail)
+        }
+    }
+    if ($status -eq 'PASS') {
+        # A declared baseline failure that now passes is also a baseline change: surface
+        # it as drift so the baseline file is refreshed after triage. It is never hidden.
+        return [ordered]@{
+            known    = $true
+            matches  = $false
+            expected = $false
+            reason   = 'known baseline failure no longer reproduces (now PASS); triage and refresh known_baseline_failures.json'
+        }
+    }
+    return [ordered]@{
+        known    = $true
+        matches  = $false
+        expected = $false
+        reason   = ('expected FAIL, got ' + $status)
+    }
+}
+
+function Get-BaselineStats {
+    param([object[]]$Results, $BaselineData)
+    $knownFail = 0
+    $newFail = 0
+    $drift = 0
+    $seenIds = @{}
+    foreach ($r in $Results) {
+        $id = [string]$r.id
+        $seenIds[$id] = $true
+        $info = Get-CaseBaselineInfo -Result $r -BaselineData $BaselineData
+        $r['baseline'] = $info
+        if ($null -eq $info) { continue }
+        $status = [string]$r.status
+        if ($status -eq 'FAIL') {
+            if ($info.expected) { $knownFail++ }
+            elseif ($info.known) { $drift++ }
+            else { $newFail++ }
+        }
+        elseif ($status -eq 'PASS' -and $info.known) {
+            $drift++
+        }
+    }
+    $notSelected = 0
+    foreach ($id in @($BaselineData.map.Keys)) {
+        if (-not $seenIds.ContainsKey([string]$id)) { $notSelected++ }
+    }
+    return [pscustomobject]@{
+        known_fail           = $knownFail
+        new_fail             = $newFail
+        baseline_drift       = $drift
+        entries_total        = [int]$BaselineData.entries_total
+        entries_not_selected = $notSelected
+    }
 }
 
 # ── Godot discovery / version / import ─────────────────────────────────────
@@ -557,6 +791,7 @@ function Invoke-MatrixCase {
             attempts         = $attempts
             blocked          = $false
             error_lines      = $verdict.error_lines
+            baseline         = $null
         }
         $transient = ($proc.output -match $script:TransientRegex)
         if ($verdict.status -ne 'PASS' -and $attempts -lt 2 -and -not $proc.timed_out -and $transient) {
@@ -620,8 +855,12 @@ function Write-HumanReport {
         [string[]]$Filters,
         [object[]]$Results,
         $Totals,
-        [int]$ExitCode
+        [int]$ExitCode,
+        [string]$GateName = '',
+        $BaselineData = $null,
+        $BaselineStats = $null
     )
+    $baselineMode = ($null -ne $BaselineData)
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('# GHOST TRACK // APSIS · V17 headless regression report')
     [void]$sb.AppendLine('')
@@ -648,13 +887,66 @@ function Write-HumanReport {
     }
     [void]$sb.AppendLine(('| env isolation | cleared {0} inherited `DSH_*`/`V17_*` var(s) before each case |' -f $ClearedEnvNames.Count))
     [void]$sb.AppendLine(('| filters | {0} |' -f ($Filters -join '; ')))
+    if (-not [string]::IsNullOrWhiteSpace($GateName)) {
+        [void]$sb.AppendLine(('| gate | `{0}` |' -f $GateName))
+    }
+    if ($baselineMode) {
+        [void]$sb.AppendLine('| baseline mode | enabled (case statuses unchanged) |')
+        [void]$sb.AppendLine(('| baseline file | `{0}` |' -f $BaselineData.path))
+        [void]$sb.AppendLine(('| baseline commit | `{0}` |' -f $BaselineData.commit))
+        [void]$sb.AppendLine(('| baseline schema | `{0}` |' -f $BaselineData.schema))
+        [void]$sb.AppendLine(('| baseline sha256 | `{0}` |' -f $BaselineData.file_sha256))
+    }
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('## Totals')
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('| total | pass | fail | timeout | not run (expected) | not run (unexpected) | duration |')
     [void]$sb.AppendLine('| --- | --- | --- | --- | --- | --- | --- |')
     [void]$sb.AppendLine(('| {0} | {1} | {2} | {3} | {4} | {5} | {6:N1}s |' -f $Totals.total, $Totals.pass, $Totals.fail, $Totals.timeout, $Totals.not_run_expected, $Totals.not_run_unexpected, $Totals.duration_s))
-    [void]$sb.AppendLine('')
+    if ($baselineMode) {
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('| known_fail | new_fail | baseline_drift |')
+        [void]$sb.AppendLine('| --- | --- | --- |')
+        [void]$sb.AppendLine(('| {0} | {1} | {2} |' -f $Totals.known_fail, $Totals.new_fail, $Totals.baseline_drift))
+    }
+    if ($baselineMode) {
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('## Baseline')
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('> Case statuses are NOT changed by baseline mode: declared legacy failures remain **FAIL** in the case table; nothing is renamed PASS, hidden, skipped or continue-on-error.')
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine(('`BASELINE CHECK: known_fail={0} new_fail={1} drift={2}`' -f $BaselineStats.known_fail, $BaselineStats.new_fail, $BaselineStats.baseline_drift))
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine(('- baseline file: `{0}`' -f $BaselineData.path))
+        [void]$sb.AppendLine(('- baseline commit: `{0}`' -f $BaselineData.commit))
+        [void]$sb.AppendLine(('- baseline sha256: `{0}`' -f $BaselineData.file_sha256))
+        [void]$sb.AppendLine(('- evidence: {0}' -f ([string]$BaselineData.provenance)))
+        [void]$sb.AppendLine(('- entries not selected by filters: {0} of {1}' -f $BaselineStats.entries_not_selected, $BaselineStats.entries_total))
+        [void]$sb.AppendLine('')
+        [void]$sb.AppendLine('| case | expected exit | expected pass/fail | actual status | actual pass/fail | classification |')
+        [void]$sb.AppendLine('| --- | --- | --- | --- | --- | --- |')
+        $resultById = @{}
+        foreach ($r in $Results) { $resultById[[string]$r.id] = $r }
+        foreach ($baselineId in @($BaselineData.map.Keys | Sort-Object)) {
+            $entry = $BaselineData.map[$baselineId]
+            $actualStatus = 'not selected'
+            $actualCounts = '-'
+            $classification = 'not selected'
+            if ($resultById.ContainsKey([string]$baselineId)) {
+                $ar = $resultById[[string]$baselineId]
+                $actualStatus = [string]$ar.status
+                $actualCounts = '-'
+                if ($null -ne $ar.pass_count -and $null -ne $ar.fail_count) { $actualCounts = ('{0}/{1}' -f $ar.pass_count, $ar.fail_count) }
+                if ($null -ne $ar.baseline) {
+                    if ($ar.baseline.expected) { $classification = 'KNOWN-BASELINE' }
+                    elseif ($ar.baseline.known) { $classification = 'BASELINE DRIFT' }
+                    else { $classification = 'NEW FAILURE' }
+                }
+            }
+            [void]$sb.AppendLine(('| `{0}` | {1} | {2}/{3} | {4} | {5} | {6} |' -f $baselineId, $entry.expected_exit, $entry.expected_pass, $entry.expected_fail, $actualStatus, $actualCounts, $classification))
+        }
+        [void]$sb.AppendLine('')
+    }
     [void]$sb.AppendLine('## Cases')
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('| case | category | profile | entry | status | exit | duration | pass/fail | markers | log |')
@@ -673,6 +965,13 @@ function Write-HumanReport {
         if ($r.status -ne 'PASS' -and -not [string]::IsNullOrWhiteSpace($reason)) {
             [void]$sb.AppendLine(('  - reason: {0}' -f $reason))
         }
+        if ($null -ne $r.baseline) {
+            $tag = 'NEW FAILURE'
+            if ($r.baseline.expected) { $tag = 'KNOWN-BASELINE' }
+            elseif ($r.baseline.known) { $tag = 'BASELINE DRIFT' }
+            $blReason = ([string]$r.baseline.reason) -replace '\|', '\|'
+            [void]$sb.AppendLine(('  - baseline: {0} — {1}' -f $tag, $blReason))
+        }
     }
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine('## Interpretation')
@@ -683,8 +982,16 @@ function Write-HumanReport {
     [void]$sb.AppendLine('- **NOT RUN** — declared blocked case (matrix `blocked: true`) or missing script/scene. Expected blocked cases do not fail the run; unexpected NOT RUN does (exit 1).')
     [void]$sb.AppendLine('- Benign engine error lines (for example `Parent node is busy adding/removing children...`) do not fail a boot case by themselves; exit code, expected markers and fatal patterns are authoritative.')
     [void]$sb.AppendLine('- Every case runs in a fresh Godot process with inherited `DSH_*`/`V17_*` env vars cleared; only the case-declared env is applied.')
+    if ($baselineMode) {
+        [void]$sb.AppendLine('- **Baseline mode** — statuses are unchanged. `known_fail` = FAIL matching the declared baseline exactly; `new_fail` = FAIL not declared in the baseline; `baseline_drift` = declared failure with changed exit/counts OR a declared failure that now passes. Exit 0 requires new_fail=0, baseline_drift=0, timeout=0 and unexpected NOT RUN=0.')
+    }
     [void]$sb.AppendLine('')
-    [void]$sb.AppendLine(('Overall run exit code: **{0}**' -f $ExitCode))
+    if ($baselineMode) {
+        [void]$sb.AppendLine(('Overall run exit code (baseline-aware): **{0}**' -f $ExitCode))
+    }
+    else {
+        [void]$sb.AppendLine(('Overall run exit code: **{0}**' -f $ExitCode))
+    }
     [void]$sb.AppendLine('')
     [System.IO.File]::WriteAllText($Path, $sb.ToString(), $script:Utf8)
 }
@@ -704,7 +1011,10 @@ function Write-SummaryJson {
         $Totals,
         [int]$ExitCode,
         [bool]$EnvironmentBlocked,
-        [string]$BlockedReason
+        [string]$BlockedReason,
+        [string]$GateName = '',
+        $BaselineData = $null,
+        $BaselineStats = $null
     )
     $godotBlock = [ordered]@{
         path             = $(if ($null -ne $script:Godot -and $script:Godot.path) { Format-DisplayPath $script:Godot.path } else { $null })
@@ -749,6 +1059,23 @@ function Write-SummaryJson {
             ci           = $script:CiMode
             no_import    = [bool]$NoImport
             timeout_sec  = $script:TimeoutOverride
+            gate         = $(if ([string]::IsNullOrWhiteSpace($GateName)) { $null } else { $GateName })
+            baseline     = $(if ($null -ne $BaselineData) { [string]$BaselineData.path } else { $null })
+        }
+        gate              = $(if ([string]::IsNullOrWhiteSpace($GateName)) { $null } else { $GateName })
+        baseline          = [ordered]@{
+            mode                = [bool]($null -ne $BaselineData)
+            path                = $(if ($null -ne $BaselineData) { [string]$BaselineData.path } else { $null })
+            schema              = $(if ($null -ne $BaselineData) { [string]$BaselineData.schema } else { $null })
+            baseline_commit     = $(if ($null -ne $BaselineData) { [string]$BaselineData.commit } else { $null })
+            file_sha256         = $(if ($null -ne $BaselineData) { [string]$BaselineData.file_sha256 } else { $null })
+            evidence_provenance = $(if ($null -ne $BaselineData) { [string]$BaselineData.provenance } else { $null })
+            environment         = $(if ($null -ne $BaselineData) { $BaselineData.environment } else { $null })
+            known_fail          = $(if ($null -ne $BaselineStats) { [int]$BaselineStats.known_fail } else { $null })
+            new_fail            = $(if ($null -ne $BaselineStats) { [int]$BaselineStats.new_fail } else { $null })
+            baseline_drift      = $(if ($null -ne $BaselineStats) { [int]$BaselineStats.baseline_drift } else { $null })
+            entries_total       = $(if ($null -ne $BaselineData) { [int]$BaselineData.entries_total } else { $null })
+            entries_not_selected = $(if ($null -ne $BaselineStats) { [int]$BaselineStats.entries_not_selected } else { $null })
         }
         godot             = $godotBlock
         # Top-level convenience aliases (a few CI consumers only read flat fields).
@@ -840,8 +1167,18 @@ function Get-Totals {
 }
 
 function Get-ExitCodeForTotals {
-    param($Totals)
-    if ($Totals.fail -gt 0 -or $Totals.timeout -gt 0 -or $Totals.not_run_unexpected -gt 0) { return 1 }
+    param($Totals, [bool]$BaselineMode = $false)
+    if ($null -ne $Totals.timeout -and [int]$Totals.timeout -gt 0) { return 1 }
+    if ($null -ne $Totals.not_run_unexpected -and [int]$Totals.not_run_unexpected -gt 0) { return 1 }
+    if ($BaselineMode) {
+        # Baseline-aware gate: declared known failures are accepted, but any new failure
+        # or any change vs the declared baseline (counts/exit or a now-passing known
+        # failure) must turn the run red.
+        if ($null -ne $Totals.new_fail -and [int]$Totals.new_fail -gt 0) { return 1 }
+        if ($null -ne $Totals.baseline_drift -and [int]$Totals.baseline_drift -gt 0) { return 1 }
+        return 0
+    }
+    if ($null -ne $Totals.fail -and [int]$Totals.fail -gt 0) { return 1 }
     return 0
 }
 
@@ -865,7 +1202,25 @@ try {
 
     $script:MatrixData = Load-Matrix $script:MatrixPathForSummary
     $allCases = @($script:MatrixData.cases)
-    $selected = @(Select-MatrixCases -Candidates $allCases)
+
+    # ── optional baseline file (baseline-aware mode) ──
+    if ($script:BaselineProvided) {
+        if ([string]::IsNullOrWhiteSpace($Baseline)) {
+            throw 'empty -Baseline path; expected e.g. game_v17/tests/known_baseline_failures.json'
+        }
+        $script:BaselineData = Load-Baseline $Baseline
+        $caseIdsForBaseline = @($allCases | ForEach-Object { [string]$_.id })
+        $unknownBaselineIds = @($script:BaselineData.map.Keys | Where-Object { $caseIdsForBaseline -notcontains [string]$_ })
+        if ($unknownBaselineIds.Count -gt 0) {
+            throw ("baseline file references case id(s) not present in matrix: " + ($unknownBaselineIds -join ', '))
+        }
+    }
+
+    # ── optional gate selection (composable with -Category / -Only) ──
+    $gateCandidates = @(Select-GateCases -Candidates $allCases)
+    $selected = @(Select-MatrixCases -Candidates $gateCandidates)
+    if ($script:GateProvided) { $filters += "gate=$Gate" } else { $filters += 'gate=(none)' }
+    if ($null -ne $script:BaselineData) { $filters += "baseline=$($script:BaselineData.path)" } else { $filters += 'baseline=(none)' }
     if ($Category) { $filters += "category=$Category" } else { $filters += 'category=all' }
     if ($Only) { $filters += "only=$Only" } else { $filters += 'only=(none)' }
     if ($NoImport) { $filters += 'import=skipped' } else { $filters += 'import=on' }
@@ -874,17 +1229,29 @@ try {
     if ($List) {
         Write-Head 'GHOST TRACK // APSIS - V17 headless regression matrix'
         Write-Info ("repo:   {0}" -f (Format-RepoRelative $script:RepoRoot))
-        Write-Info ("matrix: {0} ({1} cases total)" -f (Format-RepoRelative (Resolve-RepoPath $script:MatrixPathForSummary)), $allCases.Count)
+        Write-Info ("matrix: {0} v{1} ({2} cases total)" -f (Format-RepoRelative (Resolve-RepoPath $script:MatrixPathForSummary)), [string]$script:MatrixData.version, $allCases.Count)
+        if ($script:GateProvided) {
+            Write-Info ("gate:   {0} ({1} case(s))" -f $Gate, $selected.Count)
+        }
+        else {
+            Write-Info ("gates:  {0}" -f $(if ((Get-MatrixGateNames).Count -gt 0) { (Get-MatrixGateNames) -join ', ' } else { '(none)' }))
+        }
+        if ($null -ne $script:BaselineData) {
+            Write-Info ("baseline: {0} (commit {1}, mode=CHECK)" -f $script:BaselineData.path, $script:BaselineData.commit)
+        }
         Write-Info ("filter: {0}" -f ($filters -join '; '))
         Write-Info ''
-        Write-Head ('{0,-36} {1,-12} {2,-10} {3,-8} {4,7} {5}' -f 'CASE', 'CATEGORY', 'PROFILE', 'ENTRY', 'TIMEOUT', 'TARGET')
+        $gateMembership = Get-CaseGateMembership
+        Write-Head ('{0,-36} {1,-12} {2,-10} {3,-8} {4,7} {5,-14} {6}' -f 'CASE', 'CATEGORY', 'PROFILE', 'ENTRY', 'TIMEOUT', 'GATES', 'TARGET')
         foreach ($c in $selected) {
             $profile = [string]$c.profile
             if ([string]::IsNullOrWhiteSpace($profile)) { $profile = '-' }
             try { $target = (Get-CaseTargetInfo -Case $c).ref } catch { $target = '?' }
+            $gateText = '-'
+            if ($gateMembership.ContainsKey([string]$c.id)) { $gateText = (@($gateMembership[[string]$c.id]) -join ',') }
             $blockedSuffix = ''
             if ($c.blocked -eq $true) { $blockedSuffix = '  [BLOCKED: ' + [string]$c.blocked_reason + ']' }
-            Write-Info ('{0,-36} {1,-12} {2,-10} {3,-8} {4,7} {5}{6}' -f $c.id, $c.category, $profile, $c.entry, $(if ($c.timeout_s) { ([string]$c.timeout_s) + 's' } else { 'default' }), $target, $blockedSuffix)
+            Write-Info ('{0,-36} {1,-12} {2,-10} {3,-8} {4,7} {5,-14} {6}{7}' -f $c.id, $c.category, $profile, $c.entry, $(if ($c.timeout_s) { ([string]$c.timeout_s) + 's' } else { 'default' }), $gateText, $target, $blockedSuffix)
         }
         Write-Info ''
         Write-Ok ("{0} case(s) selected, {1} blocked by matrix precondition." -f $selected.Count, @($selected | Where-Object { $_.blocked -eq $true }).Count)
@@ -895,6 +1262,8 @@ try {
     if ($selected.Count -eq 0) {
         Write-Err ("No matrix cases matched filters: {0}" -f ($filters -join '; '))
         Write-Info ("Available categories: {0}" -f ((Get-MatrixCategories) -join ', '))
+        $gateNames = @(Get-MatrixGateNames)
+        if ($gateNames.Count -gt 0) { Write-Info ("Available gates: {0}" -f ($gateNames -join ', ')) }
         Write-Info 'Use -List to inspect the matrix.'
         $exitCode = 2
         return $exitCode
@@ -952,6 +1321,12 @@ try {
     Write-Info ("repo:    {0}" -f (Format-RepoRelative $script:RepoRoot))
     Write-Info ("matrix:  {0} ({1} cases selected / {2} total)" -f (Format-RepoRelative (Resolve-RepoPath $script:MatrixPathForSummary)), $selected.Count, $allCases.Count)
     Write-Info ("filters: {0}" -f ($filters -join '; '))
+    if ($script:GateProvided) {
+        Write-Info ("gate:    {0} ({1} case(s): {2})" -f $Gate, $selected.Count, (($selected | ForEach-Object { [string]$_.id }) -join ', '))
+    }
+    if ($null -ne $script:BaselineData) {
+        Write-Info ("baseline: {0} (commit {1}, mode=CHECK; statuses unchanged)" -f $script:BaselineData.path, $script:BaselineData.commit)
+    }
     if ($gitInfo.commit) { Write-Info ("git:     {0} @ {1}{2}" -f $gitInfo.branch, $gitInfo.commit_short, $(if ($gitInfo.worktree_dirty) { ' (worktree has tracked modifications)' } else { '' })) }
     Write-Info ("run dir: {0}" -f (Format-RepoRelative $script:RunDir))
     Write-Info ''
@@ -1008,13 +1383,27 @@ try {
                     exit_code = $null; status = 'NOT RUN'; duration_s = 0
                     pass_count = $null; fail_count = $null
                     expected_markers = @($c.expected_markers); marker_ok = $false
-                    log_path = ''; reason = $blockedReason; attempts = 0; blocked = $true; error_lines = 0
+                    log_path = ''; reason = $blockedReason; attempts = 0; blocked = $true; error_lines = 0; baseline = $null
                 })
         }
         Write-Head 'BLOCKED - all cases NOT RUN'
         Write-ConsoleTableHeader
         foreach ($r in $results) { Write-ConsoleCaseRow -Entry $r }
         $totals = Get-Totals -Results @($results) -DurationSeconds $globalTimer.Elapsed.TotalSeconds
+        $baselineStats = $null
+        if ($null -ne $script:BaselineData) {
+            $baselineStats = Get-BaselineStats -Results @($results) -BaselineData $script:BaselineData
+            $totals['known_fail'] = $baselineStats.known_fail
+            $totals['new_fail'] = $baselineStats.new_fail
+            $totals['baseline_drift'] = $baselineStats.baseline_drift
+            $totals['baseline_entries'] = $baselineStats.entries_total
+            $totals['baseline_entries_not_selected'] = $baselineStats.entries_not_selected
+        }
+        else {
+            $totals['known_fail'] = $null
+            $totals['new_fail'] = $null
+            $totals['baseline_drift'] = $null
+        }
         $endedAt = (Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')
         Write-Info ''
         Write-Err ("TOTALS: total={0} pass={1} fail={2} timeout={3} not_run={4} (environment blocked)" -f $totals.total, $totals.pass, $totals.fail, $totals.timeout, $totals.not_run)
@@ -1022,8 +1411,8 @@ try {
         $summaryPath = Join-Path $script:RunDir 'summary.json'
         $reportPath = Join-Path $script:RunDir 'report.md'
         $summaryEntries = @($results)
-        Write-SummaryJson -Path $summaryPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $summaryEntries -Totals $totals -ExitCode 2 -EnvironmentBlocked $true -BlockedReason $blockedReason
-        Write-HumanReport -Path $reportPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $summaryEntries -Totals $totals -ExitCode 2
+        Write-SummaryJson -Path $summaryPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $summaryEntries -Totals $totals -ExitCode 2 -EnvironmentBlocked $true -BlockedReason $blockedReason -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats
+        Write-HumanReport -Path $reportPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $summaryEntries -Totals $totals -ExitCode 2 -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats
         Write-Info ("summary: {0}" -f (Format-RepoRelative $summaryPath))
         Write-Info ("report:  {0}" -f (Format-RepoRelative $reportPath))
         $exitCode = 2
@@ -1044,7 +1433,7 @@ try {
                 purpose = [string]$c.purpose; script = $null; scene = $null; env = @{}; command = ''
                 exit_code = $null; status = 'NOT RUN'; duration_s = 0; pass_count = $null; fail_count = $null
                 expected_markers = @($c.expected_markers); marker_ok = $false; log_path = ''
-                reason = "invalid matrix case: $($_.Exception.Message)"; attempts = 0; blocked = $false; error_lines = 0
+                reason = "invalid matrix case: $($_.Exception.Message)"; attempts = 0; blocked = $false; error_lines = 0; baseline = $null
             }
             [void]$script:CaseResults.Add($result)
             Write-ConsoleCaseRow -Entry $result
@@ -1059,7 +1448,7 @@ try {
                 env = (Get-CaseEnvMap -Case $c); command = ''
                 exit_code = $null; status = 'NOT RUN'; duration_s = 0; pass_count = $null; fail_count = $null
                 expected_markers = @($c.expected_markers); marker_ok = $false; log_path = ''
-                reason = 'blocked by matrix precondition: ' + [string]$c.blocked_reason; attempts = 0; blocked = $true; error_lines = 0
+                reason = 'blocked by matrix precondition: ' + [string]$c.blocked_reason; attempts = 0; blocked = $true; error_lines = 0; baseline = $null
             }
             [void]$script:CaseResults.Add($result)
             Write-ConsoleCaseRow -Entry $result
@@ -1075,7 +1464,7 @@ try {
                 env = (Get-CaseEnvMap -Case $c); command = ''
                 exit_code = $null; status = 'NOT RUN'; duration_s = 0; pass_count = $null; fail_count = $null
                 expected_markers = @($c.expected_markers); marker_ok = $false; log_path = ''
-                reason = ("missing {0} (not present in worktree): {1}" -f $missingKind, $target.ref); attempts = 0; blocked = $false; error_lines = 0
+                reason = ("missing {0} (not present in worktree): {1}" -f $missingKind, $target.ref); attempts = 0; blocked = $false; error_lines = 0; baseline = $null
             }
             [void]$script:CaseResults.Add($result)
             Write-ConsoleCaseRow -Entry $result
@@ -1084,30 +1473,76 @@ try {
         $caseHeader = '[' + $caseIndex + '/' + $selected.Count + '] ' + $id
         if ($script:CiMode) { Write-Host ("RUN " + $caseHeader) } else { Write-Host ("RUN " + $caseHeader) -ForegroundColor DarkGray }
         $result = Invoke-MatrixCase -Case $c -Target $target -RunDirPath $script:RunDir
+        if ($null -ne $script:BaselineData) {
+            $result['baseline'] = Get-CaseBaselineInfo -Result $result -BaselineData $script:BaselineData
+        }
         [void]$script:CaseResults.Add($result)
         Write-ConsoleCaseRow -Entry $result
         if ($result.status -eq 'FAIL' -or $result.status -eq 'TIMEOUT') {
             if (-not [string]::IsNullOrWhiteSpace([string]$result.reason)) { Write-Err ("      {0}: {1}" -f $result.status, $result.reason) }
+        }
+        if ($null -ne $result.baseline) {
+            $tag = 'NEW FAILURE'
+            if ($result.baseline.expected) { $tag = 'KNOWN-BASELINE' }
+            elseif ($result.baseline.known) { $tag = 'BASELINE DRIFT' }
+            $baselineLine = ("      BASELINE: [{0}] {1}" -f $tag, $result.baseline.reason)
+            if ($result.baseline.expected) { Write-Warn $baselineLine } else { Write-Err $baselineLine }
         }
     }
 
     # ── summary / report / exit ──
     $resultsArray = @($script:CaseResults)
     $totals = Get-Totals -Results $resultsArray -DurationSeconds $globalTimer.Elapsed.TotalSeconds
-    $exitCode = Get-ExitCodeForTotals -Totals $totals
+    $baselineStats = $null
+    if ($null -ne $script:BaselineData) {
+        $baselineStats = Get-BaselineStats -Results $resultsArray -BaselineData $script:BaselineData
+        $totals['known_fail'] = $baselineStats.known_fail
+        $totals['new_fail'] = $baselineStats.new_fail
+        $totals['baseline_drift'] = $baselineStats.baseline_drift
+        $totals['baseline_entries'] = $baselineStats.entries_total
+        $totals['baseline_entries_not_selected'] = $baselineStats.entries_not_selected
+    }
+    else {
+        $totals['known_fail'] = $null
+        $totals['new_fail'] = $null
+        $totals['baseline_drift'] = $null
+    }
+    $exitCode = Get-ExitCodeForTotals -Totals $totals -BaselineMode ($null -ne $script:BaselineData)
     $endedAt = (Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')
     $summaryPath = Join-Path $script:RunDir 'summary.json'
     $reportPath = Join-Path $script:RunDir 'report.md'
-    Write-SummaryJson -Path $summaryPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $resultsArray -Totals $totals -ExitCode $exitCode -EnvironmentBlocked $false -BlockedReason ''
-    Write-HumanReport -Path $reportPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $resultsArray -Totals $totals -ExitCode $exitCode
+    Write-SummaryJson -Path $summaryPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $resultsArray -Totals $totals -ExitCode $exitCode -EnvironmentBlocked $false -BlockedReason '' -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats
+    Write-HumanReport -Path $reportPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $resultsArray -Totals $totals -ExitCode $exitCode -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats
 
     Write-Info ''
     Write-Head '-- TOTALS ------------------------------------------------------'
     Write-Info ("total={0}  pass={1}  fail={2}  timeout={3}  not_run={4} (expected={5} unexpected={6})  duration={7:N1}s" -f $totals.total, $totals.pass, $totals.fail, $totals.timeout, $totals.not_run, $totals.not_run_expected, $totals.not_run_unexpected, $totals.duration_s)
+    if ($null -ne $baselineStats) {
+        Write-Head '-- BASELINE ----------------------------------------------------'
+        Write-Info ("BASELINE CHECK: known_fail={0} new_fail={1} drift={2}" -f $baselineStats.known_fail, $baselineStats.new_fail, $baselineStats.baseline_drift)
+        Write-Info ("baseline file: {0} (commit {1}, sha256 {2})" -f $script:BaselineData.path, $script:BaselineData.commit, $script:BaselineData.file_sha256)
+        if ($baselineStats.entries_not_selected -gt 0) {
+            Write-Info ("baseline entries not selected by filters: {0} of {1} (informational, not drift)" -f $baselineStats.entries_not_selected, $baselineStats.entries_total)
+        }
+    }
     Write-Info ("summary: {0}" -f (Format-RepoRelative $summaryPath))
     Write-Info ("report:  {0}" -f (Format-RepoRelative $reportPath))
-    if ($exitCode -eq 0) { Write-Ok 'RESULT: ALL RUN CASES PASS' }
-    else { Write-Err 'RESULT: FAILURES PRESENT' }
+    if ($exitCode -eq 0) {
+        if ($null -ne $baselineStats) {
+            Write-Ok ("RESULT: BASELINE MATCH - no new failures and no drift (known_fail={0})" -f $baselineStats.known_fail)
+        }
+        else {
+            Write-Ok 'RESULT: ALL RUN CASES PASS'
+        }
+    }
+    else {
+        if ($null -ne $baselineStats) {
+            Write-Err ("RESULT: BASELINE CHECK FAILED - new_fail={0} drift={1} timeout={2} unexpected_not_run={3}" -f $baselineStats.new_fail, $baselineStats.baseline_drift, $totals.timeout, $totals.not_run_unexpected)
+        }
+        else {
+            Write-Err 'RESULT: FAILURES PRESENT'
+        }
+    }
 }
 catch {
     Write-Err ("FATAL: {0}" -f $_.Exception.Message)

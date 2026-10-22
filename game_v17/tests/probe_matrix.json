@@ -1,5 +1,16 @@
 {
   "schema": "probe_matrix.v1",
+  "version": "1.0.0",
+  "gates": {
+    "phase0": [
+      "profile.build_profile_probe",
+      "e2e.orbital_sim",
+      "boot.full",
+      "boot.legacy_combat_sim",
+      "boot.orbital_sim",
+      "boot.sandbox"
+    ]
+  },
   "description": "GHOST TRACK // APSIS V17 unified headless regression matrix. One case = one Godot process; deterministic order.",
   "godot_version": "4.7.2",
   "project_relative_path": "game_v17",
