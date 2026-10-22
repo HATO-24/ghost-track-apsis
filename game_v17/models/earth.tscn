@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://models/planet_model.gd" id="1"]
+
+[node name="Earth" type="Node3D"]
+script = ExtResource("1")
+body_name = "EARTH"
+radius = 1.25
+base_color = Color(0.16, 0.36, 0.42, 1)
+grid_color = Color(0.46, 0.7, 0.66, 0.28)
+atmosphere = true
+grid_lines = true

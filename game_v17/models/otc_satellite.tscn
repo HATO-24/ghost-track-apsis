@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://models/station_model.gd" id="1"]
+
+[node name="OTCSatellite" type="Node3D"]
+script = ExtResource("1")
+station_type = "otc"
+station_label = "OTC SATELLITE"
+station_scale = 1.35
+module_count = 3

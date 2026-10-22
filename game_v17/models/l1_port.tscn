@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://models/station_model.gd" id="1"]
+
+[node name="L1Port" type="Node3D"]
+script = ExtResource("1")
+station_type = "port"
+station_label = "L1 PORT"
+station_scale = 1.55
+module_count = 4

@@ -1,0 +1,547 @@
+{
+  "schema": "v17.ships_friendly.v1",
+  "version": "1.0.0",
+  "title": "完整游戏-阶段5A 友军舰船目录（OCUVF-ID13）",
+  "source": "docs/04 §7/§12.8 + docs/46 §3.2/§9.5",
+  "basis": "docs/04, docs/46",
+  "faction": "ocuvf_id13",
+  "proposal": true,
+  "units": {
+    "displacement": "t",
+    "dv": "km/s",
+    "accel": "g",
+    "dimensions": "m"
+  },
+  "hull_ranges": {
+    "depot": "001-099",
+    "picket": "100-199",
+    "gun": "200-299",
+    "missile": "300-399",
+    "tanker": "400-499",
+    "relay": "500-599",
+    "tug": "600-699",
+    "shuttle": "700-799"
+  },
+  "name_pools": {
+    "depot": [
+      "APSIS",
+      "PERIGEE",
+      "NODE",
+      "PARKING"
+    ],
+    "picket": [
+      "HARMATTAN",
+      "LEE SHORE",
+      "DOLDRUMS",
+      "HOARFROST"
+    ],
+    "gun": [
+      "ANVIL",
+      "FERRY",
+      "CLIFF",
+      "SHOAL"
+    ],
+    "missile": [
+      "VESUVIUS",
+      "KRAKATOA",
+      "ST HELENS"
+    ],
+    "tanker": [
+      "DEEPWELL",
+      "SPRINGHEAD",
+      "UNDERFLOW"
+    ],
+    "relay": [
+      "WATCHTOWER",
+      "BEACON",
+      "LIGHTHOUSE"
+    ],
+    "tug": [
+      "BOLLARD",
+      "ANCHOR",
+      "TOWHOOK"
+    ],
+    "shuttle": [
+      "MISSIVE",
+      "SEALING WAX",
+      "BULLA"
+    ]
+  },
+  "entity_bindings": {
+    "apsis": "APSIS",
+    "harmattan": "HARMATTAN",
+    "ferry": "FERRY",
+    "watchtower": "WATCHTOWER",
+    "deepwell": "DEEPWELL"
+  },
+  "classes": [
+    {
+      "class_id": "OCUVF-APOGEE",
+      "name": "远地点级",
+      "name_en": "Apogee",
+      "role": "depot",
+      "faction": "ocuvf_id13",
+      "model": "远地点级",
+      "hull_code_prefix": "APS",
+      "hull_range": "001-099",
+      "displacement_t": 9000.0,
+      "dv_kmps": 3.15,
+      "accel_g": 0.02,
+      "crew": 240,
+      "sensors": [
+        "fleet_command",
+        "repair_docks",
+        "comms"
+      ],
+      "weapons": [],
+      "armor": "TBD",
+      "rcs": "TBD",
+      "ir": "TBD",
+      "dimensions_m": [
+        "TBD",
+        "TBD",
+        "TBD"
+      ],
+      "sections": [
+        "hull",
+        "power",
+        "propulsion",
+        "sensors",
+        "comms",
+        "tanks",
+        "docking"
+      ],
+      "known_ships": [
+        {
+          "ship_id": "APSIS",
+          "name": "远地点号",
+          "name_en": "APSIS",
+          "hull_code": "001",
+          "batch": "1000",
+          "entity_id": "apsis"
+        }
+      ],
+      "name_pool": [
+        "APSIS",
+        "PERIGEE",
+        "NODE",
+        "PARKING"
+      ],
+      "proposal": true,
+      "tbd": [
+        "armor",
+        "rcs",
+        "ir",
+        "dimensions_m"
+      ],
+      "source": "docs/04 §7 + §12.8",
+      "note": "刺桐-2M 船坞舰改装；APSIS 舷号 001。"
+    },
+    {
+      "class_id": "OCUVF-PALLET-5C",
+      "name": "托盘-5 改",
+      "name_en": "Pallet-5C",
+      "role": "picket",
+      "faction": "ocuvf_id13",
+      "model": "托盘-5 改",
+      "hull_code_prefix": "PAL",
+      "hull_range": "100-199",
+      "displacement_t": 300.0,
+      "dv_kmps": 2.54,
+      "accel_g": 0.15,
+      "crew": 12,
+      "sensors": [
+        "YW-R9",
+        "MS-OT2",
+        "CH-IR2",
+        "ELINT",
+        "CH-R0"
+      ],
+      "weapons": [],
+      "armor": "TBD",
+      "rcs": "TBD",
+      "ir": "TBD",
+      "dimensions_m": [
+        "TBD",
+        "TBD",
+        "TBD"
+      ],
+      "sections": [
+        "hull",
+        "power",
+        "propulsion",
+        "sensors",
+        "comms",
+        "tanks",
+        "docking"
+      ],
+      "known_ships": [
+        {
+          "ship_id": "HARMATTAN",
+          "name": "哈马丹号",
+          "name_en": "HARMATTAN",
+          "hull_code": "114",
+          "batch": "1001",
+          "entity_id": "harmattan"
+        }
+      ],
+      "name_pool": [
+        "HARMATTAN",
+        "LEE SHORE",
+        "DOLDRUMS",
+        "HOARFROST"
+      ],
+      "proposal": true,
+      "tbd": [
+        "armor",
+        "rcs",
+        "ir",
+        "dimensions_m"
+      ],
+      "source": "docs/04 §7 + §12.8",
+      "note": "哨舰/传感器节点；哈马丹 114。"
+    },
+    {
+      "class_id": "OCUVF-HEMATITE-6C",
+      "name": "赤铁-6 改",
+      "name_en": "Hematite-6C",
+      "role": "gun",
+      "faction": "ocuvf_id13",
+      "model": "赤铁-6 改",
+      "hull_code_prefix": "HEM",
+      "hull_range": "200-299",
+      "displacement_t": 1200.0,
+      "dv_kmps": 3.15,
+      "accel_g": 0.1,
+      "crew": 68,
+      "sensors": [
+        "LR-4",
+        "CH-IR2",
+        "CH-R0"
+      ],
+      "weapons": [
+        "railgun",
+        "point_defense"
+      ],
+      "armor": "TBD",
+      "rcs": "TBD",
+      "ir": "TBD",
+      "dimensions_m": [
+        "TBD",
+        "TBD",
+        "TBD"
+      ],
+      "sections": [
+        "hull",
+        "power",
+        "propulsion",
+        "sensors",
+        "comms",
+        "tanks",
+        "docking"
+      ],
+      "known_ships": [
+        {
+          "ship_id": "FERRY",
+          "name": "渡口号",
+          "name_en": "FERRY",
+          "hull_code": "201",
+          "batch": "1002",
+          "entity_id": "ferry"
+        }
+      ],
+      "name_pool": [
+        "ANVIL",
+        "FERRY",
+        "CLIFF",
+        "SHOAL"
+      ],
+      "proposal": true,
+      "tbd": [
+        "armor",
+        "rcs",
+        "ir",
+        "dimensions_m"
+      ],
+      "source": "docs/04 §7 + §12.8",
+      "note": "炮舰；渡口 201（提案映射）。"
+    },
+    {
+      "class_id": "OCUVF-GANTRY-3M",
+      "name": "龙门-3M",
+      "name_en": "Gantry-3M",
+      "role": "missile",
+      "faction": "ocuvf_id13",
+      "model": "龙门-3M",
+      "hull_code_prefix": "GAN",
+      "hull_range": "300-399",
+      "displacement_t": 900.0,
+      "dv_kmps": 3.8,
+      "accel_g": 0.08,
+      "crew": 24,
+      "sensors": [
+        "basic_fire_control",
+        "CH-R0"
+      ],
+      "weapons": [
+        "missile_48_cell",
+        "point_defense"
+      ],
+      "armor": "TBD",
+      "rcs": "TBD",
+      "ir": "TBD",
+      "dimensions_m": [
+        "TBD",
+        "TBD",
+        "TBD"
+      ],
+      "sections": [
+        "hull",
+        "power",
+        "propulsion",
+        "sensors",
+        "comms",
+        "tanks",
+        "docking"
+      ],
+      "known_ships": [],
+      "name_pool": [
+        "VESUVIUS",
+        "KRAKATOA",
+        "ST HELENS"
+      ],
+      "proposal": true,
+      "tbd": [
+        "armor",
+        "rcs",
+        "ir",
+        "dimensions_m"
+      ],
+      "source": "docs/04 §7 + §12.8",
+      "note": "弹舱舰；导弹发射架 48 单元。"
+    },
+    {
+      "class_id": "OCUVF-MOONPORT-4",
+      "name": "月港-4",
+      "name_en": "Moonport-4",
+      "role": "tanker",
+      "faction": "ocuvf_id13",
+      "model": "月港-4",
+      "hull_code_prefix": "MOO",
+      "hull_range": "400-499",
+      "displacement_t": 2000.0,
+      "dv_kmps": 10.63,
+      "accel_g": 0.01,
+      "crew": 18,
+      "sensors": [
+        "CH-R0"
+      ],
+      "weapons": [],
+      "armor": "TBD",
+      "rcs": "TBD",
+      "ir": "TBD",
+      "dimensions_m": [
+        "TBD",
+        "TBD",
+        "TBD"
+      ],
+      "sections": [
+        "hull",
+        "power",
+        "propulsion",
+        "sensors",
+        "comms",
+        "tanks",
+        "docking"
+      ],
+      "known_ships": [
+        {
+          "ship_id": "DEEPWELL",
+          "name": "深井号",
+          "name_en": "DEEPWELL",
+          "hull_code": "401",
+          "batch": "1004",
+          "entity_id": "deepwell"
+        }
+      ],
+      "name_pool": [
+        "DEEPWELL",
+        "SPRINGHEAD",
+        "UNDERFLOW"
+      ],
+      "proposal": true,
+      "tbd": [
+        "armor",
+        "rcs",
+        "ir",
+        "dimensions_m"
+      ],
+      "source": "docs/04 §7 + §12.8",
+      "note": "油船/舰队补给；深井 401（提案映射）。"
+    },
+    {
+      "class_id": "OCUVF-SAFEHARBOR-1",
+      "name": "安海-1",
+      "name_en": "Safeharbor-1",
+      "role": "relay",
+      "faction": "ocuvf_id13",
+      "model": "安海-1",
+      "hull_code_prefix": "ANH",
+      "hull_range": "500-599",
+      "displacement_t": 500.0,
+      "dv_kmps": 1.97,
+      "accel_g": 0.12,
+      "crew": 30,
+      "sensors": [
+        "MS-L2",
+        "ELINT_array",
+        "CH-R0"
+      ],
+      "weapons": [],
+      "armor": "TBD",
+      "rcs": "TBD",
+      "ir": "TBD",
+      "dimensions_m": [
+        "TBD",
+        "TBD",
+        "TBD"
+      ],
+      "sections": [
+        "hull",
+        "power",
+        "propulsion",
+        "sensors",
+        "comms",
+        "tanks",
+        "docking"
+      ],
+      "known_ships": [
+        {
+          "ship_id": "WATCHTOWER",
+          "name": "望楼号",
+          "name_en": "WATCHTOWER",
+          "hull_code": "501",
+          "batch": "1003",
+          "entity_id": "watchtower"
+        }
+      ],
+      "name_pool": [
+        "WATCHTOWER",
+        "BEACON",
+        "LIGHTHOUSE"
+      ],
+      "proposal": true,
+      "tbd": [
+        "armor",
+        "rcs",
+        "ir",
+        "dimensions_m"
+      ],
+      "source": "docs/04 §7 + §12.8",
+      "note": "中继舰；望楼 501（提案映射）。"
+    },
+    {
+      "class_id": "OCUVF-WINCH-2",
+      "name": "绞盘-2",
+      "name_en": "Winch-2",
+      "role": "tug",
+      "faction": "ocuvf_id13",
+      "model": "绞盘-2",
+      "hull_code_prefix": "WIN",
+      "hull_range": "600-699",
+      "displacement_t": 400.0,
+      "dv_kmps": 3.15,
+      "accel_g": 0.2,
+      "crew": 9,
+      "sensors": [
+        "CH-R0"
+      ],
+      "weapons": [],
+      "armor": "TBD",
+      "rcs": "TBD",
+      "ir": "TBD",
+      "dimensions_m": [
+        "TBD",
+        "TBD",
+        "TBD"
+      ],
+      "sections": [
+        "hull",
+        "power",
+        "propulsion",
+        "sensors",
+        "comms",
+        "tanks",
+        "docking"
+      ],
+      "known_ships": [],
+      "name_pool": [
+        "BOLLARD",
+        "ANCHOR",
+        "TOWHOOK"
+      ],
+      "proposal": true,
+      "tbd": [
+        "armor",
+        "rcs",
+        "ir",
+        "dimensions_m"
+      ],
+      "source": "docs/04 §7 + §12.8",
+      "note": "拖船/救援回收。"
+    },
+    {
+      "class_id": "OCUVF-ARIA-1",
+      "name": "咏叹-1",
+      "name_en": "Aria-1",
+      "role": "shuttle",
+      "faction": "ocuvf_id13",
+      "model": "咏叹-1",
+      "hull_code_prefix": "ARI",
+      "hull_range": "700-799",
+      "displacement_t": 20.0,
+      "dv_kmps": 6.12,
+      "accel_g": 1.0,
+      "crew": 3,
+      "sensors": [
+        "CH-R0"
+      ],
+      "weapons": [],
+      "armor": "TBD",
+      "rcs": "TBD",
+      "ir": "TBD",
+      "dimensions_m": [
+        "TBD",
+        "TBD",
+        "TBD"
+      ],
+      "sections": [
+        "hull",
+        "power",
+        "propulsion",
+        "sensors",
+        "comms",
+        "tanks",
+        "docking"
+      ],
+      "known_ships": [],
+      "name_pool": [
+        "MISSIVE",
+        "SEALING WAX",
+        "BULLA"
+      ],
+      "proposal": true,
+      "tbd": [
+        "armor",
+        "rcs",
+        "ir",
+        "dimensions_m"
+      ],
+      "source": "docs/04 §7 + §12.8",
+      "note": "舰载穿梭机；不占舰队编制。"
+    }
+  ],
+  "notes": [
+    "数值来自 docs/04 §7；未知/装甲/RCS/IR/尺寸标 TBD；命名池来自 docs/04 §12.8。"
+  ]
+}
