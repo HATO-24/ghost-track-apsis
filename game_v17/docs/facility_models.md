@@ -84,12 +84,30 @@
 
 ## B-38 小行星居住站映射（task-217）
 
-- 大型 lore 设施改映射为 `model_family=asteroid_habitat`：
-  - L5-07 Savannah / L5-01 Eko / L3-01 Aurora → `asteroid_oneill`（内部 O'Neill 双圆柱）；
-  - NESOSS-05 Saturnus → `asteroid_stanford`（内部 Stanford 环面）；
-  - `asteroid_fortress` 作为大型 UEG 站变体可用。
+- B-38 曾把大型 lore 站映射为含内部 O'Neill/Stanford 的小行星站；B-40 已撤销该拼合，改为四类独立，见下节。
 - 小型 station/port/depot/otc/tank/fuel/research 继续模块站。
 - Factory 输出新增 `asteroid_type/asteroid_known/asteroid_fallback`；未知大型居住站按半径 fallback（≥3.2 oneill，否则 stanford）并标注。
 - 近景 NEAR VIEW 自动使用小行星/舰船模型：选中舰船（无 facility_id）时由 near_view 读取 v1_hud 选中 contact 并构建 ship_model；无选中设施默认 L1 PORT。
 - 截图：`models-asteroid-habitats-1920.png`、`v1-hud-nearview-savannah-1920.png`。
 - 110 设施 probe 仍通过（checks=1697, fails=0）。
+
+
+---
+
+## B-40 四类独立匹配（task-220）
+
+`framework/content/habitat_profiles.json` 提供 known/class-default 的人口/资源/功能，Factory 自动匹配：
+
+| 族 | 当前数量 | 代表设施 | 场景 |
+|---|---:|---|---|
+| O'Neill | 3 | Savannah / Eko / Aurora | `oneill_cylinder.tscn` |
+| Stanford | 1 | Saturnus | `stanford_torus.tscn` |
+| Asteroid Habitat | 1 | Victoria（外环小行星） | `asteroid_habitat.tscn` |
+| UEG Asteroid Fortress | 1 | Horizon（L2-07，military） | `asteroid_fortress.tscn` |
+| Module Station | 104 | Greenwich/Chronos/… | `station_model.gd` |
+
+匹配顺序：military → fortress；known profile 优先；小型模块 class → module_station；人口≥200k→oneill；10k–199999→stanford；<10k/low resource→asteroid_habitat。Factory 输出 `model_family/family_reason/population/resources/function/profile_source`。
+
+- 小行星居住站不再含 O'Neill/Stanford 内部（仅隧道/小舱段）；要塞为民用之外的独立军用族。
+- 近景截图：Savannah/Eko/Aurora（O'Neill）、Saturnus（Stanford）、Victoria（asteroid_habitat）、Horizon（fortress）。
+- 边界：profile 是视觉匹配元数据，不是 gameplay 人口/资源模拟；104 小站保持模块站；纯色/无贴图。

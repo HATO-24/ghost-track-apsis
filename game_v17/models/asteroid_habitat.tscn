@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://models/asteroid_habitat_model.gd" id="1"]
+
+[node name="AsteroidHabitat" type="Node3D"]
+script = ExtResource("1")
+asteroid_type = "asteroid_habitat"
+habitat_label = "L5-11 VICTORIA"
+habitat_scale = 1.0
+rotation_speed = 0.04
+station_type = "station"
+module_count = 3
+station_scale = 1.0
+habitat_type = "asteroid_habitat"

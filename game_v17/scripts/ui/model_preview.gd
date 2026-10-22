@@ -11,6 +11,12 @@ const MODEL_PATHS := [
 	"res://models/fuel_tank_farm.tscn",
 ]
 const AsteroidScene := preload("res://models/asteroid_habitat_model.gd")
+const FOUR_FAMILY_PLACEMENTS := [
+	{"path": "res://models/oneill_cylinder.tscn", "pos": Vector3(-4.6, 0.0, 0.0), "label": "O'NEILL · 30×7.5 km"},
+	{"path": "res://models/stanford_torus.tscn", "pos": Vector3(-1.5, 0.0, 0.0), "label": "STANFORD · Ø1.8 km"},
+	{"path": "res://models/asteroid_habitat.tscn", "pos": Vector3(1.6, 0.0, 0.0), "label": "ASTEROID HABITAT · OUTER"},
+	{"path": "res://models/asteroid_fortress.tscn", "pos": Vector3(4.6, 0.0, 0.0), "label": "UEG ASTEROID FORTRESS"},
+]
 const ShipModel := preload("res://models/ship_model.gd")
 const ASTEROID_PLACEMENTS := [
 	{"path": "res://models/asteroid_oneill.tscn", "pos": Vector3(-4.2, 0.0, 0.0), "label": "ASTEROID O'NEILL · SAVANNAH"},
@@ -57,7 +63,7 @@ var _failed: Array[String] = []
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
 	_preview_mode = OS.get_environment("DSH_PREVIEW_VIEW")
-	if _preview_mode not in ["stations", "habitats", "asteroid_habitats", "ships"]:
+	if _preview_mode not in ["stations", "habitats", "asteroid_habitats", "ships", "four_families"]:
 		_preview_mode = "default"
 	var target := Vector2i(1920, 1080)
 	var sz := OS.get_environment("DSH_HUD_SIZE")
@@ -111,6 +117,11 @@ func _build_world() -> void:
 		_camera.position = Vector3(0.0, 1.3, 12.0)
 		add_child(_camera)
 		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
+	elif _preview_mode == "four_families":
+		_camera.size = 9.4
+		_camera.position = Vector3(0.0, 1.2, 12.0)
+		add_child(_camera)
+		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
 	elif _preview_mode == "ships":
 		_camera.size = 6.6
 		_camera.position = Vector3(0.0, 1.0, 12.0)
@@ -145,7 +156,7 @@ func _build_world() -> void:
 	title.add_theme_color_override("font_color", Color(0.55, 0.82, 0.74))
 	layer.add_child(title)
 	var sub := Label.new()
-	sub.text = ("ASTEROID HABITATS · A BAOA QU-STYLE ROCK SHELL + INNER O'NEILL/STANFORD · PROCEDURAL · NO TEXTURES" if _preview_mode == "asteroid_habitats" else ("HARD-SCIFI SHIPS · CDE/SFHD MODULES · 8 FRIENDLY + BB/CA/CL/DD/FF/AV · PROCEDURAL · NO TEXTURES" if _preview_mode == "ships" else ("HABITAT STRUCTURES · O'NEILL TWIN CYLINDER / STANFORD TORUS · VISUAL ROTATION · PROCEDURAL · NO TEXTURES" if _preview_mode == "habitats" else ("STATION STRUCTURES · T-CORE / TRUSS / SOLAR WINGS / RADIATORS / DOCKS · PROCEDURAL · NO TEXTURES" if _preview_mode == "stations" else "PROCEDURAL GEOMETRY · SOLID MATERIALS · NO TEXTURES · GL COMPATIBILITY"))))
+	sub.text = ("FOUR STATION FAMILIES · O'NEILL / STANFORD / ASTEROID HABITAT / UEG ASTEROID FORTRESS · PROCEDURAL · NO TEXTURES" if _preview_mode == "four_families" else ("ASTEROID HABITATS · A BAOA QU-STYLE ROCK SHELL + INNER O'NEILL/STANFORD · PROCEDURAL · NO TEXTURES" if _preview_mode == "asteroid_habitats" else ("HARD-SCIFI SHIPS · CDE/SFHD MODULES · 8 FRIENDLY + BB/CA/CL/DD/FF/AV · PROCEDURAL · NO TEXTURES" if _preview_mode == "ships" else ("HABITAT STRUCTURES · O'NEILL TWIN CYLINDER / STANFORD TORUS · VISUAL ROTATION · PROCEDURAL · NO TEXTURES" if _preview_mode == "habitats" else ("STATION STRUCTURES · T-CORE / TRUSS / SOLAR WINGS / RADIATORS / DOCKS · PROCEDURAL · NO TEXTURES" if _preview_mode == "stations" else "PROCEDURAL GEOMETRY · SOLID MATERIALS · NO TEXTURES · GL COMPATIBILITY")))))
 	sub.position = Vector2(38, 56)
 	sub.add_theme_font_size_override("font_size", 13)
 	sub.add_theme_color_override("font_color", Color(0.42, 0.52, 0.49))
@@ -220,6 +231,33 @@ func _build_models() -> void:
 	_pivot = Node3D.new()
 	_pivot.name = "ShowcasePivot"
 	add_child(_pivot)
+	if _preview_mode == "four_families":
+		for spec in FOUR_FAMILY_PLACEMENTS:
+			var fpath := String((spec as Dictionary).get("path", ""))
+			var fpacked = load(fpath)
+			if fpacked == null or not (fpacked is PackedScene):
+				_failed.append(fpath)
+				continue
+			var fnode = (fpacked as PackedScene).instantiate()
+			if fnode == null:
+				_failed.append(fpath)
+				continue
+			_pivot.add_child(fnode)
+			fnode.scale = fnode.scale * 0.75
+			fnode.position = (spec as Dictionary).get("pos", Vector3.ZERO)
+			_loaded.append(fpath)
+			var flbl := Label3D.new()
+			flbl.text = String((spec as Dictionary).get("label", ""))
+			flbl.font_size = 25
+			flbl.pixel_size = 0.0034
+			flbl.modulate = Color(0.58, 0.80, 0.72)
+			flbl.outline_size = 7
+			flbl.outline_modulate = Color(0.01, 0.02, 0.02, 0.9)
+			flbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			flbl.no_depth_test = true
+			flbl.position = (spec as Dictionary).get("pos", Vector3.ZERO) + Vector3(0.0, 1.85, 0.0)
+			_pivot.add_child(flbl)
+		return
 	if _preview_mode == "asteroid_habitats":
 		for spec in ASTEROID_PLACEMENTS:
 			var apath := String((spec as Dictionary).get("path", ""))

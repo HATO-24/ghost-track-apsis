@@ -1,17 +1,17 @@
 extends RefCounted
 
-# 方案B-35：FacilityModelFactory
-# FacilityRegistry/facility dict → station_model 3D 基型；纯读、确定性、无贴图。
-# 已知 facility_class 映射到 station_model 的 6 个基型；未知 class 明确 fallback（port）并标注。
+# 方案B-40：空间站四族独立匹配 + 小型模块站。
+# 四族：oneill / stanford / asteroid_habitat / asteroid_fortress，互不拼合替代。
+# habitat_profiles.json 给出已知站人口/资源/功能/族；未知站按 class 默认 + 阈值匹配。
 
 const StationModel := preload("res://models/station_model.gd")
 const OneillScene := preload("res://models/oneill_cylinder.tscn")
 const StanfordScene := preload("res://models/stanford_torus.tscn")
-const AsteroidOneillScene := preload("res://models/asteroid_oneill.tscn")
-const AsteroidStanfordScene := preload("res://models/asteroid_stanford.tscn")
+const AsteroidHabitatScene := preload("res://models/asteroid_habitat.tscn")
 const AsteroidFortressScene := preload("res://models/asteroid_fortress.tscn")
 
-# facility_class -> station_model.station_type（基型）
+const PROFILE_PATH := "res://framework/content/habitat_profiles.json"
+const FALLBACK_MODEL := "port"
 const CLASS_TO_MODEL := {
 	"station": "port", "port": "port", "depot": "depot",
 	"otc": "otc", "tank": "tank", "fuel": "fuel",
@@ -21,100 +21,118 @@ const CLASS_TO_MODEL := {
 	"agricultural": "tank", "water_utility": "tank", "salvage": "depot",
 	"food_processing": "tank", "cultural": "port", "tourism": "port",
 }
-const FALLBACK_MODEL := "port"
-# 大型居住站映射（docs/44 第51行）：Savannah/Eko/Aurora → O'Neill；Saturnus → Stanford。
-const HABITAT_BY_ID := {
-	"L5-07": "oneill", "L5-01": "oneill", "L3-01": "oneill",
-	"NESOSS-05": "stanford",
-}
-const HABITAT_BY_NAME := {
-	"savannah": "oneill", "eko": "oneill", "aurora": "oneill",
-	"saturnus": "stanford",
-}
-const ASTEROID_BY_ID := {
-	"L5-07": "asteroid_oneill", "L5-01": "asteroid_oneill", "L3-01": "asteroid_oneill",
-	"NESOSS-05": "asteroid_stanford",
-}
-const HABITAT_CLASS_HINTS := ["residential", "tourism", "agricultural", "habitat"]
-const HABITAT_RADIUS_MIN_KM := 2.0
-const HABITAT_LARGE_RADIUS_KM := 3.2
-const BASE_SCALE := {
-	"port": 1.15, "depot": 1.05, "otc": 0.82, "tank": 0.72,
-	"fuel": 0.78, "research": 0.92,
-}
-const BASE_MODULES := {
-	"port": 4, "depot": 4, "otc": 3, "tank": 3,
-	"fuel": 3, "research": 4,
-}
+const BASE_SCALE := {"port": 1.15, "depot": 1.05, "otc": 0.82, "tank": 0.72, "fuel": 0.78, "research": 0.92}
+const BASE_MODULES := {"port": 4, "depot": 4, "otc": 3, "tank": 3, "fuel": 3, "research": 4}
 const SCALE_MIN := 0.55
 const SCALE_MAX := 1.65
 const MODULES_MIN := 2
 const MODULES_MAX := 8
+const FAMILIES := ["oneill", "stanford", "asteroid_habitat", "asteroid_fortress", "module_station"]
+const HABITAT_CLASSES := ["residential", "tourism", "agricultural"]
+const MODULE_CLASSES := ["station", "port", "depot", "otc", "tank", "fuel", "relay", "research", "commercial", "logistics", "industrial", "shipyard", "observation", "salvage", "water_utility", "food_processing", "cultural"]
+
+static var _profiles_cache: Dictionary = {}
 
 
-static func mapping_for_class(facility_class: String) -> Dictionary:
-	var cls := facility_class.to_lower()
-	var model_type := String(CLASS_TO_MODEL.get(cls, FALLBACK_MODEL))
-	var supported := CLASS_TO_MODEL.has(cls)
-	return {"facility_class": cls, "model_type": model_type,
-		"supported": supported, "fallback": not supported,
-		"mapping": (cls + "→" + model_type) if supported else (cls + "→fallback/" + model_type)}
-
-
-static func supports(facility_class: String) -> bool:
-	return CLASS_TO_MODEL.has(facility_class.to_lower())
-
-
-static func habitat_for(facility: Dictionary) -> Dictionary:
-	# 已知 lore 映射；未知“大型居住/生态站”按半径 fallback（>=3.2 oneill，否则 stanford），并标注。
-	var fid := String(facility.get("facility_id", ""))
-	if HABITAT_BY_ID.has(fid):
-		var ht := String(HABITAT_BY_ID[fid])
-		return {"habitat_type": ht, "known": true, "fallback": false,
-			"label": (ht.to_upper() + " · " + String(facility.get("name", fid)))}
-	var nm := String(facility.get("name", facility.get("name_en", ""))).to_lower()
-	if HABITAT_BY_NAME.has(nm):
-		var ht2 := String(HABITAT_BY_NAME[nm])
-		return {"habitat_type": ht2, "known": true, "fallback": false,
-			"label": (ht2.to_upper() + " · " + String(facility.get("name", nm)))}
-	var cls := _class_of(facility)
-	var radius := _radius_km(facility)
-	if cls in HABITAT_CLASS_HINTS and radius >= HABITAT_RADIUS_MIN_KM:
-		var ht3 := "oneill" if radius >= HABITAT_LARGE_RADIUS_KM else "stanford"
-		return {"habitat_type": ht3, "known": false, "fallback": true,
-			"label": (ht3.to_upper() + " · RADIUS FALLBACK " + ("%.1f km" % radius))}
-	return {"habitat_type": "", "known": false, "fallback": false, "label": ""}
-
-
-static func asteroid_for(facility: Dictionary) -> Dictionary:
-	var fid := String(facility.get("facility_id", ""))
-	if ASTEROID_BY_ID.has(fid):
-		var at := String(ASTEROID_BY_ID[fid])
-		return {"asteroid_type": at, "known": true, "fallback": false}
-	var hab := habitat_for(facility)
-	if String(hab.get("habitat_type", "")) != "":
-		var at2 := "asteroid_oneill" if String(hab.get("habitat_type", "")) == "oneill" else "asteroid_stanford"
-		return {"asteroid_type": at2, "known": bool(hab.get("known", false)),
-			"fallback": bool(hab.get("fallback", false))}
-	return {"asteroid_type": "", "known": false, "fallback": false}
+static func _profiles() -> Dictionary:
+	if not _profiles_cache.is_empty():
+		return _profiles_cache
+	if FileAccess.file_exists(PROFILE_PATH):
+		var f := FileAccess.open(PROFILE_PATH, FileAccess.READ)
+		if f != null:
+			var parsed = JSON.parse_string(f.get_as_text())
+			f.close()
+			if parsed is Dictionary:
+				_profiles_cache = parsed
+	if _profiles_cache.is_empty():
+		_profiles_cache = {"known": {}, "class_defaults": {}, "thresholds": {"oneill_population_min": 200000, "stanford_population_min": 10000}}
+	return _profiles_cache
 
 
 static func _class_of(facility: Dictionary) -> String:
 	var cls := String(facility.get("facility_class", "")).to_lower()
 	if cls == "":
 		cls = String(facility.get("transponder_type", "")).to_lower()
-	if cls == "":
-		cls = String(facility.get("facility_kind", "")).to_lower()
 	return cls
 
 
 static func _radius_km(facility: Dictionary) -> float:
-	var phys: Dictionary = facility.get("physical", {}) if facility.get("physical", {}) is Dictionary else {}
+	var phys: Dictionary = facility.get("physical", {}) if facility.get("physical") is Dictionary else {}
 	if float(phys.get("radius_km", 0.0)) > 0.0:
 		return float(phys.get("radius_km"))
-	if float(facility.get("radius_km", 0.0)) > 0.0:
-		return float(facility.get("radius_km"))
-	return 0.0
+	return float(facility.get("radius_km", 0.0))
+
+
+static func _is_military(facility: Dictionary, prof: Dictionary) -> bool:
+	var fn := String(prof.get("function", "")).to_lower()
+	var tt := String(facility.get("transponder_type", "")).to_lower()
+	var svc: Array = facility.get("services", []) if facility.get("services", []) is Array else []
+	if fn.contains("military") or tt.contains("military"):
+		return true
+	for s in svc:
+		if String(s).to_lower().contains("military"):
+			return true
+	return false
+
+
+static func profile_for(facility: Dictionary) -> Dictionary:
+	var p := _profiles()
+	var known: Dictionary = p.get("known", {}) if p.get("known", {}) is Dictionary else {}
+	var defaults: Dictionary = p.get("class_defaults", {}) if p.get("class_defaults", {}) is Dictionary else {}
+	var fid := String(facility.get("facility_id", ""))
+	if known.has(fid) and known[fid] is Dictionary:
+		var row: Dictionary = (known[fid] as Dictionary).duplicate(true)
+		row["source"] = "known_profile"
+		row["profile_id"] = fid
+		return row
+	var cls := _class_of(facility)
+	if defaults.has(cls) and defaults[cls] is Dictionary:
+		var row2: Dictionary = (defaults[cls] as Dictionary).duplicate(true)
+		row2["source"] = "class_default"
+		row2["profile_id"] = cls
+		return row2
+	return {"population": 0, "resources": "unknown", "function": cls, "source": "none", "profile_id": ""}
+
+
+static func match_family(facility: Dictionary) -> Dictionary:
+	var p := _profiles()
+	var thr: Dictionary = p.get("thresholds", {}) if p.get("thresholds", {}) is Dictionary else {}
+	var oneill_min := int(thr.get("oneill_population_min", 200000))
+	var stanford_min := int(thr.get("stanford_population_min", 10000))
+	var prof := profile_for(facility)
+	var cls := _class_of(facility)
+	var pop := int(prof.get("population", 0))
+	var res := String(prof.get("resources", "unknown")).to_lower()
+	var fn := String(prof.get("function", cls))
+	if _is_military(facility, prof):
+		return {"family": "asteroid_fortress", "reason": "military→fortress", "population": pop, "resources": res, "function": fn, "profile": prof}
+	if String(prof.get("source", "")) == "known_profile" and String(prof.get("family", "")) != "":
+		var fam := String(prof.get("family", ""))
+		if fam in FAMILIES:
+			return {"family": fam, "reason": "known_profile:" + String(prof.get("profile_id", "")), "population": pop, "resources": res, "function": fn, "profile": prof}
+	if cls in MODULE_CLASSES:
+		return {"family": "module_station", "reason": "small_module_class:" + cls, "population": pop, "resources": res, "function": fn, "profile": prof}
+	if res == "low" or (pop > 0 and pop < stanford_min):
+		return {"family": "asteroid_habitat", "reason": "low_resource/under_%d" % stanford_min, "population": pop, "resources": res, "function": fn, "profile": prof}
+	if pop >= oneill_min:
+		return {"family": "oneill", "reason": "population>=%d" % oneill_min, "population": pop, "resources": res, "function": fn, "profile": prof}
+	if pop >= stanford_min:
+		return {"family": "stanford", "reason": "population %d..%d" % [stanford_min, oneill_min - 1], "population": pop, "resources": res, "function": fn, "profile": prof}
+	if cls in HABITAT_CLASSES:
+		return {"family": "stanford", "reason": "class_default_habitat:" + cls, "population": pop, "resources": res, "function": fn, "profile": prof}
+	return {"family": "module_station", "reason": "no_habitat_profile", "population": pop, "resources": res, "function": fn, "profile": prof}
+
+
+static func mapping_for_class(facility_class: String) -> Dictionary:
+	var cls := facility_class.to_lower()
+	var model_type := String(CLASS_TO_MODEL.get(cls, FALLBACK_MODEL))
+	var supported := CLASS_TO_MODEL.has(cls)
+	return {"facility_class": cls, "model_type": model_type, "supported": supported,
+		"fallback": not supported, "mapping": (cls + "→" + model_type) if supported else (cls + "→fallback/" + model_type)}
+
+
+static func supports(facility_class: String) -> bool:
+	return CLASS_TO_MODEL.has(facility_class.to_lower())
 
 
 static func _scale_for(cls: String, radius_km: float) -> float:
@@ -127,109 +145,103 @@ static func _scale_for(cls: String, radius_km: float) -> float:
 
 static func _modules_for(cls: String, radius_km: float) -> int:
 	var base := int(BASE_MODULES.get(String(CLASS_TO_MODEL.get(cls, FALLBACK_MODEL)), 3))
-	var extra := 0
-	if radius_km > 0.0:
-		extra = int(minf(3.0, radius_km))
-	return clampi(base + extra, MODULES_MIN, MODULES_MAX)
+	return clampi(base + int(minf(3.0, radius_km)), MODULES_MIN, MODULES_MAX)
 
 
 static func describe(facility: Dictionary) -> Dictionary:
 	var cls := _class_of(facility)
 	var mapping := mapping_for_class(cls)
 	var radius := _radius_km(facility)
+	var family_match := match_family(facility)
+	var family := String(family_match.get("family", "module_station"))
 	var scale := _scale_for(cls, radius)
 	var modules := _modules_for(cls, radius)
-	var hab := habitat_for(facility)
-	var ast := asteroid_for(facility)
-	var is_habitat := String(hab.get("habitat_type", "")) != ""
-	var is_asteroid := String(ast.get("asteroid_type", "")) != ""
-	var family := "asteroid_habitat" if is_asteroid else ("habitat" if is_habitat else "module_station")
-	var hab_scale := 1.0
-	if is_habitat and bool(hab.get("fallback", false)):
-		hab_scale = clampf(radius / 3.0, 0.80, 1.30)
 	return {"facility_id": String(facility.get("facility_id", "")),
-		"name": String(facility.get("name", "")),
-		"facility_class": cls, "model_type": String(mapping["model_type"]),
+		"name": String(facility.get("name", "")), "facility_class": cls,
+		"model_family": family, "model_type": String(mapping["model_type"]),
+		"family_reason": String(family_match.get("reason", "")),
+		"population": int(family_match.get("population", 0)),
+		"resources": String(family_match.get("resources", "unknown")),
+		"function": String(family_match.get("function", cls)),
+		"profile_source": String((family_match.get("profile", {}) as Dictionary).get("source", "none")),
+		"profile_id": String((family_match.get("profile", {}) as Dictionary).get("profile_id", "")),
 		"supported": bool(mapping["supported"]), "fallback": bool(mapping["fallback"]),
 		"mapping": String(mapping["mapping"]), "radius_km": radius,
 		"scale": scale, "module_count": modules,
-		"model_family": family, "habitat_type": String(hab.get("habitat_type", "")),
-		"asteroid_type": String(ast.get("asteroid_type", "")),
-		"asteroid_known": bool(ast.get("known", false)),
-		"asteroid_fallback": bool(ast.get("fallback", false)),
-		"habitat_label": String(hab.get("label", "")), "habitat_known": bool(hab.get("known", false)),
-		"habitat_fallback": bool(hab.get("fallback", false)), "habitat_scale": hab_scale,
 		"material": "StandardMaterial3D solid · procedural · no texture"}
+
+
+static func _apply_compat(node: Node3D, d: Dictionary) -> void:
+	if node == null:
+		return
+	if node.get("station_type") != null:
+		node.set("station_type", String(d.get("model_type", FALLBACK_MODEL)))
+	if node.get("station_scale") != null:
+		node.set("station_scale", float(d.get("scale", 1.0)))
+	if node.get("module_count") != null:
+		node.set("module_count", int(d.get("module_count", 3)))
+	node.set_meta("facility_model_mapping", d)
+	node.set_meta("facility_model_fallback", bool(d.get("fallback", false)))
+	node.set_meta("facility_model_supported", bool(d.get("supported", false)))
 
 
 static func create(facility: Dictionary) -> Node3D:
 	var d := describe(facility)
-	if String(d.get("model_family", "")) == "asteroid_habitat":
-		var atype := String(d.get("asteroid_type", "asteroid_oneill"))
-		var ascene: PackedScene = AsteroidStanfordScene if atype == "asteroid_stanford" else (AsteroidFortressScene if atype == "asteroid_fortress" else AsteroidOneillScene)
-		var anode = ascene.instantiate()
-		if anode is Node3D:
-			anode.asteroid_type = atype
-			anode.habitat_type = String(d.get("habitat_type", "oneill"))
-			anode.habitat_label = String(d.get("habitat_label", d.get("name", "")))
-			anode.habitat_scale = float(d.get("habitat_scale", 1.0))
-			anode.station_type = String(d.get("model_type", FALLBACK_MODEL))
-			anode.station_scale = float(d.get("scale", 1.0))
-			anode.module_count = int(d.get("module_count", 3))
-			anode.set_meta("facility_model_mapping", d)
-			anode.set_meta("facility_model_fallback", bool(d.get("fallback", false)) or bool(d.get("habitat_fallback", false)))
-			anode.set_meta("facility_model_supported", true)
-		return anode
-	if String(d.get("model_family", "")) == "habitat":
-		var scene: PackedScene = OneillScene if String(d.get("habitat_type", "")) == "oneill" else StanfordScene
-		var hnode = scene.instantiate()
-		if hnode is Node3D:
-			hnode.habitat_label = String(d.get("habitat_label", d.get("name", "")))
-			hnode.habitat_scale = float(d.get("habitat_scale", 1.0))
-			hnode.station_type = String(d.get("model_type", FALLBACK_MODEL))
-			hnode.station_scale = float(d.get("scale", 1.0))
-			hnode.module_count = int(d.get("module_count", 3))
-			hnode.set_meta("facility_model_mapping", d)
-			hnode.set_meta("facility_model_fallback", bool(d.get("fallback", false)) or bool(d.get("habitat_fallback", false)))
-			hnode.set_meta("facility_model_supported", true)
-		return hnode
-	var st = StationModel.new()
-	st.station_type = String(d.get("model_type", FALLBACK_MODEL))
-	st.station_label = String(d.get("name", d.get("facility_id", "FACILITY")))
-	st.station_scale = float(d.get("scale", 1.0))
-	st.module_count = int(d.get("module_count", 3))
-	st.set_meta("facility_model_mapping", d)
-	st.set_meta("facility_model_fallback", bool(d.get("fallback", false)))
-	st.set_meta("facility_model_supported", bool(d.get("supported", false)))
-	return st
+	var family := String(d.get("model_family", "module_station"))
+	var node: Node3D = null
+	match family:
+		"oneill":
+			node = OneillScene.instantiate() as Node3D
+			if node != null:
+				node.set("habitat_label", String(d.get("name", "")))
+		"stanford":
+			node = StanfordScene.instantiate() as Node3D
+			if node != null:
+				node.set("habitat_label", String(d.get("name", "")))
+		"asteroid_habitat":
+			node = AsteroidHabitatScene.instantiate() as Node3D
+			if node != null:
+				node.set("habitat_label", String(d.get("name", "")))
+		"asteroid_fortress":
+			node = AsteroidFortressScene.instantiate() as Node3D
+			if node != null:
+				node.set("fortress_label", String(d.get("name", "")))
+		_:
+			var st = StationModel.new()
+			st.station_type = String(d.get("model_type", FALLBACK_MODEL))
+			st.station_label = String(d.get("name", d.get("facility_id", "FACILITY")))
+			st.station_scale = float(d.get("scale", 1.0))
+			st.module_count = int(d.get("module_count", 3))
+			node = st
+	if node == null:
+		node = StationModel.new()
+	_apply_compat(node, d)
+	return node
 
 
 static func summary(facilities: Array) -> Dictionary:
-	var counts: Dictionary = {}
-	var classes: Dictionary = {}
+	var by_family: Dictionary = {}
+	var by_class: Dictionary = {}
 	var fallbacks := 0
+	var known := 0
 	var total := 0
 	var families: Dictionary = {}
-	var habitats: Dictionary = {}
 	for raw in facilities:
 		if not (raw is Dictionary):
 			continue
 		total += 1
 		var d := describe(raw)
-		var mt := String(d.get("model_type", FALLBACK_MODEL))
-		counts[mt] = int(counts.get(mt, 0)) + 1
-		var cls := String(d.get("facility_class", ""))
-		classes[cls] = int(classes.get(cls, 0)) + 1
 		var fam := String(d.get("model_family", "module_station"))
-		families[fam] = int(families.get(fam, 0)) + 1
-		var ht := String(d.get("habitat_type", ""))
-		if ht != "":
-			habitats[ht] = int(habitats.get(ht, 0)) + 1
-		if bool(d.get("fallback", false)) or bool(d.get("habitat_fallback", false)):
+		by_family[fam] = int(by_family.get(fam, 0)) + 1
+		var cls := String(d.get("facility_class", ""))
+		by_class[cls] = int(by_class.get(cls, 0)) + 1
+		if String(d.get("profile_source", "")) == "known_profile":
+			known += 1
+		if bool(d.get("fallback", false)):
 			fallbacks += 1
-	return {"total": total, "by_model": counts, "by_class": classes,
-		"by_family": families, "habitats": habitats,
-		"fallbacks": fallbacks, "supported_classes": CLASS_TO_MODEL.keys(),
+		families[fam] = true
+	return {"total": total, "by_family": by_family, "by_class": by_class,
+		"known_profiles": known, "fallbacks": fallbacks, "families": by_family.keys(),
 		"writes": {"world": false, "physics": false, "truth": false}}
 
 

@@ -116,44 +116,45 @@ func set_subject(subject: String, facility_class := "station", facility_label :=
 		var st = FacilityModelFactory.create(fac)
 		_model = st
 		var family := String(mapping.get("model_family", "module_station"))
-		var habitat_type := String(mapping.get("habitat_type", ""))
-		var asteroid_type := String(mapping.get("asteroid_type", ""))
-		var framing := clampf(5.8 + float(mapping.get("scale", 1.0)) * 0.5, 5.8, 7.2)
-		if family == "asteroid_habitat":
-			framing = 7.2 if asteroid_type == "asteroid_oneill" else 6.4
-		elif family == "habitat":
-			framing = 8.6 if habitat_type == "oneill" else 5.8
+		var framing := 6.2
+		var model_path := "station_model.gd / " + String(mapping.get("model_type", "port"))
+		match family:
+			"oneill":
+				framing = 8.6
+				model_path = "habitat_model.gd / oneill"
+			"stanford":
+				framing = 5.8
+				model_path = "habitat_model.gd / stanford"
+			"asteroid_habitat":
+				framing = 6.8
+				model_path = "asteroid_habitat_model.gd / asteroid_habitat"
+			"asteroid_fortress":
+				framing = 8.4
+				model_path = "asteroid_fortress_model.gd / asteroid_fortress"
+			_:
+				framing = clampf(5.8 + float(mapping.get("scale", 1.0)) * 0.5, 5.8, 7.2)
 		_camera.position = Vector3(0.0, 1.25, framing)
 		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
-		var model_path := "station_model.gd / " + String(mapping.get("model_type", "port"))
-		if family == "asteroid_habitat":
-			model_path = "asteroid_habitat_model.gd / " + asteroid_type
-		elif family == "habitat":
-			model_path = "habitat_model.gd / " + habitat_type
 		_info = {"subject": "FACILITY", "facility_class": String(mapping.get("facility_class", facility_class)),
 			"model": model_path,
 			"radius_km": float(mapping.get("radius_km", facility_radius_km)),
-			"scale": float(mapping.get("habitat_scale", mapping.get("scale", 1.0))),
+			"scale": float(mapping.get("scale", 1.0)),
 			"module_count": int(mapping.get("module_count", 3)),
-			"mapping": String(mapping.get("habitat_label", mapping.get("mapping", ""))),
-			"fallback": bool(mapping.get("fallback", true)) or bool(mapping.get("habitat_fallback", false)) or bool(mapping.get("asteroid_fallback", false)),
+			"mapping": String(mapping.get("family_reason", "")) + " · " + String(mapping.get("profile_source", "")),
+			"fallback": bool(mapping.get("fallback", true)),
 			"supported": bool(mapping.get("supported", false)),
-			"family": family, "habitat_type": habitat_type, "asteroid_type": asteroid_type,
-			"habitat_known": bool(mapping.get("habitat_known", false)),
-			"facility_type": (asteroid_type if family == "asteroid_habitat" else (habitat_type if family == "habitat" else String(mapping.get("model_type", "port")))),
+			"family": family,
+			"population": int(mapping.get("population", 0)),
+			"resources": String(mapping.get("resources", "unknown")),
+			"function": String(mapping.get("function", "")),
+			"profile_source": String(mapping.get("profile_source", "none")),
+			"facility_type": family,
 			"facility_id": String(fac.get("facility_id", "")), "facility_code": String(fac.get("facility_code", "")),
-			"source": ("SELECTED ASTEROID HABITAT / LORE MAPPING" if family == "asteroid_habitat" else ("SELECTED HABITAT / LORE MAPPING" if family == "habitat" else "SELECTED FACILITY / DEFAULT L1 PORT / FACTORY")),
+			"source": "SELECTED STATION / FOUR-FAMILY MATCH" if family != "module_station" else "SELECTED SMALL STATION / MODULAR",
 			"material": "StandardMaterial3D solid · procedural · no texture"}
 	_subject_root.add_child(_model)
 	_info["facility_label"] = _facility_label
-	if subject == "facility":
-		if String(_info.get("family", "")) == "asteroid_habitat":
-			_info["facility_type"] = String(_info.get("asteroid_type", "asteroid_oneill"))
-		elif String(_info.get("family", "")) == "habitat":
-			_info["facility_type"] = String(_info.get("habitat_type", ""))
-		else:
-			_info["facility_type"] = String(_info.get("model_type", "port"))
-	else:
+	if subject != "facility":
 		_info["facility_type"] = ""
 
 

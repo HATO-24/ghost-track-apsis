@@ -1,0 +1,178 @@
+{
+ "schema": "v17.habitat_profiles.v1",
+ "version": "1.0.0",
+ "title": "大型空间站人口/资源/功能档案与模型族匹配（方案B-40）",
+ "source": "docs/44_新剧本_2193.md 第51行；facilities_system.json",
+ "thresholds": {
+  "oneill_population_min": 200000,
+  "stanford_population_min": 10000,
+  "low_resource": "low"
+ },
+ "known": {
+  "L5-07": {
+   "population": 240000,
+   "resources": "high",
+   "function": "tourism/ecology",
+   "family": "oneill",
+   "name": "Savannah",
+   "source": "docs/44；Earth ecology station"
+  },
+  "L5-01": {
+   "population": 520000,
+   "resources": "high",
+   "function": "residential",
+   "family": "oneill",
+   "name": "Eko",
+   "source": "docs/44；oldest/densest habitat"
+  },
+  "L3-01": {
+   "population": 210000,
+   "resources": "high",
+   "function": "agricultural/ecology",
+   "family": "oneill",
+   "name": "Aurora",
+   "source": "docs/44；agriculture mirror station"
+  },
+  "NESOSS-05": {
+   "population": 120000,
+   "resources": "medium",
+   "function": "habitat/commercial",
+   "family": "stanford",
+   "name": "Saturnus",
+   "source": "docs/44；ring habitat"
+  }
+ },
+ "class_defaults": {
+  "residential": {
+   "population": 80000,
+   "resources": "medium",
+   "function": "habitat",
+   "family": "stanford"
+  },
+  "tourism": {
+   "population": 60000,
+   "resources": "medium",
+   "function": "habitat/tourism",
+   "family": "stanford"
+  },
+  "agricultural": {
+   "population": 40000,
+   "resources": "medium",
+   "function": "habitat/agriculture",
+   "family": "stanford"
+  },
+  "commercial": {
+   "population": 5000,
+   "resources": "medium",
+   "function": "commerce",
+   "family": "module_station"
+  },
+  "industrial": {
+   "population": 4000,
+   "resources": "low",
+   "function": "industry",
+   "family": "module_station"
+  },
+  "logistics": {
+   "population": 3000,
+   "resources": "low",
+   "function": "logistics",
+   "family": "module_station"
+  },
+  "shipyard": {
+   "population": 4000,
+   "resources": "medium",
+   "function": "shipyard",
+   "family": "module_station"
+  },
+  "station": {
+   "population": 2000,
+   "resources": "medium",
+   "function": "general",
+   "family": "module_station"
+  },
+  "port": {
+   "population": 1500,
+   "resources": "medium",
+   "function": "port",
+   "family": "module_station"
+  },
+  "depot": {
+   "population": 500,
+   "resources": "low",
+   "function": "depot",
+   "family": "module_station"
+  },
+  "otc": {
+   "population": 800,
+   "resources": "medium",
+   "function": "traffic_control",
+   "family": "module_station"
+  },
+  "tank": {
+   "population": 50,
+   "resources": "low",
+   "function": "storage",
+   "family": "module_station"
+  },
+  "fuel": {
+   "population": 80,
+   "resources": "low",
+   "function": "fuel",
+   "family": "module_station"
+  },
+  "relay": {
+   "population": 300,
+   "resources": "medium",
+   "function": "relay",
+   "family": "module_station"
+  },
+  "research": {
+   "population": 900,
+   "resources": "medium",
+   "function": "research",
+   "family": "module_station"
+  },
+  "observation": {
+   "population": 300,
+   "resources": "medium",
+   "function": "observation",
+   "family": "module_station"
+  },
+  "salvage": {
+   "population": 600,
+   "resources": "low",
+   "function": "salvage",
+   "family": "module_station"
+  },
+  "water_utility": {
+   "population": 700,
+   "resources": "low",
+   "function": "utility",
+   "family": "module_station"
+  },
+  "food_processing": {
+   "population": 700,
+   "resources": "low",
+   "function": "food",
+   "family": "module_station"
+  },
+  "cultural": {
+   "population": 900,
+   "resources": "medium",
+   "function": "culture",
+   "family": "module_station"
+  },
+  "tourism_small": {
+   "population": 900,
+   "resources": "medium",
+   "function": "tourism",
+   "family": "module_station"
+  }
+ },
+ "notes": [
+  "已知大型站使用设定；未知站按 facility_class 默认（population/resources/function）。",
+  "military 优先 fortress；population>=200000 -> oneill；10000..199999 -> stanford；<10000 或 low resource -> asteroid_habitat；小型模块类 -> module_station。",
+  "阈值与模型族仅用于视觉匹配，不改变物理/真实人口数据。"
+ ]
+}

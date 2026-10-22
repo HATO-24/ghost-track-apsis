@@ -132,8 +132,8 @@
 
 - `models/asteroid_habitat_model.gd` + `asteroid_oneill.tscn` / `asteroid_stanford.tscn` / `asteroid_fortress.tscn`。
 - 结构：双体低模小行星外壳（不规则椭球/双体接合/陨石坑/暗色陨坑）、切面开口环+框梁、中央指挥塔、系泊塔、推进模块/喷口、散热鳍、太阳翼、对接口；拖曳改造结构痕迹。
-- 内部：切面处嵌入 `oneill_cylinder.tscn`（Savannah/Eko/Aurora）或 `stanford_torus.tscn`（Saturnus），可见窗带/环柱；内部视觉自转，外壳缓慢自转。
-- 类型：`asteroid_oneill` / `asteroid_stanford` / `asteroid_fortress`（大型 UEG 站可选用）。
+- B-38 原型曾在此嵌入 O'Neill/Stanford 内部结构；**该拼合已在 B-40 撤销**。B-40 起四类空间站独立并存，小行星居住站只保留民用隧道/小舱段，不再塞入 O'Neill/Stanford。
+- B-40 类型：民用 `asteroid_habitat` 与军用 `asteroid_fortress` 各自独立场景；见下节。
 - 纯色 StandardMaterial3D；无贴图；尺度为展示单位，非真实 km。
 
 ### 舰船
@@ -144,9 +144,9 @@
 
 ### 截图 / 验证
 
-- `mockups/models-asteroid-habitats-1920.png`：O'Neill / Stanford / Fortress 三型小行星站；3/3 加载。
+- `mockups/models-asteroid-habitats-1920.png`：B-38 原型拼合预览（历史）。
 - `mockups/models-ships-hardscifi-1920.png`：14 变体；14/14 加载。
-- `mockups/v1-hud-nearview-savannah-1920.png`：NEAR VIEW L5-07 Savannah，`asteroid_habitat_model.gd / asteroid_oneill`；内部 O'Neill 切面；ID/CODE。
+- `mockups/v1-hud-nearview-savannah-1920.png`：B-40 起为独立 O'Neill，见下节。
 - 近景对选中舰船：自动 `ship_model.gd`（无需改 v1_hud）；无选中设施时默认 L1 PORT。
 - 既有 FacilityModelFactory probe 仍 `checks=1697 fails=0`（110 设施）。
 
@@ -155,3 +155,42 @@
 - 过渡资产；外壳/舰体为程序化低模；无贴图/法线/LOD/碰撞/真实质量/热/推进物理。
 - 不复制现实/高达资产；旋转仅视觉。
 - 不写 world/session；近景/预览只读。
+
+
+---
+
+## B-40：四类空间站独立拆分 + 人口/功能自动匹配（task-220）
+
+### 四类独立模型族
+
+| 族 | 场景/脚本 | 结构 |
+|---|---|---|
+| O'Neill 双圆柱 | `oneill_cylinder.tscn` + `habitat_model.gd` | 30:7.5 双圆柱、端盖/轴承/对接枢纽、窗带/陆地带、太阳翼 |
+| Stanford 环面 | `stanford_torus.tscn` + `habitat_model.gd` | 1.8 直径环面、轮辐、中央枢纽、镜面/太阳翼 |
+| 小行星居住站 | `asteroid_habitat.tscn` + `asteroid_habitat_model.gd` | 双体岩壳/切面/隧道/小舱段/对接/太阳能/散热；**无 O'Neill/Stanford 内部** |
+| UEG 小行星要塞 | `asteroid_fortress.tscn` + `asteroid_fortress_model.gd` | 双体小行星、中央指挥塔、炮塔/轨道炮/导弹舱、机库、装甲、系泊；不是民用站 |
+| 小型模块站 | `station_model.gd` | 现有 depot/port/otc/tank/fuel/research/small station 模块基型 |
+
+- 四类场景互不拼合/替代；旧 `asteroid_oneill.tscn` / `asteroid_stanford.tscn` 为 B-38 历史文件，B-40 factory 不再使用。
+
+### 匹配规则（FacilityModelFactory）
+
+1. `habitat_profiles.json` known 档案优先（Savannah/Eko/Aurora → oneill；Saturnus → stanford；Victoria → asteroid_habitat；Horizon → asteroid_fortress）。
+2. military function/transponder → asteroid_fortress。
+3. 小型模块 class（station/port/depot/otc/tank/fuel/relay/research/commercial/industrial/...）→ module_station。
+4. 其它按人口阈值：≥200000 → oneill；10000–199999 → stanford；<10000 或 resources=low → asteroid_habitat。
+5. 输出 `model_family / family_reason / population / resources / function / profile_source`。
+- 全 110 设施当前匹配：oneill=3、stanford=1、asteroid_habitat=1、asteroid_fortress=1、module_station=104（probe 读取）。
+
+### 预览 / 近景截图
+
+- `mockups/models-habitats-four-families-1920.png`：O'Neill / Stanford / Asteroid Habitat / UEG Fortress 四类同框（loaded=4）。
+- `mockups/v1-hud-nearview-savannah-1920.png`（O'Neill）、`v1-hud-nearview-eko-1920.png`（O'Neill）、`v1-hud-nearview-aurora-1920.png`（O'Neill）、`v1-hud-nearview-saturnus-1920.png`（Stanford）、`v1-hud-nearview-asteroid-1920.png`（L5-11 Victoria 民用小行星）、`v1-hud-nearview-fortress-1920.png`（L2-07 Horizon UEG 要塞）。
+- 均 SHOT err=0；near view 通过 `DSH_NEAR_FACILITY_ID` 选择设施，family/reason 在信息面板显示。
+
+### 边界 / 待确认
+
+- 人口/资源/功能档案为**视觉匹配元数据**，不是 gameplay 人口模拟；阈值不改变游戏经济/物理。
+- 已知 6 个大型站/示例按设定；其余 104 为模块小站；若需要更多 O'Neill/Stanford 站，需补 `habitat_profiles.json` 的已知人口/资源数据。
+- 纯色程序化过渡资产；无贴图/LOD/碰撞/热/推进物理；不复制现实/高达资产。
+- 不写 world/session；未跑全量 regression。完成后按用户要求停止，等待复核。
