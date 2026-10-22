@@ -356,8 +356,11 @@ $env:DSH_BUILD="orbital_sim"; $env:DSH_NO_AUTOSKIP="1"
 本次已用真实命令核对 `probe_matrix.json` 中本任务相关的 boot 用例标记均存在：
 `[MAIN MENU] BUILD=orbital_sim|sandbox`、`[SHELL BINDER] BUILD profile=orbital_sim|sandbox|full|combat_sim`、
 `[SHELL BINDER] prelude ready=true`、`[V1 HUD] FLOW SMOKE COMPLETE`。
-矩阵中 `e2e.orbital_sim` / `boot.orbital_sim` / `boot.sandbox` 目前仍标记
-`blocked: true`（原因写的是「T1 pending」）；T1 落地后应由测试任务解除阻塞并跑全量矩阵。
+T1 落地后，测试任务（T5）已解除 `e2e.orbital_sim` / `boot.orbital_sim` / `boot.sandbox` 的
+`blocked` 标记，并跑通全量矩阵（72 cases：`profile=1`、`content=8`、`unit=37`、
+`integration=21`、`e2e=1`、`boot=4`；实测 64 PASS / 8 pre-existing FAIL / 0 TIMEOUT /
+0 NOT RUN，矩阵 exit 1 由既有内容漂移失败造成）。本任务相关的 4 个 boot smoke 与 e2e
+用例全部 PASS；独立验证（task-4）在干净 worktree 复跑结果一致。
 
 ### 12.5 端到端探针现状（跨任务，非本任务交付）
 
@@ -366,7 +369,7 @@ T3 的真实入口 e2e 探针（`tests/e2e_orbital_sim_probe.gd`）现为 **GREE
 
 ```powershell
 & .\tools\godot\...console.exe --headless --path .\game_v17 --script res://tests/e2e_orbital_sim_probe.gd
-# E2E ORBITAL SIM PROBE RESULT: PASS=150 FAIL=0 · target=orbital_sim · EXIT=0
+# E2E ORBITAL SIM PROBE RESULT: PASS=153 FAIL=0 · target=orbital_sim · EXIT=0
 ```
 
 覆盖：真实入口 main_menu→v1_hud、剖面契约、12 个系统真实 ready 对象 +
