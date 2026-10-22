@@ -235,9 +235,9 @@ Issue #1 实施要求：#1 新剖面系统矩阵（含 traffic/port/refit/ship_c
 | # | 验收标准 | 判定 | 证据 |
 | --- | --- | --- | --- |
 | 1 | 新机器按文档一条命令跑完回归 | **MET**（本机复现） | README + `game_v17/docs/test_matrix.md`；pristine worktree 中仅复制 gitignored `tools/godot` 后 `pwsh ./run_tests.ps1` 即跑完 72 case；Godot 发现顺序 参数/env/tools/PATH，无个人路径硬编码；PS 5.1 与 7.6.6 均验证 |
-| 2 | CI 报告所有运行 probe 并在失败时红灯；main 合并前必须通过 | **部分 MET / CI NOT RUN** | runner 实测：72/72 case 全部入 `summary.json`（含 NOT RUN 原因）、任何 FAIL/TIMEOUT/非预期 NOT RUN → exit 1；`.github/workflows/tests.yml` 存在且固定 Godot 4.7.2+SHA256、失败即 job 红，但**本机无法执行 Actions → CI 状态 NOT RUN**。“main 合并前通过”因 8 个 pre-existing FAIL（明确不修）当前不可能全绿，属 Phase 0 外内容/契约同步任务（见 §8） |
+| 2 | CI 报告所有运行 probe 并在失败时红灯；main 合并前必须通过 | **MET（Issue #14 后真实 Actions 运行）** | 新 workflow 拆两个 check：`Phase 0 gate (required)`（`-Gate phase0`，必须绿）与 `Full matrix (baseline-aware)`（72 cases 全跑；8 个遗留失败仍以 FAIL 可见；仅新增回归/漂移/超时/非预期 NOT RUN 红灯）。真实 run [39786721057](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39786721057)：两个 job 均 success，artifact 已上传并下载验证（§12）。注意：full-matrix 绿灯含义是「无新增回归」，**不是**「全矩阵通过」；8 个 pre-existing FAIL 仍需独立内容/契约同步任务修复 |
 | 3 | 至少一个 simulator integration test 沿真实入口启动并执行一条战斗流程 | **MET** | `e2e.orbital_sim` PASS 153/0：真实 `main_menu→v1_hud→ShellBinder→GameSession`，真实未授权拒绝/授权/FIRE/弹道/impact/损管，非伪造 |
-| 4 | README 入口、版本、测试命令与当前实现一致 | **MET** | README 已更新 V17/Godot 4.7.2/四剖面启动命令/`pwsh ./run_tests.ps1`；CI 状态明确写“本地无法执行，NOT RUN/未验证” |
+| 4 | README 入口、版本、测试命令与当前实现一致 | **MET** | README 已更新 V17/Godot 4.7.2/四剖面启动命令/`pwsh ./run_tests.ps1`，并写明 `-Gate`/`-Baseline` 与两个 CI check 的语义；默认 profile 仍为 `full`（Issue #14 §4） |
 
 Issue #5 实施要求补充核对：#2 机器可读摘要字段完整（probe/exit/pass-fail/duration/commit/profile/log）→ MET；
 #4 `DSH_*`/`V17_*` 隔离 → MET（实跑清除 6 个继承变量）；#6 不拿注释 PASS 数当结果 → MET（runner 执行当前脚本）；
@@ -252,7 +252,7 @@ Issue #5 实施要求补充核对：#2 机器可读摘要字段完整（probe/ex
 | --- | --- |
 | §1.1/§2：`combat_sim` 关 traffic/port 且带作弊项 → 缺拟真 profile | 已新增 `orbital_sim`（traffic/port/refit/catalog 全开、无作弊项、story 关）；`combat_sim` 保留但标记 deprecated；审计对旧 profile 的事实仍成立 |
 | §1.1：`main_menu` 仅在 sandbox 情况自动跳过 | 现在 `is_simulation()`（simulator/sandbox）均自动跳过；`DSH_SHOT`/`DSH_NO_AUTOSKIP=1` 守卫保留 |
-| §1.8/§2「自动回归/CI」：缺统一入口与端到端组合测试，当前结果未验收 | 已交付 `run_tests.ps1` + `probe_matrix.json`（72 case）+ 真实入口 e2e + CI workflow；本报告给出当前提交真实结果（64 PASS/8 pre-existing FAIL）；CI 执行仍 NOT RUN/未验证 |
+| §1.8/§2「自动回归/CI」：缺统一入口与端到端组合测试，当前结果未验收 | 已交付 `run_tests.ps1` + `probe_matrix.json`（72 case）+ 真实入口 e2e + 两个 CI check；Issue #14 后 GitHub Actions 已真实运行：run [39786721057](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39786721057) 两个 job success，artifact 已上传/下载验证（§12）；8 个 pre-existing FAIL 保持可见并建模为 known baseline |
 | §6：未在 Godot runtime 执行、未跑全量 probe | Phase 0 已全量执行 68 个 tracked probe + 4 boot + 1 e2e；审计“历史 PASS 不可信”的判断被验证：确有 8 个历史漂移 FAIL，均已如实保留 |
 | §2 行「构建/profile/剧情分离：部分完成；默认仍 full；拟真 profile 缺」 | Phase 0 后：默认仍 full（刻意不变），拟真 `orbital_sim` 已具备启动/就绪证据；更上层集成仍属 Phase A+ |
 | §1.7 提到 `scripts/ui/near_view.gd` | 仓库/分支仍保留该文件；用户 WIP 中删除属用户改动，非审计错误（docs/52 已记录） |
@@ -287,13 +287,13 @@ Issue #5 实施要求补充核对：#2 机器可读摘要字段完整（probe/ex
 
 | 项 | 状态 | 原因 |
 | --- | --- | --- |
-| GitHub Actions CI 实际执行 | **NOT RUN** | 本机无法运行 Actions；workflow 仅静态审查（固定 Godot 4.7.2+SHA256、失败红灯、artifact 只含 `.test-results/`） |
+| GitHub Actions CI 实际执行 | **MET（Issue #14 后已实际运行）** | run [39786721057](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39786721057)：`Phase 0 gate (required)` success（6/6 PASS，artifact 26,039 B）、`Full matrix (baseline-aware)` success（72=64 PASS/8 KNOWN-BASELINE FAIL/0 new/0 drift，artifact 372,318 B）；artifact 已用 `gh run download` 实际下载并校验内容（§12）。旧 run [39778490176](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39778490176)（artifact 0）只作为修复前证据 |
 | Linux/macOS `run_tests.sh` 实跑 | **NOT RUN** | 本机为 Windows；脚本仅静态审查（薄封装 pwsh，缺 pwsh 时 exit 2） |
 | 非 headless / 窗口化渲染 | **NOT RUN** | 验收范围仅 headless 回归；渲染路径与性能未测量 |
 | `DSH_SHOT` 截图模式 | **NOT RUN** | 同上；文档明确未验证 |
 | orbital_sim `user://saves_sim` 存档 round-trip | **NOT RUN** | 超出 Phase 0 范围；`save_probe` 另有 pre-existing FAIL（内容漂移） |
 | 导入失败路径的端到端负例 | 未复现（逻辑审查） | 代码审查确认 import 非零/error 行 → 环境阻塞 exit 2；未故意破坏导入做真机负例 |
-| GitHub PR / main 合并门禁 | **NOT RUN** | 验证时分支已推送（origin=3c0800f），但 Phase 0 PR 尚未创建/合并；PR #12 为审计 PR |
+| GitHub PR / main 合并门禁 | **部分 MET** | PR #13（Phase 0）与 stacked PR #15（Issue #14 收尾）均已创建，CI checks 见 §12；合并动作仍待项目负责人执行（本任务不擅自合并） |
 
 ---
 
@@ -306,12 +306,12 @@ Issue #5 实施要求补充核对：#2 机器可读摘要字段完整（probe/ex
   marker 3/3；统一矩阵 **72 cases = 64 PASS / 8 FAIL / 0 TIMEOUT / 0 NOT RUN / exit 1**，
   8 个 FAIL 与审计 HEAD 独立基线逐项一致（同计数、同 case），**无新增失败、无断言弱化、无测试删除、
   无故事路径/核心系统删除或禁用**，full 与 legacy 行为与基线逐字节一致。
-- Issue #1 四项验收全部满足；Issue #5 三项满足、CI 项因本机不可执行记 NOT RUN（runner 红灯语义已受控验证）。
+- Issue #1 四项验收全部满足；Issue #5 四项全部满足（Issue #14 后 CI 已真实运行并验证 artifact；§12）。
 - 无阻塞项（BLOCK list 为空）。放行条件（非阻塞、需后续任务消化）：
-  1) 8 个 pre-existing probe FAIL 由独立的内容/契约同步任务修复前，CI 将保持红灯（Phase 0 不负责，已如实披露）；
-  2) CI workflow 首次 GitHub 实跑结果需回填（NOT RUN→实际状态）；
-  3) 建议 docs-only 修正 F1/F2 两处滞后陈述；
-  4) 已知 20 km vs 420 km 融合距离、side 元数据丢失按计划转 Phase A #2/#4。
+  1) 8 个 pre-existing probe FAIL 由独立的内容/契约同步任务修复；修复前 CI 的 full-matrix check 以 known-baseline 方式报告，不阻塞 Phase 0 门禁且失败保持可见；
+  2) CI 的绿灯语义是「Phase 0 gate 通过 + 无新增回归」，不是「全矩阵全绿」；项目负责人决定 merge 时需接受这一语义；
+  3) 已知 20 km vs 420 km 融合距离、side 元数据丢失按计划转 Phase A #2/#4；
+  4) `SIM_CORE` 负例校验可考虑扩展 damage/ship_catalog/refit（Issue #14 审阅非阻塞建议，不在本任务实施）。
 
 ---
 
@@ -351,9 +351,127 @@ Issue #5 实施要求补充核对：#2 机器可读摘要字段完整（probe/ex
 | F5 pre-existing SCRIPT ERROR / 8 个 probe FAIL | Phase 0 明确不修，保留如实报告；需独立内容/契约同步任务 | 未改 |
 | F6 import 噪音（`.uid` / `.import` stat-dirty） | 环境噪音，不提交；runner/CI 已按要求处理 | 未改 |
 
-代码/配置/测试文件自 `3c0800f` 起未再改动：本 PR head 相对被验收提交只多一个 docs-only 提交（本报告与上述两处文档修正）。若需最终确认，可核对：
+Issue #14 之前，代码/配置/测试文件在 `3c0800f` 之后只多了 docs-only 提交；Issue #14 收尾新增了
+`run_tests.ps1` 的 `-Gate`/`-Baseline`、`probe_matrix.json` 的 `gates.phase0`、
+`known_baseline_failures.json` 与 `.github/workflows/tests.yml` 改造（commit `731a3cd`、`04b0d51`），
+这些改动的真实 CI 结果见 §12。
 
-```powershell
-git diff --stat 3c0800f..HEAD
-# 预期仅 docs/54_Phase0_验收报告.md 与 game_v17/docs/build_profiles.md，且无 .gd/.json/.ps1/.yml 改动
+---
+
+## 12. Issue #14：CI artifact 修复与真实 GitHub Actions 证据
+
+> 本节记录 Issue #14（修复 CI 测试产物上传 + Phase 0 门禁/验收报告收尾）的**实际运行结果**。
+> 所有数字来自本机 `gh` 读取的 Actions API / 运行日志 / 重新下载的 artifact，不是 YAML 静态推断。
+
+### 12.1 修复前后对照
+
+| 项 | 修复前 run [39778490176](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39778490176) | 修复后 run [39786721057](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39786721057) |
+| --- | --- | --- |
+| 触发/分支 | pull_request / `feat/phase0-simulator-first` | pull_request / `phase0/issue-14-ci-closeout` |
+| 结论 | failure | **success（两个 job 均 success）** |
+| 测试结果 | 72 cases = 64 PASS / 8 FAIL / exit 1 | gate 6/6 PASS；full matrix 72 = 64 PASS / 8 KNOWN-BASELINE FAIL / 0 new / 0 drift / exit 0 |
+| artifact | **0 个**；日志 `No files were found with the provided path: .test-results/.` | **2 个 artifact 已上传并可下载**（§12.3） |
+
+根因与修复：`.test-results/` 是点目录（隐藏目录），`actions/upload-artifact@v4` 默认
+`include-hidden-files: false`，所以找不到文件；修复为在两个 job 的 upload step 显式设置
+`include-hidden-files: true`（保留原输出路径，不改 runner 约定、不搬动产物）。
+
+### 12.2 真实 workflow run（被验证代码提交 `04b0d51`）
+
+- run：**39786721057**，event=`pull_request`，head branch=`phase0/issue-14-ci-closeout`，
+  head SHA=`04b0d5157634a7328f0a5f6ba4b07235c913efb0`，conclusion=**success**，
+  created 2026-10-22T13:25:37Z / updated 13:30:46Z。
+- 两个 check（PR #15 checks 实际显示 pass）：
+
+| job | 结果 | 耗时 | job 链接 |
+| --- | --- | --- | --- |
+| `Phase 0 gate (required) — profile / boot smokes / real-entry E2E` | **success** | 1m20s | [job/119851773148](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39786721057/job/119851773148) |
+| `Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)` | **success** | 4m44s | [job/119851773953](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39786721057/job/119851773953) |
+
+- 本 run 覆盖的提交：Issue #14 的 `731a3cd`（runner gate/baseline + matrix gates +
+  known_baseline_failures）与 `04b0d51`（workflow + README/test_matrix 文档）。
+- 说明：`pull_request` checkout 的是 PR merge ref，因此 runner `summary.json` 的 `git_commit` 记录为
+  `8cc1e047…`（PR #15 的 merge commit）；GitHub Actions artifact metadata 绑定的是本次 run id +
+  head SHA `04b0d515…`（§12.3 API 可查）。
+
+### 12.3 artifact 上传与下载验证（Issue #14 强制要求）
+
+Actions API 查询（`gh api repos/HATO-24/ghost-track-apsis/actions/runs/39786721057/artifacts`）：
+
+| artifact 名称 | id | 大小 | SHA-256 | 过期 | 绑定 head SHA |
+| --- | --- | --- | --- | --- | --- |
+| `phase0-gate-results-39786721057-1` | 12428559095 | 26,039 B | `9fdd86da0ef463e0c03a61425ebcf94e7703c0c0a4913d3c290e3813c4421d33` | 2026-11-05 前 | `04b0d515…` |
+| `full-matrix-results-39786721057-1` | 12429463292 | 372,318 B | `677c164b6e62cca9578c5ad2a95d7d282f671968414109a97352789e81c01a23` | 2026-11-05 前 | `04b0d515…` |
+
+上传日志（run 日志实摘）：
+
+```text
+Phase 0 gate  → With the provided path, there will be 12 files uploaded
+              → Uploaded bytes 26039
+              → Artifact phase0-gate-results-39786721057-1 has been successfully uploaded!
+Full matrix   → With the provided path, there will be 118 files uploaded
+              → Uploaded bytes 372318
+              → SHA256 digest of uploaded artifact zip is 677c164b… (与 API digest 一致)
+              → Artifact full-matrix-results-39786721057-1 has been successfully uploaded!
 ```
+
+实际下载校验（`gh run download 39786721057 -D .test-results/ci-artifacts/39786721057` → exit 0）：
+
+| 检查项 | gate artifact | full-matrix artifact |
+| --- | --- | --- |
+| run 目录 | `20261022-132621-8cc1e047/` | `20261022-132607-8cc1e047/` |
+| 必备文件 | `summary.json`(8,572 B)、`report.md`(3,052 B)、`import.log`、`logs/` | `summary.json`(70,982 B)、`report.md`(18,546 B)、`import.log`、`logs/` |
+| 逐例日志 | 9 个（63,336 B） | 115 个（2,449,573 B） |
+| Godot | `4.7.2.stable.official.ed1daf0bf` | `4.7.2.stable.official.ed1daf0bf` |
+| import | PASS，exit 0，0 error | PASS，exit 0，0 error |
+| totals | total=6 / pass=6 / fail=0 / timeout=0 / not_run=0 | total=72 / pass=64 / **fail=8** / timeout=0 / not_run=0 |
+| baseline（仅 full） | — | `known_fail=8`、`new_fail=0`、`baseline_drift=0`、entries=8 |
+| runner exit code | 0 | **0**（baseline-aware：无新增回归） |
+| 8 个遗留失败可见性 | — | `summary.json` 中 8 条 `status=FAIL` + `baseline.known=true,matches=true`；`report.md` 含 `## Baseline`、逐条 `KNOWN-BASELINE`；控制台日志含 `BASELINE CHECK: known_fail=8 new_fail=0 drift=0` |
+
+结论：**artifact 上传成功且可访问，内容为本次运行真实产物（summary/report/逐项日志），
+run id / head SHA / 文件大小 / SHA-256 与 Actions API 一致。**
+
+### 12.4 CI 语义（不误导审阅者）
+
+- `Phase 0 gate (required)`：6 个 Phase 0 必需用例，**必须全绿**；本 run 6/6 PASS。
+- `Full matrix (baseline-aware)`：72 cases **全部执行**；8 个遗留失败**仍是 FAIL**（未改名 PASS、未跳过、
+  无 `continue-on-error`）；本 run 绿灯的唯一含义是 `new_fail=0 && baseline_drift=0 && timeout=0 &&
+  unexpected_not_run=0`，即「**与基线相比无新增回归**」，**不是「全矩阵通过」**。
+- 默认命令 `run_tests.ps1`（不带 `-Baseline`）语义不变：当前仍会因 8 个遗留失败 exit 1，可随时本地复核。
+- 基线证据措辞（满足 Issue #14 §3）：`known_baseline_failures.json` 与 CI summary 均写明
+  “Report-provided baseline evidence, NOT independently re-executed from the audit HEAD in the CI
+  environment.”；8 项计数来自 verifier 在审计 HEAD `263e97e` 的独立基线、`docs/54` §2.1 与
+  Phase 0 PR head 复跑三者逐项一致。**本任务没有在 CI 环境从审计 HEAD 独立复现基线**。
+- 旧 run 39778490176 的 artifact=0 与红灯只作为修复前证据，不作为修复验证。
+
+### 12.5 默认 profile 语义（Issue #14 §4）
+
+`build_profiles.json` 的 `"default"` **仍是 `full`**（本 task 未改）。普通启动（不设 `DSH_BUILD`）
+进入剧情构建；进入正式模拟器必须显式 `DSH_BUILD=orbital_sim`（README 已写明）。
+"模拟器优先"是开发/验收方向，不是默认值变更；若项目负责人希望把默认值改为 `orbital_sim`，
+需单独批准后另行提交。
+
+### 12.6 本任务新增/修改文件（Issue #14）
+
+| 文件 | 变化 |
+| --- | --- |
+| `run_tests.ps1` | 新增 `-Gate`、`-Baseline` baseline-aware 模式（状态不伪装、known/new/drift 分类、退出码收紧） |
+| `game_v17/tests/probe_matrix.json` | `version: 1.0.0` + `gates.phase0`（6 个门禁用例）；72 个既有 case 语义零改动 |
+| `game_v17/tests/known_baseline_failures.json` | **新增**：审计 HEAD 8 个 pre-existing 失败、exact counts、原因、follow-up、provenance |
+| `.github/workflows/tests.yml` | **重写**：两 job + `include-hidden-files: true` + job summary + 双 artifact 上传；无 continue-on-error |
+| `README.md` / `game_v17/docs/test_matrix.md` | `-Gate`/`-Baseline` 用法、两个 CI check 语义、artifact 下载方式、默认 profile 说明 |
+
+### 12.7 Issue #14 验收标准对照
+
+| 验收标准 | 结果 |
+| --- | --- |
+| 新 Actions run 完成，artifact 上传成功且可访问 | **MET**：run 39786721057 success，2 个 artifact 经 API 查询 + `gh run download` 实际下载校验（§12.3） |
+| artifact 含本次运行 summary/report 和逐项日志 | **MET**：见 §12.3 表（72/6 case 的 logs、summary.json、report.md） |
+| 完整矩阵失败仍明确展示；无删除/弱化断言造绿灯 | **MET**：8 FAIL 状态保留于 summary/report/log/artifact；72 cases 数量与基线一致；无 probe 修改 |
+| Phase 0 必需门禁定义清晰、可审计；CI 不误导 | **MET**：`gates.phase0` 显式定义；两 check 名称/job summary/文档均区分"门禁通过 / 无新增回归 / 全矩阵通过" |
+| Phase 0 报告与最新真实运行一致 | **MET**：§6/§9/§10 更新 + 新增 §12（真实 run/artifact 数据） |
+| PR 区分专项门禁/完整矩阵/基线遗留 | **MET**：PR #15 描述与 job summary 均按三类表述 |
+| 旧剧情 profile 兼容；不改变默认 profile | **MET**：`full` 未改；`boot.full`/`boot.legacy_combat_sim` 在 CI gate 中 PASS |
+| 独立 PR，完成后暂停 | **MET**：PR #15（stacked on #13）；未进入 Phase A |
+

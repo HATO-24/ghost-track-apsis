@@ -293,6 +293,21 @@ gh run download <run-id> -n phase0-gate-results-<run>-<attempt> -D .\_ci_artifac
 gh run download <run-id> -n full-matrix-results-<run>-<attempt> -D .\_ci_artifacts
 ```
 
+### 6.1 真实运行记录（Issue #14 修复后）
+
+- **run [39786721057](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39786721057)**
+  （`pull_request`，head `04b0d51`）：conclusion=**success**，两个 job 都 pass。
+  - `Phase 0 gate (required)` → success，1m20s：6/6 PASS，`PHASE0_GATE_EXIT=0`；
+  - `Full matrix (baseline-aware)` → success，4m44s：72 cases = **64 PASS / 8 KNOWN-BASELINE FAIL / 0 new / 0 drift / 0 timeout / 0 not-run**，`BASELINE CHECK: known_fail=8 new_fail=0 drift=0`，`FULL_MATRIX_EXIT=0`。
+- **artifact 实际上传并下载校验**（修复前 run 39778490176 为 0 个 artifact）：
+  - `phase0-gate-results-39786721057-1`：id 12428559095，26,039 B，sha256 `9fdd86da…`，12 files；
+  - `full-matrix-results-39786721057-1`：id 12429463292，372,318 B，sha256 `677c164b…`，118 files；
+  - `gh run download 39786721057` exit 0；解压后含 `summary.json` / `report.md` / `import.log` /
+    逐例 `logs/`（gate 9 个日志、full 115 个日志）；full 的 `summary.json` 中 8 条遗留失败仍为
+    `status=FAIL` 且 `baseline.known=true`，`report.md` 含 `## Baseline` 与逐条 `KNOWN-BASELINE`。
+- 重要语义：full-matrix 绿灯 = **无新增回归**，不是「全矩阵通过」；默认 `run_tests.ps1`（无 `-Baseline`）
+  仍会因这 8 个遗留失败 exit 1。
+
 Linux CI 备选（当前未启用）：runner 改为 `ubuntu-latest`，用 `-GodotBin` 指向 Linux 版
 Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环境变量/stdout 重定向均
 跨平台），但会改变被测 OS/二进制，因此当前选择 Windows 以保持与本机基线一致。
@@ -356,8 +371,9 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 > 说明：上述 8 个失败与 verifier 独立基线的 8 个 pre-existing 失败**逐项一致**
 > （`damage_integration` 198/6、`damage_profile` 554/4、`incident_record` 2761/1、
 > `plot_tws` 58/1、`save` 153/3、`story_text` 469/13、`v17_nav_integration` 181/1、
-> `v17_sensor_authority_display` 71/3）。因此“全绿”目前仍被这 8 个历史内容漂移阻塞；
-> CI 会如实红灯，直到另开任务修复。
+> `v17_sensor_authority_display` 71/3）。因此“全矩阵全绿”目前仍被这 8 个历史内容漂移阻塞；
+> CI 的 `Full matrix (baseline-aware)` 会在**新增回归**时如实红灯，日常绿灯仅表示
+> 「与审计 HEAD 基线相比无新增失败/无漂移」，且 8 条失败始终保持可见（见 §6.1）。
 
 ### 7.3 历史参考（同一 session 的其它真实运行，仅用于说明差异）
 
@@ -372,7 +388,11 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 
 ## 8. 已知限制
 
-- CI 工作流未在本环境执行（见 §6），首次 GitHub 运行仍是未验证项；
+- **CI 已真实执行并验证 artifact**（run [39786721057](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39786721057)，见 §6.1）；
+  但 CI 的 full-matrix 绿灯语义是「无新增回归」而非「全矩阵通过」，且 8 个遗留失败仍需独立内容/契约
+  同步任务修复（修复前会一直被标记为 KNOWN-BASELINE 并保持 FAIL 可见）；
+- 基线证据来自审计 HEAD `263e97e` 的独立基线 + docs/54 §2.1 + PR head 复跑，三者逐项一致；
+  **不是在 CI 环境从审计 HEAD 独立复现**（`known_baseline_failures.json` 的 `evidence_provenance` 已写明）；
 - `plot_tws_probe` / `facility_model_probe` 不使用统一 `PROBE RESULT` 行，需矩阵显式
   指定解析器；这是对现存 probe 的兼容，不修改 probe 本身；
 - 并发运行多个 Godot（多队友/多 job 共享同一 worktree）会让部分计算密集 probe 变慢
