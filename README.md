@@ -69,24 +69,48 @@ tools/    本地工具链（gitignored；Godot 4.7.2 console 可执行文件放�
 Godot 可执行文件放 `tools/godot/Godot_v4.7.2-stable_win64_console.exe`（`tools/` 已被 gitignore）；
 也可用 `GODOT_BIN` 或 PATH 中的 `godot`。
 
+> **启动语义（Issue #14 明确）**：默认 profile 仍是 **`full`**，因此普通启动（不设 `DSH_BUILD`）
+> 进入的是剧情构建，不是模拟器。"模拟器优先"是开发/验收方向，不等同于产品默认值变更；
+> 进入正式模拟器必须显式设置 `DSH_BUILD=orbital_sim`。默认值是否改为 `orbital_sim`
+> 属于产品决策，需项目负责人另行批准，不在 Phase 0 任务内顺手修改。
+
 ## 测试与回归
 
 一条命令跑全部 headless probe 与各剖面 boot smoke（Windows / PowerShell 7+）：
 
 ```powershell
-pwsh ./run_tests.ps1            # 全矩阵；结果写入 .test-results/<run-id>/
-pwsh ./run_tests.ps1 -List      # 只列出矩阵
+pwsh ./run_tests.ps1            # 默认全矩阵；结果写入 .test-results/<run-id>/
+pwsh ./run_tests.ps1 -List      # 只列出矩阵（含 Phase 0 gate 归属）
 pwsh ./run_tests.ps1 -Category profile
+
+# Phase 0 必需门禁（profile probe + 4 个 boot smoke + 真实入口 E2E，共 6 个 case）
+pwsh ./run_tests.ps1 -Gate phase0
+
+# baseline-aware 完整矩阵：72 cases 全跑；8 个 pre-existing 失败仍显示为 FAIL，
+# 只有新增失败 / 基线计数漂移 / 超时 / 非预期 NOT RUN 才 exit 1
+pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json
 ```
 
-Linux / macOS（需 `pwsh`）：`./run_tests.sh -List`、`./run_tests.sh -Ci`。
+Linux / macOS（需 `pwsh`）：`./run_tests.sh -List`、`./run_tests.sh -Ci`（参数相同）。
 
 Godot 发现顺序：`-GodotBin` → `$env:GODOT_BIN` → `tools/godot/Godot*console.exe` → PATH `godot`/`godot4`。
-分类、输出格式、环境隔离、如何新增用例等细节见
+
+**测试语义（三者严格区分，不要互相冒充）：**
+
+| 命令 | 语义 |
+| --- | --- |
+| `run_tests.ps1`（默认） | 如实全矩阵：当前为 64 PASS / 8 pre-existing FAIL，退出码 1；**不代表 Phase 0 回归**，8 个失败均为审计 HEAD 已存在的内容漂移（见 [test_matrix.md](game_v17/docs/test_matrix.md) §7.2） |
+| `run_tests.ps1 -Gate phase0` | Phase 0 验收必需门禁（6 cases），当前全 PASS；这个是 Phase 0 的强制检查 |
+| `run_tests.ps1 -Baseline ...` | baseline-aware 完整矩阵：72 cases 全部执行且失败仍显示为 FAIL；仅当出现新增失败/漂移/超时/非预期 NOT RUN 时非零退出 |
+
+分类、输出格式、环境隔离、gate/baseline 定义、如何新增用例等细节见
 [`game_v17/docs/test_matrix.md`](game_v17/docs/test_matrix.md)；当前真实矩阵结果以该文档与每次运行的
 `.test-results/<run-id>/summary.json` 为准，**不引用历史 PASS 数**。
-GitHub Actions 配置见 [`.github/workflows/tests.yml`](.github/workflows/tests.yml)
-（本地无法执行，状态 NOT RUN/未验证）。
+GitHub Actions 配置见 [`.github/workflows/tests.yml`](.github/workflows/tests.yml)：两个 check ——
+`Phase 0 gate (required)`（必须绿）与 `Full matrix (baseline-aware)`（**绿灯仅表示"无新增回归"，
+不等于"全矩阵通过"**；8 个已知遗留失败在日志/job summary/artifact 中保持可见）。
+测试结果 artifact（`summary.json` / `report.md` / 逐项日志）由两个 job 上传，可用
+`gh run download <run-id>` 获取。
 
 审计与任务队列：[`docs/40_系统完成度复核与开发任务队列.md`](docs/40_系统完成度复核与开发任务队列.md)。
 

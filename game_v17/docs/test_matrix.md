@@ -35,6 +35,8 @@ GODOT_BIN=/usr/local/bin/godot ./run_tests.sh -Ci
 | --- | --- |
 | `-GodotBin <path>` | 显式指定 Godot 可执行文件（最高优先级） |
 | `-Category <name>` | 逗号分隔的分类过滤：`profile` / `content` / `unit` / `integration` / `e2e` / `boot` |
+| `-Gate <name>` | 按矩阵 `gates` 选择专项门禁用例（当前 `phase0`；与 `-Category`/`-Only` 可叠加）；未知 gate → exit 2 |
+| `-Baseline <path>` | baseline-aware 模式：已知遗留失败仍显示 FAIL，只有新增失败/计数漂移/超时/非预期 NOT RUN 导致 exit 1（见 §3.3） |
 | `-Only <regex>` | 对 case id 或目标（`res://` 路径）做正则过滤 |
 | `-List` | 只打印矩阵并退出（exit 0），不要求 Godot |
 | `-NoImport` | 跳过 `--import` 预检（不建议用于新 worktree） |
@@ -109,9 +111,43 @@ boot 用例通过 `env` 字段声明剖面（`DSH_BUILD=full|orbital_sim|sandbox
 
 | 退出码 | 含义 |
 | --- | --- |
-| `0` | 所有实际运行用例 PASS（声明 blocked 的 NOT RUN 不导致失败） |
-| `1` | 任一 FAIL / TIMEOUT，或出现“非预期 NOT RUN”（例如已启用用例的脚本缺失） |
-| `2` | 环境/设置被阻塞：找不到 Godot、import 预检失败、矩阵/参数错误、过滤后无用例 |
+| `0` | 所有实际运行用例 PASS（声明 blocked 的 NOT RUN 不导致失败）；`-Baseline` 模式下表示“无新增回归” |
+| `1` | 任一 FAIL / TIMEOUT，或出现“非预期 NOT RUN”（例如已启用用例的脚本缺失）；`-Baseline` 模式下表示存在新增失败 / 基线漂移 / 超时 / 非预期 NOT RUN |
+| `2` | 环境/设置被阻塞：找不到 Godot、import 预检失败、矩阵/参数错误、过滤后无用例、baseline 文件缺失/非法 |
+
+### Phase 0 专项门禁（`-Gate phase0`）
+
+Issue #14 要求把「Phase 0 必需门禁」与「完整历史回归矩阵」严格区分。门禁定义在
+`game_v17/tests/probe_matrix.json` 的 `gates.phase0`，当前为 **6 个 case**：
+
+| gate case | 覆盖 |
+| --- | --- |
+| `profile.build_profile_probe` | 四剖面开关矩阵、选择/回退、simulator 校验负例、sandbox 守卫 |
+| `e2e.orbital_sim` | 真实入口 `main_menu → v1_hud → ShellBinder → GameSession` + 真实战斗闭环 |
+| `boot.full` | 剧情构建仍可启动（prelude ready） |
+| `boot.legacy_combat_sim` | 旧 `combat_sim` 向后兼容 |
+| `boot.orbital_sim` | 正式拟真剖面真实主场景启动 + SYSTEMS ready |
+| `boot.sandbox` | 开发测试 sandbox 启动 |
+
+命令：`pwsh ./run_tests.ps1 -Gate phase0`。门禁用例必须全 PASS（否则 exit 1），
+C/CI 中它是必须为绿的检查；它**不包含**全量历史 probe，不能代表“全矩阵通过”。
+
+### baseline-aware 模式（`-Baseline`）
+
+`game_v17/tests/known_baseline_failures.json` 记录审计 HEAD `263e97e` 已存在、Phase 0 不负责修复的
+8 个遗留失败（exact PASS/FAIL 计数来自独立基线证据与 PR head 复跑）。
+
+`pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json` 的语义：
+
+- **72 个 case 全部执行**；已知遗留失败**状态仍是 FAIL**，逐条出现在控制台表、`report.md`、
+  `summary.json`、CI job summary 与 artifact 中，绝不会被改名 PASS、跳过或 `continue-on-error`；
+- 对每个 FAIL case 额外给出 `baseline` 分类：`known`（命中已知失败且 PASS/FAIL 计数完全一致）
+  或 `new`（新增失败 / 计数漂移）；
+- 汇总增加 `known_fail` / `new_fail` / `baseline_drift`，控制台打印 `BASELINE CHECK: known_fail=N new_fail=N drift=N`；
+- 退出码：**只有** `new_fail==0 && baseline_drift==0 && timeout==0 && unexpected NOT RUN==0` 时为 0；
+  否则为 1。因此该命令的绿灯含义是「与基线相比没有新增回归」，**不是**「所有测试通过」。
+
+> 8 个遗留失败对应的后续责任任务（建议）见 `known_baseline_failures.json` 的 `follow_up` 字段与 §7.2。
 
 ### 环境隔离
 
@@ -226,19 +262,36 @@ profile.build_profile_probe          profile      -          PASS         0     
 
 ## 6. CI
 
-`.github/workflows/tests.yml`：
+`.github/workflows/tests.yml`（Issue #14 重写后）包含**两个语义明确区分的 check**，两者都会上传
+真实测试产物 artifact：
+
+| check（job） | 命令 | 语义 | PR 上的意义 |
+| --- | --- | --- | --- |
+| **Phase 0 gate (required)** | `run_tests.ps1 -Ci -Gate phase0` | 6 个 Phase 0 必需用例必须全 PASS | **必须为绿**；Phase 0 验收门禁，不包含全量历史 probe |
+| **Full matrix (baseline-aware)** | `run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json` | 72 cases 全跑；8 个已知遗留失败仍以 FAIL 显示；只有新增失败/漂移/超时/非预期 NOT RUN 才红灯 | 绿灯仅表示「**无新增回归**」，**不是**「全矩阵通过」 |
+
+公共设置：
 
 - runner：`windows-latest`（与本地 Windows + `win64_console` 二进制一致，结果可直接对照本地基线）；
 - 工具链：固定下载 `Godot_v4.7.2-stable_win64.exe.zip` → SHA-256 校验
   （`731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953`）→ 解压到
-  `tools/godot/` → `actions/cache` 按版本+SHA 缓存；
-- 执行：`pwsh ./run_tests.ps1 -Ci -GodotBin tools/godot/Godot_v4.7.2-stable_win64_console.exe`；
-- 上传：`actions/upload-artifact@v4` 只上传 `.test-results/`（日志 + summary/report），
-  不上传游戏内容、用户数据或密钥；
-- 任一 FAIL/TIMEOUT 使 job 红灯（依赖 runner exit code 1）。
+  `tools/godot/` → `actions/cache` 按版本+SHA 缓存；启动前验证 `--version` 含 `4.7.2`；
+- 产物：两个 job 都用 `actions/upload-artifact@v4` 上传 `.test-results/`
+  （`include-hidden-files: true` —— `.test-results` 是点目录，默认会被 upload-artifact 忽略，
+  这是 Issue #14 中「No files were found」的根因），artifact 内含该次运行的 `summary.json`、
+  `report.md` 与逐例日志；不上传游戏内容、用户数据或密钥；
+- job summary：两个 job 都向 GitHub Step Summary 写本次 totals / 逐例表格；
+  full-matrix 会明确列出 **known-baseline failures（可见）** 与 **NEW failures: 0**；
+- 禁止 `continue-on-error`：已知遗留失败不阻塞，是因为它们被显式建模为 baseline 已知项并在
+  所有输出中保持 FAIL 可见，而不是把失败伪装成成功。
 
-> **状态：NOT RUN / 未验证。** 本环境无法执行 GitHub Actions；工作流的首次真实运行发生在
-> GitHub 上。提交者需在 PR 上确认它实际跑通后再把 CI 视为已验收。
+artifact 获取（需 `gh` 登录）：
+
+```powershell
+gh run list --branch phase0/issue-14-ci-closeout            # 找到 run id
+gh run download <run-id> -n phase0-gate-results-<run>-<attempt> -D .\_ci_artifacts
+gh run download <run-id> -n full-matrix-results-<run>-<attempt> -D .\_ci_artifacts
+```
 
 Linux CI 备选（当前未启用）：runner 改为 `ubuntu-latest`，用 `-GodotBin` 指向 Linux 版
 Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环境变量/stdout 重定向均

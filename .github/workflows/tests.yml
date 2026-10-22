@@ -1,22 +1,32 @@
 # GHOST TRACK // APSIS · V17 headless regression
 #
-# Runs the unified Godot headless test matrix (game_v17/tests/probe_matrix.json)
-# through run_tests.ps1 on Windows for parity with the local development runs:
-# the same Godot 4.7.2 win64 console binary and the same PowerShell runner.
-# Artifact upload contains only .test-results/ (logs + summary.json + report.md);
-# it never uploads game content, user data or secrets.
+# Two GitHub Actions checks with DIFFERENT, explicitly named semantics
+# (Issue #14: do not hide legacy failures, do not fake a green full matrix):
 #
-# Runner choice rationale (see game_v17/docs/test_matrix.md "CI" section):
-# - Local development runs on Windows with Godot_v4.7.2-stable_win64_console.exe;
-#   windows-latest is the same OS/binary combination, so CI results are directly
-#   comparable with the documented local baseline.
-# - run_tests.ps1 is written for Windows PowerShell 5.1 and PowerShell 7+; pwsh 7
-#   is preinstalled on windows-latest.
-# - A Linux job would also work (pwsh is available and run_tests.ps1 accepts
-#   -GodotBin / $env:GODOT_BIN), but would change the OS and binary under test.
+#   1) "Phase 0 gate (required)" — runs ONLY the Phase 0 required cases
+#      (profile matrix probe, real-entry E2E, and the 4 build-profile boot smokes;
+#      definition lives in game_v17/tests/probe_matrix.json -> gates.phase0).
+#      This check must be green for Phase 0 acceptance.
 #
-# NOTE: this workflow is committed UNVERIFIED — it cannot be executed locally in
-# this environment. Status: NOT RUN. First real execution happens on GitHub.
+#   2) "Full matrix (baseline-aware)" — runs ALL 72 cases (67 probes + 1 E2E +
+#      4 boot smokes) with `-Baseline game_v17/tests/known_baseline_failures.json`.
+#      The 8 known pre-existing failures are STILL EXECUTED, STILL REPORTED AS
+#      FAIL (never renamed PASS, never skipped, no continue-on-error). The check
+#      turns red only when a NEW failure appears, an existing legacy failure's
+#      PASS/FAIL count drifts, a case times out, or a case is unexpectedly
+#      NOT RUN. The job summary states this explicitly; the full run artifacts
+#      (summary.json / report.md / per-case logs) are uploaded for audit.
+#
+#   3) Both checks upload the REAL test artifacts. `.test-results/` is a hidden
+#      dot-directory, so `actions/upload-artifact@v4` needs
+#      `include-hidden-files: true` (Issue #14 root cause of "No files found").
+#
+# Toolchain is pinned: Godot 4.7.2-stable win64 zip verified against the
+# official SHA-256, cached by version+checksum, same OS/binary as local dev.
+# No secrets, no game content upload; artifacts contain only .test-results/.
+#
+# History: the previous single-job workflow uploaded 0 artifacts and reported a
+# bare red check with no gate semantics (see Issue #14 / run 39778490176).
 name: tests
 
 on:
@@ -44,8 +54,9 @@ env:
   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
 
 jobs:
-  headless-regression:
-    name: Godot 4.7.2 headless regression (windows-latest)
+  # ── Required Phase 0 gate ─────────────────────────────────────────────────
+  phase0-gate:
+    name: Phase 0 gate (required) — profile / boot smokes / real-entry E2E
     runs-on: windows-latest
     timeout-minutes: 30
 
@@ -58,8 +69,6 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.GODOT_DIR }}
-          # Cache key is pinned to the exact asset checksum: a different Godot
-          # archive can never reuse a stale cache entry.
           key: godot-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ env.GODOT_ZIP_SHA256 }}
 
       - name: Download + verify + extract Godot 4.7.2 (cache miss only)
@@ -95,18 +104,195 @@ jobs:
             throw "Expected Godot 4.7.2, got: $version"
           }
 
-      - name: Run headless regression matrix
+      - name: Run Phase 0 required gate (-Gate phase0)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          pwsh -NoProfile -File ./run_tests.ps1 -Ci -GodotBin $env:GODOT_CONSOLE
-          exit $LASTEXITCODE
+          pwsh -NoProfile -File ./run_tests.ps1 -Ci -Gate phase0 -GodotBin $env:GODOT_CONSOLE
+          $code = $LASTEXITCODE
+          Write-Host "PHASE0_GATE_EXIT=$code"
+          exit $code
 
-      - name: Upload test results artifact
+      - name: Job summary — Phase 0 gate
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lines = @(
+            '## Phase 0 required gate',
+            '',
+            'Cases: profile matrix probe + real-entry E2E + 4 boot smokes (`-Gate phase0`).',
+            'This check must be green for Phase 0 acceptance; it does NOT include the full historical matrix.',
+            ''
+          )
+          $runDir = Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if ($null -eq $runDir) {
+            $lines += '**No `.test-results` output directory was produced by the runner.**'
+          } else {
+            $summaryPath = Join-Path $runDir.FullName 'summary.json'
+            $lines += "Run directory: ``$($runDir.Name)``"
+            if (Test-Path -LiteralPath $summaryPath) {
+              $s = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
+              $lines += ''
+              $lines += '| total | pass | fail | timeout | not run | exit code |'
+              $lines += '| --- | --- | --- | --- | --- | --- |'
+              $lines += "| $($s.totals.total) | $($s.totals.pass) | $($s.totals.fail) | $($s.totals.timeout) | $($s.totals.not_run) | $($s.exit_code) |"
+              $lines += ''
+              $lines += '| case | status | exit | pass/fail |'
+              $lines += '| --- | --- | --- | --- |'
+              foreach ($c in @($s.cases)) {
+                $pf = if ($null -ne $c.pass_count) { "$($c.pass_count)/$($c.fail_count)" } else { '-' }
+                $lines += "| ``$($c.id)`` | $($c.status) | $($c.exit_code) | $pf |"
+              }
+            } else {
+              $lines += '**summary.json missing — investigate the runner output.**'
+            }
+          }
+          $lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Upload Phase 0 gate test artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          name: phase0-gate-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: .test-results/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ── Full historical matrix, baseline-aware (legacy failures stay visible) ──
+  full-matrix:
+    name: Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache pinned Godot 4.7.2 download
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GODOT_DIR }}
+          key: godot-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ env.GODOT_ZIP_SHA256 }}
+
+      - name: Download + verify + extract Godot 4.7.2 (cache miss only)
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zipPath = Join-Path $env:RUNNER_TEMP $env:GODOT_ZIP
+          Write-Host "Downloading $env:GODOT_ZIP_URL"
+          Invoke-WebRequest -Uri $env:GODOT_ZIP_URL -OutFile $zipPath -UseBasicParsing
+
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $zipPath).Hash.ToLowerInvariant()
+          $expected = $env:GODOT_ZIP_SHA256.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Godot archive SHA-256 mismatch: expected $expected, got $actual"
+          }
+          Write-Host "SHA-256 verified: $actual"
+
+          New-Item -ItemType Directory -Path $env:GODOT_DIR -Force | Out-Null
+          Expand-Archive -LiteralPath $zipPath -DestinationPath $env:GODOT_DIR -Force
+          Get-ChildItem -LiteralPath $env:GODOT_DIR | Select-Object Name, Length
+
+      - name: Verify Godot version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path -LiteralPath $env:GODOT_CONSOLE)) {
+            throw "Expected Godot console executable not found: $env:GODOT_CONSOLE"
+          }
+          $version = & $env:GODOT_CONSOLE --version 2>&1 | Out-String
+          Write-Host "Godot version: $version"
+          if ($version -notmatch [regex]::Escape('4.7.2')) {
+            throw "Expected Godot 4.7.2, got: $version"
+          }
+
+      - name: Run FULL regression matrix (baseline-aware)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # All 72 cases are executed. Known pre-existing failures stay FAIL in the
+          # output/report; the runner only exits 0 when there is no NEW failure, no
+          # baseline drift, no timeout and no unexpected NOT RUN.
+          pwsh -NoProfile -File ./run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json -GodotBin $env:GODOT_CONSOLE
+          $code = $LASTEXITCODE
+          Write-Host "FULL_MATRIX_EXIT=$code"
+          exit $code
+
+      - name: Job summary — full matrix (baseline-aware)
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lines = @(
+            '## Full regression matrix (baseline-aware, NOT a claim that all tests pass)',
+            '',
+            'All 72 cases were executed. Known pre-existing failures below are still FAIL records — they are not skipped, renamed or silenced.',
+            'This check turns red only on NEW failures, baseline drifts, timeouts or unexpected NOT RUN.',
+            ''
+          )
+          $runDir = Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if ($null -eq $runDir) {
+            $lines += '**No `.test-results` output directory was produced by the runner.**'
+          } else {
+            $summaryPath = Join-Path $runDir.FullName 'summary.json'
+            $lines += "Run directory: ``$($runDir.Name)``"
+            if (Test-Path -LiteralPath $summaryPath) {
+              $s = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
+              $lines += ''
+              $lines += '| total | pass | FAIL | known-baseline FAIL | NEW regression | drift | timeout | not run | exit code |'
+              $lines += '| --- | --- | --- | --- | --- | --- | --- | --- | --- |'
+              $lines += "| $($s.totals.total) | $($s.totals.pass) | $($s.totals.fail) | $($s.totals.known_fail) | $($s.totals.new_fail) | $($s.totals.baseline_drift) | $($s.totals.timeout) | $($s.totals.not_run) | $($s.exit_code) |"
+              $lines += ''
+              $known = @()
+              $new = @()
+              foreach ($c in @($s.cases)) {
+                if ($c.status -eq 'PASS') { continue }
+                $isKnown = $false
+                $baselineNote = ''
+                if ($null -ne $c.baseline) {
+                  $isKnown = [bool]$c.baseline.known
+                  $baselineNote = [string]$c.baseline.reason
+                }
+                $row = "| ``$($c.id)`` | $($c.status) | exit=$($c.exit_code) | pass/fail=$($c.pass_count)/$($c.fail_count) | known_baseline=$isKnown | $baselineNote |"
+                if ($isKnown) { $known += $row } else { $new += $row }
+              }
+              $lines += "### Known pre-existing failures (visible, NOT silently ignored): $($known.Count)"
+              $lines += ''
+              if ($known.Count -eq 0) {
+                $lines += '_None reported — check the baseline file or the runner output._'
+              } else {
+                $lines += '| case | status | exit | pass/fail | known_baseline | reason |'
+                $lines += '| --- | --- | --- | --- | --- | --- |'
+                $lines += $known
+              }
+              $lines += ''
+              $lines += "### NEW failures / regressions: $($new.Count)"
+              $lines += ''
+              if ($new.Count -eq 0) {
+                $lines += '_None detected: no new failures, no baseline drift._'
+              } else {
+                $lines += '| case | status | exit | pass/fail | known_baseline | reason |'
+                $lines += '| --- | --- | --- | --- | --- | --- |'
+                $lines += $new
+              }
+            } else {
+              $lines += '**summary.json missing — investigate the runner output.**'
+            }
+          }
+          $lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Upload full matrix test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-matrix-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .test-results/
+          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14
