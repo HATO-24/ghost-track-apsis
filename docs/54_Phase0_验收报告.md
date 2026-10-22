@@ -475,3 +475,133 @@ run id / head SHA / 文件大小 / SHA-256 与 Actions API 一致。**
 | 旧剧情 profile 兼容；不改变默认 profile | **MET**：`full` 未改；`boot.full`/`boot.legacy_combat_sim` 在 CI gate 中 PASS |
 | 独立 PR，完成后暂停 | **MET**：PR #15（stacked on #13）；未进入 Phase A |
 
+---
+
+## 13. PR #15 审查修正：baseline 门禁 fail-closed（第三轮）
+
+> 触发：PR #15 review（2026-10-22）。审查指出一个**未在本次 CI 实际触发、但门禁必须堵住**的误绿路径：
+> 声明为 baseline 的项如果变成 NOT RUN、被 blocked、缺失，或被 `-Only/-Category/-Gate` 过滤掉，
+> 旧实现仍可能以 `known_fail=N new_fail=0 drift=0` 成功退出。本节记录修正后的语义、真实 CI 结果、
+> selftest 回归与 artifact 核对。
+
+### 13.1 缺陷与修正
+
+| 旧行为（fail-open） | 修正后（fail-closed） |
+| --- | --- |
+| baseline 项未选入 → `entries_not_selected` 标注 "informational, not drift"，exit 0 | `baseline_unselected>0` → **exit 1**；列出未选入 id |
+| baseline 项变 NOT RUN/blocked → 不计入任何统计，exit 0 | `baseline_unverified>0` → **exit 1**；报告 `BASELINE UNVERIFIED` 与原因 |
+| 只看 new_fail/drift/timeout | 额外要求每个 baseline entry 实际执行且为 **FAIL + exit/pass/fail 计数完全匹配**；`complete=true` 才允许 exit 0 |
+| 筛选运行也能报 "BASELINE MATCH" | 新增 `-AllowPartialBaseline`（本地调试）：明确输出 `BASELINE PARTIAL - NOT a complete baseline verification`，summary `complete=false/verified=false`，绝不出现 "BASELINE MATCH"；CI 不传该开关 |
+
+实现：`run_tests.ps1`（strict 默认 + 覆盖统计 + partial 开关）、新增
+`game_v17/tests/baseline_gate_selftest.ps1`（可重复回归 A/B/C/D）、workflow 的 artifact 缺失 fail-closed
+断言与 selftest step（见 §13.4）。
+
+### 13.2 修正轮代码提交与被验证 run
+
+- 分支：`phase0/issue-14-ci-closeout`（PR #15），修正提交：
+  - `40e95bf` test: baseline 门禁 fail-closed + 可重复回归 selftest；
+  - `e73bc69` ci: artifact 缺失 fail-closed + baseline selftest 步骤 + 门禁语义/文档同步。
+- **被验证代码提交 `e73bc692c1a4765dec70d8db748cb2b9cd351211`**；
+  run **[39795265144](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39795265144)**
+  （`pull_request`，conclusion=**success**，created 14:23:35Z / updated 14:36:07Z）。
+- 两个 job 均 success：
+  - `Phase 0 gate (Phase 0 acceptance)`（[job/119880883143](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39795265144/job/119880883143)）：
+    `Run Phase 0 required gate`、`Assert test artifacts exist`、`Upload` 全 success；
+  - `Full matrix (baseline-aware)`（[job/119880882889](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39795265144/job/119880882889)）：
+    `Run FULL regression matrix`、`Regression — baseline gate fail-closed self-test`、
+    `Assert test artifacts exist`、`Job summary`、`Upload` 全 success。
+
+### 13.3 run 39795265144 的真实结果（fail-closed 生效）
+
+- **Phase 0 专项门禁：6/6 PASS，exit 0**（gate artifact）：
+  `build_profile_probe 553/0`、`e2e.orbital_sim 153/0`、4 个 boot smoke markers 3/3。
+- **完整矩阵：72 cases = 64 PASS / 8 FAIL / 0 TIMEOUT / 0 NOT RUN，exit 0**（full artifact）；
+  `BASELINE CHECK: known_fail=8 new_fail=0 drift=0 unverified=0 unselected=0 complete=true`；
+  `RESULT: BASELINE MATCH - all 8 baseline entries executed as expected FAIL with matching counts
+  (known_fail=8, new_fail=0, drift=0, unverified=0, unselected=0, complete=true)`。
+  8 条遗留失败仍为 `status=FAIL` 且 `baseline.known=true`。
+- **CI 内 selftest（可重复回归）输出**：
+  - Scenario A（baseline 项 blocked → NOT RUN）：`unverified=1 unselected=0 complete=false` →
+    `RESULT: BASELINE CHECK FAILED ... unverified=1 ...`；
+  - Scenario B（baseline 项被筛选掉）：`unselected=7 complete=false` →
+    `RESULT: BASELINE CHECK FAILED ... unselected=7 ...`；
+  - Scenario C（筛选 + `-AllowPartialBaseline`）：`RESULT: BASELINE PARTIAL - NOT a complete
+    baseline verification (unselected=7, unverified=0)`；
+  - 最终 `BASELINE GATE SELFTEST RESULT: PASS=24 FAIL=0 (assertions=24)`，step success。
+- **artifact 缺失 fail-closed**：两个 job 的 `ARTIFACT ASSERT OK run_dir=20261022-142403-c3da2bbe
+  cases=72 logs=115` / `cases=6 logs=9` 均 success；上传配置 `if-no-files-found: error`。
+  对断言逻辑做了**等价本地负例**：把 workflow 中的 Assert 脚本原样提取执行——
+  空 `.test-results` → **exit 1**（`ARTIFACT ASSERT FAILED: no .test-results run directory was produced`）；
+  构造完整假 run dir → exit 0。证明"无文件上传步骤会失败"不是静态声明。
+
+### 13.4 artifact 清单与核对（run 39795265144）
+
+Actions API（`gh api .../runs/39795265144/artifacts`，均未过期、绑定 head `e73bc69…`）：
+
+| artifact | id | 大小 | SHA-256 | 下载核对 |
+| --- | --- | --- | --- | --- |
+| `phase0-gate-results-39795265144-1` | 12431684980 | 26,103 B | `e2dbe7b7d3dc255619c1be77c58b434521862e50006a4787ceaa9d35f16f0851` | `gh run download` exit 0；12 files；9 个逐例日志 |
+| `full-matrix-results-39795265144-1` | 12432368909 | 372,766 B | `47872c8104a31ff3dbe7d551f0d390a8171550474e02a8438d96a27c2f1c3bcf` | `gh run download` exit 0；118 files；115 个逐例日志 |
+
+解包核对（summary/report/日志属于同一 run）：
+
+- 两个 artifact 的 run 目录均为 **`20261022-142403-c3da2bbe`**；`summary.run_id` = 目录名；
+  Godot `4.7.2.stable.official.ed1daf0bf`；
+- gate `summary.json`：`total=6/pass=6/fail=0/exit=0/gate=phase0`；
+- full `summary.json`：`total=72/pass=64/fail=8/timeout=0/not_run=0/exit=0`，
+  `baseline.complete=true`、`verified=true`、`partial=false`、`coverage={required:8,selected:8,executed:8,verified:8}`、
+  `unverified=0`、`unselected=0`；`report.md` 含 `## Baseline`、coverage 表与 `KNOWN-BASELINE` 行；
+- 上传日志实摘：`include-hidden-files: true`、`there will be 118 files uploaded`、
+  `Artifact full-matrix-results-39795265144-1 has been successfully uploaded! Final size is 372766 bytes`；
+  gate 为 12 files / 26,103 B；与 API 的 size/digest 一致；
+- 说明：`pull_request` checkout 是 PR merge ref，runner summary 的 `git_commit` 为 merge commit
+  `c3da2bbe…`；artifact metadata / run headSha 为 `e73bc69…`，与上表一致。
+
+### 13.5 历史 run 映射（评审要求）
+
+| run | 对应提交 | 性质 | 结果 |
+| --- | --- | --- | --- |
+| [39786721057](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39786721057) | `04b0d51` | **代码提交验证** | 两 job success；72=64/8/0/0；artifact 已下载校验（§12） |
+| [39787908114](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39787908114) | `e150c9446221e6d75357b869ac4affbe171b69ee`（**最终 docs-only head 复核**） | 两 job success；结果与 39786721057 一致；artifact 已下载校验（§12） |
+| [39795265144](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39795265144) | `e73bc69` | **本轮 fail-closed 修正的代码提交验证** | 两 job success；72=64/8/0/0，complete=true；§13.3/§13.4 |
+
+- 本轮修正后的最终 docs-only head（包含本节报告更新）会触发最后一个复核 run；它只改文档，
+  测试用例与上述 run 逐项一致，其链接记录在 PR #15 描述中（报告无法引用触发自身的 run id）。
+- 以上 run 的共同事实：**Phase 0 gate 6/6 PASS；完整矩阵 64 PASS / 8 FAIL / 0 NOT RUN / 0 TIMEOUT**；
+  8 个失败与审计 HEAD 基线逐项一致，保持 FAIL 可见。
+
+### 13.6 branch protection 检查（如实陈述）
+
+- `gh api repos/HATO-24/ghost-track-apsis/branches/main/protection` 与
+  `.../branches/feat/phase0-simulator-first/protection` 均返回 **HTTP 403**：
+  `Upgrade to GitHub Pro or make this repository public to enable this feature.`
+  → **无法确认**是否有 branch protection / required status checks。
+- 因此本文只陈述：`Phase 0 gate` 与 `Full matrix` 两个 job 在该 run 中实际运行并通过（PR #15 checks
+  显示 pass），**不把 job 名称当作保护规则已生效的证据**；job 名称已从
+  `Phase 0 gate (required)` 改为 `Phase 0 gate (Phase 0 acceptance)` 以避免误导。
+- 若项目负责人需要将门禁设为强制合并条件，需在仓库 Settings → Branches 中配置（私有仓库需 GitHub Pro）。
+
+### 13.7 本轮验收标准对照（PR #15 review）
+
+| 验收标准 | 结果 |
+| --- | --- |
+| 自动化回归证明 baseline NOT RUN/被阻塞/未选入都会失败 | **MET**：CI selftest step success（`PASS=24 FAIL=0`），A=unverified=1、B=unselected=7 均输出 `BASELINE CHECK FAILED`；本地 `baseline_gate_selftest.ps1` 同样 PASS=24 |
+| 新 run 中 Phase 0 gate 6/6；完整矩阵 72 项 = 64 PASS/8 FAIL/0 TIMEOUT/0 NOT RUN | **MET**：run 39795265144（§13.3） |
+| baseline 仅在全部执行且计数匹配、无新增/漂移时成功 | **MET**：strict 默认 + `complete=true` 才 exit 0；`unverified/unselected/drift/new_fail` 任一非零 → exit 1 |
+| artifact 缺失使检查失败；更新后 artifact 可下载核对 | **MET**：Assert 步骤 + `if-no-files-found: error`（CI 实际 success 且本地负例 exit 1）；两个 artifact 已下载核对（§13.4） |
+| 验收报告与最终 head 运行记录一致 | **MET（结构化）**：§13.5 给出 run/commit 映射；本轮最终 docs-only head 的复核 run 在 PR #15 描述中记录，且与 §13.3 结果一致 |
+| 不删除测试/不放宽断言/不跳过失败/不改默认 profile/不进入 Phase A | **MET**：diff 无 probe/断言删除或弱化；8 FAIL 保持 FAIL；`default=full` 未改；未进入 Phase A |
+
+### 13.8 本轮 NOT RUN / 未解决问题
+
+- `baseline_gate_selftest.ps1 -IncludeFullRun` 的场景 D（本地全量 strict）未单独执行：CI 的 full-matrix
+  run 本身已覆盖同一路径（72=64/8/0/0、complete=true）。
+- artifact 缺失路径没有在生产 CI 中实际触发（否则等于故意破坏流水线）；用**等价本地负例**验证其失败语义。
+- branch protection/required checks 无法读取（403），见 §13.6。
+- 8 个 pre-existing probe FAIL 仍未修复（Phase 0 范围外，保持可见、follow-up 已在
+  `known_baseline_failures.json`）；非 headless 渲染、`DSH_SHOT`、Linux/macOS wrapper、orbital_sim
+  存档 round-trip 仍未运行。
+- 默认 profile 保持 `full`（`DSH_BUILD=orbital_sim` 显式进入正式模拟器）；未改产品默认值。
+
+

@@ -338,6 +338,25 @@ gh run download <run-id> -n full-matrix-results-<run>-<attempt> -D .\_ci_artifac
 - 重要语义：full-matrix 绿灯 = **无新增回归**，不是「全矩阵通过」；默认 `run_tests.ps1`（无 `-Baseline`）
   仍会因这 8 个遗留失败 exit 1。
 
+### 6.2 真实运行记录（PR #15 review 修正：fail-closed baseline）
+
+- **run [39795265144](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39795265144)**
+  （`pull_request`，被验证代码提交 `e73bc69`）：conclusion=**success**，两个 job 均 success。
+  - `Phase 0 gate (Phase 0 acceptance)`（重命名后）→ success：6/6 PASS，`PHASE0_GATE_EXIT=0`；
+  - `Full matrix (baseline-aware)` → success：72 cases = **64 PASS / 8 KNOWN-BASELINE FAIL / 0 new /
+    0 drift / 0 timeout / 0 not-run**，`BASELINE CHECK: known_fail=8 new_fail=0 drift=0 unverified=0
+    unselected=0 complete=true`，`FULL_MATRIX_EXIT=0`；
+  - **CI 内 fail-closed selftest step**：`BASELINE GATE SELFTEST RESULT: PASS=24 FAIL=0 (assertions=24)`；
+    其中 Scenario A 输出 `unverified=1 complete=false` → `BASELINE CHECK FAILED`；
+    Scenario B 输出 `unselected=7 complete=false` → `BASELINE CHECK FAILED`；
+    Scenario C 输出 `RESULT: BASELINE PARTIAL - NOT a complete baseline verification`；
+  - **artifact 断言**：`ARTIFACT ASSERT OK run_dir=20261022-142403-c3da2bbe cases=72 logs=115`
+    与 `cases=6 logs=9`；上传仍 `include-hidden-files: true`，`if-no-files-found: error`；
+    artifact `phase0-gate-results-39795265144-1`（id 12431684980，26,103 B，sha256 `e2dbe7b7…`）与
+    `full-matrix-results-39795265144-1`（id 12432368909，372,766 B，sha256 `47872c81…`）均已下载核对。
+- 合并后（历史对照）：run 39786721057 = 代码提交验证；run 39787908114 = 最终 docs-only head
+  `e150c94…` 复核；二者结果一致（详见 `docs/54` §12/§13）。
+
 Linux CI 备选（当前未启用）：runner 改为 `ubuntu-latest`，用 `-GodotBin` 指向 Linux 版
 Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环境变量/stdout 重定向均
 跨平台），但会改变被测 OS/二进制，因此当前选择 Windows 以保持与本机基线一致。
@@ -418,9 +437,14 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 
 ## 8. 已知限制
 
-- **CI 已真实执行并验证 artifact**（run [39786721057](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39786721057)，见 §6.1）；
-  但 CI 的 full-matrix 绿灯语义是「无新增回归」而非「全矩阵通过」，且 8 个遗留失败仍需独立内容/契约
-  同步任务修复（修复前会一直被标记为 KNOWN-BASELINE 并保持 FAIL 可见）；
+- **CI 已真实执行并验证 artifact**（run [39795265144](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39795265144)，见 §6.2；
+  更早 run 39786721057 / 39787908114 见 §6.1）；
+  - full-matrix 绿灯语义是「**无新增回归 + baseline 覆盖完整**」而非「全矩阵通过」；8 个遗留失败仍需
+    独立内容/契约同步任务修复（修复前会一直被标记为 KNOWN-BASELINE 并保持 FAIL 可见）；
+  - **strict fail-closed**：baseline 项被 NOT RUN/blocked/未选入/计数不符时检查失败（selftest 可重复验证）；
+    `-AllowPartialBaseline` 只用于本地筛选调试，永远声明 `BASELINE PARTIAL` 且 `complete=false`，CI 不使用；
+  - **artifact fail-closed**：上传前断言 summary/report/logs 存在且 run_id 匹配，上传 `if-no-files-found: error`；
+  - **branch protection 无法确认**（private repo / 未启用 GitHub Pro，API 403）：job 名称不代表保护规则已生效；
 - 基线证据来自审计 HEAD `263e97e` 的独立基线 + docs/54 §2.1 + PR head 复跑，三者逐项一致；
   **不是在 CI 环境从审计 HEAD 独立复现**（`known_baseline_failures.json` 的 `evidence_provenance` 已写明）；
 - `plot_tws_probe` / `facility_model_probe` 不使用统一 `PROBE RESULT` 行，需矩阵显式
