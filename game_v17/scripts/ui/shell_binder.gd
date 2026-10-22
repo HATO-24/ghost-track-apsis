@@ -600,7 +600,8 @@ func _build_contacts() -> Array:
 		if name == "":
 			name = "TRACK " + String(tr.get("track_id", tr.get("id", "")))
 		var identity := String(tr.get("identity", "unknown"))
-		var tside := String(e.get("side", identity)).to_lower() if not e.is_empty() else identity
+		# A1.1：玩家航迹的 side/identity 只能来自航迹证据；不得回读世界内部真值。
+		var tside := identity.to_lower()
 		var ttype := "friendly"
 		if tside in ["unknown", "hostile", "suspect"]:
 			ttype = "unknown"
@@ -621,6 +622,7 @@ func _build_contacts() -> Array:
 			"type": ttype, "side": tside, "identity": identity, "threat": String(tr.get("threat", "unknown")),
 			"badge": "TRACK", "level": int(tr.get("level", 0)),
 			"range_km": float(tr.get("range_km", -1.0)), "sources": sources,
+			"side_source": "track_identity", "identity_source": "track",
 		}
 		# 识别融合：列表行只带轻量评估（不拉证据数组，避免每帧复制）。
 		var iv: Dictionary = ident_view(row)
@@ -646,18 +648,16 @@ func _build_contacts() -> Array:
 		# 天体/物理基准不是接触；不得出现在 CONTACTS（Earth/Moon 由 PhysicsWorld 种入）
 		if kind in ["body", "planet", "moon", "star", "celestial", "anchor"] 				or String(eid) in ["earth", "moon", "sun", "luna"]:
 			continue
-		var eside := String(e.get("side", "friend")).to_lower()
-		var etype := "friendly"
-		if eside in ["unknown", "hostile", "suspect"]:
-			etype = "unknown"
-		elif eside == "neutral":
-			etype = "neutral"
-		elif kind == "station" or kind in ["fuel", "tank", "port", "otc", "relay"]:
+		# A1.1：没有玩家证据的实体不得自动显示世界真值/默认友方；缺失 = unknown。
+		var eside := "unknown"
+		var etype := "unknown"
+		if kind == "station" or kind in ["fuel", "tank", "port", "otc", "relay"]:
 			etype = "station"
 		var row := {"id": String(e.get("batch", eid)), "entity_id": String(eid), "track_id": "",
 			"name": String(e.get("name", eid)), "cls": kind.to_upper(),
-			"type": etype, "side": eside, "identity": String(e.get("identity", eside)),
-			"threat": "unknown" if etype == "unknown" else "none", "badge": "ENTITY", "level": 0, "range_km": -1.0, "sources": []}
+			"type": etype, "side": eside, "identity": "unknown",
+			"threat": "unknown" if etype == "unknown" else "none", "badge": "ENTITY", "level": 0, "range_km": -1.0, "sources": [],
+			"side_source": "unknown", "identity_source": "none"}
 		var efac_id := String(e.get("facility_id", ""))
 		if efac_id != "" and session != null and session.facility_registry != null:
 			var f0: Dictionary = session.facility_lookup(efac_id)
@@ -671,7 +671,8 @@ func _build_contacts() -> Array:
 				row["transponder_type"] = String(fac0.get("transponder_type", ""))
 				row["facility_class"] = String(fac0.get("facility_class", ""))
 				row["owner"] = String(fac0.get("owner", ""))
-				row["side"] = String(fac0.get("side", eside))
+				row["side"] = String(fac0.get("side", "unknown"))
+				row["side_source"] = "facility_registry"
 				row["cluster_id"] = String(fac0.get("parent_cluster", ""))
 				row["cluster_name"] = String(cl0.get("name", ""))
 				row["services"] = (fac0.get("services", []) as Array).duplicate()
@@ -692,7 +693,8 @@ func _build_contacts() -> Array:
 				row["transponder_type"] = String(fac.get("transponder_type", ""))
 				row["facility_class"] = String(fac.get("facility_class", ""))
 				row["owner"] = String(fac.get("owner", ""))
-				row["side"] = String(fac.get("side", "friend"))
+				row["side"] = String(fac.get("side", "unknown"))
+				row["side_source"] = "facility_registry"
 				row["cluster_id"] = String(fac.get("parent_cluster", ""))
 				row["cluster_name"] = String(cluster.get("name", ""))
 				row["services"] = (fac.get("services", []) as Array).duplicate()
@@ -723,7 +725,8 @@ func _build_contacts() -> Array:
 			rr["transponder_type"] = String(fac2.get("transponder_type", ""))
 			rr["facility_class"] = String(fac2.get("facility_class", ""))
 			rr["owner"] = String(fac2.get("owner", ""))
-			rr["side"] = String(fac2.get("side", "friend"))
+			rr["side"] = String(fac2.get("side", "unknown"))
+			rr["side_source"] = "facility_registry"
 			rr["cluster_id"] = String(fac2.get("parent_cluster", ""))
 			rr["cluster_name"] = String(cluster2.get("name", ""))
 			rr["services"] = (fac2.get("services", []) as Array).duplicate()
@@ -744,12 +747,14 @@ func _build_contacts() -> Array:
 			var tid := String(t.get("id", ""))
 			if tid == "" or known.has(tid):
 				continue
-			var tside := String(t.get("side", "unknown"))
-			var ttype := "unknown" if tside in ["unknown", "hostile", "suspect"] else ("neutral" if tside == "neutral" else "friendly")
+			# A1.1：signal target registry 含有世界内部 side；不得自动显示为玩家结论。
+			var tside := "unknown"
+			var ttype := "unknown"
 			rows.append({"id": tid, "entity_id": String(t.get("entity_id", tid)), "track_id": "",
 				"name": "SIGNAL " + tid, "cls": "SIGNAL TARGET", "type": ttype, "side": tside,
-				"threat": "unknown" if ttype == "unknown" else "none", "badge": "SIGNAL",
-				"level": 0, "range_km": float(t.get("range_km", -1.0)), "sources": [], "signal_target": true})
+				"threat": "unknown", "badge": "SIGNAL",
+				"level": 0, "range_km": float(t.get("range_km", -1.0)), "sources": [],
+				"signal_target": true, "side_source": "unknown", "identity_source": "none"})
 	# 识别融合：所有行统一带 ident 结构（track 行已在上面按评估填充）；无证据即 known=false。
 	for row2 in rows:
 		var rr0: Dictionary = row2

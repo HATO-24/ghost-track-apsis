@@ -15,6 +15,7 @@ extends RefCounted
 const TimeService := preload("res://scripts/core/time_service.gd")
 const EventBus := preload("res://scripts/core/event_bus.gd")
 const WorldState := preload("res://scripts/core/world_state.gd")
+const EntityCatalogScript := preload("res://scripts/core/entity_catalog.gd")
 const OrderService := preload("res://scripts/core/order_service.gd")
 const CommsService := preload("res://scripts/core/comms_service.gd")
 const TrackTableScript := preload("res://scripts/core/track_table.gd")
@@ -57,6 +58,7 @@ var writer := WRITER_DEFAULT
 var time = null
 var bus = null
 var world = null
+var entity_catalog = null
 var orders = null
 var comms = null
 var track_table = null
@@ -187,6 +189,7 @@ func boot(config := {}) -> Dictionary:
 	combat_service = null
 	damage_service = null
 	physics_world_service = null
+	entity_catalog = null
 	signal_service = null
 	ew_service = null
 	facility_registry = null
@@ -228,6 +231,14 @@ func boot(config := {}) -> Dictionary:
 	_sensor_target_meta = {}
 	_seed = _normalize_seed(config if config is Dictionary else {})
 	_seed = _json_norm(_seed)
+	# Phase A1.1：静态元数据唯一权威（scenario/seed → EntityCatalog）。
+	# 只保存静态资料；位置/速度仍归 PhysicsWorld，world 保持既有职责。
+	entity_catalog = EntityCatalogScript.new({
+		"entities": _seed.get("entities", []),
+		"source": "seed",
+	})
+	if not bool(entity_catalog.ready):
+		errors.append("entity_catalog 未就绪：" + str(entity_catalog.errors))
 	writer = String(_seed.get("writer", WRITER_DEFAULT))
 	time = TimeService.new(_seed.get("time", {}) if _seed.get("time") is Dictionary else {})
 	bus = EventBus.new()
@@ -287,10 +298,11 @@ func boot(config := {}) -> Dictionary:
 	if damage_profile_service != null and not bool(damage_profile_service.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
-			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
-		errors.append("session 组件未就绪：time=%s bus=%s world=%s orders=%s comms=%s" % [
+			or not bool(orders.ready) or not bool(comms.ready) \
+			or not bool(entity_catalog.ready) or not extra_ok:
+		errors.append("session 组件未就绪：time=%s bus=%s world=%s orders=%s comms=%s catalog=%s" % [
 			str(time.ready), str(bus.ready), str(world.ready),
-			str(orders.ready), str(comms.ready)])
+			str(orders.ready), str(comms.ready), str(entity_catalog.ready)])
 		return _result(false)
 	# seed 实体（session 是唯一写者：bus 发事件 + world 显式 apply）
 	for raw in (_seed.get("entities", []) as Array):
@@ -1641,24 +1653,29 @@ func _ballistics_states() -> Dictionary:
 		var v = pos.get("v", pos.get("vel_kmps", []))
 		if not (r is Array) or (r as Array).size() < 3:
 			continue
-		var ent: Dictionary = {}
-		if world != null and world.has_entity(str(id)):
-			ent = world.entity(str(id))
-		var flags: Dictionary = ent.get("flags", {}) if ent.get("flags") is Dictionary else {}
-		var side := str(ent.get("side", flags.get("side", "")))
-		var has_pd := bool(ent.get("has_pd", flags.get("has_pd", false)))
+		var meta: Dictionary = entity_metadata(str(id))
+		var metadata_found := bool(meta.get("found", false))
+		var side := str(meta.get("side", ""))
+		var has_pd := bool(meta.get("has_pd", false))
 		if pd_platform != "" and str(id) == pd_platform:
 			has_pd = true
-		# 引导头需要的目标特征：显式字段优先，缺省由 ballistics 按舰型给默认值
-		var rcs := float(ent.get("rcs_m2", flags.get("rcs_m2", 0.0)))
-		var ir := float(ent.get("ir_signature", flags.get("ir_signature", 0.0)))
-		var kind := str(ent.get("kind", ent.get("ship_class", flags.get("kind", ""))))
-		var radius_km := float(ent.get("radius_km", flags.get("radius_km", 0.0)))
-		if radius_km <= 0.0:
+		# 引导头/PD 需要的目标特征来自静态元数据权威（A1.1）；缺失时显式兜底并标记
+		# radius_source=default，避免把兜底尺寸误当真实尺寸。
+		var rcs := float(meta.get("rcs_m2", 0.0))
+		var ir := float(meta.get("ir_signature", 0.0))
+		var kind := str(meta.get("kind", ""))
+		if kind == "" and world != null and world.has_entity(str(id)):
+			var went: Dictionary = world.entity(str(id))
+			kind = str(went.get("kind", went.get("ship_class", "")))
+		var radius_km := float(meta.get("radius_km", 0.0))
+		var radius_source := "catalog"
+		if not metadata_found or radius_km <= 0.0:
+			radius_source = "default"
 			radius_km = _default_radius_km(kind)
 		out[str(id)] = {"id": str(id), "pos_km": (r as Array).duplicate(),
 			"vel_kmps": (v as Array).duplicate() if v is Array else [0.0, 0.0, 0.0],
-			"radius_km": radius_km,
+			"radius_km": radius_km, "radius_source": radius_source,
+			"metadata_found": metadata_found,
 			"has_pd": has_pd, "side": side,
 			"kind": kind,
 			"rcs_m2": rcs, "ir_signature": ir}
@@ -2799,6 +2816,34 @@ func damage_ships() -> Array:
 	if damage_service == null:
 		return []
 	return damage_service.ship_ids_list()
+# ── EntityCatalog 委托（静态元数据权威；只读）────────────────────
+
+func entity_catalog_ready() -> bool:
+	return entity_catalog != null and bool(entity_catalog.ready)
+
+## 按 entity_id 返回静态元数据只读副本；未知实体返回 {found:false,id}。
+## 这些是**世界内部真值/静态资料**，不得自动写入玩家航迹/UI；玩家可见结论
+## 必须来自观测/证据/人工授权链路。
+func entity_metadata(entity_id: String) -> Dictionary:
+	if entity_catalog == null:
+		return {"found": false, "id": entity_id, "reason": "no_entity_catalog"}
+	return entity_catalog.get_entity(entity_id)
+
+func entity_metadata_ids() -> Array:
+	if entity_catalog == null:
+		return []
+	return entity_catalog.entity_ids()
+
+func entity_metadata_all() -> Array:
+	if entity_catalog == null:
+		return []
+	return entity_catalog.all_entities()
+
+func entity_catalog_snapshot() -> Dictionary:
+	if entity_catalog == null:
+		return {"schema": "v17.entity_catalog.v1", "ready": false, "entities": []}
+	return entity_catalog.snapshot()
+
 # ── PhysicsWorld 委托（位置权威；可选）──────────────────────────
 
 func physics_vm() -> Dictionary:
