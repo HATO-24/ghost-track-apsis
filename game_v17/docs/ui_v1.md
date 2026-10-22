@@ -1340,3 +1340,40 @@ F5 PROBE RESULT: PASS
 3. `quick_restart` 会重建整条 binder 链（chains/traffic/cic），首帧有一次性开销；
    演示场景可接受，未做增量重建。
 4. 未跑全量 regression（本轮已跑 62 探针套件，见 `build_profiles.md` §9）。
+
+
+---
+
+## 37　方案B-33：舰队数据库 / APSIS 改装（task-209）
+
+### 37.1 数据 / boot
+
+- ShellBinder seed 增加 `ship_catalog: true`、`refit: true`（Prelude/fallback 两分支）。
+- 新增 binder：`fleet_data()`（ShipCatalog `to_dict` + summary）、`refit_data()`（refit `stats/options/slots`）、`refit_op(kind,module)`。
+- headless：`fleet_data ready=true friendly=8 enemy=28 total=36`；`refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL`。
+
+### 37.2 FLEET overlay
+
+- 右侧 SENSOR CONTROLS 新增 `FLEET / 舰库`、`REFIT / 改装` 入口（不覆盖旧按钮；旧按钮行下移）。
+- FRIENDLY 8 / ENEMY 28（合计 36 型）；列表 class/name/role/hull；详情：faction/class/model/role/hull/排水/Δv/加速度/编制/武器/传感器/装甲/RCS/IR/尺寸/sections/TBD/已知舰/命名池；只读，不伪造 TBD。
+
+### 37.3 REFIT overlay
+
+- 平台：location/mass/Δv/accel/power/crew/resources；6 类槽位 used/base；30 模块列表（name/category/slots/mass/power/cost/location/availability/conflicts）；选中详情与 projected stats。
+- 底部 QUOTE / INSTALL / REMOVE / COMMIT / TICK 1D，全部调用 Session 5D refit API。
+- headless 自检：`QUOTE=true INSTALL=true COMMIT=true TICK=true`（module=defense_armor_belt，真实 refit_service 操作）。
+- NOT READY：服务缺失显示 REFIT NOT READY/SHIP CATALOG NOT READY。
+
+### 37.4 截图 / 验证
+
+- `mockups/v1-hud-fleet-1920.png`
+- `mockups/v1-hud-refit-1920.png`
+- 1600 布局检查：`mockups/v1-hud-fleet-1600.png`、`v1-hud-refit-1600.png`。
+- 均 SHOT err=0；headless v1_hud 一次；`v1_hud.gd/shell_binder.gd --check-only` 通过。
+
+### 37.5 边界
+
+1. 数据库只读；TBD 字段原样显示，不编造。
+2. REFIT 操作会写 refit_service 状态；无安装/移除实际舰体装配视觉/3D 模型接入。
+3. 槽位/资源/地点校验由 refit_service 决定；失败显示 reason。
+4. 不改核心/旧 plot；不写 world/物理；未跑全量 regression。

@@ -68,6 +68,15 @@ var _ident_msg := ""
 var _command_rows: Array = []
 var _command_buttons: Array = []
 var _selected_cmd := -1
+var _fleet_tab := "friendly"
+var _fleet_index := 0
+var _fleet_buttons: Array = []
+var _fleet_msg := ""
+var _refit_index := 0
+var _refit_buttons: Array = []
+var _refit_msg := ""
+var _refit_quote: Dictionary = {}
+var _refit_tested := false
 var _command_msg := ""
 var _comms_type := "HOLD"
 var _comms_target := ""
@@ -320,6 +329,10 @@ func _load_data() -> void:
 			if String((_contacts[i] as Dictionary).get("facility_id", "")) != "":
 				_selected = i
 				break
+	elif view == "fleet":
+		_overlay = "fleet"
+	elif view == "refit":
+		_overlay = "refit"
 	elif view == "combat":
 		_overlay = "combat"
 		_seed_combat_tracks()
@@ -444,7 +457,30 @@ func _update_trigger_banner() -> void:
 				break
 
 
+func _refit_selftest() -> void:
+	if binder == null:
+		return
+	var rd: Dictionary = binder.refit_data()
+	var opts: Array = rd.get("options", []) if rd.get("options", []) is Array else []
+	if opts.is_empty():
+		print("[REFIT SELFTEST] no options")
+		return
+	var mid := String((opts[0] as Dictionary).get("module_id", ""))
+	var q: Dictionary = binder.refit_op("QUOTE", mid)
+	print("[REFIT SELFTEST] quote=", bool(q.get("ok", false)), " module=", mid, " reason=", String(q.get("reason", "")))
+	var inst: Dictionary = binder.refit_op("INSTALL", mid)
+	print("[REFIT SELFTEST] install=", bool(inst.get("ok", false)), " reason=", String(inst.get("reason", "")))
+	var commit: Dictionary = binder.refit_op("COMMIT")
+	print("[REFIT SELFTEST] commit=", bool(commit.get("ok", false)), " reason=", String(commit.get("reason", "")))
+	var tick: Dictionary = binder.refit_op("TICK")
+	print("[REFIT SELFTEST] tick=", bool(tick.get("ok", false)), " reason=", String(tick.get("reason", "")))
+	queue_redraw()
+
+
 func _process(delta: float) -> void:
+	if OS.get_environment("DSH_REFIT_TEST") == "1" and not _refit_tested:
+		_refit_tested = true
+		call_deferred("_refit_selftest")
 	_t += delta
 	if binder != null:
 		binder.tick(delta)
@@ -684,7 +720,7 @@ func _draw_right(r: Rect2) -> void:
 	Painter.section(self, x, y, right, "SENSOR CONTROLS / 只读最小交互")
 	y += 10.0
 	_right_buttons.clear()
-	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["COMBAT", "COMBAT / 战斗"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["IDENT", "IDENT / 识别"], ["CHRONOS", "CHRONOS / 行动"], ["AV4412", "AV-4412 / 对峙"], ["TRAFFIC", "TRAFFIC / OTC"]]
+	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["COMBAT", "COMBAT / 战斗"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["IDENT", "IDENT / 识别"], ["CHRONOS", "CHRONOS / 行动"], ["AV4412", "AV-4412 / 对峙"], ["TRAFFIC", "TRAFFIC / OTC"], ["FLEET", "FLEET / 舰库"], ["REFIT", "REFIT / 改装"]]
 	for i in range(labels.size()):
 		var bw := (r.size.x - 32.0) * 0.5 - 4.0
 		var col := i % 2
@@ -1005,6 +1041,10 @@ func _draw_overlay_layer(cv: CanvasItem) -> void:
 		_draw_combat_overlay(r)
 	elif _overlay == "save":
 		_draw_save_overlay(r)
+	elif _overlay == "fleet":
+		_draw_fleet_overlay(r)
+	elif _overlay == "refit":
+		_draw_refit_overlay(r)
 	elif _overlay == "ident":
 		_draw_ident_overlay(r)
 	_cv = self
@@ -2676,6 +2716,248 @@ func _ident_col(identity: String) -> Color:
 	return P.ID_UNKNOWN
 
 
+func _fleet_action(kind: String, index: int) -> void:
+	if kind == "TAB_FRIENDLY":
+		_fleet_tab = "friendly"
+		_fleet_index = 0
+	elif kind == "TAB_ENEMY":
+		_fleet_tab = "enemy"
+		_fleet_index = 0
+	elif kind == "ROW" and index >= 0:
+		_fleet_index = index
+	_fleet_msg = ""
+	queue_redraw()
+
+
+func _draw_fleet_overlay(r: Rect2) -> void:
+	var fd: Dictionary = binder.fleet_data() if binder != null else {}
+	var friendly: Dictionary = fd.get("friendly", {}) if fd.get("friendly", {}) is Dictionary else {}
+	var enemy: Dictionary = fd.get("enemy", {}) if fd.get("enemy", {}) is Dictionary else {}
+	var classes: Array = (friendly.get("classes", []) if _fleet_tab == "friendly" else enemy.get("classes", [])) if (friendly.get("classes", []) if _fleet_tab == "friendly" else enemy.get("classes", [])) is Array else []
+	var total := (friendly.get("classes", []) as Array).size() + (enemy.get("classes", []) as Array).size()
+	var fr := _overlay_frame(r, "舰队数据库 / FLEET DATABASE", "友军/敌军舰级档案 · class/role/hull/displacement/Δv · 只读，不伪造 TBD",
+		P.PH, "FRIENDLY %d · ENEMY %d · %d TYPES" % [(friendly.get("classes", []) as Array).size(), (enemy.get("classes", []) as Array).size(), total], 1)
+	var body: Rect2 = fr.body
+	var footer: Rect2 = fr.footer
+	_fleet_buttons.clear()
+	_fleet_buttons.append_array(_button_bar(Rect2(footer.position, Vector2(footer.size.x, OV_BTN_H)),
+		[["TAB_FRIENDLY", "FRIENDLY / 友军 %d" % (friendly.get("classes", []) as Array).size()],
+		 ["TAB_ENEMY", "ENEMY / 敌军 %d" % (enemy.get("classes", []) as Array).size()]]))
+	if not bool(fd.get("ready", false)):
+		Painter.label(_cv, body.position.x, body.position.y + 22, "SHIP CATALOG NOT READY", 12, P.AMBER)
+		Painter.label(_cv, body.position.x, body.position.y + 42, "session.ship_catalog 未启用/未 ready", 8, P.AMBER, true)
+		return
+	_fleet_index = clampi(_fleet_index, 0, maxi(0, classes.size() - 1))
+	var list_w := 430.0
+	var gap := 18.0
+	var detail_x := body.position.x + list_w + gap
+	var detail_w := body.size.x - list_w - gap
+	Painter.section(_cv, body.position.x, body.position.y, body.position.x + list_w, "CLASS LIST / 舰级")
+	Painter.section(_cv, detail_x, body.position.y, body.position.x + body.size.x, "DETAIL / 详情")
+	var row_h := 17.0
+	var list_y := body.position.y + 20.0
+	for i in range(classes.size()):
+		if list_y + row_h > body.end.y - 4.0:
+			break
+		var c: Dictionary = classes[i]
+		var rr := Rect2(body.position.x, list_y, list_w - 6.0, row_h - 2.0)
+		var active := i == _fleet_index
+		_cv.draw_rect(rr, P.a(P.PH if active else P.LINE, 0.13 if active else 0.035))
+		_fleet_buttons.append({"rect": rr, "kind": "ROW", "index": i})
+		var nm := String(c.get("name", c.get("name_en", c.get("class_id", ""))))
+		var role := String(c.get("role", ""))
+		var hull := String(c.get("hull_code_prefix", "")) + " " + String(c.get("hull_range", ""))
+		Painter.label(_cv, rr.position.x + 6, rr.position.y + 11, TM.fit(nm, 170, false, 8), 8, P.PH if active else P.TXT)
+		Painter.label(_cv, rr.position.x + 180, rr.position.y + 11, role, 7, P.PH_DIM, true)
+		Painter.label_right(_cv, rr.end.x - 4, rr.position.y + 11, hull, 6, P.a(P.DIM, 0.9), true)
+		list_y += row_h
+	var csel: Dictionary = classes[_fleet_index] if not classes.is_empty() else {}
+	if csel.is_empty():
+		Painter.label(_cv, detail_x, body.position.y + 24, "NO CLASS DATA", 10, P.AMBER)
+	else:
+		Painter.label(_cv, detail_x, body.position.y + 24, TM.fit(String(csel.get("name", "")) + " / " + String(csel.get("name_en", "")), detail_w, false, 14), 14, P.PH)
+		Painter.label(_cv, detail_x, body.position.y + 40, "CLASS " + String(csel.get("class_id", "")) + " · FACTION " + String(csel.get("faction", "")), 7, P.a(P.AMBER, 0.9), true)
+		var tbd: Array = csel.get("tbd", []) if csel.get("tbd", []) is Array else []
+		var kv := [
+			["ROLE", String(csel.get("role", "—"))], ["MODEL", String(csel.get("model", "—"))],
+			["HULL", String(csel.get("hull_code_prefix", "—")) + " " + String(csel.get("hull_range", ""))],
+			["DISPLACEMENT", "%.0f t" % float(csel.get("displacement_t", 0.0))],
+			["Δv", "%.2f km/s" % float(csel.get("dv_kmps", 0.0))],
+			["ACCEL", "%.3f g" % float(csel.get("accel_g", 0.0))],
+			["CREW", str(int(csel.get("crew", 0)))],
+			["WEAPONS", ", ".join(csel.get("weapons", [])) if csel.get("weapons", []) is Array and not (csel.get("weapons", []) as Array).is_empty() else "TBD / none"],
+			["SENSORS", ", ".join(csel.get("sensors", [])) if csel.get("sensors", []) is Array else "—"],
+			["ARMOR", String(csel.get("armor", "TBD"))], ["RCS/IR", String(csel.get("rcs", "TBD")) + " / " + String(csel.get("ir", "TBD"))],
+			["DIMENSIONS", str(csel.get("dimensions_m", [])) if csel.get("dimensions_m", []) is Array else "TBD"],
+			["SECTIONS", ", ".join(csel.get("sections", [])) if csel.get("sections", []) is Array else "—"],
+			["TBD", ", ".join(tbd) if not tbd.is_empty() else "none"],
+		]
+		var yy := body.position.y + 60.0
+		for raw in kv:
+			var row2: Array = raw
+			Painter.label(_cv, detail_x, yy, String(row2[0]), 7, P.a(P.FAINT, 0.9), true)
+			Painter.label(_cv, detail_x + 108, yy, TM.fit(String(row2[1]), detail_w - 112, true, 7), 7, P.TXT, true)
+			yy += 14.0
+		yy += 4.0
+		Painter.section(_cv, detail_x, yy, body.position.x + body.size.x, "KNOWN SHIPS / 已知舰")
+		yy += 16.0
+		var known: Array = csel.get("known_ships", []) if csel.get("known_ships", []) is Array else []
+		if known.is_empty():
+			Painter.label(_cv, detail_x, yy, "NONE IN DATABASE", 7, P.DIM, true)
+			yy += 14.0
+		else:
+			for raw2 in known:
+				if raw2 is Dictionary:
+					var ks: Dictionary = raw2
+					Painter.label(_cv, detail_x, yy, TM.fit(String(ks.get("hull_code", "")) + " · " + String(ks.get("name", "")) + " / " + String(ks.get("name_en", "")), detail_w, true, 7), 7, P.TXT, true)
+					yy += 13.0
+		yy += 4.0
+		Painter.section(_cv, detail_x, yy, body.position.x + body.size.x, "NAME POOL / 命名池")
+		yy += 16.0
+		var pool: Array = csel.get("name_pool", []) if csel.get("name_pool", []) is Array else []
+		Painter.label(_cv, detail_x, yy, TM.fit(", ".join(pool), detail_w, true, 7), 7, P.PH_DIM, true)
+
+
+func _refit_action(kind: String, index: int) -> void:
+	var rd: Dictionary = binder.refit_data() if binder != null else {}
+	var options: Array = rd.get("options", []) if rd.get("options", []) is Array else []
+	_refit_index = clampi(_refit_index, 0, maxi(0, options.size() - 1))
+	if kind == "MODULE" and index >= 0:
+		_refit_index = index
+		_refit_quote = {}
+		_refit_msg = ""
+		queue_redraw()
+		return
+	var mid := ""
+	if _refit_index >= 0 and _refit_index < options.size():
+		mid = String((options[_refit_index] as Dictionary).get("module_id", ""))
+	if kind in ["QUOTE", "INSTALL", "REMOVE"] and mid == "":
+		_refit_msg = "NO MODULE SELECTED"
+		queue_redraw()
+		return
+	var res: Dictionary = binder.refit_op(kind, mid) if binder != null else {"ok": false, "reason": "no_binder"}
+	if kind == "QUOTE":
+		_refit_quote = res.duplicate(true)
+	_refit_msg = kind + " · " + ("OK" if bool(res.get("ok", false)) else "FAILED · " + String(res.get("reason", "unknown")))
+	queue_redraw()
+
+
+func _draw_refit_overlay(r: Rect2) -> void:
+	var rd: Dictionary = binder.refit_data() if binder != null else {}
+	var fr := _overlay_frame(r, "APSIS 改装 / REFIT", "平台 stats · 6 类槽位 · 30 模块 · QUOTE/INSTALL/REMOVE/COMMIT/TICK 1D · 只读 UI 写 refit_service",
+		P.PH, String(rd.get("source", "NOT READY")), 1)
+	var body: Rect2 = fr.body
+	var footer: Rect2 = fr.footer
+	_refit_buttons.clear()
+	_refit_buttons.append_array(_button_bar(Rect2(footer.position, Vector2(footer.size.x, OV_BTN_H)),
+		[["QUOTE", "QUOTE / 报价"], ["INSTALL", "INSTALL / 安装"], ["REMOVE", "REMOVE / 移除"],
+		 ["COMMIT", "COMMIT / 提交"], ["TICK", "TICK 1D / 推进"]]))
+	if not bool(rd.get("ready", false)):
+		Painter.label(_cv, body.position.x, body.position.y + 22, "REFIT NOT READY", 12, P.AMBER)
+		Painter.label(_cv, body.position.x, body.position.y + 42, "session.refit_service 未启用/未 ready", 8, P.AMBER, true)
+		return
+	var stats: Dictionary = rd.get("stats", {}) if rd.get("stats", {}) is Dictionary else {}
+	var slots: Dictionary = rd.get("slots", {}) if rd.get("slots", {}) is Dictionary else {}
+	var options: Array = rd.get("options", []) if rd.get("options", []) is Array else []
+	var current: Dictionary = stats.get("current", {}) if stats.get("current", {}) is Dictionary else {}
+	var projected: Dictionary = stats.get("projected", {}) if stats.get("projected", {}) is Dictionary else {}
+	var base: Dictionary = stats.get("base", {}) if stats.get("base", {}) is Dictionary else {}
+	var resources: Dictionary = stats.get("resources", {}) if stats.get("resources", {}) is Dictionary else {}
+	var left_w := 300.0
+	var mid_w := 390.0
+	var gap := 16.0
+	var left_x := body.position.x
+	var mid_x := left_x + left_w + gap
+	var right_x := mid_x + mid_w + gap
+	var right_w := body.size.x - left_w - mid_w - gap * 2.0
+	Painter.section(_cv, left_x, body.position.y, left_x + left_w, "PLATFORM / APSIS")
+	Painter.section(_cv, mid_x, body.position.y, mid_x + mid_w, "MODULES / 模块 30")
+	Painter.section(_cv, right_x, body.position.y, right_x + right_w, "MODULE DETAIL / 投影")
+	var yy := body.position.y + 20.0
+	var plats := [
+		["LOCATION", String(stats.get("location", "—"))],
+		["MASS", "%.0f / %.0f t" % [float(current.get("mass_t", 0.0)), float(base.get("max_mass_t", 0.0))]],
+		["Δv", "%.2f km/s" % float(current.get("dv_kmps", 0.0))],
+		["ACCEL", "%.3f g" % float(current.get("accel_g", 0.0))],
+		["POWER", "%.0f / %.0f kW" % [float(current.get("power_used_kw", 0.0)), float(base.get("max_power_kw", 0.0))]],
+		["CREW", str(int(current.get("crew", 0)))],
+		["RESOURCES", "CR %d · MAT %d" % [int(resources.get("credits", 0)), int(resources.get("materials", 0))]],
+	]
+	for raw in plats:
+		var row: Array = raw
+		Painter.label(_cv, left_x, yy, String(row[0]), 7, P.a(P.FAINT, 0.9), true)
+		Painter.label(_cv, left_x + 84, yy, TM.fit(String(row[1]), left_w - 88, true, 7), 7, P.TXT, true)
+		yy += 14.0
+	yy += 6.0
+	Painter.section(_cv, left_x, yy, left_x + left_w, "SLOTS / 6 类")
+	yy += 16.0
+	var slot_total := 0
+	var slot_used := 0
+	var slot_base: Dictionary = slots.get("base", {}) if slots.get("base", {}) is Dictionary else {}
+	var slot_used_map: Dictionary = slots.get("used", {}) if slots.get("used", {}) is Dictionary else {}
+	for cat in ["hull", "sensor", "weapon", "defense", "utility", "dock"]:
+		var used := int(slot_used_map.get(cat, 0))
+		var total := int(slot_base.get(cat, 0))
+		slot_total += total
+		slot_used += used
+		Painter.label(_cv, left_x, yy, cat.to_upper(), 7, P.PH_DIM, true)
+		Painter.label_right(_cv, left_x + left_w - 4, yy, "%d/%d" % [used, total], 7, P.TXT, true)
+		var bar := Rect2(left_x + 84, yy - 7, left_w - 140, 5)
+		_cv.draw_rect(bar, P.a(P.LINE, 0.6))
+		if total > 0:
+			_cv.draw_rect(Rect2(bar.position, Vector2(bar.size.x * float(used) / float(total), bar.size.y)), P.a(P.PH, 0.75))
+		yy += 14.0
+	Painter.label(_cv, left_x, yy + 2, "TOTAL %d/%d SLOTS" % [slot_used, slot_total], 7, P.a(P.AMBER, 0.85), true)
+	# module list
+	_refit_index = clampi(_refit_index, 0, maxi(0, options.size() - 1))
+	var row_h := 15.5
+	var ly := body.position.y + 20.0
+	for i in range(options.size()):
+		if ly + row_h > body.end.y - 4.0:
+			break
+		var m: Dictionary = options[i]
+		var rr := Rect2(mid_x, ly, mid_w - 6.0, row_h - 1.0)
+		var active := i == _refit_index
+		_cv.draw_rect(rr, P.a(P.PH if active else P.LINE, 0.12 if active else 0.025))
+		_refit_buttons.append({"rect": rr, "kind": "MODULE", "index": i})
+		Painter.label(_cv, rr.position.x + 5, rr.position.y + 10, TM.fit(String(m.get("name", m.get("module_id", ""))), 142, false, 7), 7, P.PH if active else P.TXT)
+		Painter.label(_cv, rr.position.x + 152, rr.position.y + 10, String(m.get("category", "")), 6, P.PH_DIM, true)
+		Painter.label_right(_cv, rr.end.x - 4, rr.position.y + 10, "%d slot · %.0ft · %.0fkW" % [int(m.get("slots", 0)), float(m.get("mass_t", 0.0)), float(m.get("power_kw", 0.0))], 6, P.a(P.DIM, 0.9), true)
+		ly += row_h
+	var msel: Dictionary = options[_refit_index] if not options.is_empty() else {}
+	if msel.is_empty():
+		Painter.label(_cv, right_x, body.position.y + 22, "NO MODULE DATA", 10, P.AMBER)
+	else:
+		Painter.label(_cv, right_x, body.position.y + 22, TM.fit(String(msel.get("name", "")) + " / " + String(msel.get("name_en", "")), right_w, false, 11), 11, P.PH)
+		Painter.label(_cv, right_x, body.position.y + 38, String(msel.get("module_id", "")) + " · " + String(msel.get("category", "")), 7, P.a(P.AMBER, 0.9), true)
+		var ryy := body.position.y + 56.0
+		var mk := [
+			["SLOTS", str(int(msel.get("slots", 0)))], ["MASS", "%.0f t" % float(msel.get("mass_t", 0.0))],
+			["POWER", "%.0f kW" % float(msel.get("power_kw", 0.0))],
+			["COST", "%d cr / %d mat / %d d" % [int(msel.get("cost_credits", 0)), int(msel.get("cost_materials", 0)), int(msel.get("cost_days", 0))]],
+			["LOCATION", ", ".join(msel.get("location_tags", [])) if msel.get("location_tags", []) is Array else "—"],
+			["AVAIL", String(msel.get("availability", "—"))],
+			["CONFLICTS", ", ".join(msel.get("conflicts", [])) if msel.get("conflicts", []) is Array and not (msel.get("conflicts", []) as Array).is_empty() else "none"],
+			["PROJECTED Δv", "%.2f km/s" % float(projected.get("dv_kmps", 0.0))],
+			["PROJECTED MASS", "%.0f t" % float(projected.get("mass_t", 0.0))],
+			["PROJECTED POWER", "%.0f kW" % float(projected.get("power_used_kw", 0.0))],
+			["NOTE", String(msel.get("note", ""))],
+		]
+		for raw in mk:
+			var rr2: Array = raw
+			Painter.label(_cv, right_x, ryy, String(rr2[0]), 7, P.a(P.FAINT, 0.9), true)
+			Painter.label(_cv, right_x + 102, ryy, TM.fit(String(rr2[1]), right_w - 106, true, 7), 7, P.TXT, true)
+			ryy += 13.0
+		if not _refit_quote.is_empty():
+			ryy += 3.0
+			Painter.label(_cv, right_x, ryy, "QUOTE · " + ("OK" if bool(_refit_quote.get("ok", false)) else "FAILED " + String(_refit_quote.get("reason", ""))), 7, P.PH if bool(_refit_quote.get("ok", false)) else P.RED)
+			ryy += 13.0
+			var costs: Dictionary = _refit_quote.get("costs", {}) if _refit_quote.get("costs", {}) is Dictionary else {}
+			Painter.label(_cv, right_x, ryy, "costs cr=%d mat=%d days=%d" % [int(costs.get("credits", 0)), int(costs.get("materials", 0)), int(costs.get("cost_days", costs.get("days", 0)))], 7, P.PH_DIM, true)
+	if _refit_msg != "":
+		Painter.label(_cv, body.position.x, body.end.y - 4.0, TM.fit(_refit_msg, body.size.x, true, 7), 7, P.PH if _refit_msg.contains("OK") else P.AMBER, true)
+
+
 func _draw_ident_overlay(r: Rect2) -> void:
 	var row := _ident_row
 	var iv: Dictionary = binder.ident_view(row, true) if binder != null else {}
@@ -3160,6 +3442,18 @@ func _do_right_action(kind: String) -> void:
 			_overlay = "chronos"
 		"AV4412":
 			_overlay = "av4412"
+		"FLEET":
+			_overlay = "fleet"
+			_fleet_tab = "friendly"
+			_fleet_index = 0
+			_fleet_msg = ""
+			queue_redraw()
+		"REFIT":
+			_overlay = "refit"
+			_refit_index = 0
+			_refit_msg = ""
+			_refit_quote = {}
+			queue_redraw()
 		"TRAFFIC":
 			_overlay = "traffic"
 		"IDENT":
@@ -3270,6 +3564,16 @@ func _gui_input(event: InputEvent) -> void:
 func _overlay_hit(lp: Vector2) -> bool:
 	# 方案B-32：统一子界面命中分发（全部使用弹层局部坐标）。返回 true 表示已消费点击。
 	match _overlay:
+		"fleet":
+			for b in _fleet_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_fleet_action(String(b.get("kind", "")), int(b.get("index", -1)))
+					return true
+		"refit":
+			for b in _refit_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_refit_action(String(b.get("kind", "")), int(b.get("index", -1)))
+					return true
 		"traffic":
 			for row in _traffic_otc_rows:
 				if (row["rect"] as Rect2).has_point(lp):

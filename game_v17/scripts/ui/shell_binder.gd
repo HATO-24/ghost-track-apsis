@@ -58,6 +58,8 @@ var cic_view = null
 var cic_ready := false
 var cic_vm: Dictionary = {}
 var _cic_logged := false
+var _fleet_logged := false
+var _refit_logged := false
 var _ident_logged := false
 var load_slot_requested := ""
 var load_ok := false
@@ -158,6 +160,8 @@ func boot() -> bool:
 			]
 			seed["physics_world"] = true
 			seed["ew_service"] = true
+			seed["ship_catalog"] = true
+			seed["refit"] = true
 			# 本舰实体：序章以 signal_service.observer 为准（与传感器/信号服务同一艘），
 			# 弹道服务据此解析 shooter 与 PD 平台，不能留空。
 			seed["own_entity"] = String(((pcfg.get("signal_service", {}) as Dictionary).get("observer", {}) as Dictionary).get("id", "apsis"))
@@ -258,6 +262,8 @@ func boot() -> bool:
 	var _pp: Dictionary = plot_positions()
 	var _pf: Dictionary = plot_facilities()
 	print("[SHELL BINDER] physics ready=", physics_world_ready(), " plot_source=", String(_pp.get("source", "")), " positions=", (_pp.get("positions", []) as Array).size(), " facilities=", (_pf.get("facilities", []) as Array).size(), " facility_source=", String(_pf.get("source", "")))
+	fleet_data()
+	refit_data()
 	refresh()
 	ready = errors.is_empty()
 	return ready
@@ -1024,6 +1030,56 @@ func plot_commands() -> Dictionary:
 	out["source"] = "ORDER SERVICE / COMMS"
 	print("[SHELL BINDER] plot_commands ready=", out["ready"], " orders=", orders.size(), " pending=", out["pending"], " transmitted=", transmitted, " executed=", executed)
 	return out
+
+
+func fleet_data() -> Dictionary:
+	var out: Dictionary = {"ready": false, "friendly": {}, "enemy": {}, "summary": {}, "source": "SHIP CATALOG NOT READY"}
+	if session == null or session.ship_catalog == null or not bool(session.ship_catalog.ready):
+		return out
+	var vm: Dictionary = session.ship_catalog_vm()
+	out["ready"] = bool(vm.get("ready", false))
+	out["friendly"] = (vm.get("friendly", {}) as Dictionary).duplicate(true) if vm.get("friendly", {}) is Dictionary else {}
+	out["enemy"] = (vm.get("enemy", {}) as Dictionary).duplicate(true) if vm.get("enemy", {}) is Dictionary else {}
+	out["summary"] = (vm.get("summary", {}) as Dictionary).duplicate(true) if vm.get("summary", {}) is Dictionary else {}
+	out["source"] = "SHIP CATALOG · SESSION 5D"
+	var fcount := (out["friendly"].get("classes", []) as Array).size()
+	var ecount := (out["enemy"].get("classes", []) as Array).size()
+	if not _fleet_logged:
+		_fleet_logged = true
+		print("[SHELL BINDER] fleet_data ready=", out["ready"], " friendly=", fcount, " enemy=", ecount, " total=", fcount + ecount)
+	return out
+
+
+func refit_data() -> Dictionary:
+	var out: Dictionary = {"ready": false, "stats": {}, "options": [], "slots": {}, "source": "REFIT NOT READY"}
+	if session == null or session.refit_service == null or not bool(session.refit_service.ready):
+		return out
+	out["ready"] = true
+	out["stats"] = session.refit_stats()
+	out["options"] = session.refit_options()
+	out["slots"] = session.refit_slots()
+	out["source"] = "REFIT SERVICE · APSIS · SESSION 5D"
+	if not _refit_logged:
+		_refit_logged = true
+		print("[SHELL BINDER] refit_data ready=true modules=", (out["options"] as Array).size(), " installed=", (out["stats"].get("installed", []) as Array).size(), " planned=", (out["stats"].get("planned", []) as Array).size(), " location=", String(out["stats"].get("location", "")))
+	return out
+
+
+func refit_op(kind: String, module_id := "") -> Dictionary:
+	if session == null or session.refit_service == null:
+		return {"ok": false, "reason": "no_refit_service"}
+	match kind:
+		"QUOTE":
+			return session.refit_quote(module_id)
+		"INSTALL":
+			return session.refit_install(module_id)
+		"REMOVE":
+			return session.refit_remove(module_id)
+		"COMMIT":
+			return session.refit_commit()
+		"TICK":
+			return session.refit_tick(1.0)
+	return {"ok": false, "reason": "unknown_action"}
 
 
 func plot_sensors() -> Dictionary:
