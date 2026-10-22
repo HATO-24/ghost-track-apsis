@@ -53,6 +53,7 @@ func _initialize() -> void:
 	_test_physics_save_load()
 	_test_physics_frame_conversion()
 	_test_combat_ballistics_integration()
+	_test_ship_catalog_refit_damage_integration()
 	_test_unified_fire_path()
 	_test_signal_integration()
 	_test_signal_save_load()
@@ -3634,3 +3635,171 @@ func _test_unified_fire_path() -> void:
 	_eq(bool(s2.load_state(sv).get("ok", false)), true, "unified save/load ok")
 	_eq(s2.combat_time_cap_state(), s.combat_time_cap_state(), "time_cap 存档往返一致")
 	_data_line("unified_fire", "门禁→真实弹丸→异步 impact→Damage→倍速降档/恢复 · 齐射/散布/弹药不足拒绝 · 规划预演")
+
+# ═══════════════════════════════════════════════════════════════════
+# 40. ShipCatalog / RefitService / DamageProfile 集成（5D）
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_ship_catalog_refit_damage_integration() -> void:
+	_section_begin("40 5D catalog/refit/damage")
+	# 默认退化（无 catalog/refit）
+	var plain = _new_session()
+	_ok(plain.ship_catalog == null, "默认无 ship_catalog")
+	_ok(plain.refit_service == null, "默认无 refit")
+	_eq(plain.entity_class_id("apsis"), "TBD", "无 catalog entity_class TBD")
+	_eq(str(plain.class_vm("apsis").get("class_id", "")), "TBD", "无 catalog class_vm TBD")
+	_eq(plain.ship_catalog_vm().size(), 0, "无 catalog vm 空")
+	_eq(plain.damage_profile_for("apsis").size(), 0, "无 profile 空")
+	_eq(str(plain.refit_vm().size()), "0", "无 refit vm 空")
+	_eq(str(plain.refit_quote("x").get("reason", "")), "no_refit_service", "无 refit quote")
+	_eq(str(plain.refit_install("x").get("reason", "")), "no_refit_service", "无 refit install")
+	_eq(str(plain.refit_commit().get("reason", "")), "no_refit_service", "无 refit commit")
+	_eq(str(plain.refit_tick(1.0).get("reason", "")), "no_refit_service", "无 refit tick")
+	_eq(plain.refit_stats().size(), 0, "无 refit stats 空")
+	# catalog 单独
+	var c1 = GameSession.new({"ship_catalog": true})
+	_ok(bool(c1.ready), "catalog session ready", str(c1.errors))
+	_ok(c1.ship_catalog != null and bool(c1.ship_catalog.ready), "catalog ready")
+	_ok(c1.damage_profile_service != null and bool(c1.damage_profile_service.ready),
+		"catalog 启用时 damage_profile")
+	_eq(str(c1.ship_catalog_summary().get("schema", "")), "v17.ship_catalog.v1",
+		"catalog summary schema")
+	_eq(int(c1.ship_catalog_summary().get("classes", 0)), 36, "catalog 36 型")
+	_eq(int(c1.ship_catalog_summary().get("friendly_classes", 0)), 8, "catalog 友军 8")
+	_eq(int(c1.ship_catalog_summary().get("enemy_classes", 0)), 28, "catalog 敌军 28")
+	_eq(c1.entity_class_id("apsis"), "OCUVF-APOGEE", "apsis class")
+	_eq(c1.entity_class_id("harmattan"), "OCUVF-PALLET-5C", "harmattan class")
+	_eq(c1.entity_class_id("ferry"), "OCUVF-HEMATITE-6C", "ferry class")
+	_eq(c1.entity_class_id("APSIS"), "OCUVF-APOGEE", "known ship id class")
+	_eq(c1.entity_class_id("001"), "OCUVF-APOGEE", "hull 001 class")
+	_eq(c1.entity_class_id("AV-4412"), "33OSID-SUMMONS", "AV-4412 class")
+	_eq(c1.entity_class_id("CA-4471"), "33OSID-ENFORCEMENT", "CA-4471 class")
+	_eq(c1.entity_class_id("unknown"), "TBD", "未知 class TBD")
+	var avm: Dictionary = c1.class_vm("apsis")
+	_eq(str(avm.get("class_id", "")), "OCUVF-APOGEE", "class_vm class")
+	_eq(str(avm.get("name", "")), "远地点级", "class_vm name")
+	_eq(str(avm.get("role", "")), "depot", "class_vm role")
+	_eq(bool(avm.get("truth", true)), false, "class_vm truth false")
+	_ok(bool(avm.get("ok", false)), "class_vm ok")
+	var uvm: Dictionary = c1.class_vm("unknown")
+	_eq(str(uvm.get("class_id", "")), "TBD", "class_vm 未知 TBD")
+	_ok(bool(uvm.get("tbd", false)), "class_vm 未知 tbd")
+	# 实体自带 class_id 回退
+	var c_custom = GameSession.new({"ship_catalog": true,
+		"entities": [{"id": "x1", "kind": "ship", "class_id": "33OSID-SUMMONS",
+			"pos_km": [0,0,0]}]})
+	_eq(c_custom.entity_class_id("x1"), "33OSID-SUMMONS", "实体 class_id 回退")
+	# catalog 配置坏 path → boot 失败
+	var c_bad = GameSession.new({"ship_catalog": {"friendly_path": "/no/x.json"}})
+	_ok(not bool(c_bad.ready), "坏 catalog path boot 失败")
+	_ok((c_bad.errors as Array).size() >= 1, "坏 catalog errors")
+	# refit 单独（自动 catalog）
+	var r1 = GameSession.new({"refit": true})
+	_ok(bool(r1.ready), "refit session ready", str(r1.errors))
+	_ok(r1.ship_catalog != null, "refit 自动 catalog")
+	_ok(r1.refit_service != null and bool(r1.refit_service.ready), "refit ready")
+	var rs: Dictionary = r1.refit_stats()
+	_near(float(rs.get("mass_t", 0.0)), 9000.0, 1.0e-6, "refit 基础 mass 9000")
+	_eq(int(r1.refit_slots().get("total_base", 0)), 20, "refit 20 槽")
+	_eq((r1.refit_options() as Array).size(), 30, "refit 30 模块")
+	_ok(bool(r1.refit_quote("hull_armor_light").get("ok", false)), "refit quote")
+	var ins: Dictionary = r1.refit_install("hull_armor_light")
+	_eq(bool(ins.get("ok", false)), true, "refit install")
+	_eq((r1.refit_stats().get("installed", []) as Array).size(), 0, "refit planned 未装")
+	var cm: Dictionary = r1.refit_commit()
+	_eq(bool(cm.get("ok", false)), true, "refit commit")
+	_eq((r1.refit_stats().get("queue", []) as Array).size(), 1, "refit queue 1")
+	var tk: Dictionary = r1.refit_tick(10.0)
+	_eq((tk.get("completed", []) as Array).size(), 1, "refit tick 完成")
+	_eq((r1.refit_stats().get("installed", []) as Array).size(), 1, "refit installed 1")
+	_near(float(r1.refit_stats().get("mass_t", 0.0)), 9080.0, 1.0e-6, "refit mass 9080")
+	# refit 事件
+	var rtypes: Array = _event_types(r1.bus.recent(300))
+	for et in ["refit.install", "refit.commit", "refit.tick"]:
+		_ok(str(et) in rtypes, "bus " + str(et))
+	# refit 不写 world（tick 前后）
+	var w0 := _norm_json(r1.world.entities_sorted())
+	r1.tick(1.0)
+	_eq(_norm_json(r1.world.entities_sorted()), w0, "refit 不写 world")
+	# damage + catalog
+	var d1 = GameSession.new({"ship_catalog": true, "damage_service": true})
+	_ok(bool(d1.ready), "damage+catalog ready", str(d1.errors))
+	_ok(d1.damage_service != null and bool(d1.damage_service.ready), "damage ready")
+	_ok(d1.damage_profile_service != null and bool(d1.damage_profile_service.ready),
+		"damage profile service ready")
+	var dm: Dictionary = d1.damage_class_of("apsis")
+	_eq(bool(dm.get("ok", false)), true, "damage class ok")
+	_eq(str(dm.get("class_id", "")), "OCUVF-APOGEE", "damage class apsis")
+	_eq(str(d1.damage_service.model("apsis").class_id), "OCUVF-APOGEE",
+		"damage model class_id")
+	_eq(str(d1.damage_profile_for("apsis").get("class_id", "")), "OCUVF-APOGEE",
+		"profile_for apsis")
+	_eq(str(d1.damage_service.model("apsis").profile_source), "damage_l1",
+		"旧 damage_l1 覆盖优先")
+	# damage 模型仍可受伤
+	var before_dmg := float(d1.damage_ship_vm("harmattan").get("summary", {}).get("integrity_avg", 1.0))
+	var hit: Dictionary = d1.damage_apply_hit("harmattan", "hull", 0.3, 0.6, "fore", "probe")
+	_eq(bool(hit.get("ok", false)), true, "catalog damage hit")
+	_ok(float(d1.damage_ship_vm("harmattan").get("summary", {}).get("integrity_avg", 1.0)) < before_dmg,
+		"damage integrity 下降")
+	# 未知 damage class
+	_eq(str(d1.damage_class_of("unknown").get("class_id", "")), "TBD",
+		"damage 未知 TBD")
+	# 全开：catalog+refit+damage
+	var all = GameSession.new({"ship_catalog": true, "refit": true, "damage_service": true})
+	_ok(bool(all.ready), "全开 ready", str(all.errors))
+	all.refit_install("hull_armor_light")
+	all.refit_commit()
+	all.refit_tick(10.0)
+	_eq((all.refit_stats().get("installed", []) as Array).size(), 1, "全开 refit 完成")
+	var save: String = all.save_state()
+	var sd = JSON.parse_string(save)
+	_ok(sd is Dictionary, "全开 save JSON")
+	_ok((sd as Dictionary).has("ship_catalog"), "save 含 ship_catalog")
+	_ok((sd as Dictionary).has("catalog"), "save 含 catalog 别名")
+	_ok((sd as Dictionary).has("refit"), "save 含 refit")
+	_ok((sd as Dictionary).has("damage_profile"), "save 含 damage_profile")
+	_eq(int(((sd as Dictionary).get("ship_catalog", {}) as Dictionary).get("summary", {}).get("classes", 0)),
+		36, "save catalog classes")
+	var all2 = GameSession.new()
+	var lr: Dictionary = all2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "全开 load ok", str(lr.get("errors", [])))
+	_eq((all2.refit_stats().get("installed", []) as Array).size(), 1, "load refit installed")
+	_eq(str(all2.entity_class_id("apsis")), "OCUVF-APOGEE", "load catalog entity class")
+	_eq(str(all2.damage_class_of("apsis").get("class_id", "")), "OCUVF-APOGEE",
+		"load damage class")
+	_eq(_norm_json(all2.refit_stats()), _norm_json(all.refit_stats()), "load refit stats 一致")
+	# 旧档兼容：删掉 5D 字段
+	var old: Dictionary = (sd as Dictionary).duplicate(true)
+	old.erase("ship_catalog"); old.erase("catalog"); old.erase("refit"); old.erase("damage_profile")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("ship_catalog"); old_seed.erase("refit"); old_seed.erase("damage_profiles")
+	old["seed"] = old_seed
+	var old_s = GameSession.new()
+	var old_lr: Dictionary = old_s.load_state(JSON.stringify(old))
+	_eq(bool(old_lr.get("ok", false)), true, "旧档缺 5D 兼容", str(old_lr.get("errors", [])))
+	_ok(old_s.refit_service == null, "旧档无 refit")
+	_eq(old_s.entity_class_id("apsis"), "TBD", "旧档无 catalog TBD")
+	# 存档含 refit 但 seed 未启用 → replay 报错
+	var mix: Dictionary = (sd as Dictionary).duplicate(true)
+	var mix_seed: Dictionary = mix.get("seed", {})
+	mix_seed.erase("refit")
+	mix["seed"] = mix_seed
+	var no_rf = GameSession.new()
+	var no_rf_lr = no_rf.load_state(JSON.stringify(mix))
+	_ok(not bool(no_rf_lr.get("ok", true)), "含 refit 档但 seed 未启用 → 失败")
+	# refit 配置坏 options
+	var bad_r = GameSession.new({"ship_catalog": true,
+		"refit": {"options": "/no/refit.json"}})
+	_ok(not bool(bad_r.ready), "坏 refit options boot 失败")
+	# 确定性
+	var a = GameSession.new({"ship_catalog": true, "refit": true, "damage_service": true})
+	var b = GameSession.new({"ship_catalog": true, "refit": true, "damage_service": true})
+	for sv in [a, b]:
+		sv.refit_install("hull_armor_light")
+		sv.refit_commit()
+		sv.refit_tick(10.0)
+	_eq(a.save_state(), b.save_state(), "5D 同操作 save 一致")
+	_eq(_norm_json(a.refit_stats()), _norm_json(b.refit_stats()), "5D refit stats 一致")
+	_ok(bool(a.check_contracts().get("ok", false)), "5D contracts ok")
+	_data_line("5D", "catalog 36/8+28 · entity_class/binding/hull/batch · refit 30模块/API/事件 · damage class_id · save/load/旧档/确定性")

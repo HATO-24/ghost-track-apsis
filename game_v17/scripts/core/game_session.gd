@@ -34,6 +34,9 @@ const TrafficControlServiceScript := preload("res://scripts/core/traffic_control
 const PhysicsScript := preload("res://framework/sim/cislunar_physics.gd")
 const CombatBallisticsScript := preload("res://scripts/core/combat_ballistics.gd")
 const CombatPlannerScript := preload("res://scripts/core/combat_planner.gd")
+const ShipCatalogScript := preload("res://scripts/core/ship_catalog.gd")
+const RefitServiceScript := preload("res://scripts/core/refit_service.gd")
+const DamageProfileServiceScript := preload("res://scripts/core/damage_profile_service.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -69,6 +72,9 @@ var identification_service = null
 var legal_status_service = null
 var traffic_control = null
 var combat_ballistics = null
+var ship_catalog = null
+var refit_service = null
+var damage_profile_service = null
 
 ## 交战时间膨胀：有弹在飞时把时间倍速压到该上限，交战结束恢复原倍速。
 const COMBAT_SCALE_CAP := 60.0
@@ -90,6 +96,8 @@ var _identification_enabled := false
 var _legal_enabled := false
 var _traffic_enabled := false
 var _ballistics_enabled := false
+var _ship_catalog_enabled := false
+var _refit_enabled := false
 var _last_signal_route: Dictionary = {}
 var _signal_missing_meta_warned: Dictionary = {}
 var _damage_applied_shots: Dictionary = {}
@@ -149,7 +157,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "prelude", "seed_frame", "frame_origin", "own_entity"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -181,6 +189,9 @@ func boot(config := {}) -> Dictionary:
 	legal_status_service = null
 	traffic_control = null
 	combat_ballistics = null
+	ship_catalog = null
+	refit_service = null
+	damage_profile_service = null
 	_last_signal_route = {}
 	_signal_missing_meta_warned = {}
 	_damage_applied_shots = {}
@@ -194,6 +205,8 @@ func boot(config := {}) -> Dictionary:
 	_legal_enabled = false
 	_traffic_enabled = false
 	_ballistics_enabled = false
+	_ship_catalog_enabled = false
+	_refit_enabled = false
 	_physics_enabled = false
 	_physics_frame_meta = {}
 	_track_writer = ""
@@ -252,6 +265,12 @@ func boot(config := {}) -> Dictionary:
 	if _traffic_enabled and traffic_control != null and not bool(traffic_control.ready):
 		extra_ok = false
 	if _ballistics_enabled and combat_ballistics != null and not bool(combat_ballistics.ready):
+		extra_ok = false
+	if _ship_catalog_enabled and ship_catalog != null and not bool(ship_catalog.ready):
+		extra_ok = false
+	if _refit_enabled and refit_service != null and not bool(refit_service.ready):
+		extra_ok = false
+	if damage_profile_service != null and not bool(damage_profile_service.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
 			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
@@ -345,6 +364,25 @@ func _entities_map() -> Dictionary:
 func _setup_optional_components() -> void:
 	_track_enabled = false
 	_story_enabled = false
+	var sc = _seed.get("ship_catalog", null)
+	var sc_on := (sc is Dictionary) or (sc is bool and bool(sc))
+	if sc_on:
+		var sccfg: Dictionary = {} if (sc is bool) else (sc as Dictionary).duplicate(true)
+		ship_catalog = ShipCatalogScript.new(sccfg)
+		if not bool(ship_catalog.ready):
+			errors.append("ship_catalog 未就绪：" + str(ship_catalog.errors))
+		else:
+			_ship_catalog_enabled = true
+	var dp = _seed.get("damage_profiles", null)
+	var dp_on := (dp is Dictionary) or (dp is bool and bool(dp)) or _ship_catalog_enabled
+	if dp_on:
+		var dpcfg: Dictionary = {} if (dp is bool or dp == null) else (dp as Dictionary).duplicate(true)
+		if ship_catalog != null and bool(ship_catalog.ready):
+			dpcfg["catalog"] = ship_catalog
+		damage_profile_service = DamageProfileServiceScript.new(dpcfg)
+		if not bool(damage_profile_service.ready):
+			warnings.append("damage_profile_service 未就绪：" + str(damage_profile_service.errors))
+			damage_profile_service = null
 	var tt = _seed.get("track_table", null)
 	var tt_on := (tt is Dictionary) or (tt is bool and bool(tt))
 	if tt_on:
@@ -411,11 +449,53 @@ func _setup_optional_components() -> void:
 	var dmg_on := (dmg is Dictionary) or (dmg is bool and bool(dmg))
 	if dmg_on:
 		var dcfg: Dictionary = _demo_damage_config() if (dmg is bool) else (dmg as Dictionary).duplicate(true)
+		# 5D：带舰级建档（entity→class），旧 damage_l1.ships 显式档案仍优先
+		if _ship_catalog_enabled and ship_catalog != null and bool(ship_catalog.ready):
+			if dcfg.get("ships") is Array:
+				dcfg["ships"] = _damage_ships_with_class(dcfg.get("ships"))
+			dcfg["profiles_enabled"] = true
+			dcfg["catalog_enabled"] = true
+			if damage_profile_service != null and damage_profile_service.ready:
+				dcfg["profile_content"] = damage_profile_service.content.duplicate(true)
 		damage_service = DamageServiceScript.new(dcfg)
 		if not bool(damage_service.ready):
 			errors.append("damage_service 未就绪：" + str(damage_service.errors))
 		else:
 			_damage_enabled = true
+			if damage_profile_service == null and damage_service.profile_service != null:
+				damage_profile_service = damage_service.profile_service
+			elif damage_profile_service != null and damage_profile_service.ready:
+				damage_service.profile_service = damage_profile_service
+			# 旧 damage_l1 显式档案保持属性优先，但补 class_id 元数据（5D）
+			for sid_cls in (damage_service.ship_ids as Array):
+				var mdl = (damage_service.ships as Dictionary).get(str(sid_cls), null)
+				if mdl == null:
+					continue
+				if str(mdl.class_id) == "":
+					var cid_cls: String = entity_class_id(str(sid_cls))
+					if cid_cls != "TBD" and cid_cls != "":
+						mdl.class_id = cid_cls
+	var rf = _seed.get("refit", null)
+	var rf_on := (rf is Dictionary) or (rf is bool and bool(rf))
+	if rf_on:
+		if ship_catalog == null:
+			ship_catalog = ShipCatalogScript.new()
+			if bool(ship_catalog.ready):
+				_ship_catalog_enabled = true
+			else:
+				errors.append("refit 需要 ShipCatalog：" + str(ship_catalog.errors))
+		if bool(ship_catalog.ready):
+			var rcfg: Dictionary = {} if (rf is bool) else (rf as Dictionary).duplicate(true)
+			var ropt = rcfg.get("options", rcfg.get("options_path", null))
+			var rres: Dictionary = (rcfg.get("resources", {}) as Dictionary).duplicate(true) \
+				if rcfg.get("resources") is Dictionary else {}
+			if rcfg.has("location") and not rres.has("location"):
+				rres["location"] = rcfg.get("location")
+			refit_service = RefitServiceScript.new(ship_catalog, ropt, rres)
+			if not bool(refit_service.ready):
+				errors.append("refit_service 未就绪：" + str(refit_service.errors))
+			else:
+				_refit_enabled = true
 	var sig = _seed.get("signal_service", null)
 	var sig_on := (sig is Dictionary) or (sig is bool and bool(sig))
 	if sig_on:
@@ -890,6 +970,9 @@ func tick(dt: float) -> Dictionary:
 			"legal_status": legal_status_service != null,
 			"traffic": traffic_control != null,
 			"combat_ballistics": combat_ballistics != null,
+			"ship_catalog": ship_catalog != null,
+			"refit": refit_service != null,
+			"damage_profile": damage_profile_service != null,
 		},
 		"sensor_route": sensor_route,
 		"port_combat": port_combat,
@@ -3479,6 +3562,220 @@ func combat_predict(shooter: String, target: String, weapon: String,
 func ballistics_launch(shooter: String, target: String, weapon: String, opts := {}) -> Dictionary:
 	return combat_ballistics_launch(shooter, target, weapon, opts)
 
+# ── 舰船目录 / 改装 / 毁伤档案（5D）────────────────────
+
+## entity → 舰级：known_ship/entity_binding → 实体 class_id → TBD。
+func entity_class_id(entity_id: String) -> String:
+	if entity_id == "":
+		return "TBD"
+	if ship_catalog != null and bool(ship_catalog.ready):
+		var bind: Dictionary = ship_catalog.entity_binding(entity_id)
+		if bool(bind.get("ok", false)):
+			var bcid := str(bind.get("class_id", ""))
+			if bcid != "":
+				return bcid
+		var known: Dictionary = ship_catalog.known_ship(entity_id)
+		if not known.is_empty():
+			var kcid := str(known.get("class_id", ""))
+			if kcid != "":
+				return kcid
+		for row in (ship_catalog.ships() as Array):
+			if row is Dictionary:
+				var r: Dictionary = row
+				for f in ["entity_id", "ship_id", "hull_code", "hull", "batch"]:
+					if str(r.get(f, "")) == entity_id:
+						var cid0 := str(r.get("class_id", ""))
+						if cid0 != "":
+							return cid0
+		var cls: Dictionary = ship_catalog.class_of(entity_id)
+		if not cls.is_empty():
+			var cid1 := str(cls.get("class_id", ""))
+			if cid1 != "":
+				return cid1
+	# 实体自身 class_id（world 优先；world 未携带时回退 seed）
+	var candidates: Array = []
+	if world != null and world.has_entity(entity_id):
+		candidates.append(world.entity(entity_id))
+	for raw in (_seed.get("entities", []) as Array):
+		if raw is Dictionary and str((raw as Dictionary).get("id", "")) == entity_id:
+			candidates.append(raw)
+	for ent in candidates:
+		var direct := str((ent as Dictionary).get("class_id", ""))
+		if direct != "":
+			return direct
+		if (ent as Dictionary).get("flags") is Dictionary:
+			var fl := str(((ent as Dictionary)["flags"] as Dictionary).get("class_id", ""))
+			if fl != "":
+				return fl
+		if (ent as Dictionary).get("extra") is Dictionary:
+			var ex := str(((ent as Dictionary)["extra"] as Dictionary).get("class_id", ""))
+			if ex != "":
+				return ex
+	return "TBD"
+
+func class_vm(entity_id: String) -> Dictionary:
+	var cid: String = entity_class_id(entity_id)
+	var out: Dictionary = {"ok": cid != "TBD" and cid != "", "entity_id": entity_id,
+		"class_id": cid, "known": cid != "TBD" and cid != "", "truth": false,
+		"writes": {"world": false, "ui": false, "v15": false}}
+	var cls: Dictionary = {}
+	if ship_catalog != null and bool(ship_catalog.ready) and cid != "TBD":
+		cls = ship_catalog.class_of(cid)
+	if cls.is_empty():
+		out["tbd"] = true
+		out["reason"] = "unknown_class"
+		return out
+	for k in cls.keys():
+		out[k] = cls[k]
+	out["ok"] = true
+	out["class_id"] = cid
+	out["entity_id"] = entity_id
+	out["truth"] = false
+	out["source"] = "ship_catalog"
+	return out
+
+func ship_catalog_vm() -> Dictionary:
+	if ship_catalog != null and bool(ship_catalog.ready):
+		return ship_catalog.to_dict()
+	return {}
+
+func ship_catalog_summary() -> Dictionary:
+	if ship_catalog != null and bool(ship_catalog.ready):
+		return ship_catalog.summary()
+	return {}
+
+## DamageService 建档时把 ships 字符串/对象补 class_id（旧 damage_l1 显式档案仍优先）。
+func _damage_ships_with_class(raw: Variant) -> Array:
+	var out: Array = []
+	if not (raw is Array):
+		return out
+	for item in (raw as Array):
+		if item is Dictionary:
+			var row: Dictionary = (item as Dictionary).duplicate(true)
+			var rid := str(row.get("id", row.get("ship_id", "")))
+			if rid != "" and str(row.get("class_id", "")) == "":
+				var cid := entity_class_id(rid)
+				if cid != "TBD":
+					row["class_id"] = cid
+			out.append(row)
+		else:
+			var sid := str(item)
+			var row2 := {"id": sid}
+			var cid2 := entity_class_id(sid)
+			if cid2 != "TBD":
+				row2["class_id"] = cid2
+			out.append(row2)
+	return out
+
+func damage_profile_for(entity_or_class: String) -> Dictionary:
+	if damage_profile_service == null or not bool(damage_profile_service.ready):
+		return {}
+	return damage_profile_service.profile_for(entity_or_class)
+
+func damage_class_of(entity_id: String) -> Dictionary:
+	var cid := "TBD"
+	var ship_id := ""
+	if damage_service != null:
+		for sid in (damage_service.ship_ids as Array):
+			if str(sid) == entity_id:
+				ship_id = str(sid)
+				break
+		if ship_id == "" and (damage_service.ships as Dictionary).has(entity_id):
+			ship_id = entity_id
+		if ship_id != "":
+			var m = (damage_service.ships as Dictionary)[ship_id]
+			if m != null:
+				cid = str(m.class_id)
+				if cid == "" and m._class_profile is Dictionary:
+					cid = str((m._class_profile as Dictionary).get("class_id", ""))
+				return {"ok": cid != "", "entity_id": entity_id, "ship_id": ship_id,
+					"class_id": cid if cid != "" else "TBD",
+					"profile_source": str(m.profile_source), "truth": false}
+	var prof: Dictionary = damage_profile_for(entity_id)
+	if not prof.is_empty() and not bool(prof.get("fallback", false)):
+		cid = str(prof.get("class_id", ""))
+		if cid != "":
+			return {"ok": true, "entity_id": entity_id, "ship_id": "",
+				"class_id": cid, "profile_source": "profile", "truth": false}
+	return {"ok": false, "entity_id": entity_id, "ship_id": "", "class_id": "TBD",
+		"reason": "no_damage_profile", "truth": false}
+
+# ── 改装 API（可选 refit）────────────────────────────────────
+
+func _refit_fail(reason_text: String) -> Dictionary:
+	return {"ok": false, "reason": reason_text}
+
+func _publish_refit(kind: String, payload := {}) -> Dictionary:
+	if bus == null:
+		return {"ok": false, "reason": "no_bus"}
+	var ev: Dictionary = _mk_event("refit." + kind, "", payload)
+	var pub: Dictionary = bus.publish(ev)
+	if not bool(pub.get("ok", false)):
+		warnings.append("refit 事件发布失败：" + kind)
+		return pub
+	_tick_events.append(pub.get("event", {}))
+	return pub
+
+func refit_vm() -> Dictionary:
+	if refit_service == null:
+		return {}
+	return refit_service.to_dict()
+
+func refit_slots() -> Dictionary:
+	if refit_service == null:
+		return {}
+	return refit_service.slots()
+
+func refit_options(category := "") -> Array:
+	if refit_service == null:
+		return []
+	return refit_service.options(category)
+
+func refit_quote(module: Variant) -> Dictionary:
+	if refit_service == null:
+		return _refit_fail("no_refit_service")
+	return refit_service.quote(module)
+
+func refit_install(module: Variant, opts := {}) -> Dictionary:
+	if refit_service == null:
+		return _refit_fail("no_refit_service")
+	var res: Dictionary = refit_service.install(module, opts)
+	if bool(res.get("ok", false)):
+		_publish_refit("install", {"module_id": str(res.get("module_id", "")),
+			"planned": bool(res.get("planned", false)), "costs": res.get("costs", {})})
+	return res
+
+func refit_remove(module: Variant) -> Dictionary:
+	if refit_service == null:
+		return _refit_fail("no_refit_service")
+	var res: Dictionary = refit_service.remove(module)
+	if bool(res.get("ok", false)):
+		_publish_refit("remove", {"module_id": str(res.get("module_id", "")),
+			"where": str(res.get("where", ""))})
+	return res
+
+func refit_commit() -> Dictionary:
+	if refit_service == null:
+		return _refit_fail("no_refit_service")
+	var res: Dictionary = refit_service.commit()
+	if bool(res.get("ok", false)):
+		_publish_refit("commit", {"committed": res.get("committed", []),
+			"costs": res.get("costs", {}), "resources": res.get("resources", {})})
+	return res
+
+func refit_tick(days: float) -> Dictionary:
+	if refit_service == null:
+		return _refit_fail("no_refit_service")
+	var res: Dictionary = refit_service.tick(days)
+	if bool(res.get("ok", false)):
+		_publish_refit("tick", {"days": days, "completed": res.get("completed", [])})
+	return res
+
+func refit_stats() -> Dictionary:
+	if refit_service == null:
+		return {}
+	return refit_service.stats()
+
 # ── DbC ─────────────────────────────────────────────────────────
 
 func check_contracts() -> Dictionary:
@@ -3606,6 +3903,21 @@ func check_contracts() -> Dictionary:
 		if bool(bw.get("world", false)) or bool(bw.get("track_table", false)) \
 				or bool(bw.get("ui", false)) or bool(bw.get("v15", false)):
 			v.append("ballistics 声明写 world/track_table/ui/v15")
+	if ship_catalog != null:
+		if not bool(ship_catalog.ready):
+			v.append("ship_catalog 未就绪")
+		var cat_contracts: Dictionary = ship_catalog.check_contracts()
+		if not bool(cat_contracts.get("ok", false)):
+			v.append("ship_catalog 不变量失败：" + str(cat_contracts.get("violations", [])))
+	if damage_profile_service != null:
+		if not bool(damage_profile_service.ready):
+			v.append("damage_profile_service 未就绪")
+	if refit_service != null:
+		if not bool(refit_service.ready):
+			v.append("refit_service 未就绪")
+		var rc: Dictionary = refit_service.check_contracts()
+		if not bool(rc.get("ok", false)):
+			v.append("refit 不变量失败：" + str(rc.get("violations", [])))
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -3668,6 +3980,13 @@ func snapshot() -> Dictionary:
 		"legal_status": legal_status_service.vm() if legal_status_service != null else null,
 		"traffic_control": traffic_control.vm() if traffic_control != null else null,
 		"combat_ballistics": combat_ballistics.vm() if combat_ballistics != null else null,
+		"ship_catalog": {"schema": "v17.ship_catalog.v1",
+			"summary": ship_catalog.summary()} if ship_catalog != null else null,
+		"catalog": {"schema": "v17.ship_catalog.v1",
+			"summary": ship_catalog.summary()} if ship_catalog != null else null,
+		"damage_profile": damage_profile_service.summary() \
+			if damage_profile_service != null else null,
+		"refit": refit_service.save_state() if refit_service != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -3708,6 +4027,13 @@ func save_state() -> String:
 		"legal_status_service": legal_status_service.save_state() if legal_status_service != null else "",
 		"traffic_control": traffic_control.save_state() if traffic_control != null else "",
 		"combat_ballistics": combat_ballistics.save_state() if combat_ballistics != null else "",
+		"ship_catalog": {"schema": "v17.ship_catalog.v1",
+			"summary": ship_catalog.summary()} if ship_catalog != null else null,
+		"catalog": {"schema": "v17.ship_catalog.v1",
+			"summary": ship_catalog.summary()} if ship_catalog != null else null,
+		"damage_profile": damage_profile_service.summary() \
+			if damage_profile_service != null else null,
+		"refit": refit_service.save_state() if refit_service != null else null,
 		"combat_time_cap": {"active": _combat_scale_cap_active,
 			"restore_to": _scale_before_combat, "cap": COMBAT_SCALE_CAP},
 		"bus": {
@@ -3868,6 +4194,23 @@ func load_state(json_text: String) -> Dictionary:
 			var br: Dictionary = combat_ballistics.load_state(saved_ball)
 			if not bool(br.get("ok", false)):
 				replay_errors.append("combat_ballistics 快照恢复失败：" + str(br.get("reason", br.get("errors", []))))
+	# 5D：catalog/refit 快照（旧档缺字段兼容）
+	var saved_cat = data.get("ship_catalog", null)
+	if saved_cat is Dictionary and ship_catalog != null:
+		var saved_sum: Dictionary = (saved_cat as Dictionary).get("summary", {}) \
+			if (saved_cat as Dictionary).get("summary") is Dictionary else {}
+		var now_sum: Dictionary = ship_catalog.summary()
+		if saved_sum.has("classes") and int(saved_sum.get("classes", 0)) != int(now_sum.get("classes", 0)):
+			warnings.append("存档 catalog 类型数 %s 与当前 %s 不一致" % [
+				str(saved_sum.get("classes")), str(now_sum.get("classes"))])
+	var saved_refit = data.get("refit", null)
+	if saved_refit is Dictionary:
+		if refit_service == null:
+			replay_errors.append("存档含 refit 快照但 boot 未启用 refit")
+		else:
+			var rr2: Dictionary = refit_service.load_state(saved_refit)
+			if not bool(rr2.get("ok", false)):
+				replay_errors.append("refit 快照恢复失败：" + str(rr2.get("reason", rr2.get("errors", []))))
 	# 交战时间膨胀状态（旧存档无此字段 → 视为未封顶）
 	var saved_cap = data.get("combat_time_cap", null)
 	if saved_cap is Dictionary:

@@ -3,7 +3,7 @@
 > 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）+ 3P（task-164）+ 3R（task-167）+ **4Z 交战物理化（统一开火路径）**。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=1357 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=1445 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -42,6 +42,9 @@ GameSession
  ├─ LegalStatusService（可选） ID13 法律状态/影响标志；UNLISTED→HUNTED/CLEARED；不写 world
  └─ TrafficControlService（可选） OTC/航道/NPC/伪装线索；申请-许可-占用-释放；不写 world/TrackTable/UI
  └─ CombatBallistics（可选） 弹道/导弹/PD/诱饵；session 状态驱动 step；impact→damage_event；不写 world
+ └─ ShipCatalog（可选） 友军/敌军舰级目录；entity→class/known_ship/entity_binding；只读
+ └─ RefitService（可选） APSIS 改装事务/槽位/质量/功率/成本/地点；不写 world/UI
+ └─ DamageProfileService（可选） 舰级毁伤档案（分区/材质/effects）；旧 damage_l1 显式档案优先
 ```
 
 - **依赖方向**：OrderService 内部持有 CommsService；`tick` 时订单服务推进通信并消费其投递事件。
@@ -98,6 +101,13 @@ GameSession
   `combat_ballistics_launch/combat_predict/...`；impact 的 `damage_event` 白名单→
   DamageService（`applied=true`，shot_id 去重）；事件 `ballistics.*` 发布 EventBus；
   不写 world/TrackTable/UI；存档嵌入服务快照。
+- **ShipCatalog/Refit/DamageProfile（5D）**：可选 `ship_catalog` 初始化目录；`entity_class_id`
+  按 known_ship/entity_binding → 实体 class_id → TBD 解析，`class_vm` 返回舰级数据；
+  可选 `refit` 初始化 RefitService（catalog/options/resources/location），API
+  `refit_vm/refit_quote/refit_install/refit_remove/refit_commit/refit_tick/refit_stats`，
+  成功操作发布 `refit.*` 事件；DamageService 建档带 class_id（旧 damage_l1 ships 显式档案
+  属性优先），`damage_class_of/damage_profile_for` 可查；不写 world/UI；save 嵌入
+  catalog 摘要与 refit 快照。
 - **弹道取态唯一入口 `_entity_kinematics(entity_id)`（4Z）**：返回
   `{ok, source:"physics_world"|"world", frame:"bary_rot", r[3], v[3], ...}`。
   顺序为 **物理世界优先 → 剧情世界兜底**，两者都没有才 `{ok:false, reason:"unknown_entity"}`。
@@ -158,6 +168,9 @@ config 可覆盖字段（省略用 demo）：
 | `legal_status` | **可选**：`true` 或配置 `{thresholds/weights/impacts/decay_per_day/allow_deescalation}`；缺省/`false` → 不组合；旧档兼容 |
 | `traffic_control` | **可选**：`true` 或配置 `{facilities_path/lanes_path/facilities_content/lanes_content}`；缺省/`false` → 不组合；旧档兼容 |
 | `combat_ballistics` | **可选**：`true` 或配置 `{content_path(weapons_l1)/content/pd_platform_id}`；缺省/`false` → 不组合；旧档兼容 |
+| `ship_catalog` | **可选**：`true` 或 ShipCatalog 配置 `{friendly_path/enemy_path}`；缺省/`false` → 不组合；坏内容 boot 失败 |
+| `refit` | **可选**：`true` 或 RefitService 配置 `{options/options_path/resources/location}`；缺 catalog 自动加载；旧档兼容 |
+| `damage_profiles` | **可选**：`true` 或 DamageProfileService 配置；catalog 启用时自动建 profile service |
 | `own_entity` | **本舰实体 id**（4Z，字符串）：弹道 shooter 解析、`pd_platform_id="own"` 哨兵解析的唯一显式来源。**在 seed 白名单内**（不在白名单的字段会被 `_normalize_seed` 丢弃）；缺省时走 `combat_service.own_id` → tags → side 兜底 |
 | `seed_frame` / `frame_origin` / `prelude` | 帧转换开关（4F）：`auto/l1/bary_rot/none`；**沙盒必须显式 `bary_rot`**，否则会被套用 L1 相对帧导致整图平移 32 万公里 |
 
@@ -217,6 +230,12 @@ config 可覆盖字段（省略用 demo）：
 | `traffic_request/traffic_permit/traffic_occupy/traffic_release/traffic_disguise` | 交通申请/许可/占用/释放/伪装（服务显式 API 委托；失败不改状态） |
 | `combat_ballistics_vm/combat_ballistics_summary/combat_ballistics_active/combat_ballistics_intercepts/combat_ballistics_impacts/combat_ballistics_pd` | 弹道 VM/摘要/主动弹/拦截/命中/PD 只读（无组件返回空） |
 | `combat_ballistics_launch/combat_predict/ballistics_launch` | 用 session 实体状态发射/预测；失败 reason；不写 world |
+| `ship_catalog` | **可选**：`true` 或 ShipCatalog 配置（`friendly_path/enemy_path`）；缺省不组合；坏内容 boot 失败 |
+| `refit` | **可选**：`true` 或 RefitService 配置（`options/options_path/resources/location`）；缺 catalog 时自动加载；不写 world/UI |
+| `damage_profiles` | **可选**：`true` 或 DamageProfileService 配置；catalog 启用时自动建 profile service |
+| `entity_class_id/class_vm/ship_catalog_vm/ship_catalog_summary` | 实体→舰级（known_ship/binding→实体 class_id→TBD）；舰级只读数据 |
+| `damage_class_of/damage_profile_for` | DamageService 模型的 class_id/profile_source / DamageProfile 查询 |
+| `refit_vm/refit_slots/refit_options/refit_quote/refit_install/refit_remove/refit_commit/refit_tick/refit_stats` | APSIS 改装事务 API（quote/install 支持 id 或模块对象）；成功发 `refit.*` 事件 |
 | `light_send/light_receive/light_ack/signal_vm/signal_summary/signal_flush_events` | 可见光灯语发送/接收/确认、只读 VM/摘要、显式拉取 Signal outbox |
 | `apply_ew/ew_observation_effect/ew_comms_effect/ew_transponder_effect/ew_active/ew_vm` | EW 效果应用/观测-通信-应答机影响/活动效果/只读 VM；apply 记录 log 可 replay |
 | `set_ew_emcon` | EW EMCON 开关（独立于 sensor `set_emcon`；只写 EWService） |
@@ -268,6 +287,8 @@ config 可覆盖字段（省略用 demo）：
 - CombatBallistics 事件：`ballistics.launch/impact/pd_launch/projectile_intercepted/miss/
   projectile_expired/countermeasure_*`；impact payload 内 `damage_event.applied=true`
   （已路由 DamageService；只读发布，不回写 world）。
+- Refit 事件：`refit.install/remove/commit/tick`（成功操作发布；payload 含 module_id/committed/
+  costs/completed；只读，不写 world/UI）。
 - PortService 事件：`port.request_created/granted/denied/held/expired/approach/docked/service_started/
   service_finished/departed`；CombatService 事件：`combat.<kind>`（weapon_launch/combat_hit/combat_miss/
   point_defense/authorization_*/roe_* 等），均为只读事件。
@@ -325,6 +346,11 @@ config 可覆盖字段（省略用 demo）：
   tick states 来自 physics/world 只读；impact `damage_event` 只经白名单进 DamageService，
   `shot_id` 去重（重复 tick 不二次应用）；`ballistics.*` 事件只读发布；旧档缺字段/seed
   配置 → 组件退化、ballistics replay 跳过（skipped:no_combat_ballistics）。
+- **5D 一致**：`ship_catalog.ready`（若启用）、`refit_service.ready/check_contracts`、
+  `damage_profile_service.ready`；`entity_class_id` 只读解析（不写 world）；refit 事务
+  `planned→commit→queue→tick`，不写 world/UI；save 含 `ship_catalog/catalog/refit/
+  damage_profile`；旧档缺字段 → catalog/refit 退化（entity_class TBD、refit API
+  `no_refit_service`），不报错；存档含 refit 但 seed 未启用 → replay error。
 - **统一开火路径一致（4Z）**：`request_fire()` 的前置检查顺序固定为
   `no_combat_service → unknown_track → no_ballistics → no_physics_state → 门禁 → launch`，
   **任何前置检查失败都不得扣弹药、不得改航迹/授权状态**（返回 `ok=false` + `reason`，
@@ -367,6 +393,10 @@ ew_service: <EWService.save_state() JSON> | "",
   legal_status_service: <LegalStatusService.save_state() JSON> | "",
   traffic_control: <TrafficControlService.save_state() JSON> | "",
   combat_ballistics: <CombatBallistics.save_state() JSON> | "",
+  ship_catalog: {schema, summary} | null,
+  catalog: {schema, summary} | null,          # 别名
+  damage_profile: <DamageProfileService.summary()> | null,
+  refit: <RefitService.save_state()> | null,
   bus: {seq, events[]}
 }
 ```
@@ -425,6 +455,13 @@ summary/snapshot 一致、可继续 launch/tick；`combat_ballistics_launch` 记
 伤害已应用结果同时由 DamageService 快照恢复；旧存档缺字段/seed 配置 → 组件退化、
 对应 ballistics replay 跳过（`skipped:no_combat_ballistics`），不报错。
 
+**5D 存档**：save 嵌入 `ship_catalog`（schema+summary；`catalog` 为别名）、
+`damage_profile` summary、`refit` save_state（location/t_days/resources/installed/planned/queue）；
+load 先 boot(seed) 重建 catalog/refit，再恢复 refit 快照；load 后 entity_class/class_vm/
+refit_stats 一致、可继续改装；旧存档缺 5D 字段/seed 配置 → catalog/refit 退化
+（entity_class TBD、refit API `no_refit_service`），不报错；存档含 refit 而 seed 未启用 →
+replay error。
+
 **Port/Combat 存档**：save 嵌入二者 `save_state()` JSON；load 时先 boot(seed) 重建并按 log 重放
 （port/combat 委托操作 + tick），再恢复快照；load 后 VM/snapshot 一致、时间与 session 同步、
 可继续操作/再次 save。旧存档缺 `port_service/combat_service` 字段与 seed 配置时，replay 对应操作
@@ -449,7 +486,7 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=1357 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=1445 FAIL=0（exit 0，只跑一次）
 ```
 
 覆盖（40 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
@@ -480,8 +517,11 @@ apply_event/去重/影响接口、tick、save/load/旧档兼容、确定性）�
 无重复转换、save/load、确定性）；**CombatBallistics 集成**（可选退化、predict/launch、tick 命中→
 DamageService applied、PD 自动拦截、ballistics.* bus、失败不改状态、save/load/旧档/确定性）；
 **统一开火路径（4Z，第 40 节）**（门禁→真实弹丸→异步 impact→Damage→倍速降档/恢复、
-齐射/逐发散布/弹药不足拒绝+`salvo_max`、规划预演、`no_physics_state`、存档往返）。
-当前 `V17 SESSION PROBE RESULT: PASS=1357 FAIL=0`（含 legal/traffic/帧转换/ballistics/统一开火；exit 0，只跑一次）。
+齐射/逐发散布/弹药不足拒绝+`salvo_max`、规划预演、`no_physics_state`、存档往返）；
+**5D 集成**（catalog 36/8+28、entity_class known_ship/binding/hull/batch/实体 class_id/TBD、
+class_vm、refit 30 模块事务/槽位/质量/功率/成本/地点/事件、damage class_id 与旧 damage_l1
+优先、save/load/旧档/失败原子/确定性）。
+当前 `V17 SESSION PROBE RESULT: PASS=1445 FAIL=0`（含 legal/traffic/帧转换/ballistics/统一开火/5D；exit 0，只跑一次）。
 
 ## 7　边界 / 未完成
 
@@ -511,6 +551,9 @@ DamageService applied、PD 自动拦截、ballistics.* bus、失败不改状态�
 - CombatBallisticsService 只做弹道/导弹/PD/诱饵与 damage_event：states 由 session 每步只读提供；
   impact damage_event 只经白名单进 DamageService（shot_id 去重），事件只读进 bus；不写
   world/TrackTable/UI/V15；不执行身份判定。
+- ShipCatalog/Refit/DamageProfile 只做目录/改装事务/毁伤档案查询：catalog 为静态内容，
+  refit 为事务状态，DamageProfile 只在建档/查询时用；不接 UI 干船坞、不写 world/V15、
+  不生成实体；旧 damage_l1 ships 显式档案属性优先，class_id 仅补元数据。
 - **开火是异步的（4Z）**：`request_fire()` 返回 `ok=true` 仅表示弹丸已进入物理积分，不代表命中。
   上层/UI 不得据此宣布战果，必须等 `ballistics.impact` 事件或航迹 `damage_taken` 变化。
   门禁通过但物理状态缺失时一律 `no_physics_state` 拒绝（不降级成"抽象命中"），
