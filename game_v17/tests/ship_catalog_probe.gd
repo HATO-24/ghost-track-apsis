@@ -316,16 +316,17 @@ func _test_enemy_orbflt_ueof() -> void:
 		_check_required(c, row2, "UEOF:" + str(row2.get("class_id", "")))
 		_eq(bool(row2.get("proposal", false)), true, "UEOF proposal")
 		_ok(str(row2.get("naming_scheme", "")) != "", "UEOF naming_scheme")
-	# UEOF 名称 TBD、known_ships 空
+	# UEOF 名称已补 proposal、known_ships 空
 	for raw3 in u7 + u3:
 		var r3: Dictionary = raw3
-		_eq(str(r3.get("name", "")), "TBD", "UEOF name TBD")
+		_ok(str(r3.get("name", "")) not in ["", "TBD"], "UEOF name proposal")
+		_eq(str(r3.get("name_note", "")), "proposal; 待用户定案", "UEOF name note")
 		_eq((r3.get("known_ships", []) as Array).size(), 0, "UEOF known_ships 空")
 	# ORBFLT/UEOF 编制命名池
 	_ok((c.name_pool("orbflt") as Array).size() >= 1, "ORBFLT 命名池")
 	_ok((c.name_pool("ueof_7th") as Array).size() >= 1, "UEOF 7th 命名池")
 	_ok((c.name_pool("ueof_3rd") as Array).size() >= 1, "UEOF 3rd 命名池")
-	_data_line("orbflt/ueof", "ORBFLT 6 级 · UEOF 7th/3rd 各2级 · 编制命名 · 名称/数值 TBD")
+	_data_line("orbflt/ueof", "ORBFLT 6 级 · UEOF 7th/3rd 各2级 · 编制命名 · 名称提案/数值 TBD")
 
 # ═══════════════════════════════════════════════════════════════════
 # 5. ShipCatalog API / 未知

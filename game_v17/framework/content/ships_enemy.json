@@ -1,1706 +1,1811 @@
 {
-  "schema": "v17.ships_enemy.v1",
-  "version": "1.0.0",
-  "title": "完整游戏-阶段5A 敌军舰船目录（33OSID/ORBFLT/UEOF）",
-  "source": "docs/16 §3-4 + docs/46 §9.3-9.4 + docs/04 §12.6",
-  "basis": "docs/04, docs/16, docs/46",
-  "proposal": true,
-  "units": {
-    "displacement": "t",
-    "dv": "km/s",
-    "accel": "g",
-    "dimensions": "m"
+ "schema": "v17.ships_enemy.v1",
+ "version": "1.0.0",
+ "title": "完整游戏-阶段5A 敌军舰船目录（33OSID/ORBFLT/UEOF）",
+ "source": "docs/16 §3-4 + docs/46 §9.3-9.4 + docs/04 §12.6",
+ "basis": "docs/04, docs/16, docs/46",
+ "proposal": true,
+ "units": {
+  "displacement": "t",
+  "dv": "km/s",
+  "accel": "g",
+  "dimensions": "m"
+ },
+ "name_pools": {
+  "agent": {
+   "ADJUDICATOR": "裁夺者",
+   "INQUISITOR": "究诘者",
+   "PURSUER": "追索者",
+   "ANNIHILATOR": "湮没者",
+   "ERASER": "抹除者",
+   "SWEEPER": "荡除者",
+   "PURGER": "肃清者",
+   "SUNSUMMONER": "传唤者"
   },
-  "name_pools": {
-    "agent": {
-      "ADJUDICATOR": "裁夺者",
-      "INQUISITOR": "究诘者",
-      "PURSUER": "追索者",
-      "ANNIHILATOR": "湮没者",
-      "ERASER": "抹除者",
-      "SWEEPER": "荡除者",
-      "PURGER": "肃清者",
-      "SUNSUMMONER": "传唤者"
-    },
-    "immovable": {
-      "UNYIELDING": "不移",
-      "ENDGAME": "终局",
-      "IRON_RULE": "铁律",
-      "NO_QUARTER": "无赦",
-      "FINALITY": "既判"
-    },
-    "authority": {
-      "RECEIVERSHIP": "清算级",
-      "ENFORCEMENT": "执刑级",
-      "INTERDICT": "禁制级",
-      "RECOURSE": "追索级",
-      "REQUISITION": "征用级",
-      "SUMMONS": "传唤级"
-    },
-    "orbflt": [
-      "TBD"
-    ],
-    "ueof_7th": [
-      "TBD"
-    ],
-    "ueof_3rd": [
-      "TBD"
-    ]
+  "immovable": {
+   "UNYIELDING": "不移",
+   "ENDGAME": "终局",
+   "IRON_RULE": "铁律",
+   "NO_QUARTER": "无赦",
+   "FINALITY": "既判"
   },
-  "entity_bindings": {
-    "av_4412": "AV-4412"
+  "authority": {
+   "RECEIVERSHIP": "清算级",
+   "ENFORCEMENT": "执刑级",
+   "INTERDICT": "禁制级",
+   "RECOURSE": "追索级",
+   "REQUISITION": "征用级",
+   "SUMMONS": "传唤级"
   },
-  "classes": [
-    {
-      "class_id": "33OSID-RECEIVERSHIP",
-      "faction": "33osid",
-      "name": "清算级",
-      "name_en": "Receivership",
-      "role": "battleship",
-      "hull_code": "BB",
-      "variant_of": "",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "ADJUDICATOR",
-        "INQUISITOR",
-        "ANNIHILATOR"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "清算级 BB；主力战列舰。"
-    },
-    {
-      "class_id": "33OSID-RECEIVERSHIP-STD",
-      "faction": "33osid",
-      "name": "清算级·标准型",
-      "name_en": "Receivership Standard",
-      "role": "battleship_standard",
-      "hull_code": "BB-STD",
-      "variant_of": "33OSID-RECEIVERSHIP",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "ADJUDICATOR",
-        "INQUISITOR",
-        "ANNIHILATOR"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "清算级 BB；主力战列舰。 标准改装包（提案）。"
-    },
-    {
-      "class_id": "33OSID-RECEIVERSHIP-ASSAULT",
-      "faction": "33osid",
-      "name": "清算级·强袭型",
-      "name_en": "Receivership Assault",
-      "role": "battleship_assault",
-      "hull_code": "BB-ASLT",
-      "variant_of": "33OSID-RECEIVERSHIP",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "ADJUDICATOR",
-        "INQUISITOR",
-        "ANNIHILATOR"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "清算级 BB；主力战列舰。 强袭改装包（提案）。"
-    },
-    {
-      "class_id": "33OSID-ENFORCEMENT",
-      "faction": "33osid",
-      "name": "执刑级",
-      "name_en": "Enforcement",
-      "role": "heavy_cruiser",
-      "hull_code": "CA",
-      "variant_of": "",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [
-        {
-          "ship_id": "CA-4471",
-          "name": "湮没者",
-          "name_en": "ANNIHILATOR",
-          "hull_code": "CA-4471",
-          "batch": "TBD"
-        }
-      ],
-      "name_pool": [
-        "ANNIHILATOR",
-        "ERASER",
-        "SUNSUMMONER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "执刑级 CA；出现即终局。"
-    },
-    {
-      "class_id": "33OSID-ENFORCEMENT-STD",
-      "faction": "33osid",
-      "name": "执刑级·标准型",
-      "name_en": "Enforcement Standard",
-      "role": "heavy_cruiser_standard",
-      "hull_code": "CA-STD",
-      "variant_of": "33OSID-ENFORCEMENT",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "ANNIHILATOR",
-        "ERASER",
-        "SUNSUMMONER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "执刑级 CA；出现即终局。 标准改装包（提案）。"
-    },
-    {
-      "class_id": "33OSID-ENFORCEMENT-ASSAULT",
-      "faction": "33osid",
-      "name": "执刑级·强袭型",
-      "name_en": "Enforcement Assault",
-      "role": "heavy_cruiser_assault",
-      "hull_code": "CA-ASLT",
-      "variant_of": "33OSID-ENFORCEMENT",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "ANNIHILATOR",
-        "ERASER",
-        "SUNSUMMONER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "执刑级 CA；出现即终局。 强袭改装包（提案）。"
-    },
-    {
-      "class_id": "33OSID-INTERDICT",
-      "faction": "33osid",
-      "name": "禁制级",
-      "name_en": "Interdict",
-      "role": "light_cruiser",
-      "hull_code": "CL",
-      "variant_of": "",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "IRON RULE",
-        "FINALITY",
-        "NO QUARTER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "禁制级 CL；断航/封锁。"
-    },
-    {
-      "class_id": "33OSID-INTERDICT-STD",
-      "faction": "33osid",
-      "name": "禁制级·标准型",
-      "name_en": "Interdict Standard",
-      "role": "light_cruiser_standard",
-      "hull_code": "CL-STD",
-      "variant_of": "33OSID-INTERDICT",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "IRON RULE",
-        "FINALITY",
-        "NO QUARTER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "禁制级 CL；断航/封锁。 标准改装包（提案）。"
-    },
-    {
-      "class_id": "33OSID-INTERDICT-ASSAULT",
-      "faction": "33osid",
-      "name": "禁制级·强袭型",
-      "name_en": "Interdict Assault",
-      "role": "light_cruiser_assault",
-      "hull_code": "CL-ASLT",
-      "variant_of": "33OSID-INTERDICT",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "IRON RULE",
-        "FINALITY",
-        "NO QUARTER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "禁制级 CL；断航/封锁。 强袭改装包（提案）。"
-    },
-    {
-      "class_id": "33OSID-RECOURSE",
-      "faction": "33osid",
-      "name": "追索级",
-      "name_en": "Recourse",
-      "role": "destroyer",
-      "hull_code": "DD",
-      "variant_of": "",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "PURSUER",
-        "SWEEPER",
-        "PURGER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "追索级 DD；追击/登舰。"
-    },
-    {
-      "class_id": "33OSID-RECOURSE-STD",
-      "faction": "33osid",
-      "name": "追索级·标准型",
-      "name_en": "Recourse Standard",
-      "role": "destroyer_standard",
-      "hull_code": "DD-STD",
-      "variant_of": "33OSID-RECOURSE",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "PURSUER",
-        "SWEEPER",
-        "PURGER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "追索级 DD；追击/登舰。 标准改装包（提案）。"
-    },
-    {
-      "class_id": "33OSID-RECOURSE-ASSAULT",
-      "faction": "33osid",
-      "name": "追索级·强袭型",
-      "name_en": "Recourse Assault",
-      "role": "destroyer_assault",
-      "hull_code": "DD-ASLT",
-      "variant_of": "33OSID-RECOURSE",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "PURSUER",
-        "SWEEPER",
-        "PURGER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "追索级 DD；追击/登舰。 强袭改装包（提案）。"
-    },
-    {
-      "class_id": "33OSID-REQUISITION",
-      "faction": "33osid",
-      "name": "征用级",
-      "name_en": "Requisition",
-      "role": "frigate",
-      "hull_code": "FF",
-      "variant_of": "",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "UNYIELDING",
-        "ENDGAME",
-        "NO QUARTER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "征用级 FF；缴获回收。"
-    },
-    {
-      "class_id": "33OSID-REQUISITION-STD",
-      "faction": "33osid",
-      "name": "征用级·标准型",
-      "name_en": "Requisition Standard",
-      "role": "frigate_standard",
-      "hull_code": "FF-STD",
-      "variant_of": "33OSID-REQUISITION",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "UNYIELDING",
-        "ENDGAME",
-        "NO QUARTER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "征用级 FF；缴获回收。 标准改装包（提案）。"
-    },
-    {
-      "class_id": "33OSID-REQUISITION-ASSAULT",
-      "faction": "33osid",
-      "name": "征用级·强袭型",
-      "name_en": "Requisition Assault",
-      "role": "frigate_assault",
-      "hull_code": "FF-ASLT",
-      "variant_of": "33OSID-REQUISITION",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "UNYIELDING",
-        "ENDGAME",
-        "NO QUARTER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "征用级 FF；缴获回收。 强袭改装包（提案）。"
-    },
-    {
-      "class_id": "33OSID-SUMMONS",
-      "faction": "33osid",
-      "name": "传唤级",
-      "name_en": "Summons",
-      "role": "aviso",
-      "hull_code": "AV",
-      "variant_of": "",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [
-        {
-          "ship_id": "AV-4412",
-          "name": "传唤者",
-          "name_en": "SUNSUMMONER",
-          "hull_code": "AV-4412",
-          "batch": "2001"
-        }
-      ],
-      "name_pool": [
-        "SUNSUMMONER",
-        "ADJUDICATOR",
-        "PURSUER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "传唤级 AV；最轻/最客气。"
-    },
-    {
-      "class_id": "33OSID-SUMMONS-STD",
-      "faction": "33osid",
-      "name": "传唤级·标准型",
-      "name_en": "Summons Standard",
-      "role": "aviso_standard",
-      "hull_code": "AV-STD",
-      "variant_of": "33OSID-SUMMONS",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "SUNSUMMONER",
-        "ADJUDICATOR",
-        "PURSUER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "传唤级 AV；最轻/最客气。 标准改装包（提案）。"
-    },
-    {
-      "class_id": "33OSID-SUMMONS-ASSAULT",
-      "faction": "33osid",
-      "name": "传唤级·强袭型",
-      "name_en": "Summons Assault",
-      "role": "aviso_assault",
-      "hull_code": "AV-ASLT",
-      "variant_of": "33OSID-SUMMONS",
-      "naming_scheme": "33osid_domain",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "SUNSUMMONER",
-        "ADJUDICATOR",
-        "PURSUER"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "传唤级 AV；最轻/最客气。 强袭改装包（提案）。"
-    },
-    {
-      "class_id": "ORBFLT-POLARIS",
-      "faction": "uegaf_orbflt",
-      "name": "北极星级",
-      "name_en": "Polaris",
-      "role": "orbital_command",
-      "hull_code": "ORB-FLAG",
-      "variant_of": "",
-      "naming_scheme": "orbflt_numbered",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "TBD"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "轨道指挥舰/ORBFLT 旗舰驻 NESOSS-01。"
-    },
-    {
-      "class_id": "ORBFLT-SENTINEL",
-      "faction": "uegaf_orbflt",
-      "name": "哨兵级",
-      "name_en": "Sentinel",
-      "role": "orbital_patrol",
-      "hull_code": "ORB-PAT",
-      "variant_of": "",
-      "naming_scheme": "orbflt_numbered",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "TBD"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "主力巡逻护航。"
-    },
-    {
-      "class_id": "ORBFLT-GATEKEEPER",
-      "faction": "uegaf_orbflt",
-      "name": "关卡级",
-      "name_en": "Gatekeeper",
-      "role": "customs_inspection",
-      "hull_code": "ORB-CUS",
-      "variant_of": "",
-      "naming_scheme": "orbflt_numbered",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "TBD"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "海关检查/临检。"
-    },
-    {
-      "class_id": "ORBFLT-FORGE",
-      "faction": "uegaf_orbflt",
-      "name": "工坊级",
-      "name_en": "Forge",
-      "role": "maintenance_tender",
-      "hull_code": "ORB-MNT",
-      "variant_of": "",
-      "naming_scheme": "orbflt_numbered",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "TBD"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "维护试验支援/NESOSS-04。"
-    },
-    {
-      "class_id": "ORBFLT-TRACTOR",
-      "faction": "uegaf_orbflt",
-      "name": "牵引级",
-      "name_en": "Tractor",
-      "role": "tug_rescue",
-      "hull_code": "ORB-TUG",
-      "variant_of": "",
-      "naming_scheme": "orbflt_numbered",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "TBD"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "拖船/救援。"
-    },
-    {
-      "class_id": "ORBFLT-BEACON",
-      "faction": "uegaf_orbflt",
-      "name": "信标级",
-      "name_en": "Beacon",
-      "role": "traffic_control_relay",
-      "hull_code": "ORB-OTC",
-      "variant_of": "",
-      "naming_scheme": "orbflt_numbered",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "TBD"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "交通管制/中继。"
-    },
-    {
-      "class_id": "UEOF-7TH-CA",
-      "faction": "ueof_7th",
-      "name": "TBD",
-      "name_en": "TBD",
-      "role": "cruiser",
-      "hull_code": "U7-CA",
-      "variant_of": "",
-      "naming_scheme": "ueof_formation_numbered",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "TBD"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "UEOF 第7舰队巡洋舰级（提案，名称 TBD）。"
-    },
-    {
-      "class_id": "UEOF-7TH-DD",
-      "faction": "ueof_7th",
-      "name": "TBD",
-      "name_en": "TBD",
-      "role": "escort",
-      "hull_code": "U7-DD",
-      "variant_of": "",
-      "naming_scheme": "ueof_formation_numbered",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "TBD"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "UEOF 第7舰队护航级（提案，名称 TBD）。"
-    },
-    {
-      "class_id": "UEOF-3RD-CA",
-      "faction": "ueof_3rd",
-      "name": "TBD",
-      "name_en": "TBD",
-      "role": "cruiser",
-      "hull_code": "U3-CA",
-      "variant_of": "",
-      "naming_scheme": "ueof_formation_numbered",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "TBD"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "UEOF 第三远征舰队巡洋舰级（提案，名称 TBD）。"
-    },
-    {
-      "class_id": "UEOF-3RD-DD",
-      "faction": "ueof_3rd",
-      "name": "TBD",
-      "name_en": "TBD",
-      "role": "escort",
-      "hull_code": "U3-DD",
-      "variant_of": "",
-      "naming_scheme": "ueof_formation_numbered",
-      "displacement_t": "TBD",
-      "dv_kmps": "TBD",
-      "accel_g": "TBD",
-      "crew": "TBD",
-      "sensors": [
-        "TBD"
-      ],
-      "weapons": [
-        "TBD"
-      ],
-      "armor": "TBD",
-      "signature": {
-        "rcs": "TBD",
-        "ir": "TBD"
-      },
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
-      "sections": [
-        "hull",
-        "power",
-        "propulsion",
-        "sensors",
-        "comms",
-        "tanks",
-        "docking"
-      ],
-      "known_ships": [],
-      "name_pool": [
-        "TBD"
-      ],
-      "proposal": true,
-      "tbd": [
-        "displacement_t",
-        "dv_kmps",
-        "accel_g",
-        "crew",
-        "sensors",
-        "weapons",
-        "armor",
-        "signature",
-        "dimensions_m"
-      ],
-      "source": "docs/16 §3 + docs/04 §12.6",
-      "note": "UEOF 第三远征舰队护航级（提案，名称 TBD）。"
-    }
+  "orbflt": [
+   "北极星",
+   "天顶",
+   "子午线",
+   "黄道",
+   "地平线",
+   "轨道黎明",
+   "守夜",
+   "远地点"
   ],
-  "notes": [
-    "33OSID 6 级各 2 个改装包（标准/强袭，提案）；ORBFLT 6 级；UEOF 7th/3rd 各 2 级；缺失数值/名称标 TBD，不伪造官方定案。"
+  "ueof_7th": [
+   "第七远征",
+   "地球圈",
+   "远望",
+   "外环",
+   "晨昏",
+   "赤道",
+   "护航",
+   "归途"
+  ],
+  "ueof_3rd": [
+   "第三远征",
+   "火星线",
+   "极光",
+   "火线",
+   "远征者",
+   "赤沙",
+   "长夜",
+   "归航"
   ]
+ },
+ "entity_bindings": {
+  "av_4412": "AV-4412"
+ },
+ "classes": [
+  {
+   "class_id": "33OSID-RECEIVERSHIP",
+   "faction": "33osid",
+   "name": "清算级",
+   "name_en": "Receivership",
+   "role": "battleship",
+   "hull_code": "BB",
+   "variant_of": "",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "ADJUDICATOR",
+    "INQUISITOR",
+    "ANNIHILATOR"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "清算级 BB；主力战列舰。"
+  },
+  {
+   "class_id": "33OSID-RECEIVERSHIP-STD",
+   "faction": "33osid",
+   "name": "清算级·标准型",
+   "name_en": "Receivership Standard",
+   "role": "battleship_standard",
+   "hull_code": "BB-STD",
+   "variant_of": "33OSID-RECEIVERSHIP",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "ADJUDICATOR",
+    "INQUISITOR",
+    "ANNIHILATOR"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "清算级 BB；主力战列舰。 标准改装包（提案）。"
+  },
+  {
+   "class_id": "33OSID-RECEIVERSHIP-ASSAULT",
+   "faction": "33osid",
+   "name": "清算级·强袭型",
+   "name_en": "Receivership Assault",
+   "role": "battleship_assault",
+   "hull_code": "BB-ASLT",
+   "variant_of": "33OSID-RECEIVERSHIP",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "ADJUDICATOR",
+    "INQUISITOR",
+    "ANNIHILATOR"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "清算级 BB；主力战列舰。 强袭改装包（提案）。"
+  },
+  {
+   "class_id": "33OSID-ENFORCEMENT",
+   "faction": "33osid",
+   "name": "执刑级",
+   "name_en": "Enforcement",
+   "role": "heavy_cruiser",
+   "hull_code": "CA",
+   "variant_of": "",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [
+    {
+     "ship_id": "CA-4471",
+     "name": "湮没者",
+     "name_en": "ANNIHILATOR",
+     "hull_code": "CA-4471",
+     "batch": "TBD"
+    }
+   ],
+   "name_pool": [
+    "ANNIHILATOR",
+    "ERASER",
+    "SUNSUMMONER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "执刑级 CA；出现即终局。"
+  },
+  {
+   "class_id": "33OSID-ENFORCEMENT-STD",
+   "faction": "33osid",
+   "name": "执刑级·标准型",
+   "name_en": "Enforcement Standard",
+   "role": "heavy_cruiser_standard",
+   "hull_code": "CA-STD",
+   "variant_of": "33OSID-ENFORCEMENT",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "ANNIHILATOR",
+    "ERASER",
+    "SUNSUMMONER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "执刑级 CA；出现即终局。 标准改装包（提案）。"
+  },
+  {
+   "class_id": "33OSID-ENFORCEMENT-ASSAULT",
+   "faction": "33osid",
+   "name": "执刑级·强袭型",
+   "name_en": "Enforcement Assault",
+   "role": "heavy_cruiser_assault",
+   "hull_code": "CA-ASLT",
+   "variant_of": "33OSID-ENFORCEMENT",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "ANNIHILATOR",
+    "ERASER",
+    "SUNSUMMONER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "执刑级 CA；出现即终局。 强袭改装包（提案）。"
+  },
+  {
+   "class_id": "33OSID-INTERDICT",
+   "faction": "33osid",
+   "name": "禁制级",
+   "name_en": "Interdict",
+   "role": "light_cruiser",
+   "hull_code": "CL",
+   "variant_of": "",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "IRON RULE",
+    "FINALITY",
+    "NO QUARTER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "禁制级 CL；断航/封锁。"
+  },
+  {
+   "class_id": "33OSID-INTERDICT-STD",
+   "faction": "33osid",
+   "name": "禁制级·标准型",
+   "name_en": "Interdict Standard",
+   "role": "light_cruiser_standard",
+   "hull_code": "CL-STD",
+   "variant_of": "33OSID-INTERDICT",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "IRON RULE",
+    "FINALITY",
+    "NO QUARTER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "禁制级 CL；断航/封锁。 标准改装包（提案）。"
+  },
+  {
+   "class_id": "33OSID-INTERDICT-ASSAULT",
+   "faction": "33osid",
+   "name": "禁制级·强袭型",
+   "name_en": "Interdict Assault",
+   "role": "light_cruiser_assault",
+   "hull_code": "CL-ASLT",
+   "variant_of": "33OSID-INTERDICT",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "IRON RULE",
+    "FINALITY",
+    "NO QUARTER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "禁制级 CL；断航/封锁。 强袭改装包（提案）。"
+  },
+  {
+   "class_id": "33OSID-RECOURSE",
+   "faction": "33osid",
+   "name": "追索级",
+   "name_en": "Recourse",
+   "role": "destroyer",
+   "hull_code": "DD",
+   "variant_of": "",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "PURSUER",
+    "SWEEPER",
+    "PURGER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "追索级 DD；追击/登舰。"
+  },
+  {
+   "class_id": "33OSID-RECOURSE-STD",
+   "faction": "33osid",
+   "name": "追索级·标准型",
+   "name_en": "Recourse Standard",
+   "role": "destroyer_standard",
+   "hull_code": "DD-STD",
+   "variant_of": "33OSID-RECOURSE",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "PURSUER",
+    "SWEEPER",
+    "PURGER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "追索级 DD；追击/登舰。 标准改装包（提案）。"
+  },
+  {
+   "class_id": "33OSID-RECOURSE-ASSAULT",
+   "faction": "33osid",
+   "name": "追索级·强袭型",
+   "name_en": "Recourse Assault",
+   "role": "destroyer_assault",
+   "hull_code": "DD-ASLT",
+   "variant_of": "33OSID-RECOURSE",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "PURSUER",
+    "SWEEPER",
+    "PURGER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "追索级 DD；追击/登舰。 强袭改装包（提案）。"
+  },
+  {
+   "class_id": "33OSID-REQUISITION",
+   "faction": "33osid",
+   "name": "征用级",
+   "name_en": "Requisition",
+   "role": "frigate",
+   "hull_code": "FF",
+   "variant_of": "",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "UNYIELDING",
+    "ENDGAME",
+    "NO QUARTER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "征用级 FF；缴获回收。"
+  },
+  {
+   "class_id": "33OSID-REQUISITION-STD",
+   "faction": "33osid",
+   "name": "征用级·标准型",
+   "name_en": "Requisition Standard",
+   "role": "frigate_standard",
+   "hull_code": "FF-STD",
+   "variant_of": "33OSID-REQUISITION",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "UNYIELDING",
+    "ENDGAME",
+    "NO QUARTER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "征用级 FF；缴获回收。 标准改装包（提案）。"
+  },
+  {
+   "class_id": "33OSID-REQUISITION-ASSAULT",
+   "faction": "33osid",
+   "name": "征用级·强袭型",
+   "name_en": "Requisition Assault",
+   "role": "frigate_assault",
+   "hull_code": "FF-ASLT",
+   "variant_of": "33OSID-REQUISITION",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "UNYIELDING",
+    "ENDGAME",
+    "NO QUARTER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "征用级 FF；缴获回收。 强袭改装包（提案）。"
+  },
+  {
+   "class_id": "33OSID-SUMMONS",
+   "faction": "33osid",
+   "name": "传唤级",
+   "name_en": "Summons",
+   "role": "aviso",
+   "hull_code": "AV",
+   "variant_of": "",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [
+    {
+     "ship_id": "AV-4412",
+     "name": "传唤者",
+     "name_en": "SUNSUMMONER",
+     "hull_code": "AV-4412",
+     "batch": "2001"
+    }
+   ],
+   "name_pool": [
+    "SUNSUMMONER",
+    "ADJUDICATOR",
+    "PURSUER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "传唤级 AV；最轻/最客气。"
+  },
+  {
+   "class_id": "33OSID-SUMMONS-STD",
+   "faction": "33osid",
+   "name": "传唤级·标准型",
+   "name_en": "Summons Standard",
+   "role": "aviso_standard",
+   "hull_code": "AV-STD",
+   "variant_of": "33OSID-SUMMONS",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "SUNSUMMONER",
+    "ADJUDICATOR",
+    "PURSUER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "传唤级 AV；最轻/最客气。 标准改装包（提案）。"
+  },
+  {
+   "class_id": "33OSID-SUMMONS-ASSAULT",
+   "faction": "33osid",
+   "name": "传唤级·强袭型",
+   "name_en": "Summons Assault",
+   "role": "aviso_assault",
+   "hull_code": "AV-ASLT",
+   "variant_of": "33OSID-SUMMONS",
+   "naming_scheme": "33osid_domain",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "SUNSUMMONER",
+    "ADJUDICATOR",
+    "PURSUER"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "传唤级 AV；最轻/最客气。 强袭改装包（提案）。"
+  },
+  {
+   "class_id": "ORBFLT-POLARIS",
+   "faction": "uegaf_orbflt",
+   "name": "北极星级",
+   "name_en": "Polaris",
+   "role": "orbital_command",
+   "hull_code": "ORB-FLAG",
+   "variant_of": "",
+   "naming_scheme": "orbflt_numbered",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "北极星",
+    "天顶",
+    "子午线",
+    "黄道",
+    "地平线",
+    "轨道黎明",
+    "守夜",
+    "远地点"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "轨道指挥舰/ORBFLT 旗舰驻 NESOSS-01。",
+   "name_pool_note": "proposal; 待用户定案"
+  },
+  {
+   "class_id": "ORBFLT-SENTINEL",
+   "faction": "uegaf_orbflt",
+   "name": "哨兵级",
+   "name_en": "Sentinel",
+   "role": "orbital_patrol",
+   "hull_code": "ORB-PAT",
+   "variant_of": "",
+   "naming_scheme": "orbflt_numbered",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "哨兵",
+    "守夜者",
+    "边关",
+    "瞭望",
+    "警戒",
+    "长明",
+    "前哨",
+    "静默岗"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "主力巡逻护航。",
+   "name_pool_note": "proposal; 待用户定案"
+  },
+  {
+   "class_id": "ORBFLT-GATEKEEPER",
+   "faction": "uegaf_orbflt",
+   "name": "关卡级",
+   "name_en": "Gatekeeper",
+   "role": "customs_inspection",
+   "hull_code": "ORB-CUS",
+   "variant_of": "",
+   "naming_scheme": "orbflt_numbered",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "关卡",
+    "闸门",
+    "要冲",
+    "锁钥",
+    "航道",
+    "门户",
+    "关口",
+    "通行"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "海关检查/临检。",
+   "name_pool_note": "proposal; 待用户定案"
+  },
+  {
+   "class_id": "ORBFLT-FORGE",
+   "faction": "uegaf_orbflt",
+   "name": "工坊级",
+   "name_en": "Forge",
+   "role": "maintenance_tender",
+   "hull_code": "ORB-MNT",
+   "variant_of": "",
+   "naming_scheme": "orbflt_numbered",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "工坊",
+    "熔炉",
+    "铸造",
+    "锻台",
+    "机库",
+    "铆钉",
+    "装配",
+    "检修"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "维护试验支援/NESOSS-04。",
+   "name_pool_note": "proposal; 待用户定案"
+  },
+  {
+   "class_id": "ORBFLT-TRACTOR",
+   "faction": "uegaf_orbflt",
+   "name": "牵引级",
+   "name_en": "Tractor",
+   "role": "tug_rescue",
+   "hull_code": "ORB-TUG",
+   "variant_of": "",
+   "naming_scheme": "orbflt_numbered",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "牵引",
+    "拖曳",
+    "缆索",
+    "锚点",
+    "回收",
+    "打捞",
+    "拖船",
+    "系留"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "拖船/救援。",
+   "name_pool_note": "proposal; 待用户定案"
+  },
+  {
+   "class_id": "ORBFLT-BEACON",
+   "faction": "uegaf_orbflt",
+   "name": "信标级",
+   "name_en": "Beacon",
+   "role": "traffic_control_relay",
+   "hull_code": "ORB-OTC",
+   "variant_of": "",
+   "naming_scheme": "orbflt_numbered",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "信标",
+    "灯塔",
+    "航标",
+    "中继",
+    "指向",
+    "归航",
+    "长波",
+    "坐标"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "交通管制/中继。",
+   "name_pool_note": "proposal; 待用户定案"
+  },
+  {
+   "class_id": "UEOF-7TH-CA",
+   "faction": "ueof_7th",
+   "name": "远望级",
+   "name_en": "Farwatch",
+   "role": "cruiser",
+   "hull_code": "U7-CA",
+   "variant_of": "",
+   "naming_scheme": "ueof_formation_numbered",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "第七远征",
+    "地球圈",
+    "远望",
+    "外环",
+    "晨昏",
+    "赤道",
+    "护航",
+    "归途"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "UEOF 第7舰队巡洋舰级（提案，名称 TBD）。",
+   "name_pool_note": "proposal; 待用户定案",
+   "name_note": "proposal; 待用户定案"
+  },
+  {
+   "class_id": "UEOF-7TH-DD",
+   "faction": "ueof_7th",
+   "name": "界碑级",
+   "name_en": "Boundary",
+   "role": "escort",
+   "hull_code": "U7-DD",
+   "variant_of": "",
+   "naming_scheme": "ueof_formation_numbered",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "前哨",
+    "警戒",
+    "巡弋",
+    "短剑",
+    "界碑",
+    "游隼",
+    "疾风",
+    "边线"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "UEOF 第7舰队护航级（提案，名称 TBD）。",
+   "name_pool_note": "proposal; 待用户定案",
+   "name_note": "proposal; 待用户定案"
+  },
+  {
+   "class_id": "UEOF-3RD-CA",
+   "faction": "ueof_3rd",
+   "name": "火线级",
+   "name_en": "Fireline",
+   "role": "cruiser",
+   "hull_code": "U3-CA",
+   "variant_of": "",
+   "naming_scheme": "ueof_formation_numbered",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "第三远征",
+    "火星线",
+    "极光",
+    "火线",
+    "远征者",
+    "赤沙",
+    "长夜",
+    "归航"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "UEOF 第三远征舰队巡洋舰级（提案，名称 TBD）。",
+   "name_pool_note": "proposal; 待用户定案",
+   "name_note": "proposal; 待用户定案"
+  },
+  {
+   "class_id": "UEOF-3RD-DD",
+   "faction": "ueof_3rd",
+   "name": "先锋级",
+   "name_en": "Vanguard",
+   "role": "escort",
+   "hull_code": "U3-DD",
+   "variant_of": "",
+   "naming_scheme": "ueof_formation_numbered",
+   "displacement_t": "TBD",
+   "dv_kmps": "TBD",
+   "accel_g": "TBD",
+   "crew": "TBD",
+   "sensors": [
+    "TBD"
+   ],
+   "weapons": [
+    "TBD"
+   ],
+   "armor": "TBD",
+   "signature": {
+    "rcs": "TBD",
+    "ir": "TBD"
+   },
+   "dimensions_m": [
+    "TBD",
+    "TBD",
+    "TBD"
+   ],
+   "sections": [
+    "hull",
+    "power",
+    "propulsion",
+    "sensors",
+    "comms",
+    "tanks",
+    "docking"
+   ],
+   "known_ships": [],
+   "name_pool": [
+    "突击",
+    "先锋",
+    "火矛",
+    "赤色",
+    "远征前哨",
+    "裂谷",
+    "疾行",
+    "燃点"
+   ],
+   "proposal": true,
+   "tbd": [
+    "displacement_t",
+    "dv_kmps",
+    "accel_g",
+    "crew",
+    "sensors",
+    "weapons",
+    "armor",
+    "signature",
+    "dimensions_m"
+   ],
+   "source": "docs/16 §3 + docs/04 §12.6",
+   "note": "UEOF 第三远征舰队护航级（提案，名称 TBD）。",
+   "name_pool_note": "proposal; 待用户定案",
+   "name_note": "proposal; 待用户定案"
+  }
+ ],
+ "notes": [
+  "33OSID 6 级各 2 个改装包（标准/强袭，提案）；ORBFLT 6 级；UEOF 7th/3rd 各 2 级；缺失数值/名称标 TBD，不伪造官方定案。"
+ ]
 }
