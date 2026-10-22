@@ -2748,7 +2748,7 @@ func _near_action(kind: String) -> void:
 		_near_subject = "facility"
 		var cls := kind.substr("NEAR_CLASS:".length())
 		var label := "L1 PORT · " + cls.to_upper()
-		_near_view.set_subject("facility", cls, label, 0.0)
+		_near_view.set_subject("facility", cls, label, 1.0, {"facility_class": cls, "name": label, "physical": {"radius_km": 1.0}})
 		queue_redraw()
 		return
 	_update_near_subject()
@@ -2767,7 +2767,7 @@ func _update_near_subject() -> void:
 	if fac_class == "":
 		fac_class = "port"
 		fac_label = "L1 PORT · DEFAULT"
-	_near_view.set_subject(_near_subject, fac_class, fac_label, radius)
+	_near_view.set_subject(_near_subject, fac_class, fac_label, radius, c)
 
 
 func _draw_near_overlay(r: Rect2) -> void:
@@ -2806,6 +2806,9 @@ func _draw_near_overlay(r: Rect2) -> void:
 		["MODEL", String(info.get("model", "—"))],
 		["MODEL TYPE", String(info.get("facility_type", "—"))],
 		["SCALE", ("%.2f×" % float(info.get("scale", 0.0))) if float(info.get("scale", 0.0)) > 0.0 else "—"],
+		["MODULES", str(int(info.get("module_count", 0)))],
+		["MAPPING", String(info.get("mapping", "—"))],
+		["FALLBACK", "YES" if bool(info.get("fallback", false)) else "NO"],
 		["RADIUS", ("%.2f km" % float(info.get("radius_km", 0.0))) if float(info.get("radius_km", 0.0)) > 0.0 else "—"],
 		["SOURCE", String(info.get("source", "LOCAL / DEFAULT"))],
 		["MATERIAL", String(info.get("material", "StandardMaterial3D solid"))],
