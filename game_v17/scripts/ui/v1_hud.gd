@@ -13,6 +13,7 @@ const ShellBinder := preload("res://scripts/ui/shell_binder.gd")
 const DamageModel := preload("res://framework/core/damage_model.gd")
 const CombatService := preload("res://scripts/core/combat_service.gd")
 const Plot3D := preload("res://scripts/ui/plot3d.gd")
+const NearView := preload("res://scripts/ui/near_view.gd")
 
 const SCENARIO := "res://framework/content/scenario_transit_l4_l1.json"
 const TRANSFER := "res://framework/content/transfer_l4_l1_cached.json"
@@ -77,6 +78,9 @@ var _refit_buttons: Array = []
 var _refit_msg := ""
 var _refit_quote: Dictionary = {}
 var _refit_tested := false
+var _near_view = null
+var _near_buttons: Array = []
+var _near_subject := "facility"
 var _command_msg := ""
 var _comms_type := "HOLD"
 var _comms_target := ""
@@ -222,6 +226,11 @@ func _load_data() -> void:
 			if String((_contacts[i2] as Dictionary).get("track_id", "")) != "":
 				_selected = i2
 				break
+	if OS.get_environment("DSH_V1_SELECT_FACILITY") == "1":
+		for i3 in range(_contacts.size()):
+			if String((_contacts[i3] as Dictionary).get("facility_id", "")) != "":
+				_selected = i3
+				break
 	if _contacts.size() > 0:
 		_comms_target = String((_contacts[_selected] as Dictionary).get("entity_id", (_contacts[_selected] as Dictionary).get("id", "")))
 	if FileAccess.file_exists(TRANSFER):
@@ -254,6 +263,8 @@ func _load_data() -> void:
 			binder.session.combat_service = _combat
 			_combat.t = float(binder.session.now_s())
 	_seed_combat_tracks()
+	_near_view = NearView.new()
+	add_child(_near_view)
 	_roe_locked = String(binder.story_vm.get("phase", "prelude")) == "prelude"
 	if OS.get_environment("DSH_V1_ROE_UNLOCK") == "1":
 		_roe_locked = false
@@ -329,6 +340,10 @@ func _load_data() -> void:
 			if String((_contacts[i] as Dictionary).get("facility_id", "")) != "":
 				_selected = i
 				break
+	elif view == "near":
+		_overlay = "near"
+		_near_subject = OS.get_environment("DSH_NEAR_SUBJECT") if OS.get_environment("DSH_NEAR_SUBJECT") in ["earth", "moon", "facility"] else "facility"
+		_update_near_subject()
 	elif view == "fleet":
 		_overlay = "fleet"
 	elif view == "refit":
@@ -478,6 +493,8 @@ func _refit_selftest() -> void:
 
 
 func _process(delta: float) -> void:
+	if _near_view != null:
+		_near_view.tick(delta)
 	if OS.get_environment("DSH_REFIT_TEST") == "1" and not _refit_tested:
 		_refit_tested = true
 		call_deferred("_refit_selftest")
@@ -720,7 +737,7 @@ func _draw_right(r: Rect2) -> void:
 	Painter.section(self, x, y, right, "SENSOR CONTROLS / 只读最小交互")
 	y += 10.0
 	_right_buttons.clear()
-	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["COMBAT", "COMBAT / 战斗"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["IDENT", "IDENT / 识别"], ["CHRONOS", "CHRONOS / 行动"], ["AV4412", "AV-4412 / 对峙"], ["TRAFFIC", "TRAFFIC / OTC"], ["FLEET", "FLEET / 舰库"], ["REFIT", "REFIT / 改装"]]
+	var labels := [["DAMAGE", "DAMAGE / 损管"], ["ROE", "ROE / 四档"], ["COMMS", "COMMS / 命令"], ["COMBAT", "COMBAT / 战斗"], ["NAV", "NAV / 导航"], ["OPTICAL", "OPTICAL / 光学"], ["IDENT", "IDENT / 识别"], ["CHRONOS", "CHRONOS / 行动"], ["AV4412", "AV-4412 / 对峙"], ["TRAFFIC", "TRAFFIC / OTC"], ["FLEET", "FLEET / 舰库"], ["REFIT", "REFIT / 改装"], ["NEAR", "NEAR / 近景"]]
 	for i in range(labels.size()):
 		var bw := (r.size.x - 32.0) * 0.5 - 4.0
 		var col := i % 2
@@ -1041,6 +1058,8 @@ func _draw_overlay_layer(cv: CanvasItem) -> void:
 		_draw_combat_overlay(r)
 	elif _overlay == "save":
 		_draw_save_overlay(r)
+	elif _overlay == "near":
+		_draw_near_overlay(r)
 	elif _overlay == "fleet":
 		_draw_fleet_overlay(r)
 	elif _overlay == "refit":
@@ -2716,6 +2735,108 @@ func _ident_col(identity: String) -> Color:
 	return P.ID_UNKNOWN
 
 
+func _near_action(kind: String) -> void:
+	if _near_view == null:
+		return
+	if kind == "NEAR_EARTH":
+		_near_subject = "earth"
+	elif kind == "NEAR_MOON":
+		_near_subject = "moon"
+	elif kind == "NEAR_FACILITY":
+		_near_subject = "facility"
+	elif kind.begins_with("NEAR_CLASS:"):
+		_near_subject = "facility"
+		var cls := kind.substr("NEAR_CLASS:".length())
+		var label := "L1 PORT · " + cls.to_upper()
+		_near_view.set_subject("facility", cls, label, 0.0)
+		queue_redraw()
+		return
+	_update_near_subject()
+	queue_redraw()
+
+
+func _update_near_subject() -> void:
+	if _near_view == null:
+		return
+	var c: Dictionary = _contacts[_selected] if _selected >= 0 and _selected < _contacts.size() else {}
+	var fac_class := String(c.get("facility_class", ""))
+	var fac_label := String(c.get("facility_name", c.get("name", "")))
+	var radius := 0.0
+	if c.get("physical") is Dictionary:
+		radius = float((c.get("physical", {}) as Dictionary).get("radius_km", 0.0))
+	if fac_class == "":
+		fac_class = "port"
+		fac_label = "L1 PORT · DEFAULT"
+	_near_view.set_subject(_near_subject, fac_class, fac_label, radius)
+
+
+func _draw_near_overlay(r: Rect2) -> void:
+	var fr := _overlay_frame(r, "近景 / NEAR VIEW · SubViewport 3D", "Earth / Moon / 选中设施 · 纯色程序化模型 · 不接物理/truth 位置 · 无贴图",
+		P.PH, "SUBVIEWPORT 3D · GL COMPATIBILITY", 2)
+	var body: Rect2 = fr.body
+	var footer: Rect2 = fr.footer
+	_near_buttons.clear()
+	_near_buttons.append_array(_button_bar(Rect2(footer.position, Vector2(footer.size.x, OV_BTN_H)),
+		[["NEAR_EARTH", "EARTH / 地球"], ["NEAR_MOON", "MOON / 月球"], ["NEAR_FACILITY", "SELECTED FACILITY / 选中设施"]]))
+	_near_buttons.append_array(_button_bar(Rect2(footer.position + Vector2(0.0, OV_BTN_H + OV_BTN_GAP), Vector2(footer.size.x, OV_BTN_H)),
+		[["NEAR_CLASS:station", "STATION"], ["NEAR_CLASS:port", "PORT"], ["NEAR_CLASS:depot", "DEPOT"], ["NEAR_CLASS:otc", "OTC"],
+		 ["NEAR_CLASS:tank", "TANK"], ["NEAR_CLASS:fuel", "FUEL"], ["NEAR_CLASS:relay", "RELAY"], ["NEAR_CLASS:research", "RESEARCH"]], 4))
+	var view_w := floorf(body.size.x * 0.68)
+	var view_h := body.size.y - 6.0
+	var vr := Rect2(body.position.x, body.position.y, view_w, view_h)
+	_cv.draw_rect(vr, P.a(P.PANEL, 1.0))
+	if _near_view != null and _near_view.get_texture() != null:
+		_near_view.set_view_size(Vector2i(int(vr.size.x), int(vr.size.y)))
+		_cv.draw_texture_rect(_near_view.get_texture(), vr, false)
+		_cv.draw_rect(vr, P.a(P.PH_DIM, 0.65), false, 1.0)
+		_cv.draw_string(F.mono(), vr.position + Vector2(8, 16), "SUBVIEWPORT 3D · NEAR VIEW", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, P.a(P.PH, 0.8))
+		_cv.draw_string(F.mono(), Vector2(vr.end.x - 180, vr.position.y + 16), "ROTATE · LOCAL MODEL", HORIZONTAL_ALIGNMENT_LEFT, -1, 6, P.a(P.AMBER, 0.7))
+	else:
+		Painter.label(_cv, vr.position.x + 12, vr.position.y + 28, "NEAR VIEWPORT NOT READY", 10, P.AMBER)
+	var info: Dictionary = _near_view.get_info() if _near_view != null else {}
+	var c: Dictionary = _contacts[_selected] if _selected >= 0 and _selected < _contacts.size() else {}
+	var right_x := vr.end.x + 18.0
+	var right_w := body.end.x - right_x
+	Painter.section(_cv, right_x, body.position.y, body.end.x, "SUBJECT / 对象")
+	var yy := body.position.y + 20.0
+	var rows := [
+		["SUBJECT", String(info.get("subject", _near_subject.to_upper()))],
+		["NAME", ("EARTH" if String(info.get("subject", "")) == "EARTH" else ("MOON" if String(info.get("subject", "")) == "MOON" else String(info.get("facility_label", c.get("facility_name", c.get("name", "—"))))))],
+		["FACILITY CLASS", String(info.get("facility_class", c.get("facility_class", "—")))],
+		["MODEL", String(info.get("model", "—"))],
+		["MODEL TYPE", String(info.get("facility_type", "—"))],
+		["SCALE", ("%.2f×" % float(info.get("scale", 0.0))) if float(info.get("scale", 0.0)) > 0.0 else "—"],
+		["RADIUS", ("%.2f km" % float(info.get("radius_km", 0.0))) if float(info.get("radius_km", 0.0)) > 0.0 else "—"],
+		["SOURCE", String(info.get("source", "LOCAL / DEFAULT"))],
+		["MATERIAL", String(info.get("material", "StandardMaterial3D solid"))],
+	]
+	for raw in rows:
+		var row: Array = raw
+		Painter.label(_cv, right_x, yy, String(row[0]), 7, P.a(P.FAINT, 0.9), true)
+		Painter.label(_cv, right_x + 108, yy, TM.fit(String(row[1]), right_w - 112, true, 7), 7, P.TXT, true)
+		yy += 15.0
+	yy += 6.0
+	Painter.section(_cv, right_x, yy, body.end.x, "FACILITY / 选中设施")
+	yy += 16.0
+	var extra := [
+		["ID", String(c.get("facility_id", c.get("facility_code", "—")))],
+		["CODE", String(c.get("facility_code", "—"))],
+		["TYPE", String(c.get("facility_class", "—"))],
+		["STATUS", String(c.get("badge", "—"))],
+	]
+	for raw2 in extra:
+		var row2: Array = raw2
+		Painter.label(_cv, right_x, yy, String(row2[0]), 7, P.a(P.FAINT, 0.9), true)
+		Painter.label(_cv, right_x + 108, yy, TM.fit(String(row2[1]), right_w - 112, true, 7), 7, P.TXT, true)
+		yy += 14.0
+	yy += 8.0
+	Painter.label(_cv, right_x, yy, "PURE COLOR / PROCEDURAL", 7, P.a(P.AMBER, 0.9), true)
+	yy += 13.0
+	Painter.label(_cv, right_x, yy, "NO TEXTURE · NO PHYSICS TRUTH", 7, P.a(P.AMBER, 0.75), true)
+	yy += 13.0
+	Painter.label(_cv, right_x, yy, "MODELS: EARTH/MOON/STATION", 7, P.a(P.PH_DIM, 0.9), true)
+
+
 func _fleet_action(kind: String, index: int) -> void:
 	if kind == "TAB_FRIENDLY":
 		_fleet_tab = "friendly"
@@ -3442,6 +3563,11 @@ func _do_right_action(kind: String) -> void:
 			_overlay = "chronos"
 		"AV4412":
 			_overlay = "av4412"
+		"NEAR":
+			_overlay = "near"
+			_near_subject = "facility"
+			_update_near_subject()
+			queue_redraw()
 		"FLEET":
 			_overlay = "fleet"
 			_fleet_tab = "friendly"
@@ -3564,6 +3690,11 @@ func _gui_input(event: InputEvent) -> void:
 func _overlay_hit(lp: Vector2) -> bool:
 	# 方案B-32：统一子界面命中分发（全部使用弹层局部坐标）。返回 true 表示已消费点击。
 	match _overlay:
+		"near":
+			for b in _near_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_near_action(String(b.get("kind", "")))
+					return true
 		"fleet":
 			for b in _fleet_buttons:
 				if (b["rect"] as Rect2).has_point(lp):

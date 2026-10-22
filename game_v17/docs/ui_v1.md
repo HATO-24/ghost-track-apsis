@@ -1377,3 +1377,21 @@ F5 PROBE RESULT: PASS
 2. REFIT 操作会写 refit_service 状态；无安装/移除实际舰体装配视觉/3D 模型接入。
 3. 槽位/资源/地点校验由 refit_service 决定；失败显示 reason。
 4. 不改核心/旧 plot；不写 world/物理；未跑全量 regression。
+
+
+---
+
+## 38　方案B-34：V1 HUD NEAR VIEW（task-210）
+
+- 新增 `scripts/ui/near_view.gd`：SubViewport 3D（Camera3D/方向光/补光/WorldEnvironment/缓慢自转）。
+- V1 HUD 右侧 SENSOR CONTROLS 增加 `NEAR / 近景`；弹层显示 Earth/Moon/选中设施模型。
+- 设施 8 类可切换：station/depot/port/otc/tank/fuel/relay/research；由选中 contact 的 facility_class/name/radius 推导，无选中默认 L1 PORT。
+- 2D 叠加名称/类型/半径/来源/材质说明/CLOSE；纯色程序化，无贴图；不读 truth 位置。
+- 截图 `mockups/v1-hud-nearview-1920.png`（EARTH）、`v1-hud-nearview-facility-1920.png`（选中设施）；1600 布局 `v1-hud-nearview-1600.png`。
+- 详细说明见 `docs/near_view.md`。
+
+### 边界
+
+1. 低模基础材质，非最终贴图美术；SubViewport 为局部展示。
+2. 不接物理/truth 位置，不写 world/session。
+3. 未跑全量 regression。
