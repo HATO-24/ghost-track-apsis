@@ -36,7 +36,8 @@ GODOT_BIN=/usr/local/bin/godot ./run_tests.sh -Ci
 | `-GodotBin <path>` | 显式指定 Godot 可执行文件（最高优先级） |
 | `-Category <name>` | 逗号分隔的分类过滤：`profile` / `content` / `unit` / `integration` / `e2e` / `boot` |
 | `-Gate <name>` | 按矩阵 `gates` 选择专项门禁用例（当前 `phase0`；与 `-Category`/`-Only` 可叠加）；未知 gate → exit 2 |
-| `-Baseline <path>` | baseline-aware 模式：已知遗留失败仍显示 FAIL，只有新增失败/计数漂移/超时/非预期 NOT RUN 导致 exit 1（见 §3.3） |
+| `-Baseline <path>` | baseline-aware 模式（**strict fail-closed**）：已知遗留失败仍显示 FAIL；每个 baseline 项必须实际执行成预期 FAIL 且计数匹配，否则 exit 1（见 §3.3） |
+| `-AllowPartialBaseline` | **仅本地筛选调试**：允许未选入的 baseline 项不导致失败，但输出 `BASELINE PARTIAL`、summary `complete=false`，绝不报告为完整 baseline 通过；CI 不使用 |
 | `-Only <regex>` | 对 case id 或目标（`res://` 路径）做正则过滤 |
 | `-List` | 只打印矩阵并退出（exit 0），不要求 Godot |
 | `-NoImport` | 跳过 `--import` 预检（不建议用于新 worktree） |
@@ -111,8 +112,8 @@ boot 用例通过 `env` 字段声明剖面（`DSH_BUILD=full|orbital_sim|sandbox
 
 | 退出码 | 含义 |
 | --- | --- |
-| `0` | 所有实际运行用例 PASS（声明 blocked 的 NOT RUN 不导致失败）；`-Baseline` 模式下表示“无新增回归” |
-| `1` | 任一 FAIL / TIMEOUT，或出现“非预期 NOT RUN”（例如已启用用例的脚本缺失）；`-Baseline` 模式下表示存在新增失败 / 基线漂移 / 超时 / 非预期 NOT RUN |
+| `0` | 所有实际运行用例 PASS（声明 blocked 的 NOT RUN 不导致失败）；`-Baseline` strict 模式下表示“无新增回归 **且 baseline 覆盖完整**” |
+| `1` | 任一 FAIL / TIMEOUT，或出现“非预期 NOT RUN”（例如已启用用例的脚本缺失）；`-Baseline` 模式下表示存在新增失败 / 基线漂移 / 超时 / 非预期 NOT RUN / **baseline 项未选入或未执行（unselected/unverified）** |
 | `2` | 环境/设置被阻塞：找不到 Godot、import 预检失败、矩阵/参数错误、过滤后无用例、baseline 文件缺失/非法 |
 
 ### Phase 0 专项门禁（`-Gate phase0`）
@@ -132,20 +133,39 @@ Issue #14 要求把「Phase 0 必需门禁」与「完整历史回归矩阵」�
 命令：`pwsh ./run_tests.ps1 -Gate phase0`。门禁用例必须全 PASS（否则 exit 1），
 C/CI 中它是必须为绿的检查；它**不包含**全量历史 probe，不能代表“全矩阵通过”。
 
-### baseline-aware 模式（`-Baseline`）
+### baseline-aware 模式（`-Baseline`，strict fail-closed）
 
 `game_v17/tests/known_baseline_failures.json` 记录审计 HEAD `263e97e` 已存在、Phase 0 不负责修复的
 8 个遗留失败（exact PASS/FAIL 计数来自独立基线证据与 PR head 复跑）。
 
-`pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json` 的语义：
+`pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json` 的语义（**default = strict**）：
 
 - **72 个 case 全部执行**；已知遗留失败**状态仍是 FAIL**，逐条出现在控制台表、`report.md`、
   `summary.json`、CI job summary 与 artifact 中，绝不会被改名 PASS、跳过或 `continue-on-error`；
 - 对每个 FAIL case 额外给出 `baseline` 分类：`known`（命中已知失败且 PASS/FAIL 计数完全一致）
   或 `new`（新增失败 / 计数漂移）；
-- 汇总增加 `known_fail` / `new_fail` / `baseline_drift`，控制台打印 `BASELINE CHECK: known_fail=N new_fail=N drift=N`；
-- 退出码：**只有** `new_fail==0 && baseline_drift==0 && timeout==0 && unexpected NOT RUN==0` 时为 0；
-  否则为 1。因此该命令的绿灯含义是「与基线相比没有新增回归」，**不是**「所有测试通过」。
+- **fail-closed 覆盖要求**：每个声明的 baseline entry 必须 (i) 被选入本次运行、(ii) 实际执行
+  （不能是 NOT RUN/blocked）、(iii) 结果为 FAIL 且 exit code、PASS/FAIL 计数与声明完全一致。
+  任何一项不满足都计入 `baseline_unselected` / `baseline_unverified` / `baseline_drift`，
+  **默认直接 exit 1**；控制台会打印
+  `BASELINE CHECK: known_fail=N new_fail=N drift=N unverified=N unselected=N complete=true|false`。
+- 汇总字段：`known_fail`、`new_fail`、`baseline_drift`、`baseline_unselected`、`baseline_unverified`、
+  `baseline_complete`；summary 的 `baseline` 段还含 `complete`、`verified`、`unselected_ids[]`、
+  `unverified[]`、`coverage`。CI 只有 `complete=true` 才可绿。
+- 退出码：**只有** 所有 baseline entry 均 selected+executed+FAIL+计数匹配，且
+  `new_fail==0 && baseline_drift==0 && baseline_unverified==0 && baseline_unselected==0 &&
+  timeout==0 && unexpected NOT RUN==0` 时为 0。绿灯含义是「无新增回归 + baseline 覆盖完整」，
+  **不是**「所有测试通过」。
+- **本地筛选调试**：`-Only/-Category/-Gate` 会缩小选择集，使部分 baseline entry 未选入。
+  此时 strict 检查会 exit 1（正确行为）。如确需只跑一部分做调试，加 `-AllowPartialBaseline`：
+  允许未选入/未验证项不导致失败，但输出必须是
+  `RESULT: BASELINE PARTIAL - NOT a complete baseline verification (unselected=N, unverified=M)`，
+  summary `baseline.complete=false / verified=false`，**不得**出现 "BASELINE MATCH" 或完整通过措辞。
+  CI 不使用该开关。
+- **可重复回归**：`pwsh ./game_v17/tests/baseline_gate_selftest.ps1 -NoImport` 会验证
+  (A) baseline 项被 blocked 成 NOT RUN → strict exit 1；(B) baseline 项被筛选掉 → strict exit 1；
+  (C) 筛选 + `-AllowPartialBaseline` → exit 0 但明确标记 PARTIAL/未验证。
+  该脚本在 CI 的 full-matrix job 中执行，失败即 job 红。
 
 > 8 个遗留失败对应的后续责任任务（建议）见 `known_baseline_failures.json` 的 `follow_up` 字段与 §7.2。
 
@@ -267,8 +287,8 @@ profile.build_profile_probe          profile      -          PASS         0     
 
 | check（job） | 命令 | 语义 | PR 上的意义 |
 | --- | --- | --- | --- |
-| **Phase 0 gate (required)** | `run_tests.ps1 -Ci -Gate phase0` | 6 个 Phase 0 必需用例必须全 PASS | **必须为绿**；Phase 0 验收门禁，不包含全量历史 probe |
-| **Full matrix (baseline-aware)** | `run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json` | 72 cases 全跑；8 个已知遗留失败仍以 FAIL 显示；只有新增失败/漂移/超时/非预期 NOT RUN 才红灯 | 绿灯仅表示「**无新增回归**」，**不是**「全矩阵通过」 |
+| **Phase 0 gate (Phase 0 acceptance)** | `run_tests.ps1 -Ci -Gate phase0` | 6 个 Phase 0 必需用例必须全 PASS | Phase 0 验收门禁；不包含全量历史 probe。job 名称**不代表 branch protection 已生效**（见下） |
+| **Full matrix (baseline-aware)** | `run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json` | 72 cases 全跑；8 个已知遗留失败仍以 FAIL 显示；**strict fail-closed**：新增失败/漂移/超时/非预期 NOT RUN/**baseline 项未执行或被筛选掉/计数不符**都会红灯 | 绿灯仅表示「**无新增回归 + baseline 覆盖完整**」，**不是**「全矩阵通过」 |
 
 公共设置：
 
@@ -280,10 +300,20 @@ profile.build_profile_probe          profile      -          PASS         0     
   （`include-hidden-files: true` —— `.test-results` 是点目录，默认会被 upload-artifact 忽略，
   这是 Issue #14 中「No files were found」的根因），artifact 内含该次运行的 `summary.json`、
   `report.md` 与逐例日志；不上传游戏内容、用户数据或密钥；
+- **产物 fail-closed**：每个 job 在上传前有 `Assert test artifacts exist before upload` 步骤
+  （断言最新 `<run-id>/` 下 `summary.json`、`report.md`、`logs/` 非空，且 `summary.run_id == run-dir`、
+  `cases>0`），上传配置为 `if-no-files-found: error`；**缺失证据会使 job 失败**，不会静默无 artifact；
+- **baseline 回归**：full-matrix job 在矩阵之后执行 `baseline_gate_selftest.ps1`
+  （验证 blocked/NOT RUN 与 filtered-out baseline 项都会让 strict 检查失败），失败即 job 红；
 - job summary：两个 job 都向 GitHub Step Summary 写本次 totals / 逐例表格；
-  full-matrix 会明确列出 **known-baseline failures（可见）** 与 **NEW failures: 0**；
+  full-matrix 明确列出 **known-baseline failures（可见）**、**NEW failures**、
+  `unverified`、`unselected`、`baseline complete`；
 - 禁止 `continue-on-error`：已知遗留失败不阻塞，是因为它们被显式建模为 baseline 已知项并在
-  所有输出中保持 FAIL 可见，而不是把失败伪装成成功。
+  所有输出中保持 FAIL 可见，而不是把失败伪装成成功；
+- **branch protection 无法确认**：本仓库为 private 且未启用 GitHub Pro，branch protection /
+  required status checks API 返回 HTTP 403。因此 CI 只能证明「job 实际运行并通过」，
+  **不能**把 job 名称里的措辞（旧版曾写 "required"）当作保护规则已生效的证据；job 名称已改为
+  `Phase 0 gate (Phase 0 acceptance)` 以避免歧义。
 
 artifact 获取（需 `gh` 登录）：
 

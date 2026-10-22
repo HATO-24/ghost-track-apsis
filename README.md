@@ -83,34 +83,44 @@ pwsh ./run_tests.ps1            # 默认全矩阵；结果写入 .test-results/<
 pwsh ./run_tests.ps1 -List      # 只列出矩阵（含 Phase 0 gate 归属）
 pwsh ./run_tests.ps1 -Category profile
 
-# Phase 0 必需门禁（profile probe + 4 个 boot smoke + 真实入口 E2E，共 6 个 case）
+# Phase 0 验收门禁（profile probe + 4 个 boot smoke + 真实入口 E2E，共 6 个 case）
 pwsh ./run_tests.ps1 -Gate phase0
 
-# baseline-aware 完整矩阵：72 cases 全跑；8 个 pre-existing 失败仍显示为 FAIL，
-# 只有新增失败 / 基线计数漂移 / 超时 / 非预期 NOT RUN 才 exit 1
+# baseline-aware 完整矩阵（strict fail-closed）：72 cases 全跑；8 个 pre-existing 失败仍显示为 FAIL；
+# 任一 baseline 项未执行/未选入/计数不符，或新增失败/漂移/超时/非预期 NOT RUN → exit 1
 pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json
+
+# 本地筛选调试：允许只跑一部分 baseline 项，但绝不声称"完整 baseline 通过"
+pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json -Only '^unit\.save_probe$' -AllowPartialBaseline
+
+# fail-closed 行为的可重复回归（blocked/NOT RUN、被筛选掉两种场景必须让 strict 检查失败）
+pwsh ./game_v17/tests/baseline_gate_selftest.ps1 -NoImport
 ```
 
 Linux / macOS（需 `pwsh`）：`./run_tests.sh -List`、`./run_tests.sh -Ci`（参数相同）。
 
 Godot 发现顺序：`-GodotBin` → `$env:GODOT_BIN` → `tools/godot/Godot*console.exe` → PATH `godot`/`godot4`。
 
-**测试语义（三者严格区分，不要互相冒充）：**
+**测试语义（严格区分，不要互相冒充）：**
 
 | 命令 | 语义 |
 | --- | --- |
 | `run_tests.ps1`（默认） | 如实全矩阵：当前为 64 PASS / 8 pre-existing FAIL，退出码 1；**不代表 Phase 0 回归**，8 个失败均为审计 HEAD 已存在的内容漂移（见 [test_matrix.md](game_v17/docs/test_matrix.md) §7.2） |
-| `run_tests.ps1 -Gate phase0` | Phase 0 验收必需门禁（6 cases），当前全 PASS；这个是 Phase 0 的强制检查 |
-| `run_tests.ps1 -Baseline ...` | baseline-aware 完整矩阵：72 cases 全部执行且失败仍显示为 FAIL；仅当出现新增失败/漂移/超时/非预期 NOT RUN 时非零退出 |
+| `run_tests.ps1 -Gate phase0` | Phase 0 验收门禁（6 cases），当前全 PASS；这是 Phase 0 的强制检查 |
+| `run_tests.ps1 -Baseline ...`（strict，默认） | 完整矩阵 baseline 检查：72 cases 全部执行、失败仍显示 FAIL；**每个** baseline 项都必须实际执行成预期 FAIL 且计数匹配；任一项 NOT RUN/被阻塞/未选入/计数不符都 exit 1。绿灯 = "无新增回归 + 基线覆盖完整"，**不是**"全矩阵通过" |
+| `... -Baseline ... -AllowPartialBaseline` | 仅本地筛选调试：允许未选入的 baseline 项不导致失败，但输出 `BASELINE PARTIAL - NOT a complete baseline verification`、summary `complete=false`，**不得**当成完整 baseline 通过 |
+| `baseline_gate_selftest.ps1` | 可重复回归：基线项 blocked→NOT RUN、被滤镜排除两种场景都必须让 strict 检查 exit 1（CI full-matrix job 会执行） |
 
 分类、输出格式、环境隔离、gate/baseline 定义、如何新增用例等细节见
 [`game_v17/docs/test_matrix.md`](game_v17/docs/test_matrix.md)；当前真实矩阵结果以该文档与每次运行的
 `.test-results/<run-id>/summary.json` 为准，**不引用历史 PASS 数**。
 GitHub Actions 配置见 [`.github/workflows/tests.yml`](.github/workflows/tests.yml)：两个 check ——
-`Phase 0 gate (required)`（必须绿）与 `Full matrix (baseline-aware)`（**绿灯仅表示"无新增回归"，
+`Phase 0 gate (Phase 0 acceptance)` 与 `Full matrix (baseline-aware)`（**绿灯仅表示"无新增回归 + baseline 项全部执行且匹配"，
 不等于"全矩阵通过"**；8 个已知遗留失败在日志/job summary/artifact 中保持可见）。
-测试结果 artifact（`summary.json` / `report.md` / 逐项日志）由两个 job 上传，可用
-`gh run download <run-id>` 获取。
+job 名称中的措辞**不代表 branch protection 已生效**：本仓库为 private、未启用 GitHub Pro，protection API 返回 403，
+只能确认 job 实际运行结果。测试结果 artifact（`summary.json` / `report.md` / 逐项日志）由两个 job 上传，
+上传前会断言文件存在、上传配置为 `if-no-files-found: error`，缺失证据会使对应检查失败；
+可用 `gh run download <run-id>` 获取。
 
 审计与任务队列：[`docs/40_系统完成度复核与开发任务队列.md`](docs/40_系统完成度复核与开发任务队列.md)。
 

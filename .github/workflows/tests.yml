@@ -1,32 +1,55 @@
 # GHOST TRACK // APSIS · V17 headless regression
 #
 # Two GitHub Actions checks with DIFFERENT, explicitly named semantics
-# (Issue #14: do not hide legacy failures, do not fake a green full matrix):
+# (Issue #14 + PR #15 review correction: do not hide legacy failures, do not fake
+# a green full matrix, and do not pass when a declared baseline entry was never
+# executed / never selected / was blocked):
 #
-#   1) "Phase 0 gate (required)" — runs ONLY the Phase 0 required cases
+#   1) "Phase 0 gate (Phase 0 acceptance)" — runs ONLY the Phase 0 required cases
 #      (profile matrix probe, real-entry E2E, and the 4 build-profile boot smokes;
 #      definition lives in game_v17/tests/probe_matrix.json -> gates.phase0).
 #      This check must be green for Phase 0 acceptance.
+#      NOTE: the job name does NOT prove branch protection. Branch protection /
+#      required-check configuration could not be verified from this repository
+#      (private repo, protection API returns HTTP 403); only the job result itself
+#      is evidence. See PR body.
 #
-#   2) "Full matrix (baseline-aware)" — runs ALL 72 cases (67 probes + 1 E2E +
-#      4 boot smokes) with `-Baseline game_v17/tests/known_baseline_failures.json`.
+#   2) "Full matrix (baseline-aware; known legacy FAILs shown, red only on new
+#      regressions)" — runs ALL 72 cases (67 probes + 1 E2E + 4 boot smokes) with
+#      `-Baseline game_v17/tests/known_baseline_failures.json`.
 #      The 8 known pre-existing failures are STILL EXECUTED, STILL REPORTED AS
-#      FAIL (never renamed PASS, never skipped, no continue-on-error). The check
-#      turns red only when a NEW failure appears, an existing legacy failure's
-#      PASS/FAIL count drifts, a case times out, or a case is unexpectedly
-#      NOT RUN. The job summary states this explicitly; the full run artifacts
-#      (summary.json / report.md / per-case logs) are uploaded for audit.
+#      FAIL (never renamed PASS, never skipped, no continue-on-error).
+#      STRICT / FAIL-CLOSED: the check turns red when (a) a NEW failure appears,
+#      (b) an existing legacy failure's PASS/FAIL count drifts or it starts to
+#      pass, (c) a case times out or is unexpectedly NOT RUN, or (d) any declared
+#      baseline entry is NOT EXECUTED (blocked/NOT RUN), MISSING from the run, or
+#      NOT SELECTED by filters. A baseline "pass" is only reported when every
+#      baseline entry ran as FAIL with matching counts (complete=true).
 #
 #   3) Both checks upload the REAL test artifacts. `.test-results/` is a hidden
 #      dot-directory, so `actions/upload-artifact@v4` needs
 #      `include-hidden-files: true` (Issue #14 root cause of "No files found").
+#      ARTIFACT FAIL-CLOSED: before upload each job asserts that the latest run
+#      directory contains summary.json + report.md + per-case logs matching the
+#      run id; upload-artifact uses `if-no-files-found: error`. Missing evidence
+#      makes the check fail instead of silently producing no artifact.
+#
+#   4) The full-matrix job also runs `game_v17/tests/baseline_gate_selftest.ps1`
+#      (if: always(), no continue-on-error): a repeatable regression proving that
+#      a blocked/NOT RUN baseline entry and a filtered-out baseline entry make the
+#      strict baseline check exit non-zero, while an explicitly labelled partial
+#      local run (`-AllowPartialBaseline`) never claims a complete baseline pass.
 #
 # Toolchain is pinned: Godot 4.7.2-stable win64 zip verified against the
 # official SHA-256, cached by version+checksum, same OS/binary as local dev.
 # No secrets, no game content upload; artifacts contain only .test-results/.
 #
-# History: the previous single-job workflow uploaded 0 artifacts and reported a
-# bare red check with no gate semantics (see Issue #14 / run 39778490176).
+# History:
+#   - run 39778490176: single job, artifact upload produced 0 files (hidden dir).
+#   - run 39786721057 / 39787908114: two jobs + include-hidden-files: true,
+#     artifacts verified (Issue #14 closeout).
+#   - this revision: strict fail-closed baseline coverage + artifact assertions +
+#     baseline gate self-test (PR #15 review correction).
 name: tests
 
 on:
@@ -54,9 +77,9 @@ env:
   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
 
 jobs:
-  # ── Required Phase 0 gate ─────────────────────────────────────────────────
+  # ── Phase 0 acceptance gate ───────────────────────────────────────────────
   phase0-gate:
-    name: Phase 0 gate (required) — profile / boot smokes / real-entry E2E
+    name: Phase 0 gate (Phase 0 acceptance) — profile / boot smokes / real-entry E2E
     runs-on: windows-latest
     timeout-minutes: 30
 
@@ -113,16 +136,54 @@ jobs:
           Write-Host "PHASE0_GATE_EXIT=$code"
           exit $code
 
+      # Fail-closed evidence: a green test step with missing artifacts is NOT valid
+      # evidence. Assert the real files exist and match the run dir before uploading.
+      - name: Assert test artifacts exist before upload
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dirs = @(Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending)
+          if ($dirs.Count -eq 0) {
+            throw 'ARTIFACT ASSERT FAILED: no .test-results run directory was produced'
+          }
+          $runDir = $dirs[0]
+          foreach ($name in @('summary.json', 'report.md')) {
+            $p = Join-Path $runDir.FullName $name
+            if (-not (Test-Path -LiteralPath $p -PathType Leaf)) {
+              throw "ARTIFACT ASSERT FAILED: missing required file $p"
+            }
+            if ((Get-Item -LiteralPath $p).Length -le 0) {
+              throw "ARTIFACT ASSERT FAILED: empty required file $p"
+            }
+          }
+          $logDir = Join-Path $runDir.FullName 'logs'
+          $logs = @(Get-ChildItem -LiteralPath $logDir -File -ErrorAction SilentlyContinue)
+          if ($logs.Count -eq 0) {
+            throw "ARTIFACT ASSERT FAILED: no per-case logs under $logDir"
+          }
+          $s = Get-Content -LiteralPath (Join-Path $runDir.FullName 'summary.json') -Raw | ConvertFrom-Json
+          if ([string]$s.run_id -ne [string]$runDir.Name) {
+            throw "ARTIFACT ASSERT FAILED: summary.run_id '$($s.run_id)' != run dir '$($runDir.Name)'"
+          }
+          $caseCount = @($s.cases).Count
+          if ($caseCount -le 0) {
+            throw 'ARTIFACT ASSERT FAILED: summary.json contains no cases'
+          }
+          Write-Host "ARTIFACT ASSERT OK run_dir=$($runDir.Name) cases=$caseCount logs=$($logs.Count)"
+
       - name: Job summary — Phase 0 gate
         if: always()
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $lines = @(
-            '## Phase 0 required gate',
+            '## Phase 0 acceptance gate',
             '',
             'Cases: profile matrix probe + real-entry E2E + 4 boot smokes (`-Gate phase0`).',
             'This check must be green for Phase 0 acceptance; it does NOT include the full historical matrix.',
+            'Job name/result is not proof of branch protection: required-check configuration could not be read from this repository (HTTP 403).',
             ''
           )
           $runDir = Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |
@@ -158,7 +219,7 @@ jobs:
           name: phase0-gate-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: .test-results/
           include-hidden-files: true
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
 
   # ── Full historical matrix, baseline-aware (legacy failures stay visible) ──
@@ -216,12 +277,62 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           # All 72 cases are executed. Known pre-existing failures stay FAIL in the
-          # output/report; the runner only exits 0 when there is no NEW failure, no
-          # baseline drift, no timeout and no unexpected NOT RUN.
+          # output/report. Strict fail-closed semantics: exit 0 only when every
+          # declared baseline entry ran as expected FAIL with matching counts, and
+          # there is no NEW failure, drift, timeout, unexpected NOT RUN, unverified
+          # baseline entry or unselected baseline entry.
           pwsh -NoProfile -File ./run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json -GodotBin $env:GODOT_CONSOLE
           $code = $LASTEXITCODE
           Write-Host "FULL_MATRIX_EXIT=$code"
           exit $code
+
+      # Repeatable regression: proves fail-closed behavior for blocked/NOT RUN and
+      # filtered-out baseline entries. Runs even if the matrix step above failed.
+      - name: Regression — baseline gate fail-closed self-test
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File ./game_v17/tests/baseline_gate_selftest.ps1 -NoImport -GodotBin $env:GODOT_CONSOLE
+          $code = $LASTEXITCODE
+          Write-Host "BASELINE_GATE_SELFTEST_EXIT=$code"
+          exit $code
+
+      # Fail-closed evidence: no artifact upload without a real run dir + files.
+      - name: Assert test artifacts exist before upload
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dirs = @(Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending)
+          if ($dirs.Count -eq 0) {
+            throw 'ARTIFACT ASSERT FAILED: no .test-results run directory was produced'
+          }
+          $runDir = $dirs[0]
+          foreach ($name in @('summary.json', 'report.md')) {
+            $p = Join-Path $runDir.FullName $name
+            if (-not (Test-Path -LiteralPath $p -PathType Leaf)) {
+              throw "ARTIFACT ASSERT FAILED: missing required file $p"
+            }
+            if ((Get-Item -LiteralPath $p).Length -le 0) {
+              throw "ARTIFACT ASSERT FAILED: empty required file $p"
+            }
+          }
+          $logDir = Join-Path $runDir.FullName 'logs'
+          $logs = @(Get-ChildItem -LiteralPath $logDir -File -ErrorAction SilentlyContinue)
+          if ($logs.Count -eq 0) {
+            throw "ARTIFACT ASSERT FAILED: no per-case logs under $logDir"
+          }
+          $s = Get-Content -LiteralPath (Join-Path $runDir.FullName 'summary.json') -Raw | ConvertFrom-Json
+          if ([string]$s.run_id -ne [string]$runDir.Name) {
+            throw "ARTIFACT ASSERT FAILED: summary.run_id '$($s.run_id)' != run dir '$($runDir.Name)'"
+          }
+          $caseCount = @($s.cases).Count
+          if ($caseCount -le 0) {
+            throw 'ARTIFACT ASSERT FAILED: summary.json contains no cases'
+          }
+          Write-Host "ARTIFACT ASSERT OK run_dir=$($runDir.Name) cases=$caseCount logs=$($logs.Count)"
 
       - name: Job summary — full matrix (baseline-aware)
         if: always()
@@ -232,7 +343,8 @@ jobs:
             '## Full regression matrix (baseline-aware, NOT a claim that all tests pass)',
             '',
             'All 72 cases were executed. Known pre-existing failures below are still FAIL records — they are not skipped, renamed or silenced.',
-            'This check turns red only on NEW failures, baseline drifts, timeouts or unexpected NOT RUN.',
+            'STRICT fail-closed: this check turns red if any declared baseline entry is NOT RUN / blocked / filtered out / missing / count-mismatched, or on NEW failures, drift, timeouts or unexpected NOT RUN.',
+            'The baseline gate self-test step must also be green (proves blocked and filtered-out baseline entries fail).',
             ''
           )
           $runDir = Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |
@@ -245,9 +357,9 @@ jobs:
             if (Test-Path -LiteralPath $summaryPath) {
               $s = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
               $lines += ''
-              $lines += '| total | pass | FAIL | known-baseline FAIL | NEW regression | drift | timeout | not run | exit code |'
-              $lines += '| --- | --- | --- | --- | --- | --- | --- | --- | --- |'
-              $lines += "| $($s.totals.total) | $($s.totals.pass) | $($s.totals.fail) | $($s.totals.known_fail) | $($s.totals.new_fail) | $($s.totals.baseline_drift) | $($s.totals.timeout) | $($s.totals.not_run) | $($s.exit_code) |"
+              $lines += '| total | pass | FAIL | known-baseline | NEW | drift | unverified | unselected | baseline complete | timeout | not run | exit code |'
+              $lines += '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |'
+              $lines += "| $($s.totals.total) | $($s.totals.pass) | $($s.totals.fail) | $($s.totals.known_fail) | $($s.totals.new_fail) | $($s.totals.baseline_drift) | $($s.totals.baseline_unverified) | $($s.totals.baseline_unselected) | $($s.totals.baseline_complete) | $($s.totals.timeout) | $($s.totals.not_run) | $($s.exit_code) |"
               $lines += ''
               $known = @()
               $new = @()
@@ -294,5 +406,5 @@ jobs:
           name: full-matrix-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: .test-results/
           include-hidden-files: true
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
