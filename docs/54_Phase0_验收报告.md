@@ -577,9 +577,11 @@ Actions API（`gh api .../runs/39795265144/artifacts`，均未过期、绑定 he
   `.../branches/feat/phase0-simulator-first/protection` 均返回 **HTTP 403**：
   `Upgrade to GitHub Pro or make this repository public to enable this feature.`
   → **无法确认**是否有 branch protection / required status checks。
-- 因此本文只陈述：`Phase 0 gate` 与 `Full matrix` 两个 job 在该 run 中实际运行并通过（PR #15 checks
-  显示 pass），**不把 job 名称当作保护规则已生效的证据**；job 名称已从
-  `Phase 0 gate (required)` 改为 `Phase 0 gate (Phase 0 acceptance)` 以避免误导。
+- 因此本文只陈述：`Phase 0 gate` 与 `Full matrix` 两个 job 在 **clean 代码提交 run 39795265144**
+  中实际运行并通过且 job 记录为 completed/success；**不把 job 名称当作保护规则已生效的证据**；
+  job 名称已从 `Phase 0 gate (required)` 改为 `Phase 0 gate (Phase 0 acceptance)` 以避免误导。
+- 最终 head 的 check 记录受 2026-10-22 GitHub Actions Results 平台事故影响（见 §13.9），
+  该 run 以 run-level conclusion 与真实 artifact 为准，不以 stale job/check 记录为准。
 - 若项目负责人需要将门禁设为强制合并条件，需在仓库 Settings → Branches 中配置（私有仓库需 GitHub Pro）。
 
 ### 13.7 本轮验收标准对照（PR #15 review）
@@ -590,11 +592,14 @@ Actions API（`gh api .../runs/39795265144/artifacts`，均未过期、绑定 he
 | 新 run 中 Phase 0 gate 6/6；完整矩阵 72 项 = 64 PASS/8 FAIL/0 TIMEOUT/0 NOT RUN | **MET**：run 39795265144（§13.3） |
 | baseline 仅在全部执行且计数匹配、无新增/漂移时成功 | **MET**：strict 默认 + `complete=true` 才 exit 0；`unverified/unselected/drift/new_fail` 任一非零 → exit 1 |
 | artifact 缺失使检查失败；更新后 artifact 可下载核对 | **MET**：Assert 步骤 + `if-no-files-found: error`（CI 实际 success 且本地负例 exit 1）；两个 artifact 已下载核对（§13.4） |
-| 验收报告与最终 head 运行记录一致 | **MET（结构化）**：§13.5 给出 run/commit 映射；本轮最终 docs-only head 的复核 run 在 PR #15 描述中记录，且与 §13.3 结果一致 |
+| 验收报告与最终 head 运行记录一致 | **MET（结构化，含平台事故说明）**：§13.5 给出 run/commit 映射；最终 head 复核 run 39797358545 的真实 artifact 已下载核对；该 run 的 check 记录受 GitHub Actions 平台事故影响（§13.9），以 run-level conclusion + artifact 为准 |
 | 不删除测试/不放宽断言/不跳过失败/不改默认 profile/不进入 Phase A | **MET**：diff 无 probe/断言删除或弱化；8 FAIL 保持 FAIL；`default=full` 未改；未进入 Phase A |
 
 ### 13.8 本轮 NOT RUN / 未解决问题
 
+- **GitHub Actions 平台事故期间的 final-head check 记录**：run 39797358545 的 job/check 记录
+  在不同 attempt 中 stale（详见 §13.9）；代码/artifact 证据成立，但"最终 head 在 PR 上显示全绿
+  check"需平台恢复后重跑回填（非代码问题）。
 - `baseline_gate_selftest.ps1 -IncludeFullRun` 的场景 D（本地全量 strict）未单独执行：CI 的 full-matrix
   run 本身已覆盖同一路径（72=64/8/0/0、complete=true）。
 - artifact 缺失路径没有在生产 CI 中实际触发（否则等于故意破坏流水线）；用**等价本地负例**验证其失败语义。
@@ -603,5 +608,28 @@ Actions API（`gh api .../runs/39795265144/artifacts`，均未过期、绑定 he
   `known_baseline_failures.json`）；非 headless 渲染、`DSH_SHOT`、Linux/macOS wrapper、orbital_sim
   存档 round-trip 仍未运行。
 - 默认 profile 保持 `full`（`DSH_BUILD=orbital_sim` 显式进入正式模拟器）；未改产品默认值。
+
+### 13.9 GitHub Actions 平台事故（2026-10-22T14:18:15Z 起，外部故障）
+
+- GitHub Status API：**"Incident with Actions Results"**（impact=minor，组件 Actions
+  **degraded_performance**，说明为 "delays affecting GitHub Actions workflow and step results"），
+  shortlink：https://stspg.io/44w94j036yc8 。与本轮 final-head run 的时间窗口完全重合。
+- 观测到的具体症状（均只在 GitHub 的 job/check 记录侧，**run-level conclusion 与 artifact 正常**）：
+  - attempt 1：run success，gate check pass；full-matrix artifact 已成功上传，但该 job 记录停在 `queued`；
+  - attempt 2：run success，full-matrix check pass（6m58s）；gate artifact 已成功上传，但 gate job 记录停在 `queued`；
+  - attempt 3（仅重跑 gate）：run success，attempt-3 gate artifact（26,105 B，sha256 `5d611769…`）
+    已上传且日志完整（`PHASE0_GATE_EXIT=0`、`ARTIFACT ASSERT OK`、`successfully uploaded`），
+    但 gate job 记录停在 `in_progress`，PR checks 显示 pending。
+  - 事故期间 attempt-1 的 full artifact（id 12434341983）随后在 API 中变为 **404/不可达**；
+    因此本文/PR 只把 **attempt-2/3 的可下载 artifact** 作为 final-head 的执行证据。
+- 证据层级（本轮最终结论采用）：
+  1. **主 CI 证据 = clean 代码提交 run [39795265144](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39795265144)**
+     （head `e73bc69`）：两个 job 记录 completed/success；gate 6/6；full 72=64/8/0/0、`complete=true`、
+     selftest `PASS=24`；两个 artifact 已下载并按 API digest 校验（§13.3/§13.4）。
+  2. **最终 head 39797358545 执行证据 = attempt-2 full artifact（72=64/8/0/0、complete=true、115 logs）+
+     attempt-3 gate artifact（6/6、exit 0）**，均已实际下载核对；
+  3. run-level conclusion=success；**不把 stale job/check 记录当作失败或通过证据**。
+- 处置：等 GitHub 平台恢复后可对该 head 重跑以回填 clean check（仅流程性操作，不改代码）；
+  在此之前 PR 上 gate check 可能仍显示 pending，属外部事故，已在此与 PR 描述中如实披露。
 
 
