@@ -162,6 +162,8 @@ func boot() -> bool:
 			seed["ew_service"] = true
 			seed["ship_catalog"] = true
 			seed["refit"] = true
+			seed["fleet_formation"] = true
+			seed["fleet_refit"] = true
 			# 本舰实体：序章以 signal_service.observer 为准（与传感器/信号服务同一艘），
 			# 弹道服务据此解析 shooter 与 PD 平台，不能留空。
 			seed["own_entity"] = String(((pcfg.get("signal_service", {}) as Dictionary).get("observer", {}) as Dictionary).get("id", "apsis"))
@@ -264,6 +266,8 @@ func boot() -> bool:
 	print("[SHELL BINDER] physics ready=", physics_world_ready(), " plot_source=", String(_pp.get("source", "")), " positions=", (_pp.get("positions", []) as Array).size(), " facilities=", (_pf.get("facilities", []) as Array).size(), " facility_source=", String(_pf.get("source", "")))
 	fleet_data()
 	refit_data()
+	fleet_builder_data()
+	fleet_refit_data()
 	refresh()
 	ready = errors.is_empty()
 	return ready
@@ -1237,6 +1241,87 @@ func _cic_selftest() -> void:
 			elif String((raw as Dictionary).get("id", "")) == "T-L2":
 				l2_est = (raw as Dictionary).get("estimate_km", null)
 	print("[SHELL BINDER] CIC SELFTEST truth=", str(bool(v.get("truth", true))), " L1_estimate=", str(l1_est), " L2_estimate=", str(l2_est))
+
+
+func fleet_builder_data() -> Dictionary:
+	var out: Dictionary = {"ready": false, "roster": [], "slots": {}, "validate": {}, "stats": {}, "summary": {}, "source": "FLEET FORMATION NOT READY"}
+	if session == null or session.fleet_formation == null or not bool(session.fleet_formation.ready):
+		return out
+	out["ready"] = true
+	out["roster"] = session.fleet_roster()
+	out["slots"] = session.fleet_slots()
+	out["validate"] = session.fleet_formation.validate()
+	out["stats"] = session.fleet_stats()
+	out["summary"] = session.fleet_formation.summary()
+	out["source"] = "FLEET FORMATION · SESSION 5G"
+	print("[SHELL BINDER] fleet_builder ready=true ships=", (out["roster"] as Array).size(), " slots=", ((out["slots"] as Dictionary).get("slots", {}) as Dictionary).size(), " valid=", str((out["stats"] as Dictionary).get("valid", false)), " totals=", str((out["stats"] as Dictionary).get("totals", {})))
+	return out
+
+
+func fleet_builder_op(kind: String, ship_id := "", slot := "") -> Dictionary:
+	if session == null or session.fleet_formation == null:
+		return {"ok": false, "reason": "no_fleet_formation"}
+	match kind:
+		"ASSIGN":
+			return session.fleet_assign(ship_id, slot)
+		"UNASSIGN":
+			return session.fleet_unassign(ship_id)
+		"MOVE":
+			return session.fleet_move(ship_id, slot)
+		"VALIDATE":
+			return session.fleet_validate()
+	return {"ok": false, "reason": "unknown_action"}
+
+
+func fleet_refit_data() -> Dictionary:
+	var out: Dictionary = {"ready": false, "ships": [], "selected": "", "stats": {}, "options": [], "summary": {}, "resources": {}, "source": "FLEET REFIT NOT READY"}
+	if session == null or session.fleet_refit == null or not bool(session.fleet_refit.ready):
+		return out
+	out["ready"] = true
+	out["ships"] = session.fleet_refit_ships()
+	out["selected"] = String(session.fleet_refit.selected())
+	out["summary"] = session.fleet_refit.summary()
+	out["resources"] = (session.fleet_refit.resources as Dictionary).duplicate(true) if session.fleet_refit.resources is Dictionary else {}
+	if String(out["selected"]) == "" and not (out["ships"] as Array).is_empty():
+		var first := String(((out["ships"] as Array)[0] as Dictionary).get("ship_id", ""))
+		if first != "":
+			session.fleet_select_ship(first)
+			out["selected"] = first
+	if String(out["selected"]) != "":
+		out["stats"] = session.fleet_refit_stats(String(out["selected"]))
+		out["options"] = session.fleet_options(String(out["selected"]))
+	out["source"] = "FLEET REFIT · SESSION 5G"
+	print("[SHELL BINDER] fleet_refit ready=true ships=", (out["ships"] as Array).size(), " selected=", String(out["selected"]), " options=", (out["options"] as Array).size())
+	return out
+
+
+func fleet_options(ship_id := "", category := "") -> Array:
+	if session == null or session.fleet_refit == null:
+		return []
+	return session.fleet_options(ship_id, category)
+
+
+func fleet_refit_op(kind: String, ship_id := "", module_id := "") -> Dictionary:
+	if session == null or session.fleet_refit == null:
+		return {"ok": false, "reason": "no_fleet_refit"}
+	if ship_id != "" and ship_id != String(session.fleet_refit.selected()):
+		var sel: Dictionary = session.fleet_select_ship(ship_id)
+		if not bool(sel.get("ok", false)):
+			return sel
+	match kind:
+		"SELECT":
+			return session.fleet_select_ship(ship_id)
+		"QUOTE":
+			return session.fleet_quote(module_id)
+		"INSTALL":
+			return session.fleet_install(module_id)
+		"REMOVE":
+			return session.fleet_remove(module_id)
+		"COMMIT":
+			return session.fleet_commit(ship_id)
+		"TICK":
+			return session.fleet_refit_tick(1.0)
+	return {"ok": false, "reason": "unknown_action"}
 
 
 func plot_cic() -> Dictionary:

@@ -40,6 +40,7 @@ func _initialize() -> void:
 	_test_orbflt_variants()
 	_test_derivation()
 	_test_catalog_api()
+	_test_operational_derivation()
 	_test_validation_errors()
 	_test_determinism()
 	print("────────────────────────────────────────────────────────────")
@@ -400,9 +401,139 @@ func _test_catalog_api() -> void:
 	_ok(int(sum.get("auto_derived_variants", 0)) == 18, "summary auto 18")
 	_data_line("api", "variants_of/resolve_variant/resolve/class_of/name_pool/summary/to_json")
 
+
 # ═══════════════════════════════════════════════════════════════════
-# 7. 校验/失败
+# 6b. 5H 操作性数值/角色模板/damage_profiles 对齐
 # ═══════════════════════════════════════════════════════════════════
+
+func _test_operational_derivation() -> void:
+	_section_begin("6b 操作性推算/对齐")
+	var c = _catalog()
+	var sum: Dictionary = c.summary()
+	_eq(int(sum.get("operational_tbd", -1)), 0, "operational_tbd 0")
+	_eq(int(sum.get("tbd_fields", -1)), 0, "tbd_fields 0")
+	_eq(int(sum.get("auto_derived_classes", 0)), 50, "auto_derived_classes 50")
+	_eq(int(sum.get("damage_profile_classes", 0)), 36, "damage_profile_classes 36")
+	_eq(bool(sum.get("profile_aligned", false)), true, "profile_aligned")
+	# 读 damage_profiles 做 class 对齐
+	var pf := FileAccess.open("res://framework/content/damage_profiles.json", FileAccess.READ)
+	_ok(pf != null, "damage_profiles 可读")
+	var pdata = JSON.parse_string(pf.get_as_text()) if pf != null else {}
+	if pf != null:
+		pf.close()
+	var pclasses: Dictionary = (pdata as Dictionary).get("classes", {}) if pdata is Dictionary else {}
+	_eq(pclasses.size(), 36, "profiles 36 class")
+	var fdata = JSON.parse_string(FileAccess.get_file_as_string("res://framework/content/ships_friendly.json"))
+	var edata = JSON.parse_string(FileAccess.get_file_as_string("res://framework/content/ships_enemy.json"))
+	var ftpl: Dictionary = (fdata as Dictionary).get("role_templates", {}) as Dictionary
+	var etpl: Dictionary = (edata as Dictionary).get("role_templates", {}) as Dictionary
+	# 友军
+	for raw in (c.classes("ocuvf_id13") as Array):
+		var row: Dictionary = raw
+		var role := str(row.get("role", ""))
+		var tpl: Dictionary = ftpl.get(role, {}) as Dictionary
+		_eq(bool(row.get("auto_derived", false)), true, str(row.get("class_id")) + " auto_derived")
+		_ok(row.get("derivation") is Dictionary, str(row.get("class_id")) + " derivation")
+		_eq(str(row.get("damage_profile_class_id", "")), str(row.get("class_id")),
+			str(row.get("class_id")) + " profile id")
+		_ok(bool((pclasses as Dictionary).has(str(row.get("class_id", "")))),
+			str(row.get("class_id")) + " profile exists")
+		_ok(row.get("armor") is Dictionary and not (row.get("armor") as Dictionary).is_empty(),
+			str(row.get("class_id")) + " armor dict")
+		if not tpl.is_empty():
+			_near(float(row.get("rcs", -1.0)), float(tpl.get("rcs_m2", -2.0)), 0.001,
+				str(row.get("class_id")) + " rcs=template")
+			_near(float(row.get("ir", -1.0)), float(tpl.get("ir_signature", -2.0)), 0.001,
+				str(row.get("class_id")) + " ir=template")
+			_eq((row.get("dimensions_m", []) as Array).size(), 3,
+				str(row.get("class_id")) + " dims3")
+			for d in (row.get("dimensions_m", []) as Array):
+				_ok(d is int or d is float, str(row.get("class_id")) + " dim numeric")
+			for v in (row.get("tbd", []) as Array):
+				_ok(false, str(row.get("class_id")) + " 不应有 TBD 列表")
+	# 33OSID 18
+	var by_id: Dictionary = _base_rows(c)
+	for raw2 in (c.classes("33osid") as Array):
+		var row2: Dictionary = raw2
+		var cid := str(row2.get("class_id", ""))
+		_eq(bool(row2.get("auto_derived", false)), true, cid + " auto_derived")
+		_ok(row2.get("derivation") is Dictionary, cid + " derivation")
+		_eq(str(row2.get("damage_profile_class_id", "")), cid, cid + " profile id")
+		_ok(bool(pclasses.has(cid)), cid + " profile exists")
+		for nf in ["displacement_t", "dv_kmps", "accel_g", "crew", "rcs_m2",
+				"ir_signature"]:
+			_ok(row2.get(nf) is int or row2.get(nf) is float, cid + " 数值 " + str(nf))
+		_eq((row2.get("dimensions_m", []) as Array).size(), 3, cid + " dims3")
+		_ok((row2.get("sensors", []) as Array).size() >= 2, cid + " sensors")
+		_ok((row2.get("weapons", []) as Array).size() >= 1, cid + " weapons")
+		_ok(row2.get("armor") is Dictionary and not (row2.get("armor") as Dictionary).is_empty(),
+			cid + " armor")
+		# armor = profile.effects.armor
+		var prof: Dictionary = pclasses.get(cid, {}) as Dictionary
+		var pe: Dictionary = prof.get("effects", {}) if prof.get("effects") is Dictionary else {}
+		var pa: Dictionary = pe.get("armor", {}) if pe.get("armor") is Dictionary else {}
+		if not pa.is_empty():
+			_near(float((row2.get("armor", {}) as Dictionary).get("kinetic_resist", -1.0)),
+				float(pa.get("kinetic_resist", -2.0)), 1.0e-9, cid + " armor kinetic")
+			_near(float((row2.get("armor", {}) as Dictionary).get("energy_resist", -1.0)),
+				float(pa.get("energy_resist", -2.0)), 1.0e-9, cid + " armor energy")
+		# base role template
+		if str(row2.get("variant_of", "")) == "":
+			var tpl2: Dictionary = etpl.get(str(row2.get("hull_code", "")), {}) as Dictionary
+			if not tpl2.is_empty():
+				_near(float(row2.get("displacement_t", 0.0)), float(tpl2.get("displacement_t", 0.0)),
+					0.001, cid + " template mass")
+				_near(float(row2.get("dv_kmps", 0.0)), float(tpl2.get("dv_kmps", 0.0)),
+					0.001, cid + " template dv")
+				_near(float(row2.get("accel_g", 0.0)), float(tpl2.get("accel_g", 0.0)),
+					0.0001, cid + " template accel")
+				_eq(int(row2.get("crew", 0)), int(tpl2.get("crew", -1)), cid + " template crew")
+				_ok("UEG-SR9" in (row2.get("sensors", []) as Array), cid + " UEG sensors")
+		else:
+			var base: Dictionary = by_id.get(str(row2.get("variant_of", "")), {})
+			var mod: Dictionary = row2.get("modifiers", {}) if row2.get("modifiers") is Dictionary else {}
+			if not base.is_empty():
+				_near(float(row2.get("displacement_t", 0.0)),
+					float(base.get("displacement_t", 0.0)) * float(mod.get("mass_factor", 1.0)),
+					0.01, cid + " variant mass")
+				_near(float(row2.get("dv_kmps", 0.0)),
+					float(base.get("dv_kmps", 0.0)) * float(mod.get("dv_factor", 1.0)),
+					0.001, cid + " variant dv")
+				_eq(int(row2.get("crew", 0)),
+					int(round(float(base.get("crew", 0)) * float(mod.get("crew_factor", 1.0)))),
+					cid + " variant crew")
+		for tv in (row2.get("tbd", []) as Array):
+			_ok(false, cid + " 不应有 TBD 列表")
+	# 变体 profile 对齐（ORBFLT/UEOF）
+	for vid in c.variants_of(""):
+		var vr: Dictionary = vid
+		var vdpc := str(vr.get("damage_profile_class_id", ""))
+		_ok(vdpc != "", str(vr.get("variant_id")) + " profile id")
+		_ok(pclasses.has(vdpc), str(vr.get("variant_id")) + " profile exists")
+		_ok(str(vr.get("auto_derived", false)) == "true", str(vr.get("variant_id")) + " auto")
+	# 校验：operational TBD 拒绝
+	var d: Dictionary = c.to_dict()
+	var f: Dictionary = (d.get("friendly") as Dictionary).duplicate(true)
+	var e: Dictionary = (d.get("enemy") as Dictionary).duplicate(true)
+	var f_bad: Dictionary = f.duplicate(true)
+	for rawf in (f_bad.get("classes", []) as Array):
+		if str((rawf as Dictionary).get("class_id", "")) == "OCUVF-APOGEE":
+			(rawf as Dictionary)["rcs"] = "TBD"
+	_ok(not bool(c.validate({"friendly": f_bad, "enemy": e}).get("ok", true)),
+		"friendly rcs TBD 拒绝")
+	var e_bad: Dictionary = e.duplicate(true)
+	for rawe in (e_bad.get("classes", []) as Array):
+		if str((rawe as Dictionary).get("class_id", "")) == "33OSID-RECEIVERSHIP":
+			(rawe as Dictionary)["crew"] = "TBD"
+	_ok(not bool(c.validate({"friendly": f, "enemy": e_bad}).get("ok", true)),
+		"33OSID crew TBD 拒绝")
+	var e_noder: Dictionary = e.duplicate(true)
+	for rawd in (e_noder.get("classes", []) as Array):
+		if str((rawd as Dictionary).get("class_id", "")) == "33OSID-RECEIVERSHIP":
+			(rawd as Dictionary).erase("derivation")
+	_ok(not bool(c.validate({"friendly": f, "enemy": e_noder}).get("ok", true)),
+		"缺 derivation 拒绝")
+	_data_line("5H", "operational_tbd=0 · 50 auto-derived · 8友军+18 33OSID 模板/推算/armor profile · 18变体 profile 对齐")
 
 func _test_validation_errors() -> void:
 	_section_begin("7 校验/失败")

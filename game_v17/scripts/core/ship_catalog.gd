@@ -21,6 +21,9 @@ const FRIENDLY_PATH := "res://framework/content/ships_friendly.json"
 const ENEMY_PATH := "res://framework/content/ships_enemy.json"
 const FRIENDLY_SCHEMA := "v17.ships_friendly.v1"
 const ENEMY_SCHEMA := "v17.ships_enemy.v1"
+const DEFAULT_PROFILE_PATH := "res://framework/content/damage_profiles.json"
+const OPERATIONAL_TBD_FORBIDDEN := ["displacement_t", "dv_kmps", "accel_g", "crew",
+	"rcs", "ir", "rcs_m2", "ir_signature", "armor", "dimensions_m", "sensors", "weapons"]
 const FRIENDLY_FACTION := "ocuvf_id13"
 const ENEMY_FACTIONS := ["33osid", "uegaf_orbflt", "ueof_7th", "ueof_3rd"]
 const FRIENDLY_ROLES := ["depot", "picket", "gun", "missile", "tanker", "relay",
@@ -46,6 +49,9 @@ var variants_by_id: Dictionary = {}
 var variant_order: Array = []
 var variants_by_base: Dictionary = {}
 var variants_by_operator: Dictionary = {}
+var profile_class_ids: Dictionary = {}
+var profile_aligned := false
+var _profile_path := DEFAULT_PROFILE_PATH
 
 func _init(cfg := {}) -> void:
 	setup(cfg)
@@ -67,12 +73,15 @@ func setup(cfg := {}) -> bool:
 	variant_order = []
 	variants_by_base = {}
 	variants_by_operator = {}
+	profile_class_ids = {}
+	profile_aligned = false
 	if not (cfg is Dictionary):
 		errors.append("config 必须是对象")
 		return false
 	var c: Dictionary = cfg
 	friendly_path = str(c.get("friendly_path", FRIENDLY_PATH))
 	enemy_path = str(c.get("enemy_path", ENEMY_PATH))
+	_profile_path = str(c.get("damage_profiles_path", DEFAULT_PROFILE_PATH))
 	var lr: Dictionary = load_catalog(c.get("friendly_content", null),
 		c.get("enemy_content", null))
 	return bool(lr.get("ok", false))
@@ -126,6 +135,12 @@ func load_catalog(friendly_override = null, enemy_override = null) -> Dictionary
 	variants_by_operator = {}
 	_ingest(friendly, "friendly")
 	_ingest(enemy, "enemy")
+	var pal: Dictionary = _load_damage_profiles()
+	for x4 in (pal.get("errors", []) as Array):
+		errors.append(str(x4))
+	if not errors.is_empty():
+		ready = false
+		return {"ok": false, "reason": "damage_profile_alignment_failed", "errors": errors}
 	var uniq: Dictionary = _check_uniqueness()
 	for x3 in (uniq.get("errors", []) as Array):
 		errors.append(str(x3))
@@ -159,6 +174,37 @@ func _read_json(path: String) -> Dictionary:
 	if not (parsed is Dictionary):
 		return {"ok": false, "reason": "invalid_json: " + path}
 	return {"ok": true, "value": parsed}
+
+## 5H：与 damage_profiles 的 class_id 对齐（引用，不重复造 sections）。
+func _load_damage_profiles() -> Dictionary:
+	profile_class_ids = {}
+	profile_aligned = false
+	var errs: Array = []
+	if not FileAccess.file_exists(_profile_path):
+		warnings.append("damage_profiles 不存在，跳过 class 对齐：" + _profile_path)
+		return {"ok": true, "errors": errs}
+	var rr: Dictionary = _read_json(_profile_path)
+	if not bool(rr.get("ok", false)):
+		errs.append(str(rr.get("reason", "damage_profiles 不可读")))
+		return {"ok": false, "errors": errs}
+	var data: Dictionary = rr.get("value", {}) as Dictionary
+	var classes: Dictionary = data.get("classes", {}) if data.get("classes") is Dictionary else {}
+	for k in classes.keys():
+		profile_class_ids[str(k)] = true
+	for cid in class_order:
+		var row: Dictionary = classes_by_id[cid]
+		var dpc := str(row.get("damage_profile_class_id", ""))
+		if dpc == "":
+			errs.append("缺 damage_profile_class_id：" + cid)
+		elif not profile_class_ids.has(dpc):
+			errs.append("damage_profile 未知 class：%s（%s）" % [dpc, cid])
+	for vid in variant_order:
+		var vr: Dictionary = variants_by_id[vid]
+		var vdpc := str(vr.get("damage_profile_class_id", ""))
+		if vdpc != "" and not profile_class_ids.has(vdpc):
+			errs.append("variant damage_profile 未知 class：%s（%s）" % [vdpc, vid])
+	profile_aligned = errs.is_empty()
+	return {"ok": errs.is_empty(), "errors": errs}
 
 func _ingest(data: Dictionary, which: String) -> void:
 	for raw in (data.get("classes", []) as Array):
@@ -382,6 +428,7 @@ func validate_file(data, which: String) -> Dictionary:
 				errs.append("enemy faction 非法：" + cid)
 			if row.get("signature") is not Dictionary:
 				errs.append("enemy signature 必须是对象：" + cid)
+		_validate_operational_fields(row, errs, cid, which)
 	# 结构数量
 	if which == "friendly":
 		if (d.get("classes", []) as Array).size() != 8:
@@ -479,9 +526,76 @@ func _validate_variant_group(base: Dictionary, group: String, min_n: int, max_n:
 			errs.append(base_id + "." + group + " proposal 必须 true")
 		if not (vr.get("modifiers") is Dictionary):
 			errs.append(base_id + "." + group + " modifiers 必须是对象")
+		var derived: Dictionary = _derive_variant(base, vr, group)
+		_validate_operational_fields(derived, errs,
+			base_id + "." + str(vr.get("variant_id", "")), "enemy")
 
 func _check_uniqueness() -> Dictionary:
 	return _check_uniqueness_static(friendly, enemy)
+
+## 5H：操作性字段不得 TBD；必须带 auto_derived/derivation/damage_profile_class_id。
+func _validate_operational_fields(row: Dictionary, errs: Array, prefix: String,
+		which: String) -> void:
+	for nf in NUMERIC_FIELDS:
+		var v = row.get(nf, null)
+		if not (v is int or v is float):
+			errs.append("操作性字段不得 TBD/非数字：%s.%s" % [prefix, str(nf)])
+	var fac := str(row.get("faction", ""))
+	if fac == "33osid":
+		for nf2 in ["rcs_m2", "ir_signature"]:
+			var v2 = row.get(nf2, null)
+			if not (v2 is int or v2 is float):
+				errs.append("操作性字段不得 TBD：%s.%s" % [prefix, str(nf2)])
+	if which == "friendly":
+		for nf3 in ["rcs", "ir"]:
+			var v3 = row.get(nf3, null)
+			if not (v3 is int or v3 is float):
+				errs.append("操作性字段不得 TBD：%s.%s" % [prefix, str(nf3)])
+	var sensors = row.get("sensors", null)
+	if not (sensors is Array):
+		errs.append("sensors 必须是数组：" + prefix)
+	elif (sensors as Array).is_empty():
+		errs.append("sensors 不能为空：" + prefix)
+	else:
+		for s in (sensors as Array):
+			if str(s).strip_edges() == "" or str(s) == "TBD":
+				errs.append("sensors 不得 TBD：" + prefix)
+	var weapons = row.get("weapons", null)
+	if not (weapons is Array):
+		errs.append("weapons 必须是数组：" + prefix)
+	else:
+		for w in (weapons as Array):
+			if str(w) == "TBD":
+				errs.append("weapons 不得 TBD：" + prefix)
+	var armor = row.get("armor", null)
+	if armor is String and str(armor) == "TBD":
+		errs.append("armor 不得 TBD：" + prefix)
+	elif armor is Dictionary and (armor as Dictionary).is_empty():
+		errs.append("armor 不得为空：" + prefix)
+	var dims = row.get("dimensions_m", null)
+	if not (dims is Array) or (dims as Array).size() != 3:
+		errs.append("dimensions_m 必须是 3 元数组：" + prefix)
+	else:
+		for d in (dims as Array):
+			if not (d is int or d is float):
+				errs.append("dimensions_m 不得 TBD：" + prefix)
+	var sig = row.get("signature", null)
+	if sig is Dictionary:
+		for sk in (sig as Dictionary).keys():
+			var sv = (sig as Dictionary)[sk]
+			if sv is String and str(sv) == "TBD":
+				errs.append("signature 不得 TBD：%s.%s" % [prefix, str(sk)])
+	if not bool(row.get("auto_derived", false)):
+		errs.append("缺 auto_derived=true：" + prefix)
+	if not (row.get("derivation") is Dictionary) or (row.get("derivation") as Dictionary).is_empty():
+		errs.append("缺 derivation 元数据：" + prefix)
+	if str(row.get("damage_profile_class_id", "")) == "":
+		errs.append("缺 damage_profile_class_id：" + prefix)
+	var tbd = row.get("tbd", null)
+	if not (tbd is Array):
+		errs.append("tbd 必须是数组：" + prefix)
+	elif not (tbd as Array).is_empty():
+		errs.append("常规数值不得保留 TBD 列表：" + prefix + " " + str(tbd))
 
 func _check_uniqueness_static(f: Dictionary, e: Dictionary) -> Dictionary:
 	var errs: Array = []
@@ -744,6 +858,18 @@ func summary() -> Dictionary:
 		roles[str(row.get("role", ""))] = true
 		if row.get("tbd") is Array:
 			tbd_count += (row.get("tbd") as Array).size()
+	var auto_n := 0
+	var op_tbd := 0
+	for cid4 in class_order:
+		var r4: Dictionary = classes_by_id[cid4]
+		if bool(r4.get("auto_derived", false)):
+			auto_n += 1
+		if r4.get("tbd") is Array:
+			op_tbd += (r4.get("tbd") as Array).size()
+	for vid4 in variant_order:
+		var vr4: Dictionary = variants_by_id[vid4]
+		if bool(vr4.get("auto_derived", false)):
+			auto_n += 1
 	var base_33: Array = []
 	for cid2 in class_order:
 		var r2: Dictionary = classes_by_id[cid2]
@@ -782,6 +908,10 @@ func summary() -> Dictionary:
 		"name_pools": (friendly.get("name_pools", {}) as Dictionary).size()
 			+ (enemy.get("name_pools", {}) as Dictionary).size(),
 		"auto_derived_variants": variant_order.size(),
+		"auto_derived_classes": auto_n,
+		"operational_tbd": op_tbd,
+		"damage_profile_classes": profile_class_ids.size(),
+		"profile_aligned": profile_aligned,
 		"roles": roles.keys(), "tbd_fields": tbd_count,
 		"proposal": true, "truth": false,
 		"writes": {"ui": false, "combat": false, "world": false, "v15": false}}
@@ -798,6 +928,22 @@ func check_contracts() -> Dictionary:
 	var v: Array[String] = []
 	if not ready:
 		v.append("ShipCatalog 未 ready")
+	if not profile_aligned:
+		v.append("damage_profiles class 未对齐")
+	for cid_op in class_order:
+		var row_op: Dictionary = classes_by_id[cid_op]
+		if row_op.get("tbd") is Array and not (row_op.get("tbd") as Array).is_empty():
+			v.append("操作性 TBD 未清除：" + cid_op)
+		if not bool(row_op.get("auto_derived", false)):
+			v.append("缺 auto_derived：" + cid_op)
+		if not (row_op.get("derivation") is Dictionary) or (row_op.get("derivation") as Dictionary).is_empty():
+			v.append("缺 derivation：" + cid_op)
+	for vid_op in variant_order:
+		var vop: Dictionary = variants_by_id[vid_op]
+		if vop.get("tbd") is Array and not (vop.get("tbd") as Array).is_empty():
+			v.append("variant 操作性 TBD 未清除：" + vid_op)
+		if str(vop.get("damage_profile_class_id", "")) == "":
+			v.append("variant 缺 damage_profile_class_id：" + vid_op)
 	var fcount := classes(FRIENDLY_FACTION).size()
 	if fcount != 8:
 		v.append("友军必须 8 型，实际 " + str(fcount))

@@ -1414,3 +1414,40 @@ F5 PROBE RESULT: PASS
 1. 6 基型覆盖全部设施，非每设施独立网格；无贴图。
 2. UI 只读；不读 truth、不写 world/physics。
 3. 未跑全量 regression。
+
+
+---
+
+## 40　方案B-39：HUD 舰队编制 + 全舰改装（task-218）
+
+### 40.1 boot / 数据
+
+- ShellBinder seed 增加 `fleet_formation: true`、`fleet_refit: true`（Prelude/fallback）。
+- 新增 binder：`fleet_builder_data()`、`fleet_builder_op(ASSIGN/UNASSIGN/MOVE/VALIDATE)`、`fleet_refit_data()`、`fleet_refit_op(SELECT/QUOTE/INSTALL/REMOVE/COMMIT/TICK)`、`fleet_options()`。
+- headless 实测：`fleet_builder ready=true ships=13 slots=8 valid=true totals={ships:5, mass_t:13000, dv_kmps:21.44, crew:368, fuel_t:8900, repair_slots_required:1}`；`fleet_refit ready=true ships=13 selected=APSIS options=24`。
+
+### 40.2 FLEET BUILDER overlay
+
+- 入口：FLEET overlay 底部 `FLEET BUILDER / 舰队编制`；截图用 `DSH_V1_VIEW=fleet_builder`。
+- 左：13 舰名册（id/name/class/role/status/slot）；中：8 槽 command/screen/gun/missile/logistics/relay/tug/shuttle（used/cap/required + bar）；右：VALID/INVALID、COMMAND REQUIRED/OK、约束错误、总 mass/Δv/crew/fuel/repair、选中舰详情。
+- 操作：ASSIGN / UNASSIGN / MOVE / VALIDATE；选中舰与槽点击。
+- 实测：`assign=true ANVIL→gun`，`validate=true`，`move=true HARMATTAN→relay`。
+
+### 40.3 REFIT · MULTI-SHIP
+
+- 现有 REFIT overlay 扩展为 13 舰：底栏 13 个舰名选择（选中琥珀框），共享资源/地点；每舰独立槽位/模块/成本/计划/队列。
+- QUOTE / INSTALL / REMOVE / COMMIT / TICK 1D 走 Session 5G `fleet_refit` API；不伪造资源/成本。
+- 实测自检：`select=true APSIS options=24 quote=true install=true commit=true tick=true module=defense_armor_belt`。
+
+### 40.4 截图 / 验证
+
+- `mockups/v1-hud-fleet-builder-1920.png`
+- `mockups/v1-hud-refit-multiship-1920.png`
+- 1600 布局：`mockups/v1-hud-fleet-builder-1600.png`、`v1-hud-refit-multiship-1600.png`。
+- 均 SHOT err=0；headless v1_hud 一次；`v1_hud.gd/shell_binder.gd --check-only` 通过。
+
+### 40.5 边界
+
+1. 编组/改装为 Session 5G 提案数据，不是物理编队动画。
+2. 共享资源只有 fleet_refit 分配的资源；失败显示 reason；不伪造。
+3. 未跑全量 regression；不改核心/旧 plot。

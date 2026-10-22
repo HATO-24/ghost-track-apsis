@@ -94,14 +94,6 @@
         "comms"
       ],
       "weapons": [],
-      "armor": "TBD",
-      "rcs": "TBD",
-      "ir": "TBD",
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
       "sections": [
         "hull",
         "power",
@@ -128,14 +120,29 @@
         "PARKING"
       ],
       "proposal": true,
-      "tbd": [
-        "armor",
-        "rcs",
-        "ir",
-        "dimensions_m"
-      ],
       "source": "docs/04 §7 + §12.8",
-      "note": "刺桐-2M 船坞舰改装；APSIS 舷号 001。"
+      "note": "刺桐-2M 船坞舰改装；APSIS 舷号 001。",
+      "rcs_m2": 36000.0,
+      "ir_signature": 420.0,
+      "rcs": 36000.0,
+      "ir": 420.0,
+      "dimensions_m": [
+        260.0,
+        120.0,
+        90.0
+      ],
+      "armor": {
+        "kinetic_resist": 0.083,
+        "energy_resist": 0.074
+      },
+      "damage_profile_class_id": "OCUVF-APOGEE",
+      "auto_derived": true,
+      "derivation": {
+        "template": "ocuvf_role:depot",
+        "formula": "role template rcs_m2/ir_signature/dimensions_m; armor from damage_profiles.effects.armor",
+        "source": "docs/04 §7 + damage_profiles"
+      },
+      "tbd": []
     },
     {
       "class_id": "OCUVF-PALLET-5C",
@@ -158,14 +165,6 @@
         "CH-R0"
       ],
       "weapons": [],
-      "armor": "TBD",
-      "rcs": "TBD",
-      "ir": "TBD",
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
       "sections": [
         "hull",
         "power",
@@ -192,14 +191,29 @@
         "HOARFROST"
       ],
       "proposal": true,
-      "tbd": [
-        "armor",
-        "rcs",
-        "ir",
-        "dimensions_m"
-      ],
       "source": "docs/04 §7 + §12.8",
-      "note": "哨舰/传感器节点；哈马丹 114。"
+      "note": "哨舰/传感器节点；哈马丹 114。",
+      "rcs_m2": 1200.0,
+      "ir_signature": 45.0,
+      "rcs": 1200.0,
+      "ir": 45.0,
+      "dimensions_m": [
+        45.0,
+        18.0,
+        20.0
+      ],
+      "armor": {
+        "kinetic_resist": 0.11,
+        "energy_resist": 0.092
+      },
+      "damage_profile_class_id": "OCUVF-PALLET-5C",
+      "auto_derived": true,
+      "derivation": {
+        "template": "ocuvf_role:picket",
+        "formula": "role template rcs_m2/ir_signature/dimensions_m; armor from damage_profiles.effects.armor",
+        "source": "docs/04 §7 + damage_profiles"
+      },
+      "tbd": []
     },
     {
       "class_id": "OCUVF-HEMATITE-6C",
@@ -222,14 +236,6 @@
       "weapons": [
         "railgun",
         "point_defense"
-      ],
-      "armor": "TBD",
-      "rcs": "TBD",
-      "ir": "TBD",
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
       ],
       "sections": [
         "hull",
@@ -257,14 +263,29 @@
         "SHOAL"
       ],
       "proposal": true,
-      "tbd": [
-        "armor",
-        "rcs",
-        "ir",
-        "dimensions_m"
-      ],
       "source": "docs/04 §7 + §12.8",
-      "note": "炮舰；渡口 201（提案映射）。"
+      "note": "炮舰；渡口 201（提案映射）。",
+      "rcs_m2": 6800.0,
+      "ir_signature": 120.0,
+      "rcs": 6800.0,
+      "ir": 120.0,
+      "dimensions_m": [
+        90.0,
+        30.0,
+        35.0
+      ],
+      "armor": {
+        "kinetic_resist": 0.11,
+        "energy_resist": 0.092
+      },
+      "damage_profile_class_id": "OCUVF-HEMATITE-6C",
+      "auto_derived": true,
+      "derivation": {
+        "template": "ocuvf_role:gun",
+        "formula": "role template rcs_m2/ir_signature/dimensions_m; armor from damage_profiles.effects.armor",
+        "source": "docs/04 §7 + damage_profiles"
+      },
+      "tbd": []
     },
     {
       "class_id": "OCUVF-GANTRY-3M",
@@ -287,14 +308,6 @@
         "missile_48_cell",
         "point_defense"
       ],
-      "armor": "TBD",
-      "rcs": "TBD",
-      "ir": "TBD",
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
       "sections": [
         "hull",
         "power",
@@ -311,14 +324,29 @@
         "ST HELENS"
       ],
       "proposal": true,
-      "tbd": [
-        "armor",
-        "rcs",
-        "ir",
-        "dimensions_m"
-      ],
       "source": "docs/04 §7 + §12.8",
-      "note": "弹舱舰；导弹发射架 48 单元。"
+      "note": "弹舱舰；导弹发射架 48 单元。",
+      "rcs_m2": 5200.0,
+      "ir_signature": 95.0,
+      "rcs": 5200.0,
+      "ir": 95.0,
+      "dimensions_m": [
+        80.0,
+        28.0,
+        30.0
+      ],
+      "armor": {
+        "kinetic_resist": 0.11,
+        "energy_resist": 0.092
+      },
+      "damage_profile_class_id": "OCUVF-GANTRY-3M",
+      "auto_derived": true,
+      "derivation": {
+        "template": "ocuvf_role:missile",
+        "formula": "role template rcs_m2/ir_signature/dimensions_m; armor from damage_profiles.effects.armor",
+        "source": "docs/04 §7 + damage_profiles"
+      },
+      "tbd": []
     },
     {
       "class_id": "OCUVF-MOONPORT-4",
@@ -337,14 +365,6 @@
         "CH-R0"
       ],
       "weapons": [],
-      "armor": "TBD",
-      "rcs": "TBD",
-      "ir": "TBD",
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
       "sections": [
         "hull",
         "power",
@@ -370,14 +390,29 @@
         "UNDERFLOW"
       ],
       "proposal": true,
-      "tbd": [
-        "armor",
-        "rcs",
-        "ir",
-        "dimensions_m"
-      ],
       "source": "docs/04 §7 + §12.8",
-      "note": "油船/舰队补给；深井 401（提案映射）。"
+      "note": "油船/舰队补给；深井 401（提案映射）。",
+      "rcs_m2": 15000.0,
+      "ir_signature": 260.0,
+      "rcs": 15000.0,
+      "ir": 260.0,
+      "dimensions_m": [
+        140.0,
+        40.0,
+        45.0
+      ],
+      "armor": {
+        "kinetic_resist": 0.083,
+        "energy_resist": 0.074
+      },
+      "damage_profile_class_id": "OCUVF-MOONPORT-4",
+      "auto_derived": true,
+      "derivation": {
+        "template": "ocuvf_role:tanker",
+        "formula": "role template rcs_m2/ir_signature/dimensions_m; armor from damage_profiles.effects.armor",
+        "source": "docs/04 §7 + damage_profiles"
+      },
+      "tbd": []
     },
     {
       "class_id": "OCUVF-SAFEHARBOR-1",
@@ -398,14 +433,6 @@
         "CH-R0"
       ],
       "weapons": [],
-      "armor": "TBD",
-      "rcs": "TBD",
-      "ir": "TBD",
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
       "sections": [
         "hull",
         "power",
@@ -431,14 +458,29 @@
         "LIGHTHOUSE"
       ],
       "proposal": true,
-      "tbd": [
-        "armor",
-        "rcs",
-        "ir",
-        "dimensions_m"
-      ],
       "source": "docs/04 §7 + §12.8",
-      "note": "中继舰；望楼 501（提案映射）。"
+      "note": "中继舰；望楼 501（提案映射）。",
+      "rcs_m2": 2600.0,
+      "ir_signature": 70.0,
+      "rcs": 2600.0,
+      "ir": 70.0,
+      "dimensions_m": [
+        60.0,
+        22.0,
+        25.0
+      ],
+      "armor": {
+        "kinetic_resist": 0.083,
+        "energy_resist": 0.074
+      },
+      "damage_profile_class_id": "OCUVF-SAFEHARBOR-1",
+      "auto_derived": true,
+      "derivation": {
+        "template": "ocuvf_role:relay",
+        "formula": "role template rcs_m2/ir_signature/dimensions_m; armor from damage_profiles.effects.armor",
+        "source": "docs/04 §7 + damage_profiles"
+      },
+      "tbd": []
     },
     {
       "class_id": "OCUVF-WINCH-2",
@@ -457,14 +499,6 @@
         "CH-R0"
       ],
       "weapons": [],
-      "armor": "TBD",
-      "rcs": "TBD",
-      "ir": "TBD",
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
       "sections": [
         "hull",
         "power",
@@ -481,14 +515,29 @@
         "TOWHOOK"
       ],
       "proposal": true,
-      "tbd": [
-        "armor",
-        "rcs",
-        "ir",
-        "dimensions_m"
-      ],
       "source": "docs/04 §7 + §12.8",
-      "note": "拖船/救援回收。"
+      "note": "拖船/救援回收。",
+      "rcs_m2": 2100.0,
+      "ir_signature": 55.0,
+      "rcs": 2100.0,
+      "ir": 55.0,
+      "dimensions_m": [
+        50.0,
+        20.0,
+        22.0
+      ],
+      "armor": {
+        "kinetic_resist": 0.083,
+        "energy_resist": 0.074
+      },
+      "damage_profile_class_id": "OCUVF-WINCH-2",
+      "auto_derived": true,
+      "derivation": {
+        "template": "ocuvf_role:tug",
+        "formula": "role template rcs_m2/ir_signature/dimensions_m; armor from damage_profiles.effects.armor",
+        "source": "docs/04 §7 + damage_profiles"
+      },
+      "tbd": []
     },
     {
       "class_id": "OCUVF-ARIA-1",
@@ -507,14 +556,6 @@
         "CH-R0"
       ],
       "weapons": [],
-      "armor": "TBD",
-      "rcs": "TBD",
-      "ir": "TBD",
-      "dimensions_m": [
-        "TBD",
-        "TBD",
-        "TBD"
-      ],
       "sections": [
         "hull",
         "power",
@@ -531,17 +572,106 @@
         "BULLA"
       ],
       "proposal": true,
-      "tbd": [
-        "armor",
-        "rcs",
-        "ir",
-        "dimensions_m"
-      ],
       "source": "docs/04 §7 + §12.8",
-      "note": "舰载穿梭机；不占舰队编制。"
+      "note": "舰载穿梭机；不占舰队编制。",
+      "rcs_m2": 120.0,
+      "ir_signature": 12.0,
+      "rcs": 120.0,
+      "ir": 12.0,
+      "dimensions_m": [
+        18.0,
+        6.0,
+        5.0
+      ],
+      "armor": {
+        "kinetic_resist": 0.083,
+        "energy_resist": 0.074
+      },
+      "damage_profile_class_id": "OCUVF-ARIA-1",
+      "auto_derived": true,
+      "derivation": {
+        "template": "ocuvf_role:shuttle",
+        "formula": "role template rcs_m2/ir_signature/dimensions_m; armor from damage_profiles.effects.armor",
+        "source": "docs/04 §7 + damage_profiles"
+      },
+      "tbd": []
     }
   ],
   "notes": [
     "数值来自 docs/04 §7；未知/装甲/RCS/IR/尺寸标 TBD；命名池来自 docs/04 §12.8。"
-  ]
+  ],
+  "role_templates": {
+    "depot": {
+      "rcs_m2": 36000.0,
+      "ir_signature": 420.0,
+      "dimensions_m": [
+        260.0,
+        120.0,
+        90.0
+      ]
+    },
+    "picket": {
+      "rcs_m2": 1200.0,
+      "ir_signature": 45.0,
+      "dimensions_m": [
+        45.0,
+        18.0,
+        20.0
+      ]
+    },
+    "gun": {
+      "rcs_m2": 6800.0,
+      "ir_signature": 120.0,
+      "dimensions_m": [
+        90.0,
+        30.0,
+        35.0
+      ]
+    },
+    "missile": {
+      "rcs_m2": 5200.0,
+      "ir_signature": 95.0,
+      "dimensions_m": [
+        80.0,
+        28.0,
+        30.0
+      ]
+    },
+    "tanker": {
+      "rcs_m2": 15000.0,
+      "ir_signature": 260.0,
+      "dimensions_m": [
+        140.0,
+        40.0,
+        45.0
+      ]
+    },
+    "relay": {
+      "rcs_m2": 2600.0,
+      "ir_signature": 70.0,
+      "dimensions_m": [
+        60.0,
+        22.0,
+        25.0
+      ]
+    },
+    "tug": {
+      "rcs_m2": 2100.0,
+      "ir_signature": 55.0,
+      "dimensions_m": [
+        50.0,
+        20.0,
+        22.0
+      ]
+    },
+    "shuttle": {
+      "rcs_m2": 120.0,
+      "ir_signature": 12.0,
+      "dimensions_m": [
+        18.0,
+        6.0,
+        5.0
+      ]
+    }
+  }
 }

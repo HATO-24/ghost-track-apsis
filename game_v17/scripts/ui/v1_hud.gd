@@ -76,6 +76,12 @@ var _fleet_msg := ""
 var _refit_index := 0
 var _refit_buttons: Array = []
 var _refit_msg := ""
+var _refit_ship_index := 0
+var _fleet_builder_ship := 0
+var _fleet_builder_slot := 0
+var _fleet_builder_buttons: Array = []
+var _fleet_builder_msg := ""
+var _fleet_tested := false
 var _refit_quote: Dictionary = {}
 var _refit_tested := false
 var _near_view = null
@@ -347,8 +353,13 @@ func _load_data() -> void:
 		_update_near_subject()
 	elif view == "fleet":
 		_overlay = "fleet"
-	elif view == "refit":
+	elif view == "refit" or view == "refit_multi":
 		_overlay = "refit"
+		_refit_ship_index = 0
+	elif view == "fleet_builder":
+		_overlay = "fleet_builder"
+		_fleet_builder_ship = 0
+		_fleet_builder_slot = 0
 	elif view == "combat":
 		_overlay = "combat"
 		_seed_combat_tracks()
@@ -473,6 +484,81 @@ func _update_trigger_banner() -> void:
 				break
 
 
+func _fleet_selftest() -> void:
+	if binder == null:
+		return
+	var fd: Dictionary = binder.fleet_builder_data()
+	var roster: Array = fd.get("roster", []) if fd.get("roster", []) is Array else []
+	var slots: Dictionary = ((fd.get("slots", {}) as Dictionary).get("slots", {}) if fd.get("slots", {}) is Dictionary else {}) if fd.get("slots", {}) is Dictionary else {}
+	var slot_keys := _fleet_builder_slot_keys()
+	var target_ship := ""
+	var target_slot := ""
+	for raw in roster:
+		if not (raw is Dictionary):
+			continue
+		var sh: Dictionary = raw
+		if sh.get("assigned_slot", null) != null:
+			continue
+		var roles: Array = sh.get("formation_roles", []) if sh.get("formation_roles", []) is Array else []
+		for sk in slot_keys:
+			if roles.has(sk) and int((slots.get(sk, {}) as Dictionary).get("used", 0)) < int((slots.get(sk, {}) as Dictionary).get("cap", 0)):
+				target_ship = String(sh.get("ship_id", ""))
+				target_slot = String(sk)
+				break
+		if target_ship != "":
+			break
+	if target_ship != "":
+		var a: Dictionary = binder.fleet_builder_op("ASSIGN", target_ship, target_slot)
+		print("[FLEET SELFTEST] assign=", bool(a.get("ok", false)), " ship=", target_ship, " slot=", target_slot, " reason=", String(a.get("reason", "")))
+		var v: Dictionary = binder.fleet_builder_op("VALIDATE")
+		print("[FLEET SELFTEST] validate=", bool(v.get("ok", false)), " errors=", str(v.get("errors", [])))
+		var move_ship := ""
+		var move_slot := ""
+		var moved := false
+		for raw2 in roster:
+			if not (raw2 is Dictionary):
+				continue
+			var sh2: Dictionary = raw2
+			if sh2.get("assigned_slot", null) == null:
+				continue
+			var roles2: Array = sh2.get("formation_roles", []) if sh2.get("formation_roles", []) is Array else []
+			for sk2 in slot_keys:
+				if sk2 == String(sh2.get("assigned_slot", "")) or not roles2.has(sk2):
+					continue
+				var sd2: Dictionary = slots.get(sk2, {}) if slots.get(sk2, {}) is Dictionary else {}
+				if int(sd2.get("used", 0)) >= int(sd2.get("cap", 0)):
+					continue
+				var m: Dictionary = binder.fleet_builder_op("MOVE", String(sh2.get("ship_id", "")), String(sk2))
+				if bool(m.get("ok", false)):
+					moved = true
+					move_ship = String(sh2.get("ship_id", ""))
+					move_slot = String(sk2)
+					print("[FLEET SELFTEST] move=true ship=", move_ship, " slot=", move_slot)
+					break
+				move_ship = String(sh2.get("ship_id", ""))
+				move_slot = String(sk2)
+			if moved:
+				break
+		if not moved:
+			print("[FLEET SELFTEST] move=false last=", move_ship, "→", move_slot)
+	else:
+		print("[FLEET SELFTEST] no unassigned role-compatible ship; roster=", roster.size())
+	var rd: Dictionary = binder.fleet_refit_data()
+	var ships: Array = rd.get("ships", []) if rd.get("ships", []) is Array else []
+	if ships.size() >= 2:
+		var sid := String((ships[1] as Dictionary).get("ship_id", ""))
+		var sel: Dictionary = binder.fleet_refit_op("SELECT", sid)
+		var opts: Array = binder.fleet_options(sid)
+		print("[FLEET REFIT SELFTEST] select=", bool(sel.get("ok", false)), " ship=", sid, " options=", opts.size())
+		if not opts.is_empty():
+			var mid := String((opts[0] as Dictionary).get("module_id", ""))
+			var q: Dictionary = binder.fleet_refit_op("QUOTE", sid, mid)
+			var ins: Dictionary = binder.fleet_refit_op("INSTALL", sid, mid)
+			var com: Dictionary = binder.fleet_refit_op("COMMIT", sid)
+			var tk: Dictionary = binder.fleet_refit_op("TICK", sid)
+			print("[FLEET REFIT SELFTEST] quote=", bool(q.get("ok", false)), " install=", bool(ins.get("ok", false)), " commit=", bool(com.get("ok", false)), " tick=", bool(tk.get("ok", false)), " module=", mid)
+
+
 func _refit_selftest() -> void:
 	if binder == null:
 		return
@@ -496,6 +582,9 @@ func _refit_selftest() -> void:
 func _process(delta: float) -> void:
 	if _near_view != null:
 		_near_view.tick(delta)
+	if OS.get_environment("DSH_FLEET_TEST") == "1" and not _fleet_tested:
+		_fleet_tested = true
+		call_deferred("_fleet_selftest")
 	if OS.get_environment("DSH_REFIT_TEST") == "1" and not _refit_tested:
 		_refit_tested = true
 		call_deferred("_refit_selftest")
@@ -1065,6 +1154,8 @@ func _draw_overlay_layer(cv: CanvasItem) -> void:
 		_draw_fleet_overlay(r)
 	elif _overlay == "refit":
 		_draw_refit_overlay(r)
+	elif _overlay == "fleet_builder":
+		_draw_fleet_builder_overlay(r)
 	elif _overlay == "ident":
 		_draw_ident_overlay(r)
 	_cv = self
@@ -2851,6 +2942,152 @@ func _draw_near_overlay(r: Rect2) -> void:
 	Painter.label(_cv, right_x, yy, "MODELS: EARTH/MOON/STATION", 7, P.a(P.PH_DIM, 0.9), true)
 
 
+func _fleet_builder_slot_keys() -> Array:
+	return ["command", "screen", "gun", "missile", "logistics", "relay", "tug", "shuttle"]
+
+
+func _fleet_builder_action(kind: String, index: int) -> void:
+	var fd: Dictionary = binder.fleet_builder_data() if binder != null else {}
+	var roster: Array = fd.get("roster", []) if fd.get("roster", []) is Array else []
+	if kind == "SHIP":
+		_fleet_builder_ship = clampi(index, 0, maxi(0, roster.size() - 1))
+		_fleet_builder_msg = ""
+		queue_redraw()
+		return
+	if kind == "SLOT":
+		_fleet_builder_slot = clampi(index, 0, 7)
+		_fleet_builder_msg = ""
+		queue_redraw()
+		return
+	var ship_id := ""
+	if _fleet_builder_ship >= 0 and _fleet_builder_ship < roster.size():
+		ship_id = String((roster[_fleet_builder_ship] as Dictionary).get("ship_id", ""))
+	var slot := String(_fleet_builder_slot_keys()[clampi(_fleet_builder_slot, 0, 7)])
+	var res: Dictionary = binder.fleet_builder_op(kind, ship_id, slot) if binder != null else {"ok": false, "reason": "no_binder"}
+	_fleet_builder_msg = kind + " · " + ("OK" if bool(res.get("ok", false)) else "FAILED · " + String(res.get("reason", "unknown")))
+	if bool(res.get("ok", false)) and kind in ["ASSIGN", "UNASSIGN", "MOVE"]:
+		pass
+	queue_redraw()
+
+
+func _draw_fleet_builder_overlay(r: Rect2) -> void:
+	var fd: Dictionary = binder.fleet_builder_data() if binder != null else {}
+	var fr := _overlay_frame(r, "舰队编制 / FLEET BUILDER", "13 舰名册 · 8 槽 command/screen/gun/missile/logistics/relay/tug/shuttle · ASSIGN/UNASSIGN/MOVE/VALIDATE",
+		P.PH, String(fd.get("source", "NOT READY")), 1)
+	var body: Rect2 = fr.body
+	var footer: Rect2 = fr.footer
+	_fleet_builder_buttons.clear()
+	_fleet_builder_buttons.append_array(_button_bar(Rect2(footer.position, Vector2(footer.size.x, OV_BTN_H)),
+		[["ASSIGN", "ASSIGN / 编入"], ["UNASSIGN", "UNASSIGN / 撤编"], ["MOVE", "MOVE / 换槽"], ["VALIDATE", "VALIDATE / 校验"]]))
+	if not bool(fd.get("ready", false)):
+		Painter.label(_cv, body.position.x, body.position.y + 22, "FLEET FORMATION NOT READY", 12, P.AMBER)
+		Painter.label(_cv, body.position.x, body.position.y + 42, "session.fleet_formation 未启用/未 ready", 8, P.AMBER, true)
+		return
+	var roster: Array = fd.get("roster", []) if fd.get("roster", []) is Array else []
+	var slots_vm: Dictionary = fd.get("slots", {}) if fd.get("slots", {}) is Dictionary else {}
+	var slots: Dictionary = slots_vm.get("slots", {}) if slots_vm.get("slots", {}) is Dictionary else {}
+	var stats: Dictionary = fd.get("stats", {}) if fd.get("stats", {}) is Dictionary else {}
+	var totals: Dictionary = stats.get("totals", {}) if stats.get("totals", {}) is Dictionary else {}
+	var validate: Dictionary = fd.get("validate", {}) if fd.get("validate", {}) is Dictionary else {}
+	_fleet_builder_ship = clampi(_fleet_builder_ship, 0, maxi(0, roster.size() - 1))
+	_fleet_builder_slot = clampi(_fleet_builder_slot, 0, 7)
+	var slot_keys := _fleet_builder_slot_keys()
+	var left_w := 450.0
+	var mid_w := 410.0
+	var gap := 18.0
+	var left_x := body.position.x
+	var mid_x := left_x + left_w + gap
+	var right_x := mid_x + mid_w + gap
+	var right_w := body.size.x - left_w - mid_w - gap * 2.0
+	Painter.section(_cv, left_x, body.position.y, left_x + left_w, "ROSTER / 名册 13 舰")
+	Painter.section(_cv, mid_x, body.position.y, mid_x + mid_w, "SLOTS / 8 槽")
+	Painter.section(_cv, right_x, body.position.y, right_x + right_w, "VALIDATION / 统计")
+	var row_h := 23.0
+	var ry := body.position.y + 20.0
+	for i in range(roster.size()):
+		if ry + row_h > body.end.y - 6.0:
+			break
+		var sh: Dictionary = roster[i]
+		var rr := Rect2(left_x, ry, left_w - 8.0, row_h - 2.0)
+		var active := i == _fleet_builder_ship
+		_cv.draw_rect(rr, P.a(P.PH if active else P.LINE, 0.13 if active else 0.035))
+		_fleet_builder_buttons.append({"rect": rr, "kind": "SHIP", "index": i})
+		var sid := String(sh.get("ship_id", ""))
+		var st: Dictionary = sh.get("stats", {}) if sh.get("stats", {}) is Dictionary else {}
+		var mass := float(st.get("mass_t", 0.0))
+		Painter.label(_cv, rr.position.x + 6, rr.position.y + 14, TM.fit(sid + " · " + String(sh.get("name", "")), 185, false, 8), 8, P.PH if active else P.TXT)
+		Painter.label(_cv, rr.position.x + 198, rr.position.y + 14, String(sh.get("class_id", "")), 6, P.PH_DIM, true)
+		Painter.label(_cv, rr.position.x + 292, rr.position.y + 14, String(sh.get("role", "")), 6, P.a(P.AMBER, 0.85), true)
+		var ass: Variant = sh.get("assigned_slot", null)
+		Painter.label_right(_cv, rr.end.x - 4, rr.position.y + 14, ("—" if ass == null else String(ass)) + " · " + String(sh.get("status", "—")), 6, P.TXT, true)
+		ry += row_h
+	# slots
+	var sy := body.position.y + 20.0
+	for i in range(slot_keys.size()):
+		var key := String(slot_keys[i])
+		var sv: Dictionary = slots.get(key, {}) if slots.get(key, {}) is Dictionary else {}
+		var used := int(sv.get("used", 0))
+		var cap := int(sv.get("cap", 0))
+		var req := bool(sv.get("required", false))
+		var sr := Rect2(mid_x, sy, mid_w - 8.0, 28.0)
+		var sactive := i == _fleet_builder_slot
+		_cv.draw_rect(sr, P.a(P.PH if sactive else P.LINE, 0.11 if sactive else 0.03))
+		_fleet_builder_buttons.append({"rect": sr, "kind": "SLOT", "index": i})
+		Painter.label(_cv, sr.position.x + 6, sr.position.y + 12, TM.fit(String(sv.get("label", key)) + " / " + key.to_upper(), 190, false, 8), 8, P.PH if sactive else P.TXT)
+		Painter.label_right(_cv, sr.end.x - 4, sr.position.y + 12, "%d/%d%s" % [used, cap, " · REQ" if req else ""], 7, P.AMBER if req else P.PH_DIM, true)
+		var bar := Rect2(sr.position.x + 6, sr.position.y + 18, mid_w - 22, 4.0)
+		_cv.draw_rect(bar, P.a(P.LINE, 0.6))
+		if cap > 0:
+			_cv.draw_rect(Rect2(bar.position, Vector2(bar.size.x * float(used) / float(cap), bar.size.y)), P.a(P.AMBER if req and used == 0 else P.PH, 0.8))
+		sy += 31.0
+	# right: valid + totals + selected ship + slot requirement
+	var cmd_used := 0
+	var cmd_slot: Dictionary = slots.get("command", {}) if slots.get("command", {}) is Dictionary else {}
+	cmd_used = int(cmd_slot.get("used", 0))
+	var valid := bool(stats.get("valid", false))
+	Painter.label(_cv, right_x, body.position.y + 24, "VALID" if valid else "INVALID", 14, P.PH if valid else P.RED)
+	Painter.label(_cv, right_x + 100, body.position.y + 24, ("COMMAND OK" if cmd_used > 0 else "COMMAND REQUIRED"), 8, P.PH if cmd_used > 0 else P.AMBER)
+	var errors: Array = validate.get("errors", []) if validate.get("errors", []) is Array else []
+	var ey := body.position.y + 42.0
+	if errors.is_empty():
+		Painter.label(_cv, right_x, ey, "no constraint errors", 7, P.PH_DIM, true)
+		ey += 14.0
+	else:
+		for e in errors:
+			Painter.label(_cv, right_x, ey, TM.fit("· " + String(e), right_w, true, 7), 7, P.AMBER, true)
+			ey += 13.0
+	ey += 6.0
+	Painter.section(_cv, right_x, ey, right_x + right_w, "TOTALS / 编制合计")
+	ey += 17.0
+	var totals_rows := [
+		["SHIPS", str(int(totals.get("ships", 0)))], ["MASS", "%.0f t" % float(totals.get("mass_t", 0.0))],
+		["Δv", "%.2f km/s" % float(totals.get("dv_kmps", 0.0))], ["CREW", str(int(totals.get("crew", 0)))],
+		["FUEL", "%.0f t" % float(totals.get("fuel_t", 0.0))],
+		["REPAIR", str(int(totals.get("repair_slots_required", 0)))],
+		["ASSIGNED", "%d / 13" % int(stats.get("assigned", 0))],
+	]
+	for raw in totals_rows:
+		var tr: Array = raw
+		Painter.label(_cv, right_x, ey, String(tr[0]), 7, P.a(P.FAINT, 0.9), true)
+		Painter.label(_cv, right_x + 92, ey, String(tr[1]), 7, P.TXT, true)
+		ey += 14.0
+	if not roster.is_empty():
+		var sh2: Dictionary = roster[_fleet_builder_ship]
+		ey += 6.0
+		Painter.section(_cv, right_x, ey, right_x + right_w, "SELECTED SHIP / 选中舰")
+		ey += 17.0
+		Painter.label(_cv, right_x, ey, TM.fit(String(sh2.get("ship_id", "")) + " · " + String(sh2.get("name", "")), right_w, false, 9), 9, P.PH)
+		ey += 14.0
+		Painter.label(_cv, right_x, ey, "CLASS " + String(sh2.get("class_id", "—")) + " · ROLE " + String(sh2.get("role", "—")), 7, P.a(P.AMBER, 0.9), true)
+		ey += 13.0
+		var sst: Dictionary = sh2.get("stats", {}) if sh2.get("stats", {}) is Dictionary else {}
+		Painter.label(_cv, right_x, ey, "STATUS " + String(sh2.get("status", "—")) + " · MASS %.0ft · FUEL %.0ft" % [float(sst.get("mass_t", 0.0)), float(sst.get("fuel_t", 0.0))], 7, P.TXT, true)
+		ey += 13.0
+		Painter.label(_cv, right_x, ey, "SLOT " + ("UNASSIGNED" if sh2.get("assigned_slot", null) == null else String(sh2.get("assigned_slot"))), 7, P.PH_DIM, true)
+	if _fleet_builder_msg != "":
+		Painter.label(_cv, body.position.x, body.end.y - 4.0, TM.fit(_fleet_builder_msg, body.size.x, true, 7), 7, P.PH if _fleet_builder_msg.contains("OK") else P.AMBER, true)
+
+
 func _fleet_action(kind: String, index: int) -> void:
 	if kind == "TAB_FRIENDLY":
 		_fleet_tab = "friendly"
@@ -2858,6 +3095,13 @@ func _fleet_action(kind: String, index: int) -> void:
 	elif kind == "TAB_ENEMY":
 		_fleet_tab = "enemy"
 		_fleet_index = 0
+	elif kind == "OPEN_BUILDER":
+		_overlay = "fleet_builder"
+		_fleet_builder_ship = 0
+		_fleet_builder_slot = 0
+		_fleet_builder_msg = ""
+		queue_redraw()
+		return
 	elif kind == "ROW" and index >= 0:
 		_fleet_index = index
 	_fleet_msg = ""
@@ -2871,13 +3115,15 @@ func _draw_fleet_overlay(r: Rect2) -> void:
 	var classes: Array = (friendly.get("classes", []) if _fleet_tab == "friendly" else enemy.get("classes", [])) if (friendly.get("classes", []) if _fleet_tab == "friendly" else enemy.get("classes", [])) is Array else []
 	var total := (friendly.get("classes", []) as Array).size() + (enemy.get("classes", []) as Array).size()
 	var fr := _overlay_frame(r, "舰队数据库 / FLEET DATABASE", "友军/敌军舰级档案 · class/role/hull/displacement/Δv · 只读，不伪造 TBD",
-		P.PH, "FRIENDLY %d · ENEMY %d · %d TYPES" % [(friendly.get("classes", []) as Array).size(), (enemy.get("classes", []) as Array).size(), total], 1)
+		P.PH, "FRIENDLY %d · ENEMY %d · %d TYPES" % [(friendly.get("classes", []) as Array).size(), (enemy.get("classes", []) as Array).size(), total], 2)
 	var body: Rect2 = fr.body
 	var footer: Rect2 = fr.footer
 	_fleet_buttons.clear()
 	_fleet_buttons.append_array(_button_bar(Rect2(footer.position, Vector2(footer.size.x, OV_BTN_H)),
 		[["TAB_FRIENDLY", "FRIENDLY / 友军 %d" % (friendly.get("classes", []) as Array).size()],
 		 ["TAB_ENEMY", "ENEMY / 敌军 %d" % (enemy.get("classes", []) as Array).size()]]))
+	_fleet_buttons.append_array(_button_bar(Rect2(footer.position + Vector2(0.0, OV_BTN_H + OV_BTN_GAP), Vector2(footer.size.x, OV_BTN_H)),
+		[["OPEN_BUILDER", "FLEET BUILDER / 舰队编制"]]))
 	if not bool(fd.get("ready", false)):
 		Painter.label(_cv, body.position.x, body.position.y + 22, "SHIP CATALOG NOT READY", 12, P.AMBER)
 		Painter.label(_cv, body.position.x, body.position.y + 42, "session.ship_catalog 未启用/未 ready", 8, P.AMBER, true)
@@ -2954,8 +3200,24 @@ func _draw_fleet_overlay(r: Rect2) -> void:
 
 
 func _refit_action(kind: String, index: int) -> void:
-	var rd: Dictionary = binder.refit_data() if binder != null else {}
+	if kind.begins_with("SHIP:"):
+		index = int(kind.substr(5))
+		kind = "SHIP"
+	var fleet_rd: Dictionary = binder.fleet_refit_data() if binder != null else {}
+	var fleet_ok := bool(fleet_rd.get("ready", false))
+	var rd: Dictionary = fleet_rd if fleet_ok else (binder.refit_data() if binder != null else {})
 	var options: Array = rd.get("options", []) if rd.get("options", []) is Array else []
+	var ships: Array = rd.get("ships", []) if rd.get("ships", []) is Array else []
+	if kind == "SHIP" and index >= 0 and index < ships.size():
+		_refit_ship_index = index
+		_refit_quote = {}
+		_refit_msg = ""
+		if fleet_ok:
+			var sid := String((ships[index] as Dictionary).get("ship_id", ""))
+			var sel: Dictionary = binder.fleet_refit_op("SELECT", sid)
+			_refit_msg = "SELECT " + sid + " · " + ("OK" if bool(sel.get("ok", false)) else "FAILED · " + String(sel.get("reason", "")))
+		queue_redraw()
+		return
 	_refit_index = clampi(_refit_index, 0, maxi(0, options.size() - 1))
 	if kind == "MODULE" and index >= 0:
 		_refit_index = index
@@ -2970,7 +3232,12 @@ func _refit_action(kind: String, index: int) -> void:
 		_refit_msg = "NO MODULE SELECTED"
 		queue_redraw()
 		return
-	var res: Dictionary = binder.refit_op(kind, mid) if binder != null else {"ok": false, "reason": "no_binder"}
+	var ship_id := ""
+	if fleet_ok:
+		ship_id = String(rd.get("selected", ""))
+	var res: Dictionary = {"ok": false, "reason": "no_binder"}
+	if binder != null:
+		res = binder.fleet_refit_op(kind, ship_id, mid) if fleet_ok else binder.refit_op(kind, mid)
 	if kind == "QUOTE":
 		_refit_quote = res.duplicate(true)
 	_refit_msg = kind + " · " + ("OK" if bool(res.get("ok", false)) else "FAILED · " + String(res.get("reason", "unknown")))
@@ -2978,13 +3245,31 @@ func _refit_action(kind: String, index: int) -> void:
 
 
 func _draw_refit_overlay(r: Rect2) -> void:
-	var rd: Dictionary = binder.refit_data() if binder != null else {}
-	var fr := _overlay_frame(r, "APSIS 改装 / REFIT", "平台 stats · 6 类槽位 · 30 模块 · QUOTE/INSTALL/REMOVE/COMMIT/TICK 1D · 只读 UI 写 refit_service",
-		P.PH, String(rd.get("source", "NOT READY")), 1)
+	var fleet_rd: Dictionary = binder.fleet_refit_data() if binder != null else {}
+	var fleet_ok := bool(fleet_rd.get("ready", false))
+	var rd: Dictionary = fleet_rd if fleet_ok else (binder.refit_data() if binder != null else {})
+	var fr := _overlay_frame(r, "全舰改装 / REFIT · MULTI-SHIP", "13 舰独立槽位/模块/成本/计划/队列 · 共享资源 · QUOTE/INSTALL/REMOVE/COMMIT/TICK 1D",
+		P.PH, String(rd.get("source", "NOT READY")), 2)
 	var body: Rect2 = fr.body
 	var footer: Rect2 = fr.footer
 	_refit_buttons.clear()
-	_refit_buttons.append_array(_button_bar(Rect2(footer.position, Vector2(footer.size.x, OV_BTN_H)),
+	if fleet_ok:
+		var ships: Array = rd.get("ships", []) if rd.get("ships", []) is Array else []
+		var items: Array = []
+		var sel_id := String(rd.get("selected", ""))
+		for i in range(ships.size()):
+			var sh: Dictionary = ships[i]
+			items.append(["SHIP:%d" % i, String(sh.get("ship_id", ""))])
+			if String(sh.get("ship_id", "")) == sel_id:
+				_refit_ship_index = i
+		if not items.is_empty():
+			var ship_btns: Array = _button_bar(Rect2(footer.position, Vector2(footer.size.x, OV_BTN_H)), items)
+			_refit_buttons.append_array(ship_btns)
+			for sb in ship_btns:
+				if String(sb.get("kind", "")) == "SHIP:%d" % _refit_ship_index:
+					_cv.draw_rect(sb["rect"] as Rect2, P.a(P.AMBER, 0.9), false, 1.0)
+					break
+	_refit_buttons.append_array(_button_bar(Rect2(footer.position + Vector2(0.0, OV_BTN_H + OV_BTN_GAP), Vector2(footer.size.x, OV_BTN_H)),
 		[["QUOTE", "QUOTE / 报价"], ["INSTALL", "INSTALL / 安装"], ["REMOVE", "REMOVE / 移除"],
 		 ["COMMIT", "COMMIT / 提交"], ["TICK", "TICK 1D / 推进"]]))
 	if not bool(rd.get("ready", false)):
@@ -2992,12 +3277,19 @@ func _draw_refit_overlay(r: Rect2) -> void:
 		Painter.label(_cv, body.position.x, body.position.y + 42, "session.refit_service 未启用/未 ready", 8, P.AMBER, true)
 		return
 	var stats: Dictionary = rd.get("stats", {}) if rd.get("stats", {}) is Dictionary else {}
-	var slots: Dictionary = rd.get("slots", {}) if rd.get("slots", {}) is Dictionary else {}
+	var slots: Dictionary = stats.get("slots", {}) if stats.get("slots", {}) is Dictionary else (rd.get("slots", {}) if rd.get("slots", {}) is Dictionary else {})
 	var options: Array = rd.get("options", []) if rd.get("options", []) is Array else []
+	var ships: Array = rd.get("ships", []) if rd.get("ships", []) is Array else []
 	var current: Dictionary = stats.get("current", {}) if stats.get("current", {}) is Dictionary else {}
 	var projected: Dictionary = stats.get("projected", {}) if stats.get("projected", {}) is Dictionary else {}
 	var base: Dictionary = stats.get("base", {}) if stats.get("base", {}) is Dictionary else {}
-	var resources: Dictionary = stats.get("resources", {}) if stats.get("resources", {}) is Dictionary else {}
+	var resources: Dictionary = rd.get("resources", {}) if rd.get("resources", {}) is Dictionary else (stats.get("resources", {}) if stats.get("resources", {}) is Dictionary else {})
+	var ship_name := ""
+	if not ships.is_empty():
+		var shsel: Dictionary = ships[clampi(_refit_ship_index, 0, ships.size() - 1)]
+		ship_name = String(shsel.get("ship_id", "")) + " · " + String(shsel.get("name", ""))
+	if ship_name == "":
+		ship_name = "APSIS"
 	var left_w := 300.0
 	var mid_w := 390.0
 	var gap := 16.0
@@ -3005,7 +3297,7 @@ func _draw_refit_overlay(r: Rect2) -> void:
 	var mid_x := left_x + left_w + gap
 	var right_x := mid_x + mid_w + gap
 	var right_w := body.size.x - left_w - mid_w - gap * 2.0
-	Painter.section(_cv, left_x, body.position.y, left_x + left_w, "PLATFORM / APSIS")
+	Painter.section(_cv, left_x, body.position.y, left_x + left_w, "PLATFORM / " + ship_name)
 	Painter.section(_cv, mid_x, body.position.y, mid_x + mid_w, "MODULES / 模块 30")
 	Painter.section(_cv, right_x, body.position.y, right_x + right_w, "MODULE DETAIL / 投影")
 	var yy := body.position.y + 20.0
@@ -3718,6 +4010,11 @@ func _overlay_hit(lp: Vector2) -> bool:
 			for b in _refit_buttons:
 				if (b["rect"] as Rect2).has_point(lp):
 					_refit_action(String(b.get("kind", "")), int(b.get("index", -1)))
+					return true
+		"fleet_builder":
+			for b in _fleet_builder_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_fleet_builder_action(String(b.get("kind", "")), int(b.get("index", -1)))
 					return true
 		"traffic":
 			for row in _traffic_otc_rows:
