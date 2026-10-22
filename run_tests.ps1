@@ -18,21 +18,36 @@
       TIMEOUT   per-case process timeout (killed; counted as failure)
       NOT RUN   declared blocked case (declared in matrix) or missing script/scene/import
 
-    Baseline-aware mode (-Baseline <file>, schema known_baseline_failures.v1):
-    every case keeps its original status (a FAIL stays FAIL; nothing is renamed PASS,
-    hidden, skipped or continue-on-error). On top of that each FAIL is classified as
-    known+expected (counts/exit match the declared baseline), baseline drift (declared
-    failure whose counts changed, or a declared failure that now passes), or new failure
-    (not declared). The console/report print `BASELINE CHECK: known_fail=N new_fail=N
-    drift=N`; summary.json gains a `baseline` block and totals known_fail/new_fail/
-    baseline_drift. Exit is 0 only when new_fail==0 AND baseline_drift==0 AND timeout==0
-    AND unexpected NOT RUN==0; otherwise 1. Without -Baseline behaviour is unchanged:
-    any FAIL/TIMEOUT/unexpected NOT RUN -> exit 1.
+    Baseline-aware mode (-Baseline <file>, schema known_baseline_failures.v1) is
+    FAIL-CLOSED by default: every case keeps its original status (a FAIL stays FAIL;
+    nothing is renamed PASS, hidden, skipped or continue-on-error), and every declared
+    baseline entry must be (i) selected into this run, (ii) actually executed (not
+    NOT RUN), (iii) FAIL with exactly the declared exit code and PASS/FAIL counts.
+    Violations are counted as: new_fail (FAIL not declared), baseline_drift (declared
+    entry that changed counts / now passes / timed out), baseline_unverified (declared
+    entry selected but NOT RUN / not executed), baseline_unselected (declared entry not
+    selected by the current filters). STRICT DEFAULT: any new_fail/drift/unverified/
+    unselected, any TIMEOUT or unexpected NOT RUN -> exit 1. Only a run where all
+    declared entries are verified prints `complete=true` and the "BASELINE MATCH -
+    all N baseline entries executed as expected FAIL with matching counts" result line.
+    The console/report print `BASELINE CHECK: known_fail=N new_fail=N drift=N
+    unverified=N unselected=N complete=true|false`; summary.json gains a `baseline`
+    block (complete/verified/coverage/unselected_ids/unverified) and totals gain
+    known_fail/new_fail/baseline_drift/baseline_unverified/baseline_unselected/
+    baseline_complete.
 
-    Exit codes: 0 all run cases passed (baseline mode: only declared known failures);
-                1 any FAIL/TIMEOUT/unexpected NOT RUN (baseline mode: any new failure or
-                baseline drift); 2 environment/setup blocked (no Godot, import preflight
-                failed, unknown gate, missing/invalid baseline file, bad args).
+    -AllowPartialBaseline is a LOCAL DEBUGGING escape hatch only (CI never passes it):
+    unselected/unverified do not force exit 1, but the run is labelled
+    `RESULT: BASELINE PARTIAL - NOT a complete baseline verification (...)`, summary
+    baseline.complete=false/verified=false, and "BASELINE MATCH"/full-pass wording is
+    never printed. Without -Baseline behaviour is unchanged: any FAIL/TIMEOUT/
+    unexpected NOT RUN -> exit 1.
+
+    Exit codes: 0 all run cases passed (baseline strict: all declared baseline entries
+                verified); 1 any FAIL/TIMEOUT/unexpected NOT RUN (baseline strict: any
+                new failure, drift, unverified or unselected baseline entry); 2
+                environment/setup blocked (no Godot, import preflight failed, unknown
+                gate, missing/invalid baseline file, bad args).
 
 .PARAMETER GodotBin
     Explicit Godot executable path. Discovery order when omitted:
@@ -72,8 +87,18 @@
     Baseline-aware mode. Path to a known_baseline_failures.v1 file (default candidate:
     game_v17/tests/known_baseline_failures.json). Case statuses are never changed:
     declared legacy failures stay FAIL (they are only classified and tagged
-    KNOWN-BASELINE); any new failure or baseline drift turns the run red. See
-    .DESCRIPTION for the exact classification and exit-code semantics.
+    KNOWN-BASELINE); any new failure, baseline drift, unverified (NOT RUN) or
+    unselected declared baseline entry turns the run red. See .DESCRIPTION for the
+    exact fail-closed semantics and exit codes.
+
+.PARAMETER AllowPartialBaseline
+    LOCAL DEBUGGING ONLY (never used by CI). Only meaningful together with -Baseline.
+    Allows unselected/unverified declared baseline entries to not force exit 1 so a
+    filtered subset can be inspected locally; new_fail/drift/timeout/unexpected NOT RUN
+    still fail. The run is always labelled `RESULT: BASELINE PARTIAL - NOT a complete
+    baseline verification (...)`, summary baseline.complete=false/verified=false, and
+    "BASELINE MATCH" is never printed. Strict default (no switch) is what CI and
+    acceptance runs must use.
 
 .EXAMPLE
     pwsh ./run_tests.ps1 -List
@@ -92,6 +117,10 @@
 
 .EXAMPLE
     pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json -Ci
+
+.EXAMPLE
+    # LOCAL DEBUG ONLY - partial baseline verification, never CI/acceptance:
+    pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json -Only '^unit\.save_probe$' -AllowPartialBaseline -NoImport -Ci
 #>
 [CmdletBinding()]
 param(
@@ -105,7 +134,8 @@ param(
     [string]$Matrix = '',
     [string]$ResultsDir = '',
     [string]$Gate = '',
-    [string]$Baseline = ''
+    [string]$Baseline = '',
+    [switch]$AllowPartialBaseline
 )
 
 $ErrorActionPreference = 'Stop'
@@ -133,6 +163,7 @@ $script:RunDir = ''
 $script:GateProvided = $PSBoundParameters.ContainsKey('Gate')
 $script:BaselineProvided = $PSBoundParameters.ContainsKey('Baseline')
 $script:BaselineData = $null
+$script:AllowPartialBaseline = [bool]$AllowPartialBaseline
 
 # ── console helpers ────────────────────────────────────────────────────────
 function Write-Info([string]$Text) { Write-Host $Text }
@@ -514,6 +545,14 @@ function Get-CaseBaselineInfo {
             reason   = 'known baseline failure no longer reproduces (now PASS); triage and refresh known_baseline_failures.json'
         }
     }
+    if ($status -eq 'NOT RUN') {
+        return [ordered]@{
+            known    = $true
+            matches  = $false
+            expected = $false
+            reason   = 'declared baseline case was NOT RUN (blocked / not executed / missing target); cannot verify the expected FAIL'
+        }
+    }
     return [ordered]@{
         known    = $true
         matches  = $false
@@ -523,11 +562,13 @@ function Get-CaseBaselineInfo {
 }
 
 function Get-BaselineStats {
-    param([object[]]$Results, $BaselineData)
+    param([object[]]$Results, $BaselineData, [bool]$PartialBaseline = $false)
     $knownFail = 0
     $newFail = 0
     $drift = 0
+    $unverifiedCount = 0
     $seenIds = @{}
+    $unverifiedEntries = New-Object System.Collections.ArrayList
     foreach ($r in $Results) {
         $id = [string]$r.id
         $seenIds[$id] = $true
@@ -540,24 +581,78 @@ function Get-BaselineStats {
             elseif ($info.known) { $drift++ }
             else { $newFail++ }
         }
-        elseif ($status -eq 'PASS' -and $info.known) {
-            $drift++
+        elseif ($status -eq 'PASS') {
+            # A declared baseline failure that now passes is a baseline change (drift);
+            # it is surfaced, never hidden.
+            if ($info.known) { $drift++ }
+        }
+        elseif ($status -eq 'TIMEOUT') {
+            # Executed, but not the declared FAIL shape -> drift (timeout also fails the run).
+            if ($info.known) { $drift++ }
+        }
+        else {
+            # NOT RUN / not executed: the declared baseline entry cannot be verified.
+            if ($info.known) {
+                $unverifiedCount++
+                [void]$unverifiedEntries.Add([ordered]@{
+                        id     = $id
+                        status = $status
+                        reason = [string]$info.reason
+                    })
+            }
         }
     }
-    $notSelected = 0
-    foreach ($id in @($BaselineData.map.Keys)) {
-        if (-not $seenIds.ContainsKey([string]$id)) { $notSelected++ }
+    $unselectedIds = New-Object System.Collections.ArrayList
+    foreach ($id in @($BaselineData.map.Keys | Sort-Object)) {
+        if (-not $seenIds.ContainsKey([string]$id)) { [void]$unselectedIds.Add([string]$id) }
     }
+    $entriesTotal = [int]$BaselineData.entries_total
+    $selectedCount = $entriesTotal - $unselectedIds.Count
+    if ($selectedCount -lt 0) { $selectedCount = 0 }
+    $executedCount = $selectedCount - $unverifiedCount
+    if ($executedCount -lt 0) { $executedCount = 0 }
+    $verifiedCount = $knownFail
+    $rawComplete = ($verifiedCount -eq $entriesTotal) -and ($newFail -eq 0) -and ($drift -eq 0) -and ($unverifiedCount -eq 0) -and ($unselectedIds.Count -eq 0)
+    # -AllowPartialBaseline is a local debugging mode: it can never claim a complete
+    # baseline verification, even when the selected subset happens to look clean.
+    $effectiveComplete = $rawComplete -and (-not $PartialBaseline)
     return [pscustomobject]@{
         known_fail           = $knownFail
         new_fail             = $newFail
         baseline_drift       = $drift
-        entries_total        = [int]$BaselineData.entries_total
-        entries_not_selected = $notSelected
+        baseline_unverified  = $unverifiedCount
+        baseline_unselected  = $unselectedIds.Count
+        entries_total        = $entriesTotal
+        entries_not_selected = $unselectedIds.Count
+        unselected_ids       = @($unselectedIds)
+        unverified           = @($unverifiedEntries)
+        coverage             = [ordered]@{
+            required = $entriesTotal
+            selected = $selectedCount
+            executed = $executedCount
+            verified = $verifiedCount
+        }
+        complete             = [bool]$effectiveComplete
+        partial              = [bool]$PartialBaseline
     }
 }
 
 # ── Godot discovery / version / import ─────────────────────────────────────
+function Add-BaselineInfoToResult {
+    # Attach baseline classification to a result that was NOT executed (blocked / missing
+    # target / invalid case) and tag it in the console as BASELINE UNVERIFIED. This keeps
+    # fail-closed baseline runs loud about entries that could not be checked.
+    param($Result)
+    if ($null -eq $script:BaselineData) { return }
+    $bi = Get-CaseBaselineInfo -Result $Result -BaselineData $script:BaselineData
+    $Result['baseline'] = $bi
+    if ($null -ne $bi -and $bi.known -and -not $bi.expected) {
+        $tag = 'BASELINE DRIFT'
+        if ([string]$Result.status -eq 'NOT RUN') { $tag = 'BASELINE UNVERIFIED' }
+        Write-Err ("      BASELINE: [{0}] {1}" -f $tag, $bi.reason)
+    }
+}
+
 function Find-GodotExecutable {
     if (-not [string]::IsNullOrWhiteSpace($GodotBin)) {
         $candidate = Resolve-RepoPath $GodotBin
@@ -858,7 +953,8 @@ function Write-HumanReport {
         [int]$ExitCode,
         [string]$GateName = '',
         $BaselineData = $null,
-        $BaselineStats = $null
+        $BaselineStats = $null,
+        [bool]$PartialBaseline = $false
     )
     $baselineMode = ($null -ne $BaselineData)
     $sb = New-Object System.Text.StringBuilder
@@ -892,6 +988,10 @@ function Write-HumanReport {
     }
     if ($baselineMode) {
         [void]$sb.AppendLine('| baseline mode | enabled (case statuses unchanged) |')
+        [void]$sb.AppendLine(('| baseline verification | `{0}` |' -f $(if ($BaselineStats.complete) { 'COMPLETE' } else { 'INCOMPLETE' })))
+        if ($PartialBaseline) {
+            [void]$sb.AppendLine('| baseline partial | **-AllowPartialBaseline ENABLED — LOCAL DEBUG ONLY, NOT a complete baseline verification** |')
+        }
         [void]$sb.AppendLine(('| baseline file | `{0}` |' -f $BaselineData.path))
         [void]$sb.AppendLine(('| baseline commit | `{0}` |' -f $BaselineData.commit))
         [void]$sb.AppendLine(('| baseline schema | `{0}` |' -f $BaselineData.schema))
@@ -905,9 +1005,9 @@ function Write-HumanReport {
     [void]$sb.AppendLine(('| {0} | {1} | {2} | {3} | {4} | {5} | {6:N1}s |' -f $Totals.total, $Totals.pass, $Totals.fail, $Totals.timeout, $Totals.not_run_expected, $Totals.not_run_unexpected, $Totals.duration_s))
     if ($baselineMode) {
         [void]$sb.AppendLine('')
-        [void]$sb.AppendLine('| known_fail | new_fail | baseline_drift |')
-        [void]$sb.AppendLine('| --- | --- | --- |')
-        [void]$sb.AppendLine(('| {0} | {1} | {2} |' -f $Totals.known_fail, $Totals.new_fail, $Totals.baseline_drift))
+        [void]$sb.AppendLine('| known_fail | new_fail | baseline_drift | baseline_unverified | baseline_unselected | baseline_complete |')
+        [void]$sb.AppendLine('| --- | --- | --- | --- | --- | --- |')
+        [void]$sb.AppendLine(('| {0} | {1} | {2} | {3} | {4} | {5} |' -f $Totals.known_fail, $Totals.new_fail, $Totals.baseline_drift, $Totals.baseline_unverified, $Totals.baseline_unselected, $Totals.baseline_complete))
     }
     if ($baselineMode) {
         [void]$sb.AppendLine('')
@@ -915,35 +1015,57 @@ function Write-HumanReport {
         [void]$sb.AppendLine('')
         [void]$sb.AppendLine('> Case statuses are NOT changed by baseline mode: declared legacy failures remain **FAIL** in the case table; nothing is renamed PASS, hidden, skipped or continue-on-error.')
         [void]$sb.AppendLine('')
-        [void]$sb.AppendLine(('`BASELINE CHECK: known_fail={0} new_fail={1} drift={2}`' -f $BaselineStats.known_fail, $BaselineStats.new_fail, $BaselineStats.baseline_drift))
+        [void]$sb.AppendLine(('`BASELINE CHECK: known_fail={0} new_fail={1} drift={2} unverified={3} unselected={4} complete={5}`' -f $BaselineStats.known_fail, $BaselineStats.new_fail, $BaselineStats.baseline_drift, $BaselineStats.baseline_unverified, $BaselineStats.baseline_unselected, $(if ($BaselineStats.complete) { 'true' } else { 'false' })))
         [void]$sb.AppendLine('')
         [void]$sb.AppendLine(('- baseline file: `{0}`' -f $BaselineData.path))
         [void]$sb.AppendLine(('- baseline commit: `{0}`' -f $BaselineData.commit))
         [void]$sb.AppendLine(('- baseline sha256: `{0}`' -f $BaselineData.file_sha256))
         [void]$sb.AppendLine(('- evidence: {0}' -f ([string]$BaselineData.provenance)))
-        [void]$sb.AppendLine(('- entries not selected by filters: {0} of {1}' -f $BaselineStats.entries_not_selected, $BaselineStats.entries_total))
+        [void]$sb.AppendLine(('- coverage: required={0} selected={1} executed={2} verified={3}' -f $BaselineStats.coverage.required, $BaselineStats.coverage.selected, $BaselineStats.coverage.executed, $BaselineStats.coverage.verified))
+        [void]$sb.AppendLine(('- overall baseline verification: **{0}**' -f $(if ($BaselineStats.complete) { 'COMPLETE' } else { 'INCOMPLETE' })))
+        if ($BaselineStats.baseline_unselected -gt 0) {
+            [void]$sb.AppendLine(('- NOT SELECTED by current filters ({0}): {1}' -f $BaselineStats.baseline_unselected, (@($BaselineStats.unselected_ids) -join ', ')))
+        }
+        foreach ($uv in @($BaselineStats.unverified)) {
+            [void]$sb.AppendLine(('- NOT VERIFIED (not executed): `{0}` status={1} reason={2}' -f $uv.id, $uv.status, $uv.reason))
+        }
+        if ($PartialBaseline) {
+            [void]$sb.AppendLine('')
+            [void]$sb.AppendLine(('**PARTIAL BASELINE - NOT a complete baseline verification (unselected={0}, unverified={1}). -AllowPartialBaseline is for local debugging only; CI/acceptance must run strict.**' -f $BaselineStats.baseline_unselected, $BaselineStats.baseline_unverified))
+        }
         [void]$sb.AppendLine('')
-        [void]$sb.AppendLine('| case | expected exit | expected pass/fail | actual status | actual pass/fail | classification |')
-        [void]$sb.AppendLine('| --- | --- | --- | --- | --- | --- |')
+        [void]$sb.AppendLine('| case | expected exit | expected pass/fail | selected? | executed? | actual status | actual pass/fail | counts match? | verified? | classification |')
+        [void]$sb.AppendLine('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |')
         $resultById = @{}
         foreach ($r in $Results) { $resultById[[string]$r.id] = $r }
         foreach ($baselineId in @($BaselineData.map.Keys | Sort-Object)) {
             $entry = $BaselineData.map[$baselineId]
+            $isSelected = $resultById.ContainsKey([string]$baselineId)
+            $isExecuted = $false
             $actualStatus = 'not selected'
             $actualCounts = '-'
+            $countsMatch = $false
+            $isVerified = $false
             $classification = 'not selected'
-            if ($resultById.ContainsKey([string]$baselineId)) {
+            if ($isSelected) {
                 $ar = $resultById[[string]$baselineId]
                 $actualStatus = [string]$ar.status
-                $actualCounts = '-'
+                $isExecuted = ($actualStatus -ne 'NOT RUN')
                 if ($null -ne $ar.pass_count -and $null -ne $ar.fail_count) { $actualCounts = ('{0}/{1}' -f $ar.pass_count, $ar.fail_count) }
+                if ($isExecuted) {
+                    $exitOk = ($null -ne $ar.exit_code) -and ([int]$ar.exit_code -eq [int]$entry.expected_exit)
+                    $countsOk = ($null -ne $ar.pass_count) -and ($null -ne $ar.fail_count) -and ([int]$ar.pass_count -eq [int]$entry.expected_pass) -and ([int]$ar.fail_count -eq [int]$entry.expected_fail)
+                    $countsMatch = ($exitOk -and $countsOk)
+                    $isVerified = ($actualStatus -eq 'FAIL') -and $countsMatch
+                }
                 if ($null -ne $ar.baseline) {
                     if ($ar.baseline.expected) { $classification = 'KNOWN-BASELINE' }
+                    elseif ($ar.baseline.known -and $actualStatus -eq 'NOT RUN') { $classification = 'BASELINE UNVERIFIED' }
                     elseif ($ar.baseline.known) { $classification = 'BASELINE DRIFT' }
                     else { $classification = 'NEW FAILURE' }
                 }
             }
-            [void]$sb.AppendLine(('| `{0}` | {1} | {2}/{3} | {4} | {5} | {6} |' -f $baselineId, $entry.expected_exit, $entry.expected_pass, $entry.expected_fail, $actualStatus, $actualCounts, $classification))
+            [void]$sb.AppendLine(('| `{0}` | {1} | {2}/{3} | {4} | {5} | {6} | {7} | {8} | {9} | {10} |' -f $baselineId, $entry.expected_exit, $entry.expected_pass, $entry.expected_fail, $isSelected, $isExecuted, $actualStatus, $actualCounts, $countsMatch, $isVerified, $classification))
         }
         [void]$sb.AppendLine('')
     }
@@ -968,9 +1090,10 @@ function Write-HumanReport {
         if ($null -ne $r.baseline) {
             $tag = 'NEW FAILURE'
             if ($r.baseline.expected) { $tag = 'KNOWN-BASELINE' }
+            elseif ($r.baseline.known -and [string]$r.status -eq 'NOT RUN') { $tag = 'BASELINE UNVERIFIED' }
             elseif ($r.baseline.known) { $tag = 'BASELINE DRIFT' }
             $blReason = ([string]$r.baseline.reason) -replace '\|', '\|'
-            [void]$sb.AppendLine(('  - baseline: {0} — {1}' -f $tag, $blReason))
+            [void]$sb.AppendLine(('  - baseline: {0} - {1}' -f $tag, $blReason))
         }
     }
     [void]$sb.AppendLine('')
@@ -983,11 +1106,15 @@ function Write-HumanReport {
     [void]$sb.AppendLine('- Benign engine error lines (for example `Parent node is busy adding/removing children...`) do not fail a boot case by themselves; exit code, expected markers and fatal patterns are authoritative.')
     [void]$sb.AppendLine('- Every case runs in a fresh Godot process with inherited `DSH_*`/`V17_*` env vars cleared; only the case-declared env is applied.')
     if ($baselineMode) {
-        [void]$sb.AppendLine('- **Baseline mode** — statuses are unchanged. `known_fail` = FAIL matching the declared baseline exactly; `new_fail` = FAIL not declared in the baseline; `baseline_drift` = declared failure with changed exit/counts OR a declared failure that now passes. Exit 0 requires new_fail=0, baseline_drift=0, timeout=0 and unexpected NOT RUN=0.')
+        [void]$sb.AppendLine('- **Baseline mode (fail-closed)** — statuses are unchanged. `known_fail` = declared baseline FAIL with matching exit/counts; `new_fail` = FAIL not declared in the baseline; `baseline_drift` = declared entry with changed exit/counts, a declared failure that now passes, or a declared entry that timed out; `baseline_unverified` = declared entry selected but NOT RUN (not executed); `baseline_unselected` = declared entry not selected by the current filters. Strict mode (default, CI) exits 0 only when complete=true (all declared entries selected + executed + expected FAIL with matching counts, no new failures/drift/timeouts/unexpected NOT RUN). `-AllowPartialBaseline` is local debugging only and always produces an INCOMPLETE label.')
     }
     [void]$sb.AppendLine('')
     if ($baselineMode) {
-        [void]$sb.AppendLine(('Overall run exit code (baseline-aware): **{0}**' -f $ExitCode))
+        [void]$sb.AppendLine(('Overall run exit code (baseline-aware): **{0}**{1}' -f $ExitCode, $(if ($BaselineStats.complete) { ' - baseline verification COMPLETE' } else { ' - baseline verification INCOMPLETE' })))
+        if (-not $BaselineStats.complete -and -not $PartialBaseline) {
+            [void]$sb.AppendLine('')
+            [void]$sb.AppendLine('**FAIL-CLOSED: strict baseline gate rejected this run because not every declared baseline entry could be verified.**')
+        }
     }
     else {
         [void]$sb.AppendLine(('Overall run exit code: **{0}**' -f $ExitCode))
@@ -1014,7 +1141,8 @@ function Write-SummaryJson {
         [string]$BlockedReason,
         [string]$GateName = '',
         $BaselineData = $null,
-        $BaselineStats = $null
+        $BaselineStats = $null,
+        [bool]$PartialBaseline = $false
     )
     $godotBlock = [ordered]@{
         path             = $(if ($null -ne $script:Godot -and $script:Godot.path) { Format-DisplayPath $script:Godot.path } else { $null })
@@ -1046,6 +1174,12 @@ function Write-SummaryJson {
         ps_version = $PSVersionTable.PSVersion.ToString()
         pwsh       = [bool]($PSVersionTable.PSEdition -eq 'Core')
     }
+    $baselineUnselectedIdsBlock = @()
+    $baselineUnverifiedBlock = @()
+    if ($null -ne $BaselineStats) {
+        $baselineUnselectedIdsBlock = @($BaselineStats.unselected_ids)
+        $baselineUnverifiedBlock = @($BaselineStats.unverified)
+    }
     $summary = [ordered]@{
         schema            = 'test_summary.v1'
         run_id            = $RunIdValue
@@ -1061,10 +1195,14 @@ function Write-SummaryJson {
             timeout_sec  = $script:TimeoutOverride
             gate         = $(if ([string]::IsNullOrWhiteSpace($GateName)) { $null } else { $GateName })
             baseline     = $(if ($null -ne $BaselineData) { [string]$BaselineData.path } else { $null })
+            allow_partial_baseline = [bool]$PartialBaseline
         }
         gate              = $(if ([string]::IsNullOrWhiteSpace($GateName)) { $null } else { $GateName })
         baseline          = [ordered]@{
             mode                = [bool]($null -ne $BaselineData)
+            partial             = [bool]$PartialBaseline
+            complete            = $(if ($null -ne $BaselineStats) { [bool]$BaselineStats.complete } else { $false })
+            verified            = $(if ($null -ne $BaselineStats) { [bool]$BaselineStats.complete } else { $false })
             path                = $(if ($null -ne $BaselineData) { [string]$BaselineData.path } else { $null })
             schema              = $(if ($null -ne $BaselineData) { [string]$BaselineData.schema } else { $null })
             baseline_commit     = $(if ($null -ne $BaselineData) { [string]$BaselineData.commit } else { $null })
@@ -1074,8 +1212,13 @@ function Write-SummaryJson {
             known_fail          = $(if ($null -ne $BaselineStats) { [int]$BaselineStats.known_fail } else { $null })
             new_fail            = $(if ($null -ne $BaselineStats) { [int]$BaselineStats.new_fail } else { $null })
             baseline_drift      = $(if ($null -ne $BaselineStats) { [int]$BaselineStats.baseline_drift } else { $null })
+            baseline_unverified = $(if ($null -ne $BaselineStats) { [int]$BaselineStats.baseline_unverified } else { $null })
+            baseline_unselected = $(if ($null -ne $BaselineStats) { [int]$BaselineStats.baseline_unselected } else { $null })
             entries_total       = $(if ($null -ne $BaselineData) { [int]$BaselineData.entries_total } else { $null })
             entries_not_selected = $(if ($null -ne $BaselineStats) { [int]$BaselineStats.entries_not_selected } else { $null })
+            unselected_ids      = $baselineUnselectedIdsBlock
+            unverified          = $baselineUnverifiedBlock
+            coverage            = $(if ($null -ne $BaselineStats) { $BaselineStats.coverage } else { $null })
         }
         godot             = $godotBlock
         # Top-level convenience aliases (a few CI consumers only read flat fields).
@@ -1167,15 +1310,21 @@ function Get-Totals {
 }
 
 function Get-ExitCodeForTotals {
-    param($Totals, [bool]$BaselineMode = $false)
+    param($Totals, [bool]$BaselineMode = $false, [bool]$PartialBaseline = $false)
     if ($null -ne $Totals.timeout -and [int]$Totals.timeout -gt 0) { return 1 }
     if ($null -ne $Totals.not_run_unexpected -and [int]$Totals.not_run_unexpected -gt 0) { return 1 }
     if ($BaselineMode) {
-        # Baseline-aware gate: declared known failures are accepted, but any new failure
-        # or any change vs the declared baseline (counts/exit or a now-passing known
-        # failure) must turn the run red.
+        # Fail-closed baseline gate: declared known failures are accepted only when they
+        # match exactly; any new failure, drift, unverified (NOT RUN) or unselected
+        # declared entry is red. -AllowPartialBaseline (local debugging only) relaxes
+        # ONLY the unselected/unverified checks, never the failure checks.
         if ($null -ne $Totals.new_fail -and [int]$Totals.new_fail -gt 0) { return 1 }
         if ($null -ne $Totals.baseline_drift -and [int]$Totals.baseline_drift -gt 0) { return 1 }
+        if (-not $PartialBaseline) {
+            if ($null -ne $Totals.baseline_unverified -and [int]$Totals.baseline_unverified -gt 0) { return 1 }
+            if ($null -ne $Totals.baseline_unselected -and [int]$Totals.baseline_unselected -gt 0) { return 1 }
+            if ($null -ne $Totals.baseline_complete -and -not [bool]$Totals.baseline_complete) { return 1 }
+        }
         return 0
     }
     if ($null -ne $Totals.fail -and [int]$Totals.fail -gt 0) { return 1 }
@@ -1221,6 +1370,15 @@ try {
     $selected = @(Select-MatrixCases -Candidates $gateCandidates)
     if ($script:GateProvided) { $filters += "gate=$Gate" } else { $filters += 'gate=(none)' }
     if ($null -ne $script:BaselineData) { $filters += "baseline=$($script:BaselineData.path)" } else { $filters += 'baseline=(none)' }
+    if ($script:AllowPartialBaseline -and $null -eq $script:BaselineData) {
+        $filters += 'partial-baseline=IGNORED (requires -Baseline; local debug only)'
+    }
+    elseif ($script:AllowPartialBaseline) {
+        $filters += 'partial-baseline=ENABLED (LOCAL DEBUG ONLY - NOT a complete verification)'
+    }
+    elseif ($null -ne $script:BaselineData) {
+        $filters += 'partial-baseline=off (strict fail-closed)'
+    }
     if ($Category) { $filters += "category=$Category" } else { $filters += 'category=all' }
     if ($Only) { $filters += "only=$Only" } else { $filters += 'only=(none)' }
     if ($NoImport) { $filters += 'import=skipped' } else { $filters += 'import=on' }
@@ -1238,6 +1396,10 @@ try {
         }
         if ($null -ne $script:BaselineData) {
             Write-Info ("baseline: {0} (commit {1}, mode=CHECK)" -f $script:BaselineData.path, $script:BaselineData.commit)
+            Write-Info ("partial-baseline: {0}" -f $(if ($script:AllowPartialBaseline) { 'ENABLED (LOCAL DEBUG ONLY; never a complete baseline verification)' } else { 'off (strict fail-closed)' }))
+        }
+        elseif ($script:AllowPartialBaseline) {
+            Write-Warn 'partial-baseline: IGNORED (only meaningful together with -Baseline; local debug only)'
         }
         Write-Info ("filter: {0}" -f ($filters -join '; '))
         Write-Info ''
@@ -1326,6 +1488,15 @@ try {
     }
     if ($null -ne $script:BaselineData) {
         Write-Info ("baseline: {0} (commit {1}, mode=CHECK; statuses unchanged)" -f $script:BaselineData.path, $script:BaselineData.commit)
+        if ($script:AllowPartialBaseline) {
+            Write-Warn 'baseline gate: PARTIAL (-AllowPartialBaseline) - LOCAL DEBUG ONLY; NOT a complete baseline verification'
+        }
+        else {
+            Write-Info 'baseline gate: STRICT fail-closed (every declared entry must be selected + executed + expected FAIL with matching counts)'
+        }
+    }
+    elseif ($script:AllowPartialBaseline) {
+        Write-Warn 'partial-baseline: IGNORED (only meaningful together with -Baseline; local debug only)'
     }
     if ($gitInfo.commit) { Write-Info ("git:     {0} @ {1}{2}" -f $gitInfo.branch, $gitInfo.commit_short, $(if ($gitInfo.worktree_dirty) { ' (worktree has tracked modifications)' } else { '' })) }
     Write-Info ("run dir: {0}" -f (Format-RepoRelative $script:RunDir))
@@ -1392,10 +1563,13 @@ try {
         $totals = Get-Totals -Results @($results) -DurationSeconds $globalTimer.Elapsed.TotalSeconds
         $baselineStats = $null
         if ($null -ne $script:BaselineData) {
-            $baselineStats = Get-BaselineStats -Results @($results) -BaselineData $script:BaselineData
+            $baselineStats = Get-BaselineStats -Results @($results) -BaselineData $script:BaselineData -PartialBaseline $script:AllowPartialBaseline
             $totals['known_fail'] = $baselineStats.known_fail
             $totals['new_fail'] = $baselineStats.new_fail
             $totals['baseline_drift'] = $baselineStats.baseline_drift
+            $totals['baseline_unverified'] = $baselineStats.baseline_unverified
+            $totals['baseline_unselected'] = $baselineStats.baseline_unselected
+            $totals['baseline_complete'] = [bool]$baselineStats.complete
             $totals['baseline_entries'] = $baselineStats.entries_total
             $totals['baseline_entries_not_selected'] = $baselineStats.entries_not_selected
         }
@@ -1403,6 +1577,9 @@ try {
             $totals['known_fail'] = $null
             $totals['new_fail'] = $null
             $totals['baseline_drift'] = $null
+            $totals['baseline_unverified'] = $null
+            $totals['baseline_unselected'] = $null
+            $totals['baseline_complete'] = $null
         }
         $endedAt = (Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')
         Write-Info ''
@@ -1411,8 +1588,8 @@ try {
         $summaryPath = Join-Path $script:RunDir 'summary.json'
         $reportPath = Join-Path $script:RunDir 'report.md'
         $summaryEntries = @($results)
-        Write-SummaryJson -Path $summaryPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $summaryEntries -Totals $totals -ExitCode 2 -EnvironmentBlocked $true -BlockedReason $blockedReason -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats
-        Write-HumanReport -Path $reportPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $summaryEntries -Totals $totals -ExitCode 2 -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats
+        Write-SummaryJson -Path $summaryPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $summaryEntries -Totals $totals -ExitCode 2 -EnvironmentBlocked $true -BlockedReason $blockedReason -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats -PartialBaseline $script:AllowPartialBaseline
+        Write-HumanReport -Path $reportPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $summaryEntries -Totals $totals -ExitCode 2 -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats -PartialBaseline $script:AllowPartialBaseline
         Write-Info ("summary: {0}" -f (Format-RepoRelative $summaryPath))
         Write-Info ("report:  {0}" -f (Format-RepoRelative $reportPath))
         $exitCode = 2
@@ -1435,6 +1612,7 @@ try {
                 expected_markers = @($c.expected_markers); marker_ok = $false; log_path = ''
                 reason = "invalid matrix case: $($_.Exception.Message)"; attempts = 0; blocked = $false; error_lines = 0; baseline = $null
             }
+            Add-BaselineInfoToResult -Result $result
             [void]$script:CaseResults.Add($result)
             Write-ConsoleCaseRow -Entry $result
             continue
@@ -1450,6 +1628,7 @@ try {
                 expected_markers = @($c.expected_markers); marker_ok = $false; log_path = ''
                 reason = 'blocked by matrix precondition: ' + [string]$c.blocked_reason; attempts = 0; blocked = $true; error_lines = 0; baseline = $null
             }
+            Add-BaselineInfoToResult -Result $result
             [void]$script:CaseResults.Add($result)
             Write-ConsoleCaseRow -Entry $result
             continue
@@ -1466,6 +1645,7 @@ try {
                 expected_markers = @($c.expected_markers); marker_ok = $false; log_path = ''
                 reason = ("missing {0} (not present in worktree): {1}" -f $missingKind, $target.ref); attempts = 0; blocked = $false; error_lines = 0; baseline = $null
             }
+            Add-BaselineInfoToResult -Result $result
             [void]$script:CaseResults.Add($result)
             Write-ConsoleCaseRow -Entry $result
             continue
@@ -1495,10 +1675,13 @@ try {
     $totals = Get-Totals -Results $resultsArray -DurationSeconds $globalTimer.Elapsed.TotalSeconds
     $baselineStats = $null
     if ($null -ne $script:BaselineData) {
-        $baselineStats = Get-BaselineStats -Results $resultsArray -BaselineData $script:BaselineData
+        $baselineStats = Get-BaselineStats -Results $resultsArray -BaselineData $script:BaselineData -PartialBaseline $script:AllowPartialBaseline
         $totals['known_fail'] = $baselineStats.known_fail
         $totals['new_fail'] = $baselineStats.new_fail
         $totals['baseline_drift'] = $baselineStats.baseline_drift
+        $totals['baseline_unverified'] = $baselineStats.baseline_unverified
+        $totals['baseline_unselected'] = $baselineStats.baseline_unselected
+        $totals['baseline_complete'] = [bool]$baselineStats.complete
         $totals['baseline_entries'] = $baselineStats.entries_total
         $totals['baseline_entries_not_selected'] = $baselineStats.entries_not_selected
     }
@@ -1506,30 +1689,45 @@ try {
         $totals['known_fail'] = $null
         $totals['new_fail'] = $null
         $totals['baseline_drift'] = $null
+        $totals['baseline_unverified'] = $null
+        $totals['baseline_unselected'] = $null
+        $totals['baseline_complete'] = $null
     }
-    $exitCode = Get-ExitCodeForTotals -Totals $totals -BaselineMode ($null -ne $script:BaselineData)
+    $exitCode = Get-ExitCodeForTotals -Totals $totals -BaselineMode ($null -ne $script:BaselineData) -PartialBaseline $script:AllowPartialBaseline
     $endedAt = (Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')
     $summaryPath = Join-Path $script:RunDir 'summary.json'
     $reportPath = Join-Path $script:RunDir 'report.md'
-    Write-SummaryJson -Path $summaryPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $resultsArray -Totals $totals -ExitCode $exitCode -EnvironmentBlocked $false -BlockedReason '' -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats
-    Write-HumanReport -Path $reportPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $resultsArray -Totals $totals -ExitCode $exitCode -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats
+    Write-SummaryJson -Path $summaryPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $resultsArray -Totals $totals -ExitCode $exitCode -EnvironmentBlocked $false -BlockedReason '' -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats -PartialBaseline $script:AllowPartialBaseline
+    Write-HumanReport -Path $reportPath -RunIdValue $script:RunId -StartedAt $startedAt -EndedAt $endedAt -GitInfo $gitInfo -GodotVersion $godotVersion -ImportInfo $importInfo -ClearedEnvNames $clearedEnvNames -Filters $filters -Results $resultsArray -Totals $totals -ExitCode $exitCode -GateName $Gate -BaselineData $script:BaselineData -BaselineStats $baselineStats -PartialBaseline $script:AllowPartialBaseline
 
     Write-Info ''
     Write-Head '-- TOTALS ------------------------------------------------------'
     Write-Info ("total={0}  pass={1}  fail={2}  timeout={3}  not_run={4} (expected={5} unexpected={6})  duration={7:N1}s" -f $totals.total, $totals.pass, $totals.fail, $totals.timeout, $totals.not_run, $totals.not_run_expected, $totals.not_run_unexpected, $totals.duration_s)
     if ($null -ne $baselineStats) {
         Write-Head '-- BASELINE ----------------------------------------------------'
-        Write-Info ("BASELINE CHECK: known_fail={0} new_fail={1} drift={2}" -f $baselineStats.known_fail, $baselineStats.new_fail, $baselineStats.baseline_drift)
+        Write-Info ("BASELINE CHECK: known_fail={0} new_fail={1} drift={2} unverified={3} unselected={4} complete={5}" -f $baselineStats.known_fail, $baselineStats.new_fail, $baselineStats.baseline_drift, $baselineStats.baseline_unverified, $baselineStats.baseline_unselected, $(if ($baselineStats.complete) { 'true' } else { 'false' }))
+        Write-Info ("coverage: required={0} selected={1} executed={2} verified={3}" -f $baselineStats.coverage.required, $baselineStats.coverage.selected, $baselineStats.coverage.executed, $baselineStats.coverage.verified)
         Write-Info ("baseline file: {0} (commit {1}, sha256 {2})" -f $script:BaselineData.path, $script:BaselineData.commit, $script:BaselineData.file_sha256)
-        if ($baselineStats.entries_not_selected -gt 0) {
-            Write-Info ("baseline entries not selected by filters: {0} of {1} (informational, not drift)" -f $baselineStats.entries_not_selected, $baselineStats.entries_total)
+        if ($baselineStats.baseline_unselected -gt 0) {
+            Write-Err ("baseline entries NOT SELECTED by filters: {0} of {1}: {2}" -f $baselineStats.baseline_unselected, $baselineStats.entries_total, (@($baselineStats.unselected_ids) -join ', '))
+        }
+        foreach ($uv in @($baselineStats.unverified)) {
+            Write-Err ("baseline entry NOT VERIFIED (not executed): {0} status={1} reason={2}" -f $uv.id, $uv.status, $uv.reason)
+        }
+        if ($script:AllowPartialBaseline) {
+            Write-Warn 'baseline gate: PARTIAL mode (-AllowPartialBaseline) - LOCAL DEBUG ONLY'
         }
     }
     Write-Info ("summary: {0}" -f (Format-RepoRelative $summaryPath))
     Write-Info ("report:  {0}" -f (Format-RepoRelative $reportPath))
     if ($exitCode -eq 0) {
         if ($null -ne $baselineStats) {
-            Write-Ok ("RESULT: BASELINE MATCH - no new failures and no drift (known_fail={0})" -f $baselineStats.known_fail)
+            if ($script:AllowPartialBaseline) {
+                Write-Warn ("RESULT: BASELINE PARTIAL - NOT a complete baseline verification (unselected={0}, unverified={1})" -f $baselineStats.baseline_unselected, $baselineStats.baseline_unverified)
+            }
+            else {
+                Write-Ok ("RESULT: BASELINE MATCH - all {0} baseline entries executed as expected FAIL with matching counts (known_fail={0}, new_fail=0, drift=0, unverified=0, unselected=0, complete=true)" -f $baselineStats.entries_total)
+            }
         }
         else {
             Write-Ok 'RESULT: ALL RUN CASES PASS'
@@ -1537,7 +1735,7 @@ try {
     }
     else {
         if ($null -ne $baselineStats) {
-            Write-Err ("RESULT: BASELINE CHECK FAILED - new_fail={0} drift={1} timeout={2} unexpected_not_run={3}" -f $baselineStats.new_fail, $baselineStats.baseline_drift, $totals.timeout, $totals.not_run_unexpected)
+            Write-Err ("RESULT: BASELINE CHECK FAILED - new_fail={0} drift={1} unverified={2} unselected={3} timeout={4} unexpected_not_run={5}" -f $baselineStats.new_fail, $baselineStats.baseline_drift, $baselineStats.baseline_unverified, $baselineStats.baseline_unselected, $totals.timeout, $totals.not_run_unexpected)
         }
         else {
             Write-Err 'RESULT: FAILURES PRESENT'
