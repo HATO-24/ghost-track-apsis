@@ -285,18 +285,31 @@ v1_hud.gd
 - 目标：将 `binder.track_vm.tracks` 通过 `register_track` 注册到 CombatService，取 `combat vm.tracks`；显示 level/identity/threat/range。当前两条 track T0001/T0002。
 - 武器：`combat vm.weapons`（decoy/jammer/missile/pd/railgun），显示 ammo/cooldown/range/kind；点击武器切换选中。
 - ROE/授权：`vm.roe` 四档 + `session.combat_authorization(TRACK/SOLUTION/FIRE,target,weapon)` 状态；缺授权显示 LOCKED/reason。
-- 预测：仅 `CombatService.predict_shot(target,weapon)`，显示 `PREDICTION / INTERFACE · NO PHYSICS`、TOF/HIT%/ERR；不执行物理/命中。
-- 战斗事件：`combat vm.events`。
+- 预测：`session.combat_predict_track(target,weapon)`（**CR3BP RK4 真实积分**），
+  右栏显示 `FIRE SOLUTION / CR3BP RK4` + TOF/MODE/RESID/trajectory/Δv/SEEKER；
+  不再是接口层估算，也不再打 `NO PHYSICS` 标记。
+- 规划辅助：`session.combat_plan(target,weapon,intent)`，显示 `Δv planned / budget`、
+  `feasible`、`TOF`；`PLAN` 按钮循环 `direct → silent → offset → multi_axis`。
+- 齐射：`session.set_weapon_salvo(weapon, n)`，`SALVO −/SALVO +` 两键；
+  弹药不足时显示 `请下调齐射数（剩 N 发）`。
+- 战斗事件：`combat vm.events` + `ballistics.*` 总线事件。
 
 ### 13.2 交互 / 实测
 
-- 按钮：`TRACK`、`SOLUTION`、`AUTHORIZE FIRE`、`FIRE`；ROE 四档也在此页可点。
-  - TRACK → `_combat.request_track(target,true)`；实测 OK。
-  - SOLUTION → `_combat.request_solution(target,weapon,true)`；实测 T0001/missile FAILED `inside_min_range`（真实原因）。
-  - AUTHORIZE FIRE → `session.grant_authorization("FIRE","target",target)`；实测 OK。
-  - FIRE → `_combat.request_fire(target,weapon,true)`；实测 FAILED `no_ready_solution`（无 solution 不命中，真实原因）。
-  - ROE → `_combat.set_roe`（同一 CombatService）。
-- FIRE 通过后也只记录 CombatService 事件/消耗，不做物理命中/世界写入；本次截图无伪造命中。
+- 按钮：`TRACK`、`SOLUTION`、`AUTHORIZE FIRE`、`FIRE`、`SALVO −`、`SALVO +`、`PLAN`；
+  ROE 四档也在此页可点。
+  - TRACK → `_combat.request_track(target,true)`
+  - SOLUTION → `_combat.request_solution(target,weapon,true)`
+  - AUTHORIZE FIRE → `session.grant_authorization("FIRE","target",target)`
+  - FIRE → **`session.request_fire(target,weapon,true,{"intent":...})`**（统一路径：
+    门禁 → 真实弹丸；命中异步）。实测 `launched=1 salvo=1`，
+    随后推进 120s 得到 `impacts=1`，倍速上限从 600× 压到 60× 并在无在飞弹后恢复。
+  - SALVO ± → `session.set_weapon_salvo`（railgun 上限 1，missile 上限 4）
+  - PLAN → 循环 intent，并触发 `combat_plan` 重算
+  - ROE → `_combat.set_roe`（同一 CombatService）
+- **弹层副标题**：`目标/武器/ROE/授权/齐射/规划 · CR3BP 真实弹道（命中异步）`。
+- 自测（`DSH_V1_TEST=1`）会按射程自动选武器（<50km 用 railgun），并在开火后推进
+  到命中，打印 `COMBAT BALLISTICS active=/impacts=/scale_cap=/scale=`。
 
 ### 13.3 截图 / 验证
 
@@ -1066,6 +1079,7 @@ v1_hud.gd
 - 拖拽：位移→yaw/pitch 增量，release 后速度按 inertia 衰减；pitch 限位；滚轮 dist clamp。
 - focus：`_focus_target.limit_length(2.4)` + lerp；相机模式 `own / selected / earth / moon`。
 - 快捷键：`F` 聚焦选中、`C` 循环 own/selected/earth/moon、`R` 重置、`M`/`ESC` 关闭目标菜单；双击目标聚焦。
+  （**沙盒剖面**另有 `F5` 一键重开，见 §39.3；正式本体无此键。）
 - 点击目标（估算点附近 14px）拾取并同步左侧 contact；拖拽阈值 3px，避免误选。
 
 ### 36.2 目标菜单
@@ -1261,3 +1275,68 @@ IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
 3. 自动询问（AUTO）已接 `set_auto`，但「自动询问 → 执行 → 回灌」的链路只在 tick 内生效；
    未做询问节流提示（`max_requests_per_tick` 只在策略栏展示）。
 4. 不改 world/物理/武器；识别只输出评估与事件。未跑全量 regression。
+
+
+---
+
+## 39　方案B-36：作战模拟器 UI 适配（4Z）
+
+### 39.1 CombatService 改为复用 session 的实例
+
+**接手前的问题**：`v1_hud._ready()` 无条件 `_combat = CombatService.new({})`，
+再把它塞回 `binder.session.combat_service`。这带来两个后果：
+
+1. 沙盒 seed 里配好的 `roe / own_id / sandbox_opts`（无限弹药、免授权）**被丢弃**，
+   因为影子组件是默认配置；
+2. 每帧 UI 读的 `_combat` 与 session 实际用于弹道的那个实例不是同一个对象来源，
+   排查"为什么 UI 显示有弹药、session 说没弹药"时容易误判。
+
+**现在**：
+
+```gdscript
+if binder.session != null and binder.session.combat_service != null:
+    _combat = binder.session.combat_service          # 沙盒：用 seed 配好的那个
+else:
+    _combat = CombatService.new({})                  # 序章：仍建影子并注入（老行为）
+```
+
+序章 seed 不含 `combat_service`，所以本体路径**完全没变**；沙盒路径拿到的是
+带 `sandbox={unlimited_ammo, auto_authorize}` 的真实实例，`COMBAT source=session` 会打印出来。
+
+### 39.2 沙盒便利项在 UI 上的表现
+
+| 表现 | 说明 |
+| --- | --- |
+| `FIRE` 不需要先 `AUTHORIZE FIRE` | `auto_authorize=true`；`confirmed` 仍由按钮点击提供 |
+| 弹药不减少 | `unlimited_ammo=true`；`SALVO −/+` 与 `请下调齐射数` 逻辑仍在，只是永不触发 |
+| 冷却/射程/解算照旧拦截 | 便利项只放宽弹药与授权，不放宽门禁 |
+
+### 39.3 F5 一键重开（`quick_restart`）
+
+- 仅 `build_profile.sandbox_opt("quick_restart")` 为真时生效（`combat_sim` 剖面）；
+  本体按 F5 无反应，也不出现在任何提示里。
+- 走 `shell_binder.quick_restart()` → 完整 `boot()`，不是 `session.reset()`：
+  `reset()` 只重建 session 内部服务，binder 缓存的 `traffic_service/track_vm/contacts`
+  会指向旧对象。
+- 重开前清 `DSH_LOAD_SLOT` 与 root meta `load_slot`，避免"重开"变成"把刚存的档读回来"。
+- 重开后 HUD 调 `_rebind_after_restart()` 重新绑定 `_combat`（session 是新对象）、
+  清空选中/规划缓存、重灌 combat 航迹；否则会继续操作已脱离 session 的旧实例。
+
+**实测**（`DSH_BUILD=combat_sim`，headless）：
+
+```text
+F5 PROBE enabled=true
+F5 PROBE t_before=0.401  combat_session=true
+F5 PROBE quick_restart={"ok":true,"t_before":0.401,"t_after":0.1}
+F5 PROBE t_after=0.1  rebound_to_session=true  entities=7
+F5 PROBE solution ok=true / fire_after ok=true launched=1
+F5 PROBE RESULT: PASS
+```
+
+### 39.4 边界
+
+1. 两版本仍共用同一套 HUD，没有模拟器专属皮肤；`F5` 是唯一的剖面差异按键。
+2. 便利项不做"无敌"：冷却、射程、解算、目标存在性全部照旧拒绝。
+3. `quick_restart` 会重建整条 binder 链（chains/traffic/cic），首帧有一次性开销；
+   演示场景可接受，未做增量重建。
+4. 未跑全量 regression（本轮已跑 62 探针套件，见 `build_profiles.md` §9）。

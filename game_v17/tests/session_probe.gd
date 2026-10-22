@@ -53,6 +53,7 @@ func _initialize() -> void:
 	_test_physics_save_load()
 	_test_physics_frame_conversion()
 	_test_combat_ballistics_integration()
+	_test_unified_fire_path()
 	_test_signal_integration()
 	_test_signal_save_load()
 	_test_signal_binding()
@@ -1321,26 +1322,13 @@ func _test_combat_integration() -> void:
 	var no_conf: Dictionary = s.request_fire("T1", "railgun", false)
 	_eq(bool(no_conf.get("ok", true)), false, "未确认 fire 拒绝")
 	_eq(_railgun_ammo(s), ammo_before, "未确认 fire 不耗弹")
-	# 确认 fire
+	# 统一路径：本会话未启用 combat_ballistics → 明确拒绝，绝不白扣弹药
+	# （命中/事件/冷却的实弹路径见「40 统一开火路径」）
 	var fire: Dictionary = s.request_fire("T1", "railgun", true)
-	_eq(bool(fire.get("ok", false)), true, "确认 fire ok", str(fire.get("reason", "")))
-	_eq(_railgun_ammo(s), ammo_before - 1, "fire 消耗弹药")
-	_ok(fire.has("hit"), "fire 返回命中")
-	# 事件进 bus（flush）
-	s.flush_events()
-	var combat_events: Array = s.bus.filter_events({"type": "combat"})
-	_ok(combat_events.size() > 0, "combat.* 事件进 bus", str(combat_events.size()))
-	var ckinds: Dictionary = {}
-	for raw in combat_events:
-		ckinds[String((raw as Dictionary).get("type", ""))] = true
-	_ok(ckinds.has("combat.weapon_launch"), "bus 含 weapon_launch")
-	_ok(ckinds.has("combat.combat_hit") or ckinds.has("combat.combat_miss"),
-		"bus 含 hit/miss")
-	# 冷却内再次 fire 失败且不改状态
-	var before_core := _combat_core(s)
-	var again: Dictionary = s.request_fire("T1", "railgun", true)
-	_eq(bool(again.get("ok", true)), false, "冷却内 fire 拒绝")
-	_eq(_combat_core(s), before_core, "失败 fire 不改 combat 状态")
+	_eq(bool(fire.get("ok", true)), false, "无弹道服务 fire 拒绝")
+	_eq(String(fire.get("reason", "")), "no_ballistics", "no_ballistics reason")
+	_eq(_railgun_ammo(s), ammo_before, "拒绝时不耗弹")
+	_ok(s.combat_ballistics_impacts().is_empty(), "无弹道服务无 impact")
 	# 未知目标/武器/授权
 	_eq(String(s.request_fire("TX", "railgun", true).get("reason", "")), "unknown_track",
 		"未知目标拒绝")
@@ -3483,3 +3471,166 @@ func _test_combat_ballistics_integration() -> void:
 	_eq(a.save_state(), b.save_state(), "ballistics 同操作 save 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "ballistics contracts ok 2")
 	_data_line("ballistics", "可选退化 · predict/launch · tick 命中→Damage applied · PD 拦截 · bus · 存档/旧档/确定性")
+
+# ═══════════════════════════════════════════════════════════════════
+# 40. 统一开火路径（门禁 → 真实弹道 → 异步命中 → 时间倍速）
+# ═══════════════════════════════════════════════════════════════════
+
+func _unified_cfg() -> Dictionary:
+	return {"combat_service": {"content_path": "res://framework/content/weapons_l1.json",
+			"roe": "TIGHT", "own_id": "session_ship", "fleet_id": "taskforce"},
+		"combat_ballistics": {"pd_platform_id": "own"},
+		"damage_service": true,
+		"own_entity": "session_ship",
+		"entities": [
+			{"id": "session_ship", "batch": "1", "kind": "ship", "name": "APSIS",
+				"pos_km": [0.0, 0.0, 0.0], "vel_kmps": [0.0, 0.0, 0.0], "side": "friend"},
+			{"id": "raider", "batch": "2", "kind": "ship", "name": "RAIDER",
+				"pos_km": [300.0, 0.0, 0.0], "vel_kmps": [0.0, 0.0, 0.0], "side": "hostile"}],
+		"nodes": [{"id": "session_ship"}, {"id": "raider"}],
+		"links": [{"a": "session_ship", "b": "raider", "mode": "LD"}]}
+
+
+func _unified_prepare(s, track_id := "R1") -> void:
+	s.combat_register_track(track_id, {"identity": "hostile", "threat": "hostile",
+		"range_km": 300.0, "in_arc": true, "ship_id": "raider", "entity_id": "raider"})
+	s.combat_request_solution(track_id, "missile")
+	s.tick(21.0)
+	s.grant_authorization("FIRE", "target", track_id)
+
+
+func _missile_ammo(s) -> int:
+	for w in (s.combat_vm().get("weapons", []) as Array):
+		if String((w as Dictionary).get("id", "")) == "missile":
+			return int((w as Dictionary).get("ammo", -1))
+	return -1
+
+
+func _test_unified_fire_path() -> void:
+	_section_begin("40 统一开火路径")
+	var s = GameSession.new(_unified_cfg())
+	_ok(bool(s.ready), "unified session ready", str(s.errors))
+	_ok(s.combat_ballistics != null and bool(s.combat_ballistics.ready), "ballistics 已启用")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "unified boot contracts")
+	_unified_prepare(s)
+	# 玩家把时间倍速拉到 600×：开火后必须被压到 60×（决策 4）
+	s.set_scale(600.0)
+	_eq(float(s.time.scale), 600.0, "开火前倍速 600")
+	# 门禁通过 + 真实发射
+	var ammo0 := _missile_ammo(s)
+	var fire: Dictionary = s.request_fire("R1", "missile", true)
+	_eq(bool(fire.get("ok", false)), true, "统一路径 fire ok", str(fire.get("reason", "")))
+	_eq(String(fire.get("physics", "")), "ballistics", "physics=ballistics")
+	_eq(int(fire.get("launched", 0)), 1, "launched=1")
+	_eq((fire.get("projectile_ids", []) as Array).size(), 1, "projectile_ids 1")
+	_eq(String(fire.get("shooter_id", "")), "session_ship", "shooter 解析为本舰")
+	_eq(String(fire.get("target_entity", "")), "raider", "target 实体解析")
+	_eq(_missile_ammo(s), ammo0 - 1, "fire 扣 1 发弹药")
+	_eq(s.combat_ballistics_active().size(), 1, "真实弹丸在飞")
+	var pred: Dictionary = fire.get("prediction", {})
+	_eq(String(pred.get("schema", "")), "ballistic_prediction.v1", "prediction schema")
+	_ok(not fire.has("hit"), "不同步返回命中")
+	# 交战时间倍速：强制降档
+	var cap: Dictionary = s.combat_time_cap_state()
+	_ok(bool(cap.get("active", false)), "交战中启用时间倍速上限")
+	_near(float(cap.get("scale", 0.0)), 60.0, 1.0e-6, "倍速被压到 60×")
+	_near(float(cap.get("restore_to", 0.0)), 600.0, 1.0e-6, "记录交战前倍速 600")
+	_ok(bool((fire.get("time_cap", {}) as Dictionary).get("capped", false)),
+		"fire 返回 capped 标记")
+	_eq(float(cap.get("cap", 0.0)), 60.0, "time_cap cap=60")
+	# bus：发射事件进总线，不含同步 hit/miss
+	s.flush_events()
+	var ckinds: Dictionary = {}
+	for raw in s.bus.filter_events({"type": "combat"}):
+		ckinds[String((raw as Dictionary).get("type", ""))] = true
+	_ok(ckinds.has("combat.weapon_launch"), "bus 含 combat.weapon_launch")
+	_ok(not ckinds.has("combat.combat_hit") and not ckinds.has("combat.combat_miss"),
+		"bus 无同步 hit/miss")
+	# 冷却内再次 fire 拒绝
+	var again: Dictionary = s.request_fire("R1", "missile", true)
+	_ok(not bool(again.get("ok", true)), "冷却内 fire 拒绝", str(again.get("reason", "")))
+	# 推进到命中：异步 impact → Damage → 倍速恢复
+	var hit_t := -1.0
+	var dmg_applied := 0
+	for i in range(400):
+		var tk: Dictionary = s.tick(1.0)
+		var bs: Dictionary = tk.get("ballistics_step", {})
+		dmg_applied += int(bs.get("damage_applied", 0))
+		if not s.combat_ballistics_impacts().is_empty():
+			hit_t = float(s.now_s())
+			break
+	_ok(hit_t > 0.0, "弹丸最终命中/失效并产生 impact", "t=%.1f" % hit_t)
+	_ok(s.combat_ballistics_impacts().size() >= 1, "impact 记录 ≥1")
+	_eq(s.combat_ballistics_active().size(), 0, "命中后无在飞弹")
+	_ok(dmg_applied >= 1, "命中真的路由进 DamageService", str(dmg_applied))
+	var rtr: Dictionary = s.combat_service.track("R1")
+	_ok(float(rtr.get("damage_taken", 0.0)) > 0.0, "航迹战果记账 damage_taken > 0",
+		str(rtr.get("damage_taken")))
+	var cap2: Dictionary = s.combat_time_cap_state()
+	_ok(not bool(cap2.get("active", false)), "无在飞弹后释放倍速上限")
+	_near(float(cap2.get("scale", 0.0)), 600.0, 1.0e-6, "倍速恢复到 600×")
+	var itypes: Array = _event_types(s.bus.recent(400))
+	_ok("ballistics.impact" in itypes, "bus 含 ballistics.impact")
+	# 齐射：设置 → 一次发射多发
+	var sal: Dictionary = s.set_weapon_salvo("missile", 3)
+	_eq(bool(sal.get("ok", false)), true, "set_weapon_salvo 3")
+	_eq(int(sal.get("salvo", 0)), 3, "齐射设置生效")
+	_eq(String(s.request_fire("R1", "missile", true).get("reason", "")), "no_ready_solution",
+		"无解算不放行（齐射前需重新解算）")
+	# 上一轮命中已把 R1 记成 destroyed，后续用新航迹（同实体）
+	_unified_prepare(s, "R2")
+	var ammo1 := _missile_ammo(s)
+	var sf: Dictionary = s.request_fire("R2", "missile", true)
+	_eq(bool(sf.get("ok", false)), true, "齐射 fire ok", str(sf.get("reason", "")))
+	_eq(int(sf.get("salvo", 0)), 3, "salvo=3")
+	_eq(int(sf.get("launched", 0)), 3, "launched=3")
+	_eq((sf.get("projectile_ids", []) as Array).size(), 3, "projectile_ids 3")
+	_eq(_missile_ammo(s), ammo1 - 3, "齐射扣 3 发")
+	_eq(s.combat_ballistics_active().size(), 3, "三发同时在飞")
+	# 逐发独立散布：位置不重合
+	var v0: Array = (s.combat_ballistics_active()[0] as Dictionary).get("vel_kmps", [])
+	var v1: Array = (s.combat_ballistics_active()[1] as Dictionary).get("vel_kmps", [])
+	var v2: Array = (s.combat_ballistics_active()[2] as Dictionary).get("vel_kmps", [])
+	var d01 := Vector3(float(v0[0]), float(v0[1]), float(v0[2])).distance_to(
+		Vector3(float(v1[0]), float(v1[1]), float(v1[2])))
+	var d02 := Vector3(float(v0[0]), float(v0[1]), float(v0[2])).distance_to(
+		Vector3(float(v2[0]), float(v2[1]), float(v2[2])))
+	_ok(d01 > 0.0 and d02 > 0.0, "齐射逐发独立散布（初速方向不同）",
+		"d01=%.4f d02=%.4f" % [d01, d02])
+	# 齐射弹药不足：拒绝 + 要求重设，不扣弹
+	s.combat_service.weapons["missile"]["ammo"] = 2
+	s.set_weapon_salvo("missile", 4)
+	_unified_prepare(s, "R3")
+	var short: Dictionary = s.request_fire("R3", "missile", true)
+	_ok(not bool(short.get("ok", true)), "弹药不足拒绝齐射")
+	_eq(String(short.get("reason", "")), "insufficient_ammo_for_salvo", "拒绝理由")
+	_ok(bool(short.get("needs_salvo_reset", false)), "要求重设齐射")
+	_eq(int(_missile_ammo(s)), 2, "拒绝时不扣弹")
+	s.set_weapon_salvo("missile", 2)
+	_unified_prepare(s, "R4")
+	var okf: Dictionary = s.request_fire("R4", "missile", true)
+	_eq(bool(okf.get("ok", false)), true, "下调齐射后可发射", str(okf.get("reason", "")))
+	_eq(int(_missile_ammo(s)), 0, "齐射 2 扣光弹药")
+	# 规划辅助：预演 + 按意图发射
+	var plan: Dictionary = s.combat_plan("R4", "railgun", "multi_axis")
+	_eq(bool(plan.get("ok", false)), true, "combat_plan ok", str(plan.get("reason", "")))
+	_eq(String(plan.get("schema", "")), "combat_plan.v1", "plan schema")
+	var prd: Dictionary = s.combat_predict_track("R4", "railgun")
+	_eq(String(prd.get("schema", "")), "ballistic_prediction.v1", "combat_predict_track schema")
+	# 无实体状态的航迹 → 明确拒绝
+	s.combat_register_track("GHOST", {"identity": "hostile", "threat": "hostile",
+		"range_km": 300.0, "in_arc": true, "ship_id": "nobody", "entity_id": "nobody"})
+	var ghost: Dictionary = s.request_fire("GHOST", "railgun", true)
+	_eq(bool(ghost.get("ok", true)), false, "无物理状态 fire 拒绝")
+	_eq(String(ghost.get("reason", "")), "no_physics_state", "no_physics_state reason")
+	_eq(int((ghost.get("missing", {}) as Dictionary).get("target", 0)), 1, "missing 标记目标缺状态")
+	# 未知武器齐射设置
+	_eq(String(s.set_weapon_salvo("nope", 2).get("reason", "")), "unknown_weapon",
+		"未知武器 set_weapon_salvo")
+	_eq(bool(s.check_contracts().get("ok", false)), true, "unified contracts ok")
+	# 存档往返保留倍速状态
+	var sv: String = s.save_state()
+	var s2 = GameSession.new(_unified_cfg())
+	_eq(bool(s2.load_state(sv).get("ok", false)), true, "unified save/load ok")
+	_eq(s2.combat_time_cap_state(), s.combat_time_cap_state(), "time_cap 存档往返一致")
+	_data_line("unified_fire", "门禁→真实弹丸→异步 impact→Damage→倍速降档/恢复 · 齐射/散布/弹药不足拒绝 · 规划预演")

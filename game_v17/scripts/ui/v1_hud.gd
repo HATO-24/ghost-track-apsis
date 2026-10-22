@@ -87,6 +87,10 @@ var _combat_target_rows: Array = []
 var _combat_weapon_rows: Array = []
 var _combat_buttons: Array = []
 var _combat_roe_buttons: Array = []
+var _combat_salvo_buttons: Array = []
+var _combat_intent := "direct"
+var _combat_plan: Dictionary = {}
+var _combat_plan_key := ""
 var _signal_code := ""
 var _signal_tx_id := ""
 var _signal_msg := ""
@@ -228,12 +232,18 @@ func _load_data() -> void:
 	if binder != null and binder.contacts.size() > 0:
 		_comms_target = String((_contacts[_selected] as Dictionary).get("entity_id", (_contacts[_selected] as Dictionary).get("id", "")))
 	_seed_comms_sample()
-	# CombatService（ROE 四档）与 DamageModel（损管页）为会话外挂的 shadow 组件；
-	# GameSession 当前未内置 damage_vm；损管明确标注 MODEL，不伪造。
-	_combat = CombatService.new({})
-	if _combat != null and bool(_combat.ready) and binder.session != null:
-		binder.session.combat_service = _combat
-		_combat.t = float(binder.session.now_s())
+	# CombatService（ROE 四档）与 DamageModel（损管页）。
+	# 优先复用 session 里已 boot 的那个：沙盒 seed 会带 roe/own_id/sandbox_opts
+	# （无限弹药、免授权），建影子组件会把这些配置丢掉。序章路径 session 没有
+	# combat_service，仍按老行为建影子并注入（不改变本体行为）。
+	if binder != null and binder.session != null and binder.session.combat_service != null:
+		_combat = binder.session.combat_service
+		print("[V1 HUD] COMBAT source=session sandbox=", str(binder.session.combat_vm().get("sandbox", {})))
+	else:
+		_combat = CombatService.new({})
+		if _combat != null and bool(_combat.ready) and binder != null and binder.session != null:
+			binder.session.combat_service = _combat
+			_combat.t = float(binder.session.now_s())
 	_seed_combat_tracks()
 	_roe_locked = String(binder.story_vm.get("phase", "prelude")) == "prelude"
 	if OS.get_environment("DSH_V1_ROE_UNLOCK") == "1":
@@ -482,7 +492,10 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), P.BG)
 	# 顶栏
 	Painter.panel(self, top, "", P.PH)
-	Painter.label(self, top.position.x + 14, top.position.y + 22, "GHOST TRACK // APSIS", 11, P.PH, true)
+	var title := "GHOST TRACK // APSIS"
+	if binder != null and binder.build_profile != null:
+		title = String(binder.build_profile.label)
+	Painter.label(self, top.position.x + 14, top.position.y + 22, title, 11, P.PH, true)
 	Painter.label(self, top.position.x + 14, top.position.y + 43, _commander, 15, P.PH)
 	var live := binder != null and bool(binder.ready)
 	var now_s := float(binder.session.now_s()) if binder != null and binder.session != null else _t
@@ -737,7 +750,8 @@ func _draw_bottom(r: Rect2) -> void:
 	_command_rows.clear()
 	_command_buttons.clear()
 	if cmds.is_empty():
-		Painter.label(self, r.position.x + 12, y, "NO COMMAND DATA · NOT READY", 7, P.FAINT, true)
+		var cmd_ready := binder != null and binder.session != null and binder.session.orders != null
+		Painter.label(self, r.position.x + 12, y, "NO COMMAND DATA · " + ("ORDERS READY" if cmd_ready else "NOT READY"), 7, P.FAINT, true)
 	else:
 		for i in range(mini(3, cmds.size())):
 			var c: Dictionary = cmds[i]
@@ -793,6 +807,13 @@ func _run_interaction_test() -> void:
 	_selected_cmd = 0
 	_command_action("REVOKE")
 	_do_right_action("COMMS")
+	# 通讯目标不能是发令方（同节点会被链路层正确拒绝），自测里挑一个非本舰接触。
+	var own_id := String(binder.session._seed.get("own_entity", "apsis")) if binder != null and binder.session != null else "apsis"
+	for i in range(_contacts.size()):
+		var eid := String((_contacts[i] as Dictionary).get("entity_id", (_contacts[i] as Dictionary).get("id", "")))
+		if eid != "" and eid != own_id:
+			_comms_target = eid
+			break
 	_comms_send()
 	_do_right_action("OPTICAL")
 	for i in range(_contacts.size()):
@@ -808,10 +829,32 @@ func _run_interaction_test() -> void:
 	_optical_action("LIGHT")
 	_do_right_action("COMBAT")
 	_seed_combat_tracks()
+	# 选合适武器（近距用实弹、远距用导弹），推进解算后再开火，确保真的走完发射路径
+	var rng := 999999.0
+	for raw_t in (_combat.vm().get("tracks", []) as Array):
+		if raw_t is Dictionary and String((raw_t as Dictionary).get("id", "")) == _combat_target:
+			rng = float((raw_t as Dictionary).get("range_km", 999999.0))
+	_combat_weapon = "railgun" if rng < 50.0 else "missile"
 	_combat_action("TRACK")
 	_combat_action("SOLUTION")
+	if binder != null and binder.session != null:
+		binder.session.tick(15.0)
 	_combat_action("AUTHORIZE FIRE")
 	_combat_action("FIRE")
+	if binder != null and binder.session != null:
+		# 推进到弹丸落点/失效，确认真实弹道闭环（active → impact/miss）
+		var bl: Dictionary = {}
+		for i in range(12):
+			binder.session.tick(10.0)
+			if binder.session.combat_ballistics_active().is_empty() and i >= 1:
+				break
+		bl = binder.session.combat_time_cap_state()
+		print("[V1 HUD] COMBAT BALLISTICS active=", binder.session.combat_ballistics_active().size(),
+			" impacts=", binder.session.combat_ballistics_impacts().size(),
+			" scale_cap=", str(bl.get("active", false)),
+			" scale=", "%.1f" % float(bl.get("scale", 0.0)))
+	_combat_action("SALVO+")
+	_combat_action("PLAN")
 	# 识别融合：走真实 UI 动作路径（INTERROGATE/IFF/AUTO/CONFIRM/CLEAR）。
 	_do_right_action("IDENT")
 	for i in range(_contacts.size()):
@@ -2325,7 +2368,7 @@ func _draw_combat_overlay(r: Rect2) -> void:
 	var chips := ""
 	if not vm0.is_empty():
 		chips = "ROE " + String(vm0.get("roe", "—")) + " · TGT " + (_combat_target if _combat_target != "" else "—")
-	var fr := _overlay_frame(r, "战斗终端 / COMBAT TERMINAL", "目标/武器/ROE/授权/预测 · CombatService shadow · NO PHYSICS HIT", P.PH, chips)
+	var fr := _overlay_frame(r, "战斗终端 / COMBAT TERMINAL", "目标/武器/ROE/授权/齐射/规划 · CR3BP 真实弹道（命中异步）", P.PH, chips)
 	var body: Rect2 = fr.body
 	var x := body.position.x
 	var y := body.position.y
@@ -2333,6 +2376,13 @@ func _draw_combat_overlay(r: Rect2) -> void:
 		Painter.label(_cv, x, y + 20, "COMBAT NOT READY · no CombatService", 9, P.AMBER)
 		return
 	var vm: Dictionary = vm0
+	# 规划辅助缓存：目标/武器/意图变化才重算（预测含真实积分，避免每帧算）
+	var plan_key := "%s|%s|%s" % [_combat_target, _combat_weapon, _combat_intent]
+	if plan_key != _combat_plan_key:
+		_combat_plan_key = plan_key
+		_combat_plan = {}
+		if binder != null and binder.session != null and _combat_target != "" and _combat_weapon != "":
+			_combat_plan = binder.session.combat_plan(_combat_target, _combat_weapon, _combat_intent, {})
 	var track_rows: Array = vm.get("tracks", []) if vm.get("tracks", []) is Array else []
 	var weapon_rows: Array = vm.get("weapons", []) if vm.get("weapons", []) is Array else []
 	var gap := 16.0
@@ -2369,6 +2419,42 @@ func _draw_combat_overlay(r: Rect2) -> void:
 		Painter.label(_cv, wx, wr.position.y + 11, TM.fit("%s · %s" % [wid, String(w.get("kind", ""))], ww, true, 7), 7, P.PH if wid == _combat_weapon else P.TXT, true)
 		Painter.label(_cv, wx + 8, wr.position.y + 22, TM.fit("AMMO %s · CD %s · RANGE %s" % [
 			str(w.get("ammo", "—")), str(w.get("cooldown_remaining_s", w.get("cooldown_s", "—"))), str(w.get("range_km", "—"))], ww - 12.0, true, 6), 6, P.a(P.DIM, 0.9), true)
+	# 齐射设置 + 规划辅助（决策 3/6：弹药不足必须由玩家下调齐射数；巡航需规划辅助）
+	var sy := wy + float(mini(6, weapon_rows.size())) * 28.0 + 4.0
+	Painter.section(_cv, wx, sy, wx + ww, "SALVO / PLAN ASSIST")
+	sy += 15.0
+	var sel_w: Dictionary = {}
+	for raw3 in weapon_rows:
+		if raw3 is Dictionary and String((raw3 as Dictionary).get("id", "")) == _combat_weapon:
+			sel_w = raw3
+	var salvo_now := int(sel_w.get("salvo_setting", sel_w.get("salvo", 1)))
+	var salvo_cap := int(sel_w.get("salvo_max", 1))
+	var ammo_now := int(sel_w.get("ammo", 0))
+	Painter.label(_cv, wx, sy, TM.fit("SALVO %d / %d · AMMO %d" % [salvo_now, salvo_cap, ammo_now], ww, true, 7), 7,
+		P.AMBER if ammo_now < salvo_now else P.TXT, true)
+	sy += 12.0
+	_combat_salvo_buttons = _button_bar(Rect2(wx, sy, ww, 20.0), [
+		["SALVO-", "SALVO −", P.PH],
+		["SALVO+", "SALVO +", P.PH],
+		["PLAN", "PLAN " + _combat_intent.to_upper(), P.AMBER],
+	], 3)
+	sy += 24.0
+	var plan_txt := "PLAN — 选择武器/目标后计算"
+	if not _combat_plan.is_empty():
+		if bool(_combat_plan.get("ok", false)):
+			var dvp := float(_combat_plan.get("max_dv_planned_kmps", _combat_plan.get("dv_planned_kmps", 0.0)))
+			var dvb := 0.0
+			if _combat_plan.get("plans") is Array and (_combat_plan.get("plans") as Array).size() > 0:
+				dvb = float(((_combat_plan.get("plans") as Array)[0] as Dictionary).get("dv_budget_kmps", 0.0))
+			else:
+				dvb = float(_combat_plan.get("dv_budget_kmps", 0.0))
+			plan_txt = "Δv %.2f / %.2f km/s · %s · TOF %.0fs" % [dvp, dvb,
+				"FEASIBLE" if bool(_combat_plan.get("feasible", false)) else "INFEASIBLE",
+				float(_combat_plan.get("time_of_flight_s", 0.0))]
+		else:
+			plan_txt = "PLAN — " + String(_combat_plan.get("reason", "unavailable"))
+	Painter.label(_cv, wx, sy, TM.fit(plan_txt, ww, true, 6), 6,
+		P.AMBER if not bool(_combat_plan.get("feasible", true)) else P.a(P.DIM, 0.95), true)
 	var ry := y
 	Painter.section(_cv, rx, ry, rx + rw, "ROE / AUTHORIZATION")
 	ry += 16.0
@@ -2388,14 +2474,22 @@ func _draw_combat_overlay(r: Rect2) -> void:
 		Painter.label_right(_cv, rx + rw, ry, TM.fit("OK" if bool(au.get("ok", false)) else String(au.get("reason", "LOCKED")), rw * 0.5, true, 7), 7, P.PH if bool(au.get("ok", false)) else P.AMBER, true)
 		ry += 13.0
 	ry += 6.0
-	Painter.section(_cv, rx, ry, rx + rw, "PREDICTION / INTERFACE · NO PHYSICS")
+	Painter.section(_cv, rx, ry, rx + rw, "FIRE SOLUTION / CR3BP RK4")
 	ry += 15.0
-	var pred: Dictionary = _combat.predict_shot(_combat_target, _combat_weapon) if _combat_target != "" and _combat_weapon != "" else {}
+	var pred: Dictionary = _combat_solution_vm()
 	if bool(pred.get("ok", false)):
-		Painter.label(_cv, rx, ry, TM.fit("TOF %.1fs · HIT %d%% · ERR %.2f km" % [float(pred.get("time_of_flight_s", -1.0)), int(float(pred.get("hit_probability", 0.0)) * 100.0), float(pred.get("error_km", 0.0))], rw, true, 7), 7, P.TXT, true)
-		Painter.label(_cv, rx, ry + 12, TM.fit("trajectory=" + String(pred.get("trajectory", "interface_only")) + " · no_physics=" + str(bool(pred.get("no_physics", true))), rw, true, 6), 6, P.a(P.FAINT, 0.9), true)
+		Painter.label(_cv, rx, ry, TM.fit("TOF %.1fs · MODE %s · RESID %.3f km" % [
+			float(pred.get("time_of_flight_s", -1.0)), String(pred.get("mode", "—")).to_upper(),
+			float(pred.get("residual_km", 0.0))], rw, true, 7), 7, P.TXT, true)
+		Painter.label(_cv, rx, ry + 12, TM.fit("trajectory=" + String(pred.get("trajectory", "—"))
+			+ " · Δv %.1f km/s" % float(pred.get("dv_budget_kmps", 0.0)), rw, true, 6), 6, P.a(P.FAINT, 0.9), true)
+		var sk: Dictionary = pred.get("seeker", {}) if pred.get("seeker") is Dictionary else {}
+		if not sk.is_empty():
+			Painter.label(_cv, rx, ry + 24, TM.fit("SEEKER %s · %.0f km · FOV %.0f°" % [
+				String(sk.get("type", "—")), float(sk.get("range_km", 0.0)),
+				float(sk.get("fov_deg", 0.0))], rw, true, 6), 6, P.a(P.DIM, 0.95), true)
 	else:
-		Painter.label(_cv, rx, ry, TM.fit("PREDICTION NOT READY · " + String(pred.get("reason", "no target/weapon")), rw, true, 7), 7, P.AMBER, true)
+		Painter.label(_cv, rx, ry, TM.fit("SOLUTION NOT READY · " + String(pred.get("reason", "no target/weapon")), rw, true, 7), 7, P.AMBER, true)
 	Painter.section(_cv, x, ev_top, body.end.x, "COMBAT EVENTS / 战斗事件")
 	var evs: Array = vm.get("events", []) if vm.get("events", []) is Array else []
 	var ey := ev_top + 17.0
@@ -2427,14 +2521,53 @@ func _combat_action(kind: String) -> void:
 		"AUTHORIZE FIRE":
 			res = binder.session.grant_authorization("FIRE", "target", _combat_target) if binder != null and binder.session != null else {"ok": false, "reason": "no_session"}
 		"FIRE":
-			res = _combat.request_fire(_combat_target, _combat_weapon, true)
+			# 统一路径：session 先过门禁再发真实弹丸；命中异步（等 impact 事件）
+			if binder != null and binder.session != null:
+				res = binder.session.request_fire(_combat_target, _combat_weapon, true,
+					{"intent": _combat_intent})
+			else:
+				res = {"ok": false, "reason": "no_session"}
+		"SALVO-", "SALVO+":
+			if binder != null and binder.session != null:
+				var cur := int(_combat.salvo_of(_combat_weapon))
+				res = binder.session.set_weapon_salvo(_combat_weapon,
+					cur + (1 if kind == "SALVO+" else -1))
+			else:
+				res = {"ok": false, "reason": "no_session"}
+		"PLAN":
+			var intents := ["direct", "silent", "offset", "multi_axis"]
+			_combat_intent = String(intents[(intents.find(_combat_intent) + 1) % intents.size()])
+			_combat_plan_key = ""
+			res = {"ok": true, "intent": _combat_intent}
 		"DEFEND", "HOLD", "TIGHT", "FREE":
 			res = _combat.set_roe(kind)
 		_:
 			res = {"ok": false, "reason": "unknown_action"}
-	_combat_msg = "%s %s/%s · %s%s" % [kind, _combat_target, _combat_weapon, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+	var extra := ""
+	if bool(res.get("ok", false)):
+		if kind == "FIRE":
+			extra = " · launched=%d salvo=%d" % [int(res.get("launched", 0)), int(res.get("salvo", 0))]
+		elif kind == "PLAN":
+			extra = " · " + _combat_intent.to_upper()
+		elif kind == "SALVO-" or kind == "SALVO+":
+			extra = " · salvo=%d" % int(res.get("salvo", 0))
+	else:
+		extra = " · " + String(res.get("reason", ""))
+		if bool(res.get("needs_salvo_reset", false)):
+			extra += " · 请下调齐射数（剩 %d 发）" % int(res.get("ammo", 0))
+	_combat_msg = "%s %s/%s%s" % [kind, _combat_target, _combat_weapon,
+		(" · OK" + extra) if bool(res.get("ok", false)) else ("FAILED" + extra)]
 	print("[V1 HUD] COMBAT ", _combat_msg)
 	queue_redraw()
+
+
+func _combat_solution_vm() -> Dictionary:
+	## 真实解算（弹道服务 CR3BP 预测），不是接口层估算。
+	if binder == null or binder.session == null:
+		return {"ok": false, "reason": "no_session"}
+	if _combat_target == "" or _combat_weapon == "":
+		return {"ok": false, "reason": "no target/weapon"}
+	return binder.session.combat_predict_track(_combat_target, _combat_weapon)
 
 
 func _draw_damage_overlay(r: Rect2) -> void:
@@ -3205,6 +3338,10 @@ func _overlay_hit(lp: Vector2) -> bool:
 				if (b["rect"] as Rect2).has_point(lp):
 					_combat_action(String(b.get("kind", "")))
 					return true
+			for b in _combat_salvo_buttons:
+				if (b["rect"] as Rect2).has_point(lp):
+					_combat_action(String(b.get("kind", "")))
+					return true
 			for b in _combat_buttons:
 				if (b["rect"] as Rect2).has_point(lp):
 					_combat_action(String(b.get("kind", "")))
@@ -3253,11 +3390,49 @@ func _select_track_contact(track_id: String) -> void:
 			return
 
 
+## 沙盒便利项是否可用（F5 重开）。本体剖面恒 false，不给作弊/重开口子。
+func _sandbox_restart_enabled() -> bool:
+	if binder == null or binder.build_profile == null:
+		return false
+	return binder.build_profile.sandbox_opt("quick_restart", false)
+
+
+## F5 重开后 session 是全新对象：HUD 侧对 session 内部组件的引用必须重新绑定，
+## 否则会继续操作旧实例（旧的 combat_service 已不属于当前 session，开火会打空）。
+func _rebind_after_restart() -> void:
+	_selected = 0
+	_selected_cmd = -1
+	_selected_section = ""
+	_ident_row = {}
+	_combat_target = ""
+	_combat_weapon = ""
+	_combat_msg = ""
+	_combat_plan = {}
+	_combat_plan_key = ""
+	if binder != null and binder.session != null and binder.session.combat_service != null:
+		_combat = binder.session.combat_service
+	_seed_combat_tracks()
+	queue_redraw()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if _plot3d != null and _plot3d_rect.size.x > 0.0 and bool(_plot3d.handle_input(event, _plot3d_rect)):
 		accept_event()
 		queue_redraw()
 		return
+	# 沙盒便利：F5 一键重开（仅 combat_sim 剖面开启；正式本体无此键）
+	if event is InputEventKey:
+		var kq := event as InputEventKey
+		if kq.pressed and not kq.echo and kq.keycode == KEY_F5 and _sandbox_restart_enabled():
+			var rr: Dictionary = binder.quick_restart()
+			if bool(rr.get("ok", false)):
+				_rebind_after_restart()
+			print("[V1 HUD] QUICK RESTART ok=", bool(rr.get("ok", false)),
+				" reason=", String(rr.get("reason", "")),
+				" t_after=", float(rr.get("t_after", 0.0)))
+			accept_event()
+			queue_redraw()
+			return
 	# ESC 关闭当前弹层（B-33 补齐：此前只有 CLOSE 按钮可关）。
 	if event is InputEventKey and _overlay != "":
 		var key := event as InputEventKey

@@ -204,17 +204,77 @@ writes={world:false,track_table:false,v15:false,ui:false}
 - 不实现完整命令通信/延迟/撤销/事件文本库；不实现存档文件 I/O（仅 JSON）。
 - ROE 矩阵为可测试的显式规则，未覆盖完整交战几何/射界遮挡/多目标饱和；
   自动降级只做保守 HOLD，不自动升级。
-- 点防御/干扰/诱饵为抽象概率接口，不含真实弹道/电子战模型；
+- 点防御/干扰/诱饵在本服务里只是**接口层状态**（弹药/冷却/时限）；
+  真实拦截与对抗在 `combat_ballistics.gd`（见 `combat_ballistics.md`）。
   incoming 命中后 damage event 只给上层，不直接扣血。
-- probe 209 checks（内容/四档/三级授权/scope/时限/解算/发射/弹药/冷却/命中/
-  PD/诱饵/干扰/incoming/降级/save/JSON/确定性）；只单次运行，未跑全量回归。
+- probe 236 checks（内容/四档/三级授权/scope/时限/解算/发射/弹药/冷却/齐射参数/
+  弹药不足拒绝/PD/诱饵/干扰/incoming/降级/save/JSON/确定性）。
 - 未 commit；未改其他文件。
+
+## 8.1　R6 变更：开火不再判命中（统一路径）
+
+`request_fire()` 从"同步掷命中骰"改为**门禁 + 延迟物理**：
+
+```gdscript
+request_fire(target_id, weapon_id, confirmed, opts)
+  -> {ok, shot_id, salvo, ammo_left, launch_spec{shooter_id,target_id,
+      weapon_id,salvo,entity_id}, physics:"deferred", prediction}
+```
+
+- **不再返回 `hit`/`miss`**；命中由 `combat_ballistics` 的 `impact`/`miss`
+  事件异步决定（`GameSession` 路由到 bus 与 DamageService）；
+- `launch_spec` 是给物理层的交接单：`entity_id` 是**物理实体 id**（不是航迹 id），
+  `GameSession.request_fire()` 用它取状态；
+- 弹药在门禁阶段就扣（门禁通过即视为已发射），物理失败不回补——
+  因此 `GameSession` 把物理前置检查提到了门禁之前（见 `game_session.md` §统一开火）。
+
+### 齐射参数（决策 3）
+
+```gdscript
+set_salvo(weapon_id, n) -> {ok, salvo, salvo_max, ammo}
+salvo_of(weapon_id) -> int
+```
+
+- 齐射数范围 `1..salvo_max`（railgun 1 / missile 4），越界**钳制**而非报错；
+- **弹药不足时拒绝发射**，不静默降级：
+
+```text
+reason = "insufficient_ammo_for_salvo"
+needs_salvo_reset = true
+salvo_max = min(salvo_max, ammo)
+hint = "剩余 N 发，齐射需要 M 发，请下调齐射数"
+```
+
+玩家必须显式下调齐射数后重新发射；拒绝时不扣弹药、不置 solution 为 FIRED。
+
+### 航迹战果记账
+
+`note_damage(target_id, damage)` 只做**航迹级**汇总（`damage_taken`、
+累计到阈值置 `destroyed`）。实体级账本仍是 DamageModel——这里是唯一的
+"航迹视角"记账点，供 UI 与后续 ROE 判定使用。
+
+## 8.2　沙盒便利项（`unlimited_ammo` / `auto_authorize`）
+
+只在 `combat_sim` 剖面开启；**默认全关**，正式本体永不开。
+
+```gdscript
+CombatService.new({"roe": "TIGHT", "unlimited_ammo": true, "auto_authorize": true})
+```
+
+| 开关 | 作用点 | 行为 |
+| --- | --- | --- |
+| `unlimited_ammo` | `request_fire` / `_resolve_incoming`(PD) / `_consume`(decoy,jammer) / `_offensive_ammo_empty` | 跳过 `no_ammo` / `insufficient_ammo_for_salvo` 判定，且**不扣减**弹药；弹药耗尽也不会把 ROE 降级到 `ammo_empty` |
+| `auto_authorize` | `_action_allowed("FIRE", ...)` | 无 grant 时放行，返回 `reason="sandbox_auto_authorize"`、`sandbox=true`；**`confirmed` 仍必须** |
+
+**刻意不做的事**：这两个开关**不绕过**冷却、射程、`no_ready_solution`、`unknown_track`、
+`weapon_not_offensive`。模拟器演示的仍是真实交战流程，只是不用为"第 9 发导弹"
+和"逐个目标手工授权"停下来。`vm().sandbox` 暴露当前两个开关，便于 UI/探针断言。
 
 ## 9　验证
 
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/combat_probe.gd
-# COMBAT PROBE RESULT: PASS=209 FAIL=0
+# COMBAT PROBE RESULT: PASS=255 FAIL=0
 # COMBAT PROBE OK（退出码 0）
 ```

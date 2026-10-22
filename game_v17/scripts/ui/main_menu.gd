@@ -10,6 +10,7 @@ const TM := preload("res://scripts/ui/text_metrics.gd")
 const Painter := preload("res://scripts/ui/panel_painter.gd")
 const SaveService := preload("res://scripts/core/save_service.gd")
 const SettingsService := preload("res://scripts/core/settings_service.gd")
+const BuildProfile := preload("res://scripts/core/build_profile.gd")
 
 const VERSION := "V1.7"
 const SAVE_ROOT := "user://saves"
@@ -18,6 +19,8 @@ const PROLOGUE := "res://prologue.tscn"
 const V1_HUD := "res://v1_hud.tscn"
 
 var _save = null
+var _profile = null
+var _save_root := "user://saves"
 var _slots: Array = []
 var _latest := {}
 var _overlay := ""
@@ -46,6 +49,17 @@ const SETTINGS_DEFAULTS := {
 
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
+	# 版本剖面：作战模拟器版本跳过主菜单，直接进战术台（截图/显式禁用时除外）
+	_profile = BuildProfile.new()
+	_profile.setup({})
+	_save_root = String(_profile.save_root)
+	if _profile.is_sandbox() and _shot_path == "" \
+			and OS.get_environment("DSH_NO_AUTOSKIP") != "1":
+		var target := String(_profile.entry_scene)
+		if target != "" and target != "res://main_menu.tscn":
+			print("[MAIN MENU] BUILD=", String(_profile.id), " → skip to ", target)
+			get_tree().change_scene_to_file(target)
+			return
 	var sz := OS.get_environment("DSH_HUD_SIZE")
 	if sz == "":
 		sz = "1920x1080"
@@ -61,7 +75,7 @@ func _ready() -> void:
 	theme = null
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	_save = SaveService.new(SAVE_ROOT)
+	_save = SaveService.new(_save_root)
 	_refresh_slots()
 	_load_settings()
 	_load_emblem()

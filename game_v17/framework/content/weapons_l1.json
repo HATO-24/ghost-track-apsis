@@ -22,6 +22,10 @@
       "auth_level": "FIRE",
       "interceptable": false,
       "salvo": 1,
+      "salvo_max": 1,
+      "salvo_spread_deg": 0.05,
+      "proximity_fuse_km": 0.0,
+      "frag_damage": 1.0,
       "suggested_sections": ["hull", "power"],
       "damage_kind": "kinetic"
     },
@@ -38,10 +42,34 @@
       "damage": 0.55,
       "penetration": 0.8,
       "speed_kmps": 8.0,
+      "max_speed_kmps": 12.0,
+      "max_accel_kmps2": 0.30,
+      "turn_rate_dps": 45.0,
+      "fuel_s": 120.0,
+      "lifetime_s": 900.0,
+      "boost_s": 8.0,
       "guidance": "guided",
       "auth_level": "FIRE",
       "interceptable": true,
       "salvo": 1,
+      "salvo_max": 4,
+      "salvo_spread_deg": 0.15,
+      "proximity_fuse_km": 0.35,
+      "frag_damage": 0.35,
+      "seeker": {
+        "type": "radar_active",
+        "range_km": 400.0,
+        "fov_deg": 60.0,
+        "acquire_s": 2.5,
+        "break_s": 1.5,
+        "break_margin": 0.85,
+        "home_on_jam": false
+      },
+      "profile": {
+        "waypoints": [],
+        "terminal_acquire_km": 800.0,
+        "seeker_off_until_km": 0.0
+      },
       "suggested_sections": ["hull", "propulsion"],
       "damage_kind": "explosive"
     },
@@ -63,6 +91,8 @@
       "auth_level": "TRACK",
       "interceptable": false,
       "salvo": 1,
+      "salvo_max": 1,
+      "salvo_spread_deg": 0.05,
       "suggested_sections": [],
       "damage_kind": "intercept"
     },
@@ -82,8 +112,10 @@
       "auth_level": "SOLUTION",
       "interceptable": false,
       "salvo": 1,
+      "salvo_max": 1,
       "duration_s": 30.0,
       "effect": "radar_jam",
+      "power": 1.4,
       "suggested_sections": [],
       "damage_kind": "electronic"
     },
@@ -103,8 +135,11 @@
       "auth_level": "SOLUTION",
       "interceptable": false,
       "salvo": 1,
+      "salvo_max": 1,
       "duration_s": 20.0,
       "effect": "decoy",
+      "rcs_m2": 2200.0,
+      "ir_signature": 0.9,
       "suggested_sections": [],
       "damage_kind": "countermeasure"
     }

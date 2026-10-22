@@ -14,6 +14,7 @@
       "name": "APSIS",
       "batch": "OCUVF-ID13",
       "kind": "ship",
+      "radius_km": 0.08,
       "side": "friend",
       "identity": "friend",
       "pos_km": [
@@ -35,6 +36,7 @@
       "name": "Harmattan",
       "batch": "OCUVF-ID13",
       "kind": "ship",
+      "radius_km": 0.09,
       "side": "friend",
       "identity": "friend",
       "pos_km": [
@@ -56,6 +58,7 @@
       "name": "Ferry",
       "batch": "CIV-FERRY-2",
       "kind": "ship",
+      "radius_km": 0.07,
       "side": "neutral",
       "identity": "unknown",
       "pos_km": [
@@ -77,6 +80,7 @@
       "name": "Watchtower",
       "batch": "L1-PATROL",
       "kind": "ship",
+      "radius_km": 0.05,
       "side": "neutral",
       "identity": "unknown",
       "pos_km": [
@@ -98,6 +102,7 @@
       "name": "Deepwell",
       "batch": "CIV-TANKER-9",
       "kind": "ship",
+      "radius_km": 0.12,
       "side": "neutral",
       "identity": "unknown",
       "pos_km": [
@@ -124,6 +129,7 @@
       "emergency_light_code": "7600",
       "light_codes": ["L3-0417", "L4-0417"],
       "kind": "ship",
+      "radius_km": 0.04,
       "side": "unknown",
       "identity": "unknown",
       "pos_km": [
@@ -145,6 +151,7 @@
       "name": "AV-4412",
       "batch": "UEG-AV-4412",
       "kind": "ship",
+      "radius_km": 0.06,
       "side": "ueg",
       "identity": "unknown",
       "pos_km": [
@@ -167,6 +174,7 @@
       "name": "L1 station",
       "batch": "L1-05",
       "kind": "station",
+      "radius_km": 0.35,
       "side": "neutral",
       "identity": "station",
       "pos_km": [
@@ -188,6 +196,7 @@
       "name": "Chronos",
       "batch": "L1-05-FUEL",
       "kind": "fuel",
+      "radius_km": 0.2,
       "side": "neutral",
       "identity": "station",
       "pos_km": [

@@ -311,15 +311,20 @@ func _test_missile() -> void:
 		moving["pos_km"] = [1000.0 + 0.05 * float(i + 1), 0.0, 0.0]
 		b2.step(1.0, _states(own, moving))
 	_ok((b2.impacts as Array).size() >= 1, "移动目标导弹命中")
-	# 远距燃料耗尽/寿命
+	# 远距燃料耗尽/寿命：900 s 寿命下 5900 km 可达（旧 300 s 寿命物理上打不到，属内容不自洽修正）
 	var b3 = _new()
 	var far := _target("FAR", [5900.0, 0.0, 0.0])
 	_ok(bool(b3.launch("own", "FAR", "missile", own, far).get("ok", false)), "远距发射")
 	for i in range(400):
 		b3.step(1.0, _states(own, far))
 	var farp: Dictionary = _projectile(b3)
-	_ok(float(farp.get("fuel_remaining_s", -1.0)) == 0.0, "远距燃料耗尽")
-	_ok(not bool(farp.get("active", true)), "远距已失效/命中")
+	# Δv 预算模型：加速段只花掉一部分，末制导保留机动量（旧模型加速段烧光燃料、末段无力修正）
+	_ok(float(farp.get("dv_used_kmps", 0.0)) > 0.0, "远距已消耗 Δv")
+	_ok(float(farp.get("dv_remaining_kmps", 0.0)) > 0.0, "远距保留末段机动 Δv")
+	_ok(bool(farp.get("active", true)), "400s 仍在飞（寿命 900s）")
+	for i in range(400):
+		b3.step(1.0, _states(own, far))
+	_ok(not bool(_projectile(b3).get("active", true)), "远距已失效/命中")
 	_ok(_events(b3, "projectile_expired") >= 1 or (b3.impacts as Array).size() >= 1,
 		"远距失效/命中事件")
 	# 预测 vs 实际 TOF
@@ -476,7 +481,7 @@ func _test_save_reset_json() -> void:
 	var p = JSON.parse_string(txt)
 	_ok(p is Dictionary, "save JSON")
 	_ok(String((p as Dictionary).get("schema", "")) == "v17.combat_ballistics_save.v1", "save schema")
-	_ok(String((p as Dictionary).get("version", "")) == "1.0.0", "save version")
+	_ok(String((p as Dictionary).get("version", "")) == "2.0.0", "save version")
 	_ok((p as Dictionary).get("projectiles") is Array, "save projectiles")
 	_ok((p as Dictionary).get("countermeasures") is Array, "save countermeasures")
 	_ok((p as Dictionary).get("events") is Array, "save events")

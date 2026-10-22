@@ -41,6 +41,11 @@ var roe := "TIGHT"
 var roe_defs: Dictionary = {}
 var own_id := "own"
 var fleet_id := "fleet"
+# 沙盒便利项（默认全关，只有 combat_sim 剖面显式打开；正式本体永不开）
+#   unlimited_ammo  弹药不扣减（PD/干扰弹同样生效），也不因弹药耗尽降级 ROE
+#   auto_authorize  FIRE 免授权（仍要求 confirmed），用于演示时自由选目标
+var unlimited_ammo := false
+var auto_authorize := false
 var tracks: Dictionary = {}
 var solutions: Dictionary = {}
 var grants: Dictionary = {}
@@ -121,6 +126,8 @@ func setup(cfg := {}) -> bool:
 		return false
 	own_id = String(config.get("own_id", "own"))
 	fleet_id = String(config.get("fleet_id", "fleet"))
+	unlimited_ammo = bool(config.get("unlimited_ammo", false))
+	auto_authorize = bool(config.get("auto_authorize", false))
 	roe = String(config.get("roe", "TIGHT")).to_upper()
 	if not (roe in ROE_ORDER):
 		errors.append("ROE 非法: " + roe)
@@ -138,6 +145,9 @@ func setup(cfg := {}) -> bool:
 			"cooldown_until": -1.0, "solution_s": float(d.get("solution_s", 0.0)),
 			"auth_level": String(d.get("auth_level", "FIRE")),
 			"intercept_accuracy": float(d.get("intercept_accuracy", d.get("accuracy", 0.0))),
+			"salvo": int(d.get("salvo", 1)),
+			"salvo_max": maxi(1, int(d.get("salvo_max", d.get("salvo", 1)))),
+			"salvo_setting": int(d.get("salvo", 1)),
 		}
 	# ROE content（可覆盖默认矩阵）
 	var roe_cfg: Dictionary = content.get("roe", {}) if content.get("roe") is Dictionary else {}
@@ -321,6 +331,10 @@ func _action_allowed(level: String, track: Dictionary, weapon_id: String, confir
 		if not bool(confirmed):
 			return {"ok": false, "reason": "needs_confirmation", "needs_confirmation": true}
 		if g.is_empty():
+			# 沙盒便利：auto_authorize 时免授权（confirmed 仍必须），reason 明确标注来源
+			if auto_authorize:
+				return {"ok": true, "reason": "sandbox_auto_authorize", "confirmed": true,
+					"auto": true, "grant": {}, "sandbox": true}
 			return {"ok": false, "reason": "needs_authorization", "needs_authorization": true}
 		return {"ok": true, "reason": "", "confirmed": true, "grant": g}
 	if _roe_auto(level, track):
@@ -388,6 +402,7 @@ func register_track(id: String, data := {}) -> Dictionary:
 		"destroyed": bool(d.get("destroyed", false)),
 		"damage_taken": float(d.get("damage_taken", 0.0)),
 		"ship_id": String(d.get("ship_id", "")),
+		"entity_id": String(d.get("entity_id", "")),
 	}
 	_push_event("track_registered", {"track_id": id})
 	return {"ok": true, "reason": "", "track": (tracks[id] as Dictionary).duplicate(true)}
@@ -399,7 +414,8 @@ func update_track(id: String, data := {}) -> Dictionary:
 	var tr: Dictionary = tracks[id]
 	var d: Dictionary = data if data is Dictionary else {}
 	var old_identity := String(tr.get("identity", "unknown"))
-	for k in ["batch", "identity", "threat", "range_km", "in_arc", "destroyed", "damage_taken", "ship_id"]:
+	for k in ["batch", "identity", "threat", "range_km", "in_arc", "destroyed", "damage_taken",
+			"ship_id", "entity_id"]:
 		if d.has(k):
 			tr[k] = d[k]
 	var new_identity := String(tr.get("identity", "unknown"))
@@ -529,7 +545,10 @@ func predict_shot(target_id: String, weapon_id: String) -> Dictionary:
 		"interceptable": bool(w.get("interceptable", false))}
 
 
-func request_fire(target_id: String, weapon_id: String, confirmed := false) -> Dictionary:
+## 开火门禁：ROE/授权/解算/射程/弹药/冷却。本函数只判"能不能打、打几发"，
+## 不掷命中骰 —— 弹出去以后由 CombatBallistics 的物理闭环决定命中/被拦截/被诱偏。
+## 齐射：salvo 来自 opts.salvo 或玩家设定（set_salvo）；弹药不足直接拒绝并要求重设。
+func request_fire(target_id: String, weapon_id: String, confirmed := false, opts := {}) -> Dictionary:
 	var tr := _get_track(target_id)
 	if tr.is_empty():
 		return {"ok": false, "reason": "unknown_track"}
@@ -551,14 +570,27 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false) -> D
 	var range_km := float(tr.get("range_km", 999999.0))
 	if range_km > float(w.get("range_km", 0.0)) + 1.0e-9:
 		return {"ok": false, "reason": "out_of_range"}
+	var o: Dictionary = opts if opts is Dictionary else {}
 	var ws: Dictionary = weapons[weapon_id]
-	if int(ws.get("ammo", 0)) <= 0:
-		return {"ok": false, "reason": "no_ammo"}
+	var salvo_max := maxi(1, int(ws.get("salvo_max", 1)))
+	var salvo := clampi(int(o.get("salvo", ws.get("salvo_setting", 1))), 1, salvo_max)
+	var ammo := int(ws.get("ammo", 0))
+	# 沙盒便利：unlimited_ammo 时跳过弹药门槛与扣减（其余门禁不变）
+	if not unlimited_ammo:
+		if ammo <= 0:
+			return {"ok": false, "reason": "no_ammo", "weapon_id": weapon_id,
+				"ammo": 0, "salvo": salvo, "salvo_max": salvo_max}
+		if ammo < salvo:
+			# 决策（用户确认）：弹药不足时拒绝发射，要求玩家重新设置齐射数，不静默降级
+			return {"ok": false, "reason": "insufficient_ammo_for_salvo",
+				"weapon_id": weapon_id, "ammo": ammo, "salvo": salvo,
+				"salvo_max": mini(salvo_max, ammo), "needs_salvo_reset": true,
+				"hint": "剩余 %d 发，齐射需要 %d 发，请下调齐射数" % [ammo, salvo]}
 	if t + 1.0e-9 < float(ws.get("cooldown_until", -1.0)):
 		return {"ok": false, "reason": "cooldown", "cooldown_remaining_s":
 			float(ws.get("cooldown_until", 0.0)) - t}
-	# FIRE 授权 + 确认通过；消耗弹药/冷却
-	ws["ammo"] = int(ws.get("ammo", 0)) - int(w.get("salvo", 1))
+	if not unlimited_ammo:
+		ws["ammo"] = ammo - salvo
 	ws["cooldown_until"] = t + float(w.get("cooldown_s", 0.0))
 	_shot_seq += 1
 	var shot_id := "SHOT-%06d" % _shot_seq
@@ -567,44 +599,49 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false) -> D
 	var pred: Dictionary = predict_shot(target_id, weapon_id)
 	_push_event("weapon_launch", {"shot_id": shot_id, "target_id": target_id,
 		"weapon_id": weapon_id, "solution_id": String(sol.get("solution_id", "")),
-		"prediction": pred.duplicate(true)})
-	var hit_prob := clampf(float(sol.get("quality", 0.0)) * float(w.get("accuracy", 0.0)), 0.0, 1.0)
-	if decoy_until > t and _is_hostile(tr):
-		hit_prob *= 0.5  # 目标诱饵降低命中
-	var roll := _roll("%s|%s|%d" % [target_id, weapon_id, _shot_seq])
-	var hit := roll < hit_prob
-	if not hit:
-		_push_event("combat_miss", {"shot_id": shot_id, "target_id": target_id,
-			"weapon_id": weapon_id, "roll": roll, "hit_prob": hit_prob})
-		return {"ok": true, "reason": "miss", "shot_id": shot_id, "hit": false,
-			"hit_prob": hit_prob, "roll": roll, "solution": sol.duplicate(true),
-			"prediction": pred}
-	# 命中只产生 damage event，不直接改实体
-	var damage := float(w.get("damage", 0.0))
-	var section := ""
-	var secs: Array = w.get("suggested_sections", []) if w.get("suggested_sections") is Array else []
-	if not secs.is_empty():
-		section = String(secs[0])
-	var dmg_ev := {
-		"schema": SCHEMA_DAMAGE, "kind": "damage",
-		"t": t, "shot_id": shot_id, "target_id": target_id,
-		"source_id": own_id, "weapon_id": weapon_id,
-		"damage": damage, "penetration": float(w.get("penetration", 0.0)),
-		"damage_kind": String(w.get("damage_kind", "kinetic")),
-		"suggested_section": section,
-		"source": "combat_service", "applied": false, "writes_v15": false,
-	}
-	tr["damage_taken"] = float(tr.get("damage_taken", 0.0)) + damage
-	if float(tr.get("damage_taken", 0.0)) >= 1.0 - 1.0e-9 and not bool(tr.get("destroyed", false)):
+		"salvo": salvo, "ammo_left": int(ws["ammo"]), "prediction": pred.duplicate(true)})
+	return {"ok": true, "reason": "", "shot_id": shot_id, "salvo": salvo,
+		"weapon_id": weapon_id, "target_id": target_id,
+		"ammo_left": int(ws["ammo"]), "cooldown_until": float(ws["cooldown_until"]),
+		"solution": sol.duplicate(true), "prediction": pred,
+		"physics": "deferred", "no_physics": false,
+		"launch_spec": {"shooter_id": own_id, "target_id": target_id,
+			"weapon_id": weapon_id, "salvo": salvo,
+			"entity_id": String(tr.get("entity_id", ""))}}
+
+
+## 设置齐射数（玩家操作）。范围 1..salvo_max。
+func set_salvo(weapon_id: String, n: int) -> Dictionary:
+	if not weapons.has(weapon_id):
+		return {"ok": false, "reason": "unknown_weapon"}
+	var ws: Dictionary = weapons[weapon_id]
+	var cap := maxi(1, int(ws.get("salvo_max", 1)))
+	var v := clampi(n, 1, cap)
+	ws["salvo_setting"] = v
+	_push_event("salvo_set", {"weapon_id": weapon_id, "salvo": v, "salvo_max": cap})
+	return {"ok": true, "reason": "", "weapon_id": weapon_id, "salvo": v,
+		"salvo_max": cap, "ammo": int(ws.get("ammo", 0))}
+
+
+func salvo_of(weapon_id: String) -> int:
+	if not weapons.has(weapon_id):
+		return 0
+	return int((weapons[weapon_id] as Dictionary).get("salvo_setting", 1))
+
+
+## 命中后回写航迹账。实体级战果的唯一记账点是 DamageModel，这里只做航迹级汇总。
+func note_damage(target_id: String, damage: float) -> Dictionary:
+	var tr := _get_track(target_id)
+	if tr.is_empty():
+		return {"ok": false, "reason": "unknown_track"}
+	tr["damage_taken"] = float(tr.get("damage_taken", 0.0)) + maxf(0.0, float(damage))
+	if float(tr["damage_taken"]) >= 1.0 - 1.0e-9 and not bool(tr.get("destroyed", false)):
 		tr["destroyed"] = true
 		_invalidate_until_destroyed(target_id)
 		_push_event("target_destroyed", {"target_id": target_id})
-	_push_event("combat_hit", {"shot_id": shot_id, "target_id": target_id,
-		"weapon_id": weapon_id, "damage_event": dmg_ev.duplicate(true),
-		"roll": roll, "hit_prob": hit_prob})
-	return {"ok": true, "reason": "", "shot_id": shot_id, "hit": true,
-		"hit_prob": hit_prob, "roll": roll, "damage_event": dmg_ev.duplicate(true),
-		"prediction": pred, "solution": sol.duplicate(true)}
+	return {"ok": true, "damage_taken": float(tr["damage_taken"]),
+		"destroyed": bool(tr.get("destroyed", false))}
+
 
 
 # ── 点防御 / 诱饵 / 干扰 ───────────────────────────────────────
@@ -644,8 +681,10 @@ func _resolve_incoming(inc: Dictionary) -> void:
 	var pd = _weapon("pd")
 	if bool(inc.get("interceptable", true)) and not pd.is_empty():
 		var ws: Dictionary = weapons.get(String(pd.get("id", "")), {})
-		if int(ws.get("ammo", 0)) > 0 and t + 1.0e-9 >= float(ws.get("cooldown_until", -1.0)):
-			ws["ammo"] = int(ws.get("ammo", 0)) - 1
+		var pd_has_ammo := unlimited_ammo or int(ws.get("ammo", 0)) > 0
+		if pd_has_ammo and t + 1.0e-9 >= float(ws.get("cooldown_until", -1.0)):
+			if not unlimited_ammo:
+				ws["ammo"] = int(ws.get("ammo", 0)) - 1
 			ws["cooldown_until"] = t + float(pd.get("cooldown_s", 0.0))
 			var chance := clampf(float(pd.get("intercept_accuracy", 0.0)), 0.0, 1.0)
 			if decoy_until > t:
@@ -706,12 +745,13 @@ func _consume(weapon_id: String, wd: Dictionary) -> Dictionary:
 	if not weapons.has(weapon_id):
 		return {"ok": false, "reason": "unknown_weapon"}
 	var ws: Dictionary = weapons[weapon_id]
-	if int(ws.get("ammo", 0)) <= 0:
+	if not unlimited_ammo and int(ws.get("ammo", 0)) <= 0:
 		return {"ok": false, "reason": "no_ammo", "weapon_id": weapon_id}
 	if t + 1.0e-9 < float(ws.get("cooldown_until", -1.0)):
 		return {"ok": false, "reason": "cooldown", "cooldown_remaining_s":
 			float(ws.get("cooldown_until", 0.0)) - t}
-	ws["ammo"] = int(ws.get("ammo", 0)) - 1
+	if not unlimited_ammo:
+		ws["ammo"] = int(ws.get("ammo", 0)) - 1
 	ws["cooldown_until"] = t + float(wd.get("cooldown_s", 0.0))
 	return {"ok": true, "reason": "", "weapon_id": weapon_id,
 		"ammo": ws["ammo"], "cooldown_until": ws["cooldown_until"]}
@@ -776,6 +816,8 @@ func tick(dt: float) -> Dictionary:
 
 
 func _offensive_ammo_empty() -> bool:
+	if unlimited_ammo:
+		return false
 	for id in ["railgun", "missile"]:
 		if weapons.has(id) and int((weapons[id] as Dictionary).get("ammo", 0)) > 0:
 			return false
@@ -881,6 +923,7 @@ func vm() -> Dictionary:
 		"incoming": incoming.duplicate(true),
 		"decoy_until": decoy_until, "jammer_until": jammer_until,
 		"events": events.duplicate(true), "counts": _counts(),
+		"sandbox": {"unlimited_ammo": unlimited_ammo, "auto_authorize": auto_authorize},
 		"warnings": warnings.duplicate(), "errors": errors.duplicate(),
 		"writes": {"world": false, "track_table": false, "v15": false, "ui": false},
 	}

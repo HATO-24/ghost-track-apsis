@@ -262,6 +262,10 @@ func apply_hit(section_id: String, energy: float, penetration := 0.5,
 	_update_power()
 	if String(sec.get("state", "")) == "destroyed":
 		_on_section_destroyed(sec)
+		# 殉爆：推进/储罐被击毁时对相邻分区追加溅射（确定性触发，不掷骰）
+		var boom := _secondary_explosion(sec, e)
+		if not boom.is_empty():
+			overflow.append_array(boom)
 	_recompute_effects()
 	var new_events: Array = []
 	for i in range(ev_start, events.size()):
@@ -352,6 +356,32 @@ func _on_section_destroyed(sec: Dictionary) -> void:
 		_job_fail(job, "section_destroyed")
 	_event("destroyed", String(sec.get("id", "")),
 		"分区毁坏：%s（不可现场修复）" % String(sec.get("label", "")))
+
+
+## 殉爆：推进/储罐被击毁且输入能量足够 → 对相邻分区追加溅射。
+## 确定性触发（能量阈值，不掷骰），保证同输入同结果、可回归。
+func _secondary_explosion(sec: Dictionary, energy: float) -> Array:
+	var sid := String(sec.get("id", ""))
+	if not (sid in ["propulsion", "tanks"]):
+		return []
+	if energy < 0.5:
+		return []
+	var adj: Array = sec.get("adjacent", [])
+	if adj.is_empty():
+		return []
+	var count := mini(2, adj.size())
+	var per := energy * 0.25 / float(count)
+	var out: Array = []
+	for i in range(count):
+		var dst := section(String(adj[i]))
+		if dst.is_empty():
+			continue
+		_set_integrity(dst, float(dst.get("integrity", 1.0)) - per)
+		_event("secondary", String(dst.get("id", "")),
+			"殉爆溅射 → %s：-%.1f%% 完整度" % [String(dst.get("label", "")), per * 100.0],
+			{"from": sid, "damage": per, "secondary": true})
+		out.append({"section": String(dst.get("id", "")), "damage": per, "secondary": true})
+	return out
 
 # ── 损管 ─────────────────────────────────────────────────────────
 

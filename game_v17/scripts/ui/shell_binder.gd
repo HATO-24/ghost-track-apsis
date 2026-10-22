@@ -16,12 +16,16 @@ const TrafficControlService := preload("res://scripts/core/traffic_control_servi
 const CICView := preload("res://scripts/core/cic_view.gd")
 const IdentificationService := preload("res://scripts/core/identification_service.gd")
 const SaveService := preload("res://scripts/core/save_service.gd")
+const BuildProfile := preload("res://scripts/core/build_profile.gd")
 
 const TRANSFER_CACHE := "res://framework/content/transfer_l4_l1_cached.json"
 const SAVE_ROOT := "user://saves"
+const SANDBOX_DEFAULT_SCENARIO := "res://framework/content/scenario_combat_sandbox.json"
 
 var session = null
 var save_service = null
+var build_profile = null
+var save_root := SAVE_ROOT
 var ready := false
 var errors: Array[String] = []
 var warnings: Array[String] = []
@@ -114,6 +118,16 @@ func _load_requested_slot(slot: String) -> void:
 func boot() -> bool:
 	errors.clear()
 	warnings.clear()
+	# 版本剖面：full（剧情本体）/ combat_sim（作战模拟器）。读不到就回退 full。
+	build_profile = BuildProfile.new()
+	build_profile.setup({})
+	for w in (build_profile.warnings as Array):
+		warnings.append("build_profile: " + String(w))
+	save_root = String(build_profile.save_root)
+	print("[SHELL BINDER] BUILD profile=", String(build_profile.id),
+		" mode=", String(build_profile.boot_mode),
+		" label=", String(build_profile.label),
+		" save_root=", save_root)
 	session = GameSession.new()
 	var sensor_cfg := _sensor_config()
 	var seed: Dictionary = {}
@@ -121,7 +135,17 @@ func boot() -> bool:
 	prelude.setup({})
 	prelude_ready = bool(prelude.ready)
 	used_prelude = false
-	if prelude_ready:
+	if build_profile.is_sandbox():
+		# 作战模拟器：不跑序章，直接装 sandbox 场景（真实地月系几何）
+		seed = _sandbox_seed(sensor_cfg)
+		if seed.is_empty():
+			warnings.append("sandbox seed 为空，回退序章")
+			build_profile.boot_mode = "prelude"
+		else:
+			print("[SHELL BINDER] SANDBOX entities=",
+				(seed.get("entities", []) as Array).size(),
+				" scenario=", String(build_profile.scenario))
+	if seed.is_empty() and prelude_ready:
 		var pcfg: Dictionary = prelude.boot_config()
 		if not pcfg.is_empty():
 			seed = pcfg
@@ -134,6 +158,11 @@ func boot() -> bool:
 			]
 			seed["physics_world"] = true
 			seed["ew_service"] = true
+			# 本舰实体：序章以 signal_service.observer 为准（与传感器/信号服务同一艘），
+			# 弹道服务据此解析 shooter 与 PD 平台，不能留空。
+			seed["own_entity"] = String(((pcfg.get("signal_service", {}) as Dictionary).get("observer", {}) as Dictionary).get("id", "apsis"))
+			# 交战物理闭环：真实弹道/引导头/齐射/对抗。缺了它开火只能退化到接口层。
+			seed["combat_ballistics"] = {"pd_platform_id": "own"}
 			# 识别融合：默认关闭自动询问（避免开局静默产生应答机询问副作用）；
 			# UI 侧 IDENT 弹层可手动 INTERROGATE 或打开 AUTO。
 			seed["identification_service"] = {"auto": {"enabled": false, "interval_s": 10.0,
@@ -143,7 +172,8 @@ func boot() -> bool:
 			prelude_title = String(prelude.content.get("title", "序章"))
 			prelude_triggers = prelude.triggers.duplicate(true)
 			print("[SHELL BINDER] prelude ready=true entities=", prelude.entities.size(), " triggers=", prelude.triggers.size(), " used=true")
-	else:
+	elif seed.is_empty():
+		# 只有「既没有 sandbox seed，序章也不 ready」才算真回退
 		warnings.append("PreludeScenario 未 ready：fallback demo")
 		print("[SHELL BINDER] prelude ready=false errors=", str(prelude.errors))
 	if seed.is_empty():
@@ -156,6 +186,8 @@ func boot() -> bool:
 			"transponder_service": true,
 			"identification_service": {"auto": {"enabled": false}},
 			"traffic_control": true,
+			"physics_world": true,
+			"combat_ballistics": {"pd_platform_id": "own"},
 			"orders": [
 				{"action": "HOLD", "issuer_id": "apsis", "target_ids": ["harmattan"], "issue": true, "opts": {"auth_required": false}},
 			],
@@ -164,8 +196,8 @@ func boot() -> bool:
 	if not bool(br.get("ok", false)):
 		errors.append("GameSession boot failed: " + str(br.get("reason", "")))
 		return false
-	save_service = SaveService.new(SAVE_ROOT)
-	if not bool(save_service.setup(SAVE_ROOT)):
+	save_service = SaveService.new(save_root)
+	if not bool(save_service.setup(save_root)):
 		errors.append("SaveService setup failed")
 		return false
 	# 主菜单指定 load slot：优先 raw payload + 当前已 boot 的可选组件 load_state。
@@ -231,6 +263,27 @@ func boot() -> bool:
 	return ready
 
 
+## 沙盒便利：一键按原场景重开（仅 sandbox_opts.quick_restart 开启的剖面）。
+## 与 session.reset() 的区别：reset 只重建 session 内部服务，binder 缓存的
+## traffic_service/track_vm/contacts 等仍指向旧对象；这里走完整 boot() 让缓存一并重建。
+## HUD 不缓存 session（一律经 binder.session 取），所以换掉 session 对象是安全的。
+func quick_restart() -> Dictionary:
+	if build_profile == null or not build_profile.sandbox_opt("quick_restart", false):
+		return {"ok": false, "reason": "not_allowed"}
+	var prev_t := float(session.now_s()) if session != null else 0.0
+	# 重开必须是全新场景，不能顺手把刚才的存档读回来
+	OS.set_environment("DSH_LOAD_SLOT", "")
+	var ml = Engine.get_main_loop()
+	if ml is SceneTree and (ml as SceneTree).root != null and (ml as SceneTree).root.has_meta("load_slot"):
+		(ml as SceneTree).root.remove_meta("load_slot")
+	load_slot_requested = ""
+	var ok := boot()
+	var now_t := float(session.now_s()) if session != null else 0.0
+	print("[SHELL BINDER] QUICK RESTART ok=", ok, " t_before=", prev_t, " t_after=", now_t)
+	return {"ok": ok, "reason": "" if ok else "boot_failed",
+		"t_before": prev_t, "t_after": now_t, "errors": errors.duplicate()}
+
+
 func _sensor_config() -> Dictionary:
 	# observer=apsis；targets 示例来自 GameSession demo seed 实体；不写旧场景。
 	var targets: Array = [
@@ -256,6 +309,99 @@ func _sensor_config() -> Dictionary:
 		"snapshot": {"sun_dir": [0.0, 0.0, 1.0], "sun_illum": 1.0, "jamming": 0.0, "shadow": false, "los": true},
 		"options": {"radar_enabled": true, "emcon": false, "iff_enabled": true},
 	}
+
+
+## 作战模拟器：把 sandbox 场景（真实地月系几何）翻成 session seed。
+## 不启序章/剧情/触发器；其余系统按版本剖面开关装。
+func _sandbox_seed(sensor_cfg: Dictionary) -> Dictionary:
+	var path := String(build_profile.scenario)
+	if path == "":
+		path = SANDBOX_DEFAULT_SCENARIO
+	var sc := _read_json(path)
+	if sc.is_empty():
+		warnings.append("sandbox 场景不可读：" + path)
+		return {}
+	var ents: Array = sc.get("entities", []) if sc.get("entities") is Array else []
+	if ents.is_empty():
+		warnings.append("sandbox 场景无实体：" + path)
+		return {}
+	var cb: Dictionary = sc.get("combat", {}) if sc.get("combat") is Dictionary else {}
+	var own := String(sc.get("own_entity", "apsis"))
+	var seed := {
+		"entities": ents.duplicate(true),
+		"nodes": (sc.get("nodes", []) as Array).duplicate(true) if sc.get("nodes") is Array else [],
+		"links": (sc.get("links", []) as Array).duplicate(true) if sc.get("links") is Array else [],
+		"orders": [],
+		"own_entity": own,
+		"track_table": true,
+		"sensor_service": sensor_cfg,
+		"physics_world": build_profile.enabled("physics_world"),
+		"combat_service": {"content_path": "res://framework/content/weapons_l1.json",
+			"roe": String(cb.get("roe", "TIGHT")),
+			"own_id": String(cb.get("own_id", own)),
+			"fleet_id": String(cb.get("fleet_id", "fleet")),
+			# 沙盒便利项：只在 sandbox 剖面生效（build_profile 对 full 恒返回 false）
+			"unlimited_ammo": build_profile.sandbox_opt("unlimited_ammo", false),
+			"auto_authorize": build_profile.sandbox_opt("auto_authorize", false)},
+		"combat_ballistics": {"pd_platform_id": String(cb.get("pd_platform_id", "own"))},
+		"damage_service": build_profile.enabled("damage"),
+		"ew_service": build_profile.enabled("combat"),
+		"identification_service": {"auto": {"enabled": false, "interval_s": 10.0,
+			"modes": ["mode_s"], "min_confidence": 0.75, "min_age_s": 3.0,
+			"max_requests_per_tick": 2}},
+		"traffic_control": build_profile.enabled("traffic"),
+		"prelude": {"scenario": "combat_sandbox",
+			"title": String(sc.get("title", "作战演练"))},
+		# sandbox 场景坐标已是 bary_rot 绝对坐标，禁止再做 L1 相对帧转换
+		"seed_frame": String(sc.get("frame", "bary_rot")),
+		"frame_origin": "bary_rot",
+	}
+	# 信号/灯语：观测者=本舰，目标=全部实体（与序章同构，供 OPTICAL/ELINT 链路使用）
+	if build_profile.enabled("signal"):
+		var sig_targets: Array = []
+		var own_pos: Array = [0.0, 0.0, 0.0]
+		for raw_e in ents:
+			var e: Dictionary = raw_e
+			var eid := String(e.get("id", ""))
+			var epos: Array = e.get("pos_km", [0.0, 0.0, 0.0])
+			if eid == own:
+				own_pos = epos.duplicate()
+			sig_targets.append({"id": eid, "entity_id": eid,
+				"batch": String(e.get("batch", "")),
+				"side": _signal_side(String(e.get("side", ""))),
+				"identity": String(e.get("identity", "unknown")),
+				"pos_km": epos.duplicate(),
+				"occluded": false, "light_capable": bool(e.get("light_capable", true)),
+				"receiver_facing": true})
+		seed["signal_service"] = {"observer": {"id": own, "pos_km": own_pos},
+			"targets": sig_targets, "jam": 0.0, "max_range_km": 20000.0}
+	if build_profile.enabled("story"):
+		seed["story_state"] = true
+	return seed
+
+
+func _signal_side(side: String) -> String:
+	match side.to_lower():
+		"friend", "ally":
+			return "friend"
+		"hostile":
+			return "hostile"
+		"neutral", "civilian":
+			return "neutral"
+		_:
+			return "unknown"
+
+
+func _read_json(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return {}
+	var txt := f.get_as_text()
+	f.close()
+	var parsed = JSON.parse_string(txt)
+	return parsed if parsed is Dictionary else {}
 
 
 func _seed_tracks() -> void:
@@ -315,6 +461,10 @@ func refresh() -> void:
 	# ROE：真实 story_state 存在时显示默认交战规则；不伪造裁决。
 	if session.story_state != null and bool(story_vm.get("ready", false)):
 		roe_text = "WEAPONS HOLD / 仅自衛 · phase " + String(story_vm.get("phase", "—"))
+	elif session.combat_service != null:
+		var cv: Dictionary = session.combat_service.vm()
+		roe_text = "ROE %s / %s" % [String(cv.get("roe_label", cv.get("roe", "—"))),
+			String(cv.get("roe_label_en", ""))]
 	else:
 		roe_text = "ROE NOT READY · story_state 未启用"
 	delta_v_ready = delta_v_ready and delta_v_mps > 0.0

@@ -24,6 +24,20 @@ const KIND_SECTION := {
 	"kinetic": "hull", "explosive": "power", "energy": "sensors",
 	"thermal": "tanks", "fire": "tanks", "fragmentation": "hull",
 }
+## 命中方位 → 部位（按伤害类型分表）。无目标姿态时以入射相对速度几何推导方位，
+## 让"从尾部命中打推进、从背侧命中打天线"成立，而不是永远打 hull。
+const DIR_SECTION := {
+	"kinetic": {"fore": "hull", "aft": "propulsion", "port": "hull",
+		"starboard": "hull", "dorsal": "sensors", "ventral": "tanks"},
+	"fragmentation": {"fore": "hull", "aft": "propulsion", "port": "hull",
+		"starboard": "hull", "dorsal": "sensors", "ventral": "tanks"},
+	"explosive": {"fore": "hull", "aft": "propulsion", "port": "tanks",
+		"starboard": "tanks", "dorsal": "comms", "ventral": "tanks"},
+	"energy": {"fore": "sensors", "aft": "power", "port": "sensors",
+		"starboard": "sensors", "dorsal": "sensors", "ventral": "hull"},
+	"thermal": {"fore": "tanks", "aft": "tanks", "port": "tanks",
+		"starboard": "tanks", "dorsal": "tanks", "ventral": "tanks"},
+}
 
 var ready := false
 var errors: Array[String] = []
@@ -142,6 +156,19 @@ func is_operational(ship_id: String) -> bool:
 
 ## 应用 combat_damage_event.v1：分区伤害/火灾/失压/断电（applied=true）。
 ## target_ship / opts.ship_id 指定舰；target_id 若就是 ship id 也可。
+## 命中部位推导：方位优先（几何），无方位退回伤害类型默认表。
+## 优先级：显式 section > 显式 suggested_section > 方位表 > 类型表 > hull。
+func _section_from_hit(event: Dictionary) -> String:
+	var kind := String(event.get("damage_kind", "kinetic"))
+	var dir := String(event.get("direction", ""))
+	var table: Dictionary = DIR_SECTION.get(kind, {}) if DIR_SECTION.get(kind) is Dictionary else {}
+	if dir != "" and table.has(dir):
+		var sid := String(table[dir])
+		if sid in SECTION_IDS:
+			return sid
+	return String(KIND_SECTION.get(kind, "hull"))
+
+
 func apply_combat_damage(event: Dictionary, opts := {}) -> Dictionary:
 	if not ready:
 		return _fail("not_ready", "precondition: DamageService 未 ready")
@@ -168,7 +195,7 @@ func apply_combat_damage(event: Dictionary, opts := {}) -> Dictionary:
 	var m = ships[ship_id]
 	var section := String(event.get("section", event.get("suggested_section", "")))
 	if section == "":
-		section = String(KIND_SECTION.get(String(event.get("damage_kind", "kinetic")), "hull"))
+		section = _section_from_hit(event)
 	if not (section in SECTION_IDS) or m.section(section).is_empty():
 		return _fail("invalid_section", "precondition: 非法分区：" + section)
 	var pen := clampf(float(event.get("penetration", 0.5)), 0.0, 1.0)

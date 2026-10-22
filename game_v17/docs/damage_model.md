@@ -80,6 +80,30 @@
   `power_restored`。
 - 分区 destroyed：清除该区火灾/失压、产生 `destroyed` 事件；该区不可现场修复（`assign_repair`
   返回失败）；`is_operational()` 在 hull/power 毁坏时为 false。
+- **殉爆（R6 新增）**：`propulsion` / `tanks` 分区被毁且本次能量 ≥ 0.5 时，
+  对相邻最多 2 个分区各追加 `energy × 0.25 / 命中数` 的伤害，产生 `secondary` 事件。
+  确定性、不掷骰——便于复现与 probe；能量为 0 或非推进/储箱分区不触发。
+
+### 3.1　命中方位 → 分区（R6 新增）
+
+`combat_damage_event` 现在带 `direction`（`fore/aft/port/starboard/dorsal/ventral`，
+由弹道服务按相对速度几何推导）。`DamageService.apply_combat_damage()` 按
+`damage_kind` 分表映射到舱段：
+
+```
+kinetic      : fore→hull      aft→propulsion  port/starboard→tanks
+               dorsal→sensors ventral→power
+fragmentation: fore→hull      aft→hull        port/starboard→tanks
+               dorsal→sensors ventral→propulsion
+explosive    : fore/aft→hull  port/starboard→hull  dorsal→sensors  ventral→power
+energy       : fore→sensors   aft→power       port/starboard→comms
+               dorsal→sensors ventral→hull
+thermal      : fore→hull      aft→tanks       port/starboard→comms
+               dorsal→sensors ventral→power
+```
+
+优先级：**显式 `section` 字段 > 方位表 > `KIND_SECTION`（旧行为）> `hull`**。
+没有 `direction` 的旧事件完全走原路径，行为不变。
 
 ## 4　损管资源与维修队列
 

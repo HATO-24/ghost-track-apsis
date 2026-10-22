@@ -1,11 +1,22 @@
 # 完整游戏-阶段2C/2H · GameSession 编排层（含 TrackTable/StoryState）
 
-> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）+ 3P（task-164）+ 3R（task-167）。工程 `game_v17`。
+> 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）+ 3P（task-164）+ 3R（task-167）+ **4Z 交战物理化（统一开火路径）**。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=1231 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=1357 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
+
+**4Z 变更摘要（本轮）**
+
+| 变更 | 语义 |
+| --- | --- |
+| `request_fire()` 物理前置 | 门禁之前先解 shooter/target 物理状态；解不出 → `no_physics_state`，**绝不白扣弹药** |
+| 开火改异步 | 返回时只有 `launched/projectile_ids`；命中由 `tick` 内的弹道积分与 `impact` 决定，不在开火时判定 |
+| `own_entity` seed 字段 | 本舰实体 id 的唯一显式来源（白名单字段）；缺省时按 `combat_service.own_id` → tags → side 兜底 |
+| `_entity_kinematics()` | 弹道取态唯一入口：物理世界优先、剧情世界兜底；**不能**用 `position_of()` |
+| `combat_time_cap` | 有弹在飞时把倍速压到 60×，交战结束恢复原倍速 |
+| 规划辅助 | `combat_plan()` 把意图（direct/silent/offset/multi_axis）翻译成巡航剖面 + Δv 预算 |
 
 ## 1　角色与依赖
 
@@ -87,6 +98,20 @@ GameSession
   `combat_ballistics_launch/combat_predict/...`；impact 的 `damage_event` 白名单→
   DamageService（`applied=true`，shot_id 去重）；事件 `ballistics.*` 发布 EventBus；
   不写 world/TrackTable/UI；存档嵌入服务快照。
+- **弹道取态唯一入口 `_entity_kinematics(entity_id)`（4Z）**：返回
+  `{ok, source:"physics_world"|"world", frame:"bary_rot", r[3], v[3], ...}`。
+  顺序为 **物理世界优先 → 剧情世界兜底**，两者都没有才 `{ok:false, reason:"unknown_entity"}`。
+  **禁止**用 `position_of()` 做弹道取态：该函数在 `physics_world_service != null` 时短路，
+  一个空的物理世界会把剧情世界整个遮蔽掉，表现为"沙盒/序章实弹永远 `no_physics_state`"。
+  **隐性契约**：`physics_world.state()` 的返回值**不含 `ok` 字段**，判成功只能看
+  `r` 是否为长度 ≥3 的数组；`_entity_kinematics` 负责把它归一化成带 `ok/source/frame` 的形状，
+  调用方一律以归一化后的形状为准。
+- **本舰解析 `_own_ballistics_entity(states)`（4Z）**：候选链
+  `seed.own_entity` → `combat_service.own_id` → 实体 tags(`own`/`own_fleet`) →
+  实体 `has_pd` → `side == "friend"`，取第一个能在 states 里命中的 id；都没有返回 `""`。
+  `combat_ballistics.config.pd_platform_id` 的哨兵值 `"own"` 在 `_ballistics_states()` 里
+  用同一条链解析成真实实体 id（config 写死 id 亦可）。
+
 - **TransponderService（3P）**：应答机行为层（ship 绑 entity，station/port/fuel/tank/otc/relay
   绑 FacilityRegistry）；询问/广播输出 `track_evidence.v1`（→TrackTable 白名单）与
   `transponder_event.v1`（→bus `transponder.<kind>`）；不写 world；触发只输出 trigger_id/event，
@@ -133,6 +158,8 @@ config 可覆盖字段（省略用 demo）：
 | `legal_status` | **可选**：`true` 或配置 `{thresholds/weights/impacts/decay_per_day/allow_deescalation}`；缺省/`false` → 不组合；旧档兼容 |
 | `traffic_control` | **可选**：`true` 或配置 `{facilities_path/lanes_path/facilities_content/lanes_content}`；缺省/`false` → 不组合；旧档兼容 |
 | `combat_ballistics` | **可选**：`true` 或配置 `{content_path(weapons_l1)/content/pd_platform_id}`；缺省/`false` → 不组合；旧档兼容 |
+| `own_entity` | **本舰实体 id**（4Z，字符串）：弹道 shooter 解析、`pd_platform_id="own"` 哨兵解析的唯一显式来源。**在 seed 白名单内**（不在白名单的字段会被 `_normalize_seed` 丢弃）；缺省时走 `combat_service.own_id` → tags → side 兜底 |
+| `seed_frame` / `frame_origin` / `prelude` | 帧转换开关（4F）：`auto/l1/bary_rot/none`；**沙盒必须显式 `bary_rot`**，否则会被套用 L1 相对帧导致整图平移 32 万公里 |
 
 - boot 建 5 个必需组件 + 可选 TrackTable/StoryState；任一启用组件 `ready=false` → `ok=false` + errors，不伪造。
 - TrackTable 默认 writer = `<session writer>_fusion`；StoryState 时间在 boot 时对齐 session 时间。
@@ -159,7 +186,12 @@ config 可覆盖字段（省略用 demo）：
 | `query_iff(target_id="")` | 显式 IFF 询问：产生 iff evidence（support 4），成功后显式路由到 TrackTable；`never_hostile=true` |
 | `port_request/port_permit/port_approach/port_dock/port_refuel/port_repair/port_finish_service/port_undock` | PortService 委托（失败不改状态；成功记录 log） |
 | `port_tow/port_shuttle/port_services/port_vm/port_summary` | 拖曳/穿梭机委托与只读 VM |
-| `set_roe/combat_register_track/combat_request_solution/grant_authorization/revoke_authorization/request_fire` | CombatService 委托（FIRE 需 confirmed+授权；失败不改状态） |
+| `set_roe/combat_register_track/combat_request_solution/grant_authorization/revoke_authorization` | CombatService 委托（失败不改状态） |
+| `request_fire(target_id, weapon_id, confirmed=false, opts={})` | **统一开火路径（4Z）**。顺序：`no_combat_service` → `unknown_track` → `no_ballistics` → **`no_physics_state`**（物理前置检查）→ CombatService 门禁（ROE/授权/确认/冷却/弹药/齐射）→ `combat_ballistics.launch()`。成功返回 `{ok, launched, projectile_ids[], salvo, shooter_id, target_entity, physics:"ballistics", launch, prediction, plan?, time_cap}`；**开火不判命中**，命中由后续 tick 的弹道积分产生 `ballistics.impact` 并经白名单进 DamageService。`opts`：`target_entity`/`shooter_id`/`intent`(direct/silent/offset/multi_axis)/`plan`/`profile`/`force_pd` |
+| `set_weapon_salvo(weapon_id, n)` | 玩家设置齐射数（钳制到 `[1, salvo_max]`）；返回 `{ok, salvo, salvo_max}`；记 `set_weapon_salvo` 日志 |
+| `combat_predict_track(target_id, weapon_id)` | 按航迹 id 做**真实弹道预测**（CR3BP RK4 + 射击法；不发射）；无物理状态 → `no_physics_state` |
+| `combat_plan(target_id, weapon_id, intent="direct", opts={})` | **规划辅助**：意图 → 巡航剖面（Δv 时序点）+ 可行性/预算；`salvo>1` 自动走 `plan_salvo`；发射前可预演 |
+| `combat_time_cap_state()` | 交战倍速状态 `{active, restore_to, cap:60.0, scale}`；由 `_apply_combat_time_cap()` 在开火/tick 时驱动 |
 | `combat_authorization/combat_vm/combat_summary/flush_events` | 授权查询/只读 VM/立即 flush Port+Combat+Dage bus 事件 |
 | `damage_apply_event/damage_apply_hit/damage_repair/damage_fix/damage_cancel_repair/damage_set_priority` | DamageService 委托（直接伤害/维修；失败不改状态） |
 | `damage_vm/damage_ship_vm/damage_summary/damage_ships` | 只读损管 VM/摘要/舰列表 |
@@ -293,6 +325,21 @@ config 可覆盖字段（省略用 demo）：
   tick states 来自 physics/world 只读；impact `damage_event` 只经白名单进 DamageService，
   `shot_id` 去重（重复 tick 不二次应用）；`ballistics.*` 事件只读发布；旧档缺字段/seed
   配置 → 组件退化、ballistics replay 跳过（skipped:no_combat_ballistics）。
+- **统一开火路径一致（4Z）**：`request_fire()` 的前置检查顺序固定为
+  `no_combat_service → unknown_track → no_ballistics → no_physics_state → 门禁 → launch`，
+  **任何前置检查失败都不得扣弹药、不得改航迹/授权状态**（返回 `ok=false` + `reason`，
+  且 `combat_service` 的弹药计数与 fire 计数保持不变）。成功路径必须满足
+  `launched == salvo`（弹药不足时 CombatService 直接拒绝 `insufficient_ammo_for_salvo` 并给
+  `salvo_max`，要求玩家重设齐射数，**不做部分发射**）。
+  `projectile_ids` 长度必须等于 `launched`（单发兼容字段 `projectile_id` 也一并回填）。
+  **命中不在开火时判定**：`request_fire` 返回 `ok=true` 只代表弹丸已进入物理积分，
+  战果（`damage_taken`/航迹终态）只能由后续 tick 的 impact 产生。
+- **交战倍速一致（4Z）**：`_apply_combat_time_cap()` 只在 `active_projectiles() > 0` 时把
+  `time.scale` 压到 `COMBAT_SCALE_CAP(60.0)`，并在弹全部消失后**恢复进入交战前的倍速**
+  （`_scale_before_combat`）；非交战期间不反复改倍速（幂等）；返回
+  `{ok, capped, scale, restore_to?}`，状态经 `combat_time_cap_state()` 只读查询。
+  降倍速会 append 一条 `warnings`，不静默。
+
 - tick 失败/拒绝路径不静默：返回 `ok=false` + `errors/contract_errors`；失败订单不伪造状态。
 
 ## 5　内存 save/load（不写盘）
@@ -402,10 +449,10 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=1305 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=1357 FAIL=0（exit 0，只跑一次）
 ```
 
-覆盖（35 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
+覆盖（40 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
 （ISSUED→…→DONE、事件类型、delivery_id、订单-通信一致、终态拒绝）；通信/链路；失败/过期/
 撤销/拒绝；暂停/时标/时间单调；bus-world 分离与单写者；save/load snapshot 一致+二次 save；
 错误路径；JSON/确定性；**可选组件**（无配置/false 退化、true 启用、退化 save/load）；
@@ -431,8 +478,10 @@ apply_event/去重/影响接口、tick、save/load/旧档兼容、确定性）�
 110 设施/18 航道、request/permit/occupy/release/disguise、tick NPC/outbox→bus、线索、save/load/旧档/确定性）；
 **Physics 帧（4F）**（Prelude L1→bary 平移、Earth/Moon 距旗舰、实体相对/速度、显式 bary/none/origin、
 无重复转换、save/load、确定性）；**CombatBallistics 集成**（可选退化、predict/launch、tick 命中→
-DamageService applied、PD 自动拦截、ballistics.* bus、失败不改状态、save/load/旧档/确定性）。
-当前 `V17 SESSION PROBE RESULT: PASS=1305 FAIL=0`（含 legal/traffic/帧转换/ballistics；exit 0，只跑一次）。
+DamageService applied、PD 自动拦截、ballistics.* bus、失败不改状态、save/load/旧档/确定性）；
+**统一开火路径（4Z，第 40 节）**（门禁→真实弹丸→异步 impact→Damage→倍速降档/恢复、
+齐射/逐发散布/弹药不足拒绝+`salvo_max`、规划预演、`no_physics_state`、存档往返）。
+当前 `V17 SESSION PROBE RESULT: PASS=1357 FAIL=0`（含 legal/traffic/帧转换/ballistics/统一开火；exit 0，只跑一次）。
 
 ## 7　边界 / 未完成
 
@@ -461,7 +510,17 @@ DamageService applied、PD 自动拦截、ballistics.* bus、失败不改状态�
   `traffic.*` 只读事件进 bus；不写 world/TrackTable/UI/V15；不做物理/泊位/身份判定。
 - CombatBallisticsService 只做弹道/导弹/PD/诱饵与 damage_event：states 由 session 每步只读提供；
   impact damage_event 只经白名单进 DamageService（shot_id 去重），事件只读进 bus；不写
-  world/TrackTable/UI/V15；不执行身份判定；未做真实末端弹道/雷达导引/PD 视场建模。
+  world/TrackTable/UI/V15；不执行身份判定。
+- **开火是异步的（4Z）**：`request_fire()` 返回 `ok=true` 仅表示弹丸已进入物理积分，不代表命中。
+  上层/UI 不得据此宣布战果，必须等 `ballistics.impact` 事件或航迹 `damage_taken` 变化。
+  门禁通过但物理状态缺失时一律 `no_physics_state` 拒绝（不降级成"抽象命中"），
+  这是刻意的：宁可不发射，也不产生无物理来源的伤害。
+- 弹道/导弹的**制导、引导头（radar_active/ir_passive/arm）、对抗（decoy/jammer）、
+  打击后效（抗性/溢出/火灾/失压/断电/殉爆）**都在 `combat_ballistics` + `damage_model` 内部，
+  session 只做编排与白名单路由；未做真实末端气动/大气层再入/破片场建模。
+- 交战倍速上限 `COMBAT_SCALE_CAP=60.0` 是**游戏性**参数（让 900 s 导弹寿命在 15 实秒内可观察），
+  不是物理常量；改它只影响观感，不影响弹道解算（解算始终在旋转系 RK4 里按仿真秒推进）。
+
 - LegalStatusService 只做 ID13 法律状态与影响标志：heat/阈值迁移、去重、log；
   `impact()` 只读输出 port_access/iff_watch/roe_modifier/ending_hint，**不**改 world side、
   港口放行、战斗 ROE 或法律文本；CLEARED 锁定；不写 UI/V15。
@@ -479,4 +538,11 @@ DamageService applied、PD 自动拦截、ballistics.* bus、失败不改状态�
   （订单路径的 comms 失败仍由 OrderService 处理并体现在 order.reason）。
 - save/load 为内存 JSON（seed+log 重放 + 组件快照），不是完整序列化；log 随操作增长；
   组件快照 JSON 数值/整数按浮点往返（规范化比较）；无文件槽位（SaveService 负责）。
-- 未跑全量回归；未 commit。
+- **版本划分（4Z）**：session 本身**不知道**自己跑在哪个剖面下——`V2BuildProfile`
+  在 UI 层（`shell_binder`/`main_menu`）决定 boot 哪些组件、用哪个 seed、存到哪个 `save_root`。
+  因此 `full` 与 `combat_sim` 两个剖面共用同一份 session 代码，不存在分叉；
+  详见 `docs/build_profiles.md`。
+- 全量套件 66 探针已跑（9m26s）：6 个失败经 `git stash` 对照确认为**既有基线漂移**
+  （`damage_integration_probe`/`incident_record_probe`/`save_probe`/`story_text_probe`/
+  `v17_nav_integration_probe`/`v17_sensor_authority_display_probe`），本轮改动零回归。
+- 未 commit。

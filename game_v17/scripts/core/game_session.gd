@@ -33,6 +33,7 @@ const LegalStatusServiceScript := preload("res://scripts/core/legal_status_servi
 const TrafficControlServiceScript := preload("res://scripts/core/traffic_control_service.gd")
 const PhysicsScript := preload("res://framework/sim/cislunar_physics.gd")
 const CombatBallisticsScript := preload("res://scripts/core/combat_ballistics.gd")
+const CombatPlannerScript := preload("res://scripts/core/combat_planner.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -68,6 +69,11 @@ var identification_service = null
 var legal_status_service = null
 var traffic_control = null
 var combat_ballistics = null
+
+## 交战时间膨胀：有弹在飞时把时间倍速压到该上限，交战结束恢复原倍速。
+const COMBAT_SCALE_CAP := 60.0
+var _combat_scale_cap_active := false
+var _scale_before_combat := 1.0
 
 var _track_enabled := false
 var _sensor_enabled := false
@@ -143,7 +149,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "prelude", "seed_frame", "frame_origin"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "prelude", "seed_frame", "frame_origin", "own_entity"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -1369,8 +1375,9 @@ func _advance_identification(sim_dt: float) -> Dictionary:
 	if identification_service == null:
 		return {"enabled": false}
 	# 时钟对齐：证据 t 来自 now_s()（应答机/传感器同一时基），识别服务若只按 dt 累加
-	# 会落后于任务时钟，导致证据 age 被 clamp 成 0、时间衰减失效。先同步再 step。
-	identification_service.set_time(now_s())
+	# 会落后于任务时钟，导致证据 age 被 clamp 成 0、时间衰减失效。
+	# step 内部会把 t 再加 sim_dt，所以先对齐到 (now - sim_dt)，step 后正好等于 now_s()。
+	identification_service.set_time(now_s() - maxf(0.0, float(sim_dt)))
 	var auto_enabled := bool(identification_service.cfg_auto.get("enabled", false))
 	var res: Dictionary = {}
 	if auto_enabled:
@@ -1439,6 +1446,34 @@ func _advance_traffic(sim_dt: float) -> Dictionary:
 
 ## 从 session 实体（physics 优先，否则 world）构造 Ballistics states；
 ## 只读，不写世界；has_pd 来自实体 has_pd/配置 pd_platform_id。
+## 实体运动学取态：物理世界优先，物理世界没有该实体时回退剧情世界。
+## 注意 position_of() 在 physics_world_service 非空时会短路，空物理世界会遮蔽剧情世界，
+## 因此弹道取态必须走这里，不能直接用 position_of()。
+func _entity_kinematics(entity_id: String) -> Dictionary:
+	if entity_id == "":
+		return {"ok": false, "reason": "empty_id"}
+	if physics_world_service != null and physics_world_service.has_entity(entity_id):
+		# 注意：physics_world.state() 不返回 "ok" 字段，判成功要看 r/v 是否可用
+		var st = physics_world_service.state(entity_id, "bary_rot")
+		if st is Dictionary:
+			var sr: Array = (st as Dictionary).get("r", []) if (st as Dictionary).get("r") is Array else []
+			if sr.size() >= 3:
+				# 归一化成调用方约定的形状（补 ok，保留原始字段）
+				var norm: Dictionary = (st as Dictionary).duplicate(true)
+				norm["ok"] = true
+				norm["source"] = "physics_world"
+				norm["frame"] = "bary_rot"
+				return norm
+	if world != null and world.has_entity(entity_id):
+		var e: Dictionary = world.entity(entity_id)
+		var r: Array = e.get("pos_km", []) if e.get("pos_km") is Array else []
+		var v: Array = e.get("vel_kmps", []) if e.get("vel_kmps") is Array else []
+		if r.size() >= 3:
+			return {"ok": true, "source": "world", "frame": "bary_rot",
+				"r": r.duplicate(), "v": v.duplicate()}
+	return {"ok": false, "reason": "unknown_entity"}
+
+
 func _ballistics_states() -> Dictionary:
 	var ids: Dictionary = {}
 	if physics_world_service != null:
@@ -1451,9 +1486,16 @@ func _ballistics_states() -> Dictionary:
 	var pd_platform := ""
 	if combat_ballistics != null and combat_ballistics.config is Dictionary:
 		pd_platform = str(combat_ballistics.config.get("pd_platform_id", "own"))
+	# 哨兵值 "own" = 玩家本舰，需解析成真实实体 id（config 里写死 id 亦可）
+	if pd_platform == "own":
+		pd_platform = String(_seed.get("own_entity", ""))
+		if pd_platform == "" and combat_service != null:
+			pd_platform = String(combat_service.own_id)
+	if pd_platform == "own":
+		pd_platform = ""
 	var out: Dictionary = {}
 	for id in ids.keys():
-		var pos: Dictionary = position_of(str(id))
+		var pos: Dictionary = _entity_kinematics(str(id))
 		if not bool(pos.get("ok", false)):
 			continue
 		var r = pos.get("r", pos.get("pos_km", []))
@@ -1468,11 +1510,35 @@ func _ballistics_states() -> Dictionary:
 		var has_pd := bool(ent.get("has_pd", flags.get("has_pd", false)))
 		if pd_platform != "" and str(id) == pd_platform:
 			has_pd = true
+		# 引导头需要的目标特征：显式字段优先，缺省由 ballistics 按舰型给默认值
+		var rcs := float(ent.get("rcs_m2", flags.get("rcs_m2", 0.0)))
+		var ir := float(ent.get("ir_signature", flags.get("ir_signature", 0.0)))
+		var kind := str(ent.get("kind", ent.get("ship_class", flags.get("kind", ""))))
+		var radius_km := float(ent.get("radius_km", flags.get("radius_km", 0.0)))
+		if radius_km <= 0.0:
+			radius_km = _default_radius_km(kind)
 		out[str(id)] = {"id": str(id), "pos_km": (r as Array).duplicate(),
 			"vel_kmps": (v as Array).duplicate() if v is Array else [0.0, 0.0, 0.0],
-			"radius_km": float(ent.get("radius_km", 0.0)),
-			"has_pd": has_pd, "side": side}
+			"radius_km": radius_km,
+			"has_pd": has_pd, "side": side,
+			"kind": kind,
+			"rcs_m2": rcs, "ir_signature": ir}
 	return out
+
+
+## 场景漏填 radius_km 时按实体类型兜底；避免命中判定退化成战斗部半径（R6/P1）。
+func _default_radius_km(kind: String) -> float:
+	match kind.to_lower():
+		"station", "facility", "port", "depot":
+			return 0.30
+		"fuel", "tank":
+			return 0.20
+		"otc", "relay":
+			return 0.04
+		"ship", "warship", "corvette", "frigate", "destroyer", "cruiser":
+			return 0.06
+		_:
+			return 0.05
 
 ## tick 推进弹道：step 用 session 状态；outbox 事件 → bus（ballistics.<kind>）；
 ## impact.damage_event 白名单 → DamageService（shot_id 去重）。不写 world/TrackTable/UI。
@@ -1480,6 +1546,11 @@ func _advance_ballistics(sim_dt: float) -> Dictionary:
 	if combat_ballistics == null:
 		return {"enabled": false}
 	var states: Dictionary = _ballistics_states()
+	# PD 平台兜底：配置的 pd_platform_id 不在实体表里时，落到本舰实体
+	if not states.has(String(combat_ballistics._pd_platform_id)):
+		var own := _own_ballistics_entity(states)
+		if own != "":
+			combat_ballistics._pd_platform_id = own
 	var step: Dictionary = combat_ballistics.step(sim_dt, states)
 	if not bool(step.get("ok", false)):
 		warnings.append("combat_ballistics step 失败：" + str(step.get("reason", "")))
@@ -1505,6 +1576,11 @@ func _advance_ballistics(sim_dt: float) -> Dictionary:
 						duplicates += 1
 					else:
 						applied += 1
+						# 航迹级战果汇总（实体级账本仍是 DamageModel）
+						if combat_service != null:
+							combat_service.note_damage(
+								_track_for_entity(str(dmg.get("target_id", ""))),
+								float(dmg.get("damage", 0.0)))
 				else:
 					dmg["applied"] = false
 					damage_failed += 1
@@ -1528,8 +1604,22 @@ func _advance_ballistics(sim_dt: float) -> Dictionary:
 		"active": (combat_ballistics.active_projectiles() as Array).size(),
 		"intercepts": (combat_ballistics.intercept_records() as Array).size(),
 		"impacts": (combat_ballistics.impact_records() as Array).size(),
+		"substeps": int(step.get("substeps", 0)),
+		"time_cap": _apply_combat_time_cap(),
 		"routes": routed, "damage_applied": applied, "damage_duplicates": duplicates,
 		"damage_failed": damage_failed}
+
+
+## 实体 id → 航迹 id（note_damage 用；找不到就返回原 id，让 note_damage 自己判 unknown）。
+func _track_for_entity(entity_id: String) -> String:
+	if combat_service == null or entity_id == "":
+		return entity_id
+	if not combat_service.track(entity_id).is_empty():
+		return entity_id
+	for row in combat_service.track_rows():
+		if String((row as Dictionary).get("entity_id", "")) == entity_id:
+			return String((row as Dictionary).get("id", entity_id))
+	return entity_id
 
 ## 自动询问执行：transponder 询问 → 把 reply 作为证据回灌识别；不写 world。
 func _execute_identification_query(req: Dictionary) -> Dictionary:
@@ -2239,23 +2329,230 @@ func revoke_authorization(grant_id := "") -> Dictionary:
 		_record({"op": "revoke_authorization", "grant_id": grant_id})
 	return res
 
-func request_fire(target_id: String, weapon_id: String, confirmed := false) -> Dictionary:
+## 统一交战入口：先过 CombatService 门禁（ROE/授权/解算/射程/弹药/齐射），
+## 再交给 CombatBallistics 发射真实弹丸。命中不再同步返回 —— 要等 impact 事件。
+## 返回 {ok, launched, projectile_ids, salvo, ...}；调用方不得再假设 hit/miss。
+## 物理前置检查在门禁之前：打不出去就明确失败，绝不白扣弹药。
+func request_fire(target_id: String, weapon_id: String, confirmed := false, opts := {}) -> Dictionary:
 	if combat_service == null:
 		return {"ok": false, "reason": "no_combat_service"}
-	var res: Dictionary = combat_service.request_fire(target_id, weapon_id, confirmed)
-	if bool(res.get("ok", false)):
-		_record({"op": "request_fire", "target_id": target_id,
-			"weapon_id": weapon_id, "confirmed": confirmed})
-		# 命中时立即把 combat_damage_event 白名单路由到 DamageService（去重 shot_id）
-		if damage_service != null and res.get("damage_event") is Dictionary:
-			var ev: Dictionary = (res.get("damage_event") as Dictionary).duplicate(true)
-			var route: Dictionary = _route_combat_damage(ev)
-			res["damage_applied"] = bool(route.get("applied", false))
-			if bool(route.get("applied", false)):
-				ev["applied"] = true
-				res["damage_event"] = ev
-				res["damage_result"] = route
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var known = combat_service.track(target_id)
+	if not (known is Dictionary) or (known as Dictionary).is_empty():
+		return {"ok": false, "reason": "unknown_track", "target_id": target_id,
+			"weapon_id": weapon_id}
+	if combat_ballistics == null:
+		return {"ok": false, "reason": "no_ballistics", "physics": "unavailable",
+			"target_id": target_id, "weapon_id": weapon_id}
+	# 解出 shooter / target 实体与物理状态（失败即拒绝，不进门禁）
+	var entity := String(o.get("target_entity", ""))
+	if entity == "":
+		entity = _entity_for_track(target_id)
+	var states: Dictionary = _ballistics_states()
+	var shooter := String(o.get("shooter_id", ""))
+	var ss: Dictionary = states.get(shooter, {}) if states.get(shooter) is Dictionary else {}
+	if ss.is_empty():
+		shooter = _own_ballistics_entity(states)
+		ss = states.get(shooter, {}) if states.get(shooter) is Dictionary else {}
+	var ts: Dictionary = states.get(entity, {}) if states.get(entity) is Dictionary else {}
+	if ss.is_empty() or ts.is_empty():
+		warnings.append("request_fire 无物理状态：shooter=%s target=%s" % [shooter, entity])
+		return {"ok": false, "reason": "no_physics_state", "physics": "unavailable",
+			"target_id": target_id, "weapon_id": weapon_id,
+			"missing": {"shooter": ss.is_empty(), "target": ts.is_empty(),
+				"target_entity": entity, "states": states.keys()}}
+	var gate: Dictionary = combat_service.request_fire(target_id, weapon_id, confirmed, o)
+	if not bool(gate.get("ok", false)):
+		return gate
+	_record({"op": "request_fire", "target_id": target_id,
+		"weapon_id": weapon_id, "confirmed": confirmed, "salvo": int(gate.get("salvo", 1))})
+	var res: Dictionary = gate.duplicate(true)
+	res["launched"] = 0
+	res["projectile_ids"] = []
+	res["physics"] = "none"
+	var launch_opts: Dictionary = {
+		"salvo": int(gate.get("salvo", 1)),
+		"profile": o.get("profile", {}),
+		"intent": String(o.get("intent", "direct")),
+	}
+	# 规划辅助：显式 plan 优先，否则按 intent 现场规划（direct 不规划）
+	if o.get("plan") is Dictionary:
+		var po: Dictionary = CombatPlannerScript.new().to_launch_opts(o.get("plan"))
+		for k in po.keys():
+			launch_opts[k] = po[k]
+	elif String(launch_opts["intent"]) != "direct":
+		var pl: Dictionary = combat_plan(target_id, weapon_id, String(launch_opts["intent"]), o)
+		res["plan"] = pl
+		if bool(pl.get("ok", false)):
+			var po2: Dictionary = CombatPlannerScript.new().to_launch_opts(pl)
+			for k2 in po2.keys():
+				launch_opts[k2] = po2[k2]
+		else:
+			res["plan_error"] = String(pl.get("reason", ""))
+	if o.get("force_pd") != null:
+		launch_opts["force_pd"] = bool(o.get("force_pd"))
+	var lr: Dictionary = combat_ballistics.launch(shooter, entity, weapon_id, ss, ts, launch_opts)
+	res["launch"] = lr
+	res["physics"] = "ballistics"
+	res["shooter_id"] = shooter
+	res["target_entity"] = entity
+	res["launched"] = int(lr.get("salvo_launched", 1 if bool(lr.get("ok", false)) else 0))
+	var pids: Array = lr.get("projectile_ids", []) if lr.get("projectile_ids") is Array else []
+	if pids.is_empty() and bool(lr.get("ok", false)) and String(lr.get("projectile_id", "")) != "":
+		pids = [String(lr.get("projectile_id", ""))]
+	res["projectile_ids"] = pids
+	if not bool(lr.get("ok", false)):
+		res["ok"] = false
+		res["reason"] = String(lr.get("reason", "launch_failed"))
+		return res
+	res["prediction"] = _ballistics_predict(shooter, entity, weapon_id)
+	var cap: Dictionary = _apply_combat_time_cap()
+	res["time_cap"] = cap
 	return res
+
+
+## 玩家设置齐射数（UI 调用）。
+func set_weapon_salvo(weapon_id: String, n: int) -> Dictionary:
+	if combat_service == null:
+		return {"ok": false, "reason": "no_combat_service"}
+	var res: Dictionary = combat_service.set_salvo(weapon_id, n)
+	if bool(res.get("ok", false)):
+		_record({"op": "set_weapon_salvo", "weapon_id": weapon_id, "salvo": int(res.get("salvo", 1))})
+	return res
+
+
+## 按航迹 id 做真实弹道预测（UI 用；不发射）。
+func combat_predict_track(target_id: String, weapon_id: String) -> Dictionary:
+	if combat_ballistics == null:
+		return {"ok": false, "reason": "no_ballistics"}
+	var states: Dictionary = _ballistics_states()
+	var entity := _entity_for_track(target_id)
+	var shooter := _own_ballistics_entity(states)
+	if shooter == "" or entity == "" or not states.has(entity):
+		return {"ok": false, "reason": "no_physics_state",
+			"shooter": shooter, "target_entity": entity}
+	return combat_ballistics.predict(states[shooter], states[entity], weapon_id)
+
+
+## 交战规划辅助：把意图翻译成巡航剖面，并给出 Δv 预算/可行性（发射前可预演）。
+func combat_plan(target_id: String, weapon_id: String, intent := "direct", opts := {}) -> Dictionary:
+	if combat_ballistics == null:
+		return {"ok": false, "reason": "no_ballistics"}
+	var states: Dictionary = _ballistics_states()
+	var entity := _entity_for_track(target_id)
+	var shooter := _own_ballistics_entity(states)
+	if shooter == "" or entity == "" or not states.has(entity):
+		return {"ok": false, "reason": "no_physics_state",
+			"shooter": shooter, "target_entity": entity}
+	var planner = CombatPlannerScript.new()
+	var salvo := 1
+	if combat_service != null:
+		salvo = combat_service.salvo_of(weapon_id)
+	var plan: Dictionary
+	if salvo > 1:
+		plan = planner.plan_salvo(combat_ballistics, states[shooter], states[entity],
+			weapon_id, salvo, intent, opts)
+	else:
+		plan = planner.plan(combat_ballistics, states[shooter], states[entity],
+			weapon_id, intent, opts)
+	plan["shooter_id"] = shooter
+	plan["target_entity"] = entity
+	plan["salvo"] = salvo
+	return plan
+
+
+## 航迹 id → 物理实体 id（track.entity_id 优先，其次 ship_id，最后同名实体）。
+func _entity_for_track(track_id: String) -> String:
+	var cands: Array = []
+	if combat_service != null:
+		var tr = combat_service.track(track_id)
+		if tr is Dictionary and not (tr as Dictionary).is_empty():
+			cands.append(String((tr as Dictionary).get("entity_id", "")))
+			cands.append(String((tr as Dictionary).get("ship_id", "")))
+	cands.append(track_id)
+	for c in cands:
+		var id := String(c)
+		if id != "" and _has_physics_entity(id):
+			return id
+	return ""
+
+
+func _has_physics_entity(id: String) -> bool:
+	if id == "":
+		return false
+	if physics_world_service != null:
+		for eid in physics_world_service.entity_ids():
+			if String(eid) == id:
+				return true
+	if world != null and world.has_entity(id):
+		return true
+	return false
+
+
+func _own_ballistics_entity(states: Dictionary) -> String:
+	## 本舰实体：seed.own_entity → combat_service.own_id → tags(own/own_fleet) →
+	## 第一个带 PD 的实体 → 第一个 friend。全空则无法发射（明确失败，不猜）。
+	var cands: Array = [String(_seed.get("own_entity", "")),
+		String(combat_service.own_id) if combat_service != null else ""]
+	for c in cands:
+		if String(c) != "" and states.has(String(c)):
+			return String(c)
+	if world != null:
+		for raw in world.entities_sorted():
+			if not (raw is Dictionary):
+				continue
+			var e: Dictionary = raw
+			var eid := String(e.get("id", ""))
+			if not states.has(eid):
+				continue
+			var tags: Array = e.get("tags", []) if e.get("tags") is Array else []
+			if "own" in tags or "own_fleet" in tags:
+				return eid
+	for k in states.keys():
+		if bool((states[k] as Dictionary).get("has_pd", false)):
+			return String(k)
+	for k2 in states.keys():
+		if String((states[k2] as Dictionary).get("side", "")) == "friend":
+			return String(k2)
+	return ""
+
+
+## 物理层预测（真实积分，替代 CombatService 的接口层估算）。
+func _ballistics_predict(shooter: String, entity: String, weapon_id: String) -> Dictionary:
+	if combat_ballistics == null:
+		return {"ok": false, "reason": "no_ballistics"}
+	var states: Dictionary = _ballistics_states()
+	if not states.has(shooter) or not states.has(entity):
+		return {"ok": false, "reason": "no_physics_state"}
+	return combat_ballistics.predict(states[shooter], states[entity], weapon_id)
+
+
+## 交战时间膨胀：有弹在飞时把时间倍速压到 COMBAT_SCALE_CAP，交战结束恢复。
+## 否则 900 s 导弹寿命在 3600× 下只有 0.25 实秒，玩家看不到交战过程。
+func _apply_combat_time_cap() -> Dictionary:
+	if time == null or combat_ballistics == null:
+		return {"ok": false, "reason": "unavailable"}
+	var engaged := (combat_ballistics.active_projectiles() as Array).size() > 0
+	if engaged and not _combat_scale_cap_active and float(time.scale) > COMBAT_SCALE_CAP:
+		_scale_before_combat = float(time.scale)
+		time.set_scale(COMBAT_SCALE_CAP)
+		_combat_scale_cap_active = true
+		warnings.append("交战时间膨胀：倍速 %.0f× → %.0f×" % [_scale_before_combat, COMBAT_SCALE_CAP])
+		return {"ok": true, "capped": true, "scale": float(time.scale),
+			"restore_to": _scale_before_combat}
+	if not engaged and _combat_scale_cap_active:
+		time.set_scale(_scale_before_combat)
+		_combat_scale_cap_active = false
+		return {"ok": true, "capped": false, "scale": float(time.scale)}
+	return {"ok": true, "capped": _combat_scale_cap_active, "scale": float(time.scale)}
+
+
+func combat_time_cap_state() -> Dictionary:
+	return {"active": _combat_scale_cap_active, "restore_to": _scale_before_combat,
+		"cap": COMBAT_SCALE_CAP, "scale": float(time.scale) if time != null else 0.0}
+
+
+
 
 ## 手动推进战斗服务（通常由 session tick 驱动；此接口供测试/上层显式推进）。
 func combat_tick(dt: float) -> Dictionary:
@@ -3411,6 +3708,8 @@ func save_state() -> String:
 		"legal_status_service": legal_status_service.save_state() if legal_status_service != null else "",
 		"traffic_control": traffic_control.save_state() if traffic_control != null else "",
 		"combat_ballistics": combat_ballistics.save_state() if combat_ballistics != null else "",
+		"combat_time_cap": {"active": _combat_scale_cap_active,
+			"restore_to": _scale_before_combat, "cap": COMBAT_SCALE_CAP},
 		"bus": {
 			"seq": bus.current_seq(),
 			"events": JSON.parse_string(JSON.stringify(bus.events)),
@@ -3569,6 +3868,14 @@ func load_state(json_text: String) -> Dictionary:
 			var br: Dictionary = combat_ballistics.load_state(saved_ball)
 			if not bool(br.get("ok", false)):
 				replay_errors.append("combat_ballistics 快照恢复失败：" + str(br.get("reason", br.get("errors", []))))
+	# 交战时间膨胀状态（旧存档无此字段 → 视为未封顶）
+	var saved_cap = data.get("combat_time_cap", null)
+	if saved_cap is Dictionary:
+		_combat_scale_cap_active = bool((saved_cap as Dictionary).get("active", false))
+		_scale_before_combat = float((saved_cap as Dictionary).get("restore_to", 1.0))
+	else:
+		_combat_scale_cap_active = false
+		_scale_before_combat = 1.0
 	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:
@@ -3729,7 +4036,12 @@ func _replay_op(op: Dictionary) -> Dictionary:
 			if combat_service == null:
 				return {"ok": true, "skipped": "no_combat_service"}
 			return request_fire(String(op.get("target_id", "")),
-				String(op.get("weapon_id", "")), bool(op.get("confirmed", false)))
+				String(op.get("weapon_id", "")), bool(op.get("confirmed", false)),
+				{"salvo": int(op.get("salvo", 1))})
+		"set_weapon_salvo":
+			if combat_service == null:
+				return {"ok": true, "skipped": "no_combat_service"}
+			return set_weapon_salvo(String(op.get("weapon_id", "")), int(op.get("salvo", 1)))
 		"combat_tick":
 			if combat_service == null:
 				return {"ok": true, "skipped": "no_combat_service"}

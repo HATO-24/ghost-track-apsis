@@ -23,6 +23,8 @@ func _initialize() -> void:
 	_test_roe_matrix()
 	_test_authorization()
 	_test_fire_control()
+	_test_salvo()
+	_test_sandbox_opts()
 	_test_pd_decoy_jammer()
 	_test_auto_downgrade()
 	_test_save_load_json()
@@ -289,16 +291,12 @@ func _test_fire_control() -> void:
 	_ok(bool(fire.get("ok", false)), "fire 成功", str(fire.get("reason", "")))
 	var ammo_after := int(_weapon(s, "missile").get("ammo", 0))
 	_eq(ammo_after, ammo_before - 1, "发射消耗弹药")
-	_ok(bool(fire.get("hit", false)) or String(fire.get("reason", "")) == "miss", "命中/miss 二选一")
+	# 统一路径后：开火只返回发射结果，命中/未命中由 impact 事件异步决定
+	_ok(not fire.has("hit"), "开火不返回同步命中（命中异步）")
+	_ok(fire.get("launch_spec") is Dictionary and int(fire.get("salvo", 0)) >= 1,
+		"返回 launch_spec + salvo")
+	_eq(String(fire.get("physics", "")), "deferred", "physics 延迟到弹道服务")
 	_ok(_events_kind(s, "weapon_launch") >= 1, "weapon_launch event")
-	if bool(fire.get("hit", false)):
-		_ok((fire.get("damage_event", {}) as Dictionary).get("schema", "") == "combat_damage_event.v1",
-			"damage_event schema")
-		_ok(not bool((fire.get("damage_event", {}) as Dictionary).get("applied", true)),
-			"damage 不直接 applied")
-		_ok(_events_kind(s, "combat_hit") >= 1, "combat_hit event")
-	else:
-		_ok(_events_kind(s, "combat_miss") >= 1, "combat_miss event")
 	var cooldown: Dictionary = s.request_fire("T", "missile", true)
 	_ok(not bool(cooldown.get("ok", true)) and
 		String(cooldown.get("reason", "")) in ["cooldown", "no_ready_solution"], "冷却/无解阻止发射",
@@ -323,9 +321,6 @@ func _test_fire_control() -> void:
 	_add(s, "FAR", "hostile", 99999.0, true)
 	_ok(not bool(s.request_solution("FAR", "missile", false).get("ok", true)), "超距解算拒绝")
 	_ok(_json_ok(s.vm()), "fire control VM JSON")
-	# 命中造成的 damage_taken（若命中）
-	if bool(fire.get("hit", false)):
-		_ok(float(s.track("T").get("damage_taken", 0.0)) > 0.0, "tracks damage_taken 更新（接口内）")
 	# FIRE 范围（weapon_group）
 	var sw = _new("TIGHT")
 	_add(sw, "T", "hostile", 3000.0, true)
@@ -335,6 +330,133 @@ func _test_fire_control() -> void:
 		"weapon_group FIRE grant")
 	var fwg: Dictionary = sw.request_fire("T", "missile", true)
 	_ok(bool(fwg.get("ok", false)), "weapon_group 允许发射", str(fwg.get("reason", "")))
+
+
+# ── 4b. 齐射参数 / 弹药不足拒绝 ────────────────────────────────
+
+func _test_salvo() -> void:
+	print("")
+	print("── 4b. 齐射参数 / 弹药不足拒绝发射 ──")
+	var s = _new("TIGHT")
+	_add(s, "T", "hostile", 3000.0, true)
+	# 默认齐射 1；武器行暴露 salvo 三元组
+	_eq(int(s.salvo_of("missile")), 1, "missile 默认齐射 1")
+	var wm: Dictionary = _weapon(s, "missile")
+	_ok(wm.has("salvo") and wm.has("salvo_max") and wm.has("salvo_setting"),
+		"武器行暴露 salvo/salvo_max/salvo_setting")
+	_eq(int(wm.get("salvo_max", 0)), 4, "missile salvo_max=4")
+	_eq(int(_weapon(s, "railgun").get("salvo_max", 0)), 1, "railgun salvo_max=1")
+	# 设置齐射
+	var r1: Dictionary = s.set_salvo("missile", 3)
+	_ok(bool(r1.get("ok", false)), "set_salvo 3 ok", str(r1.get("reason", "")))
+	_eq(int(s.salvo_of("missile")), 3, "齐射设为 3")
+	# 上限钳制
+	var r2: Dictionary = s.set_salvo("missile", 99)
+	_eq(int(r2.get("salvo", 0)), 4, "超上限钳到 salvo_max")
+	var r3: Dictionary = s.set_salvo("railgun", 4)
+	_eq(int(r3.get("salvo", 0)), 1, "railgun 钳到 1")
+	# 未知武器
+	var r4: Dictionary = s.set_salvo("nope", 2)
+	_ok(not bool(r4.get("ok", true)), "未知武器 set_salvo 拒绝")
+	_eq(String(r4.get("reason", "")), "unknown_weapon", "unknown_weapon reason")
+	_ok(_events_kind(s, "salvo_set") >= 3, "salvo_set event")
+	# 弹药不足：拒绝发射，要求玩家下调齐射数（决策 3）
+	s.set_salvo("missile", 4)
+	var ammo := int(_weapon(s, "missile").get("ammo", 0))
+	_ok(ammo >= 1, "missile 有初始弹药", str(ammo))
+	s.weapons["missile"]["ammo"] = 2   # 直接改库存，制造不足场景
+	s.register_track("T2", {"identity": "hostile", "threat": "hostile",
+		"range_km": 3000.0, "in_arc": true, "ship_id": "target-T2"})
+	s.request_track("T2")
+	s.request_solution("T2", "missile", false)
+	s.tick(21.0)
+	s.grant_authorization("FIRE", "target", "T2")
+	var fire: Dictionary = s.request_fire("T2", "missile", true)
+	_ok(not bool(fire.get("ok", true)), "弹药不足拒绝发射")
+	_eq(String(fire.get("reason", "")), "insufficient_ammo_for_salvo", "拒绝理由")
+	_ok(bool(fire.get("needs_salvo_reset", false)), "要求重新设置齐射")
+	_eq(int(fire.get("salvo_max", 0)), 2, "salvo_max 收到弹药上限")
+	_ok(String(fire.get("hint", "")) != "", "给出可读提示")
+	_eq(int(_weapon(s, "missile").get("ammo", 0)), 2, "拒绝时不扣弹药")
+	# 下调齐射后可发射，且按齐射数扣弹
+	s.set_salvo("missile", 2)
+	var fire2: Dictionary = s.request_fire("T2", "missile", true)
+	_ok(bool(fire2.get("ok", false)), "下调齐射后可发射", str(fire2.get("reason", "")))
+	_eq(int(fire2.get("salvo", 0)), 2, "按齐射 2 发射")
+	_eq(int(_weapon(s, "missile").get("ammo", 0)), 0, "齐射扣 2 发弹药")
+	_ok((fire2.get("launch_spec", {}) as Dictionary).has("entity_id"),
+		"launch_spec 带实体 id")
+	_eq(int((fire2.get("launch_spec", {}) as Dictionary).get("salvo", 0)), 2,
+		"launch_spec 透传齐射数")
+	# 弹药耗尽：重新解算后再开火，才会走到弹药检查（无解算会先报 no_ready_solution）
+	s.request_solution("T2", "missile", false)
+	s.tick(21.0)
+	var fire3: Dictionary = s.request_fire("T2", "missile", true)
+	_ok(not bool(fire3.get("ok", true)), "弹药耗尽拒绝")
+	_eq(String(fire3.get("reason", "")), "no_ammo", "no_ammo reason")
+	_ok(_json_ok(s.vm()), "齐射 VM JSON")
+
+
+# ── 4c. 沙盒便利项（无限弹药 / 免授权）─────────────────────────
+
+func _test_sandbox_opts() -> void:
+	print("")
+	print("── 4c. 沙盒便利项：无限弹药 / 免授权 ──")
+	# 默认（正式本体）：两开关都关，vm 里也要能读到
+	var s0 = _new("TIGHT")
+	_ok(not bool(s0.unlimited_ammo), "默认 unlimited_ammo=false")
+	_ok(not bool(s0.auto_authorize), "默认 auto_authorize=false")
+	var sb0: Dictionary = s0.vm().get("sandbox", {})
+	_eq(bool(sb0.get("unlimited_ammo", true)), false, "vm().sandbox.unlimited_ammo=false")
+	_eq(bool(sb0.get("auto_authorize", true)), false, "vm().sandbox.auto_authorize=false")
+	# 免授权：无 grant 也能 FIRE，但 confirmed 仍必须
+	var sa = Combat.new({"roe": "TIGHT", "auto_authorize": true})
+	_ok(bool(sa.ready), "auto_authorize setup ready", str(sa.errors))
+	_add(sa, "T", "hostile", 800.0, true)
+	sa.request_track("T")
+	sa.request_solution("T", "railgun", false)
+	sa.tick(21.0)
+	var na: Dictionary = sa.request_fire("T", "railgun", false)
+	_ok(not bool(na.get("ok", true)), "免授权仍要求 confirmed")
+	_eq(String(na.get("reason", "")), "needs_confirmation", "免授权 confirmed=false 理由")
+	var fa: Dictionary = sa.request_fire("T", "railgun", true)
+	_ok(bool(fa.get("ok", false)), "免授权后可直接发射", str(fa.get("reason", "")))
+	_eq(String((fa.get("solution", {}) as Dictionary).get("status", "")), "FIRED",
+		"免授权发射解算置 FIRED")
+	# 无限弹药：库存 0 也能打，且不扣减
+	var su = Combat.new({"roe": "TIGHT", "auto_authorize": true, "unlimited_ammo": true})
+	_ok(bool(su.ready), "unlimited_ammo setup ready", str(su.errors))
+	_add(su, "T", "hostile", 800.0, true)
+	su.weapons["railgun"]["ammo"] = 0
+	su.request_track("T")
+	su.request_solution("T", "railgun", false)
+	su.tick(21.0)
+	_ok(not bool(su._offensive_ammo_empty()), "无限弹药不判定弹药耗尽")
+	var fu: Dictionary = su.request_fire("T", "railgun", true)
+	_ok(bool(fu.get("ok", false)), "库存 0 仍可发射", str(fu.get("reason", "")))
+	_eq(int(su.weapons["railgun"]["ammo"]), 0, "无限弹药不扣减")
+	_eq(int(fu.get("ammo_left", -1)), 0, "ammo_left 如实回报 0")
+	# 无限弹药不绕过冷却（只放宽弹药，其他门禁不变）：
+	# 首射已消耗解算，先重新解算到 READY，此时仍在 cooldown 窗口内
+	su.request_solution("T", "railgun", false)
+	su.tick(4.5)
+	var fu2: Dictionary = su.request_fire("T", "railgun", true)
+	_ok(not bool(fu2.get("ok", true)), "无限弹药仍受冷却限制")
+	_eq(String(fu2.get("reason", "")), "cooldown", "冷却 reason")
+	# 也不绕过目标存在性
+	var fu3: Dictionary = su.request_fire("NOPE", "railgun", true)
+	_eq(String(fu3.get("reason", "")), "unknown_track", "未知航迹仍拒绝")
+	# 对照：同样的库存 0，正式本体必须拒绝
+	var sn = _new("TIGHT")
+	_add(sn, "T", "hostile", 800.0, true)
+	sn.weapons["railgun"]["ammo"] = 0
+	sn.request_track("T")
+	sn.request_solution("T", "railgun", false)
+	sn.tick(21.0)
+	sn.grant_authorization("FIRE", "target", "T")
+	var fn2: Dictionary = sn.request_fire("T", "railgun", true)
+	_eq(String(fn2.get("reason", "")), "no_ammo", "对照：本体库存 0 报 no_ammo")
+	_ok(_json_ok(su.vm()), "沙盒 VM JSON")
 
 
 # ── 5. 点防御 / 诱饵 / 干扰 / incoming ───────────────────────

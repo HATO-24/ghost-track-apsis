@@ -313,26 +313,32 @@ static func acceleration_rot(state: Variant) -> Vector3:
 
 ## 单步 RK4（CR3BP 旋转系）。
 static func rk4_step(state: Variant, dt: float) -> Dictionary:
+	return rk4_step_accel(state, dt, Vector3.ZERO)
+
+
+## 单步 RK4（CR3BP 旋转系）+ 常值附加加速度。
+## `extra_accel` 在单步内视为常向量（km/s²）：用于弹丸推力、阻力等非引力项。
+## 步长须足够小（弹道调用方按 1 s 子步），否则常值假设失效。
+static func rk4_step_accel(state: Variant, dt: float, extra_accel: Vector3) -> Dictionary:
 	var s := as_state(state)
 	var r: Vector3 = s["r"]
 	var v: Vector3 = s["v"]
 	if dt == 0.0:
 		return make_state(r, v)
-	var a1 := acceleration_rot(make_state(r, v))
 	var k1r := v
-	var k1v := a1
+	var k1v := acceleration_rot(make_state(r, v)) + extra_accel
 	var v2 := v + k1v * (dt * 0.5)
 	var r2 := r + k1r * (dt * 0.5)
 	var k2r := v2
-	var k2v := acceleration_rot(make_state(r2, v2))
+	var k2v := acceleration_rot(make_state(r2, v2)) + extra_accel
 	var v3 := v + k2v * (dt * 0.5)
 	var r3 := r + k2r * (dt * 0.5)
 	var k3r := v3
-	var k3v := acceleration_rot(make_state(r3, v3))
+	var k3v := acceleration_rot(make_state(r3, v3)) + extra_accel
 	var v4 := v + k3v * dt
 	var r4 := r + k3r * dt
 	var k4r := v4
-	var k4v := acceleration_rot(make_state(r4, v4))
+	var k4v := acceleration_rot(make_state(r4, v4)) + extra_accel
 	var new_r := r + (k1r + 2.0 * k2r + 2.0 * k3r + k4r) * (dt / 6.0)
 	var new_v := v + (k1v + 2.0 * k2v + 2.0 * k3v + k4v) * (dt / 6.0)
 	return make_state(new_r, new_v)

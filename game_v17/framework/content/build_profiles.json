@@ -1,0 +1,68 @@
+{
+  "schema": "build_profiles.v1",
+  "version": "1.0.0",
+  "default": "full",
+  "profiles": {
+    "full": {
+      "label": "GHOST TRACK // APSIS",
+      "subtitle": "正式本体 · 剧情 + 事件状态机",
+      "entry_scene": "res://main_menu.tscn",
+      "boot_mode": "prelude",
+      "scenario": "",
+      "save_root": "user://saves",
+      "features": {
+        "story": true,
+        "prelude": true,
+        "triggers": true,
+        "identification": true,
+        "traffic": true,
+        "port": true,
+        "signal": true,
+        "combat": true,
+        "ballistics": true,
+        "damage": true,
+        "physics_world": true,
+        "sandbox": false
+      },
+      "notes": [
+        "序章/剧情/触发器/报告/信任全开；序章场景由 PreludeScenario 决定实体与航迹。",
+        "作战系统与模拟器共用同一套 combat_service / combat_ballistics / damage_service。"
+      ]
+    },
+    "combat_sim": {
+      "label": "GHOST TRACK // ORBITAL COMBAT SIM",
+      "subtitle": "作战模拟器 DEMO · 地月系轨道作战概念演示",
+      "entry_scene": "res://v1_hud.tscn",
+      "boot_mode": "sandbox",
+      "scenario": "res://framework/content/scenario_combat_sandbox.json",
+      "save_root": "user://saves_sim",
+      "features": {
+        "story": false,
+        "prelude": false,
+        "triggers": false,
+        "identification": true,
+        "traffic": false,
+        "port": false,
+        "signal": true,
+        "combat": true,
+        "ballistics": true,
+        "damage": true,
+        "physics_world": true,
+        "sandbox": true
+      },
+      "sandbox_opts": {
+        "unlimited_ammo": true,
+        "auto_authorize": true,
+        "quick_restart": true
+      },
+      "notes": [
+        "跳过序章/剧情/触发器，直接进战术台；实体来自 sandbox 场景（真实地月系几何）。",
+        "两版本共用同一套系统与存档 schema；差异只在 boot_mode 与功能开关。",
+        "sandbox_opts 只在 boot_mode=sandbox 时生效；full 剖面恒为 false（本体不给作弊口子）。",
+        "unlimited_ammo：弹药不扣减（含 PD/干扰弹），也不因弹药耗尽降级 ROE。",
+        "auto_authorize：FIRE 免授权（confirmed 仍必须），演示时可自由选目标。",
+        "quick_restart：UI 一键按原 seed 重开（走 session.reset()，不重载场景）。"
+      ]
+    }
+  }
+}
