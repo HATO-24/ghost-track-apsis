@@ -1,0 +1,112 @@
+# GHOST TRACK // APSIS · V17 headless regression
+#
+# Runs the unified Godot headless test matrix (game_v17/tests/probe_matrix.json)
+# through run_tests.ps1 on Windows for parity with the local development runs:
+# the same Godot 4.7.2 win64 console binary and the same PowerShell runner.
+# Artifact upload contains only .test-results/ (logs + summary.json + report.md);
+# it never uploads game content, user data or secrets.
+#
+# Runner choice rationale (see game_v17/docs/test_matrix.md "CI" section):
+# - Local development runs on Windows with Godot_v4.7.2-stable_win64_console.exe;
+#   windows-latest is the same OS/binary combination, so CI results are directly
+#   comparable with the documented local baseline.
+# - run_tests.ps1 is written for Windows PowerShell 5.1 and PowerShell 7+; pwsh 7
+#   is preinstalled on windows-latest.
+# - A Linux job would also work (pwsh is available and run_tests.ps1 accepts
+#   -GodotBin / $env:GODOT_BIN), but would change the OS and binary under test.
+#
+# NOTE: this workflow is committed UNVERIFIED — it cannot be executed locally in
+# this environment. Status: NOT RUN. First real execution happens on GitHub.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+  GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+  # Official SHA-256 of the release asset (GitHub Releases API "digest" field for
+  # godotengine/godot-builds tag 4.7.2-stable). The download fails closed if the
+  # archive does not match, so the toolchain is pinned to an exact artifact.
+  GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+  GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+  GODOT_DIR: tools/godot
+  GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+
+jobs:
+  headless-regression:
+    name: Godot 4.7.2 headless regression (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache pinned Godot 4.7.2 download
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GODOT_DIR }}
+          # Cache key is pinned to the exact asset checksum: a different Godot
+          # archive can never reuse a stale cache entry.
+          key: godot-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ env.GODOT_ZIP_SHA256 }}
+
+      - name: Download + verify + extract Godot 4.7.2 (cache miss only)
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zipPath = Join-Path $env:RUNNER_TEMP $env:GODOT_ZIP
+          Write-Host "Downloading $env:GODOT_ZIP_URL"
+          Invoke-WebRequest -Uri $env:GODOT_ZIP_URL -OutFile $zipPath -UseBasicParsing
+
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $zipPath).Hash.ToLowerInvariant()
+          $expected = $env:GODOT_ZIP_SHA256.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Godot archive SHA-256 mismatch: expected $expected, got $actual"
+          }
+          Write-Host "SHA-256 verified: $actual"
+
+          New-Item -ItemType Directory -Path $env:GODOT_DIR -Force | Out-Null
+          Expand-Archive -LiteralPath $zipPath -DestinationPath $env:GODOT_DIR -Force
+          Get-ChildItem -LiteralPath $env:GODOT_DIR | Select-Object Name, Length
+
+      - name: Verify Godot version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path -LiteralPath $env:GODOT_CONSOLE)) {
+            throw "Expected Godot console executable not found: $env:GODOT_CONSOLE"
+          }
+          $version = & $env:GODOT_CONSOLE --version 2>&1 | Out-String
+          Write-Host "Godot version: $version"
+          if ($version -notmatch [regex]::Escape('4.7.2')) {
+            throw "Expected Godot 4.7.2, got: $version"
+          }
+
+      - name: Run headless regression matrix
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File ./run_tests.ps1 -Ci -GodotBin $env:GODOT_CONSOLE
+          exit $LASTEXITCODE
+
+      - name: Upload test results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .test-results/
+          if-no-files-found: warn
+          retention-days: 14

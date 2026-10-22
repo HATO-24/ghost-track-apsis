@@ -25,3 +25,6 @@ mockups/*.log
 
 # WorkBuddy 项目数据（记忆/会话日志，不纳入版本库）
 .workbuddy-ai/
+
+# 本地 headless 回归输出（run_tests.ps1 生成 summary.json / report.md / 原始日志）
+.test-results/
