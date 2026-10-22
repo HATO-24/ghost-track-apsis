@@ -28,6 +28,8 @@ var content: Dictionary = {}
 var entity_id := ""
 var name := ""
 var ship_class := ""
+var class_id := ""
+var profile_source := ""
 var sections: Array = []
 var events: Array = []
 var queue: Array = []
@@ -39,6 +41,7 @@ var ready := false
 
 var _team_seq := 0
 var _hit_seq := 0
+var _class_profile: Dictionary = {}
 
 # ── 内容装载 ─────────────────────────────────────────────────────
 
@@ -70,9 +73,72 @@ static func list_ships(from_content: Dictionary) -> Array:
 	out.sort()
 	return out
 
+
+# ── 舰级档案 → DamageModel 兼容 profile ─────────────────────────
+
+func _class_profile_to_ship(cp: Dictionary, ship_id: String) -> Dictionary:
+	var secs_in = cp.get("sections", null)
+	if not (secs_in is Array) or (secs_in as Array).is_empty():
+		return {}
+	var secs: Array = []
+	for raw in (secs_in as Array):
+		if not (raw is Dictionary):
+			continue
+		var d: Dictionary = (raw as Dictionary).duplicate(true)
+		var sid := String(d.get("id", ""))
+		if sid == "":
+			continue
+		if not d.has("systems") or not (d.get("systems") is Array):
+			d["systems"] = (d.get("critical_systems", []) as Array).duplicate() if d.get("critical_systems") is Array else []
+		if not d.has("requires_power"):
+			d["requires_power"] = sid in ["propulsion", "sensors", "comms", "docking"]
+		if not d.has("power_critical"):
+			d["power_critical"] = sid == "power"
+		if not d.has("label"):
+			d["label"] = sid
+		if not d.has("kind"):
+			d["kind"] = sid
+		if not d.has("adjacent") or not (d.get("adjacent") is Array):
+			d["adjacent"] = []
+		if not d.has("repair_s"):
+			d["repair_s"] = 60.0
+		if not d.has("fire_risk"):
+			d["fire_risk"] = 0.0
+		if not d.has("vacuum_risk"):
+			d["vacuum_risk"] = 0.0
+		if not d.has("integrity"):
+			d["integrity"] = 1.0
+		secs.append(d)
+	if secs.is_empty():
+		return {}
+	var cid := String(cp.get("class_id", ship_id))
+	return {"id": ship_id, "name": String(cp.get("name", cid)),
+		"class": cid + " / class_profile", "class_id": cid,
+		"class_profile": true, "sections": secs}
+
+
+func _merge_class_effects(base: Dictionary, cp: Dictionary) -> Dictionary:
+	var out: Dictionary = base.duplicate(true)
+	var fx = cp.get("effects", null)
+	if not (fx is Dictionary):
+		return out
+	for key in ["armor", "penetration", "fire", "decompression", "power", "repair"]:
+		if not (fx as Dictionary).has(key):
+			continue
+		var v = (fx as Dictionary)[key]
+		if not (v is Dictionary):
+			continue
+		if out.get(key) is Dictionary:
+			var merged: Dictionary = (out.get(key) as Dictionary).duplicate(true)
+			for k in (v as Dictionary).keys():
+				merged[k] = (v as Dictionary)[k]
+			out[key] = merged
+		else:
+			out[key] = (v as Dictionary).duplicate(true)
+	return out
 ## 用内容档案初始化本模型（每个实例 = 一艘舰）。
 ## content_override 为空时从 damage_l1.json 装载；ship_id 默认本舰 harmattan。
-func setup(content_override := {}, ship_id := "harmattan") -> bool:
+func setup(content_override := {}, ship_id := "harmattan", class_profile := {}) -> bool:
 	errors.clear()
 	content = content_override if content_override is Dictionary and not (content_override as Dictionary).is_empty() else load_content()
 	if content.is_empty():
@@ -80,14 +146,32 @@ func setup(content_override := {}, ship_id := "harmattan") -> bool:
 		ready = false
 		return false
 	var ships: Dictionary = content.get("ships", {}) if content.get("ships") is Dictionary else {}
-	if not ships.has(ship_id):
-		errors.append("未知舰船档案：%s（可用：%s）" % [ship_id, str(list_ships(content))])
+	var profile: Dictionary = {}
+	var used_class := false
+	if ships.has(ship_id):
+		# 旧 damage_l1.ships 显式档案优先（旧行为不变）
+		profile = ships[ship_id]
+		used_class = false
+	elif class_profile is Dictionary and not (class_profile as Dictionary).is_empty():
+		profile = _class_profile_to_ship(class_profile, ship_id)
+		if profile.is_empty():
+			errors.append("舰级档案无效：%s" % ship_id)
+			ready = false
+			return false
+		content = _merge_class_effects(content, class_profile)
+		used_class = true
+	else:
+		errors.append("未知舰船档案：%s（可用：%s；无 class profile）" % [ship_id, str(list_ships(content))])
 		ready = false
 		return false
-	var profile: Dictionary = ships[ship_id]
+	_class_profile = (class_profile as Dictionary).duplicate(true) if class_profile is Dictionary else {}
 	entity_id = String(profile.get("id", ship_id))
 	name = String(profile.get("name", entity_id))
-	ship_class = String(profile.get("class", ""))
+	ship_class = String(profile.get("class", class_profile.get("class_id", "")))
+	class_id = String(profile.get("class_id", ""))
+	if used_class and class_id == "":
+		class_id = String(class_profile.get("class_id", ""))
+	profile_source = "class_profile" if used_class else "damage_l1"
 	sections = []
 	for raw in (profile.get("sections", []) as Array):
 		if not (raw is Dictionary):
@@ -111,6 +195,11 @@ func setup(content_override := {}, ship_id := "harmattan") -> bool:
 			"decompression": {"active": false, "intensity": 0.0, "accum_s": 0.0},
 			"powered": true,
 			"power_loss": false,
+			"mass_fraction": float(d.get("mass_fraction", 0.0)),
+			"armor_kinetic": float(d.get("armor_kinetic", -1.0)),
+			"armor_energy": float(d.get("armor_energy", -1.0)),
+			"material": String(d.get("material", "")),
+			"critical_systems": (d.get("critical_systems", []) as Array).duplicate() if d.get("critical_systems") is Array else [],
 			"repair": {},
 		}
 		sec["state"] = _state_for(float(sec.get("integrity", 1.0)))
@@ -137,9 +226,9 @@ func setup(content_override := {}, ship_id := "harmattan") -> bool:
 
 func reset() -> void:
 	if content.is_empty():
-		setup({}, entity_id)
+		setup({}, entity_id, _class_profile)
 	else:
-		setup(content, entity_id)
+		setup(content, entity_id, _class_profile)
 
 # ── 查询辅助 ─────────────────────────────────────────────────────
 
@@ -225,8 +314,13 @@ func apply_hit(section_id: String, energy: float, penetration := 0.5,
 	var e := clampf(float(energy), 0.0, 2.0)
 	var pen := clampf(float(penetration), 0.0, 1.0)
 	var armor: Dictionary = _content_dict("armor")
-	var resist := clampf(float(armor.get("kinetic_resist", 0.12)) * (1.0 - pen)
-		+ float(armor.get("energy_resist", 0.08)) * pen, 0.0, 0.95)
+	var armor_k := float(sec.get("armor_kinetic", -1.0))
+	var armor_e := float(sec.get("armor_energy", -1.0))
+	if armor_k < 0.0:
+		armor_k = float(armor.get("kinetic_resist", 0.12))
+	if armor_e < 0.0:
+		armor_e = float(armor.get("energy_resist", 0.08))
+	var resist := clampf(armor_k * (1.0 - pen) + armor_e * pen, 0.0, 0.95)
 	var damage := e * (1.0 - resist)
 	if String(sec.get("state", "")) == "destroyed":
 		damage *= 0.25   # 已毁坏分区只吸收少量溢出
@@ -298,13 +392,18 @@ func _apply_overflow(from_sec: Dictionary, overflow_energy: float, direction: St
 	var count := mini(maxi(1, max_sections), order.size())
 	var per := overflow_energy / float(count)
 	var armor: Dictionary = _content_dict("armor")
-	var resist := clampf(float(armor.get("kinetic_resist", 0.12)) * 0.5
-		+ float(armor.get("energy_resist", 0.08)) * 0.5, 0.0, 0.95)
 	for i in range(count):
 		var sid := String(order[i])
 		var dst := section(sid)
 		if dst.is_empty():
 			continue
+		var ov_k := float(dst.get("armor_kinetic", -1.0))
+		var ov_e := float(dst.get("armor_energy", -1.0))
+		if ov_k < 0.0:
+			ov_k = float(armor.get("kinetic_resist", 0.12))
+		if ov_e < 0.0:
+			ov_e = float(armor.get("energy_resist", 0.08))
+		var resist := clampf(ov_k * 0.5 + ov_e * 0.5, 0.0, 0.95)
 		var dmg := per * (1.0 - resist)
 		_set_integrity(dst, float(dst.get("integrity", 1.0)) - dmg)
 		_event("penetration", String(dst.get("id", "")),
@@ -849,6 +948,11 @@ func vm_damage() -> Dictionary:
 			"power_loss": bool(sec.get("power_loss", false)),
 			"requires_power": bool(sec.get("requires_power", false)),
 			"systems": (sec.get("systems", []) as Array).duplicate(),
+			"mass_fraction": float(sec.get("mass_fraction", 0.0)),
+			"armor_kinetic": float(sec.get("armor_kinetic", -1.0)),
+			"armor_energy": float(sec.get("armor_energy", -1.0)),
+			"material": String(sec.get("material", "")),
+			"critical_systems": (sec.get("critical_systems", []) as Array).duplicate(),
 			"repair": (sec.get("repair", {}) as Dictionary).duplicate(true),
 		})
 	var ev_slice: Array = []
@@ -877,6 +981,8 @@ func vm_damage() -> Dictionary:
 		"entity_id": entity_id,
 		"name": name,
 		"class": ship_class,
+		"class_id": class_id,
+		"profile_source": profile_source,
 		"t": t,
 		"units": {"integrity": "0..1", "time": "s", "energy": "0..1"},
 		"sections": sec_out,

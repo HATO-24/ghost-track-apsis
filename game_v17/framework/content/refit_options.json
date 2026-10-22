@@ -1,0 +1,898 @@
+{
+  "schema": "v17.refit_options.v1",
+  "version": "1.0.0",
+  "proposal": true,
+  "title": "完整游戏-阶段5B APSIS 干船坞改装选项（提案）",
+  "source": "docs/04 §6/§7; docs/02; docs/03 §8.3",
+  "basis": "docs/04, docs/02, docs/03",
+  "units": {
+    "mass": "t",
+    "power": "kW",
+    "dv": "km/s",
+    "accel": "g",
+    "cost": "credits/materials/days"
+  },
+  "platforms": {
+    "APSIS": {
+      "ship_id": "APSIS",
+      "class_id": "OCUVF-APOGEE",
+      "name": "远地点号",
+      "dock_bays": 2,
+      "base_slots": {
+        "hull": 3,
+        "sensor": 3,
+        "weapon": 3,
+        "defense": 3,
+        "utility": 6,
+        "dock": 2
+      },
+      "base": {
+        "mass_t": 9000.0,
+        "dv_kmps": 3.15,
+        "accel_g": 0.02,
+        "crew": 240,
+        "power_kw": 400.0,
+        "max_mass_t": 12000.0,
+        "max_power_kw": 1200.0,
+        "min_dv_kmps": 0.5,
+        "min_accel_g": 0.005,
+        "max_credits": 200000,
+        "max_materials": 500
+      },
+      "note": "APSIS 远地点级船坞舰；2 个维修坞；改装提案。"
+    }
+  },
+  "categories": [
+    "hull",
+    "sensor",
+    "weapon",
+    "defense",
+    "utility",
+    "dock"
+  ],
+  "modules": [
+    {
+      "module_id": "hull_armor_light",
+      "name": "轻装甲包",
+      "name_en": "Light Armor Package",
+      "category": "hull",
+      "slots": 1,
+      "mass_t": 80.0,
+      "power_kw": 0.0,
+      "dv_penalty_kmps": 0.02,
+      "accel_penalty_g": 0.001,
+      "crew": 0,
+      "cost_credits": 12000,
+      "cost_materials": 40,
+      "cost_days": 5,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL",
+        "L1_MERIDIAN"
+      ],
+      "effects": {
+        "armor": 0.08
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "轻量装甲板；占用 1 hull。"
+    },
+    {
+      "module_id": "hull_armor_heavy",
+      "name": "重型装甲包",
+      "name_en": "Heavy Armor Package",
+      "category": "hull",
+      "slots": 2,
+      "mass_t": 240.0,
+      "power_kw": 0.0,
+      "dv_penalty_kmps": 0.08,
+      "accel_penalty_g": 0.003,
+      "crew": 0,
+      "cost_credits": 30000,
+      "cost_materials": 120,
+      "cost_days": 10,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL"
+      ],
+      "effects": {
+        "armor": 0.2
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "重装甲；mass/Δv 代价高。"
+    },
+    {
+      "module_id": "hull_reinforcement",
+      "name": "舰体加强筋",
+      "name_en": "Hull Reinforcement",
+      "category": "hull",
+      "slots": 1,
+      "mass_t": 120.0,
+      "power_kw": 0.0,
+      "dv_penalty_kmps": 0.04,
+      "accel_penalty_g": 0.001,
+      "crew": 0,
+      "cost_credits": 18000,
+      "cost_materials": 70,
+      "cost_days": 8,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL",
+        "L2_KARMAN"
+      ],
+      "effects": {
+        "hull_integrity": 0.12
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "结构加强。"
+    },
+    {
+      "module_id": "hull_ablative",
+      "name": "烧蚀外层",
+      "name_en": "Ablative Layer",
+      "category": "hull",
+      "slots": 1,
+      "mass_t": 60.0,
+      "power_kw": 0.0,
+      "dv_penalty_kmps": 0.01,
+      "accel_penalty_g": 0.0,
+      "crew": 0,
+      "cost_credits": 9000,
+      "cost_materials": 30,
+      "cost_days": 4,
+      "availability": "available",
+      "location_tags": [
+        "*"
+      ],
+      "effects": {
+        "armor": 0.05
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "一次性烧蚀层。"
+    },
+    {
+      "module_id": "sensor_radar_mk2",
+      "name": "雷达升级 Mk2",
+      "name_en": "Radar Mk2",
+      "category": "sensor",
+      "slots": 1,
+      "mass_t": 20.0,
+      "power_kw": 40.0,
+      "dv_penalty_kmps": 0.0,
+      "accel_penalty_g": 0.0,
+      "crew": 0,
+      "cost_credits": 16000,
+      "cost_materials": 25,
+      "cost_days": 6,
+      "availability": "available",
+      "location_tags": [
+        "L1_MERIDIAN",
+        "L4_ANVIL"
+      ],
+      "effects": {
+        "sensor_range": 0.15
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "搜索雷达升级。"
+    },
+    {
+      "module_id": "sensor_optical_ir",
+      "name": "光学/IR 套装",
+      "name_en": "Optical/IR Suite",
+      "category": "sensor",
+      "slots": 1,
+      "mass_t": 15.0,
+      "power_kw": 25.0,
+      "dv_penalty_kmps": 0.0,
+      "accel_penalty_g": 0.0,
+      "crew": 0,
+      "cost_credits": 14000,
+      "cost_materials": 22,
+      "cost_days": 5,
+      "availability": "available",
+      "location_tags": [
+        "L1_MERIDIAN",
+        "EARTH"
+      ],
+      "effects": {
+        "optical": 0.2,
+        "ir": 0.15
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "光学与红外阵列。"
+    },
+    {
+      "module_id": "sensor_elint",
+      "name": "ELINT 套件",
+      "name_en": "ELINT Suite",
+      "category": "sensor",
+      "slots": 1,
+      "mass_t": 18.0,
+      "power_kw": 30.0,
+      "dv_penalty_kmps": 0.0,
+      "accel_penalty_g": 0.0,
+      "crew": 0,
+      "cost_credits": 20000,
+      "cost_materials": 35,
+      "cost_days": 7,
+      "availability": "available",
+      "location_tags": [
+        "L1_MERIDIAN"
+      ],
+      "effects": {
+        "elint": 0.25
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "电子侦察。"
+    },
+    {
+      "module_id": "sensor_fire_control",
+      "name": "火控雷达",
+      "name_en": "Fire Control Radar",
+      "category": "sensor",
+      "slots": 1,
+      "mass_t": 10.0,
+      "power_kw": 20.0,
+      "dv_penalty_kmps": 0.0,
+      "accel_penalty_g": 0.0,
+      "crew": 0,
+      "cost_credits": 11000,
+      "cost_materials": 18,
+      "cost_days": 4,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL"
+      ],
+      "effects": {
+        "fire_control": 0.15
+      },
+      "conflicts": [],
+      "requires": [
+        "sensor_radar_mk2"
+      ],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "需要雷达升级。"
+    },
+    {
+      "module_id": "sensor_mast",
+      "name": "传感器桅杆延长",
+      "name_en": "Sensor Mast",
+      "category": "sensor",
+      "slots": 1,
+      "mass_t": 8.0,
+      "power_kw": 10.0,
+      "dv_penalty_kmps": 0.0,
+      "accel_penalty_g": 0.0,
+      "crew": 0,
+      "cost_credits": 7000,
+      "cost_materials": 12,
+      "cost_days": 3,
+      "availability": "available",
+      "location_tags": [
+        "*"
+      ],
+      "effects": {
+        "sensor_range": 0.08
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "桅杆延长。"
+    },
+    {
+      "module_id": "weapon_railgun_mk2",
+      "name": "轨道炮 Mk2",
+      "name_en": "Railgun Mk2",
+      "category": "weapon",
+      "slots": 2,
+      "mass_t": 150.0,
+      "power_kw": 120.0,
+      "dv_penalty_kmps": 0.03,
+      "accel_penalty_g": 0.002,
+      "crew": 4,
+      "cost_credits": 45000,
+      "cost_materials": 150,
+      "cost_days": 12,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL"
+      ],
+      "effects": {
+        "weapon_damage": 0.25,
+        "penetration": 0.1
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "主炮升级。"
+    },
+    {
+      "module_id": "weapon_missile_bay",
+      "name": "48 单元导弹舱",
+      "name_en": "Missile Bay 48",
+      "category": "weapon",
+      "slots": 2,
+      "mass_t": 180.0,
+      "power_kw": 60.0,
+      "dv_penalty_kmps": 0.03,
+      "accel_penalty_g": 0.002,
+      "crew": 6,
+      "cost_credits": 38000,
+      "cost_materials": 140,
+      "cost_days": 14,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL",
+        "L2_KARMAN"
+      ],
+      "effects": {
+        "missile_capacity": 48,
+        "weapon_damage": 0.15
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "导弹舱。"
+    },
+    {
+      "module_id": "weapon_pd_ciws",
+      "name": "近防炮升级",
+      "name_en": "PD CIWS",
+      "category": "weapon",
+      "slots": 1,
+      "mass_t": 40.0,
+      "power_kw": 35.0,
+      "dv_penalty_kmps": 0.01,
+      "accel_penalty_g": 0.0,
+      "crew": 2,
+      "cost_credits": 15000,
+      "cost_materials": 35,
+      "cost_days": 5,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL",
+        "L1_MERIDIAN"
+      ],
+      "effects": {
+        "point_defense": 0.25
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "近防升级。"
+    },
+    {
+      "module_id": "weapon_ew_jammer",
+      "name": "干扰吊舱",
+      "name_en": "EW Jammer Pod",
+      "category": "weapon",
+      "slots": 1,
+      "mass_t": 35.0,
+      "power_kw": 80.0,
+      "dv_penalty_kmps": 0.02,
+      "accel_penalty_g": 0.0,
+      "crew": 2,
+      "cost_credits": 26000,
+      "cost_materials": 60,
+      "cost_days": 8,
+      "availability": "available",
+      "location_tags": [
+        "L1_MERIDIAN",
+        "L2_KARMAN"
+      ],
+      "effects": {
+        "ew_jam": 0.25
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "电子干扰。"
+    },
+    {
+      "module_id": "weapon_decoy",
+      "name": "诱饵发射器",
+      "name_en": "Decoy Launcher",
+      "category": "weapon",
+      "slots": 1,
+      "mass_t": 20.0,
+      "power_kw": 15.0,
+      "dv_penalty_kmps": 0.01,
+      "accel_penalty_g": 0.0,
+      "crew": 1,
+      "cost_credits": 8000,
+      "cost_materials": 20,
+      "cost_days": 3,
+      "availability": "available",
+      "location_tags": [
+        "*"
+      ],
+      "effects": {
+        "decoy": 0.2
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "诱饵弹。"
+    },
+    {
+      "module_id": "weapon_spinal",
+      "name": "重型脊炮",
+      "name_en": "Spinal Railgun",
+      "category": "weapon",
+      "slots": 3,
+      "mass_t": 300.0,
+      "power_kw": 250.0,
+      "dv_penalty_kmps": 0.06,
+      "accel_penalty_g": 0.004,
+      "crew": 6,
+      "cost_credits": 85000,
+      "cost_materials": 280,
+      "cost_days": 20,
+      "availability": "restricted",
+      "location_tags": [
+        "L4_ANVIL"
+      ],
+      "effects": {
+        "weapon_damage": 0.5,
+        "penetration": 0.2
+      },
+      "conflicts": [
+        "weapon_missile_bay"
+      ],
+      "requires": [
+        "utility_reactor"
+      ],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "重型脊炮；与导弹舱冲突，需反应堆升级。"
+    },
+    {
+      "module_id": "defense_pd_battery",
+      "name": "点防御炮组",
+      "name_en": "PD Battery",
+      "category": "defense",
+      "slots": 1,
+      "mass_t": 55.0,
+      "power_kw": 45.0,
+      "dv_penalty_kmps": 0.01,
+      "accel_penalty_g": 0.001,
+      "crew": 2,
+      "cost_credits": 18000,
+      "cost_materials": 40,
+      "cost_days": 6,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL",
+        "L1_MERIDIAN"
+      ],
+      "effects": {
+        "point_defense": 0.3
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "点防御炮组。"
+    },
+    {
+      "module_id": "defense_armor_belt",
+      "name": "装甲带",
+      "name_en": "Armor Belt",
+      "category": "defense",
+      "slots": 2,
+      "mass_t": 200.0,
+      "power_kw": 0.0,
+      "dv_penalty_kmps": 0.06,
+      "accel_penalty_g": 0.002,
+      "crew": 0,
+      "cost_credits": 28000,
+      "cost_materials": 110,
+      "cost_days": 9,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL"
+      ],
+      "effects": {
+        "armor": 0.18
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "舷侧装甲带。"
+    },
+    {
+      "module_id": "defense_signature_damper",
+      "name": "信号抑制器",
+      "name_en": "Signature Damper",
+      "category": "defense",
+      "slots": 1,
+      "mass_t": 30.0,
+      "power_kw": 20.0,
+      "dv_penalty_kmps": 0.01,
+      "accel_penalty_g": 0.0,
+      "crew": 0,
+      "cost_credits": 12000,
+      "cost_materials": 25,
+      "cost_days": 4,
+      "availability": "available",
+      "location_tags": [
+        "L1_MERIDIAN"
+      ],
+      "effects": {
+        "signature": -0.15
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "降低特征。"
+    },
+    {
+      "module_id": "defense_countermeasure",
+      "name": "综合对抗套件",
+      "name_en": "Countermeasure Suite",
+      "category": "defense",
+      "slots": 1,
+      "mass_t": 25.0,
+      "power_kw": 20.0,
+      "dv_penalty_kmps": 0.01,
+      "accel_penalty_g": 0.0,
+      "crew": 1,
+      "cost_credits": 14000,
+      "cost_materials": 30,
+      "cost_days": 5,
+      "availability": "available",
+      "location_tags": [
+        "L1_MERIDIAN",
+        "L2_KARMAN"
+      ],
+      "effects": {
+        "decoy": 0.15,
+        "ew_jam": 0.1
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "诱饵/干扰综合。"
+    },
+    {
+      "module_id": "utility_reactor",
+      "name": "反应堆升级",
+      "name_en": "Reactor Upgrade",
+      "category": "utility",
+      "slots": 1,
+      "mass_t": 120.0,
+      "power_kw": -150.0,
+      "dv_penalty_kmps": 0.02,
+      "accel_penalty_g": 0.001,
+      "crew": 2,
+      "cost_credits": 40000,
+      "cost_materials": 100,
+      "cost_days": 10,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL",
+        "EARTH"
+      ],
+      "effects": {
+        "power_generation": 150.0
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "额外 150 kW 发电。"
+    },
+    {
+      "module_id": "utility_radiator",
+      "name": "散热器升级",
+      "name_en": "Radiator Upgrade",
+      "category": "utility",
+      "slots": 1,
+      "mass_t": 70.0,
+      "power_kw": 30.0,
+      "dv_penalty_kmps": 0.01,
+      "accel_penalty_g": 0.0,
+      "crew": 0,
+      "cost_credits": 12000,
+      "cost_materials": 30,
+      "cost_days": 5,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL"
+      ],
+      "effects": {
+        "heat_dissipation": 0.2
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "增加散热能力（净耗 30 kW）。"
+    },
+    {
+      "module_id": "utility_fuel_tank",
+      "name": "辅助燃料舱",
+      "name_en": "Aux Fuel Tank",
+      "category": "utility",
+      "slots": 1,
+      "mass_t": 100.0,
+      "power_kw": 0.0,
+      "dv_penalty_kmps": 0.0,
+      "accel_penalty_g": 0.0,
+      "crew": 0,
+      "cost_credits": 9000,
+      "cost_materials": 25,
+      "cost_days": 4,
+      "availability": "available",
+      "location_tags": [
+        "*"
+      ],
+      "effects": {
+        "dv_bonus": 0.35
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "增加 Δv 储备。"
+    },
+    {
+      "module_id": "utility_cargo",
+      "name": "货舱模块",
+      "name_en": "Cargo Module",
+      "category": "utility",
+      "slots": 2,
+      "mass_t": 150.0,
+      "power_kw": 0.0,
+      "dv_penalty_kmps": 0.02,
+      "accel_penalty_g": 0.001,
+      "crew": 0,
+      "cost_credits": 10000,
+      "cost_materials": 30,
+      "cost_days": 5,
+      "availability": "available",
+      "location_tags": [
+        "*"
+      ],
+      "effects": {
+        "cargo_t": 80.0
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "任务货舱。"
+    },
+    {
+      "module_id": "utility_repair_drone",
+      "name": "维修无人机库",
+      "name_en": "Repair Drone Bay",
+      "category": "utility",
+      "slots": 1,
+      "mass_t": 60.0,
+      "power_kw": 40.0,
+      "dv_penalty_kmps": 0.01,
+      "accel_penalty_g": 0.0,
+      "crew": 2,
+      "cost_credits": 16000,
+      "cost_materials": 35,
+      "cost_days": 6,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL"
+      ],
+      "effects": {
+        "repair_rate": 0.2
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "维修无人机。"
+    },
+    {
+      "module_id": "utility_command",
+      "name": "指挥/通信套件",
+      "name_en": "Command Comms Suite",
+      "category": "utility",
+      "slots": 2,
+      "mass_t": 80.0,
+      "power_kw": 60.0,
+      "dv_penalty_kmps": 0.02,
+      "accel_penalty_g": 0.001,
+      "crew": 4,
+      "cost_credits": 32000,
+      "cost_materials": 80,
+      "cost_days": 9,
+      "availability": "available",
+      "location_tags": [
+        "L1_MERIDIAN",
+        "EARTH"
+      ],
+      "effects": {
+        "command": 0.2,
+        "comms": 0.15
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "指挥通信。"
+    },
+    {
+      "module_id": "utility_stealth",
+      "name": "隐身涂层",
+      "name_en": "Stealth Coating",
+      "category": "utility",
+      "slots": 1,
+      "mass_t": 30.0,
+      "power_kw": 20.0,
+      "dv_penalty_kmps": 0.01,
+      "accel_penalty_g": 0.0,
+      "crew": 0,
+      "cost_credits": 22000,
+      "cost_materials": 50,
+      "cost_days": 7,
+      "availability": "available",
+      "location_tags": [
+        "L1_MERIDIAN"
+      ],
+      "effects": {
+        "signature": -0.2
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "雷达/红外抑制涂层。"
+    },
+    {
+      "module_id": "dock_repair_module",
+      "name": "维修坞模块",
+      "name_en": "Repair Dock Module",
+      "category": "dock",
+      "slots": 2,
+      "mass_t": 300.0,
+      "power_kw": 150.0,
+      "dv_penalty_kmps": 0.03,
+      "accel_penalty_g": 0.002,
+      "crew": 8,
+      "cost_credits": 55000,
+      "cost_materials": 180,
+      "cost_days": 15,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL",
+        "L1_MERIDIAN"
+      ],
+      "effects": {
+        "dock_bays": 1,
+        "repair_rate": 0.35
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "增设维修坞。"
+    },
+    {
+      "module_id": "dock_machine_shop",
+      "name": "机加工车间模块",
+      "name_en": "Machine Shop",
+      "category": "dock",
+      "slots": 1,
+      "mass_t": 120.0,
+      "power_kw": 80.0,
+      "dv_penalty_kmps": 0.01,
+      "accel_penalty_g": 0.001,
+      "crew": 4,
+      "cost_credits": 28000,
+      "cost_materials": 90,
+      "cost_days": 8,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL"
+      ],
+      "effects": {
+        "fabrication": 0.25
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "舰上机加工。"
+    },
+    {
+      "module_id": "dock_hospital",
+      "name": "医院舱模块",
+      "name_en": "Hospital Bay",
+      "category": "dock",
+      "slots": 1,
+      "mass_t": 90.0,
+      "power_kw": 50.0,
+      "dv_penalty_kmps": 0.01,
+      "accel_penalty_g": 0.0,
+      "crew": 6,
+      "cost_credits": 24000,
+      "cost_materials": 70,
+      "cost_days": 7,
+      "availability": "available",
+      "location_tags": [
+        "L4_ANVIL",
+        "EARTH"
+      ],
+      "effects": {
+        "medical": 0.3
+      },
+      "conflicts": [],
+      "requires": [],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "医疗舱。"
+    },
+    {
+      "module_id": "dock_command_bridge",
+      "name": "指挥舰桥模块",
+      "name_en": "Command Bridge",
+      "category": "dock",
+      "slots": 2,
+      "mass_t": 140.0,
+      "power_kw": 70.0,
+      "dv_penalty_kmps": 0.02,
+      "accel_penalty_g": 0.001,
+      "crew": 8,
+      "cost_credits": 42000,
+      "cost_materials": 120,
+      "cost_days": 12,
+      "availability": "available",
+      "location_tags": [
+        "L1_MERIDIAN",
+        "EARTH"
+      ],
+      "effects": {
+        "command": 0.3,
+        "comms": 0.1
+      },
+      "conflicts": [],
+      "requires": [
+        "utility_command"
+      ],
+      "proposal": true,
+      "source": "docs/04 §6/§7 + docs/02 + docs/03",
+      "note": "需要指挥/通信套件。"
+    }
+  ],
+  "notes": [
+    "所有模块/成本/效果为提案；缺失官方定案处保持 proposal；地点可用性由 location_tags 约束。"
+  ]
+}

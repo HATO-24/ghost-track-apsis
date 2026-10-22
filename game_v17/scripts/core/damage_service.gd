@@ -12,11 +12,13 @@ extends RefCounted
 # ═══════════════════════════════════════════════════════════════════
 
 const DamageModel := preload("res://framework/core/damage_model.gd")
+const DamageProfileService := preload("res://scripts/core/damage_profile_service.gd")
 
 const SCHEMA := "v17.damage_service.v1"
 const SAVE_SCHEMA := "v17.damage_service_save.v1"
 const VERSION := "1.0.0"
 const DEFAULT_CONTENT := "res://framework/content/damage_l1.json"
+const DEFAULT_PROFILE_PATH := "res://framework/content/damage_profiles.json"
 const DAMAGE_EVENT_SCHEMA := "combat_damage_event.v1"
 const MAX_EVENTS := 400
 const SECTION_IDS := ["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"]
@@ -46,6 +48,9 @@ var contract_errors: Array[String] = []
 
 var content: Dictionary = {}
 var content_path := DEFAULT_CONTENT
+var profile_service = null
+var profiles_enabled := false
+var profile_path := DEFAULT_PROFILE_PATH
 var ships: Dictionary = {}          # ship_id -> V2DamageModel
 var ship_ids: Array = []
 var default_ship := ""
@@ -86,15 +91,46 @@ func setup(cfg := {}) -> bool:
 	if not bool(v.get("ok", false)):
 		errors.append_array(v.get("errors", []))
 		return false
+	profiles_enabled = bool(c.get("profiles_enabled", true))
+	profile_path = String(c.get("profile_path", DEFAULT_PROFILE_PATH))
+	profile_service = null
+	if profiles_enabled:
+		var pcfg: Dictionary = {"content_path": profile_path}
+		if c.get("profile_content") is Dictionary:
+			pcfg["content"] = c.get("profile_content")
+		if c.has("catalog_enabled"):
+			pcfg["catalog_enabled"] = bool(c.get("catalog_enabled"))
+		profile_service = DamageProfileService.new(pcfg)
+		if not bool(profile_service.ready):
+			warnings.append("damage profiles 未启用：" + str(profile_service.errors))
+			profile_service = null
 	var wanted: Array = []
+	var wanted_class: Dictionary = {}
 	if c.get("ships") is Array and not (c.get("ships") as Array).is_empty():
 		for raw in (c.get("ships") as Array):
-			wanted.append(String(raw))
+			if raw is Dictionary:
+				var sid0 := String((raw as Dictionary).get("id", (raw as Dictionary).get("ship_id", "")))
+				if sid0 != "":
+					wanted.append(sid0)
+					wanted_class[sid0] = String((raw as Dictionary).get("class_id", ""))
+			else:
+				wanted.append(String(raw))
 	else:
 		wanted = DamageModel.list_ships(content)
 	for sid in wanted:
 		var m = DamageModel.new()
-		if not m.setup(content, sid):
+		var ok_model := false
+		if (content.get("ships", {}) as Dictionary).has(sid):
+			# 旧 damage_l1.ships 显式档案优先（旧行为不变）
+			ok_model = m.setup(content, sid)
+		elif profile_service != null and bool(profile_service.ready):
+			var cid_hint := String(wanted_class.get(sid, ""))
+			var prof: Dictionary = profile_service.profile_for(cid_hint if cid_hint != "" else sid)
+			if not prof.is_empty() and (not bool(prof.get("fallback", false)) or bool(c.get("allow_profile_fallback", false))):
+				ok_model = m.setup(content, sid, prof)
+			else:
+				warnings.append("舰船 %s 无 class profile（或回退被禁用）" % sid)
+		if not ok_model:
 			errors.append("舰船模型初始化失败：%s（%s）" % [sid, str(m.errors)])
 			continue
 		m.t = t
@@ -148,6 +184,64 @@ func ship_ids_list() -> Array:
 func model(ship_id: String):
 	return ships.get(ship_id, null)
 
+## 按 class/entity 档案添加舰船（不覆盖 damage_l1.ships 显式档案）。
+func add_ship(ship_id: String, class_or_entity: String, opts := {}) -> Dictionary:
+	if not ready:
+		return _fail("not_ready", "add_ship: DamageService 未 ready")
+	if ship_id == "":
+		return _fail("empty_ship", "add_ship: ship_id 为空")
+	if ships.has(ship_id):
+		return {"ok": true, "reason": "", "existing": true, "ship_id": ship_id,
+			"class_id": (ships[ship_id] as Object).class_id}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var m = DamageModel.new()
+	var ok_model := false
+	var cls := ""
+	if (content.get("ships", {}) as Dictionary).has(ship_id):
+		ok_model = m.setup(content, ship_id)
+		cls = String(m.class_id)
+	elif profile_service != null and bool(profile_service.ready):
+		var prof: Dictionary = profile_service.profile_for(class_or_entity if class_or_entity != "" else ship_id)
+		cls = String(prof.get("class_id", ""))
+		if not prof.is_empty() and (not bool(prof.get("fallback", false)) or bool(o.get("allow_fallback", false))):
+			ok_model = m.setup(content, ship_id, prof)
+		else:
+			return _fail("unknown_profile", "add_ship: 无 class profile：" + class_or_entity)
+	else:
+		return _fail("profiles_disabled", "add_ship: profiles 未启用")
+	if not ok_model:
+		return _fail("model_failed", "add_ship: 模型初始化失败：" + str(m.errors))
+	m.t = t
+	ships[ship_id] = m
+	ship_ids.append(ship_id)
+	ship_ids.sort()
+	if ship_ids.size() == 1 or default_ship == "":
+		default_ship = ship_id
+	_emit("damage.ship_added", {"ship_id": ship_id, "class_id": cls,
+		"profile_source": String(m.profile_source)})
+	return {"ok": true, "reason": "", "ship_id": ship_id, "class_id": cls,
+		"profile_source": String(m.profile_source), "ship": ship_vm(ship_id)}
+
+
+func ensure_ship(ship_id: String, class_or_entity: String, opts := {}) -> Dictionary:
+	return add_ship(ship_id, class_or_entity, opts)
+
+
+func profile_for(ship_id: String) -> Dictionary:
+	if ships.has(ship_id):
+		return {"ok": true, "class_id": String((ships[ship_id] as Object).class_id),
+			"profile_source": String((ships[ship_id] as Object).profile_source)}
+	if profile_service != null:
+		return profile_service.profile_for(ship_id)
+	return {}
+
+
+func ship_class_id(ship_id: String) -> String:
+	if ships.has(ship_id):
+		return String((ships[ship_id] as Object).class_id)
+	if profile_service != null:
+		return String(profile_service.profile_for(ship_id).get("class_id", ""))
+	return ""
 func is_operational(ship_id: String) -> bool:
 	var m = ships.get(ship_id, null)
 	return m != null and bool(m.is_operational())
@@ -191,7 +285,14 @@ func apply_combat_damage(event: Dictionary, opts := {}) -> Dictionary:
 		else:
 			ship_id = String(o.get("ship_id", default_ship))
 	if not ships.has(ship_id):
-		return _fail("unknown_ship", "precondition: 未知舰船：" + ship_id)
+		var hinted_class := String(event.get("class_id", event.get("ship_class", o.get("class_id", ""))))
+		if hinted_class != "" and profile_service != null:
+			var ar_add: Dictionary = add_ship(ship_id, hinted_class,
+				{"allow_fallback": bool(o.get("allow_profile_fallback", false))})
+			if not bool(ar_add.get("ok", false)):
+				return _fail("unknown_ship", "precondition: 未知舰船：" + ship_id)
+		else:
+			return _fail("unknown_ship", "precondition: 未知舰船：" + ship_id)
 	var m = ships[ship_id]
 	var section := String(event.get("section", event.get("suggested_section", "")))
 	if section == "":
@@ -324,6 +425,10 @@ func vm(ship_id := "") -> Dictionary:
 		"content_id": String(content.get("id", "")),
 		"ships": rows, "applied_damage": applied_damage.duplicate(true),
 		"events": out_events, "summary": summary(),
+		"profiles": {"enabled": profiles_enabled,
+			"service_ready": profile_service != null and bool(profile_service.ready),
+			"classes": profile_service.summary().get("classes", 0) if profile_service != null else 0,
+			"default_class_id": profile_service.summary().get("default_class_id", "") if profile_service != null else ""},
 		"writes": {"world": false, "v15": false, "ui": false, "physics": false}}
 
 func summary() -> Dictionary:
@@ -347,6 +452,8 @@ func summary() -> Dictionary:
 		total_repairing += int(sm.get("repairing", 0))
 		total_queued += int(sm.get("queued", 0))
 	return {"schema": SCHEMA, "t": t, "ships": ship_ids.size(),
+		"profiles_enabled": profiles_enabled,
+		"profile_classes": profile_service.summary().get("classes", 0) if profile_service != null else 0,
 		"operational": operational, "on_fire": total_fire,
 		"decompressed": total_decompressed, "unpowered": total_unpowered,
 		"repairing": total_repairing, "queued": total_queued,
@@ -388,8 +495,13 @@ func save_state() -> String:
 			"last_effects": JSON.parse_string(JSON.stringify(m.last_effects)),
 			"team_seq": int(m._team_seq), "hit_seq": int(m._hit_seq),
 		}
+	var ship_classes: Dictionary = {}
+	for sid3 in ship_ids:
+		ship_classes[sid3] = String((ships[sid3] as Object).class_id)
 	return JSON.stringify({"schema": SAVE_SCHEMA, "version": VERSION,
-		"content_path": content_path, "t": t, "event_seq": _event_seq,
+		"content_path": content_path, "profile_path": profile_path,
+		"profiles_enabled": profiles_enabled, "ship_classes": ship_classes,
+		"t": t, "event_seq": _event_seq,
 		"ship_ids": ship_ids.duplicate(), "default_ship": default_ship,
 		"ships": ship_states,
 		"applied_damage": JSON.parse_string(JSON.stringify(applied_damage)),
@@ -411,6 +523,16 @@ func load_state(json_text: String) -> Dictionary:
 	var st_ships = d.get("ships", null)
 	if not (st_ships is Dictionary):
 		return _fail("invalid_payload", "load: ships 快照缺失")
+	# 兼容 class profile 新增舰：按保存的 ship_classes 重建
+	var saved_classes: Dictionary = d.get("ship_classes", {}) if d.get("ship_classes") is Dictionary else {}
+	for sid_new in (st_ships as Dictionary).keys():
+		if ships.has(String(sid_new)):
+			continue
+		var cls_saved := String(saved_classes.get(String(sid_new), ""))
+		if cls_saved != "" and profile_service != null:
+			var ar2: Dictionary = add_ship(String(sid_new), cls_saved, {"allow_fallback": true})
+			if not bool(ar2.get("ok", false)):
+				return _fail("unknown_ship", "load: 无法重建舰船档案：" + String(sid_new))
 	# 校验
 	for sid in st_ships.keys():
 		if not ships.has(String(sid)):
