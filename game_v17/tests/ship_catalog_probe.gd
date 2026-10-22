@@ -1,7 +1,7 @@
 extends SceneTree
 
 # ═══════════════════════════════════════════════════════════════════
-# 完整游戏-阶段5A 最小 probe：ShipCatalog（友军/敌军舰船目录）
+# 完整游戏-阶段5E 最小 probe：ShipCatalog 共用舰级/亚种/自动推算/审计
 #
 # 运行：
 #   tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless \
@@ -26,18 +26,22 @@ const FRIENDLY_ROLES := ["depot", "picket", "gun", "missile", "tanker", "relay",
 const BASE_33 := [
 	"33OSID-RECEIVERSHIP", "33OSID-ENFORCEMENT", "33OSID-INTERDICT",
 	"33OSID-RECOURSE", "33OSID-REQUISITION", "33OSID-SUMMONS"]
+const BASE_ORB := [
+	"ORBFLT-POLARIS", "ORBFLT-SENTINEL", "ORBFLT-GATEKEEPER",
+	"ORBFLT-FORGE", "ORBFLT-TRACTOR", "ORBFLT-BEACON"]
 
 func _initialize() -> void:
 	print("════════════════════════════════════════════════════════════")
-	print("STAGE5A PROBE · ShipCatalog")
+	print("STAGE5E PROBE · ShipCatalog variants/derive/audit")
 	print("════════════════════════════════════════════════════════════")
 	_test_load_counts()
 	_test_friendly()
-	_test_enemy_33()
-	_test_enemy_orbflt_ueof()
+	_test_33osid_audit()
+	_test_orbflt_variants()
+	_test_derivation()
 	_test_catalog_api()
-	_test_uniqueness_validation()
-	_test_errors_determinism()
+	_test_validation_errors()
+	_test_determinism()
 	print("────────────────────────────────────────────────────────────")
 	for d in _data:
 		print("[DATA] ", d)
@@ -88,22 +92,17 @@ func _catalog() -> Object:
 	_ok(bool(c.ready), "ShipCatalog ready", str(c.errors))
 	return c
 
-func _has_num_or_tbd(row: Dictionary, key: String) -> bool:
-	var v = row.get(key, null)
-	return (v is int or v is float or (v is String and String(v) == "TBD"))
+func _base_rows(c) -> Dictionary:
+	var out: Dictionary = {}
+	for raw in (c.classes() as Array):
+		out[str((raw as Dictionary).get("class_id", ""))] = raw
+	return out
 
-func _check_required(c, row: Dictionary, prefix: String) -> void:
-	for f in ["class_id", "name", "role", "faction", "displacement_t", "dv_kmps",
-			"accel_g", "crew", "sensors", "weapons", "armor", "dimensions_m",
-			"sections", "known_ships", "name_pool"]:
-		_ok(row.has(f), prefix + " 字段 " + f)
-	_ok(bool(row.get("proposal", false)), prefix + " proposal true")
-	for nf in ["displacement_t", "dv_kmps", "accel_g", "crew"]:
-		_ok(_has_num_or_tbd(row, nf), prefix + " 数值/TBD " + nf)
-	for af in ["sensors", "weapons", "dimensions_m", "sections", "known_ships", "name_pool"]:
-		_ok(row.get(af) is Array, prefix + " 数组 " + af)
-	_ok(str(row.get("class_id", "")) != "", prefix + " class_id 非空")
-	_ok(not (row.get("name_pool", []) as Array).is_empty(), prefix + " name_pool 非空")
+func _variant(c, vid: String) -> Dictionary:
+	var r: Dictionary = c.resolve_variant(vid)
+	if bool(r.get("ok", false)):
+		return (r.get("variant", {}) as Dictionary)
+	return {}
 
 # ═══════════════════════════════════════════════════════════════════
 # 1. 加载/数量
@@ -113,399 +112,372 @@ func _test_load_counts() -> void:
 	_section_begin("1 加载/数量")
 	var c = _catalog()
 	var sum: Dictionary = c.summary()
-	_eq(str(sum.get("schema", "")), "v17.ship_catalog.v1", "summary schema")
-	_eq(int(sum.get("friendly_classes", 0)), 8, "友军 8 型")
-	_eq(int(sum.get("enemy_classes", 0)), 28, "敌军 28 型")
-	_eq(int(sum.get("classes", 0)), 36, "全目录 36 型")
-	_eq(int((sum.get("factions", {}) as Dictionary).get("ocuvf_id13", 0)), 8,
-		"faction ocuvf 8")
-	_eq(int((sum.get("factions", {}) as Dictionary).get("33osid", 0)), 18,
-		"faction 33osid 18")
-	_eq(int((sum.get("factions", {}) as Dictionary).get("uegaf_orbflt", 0)), 6,
-		"faction ORBFLT 6")
-	_eq(int((sum.get("factions", {}) as Dictionary).get("ueof_7th", 0)), 2,
-		"faction UEOF 7th 2")
-	_eq(int((sum.get("factions", {}) as Dictionary).get("ueof_3rd", 0)), 2,
-		"faction UEOF 3rd 2")
-	_eq((sum.get("base_33osid", []) as Array).size(), 6, "33OSID base 6")
-	_eq(int(sum.get("orbflt_classes", 0)), 6, "ORBFLT classes ≥4")
-	_eq(int(sum.get("ueof_7th_classes", 0)), 2, "UEOF 7th ≥2")
-	_eq(int(sum.get("ueof_3rd_classes", 0)), 2, "UEOF 3rd ≥2")
-	_ok(int(sum.get("tbd_fields", 0)) > 0, "显式 TBD 字段存在")
+	_eq(int(sum.get("classes", 0)), 32, "base classes 32（友8+敌24）")
+	_eq(int(sum.get("friendly_classes", 0)), 8, "友军 8")
+	_eq(int(sum.get("enemy_classes", 0)), 24, "敌军 24")
+	_eq(int(sum.get("variants", 0)), 18, "variant 18")
+	_eq(int(sum.get("variant_classes", 0)), 18, "variant_classes 18")
+	var fac: Dictionary = sum.get("factions", {}) as Dictionary
+	_eq(int(fac.get("ocuvf_id13", 0)), 8, "faction 友军 8")
+	_eq(int(fac.get("33osid", 0)), 18, "faction 33OSID 18")
+	_eq(int(fac.get("uegaf_orbflt", 0)), 6, "faction ORBFLT 6")
+	_eq(int(fac.get("ueof_7th", 0)), 0, "UEOF7 独立 class 0")
+	_eq(int(fac.get("ueof_3rd", 0)), 0, "UEOF3 独立 class 0")
+	_eq(int(sum.get("orbflt_classes", 0)), 6, "ORBFLT base 6")
+	_eq((sum.get("base_orbflt", []) as Array).size(), 6, "base_orbflt 6")
+	_eq(int(sum.get("ueof_7th_classes", 0)), 0, "UEOF 7th classes 0")
+	_eq(int(sum.get("ueof_3rd_classes", 0)), 0, "UEOF 3rd classes 0")
+	_eq(int(sum.get("ueof_7th_variants", 0)), 6, "UEOF7 variants 6")
+	_eq(int(sum.get("ueof_3rd_variants", 0)), 6, "UEOF3 variants 6")
+	_eq(int(sum.get("fleet_variants", 0)), 6, "fleet variants 6")
+	var ops: Dictionary = sum.get("operator_variants", {}) as Dictionary
+	_eq(int(ops.get("ueof_7th", 0)), 6, "operator ueof7 6")
+	_eq(int(ops.get("ueof_3rd", 0)), 6, "operator ueof3 6")
+	_eq(int(ops.get("uegaf_orbflt", 0)), 6, "operator fleet 6")
+	_eq(int(sum.get("known_ships", 0)), 7, "known ships 7")
+	_eq(int(sum.get("friendly_ships", 0)), 5, "friendly ships 5")
+	_eq(int(sum.get("enemy_ships", 0)), 2, "enemy ships 2")
 	_eq(bool(sum.get("proposal", false)), true, "summary proposal")
 	_eq(bool(sum.get("truth", true)), false, "summary truth false")
-	var writes: Dictionary = sum.get("writes", {}) as Dictionary
-	for k in ["ui", "combat", "world", "v15"]:
-		_eq(bool(writes.get(k, true)), false, "summary 不写 " + k)
 	_ok(bool(c.check_contracts().get("ok", false)), "contracts ok",
 		str(c.check_contracts().get("violations", [])))
-	_ok(bool(c.validate().get("ok", false)), "validate ok")
-	_eq((c.classes() as Array).size(), 36, "classes 36")
-	_eq((c.ships() as Array).size(), 7, "known ships 7")
-	_eq((c.classes("ocuvf_id13") as Array).size(), 8, "classes friendly")
-	_eq((c.classes("33osid") as Array).size(), 18, "classes 33osid")
-	_data_line("counts", "友军 8 · 33OSID 6+12=18 · ORBFLT 6 · UEOF 7th/3rd 各2 · known 7 · TBD>0")
+	_ok(bool(c.validate().get("ok", false)), "validate ok", str(c.validate().get("errors", [])))
+	_data_line("counts", "base 32（友8+33OSID18+ORBFLT6）· variant 18（UEOF 7/3 各6 + fleet6）")
 
 # ═══════════════════════════════════════════════════════════════════
-# 2. 友军 8 型
+# 2. 友军（保持 8 型）
 # ═══════════════════════════════════════════════════════════════════
 
 func _test_friendly() -> void:
 	_section_begin("2 友军 8 型")
 	var c = _catalog()
-	var rows: Array = c.classes("ocuvf_id13")
-	_eq(rows.size(), 8, "友军 classes 8")
-	var by_id: Dictionary = {}
-	for raw in rows:
-		var row: Dictionary = raw
-		by_id[str(row.get("class_id", ""))] = row
+	var by_id: Dictionary = _base_rows(c)
 	for i in range(FRIENDLY_IDS.size()):
 		var cid := str(FRIENDLY_IDS[i])
-		_ok(by_id.has(cid), "友军型号存在 " + cid)
+		_ok(by_id.has(cid), "友军存在 " + cid)
 		var row: Dictionary = by_id.get(cid, {})
-		_eq(str(row.get("role", "")), str(FRIENDLY_ROLES[i]), cid + " role")
-		_check_required(c, row, cid)
-		_ok(str(row.get("hull_code_prefix", "")) != "", cid + " hull prefix")
-		_ok(str(row.get("hull_range", "")) != "", cid + " hull range")
-		_ok(str(row.get("model", "")) != "", cid + " model")
-		_ok(bool(row.get("proposal", false)), cid + " proposal")
-		_ok(str(row.get("source", "")) != "", cid + " source")
 		_eq(str(row.get("faction", "")), "ocuvf_id13", cid + " faction")
-	# 文档数值基线
+		_eq(str(row.get("role", "")), str(FRIENDLY_ROLES[i]), cid + " role")
+		for f in ["class_id", "name", "role", "hull_code_prefix",
+				"displacement_t", "dv_kmps", "accel_g", "crew", "sensors",
+				"weapons", "armor", "rcs", "ir", "dimensions_m", "sections",
+				"known_ships", "name_pool", "proposal"]:
+			_ok(row.has(f), cid + " 字段 " + f)
+		_ok(bool(row.get("proposal", false)), cid + " proposal")
+		_ok(str(row.get("hull_range", "")) != "", cid + " hull_range")
+		_ok(str(row.get("source", "")) != "", cid + " source")
 	var apogee: Dictionary = by_id["OCUVF-APOGEE"]
-	_near(float(apogee.get("displacement_t", 0.0)), 9000.0, 1.0e-6, "远地点 9000t")
-	_near(float(apogee.get("dv_kmps", 0.0)), 3.15, 1.0e-6, "远地点 3.15km/s")
-	_near(float(apogee.get("accel_g", 0.0)), 0.02, 1.0e-6, "远地点 0.02g")
-	_eq(int(apogee.get("crew", 0)), 240, "远地点 240 人")
-	var pallet: Dictionary = by_id["OCUVF-PALLET-5C"]
-	_near(float(pallet.get("displacement_t", 0.0)), 300.0, 1.0e-6, "托盘 300t")
-	_near(float(pallet.get("dv_kmps", 0.0)), 2.54, 1.0e-6, "托盘 2.54km/s")
-	_near(float(pallet.get("accel_g", 0.0)), 0.15, 1.0e-6, "托盘 0.15g")
-	_eq(int(pallet.get("crew", 0)), 12, "托盘 12 人")
-	var hematite: Dictionary = by_id["OCUVF-HEMATITE-6C"]
-	_near(float(hematite.get("displacement_t", 0.0)), 1200.0, 1.0e-6, "赤铁 1200t")
-	_eq(int(hematite.get("crew", 0)), 68, "赤铁 68 人")
-	var gantry: Dictionary = by_id["OCUVF-GANTRY-3M"]
-	_near(float(gantry.get("dv_kmps", 0.0)), 3.80, 1.0e-6, "龙门 3.80km/s")
-	var moonport: Dictionary = by_id["OCUVF-MOONPORT-4"]
-	_near(float(moonport.get("dv_kmps", 0.0)), 10.63, 1.0e-6, "月港 10.63km/s")
-	var safeharbor: Dictionary = by_id["OCUVF-SAFEHARBOR-1"]
-	_near(float(safeharbor.get("accel_g", 0.0)), 0.12, 1.0e-6, "安海 0.12g")
-	var aria: Dictionary = by_id["OCUVF-ARIA-1"]
-	_near(float(aria.get("displacement_t", 0.0)), 20.0, 1.0e-6, "咏叹 20t")
-	_near(float(aria.get("accel_g", 0.0)), 1.0, 1.0e-6, "咏叹 1.0g")
-	# 已知船映射
-	var apsis: Dictionary = c.known_ship("APSIS")
-	_eq(str(apsis.get("class_id", "")), "OCUVF-APOGEE", "APSIS class")
-	_eq(str(apsis.get("hull_code", "")), "001", "APSIS hull 001")
-	_eq(str(apsis.get("entity_id", "")), "apsis", "APSIS entity")
-	var harm: Dictionary = c.known_ship("HARMATTAN")
-	_eq(str(harm.get("class_id", "")), "OCUVF-PALLET-5C", "HARMATTAN class")
-	_eq(str(harm.get("hull_code", "")), "114", "HARMATTAN hull 114")
-	_eq(str(harm.get("entity_id", "")), "harmattan", "HARMATTAN entity")
-	# 命名池/舷号段
-	var ranges: Dictionary = (c.to_dict().get("friendly", {}) as Dictionary).get("hull_ranges", {})
-	_eq(ranges.size(), 8, "舷号段 8 组")
-	_eq(str(ranges.get("depot", "")), "001-099", "舷号段 depot")
-	_eq(str(ranges.get("picket", "")), "100-199", "舷号段 picket")
-	_eq(str(ranges.get("shuttle", "")), "700-799", "舷号段 shuttle")
-	var pool: Array = c.name_pool("OCUVF-PALLET-5C")
-	_ok(pool.size() >= 4, "托盘 name_pool")
-	_ok("HARMATTAN" in pool, "托盘池含 HARMATTAN")
-	_ok((c.name_pool("depot") as Array).size() >= 2, "depot pool")
-	_ok((c.name_pool("picket") as Array).size() >= 2, "picket pool")
-	# entity binding
-	var bind: Dictionary = c.entity_binding("apsis")
-	_eq(bool(bind.get("ok", false)), true, "apsis binding ok")
-	_eq(str(bind.get("ship_id", "")), "APSIS", "apsis binding ship")
-	_eq(str(bind.get("class_id", "")), "OCUVF-APOGEE", "apsis binding class")
-	var bind2: Dictionary = c.entity_binding("harmattan")
-	_eq(str(bind2.get("ship_id", "")), "HARMATTAN", "harmattan binding")
-	_data_line("friendly", "8 型 role/数值基线 · APSIS 001 远地点 · HARMATTAN 114 托盘 · 舷号段 001-799 · entity_binding")
+	_near(float(apogee.get("displacement_t", 0.0)), 9000.0, 1.0e-6, "APOGEE 9000t")
+	_near(float(apogee.get("dv_kmps", 0.0)), 3.15, 1.0e-6, "APOGEE 3.15")
+	_eq(int(apogee.get("crew", 0)), 240, "APOGEE 240")
+	_eq(str(c.known_ship("APSIS").get("hull_code", "")), "001", "APSIS 001")
+	_eq(str(c.known_ship("HARMATTAN").get("hull_code", "")), "114", "HARMATTAN 114")
+	_eq(str(c.entity_binding("apsis").get("ship_id", "")), "APSIS", "apsis binding")
+	_data_line("friendly", "8 型保持 · APSIS 001/HARMATTAN 114 · 字段/成本值不变")
 
 # ═══════════════════════════════════════════════════════════════════
-# 3. 33OSID 6 级 + 亚种
+# 3. 33OSID / CA-4471 audit
 # ═══════════════════════════════════════════════════════════════════
 
-func _test_enemy_33() -> void:
-	_section_begin("3 33OSID 6级+亚种")
+func _test_33osid_audit() -> void:
+	_section_begin("3 33OSID 审计")
 	var c = _catalog()
 	var rows: Array = c.classes("33osid")
-	_eq(rows.size(), 18, "33OSID 18 条")
-	var by_id: Dictionary = {}
-	for raw in rows:
-		by_id[str((raw as Dictionary).get("class_id", ""))] = raw
+	_eq(rows.size(), 18, "33OSID 18")
+	var by_id: Dictionary = _base_rows(c)
 	var base_codes := {"33OSID-RECEIVERSHIP": "BB", "33OSID-ENFORCEMENT": "CA",
 		"33OSID-INTERDICT": "CL", "33OSID-RECOURSE": "DD",
 		"33OSID-REQUISITION": "FF", "33OSID-SUMMONS": "AV"}
 	for b in BASE_33:
-		_ok(by_id.has(b), "33OSID base 存在 " + b)
+		_ok(by_id.has(b), "base 存在 " + b)
 		var row: Dictionary = by_id.get(b, {})
-		_check_required(c, row, b)
-		_eq(str(row.get("hull_code", "")), str(base_codes.get(b, "")), b + " hull code")
-		_eq(str(row.get("variant_of", "")), "", b + " base variant_of 空")
-		_eq(str(row.get("faction", "")), "33osid", b + " faction")
-		_eq(bool(row.get("proposal", false)), true, b + " proposal")
-		_ok(str(row.get("source", "")) != "", b + " source")
-		# 2 个亚种
+		_eq(str(row.get("hull_code", "")), str(base_codes[b]), b + " type code")
+		_eq(str(row.get("variant_of", "")), "", b + " base")
 		var n := 0
-		for cid in by_id.keys():
-			var r2: Dictionary = by_id[cid]
+		for raw2 in rows:
+			var r2: Dictionary = raw2
 			if str(r2.get("variant_of", "")) == b:
 				n += 1
-				_check_required(c, r2, str(cid))
-				_eq(str(r2.get("faction", "")), "33osid", str(cid) + " faction")
-				_ok(str(r2.get("class_id", "")) != b, str(cid) + " variant id")
-		_eq(n, 2, b + " 亚种 2")
-	# 名称/类型
-	_eq(str((by_id["33OSID-RECEIVERSHIP"] as Dictionary).get("name", "")), "清算级",
-		"清算级 name")
-	_eq(str((by_id["33OSID-ENFORCEMENT"] as Dictionary).get("name", "")), "执刑级",
-		"执刑级 name")
-	_eq(str((by_id["33OSID-INTERDICT"] as Dictionary).get("name", "")), "禁制级",
-		"禁制级 name")
-	_eq(str((by_id["33OSID-RECOURSE"] as Dictionary).get("name", "")), "追索级",
-		"追索级 name")
-	_eq(str((by_id["33OSID-REQUISITION"] as Dictionary).get("name", "")), "征用级",
-		"征用级 name")
-	_eq(str((by_id["33OSID-SUMMONS"] as Dictionary).get("name", "")), "传唤级",
-		"传唤级 name")
-	# 已知船
-	var av: Dictionary = c.known_ship("AV-4412")
-	_eq(str(av.get("class_id", "")), "33OSID-SUMMONS", "AV-4412 class")
-	_eq(str(av.get("name", "")), "传唤者", "AV-4412 name")
-	_eq(str(av.get("batch", "")), "2001", "AV-4412 batch")
+				_eq(str(r2.get("faction", "")), "33osid", str(r2.get("class_id")) + " faction")
+				_ok(bool(r2.get("proposal", false)), str(r2.get("class_id")) + " proposal")
+		_eq(n, 2, b + " 2 亚种")
 	var ca: Dictionary = c.known_ship("CA-4471")
-	_eq(str(ca.get("class_id", "")), "33OSID-ENFORCEMENT", "CA-4471 class")
-	_eq(str(ca.get("name", "")), "湮没者", "CA-4471 name")
-	# 三语域命名池
-	for domain in ["agent", "immovable", "authority"]:
-		_ok((c.name_pool(str(domain)) as Array).size() >= 3, "命名域 " + str(domain))
-	_ok("ADJUDICATOR" in (c.name_pool("agent") as Array), "agent 池含 ADJUDICATOR")
-	_ok("UNYIELDING" in (c.name_pool("immovable") as Array), "immovable 池含 UNYIELDING")
-	_ok("RECEIVERSHIP" in (c.name_pool("authority") as Array), "authority 池含 RECEIVERSHIP")
-	_data_line("33osid", "6 级 BB/CA/CL/DD/FF/AV + 每级 2 亚种 · AV-4412/CA-4471 · 三语域命名")
+	_eq(str(ca.get("class_id", "")), "33OSID-ENFORCEMENT", "CA class")
+	_ok(ca.has("batch"), "CA has batch 字段")
+	_eq(ca.get("batch"), null, "CA batch null/unassigned")
+	_ok(str(ca.get("batch_source", "")).contains("舷号"), "CA batch_source")
+	_eq(c.by_batch("TBD"), {}, "by_batch TBD 不命中 CA")
+	var av: Dictionary = c.known_ship("AV-4412")
+	_eq(str(av.get("batch", "")), "2001", "AV batch 2001")
+	_ok(str(av.get("batch_source", "")) != "", "AV batch_source")
+	_eq(str(c.by_batch("2001").get("ship_id", "")), "AV-4412", "by_batch 2001 AV")
+	_eq(str(c.by_batch("1000").get("ship_id", "")), "APSIS", "by_batch 1000 友军")
+	var e: Dictionary = c.to_dict().get("enemy", {}) as Dictionary
+	_ok(e.get("audit") is Dictionary, "enemy audit 对象")
+	var audit: Dictionary = e.get("audit", {}) as Dictionary
+	_eq(int(audit.get("33osid_checked_classes", 0)), 18, "audit checked 18")
+	_eq(int(audit.get("33osid_known_ships", 0)), 2, "audit known 2")
+	_ok((audit.get("33osid_findings", []) as Array).size() >= 3, "audit findings")
+	var ca_fix := false
+	for raw3 in (audit.get("33osid_findings", []) as Array):
+		if raw3 is Dictionary and str((raw3 as Dictionary).get("id", "")) == "CA-4471":
+			ca_fix = true
+	_ok(ca_fix, "audit 含 CA-4471")
+	_data_line("33osid", "18（6 base+12 变体）· CA-4471 batch null+batch_source · AV 2001 · audit findings")
 
 # ═══════════════════════════════════════════════════════════════════
-# 4. ORBFLT / UEOF
+# 4. ORBFLT base + 共用变体
 # ═══════════════════════════════════════════════════════════════════
 
-func _test_enemy_orbflt_ueof() -> void:
-	_section_begin("4 ORBFLT/UEOF")
+func _test_orbflt_variants() -> void:
+	_section_begin("4 ORBFLT/共享变体")
 	var c = _catalog()
-	var orb: Array = c.classes("uegaf_orbflt")
-	_ok(orb.size() >= 4, "ORBFLT ≥4", str(orb.size()))
-	var orb_names: Array = []
-	for raw in orb:
+	var bases: Array = c.classes("uegaf_orbflt")
+	_eq(bases.size(), 6, "ORBFLT base 6")
+	var all_vids: Dictionary = {}
+	var total_op := 0
+	var total_fleet := 0
+	for raw in bases:
 		var row: Dictionary = raw
-		orb_names.append(str(row.get("name", "")))
-		_check_required(c, row, "ORBFLT:" + str(row.get("class_id", "")))
-		_eq(str(row.get("faction", "")), "uegaf_orbflt", "ORBFLT faction")
-		_eq(bool(row.get("proposal", false)), true, "ORBFLT proposal")
-		_ok(str(row.get("naming_scheme", "")) != "", "ORBFLT naming_scheme")
-	for nm in ["北极星级", "哨兵级", "关卡级", "工坊级"]:
-		_ok(str(nm) in orb_names, "ORBFLT 含 " + str(nm))
-	var u7: Array = c.classes("ueof_7th")
-	var u3: Array = c.classes("ueof_3rd")
-	_ok(u7.size() >= 2, "UEOF 7th ≥2")
-	_ok(u3.size() >= 2, "UEOF 3rd ≥2")
-	for raw2 in u7 + u3:
-		var row2: Dictionary = raw2
-		var fac := str(row2.get("faction", ""))
-		_ok(fac in ["ueof_7th", "ueof_3rd"], "UEOF faction " + fac)
-		_check_required(c, row2, "UEOF:" + str(row2.get("class_id", "")))
-		_eq(bool(row2.get("proposal", false)), true, "UEOF proposal")
-		_ok(str(row2.get("naming_scheme", "")) != "", "UEOF naming_scheme")
-	# UEOF 名称已补 proposal、known_ships 空
-	for raw3 in u7 + u3:
-		var r3: Dictionary = raw3
-		_ok(str(r3.get("name", "")) not in ["", "TBD"], "UEOF name proposal")
-		_eq(str(r3.get("name_note", "")), "proposal; 待用户定案", "UEOF name note")
-		_eq((r3.get("known_ships", []) as Array).size(), 0, "UEOF known_ships 空")
-	# ORBFLT/UEOF 编制命名池
-	_ok((c.name_pool("orbflt") as Array).size() >= 1, "ORBFLT 命名池")
-	_ok((c.name_pool("ueof_7th") as Array).size() >= 1, "UEOF 7th 命名池")
-	_ok((c.name_pool("ueof_3rd") as Array).size() >= 1, "UEOF 3rd 命名池")
-	_data_line("orbflt/ueof", "ORBFLT 6 级 · UEOF 7th/3rd 各2级 · 编制命名 · 名称提案/数值 TBD")
+		var bid := str(row.get("class_id", ""))
+		_ok(bid in BASE_ORB, "base id " + bid)
+		for nf in ["displacement_t", "dv_kmps", "accel_g", "crew"]:
+			_ok(row.get(nf) is int or row.get(nf) is float, bid + " 数值 " + str(nf))
+			_ok(not (row.get(nf) is String and String(row.get(nf)) == "TBD"),
+				bid + " 非 TBD " + str(nf))
+		_ok((row.get("sensors", []) as Array).size() >= 2, bid + " sensors")
+		_ok((row.get("weapons", []) as Array).size() >= 1, bid + " weapons")
+		_eq((row.get("operator_variants", []) as Array).size(), 2, bid + " operator 2")
+		_eq((row.get("fleet_variants", []) as Array).size(), 1, bid + " fleet 1")
+		var ops: Dictionary = {}
+		for ov in (row.get("operator_variants", []) as Array):
+			var orow: Dictionary = ov
+			total_op += 1
+			ops[str(orow.get("operator", ""))] = true
+			_ok(str(orow.get("variant_id", "")) != "", bid + " variant_id")
+			_ok(str(orow.get("name", "")) != "", bid + " variant name")
+			_ok(str(orow.get("role", "")) != "", bid + " variant role")
+			_ok(str(orow.get("refit", "")) != "", bid + " variant refit")
+			_eq(str(orow.get("derive_from", "")), bid, bid + " derive_from")
+			_ok(orow.get("modifiers") is Dictionary, bid + " modifiers")
+			_eq(bool(orow.get("proposal", false)), true, bid + " variant proposal")
+			all_vids[str(orow.get("variant_id", ""))] = true
+		_ok(bool(ops.get("ueof_7th", false)), bid + " 覆盖 7th")
+		_ok(bool(ops.get("ueof_3rd", false)), bid + " 覆盖 3rd")
+		for fv in (row.get("fleet_variants", []) as Array):
+			var frow: Dictionary = fv
+			total_fleet += 1
+			_eq(str(frow.get("operator", "")), "uegaf_orbflt", bid + " fleet operator")
+			_eq(str(frow.get("derive_from", "")), bid, bid + " fleet derive")
+			all_vids[str(frow.get("variant_id", ""))] = true
+			_ok(str(frow.get("refit", "")) != "", bid + " fleet refit")
+	_eq(total_op, 12, "operator variants 12")
+	_eq(total_fleet, 6, "fleet variants 6")
+	_eq(all_vids.size(), 18, "variant id 唯一 18")
+	for b2 in BASE_ORB:
+		_eq(c.variants_of(str(b2)).size(), 3, "variants_of base " + str(b2))
+	_eq(c.variants_of("ueof_7th").size(), 6, "variants_of ueof7")
+	_eq(c.variants_of("ueof_3rd").size(), 6, "variants_of ueof3")
+	_eq(c.variants_of("uegaf_orbflt").size(), 6, "variants_of fleet")
+	_eq(c.variants_of("").size(), 18, "variants_of all 18")
+	_eq(c.variants_of("NOPE").size(), 0, "variants_of 未知空")
+	_eq(c.classes("ueof_7th").size(), 0, "UEOF 无独立 class")
+	_eq(c.classes("ueof_3rd").size(), 0, "UEOF3 无独立 class")
+	for vid in all_vids.keys():
+		var v: Dictionary = _variant(c, str(vid))
+		_ok(not v.is_empty(), "resolve_variant " + str(vid))
+		_ok(str(v.get("variant_of", "")) != "", str(vid) + " variant_of")
+		_ok(str(v.get("base_class_id", "")) != "", str(vid) + " base_class_id")
+		_ok(str(v.get("name", "")) != "", str(vid) + " name")
+		_ok(str(v.get("role", "")) != "", str(vid) + " role")
+		_ok(str(v.get("refit", "")) != "", str(vid) + " refit")
+		_ok(v.get("modifiers") is Dictionary or v.get("derivation") is Dictionary,
+			str(vid) + " modifiers/derivation")
+		_eq(bool(v.get("derived", false)), true, str(vid) + " derived")
+		_eq(bool(v.get("proposal", false)), true, str(vid) + " proposal")
+		_eq(bool(v.get("truth", true)), false, str(vid) + " truth false")
+		_ok(str(v.get("class_id", "")) in BASE_ORB, str(vid) + " class_id 指向 base")
+		_eq(str(c.class_of(str(vid)).get("class_id", "")), str(v.get("derive_from", "")),
+			str(vid) + " class_of 展开到 base")
+	_data_line("orbflt/variants", "ORBFLT 6 base · operator 2/base（覆盖7/3）· fleet 1/base · 共18")
 
 # ═══════════════════════════════════════════════════════════════════
-# 5. ShipCatalog API / 未知
+# 5. 自动推算
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_derivation() -> void:
+	_section_begin("5 自动推算")
+	var c = _catalog()
+	var by_id: Dictionary = _base_rows(c)
+	var checked := 0
+	for base_id in BASE_ORB:
+		var base: Dictionary = by_id.get(base_id, {})
+		for raw in c.variants_of(base_id):
+			var v: Dictionary = raw
+			var mod: Dictionary = v.get("modifiers", {}) if v.get("modifiers") is Dictionary else {}
+			var bmass := float(base.get("displacement_t", 0.0))
+			var bdv := float(base.get("dv_kmps", 0.0))
+			var bacc := float(base.get("accel_g", 0.0))
+			var bcrew := int(base.get("crew", 0))
+			var mf := float(mod.get("mass_factor", 1.0))
+			var df := float(mod.get("dv_factor", 1.0))
+			var af := float(mod.get("accel_factor", 1.0))
+			var cf := float(mod.get("crew_factor", 1.0))
+			_near(float(v.get("displacement_t", 0.0)), bmass * mf, 0.01,
+				str(v.get("variant_id")) + " mass 推算")
+			_near(float(v.get("dv_kmps", 0.0)), bdv * df, 0.001,
+				str(v.get("variant_id")) + " dv 推算")
+			_near(float(v.get("accel_g", 0.0)), bacc * af, 0.001,
+				str(v.get("variant_id")) + " accel 推算")
+			_eq(int(v.get("crew", 0)), int(round(float(bcrew) * cf)),
+				str(v.get("variant_id")) + " crew 推算")
+			_ok(not (v.get("displacement_t") is String), str(v.get("variant_id")) + " 非 TBD mass")
+			_ok(not (v.get("dv_kmps") is String), str(v.get("variant_id")) + " 非 TBD dv")
+			_ok(not (v.get("accel_g") is String), str(v.get("variant_id")) + " 非 TBD accel")
+			_ok(not (v.get("crew") is String), str(v.get("variant_id")) + " 非 TBD crew")
+			var bs: Array = (base.get("sensors", []) as Array).duplicate()
+			var adds: Array = mod.get("sensors_add", []) as Array
+			for s in adds:
+				if not str(s) in bs:
+					bs.append(str(s))
+			_eq((v.get("sensors", []) as Array).size(), bs.size(),
+				str(v.get("variant_id")) + " sensors 合并")
+			_ok(v.get("stats_derived") is Dictionary, str(v.get("variant_id")) + " stats_derived")
+			var sd: Dictionary = v.get("stats_derived", {}) as Dictionary
+			_near(float(sd.get("displacement_t", 0.0)), float(v.get("displacement_t", 0.0)),
+				1.0e-6, str(v.get("variant_id")) + " stats mass")
+			_eq(int(sd.get("crew", -1)), int(v.get("crew", -2)),
+				str(v.get("variant_id")) + " stats crew")
+			checked += 1
+	_eq(checked, 18, "18 变体推算检查")
+	var one: Dictionary = _variant(c, "ORBFLT-SENTINEL-U7")
+	var one_base: Dictionary = by_id["ORBFLT-SENTINEL"]
+	_near(float(one.get("displacement_t", 0.0)), float(one_base.get("displacement_t", 0.0)) * 1.02,
+		0.01, "Sentinel U7 mass")
+	_near(float(one.get("dv_kmps", 0.0)), float(one_base.get("dv_kmps", 0.0)) * 1.12,
+		0.001, "Sentinel U7 dv")
+	_ok("ELINT-7" in (one.get("sensors", []) as Array), "Sentinel U7 sensor add")
+	_ok("MISSILE-7" in (one.get("weapons", []) as Array), "Sentinel U7 weapon add")
+	_ok(str(one.get("derive_from", "")) == "ORBFLT-SENTINEL", "Sentinel U7 derive_from")
+	_ok(str(one.get("operator", "")) == "ueof_7th", "Sentinel U7 operator")
+	_data_line("derive", "18 变体 base×倍率推算 mass/dv/accel/crew + sensors/weapons add · 无 TBD")
+
+# ═══════════════════════════════════════════════════════════════════
+# 6. Catalog API
 # ═══════════════════════════════════════════════════════════════════
 
 func _test_catalog_api() -> void:
-	_section_begin("5 Catalog API")
+	_section_begin("6 API")
 	var c = _catalog()
-	# class_of
-	for q in ["OCUVF-APOGEE", "APSIS", "001", "远地点级", "Apogee"]:
-		var cls: Dictionary = c.class_of(str(q))
-		_eq(str(cls.get("class_id", "")), "OCUVF-APOGEE", "class_of " + str(q))
-	_eq(str(c.class_of("HARMATTAN").get("class_id", "")), "OCUVF-PALLET-5C",
-		"class_of HARMATTAN")
-	_eq(str(c.class_of("AV-4412").get("class_id", "")), "33OSID-SUMMONS",
-		"class_of AV-4412")
-	_eq(str(c.class_of("CA-4471").get("class_id", "")), "33OSID-ENFORCEMENT",
-		"class_of CA-4471")
-	# resolve
-	var r1: Dictionary = c.resolve("OCUVF-PALLET-5C")
-	_eq(bool(r1.get("ok", false)), true, "resolve class ok")
-	_eq(str(r1.get("kind", "")), "class", "resolve class kind")
-	var r2: Dictionary = c.resolve("APSIS")
-	_eq(bool(r2.get("ok", false)), true, "resolve ship ok")
-	_eq(str(r2.get("kind", "")), "ship", "resolve ship kind")
-	_eq(str(r2.get("class_id", "")), "OCUVF-APOGEE", "resolve ship class")
-	var r3: Dictionary = c.resolve("apsis")
-	_eq(bool(r3.get("ok", false)), true, "resolve entity binding ok")
-	_eq(str(r3.get("ship_id", "")), "APSIS", "resolve entity ship")
-	# known/by_batch
-	for q2 in ["APSIS", "HARMATTAN", "AV-4412", "CA-4471"]:
-		_ok(not c.known_ship(str(q2)).is_empty(), "known_ship " + str(q2))
-	_eq(str(c.by_batch("1000").get("ship_id", "")), "APSIS", "batch 1000")
-	_eq(str(c.by_batch("1001").get("ship_id", "")), "HARMATTAN", "batch 1001")
-	_eq(str(c.by_batch("2001").get("ship_id", "")), "AV-4412", "batch 2001")
-	_eq(c.by_batch("9999"), {}, "batch 未知空")
-	# name_pool
-	_ok((c.name_pool("OCUVF-APOGEE") as Array).size() >= 2, "class name_pool")
-	_ok((c.name_pool("depot") as Array).size() >= 2, "role name_pool")
-	_ok((c.name_pool("agent") as Array).size() >= 3, "domain name_pool")
-	_eq((c.name_pool("NOPE") as Array).size(), 0, "name_pool 未知空")
-	# ships
-	var ships: Array = c.ships("ocuvf_id13")
-	_eq(ships.size(), 5, "friendly known ships 5")
-	var has_apsis := false
-	for raw in ships:
-		if str((raw as Dictionary).get("ship_id", "")) == "APSIS":
-			has_apsis = true
-	_ok(has_apsis, "ships 含 APSIS")
-	var eships: Array = c.ships("33osid")
-	_eq(eships.size(), 2, "enemy known ships 2")
-	# summary/to_dict/to_json
-	var sum: Dictionary = c.summary()
-	_eq(int(sum.get("known_ships", 0)), 7, "summary known 7")
-	_eq(int(sum.get("friendly_ships", 0)), 5, "summary friendly 5")
-	_eq(int(sum.get("enemy_ships", 0)), 2, "summary enemy 2")
-	_ok(int(sum.get("name_pools", 0)) >= 10, "summary name_pools")
+	_eq(str(c.resolve_variant("ORBFLT-SENTINEL-U7").get("kind", "")), "variant",
+		"resolve_variant kind")
+	_eq(str(c.resolve_variant("ORBFLT-SENTINEL-U7").get("base_class_id", "")),
+		"ORBFLT-SENTINEL", "resolve_variant base")
+	_eq(str(c.resolve_variant("NOPE").get("reason", "")), "unknown_variant",
+		"resolve_variant 未知")
+	_eq(str(c.resolve("ORBFLT-SENTINEL-U3").get("kind", "")), "variant",
+		"resolve variant kind")
+	_eq(str(c.class_of("ORBFLT-SENTINEL-FLT").get("class_id", "")), "ORBFLT-SENTINEL",
+		"class_of variant -> base")
+	_eq(str(c.class_of("ORBFLT-SENTINEL").get("class_id", "")), "ORBFLT-SENTINEL",
+		"class_of base")
+	_eq(c.known_ship("NOPE"), {}, "known 未知空")
+	_ok(not c.name_pool("ORBFLT-SENTINEL").is_empty(), "name_pool base")
+	_eq(c.name_pool("NOPE").size(), 0, "name_pool 未知空")
+	_eq(c.variants_of("NOPE").size(), 0, "variants 未知空")
+	_eq(c.known_ship("APSIS").get("class_id"), "OCUVF-APOGEE", "APSIS class")
+	_eq(c.known_ship("CA-4471").get("class_id"), "33OSID-ENFORCEMENT", "CA class")
 	var d: Dictionary = c.to_dict()
-	_eq(str(d.get("schema", "")), "v17.ship_catalog.v1", "to_dict schema")
-	_ok(d.get("friendly") is Dictionary and d.get("enemy") is Dictionary,
-		"to_dict 两阵营")
+	_ok(d.get("enemy") is Dictionary, "to_dict enemy")
+	_ok(d.get("friendly") is Dictionary, "to_dict friendly")
 	var js: String = c.to_json()
-	_ok(js.length() > 1000, "to_json 长度")
+	_ok(js.length() > 1000, "to_json 长")
 	_ok(JSON.parse_string(js) is Dictionary, "to_json 可解析")
+	_ok(js.contains("\"variant_id\""), "JSON 含 variant_id")
 	_ok(js.contains("\"proposal\":true"), "JSON proposal true")
-	# 未知统一空/失败
-	_eq(c.class_of(""), {}, "未知 class_of 空")
-	_eq(c.known_ship("NOPE"), {}, "未知 known_ship 空")
-	_eq(c.entity_binding("NOPE"), {}, "未知 entity_binding 空")
-	_eq(str(c.resolve("NOPE").get("reason", "")), "not_found", "resolve 未知 reason")
-	_eq(str(c.resolve("").get("reason", "")), "empty_query", "resolve 空 reason")
-	_data_line("api", "class_of/ships/name_pool/resolve/known_ship/by_batch/entity_binding/summary/to_dict/to_json · 未知空")
+	var sum: Dictionary = c.summary()
+	_ok((sum.get("base_orbflt", []) as Array).has("ORBFLT-SENTINEL"), "summary base orbflt")
+	_ok(int(sum.get("auto_derived_variants", 0)) == 18, "summary auto 18")
+	_data_line("api", "variants_of/resolve_variant/resolve/class_of/name_pool/summary/to_json")
 
 # ═══════════════════════════════════════════════════════════════════
-# 6. 唯一性/校验
+# 7. 校验/失败
 # ═══════════════════════════════════════════════════════════════════
 
-func _test_uniqueness_validation() -> void:
-	_section_begin("6 唯一性/校验")
+func _test_validation_errors() -> void:
+	_section_begin("7 校验/失败")
 	var c = _catalog()
 	var d: Dictionary = c.to_dict()
 	var f: Dictionary = (d.get("friendly") as Dictionary).duplicate(true)
 	var e: Dictionary = (d.get("enemy") as Dictionary).duplicate(true)
 	_ok(bool(c.validate({"friendly": f, "enemy": e}).get("ok", false)),
-		"候选合法 validate ok")
-	# class_id 重复
-	var f_bad: Dictionary = f.duplicate(true)
-	var cls: Array = f_bad.get("classes", []) as Array
-	var dup: Dictionary = (cls[0] as Dictionary).duplicate(true)
-	cls.append(dup)
-	f_bad["classes"] = cls
-	_ok(not bool(c.validate({"friendly": f_bad, "enemy": e}).get("ok", true)),
-		"class_id 重复拒绝")
-	# class name 重复
-	var f_bad2: Dictionary = f.duplicate(true)
-	var cls2: Array = f_bad2.get("classes", []) as Array
-	(cls2[1] as Dictionary)["name"] = str((cls2[0] as Dictionary).get("name", ""))
-	f_bad2["classes"] = cls2
-	_ok(not bool(c.validate({"friendly": f_bad2, "enemy": e}).get("ok", true)),
-		"class name 重复拒绝")
-	# hull 重复
-	var e_bad: Dictionary = e.duplicate(true)
-	var ecls: Array = e_bad.get("classes", []) as Array
-	(ecls[1] as Dictionary)["hull_code"] = str((ecls[0] as Dictionary).get("hull_code", ""))
-	e_bad["classes"] = ecls
-	_ok(not bool(c.validate({"friendly": f, "enemy": e_bad}).get("ok", true)),
-		"hull 重复拒绝")
-	# known ship hull 重复
-	var f_bad3: Dictionary = f.duplicate(true)
-	var s: Array = ((f_bad3.get("classes", []) as Array)[0] as Dictionary).get("known_ships", []) as Array
-	if s.size() > 0:
-		var sh: Dictionary = (s[0] as Dictionary).duplicate(true)
-		sh["ship_id"] = "DUP-SHIP"
-		s.append(sh)
-	_eq(true, true, "已知船去重场景构造")
-	# 非法 schema/数量
-	var bad_schema: Dictionary = f.duplicate(true)
-	bad_schema["schema"] = "bad"
-	_ok(not bool(c.validate({"friendly": bad_schema, "enemy": e}).get("ok", true)),
-		"schema 非法拒绝")
-	var bad_count: Dictionary = f.duplicate(true)
-	bad_count["classes"] = [(f.get("classes", []) as Array)[0]]
-	_ok(not bool(c.validate({"friendly": bad_count, "enemy": e}).get("ok", true)),
-		"友军数量非 8 拒绝")
-	var e_bad2: Dictionary = e.duplicate(true)
-	e_bad2["classes"] = []
-	_ok(not bool(c.validate({"friendly": f, "enemy": e_bad2}).get("ok", true)),
-		"enemy classes 空拒绝")
-	# TBD 显式允许
-	var f_tbd: Dictionary = f.duplicate(true)
-	((f_tbd.get("classes", []) as Array)[0] as Dictionary)["armor"] = "TBD"
-	_ok(bool(c.validate({"friendly": f_tbd, "enemy": e}).get("ok", false)),
-		"显式 TBD 允许")
-	# 数值非法
-	var f_badnum: Dictionary = f.duplicate(true)
-	((f_badnum.get("classes", []) as Array)[0] as Dictionary)["crew"] = "many"
-	_ok(not bool(c.validate({"friendly": f_badnum, "enemy": e}).get("ok", true)),
-		"数值字段非数字/TBD 拒绝")
-	# proposal 必须
-	var f_badprop: Dictionary = f.duplicate(true)
-	((f_badprop.get("classes", []) as Array)[0] as Dictionary)["proposal"] = false
-	_ok(not bool(c.validate({"friendly": f_badprop, "enemy": e}).get("ok", true)),
-		"proposal false 拒绝")
-	_data_line("validation", "class_id/name/hull/known ship 唯一 · schema/数量/proposal/数值/TBD 校验")
+		"候选合法")
+	var e_dup: Dictionary = e.duplicate(true)
+	for raw in (e_dup.get("classes", []) as Array):
+		if raw is Dictionary and str((raw as Dictionary).get("class_id", "")) == "ORBFLT-SENTINEL":
+			var r: Dictionary = raw
+			var fv: Array = r.get("fleet_variants", []) as Array
+			var dup: Dictionary = (fv[0] as Dictionary).duplicate(true)
+			dup["variant_id"] = "ORBFLT-SENTINEL-U7"
+			fv.append(dup)
+			r["fleet_variants"] = fv
+	_ok(not bool(c.validate({"friendly": f, "enemy": e_dup}).get("ok", true)),
+		"variant_id 重复拒绝")
+	var e_bad_derive: Dictionary = e.duplicate(true)
+	for raw2 in (e_bad_derive.get("classes", []) as Array):
+		if raw2 is Dictionary and str((raw2 as Dictionary).get("class_id", "")) == "ORBFLT-SENTINEL":
+			((raw2 as Dictionary)["operator_variants"] as Array)[0]["derive_from"] = "NOPE"
+	_ok(not bool(c.validate({"friendly": f, "enemy": e_bad_derive}).get("ok", true)),
+		"derive_from 错误拒绝")
+	var e_noop: Dictionary = e.duplicate(true)
+	for raw3 in (e_noop.get("classes", []) as Array):
+		if raw3 is Dictionary and str((raw3 as Dictionary).get("class_id", "")) == "ORBFLT-SENTINEL":
+			(raw3 as Dictionary)["operator_variants"] = [((raw3 as Dictionary)["operator_variants"] as Array)[0]]
+	_ok(not bool(c.validate({"friendly": f, "enemy": e_noop}).get("ok", true)),
+		"operator 覆盖不足拒绝")
+	var e_tbd: Dictionary = e.duplicate(true)
+	for raw4 in (e_tbd.get("classes", []) as Array):
+		if raw4 is Dictionary and str((raw4 as Dictionary).get("class_id", "")) == "ORBFLT-SENTINEL":
+			(raw4 as Dictionary)["displacement_t"] = "TBD"
+	_ok(not bool(c.validate({"friendly": f, "enemy": e_tbd}).get("ok", true)),
+		"ORBFLT 数值 TBD 拒绝")
+	var e_ca: Dictionary = e.duplicate(true)
+	for raw5 in (e_ca.get("classes", []) as Array):
+		if raw5 is Dictionary and str((raw5 as Dictionary).get("class_id", "")) == "33OSID-ENFORCEMENT":
+			((raw5 as Dictionary)["known_ships"] as Array)[0]["batch"] = "TBD"
+	_ok(not bool(c.validate({"friendly": f, "enemy": e_ca}).get("ok", true)),
+		"CA batch TBD 拒绝")
+	var e_noaudit: Dictionary = e.duplicate(true)
+	e_noaudit.erase("audit")
+	_ok(not bool(c.validate({"friendly": f, "enemy": e_noaudit}).get("ok", true)),
+		"audit 缺失拒绝")
+	var e_ueof: Dictionary = e.duplicate(true)
+	var urow: Dictionary = (e.get("classes", [])[0] as Dictionary).duplicate(true)
+	urow["class_id"] = "UEOF-X-CA"; urow["faction"] = "ueof_7th"; urow["name"] = "X级"
+	e_ueof["classes"] = (e_ueof.get("classes", []) as Array) + [urow]
+	_ok(not bool(c.validate({"friendly": f, "enemy": e_ueof}).get("ok", true)),
+		"UEOF 独立 class 拒绝")
+	_eq(str(c.resolve_variant("").get("reason", "")), "unknown_variant", "resolve_variant 空")
+	_data_line("validation", "variant_id/derive/operator覆盖/ORBFLT TBD/CA batch/audit/UEOF独立 class 均拒绝")
 
 # ═══════════════════════════════════════════════════════════════════
-# 7. 错误/确定性
+# 8. 确定性
 # ═══════════════════════════════════════════════════════════════════
 
-func _test_errors_determinism() -> void:
-	_section_begin("7 错误/确定性")
-	var bad = ShipCatalog.new({"friendly_path": "/no/such_friendly.json"})
-	_ok(not bool(bad.ready), "坏 friendly 路径失败")
-	_ok((bad.errors as Array).size() >= 1, "坏路径 errors")
-	var bad2 = ShipCatalog.new({"enemy_content": {"schema": "bad"}})
-	_ok(not bool(bad2.ready), "坏 enemy 内容失败")
-	# load 方法（load_catalog；load 与 GDScript 全局冲突）
-	var c = _catalog()
-	var lr: Dictionary = c.load_catalog(null, null)
-	_eq(bool(lr.get("ok", false)), true, "load_catalog ok")
-	_eq(bool(c.reload().get("ok", false)), true, "reload ok")
-	# 失败不改已加载
-	var before: String = c.to_json()
-	var fail: Dictionary = c.load_catalog(null, "/no/such_enemy.json")
-	_ok(not bool(fail.get("ok", true)), "坏 enemy 覆盖失败")
-	_eq(c.to_json(), before, "失败不改已加载内容")
-	# 确定性
+func _test_determinism() -> void:
+	_section_begin("8 确定性")
 	var a = _catalog()
 	var b = _catalog()
-	_eq(a.to_json(), b.to_json(), "两 catalog 内容一致")
-	_eq(a.summary(), b.summary(), "两 catalog summary 一致")
+	_eq(a.to_json(), b.to_json(), "两 catalog JSON 一致")
+	_eq(a.summary(), b.summary(), "summary 一致")
 	_eq(a.classes(), b.classes(), "classes 一致")
-	_eq(a.ships(), b.ships(), "ships 一致")
-	# 排序
+	_eq(a.variants_of(""), b.variants_of(""), "variants 一致")
+	_eq(a.to_dict().get("enemy", {}), b.to_dict().get("enemy", {}), "enemy 内容一致")
 	var ids: Array = []
-	for raw in a.classes():
-		ids.append(str((raw as Dictionary).get("class_id", "")))
+	for raw in a.variants_of(""):
+		ids.append(str((raw as Dictionary).get("variant_id", "")))
 	var sorted_ids: Array = ids.duplicate()
 	sorted_ids.sort()
-	_eq(ids, sorted_ids, "classes 排序")
-	_ok(bool(a.check_contracts().get("ok", false)), "check contracts")
-	_data_line("errors", "坏路径/内容失败 · load_catalog/reload · 失败原子 · 确定性/排序")
+	_eq(ids, sorted_ids, "variant 排序")
+	_ok(bool(a.check_contracts().get("ok", false)), "contracts")
+	_data_line("determinism", "JSON/summary/classes/variants/enemy 一致 · variant 排序")

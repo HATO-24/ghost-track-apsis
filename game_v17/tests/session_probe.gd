@@ -3664,9 +3664,9 @@ func _test_ship_catalog_refit_damage_integration() -> void:
 		"catalog 启用时 damage_profile")
 	_eq(str(c1.ship_catalog_summary().get("schema", "")), "v17.ship_catalog.v1",
 		"catalog summary schema")
-	_eq(int(c1.ship_catalog_summary().get("classes", 0)), 36, "catalog 36 型")
+	_eq(int(c1.ship_catalog_summary().get("classes", 0)), 32, "catalog 32 型")
 	_eq(int(c1.ship_catalog_summary().get("friendly_classes", 0)), 8, "catalog 友军 8")
-	_eq(int(c1.ship_catalog_summary().get("enemy_classes", 0)), 28, "catalog 敌军 28")
+	_eq(int(c1.ship_catalog_summary().get("enemy_classes", 0)), 24, "catalog 敌军 24")
 	_eq(c1.entity_class_id("apsis"), "OCUVF-APOGEE", "apsis class")
 	_eq(c1.entity_class_id("harmattan"), "OCUVF-PALLET-5C", "harmattan class")
 	_eq(c1.entity_class_id("ferry"), "OCUVF-HEMATITE-6C", "ferry class")
@@ -3760,7 +3760,7 @@ func _test_ship_catalog_refit_damage_integration() -> void:
 	_ok((sd as Dictionary).has("refit"), "save 含 refit")
 	_ok((sd as Dictionary).has("damage_profile"), "save 含 damage_profile")
 	_eq(int(((sd as Dictionary).get("ship_catalog", {}) as Dictionary).get("summary", {}).get("classes", 0)),
-		36, "save catalog classes")
+		32, "save catalog classes")
 	var all2 = GameSession.new()
 	var lr: Dictionary = all2.load_state(save)
 	_eq(bool(lr.get("ok", false)), true, "全开 load ok", str(lr.get("errors", [])))
@@ -3802,4 +3802,4 @@ func _test_ship_catalog_refit_damage_integration() -> void:
 	_eq(a.save_state(), b.save_state(), "5D 同操作 save 一致")
 	_eq(_norm_json(a.refit_stats()), _norm_json(b.refit_stats()), "5D refit stats 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "5D contracts ok")
-	_data_line("5D", "catalog 36/8+28 · entity_class/binding/hull/batch · refit 30模块/API/事件 · damage class_id · save/load/旧档/确定性")
+	_data_line("5D", "catalog 32/8+24+18变体 · entity_class/binding/hull/batch · refit 30模块/API/事件 · damage class_id · save/load/旧档/确定性")
