@@ -54,6 +54,7 @@ func _initialize() -> void:
 	_test_physics_frame_conversion()
 	_test_combat_ballistics_integration()
 	_test_ship_catalog_refit_damage_integration()
+	_test_fleet_formation_refit_integration()
 	_test_unified_fire_path()
 	_test_signal_integration()
 	_test_signal_save_load()
@@ -3803,3 +3804,149 @@ func _test_ship_catalog_refit_damage_integration() -> void:
 	_eq(_norm_json(a.refit_stats()), _norm_json(b.refit_stats()), "5D refit stats 一致")
 	_ok(bool(a.check_contracts().get("ok", false)), "5D contracts ok")
 	_data_line("5D", "catalog 32/8+24+18变体 · entity_class/binding/hull/batch · refit 30模块/API/事件 · damage class_id · save/load/旧档/确定性")
+
+# ═══════════════════════════════════════════════════════════════════
+# 41. FleetFormation / FleetRefit 集成（5G）
+# ═══════════════════════════════════════════════════════════════════
+
+func _test_fleet_formation_refit_integration() -> void:
+	_section_begin("41 5G fleet formation/refit")
+	var plain = _new_session()
+	_ok(plain.fleet_formation == null, "默认无 fleet_formation")
+	_ok(plain.fleet_refit == null, "默认无 fleet_refit")
+	_eq(str(plain.fleet_assign("APSIS", "command").get("reason", "")), "no_fleet_formation",
+		"无 formation assign 拒绝")
+	_eq(str(plain.fleet_refit_vm().size()), "0", "无 fleet_refit vm 空")
+	_eq(str(plain.fleet_select_ship("APSIS").get("reason", "")), "no_fleet_refit",
+		"无 fleet_refit select 拒绝")
+	_eq(plain.fleet_roster().size(), 0, "无 formation roster 空")
+	_eq(plain.fleet_stats().size(), 0, "无 formation stats 空")
+	# 只开 formation → 缺省同时启用 refit
+	var s = GameSession.new({"fleet_formation": true})
+	_ok(bool(s.ready), "formation session ready", str(s.errors))
+	_ok(s.ship_catalog != null, "fleet 自动 catalog")
+	_ok(s.fleet_formation != null and bool(s.fleet_formation.ready), "formation ready")
+	_ok(s.fleet_refit != null and bool(s.fleet_refit.ready), "formation 联动 refit")
+	_eq(s.fleet_roster().size(), 13, "fleet roster 13")
+	_eq(int(s.fleet_slots().get("total_cap", 0)), 19, "8 槽总19")
+	var fs: Dictionary = s.fleet_summary()
+	_eq(bool(fs.get("formation_ready", false)), true, "fleet_summary formation")
+	_eq(bool(fs.get("refit_ready", false)), true, "fleet_summary refit")
+	_eq(bool(fs.get("truth", true)), false, "fleet_summary truth false")
+	var w: Dictionary = fs.get("writes", {}) as Dictionary
+	for k in ["world", "track_table", "ui", "v15"]:
+		_eq(bool(w.get(k, true)), false, "fleet 不写 " + str(k))
+	# formation API
+	var fstats: Dictionary = s.fleet_stats()
+	_eq(int((fstats.get("totals", {}) as Dictionary).get("ships", 0)), 5, "初始编组 5")
+	_eq(bool(s.fleet_validate().get("ok", false)), true, "初始 validate")
+	_ok(bool(s.fleet_assign("VESUVIUS", "missile").get("ok", false)), "fleet_assign missile")
+	_ok(bool(s.fleet_assign("BOLLARD", "tug").get("ok", false)), "fleet_assign tug")
+	_ok(bool(s.fleet_assign("MISSIVE", "shuttle").get("ok", false)), "fleet_assign shuttle")
+	_eq(int((s.fleet_stats().get("totals", {}) as Dictionary).get("ships", 0)), 8,
+		"编组 8")
+	_ok(bool(s.fleet_move("HARMATTAN", "relay").get("ok", false)), "fleet_move relay")
+	_ok(bool(s.fleet_unassign("MISSIVE").get("ok", false)), "fleet_unassign")
+	_eq(str(s.fleet_assign("LEE_SHORE", "gun").get("reason", "")), "role_mismatch",
+		"fleet 角色拒绝")
+	_eq(str(s.fleet_assign("LEE_SHORE", "screen").get("ok", true)), "true", "fleet 补屏护")
+	_eq(bool(s.fleet_validate().get("ok", false)), true, "补位后 validate")
+	# refit API 通用别名 + fleet_* 前缀
+	_ok(bool(s.fleet_select_ship("APSIS").get("ok", false)), "fleet_select APSIS")
+	_eq((s.fleet_options("APSIS") as Array).size(), 24, "fleet APSIS options 24")
+	_ok(bool(s.fleet_quote("APSIS", "hull_armor_light").get("ok", false)), "fleet quote")
+	_ok(bool(s.fleet_install("APSIS", "hull_armor_light").get("ok", false)), "fleet install")
+	_ok(bool(s.fleet_install("HARMATTAN", "sensor_radar_mk2").get("ok", false)), "fleet install harm")
+	_eq((s.fleet_refit_stats("APSIS").get("planned", []) as Array).size(), 1, "APSIS planned")
+	_ok(bool(s.fleet_commit("APSIS").get("ok", false)), "fleet commit APSIS")
+	_ok(bool(s.fleet_commit("HARMATTAN").get("ok", false)), "fleet commit harm")
+	_eq(int(s.fleet_refit.resources.get("credits", 0)), 272000, "共享资源扣除")
+	var ftk: Dictionary = s.fleet_refit_tick(10.0)
+	_eq(bool(ftk.get("ok", false)), true, "fleet refit tick")
+	_eq((ftk.get("completed", []) as Array).size(), 2, "fleet refit completed2")
+	_near(float((s.fleet_refit_stats("APSIS").get("current", {}) as Dictionary).get("mass_t", 0.0)),
+		9080.0, 0.001, "APSIS 9080")
+	_near(float((s.fleet_refit_stats("HARMATTAN").get("current", {}) as Dictionary).get("mass_t", 0.0)),
+		320.0, 0.001, "HARMATTAN 320")
+	_eq(s.fleet_refit_ships().size(), 13, "fleet_refit_ships 13")
+	# 通用别名
+	_ok(bool(s.select_ship("APSIS").get("ok", false)), "select_ship alias")
+	_ok((s.options("APSIS") as Array).size() > 0, "options alias")
+	_ok(bool(s.quote("APSIS", "utility_radiator").get("ok", false)), "quote alias")
+	_ok(bool(s.install("APSIS", "utility_radiator").get("ok", false)), "install alias")
+	_ok(bool(s.remove("APSIS", "utility_radiator").get("ok", false)), "remove alias")
+	_ok(bool(s.stats("APSIS").has("current")), "stats alias")
+	# vm
+	var fvm: Dictionary = s.fleet_vm()
+	_eq(str(fvm.get("schema", "")), "v17.fleet_session.v1", "fleet_vm schema")
+	_ok(fvm.get("formation") is Dictionary, "fleet_vm formation")
+	_ok(fvm.get("refit") is Dictionary, "fleet_vm refit")
+	_eq(bool(fvm.get("truth", true)), false, "fleet_vm truth false")
+	# 事件
+	var types: Array = _event_types(s.bus.recent(400))
+	for et in ["fleet.assign", "fleet.move", "fleet.unassign", "fleet.validated",
+			"fleet_refit.install", "fleet_refit.commit", "fleet_refit.tick"]:
+		_ok(str(et) in types, "bus " + str(et))
+	# 不写 world
+	var w0 := _norm_json(s.world.entities_sorted())
+	s.fleet_validate()
+	s.fleet_assign("BEACON", "relay")
+	_eq(_norm_json(s.world.entities_sorted()), w0, "fleet 不改 world")
+	# 存档
+	var save: String = s.save_state()
+	var sd = JSON.parse_string(save)
+	_ok(sd is Dictionary, "fleet save JSON")
+	_ok((sd as Dictionary).has("fleet_formation"), "save 含 fleet_formation")
+	_ok((sd as Dictionary).has("fleet_refit"), "save 含 fleet_refit")
+	var s2 = GameSession.new()
+	var lr: Dictionary = s2.load_state(save)
+	_eq(bool(lr.get("ok", false)), true, "fleet load ok", str(lr.get("errors", [])))
+	_eq(s2.fleet_formation.assignments, s.fleet_formation.assignments, "load 编组一致")
+	_eq(s2.fleet_refit.save_json(), s.fleet_refit.save_json(), "load refit 一致")
+	_near(float((s2.fleet_refit_stats("APSIS").get("current", {}) as Dictionary).get("mass_t", 0.0)),
+		9080.0, 0.001, "load APSIS mass")
+	_eq(int(s2.fleet_refit.resources.get("credits", 0)), 272000, "load 共享资源")
+	_ok(bool(s2.check_contracts().get("ok", false)), "load fleet contracts")
+	# 旧档缺 fleet 字段
+	var old: Dictionary = (sd as Dictionary).duplicate(true)
+	old.erase("fleet_formation"); old.erase("fleet_refit")
+	var old_seed: Dictionary = old.get("seed", {})
+	old_seed.erase("fleet_formation"); old_seed.erase("fleet_refit"); old_seed.erase("ship_catalog")
+	old["seed"] = old_seed
+	var old_s = GameSession.new()
+	var old_lr: Dictionary = old_s.load_state(JSON.stringify(old))
+	_eq(bool(old_lr.get("ok", false)), true, "旧档缺 fleet 兼容", str(old_lr.get("errors", [])))
+	_ok(old_s.fleet_formation == null, "旧档 formation 退化")
+	_ok(old_s.fleet_refit == null, "旧档 fleet_refit 退化")
+	# 显式只开 refit（formation 缺省联动）
+	var r = GameSession.new({"fleet_refit": true})
+	_ok(bool(r.ready), "fleet_refit session ready", str(r.errors))
+	_ok(r.fleet_refit != null and r.fleet_formation != null, "refit 联动 formation")
+	# 显式关闭 refit，只 formation
+	var only_ff = GameSession.new({"fleet_formation": true, "fleet_refit": false})
+	_ok(bool(only_ff.ready), "only formation ready", str(only_ff.errors))
+	_ok(only_ff.fleet_formation != null, "only formation enabled")
+	_ok(only_ff.fleet_refit == null, "refit 显式关闭")
+	_eq(str(only_ff.fleet_install("APSIS", "hull_armor_light").get("reason", "")),
+		"no_fleet_refit", "无 fleet refit 拒绝")
+	# 坏配置
+	var bad = GameSession.new({"fleet_formation": {"roster": "/no/roster.json"}})
+	_ok(not bool(bad.ready), "坏 fleet roster boot 失败")
+	_ok((bad.errors as Array).size() >= 1, "坏 fleet errors")
+	# command 移除后 validate=false，但仍可修复
+	var rep = GameSession.new({"fleet_formation": true})
+	rep.fleet_unassign("APSIS")
+	_eq(bool(rep.fleet_validate().get("ok", true)), false, "缺 command validate false")
+	_ok(bool(rep.fleet_assign("PERIGEE", "command").get("ok", false)), "reserve command 接替")
+	_eq(bool(rep.fleet_validate().get("ok", false)), true, "修复后 valid")
+	# 确定性
+	var a = GameSession.new({"fleet_formation": true})
+	var b = GameSession.new({"fleet_formation": true})
+	for sv in [a, b]:
+		sv.fleet_assign("VESUVIUS", "missile")
+		sv.fleet_install("APSIS", "hull_armor_light")
+		sv.fleet_commit("APSIS")
+		sv.fleet_refit_tick(10.0)
+	_eq(a.save_state(), b.save_state(), "fleet 同操作 save 一致")
+	_eq(_norm_json(a.fleet_stats()), _norm_json(b.fleet_stats()), "fleet stats 一致")
+	_data_line("5G", "formation 13舰/8槽/19位 · 联动 refit 共享资源/多舰 · fleet.* + fleet_refit.* 事件 · 存档/旧档/坏配置")

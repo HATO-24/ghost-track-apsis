@@ -37,6 +37,8 @@ const CombatPlannerScript := preload("res://scripts/core/combat_planner.gd")
 const ShipCatalogScript := preload("res://scripts/core/ship_catalog.gd")
 const RefitServiceScript := preload("res://scripts/core/refit_service.gd")
 const DamageProfileServiceScript := preload("res://scripts/core/damage_profile_service.gd")
+const FleetRefitServiceScript := preload("res://scripts/core/fleet_refit_service.gd")
+const FleetFormationServiceScript := preload("res://scripts/core/fleet_formation.gd")
 
 const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
@@ -75,6 +77,8 @@ var combat_ballistics = null
 var ship_catalog = null
 var refit_service = null
 var damage_profile_service = null
+var fleet_refit = null
+var fleet_formation = null
 
 ## 交战时间膨胀：有弹在飞时把时间倍速压到该上限，交战结束恢复原倍速。
 const COMBAT_SCALE_CAP := 60.0
@@ -98,6 +102,8 @@ var _traffic_enabled := false
 var _ballistics_enabled := false
 var _ship_catalog_enabled := false
 var _refit_enabled := false
+var _fleet_refit_enabled := false
+var _fleet_formation_enabled := false
 var _last_signal_route: Dictionary = {}
 var _signal_missing_meta_warned: Dictionary = {}
 var _damage_applied_shots: Dictionary = {}
@@ -157,7 +163,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "fleet_refit", "fleet_formation", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -192,6 +198,8 @@ func boot(config := {}) -> Dictionary:
 	ship_catalog = null
 	refit_service = null
 	damage_profile_service = null
+	fleet_refit = null
+	fleet_formation = null
 	_last_signal_route = {}
 	_signal_missing_meta_warned = {}
 	_damage_applied_shots = {}
@@ -207,6 +215,8 @@ func boot(config := {}) -> Dictionary:
 	_ballistics_enabled = false
 	_ship_catalog_enabled = false
 	_refit_enabled = false
+	_fleet_refit_enabled = false
+	_fleet_formation_enabled = false
 	_physics_enabled = false
 	_physics_frame_meta = {}
 	_track_writer = ""
@@ -269,6 +279,10 @@ func boot(config := {}) -> Dictionary:
 	if _ship_catalog_enabled and ship_catalog != null and not bool(ship_catalog.ready):
 		extra_ok = false
 	if _refit_enabled and refit_service != null and not bool(refit_service.ready):
+		extra_ok = false
+	if _fleet_refit_enabled and fleet_refit != null and not bool(fleet_refit.ready):
+		extra_ok = false
+	if _fleet_formation_enabled and fleet_formation != null and not bool(fleet_formation.ready):
 		extra_ok = false
 	if damage_profile_service != null and not bool(damage_profile_service.ready):
 		extra_ok = false
@@ -496,6 +510,46 @@ func _setup_optional_components() -> void:
 				errors.append("refit_service 未就绪：" + str(refit_service.errors))
 			else:
 				_refit_enabled = true
+	# 5G：FleetRefit / FleetFormation（依赖 ShipCatalog；缺省互相联动启用）
+	var frq = _seed.get("fleet_refit", null)
+	var ffq = _seed.get("fleet_formation", null)
+	var fleet_any := (frq != null) or (ffq != null)
+	var fr_on := (frq is Dictionary) or (frq is bool and bool(frq)) \
+		or (fleet_any and not (frq is bool and not bool(frq)))
+	var ff_on := (ffq is Dictionary) or (ffq is bool and bool(ffq)) \
+		or (fleet_any and not (ffq is bool and not bool(ffq)))
+	if fleet_any:
+		if ship_catalog == null:
+			ship_catalog = ShipCatalogScript.new()
+			if bool(ship_catalog.ready):
+				_ship_catalog_enabled = true
+			else:
+				errors.append("fleet 需要 ShipCatalog：" + str(ship_catalog.errors))
+		if bool(ship_catalog.ready):
+			var frcfg: Dictionary = {} if (frq is bool or frq == null) else (frq as Dictionary).duplicate(true)
+			var fr_roster = frcfg.get("roster", frcfg.get("roster_path", null))
+			var fr_opt = frcfg.get("options", frcfg.get("options_path", null))
+			var fr_res: Dictionary = (frcfg.get("resources", {}) as Dictionary).duplicate(true) \
+				if frcfg.get("resources") is Dictionary else {}
+			if frcfg.has("location") and not fr_res.has("location"):
+				fr_res["location"] = frcfg.get("location")
+			if fr_on:
+				fleet_refit = FleetRefitServiceScript.new(ship_catalog, fr_roster, fr_opt, fr_res)
+				if not bool(fleet_refit.ready):
+					errors.append("fleet_refit 未就绪：" + str(fleet_refit.errors))
+				else:
+					_fleet_refit_enabled = true
+			if ff_on:
+				var ffc: Dictionary = {} if (ffq is bool or ffq == null) else (ffq as Dictionary).duplicate(true)
+				var ff_roster = ffc.get("roster", ffc.get("roster_path", fr_roster))
+				var ff_cfg: Dictionary = {}
+				if fleet_refit != null and bool(fleet_refit.ready):
+					ff_cfg["refit"] = fleet_refit
+				fleet_formation = FleetFormationServiceScript.new(ship_catalog, ff_roster, ff_cfg)
+				if not bool(fleet_formation.ready):
+					errors.append("fleet_formation 未就绪：" + str(fleet_formation.errors))
+				else:
+					_fleet_formation_enabled = true
 	var sig = _seed.get("signal_service", null)
 	var sig_on := (sig is Dictionary) or (sig is bool and bool(sig))
 	if sig_on:
@@ -972,6 +1026,8 @@ func tick(dt: float) -> Dictionary:
 			"combat_ballistics": combat_ballistics != null,
 			"ship_catalog": ship_catalog != null,
 			"refit": refit_service != null,
+			"fleet_refit": fleet_refit != null,
+			"fleet_formation": fleet_formation != null,
 			"damage_profile": damage_profile_service != null,
 		},
 		"sensor_route": sensor_route,
@@ -3691,7 +3747,14 @@ func damage_class_of(entity_id: String) -> Dictionary:
 				return {"ok": cid != "", "entity_id": entity_id, "ship_id": ship_id,
 					"class_id": cid if cid != "" else "TBD",
 					"profile_source": str(m.profile_source), "truth": false}
+	if ship_catalog != null and bool(ship_catalog.ready) \
+			and entity_class_id(entity_id) == "TBD" and ship_catalog.class_of(entity_id).is_empty():
+		return {"ok": false, "entity_id": entity_id, "ship_id": "", "class_id": "TBD",
+			"reason": "no_damage_profile", "truth": false}
 	var prof: Dictionary = damage_profile_for(entity_id)
+	if prof.is_empty() and (ship_catalog == null or entity_class_id(entity_id) == "TBD"):
+		return {"ok": false, "entity_id": entity_id, "ship_id": "", "class_id": "TBD",
+			"reason": "no_damage_profile", "truth": false}
 	if not prof.is_empty() and not bool(prof.get("fallback", false)):
 		cid = str(prof.get("class_id", ""))
 		if cid != "":
@@ -3775,6 +3838,178 @@ func refit_stats() -> Dictionary:
 	if refit_service == null:
 		return {}
 	return refit_service.stats()
+
+# ── 舰队编制 / 全舰队改装（5G）──────────────────────────────
+
+func _publish_fleet_event(typ: String, payload := {}) -> Dictionary:
+	if bus == null:
+		return {"ok": false, "reason": "no_bus"}
+	var ev: Dictionary = _mk_event(typ, "", payload)
+	var pub: Dictionary = bus.publish(ev)
+	if not bool(pub.get("ok", false)):
+		warnings.append("fleet 事件发布失败：" + typ)
+		return pub
+	_tick_events.append(pub.get("event", {}))
+	return pub
+
+func fleet_vm() -> Dictionary:
+	var out: Dictionary = {"schema": "v17.fleet_session.v1",
+		"formation": fleet_formation.to_dict() if fleet_formation != null else null,
+		"refit": fleet_refit.summary() if fleet_refit != null else null,
+		"summary": fleet_summary(), "truth": false,
+		"writes": {"world": false, "track_table": false, "ui": false, "v15": false}}
+	return out
+
+func fleet_summary() -> Dictionary:
+	return {"schema": "v17.fleet_session.v1",
+		"formation_ready": fleet_formation != null and bool(fleet_formation.ready),
+		"refit_ready": fleet_refit != null and bool(fleet_refit.ready),
+		"formation": fleet_formation.summary() if fleet_formation != null else {},
+		"refit": fleet_refit.summary() if fleet_refit != null else {},
+		"proposal": true, "truth": false,
+		"writes": {"world": false, "track_table": false, "ui": false, "v15": false}}
+
+func fleet_roster() -> Array:
+	if fleet_formation == null:
+		return []
+	return fleet_formation.roster_view()
+
+func fleet_slots() -> Dictionary:
+	if fleet_formation == null:
+		return {}
+	return fleet_formation.slots()
+
+func fleet_assign(ship_id: String, slot: String) -> Dictionary:
+	if fleet_formation == null:
+		return {"ok": false, "reason": "no_fleet_formation"}
+	var res: Dictionary = fleet_formation.assign(ship_id, slot)
+	if bool(res.get("ok", false)):
+		_publish_fleet_event("fleet.assign", {"ship_id": ship_id, "slot": slot})
+	return res
+
+func fleet_unassign(ship_id: String) -> Dictionary:
+	if fleet_formation == null:
+		return {"ok": false, "reason": "no_fleet_formation"}
+	var res: Dictionary = fleet_formation.unassign(ship_id)
+	if bool(res.get("ok", false)):
+		_publish_fleet_event("fleet.unassign", {"ship_id": ship_id})
+	return res
+
+func fleet_move(ship_id: String, slot: String) -> Dictionary:
+	if fleet_formation == null:
+		return {"ok": false, "reason": "no_fleet_formation"}
+	var res: Dictionary = fleet_formation.move(ship_id, slot)
+	if bool(res.get("ok", false)):
+		_publish_fleet_event("fleet.move", {"ship_id": ship_id, "slot": slot})
+	return res
+
+func fleet_validate() -> Dictionary:
+	if fleet_formation == null:
+		return {"ok": false, "reason": "no_fleet_formation"}
+	var res: Dictionary = fleet_formation.validate()
+	_publish_fleet_event("fleet.validated", {"ok": bool(res.get("ok", false))})
+	return res
+
+func fleet_stats() -> Dictionary:
+	if fleet_formation == null:
+		return {}
+	return fleet_formation.stats()
+
+func fleet_refit_vm() -> Dictionary:
+	if fleet_refit == null:
+		return {}
+	return fleet_refit.to_dict()
+
+func fleet_refit_ships() -> Array:
+	if fleet_refit == null:
+		return []
+	return fleet_refit.ships_list()
+
+func fleet_select_ship(ship_id: String) -> Dictionary:
+	if fleet_refit == null:
+		return {"ok": false, "reason": "no_fleet_refit"}
+	var res: Dictionary = fleet_refit.select_ship(ship_id)
+	if bool(res.get("ok", false)):
+		_publish_fleet_event("fleet_refit.select_ship", {"ship_id": ship_id})
+	return res
+
+func fleet_options(ship_id := "", category := "") -> Array:
+	if fleet_refit == null:
+		return []
+	return fleet_refit.options(ship_id, category)
+
+func fleet_quote(a: Variant = "", b: Variant = "") -> Dictionary:
+	if fleet_refit == null:
+		return {"ok": false, "reason": "no_fleet_refit"}
+	return fleet_refit.quote(a, b)
+
+func fleet_install(a: Variant = "", b: Variant = "", opts := {}) -> Dictionary:
+	if fleet_refit == null:
+		return {"ok": false, "reason": "no_fleet_refit"}
+	var res: Dictionary = fleet_refit.install(a, b, opts)
+	if bool(res.get("ok", false)):
+		_publish_fleet_event("fleet_refit.install", {"ship_id": str(fleet_refit.selected()),
+			"module_id": str(res.get("module_id", "")), "planned": bool(res.get("planned", false))})
+	return res
+
+func fleet_remove(a: Variant = "", b: Variant = "") -> Dictionary:
+	if fleet_refit == null:
+		return {"ok": false, "reason": "no_fleet_refit"}
+	var res: Dictionary = fleet_refit.remove(a, b)
+	if bool(res.get("ok", false)):
+		_publish_fleet_event("fleet_refit.remove", {"ship_id": str(fleet_refit.selected()),
+			"module_id": str(res.get("module_id", ""))})
+	return res
+
+func fleet_commit(ship_id := "") -> Dictionary:
+	if fleet_refit == null:
+		return {"ok": false, "reason": "no_fleet_refit"}
+	var res: Dictionary = fleet_refit.commit(ship_id)
+	if bool(res.get("ok", false)):
+		_publish_fleet_event("fleet_refit.commit", {"ship_id": str(ship_id),
+			"committed": res.get("committed", []), "costs": res.get("costs", {})})
+	return res
+
+func fleet_refit_tick(days: float) -> Dictionary:
+	if fleet_refit == null:
+		return {"ok": false, "reason": "no_fleet_refit"}
+	var res: Dictionary = fleet_refit.tick(days)
+	if bool(res.get("ok", false)):
+		_publish_fleet_event("fleet_refit.tick", {"days": days,
+			"completed": res.get("completed", [])})
+	return res
+
+func fleet_refit_stats(ship_id := "") -> Dictionary:
+	if fleet_refit == null:
+		return {}
+	return fleet_refit.stats(ship_id)
+
+func fleet_refit_state(ship_id: String) -> Dictionary:
+	if fleet_refit == null:
+		return {}
+	return fleet_refit.refit_state(ship_id)
+
+# 通用别名（与 task API 对齐；tick 与 session 主 tick 冲突，用 fleet_refit_tick）
+func select_ship(ship_id: String) -> Dictionary:
+	return fleet_select_ship(ship_id)
+
+func options(ship_id := "", category := "") -> Array:
+	return fleet_options(ship_id, category)
+
+func quote(a: Variant = "", b: Variant = "") -> Dictionary:
+	return fleet_quote(a, b)
+
+func install(a: Variant = "", b: Variant = "", opts := {}) -> Dictionary:
+	return fleet_install(a, b, opts)
+
+func remove(a: Variant = "", b: Variant = "") -> Dictionary:
+	return fleet_remove(a, b)
+
+func commit(ship_id := "") -> Dictionary:
+	return fleet_commit(ship_id)
+
+func stats(ship_id := "") -> Dictionary:
+	return fleet_refit_stats(ship_id)
 
 # ── DbC ─────────────────────────────────────────────────────────
 
@@ -3918,6 +4153,18 @@ func check_contracts() -> Dictionary:
 		var rc: Dictionary = refit_service.check_contracts()
 		if not bool(rc.get("ok", false)):
 			v.append("refit 不变量失败：" + str(rc.get("violations", [])))
+	if fleet_refit != null:
+		if not bool(fleet_refit.ready):
+			v.append("fleet_refit 未就绪")
+		var frc: Dictionary = fleet_refit.check_contracts()
+		if not bool(frc.get("ok", false)):
+			v.append("fleet_refit 不变量失败：" + str(frc.get("violations", [])))
+	if fleet_formation != null:
+		if not bool(fleet_formation.ready):
+			v.append("fleet_formation 未就绪")
+		var ffc: Dictionary = fleet_formation.check_contracts()
+		if not bool(ffc.get("ok", false)):
+			v.append("fleet_formation 不变量失败：" + str(ffc.get("violations", [])))
 	if story_state != null:
 		if absf(float(story_state.t_s) - now_s()) > 1.0e-6:
 			v.append("story 时间与会话不一致：%s != %s" % [str(story_state.t_s), str(now_s())])
@@ -3987,6 +4234,8 @@ func snapshot() -> Dictionary:
 		"damage_profile": damage_profile_service.summary() \
 			if damage_profile_service != null else null,
 		"refit": refit_service.save_state() if refit_service != null else null,
+		"fleet_formation": fleet_formation.save_state() if fleet_formation != null else null,
+		"fleet_refit": fleet_refit.save_state() if fleet_refit != null else null,
 		"track_writer": _track_writer,
 		"orders_summary": orders.summary() if orders != null else {},
 		"comms_summary": comms.summary() if comms != null else {},
@@ -4034,6 +4283,8 @@ func save_state() -> String:
 		"damage_profile": damage_profile_service.summary() \
 			if damage_profile_service != null else null,
 		"refit": refit_service.save_state() if refit_service != null else null,
+		"fleet_formation": fleet_formation.save_state() if fleet_formation != null else null,
+		"fleet_refit": fleet_refit.save_state() if fleet_refit != null else null,
 		"combat_time_cap": {"active": _combat_scale_cap_active,
 			"restore_to": _scale_before_combat, "cap": COMBAT_SCALE_CAP},
 		"bus": {
@@ -4211,6 +4462,22 @@ func load_state(json_text: String) -> Dictionary:
 			var rr2: Dictionary = refit_service.load_state(saved_refit)
 			if not bool(rr2.get("ok", false)):
 				replay_errors.append("refit 快照恢复失败：" + str(rr2.get("reason", rr2.get("errors", []))))
+	var saved_ff = data.get("fleet_formation", null)
+	if saved_ff is Dictionary:
+		if fleet_formation == null:
+			replay_errors.append("存档含 fleet_formation 快照但 boot 未启用 fleet_formation")
+		else:
+			var ffr: Dictionary = fleet_formation.load_state(saved_ff)
+			if not bool(ffr.get("ok", false)):
+				replay_errors.append("fleet_formation 快照恢复失败：" + str(ffr.get("reason", ffr.get("errors", []))))
+	var saved_fr = data.get("fleet_refit", null)
+	if saved_fr is Dictionary:
+		if fleet_refit == null:
+			replay_errors.append("存档含 fleet_refit 快照但 boot 未启用 fleet_refit")
+		else:
+			var frr: Dictionary = fleet_refit.load_state(saved_fr)
+			if not bool(frr.get("ok", false)):
+				replay_errors.append("fleet_refit 快照恢复失败：" + str(frr.get("reason", frr.get("errors", []))))
 	# 交战时间膨胀状态（旧存档无此字段 → 视为未封顶）
 	var saved_cap = data.get("combat_time_cap", null)
 	if saved_cap is Dictionary:

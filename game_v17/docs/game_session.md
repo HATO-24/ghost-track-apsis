@@ -3,7 +3,7 @@
 > 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）+ 3P（task-164）+ 3R（task-167）+ **4Z 交战物理化（统一开火路径）**。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=1445 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=1534 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -45,6 +45,8 @@ GameSession
  └─ ShipCatalog（可选） 友军/敌军舰级目录；entity→class/known_ship/entity_binding；只读
  └─ RefitService（可选） APSIS 改装事务/槽位/质量/功率/成本/地点；不写 world/UI
  └─ DamageProfileService（可选） 舰级毁伤档案（分区/材质/effects）；旧 damage_l1 显式档案优先
+ └─ FleetRefitService（可选） 13 舰独立改装/共享资源/按 class 过滤模块；不写 world/UI
+ └─ FleetFormationService（可选） 8 槽自由编组/角色/上限/燃料维修校验；不写 world/UI
 ```
 
 - **依赖方向**：OrderService 内部持有 CommsService；`tick` 时订单服务推进通信并消费其投递事件。
@@ -108,6 +110,11 @@ GameSession
   成功操作发布 `refit.*` 事件；DamageService 建档带 class_id（旧 damage_l1 ships 显式档案
   属性优先），`damage_class_of/damage_profile_for` 可查；不写 world/UI；save 嵌入
   catalog 摘要与 refit 快照。
+- **FleetFormation/FleetRefit（5G）**：可选 `fleet_formation` / `fleet_refit`（缺省互相联动
+  启用，依赖 `ship_catalog`，未给则自动加载目录）；FleetRefitService 为 13 艘友舰各建独立
+  RefitService、共享 credits/materials/location；FleetFormationService 提供 8 槽自由编组/
+  command 必需/槽上限/角色兼容/总 mass-dv-crew/燃料/维修坞校验；事件 `fleet.*`/
+  `fleet_refit.*` 进 EventBus；save 嵌入两服务快照。
 - **弹道取态唯一入口 `_entity_kinematics(entity_id)`（4Z）**：返回
   `{ok, source:"physics_world"|"world", frame:"bary_rot", r[3], v[3], ...}`。
   顺序为 **物理世界优先 → 剧情世界兜底**，两者都没有才 `{ok:false, reason:"unknown_entity"}`。
@@ -171,6 +178,8 @@ config 可覆盖字段（省略用 demo）：
 | `ship_catalog` | **可选**：`true` 或 ShipCatalog 配置 `{friendly_path/enemy_path}`；缺省/`false` → 不组合；坏内容 boot 失败 |
 | `refit` | **可选**：`true` 或 RefitService 配置 `{options/options_path/resources/location}`；缺 catalog 自动加载；旧档兼容 |
 | `damage_profiles` | **可选**：`true` 或 DamageProfileService 配置；catalog 启用时自动建 profile service |
+| `fleet_formation` | **可选**：`true` 或 `{roster/roster_path}`；缺省与 `fleet_refit` 互相联动启用；依赖 ShipCatalog |
+| `fleet_refit` | **可选**：`true` 或 `{roster/options/resources/location}`；显式 `false` 可只保留 formation |
 | `own_entity` | **本舰实体 id**（4Z，字符串）：弹道 shooter 解析、`pd_platform_id="own"` 哨兵解析的唯一显式来源。**在 seed 白名单内**（不在白名单的字段会被 `_normalize_seed` 丢弃）；缺省时走 `combat_service.own_id` → tags → side 兜底 |
 | `seed_frame` / `frame_origin` / `prelude` | 帧转换开关（4F）：`auto/l1/bary_rot/none`；**沙盒必须显式 `bary_rot`**，否则会被套用 L1 相对帧导致整图平移 32 万公里 |
 
@@ -233,9 +242,14 @@ config 可覆盖字段（省略用 demo）：
 | `ship_catalog` | **可选**：`true` 或 ShipCatalog 配置（`friendly_path/enemy_path`）；缺省不组合；坏内容 boot 失败 |
 | `refit` | **可选**：`true` 或 RefitService 配置（`options/options_path/resources/location`）；缺 catalog 时自动加载；不写 world/UI |
 | `damage_profiles` | **可选**：`true` 或 DamageProfileService 配置；catalog 启用时自动建 profile service |
+| `fleet_formation` | **可选**：`true` 或 `{roster/roster_path}`；缺省与 `fleet_refit` 互相联动启用；依赖 ShipCatalog |
+| `fleet_refit` | **可选**：`true` 或 `{roster/options/resources/location}`；显式 `false` 可只保留 formation |
 | `entity_class_id/class_vm/ship_catalog_vm/ship_catalog_summary` | 实体→舰级（known_ship/binding→实体 class_id→TBD）；舰级只读数据 |
 | `damage_class_of/damage_profile_for` | DamageService 模型的 class_id/profile_source / DamageProfile 查询 |
 | `refit_vm/refit_slots/refit_options/refit_quote/refit_install/refit_remove/refit_commit/refit_tick/refit_stats` | APSIS 改装事务 API（quote/install 支持 id 或模块对象）；成功发 `refit.*` 事件 |
+| `fleet_vm/fleet_summary/fleet_roster/fleet_slots/fleet_assign/fleet_unassign/fleet_move/fleet_validate/fleet_stats` | 5G 舰队编制（13 舰/8 槽）；成功发 `fleet.*`；不写 world/UI |
+| `fleet_refit_vm/fleet_refit_ships/fleet_select_ship/fleet_options/fleet_quote/fleet_install/fleet_remove/fleet_commit/fleet_refit_tick/fleet_refit_stats/fleet_refit_state` | 5G 全舰队改装（共享资源/逐舰独立）；成功发 `fleet_refit.*` |
+| 别名 `select_ship/options/quote/install/remove/commit/stats` | 对齐 5G task API；`tick` 与主 tick 冲突，用 `fleet_refit_tick` |
 | `light_send/light_receive/light_ack/signal_vm/signal_summary/signal_flush_events` | 可见光灯语发送/接收/确认、只读 VM/摘要、显式拉取 Signal outbox |
 | `apply_ew/ew_observation_effect/ew_comms_effect/ew_transponder_effect/ew_active/ew_vm` | EW 效果应用/观测-通信-应答机影响/活动效果/只读 VM；apply 记录 log 可 replay |
 | `set_ew_emcon` | EW EMCON 开关（独立于 sensor `set_emcon`；只写 EWService） |
@@ -289,6 +303,8 @@ config 可覆盖字段（省略用 demo）：
   （已路由 DamageService；只读发布，不回写 world）。
 - Refit 事件：`refit.install/remove/commit/tick`（成功操作发布；payload 含 module_id/committed/
   costs/completed；只读，不写 world/UI）。
+- Fleet 事件：`fleet.assign/unassign/move/validated`、`fleet_refit.select_ship/install/remove/
+  commit/tick`（成功操作发布；payload 含 ship_id/module_id/slot/committed；只读，不写 world/UI）。
 - PortService 事件：`port.request_created/granted/denied/held/expired/approach/docked/service_started/
   service_finished/departed`；CombatService 事件：`combat.<kind>`（weapon_launch/combat_hit/combat_miss/
   point_defense/authorization_*/roe_* 等），均为只读事件。
@@ -351,6 +367,10 @@ config 可覆盖字段（省略用 demo）：
   `planned→commit→queue→tick`，不写 world/UI；save 含 `ship_catalog/catalog/refit/
   damage_profile`；旧档缺字段 → catalog/refit 退化（entity_class TBD、refit API
   `no_refit_service`），不报错；存档含 refit 但 seed 未启用 → replay error。
+- **5G 一致**：`fleet_refit.ready`/`fleet_formation.ready`（若启用）；FleetRefit 13 舰独立
+  refit state、共享 resources；FleetFormation 8 槽/command 必需/总 mass-dv-crew/燃料/维修
+  校验；`fleet.*`/`fleet_refit.*` 事件只读发布，不写 world/TrackTable/UI；save 含两快照；
+  旧档缺字段 → fleet 退化（API `no_fleet_refit/no_fleet_formation`），不报错。
 - **统一开火路径一致（4Z）**：`request_fire()` 的前置检查顺序固定为
   `no_combat_service → unknown_track → no_ballistics → no_physics_state → 门禁 → launch`，
   **任何前置检查失败都不得扣弹药、不得改航迹/授权状态**（返回 `ok=false` + `reason`，
@@ -397,6 +417,8 @@ ew_service: <EWService.save_state() JSON> | "",
   catalog: {schema, summary} | null,          # 别名
   damage_profile: <DamageProfileService.summary()> | null,
   refit: <RefitService.save_state()> | null,
+  fleet_formation: <FleetFormationService.save_state()> | null,
+  fleet_refit: <FleetRefitService.save_state()> | null,
   bus: {seq, events[]}
 }
 ```
@@ -462,6 +484,11 @@ refit_stats 一致、可继续改装；旧存档缺 5D 字段/seed 配置 → ca
 （entity_class TBD、refit API `no_refit_service`），不报错；存档含 refit 而 seed 未启用 →
 replay error。
 
+**5G 存档**：save 嵌入 `fleet_formation`（assignments）与 `fleet_refit`（selected/
+resources/13 舰 refit state）；load 后 roster/编组/各舰 refit stats/共享资源一致、
+可继续编组/改装；旧档缺 5G 字段/seed 配置 → fleet 退化（API `no_fleet_formation/
+no_fleet_refit`）、不报错；存档含 fleet 快照而 seed 未启用 → replay error。
+
 **Port/Combat 存档**：save 嵌入二者 `save_state()` JSON；load 时先 boot(seed) 重建并按 log 重放
 （port/combat 委托操作 + tick），再恢复快照；load 后 VM/snapshot 一致、时间与 session 同步、
 可继续操作/再次 save。旧存档缺 `port_service/combat_service` 字段与 seed 配置时，replay 对应操作
@@ -486,7 +513,7 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=1445 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=1534 FAIL=0（exit 0，只跑一次）
 ```
 
 覆盖（40 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
@@ -518,10 +545,12 @@ apply_event/去重/影响接口、tick、save/load/旧档兼容、确定性）�
 DamageService applied、PD 自动拦截、ballistics.* bus、失败不改状态、save/load/旧档/确定性）；
 **统一开火路径（4Z，第 40 节）**（门禁→真实弹丸→异步 impact→Damage→倍速降档/恢复、
 齐射/逐发散布/弹药不足拒绝+`salvo_max`、规划预演、`no_physics_state`、存档往返）；
-**5D 集成**（catalog 36/8+28、entity_class known_ship/binding/hull/batch/实体 class_id/TBD、
+**5D 集成**（catalog 32/8+24、变体 18、entity_class known_ship/binding/hull/batch/实体 class_id/TBD、
 class_vm、refit 30 模块事务/槽位/质量/功率/成本/地点/事件、damage class_id 与旧 damage_l1
-优先、save/load/旧档/失败原子/确定性）。
-当前 `V17 SESSION PROBE RESULT: PASS=1445 FAIL=0`（含 legal/traffic/帧转换/ballistics/统一开火/5D；exit 0，只跑一次）。
+优先、save/load/旧档/失败原子/确定性）；**5G 集成**（fleet_formation/fleet_refit 联动启用、
+13 舰/8 槽/19 位、自由 assign/move/unassign、command/角色/槽满/limits、refit 多舰共享资源/
+逐舰独立、fleet.* + fleet_refit.* bus、save/load/旧档/坏配置/确定性）。
+当前 `V17 SESSION PROBE RESULT: PASS=1534 FAIL=0`（含 legal/traffic/帧转换/ballistics/统一开火/5D/5G；exit 0，只跑一次）。
 
 ## 7　边界 / 未完成
 
@@ -554,6 +583,9 @@ class_vm、refit 30 模块事务/槽位/质量/功率/成本/地点/事件、dam
 - ShipCatalog/Refit/DamageProfile 只做目录/改装事务/毁伤档案查询：catalog 为静态内容，
   refit 为事务状态，DamageProfile 只在建档/查询时用；不接 UI 干船坞、不写 world/V15、
   不生成实体；旧 damage_l1 ships 显式档案属性优先，class_id 仅补元数据。
+- FleetRefitService/FleetFormationService 只做舰队改装事务与编组状态：13 舰/8 槽来自名册
+  提案，不写 world/TrackTable/UI/V15、不生成/移动实体；编队状态允许暂时 validate=false
+  （例如移除 command），由 `fleet_validate()` 报告；不自动在主 tick 推进 fleet refit。
 - **开火是异步的（4Z）**：`request_fire()` 返回 `ok=true` 仅表示弹丸已进入物理积分，不代表命中。
   上层/UI 不得据此宣布战果，必须等 `ballistics.impact` 事件或航迹 `damage_taken` 变化。
   门禁通过但物理状态缺失时一律 `no_physics_state` 拒绝（不降级成"抽象命中"），
