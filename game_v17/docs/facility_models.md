@@ -48,3 +48,33 @@
 - 全部设施共享 6 个基型，不是每设施独立美术网格；纯色 StandardMaterial3D、无贴图。
 - 近景为只读 UI 展示；不读 truth 位置、不写 world/physics/session。
 - 待未来替换：独立高模/贴图/LOD；保留 factory API 即可切换。
+
+
+---
+
+## B-36 空间站基型更新（task-213）
+
+- station_model 6 基型已按 ISS/天宫参考重做：
+  - port：核心舱 + 节点舱 + 径向实验舱 + 分段太阳翼 + 多向对接 + 桁架/散热器；
+  - depot：核心 + 长桁架 + 货舱/储罐 + 太阳翼；
+  - otc：天线转台 + 碟形天线 + 相控阵 + 太阳翼；
+  - tank：桁架 + 多圆柱储罐 + 管线；
+  - fuel：储罐 + 加注臂/喷嘴；
+  - research：实验舱 + 暴露平台 + 散热器 + 太阳翼。
+- FacilityModelFactory 的 class→基型映射/尺度/probe 不变；110 设施仍全部映射到 6 基型。
+- NEAR VIEW 已改用新模型并重截 `mockups/v1-hud-nearview-facility-1920.png`（Chronos/depot）。
+- 纯色 StandardMaterial3D；无贴图；仍是过渡资产，不是每设施独立美术网格。
+
+
+---
+
+## B-37 居住站映射（task-214）
+
+- Factory 新增 `habitat_type/model_family` 输出；特殊大型站不再使用模块站：
+  - L5-07 Savannah / L5-01 Eko / L3-01 Aurora → `oneill`（O'Neill 双圆柱）；
+  - NESOSS-05 Saturnus → `stanford`（Stanford 环面）。
+- 小 station/port/depot/otc/tank/fuel/research 继续 station_model 6 基型。
+- 未知居住类设施（residential/tourism/agricultural/habitat，radius≥2.0）按半径 fallback：≥3.2 oneill，否则 stanford，并标注 `habitat_fallback`。
+- near_view 显示 habitat 模型与 `MODEL habitat_model.gd / oneill|stanford`、ID/CODE；Savannah 截图 `mockups/v1-hud-nearview-savannah-1920.png`。
+- Festival 模型预览截图 `mockups/models-habitats-lore-1920.png`。
+- 仍为纯色过渡资产；不复制现实实体；110 设施 probe 仍通过（checks=1697）。

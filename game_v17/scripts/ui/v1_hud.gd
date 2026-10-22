@@ -81,6 +81,7 @@ var _refit_tested := false
 var _near_view = null
 var _near_buttons: Array = []
 var _near_subject := "facility"
+var _near_facility_data: Dictionary = {}
 var _command_msg := ""
 var _comms_type := "HOLD"
 var _comms_target := ""
@@ -2759,6 +2760,13 @@ func _update_near_subject() -> void:
 	if _near_view == null:
 		return
 	var c: Dictionary = _contacts[_selected] if _selected >= 0 and _selected < _contacts.size() else {}
+	var override_id := OS.get_environment("DSH_NEAR_FACILITY_ID")
+	if override_id != "" and binder != null and binder.session != null and binder.session.facility_registry != null:
+		var frow: Dictionary = binder.session.facility_registry.facility(override_id)
+		if not frow.is_empty():
+			c = frow
+			_near_subject = "facility"
+			_near_facility_data = frow.duplicate(true)
 	var fac_class := String(c.get("facility_class", ""))
 	var fac_label := String(c.get("facility_name", c.get("name", "")))
 	var radius := 0.0
@@ -2767,6 +2775,7 @@ func _update_near_subject() -> void:
 	if fac_class == "":
 		fac_class = "port"
 		fac_label = "L1 PORT · DEFAULT"
+	_near_facility_data = c.duplicate(true) if not c.is_empty() else {}
 	_near_view.set_subject(_near_subject, fac_class, fac_label, radius, c)
 
 
@@ -2794,7 +2803,7 @@ func _draw_near_overlay(r: Rect2) -> void:
 	else:
 		Painter.label(_cv, vr.position.x + 12, vr.position.y + 28, "NEAR VIEWPORT NOT READY", 10, P.AMBER)
 	var info: Dictionary = _near_view.get_info() if _near_view != null else {}
-	var c: Dictionary = _contacts[_selected] if _selected >= 0 and _selected < _contacts.size() else {}
+	var c: Dictionary = _near_facility_data if not _near_facility_data.is_empty() else (_contacts[_selected] if _selected >= 0 and _selected < _contacts.size() else {})
 	var right_x := vr.end.x + 18.0
 	var right_w := body.end.x - right_x
 	Painter.section(_cv, right_x, body.position.y, body.end.x, "SUBJECT / 对象")
@@ -2808,6 +2817,8 @@ func _draw_near_overlay(r: Rect2) -> void:
 		["SCALE", ("%.2f×" % float(info.get("scale", 0.0))) if float(info.get("scale", 0.0)) > 0.0 else "—"],
 		["MODULES", str(int(info.get("module_count", 0)))],
 		["MAPPING", String(info.get("mapping", "—"))],
+		["FAMILY", String(info.get("family", "module_station"))],
+		["HABITAT", String(info.get("habitat_type", "—")) if String(info.get("habitat_type", "")) != "" else "—"],
 		["FALLBACK", "YES" if bool(info.get("fallback", false)) else "NO"],
 		["RADIUS", ("%.2f km" % float(info.get("radius_km", 0.0))) if float(info.get("radius_km", 0.0)) > 0.0 else "—"],
 		["SOURCE", String(info.get("source", "LOCAL / DEFAULT"))],
@@ -2822,8 +2833,8 @@ func _draw_near_overlay(r: Rect2) -> void:
 	Painter.section(_cv, right_x, yy, body.end.x, "FACILITY / 选中设施")
 	yy += 16.0
 	var extra := [
-		["ID", String(c.get("facility_id", c.get("facility_code", "—")))],
-		["CODE", String(c.get("facility_code", "—"))],
+		["ID", String(c.get("facility_id", info.get("facility_id", "—")))],
+		["CODE", String(c.get("facility_code", info.get("facility_code", "—")))],
 		["TYPE", String(c.get("facility_class", "—"))],
 		["STATUS", String(c.get("badge", "—"))],
 	]

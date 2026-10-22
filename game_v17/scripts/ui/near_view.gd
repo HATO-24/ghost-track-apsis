@@ -107,18 +107,32 @@ func set_subject(subject: String, facility_class := "station", facility_label :=
 		var mapping: Dictionary = FacilityModelFactory.describe(fac)
 		var st = FacilityModelFactory.create(fac)
 		_model = st
-		_camera.position = Vector3(0.0, 0.75, 3.9)
+		var family := String(mapping.get("model_family", "module_station"))
+		var habitat_type := String(mapping.get("habitat_type", ""))
+		var framing := clampf(5.8 + float(mapping.get("scale", 1.0)) * 0.5, 5.8, 7.2)
+		if family == "habitat":
+			framing = 8.6 if habitat_type == "oneill" else 5.8
+		_camera.position = Vector3(0.0, 1.25, framing)
 		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
 		_info = {"subject": "FACILITY", "facility_class": String(mapping.get("facility_class", facility_class)),
-			"model": "station_model.gd / " + String(mapping.get("model_type", "port")),
+			"model": ("habitat_model.gd / " + habitat_type) if family == "habitat" else ("station_model.gd / " + String(mapping.get("model_type", "port"))),
 			"radius_km": float(mapping.get("radius_km", facility_radius_km)),
-			"scale": float(mapping.get("scale", 1.0)), "module_count": int(mapping.get("module_count", 3)),
-			"mapping": String(mapping.get("mapping", "")), "fallback": bool(mapping.get("fallback", true)),
+			"scale": (float(mapping.get("habitat_scale", 1.0)) if family == "habitat" else float(mapping.get("scale", 1.0))),
+			"module_count": int(mapping.get("module_count", 3)),
+			"mapping": String(mapping.get("habitat_label", mapping.get("mapping", ""))),
+			"fallback": bool(mapping.get("fallback", true)) or bool(mapping.get("habitat_fallback", false)),
 			"supported": bool(mapping.get("supported", false)),
-			"source": "SELECTED FACILITY / DEFAULT L1 PORT / FACTORY", "material": "StandardMaterial3D solid · low-poly · no texture"}
+			"family": family, "habitat_type": habitat_type,
+			"habitat_known": bool(mapping.get("habitat_known", false)),
+			"facility_type": habitat_type if family == "habitat" else String(mapping.get("model_type", "port")),
+			"source": ("SELECTED HABITAT / LORE MAPPING" if family == "habitat" else "SELECTED FACILITY / DEFAULT L1 PORT / FACTORY"),
+			"material": "StandardMaterial3D solid · procedural · no texture"}
 	_subject_root.add_child(_model)
 	_info["facility_label"] = _facility_label
-	_info["facility_type"] = String(CLASS_TO_TYPE.get(facility_class, "port")) if subject == "facility" else ""
+	if subject == "facility":
+		_info["facility_type"] = String(_info.get("habitat_type", "")) if String(_info.get("family", "")) == "habitat" else String(_info.get("model_type", "port"))
+	else:
+		_info["facility_type"] = ""
 
 
 func get_info() -> Dictionary:

@@ -1,0 +1,478 @@
+{
+  "schema": "v17.fleet_roster.v1",
+  "version": "1.0.0",
+  "title": "完整游戏-阶段5F 友军舰队名册/编队槽位（提案）",
+  "source": "docs/04 §7/§12.8 + docs/46 §3.2",
+  "proposal": true,
+  "units": {
+    "mass": "t",
+    "dv": "km/s",
+    "fuel": "t",
+    "crew": "人"
+  },
+  "slots": {
+    "command": {
+      "cap": 1,
+      "required": true,
+      "roles": [
+        "command"
+      ],
+      "label": "指挥"
+    },
+    "screen": {
+      "cap": 4,
+      "required": false,
+      "roles": [
+        "screen"
+      ],
+      "label": "屏护"
+    },
+    "gun": {
+      "cap": 3,
+      "required": false,
+      "roles": [
+        "gun"
+      ],
+      "label": "火力"
+    },
+    "missile": {
+      "cap": 2,
+      "required": false,
+      "roles": [
+        "missile"
+      ],
+      "label": "导弹"
+    },
+    "logistics": {
+      "cap": 3,
+      "required": false,
+      "roles": [
+        "logistics"
+      ],
+      "label": "后勤"
+    },
+    "relay": {
+      "cap": 2,
+      "required": false,
+      "roles": [
+        "relay"
+      ],
+      "label": "中继"
+    },
+    "tug": {
+      "cap": 2,
+      "required": false,
+      "roles": [
+        "tug"
+      ],
+      "label": "拖救"
+    },
+    "shuttle": {
+      "cap": 2,
+      "required": false,
+      "roles": [
+        "shuttle"
+      ],
+      "label": "穿梭机"
+    }
+  },
+  "limits": {
+    "max_ships": 13,
+    "max_mass_t": 35000.0,
+    "min_total_dv_kmps": 5.0,
+    "max_total_dv_kmps": 120.0,
+    "max_crew": 1200,
+    "fuel_capacity_t": 22000.0,
+    "repair_dock_capacity": 4
+  },
+  "class_refit_policies": {
+    "OCUVF-APOGEE": {
+      "allowed_categories": [
+        "hull",
+        "sensor",
+        "defense",
+        "utility",
+        "dock"
+      ],
+      "slots": {
+        "hull": 3,
+        "sensor": 3,
+        "weapon": 3,
+        "defense": 3,
+        "utility": 6,
+        "dock": 2
+      },
+      "power_kw": 400.0,
+      "max_mass_t": 12000.0,
+      "max_power_kw": 1200.0,
+      "dock_bays": 2
+    },
+    "OCUVF-PALLET-5C": {
+      "allowed_categories": [
+        "hull",
+        "sensor",
+        "defense",
+        "utility"
+      ],
+      "slots": {
+        "hull": 1,
+        "sensor": 4,
+        "weapon": 1,
+        "defense": 2,
+        "utility": 3,
+        "dock": 0
+      },
+      "power_kw": 200.0,
+      "max_mass_t": 500.0,
+      "max_power_kw": 500.0,
+      "dock_bays": 0
+    },
+    "OCUVF-HEMATITE-6C": {
+      "allowed_categories": [
+        "hull",
+        "sensor",
+        "weapon",
+        "defense",
+        "utility"
+      ],
+      "slots": {
+        "hull": 2,
+        "sensor": 1,
+        "weapon": 3,
+        "defense": 2,
+        "utility": 3,
+        "dock": 0
+      },
+      "power_kw": 500.0,
+      "max_mass_t": 1800.0,
+      "max_power_kw": 800.0,
+      "dock_bays": 0
+    },
+    "OCUVF-GANTRY-3M": {
+      "allowed_categories": [
+        "hull",
+        "weapon",
+        "defense",
+        "utility"
+      ],
+      "slots": {
+        "hull": 2,
+        "sensor": 0,
+        "weapon": 3,
+        "defense": 2,
+        "utility": 3,
+        "dock": 0
+      },
+      "power_kw": 350.0,
+      "max_mass_t": 1400.0,
+      "max_power_kw": 700.0,
+      "dock_bays": 0
+    },
+    "OCUVF-MOONPORT-4": {
+      "allowed_categories": [
+        "hull",
+        "defense",
+        "utility"
+      ],
+      "slots": {
+        "hull": 2,
+        "sensor": 1,
+        "weapon": 0,
+        "defense": 2,
+        "utility": 4,
+        "dock": 0
+      },
+      "power_kw": 300.0,
+      "max_mass_t": 3000.0,
+      "max_power_kw": 600.0,
+      "dock_bays": 0
+    },
+    "OCUVF-SAFEHARBOR-1": {
+      "allowed_categories": [
+        "hull",
+        "sensor",
+        "defense",
+        "utility"
+      ],
+      "slots": {
+        "hull": 1,
+        "sensor": 3,
+        "weapon": 0,
+        "defense": 2,
+        "utility": 3,
+        "dock": 0
+      },
+      "power_kw": 250.0,
+      "max_mass_t": 800.0,
+      "max_power_kw": 500.0,
+      "dock_bays": 0
+    },
+    "OCUVF-WINCH-2": {
+      "allowed_categories": [
+        "hull",
+        "defense",
+        "utility"
+      ],
+      "slots": {
+        "hull": 2,
+        "sensor": 1,
+        "weapon": 0,
+        "defense": 1,
+        "utility": 3,
+        "dock": 0
+      },
+      "power_kw": 200.0,
+      "max_mass_t": 600.0,
+      "max_power_kw": 400.0,
+      "dock_bays": 0
+    },
+    "OCUVF-ARIA-1": {
+      "allowed_categories": [
+        "defense",
+        "utility"
+      ],
+      "slots": {
+        "hull": 0,
+        "sensor": 0,
+        "weapon": 0,
+        "defense": 1,
+        "utility": 2,
+        "dock": 0
+      },
+      "power_kw": 50.0,
+      "max_mass_t": 50.0,
+      "max_power_kw": 100.0,
+      "dock_bays": 0
+    }
+  },
+  "ships": [
+    {
+      "ship_id": "APSIS",
+      "name": "远地点号",
+      "name_en": "APSIS",
+      "hull_code": "001",
+      "class_id": "OCUVF-APOGEE",
+      "role": "command",
+      "formation_roles": [
+        "command",
+        "logistics"
+      ],
+      "status": "active",
+      "assigned_slot": "command",
+      "refit_state": {},
+      "fuel_t": 3000.0,
+      "repair_slots_required": 1,
+      "proposal": true
+    },
+    {
+      "ship_id": "PERIGEE",
+      "name": "近地点号",
+      "name_en": "PERIGEE",
+      "hull_code": "002",
+      "class_id": "OCUVF-APOGEE",
+      "role": "command",
+      "formation_roles": [
+        "command",
+        "logistics"
+      ],
+      "status": "reserve",
+      "assigned_slot": null,
+      "refit_state": {},
+      "fuel_t": 3000.0,
+      "repair_slots_required": 1,
+      "proposal": true
+    },
+    {
+      "ship_id": "HARMATTAN",
+      "name": "哈马丹号",
+      "name_en": "HARMATTAN",
+      "hull_code": "114",
+      "class_id": "OCUVF-PALLET-5C",
+      "role": "screen",
+      "formation_roles": [
+        "screen",
+        "relay"
+      ],
+      "status": "active",
+      "assigned_slot": "screen",
+      "refit_state": {},
+      "fuel_t": 500.0,
+      "repair_slots_required": 0,
+      "proposal": true
+    },
+    {
+      "ship_id": "LEE_SHORE",
+      "name": "背风岸号",
+      "name_en": "LEE SHORE",
+      "hull_code": "115",
+      "class_id": "OCUVF-PALLET-5C",
+      "role": "screen",
+      "formation_roles": [
+        "screen",
+        "relay"
+      ],
+      "status": "reserve",
+      "assigned_slot": null,
+      "refit_state": {},
+      "fuel_t": 500.0,
+      "repair_slots_required": 0,
+      "proposal": true
+    },
+    {
+      "ship_id": "FERRY",
+      "name": "渡口号",
+      "name_en": "FERRY",
+      "hull_code": "201",
+      "class_id": "OCUVF-HEMATITE-6C",
+      "role": "gun",
+      "formation_roles": [
+        "gun"
+      ],
+      "status": "active",
+      "assigned_slot": "gun",
+      "refit_state": {},
+      "fuel_t": 800.0,
+      "repair_slots_required": 0,
+      "proposal": true
+    },
+    {
+      "ship_id": "ANVIL",
+      "name": "铁砧号",
+      "name_en": "ANVIL",
+      "hull_code": "202",
+      "class_id": "OCUVF-HEMATITE-6C",
+      "role": "gun",
+      "formation_roles": [
+        "gun"
+      ],
+      "status": "reserve",
+      "assigned_slot": null,
+      "refit_state": {},
+      "fuel_t": 800.0,
+      "repair_slots_required": 0,
+      "proposal": true
+    },
+    {
+      "ship_id": "VESUVIUS",
+      "name": "维苏威号",
+      "name_en": "VESUVIUS",
+      "hull_code": "301",
+      "class_id": "OCUVF-GANTRY-3M",
+      "role": "missile",
+      "formation_roles": [
+        "missile"
+      ],
+      "status": "reserve",
+      "assigned_slot": null,
+      "refit_state": {},
+      "fuel_t": 900.0,
+      "repair_slots_required": 0,
+      "proposal": true
+    },
+    {
+      "ship_id": "DEEPWELL",
+      "name": "深井号",
+      "name_en": "DEEPWELL",
+      "hull_code": "401",
+      "class_id": "OCUVF-MOONPORT-4",
+      "role": "logistics",
+      "formation_roles": [
+        "logistics"
+      ],
+      "status": "active",
+      "assigned_slot": "logistics",
+      "refit_state": {},
+      "fuel_t": 4000.0,
+      "repair_slots_required": 0,
+      "proposal": true
+    },
+    {
+      "ship_id": "SPRINGHEAD",
+      "name": "泉眼号",
+      "name_en": "SPRINGHEAD",
+      "hull_code": "402",
+      "class_id": "OCUVF-MOONPORT-4",
+      "role": "logistics",
+      "formation_roles": [
+        "logistics"
+      ],
+      "status": "reserve",
+      "assigned_slot": null,
+      "refit_state": {},
+      "fuel_t": 4000.0,
+      "repair_slots_required": 0,
+      "proposal": true
+    },
+    {
+      "ship_id": "WATCHTOWER",
+      "name": "望楼号",
+      "name_en": "WATCHTOWER",
+      "hull_code": "501",
+      "class_id": "OCUVF-SAFEHARBOR-1",
+      "role": "relay",
+      "formation_roles": [
+        "relay"
+      ],
+      "status": "active",
+      "assigned_slot": "relay",
+      "refit_state": {},
+      "fuel_t": 600.0,
+      "repair_slots_required": 0,
+      "proposal": true
+    },
+    {
+      "ship_id": "BEACON",
+      "name": "烽燧号",
+      "name_en": "BEACON",
+      "hull_code": "502",
+      "class_id": "OCUVF-SAFEHARBOR-1",
+      "role": "relay",
+      "formation_roles": [
+        "relay"
+      ],
+      "status": "reserve",
+      "assigned_slot": null,
+      "refit_state": {},
+      "fuel_t": 600.0,
+      "repair_slots_required": 0,
+      "proposal": true
+    },
+    {
+      "ship_id": "BOLLARD",
+      "name": "缆桩号",
+      "name_en": "BOLLARD",
+      "hull_code": "601",
+      "class_id": "OCUVF-WINCH-2",
+      "role": "tug",
+      "formation_roles": [
+        "tug"
+      ],
+      "status": "reserve",
+      "assigned_slot": null,
+      "refit_state": {},
+      "fuel_t": 300.0,
+      "repair_slots_required": 0,
+      "proposal": true
+    },
+    {
+      "ship_id": "MISSIVE",
+      "name": "信笺号",
+      "name_en": "MISSIVE",
+      "hull_code": "701",
+      "class_id": "OCUVF-ARIA-1",
+      "role": "shuttle",
+      "formation_roles": [
+        "shuttle"
+      ],
+      "status": "reserve",
+      "assigned_slot": null,
+      "refit_state": {},
+      "fuel_t": 50.0,
+      "repair_slots_required": 0,
+      "proposal": true
+    }
+  ],
+  "notes": [
+    "现有 APSIS/HARMATTAN/FERRY/WATCHTOWER/DEEPWELL + 每型 1 艘预备舰（proposal）；槽位/燃料/维修容量为提案。"
+  ]
+}

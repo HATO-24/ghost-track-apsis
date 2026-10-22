@@ -10,6 +10,26 @@ const MODEL_PATHS := [
 	"res://models/otc_satellite.tscn",
 	"res://models/fuel_tank_farm.tscn",
 ]
+const HABITAT_PLACEMENTS := [
+	{"path": "res://models/oneill_cylinder.tscn", "pos": Vector3(-1.7, 0.0, 0.0), "label": "O'NEILL TWIN CYLINDER · 30×7.5 km"},
+	{"path": "res://models/stanford_torus.tscn", "pos": Vector3(2.9, 0.0, 0.0), "label": "STANFORD TORUS · Ø1.8 km"},
+]
+const STATION_PATHS := [
+	"res://models/l1_port.tscn",
+	"res://models/depot_station.tscn",
+	"res://models/otc_satellite.tscn",
+	"res://models/tank_cluster.tscn",
+	"res://models/fuel_tank_farm.tscn",
+	"res://models/research_lab.tscn",
+]
+const STATION_PLACEMENTS := [
+	{"path": "res://models/l1_port.tscn", "pos": Vector3(-6.2, 2.3, 0.0), "label": "PORT · T-CORE"},
+	{"path": "res://models/depot_station.tscn", "pos": Vector3(0.0, 2.3, 0.0), "label": "DEPOT · TRUSS"},
+	{"path": "res://models/otc_satellite.tscn", "pos": Vector3(6.2, 2.3, 0.0), "label": "OTC · ANTENNA"},
+	{"path": "res://models/tank_cluster.tscn", "pos": Vector3(-6.2, -2.3, 0.0), "label": "TANK · MULTI-CYL"},
+	{"path": "res://models/fuel_tank_farm.tscn", "pos": Vector3(0.0, -2.3, 0.0), "label": "FUEL · ARM"},
+	{"path": "res://models/research_lab.tscn", "pos": Vector3(6.2, -2.3, 0.0), "label": "RESEARCH · LAB"},
+]
 const PLACEMENTS := [
 	{"path": "res://models/earth.tscn", "pos": Vector3(-3.25, 0.25, 0.00), "label": "EARTH · R 6371"},
 	{"path": "res://models/moon.tscn", "pos": Vector3(-1.55, 0.18, 0.30), "label": "MOON · R 1737"},
@@ -21,6 +41,7 @@ const PLACEMENTS := [
 var _pivot: Node3D
 var _camera: Camera3D
 var _shot_path := ""
+var _preview_mode := "default"
 var _frames := 0
 var _loaded: Array[String] = []
 var _failed: Array[String] = []
@@ -28,6 +49,9 @@ var _failed: Array[String] = []
 
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
+	_preview_mode = OS.get_environment("DSH_PREVIEW_VIEW")
+	if _preview_mode not in ["stations", "habitats"]:
+		_preview_mode = "default"
 	var target := Vector2i(1920, 1080)
 	var sz := OS.get_environment("DSH_HUD_SIZE")
 	if sz != "":
@@ -65,10 +89,21 @@ func _build_world() -> void:
 	_camera = Camera3D.new()
 	_camera.name = "PreviewCamera"
 	_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	_camera.size = 8.2
-	_camera.position = Vector3(1.15, 2.8, 11.0)
-	add_child(_camera)
-	_camera.look_at(Vector3(1.15, 0.05, 0.0), Vector3.UP)
+	if _preview_mode == "stations":
+		_camera.size = 13.0
+		_camera.position = Vector3(0.0, 1.0, 12.0)
+		add_child(_camera)
+		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
+	elif _preview_mode == "habitats":
+		_camera.size = 6.4
+		_camera.position = Vector3(0.0, 1.2, 12.0)
+		add_child(_camera)
+		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
+	else:
+		_camera.size = 8.2
+		_camera.position = Vector3(1.15, 2.8, 11.0)
+		add_child(_camera)
+		_camera.look_at(Vector3(1.15, 0.05, 0.0), Vector3.UP)
 	var sun := DirectionalLight3D.new()
 	sun.name = "KeyLight"
 	sun.rotation_degrees = Vector3(-38.0, -34.0, 0.0)
@@ -93,7 +128,7 @@ func _build_world() -> void:
 	title.add_theme_color_override("font_color", Color(0.55, 0.82, 0.74))
 	layer.add_child(title)
 	var sub := Label.new()
-	sub.text = "PROCEDURAL GEOMETRY · SOLID MATERIALS · NO TEXTURES · GL COMPATIBILITY"
+	sub.text = ("HABITAT STRUCTURES · O'NEILL TWIN CYLINDER / STANFORD TORUS · VISUAL ROTATION · PROCEDURAL · NO TEXTURES" if _preview_mode == "habitats" else ("STATION STRUCTURES · T-CORE / TRUSS / SOLAR WINGS / RADIATORS / DOCKS · PROCEDURAL · NO TEXTURES" if _preview_mode == "stations" else "PROCEDURAL GEOMETRY · SOLID MATERIALS · NO TEXTURES · GL COMPATIBILITY"))
 	sub.position = Vector2(38, 56)
 	sub.add_theme_font_size_override("font_size", 13)
 	sub.add_theme_color_override("font_color", Color(0.42, 0.52, 0.49))
@@ -110,6 +145,59 @@ func _build_models() -> void:
 	_pivot = Node3D.new()
 	_pivot.name = "ShowcasePivot"
 	add_child(_pivot)
+	if _preview_mode == "habitats":
+		for spec in HABITAT_PLACEMENTS:
+			var hpath := String((spec as Dictionary).get("path", ""))
+			var hpacked = load(hpath)
+			if hpacked == null or not (hpacked is PackedScene):
+				_failed.append(hpath)
+				continue
+			var hnode = (hpacked as PackedScene).instantiate()
+			if hnode == null:
+				_failed.append(hpath)
+				continue
+			_pivot.add_child(hnode)
+			hnode.position = (spec as Dictionary).get("pos", Vector3.ZERO)
+			_loaded.append(hpath)
+			var hlbl := Label3D.new()
+			hlbl.text = String((spec as Dictionary).get("label", ""))
+			hlbl.font_size = 30
+			hlbl.pixel_size = 0.0035
+			hlbl.modulate = Color(0.58, 0.80, 0.72)
+			hlbl.outline_size = 8
+			hlbl.outline_modulate = Color(0.01, 0.02, 0.02, 0.9)
+			hlbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			hlbl.no_depth_test = true
+			hlbl.position = (spec as Dictionary).get("pos", Vector3.ZERO) + Vector3(0.0, 1.55, 0.0)
+			_pivot.add_child(hlbl)
+		return
+	if _preview_mode == "stations":
+		for spec in STATION_PLACEMENTS:
+			var stpath := String((spec as Dictionary).get("path", ""))
+			var spacked = load(stpath)
+			if spacked == null or not (spacked is PackedScene):
+				_failed.append(stpath)
+				continue
+			var snode = (spacked as PackedScene).instantiate()
+			if snode == null:
+				_failed.append(stpath)
+				continue
+			snode.scale = snode.scale * 0.30
+			_pivot.add_child(snode)
+			snode.position = (spec as Dictionary).get("pos", Vector3.ZERO)
+			_loaded.append(stpath)
+			var slbl := Label3D.new()
+			slbl.text = String((spec as Dictionary).get("label", ""))
+			slbl.font_size = 30
+			slbl.pixel_size = 0.0038
+			slbl.modulate = Color(0.58, 0.80, 0.72)
+			slbl.outline_size = 8
+			slbl.outline_modulate = Color(0.01, 0.02, 0.02, 0.9)
+			slbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			slbl.no_depth_test = true
+			slbl.position = (spec as Dictionary).get("pos", Vector3.ZERO) + Vector3(0.0, 1.55, 0.0)
+			_pivot.add_child(slbl)
+		return
 	for spec in PLACEMENTS:
 		var path := String((spec as Dictionary).get("path", ""))
 		var packed = load(path)
