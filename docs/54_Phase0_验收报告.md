@@ -563,13 +563,18 @@ Actions API（`gh api .../runs/39795265144/artifacts`，均未过期、绑定 he
 | run | 对应提交 | 性质 | 结果 |
 | --- | --- | --- | --- |
 | [39786721057](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39786721057) | `04b0d51` | **代码提交验证** | 两 job success；72=64/8/0/0；artifact 已下载校验（§12） |
-| [39787908114](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39787908114) | `e150c9446221e6d75357b869ac4affbe171b69ee`（**最终 docs-only head 复核**） | 两 job success；结果与 39786721057 一致；artifact 已下载校验（§12） |
+| [39787908114](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39787908114) | `e150c9446221e6d75357b869ac4affbe171b69ee`（**docs-only head 复核**） | 两 job success；结果与 39786721057 一致；artifact 已下载校验（§12） |
 | [39795265144](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39795265144) | `e73bc69` | **本轮 fail-closed 修正的代码提交验证** | 两 job success；72=64/8/0/0，complete=true；§13.3/§13.4 |
+| **[39801912830](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39801912830)** | **`66ac1795fae306c6e2b9410830609c3121df92f4`（最终 head 66ac179）** | **最终 head clean 复核** | **两 job completed/success；PR checks 两个均 pass；gate 6/6 PASS，完整矩阵 72=64/8/0/0，baseline complete=true、new_fail=0、drift=0；artifact 已下载核对（§13.9）** |
 
-- 本轮修正后的最终 docs-only head（包含本节报告更新）会触发最后一个复核 run；它只改文档，
-  测试用例与上述 run 逐项一致，其链接记录在 PR #15 描述中（报告无法引用触发自身的 run id）。
+- run 39795265144（代码）与 run 39801912830（最终 head `66ac179`）的测试结果**逐项一致**；
+  39801912830 是最终实现 head 的 clean 复核。
+- 本次报告同步（docs-only）会再次触发一个新的 docs-only head run，其链接记录在 PR #15 描述中；
+  按评审要求，报告不以「追逐自身触发的新 run」为目标：docs-only 变更不改变测试用例与结果，
+  报告记录的是最终实现 head `66ac179` 的 clean run 39801912830。
 - 以上 run 的共同事实：**Phase 0 gate 6/6 PASS；完整矩阵 64 PASS / 8 FAIL / 0 NOT RUN / 0 TIMEOUT**；
-  8 个失败与审计 HEAD 基线逐项一致，保持 FAIL 可见。
+  8 个失败与审计 HEAD 基线逐项一致，保持 FAIL 可见。**绿灯含义是「无新增回归 + baseline 覆盖完整」，
+  不是「全矩阵通过」**（8 个历史失败仍需独立内容/契约同步任务修复）。
 
 ### 13.6 branch protection 检查（如实陈述）
 
@@ -578,10 +583,11 @@ Actions API（`gh api .../runs/39795265144/artifacts`，均未过期、绑定 he
   `Upgrade to GitHub Pro or make this repository public to enable this feature.`
   → **无法确认**是否有 branch protection / required status checks。
 - 因此本文只陈述：`Phase 0 gate` 与 `Full matrix` 两个 job 在 **clean 代码提交 run 39795265144**
-  中实际运行并通过且 job 记录为 completed/success；**不把 job 名称当作保护规则已生效的证据**；
-  job 名称已从 `Phase 0 gate (required)` 改为 `Phase 0 gate (Phase 0 acceptance)` 以避免误导。
-- 最终 head 的 check 记录受 2026-10-22 GitHub Actions Results 平台事故影响（见 §13.9），
-  该 run 以 run-level conclusion 与真实 artifact 为准，不以 stale job/check 记录为准。
+  与 **最终 head clean run 39801912830** 中实际运行并通过且 job 记录为 completed/success；
+  **不把 job 名称当作保护规则已生效的证据**；job 名称已从 `Phase 0 gate (required)` 改为
+  `Phase 0 gate (Phase 0 acceptance)` 以避免误导。
+- §13.9 记录的平台事故只影响旧 head `44bac86` 的 run 39797358545；后续最终 head `66ac179`
+  的 clean run 39801912830 已由 GitHub 正常记录（两个 check pass），无待回填项。
 - 若项目负责人需要将门禁设为强制合并条件，需在仓库 Settings → Branches 中配置（私有仓库需 GitHub Pro）。
 
 ### 13.7 本轮验收标准对照（PR #15 review）
@@ -589,17 +595,18 @@ Actions API（`gh api .../runs/39795265144/artifacts`，均未过期、绑定 he
 | 验收标准 | 结果 |
 | --- | --- |
 | 自动化回归证明 baseline NOT RUN/被阻塞/未选入都会失败 | **MET**：CI selftest step success（`PASS=24 FAIL=0`），A=unverified=1、B=unselected=7 均输出 `BASELINE CHECK FAILED`；本地 `baseline_gate_selftest.ps1` 同样 PASS=24 |
-| 新 run 中 Phase 0 gate 6/6；完整矩阵 72 项 = 64 PASS/8 FAIL/0 TIMEOUT/0 NOT RUN | **MET**：run 39795265144（§13.3） |
+| 新 run 中 Phase 0 gate 6/6；完整矩阵 72 项 = 64 PASS/8 FAIL/0 TIMEOUT/0 NOT RUN | **MET**：run 39795265144（clean 代码提交）与 run 39801912830（最终 head `66ac179`）均满足；后者两个 job completed/success、PR checks 两个均 pass |
 | baseline 仅在全部执行且计数匹配、无新增/漂移时成功 | **MET**：strict 默认 + `complete=true` 才 exit 0；`unverified/unselected/drift/new_fail` 任一非零 → exit 1 |
-| artifact 缺失使检查失败；更新后 artifact 可下载核对 | **MET**：Assert 步骤 + `if-no-files-found: error`（CI 实际 success 且本地负例 exit 1）；两个 artifact 已下载核对（§13.4） |
-| 验收报告与最终 head 运行记录一致 | **MET（结构化，含平台事故说明）**：§13.5 给出 run/commit 映射；最终 head 复核 run 39797358545 的真实 artifact 已下载核对；该 run 的 check 记录受 GitHub Actions 平台事故影响（§13.9），以 run-level conclusion + artifact 为准 |
+| artifact 缺失使检查失败；更新后 artifact 可下载核对 | **MET**：Assert 步骤 + `if-no-files-found: error`（CI 实际 success 且本地负例 exit 1）；run 39795265144 与 39801912830 的 artifact 均已下载核对（§13.4/§13.9） |
+| 验收报告与最终 head 运行记录一致 | **MET**：§13.5 给出 run/commit 映射；最终 head `66ac179` 的 clean run 39801912830（gate 6/6、72=64/8/0/0、complete=true、两 check pass、artifact 已核对）与报告一致；旧 head `44bac86` 的平台事故作为历史记录保留（§13.9） |
 | 不删除测试/不放宽断言/不跳过失败/不改默认 profile/不进入 Phase A | **MET**：diff 无 probe/断言删除或弱化；8 FAIL 保持 FAIL；`default=full` 未改；未进入 Phase A |
 
 ### 13.8 本轮 NOT RUN / 未解决问题
 
-- **GitHub Actions 平台事故期间的 final-head check 记录**：run 39797358545 的 job/check 记录
-  在不同 attempt 中 stale（详见 §13.9）；代码/artifact 证据成立，但"最终 head 在 PR 上显示全绿
-  check"需平台恢复后重跑回填（非代码问题）。
+- **平台事故的历史影响已闭环**：事故仅影响旧 head `44bac86` 的 run 39797358545（job/check 记录
+  stale、attempt-1 artifact 被清理，详见 §13.9）；后续最终 head `66ac179` 的 clean run
+  **39801912830** 已被 GitHub 正常记录（两个 job completed/success、PR checks 两个均 pass），
+  **无「待平台恢复后重跑回填」的遗留项**。
 - `baseline_gate_selftest.ps1 -IncludeFullRun` 的场景 D（本地全量 strict）未单独执行：CI 的 full-matrix
   run 本身已覆盖同一路径（72=64/8/0/0、complete=true）。
 - artifact 缺失路径没有在生产 CI 中实际触发（否则等于故意破坏流水线）；用**等价本地负例**验证其失败语义。
@@ -609,11 +616,12 @@ Actions API（`gh api .../runs/39795265144/artifacts`，均未过期、绑定 he
   存档 round-trip 仍未运行。
 - 默认 profile 保持 `full`（`DSH_BUILD=orbital_sim` 显式进入正式模拟器）；未改产品默认值。
 
-### 13.9 GitHub Actions 平台事故（2026-10-22T14:18:15Z 起，外部故障）
+### 13.9 GitHub Actions 平台事故（2026-10-22T14:18:15Z 起，外部故障；后续已恢复）
 
 - GitHub Status API：**"Incident with Actions Results"**（impact=minor，组件 Actions
   **degraded_performance**，说明为 "delays affecting GitHub Actions workflow and step results"），
-  shortlink：https://stspg.io/44w94j036yc8 。与本轮 final-head run 的时间窗口完全重合。
+  shortlink：https://stspg.io/44w94j036yc8 。该事故影响的是**旧 head `44bac86` 的 run
+  39797358545**（时间窗口重合），不影响后续恢复后的 clean run。
 - 观测到的具体症状（均只在 GitHub 的 job/check 记录侧，**run-level conclusion 与 artifact 正常**）：
   - attempt 1：run success，gate check pass；full-matrix artifact 已成功上传，但该 job 记录停在 `queued`；
   - attempt 2：run success，full-matrix check pass（6m58s）；gate artifact 已成功上传，但 gate job 记录停在 `queued`；
@@ -621,15 +629,34 @@ Actions API（`gh api .../runs/39795265144/artifacts`，均未过期、绑定 he
     已上传且日志完整（`PHASE0_GATE_EXIT=0`、`ARTIFACT ASSERT OK`、`successfully uploaded`），
     但 gate job 记录停在 `in_progress`，PR checks 显示 pending。
   - 事故期间 attempt-1 的 full artifact（id 12434341983）随后在 API 中变为 **404/不可达**；
-    因此本文/PR 只把 **attempt-2/3 的可下载 artifact** 作为 final-head 的执行证据。
-- 证据层级（本轮最终结论采用）：
+    因此事故相关 run 只把 **attempt-2/3 的可下载 artifact** 作为执行证据，且**不作为最终 head 证据**。
+- **后续恢复（已确认）**：事故后新增的 docs-only head **`66ac179`** 触发
+  **run [39801912830](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39801912830)**，
+  GitHub 已正常记录：conclusion=**success**，两个 job **completed/success**，PR checks 两个均 pass：
+  - `Phase 0 gate (Phase 0 acceptance)` → pass 1m12s（[job/119904615867](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39801912830/job/119904615867)）：
+    **6/6 PASS**，`PHASE0_GATE_EXIT=0`；
+  - `Full matrix (baseline-aware)` → pass 5m23s（[job/119904616317](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39801912830/job/119904616317)）：
+    **72 cases = 64 PASS / 8 FAIL / 0 TIMEOUT / 0 NOT RUN**，`BASELINE CHECK: known_fail=8 new_fail=0
+    drift=0 unverified=0 unselected=0 complete=true`；selftest `PASS=24 FAIL=0`；
+    `ARTIFACT ASSERT OK ... cases=72 logs=115` / `cases=6 logs=9`。
+  - artifact（API + `gh run download` 实际下载核对，绑定 head `66ac179…`、未过期）：
+    - `phase0-gate-results-39801912830-1`：id 12436046996，**26,112 B**，
+      sha256 `ae1066901a7a21409c9ba9908068c1c53c2d01116f5adafc1fddd12b34102a35`；
+      run dir `20261022-150827-4f540b1d`；summary 6/6、exit 0；9 个逐例日志；
+    - `full-matrix-results-39801912830-1`：id 12435778414，**372,727 B**，
+      sha256 `55f6e7b354481f2f1d7d26b6941408b090bf9b253183ab66a288f30eaca75d26`；
+      run dir `20261022-150829-4f540b1d`；summary 72=64/8、`complete=true`、coverage 8/8/8/8；115 个逐例日志。
+- 证据层级（最终结论采用）：
   1. **主 CI 证据 = clean 代码提交 run [39795265144](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39795265144)**
      （head `e73bc69`）：两个 job 记录 completed/success；gate 6/6；full 72=64/8/0/0、`complete=true`、
-     selftest `PASS=24`；两个 artifact 已下载并按 API digest 校验（§13.3/§13.4）。
-  2. **最终 head 39797358545 执行证据 = attempt-2 full artifact（72=64/8/0/0、complete=true、115 logs）+
-     attempt-3 gate artifact（6/6、exit 0）**，均已实际下载核对；
-  3. run-level conclusion=success；**不把 stale job/check 记录当作失败或通过证据**。
-- 处置：等 GitHub 平台恢复后可对该 head 重跑以回填 clean check（仅流程性操作，不改代码）；
-  在此之前 PR 上 gate check 可能仍显示 pending，属外部事故，已在此与 PR 描述中如实披露。
+     selftest `PASS=24`；artifact 已下载并按 API digest 校验（§13.3/§13.4）。
+  2. **最终实现 head `66ac179` 的 clean 复核 = run [39801912830](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39801912830)**：
+     两个 job completed/success、PR checks 两个均 pass；artifact 已下载核对（见上）。
+     本报告更新（docs-only）产生的新 head 只改文档，其 run 链接记录在 PR #15 描述中；
+     报告**不以追逐自身触发的新 run 为目标**，测试结论以 39801912830 为准。
+  3. 事故 run 39797358545 仅保留为历史说明，**不再作为最终 head 证据、也不再标记为 pending/待重跑**。
+- 保留的边界说明：full-matrix 绿灯含义是「**无新增回归 + baseline 覆盖完整**」，**不是「全矩阵通过」**；
+  8 个历史失败在 run 39801912830 的 summary/report/artifact 中仍为 `status=FAIL` 并标记
+  `KNOWN-BASELINE`，保持可见；默认 profile 仍为 `full`（未改）。
 
 
