@@ -39,6 +39,13 @@ const META_FIELDS := ["side", "identity", "batch", "ship_class", "rcs_m2",
 	"ir_signature", "radius_km", "has_pd", "facility_id", "transponder_profile"]
 const NUM_FIELDS := ["rcs_m2", "ir_signature", "radius_km"]
 
+# A1.1 display contract (player-visible fields; must never contain world truth).
+const TRACK_DISPLAY_NAME := "UNKNOWN TRACK"
+const ENTITY_DISPLAY_NAME := "UNKNOWN CONTACT"
+const ENTITY_DISPLAY_CLASS := "UNKNOWN"
+const SIGNAL_DISPLAY_NAME := "UNKNOWN SIGNAL"
+const SIGNAL_DISPLAY_CLASS := "SIGNAL"
+
 var _pass := 0
 var _fail := 0
 var _failures: Array[String] = []
@@ -261,6 +268,7 @@ func _run() -> void:
 			"badge=%s side=%s" % [badge, cside])
 		_ok(isrc != "missing", "contact has explicit identity_source: " + eid,
 			"badge=%s identity=%s" % [badge, cident])
+		_check_display_fields(eid, row, truth)
 		if ssrc == "facility_registry":
 			# facility ownership is content/database data, not world truth; identity must stay player-derived
 			_ok(cident == "unknown", "facility contact identity stays unknown: " + eid,
@@ -304,6 +312,40 @@ func _run() -> void:
 	_ok(truth_leaks.is_empty(), "no truth side leaked into contacts",
 		"leaks=" + str(truth_leaks))
 
+	_step("5b. SIGNAL rows: truth-like target metadata must stay anonymous")
+	var sig_truth := {"id": "sig_probe_entity", "name": "TRUTH-SIGNAL-NAME",
+		"batch": "TRUTH-BATCH-9", "ship_class": "TRUTH-CLASS",
+		"side": "hostile", "identity": "hostile"}
+	var up: Dictionary = _session.signal_upsert_target({
+		"id": "sig_probe_target", "entity_id": "sig_probe_entity",
+		"name": sig_truth["name"], "batch": sig_truth["batch"],
+		"ship_class": sig_truth["ship_class"], "side": sig_truth["side"],
+		"identity": sig_truth["identity"], "pos_km": [0.0, 0.0, 0.0],
+		"emissions": [], "light_capable": true, "receiver_facing": true})
+	_ok(bool(up.get("ok", false)), "synthetic signal target registered",
+		str(up.get("reason", "")))
+	_binder.refresh()
+	var sig_row: Dictionary = {}
+	var sig_contacts: Array = _binder.get("contacts") if _binder.get("contacts") is Array else []
+	for raw_s in sig_contacts:
+		if raw_s is Dictionary and String((raw_s as Dictionary).get("entity_id", "")) == "sig_probe_entity":
+			sig_row = raw_s
+			break
+	_ok(not sig_row.is_empty(), "SIGNAL contact row exists for synthetic target")
+	if not sig_row.is_empty():
+		_eq(String(sig_row.get("badge", "")), "SIGNAL", "synthetic row badge SIGNAL")
+		_ok(String(sig_row.get("side", "")).to_lower() == "unknown",
+			"SIGNAL row side unknown (no evidence)",
+			"side=" + String(sig_row.get("side", "")))
+		_ok(String(sig_row.get("identity", "")).to_lower() == "unknown",
+			"SIGNAL row identity unknown (no evidence)",
+			"identity=" + String(sig_row.get("identity", "")))
+		_check_display_fields("sig_probe_entity", sig_row, sig_truth)
+	# cleanup (do not leak the synthetic target into later assertions)
+	_session.signal_remove_target("sig_probe_target")
+	_session.signal_remove_target("sig_probe_entity")
+	_binder.refresh()
+
 	_step("6. truth vs player view separation (explicit evidence)")
 	# The simulation authority knows harmattan is hostile; the player-facing track/contact does not.
 	var hmeta := _get_metadata("harmattan")
@@ -317,6 +359,90 @@ func _run() -> void:
 			"player track identity is evidence-derived, not catalog truth",
 			"contact=%s truth=%s" % [String(hrow.get("identity", "")), String(hmeta.get("identity", ""))])
 	_finish()
+
+
+func _check_display_fields(eid: String, row: Dictionary, truth: Dictionary) -> void:
+	var did := String(row.get("display_id", ""))
+	var dname := String(row.get("display_name", ""))
+	var dcls := String(row.get("display_class", ""))
+	var dsrc := String(row.get("display_source", ""))
+	var badge := String(row.get("badge", ""))
+	_ok(did != "" and dname != "" and dcls != "" and dsrc != "",
+		"display fields present: " + eid,
+		"id=%s name=%s class=%s source=%s" % [did, dname, dcls, dsrc])
+	if dsrc == "facility_registry":
+		# Facility registry public fields are an allowed, explicitly-sourced exception.
+		var fid := String(row.get("facility_id", ""))
+		var card: Dictionary = _session.facility_lookup(fid) if _session != null else {}
+		var fac: Dictionary = card.get("facility", {}) if card.get("facility") is Dictionary else {}
+		_ok(not fac.is_empty(), "facility registry record exists: " + eid, "facility_id=" + fid)
+		_eq(dsrc, "facility_registry", "facility display source marked: " + eid)
+		if not fac.is_empty():
+			_eq(dname, String(fac.get("name", "")), "facility display name from registry: " + eid)
+			_eq(dcls, String(fac.get("facility_class", "")), "facility display class from registry: " + eid)
+			_ok(did == String(fac.get("facility_code", ""))
+				or did == String(fac.get("transponder_code", "")),
+				"facility display id from public registry code: " + eid,
+				"id=%s code=%s txp=%s" % [did, String(fac.get("facility_code", "")),
+					String(fac.get("transponder_code", ""))])
+	else:
+		if badge == "TRACK" or String(row.get("track_id", "")) != "":
+			_eq(dsrc, "track", "track display source: " + eid)
+			_eq(did, String(row.get("track_id", "")), "track display id is track number: " + eid)
+			_eq(dname, TRACK_DISPLAY_NAME, "track display name generic: " + eid)
+			_ok(dcls.begins_with("TRACK L"), "track display class only level: " + eid,
+				"class=" + dcls)
+		elif dsrc == "ownship":
+			_eq(did, "1000", "ownship display id: " + eid)
+			_eq(dname, "OWN SHIP", "ownship display name: " + eid)
+			_eq(dcls, "FLAGSHIP", "ownship display class: " + eid)
+		elif badge == "SIGNAL":
+			_eq(dsrc, "anonymous_signal", "signal display source: " + eid)
+			_ok(did.begins_with("SIGNAL-"), "signal display id anonymous: " + eid,
+				"id=" + did)
+			_eq(dname, SIGNAL_DISPLAY_NAME, "signal display name generic: " + eid)
+			_eq(dcls, SIGNAL_DISPLAY_CLASS, "signal display class generic: " + eid)
+		else:
+			_eq(dsrc, "anonymous", "entity display source anonymous: " + eid)
+			_ok(did.begins_with("UNKNOWN-"), "entity display id anonymous: " + eid,
+				"id=" + did)
+			_eq(dname, ENTITY_DISPLAY_NAME, "entity display name generic: " + eid)
+			_eq(dcls, ENTITY_DISPLAY_CLASS, "entity display class generic: " + eid)
+		_ok(not _contains_truth(did, truth, eid)
+			and not _contains_truth(dname, truth, eid)
+			and not _contains_truth(dcls, truth, eid),
+			"display fields contain no scenario truth: " + eid,
+			"id=%s name=%s class=%s" % [did, dname, dcls])
+	# Legacy display-oriented fields (other UI paths may still read them) must equal safe fields.
+	_eq(String(row.get("id", "")), did, "legacy contact id equals safe display id: " + eid)
+	_eq(String(row.get("name", "")), dname, "legacy contact name equals safe display name: " + eid)
+	_eq(String(row.get("cls", "")), dcls, "legacy contact cls equals safe display class: " + eid)
+	# HUD contract helper (used by v1_hud) must return the same safe fields.
+	if _binder != null and _binder.has_method("contact_display"):
+		var hd: Dictionary = _binder.contact_display(row)
+		_eq(String(hd.get("id", "")), did, "HUD display id uses safe field: " + eid)
+		_eq(String(hd.get("name", "")), dname, "HUD display name uses safe field: " + eid)
+		_eq(String(hd.get("cls", "")), dcls, "HUD display class uses safe field: " + eid)
+		_ok(not _contains_truth(String(hd.get("id", "")), truth, eid)
+			and not _contains_truth(String(hd.get("name", "")), truth, eid)
+			and not _contains_truth(String(hd.get("cls", "")), truth, eid),
+			"HUD display fields contain no truth: " + eid)
+	else:
+		_ok(false, "ShellBinder.contact_display(row) exists (HUD contract)")
+
+
+func _contains_truth(value: String, truth: Dictionary, eid: String, include_name := true) -> bool:
+	var v := value.to_lower()
+	var keys := ["batch", "ship_class", "side", "identity", "id"]
+	if include_name:
+		keys.append("name")
+	for k in keys:
+		var t := String(truth.get(k, "")).to_lower()
+		if t != "" and v.find(t) >= 0:
+			return true
+	if eid != "" and v.find(eid.to_lower()) >= 0:
+		return true
+	return false
 
 
 func _get_metadata(eid: String) -> Dictionary:
@@ -341,7 +467,11 @@ func _check_meta_field(eid: String, meta: Dictionary, field: String, expected) -
 	if expected == null:
 		expected = ""
 	var actual = meta.get(field, "<missing>")
-	if field in NUM_FIELDS:
+	if expected is bool:
+		# Type-aware: legacy fallback returns "<missing>" (String); never compare String==bool.
+		_ok(actual is bool and actual == expected, "metadata %s.%s preserved" % [eid, field],
+			"actual=%s expected=%s legacy=%s" % [str(actual), str(expected), str(meta.get("legacy_fallback", false))])
+	elif field in NUM_FIELDS:
 		var ok_num := false
 		if actual is int or actual is float:
 			ok_num = absf(float(actual) - float(expected)) <= 1.0e-9
@@ -354,7 +484,10 @@ func _check_meta_field(eid: String, meta: Dictionary, field: String, expected) -
 
 func _check_state_field(eid: String, st: Dictionary, field: String, expected, is_num := false) -> void:
 	var actual = st.get(field, "<missing>")
-	if is_num:
+	if expected is bool:
+		_ok(actual is bool and actual == expected, "ballistics %s.%s from authority" % [eid, field],
+			"actual=%s expected=%s" % [str(actual), str(expected)])
+	elif is_num:
 		var ok_num := false
 		if actual is int or actual is float:
 			ok_num = absf(float(actual) - float(expected)) <= 1.0e-9
