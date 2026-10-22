@@ -7,6 +7,9 @@ extends RefCounted
 const StationModel := preload("res://models/station_model.gd")
 const OneillScene := preload("res://models/oneill_cylinder.tscn")
 const StanfordScene := preload("res://models/stanford_torus.tscn")
+const AsteroidOneillScene := preload("res://models/asteroid_oneill.tscn")
+const AsteroidStanfordScene := preload("res://models/asteroid_stanford.tscn")
+const AsteroidFortressScene := preload("res://models/asteroid_fortress.tscn")
 
 # facility_class -> station_model.station_type（基型）
 const CLASS_TO_MODEL := {
@@ -27,6 +30,10 @@ const HABITAT_BY_ID := {
 const HABITAT_BY_NAME := {
 	"savannah": "oneill", "eko": "oneill", "aurora": "oneill",
 	"saturnus": "stanford",
+}
+const ASTEROID_BY_ID := {
+	"L5-07": "asteroid_oneill", "L5-01": "asteroid_oneill", "L3-01": "asteroid_oneill",
+	"NESOSS-05": "asteroid_stanford",
 }
 const HABITAT_CLASS_HINTS := ["residential", "tourism", "agricultural", "habitat"]
 const HABITAT_RADIUS_MIN_KM := 2.0
@@ -79,6 +86,19 @@ static func habitat_for(facility: Dictionary) -> Dictionary:
 	return {"habitat_type": "", "known": false, "fallback": false, "label": ""}
 
 
+static func asteroid_for(facility: Dictionary) -> Dictionary:
+	var fid := String(facility.get("facility_id", ""))
+	if ASTEROID_BY_ID.has(fid):
+		var at := String(ASTEROID_BY_ID[fid])
+		return {"asteroid_type": at, "known": true, "fallback": false}
+	var hab := habitat_for(facility)
+	if String(hab.get("habitat_type", "")) != "":
+		var at2 := "asteroid_oneill" if String(hab.get("habitat_type", "")) == "oneill" else "asteroid_stanford"
+		return {"asteroid_type": at2, "known": bool(hab.get("known", false)),
+			"fallback": bool(hab.get("fallback", false))}
+	return {"asteroid_type": "", "known": false, "fallback": false}
+
+
 static func _class_of(facility: Dictionary) -> String:
 	var cls := String(facility.get("facility_class", "")).to_lower()
 	if cls == "":
@@ -120,8 +140,10 @@ static func describe(facility: Dictionary) -> Dictionary:
 	var scale := _scale_for(cls, radius)
 	var modules := _modules_for(cls, radius)
 	var hab := habitat_for(facility)
+	var ast := asteroid_for(facility)
 	var is_habitat := String(hab.get("habitat_type", "")) != ""
-	var family := "habitat" if is_habitat else "module_station"
+	var is_asteroid := String(ast.get("asteroid_type", "")) != ""
+	var family := "asteroid_habitat" if is_asteroid else ("habitat" if is_habitat else "module_station")
 	var hab_scale := 1.0
 	if is_habitat and bool(hab.get("fallback", false)):
 		hab_scale = clampf(radius / 3.0, 0.80, 1.30)
@@ -132,6 +154,9 @@ static func describe(facility: Dictionary) -> Dictionary:
 		"mapping": String(mapping["mapping"]), "radius_km": radius,
 		"scale": scale, "module_count": modules,
 		"model_family": family, "habitat_type": String(hab.get("habitat_type", "")),
+		"asteroid_type": String(ast.get("asteroid_type", "")),
+		"asteroid_known": bool(ast.get("known", false)),
+		"asteroid_fallback": bool(ast.get("fallback", false)),
 		"habitat_label": String(hab.get("label", "")), "habitat_known": bool(hab.get("known", false)),
 		"habitat_fallback": bool(hab.get("fallback", false)), "habitat_scale": hab_scale,
 		"material": "StandardMaterial3D solid · procedural · no texture"}
@@ -139,6 +164,22 @@ static func describe(facility: Dictionary) -> Dictionary:
 
 static func create(facility: Dictionary) -> Node3D:
 	var d := describe(facility)
+	if String(d.get("model_family", "")) == "asteroid_habitat":
+		var atype := String(d.get("asteroid_type", "asteroid_oneill"))
+		var ascene: PackedScene = AsteroidStanfordScene if atype == "asteroid_stanford" else (AsteroidFortressScene if atype == "asteroid_fortress" else AsteroidOneillScene)
+		var anode = ascene.instantiate()
+		if anode is Node3D:
+			anode.asteroid_type = atype
+			anode.habitat_type = String(d.get("habitat_type", "oneill"))
+			anode.habitat_label = String(d.get("habitat_label", d.get("name", "")))
+			anode.habitat_scale = float(d.get("habitat_scale", 1.0))
+			anode.station_type = String(d.get("model_type", FALLBACK_MODEL))
+			anode.station_scale = float(d.get("scale", 1.0))
+			anode.module_count = int(d.get("module_count", 3))
+			anode.set_meta("facility_model_mapping", d)
+			anode.set_meta("facility_model_fallback", bool(d.get("fallback", false)) or bool(d.get("habitat_fallback", false)))
+			anode.set_meta("facility_model_supported", true)
+		return anode
 	if String(d.get("model_family", "")) == "habitat":
 		var scene: PackedScene = OneillScene if String(d.get("habitat_type", "")) == "oneill" else StanfordScene
 		var hnode = scene.instantiate()

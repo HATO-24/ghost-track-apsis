@@ -78,3 +78,18 @@
 - near_view 显示 habitat 模型与 `MODEL habitat_model.gd / oneill|stanford`、ID/CODE；Savannah 截图 `mockups/v1-hud-nearview-savannah-1920.png`。
 - Festival 模型预览截图 `mockups/models-habitats-lore-1920.png`。
 - 仍为纯色过渡资产；不复制现实实体；110 设施 probe 仍通过（checks=1697）。
+
+
+---
+
+## B-38 小行星居住站映射（task-217）
+
+- 大型 lore 设施改映射为 `model_family=asteroid_habitat`：
+  - L5-07 Savannah / L5-01 Eko / L3-01 Aurora → `asteroid_oneill`（内部 O'Neill 双圆柱）；
+  - NESOSS-05 Saturnus → `asteroid_stanford`（内部 Stanford 环面）；
+  - `asteroid_fortress` 作为大型 UEG 站变体可用。
+- 小型 station/port/depot/otc/tank/fuel/research 继续模块站。
+- Factory 输出新增 `asteroid_type/asteroid_known/asteroid_fallback`；未知大型居住站按半径 fallback（≥3.2 oneill，否则 stanford）并标注。
+- 近景 NEAR VIEW 自动使用小行星/舰船模型：选中舰船（无 facility_id）时由 near_view 读取 v1_hud 选中 contact 并构建 ship_model；无选中设施默认 L1 PORT。
+- 截图：`models-asteroid-habitats-1920.png`、`v1-hud-nearview-savannah-1920.png`。
+- 110 设施 probe 仍通过（checks=1697, fails=0）。

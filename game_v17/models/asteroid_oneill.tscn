@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://models/asteroid_habitat_model.gd" id="1"]
+
+[node name="AsteroidOneill" type="Node3D"]
+script = ExtResource("1")
+asteroid_type = "asteroid_oneill"
+habitat_type = "oneill"
+habitat_label = "L5-07 SAVANNAH"
+habitat_scale = 1.0
+rotation_speed = 0.06
+station_type = "port"
+module_count = 4
+station_scale = 1.0

@@ -5,6 +5,7 @@ extends Node
 
 const StationModel := preload("res://models/station_model.gd")
 const FacilityModelFactory := preload("res://scripts/ui/facility_model_factory.gd")
+const ShipModel := preload("res://models/ship_model.gd")
 const EARTH := preload("res://models/earth.tscn")
 const MOON := preload("res://models/moon.tscn")
 
@@ -84,6 +85,13 @@ func set_subject(subject: String, facility_class := "station", facility_label :=
 	_facility_radius_km = facility_radius_km
 	if _subject_root == null:
 		return
+	# v1_hud 的 NEAR 仍以 facility 调用；若当前选中 contact 是舰船（无 facility_id），
+	# near view 自动切换为舰船模型（无需改 v1_hud）。
+	if subject == "facility" and (facility.is_empty() or (not facility.has("facility_id") and (facility.has("id") or facility.has("track_id") or facility.has("entity_id")))):
+		var pc := _parent_selection()
+		if not pc.is_empty() and String(pc.get("facility_id", "")) == "":
+			_build_ship_subject(pc)
+			return
 	for ch in _subject_root.get_children():
 		ch.queue_free()
 	_model = null
@@ -109,30 +117,90 @@ func set_subject(subject: String, facility_class := "station", facility_label :=
 		_model = st
 		var family := String(mapping.get("model_family", "module_station"))
 		var habitat_type := String(mapping.get("habitat_type", ""))
+		var asteroid_type := String(mapping.get("asteroid_type", ""))
 		var framing := clampf(5.8 + float(mapping.get("scale", 1.0)) * 0.5, 5.8, 7.2)
-		if family == "habitat":
+		if family == "asteroid_habitat":
+			framing = 7.2 if asteroid_type == "asteroid_oneill" else 6.4
+		elif family == "habitat":
 			framing = 8.6 if habitat_type == "oneill" else 5.8
 		_camera.position = Vector3(0.0, 1.25, framing)
 		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
+		var model_path := "station_model.gd / " + String(mapping.get("model_type", "port"))
+		if family == "asteroid_habitat":
+			model_path = "asteroid_habitat_model.gd / " + asteroid_type
+		elif family == "habitat":
+			model_path = "habitat_model.gd / " + habitat_type
 		_info = {"subject": "FACILITY", "facility_class": String(mapping.get("facility_class", facility_class)),
-			"model": ("habitat_model.gd / " + habitat_type) if family == "habitat" else ("station_model.gd / " + String(mapping.get("model_type", "port"))),
+			"model": model_path,
 			"radius_km": float(mapping.get("radius_km", facility_radius_km)),
-			"scale": (float(mapping.get("habitat_scale", 1.0)) if family == "habitat" else float(mapping.get("scale", 1.0))),
+			"scale": float(mapping.get("habitat_scale", mapping.get("scale", 1.0))),
 			"module_count": int(mapping.get("module_count", 3)),
 			"mapping": String(mapping.get("habitat_label", mapping.get("mapping", ""))),
-			"fallback": bool(mapping.get("fallback", true)) or bool(mapping.get("habitat_fallback", false)),
+			"fallback": bool(mapping.get("fallback", true)) or bool(mapping.get("habitat_fallback", false)) or bool(mapping.get("asteroid_fallback", false)),
 			"supported": bool(mapping.get("supported", false)),
-			"family": family, "habitat_type": habitat_type,
+			"family": family, "habitat_type": habitat_type, "asteroid_type": asteroid_type,
 			"habitat_known": bool(mapping.get("habitat_known", false)),
-			"facility_type": habitat_type if family == "habitat" else String(mapping.get("model_type", "port")),
-			"source": ("SELECTED HABITAT / LORE MAPPING" if family == "habitat" else "SELECTED FACILITY / DEFAULT L1 PORT / FACTORY"),
+			"facility_type": (asteroid_type if family == "asteroid_habitat" else (habitat_type if family == "habitat" else String(mapping.get("model_type", "port")))),
+			"facility_id": String(fac.get("facility_id", "")), "facility_code": String(fac.get("facility_code", "")),
+			"source": ("SELECTED ASTEROID HABITAT / LORE MAPPING" if family == "asteroid_habitat" else ("SELECTED HABITAT / LORE MAPPING" if family == "habitat" else "SELECTED FACILITY / DEFAULT L1 PORT / FACTORY")),
 			"material": "StandardMaterial3D solid · procedural · no texture"}
 	_subject_root.add_child(_model)
 	_info["facility_label"] = _facility_label
 	if subject == "facility":
-		_info["facility_type"] = String(_info.get("habitat_type", "")) if String(_info.get("family", "")) == "habitat" else String(_info.get("model_type", "port"))
+		if String(_info.get("family", "")) == "asteroid_habitat":
+			_info["facility_type"] = String(_info.get("asteroid_type", "asteroid_oneill"))
+		elif String(_info.get("family", "")) == "habitat":
+			_info["facility_type"] = String(_info.get("habitat_type", ""))
+		else:
+			_info["facility_type"] = String(_info.get("model_type", "port"))
 	else:
 		_info["facility_type"] = ""
+
+
+func _parent_selection() -> Dictionary:
+	var p := get_parent()
+	if p == null:
+		return {}
+	var cs = p.get("_contacts")
+	var idx = p.get("_selected")
+	if not (cs is Array) or not (idx is int or idx is float):
+		return {}
+	var list: Array = cs
+	var i := int(idx)
+	if i < 0 or i >= list.size():
+		return {}
+	return (list[i] as Dictionary).duplicate(true) if list[i] is Dictionary else {}
+
+
+func _build_ship_subject(contact: Dictionary) -> void:
+	for ch in _subject_root.get_children():
+		ch.queue_free()
+	var class_id := String(contact.get("class_id", contact.get("cls", "")))
+	var role := String(contact.get("role", contact.get("type", "escort")))
+	var faction := String(contact.get("side", "friendly"))
+	if class_id == "":
+		class_id = "DD"
+	var spec: Dictionary = ShipModel.variant_for(class_id, role, faction)
+	var sm = ShipModel.new()
+	sm.ship_class = String(spec.get("ship_class", "DD"))
+	sm.ship_role = role
+	sm.ship_size = float(spec.get("ship_size", 3.2))
+	sm.radiator_count = int(spec.get("radiator_count", 3))
+	sm.weapon_fit = String(spec.get("weapon_fit", "railgun"))
+	sm.faction = faction
+	sm.ship_label = String(contact.get("name", class_id))
+	_model = sm
+	var framing := clampf(4.8 + sm.ship_size * 0.85, 5.0, 9.5)
+	_camera.position = Vector3(0.0, 1.0, framing)
+	_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
+	_info = {"subject": "SHIP", "facility_class": "", "facility_label": String(contact.get("name", class_id)),
+		"model": "ship_model.gd / " + String(spec.get("ship_class", "DD")),
+		"facility_type": String(spec.get("ship_class", "DD")), "family": "ship",
+		"habitat_type": "", "habitat_known": false, "habitat_fallback": false,
+		"scale": 1.0, "module_count": 0, "mapping": String(contact.get("name", class_id)) + " · " + role,
+		"fallback": false, "supported": true, "radius_km": 0.0,
+		"source": "SELECTED SHIP / CDE-SFHD MODEL", "material": "StandardMaterial3D solid · procedural · no texture"}
+	_subject_root.add_child(sm)
 
 
 func get_info() -> Dictionary:

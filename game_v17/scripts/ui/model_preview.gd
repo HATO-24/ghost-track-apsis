@@ -10,6 +10,13 @@ const MODEL_PATHS := [
 	"res://models/otc_satellite.tscn",
 	"res://models/fuel_tank_farm.tscn",
 ]
+const AsteroidScene := preload("res://models/asteroid_habitat_model.gd")
+const ShipModel := preload("res://models/ship_model.gd")
+const ASTEROID_PLACEMENTS := [
+	{"path": "res://models/asteroid_oneill.tscn", "pos": Vector3(-4.2, 0.0, 0.0), "label": "ASTEROID O'NEILL · SAVANNAH"},
+	{"path": "res://models/asteroid_stanford.tscn", "pos": Vector3(0.0, 0.0, 0.0), "label": "ASTEROID STANFORD · SATURNUS"},
+	{"path": "res://models/asteroid_fortress.tscn", "pos": Vector3(4.2, 0.0, 0.0), "label": "ASTEROID FORTRESS · UEG"},
+]
 const HABITAT_PLACEMENTS := [
 	{"path": "res://models/oneill_cylinder.tscn", "pos": Vector3(-1.7, 0.0, 0.0), "label": "O'NEILL TWIN CYLINDER · 30×7.5 km"},
 	{"path": "res://models/stanford_torus.tscn", "pos": Vector3(2.9, 0.0, 0.0), "label": "STANFORD TORUS · Ø1.8 km"},
@@ -50,7 +57,7 @@ var _failed: Array[String] = []
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
 	_preview_mode = OS.get_environment("DSH_PREVIEW_VIEW")
-	if _preview_mode not in ["stations", "habitats"]:
+	if _preview_mode not in ["stations", "habitats", "asteroid_habitats", "ships"]:
 		_preview_mode = "default"
 	var target := Vector2i(1920, 1080)
 	var sz := OS.get_environment("DSH_HUD_SIZE")
@@ -99,6 +106,16 @@ func _build_world() -> void:
 		_camera.position = Vector3(0.0, 1.2, 12.0)
 		add_child(_camera)
 		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
+	elif _preview_mode == "asteroid_habitats":
+		_camera.size = 7.8
+		_camera.position = Vector3(0.0, 1.3, 12.0)
+		add_child(_camera)
+		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
+	elif _preview_mode == "ships":
+		_camera.size = 6.6
+		_camera.position = Vector3(0.0, 1.0, 12.0)
+		add_child(_camera)
+		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
 	else:
 		_camera.size = 8.2
 		_camera.position = Vector3(1.15, 2.8, 11.0)
@@ -128,7 +145,7 @@ func _build_world() -> void:
 	title.add_theme_color_override("font_color", Color(0.55, 0.82, 0.74))
 	layer.add_child(title)
 	var sub := Label.new()
-	sub.text = ("HABITAT STRUCTURES · O'NEILL TWIN CYLINDER / STANFORD TORUS · VISUAL ROTATION · PROCEDURAL · NO TEXTURES" if _preview_mode == "habitats" else ("STATION STRUCTURES · T-CORE / TRUSS / SOLAR WINGS / RADIATORS / DOCKS · PROCEDURAL · NO TEXTURES" if _preview_mode == "stations" else "PROCEDURAL GEOMETRY · SOLID MATERIALS · NO TEXTURES · GL COMPATIBILITY"))
+	sub.text = ("ASTEROID HABITATS · A BAOA QU-STYLE ROCK SHELL + INNER O'NEILL/STANFORD · PROCEDURAL · NO TEXTURES" if _preview_mode == "asteroid_habitats" else ("HARD-SCIFI SHIPS · CDE/SFHD MODULES · 8 FRIENDLY + BB/CA/CL/DD/FF/AV · PROCEDURAL · NO TEXTURES" if _preview_mode == "ships" else ("HABITAT STRUCTURES · O'NEILL TWIN CYLINDER / STANFORD TORUS · VISUAL ROTATION · PROCEDURAL · NO TEXTURES" if _preview_mode == "habitats" else ("STATION STRUCTURES · T-CORE / TRUSS / SOLAR WINGS / RADIATORS / DOCKS · PROCEDURAL · NO TEXTURES" if _preview_mode == "stations" else "PROCEDURAL GEOMETRY · SOLID MATERIALS · NO TEXTURES · GL COMPATIBILITY"))))
 	sub.position = Vector2(38, 56)
 	sub.add_theme_font_size_override("font_size", 13)
 	sub.add_theme_color_override("font_color", Color(0.42, 0.52, 0.49))
@@ -141,10 +158,98 @@ func _build_world() -> void:
 	layer.add_child(foot)
 
 
+func _build_ship_preview() -> void:
+	var specs: Array = []
+	var fp := "res://framework/content/ships_friendly.json"
+	var ep := "res://framework/content/ships_enemy.json"
+	if FileAccess.file_exists(fp) and FileAccess.file_exists(ep):
+		var fj = JSON.parse_string(FileAccess.get_file_as_string(fp))
+		var ej = JSON.parse_string(FileAccess.get_file_as_string(ep))
+		if fj is Dictionary and ej is Dictionary:
+			var fclasses: Array = (fj as Dictionary).get("classes", []) if (fj as Dictionary).get("classes", []) is Array else []
+			var eclasses: Array = (ej as Dictionary).get("classes", []) if (ej as Dictionary).get("classes", []) is Array else []
+			var all_specs: Array = ShipModel.variant_specs(fclasses, eclasses)
+			var wanted := {"BB": false, "CA": false, "CL": false, "DD": false, "FF": false, "AV": false}
+			for raw in all_specs:
+				if raw is Dictionary and String((raw as Dictionary).get("faction", "")) == "friendly":
+					specs.append(raw)
+			for raw2 in all_specs:
+				if raw2 is Dictionary and String((raw2 as Dictionary).get("faction", "")) == "enemy":
+					var sc := String((raw2 as Dictionary).get("ship_class", ""))
+					if wanted.has(sc) and not bool(wanted[sc]):
+						wanted[sc] = true
+						specs.append(raw2)
+	if specs.is_empty():
+		specs = ShipModel.variant_specs([], [])
+	var cols := 4
+	var row_gap := 1.45
+	var col_gap := 2.75
+	var start_x := -float(cols - 1) * col_gap * 0.5
+	var rows := int(ceil(float(specs.size()) / float(cols)))
+	var start_y := float(rows - 1) * row_gap * 0.5
+	for i in range(mini(14, specs.size())):
+		var spec: Dictionary = specs[i]
+		var sm = ShipModel.new()
+		sm.ship_class = String(spec.get("ship_class", "DD"))
+		sm.ship_role = String(spec.get("ship_role", "escort"))
+		sm.ship_size = float(spec.get("ship_size", 3.2))
+		sm.radiator_count = int(spec.get("radiator_count", 3))
+		sm.weapon_fit = String(spec.get("weapon_fit", "railgun"))
+		sm.faction = String(spec.get("faction", "friendly"))
+		sm.ship_label = String(spec.get("class_id", ""))
+		var col := i % cols
+		var row := int(i / cols)
+		sm.position = Vector3(start_x + float(col) * col_gap, start_y - float(row) * row_gap, 0.0)
+		sm.scale = Vector3.ONE * 0.35
+		_pivot.add_child(sm)
+		_loaded.append(String(spec.get("class_id", "ship")))
+		var slbl := Label3D.new()
+		slbl.text = String(spec.get("ship_class", "?")) + " · " + String(spec.get("ship_role", ""))
+		slbl.font_size = 20
+		slbl.pixel_size = 0.0030
+		slbl.modulate = Color(0.58, 0.80, 0.72) if String(spec.get("faction", "")) == "friendly" else Color(0.82, 0.67, 0.45)
+		slbl.outline_size = 6
+		slbl.outline_modulate = Color(0.01, 0.02, 0.02, 0.9)
+		slbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		slbl.no_depth_test = true
+		slbl.position = sm.position + Vector3(0.0, 0.45, 0.0)
+		_pivot.add_child(slbl)
+
+
 func _build_models() -> void:
 	_pivot = Node3D.new()
 	_pivot.name = "ShowcasePivot"
 	add_child(_pivot)
+	if _preview_mode == "asteroid_habitats":
+		for spec in ASTEROID_PLACEMENTS:
+			var apath := String((spec as Dictionary).get("path", ""))
+			var apacked = load(apath)
+			if apacked == null or not (apacked is PackedScene):
+				_failed.append(apath)
+				continue
+			var anode = (apacked as PackedScene).instantiate()
+			if anode == null:
+				_failed.append(apath)
+				continue
+			_pivot.add_child(anode)
+			anode.scale = anode.scale * 0.85
+			anode.position = (spec as Dictionary).get("pos", Vector3.ZERO)
+			_loaded.append(apath)
+			var albl := Label3D.new()
+			albl.text = String((spec as Dictionary).get("label", ""))
+			albl.font_size = 26
+			albl.pixel_size = 0.0035
+			albl.modulate = Color(0.58, 0.80, 0.72)
+			albl.outline_size = 8
+			albl.outline_modulate = Color(0.01, 0.02, 0.02, 0.9)
+			albl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			albl.no_depth_test = true
+			albl.position = (spec as Dictionary).get("pos", Vector3.ZERO) + Vector3(0.0, 2.0, 0.0)
+			_pivot.add_child(albl)
+		return
+	if _preview_mode == "ships":
+		_build_ship_preview()
+		return
 	if _preview_mode == "habitats":
 		for spec in HABITAT_PLACEMENTS:
 			var hpath := String((spec as Dictionary).get("path", ""))

@@ -115,3 +115,43 @@
 
 - 过渡资产：结构/比例参考设定，不复制现实实体；无贴图/法线/LOD/碰撞/真实质量或转速物理。
 - 近景/预览为 UI 展示；不写 world/session；真实尺寸只在文案/比例中标注。
+
+
+---
+
+## B-38：A Baoa Qu 式小行星居住站 + CDE/SFHD 舰船（task-217）
+
+参考（仅作结构/工业感参考，不复制现实/高达/游戏资产）：
+- A Baoa Qu：小行星带内拖到 L2，双体小行星（盘+锥）接合、中央塔；Solomon/Luna II 同类；
+- Children of a Dead Earth：模块化舰体、燃料罐、散热器、轨道炮/激光、Whipple/多层装甲；
+- Spacefleet: Heat Death：硬科幻工业感、外露散热/推进/武器。
+- https://store.steampowered.com/app/476530/Children_of_a_Dead_Earth/
+- https://store.steampowered.com/app/4388640/Spacefleet_Heat_Death_Prometheus_Demo/
+
+### 小行星居住站
+
+- `models/asteroid_habitat_model.gd` + `asteroid_oneill.tscn` / `asteroid_stanford.tscn` / `asteroid_fortress.tscn`。
+- 结构：双体低模小行星外壳（不规则椭球/双体接合/陨石坑/暗色陨坑）、切面开口环+框梁、中央指挥塔、系泊塔、推进模块/喷口、散热鳍、太阳翼、对接口；拖曳改造结构痕迹。
+- 内部：切面处嵌入 `oneill_cylinder.tscn`（Savannah/Eko/Aurora）或 `stanford_torus.tscn`（Saturnus），可见窗带/环柱；内部视觉自转，外壳缓慢自转。
+- 类型：`asteroid_oneill` / `asteroid_stanford` / `asteroid_fortress`（大型 UEG 站可选用）。
+- 纯色 StandardMaterial3D；无贴图；尺度为展示单位，非真实 km。
+
+### 舰船
+
+- `models/ship_model.gd`：主轴舰体、反应堆/推进簇、燃料罐、外露散热器阵列、轨道炮/激光/导弹舱、传感器桅杆、装甲板/Whipple 板；参数 `ship_class / ship_role / ship_size / radiator_count / weapon_fit / faction`。
+- 变体映射：`variant_for()` / `variant_specs()` 覆盖友军 8 型 + 敌军 24 型（含 BB/CA/CL/DD/FF/AV 与 STD/ASSAULT 参数差异）；预览选取 14 个代表变体（8 友军 + BB/CA/CL/DD/FF/AV）展示。
+- 纯色基础材质，无贴图；不是物理模型。
+
+### 截图 / 验证
+
+- `mockups/models-asteroid-habitats-1920.png`：O'Neill / Stanford / Fortress 三型小行星站；3/3 加载。
+- `mockups/models-ships-hardscifi-1920.png`：14 变体；14/14 加载。
+- `mockups/v1-hud-nearview-savannah-1920.png`：NEAR VIEW L5-07 Savannah，`asteroid_habitat_model.gd / asteroid_oneill`；内部 O'Neill 切面；ID/CODE。
+- 近景对选中舰船：自动 `ship_model.gd`（无需改 v1_hud）；无选中设施时默认 L1 PORT。
+- 既有 FacilityModelFactory probe 仍 `checks=1697 fails=0`（110 设施）。
+
+### 边界
+
+- 过渡资产；外壳/舰体为程序化低模；无贴图/法线/LOD/碰撞/真实质量/热/推进物理。
+- 不复制现实/高达资产；旋转仅视觉。
+- 不写 world/session；近景/预览只读。
