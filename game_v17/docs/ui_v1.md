@@ -1395,3 +1395,22 @@ F5 PROBE RESULT: PASS
 1. 低模基础材质，非最终贴图美术；SubViewport 为局部展示。
 2. 不接物理/truth 位置，不写 world/session。
 3. 未跑全量 regression。
+
+
+---
+
+## 39　方案B-35：全部设施 3D 模型映射（task-211）
+
+- 新增 `scripts/ui/facility_model_factory.gd`：`mapping_for_class/supports/describe/create/summary/mapping_table`。
+- 110 设施（29 base + 19 OTC + 62 fuel）映射到 6 个 station_model 基型；20 个 facility_class；未知 class 明确 fallback 并标注。
+- scale 由 class + physical.radius_km 推导；module_count 由 class + radius 推导；probe 校验范围/确定性/JSON。
+- near_view 改用 factory；info 增加 SCALE/MODULES/MAPPING/FALLBACK；选中设施（Chronos/depot）重截。
+- 探针：`tests/facility_model_probe.gd`，`checks=1697 fails=0 fallbacks=0`，110/110 映射。
+- 截图重截 `mockups/v1-hud-nearview-facility-1920.png`；1600 布局 `v1-hud-nearview-1600.png`。
+- 详细映射见 `docs/facility_models.md`。
+
+### 边界
+
+1. 6 基型覆盖全部设施，非每设施独立网格；无贴图。
+2. UI 只读；不读 truth、不写 world/physics。
+3. 未跑全量 regression。

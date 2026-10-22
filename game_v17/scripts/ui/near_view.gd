@@ -4,6 +4,7 @@ extends Node
 # 只读展示 Earth/Moon/选中设施模型；纯色材质，无贴图；不接物理/truth 位置。
 
 const StationModel := preload("res://models/station_model.gd")
+const FacilityModelFactory := preload("res://scripts/ui/facility_model_factory.gd")
 const EARTH := preload("res://models/earth.tscn")
 const MOON := preload("res://models/moon.tscn")
 
@@ -76,7 +77,7 @@ func _build_world() -> void:
 	viewport.add_child(_subject_root)
 
 
-func set_subject(subject: String, facility_class := "station", facility_label := "", facility_radius_km := 0.0) -> void:
+func set_subject(subject: String, facility_class := "station", facility_label := "", facility_radius_km := 0.0, facility: Dictionary = {}) -> void:
 	_subject = subject
 	_facility_class = facility_class
 	_facility_label = facility_label if facility_label != "" else ("L1 PORT" if facility_class == "port" else facility_class.to_upper())
@@ -97,21 +98,24 @@ func set_subject(subject: String, facility_class := "station", facility_label :=
 		_camera.look_at(Vector3.ZERO, Vector3.UP)
 		_info = {"subject": "MOON", "facility_class": "", "model": "planet_model.gd / moon.tscn", "radius_km": 1737.0, "source": "LOCAL MODEL ASSET", "material": "StandardMaterial3D solid · grid · no texture"}
 	else:
-		var typ := String(CLASS_TO_TYPE.get(facility_class, "port"))
-		var st = StationModel.new()
-		st.station_type = typ
-		st.station_label = _facility_label
-		var fscale := 1.15
-		if facility_radius_km > 0.0:
-			fscale = 1.15 * clampf(facility_radius_km / 2.0, 0.70, 1.50)
-		st.station_scale = fscale
-		st.module_count = 4
+		var fac: Dictionary = facility.duplicate(true) if not facility.is_empty() else {
+			"facility_class": facility_class, "name": _facility_label,
+			"physical": {"radius_km": facility_radius_km},
+		}
+		if String(fac.get("facility_class", "")) == "":
+			fac["facility_class"] = facility_class
+		var mapping: Dictionary = FacilityModelFactory.describe(fac)
+		var st = FacilityModelFactory.create(fac)
 		_model = st
 		_camera.position = Vector3(0.0, 0.75, 3.9)
 		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
-		_info = {"subject": "FACILITY", "facility_class": facility_class,
-			"model": "station_model.gd / " + typ, "radius_km": facility_radius_km,
-			"scale": fscale, "source": "SELECTED FACILITY / DEFAULT L1 PORT", "material": "StandardMaterial3D solid · low-poly · no texture"}
+		_info = {"subject": "FACILITY", "facility_class": String(mapping.get("facility_class", facility_class)),
+			"model": "station_model.gd / " + String(mapping.get("model_type", "port")),
+			"radius_km": float(mapping.get("radius_km", facility_radius_km)),
+			"scale": float(mapping.get("scale", 1.0)), "module_count": int(mapping.get("module_count", 3)),
+			"mapping": String(mapping.get("mapping", "")), "fallback": bool(mapping.get("fallback", true)),
+			"supported": bool(mapping.get("supported", false)),
+			"source": "SELECTED FACILITY / DEFAULT L1 PORT / FACTORY", "material": "StandardMaterial3D solid · low-poly · no texture"}
 	_subject_root.add_child(_model)
 	_info["facility_label"] = _facility_label
 	_info["facility_type"] = String(CLASS_TO_TYPE.get(facility_class, "port")) if subject == "facility" else ""
