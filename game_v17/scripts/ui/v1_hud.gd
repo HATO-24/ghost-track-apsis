@@ -451,8 +451,8 @@ func _contact_display(c: Dictionary) -> Dictionary:
 ## 事件流安全显示入口（A1.1 后续：通信/战斗事件匿名化）。
 ## 只生成显示副本；服务内部事件数据不被修改。
 const EVENT_ID_KEYS := ["target_id", "threat_id", "shooter_id", "entity_id",
-	"from_id", "to_id", "track_id", "signal_target_id", "facility_id",
-	"target", "from", "to"]
+	"source_id", "from_id", "to_id", "track_id", "signal_target_id",
+	"facility_id", "target", "from", "to"]
 
 
 func hud_comms_event_text(ev: Dictionary) -> Dictionary:

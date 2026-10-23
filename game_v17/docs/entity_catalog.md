@@ -126,9 +126,13 @@ HUD 事件绘制统一通过以下格式化函数生成**显示副本**，服务
   安全标签，再做 `_safe_visible_text` 脱敏；无记录时返回 `UNKNOWN · UNKNOWN CONTACT`。
 - `hud_comms_link_text(l)`：链路端点 a/b（或 from/to）使用同一安全解析。
 - `hud_combat_event_text(ev)` / `hud_event_payload_text(payload)`：对 payload 做
-  深拷贝显示副本；`target_id/threat_id/shooter_id/entity_id/from_id/to_id/track_id/
-  signal_target_id/facility_id/target/from/to` 等键递归替换为安全显示；原 payload
-  对象不变。战斗事件栏、交通事件栏使用该函数。
+  深拷贝显示副本；`target_id/threat_id/shooter_id/entity_id/source_id/from_id/to_id/
+  track_id/signal_target_id/facility_id/target/from/to` 等键递归替换为安全显示；原
+  payload 对象不变。战斗事件栏、交通事件栏使用该函数。`source_id` 覆盖真实
+  `CombatService._resolve_incoming()` 生成的 `incoming_impact.damage_event.source_id`
+  （内部威胁 ID），此前该字段会原样出现在战斗事件栏。事件/记录 ID（`incoming_id`、
+  `shot_id`、`impact_id`、`projectile_id`）与内容 ID（`weapon_id`）不是实体引用，
+  保持原值不做匿名化。
 - `hud_bottom_event_text(ev)` / `hud_visible_text(text)`：底部事件日志/通信模板文本
   使用 `_safe_visible_text` 替换已知实体/航迹/设施/通信节点 id 与节点名；未知 token
   不猜测。
@@ -160,8 +164,15 @@ HUD 事件绘制统一通过以下格式化函数生成**显示副本**，服务
   `hud_combat_event_text`/`hud_event_payload_text`/`hud_bottom_event_text`/
   `hud_visible_text`；断言显示文本无内部 ID、含安全/匿名占位，且事件 payload 未被
   格式化修改；真实 COMMS 路由的 from/to 与战斗 `_combat_target` 保持内部 ID；
+- 断言**真实 `incoming_impact` 事件结构**（不是手写模拟）：探针调用生产
+  `CombatService.incoming_missile()` + `tick()`，从真实事件流取出
+  `incoming_impact`，验证 `payload.damage_event.source_id` 是内部威胁 ID
+  `SENTINEL-THREAT`、`target_id` 是内部目标 ID `SENTINEL-TARGET`；经
+  `hud_combat_event_text` 后两者均不出现、显示为 `UNKNOWN · UNKNOWN CONTACT`，
+  事件/记录 ID `incoming_id`（`INC-000001`）仍可见，且原事件 JSON 完全不变；
 - 修复前该探针 FAIL（metadata API 缺失、默认值错误、friend 回退、显示字段缺失/
-  泄露真值、HUD 文案泄露内部目标、事件流泄露内部 ID），修复后 PASS（763 断言）。
+  泄露真值、HUD 文案泄露内部目标、事件流泄露内部 ID、真实 `incoming_impact`
+  泄露 `source_id` 威胁 ID），修复后 PASS（775 断言）。
 
 ```powershell
 .\run_tests.ps1 -Only '^integration\.a1_entity_metadata_authority$' -Ci
