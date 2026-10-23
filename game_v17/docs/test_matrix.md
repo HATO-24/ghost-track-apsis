@@ -368,9 +368,9 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 
 ### 7.0 当前 PR #19（A0-T1）实际结果 —— 74 cases
 
-> 本节是**当前分支 `phase-a1/worldstate-physics-sync`（PR #19，base=PR #17）**在
-> head `1fcda46` 上的真实执行结果。**§7A.1–§7A.3 是 Phase 0 时期的历史记录（72 cases），
-> 不是本次运行结果**，两者不可混用。
+> 本节是**当前分支 `phase-a1/worldstate-physics-sync`（PR #19，base=PR #17）**的
+> **代码验证 head `6f60de7`** 上的真实执行结果。**§7A.1–§7A.3 是 Phase 0 时期的历史记录
+> （72 cases），不是本次运行结果**，两者不可混用。
 
 - 矩阵规模（当前仓库）：**74 cases = 69 个常规 probe + 1 个 e2e probe + 4 个 boot smoke**
   （仓库当前共 **70 个 tracked `game_v17/tests/*_probe.gd`**：69 常规 + 1 e2e；A0-T1 新增
@@ -381,9 +381,23 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 - 8 个已知遗留失败仍是 **FAIL**（逐条见 §7A.2 表格，计数不变）；**不是“全矩阵通过”**
 - Phase 0 gate：`pwsh ./run_tests.ps1 -Gate phase0 -Ci` → **6/6 PASS**，exit 0
 - A0-T1 新探针：`integration.a0_world_physics_sync` → **PASS 97/0**
-- CI：run [39973495277](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39973495277)
-  （head `1fcda468`）两个 job 均 success；artifacts 已下载核对（full 74=66/8/0/0 complete=true；
-  gate 6/6）。
+- **CI（代码验证 head `6f60de7`）**：run
+  [39990675827](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39990675827)
+  （head `6f60de7744ffcf551a96c78e74008cda5f6ad3cc`）两个 job 均 success；
+  - `Phase 0 gate` → 6/6 PASS（[job/120541309623](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39990675827/job/120541309623)）
+  - `Full matrix (baseline-aware)` → **74 = 66 PASS / 8 KNOWN-BASELINE FAIL / 0 TIMEOUT / 0 NOT RUN**，
+    `known_fail=8 new_fail=0 drift=0 complete=true`，exit 0（[job/120541309265](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39990675827/job/120541309265)）
+  - artifacts 已 `gh run download` 核对：`full-matrix-results-39990675827-1` 388,482 B /
+    sha256 `1f9ea7bb466d723f25bcfa8cd22af9396f6fac2e2bfc95964696570dfdf136ab`（summary
+    total=74/pass=66/fail=8/timeout=0/not_run=0、baseline complete=true）；
+    `phase0-gate-results-39990675827-1` 26,110 B /
+    sha256 `81e8119ba61d8e6404a8fe93962fd770f01003146e4a801e6222e5f54b101cde`（summary
+    total=6/pass=6/gate=phase0）；A0-T1 日志 `PASS=97 FAIL=0`
+- **修正前历史运行（保留，勿当作当前结果）**：run
+  [39973495277](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39973495277)
+  （head `1fcda468`，`updated`/`mismatched` 语义修正**之前**）→ 74 = 66 PASS / 8 FAIL / 0 TIMEOUT /
+  0 NOT RUN，A0-T1 探针 **78/0**。该轮已被本轮的 97/0 取代，仅作审查修正前证据保留。
+- 注：本文档为 **docs-only 提交**，不改变运行时代码/矩阵/门禁；最终 head 的 CI 结果在 PR 描述中同步记录。
 
 | 分类 | total | pass | fail |
 | --- | --- | --- | --- |
