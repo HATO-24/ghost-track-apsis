@@ -269,6 +269,7 @@ func _run() -> void:
 		_ok(isrc != "missing", "contact has explicit identity_source: " + eid,
 			"badge=%s identity=%s" % [badge, cident])
 		_check_display_fields(eid, row, truth)
+		_check_hud_texts(eid, row, truth)
 		if ssrc == "facility_registry":
 			# facility ownership is content/database data, not world truth; identity must stay player-derived
 			_ok(cident == "unknown", "facility contact identity stays unknown: " + eid,
@@ -341,6 +342,7 @@ func _run() -> void:
 			"SIGNAL row identity unknown (no evidence)",
 			"identity=" + String(sig_row.get("identity", "")))
 		_check_display_fields("sig_probe_entity", sig_row, sig_truth)
+		_check_hud_texts("sig_probe_entity", sig_row, sig_truth)
 	# cleanup (do not leak the synthetic target into later assertions)
 	_session.signal_remove_target("sig_probe_target")
 	_session.signal_remove_target("sig_probe_entity")
@@ -359,6 +361,80 @@ func _run() -> void:
 			"player track identity is evidence-derived, not catalog truth",
 			"contact=%s truth=%s" % [String(hrow.get("identity", "")), String(hmeta.get("identity", ""))])
 	_finish()
+
+
+func _check_hud_texts(eid: String, row: Dictionary, truth: Dictionary) -> void:
+	if _hud == null:
+		_ok(false, "HUD node available for text checks: " + eid)
+		return
+	var contacts: Array = _binder.get("contacts") if _binder != null and _binder.get("contacts") is Array else []
+	_hud.set("_contacts", contacts.duplicate(true))
+	_hud.call("_normalize_contacts")
+	var hcontacts: Array = _hud.get("_contacts") if _hud.get("_contacts") is Array else []
+	var idx := -1
+	var hrow: Dictionary = {}
+	for i in range(hcontacts.size()):
+		if hcontacts[i] is Dictionary and String((hcontacts[i] as Dictionary).get("entity_id", "")) == eid:
+			idx = i
+			hrow = (hcontacts[i] as Dictionary).duplicate(true)
+			break
+	_ok(idx >= 0, "HUD contact row exists: " + eid)
+	if idx < 0:
+		return
+	_hud.set("_selected", idx)
+	var internal := String(hrow.get("entity_id", ""))
+	var disp: Dictionary = _hud.call("_contact_display", hrow)
+	var facility_ex := String(disp.get("source", "")) == "facility_registry"
+
+	# Actual COMMS action text (not only a helper).
+	_hud.set("_comms_target", internal)
+	_hud.call("_comms_action", "HOLD")
+	_assert_hud_text(eid, "comms_msg", String(_hud.get("_comms_msg")), truth, disp, facility_ex)
+	_eq(String(_hud.get("_comms_target")), internal, "HUD comms internal target preserved: " + eid)
+
+	# Actual IDENT action text (INTERROGATE result message).
+	_hud.set("_ident_row", hrow.duplicate(true))
+	_hud.call("_ident_action", "INTERROGATE")
+	_assert_hud_text(eid, "ident_msg", String(_hud.get("_ident_msg")), truth, disp, facility_ex)
+	var irow = _hud.get("_ident_row")
+	if irow is Dictionary:
+		_eq(String((irow as Dictionary).get("entity_id", "")), internal,
+			"HUD ident internal target preserved: " + eid)
+
+	# Actual OPTICAL action text (IFF message + transponder reply line).
+	_hud.set("_optical_target", internal)
+	_hud.call("_optical_action", "IFF")
+	_assert_hud_text(eid, "optical_msg", String(_hud.get("_optical_msg")), truth, disp, facility_ex)
+	var txp = _hud.get("_txp_msg")
+	if txp != null and String(txp) != "":
+		_assert_hud_text(eid, "txp_msg", String(txp), truth, disp, facility_ex)
+	_eq(String(_hud.get("_optical_target")), internal, "HUD optical internal target preserved: " + eid)
+
+	# Generated texts used by fusion log / command queue / combat terminal.
+	if _hud.has_method("hud_target_texts"):
+		var texts: Dictionary = _hud.call("hud_target_texts", hrow)
+		for key in ["comms_header", "comms_type", "comms_send", "optical_entity",
+				"optical_msg", "ident_interrogate", "ident_iff", "ident_clear",
+				"fusion_target", "command_target", "combat_target"]:
+			_assert_hud_text(eid, key, String(texts.get(key, "")), truth, disp, facility_ex)
+		_eq(String(texts.get("internal_target", "")), internal,
+			"HUD generated texts keep internal target: " + eid)
+		_eq(String(texts.get("internal_track_id", "")), String(hrow.get("track_id", "")),
+			"HUD generated texts keep internal track id: " + eid)
+	else:
+		_ok(false, "HUD hud_target_texts helper exists (actual text builder)")
+
+
+func _assert_hud_text(eid: String, label: String, text: String, truth: Dictionary,
+		disp: Dictionary, facility_ex: bool) -> void:
+	_ok(text != "", "HUD %s non-empty: %s" % [label, eid], "text=" + text)
+	_ok(not _contains_truth(text, truth, eid, not facility_ex),
+		"HUD %s contains no truth: %s" % [label, eid], "text=" + text)
+	var did := String(disp.get("id", ""))
+	var dname := String(disp.get("name", ""))
+	var uses_display := (did != "" and text.find(did) >= 0) or (dname != "" and text.find(dname) >= 0)
+	_ok(uses_display, "HUD %s uses safe display: %s" % [label, eid],
+		"text=%s disp=%s" % [text, str(disp)])
 
 
 func _check_display_fields(eid: String, row: Dictionary, truth: Dictionary) -> void:
