@@ -418,6 +418,44 @@ func _check_event_stream_texts() -> void:
 		["t0001", "1000", "own ship", "unknown"])
 	_eq(JSON.stringify(pkev), pkbefore, "combat known event unchanged by formatting")
 
+	# 真实 CombatService 产生的 incoming_impact（嵌套 damage_event.source_id = 内部威胁 ID）。
+	# 事件结构由生产代码 combat_service._resolve_incoming() 生成，避免手写结构漂移；
+	# 这是 HUD 战斗事件栏实际会格式化的真实事件形态。
+	var cs_script = load("res://scripts/core/combat_service.gd")
+	var cs = cs_script.new({}) if cs_script != null else null
+	_ok(cs != null and bool(cs.ready), "real CombatService ready for incoming_impact fixture")
+	if cs != null and bool(cs.ready):
+		var incr: Dictionary = cs.incoming_missile("SENTINEL-THREAT", "SENTINEL-TARGET", 0.0,
+			{"eta_s": 0.0, "interceptable": false})
+		_ok(bool(incr.get("ok", false)), "real incoming missile fixture registered")
+		cs.tick(0.0)
+		var iev: Dictionary = {}
+		for raw_ie in (cs.events as Array):
+			if raw_ie is Dictionary and String((raw_ie as Dictionary).get("kind", "")) == "incoming_impact":
+				iev = raw_ie
+				break
+		_ok(not iev.is_empty(), "real incoming_impact event emitted")
+		if not iev.is_empty():
+			var ipl: Dictionary = iev.get("payload", {}) if iev.get("payload") is Dictionary else {}
+			var ide: Dictionary = ipl.get("damage_event", {}) if ipl.get("damage_event") is Dictionary else {}
+			_eq(String(ide.get("schema", "")), "combat_damage_event.v1",
+				"incoming_impact damage_event schema")
+			_eq(String(ide.get("source_id", "")), "SENTINEL-THREAT",
+				"incoming_impact damage_event.source_id is internal threat ref")
+			_eq(String(ide.get("target_id", "")), "SENTINEL-TARGET",
+				"incoming_impact damage_event.target_id is internal target ref")
+			var src_before := String(ide.get("source_id", ""))
+			var ibefore := JSON.stringify(iev)
+			var itext := String(_hud.call("hud_combat_event_text", iev))
+			_assert_event_text("combat incoming_impact", itext,
+				["SENTINEL-THREAT", "SENTINEL-TARGET"], ["UNKNOWN"])
+			_eq(JSON.stringify(iev), ibefore, "incoming_impact event unchanged by HUD formatting")
+			_eq(String(ide.get("source_id", "")), src_before,
+				"incoming_impact source_id internal value preserved after formatting")
+			_ok(itext.find("INC-000001") >= 0,
+				"incoming_impact event id kept visible (event id, not entity ref)",
+				"text=" + itext)
+
 	# Traffic payload JSON display.
 	var tev := {"track_id": "SENTINEL-TRK", "entity_id": "SENTINEL-ENT",
 		"nested": {"target_id": "SENTINEL-NEST"}}
