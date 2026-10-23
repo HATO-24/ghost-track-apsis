@@ -94,6 +94,29 @@ TrackTable（玩家航迹；side/identity 只来自观测/证据/授权）
 - 为兼容其它 UI 路径，legacy `id/name/cls` 同步为上述安全显示值；任何路径都不得
   从 world truth 回填 name/batch/ship_class/side/identity。
 
+### 4.2 HUD 目标文案（光学 / COMMS / IDENT / 战斗 / 命令 / 融合日志）
+
+所有面向玩家绘制的目标名称、编号与操作结果统一通过
+`_target_display_text(internal_id)` / `_row_display_text(row)` /
+`_display_for_internal(internal_id)` 生成；这些函数只返回 `display_*` 字段，
+找不到内部引用时返回匿名值（`UNKNOWN · UNKNOWN CONTACT`），绝不回显内部 id。
+内部引用（`_comms_target`/`_optical_target`/`_combat_target`/`entity_id`/
+`track_id`）继续用于服务调用、选择、通信路由和交战，不参与显示。
+
+覆盖路径：
+
+- **光学/识别**：`ENTITY/TRACK` 行显示安全 display id + 航迹编号（无内部
+  `target_id`）；`IFF` 消息与 transponder 回复行显示安全目标；trigger banner 同样。
+- **COMMS**：标题、TARGET 标签、TYPE/SEND 结果、命令队列与详情中的 actor→target
+  均显示安全目标；`_comms_target` 内部值不变。
+- **IDENT**：INTERROGATE/IFF/CLEAR 结果文案使用当前接触的安全显示；融合日志
+  target 列使用安全目标；IDENT 弹层标题使用 display_name。
+- **战斗终端**：chips/TGT、目标列表、动作结果文案使用安全目标；`_combat_target`
+  内部值不变。
+- **交通/OTC**：占用行 occupant 显示安全目标。
+- `hud_target_texts(row)` 返回上述实际文案生成函数的结果，供回归探针断言（不是
+  只测 `contact_display` helper）。
+
 > 世界内部仍知道 truth（战斗/PD 需要）；玩家视图必须通过观测/证据/授权链获得结论。
 
 ## 5. 回归探针
@@ -109,8 +132,13 @@ TrackTable（玩家航迹；side/identity 只来自观测/证据/授权）
   `contact_display(row)`：TRACK/ENTITY/SIGNAL 不得包含 truth 的
   name/batch/ship_class/side/identity/entity_id；设施注册表公开字段例外必须
   单独标记 `facility_registry` 并对照 registry 值；
+- 断言 HUD **实际文案**：驱动 `_comms_action`/`_ident_action`/`_optical_action`
+  并读取实际 `_comms_msg/_ident_msg/_optical_msg/_txp_msg`，以及
+  `hud_target_texts(row)` 的 COMMS/光学/IDENT/融合/命令/战斗文案；内部真值哨兵
+  不得出现、安全 display 必须出现、内部 `_comms_target/_optical_target/
+  _ident_row.entity_id` 保持不变；
 - 修复前该探针 FAIL（metadata API 缺失、默认值错误、friend 回退、显示字段缺失/
-  泄露真值），修复后 PASS（312 断言）。
+  泄露真值、HUD 文案泄露内部目标），修复后 PASS（720 断言）。
 
 ```powershell
 .\run_tests.ps1 -Only '^integration\.a1_entity_metadata_authority$' -Ci
