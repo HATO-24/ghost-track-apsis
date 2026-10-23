@@ -1,0 +1,104 @@
+{
+  "schema": "known_baseline_failures.v1",
+  "description": "Declared pre-existing test failures recorded on the audit HEAD. Consumed by run_tests.ps1 -Baseline to separate the Phase 0 required gate from the full historical regression matrix. These entries NEVER change a case status: the runner keeps reporting FAIL (status/exit/counts are not renamed, hidden or skipped); it only classifies each failure as known+expected vs new/drift.",
+  "baseline_commit": "263e97e",
+  "baseline_commit_full": "263e97e06568f52076198d3930f393e665cd522d",
+  "baseline_commit_note": "audit HEAD = main 62356da + docs/40 audit/task-queue commit 263e97e",
+  "captured_at": "2026-10-22",
+  "environment": {
+    "os": "Windows",
+    "godot_version": "4.7.2.stable.official.ed1daf0bf",
+    "godot_binary": "Godot_v4.7.2-stable_win64_console.exe",
+    "runner": "run_tests.ps1 (result_parsers: probe / summary / checks)",
+    "worktrees": "D:\\gt_verify (pristine verifier worktree) and D:\\gt_phase0 (Phase 0 PR head re-run)"
+  },
+  "evidence_sources": [
+    "T4 independent baseline run at audit HEAD 263e97e: 67 tracked probes, PASS=59 / FAIL=8, deterministic",
+    "docs/54_Phase0_验收报告.md section 2.1: the same 8 pre-existing FAIL with identical PASS/FAIL counts",
+    "Phase 0 head full-matrix re-run (PR #13 head b956702 / commit 3c0800f): same 8 FAIL, same counts, no new failure, no status flip"
+  ],
+  "evidence_provenance": "Report-provided baseline evidence, NOT independently re-executed from the audit HEAD in the CI environment. The counts below come from the verifier's independent baseline run (T4), docs/54 section 2.1, and the Phase 0 PR-head re-run, which agree item by item. CI treats this file as a declared baseline only; it does not prove those failures are acceptable — they are content/contract drift that Phase 0 explicitly does not fix.",
+  "full_matrix_capture": {
+    "note": "Full matrix status at the time this baseline was captured (72 cases = 67 regular probes + 1 e2e + 4 boot smoke).",
+    "total": 72,
+    "pass": 64,
+    "fail": 8,
+    "timeout": 0,
+    "not_run": 0,
+    "runner_exit_code": 1
+  },
+  "failures": [
+    {
+      "id": "content.damage_profile_probe",
+      "probe": "res://tests/damage_profile_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 554,
+      "expected_fail": 4,
+      "reason": "Probe asserts 32 class damage profiles; ShipCatalog has grown to 36 classes, so the fixed expectation no longer matches content. Also carries 4 pre-existing engine-level SCRIPT ERROR lines from damage_profile_service.gd:208 (legacy String constructor) that do not change the exit/fail counts.",
+      "suggested_follow_up": "new content/contract-sync task (TBD); relates to #7 (refit platform config) / #9 (assets) and the ship-class catalog"
+    },
+    {
+      "id": "content.story_text_probe",
+      "probe": "res://tests/story_text_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 469,
+      "expected_fail": 13,
+      "reason": "12 story text keys no longer match docs/44 verbatim because the story content evolved after docs/44 was written; the probe's verify_against_source check and one summary assertion fail.",
+      "suggested_follow_up": "new content/text-sync task (TBD, docs/44 vs story content); related to #1 (story expansion paused, content not frozen)"
+    },
+    {
+      "id": "unit.incident_record_probe",
+      "probe": "res://tests/incident_record_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 2761,
+      "expected_fail": 1,
+      "reason": "One incident-record generator assertion drifted with later content/schedule changes; the remaining 2761 assertions pass.",
+      "suggested_follow_up": "new content/contract-sync task (TBD); incident record content"
+    },
+    {
+      "id": "unit.save_probe",
+      "probe": "res://tests/save_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 153,
+      "expected_fail": 3,
+      "reason": "Three save-contract assertions drifted from the current SaveService behaviour/schema expectations.",
+      "suggested_follow_up": "new save-contract sync task (TBD); related to #11 (mod/content API and save compatibility)"
+    },
+    {
+      "id": "integration.damage_integration_probe",
+      "probe": "res://tests/damage_integration_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 198,
+      "expected_fail": 6,
+      "reason": "Six assertions for the full damage model wired into the V17 world drifted from current world/damage state contracts.",
+      "suggested_follow_up": "new combat/damage integration sync task (TBD); related to #3 (sensor-to-damage combat loop)"
+    },
+    {
+      "id": "integration.plot_tws_probe",
+      "probe": "res://tests/plot_tws_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 58,
+      "expected_fail": 1,
+      "reason": "One TWS-bridge assertion drifted. This probe uses a non-standard [SUMMARY] pass=/fail= result line; the runner's explicit 'summary' parser correctly reports FAIL 58/1 (it must never be misclassified as PASS).",
+      "suggested_follow_up": "new sensor/TWS bridge sync task (TBD); related to #4 (sensor/track authority)"
+    },
+    {
+      "id": "integration.v17_nav_integration_probe",
+      "probe": "res://tests/v17_nav_integration_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 181,
+      "expected_fail": 1,
+      "reason": "One navigation-integration assertion drifted from the current V17 bridge/state contract.",
+      "suggested_follow_up": "new nav/traffic integration sync task (TBD); related to #6 (maneuver/traffic/docking closure)"
+    },
+    {
+      "id": "integration.v17_sensor_authority_display_probe",
+      "probe": "res://tests/v17_sensor_authority_display_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 71,
+      "expected_fail": 3,
+      "reason": "Three sensor-authority display assertions drifted from the current display/contract path.",
+      "suggested_follow_up": "new sensor authority/display sync task (TBD); related to #4 (sensor authority) and #8 (CIC UI layers)"
+    }
+  ]
+}

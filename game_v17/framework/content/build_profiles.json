@@ -1,6 +1,6 @@
 {
   "schema": "build_profiles.v1",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "default": "full",
   "profiles": {
     "full": {
@@ -22,11 +22,89 @@
         "ballistics": true,
         "damage": true,
         "physics_world": true,
-        "sandbox": false
+        "sandbox": false,
+        "ship_catalog": true,
+        "refit": true
       },
       "notes": [
         "序章/剧情/触发器/报告/信任全开；序章场景由 PreludeScenario 决定实体与航迹。",
-        "作战系统与模拟器共用同一套 combat_service / combat_ballistics / damage_service。"
+        "作战系统与模拟器共用同一套 combat_service / combat_ballistics / damage_service。",
+        "ship_catalog/refit 在本体序章 seed 中原本就已装载，这里显式声明以保持开关/日志一致。"
+      ]
+    },
+    "orbital_sim": {
+      "label": "GHOST TRACK // APSIS — ORBITAL SIM",
+      "subtitle": "正式拟真剖面 · 地月系轨道战斗模拟器（剧情暂停，story schema 保留）",
+      "entry_scene": "res://v1_hud.tscn",
+      "boot_mode": "simulator",
+      "scenario": "res://framework/content/scenario_orbital_sim.json",
+      "save_root": "user://saves_sim",
+      "features": {
+        "story": false,
+        "prelude": false,
+        "triggers": false,
+        "identification": true,
+        "traffic": true,
+        "port": true,
+        "signal": true,
+        "combat": true,
+        "ballistics": true,
+        "damage": true,
+        "physics_world": true,
+        "sandbox": false,
+        "ship_catalog": true,
+        "refit": true
+      },
+      "limitations": [
+        "轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。",
+        "EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。",
+        "传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。",
+        "交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。",
+        "交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。",
+        "舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。",
+        "UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。"
+      ],
+      "notes": [
+        "剧情/序章/触发器在本剖面关闭：剧情扩写暂停（Phase 0），但剧情系统、StoryState schema、序章场景与接入契约全部保留，full 剖面仍可随时启动。",
+        "本剖面是正式拟真入口：不提供无限弹药、自动授权、快速重开；这些便利项只属于 sandbox 测试剖面。",
+        "开机自动跳过主菜单直接进战术台（DSH_SHOT 或 DSH_NO_AUTOSKIP=1 可阻止自动跳过）。",
+        "场景：framework/content/scenario_orbital_sim.json（bary_rot，真实 EML1 几何，ROE TIGHT）。",
+        "开发/测试请用 sandbox 剖面；旧 combat_sim 剖面仅为向后兼容保留。"
+      ]
+    },
+    "sandbox": {
+      "label": "GHOST TRACK // DEV TEST SANDBOX",
+      "subtitle": "开发测试剖面具 · 仅开发测试（便利项全开，不代表正式拟真）",
+      "entry_scene": "res://v1_hud.tscn",
+      "boot_mode": "sandbox",
+      "scenario": "res://framework/content/scenario_orbital_sim.json",
+      "save_root": "user://saves_sandbox",
+      "features": {
+        "story": false,
+        "prelude": false,
+        "triggers": false,
+        "identification": true,
+        "traffic": true,
+        "port": true,
+        "signal": true,
+        "combat": true,
+        "ballistics": true,
+        "damage": true,
+        "physics_world": true,
+        "sandbox": true,
+        "ship_catalog": true,
+        "refit": true
+      },
+      "sandbox_opts": {
+        "unlimited_ammo": true,
+        "auto_authorize": true,
+        "quick_restart": true
+      },
+      "notes": [
+        "仅开发/测试：与 orbital_sim 同一套核心系统与场景，但无限弹药/自动授权/快速重开全部打开。",
+        "不得作为交付验收证据：拟真验收必须使用 orbital_sim（无作弊项）。",
+        "sandbox_opts 只在 boot_mode=sandbox 时生效；orbital_sim/full 恒为 false。",
+        "存档根 user://saves_sandbox 与 orbital_sim/full 分开，避免测试档污染正式档。"
       ]
     },
     "combat_sim": {
@@ -55,13 +133,14 @@
         "auto_authorize": true,
         "quick_restart": true
       },
+      "deprecated": true,
+      "deprecated_reason": "旧作战模拟器演示 profile；新正式模拟器请用 orbital_sim，开发测试请用 sandbox",
       "notes": [
         "跳过序章/剧情/触发器，直接进战术台；实体来自 sandbox 场景（真实地月系几何）。",
         "两版本共用同一套系统与存档 schema；差异只在 boot_mode 与功能开关。",
         "sandbox_opts 只在 boot_mode=sandbox 时生效；full 剖面恒为 false（本体不给作弊口子）。",
-        "unlimited_ammo：弹药不扣减（含 PD/干扰弹），也不因弹药耗尽降级 ROE。",
-        "auto_authorize：FIRE 免授权（confirmed 仍必须），演示时可自由选目标。",
-        "quick_restart：UI 一键按原 seed 重开（走 session.reset()，不重载场景）。"
+        "DEPRECATED：旧作战模拟器演示 profile；新正式模拟器请用 orbital_sim，开发测试请用 sandbox。",
+        "保留该条目仅为向后兼容（旧命令/旧存档根/旧场景不变），不再作为交付验收入口。"
       ]
     }
   }

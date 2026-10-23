@@ -27,16 +27,20 @@
 - 音频设计 → [`docs/28_音频设计.md`](docs/28_音频设计.md)
 - 启动 CG → [`docs/29_启动CG.md`](docs/29_启动CG.md)
 - 独立 Demo 打包 → [`docs/30_独立Demo打包.md`](docs/30_独立Demo打包.md)
+- 系统完成度复核与开发任务队列 → [`docs/40_系统完成度复核与开发任务队列.md`](docs/40_系统完成度复核与开发任务队列.md)
+- V17 测试矩阵与回归说明 → [`game_v17/docs/test_matrix.md`](game_v17/docs/test_matrix.md)
 
 ## 目录
 
 ```
-docs/     设计与技术文档
-game_v15/ Godot 4.7 当前 UI 主线（V1.5）
+docs/     设计与技术文档（含 docs/40 审计与任务队列）
+game_v17/ Godot 4.7.2 当前主线（V17 / Phase 0 模拟器优先）
+game_v15/ V1.5 UI 旧主线留档
 game/     Godot V2 参考（地月 / 自动压平 / 自由旋转）
 game_v1/  Godot V1 留档（薄荷绿 / 地球弧）
 mockups/  各版成图与动效 GIF
 data/     数据表（舰船、部件、传感器，JSON）
+tools/    本地工具链（gitignored；Godot 4.7.2 console 可执行文件放这里）
 ```
 
 ## 参考坐标
@@ -49,26 +53,76 @@ data/     数据表（舰船、部件、传感器，JSON）
 
 ## 当前状态
 
-**P1 进行中。** P1a 预测轨道 + P1c 传感器接线已接入：每条 track 有 L1 站心 `r/v/epoch`，
-画历史/当前/预测（+60/+120/+300 s 刻度 + 时变误差椭圆）；按舰传感器架、L1 方位线、
-L2 协方差、L3/L4 识别、雷达 EMIT/ELINT、光学凝视、CH-IR2 虚警教学都已生效。
-P1d 完成：HUD 按舰传感器架（哈马丹 2 模块 / 传唤级 4 模块）+ 命令队列/点火节点
-（STATION / SHADOW / BURN，望楼 8s 中继，Δv 扣减，生效前撤销）。
-P1e 完成：底部命令面板 + 时间轴点火节点（授权/撤销）、状态机
-QUEUED→TRANSMITTED→EXEC→DONE、传感器开关/EMCON、`data/scenario_l1.json` 骨架。
-P1f 完成：第一关三拍串到**监督官裁决**（认证 / 第九条 / 拖程序）、开火冻结与后果页、
-报告（如实 / 伪造，伪造首次 AUDIT FLAG 01）；HUD 覆盖层，main 只保留键位转发。
-P1g 完成：事件/无线电 feed、裁决/报告/END 真正冻结、END 回执归档页、R 重开；
-main 的重复 EndPanel 已删，绘制统一交给 HUD。
-P1h 已定：中继舰走 **A 方案**（120 m 可展开通信/监听阵列，不按消息计 Δv）；
-通信主序为 **激光直连 > 激光中继 > 红外 > 无线电 > 可见光**；传令艇取消，
-咏叹-1 改为旗舰携带的舰载穿梭机（不承担通信）；中继卫星只作为各居住地之间的
-基础设施/后期可夺取目标。
-P1j 完成：四位数批号、六级身份分类、`[发信者至收信者]-[方式]-[内容]` 通信流、
-舰队内部事后报告、哨舰 AWACS 化（哈马丹 YW-R9/MS-OT2/ELINT）。
-P1k 完成：威胁等级图例、9002 改为「已交叉确认 · 无威胁」、HUD 字体/基线首轮校对。
-P1i 文本总校完成：第一关无线电、事件、裁决、后果、报告文本，以及 HUD/plot/state 可见文案。
-第一关默认 **local 3D**；下一步：光学窗 blockout、第二幕。
+**Phase 0（模拟器优先基线）进行中。** 当前实现主线是 `game_v17/`，Godot **4.7.2**，
+主场景 `res://main_menu.tscn`；`game_v15/`、`game_v16/` 为历史留档。
+
+构建剖面（定义见 `game_v17/framework/content/build_profiles.json`）：
+
+| 剖面 | 用途 | 启动方式 |
+| --- | --- | --- |
+| `full`（默认） | 剧情本体：序章 / 触发 / 报告，系统全开 | `godot --path game_v17` |
+| `orbital_sim` | 正式轨道作战模拟器：无剧情，核心系统 + traffic/port/refit，无作弊项 | `$env:DSH_BUILD='orbital_sim'; godot --path game_v17` |
+| `sandbox` | 开发/测试沙盒：同模拟器系统 + 便利项 | `$env:DSH_BUILD='sandbox'; godot --path game_v17` |
+| `combat_sim`（deprecated） | 旧作战模拟器兼容剖面 | `$env:DSH_BUILD='combat_sim'; godot --path game_v17` |
+
+`orbital_sim` / `sandbox` 启动后由主菜单自动跳到 `res://v1_hud.tscn`。
+Godot 可执行文件放 `tools/godot/Godot_v4.7.2-stable_win64_console.exe`（`tools/` 已被 gitignore）；
+也可用 `GODOT_BIN` 或 PATH 中的 `godot`。
+
+> **启动语义（Issue #14 明确）**：默认 profile 仍是 **`full`**，因此普通启动（不设 `DSH_BUILD`）
+> 进入的是剧情构建，不是模拟器。"模拟器优先"是开发/验收方向，不等同于产品默认值变更；
+> 进入正式模拟器必须显式设置 `DSH_BUILD=orbital_sim`。默认值是否改为 `orbital_sim`
+> 属于产品决策，需项目负责人另行批准，不在 Phase 0 任务内顺手修改。
+
+## 测试与回归
+
+一条命令跑全部 headless probe 与各剖面 boot smoke（Windows / PowerShell 7+）：
+
+```powershell
+pwsh ./run_tests.ps1            # 默认全矩阵；结果写入 .test-results/<run-id>/
+pwsh ./run_tests.ps1 -List      # 只列出矩阵（含 Phase 0 gate 归属）
+pwsh ./run_tests.ps1 -Category profile
+
+# Phase 0 验收门禁（profile probe + 4 个 boot smoke + 真实入口 E2E，共 6 个 case）
+pwsh ./run_tests.ps1 -Gate phase0
+
+# baseline-aware 完整矩阵（strict fail-closed）：72 cases 全跑；8 个 pre-existing 失败仍显示为 FAIL；
+# 任一 baseline 项未执行/未选入/计数不符，或新增失败/漂移/超时/非预期 NOT RUN → exit 1
+pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json
+
+# 本地筛选调试：允许只跑一部分 baseline 项，但绝不声称"完整 baseline 通过"
+pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json -Only '^unit\.save_probe$' -AllowPartialBaseline
+
+# fail-closed 行为的可重复回归（blocked/NOT RUN、被筛选掉两种场景必须让 strict 检查失败）
+pwsh ./game_v17/tests/baseline_gate_selftest.ps1 -NoImport
+```
+
+Linux / macOS（需 `pwsh`）：`./run_tests.sh -List`、`./run_tests.sh -Ci`（参数相同）。
+
+Godot 发现顺序：`-GodotBin` → `$env:GODOT_BIN` → `tools/godot/Godot*console.exe` → PATH `godot`/`godot4`。
+
+**测试语义（严格区分，不要互相冒充）：**
+
+| 命令 | 语义 |
+| --- | --- |
+| `run_tests.ps1`（默认） | 如实全矩阵：当前为 64 PASS / 8 pre-existing FAIL，退出码 1；**不代表 Phase 0 回归**，8 个失败均为审计 HEAD 已存在的内容漂移（见 [test_matrix.md](game_v17/docs/test_matrix.md) §7.2） |
+| `run_tests.ps1 -Gate phase0` | Phase 0 验收门禁（6 cases），当前全 PASS；这是 Phase 0 的强制检查 |
+| `run_tests.ps1 -Baseline ...`（strict，默认） | 完整矩阵 baseline 检查：72 cases 全部执行、失败仍显示 FAIL；**每个** baseline 项都必须实际执行成预期 FAIL 且计数匹配；任一项 NOT RUN/被阻塞/未选入/计数不符都 exit 1。绿灯 = "无新增回归 + 基线覆盖完整"，**不是**"全矩阵通过" |
+| `... -Baseline ... -AllowPartialBaseline` | 仅本地筛选调试：允许未选入的 baseline 项不导致失败，但输出 `BASELINE PARTIAL - NOT a complete baseline verification`、summary `complete=false`，**不得**当成完整 baseline 通过 |
+| `baseline_gate_selftest.ps1` | 可重复回归：基线项 blocked→NOT RUN、被滤镜排除两种场景都必须让 strict 检查 exit 1（CI full-matrix job 会执行） |
+
+分类、输出格式、环境隔离、gate/baseline 定义、如何新增用例等细节见
+[`game_v17/docs/test_matrix.md`](game_v17/docs/test_matrix.md)；当前真实矩阵结果以该文档与每次运行的
+`.test-results/<run-id>/summary.json` 为准，**不引用历史 PASS 数**。
+GitHub Actions 配置见 [`.github/workflows/tests.yml`](.github/workflows/tests.yml)：两个 check ——
+`Phase 0 gate (Phase 0 acceptance)` 与 `Full matrix (baseline-aware)`（**绿灯仅表示"无新增回归 + baseline 项全部执行且匹配"，
+不等于"全矩阵通过"**；8 个已知遗留失败在日志/job summary/artifact 中保持可见）。
+job 名称中的措辞**不代表 branch protection 已生效**：本仓库为 private、未启用 GitHub Pro，protection API 返回 403，
+只能确认 job 实际运行结果。测试结果 artifact（`summary.json` / `report.md` / 逐项日志）由两个 job 上传，
+上传前会断言文件存在、上传配置为 `if-no-files-found: error`，缺失证据会使对应检查失败；
+可用 `gh run download <run-id>` 获取。
+
+审计与任务队列：[`docs/40_系统完成度复核与开发任务队列.md`](docs/40_系统完成度复核与开发任务队列.md)。
 
 ## 与 DIIT 项目的关系
 
@@ -83,7 +137,8 @@ P1i 文本总校完成：第一关无线电、事件、裁决、后果、报告�
 
 ## Demo
 
-- `game_v15/` — **当前 UI 主线**：V1 版式 + 薄荷绿 + 基准弧 + V2 冷启动/像素/硬切/传感器下拉
+- `game_v17/` — **当前主线**：V17 模拟器优先，主场景 `main_menu`（剖面见上）
+- `game_v15/` — V1.5 UI 留档：V1 版式 + 薄荷绿 + 基准弧 + V2 冷启动/像素/硬切/传感器下拉
 - `game/` — V2 参考：地月立体态势、自动压平、自由旋转的代码库
 - `game_v1/` — V1 留档：薄荷绿、实体地球弧
 - `mockups/` — V1.5 / V2 / V1 成图与动效 GIF

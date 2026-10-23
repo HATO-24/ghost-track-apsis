@@ -1,0 +1,1011 @@
+{
+  "schema": "probe_matrix.v1",
+  "version": "1.0.0",
+  "gates": {
+    "phase0": [
+      "profile.build_profile_probe",
+      "e2e.orbital_sim",
+      "boot.full",
+      "boot.legacy_combat_sim",
+      "boot.orbital_sim",
+      "boot.sandbox"
+    ]
+  },
+  "description": "GHOST TRACK // APSIS V17 unified headless regression matrix. One case = one Godot process; deterministic order.",
+  "godot_version": "4.7.2",
+  "project_relative_path": "game_v17",
+  "main_scene": "res://main_menu.tscn",
+  "env_policy": {
+    "clear_prefixes": [
+      "DSH_",
+      "V17_"
+    ]
+  },
+  "defaults": {
+    "timeout_s": 240,
+    "result": "probe",
+    "entry": "script"
+  },
+  "result_parsers": {
+    "probe": "PROBE RESULT:\\s*PASS=(\\d+)\\s+FAIL=(\\d+)",
+    "summary": "\\[SUMMARY\\]\\s*pass=(\\d+)\\s+fail=(\\d+)",
+    "checks": "checks=(\\d+)\\s+fails=(\\d+)"
+  },
+  "duplicates": [],
+  "notes": "No exact duplicate probes found: each tracked probe covers a distinct contract (module unit, content/data, bridge integration or story chain). Overlapping coverage (for example damage model / damage service / damage integration, or sensor service / sensor authority / V17 sensor bridge) is intentional layering, not duplication.",
+  "cases": [
+    {
+      "id": "profile.build_profile_probe",
+      "category": "profile",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Build profiles: full/combat_sim/orbital_sim/sandbox loading, selection, fallback, sandbox guard, JSON",
+      "script": "res://tests/build_profile_probe.gd",
+      "expected_markers": [
+        "BUILD PROFILE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "content.damage_profile_probe",
+      "category": "content",
+      "profile": "",
+      "entry": "script",
+      "purpose": "36-class damage profiles: data, service mapping, fallback, legacy override",
+      "script": "res://tests/damage_profile_probe.gd",
+      "expected_markers": [
+        "DAMAGE PROFILE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "content.ephemeris_compact_probe",
+      "category": "content",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Compact ephemeris: analytic fallback, Chebyshev/Kepler fixtures, window/units",
+      "script": "res://tests/ephemeris_compact_probe.gd",
+      "expected_markers": [
+        "EPHEMERIS COMPACT PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "content.facility_model_probe",
+      "category": "content",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Facility model factory: 110-facility mapping coverage, fallbacks, deterministic table",
+      "script": "res://tests/facility_model_probe.gd",
+      "expected_markers": [
+        "FACILITY MODEL PROBE OK"
+      ],
+      "result": "checks",
+      "timeout_s": 180
+    },
+    {
+      "id": "content.facility_registry_probe",
+      "category": "content",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Facility registry: 110 facilities / ports / OTC / fuel, JSON contracts",
+      "script": "res://tests/facility_registry_probe.gd",
+      "expected_markers": [
+        "V17 FACILITY REGISTRY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "content.prelude_scenario_probe",
+      "category": "content",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Prelude scenario content: entities, triggers, boot config",
+      "script": "res://tests/prelude_scenario_probe.gd",
+      "expected_markers": [
+        "V17 PRELUDE SCENARIO PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "content.schema_probe",
+      "category": "content",
+      "profile": "",
+      "entry": "script",
+      "purpose": "UI tokens, data schemas and loader validation",
+      "script": "res://tests/schema_probe.gd",
+      "expected_markers": [
+        "V17 SCHEMA PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "content.ship_catalog_probe",
+      "category": "content",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Ship catalog: 36 classes/subvariants, auto-derivation, audit",
+      "script": "res://tests/ship_catalog_probe.gd",
+      "expected_markers": [
+        "V17 SHIP CATALOG PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "content.story_text_probe",
+      "category": "content",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Story text library: keys, texts, formats",
+      "script": "res://tests/story_text_probe.gd",
+      "expected_markers": [
+        "V17 STORY TEXT PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.ballistics_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Ballistics: railgun lead/hit/penetration, missile guidance, PD, decoy/jammer, events, saves",
+      "script": "res://tests/ballistics_probe.gd",
+      "expected_markers": [
+        "BALLISTICS PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.cislunar_physics_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Cislunar physics core: CR3BP/RK4, relative motion, rendezvous integration",
+      "script": "res://tests/cislunar_physics_probe.gd",
+      "expected_markers": [
+        "PHYSICS PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.combat_planner_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Combat planner: four intents to cruise profiles, delta-v budget, salvo, JSON",
+      "script": "res://tests/combat_planner_probe.gd",
+      "expected_markers": [
+        "COMBAT PLANNER PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.combat_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Combat service: content weapons, ROE, TRACK/SOLUTION/FIRE gate, PD/decoy, damage events",
+      "script": "res://tests/combat_probe.gd",
+      "expected_markers": [
+        "COMBAT PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.core_time_event_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "TimeService, EventBus, WorldState core contracts",
+      "script": "res://tests/core_time_event_probe.gd",
+      "expected_markers": [
+        "V17 CORE TIME EVENT PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.damage_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Damage model: sections, armor, fire/decompression, breach effects",
+      "script": "res://tests/damage_probe.gd",
+      "expected_markers": [
+        "DAMAGE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.damage_service_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "DamageService: multi-ship damage tracking, events, save/restore",
+      "script": "res://tests/damage_service_probe.gd",
+      "expected_markers": [
+        "V17 DAMAGE SERVICE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.docking_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Docking controller: relative geometry, approach, state machine, VM/JSON",
+      "script": "res://tests/docking_probe.gd",
+      "expected_markers": [
+        "R6 DOCKING PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.ew_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "EW effect layer: jam/decoys/EMCON/comms spoof/LWR, duration, session hook, saves",
+      "script": "res://tests/ew_probe.gd",
+      "expected_markers": [
+        "EW PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.fleet_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Fleet refit + formation services: 13 ships, slots, validation, saves",
+      "script": "res://tests/fleet_probe.gd",
+      "expected_markers": [
+        "V17 FLEET PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.fleet_transfer_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Five-ship independent CR3BP fleet transfer propagation and cache",
+      "script": "res://tests/fleet_transfer_probe.gd",
+      "expected_markers": [
+        "V17 FLEET TRANSFER PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 300
+    },
+    {
+      "id": "unit.identification_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "IdentificationService: evidence fusion, confidence, contradictions, L3/L4",
+      "script": "res://tests/identification_probe.gd",
+      "expected_markers": [
+        "V17 IDENTIFICATION PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.ime_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "IME input component with injected events (no OS IME dependency)",
+      "script": "res://tests/ime_probe.gd",
+      "expected_markers": [
+        "IME PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.incident_record_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Incident record generator: schedules, telemetry, OTC/GT clues, determinism",
+      "script": "res://tests/incident_record_probe.gd",
+      "expected_markers": [
+        "V17 INCIDENT RECORD PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.info_warfare_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Unified IFF/ELINT/COMINT/EW shadow layer",
+      "script": "res://tests/info_warfare_probe.gd",
+      "expected_markers": [
+        "INFO WARFARE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.legal_status_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Legal status FSM: UNLISTED to HUNTED/CLEARED, session, save",
+      "script": "res://tests/legal_status_probe.gd",
+      "expected_markers": [
+        "V17 LEGAL STATUS PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.nav_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Navigation/traffic/maneuver planning models",
+      "script": "res://tests/nav_probe.gd",
+      "expected_markers": [
+        "NAV PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.optical_ir_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Optical/IR channel: FOV, occlusion, lighting, SNR, stare/lock",
+      "script": "res://tests/optical_ir_probe.gd",
+      "expected_markers": [
+        "OPTICAL IR PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.order_comms_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Order and comms services: delayed states, links, relay, loss, text library",
+      "script": "res://tests/order_comms_probe.gd",
+      "expected_markers": [
+        "ORDER COMMS PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.physics_world_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "PhysicsWorld: single authority, entity sync, contracts, save/restore",
+      "script": "res://tests/physics_world_probe.gd",
+      "expected_markers": [
+        "V17 PHYSICS WORLD PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.port_service_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Port service: docking/berth/refuel/dock/tow business state + save",
+      "script": "res://tests/port_service_probe.gd",
+      "expected_markers": [
+        "V17 PORT PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.refit_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "RefitService: APSIS drydock modules, slots, transactions, save",
+      "script": "res://tests/refit_probe.gd",
+      "expected_markers": [
+        "V17 REFIT PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.save_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "SaveService: file saves, metadata, atomicity, load, temp dir isolation",
+      "script": "res://tests/save_probe.gd",
+      "expected_markers": [
+        "V17 SAVE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.sensor_authority_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "V2 sensor authority shadow mode contracts",
+      "script": "res://tests/sensor_authority_probe.gd",
+      "expected_markers": [
+        "SENSOR AUTHORITY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.sensor_service_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Sensor service: observation/evidence pipeline, EMCON, optical channels",
+      "script": "res://tests/sensor_service_probe.gd",
+      "expected_markers": [
+        "SENSOR SERVICE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.settings_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "SettingsService: atomic write, corruption fallback, migration",
+      "script": "res://tests/settings_probe.gd",
+      "expected_markers": [
+        "V17 SETTINGS PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.signal_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Signal service: ELINT L1/multi-station, fingerprints, light-signal codes",
+      "script": "res://tests/signal_probe.gd",
+      "expected_markers": [
+        "SIGNAL SERVICE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.story_runtime_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "StoryRuntime engine: conditions, actions, state transitions",
+      "script": "res://tests/story_runtime_probe.gd",
+      "expected_markers": [
+        "V17 STORY RUNTIME PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.story_state_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "StoryState service: flags, counters, serialization",
+      "script": "res://tests/story_state_probe.gd",
+      "expected_markers": [
+        "V17 STORY STATE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.story_trigger_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Story triggers: action-driven, once-only, ordering, world events",
+      "script": "res://tests/story_trigger_probe.gd",
+      "expected_markers": [
+        "STORY TRIGGER PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.teaching_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Teaching objective controller: goals, manual progression, VM/save",
+      "script": "res://tests/teaching_probe.gd",
+      "expected_markers": [
+        "V17 TEACHING PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.track_table_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "TrackTable single-writer: observation/evidence fusion, L1-L4, dedupe, expiry",
+      "script": "res://tests/track_table_probe.gd",
+      "expected_markers": [
+        "TRACK TABLE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.traffic_control_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Traffic control: facilities, lanes, windows, permits, NPC occupation, spoofing clues",
+      "script": "res://tests/traffic_control_probe.gd",
+      "expected_markers": [
+        "TRAFFIC CONTROL PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.transfer_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "L4-02 to L1 real orbital transfer: CR3BP/RK4 + Lambert/pulse timeline",
+      "script": "res://tests/transfer_probe.gd",
+      "expected_markers": [
+        "V17 TRANSFER PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 300
+    },
+    {
+      "id": "unit.transit_damage_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Transit five-ship damage data layer",
+      "script": "res://tests/transit_damage_probe.gd",
+      "expected_markers": [
+        "V17 TRANSIT DAMAGE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.transit_sensors_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Transit five-ship/four-port geometry, radar/TWS, VIS/IR channels",
+      "script": "res://tests/transit_sensors_probe.gd",
+      "expected_markers": [
+        "TRANSIT SENSOR PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "unit.transponder_probe",
+      "category": "unit",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Transponder behavior: modes, crypto, faults, spoofing, interrogation",
+      "script": "res://tests/transponder_probe.gd",
+      "expected_markers": [
+        "V17 TRANSPONDER PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.av4412_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "AV-4412 story chain: orbital window, standoff, negotiation",
+      "script": "res://tests/av4412_probe.gd",
+      "expected_markers": [
+        "V17 AV4412 CHAIN PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.ceres_chain_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Ceres-2 story chain: identification and rescue decisions",
+      "script": "res://tests/ceres_chain_probe.gd",
+      "expected_markers": [
+        "V17 CERES CHAIN PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.chronos_chain_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Chronos chain: port services, private comms, action gating",
+      "script": "res://tests/chronos_chain_probe.gd",
+      "expected_markers": [
+        "V17 CHRONOS CHAIN PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.cic_view_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "CIC observable information layer view models (truth-free)",
+      "script": "res://tests/cic_view_probe.gd",
+      "expected_markers": [
+        "V17 CIC VIEW PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.damage_integration_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Damage model integration into V17 world state",
+      "script": "res://tests/damage_integration_probe.gd",
+      "expected_markers": [
+        "DAMAGE INTEGRATION PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.plot_tws_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "TWS bridge: V15 read-only state to V2 spherical radar/TWS/optical channels",
+      "script": "res://tests/plot_tws_probe.gd",
+      "expected_markers": [
+        "V17 SENSOR-1 TWS PROBE PASS"
+      ],
+      "result": "summary",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.prologue_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "PrologueController game flow: steps, gates, report handoff",
+      "script": "res://tests/prologue_probe.gd",
+      "expected_markers": [
+        "V17 PROLOGUE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.report_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "After-action report: branches, hints, prologue completion",
+      "script": "res://tests/report_probe.gd",
+      "expected_markers": [
+        "V17 REPORT PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.session_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "GameSession orchestration: time/event/world/order/comms + in-memory save/load",
+      "script": "res://tests/session_probe.gd",
+      "expected_markers": [
+        "V17 SESSION PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_bridge_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "V15 visual and framework V2 core bridge contracts",
+      "script": "res://tests/v17_bridge_probe.gd",
+      "expected_markers": [
+        "V17 BRIDGE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_core3_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Cleanser radio teaching + sensor authority boundary bridge",
+      "script": "res://tests/v17_core3_probe.gd",
+      "expected_markers": [
+        "V17 CORE3 PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_info_warfare_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Information-warfare shadow bridged into V17 bridge/state",
+      "script": "res://tests/v17_info_warfare_probe.gd",
+      "expected_markers": [
+        "V17 INFO WARFARE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_nav_integration_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Navigation/traffic/maneuver + damage integrated into V17 bridge/state",
+      "script": "res://tests/v17_nav_integration_probe.gd",
+      "expected_markers": [
+        "V17 NAV INTEGRATION PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_optical_docking_auto_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Bridge auto optical/docking data toggles",
+      "script": "res://tests/v17_optical_docking_auto_probe.gd",
+      "expected_markers": [
+        "V17 OPTICAL DOCKING AUTO PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_optical_docking_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Optical/IR + docking bridged into V17 bridge/state",
+      "script": "res://tests/v17_optical_docking_probe.gd",
+      "expected_markers": [
+        "V17 OPTICAL DOCKING PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_physics_authoritative_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Authoritative physics adapter: three modes, relative board, compare, fallback",
+      "script": "res://tests/v17_physics_authoritative_probe.gd",
+      "expected_markers": [
+        "V17 PHYSICS AUTH PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_physics_display_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Physics display data interfaces with read-only state",
+      "script": "res://tests/v17_physics_display_probe.gd",
+      "expected_markers": [
+        "V17 PHYSICS DISPLAY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_physics_shadow_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "CR3BP/RK4 physics shadow into V17 bridge/state",
+      "script": "res://tests/v17_physics_shadow_probe.gd",
+      "expected_markers": [
+        "V17 PHYSICS SHADOW PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_sensor_authority_display_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "V2 sensor authority display path + UNDOCK",
+      "script": "res://tests/v17_sensor_authority_display_probe.gd",
+      "expected_markers": [
+        "V17 SENSOR AUTHORITY DISPLAY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_sensor_shadow_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Sensor shadow bridged into V17 bridge/state",
+      "script": "res://tests/v17_sensor_shadow_probe.gd",
+      "expected_markers": [
+        "V17 SENSOR SHADOW PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.v17_transit_bridge_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Transit scene + L4-to-L1 transfer bridged into V17 state",
+      "script": "res://tests/v17_transit_bridge_probe.gd",
+      "expected_markers": [
+        "V17 TRANSIT BRIDGE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 300
+    },
+    {
+      "id": "e2e.orbital_sim",
+      "category": "e2e",
+      "profile": "orbital_sim",
+      "entry": "script",
+      "purpose": "Real entry path main_menu -> v1_hud -> ShellBinder -> GameSession, orbital_sim realism and combat flow",
+      "script": "res://tests/e2e_orbital_sim_probe.gd",
+      "expected_markers": [
+        "E2E ORBITAL SIM PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 300
+    },
+    {
+      "id": "boot.full",
+      "category": "boot",
+      "profile": "full",
+      "entry": "scene",
+      "purpose": "Full story profile: v1_hud boots with prelude, shell binder, HUD flow smoke completes",
+      "scene": "res://v1_hud.tscn",
+      "extra_args": [
+        "--quit-after",
+        "5000"
+      ],
+      "env": {
+        "DSH_BUILD": "full",
+        "DSH_FLOW_SMOKE": "1"
+      },
+      "expected_markers": [
+        "[SHELL BINDER] BUILD profile=full",
+        "[SHELL BINDER] prelude ready=true",
+        "[V1 HUD] FLOW SMOKE COMPLETE"
+      ],
+      "result": "markers",
+      "timeout_s": 180
+    },
+    {
+      "id": "boot.legacy_combat_sim",
+      "category": "boot",
+      "profile": "combat_sim",
+      "entry": "main",
+      "purpose": "Legacy combat_sim compatibility: main scene auto-skips to v1_hud, sandbox seed, flow smoke",
+      "extra_args": [
+        "--quit-after",
+        "5000"
+      ],
+      "env": {
+        "DSH_BUILD": "combat_sim",
+        "DSH_FLOW_SMOKE": "1"
+      },
+      "expected_markers": [
+        "[MAIN MENU] BUILD=combat_sim",
+        "[SHELL BINDER] BUILD profile=combat_sim",
+        "[V1 HUD] FLOW SMOKE COMPLETE"
+      ],
+      "result": "markers",
+      "timeout_s": 180
+    },
+    {
+      "id": "boot.orbital_sim",
+      "category": "boot",
+      "profile": "orbital_sim",
+      "entry": "main",
+      "purpose": "Formal simulator profile: main scene auto-skips to v1_hud, no story, systems seeded",
+      "extra_args": [
+        "--quit-after",
+        "5000"
+      ],
+      "env": {
+        "DSH_BUILD": "orbital_sim",
+        "DSH_FLOW_SMOKE": "1"
+      },
+      "expected_markers": [
+        "[MAIN MENU] BUILD=orbital_sim",
+        "[SHELL BINDER] BUILD profile=orbital_sim",
+        "[V1 HUD] FLOW SMOKE COMPLETE"
+      ],
+      "result": "markers",
+      "timeout_s": 240
+    },
+    {
+      "id": "boot.sandbox",
+      "category": "boot",
+      "profile": "sandbox",
+      "entry": "main",
+      "purpose": "Dev sandbox profile: main scene auto-skips to v1_hud, sandbox options enabled",
+      "extra_args": [
+        "--quit-after",
+        "5000"
+      ],
+      "env": {
+        "DSH_BUILD": "sandbox",
+        "DSH_FLOW_SMOKE": "1"
+      },
+      "expected_markers": [
+        "[MAIN MENU] BUILD=sandbox",
+        "[SHELL BINDER] BUILD profile=sandbox",
+        "[V1 HUD] FLOW SMOKE COMPLETE"
+      ],
+      "result": "markers",
+      "timeout_s": 240
+    }
+  ]
+}
