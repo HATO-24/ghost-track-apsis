@@ -92,8 +92,8 @@ tick 边界同步**不逐实体发 bus 事件**（避免每 tick 7 条噪声）�
 
 | API | 说明 |
 |---|---|
-| `GameSession.world_physics_sync(reason)` | tick 边界/显式同步入口；返回 `{ok,enabled,in_sync,frame,mode,reason,synced,compared,mismatched,failures,skipped,sync_reason}`。 |
-| `GameSession.world_physics_sync_status()` | 只读诊断（不写任何状态）：`{enabled,mode,frame,in_sync,compared,mismatched,sync_count,last,reason}`。 |
+| `GameSession.world_physics_sync(reason)` | tick 边界/显式同步入口；返回 `{ok,enabled,in_sync,frame,mode,reason,synced,compared,updated,mismatched,failures,skipped,sync_reason}`。**字段语义**：`updated` = 本次成功写回的实体 id（被修复对象）；`mismatched` = **同步之后仍未对齐**的实体（正常应为空，仅在写入失败/被拒时非空）；`synced` = `updated.size()`；`in_sync` = `mismatched` 与 `failures` 均为空。 |
+| `GameSession.world_physics_sync_status()` | 只读诊断（不写任何状态）：`{enabled,mode,frame,in_sync,compared,mismatched,sync_count,last,reason}`；其中 `mismatched` 为**当前**未对齐实体。 |
 | `tick()` 返回值 | 新增 `world_sync` 段（与 `physics_tick` 并列）。 |
 | `load_state()` 返回值 | 新增 `world_sync` 段。 |
 | `check_contracts()` | `mode=tick` 时新增「world 位置副本与 physics 一致」不变量。 |
@@ -108,21 +108,25 @@ tick 边界同步**不逐实体发 bus 事件**（避免每 tick 7 条噪声）�
 不加入 `gates.phase0`）。真实入口 `main_menu → v1_hud → ShellBinder → GameSession`
 （`DSH_BUILD=orbital_sim`）。
 
-断言组（**78 断言**）：
+断言组（**97 断言**）：
 
 1. 真实入口 + physics/world 实体清点（scenario 7 实体）；
 2. boot 时 world 副本 == physics（同 seed、同帧）；
 3. **多次 tick（10×60 s）后 `snapshot().entities` 位置/速度 == physics 同一时刻**
    （逐位一致；容差仅吸收序列化噪声）+ `world_physics_sync_status()` 自检 + 反证 C3
    （harmattan 移动 > 1 km、snapshot 不是 seed 旧值、world version 增长、source=physics_world）；
-4. 坐标系/单位/容差：`frame=bary_rot`、`km`/`s`/`km/s`、地月量级 sanity；
-5. 消费者：`plot_positions()` 走 physics 分支且数值 == physics − apsis 参考；
-6. 消费者：save → load 后 `snapshot` == 恢复的 physics == 保存前 physics；存档不推进 physics；
-7. 单向性：手写 world 位置不改变 physics；sync status 检测到分歧；tick 边界自愈；
-8. 帧门禁：L1 转换会话 `mode=frame_mismatch`、显式不同步、world 副本不被跨帧污染；
-9. 确定性：无 tick 的重复 `snapshot()` 完全一致。
+4. **一次确实发生同步的 tick 的返回值语义**（审查修正）：`updated` 非空且等于
+   `synced`；`mismatched` 在同步后为空；`updated` 与 `mismatched` 不相交；已对齐的
+   no-op tick 报告 `updated=[]` 且仍 `in_sync`；
+5. 坐标系/单位/容差：`frame=bary_rot`、`km`/`s`/`km/s`、地月量级 sanity；
+6. 消费者：`plot_positions()` 走 physics 分支且数值 == physics − apsis 参考；
+7. 消费者：save → load 后 `snapshot` == 恢复的 physics == 保存前 physics；存档不推进 physics；
+8. 单向性：手写 world 位置不改变 physics；sync status 检测到分歧；tick 边界自愈；
+9. 帧门禁：L1 转换会话 `mode=frame_mismatch`、显式不同步、world 副本不被跨帧污染；
+10. 确定性：无 tick 的重复 `snapshot()` 完全一致。
 
-红/绿证据见 PR 描述（红 `PASS=62 FAIL=16` → 绿 `PASS=78 FAIL=0`）。
+红/绿证据见 PR 描述（红 `PASS=62 FAIL=16` → 绿 `PASS=78 FAIL=0`；审查修正轮
+`updated/mismatched` 语义红 `PASS=87 FAIL=3` → 绿 `PASS=97 FAIL=0`）。
 
 ## 6　位置消费者清单（本任务后）
 

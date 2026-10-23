@@ -6,6 +6,7 @@
 > 矩阵清单：`game_v17/tests/probe_matrix.json`（schema `probe_matrix.v1`）。
 >
 > 本文档只记录**本仓库当前真实执行结果**；不复制其它文档中的历史 PASS 数。
+> 历史运行记录（Phase 0 时期 72 cases）统一放在 §7A 并明确标注为历史，不与当前结果混用。
 
 ---
 
@@ -167,7 +168,7 @@ C/CI 中它是必须为绿的检查；它**不包含**全量历史 probe，不�
   (C) 筛选 + `-AllowPartialBaseline` → exit 0 但明确标记 PARTIAL/未验证。
   该脚本在 CI 的 full-matrix job 中执行，失败即 job 红。
 
-> 8 个遗留失败对应的后续责任任务（建议）见 `known_baseline_failures.json` 的 `follow_up` 字段与 §7.2。
+> 8 个遗留失败对应的后续责任任务（建议）见 `known_baseline_failures.json` 的 `follow_up` 字段与 §7A.2。
 
 ### 环境隔离
 
@@ -242,7 +243,7 @@ profile.build_profile_probe          profile      -          PASS         0     
 
 - 只有 **PASS** 行是“当前提交在 Godot 4.7.2 runtime 中实际通过”的证据；
 - 报告中出现 FAIL 时，先看 `reason` 与该 case 的 `log_path`，再看是不是已知的
-  **pre-existing 内容漂移**（见 §7）；本任务不修改 probe、不掩盖失败；
+  **pre-existing 内容漂移**（见 §7A.2）；本任务不修改 probe、不掩盖失败；
 - NOT RUN 必须带原因；`blocked: true` 是矩阵声明的前置条件未就绪，
   非预期缺失（脚本被删/改名）会让整体 exit 1。
 
@@ -365,9 +366,44 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 
 ## 7. 当前真实矩阵状态（本 session 实际执行）
 
-以下数字来自本 session 在 worktree `D:\gt_phase0`（branch `feat/phase0-simulator-first`）
-上实际执行的结果，**不是历史文档摘抄**。基准 HEAD 为 `73fc4a6c`（T1 profile 与 T3 e2e probe
-已提交；T2 runner/matrix/docs 为待提交的 worktree 改动）。
+### 7.0 当前 PR #19（A0-T1）实际结果 —— 74 cases
+
+> 本节是**当前分支 `phase-a1/worldstate-physics-sync`（PR #19，base=PR #17）**在
+> head `1fcda46` 上的真实执行结果。**§7A.1–§7A.3 是 Phase 0 时期的历史记录（72 cases），
+> 不是本次运行结果**，两者不可混用。
+
+- 矩阵规模（当前仓库）：**74 cases = 69 个常规 probe + 1 个 e2e probe + 4 个 boot smoke**
+  （仓库当前共 **70 个 tracked `game_v17/tests/*_probe.gd`**：69 常规 + 1 e2e；A0-T1 新增
+  `a0_world_physics_sync_probe.gd`，A1.1 已新增 `a1_entity_metadata_authority_probe.gd`）
+- 命令：`pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json -Ci`
+- **totals：total=74，PASS=66，FAIL=8，TIMEOUT=0，NOT RUN=0**；
+  `BASELINE CHECK: known_fail=8 new_fail=0 drift=0 unverified=0 unselected=0 complete=true`，exit 0
+- 8 个已知遗留失败仍是 **FAIL**（逐条见 §7A.2 表格，计数不变）；**不是“全矩阵通过”**
+- Phase 0 gate：`pwsh ./run_tests.ps1 -Gate phase0 -Ci` → **6/6 PASS**，exit 0
+- A0-T1 新探针：`integration.a0_world_physics_sync` → **PASS 97/0**
+- CI：run [39973495277](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39973495277)
+  （head `1fcda468`）两个 job 均 success；artifacts 已下载核对（full 74=66/8/0/0 complete=true；
+  gate 6/6）。
+
+| 分类 | total | pass | fail |
+| --- | --- | --- | --- |
+| `profile` | 1 | 1 | 0 |
+| `content` | 8 | 6 | 2 |
+| `unit` | 37 | 35 | 2 |
+| `integration` | 23 | 19 | 4 |
+| `e2e` | 1 | 1 | 0 |
+| `boot` | 4 | 4 | 0 |
+
+---
+
+## 7A. 历史记录（Phase 0 时期，72 cases，HEAD `73fc4a6c`）
+
+> ⚠️ **以下 §7A.1–§7A.3 是 Phase 0 交付时的历史运行记录**：当时矩阵为 **72 cases**、
+> tracked probe 为 **68 个**（67 常规 + 1 e2e）。这些数字**不代表当前 PR #19 的运行结果**，
+> 仅用于保留 Phase 0 验收证据。当前结果见 §7.0。
+
+Phase 0 历史基准：worktree `D:\gt_phase0`（branch `feat/phase0-simulator-first`），
+HEAD `73fc4a6c`（T1 profile 与 T3 e2e probe 已提交；T2 runner/matrix/docs 为待提交的 worktree 改动）。
 
 - 运行：`pwsh ./run_tests.ps1 -Ci`
 - run id：`.test-results/20261022-200954-73fc4a6c/`
@@ -375,12 +411,12 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 - import 预检：PASS，exit 0，6.8s，0 条 error
 - 环境隔离：清除 6 个继承的 `DSH_*` 变量（`DSH_HOME`、`DSH_PROFILE`、`DSH_PROFILE_DIR`、
   `DSH_SESSION_ID`、`DSH_SHELL`、`DSH_WEB_URL`）
-- 矩阵规模：74 cases = 69 个常规 probe + 1 个 e2e probe + 4 个 boot smoke
-  （仓库当前共 68 个 tracked `game_v17/tests/*_probe.gd`：67 常规 + 1 e2e）
-- **totals：total=72，PASS=64，FAIL=8，TIMEOUT=0，NOT RUN=0，duration=269.0s，进程 exit code=1**
+- 矩阵规模（历史）：72 cases = 67 个常规 probe + 1 个 e2e probe + 4 个 boot smoke
+  （当时仓库共 68 个 tracked `game_v17/tests/*_probe.gd`：67 常规 + 1 e2e）
+- **历史 totals：total=72，PASS=64，FAIL=8，TIMEOUT=0，NOT RUN=0，duration=269.0s，进程 exit code=1**
   （exit 1 是 8 个 pre-existing probe FAIL 的如实结果，不是环境阻塞）
 
-| 分类 | total | pass | fail |
+| 分类（历史） | total | pass | fail |
 | --- | --- | --- | --- |
 | `profile` | 1 | 1 | 0 |
 | `content` | 8 | 6 | 2 |
@@ -389,7 +425,7 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 | `e2e` | 1 | 1 | 0 |
 | `boot` | 4 | 4 | 0 |
 
-### 7.1 Phase 0 交付用例（全部 PASS）
+### 7A.1 Phase 0 交付用例（全部 PASS）
 
 | case | 结果 | 证据 |
 | --- | --- | --- |
@@ -400,7 +436,7 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 | `boot.orbital_sim` | **PASS**，exit 0，3.2s，markers 3/3 | 主场景自动跳转 + `[SHELL BINDER] BUILD profile=orbital_sim` + `FLOW SMOKE COMPLETE` |
 | `boot.sandbox` | **PASS**，exit 0，3.2s，markers 3/3 | 主场景自动跳转 + `[SHELL BINDER] BUILD profile=sandbox` + `FLOW SMOKE COMPLETE` |
 
-### 7.2 已知 pre-existing FAIL（8 个，全部 exit 1，与本轮 Phase 0 改动无关）
+### 7A.2 已知 pre-existing FAIL（8 个，全部 exit 1，与本轮 Phase 0 改动无关）
 
 这些失败在 audit HEAD 的独立基线（verifier 复跑）中同样存在，属于内容/数据漂移
 （ship catalog 已扩到 36 型、story 文本已演进、旧模块契约未同步），**本任务不修改 probe、
@@ -424,14 +460,14 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 > CI 的 `Full matrix (baseline-aware)` 会在**新增回归**时如实红灯，日常绿灯仅表示
 > 「与审计 HEAD 基线相比无新增失败/无漂移」，且 8 条失败始终保持可见（见 §6.1）。
 
-### 7.3 历史参考（同一 session 的其它真实运行，仅用于说明差异）
+### 7A.3 历史参考（同一 session 的其它真实运行，仅用于说明差异）
 
 - `.test-results/20261022-195827-122c0d14/`：e2e 用例仍为 `blocked`、慢 probe 超时仍为 120s
   时的第一次全矩阵运行 → **total=72，PASS=63，FAIL=8，TIMEOUT=0，NOT RUN=1（expected，e2e 未启用）**，
   duration=306.2s。
 - `.test-results/20261022-200412-a92867d9/`：解除 e2e 阻塞、调整慢 probe 超时后、HEAD `a92867d9`
   上的运行 → **total=72，PASS=64，FAIL=8，TIMEOUT=0，NOT RUN=0**，duration=270.7s。
-- 最终运行见 §7 主体（HEAD `73fc4a6c`，269.0s），两次全量运行结果逐 case 一致。
+- 最终运行见 §7A 主体（HEAD `73fc4a6c`，269.0s），两次全量运行结果逐 case 一致。
 
 ---
 

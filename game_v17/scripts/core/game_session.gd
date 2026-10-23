@@ -414,10 +414,19 @@ func _resolve_world_sync_mode() -> String:
 ## A0-T1：tick 边界同步入口。把 PhysicsWorld 当前时刻的 r/v 作为**只读副本**写入
 ## WorldState（world 写者仍是 session）；绝不反向写 physics，也不推进 physics 时间。
 ## reason 仅用于区分触发点（boot/tick/explicit），不改变语义。
+##
+## 返回字段语义（审查修正：成功写回 ≠ 未对齐）：
+##   updated      — 本次同步**成功写回**的实体 id 列表（本次被修复的对象）
+##   mismatched   — 同步**之后**仍未与 physics 对齐的实体（正常情况下应为空；
+##                  仅当写入失败/被拒时才有内容，此时同时出现在 failures）
+##   failures     — 写入失败的 {id, reason}
+##   skipped      — physics 有但 world 没有的实体（不在副本范围）
+##   compared     — 本次参与比较的实体数
+##   in_sync      — 同步后整体是否逐位一致（== mismatched 为空且 failures 为空）
 func world_physics_sync(reason := "tick") -> Dictionary:
 	var out := {"ok": true, "enabled": false, "in_sync": false, "frame": "",
 		"mode": _world_sync_mode, "reason": reason, "synced": 0, "compared": 0,
-		"mismatched": [], "failures": [], "skipped": []}
+		"updated": [], "mismatched": [], "failures": [], "skipped": []}
 	if _world_sync_mode != WORLD_SYNC_MODE_TICK:
 		out["enabled"] = false
 		out["sync_reason"] = _world_sync_mode
@@ -435,8 +444,7 @@ func world_physics_sync(reason := "tick") -> Dictionary:
 		return out
 	out["enabled"] = true
 	out["frame"] = FRAME_BARY_ROT
-	var mismatched: Array = []
-	var synced := 0
+	var updated: Array = []
 	var failures: Array = []
 	var skipped: Array = []
 	for id in physics_world_service.entity_ids():
@@ -463,21 +471,33 @@ func world_physics_sync(reason := "tick") -> Dictionary:
 				"vel_kmps": (v as Array).duplicate()}}
 		var res: Dictionary = world.apply(ev, writer)
 		if bool(res.get("ok", false)):
-			synced += 1
-			mismatched.append({"id": eid, "pos_km": (r as Array).duplicate(),
-				"vel_kmps": (v as Array).duplicate()})
+			updated.append(eid)
 			# 注意：tick 边界同步是机械副本写入，不逐实体发 bus 事件（避免每 tick
 			# 7 条噪声）；显式 sync_world_from_physics() 仍发布 physics.world_synced。
 		else:
 			failures.append({"id": eid, "reason": String(res.get("reason", ""))})
-	out["synced"] = synced
+	# 同步后再全量复核一次：mismatched 只装「同步后仍未对齐」的实体。
+	var mismatched: Array = []
+	for id2 in physics_world_service.entity_ids():
+		var eid2 := String(id2)
+		if not world.has_entity(eid2):
+			continue
+		var st2: Dictionary = physics_world_service.state(eid2, FRAME_BARY_ROT)
+		var cur2: Dictionary = world.entity(eid2)
+		var cur_r2: Array = cur2.get("pos_km", []) if cur2.get("pos_km") is Array else []
+		var cur_v2: Array = cur2.get("vel_kmps", []) if cur2.get("vel_kmps") is Array else []
+		if not _vec3_equal(cur_r2, st2.get("r", [])) \
+				or not _vec3_equal(cur_v2, st2.get("v", [])):
+			mismatched.append({"id": eid2, "world_pos_km": cur_r2,
+				"physics_pos_km": st2.get("r", [])})
+	out["synced"] = updated.size()
+	out["updated"] = updated
 	out["mismatched"] = mismatched
 	out["failures"] = failures
 	out["skipped"] = skipped
 	out["ok"] = failures.is_empty()
-	# in_sync 语义 = 本次同步后副本与 physics 逐位一致（含本次刚写入的实体）。
-	out["in_sync"] = out["ok"] and _world_copy_in_sync()
-	if synced > 0:
+	out["in_sync"] = out["ok"] and mismatched.is_empty()
+	if not updated.is_empty():
 		_world_sync_total += 1
 	_world_sync_last = out.duplicate(true)
 	return out

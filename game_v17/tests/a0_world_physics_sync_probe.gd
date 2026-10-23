@@ -140,7 +140,7 @@ func _eq(actual, expected, label: String) -> void:
 
 func _near(actual: float, expected: float, tol: float, label: String) -> void:
 	_ok(absf(actual - expected) <= tol, label,
-		"actual=%.12f expected=%.12f tol=%.3e" % [actual, expected, tol])
+		"actual=%.12f expected=%.12f tol=" % [actual, expected] + str(tol))
 
 
 func _step(title: String) -> void:
@@ -213,14 +213,55 @@ func _run() -> void:
 		seed_pos[eid] = _physics_r(eid)
 	var t_before: float = _session.now_s()
 	var world_version_before: int = _world_version()
+	var first_sync: Dictionary = {}
 	for i in range(TICK_COUNT):
 		var tk: Dictionary = _session.tick(TICK_DT)
 		_ok(bool(tk.get("ok", false)), "tick %d ok" % (i + 1),
 			"reason=" + String(tk.get("reason", "")))
+		if i == 0:
+			first_sync = tk.get("world_sync", {}) if tk.get("world_sync") is Dictionary else {}
 	_near(_session.now_s(), t_before + TICK_DT * float(TICK_COUNT), TIME_TOL_S,
 		"session time advanced by ticks")
 	_near(float(_session.physics_world_service.t), _session.now_s(), TIME_TOL_S,
 		"physics time == session time")
+
+	_step("4a. a tick that really syncs: updated entities vs post-sync mismatch are distinct")
+	# 审查修正：成功写回的实体进 updated，mismatched 只表示同步后仍未对齐的对象。
+	_ok(not first_sync.is_empty(), "first tick returns world_sync段",
+		"keys=" + str(first_sync.keys()))
+	_eq(String(first_sync.get("reason", "")), "tick", "world_sync reason=tick")
+	_eq(bool(first_sync.get("enabled", false)), true, "world_sync enabled")
+	var upd: Array = first_sync.get("updated", []) if first_sync.get("updated") is Array else []
+	_ok(upd.size() > 0, "tick actually synced entities (updated non-empty)",
+		"updated=" + str(upd))
+	_eq(int(first_sync.get("synced", -1)), upd.size(),
+		"synced count == updated count")
+	_ok(_truth.size() >= upd.size(), "updated entities are a subset of world entities",
+		"updated=%d world=%d" % [upd.size(), _truth.size()])
+	for eid in upd:
+		_ok(_truth.has(String(eid)), "updated entity is a known scenario entity: " + String(eid))
+	var post_mismatch: Array = first_sync.get("mismatched", []) \
+		if first_sync.get("mismatched") is Array else []
+	_ok(post_mismatch.is_empty(),
+		"mismatched is EMPTY after a successful sync (post-sync semantics)",
+		"mismatched=" + str(post_mismatch))
+	_eq(bool(first_sync.get("in_sync", false)), true, "first tick in_sync=true")
+	_eq(int(first_sync.get("compared", 0)), _truth.size(),
+		"first tick compared all scenario entities")
+	# 反例保护：updated 与 mismatched 不得含同一实体（旧实现把已修复实体塞进 mismatched）。
+	var overlap: Array = []
+	for eid in upd:
+		if String(eid) in post_mismatch:
+			overlap.append(String(eid))
+	_ok(overlap.is_empty(), "updated and mismatched are disjoint", str(overlap))
+	# 后续 tick（已对齐）应报告 0 更新且仍 in_sync —— 语义稳定。
+	var idle_tick: Dictionary = _session.tick(0.0)
+	var idle_sync: Dictionary = idle_tick.get("world_sync", {}) \
+		if idle_tick.get("world_sync") is Dictionary else {}
+	var idle_upd: Array = idle_sync.get("updated", []) if idle_sync.get("updated") is Array else []
+	_ok(idle_upd.is_empty(), "no-op tick reports no updated entities", str(idle_upd))
+	_ok(bool(idle_sync.get("in_sync", false)), "no-op tick stays in_sync")
+
 	# 同步状态（A0-T1 新 API；修复前不存在 → has_method=false 会走 FAIL 分支）
 	_ok(_session.has_method("world_physics_sync_status"),
 		"GameSession.world_physics_sync_status() API exists")
