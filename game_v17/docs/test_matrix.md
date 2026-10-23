@@ -13,7 +13,7 @@
 
 ```powershell
 # 仓库根目录
-pwsh ./run_tests.ps1                 # 全矩阵（72 cases：67 probes + 1 e2e + 4 boot smoke）
+pwsh ./run_tests.ps1                 # 全矩阵（74 cases：69 probes + 1 e2e + 4 boot smoke）
 pwsh ./run_tests.ps1 -List           # 只列出解析后的矩阵，不要求 Godot
 pwsh ./run_tests.ps1 -Category profile
 pwsh ./run_tests.ps1 -Category boot
@@ -140,7 +140,7 @@ C/CI 中它是必须为绿的检查；它**不包含**全量历史 probe，不�
 
 `pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json` 的语义（**default = strict**）：
 
-- **72 个 case 全部执行**；已知遗留失败**状态仍是 FAIL**，逐条出现在控制台表、`report.md`、
+- **74 个 case 全部执行**；已知遗留失败**状态仍是 FAIL**，逐条出现在控制台表、`report.md`、
   `summary.json`、CI job summary 与 artifact 中，绝不会被改名 PASS、跳过或 `continue-on-error`；
 - 对每个 FAIL case 额外给出 `baseline` 分类：`known`（命中已知失败且 PASS/FAIL 计数完全一致）
   或 `new`（新增失败 / 计数漂移）；
@@ -288,7 +288,7 @@ profile.build_profile_probe          profile      -          PASS         0     
 | check（job） | 命令 | 语义 | PR 上的意义 |
 | --- | --- | --- | --- |
 | **Phase 0 gate (Phase 0 acceptance)** | `run_tests.ps1 -Ci -Gate phase0` | 6 个 Phase 0 必需用例必须全 PASS | Phase 0 验收门禁；不包含全量历史 probe。job 名称**不代表 branch protection 已生效**（见下） |
-| **Full matrix (baseline-aware)** | `run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json` | 72 cases 全跑；8 个已知遗留失败仍以 FAIL 显示；**strict fail-closed**：新增失败/漂移/超时/非预期 NOT RUN/**baseline 项未执行或被筛选掉/计数不符**都会红灯 | 绿灯仅表示「**无新增回归 + baseline 覆盖完整**」，**不是**「全矩阵通过」 |
+| **Full matrix (baseline-aware)** | `run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json` | 74 cases 全跑；8 个已知遗留失败仍以 FAIL 显示；**strict fail-closed**：新增失败/漂移/超时/非预期 NOT RUN/**baseline 项未执行或被筛选掉/计数不符**都会红灯 | 绿灯仅表示「**无新增回归 + baseline 覆盖完整**」，**不是**「全矩阵通过」 |
 
 公共设置：
 
@@ -375,7 +375,7 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 - import 预检：PASS，exit 0，6.8s，0 条 error
 - 环境隔离：清除 6 个继承的 `DSH_*` 变量（`DSH_HOME`、`DSH_PROFILE`、`DSH_PROFILE_DIR`、
   `DSH_SESSION_ID`、`DSH_SHELL`、`DSH_WEB_URL`）
-- 矩阵规模：72 cases = 67 个常规 probe + 1 个 e2e probe + 4 个 boot smoke
+- 矩阵规模：74 cases = 69 个常规 probe + 1 个 e2e probe + 4 个 boot smoke
   （仓库当前共 68 个 tracked `game_v17/tests/*_probe.gd`：67 常规 + 1 e2e）
 - **totals：total=72，PASS=64，FAIL=8，TIMEOUT=0，NOT RUN=0，duration=269.0s，进程 exit code=1**
   （exit 1 是 8 个 pre-existing probe FAIL 的如实结果，不是环境阻塞）

@@ -1657,7 +1657,7 @@ func _test_physics_integration() -> void:
 	_eq((s.physics_positions() as Dictionary).size(), 3, "physics_positions 3")
 	_eq(String(s.position_of("apsis").get("frame", "")), "bary_rot",
 		"position_of 使用 physics 权威")
-	# tick 顺序：time → physics → world；world 不自动同步
+	# tick 顺序：time → physics → world 副本同步（A0-T1：同坐标语义时自动同步只读副本）
 	var w0: Array = _world_pos(s, "apsis")
 	var r0: Array = s.physics_state("apsis").get("r", [])
 	var tick1: Dictionary = s.tick(90.0)
@@ -1669,11 +1669,23 @@ func _test_physics_integration() -> void:
 	_near(s.now_s(), 90.0, 1.0e-6, "tick 后 session t=90")
 	_ok(bool((tick1.get("components", {}) as Dictionary).get("physics", false)),
 		"tick components.physics")
-	_ok(_norm_json(_world_pos(s, "apsis")) == _norm_json(w0), "world 位置不自动同步")
+	# A0-T1：tick 边界同步 world 只读副本（不再是「不自动同步」）。
+	var ws: Dictionary = tick1.get("world_sync", {})
+	_ok(bool(ws.get("enabled", false)), "tick 含 world_sync 且启用", str(ws.get("mode", "")))
+	_ok(bool(ws.get("in_sync", false)), "tick 后 world 副本 in_sync")
+	_eq(String(ws.get("frame", "")), "bary_rot", "world_sync frame bary_rot")
+	_ok(_norm_json(_world_pos(s, "apsis")) != _norm_json(w0),
+		"world 副本已随 tick 更新（不再是静态 seed 值）")
+	_ok(_norm_json(_world_pos(s, "apsis")) == _norm_json(s.physics_state("apsis").get("r", [])),
+		"tick 后 world 副本 == physics(apsis)")
 	_ok(_norm_json(s.physics_state("apsis").get("r", [])) != _norm_json(r0),
 		"physics 位置已推进")
+	var wstatus: Dictionary = s.world_physics_sync_status()
+	_eq(bool(wstatus.get("enabled", false)), true, "world_physics_sync_status enabled")
+	_eq(bool(wstatus.get("in_sync", false)), true, "world_physics_sync_status in_sync")
+	_eq(int(wstatus.get("compared", 0)), 3, "sync status compared 3")
 	_eq(bool(s.check_contracts().get("ok", false)), true, "physics tick contracts ok")
-	# 显式同步
+	# 显式同步（A0-T1 后 tick 已自动同步副本；显式入口保持原有语义：全量写一遍并发事件）
 	var sync: Dictionary = s.sync_world_from_physics()
 	_eq(bool(sync.get("ok", false)), true, "显式 sync ok")
 	_eq(int(sync.get("count", 0)), 3, "sync 3 实体")
