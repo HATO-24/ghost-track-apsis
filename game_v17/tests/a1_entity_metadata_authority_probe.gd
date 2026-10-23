@@ -360,7 +360,149 @@ func _run() -> void:
 		_ok(String(hrow.get("identity", "")).to_lower() != String(hmeta.get("identity", "")).to_lower(),
 			"player track identity is evidence-derived, not catalog truth",
 			"contact=%s truth=%s" % [String(hrow.get("identity", "")), String(hmeta.get("identity", ""))])
+
+	_step("7. event stream texts (COMMS/COMBAT/traffic/bottom) + internal refs preserved")
+	_check_event_stream_texts()
 	_finish()
+
+
+func _check_event_stream_texts() -> void:
+	# Synthetic COMMS event with sentinel internal ids/names.
+	var cev := {"from_id": "SENTINEL-C-FROM", "to_id": "SENTINEL-C-TO",
+		"from_name": "SENTINEL-C-FROM", "to_name": "SENTINEL-C-TO",
+		"from": "SENTINEL-C-FROM", "to": "SENTINEL-C-TO", "mode": "LD",
+		"text": "[SENTINEL-C-FROM 至 SENTINEL-C-TO]-[LD]-[CONTENT]", "kind": "SENT"}
+	var cbefore := JSON.stringify(cev)
+	var ctext: Dictionary = _hud.call("hud_comms_event_text", cev)
+	var cvis := "%s|%s|%s" % [String(ctext.get("from", "")), String(ctext.get("to", "")),
+		String(ctext.get("text", ""))]
+	_assert_event_text("comms synthetic", cvis,
+		["SENTINEL-C-FROM", "SENTINEL-C-TO"], ["UNKNOWN"])
+	_eq(JSON.stringify(cev), cbefore, "comms synthetic event unchanged by formatting")
+
+	# Synthetic COMMS event using real internal ids (must show safe labels, not ids).
+	var kev := {"from_id": "harmattan", "to_id": "raider_2",
+		"from_name": "harmattan", "to_name": "raider_2",
+		"from": "harmattan", "to": "raider_2", "mode": "LD",
+		"text": "[harmattan 至 raider_2]-[LD]-[CONTENT]", "kind": "SENT"}
+	var kbefore := JSON.stringify(kev)
+	var ktext: Dictionary = _hud.call("hud_comms_event_text", kev)
+	var kvis := "%s|%s|%s" % [String(ktext.get("from", "")), String(ktext.get("to", "")),
+		String(ktext.get("text", ""))]
+	_assert_event_text("comms known internal", kvis, ["harmattan", "raider_2"],
+		["t0001", "unknown track", "unknown contact", "unknown"])
+	_eq(JSON.stringify(kev), kbefore, "comms known event unchanged by formatting")
+
+	# COMMS link endpoints.
+	var lev := {"a": "SENTINEL-LINK-A", "b": "SENTINEL-LINK-B", "mode": "LD"}
+	var lt := String(_hud.call("hud_comms_link_text", lev))
+	_assert_event_text("comms link", lt, ["SENTINEL-LINK-A", "SENTINEL-LINK-B"], ["UNKNOWN"])
+
+	# Synthetic COMBAT event payload with sentinel internal refs (incl. nested).
+	var pev := {"t": 1.0, "kind": "weapon_launch", "payload": {
+		"target_id": "SENTINEL-T", "threat_id": "SENTINEL-H",
+		"shooter_id": "SENTINEL-S", "entity_id": "SENTINEL-E",
+		"nested": {"target_id": "SENTINEL-N"}}}
+	var pbefore := JSON.stringify(pev)
+	var pt := String(_hud.call("hud_combat_event_text", pev))
+	_assert_event_text("combat synthetic", pt,
+		["SENTINEL-T", "SENTINEL-H", "SENTINEL-S", "SENTINEL-E", "SENTINEL-N"], ["UNKNOWN"])
+	_eq(JSON.stringify(pev), pbefore, "combat synthetic event unchanged by formatting")
+
+	# COMBAT event with real internal refs.
+	var pkev := {"t": 2.0, "kind": "weapon_launch", "payload": {
+		"target_id": "harmattan", "shooter_id": "apsis"}}
+	var pkbefore := JSON.stringify(pkev)
+	var pkt := String(_hud.call("hud_combat_event_text", pkev))
+	_assert_event_text("combat known internal", pkt, ["harmattan", "apsis"],
+		["t0001", "1000", "own ship", "unknown"])
+	_eq(JSON.stringify(pkev), pkbefore, "combat known event unchanged by formatting")
+
+	# Traffic payload JSON display.
+	var tev := {"track_id": "SENTINEL-TRK", "entity_id": "SENTINEL-ENT",
+		"nested": {"target_id": "SENTINEL-NEST"}}
+	var tt := String(_hud.call("hud_event_payload_text", tev))
+	_assert_event_text("traffic payload", tt,
+		["SENTINEL-TRK", "SENTINEL-ENT", "SENTINEL-NEST"], ["UNKNOWN"])
+
+	# Bottom event log label + generic visible text.
+	var bev := {"type": "comms", "payload": {"label": "REPORT harmattan → raider_2"}}
+	var bt := String(_hud.call("hud_bottom_event_text", bev))
+	_assert_event_text("bottom event", bt, ["harmattan", "raider_2"],
+		["t0001", "unknown"])
+	var vt := String(_hud.call("hud_visible_text", "LOG harmattan → raider_2"))
+	_assert_event_text("visible text", vt, ["harmattan", "raider_2"],
+		["t0001", "unknown"])
+
+	# Real COMMS route: service stores internal ids; HUD formatting must not mutate them.
+	var nodes: Dictionary = _session.comms.nodes if _session != null and _session.comms != null else {}
+	var ids: Array = nodes.keys()
+	var route_from := ""
+	var route_to := ""
+	var sent: Dictionary = {}
+	for i in range(ids.size()):
+		for j in range(ids.size()):
+			if i == j:
+				continue
+			var r: Dictionary = _session.send_comms(String(ids[i]), String(ids[j]), "LD",
+				"COMMS_SENT", {}, {})
+			if bool(r.get("ok", false)):
+				sent = r
+				route_from = String(ids[i])
+				route_to = String(ids[j])
+				break
+		if not sent.is_empty():
+			break
+	_ok(not sent.is_empty(), "real comms route send ok",
+		"nodes=" + str(ids.size()))
+	if not sent.is_empty():
+		var evs: Array = _session.comms.vm().get("events", []) if _session.comms.vm().get("events") is Array else []
+		var rev: Dictionary = {}
+		for raw_e in evs:
+			if raw_e is Dictionary and String((raw_e as Dictionary).get("delivery_id", "")) == String(sent.get("delivery_id", "")):
+				rev = (raw_e as Dictionary).duplicate(true)
+				break
+		_ok(not rev.is_empty(), "real comms event found")
+		if not rev.is_empty():
+			_eq(String(rev.get("from", "")), route_from, "comms event from internal id preserved")
+			_eq(String(rev.get("to", "")), route_to, "comms event to internal id preserved")
+			var rbefore := JSON.stringify(rev)
+			var rdisp: Dictionary = _hud.call("hud_comms_event_text", rev)
+			var rvis := "%s|%s|%s" % [String(rdisp.get("from", "")), String(rdisp.get("to", "")),
+				String(rdisp.get("text", ""))]
+			_assert_event_text("real comms event", rvis, [route_from, route_to],
+				["unknown", "t0001", "1000", "own ship"])
+			_eq(String(rev.get("from", "")), route_from, "comms event from unchanged after formatting")
+			_eq(String(rev.get("to", "")), route_to, "comms event to unchanged after formatting")
+			_eq(JSON.stringify(rev), rbefore, "comms stored event payload unchanged by HUD formatting")
+
+	# Combat target internal ref unchanged after formatting.
+	var tracks: Array = _binder.track_vm.get("tracks", []) if _binder != null and _binder.track_vm.get("tracks") is Array else []
+	var tid := ""
+	for raw_t in tracks:
+		if raw_t is Dictionary and String((raw_t as Dictionary).get("track_id", "")) != "":
+			tid = String((raw_t as Dictionary).get("track_id", ""))
+			break
+	if tid != "":
+		_hud.set("_combat_target", tid)
+		_hud.call("hud_combat_event_text", pev)
+		_eq(String(_hud.get("_combat_target")), tid, "combat target internal id preserved after HUD formatting")
+	else:
+		_ok(false, "combat target track id available")
+
+
+func _assert_event_text(label: String, text: String, forbidden: Array, required: Array) -> void:
+	var low := text.to_lower()
+	for f in forbidden:
+		_ok(low.find(String(f).to_lower()) < 0, label + " no internal token: " + String(f),
+			"text=" + text)
+	var found := false
+	for r in required:
+		if low.find(String(r).to_lower()) >= 0:
+			found = true
+			break
+	_ok(found, label + " contains safe/placeholder label",
+		"text=" + text + " required=" + str(required))
 
 
 func _check_hud_texts(eid: String, row: Dictionary, truth: Dictionary) -> void:

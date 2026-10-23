@@ -448,6 +448,41 @@ func _contact_display(c: Dictionary) -> Dictionary:
 	return {"id": did, "name": dname, "cls": dcls, "source": String(c.get("display_source", "unknown"))}
 
 
+## 事件流安全显示入口（A1.1 后续：通信/战斗事件匿名化）。
+## 先按当前显示语义返回；安全副本逻辑随后替换（red-first）。
+func hud_comms_event_text(ev: Dictionary) -> Dictionary:
+	return {
+		"from": String(ev.get("from_name", ev.get("from", "—"))),
+		"to": String(ev.get("to_name", ev.get("to", "—"))),
+		"text": String(ev.get("text", "")),
+	}
+
+
+func hud_comms_link_text(l: Dictionary) -> String:
+	return "%s → %s" % [String(l.get("a", l.get("from", "—"))), String(l.get("b", l.get("to", "—")))]
+
+
+func hud_combat_event_text(ev: Dictionary) -> String:
+	return "%5.1fs %s · %s" % [float(ev.get("t", 0.0)), String(ev.get("kind", "")),
+		JSON.stringify(ev.get("payload", {}))]
+
+
+func hud_event_payload_text(payload) -> String:
+	return JSON.stringify(payload)
+
+
+func hud_bottom_event_text(ev: Dictionary) -> String:
+	var payload: Dictionary = ev.get("payload", {}) if ev.get("payload") is Dictionary else {}
+	var text := String(payload.get("label", ""))
+	if text == "":
+		text = String(ev.get("type", ""))
+	return text
+
+
+func hud_visible_text(text: String) -> String:
+	return text
+
+
 ## A1.1：内部目标 id → 玩家安全显示（只读查找 contacts；未知时返回匿名值）。
 func _display_for_internal(target_id: String) -> Dictionary:
 	if target_id == "":
@@ -1050,10 +1085,7 @@ func _draw_bottom(r: Rect2) -> void:
 	else:
 		for i in range(mini(4, events.size())):
 			var e: Dictionary = events[i]
-			var payload: Dictionary = e.get("payload", {}) if e.get("payload", {}) is Dictionary else {}
-			var text := String(payload.get("label", ""))
-			if text == "":
-				text = String(e.get("type", ""))
+			var text := hud_bottom_event_text(e)
 			Painter.label(self, split + 12, y + float(i) * 14.0, "%5.1fs  %s" % [float(e.get("t", 0.0)), String(e.get("type", "—"))], 7, P.PH_DIM if i == 0 else P.DIM, true)
 			Painter.label(self, split + 154, y + float(i) * 14.0, TM.fit(text, r.size.x - (split - r.position.x) - 180, false, 7), 7, P.TXT, false)
 	Painter.label(self, r.position.x + 12, r.end.y - 8, ("GAME SESSION · TRACK/SENSOR/STORY · 自绘 V1 HUD" if live else "FALLBACK DEMO · 无 session") + " · 三色点保存", 6, P.a(P.AMBER if not live else P.FAINT, 0.85), true)
@@ -1342,10 +1374,11 @@ func _draw_comms_overlay(r: Rect2) -> void:
 	var row_capacity := mini(10, maxi(1, int((lp.end.y - my - 140.0) / 16.0)))
 	for i in range(maxi(0, events.size() - row_capacity), events.size()):
 		var ev: Dictionary = events[i]
-		var from := String(ev.get("from_name", ev.get("from", "—")))
-		var to := String(ev.get("to_name", ev.get("to", "—")))
+		var disp_ev: Dictionary = hud_comms_event_text(ev)
+		var from := String(disp_ev.get("from", "—"))
+		var to := String(disp_ev.get("to", "—"))
 		var mode := String(ev.get("mode", "—"))
-		var content := String(ev.get("text", ""))
+		var content := String(disp_ev.get("text", ""))
 		if content == "":
 			content = String(ev.get("text_key", "TEXT KEY 未提供"))
 		if content == "":
@@ -1377,8 +1410,7 @@ func _draw_comms_overlay(r: Rect2) -> void:
 		Painter.label(_cv, lp.position.x + 12, link_y, "NO LINKS · NOT READY", 7, P.FAINT, true)
 	for i in range(mini(5, links.size())):
 		var l: Dictionary = links[i]
-		var la := String(l.get("a", l.get("from", "—")))
-		var lb := String(l.get("b", l.get("to", "—")))
+		var ldisp := hud_comms_link_text(l)
 		var lm := String(l.get("mode", "—"))
 		var st2 := "OPEN"
 		if bool(l.get("disabled", false)):
@@ -1387,7 +1419,7 @@ func _draw_comms_overlay(r: Rect2) -> void:
 			st2 = "OCCLUDED"
 		elif float(l.get("jam", 0.0)) >= 0.7:
 			st2 = "JAMMED"
-		Painter.label(_cv, lp.position.x + 12, link_y + float(i) * 14.0, TM.fit("%s → %s · %s · %s · %s" % [la, lb, lm, st2, "%.1fs" % float(l.get("latency_s", l.get("latency", 0.0)))], lp.size.x - 24, true, 7), 7, P.PH_DIM if st2 == "OPEN" else P.AMBER, true)
+		Painter.label(_cv, lp.position.x + 12, link_y + float(i) * 14.0, TM.fit("%s · %s · %s · %s" % [ldisp, lm, st2, "%.1fs" % float(l.get("latency_s", l.get("latency", 0.0)))], lp.size.x - 24, true, 7), 7, P.PH_DIM if st2 == "OPEN" else P.AMBER, true)
 	# 右栏命令面板
 	var px := rp.position.x + 10.0
 	var py := rp.position.y + 36.0
@@ -1891,7 +1923,7 @@ func _draw_traffic_overlay(r: Rect2) -> void:
 	for i in range(maxi(0, evs2.size() - 3), evs2.size()):
 		if ry > bottom - 4.0:
 			break
-		Painter.label(_cv, rx, ry, TM.fit(JSON.stringify((evs2[i] as Dictionary).get("payload", {})), col_w - 4.0, true, 6), 6, P.a(P.FAINT, 0.9), true)
+		Painter.label(_cv, rx, ry, TM.fit(hud_event_payload_text((evs2[i] as Dictionary).get("payload", {})), col_w - 4.0, true, 6), 6, P.a(P.FAINT, 0.9), true)
 		ry += 10.0
 	_traffic_buttons.clear()
 	var b_labels := [["REQUEST", "REQUEST"], ["PERMIT", "PERMIT"], ["OCCUPY", "OCCUPY"], ["RELEASE", "RELEASE"], ["DISGUISE", "DISGUISE"]]
@@ -2772,7 +2804,7 @@ func _draw_combat_overlay(r: Rect2) -> void:
 		Painter.label(_cv, x, ey, "NO COMBAT EVENTS · NOT READY", 7, P.FAINT, true)
 	for i in range(maxi(0, evs.size() - 5), evs.size()):
 		var ev: Dictionary = evs[i]
-		Painter.label(_cv, x, ey + float(i - maxi(0, evs.size() - 5)) * 12.0, TM.fit("%5.1fs %s · %s" % [float(ev.get("t", 0.0)), String(ev.get("kind", "")), JSON.stringify(ev.get("payload", {}))], body.size.x, true, 6), 6, P.a(P.DIM, 0.9), true)
+		Painter.label(_cv, x, ey + float(i - maxi(0, evs.size() - 5)) * 12.0, TM.fit(hud_combat_event_text(ev), body.size.x, true, 6), 6, P.a(P.DIM, 0.9), true)
 	_combat_buttons.clear()
 	var actions := ["TRACK", "SOLUTION", "AUTHORIZE FIRE", "FIRE"]
 	var items: Array = []
