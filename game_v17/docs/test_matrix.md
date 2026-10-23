@@ -369,7 +369,7 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 ### 7.0 当前 PR #19（A0-T1）实际结果 —— 74 cases
 
 > 本节是**当前分支 `phase-a1/worldstate-physics-sync`（PR #19，base=PR #17）**的
-> **代码验证 head `6f60de7`** 上的真实执行结果。**§7A.1–§7A.3 是 Phase 0 时期的历史记录
+> **代码验证 head `6f60de7`（运行时代码最后变更）/ 最终 docs head `f0153ea`** 上的真实执行结果。**§7A.1–§7A.3 是 Phase 0 时期的历史记录
 > （72 cases），不是本次运行结果**，两者不可混用。
 
 - 矩阵规模（当前仓库）：**74 cases = 69 个常规 probe + 1 个 e2e probe + 4 个 boot smoke**
@@ -393,11 +393,22 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
     `phase0-gate-results-39990675827-1` 26,110 B /
     sha256 `81e8119ba61d8e6404a8fe93962fd770f01003146e4a801e6222e5f54b101cde`（summary
     total=6/pass=6/gate=phase0）；A0-T1 日志 `PASS=97 FAIL=0`
+- **CI（最终 docs-only head `f0153ea`，当前 head）**：run
+  [39996883639](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39996883639)
+  （head `f0153eac0e05863ed1d6ba998d33c5bff7da7ebd`）两个 job 均 success；
+  - `Phase 0 gate` → 6/6 PASS（[job/120562619857](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39996883639/job/120562619857)）
+  - `Full matrix (baseline-aware)` → **74 = 66 PASS / 8 KNOWN-BASELINE FAIL / 0 TIMEOUT / 0 NOT RUN**，
+    `known_fail=8 new_fail=0 drift=0 complete=true`，exit 0（[job/120562619537](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39996883639/job/120562619537)）
+  - artifacts 已 `gh run download` 核对：`full-matrix-results-39996883639-1` 388,464 B /
+    sha256 `0037b351a2b780b6849c66d32f0ca989a14c816b5252825f1cbdecd0e44691ae`；
+    `phase0-gate-results-39996883639-1` 26,113 B /
+    sha256 `becd586d23f4c749eea1b31fc5caa6fcf7fe411d42af5afa51642708b0c7b89a`；A0-T1 日志 `PASS=97 FAIL=0`
 - **修正前历史运行（保留，勿当作当前结果）**：run
   [39973495277](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39973495277)
   （head `1fcda468`，`updated`/`mismatched` 语义修正**之前**）→ 74 = 66 PASS / 8 FAIL / 0 TIMEOUT /
   0 NOT RUN，A0-T1 探针 **78/0**。该轮已被本轮的 97/0 取代，仅作审查修正前证据保留。
-- 注：本文档为 **docs-only 提交**，不改变运行时代码/矩阵/门禁；最终 head 的 CI 结果在 PR 描述中同步记录。
+- 注：`f0153ea` 为 **docs-only** 提交（仅本文档），运行时代码最后变更为 `6f60de7`；
+  两轮 CI 的测试数字一致（74=66/8/0/0，A0-T1 97/0）。
 
 | 分类 | total | pass | fail |
 | --- | --- | --- | --- |
