@@ -449,26 +449,44 @@ func _contact_display(c: Dictionary) -> Dictionary:
 
 
 ## 事件流安全显示入口（A1.1 后续：通信/战斗事件匿名化）。
-## 先按当前显示语义返回；安全副本逻辑随后替换（red-first）。
+## 只生成显示副本；服务内部事件数据不被修改。
+const EVENT_ID_KEYS := ["target_id", "threat_id", "shooter_id", "entity_id",
+	"from_id", "to_id", "track_id", "signal_target_id", "facility_id",
+	"target", "from", "to"]
+
+
 func hud_comms_event_text(ev: Dictionary) -> Dictionary:
-	return {
-		"from": String(ev.get("from_name", ev.get("from", "—"))),
-		"to": String(ev.get("to_name", ev.get("to", "—"))),
-		"text": String(ev.get("text", "")),
-	}
+	var from_refs := [String(ev.get("from_id", "")), String(ev.get("from", "")),
+		String(ev.get("from_name", ""))]
+	var to_refs := [String(ev.get("to_id", "")), String(ev.get("to", "")),
+		String(ev.get("to_name", ""))]
+	var from_label := _event_ref_display(from_refs)
+	var to_label := _event_ref_display(to_refs)
+	var text := String(ev.get("text", ""))
+	for r in from_refs:
+		if r != "":
+			text = text.replace(r, from_label)
+	for r in to_refs:
+		if r != "":
+			text = text.replace(r, to_label)
+	text = _safe_visible_text(text)
+	return {"from": from_label, "to": to_label, "text": text}
 
 
 func hud_comms_link_text(l: Dictionary) -> String:
-	return "%s → %s" % [String(l.get("a", l.get("from", "—"))), String(l.get("b", l.get("to", "—")))]
+	return "%s → %s" % [
+		_event_ref_display([String(l.get("a", "")), String(l.get("from", ""))]),
+		_event_ref_display([String(l.get("b", "")), String(l.get("to", ""))])]
 
 
 func hud_combat_event_text(ev: Dictionary) -> String:
+	var payload = ev.get("payload", {})
 	return "%5.1fs %s · %s" % [float(ev.get("t", 0.0)), String(ev.get("kind", "")),
-		JSON.stringify(ev.get("payload", {}))]
+		JSON.stringify(_safe_event_payload(payload))]
 
 
 func hud_event_payload_text(payload) -> String:
-	return JSON.stringify(payload)
+	return JSON.stringify(_safe_event_payload(payload))
 
 
 func hud_bottom_event_text(ev: Dictionary) -> String:
@@ -476,11 +494,91 @@ func hud_bottom_event_text(ev: Dictionary) -> String:
 	var text := String(payload.get("label", ""))
 	if text == "":
 		text = String(ev.get("type", ""))
-	return text
+	return _safe_visible_text(text)
 
 
 func hud_visible_text(text: String) -> String:
-	return text
+	return _safe_visible_text(text)
+
+
+## 内部引用 → 安全显示；优先使用事件携带的 id/name 中能解析到 contact 的引用。
+func _event_ref_display(refs: Array) -> String:
+	for r in refs:
+		var ref := String(r)
+		if ref == "":
+			continue
+		var d: Dictionary = _display_for_internal(ref)
+		if String(d.get("source", "")) != "none":
+			return _target_display_text(ref)
+	return "UNKNOWN · UNKNOWN CONTACT"
+
+
+func _all_contact_rows() -> Array:
+	var out: Array = []
+	var seen: Dictionary = {}
+	var lists: Array = [_contacts]
+	if binder != null and binder.contacts is Array:
+		lists.append(binder.contacts)
+	for list in lists:
+		for raw in (list if list is Array else []):
+			if not (raw is Dictionary):
+				continue
+			var eid := String((raw as Dictionary).get("entity_id", ""))
+			if eid == "" or seen.has(eid):
+				continue
+			seen[eid] = true
+			out.append(raw)
+	return out
+
+
+## 通用文本脱敏：替换已知内部实体/航迹/设施/通信节点 id 与节点名。
+func _safe_visible_text(text: String) -> String:
+	var out := text
+	var pairs: Array = []
+	for raw in _all_contact_rows():
+		var r: Dictionary = raw
+		var disp: Dictionary = _contact_display(r)
+		var label := String(disp.get("id", "UNKNOWN"))
+		for key in ["entity_id", "track_id", "signal_target_id", "facility_id"]:
+			var internal := String(r.get(key, ""))
+			if internal != "":
+				pairs.append([internal, label])
+	if binder != null and binder.session != null and binder.session.comms != null:
+		var nodes: Dictionary = binder.session.comms.nodes if binder.session.comms.nodes is Dictionary else {}
+		for nid in nodes.keys():
+			var node_id := String(nid)
+			var d: Dictionary = _display_for_internal(node_id)
+			var label2 := String(d.get("id", "UNKNOWN")) if String(d.get("source", "")) != "none" else "UNKNOWN"
+			pairs.append([node_id, label2])
+			var node: Dictionary = nodes[nid] if nodes[nid] is Dictionary else {}
+			var nname := String(node.get("name", ""))
+			if nname != "":
+				pairs.append([nname, label2])
+	pairs.sort_custom(func(a, b): return String(a[0]).length() > String(b[0]).length())
+	for p in pairs:
+		var token := String(p[0])
+		if token != "":
+			out = out.replace(token, String(p[1]))
+	return out
+
+
+## 深拷贝事件 payload，把已知内部引用键替换为安全显示；原 payload 不变。
+func _safe_event_payload(value):
+	if value is Dictionary:
+		var out: Dictionary = {}
+		for k in value.keys():
+			var key := String(k)
+			if key in EVENT_ID_KEYS and value[k] is String:
+				out[key] = _target_display_text(String(value[k]))
+			else:
+				out[key] = _safe_event_payload(value[k])
+		return out
+	if value is Array:
+		var arr: Array = []
+		for v in value:
+			arr.append(_safe_event_payload(v))
+		return arr
+	return value
 
 
 ## A1.1：内部目标 id → 玩家安全显示（只读查找 contacts；未知时返回匿名值）。

@@ -117,6 +117,24 @@ TrackTable（玩家航迹；side/identity 只来自观测/证据/授权）
 - `hud_target_texts(row)` 返回上述实际文案生成函数的结果，供回归探针断言（不是
   只测 `contact_display` helper）。
 
+### 4.3 事件流文案（COMMS 消息流 / COMBAT 事件 / 交通 / 底部事件）
+
+HUD 事件绘制统一通过以下格式化函数生成**显示副本**，服务内部事件数据不被修改：
+
+- `hud_comms_event_text(ev)`：发送方/接收方优先用 `from_id`/`to_id` 经
+  `_event_ref_display` 解析为安全标签；`text` 中出现的内部 from/to id/name 替换为
+  安全标签，再做 `_safe_visible_text` 脱敏；无记录时返回 `UNKNOWN · UNKNOWN CONTACT`。
+- `hud_comms_link_text(l)`：链路端点 a/b（或 from/to）使用同一安全解析。
+- `hud_combat_event_text(ev)` / `hud_event_payload_text(payload)`：对 payload 做
+  深拷贝显示副本；`target_id/threat_id/shooter_id/entity_id/from_id/to_id/track_id/
+  signal_target_id/facility_id/target/from/to` 等键递归替换为安全显示；原 payload
+  对象不变。战斗事件栏、交通事件栏使用该函数。
+- `hud_bottom_event_text(ev)` / `hud_visible_text(text)`：底部事件日志/通信模板文本
+  使用 `_safe_visible_text` 替换已知实体/航迹/设施/通信节点 id 与节点名；未知 token
+  不猜测。
+- 内部引用（通信路由 from/to、战斗 `_combat_target`、事件 payload）保持原值，仅显示
+  副本被脱敏。
+
 > 世界内部仍知道 truth（战斗/PD 需要）；玩家视图必须通过观测/证据/授权链获得结论。
 
 ## 5. 回归探针
@@ -137,8 +155,13 @@ TrackTable（玩家航迹；side/identity 只来自观测/证据/授权）
   `hud_target_texts(row)` 的 COMMS/光学/IDENT/融合/命令/战斗文案；内部真值哨兵
   不得出现、安全 display 必须出现、内部 `_comms_target/_optical_target/
   _ident_row.entity_id` 保持不变；
+- 断言事件流文案：合成 COMMS/COMBAT/traffic/bottom 事件（SENTINEL 内部 ID），
+  调用 HUD 实际使用的 `hud_comms_event_text`/`hud_comms_link_text`/
+  `hud_combat_event_text`/`hud_event_payload_text`/`hud_bottom_event_text`/
+  `hud_visible_text`；断言显示文本无内部 ID、含安全/匿名占位，且事件 payload 未被
+  格式化修改；真实 COMMS 路由的 from/to 与战斗 `_combat_target` 保持内部 ID；
 - 修复前该探针 FAIL（metadata API 缺失、默认值错误、friend 回退、显示字段缺失/
-  泄露真值、HUD 文案泄露内部目标），修复后 PASS（720 断言）。
+  泄露真值、HUD 文案泄露内部目标、事件流泄露内部 ID），修复后 PASS（763 断言）。
 
 ```powershell
 .\run_tests.ps1 -Only '^integration\.a1_entity_metadata_authority$' -Ci
