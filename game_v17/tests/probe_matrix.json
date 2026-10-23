@@ -646,6 +646,19 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.a0_world_physics_sync",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A0-T1 (Issue #2.2): PhysicsWorld is the single runtime position/velocity authority; WorldState copy is synced at the tick boundary so snapshot()/plot/save-load all see the same simulation instant; frame-converted sessions are explicitly not synced",
+      "script": "res://tests/a0_world_physics_sync_probe.gd",
+      "expected_markers": [
+        "A0-T1 WORLD PHYSICS SYNC PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
       "id": "integration.av4412_probe",
       "category": "integration",
       "profile": "",
