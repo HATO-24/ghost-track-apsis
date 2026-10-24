@@ -1,0 +1,55 @@
+{
+  "schema": "known_baseline_failures.v1",
+  "description": "Phase A-01 expected-failure baseline (A0-T1/T2/T3 authority probes). These are NOT Phase 0 legacy failures: they are the concrete authority-chain defects that Phase A0 located and that Issues #2/#4 must fix one by one. This file is consumed by run_tests.ps1 -BaselineExtra so the full matrix can show them as DECLARED Phase A expected failures while keeping each case status FAIL (never PASS, never skipped, never hidden). The Phase 0 file game_v17/tests/known_baseline_failures.json is NOT touched by Phase A.",
+  "baseline_commit": "4b0b102",
+  "baseline_commit_full": "4b0b102c2c99e6d71a9378a25f9d2d45fb1286ea",
+  "baseline_commit_note": "GitHub main merge 'Merge Phase A0 physics and information authority audit'; probes added on top of it in this PR without touching runtime code.",
+  "captured_at": "2026-10-24",
+  "phase": "A-01",
+  "related": ["Issue #2", "Issue #4", "docs/55_PhaseA0_物理与信息权威基线调查.md"],
+  "environment": {
+    "os": "Windows",
+    "godot_version": "4.7.2.stable.official.ed1daf0bf",
+    "godot_binary": "Godot_v4.7.2-stable_win64_console.exe",
+    "runner": "run_tests.ps1 (result_parsers: probe)",
+    "worktree": "D:\\gt_a01 (branch phase-a01/authority-baseline, base 4b0b102)"
+  },
+  "evidence_provenance": "Independently executed on base 4b0b102 with the real product entry (main_menu -> v1_hud -> ShellBinder -> GameSession, DSH_BUILD=orbital_sim). Counts are deterministic across repeated runs. Every entry is a real authority-chain defect located by the Phase A0 audit, NOT an accepted regression.",
+  "notes": [
+    "These entries must remain FAIL until Issues #2/#4 fix the underlying authority chain. Refreshing expected_pass/expected_fail is allowed only together with a runtime fix that legitimately changes the counts.",
+    "Phase 0 gate semantics are unchanged: -Gate phase0 never reads this file.",
+    "This file must never be merged into game_v17/tests/known_baseline_failures.json."
+  ],
+  "failures": [
+    {
+      "id": "integration.a0_track_truth_authority",
+      "probe": "res://tests/a0_track_truth_authority_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 39,
+      "expected_fail": 1,
+      "reason": "A0-T1: fused track range is still computed from the static SensorService target config (harmattan 20 km, l1_station 10 km) instead of the unified PhysicsWorld truth (420.20 km / 90.00 km), so the track-vs-truth range error is ~400 km / ~80 km against the required <= 0.5 km. All other A0-T1 checks pass: same-tick timestamps (1e-6 s), evidence-derived identity, provenance, TrackTable single writer, bary_rot/km units.",
+      "defect_ref": "A0 audit C1 (track truth authority); Issue #2",
+      "suggested_follow_up": "Issue #4.1 sensor target geometry binding to PhysicsWorld (see stacked PR #20) then re-baseline this probe"
+    },
+    {
+      "id": "integration.a0_entity_metadata_pipeline",
+      "probe": "res://tests/a0_entity_metadata_pipeline_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 14,
+      "expected_fail": 8,
+      "reason": "A0-T2: entity static metadata (side/identity/batch/rcs_m2/radius_km/has_pd) is not carried through PhysicsWorld -> WorldState -> snapshot -> track -> contacts; 203 pass-through violations over 5 layers x 7 entities x 6 fields. Contacts additionally fall back to side=friend / identity=friend for 6 of 7 rows (ferry, raider_2, skiff, watchtower and the two track-backed rows), i.e. a silent friend fallback instead of an explicit unknown.",
+      "defect_ref": "A0 audit C2/C3 (metadata pipeline, silent friend fallback); Issue #2",
+      "suggested_follow_up": "Issue #2 entity metadata authority (stacked PR #17) then re-baseline this probe"
+    },
+    {
+      "id": "integration.a0_save_roundtrip_authority",
+      "probe": "res://tests/a0_save_roundtrip_authority_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 29,
+      "expected_fail": 4,
+      "reason": "A0-T3: (a) the live HUD session save->load fails with replay 'send_comms' no_route; (b) event seq drifts int -> float through the JSON save roundtrip (1.0/2.0/... instead of 1/2/...), 10 occurrences across save payload + loaded bus; (c) the save payload has no sensor_service runtime snapshot; (d) SensorService EMCON/radar state is therefore lost on load (emcon=true radar=false saved, emcon=false radar=true loaded). physics/world/track numeric roundtrip (<=1e-9), identification int config and save->load->save canonical equality all pass.",
+      "defect_ref": "A0 audit C4/C5 (int->float drift, sensor runtime state not persisted); Issue #2",
+      "suggested_follow_up": "Issue #2 save/load authority persistence then re-baseline this probe"
+    }
+  ]
+}
