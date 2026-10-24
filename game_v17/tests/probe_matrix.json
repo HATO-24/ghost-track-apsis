@@ -659,6 +659,19 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.a0_sensor_geometry",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A0-T2 (Issue #4.1): sensor geometry (observer/target position+velocity) is bound to the unified PhysicsWorld at the same simulation instant; static metadata stays from its own authority; observations keep observation semantics (TrackTable range_km is NOT replaced by physics truth); no-physics / frame-mismatch explicitly degrade to static",
+      "script": "res://tests/a0_sensor_geometry_probe.gd",
+      "expected_markers": [
+        "A0-T2 SENSOR GEOMETRY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
       "id": "integration.av4412_probe",
       "category": "integration",
       "profile": "",

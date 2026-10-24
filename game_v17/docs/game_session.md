@@ -59,6 +59,15 @@ GameSession
 - **Sensor → TrackTable**：SensorService 只输出 observation/evidence（不写 TrackTable/world/UI）；
   session 在 tick 中取走其事件，按 schema/kind 白名单（`sensor_observation.v1` support 1..2、
   `track_evidence.v1`）路由到 TrackTable；support=0/>2 的非 L1/L2 行忽略。
+- **Sensor 几何 → PhysicsWorld（A0-T2 / Issue #4.1）**：boot 末尾由
+  `_bind_sensor_geometry()` 把传感器几何（observer/targets 的位置+速度）绑定到统一物理世界；
+  `SensorService.step()` 在推进后按当前 `t` 刷新几何，保证 `geometry_t == physics t ==
+  session t`（容差 1e-6 s）。frame=`bary_rot`，单位 km / km/s。静态元数据（rcs/side/iff/
+  classification）仍来自原权威，不被几何刷新覆盖。**降级显式**：无 physics →
+  `source=static`；4F 帧转换会话 → `source=static, reason=frame_mismatch`（不做隐式跨帧）。
+  诊断：`sensor_geometry_status()` / `sensor_service.geometry_status()`。几何绑定不写
+  world/TrackTable/V15/UI；`range_km` 仍是**观测值**，不替换为物理真值。
+
 - **Port/Combat → EventBus**：session tick 驱动二者 step；其 outbox 事件映射为 `port.*`/`combat.*`
   发布到 bus（只读事件）；Port/Combat 不写 world/TrackTable/物理/UI。
 - **Combat → Damage**：combat `combat_damage_event`（combat_hit/incoming_impact 内嵌

@@ -393,9 +393,13 @@ func boot(config := {}) -> Dictionary:
 	# 副本写入 world（world 只由 session 写；PhysicsWorld 仍是位置/速度唯一权威）。
 	_world_sync_mode = _resolve_world_sync_mode()
 	world_physics_sync("boot")
+	# A0-T2：把传感器几何绑定到同一物理世界（失败/异帧时显式退化为静态几何）。
+	var sensor_geom: Dictionary = _bind_sensor_geometry()
 	booted = true
 	ready = errors.is_empty()
-	return _result(ready)
+	var boot_res: Dictionary = _result(ready)
+	boot_res["sensor_geometry"] = sensor_geom.duplicate(true)
+	return boot_res
 
 
 ## A0-T1：WorldState 位置副本同步策略判定（只读；不推进任何服务时间）。
@@ -854,6 +858,70 @@ func _setup_optional_components() -> void:
 		else:
 			_physics_enabled = true
 			_seed_physics_entities(pwcfg)
+
+## A0-T2（Issue #4.1）：传感器几何绑定统一物理世界。
+## 只在 physics 已启用、且 seed 未做 L1→bary_rot 帧转换时绑定（同坐标语义）；
+## 否则保持静态几何，由 sensor_service.geometry_status().source 明确标注 static。
+func _bind_sensor_geometry() -> Dictionary:
+	if sensor_service == null or physics_world_service == null:
+		return {"ok": false, "reason": "missing_component", "source": "static"}
+	if not _sensor_geometry_bind_allowed():
+		var st: Dictionary = sensor_service.geometry_status() if sensor_service.has_method("geometry_status") else {}
+		return {"ok": false, "reason": "frame_mismatch",
+			"source": String(st.get("source", "static")), "bound": 0}
+	var res: Dictionary = sensor_service.bind_geometry_provider(_SensorGeometryProvider.new(self))
+	if not bool(res.get("ok", false)):
+		warnings.append("sensor geometry 绑定失败：" + str(res.get("reason", "")))
+		if String(res.get("reason", "")) == "frame_mismatch":
+			warnings.append("sensor geometry 保持静态（坐标系不匹配，不做隐式转换）")
+	return res
+
+func _sensor_geometry_bind_allowed() -> bool:
+	if not _physics_enabled or physics_world_service == null:
+		return false
+	if sensor_service == null:
+		return false
+	# 4F 帧转换后的 seed 是 bary_rot，但配置的静态 target 仍是 L1 相对语义；
+	# 不同坐标空间不能混用，显式退化为静态几何。
+	if bool(_physics_frame_meta.get("applied", false)):
+		return false
+	return true
+
+## A0-T2：GameSession 侧的几何提供者（只读；不写 world/TrackTable/UI）。
+## sensor_service 通过该对象读取「同一仿真时刻」的 physics 位置/速度。
+class _SensorGeometryProvider:
+	var _session = null
+
+	func _init(sess) -> void:
+		_session = sess
+
+	func geometry_ready() -> bool:
+		return _session != null and _session.physics_world_service != null \
+			and bool(_session.physics_world_service.ready)
+
+	func geometry_frame() -> String:
+		return "bary_rot"
+
+	func geometry_t() -> float:
+		if _session == null or _session.physics_world_service == null:
+			return -1.0
+		return float(_session.physics_world_service.t)
+
+	func geometry_state(entity_id: String) -> Dictionary:
+		if _session == null or _session.physics_world_service == null:
+			return {"ok": false, "reason": "no_physics_world"}
+		if not _session.physics_world_service.has_entity(entity_id):
+			return {"ok": false, "reason": "unknown_entity", "id": entity_id}
+		var st: Dictionary = _session.physics_world_service.state(entity_id, "bary_rot")
+		var r = st.get("r", null)
+		var v = st.get("v", null)
+		if not (r is Array) or (r as Array).size() < 3 \
+				or not (v is Array) or (v as Array).size() < 3:
+			return {"ok": false, "reason": "non_finite_state", "id": entity_id}
+		return {"ok": true, "id": entity_id, "frame": String(st.get("frame", "bary_rot")),
+			"t": float(st.get("t", -1.0)),
+			"r": (r as Array).duplicate(), "v": (v as Array).duplicate(),
+			"units": {"length": "km", "velocity": "km/s", "time": "s"}}
 
 ## 示例港口配置（boot 时 port_service=true 使用；不进入关卡）。
 func _demo_port_config() -> Dictionary:
@@ -2233,6 +2301,17 @@ func set_sensor_target(target_id: String) -> Dictionary:
 	if bool(res.get("ok", false)):
 		_record({"op": "set_sensor_target", "target_id": target_id})
 	return res
+
+## A0-T2（Issue #4.1）：传感器几何来源/采样时刻只读诊断。
+## source=physics_world 表示几何来自统一物理世界；static 表示退化（含原因）。
+func sensor_geometry_status() -> Dictionary:
+	if sensor_service == null:
+		return {"schema": "sensor_geometry_status.v1", "source": "none",
+			"authoritative": false, "reason": "no_sensor_service", "targets": 0}
+	if sensor_service.has_method("geometry_status"):
+		return sensor_service.geometry_status()
+	return {"schema": "sensor_geometry_status.v1", "source": "static",
+		"authoritative": false, "reason": "no_geometry_api", "targets": 0}
 
 func start_sensor_channel(kind: String, target := "", opts := {}) -> Dictionary:
 	if sensor_service == null:

@@ -27,6 +27,19 @@ const MAX_EVIDENCE := 100
 const MAX_EVENTS := 500
 const SENSOR_KINDS := ["radar", "radar.tws", "optical", "ir", "iff", "datalink"]
 
+# A0-T2（Issue #4.1）：传感器几何来源。几何 = observer/targets 的位置/速度；
+# 静态元数据（rcs/side/iff_code/classification…）仍来自原权威（EntityCatalog/配置）。
+#   "static"         — 配置里的静态位置（无 physics 或帧不匹配时的退化；VM 显式标注）
+#   "physics_world"  — 绑定统一物理世界当前时刻的目标位置（唯一几何权威）
+const GEOMETRY_SOURCE_STATIC := "static"
+const GEOMETRY_SOURCE_PHYSICS := "physics_world"
+const GEOMETRY_FRAME := "bary_rot"
+const GEOMETRY_UNIT_LENGTH := "km"
+const GEOMETRY_UNIT_VELOCITY := "km/s"
+# 采样时刻一致性容差（秒）：几何快照与传感器 step 后的 t 必须来自同一仿真时刻。
+const GEOMETRY_TIME_TOL_S := 1.0e-6
+
+
 var ready := false
 var t := 0.0
 var dt_last := 0.0
@@ -56,6 +69,11 @@ var _optical_evidence_seen: Dictionary = {}
 var _outbox: Array = []
 var _last_channels: Array = []
 var _last_iff_targets: Dictionary = {}
+# A0-T2：几何来源与最近一次绑定结果（只读诊断；不写 world/track_table）。
+var geometry_source := GEOMETRY_SOURCE_STATIC
+var _geometry_provider = null
+var _geometry_last: Dictionary = {}
+var _geometry_seq := 0
 
 
 func _init(cfg := {}) -> void:
@@ -262,6 +280,145 @@ func set_emcon(on: bool) -> Dictionary:
 		"writes": {"track_table": false, "v15": false}}
 
 
+# ── A0-T2：几何绑定（PhysicsWorld → 传感器几何）───────────────
+
+## 绑定几何提供者（GameSession 注入）。provider 契约（只读，不写任何状态）：
+##   provider.geometry_ready() -> bool
+##   provider.geometry_frame() -> String（必须 == "bary_rot"）
+##   provider.geometry_t() -> float（同一仿真时刻，秒）
+##   provider.geometry_state(entity_id) -> {ok, frame, t, r:[x,y,z] km, v:[x,y,z] km/s}
+## 绑定成功后，`step()` 在每次推进前用**当前时刻**的 physics 位置/速度刷新
+## observer 与 targets 的几何字段；静态元数据（rcs/side/iff/classification…）保持不变。
+func bind_geometry_provider(provider) -> Dictionary:
+	_geometry_provider = provider
+	geometry_source = GEOMETRY_SOURCE_STATIC
+	_geometry_last = {}
+	if provider == null:
+		_geometry_last = {"ok": false, "source": GEOMETRY_SOURCE_STATIC,
+			"reason": "no_provider", "frame": "", "t": t, "bound": 0,
+			"missing": [], "skipped": [], "mismatched_frame": []}
+		return _geometry_last
+	var frame := String(provider.call("geometry_frame")) if provider.has_method("geometry_frame") else ""
+	var ready := bool(provider.call("geometry_ready")) if provider.has_method("geometry_ready") else false
+	if not ready:
+		_geometry_last = {"ok": false, "source": GEOMETRY_SOURCE_STATIC,
+			"reason": "provider_not_ready", "frame": frame, "t": t, "bound": 0,
+			"missing": [], "skipped": [], "mismatched_frame": []}
+		_push_event("geometry_bind", {"ok": false, "reason": "provider_not_ready",
+			"source": GEOMETRY_SOURCE_STATIC})
+		return _geometry_last
+	if frame != GEOMETRY_FRAME:
+		# 坐标系不匹配：显式退化为静态几何并记录原因，绝不把异帧坐标当物理真值。
+		_geometry_last = {"ok": false, "source": GEOMETRY_SOURCE_STATIC,
+			"reason": "frame_mismatch", "frame": frame, "t": t, "bound": 0,
+			"missing": [], "skipped": [], "mismatched_frame": [frame]}
+		_push_event("geometry_bind", {"ok": false, "reason": "frame_mismatch",
+			"source": GEOMETRY_SOURCE_STATIC, "frame": frame})
+		return _geometry_last
+	geometry_source = GEOMETRY_SOURCE_PHYSICS
+	var res: Dictionary = _refresh_geometry(t)
+	_push_event("geometry_bind", {"ok": bool(res.get("ok", false)),
+		"source": geometry_source, "frame": frame, "bound": int(res.get("bound", 0))})
+	return res
+
+
+## 每 tick 在 step 前刷新几何；step 之后可再次调用校验时间一致性。
+## 只改内存里的 observer/targets 几何字段与 _authority 快照，不写 world/TrackTable。
+func refresh_geometry(t_expected := -1.0) -> Dictionary:
+	if geometry_source != GEOMETRY_SOURCE_PHYSICS or _geometry_provider == null:
+		return _geometry_last.duplicate(true)
+	return _refresh_geometry(t if t_expected < 0.0 else t_expected)
+
+
+func _refresh_geometry(t_expected: float) -> Dictionary:
+	var out := {"ok": true, "source": geometry_source, "frame": GEOMETRY_FRAME,
+		"t": t_expected, "provider_t": 0.0, "time_ok": false, "bound": 0,
+		"missing": [], "skipped": [], "mismatched_frame": [],
+		"observer_id": String(observer.get("id", "")), "observer_bound": false}
+	if _geometry_provider == null:
+		out["ok"] = false
+		out["reason"] = "no_provider"
+		return out
+	var pt := float(_geometry_provider.call("geometry_t"))
+	out["provider_t"] = pt
+	out["time_ok"] = absf(pt - t_expected) <= GEOMETRY_TIME_TOL_S
+	if not bool(out["time_ok"]):
+		# 采样时刻不一致：不静默使用旧几何，标记失败并保留上一次绑定结果。
+		out["ok"] = false
+		out["reason"] = "time_mismatch"
+		_geometry_last = out.duplicate(true)
+		return out
+	# observer（本舰）几何
+	var oid := String(observer.get("id", ""))
+	var obs_state: Dictionary = _geometry_provider.call("geometry_state", oid)
+	if bool(obs_state.get("ok", false)) and String(obs_state.get("frame", "")) == GEOMETRY_FRAME:
+		observer["pos_km"] = (obs_state.get("r", []) as Array).duplicate()
+		observer["vel_kmps"] = (obs_state.get("v", []) as Array).duplicate()
+		observer["geometry_source"] = GEOMETRY_SOURCE_PHYSICS
+		observer["geometry_t"] = pt
+		observer["geometry_frame"] = GEOMETRY_FRAME
+		out["observer_bound"] = true
+	else:
+		out["missing"].append(oid)
+	# targets 几何：位置/速度来自 physics，其余字段（rcs/side/iff/classification…）保留。
+	var updated: Array = []
+	for raw in targets:
+		if not (raw is Dictionary):
+			updated.append(raw)
+			continue
+		var tr: Dictionary = (raw as Dictionary).duplicate(true)
+		var tid := String(tr.get("id", tr.get("target_id", "")))
+		var st: Dictionary = _geometry_provider.call("geometry_state", tid)
+		if not bool(st.get("ok", false)):
+			out["skipped"].append(tid)
+			updated.append(tr)
+			continue
+		if String(st.get("frame", "")) != GEOMETRY_FRAME:
+			out["mismatched_frame"].append(tid)
+			updated.append(tr)
+			continue
+		tr["pos_km"] = (st.get("r", []) as Array).duplicate()
+		tr["vel_kmps"] = (st.get("v", []) as Array).duplicate()
+		tr["geometry_source"] = GEOMETRY_SOURCE_PHYSICS
+		tr["geometry_t"] = pt
+		tr["geometry_frame"] = GEOMETRY_FRAME
+		updated.append(tr)
+		out["bound"] = int(out["bound"]) + 1
+	targets = updated
+	# 同步到 authority 的快照（authority 从 snapshot.targets 计算 range/bearing）。
+	if _authority != null and bool(_authority.ready):
+		_authority.set_snapshot({
+			"t": pt,
+			"observer": observer.duplicate(true),
+			"targets": targets.duplicate(true),
+		})
+	out["ok"] = bool(out["ok"]) and int(out["bound"]) > 0 \
+		and (out["mismatched_frame"] as Array).is_empty()
+	_geometry_seq += 1
+	out["seq"] = _geometry_seq
+	_geometry_last = out.duplicate(true)
+	return out
+
+
+## 只读诊断：当前几何来源、采样时刻、绑定数量与未绑定目标。
+func geometry_status() -> Dictionary:
+	return {
+		"schema": "sensor_geometry_status.v1",
+		"source": geometry_source,
+		"authoritative": geometry_source == GEOMETRY_SOURCE_PHYSICS,
+		"frame": GEOMETRY_FRAME,
+		"units": {"length": GEOMETRY_UNIT_LENGTH, "velocity": GEOMETRY_UNIT_VELOCITY,
+			"time": "s"},
+		"t": t,
+		"observer_id": String(observer.get("id", "")),
+		"observer_pos_km": (observer.get("pos_km", []) as Array).duplicate(),
+		"targets": targets.size(),
+		"last": _geometry_last.duplicate(true),
+		"seq": _geometry_seq,
+		"writes": {"world": false, "track_table": false, "v15": false, "ui": false},
+	}
+
+
 # ── step ───────────────────────────────────────────────────────
 
 ## 输入：dt、可选 world snapshot；输出 VM（observations/evidence/events）。
@@ -272,6 +429,9 @@ func step(dt: float, snap := {}) -> Dictionary:
 	t += d
 	dt_last = d
 	step_count += 1
+	# A0-T2：几何在推进后按**当前时刻**刷新（与 GameSession tick 的 physics 同步点一致）。
+	if geometry_source == GEOMETRY_SOURCE_PHYSICS:
+		refresh_geometry(t)
 	var input: Dictionary = snap if snap is Dictionary else {}
 	if not input.is_empty():
 		snapshot = input.duplicate(true)
