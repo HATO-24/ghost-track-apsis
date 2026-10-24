@@ -302,9 +302,9 @@ jobs:
           $s = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
 
           $expected = @{
-            'integration.a0_track_truth_authority'   = @{ pass = 39; fail = 1 }
-            'integration.a0_entity_metadata_pipeline' = @{ pass = 14; fail = 8 }
-            'integration.a0_save_roundtrip_authority' = @{ pass = 29; fail = 4 }
+            'integration.a0_track_truth_authority'   = @{ pass = 44; fail = 1 }
+            'integration.a0_entity_metadata_pipeline' = @{ pass = 14; fail = 10 }
+            'integration.a0_save_roundtrip_authority' = @{ pass = 34; fail = 4 }
           }
           $problems = New-Object System.Collections.ArrayList
           foreach ($cid in $expected.Keys) {

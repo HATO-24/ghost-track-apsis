@@ -25,9 +25,9 @@
       "id": "integration.a0_track_truth_authority",
       "probe": "res://tests/a0_track_truth_authority_probe.gd",
       "expected_exit": 1,
-      "expected_pass": 39,
+      "expected_pass": 44,
       "expected_fail": 1,
-      "reason": "A0-T1: fused track range is still computed from the static SensorService target config (harmattan 20 km, l1_station 10 km) instead of the unified PhysicsWorld truth (420.20 km / 90.00 km), so the track-vs-truth range error is ~400 km / ~80 km against the required <= 0.5 km. All other A0-T1 checks pass: same-tick timestamps (1e-6 s), evidence-derived identity, provenance, TrackTable single writer, bary_rot/km units.",
+      "reason": "A0-T1: fused track range is still computed from the static SensorService target config (harmattan 20 km, l1_station 10 km) instead of the unified PhysicsWorld truth (420.20 km / 90.00 km), so the track-vs-truth range error is ~400 km / ~80 km against the required <= 0.5 km. All other A0-T1 checks pass: same-tick timestamps (1e-6 s), evidence-derived identity, threat consistency (no unauthorized hostile), contact side semantics, provenance, TrackTable single writer, bary_rot/km units.",
       "defect_ref": "A0 audit C1 (track truth authority); Issue #2",
       "suggested_follow_up": "Issue #4.1 sensor target geometry binding to PhysicsWorld (see stacked PR #20) then re-baseline this probe"
     },
@@ -36,8 +36,8 @@
       "probe": "res://tests/a0_entity_metadata_pipeline_probe.gd",
       "expected_exit": 1,
       "expected_pass": 14,
-      "expected_fail": 8,
-      "reason": "A0-T2: entity static metadata (side/identity/batch/rcs_m2/radius_km/has_pd) is not carried through PhysicsWorld -> WorldState -> snapshot -> track -> contacts; 203 pass-through violations over 5 layers x 7 entities x 6 fields. Contacts additionally fall back to side=friend / identity=friend for 6 of 7 rows (ferry, raider_2, skiff, watchtower and the two track-backed rows), i.e. a silent friend fallback instead of an explicit unknown.",
+      "expected_fail": 10,
+      "reason": "A0-T2: entity static metadata (side/identity/batch/rcs_m2/radius_km/has_pd) is not carried through PhysicsWorld -> WorldState -> snapshot -> track -> contacts; 126 authority-layer violations (PhysicsWorld/WorldState/snapshot must match scenario truth exactly, unknown is NOT excused there) + 77 projection-layer violations (track/contacts; only side/identity may be unknown and only with a verified no-identity-evidence reason). Contacts additionally fall back to side=friend / identity=friend for 6 of 7 rows, i.e. a silent friend fallback instead of an explicit unknown.",
       "defect_ref": "A0 audit C2/C3 (metadata pipeline, silent friend fallback); Issue #2",
       "suggested_follow_up": "Issue #2 entity metadata authority (stacked PR #17) then re-baseline this probe"
     },
@@ -45,9 +45,9 @@
       "id": "integration.a0_save_roundtrip_authority",
       "probe": "res://tests/a0_save_roundtrip_authority_probe.gd",
       "expected_exit": 1,
-      "expected_pass": 29,
+      "expected_pass": 34,
       "expected_fail": 4,
-      "reason": "A0-T3: (a) the live HUD session save->load fails with replay 'send_comms' no_route; (b) event seq drifts int -> float through the JSON save roundtrip (1.0/2.0/... instead of 1/2/...), 10 occurrences across save payload + loaded bus; (c) the save payload has no sensor_service runtime snapshot; (d) SensorService EMCON/radar state is therefore lost on load (emcon=true radar=false saved, emcon=false radar=true loaded). physics/world/track numeric roundtrip (<=1e-9), identification int config and save->load->save canonical equality all pass.",
+      "reason": "A0-T3: (a) the live HUD session save->load fails with replay 'send_comms' no_route; (b) event seq drifts int -> float through the JSON save roundtrip (1.0/2.0/... instead of 1/2/...), 10 occurrences across save payload + loaded bus; (c) the save payload has no sensor_service runtime snapshot; (d) SensorService EMCON/radar state and the full channel content are therefore lost on load. The fixture explicitly toggles EMCON to the opposite of its initial value before saving (asserted to have actually changed) and holds 3 non-empty channels (radar.tws/optical/ir); the roundtrip compares normalized full channel content, not just a count. physics/world/track numeric roundtrip (<=1e-9), identification int config and save->load->save canonical equality all pass.",
       "defect_ref": "A0 audit C4/C5 (int->float drift, sensor runtime state not persisted); Issue #2",
       "suggested_follow_up": "Issue #2 save/load authority persistence then re-baseline this probe"
     }

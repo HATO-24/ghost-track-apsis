@@ -259,8 +259,28 @@ func _run() -> void:
 	_ok(range_bad.is_empty(), "track range matches physics truth within %.1f km" % RANGE_TOL_KM,
 		"violations=" + str(range_bad))
 
-	_step("4. identity/threat vs scenario truth (evidence-derived, not auto-copied)")
+	_step("4. identity/threat/side vs evidence & scenario semantics")
+	# A0-T1 审查修正（P2）：原实现只检查 identity，且仅在 sources 为空时校验 unknown；
+	# 这里补齐 threat/side 的一致性检查：
+	#   4a. identity 必须由证据派生（无身份证据时必须 unknown，不得凭空等于 truth）；
+	#   4b. threat 必须与证据/身份一致（无授权证据时不得为 hostile，且不得脱离身份乱报）；
+	#   4c. side（投影到 contacts 时）不得与 scenario side 语义矛盾；
+	#   4d. scenario 语义一致性：truth=hostile 的实体不得在无授权证据下被标成 friend/neutral。
+	const IDENTITY_SOURCES := ["iff", "transponder", "optical", "vis", "identification"]
+	const VALID_THREATS := ["none", "unknown", "suspect", "hostile"]
 	var ident_bad: Array = []
+	var threat_bad: Array = []
+	var side_bad: Array = []
+	var checked_identity := 0
+	var checked_threat := 0
+	var checked_side := 0
+	# contacts 投影层（用于 side 语义检查）
+	var contacts: Array = _binder.get("contacts") if _binder.get("contacts") is Array else []
+	var contact_by_entity: Dictionary = {}
+	for raw_c in contacts:
+		if raw_c is Dictionary:
+			var c: Dictionary = raw_c
+			contact_by_entity[String(c.get("entity_id", c.get("id", "")))] = c
 	for raw_tr2 in tracks:
 		if not (raw_tr2 is Dictionary):
 			continue
@@ -270,22 +290,76 @@ func _run() -> void:
 			continue
 		var truth2: Dictionary = _truth[eid2]
 		var truth_identity := String(truth2.get("identity", "")).to_lower()
+		var truth_side := String(truth2.get("side", "")).to_lower()
 		var track_identity := String(tr2.get("identity", "")).to_lower()
-		_info("IDENTITY %s: track=%s truth=%s" % [eid2, track_identity, truth_identity])
-		# 玩家航迹 identity 必须来自证据；无证据时应为 unknown。
-		# 有证据时允许为 truth 或更保守的值；但**不能凭空等于 truth 而无 sources**。
+		var track_threat := String(tr2.get("threat", "")).to_lower()
 		var sources: Array = tr2.get("sources", []) if tr2.get("sources") is Array else []
-		if track_identity == truth_identity and sources.is_empty():
+		var has_identity_evidence := false
+		for s in sources:
+			var sl := String(s).to_lower()
+			for known in IDENTITY_SOURCES:
+				if sl == known or sl.begins_with(known + "."):
+					has_identity_evidence = true
+					break
+		_info("IDENTITY %s: track=%s truth=%s sources=%s threat=%s" % [
+			eid2, track_identity, truth_identity, str(sources), track_threat])
+		# 4a. identity 证据派生
+		checked_identity += 1
+		if not has_identity_evidence and track_identity not in ["unknown", ""]:
 			ident_bad.append({"entity": eid2, "track_identity": track_identity,
-				"truth_identity": truth_identity, "sources": sources,
-				"reason": "identity equals truth with no evidence sources"})
-		# 无证据时必须 unknown（当前已知失败：可能被设为 friend 等）
-		if sources.is_empty() and track_identity not in ["unknown", ""]:
-			ident_bad.append({"entity": eid2, "track_identity": track_identity,
-				"sources": sources, "reason": "identity not unknown without evidence"})
+				"sources": sources, "reason": "identity not unknown without identity evidence"})
+		if has_identity_evidence and track_identity == truth_identity and sources.is_empty():
+			ident_bad.append({"entity": eid2, "reason": "identity equals truth with no evidence"})
+		# 4b. threat 与证据/身份一致
+		checked_threat += 1
+		if not (track_threat in VALID_THREATS):
+			threat_bad.append({"entity": eid2, "threat": track_threat,
+				"reason": "threat not in " + str(VALID_THREATS)})
+		elif track_threat == "hostile":
+			# hostile 必须有显式授权证据（track_table 的 hostile_requires_authority 契约）。
+			var authorized := false
+			for s in sources:
+				if String(s).to_lower() in ["manual", "player", "authority", "command"]:
+					authorized = true
+					break
+			if not authorized:
+				threat_bad.append({"entity": eid2, "threat": track_threat,
+					"sources": sources,
+					"reason": "threat=hostile without explicit authority evidence"})
+		if track_identity == "unknown" and track_threat in ["suspect", "hostile"]:
+			threat_bad.append({"entity": eid2, "track_identity": track_identity,
+				"threat": track_threat,
+				"reason": "threat escalates above identity evidence"})
+		# 4c/4d. side 语义（contacts 投影层）与 scenario 一致性
+		if contact_by_entity.has(eid2):
+			var c2: Dictionary = contact_by_entity[eid2]
+			var c_side := String(c2.get("side", "")).to_lower()
+			var c_ident := String(c2.get("identity", "")).to_lower()
+			checked_side += 1
+			# truth 非 friend/ally 时，不得静默标成 friend（沿用 A0-T2 的静默兜底缺陷口径）
+			var truth_is_friend := truth_side in ["friend", "ally", "ueg", "ocu"]
+			if c_side == "friend" and not truth_is_friend:
+				side_bad.append({"entity": eid2, "contact_side": c_side,
+					"truth_side": truth_side, "reason": "silent friend fallback"})
+			if c_ident == "friend" and not truth_is_friend:
+				side_bad.append({"entity": eid2, "contact_identity": c_ident,
+					"truth_side": truth_side, "reason": "silent friend identity fallback"})
+			_info("SIDE %s: contact side=%s identity=%s (truth side=%s)" % [
+				eid2, c_side, c_ident, truth_side])
+	_ok(checked_identity > 0, "identity checks applied to >=1 track",
+		"checked=%d" % checked_identity)
 	_ok(ident_bad.is_empty(),
 		"track identity is evidence-derived and not auto-copied from truth",
 		"violations=" + str(ident_bad))
+	_ok(checked_threat > 0, "threat checks applied to >=1 track",
+		"checked=%d" % checked_threat)
+	_ok(threat_bad.is_empty(),
+		"track threat is consistent with evidence and identity (no unauthorized hostile)",
+		"violations=" + str(threat_bad))
+	_ok(checked_side > 0, "side checks applied to >=1 contact", "checked=%d" % checked_side)
+	_ok(side_bad.is_empty(),
+		"contact side/identity do not contradict scenario side semantics",
+		"violations=" + str(side_bad))
 
 	_step("5. provenance: track sources / batch / entity_id traceable")
 	var prov_bad: Array = []

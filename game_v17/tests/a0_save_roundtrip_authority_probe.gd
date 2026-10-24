@@ -212,6 +212,18 @@ func _run() -> void:
 	_ok(bool(sv.ready), "roundtrip fixture session ready", str(sv.errors))
 	for i in range(SAVE_TICKS):
 		sv.tick(TICK_DT)
+	# A0-T3 审查修正（P2）：fixture 必须产生**非空** channels，且启动多个通道以覆盖
+	# 内容比较。通道启动与随后的 tick 必须在**捕获 pre-state 之前**完成，否则
+	# pre_phys/pre_tracks 会相对最后一次 tick 变陈旧（导致假失败）。
+	var ch_ready: Dictionary = sv.sensor_service.start_channel("optical", "harmattan")
+	_ok(bool(ch_ready.get("ok", false)), "fixture started an optical channel",
+		str(ch_ready.get("reason", "")))
+	var ch_ready2: Dictionary = sv.sensor_service.start_channel("ir", "harmattan")
+	_ok(bool(ch_ready2.get("ok", false)), "fixture started an ir channel",
+		str(ch_ready2.get("reason", "")))
+	# 再推进一个 tick，让 channels 缓存刷新且包含这些通道。
+	sv.tick(TICK_DT)
+	# ── 捕获 pre-state（必须在所有 tick 之后）──
 	var pre_phys: Dictionary = {}
 	for eid in _truth.keys():
 		var st: Dictionary = sv.physics_state(eid)
@@ -224,19 +236,38 @@ func _run() -> void:
 			"vel_kmps": (we.get("vel_kmps", []) as Array).duplicate()}
 	var pre_tracks: Array = sv.track_table.vm().get("tracks", []) \
 		if sv.track_table.vm().get("tracks") is Array else []
-	# 人为改变传感器状态，验证是否持久化
-	sv.sensor_service.set_radar_enabled(false)
-	var mutated_radar := bool(sv.sensor_service.radar_enabled)
+	# A0-T3 审查修正（P1）：显式把 EMCON 切到与初始值**相反**的状态，并确认确实改变；
+	# 否则「读档后相等」可能只是默认值碰巧相同，无法证明 save/load 保留了 EMCON。
+	# 注意：EMCON 切换不推进 tick，所以上面的 pre-state（物理/航迹）仍然有效。
+	var initial_emcon := bool(sv.sensor_service.emcon)
+	var initial_radar := bool(sv.sensor_service.radar_enabled)
+	_info("A0-T3 SENSOR fixture: initial emcon=%s radar=%s" % [
+		str(initial_emcon), str(initial_radar)])
+	# set_emcon 会联动 radar_enabled = not emcon；这里显式翻转 EMCON。
+	sv.sensor_service.set_emcon(not initial_emcon)
 	var mutated_emcon := bool(sv.sensor_service.emcon)
+	var mutated_radar := bool(sv.sensor_service.radar_enabled)
+	_ok(mutated_emcon != initial_emcon,
+		"EMCON actually toggled to the opposite state before save",
+		"initial=%s mutated=%s" % [str(initial_emcon), str(mutated_emcon)])
+	# 再验证 radar 与 EMCON 的联动关系符合契约（emcon == not radar_enabled）。
+	var radar_lnk := (mutated_radar == (not mutated_emcon))
+	_ok(radar_lnk, "radar_enabled is the inverse of emcon after explicit toggle",
+		"emcon=%s radar=%s" % [str(mutated_emcon), str(mutated_radar)])
 	var pre_channels: Array = sv.sensor_service._last_channels.duplicate(true) \
 		if sv.sensor_service._last_channels is Array else []
+	_ok(pre_channels.size() > 0,
+		"fixture produces non-empty sensor channels", "n=" + str(pre_channels.size()))
+	# 规范化后的完整 channel 内容（排序 + 去掉时间相关噪声字段），用于往返比较。
+	var pre_channel_canon: Array = _canonical_channels(pre_channels)
+	_info("A0-T3 SENSOR fixture: mutated emcon=%s radar=%s channels=%d" % [
+		str(mutated_emcon), str(mutated_radar), pre_channels.size()])
 	var save_text2: String = sv.save_state()
 	_ok(save_text2.length() > 500, "fixture save_state non-empty",
 		"len=%d" % save_text2.length())
 	var save1: Dictionary = JSON.parse_string(save_text2) \
 		if JSON.parse_string(save_text2) is Dictionary else {}
-	_info("A0-T3 SENSOR fixture: mutated emcon=%s radar=%s; save_has_sensor_service=%s" % [
-		str(mutated_emcon), str(mutated_radar), str(save1.has("sensor_service"))])
+	_info("A0-T3 SENSOR fixture: save_has_sensor_service=%s" % str(save1.has("sensor_service")))
 	var s2 = GameSessionScript.new()
 	var lr: Dictionary = s2.load_state(save_text2)
 	_ok(bool(lr.get("ok", false)), "fixture load_state ok",
@@ -355,10 +386,17 @@ func _run() -> void:
 				"actual": bool(s2.sensor_service.emcon), "expected": mutated_emcon})
 		var ch2: Array = s2.sensor_service._last_channels.duplicate(true) \
 			if s2.sensor_service._last_channels is Array else []
+		# A0-T3 审查修正（P2）：比较**规范化后的完整 channel 内容**（不只数量）。
+		var post_channel_canon: Array = _canonical_channels(ch2)
 		if ch2.size() != pre_channels.size():
 			sensor_bad.append({"field": "channels_count",
 				"actual": ch2.size(), "expected": pre_channels.size()})
-	_ok(sensor_bad.is_empty(), "SensorService runtime state persists across save/load",
+		var ch_diff: Array = _canonical_diff(pre_channel_canon, post_channel_canon,
+			"channels")
+		if not ch_diff.is_empty():
+			sensor_bad.append({"field": "channels_content",
+				"diff_count": ch_diff.size(), "sample": ch_diff.slice(0, 6)})
+	_ok(sensor_bad.is_empty(), "SensorService runtime state persists across save/load (EMCON + radar + full channel content)",
 		"violations=" + str(sensor_bad))
 	_info("A0-T3 BASELINE: saved emcon=%s radar=%s; loaded emcon=%s radar=%s; save_has_sensor=%s" % [
 		str(mutated_emcon), str(mutated_radar),
@@ -404,6 +442,37 @@ func _run() -> void:
 
 
 # ── helpers ─────────────────────────────────────────────────────
+
+## A0-T3 审查修正（P2）：把 sensor channels 规范化为可比较的稳定结构。
+## 保留全部**语义字段**（channel 类型、目标、状态、可见性、分类、几何、设备参数等），
+## 只去掉「随时间推进必然变化」的字段（history 时间序列、计数/速率/年龄等），
+## 并按 (channel, target_id, mount_id) 排序，使比较与顺序无关。
+const CHANNEL_VOLATILE_FIELDS := ["history", "age_s", "state_since_t", "status_since_t",
+	"update_rate_hz", "update_count", "hits", "misses", "consecutive_hits",
+	"lost_lock_count", "samples", "stare_s", "stare_progress", "progress",
+	"predicted_next_t", "lost_at", "locked_t", "quality", "fire_control", "next_t"]
+
+func _canonical_channels(rows: Array) -> Array:
+	var out: Array = []
+	for raw in rows:
+		if not (raw is Dictionary):
+			continue
+		var row: Dictionary = raw
+		var norm: Dictionary = {}
+		for k in row.keys():
+			var key := String(k)
+			if key in CHANNEL_VOLATILE_FIELDS:
+				continue
+			norm[key] = JSON.parse_string(JSON.stringify(row[k])) \
+				if (row[k] is Dictionary or row[k] is Array) else row[k]
+		norm["_channel_key"] = "%s|%s|%s" % [
+			String(row.get("channel", "")), String(row.get("target_id", "")),
+			String(row.get("mount_id", ""))]
+		out.append(norm)
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return String(a.get("_channel_key", "")) < String(b.get("_channel_key", "")))
+	return out
+
 
 ## 规范化对比两份存档 JSON（忽略 run 相关噪声字段），返回差异列表。
 func _canonical_diff(a, b, path := "") -> Array:

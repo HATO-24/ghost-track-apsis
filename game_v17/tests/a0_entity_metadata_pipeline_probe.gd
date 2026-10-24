@@ -45,6 +45,14 @@ const TICK_DT := 60.0
 const TICK_COUNT := 3
 # 玩家可见层允许的「无证据」占位值
 const SAFE_UNKNOWN := ["unknown", "unknown track", "unknown contact", "unknown signal", ""]
+# 权威层：必须与 scenario truth **精确**一致，任何 unknown/缺失都不允许。
+const AUTHORITY_LAYERS := ["physics", "world", "snapshot"]
+# 证据派生的分类字段：只有这两个字段在**投影层**可以有「带原因」的 unknown。
+# （batch/rcs_m2/radius_km/has_pd 是静态事实，必须原样透传，不允许 unknown 豁免。）
+const EVIDENCE_DERIVED_FIELDS := ["side", "identity"]
+# 能产生身份/阵营判断的证据来源（纯雷达位置观测不能分类）。
+const IDENTITY_EVIDENCE_SOURCES := ["iff", "transponder", "optical", "vis", "ir.classify",
+	"identification"]
 
 var _pass := 0
 var _fail := 0
@@ -375,7 +383,10 @@ func _run() -> void:
 		"contact": func(eid: String) -> Dictionary:
 			return c_by_entity.get(eid, {}) if c_by_entity.get(eid) is Dictionary else {},
 	}
-	var matrix_bad: Array = []
+	# 权威层与投影层分开统计，避免「投影层 unknown 豁免」掩盖权威层丢失事实。
+	var authority_bad: Array = []
+	var projection_bad: Array = []
+	var unknown_accepted: Array = []
 	for layer_name in ["physics", "world", "snapshot", "track", "contact"]:
 		var getter = field_layers[layer_name]
 		for eid in _truth_ids:
@@ -384,10 +395,34 @@ func _run() -> void:
 			for f in META_FIELDS:
 				var expected = truth.get(f, null)
 				var actual = row.get(f, "<missing>")
-				var okv := _meta_equal(f, actual, expected)
-				if not okv:
-					matrix_bad.append({"layer": layer_name, "entity": eid, "field": f,
-						"actual": str(actual), "expected": str(expected)})
+				var okv := _meta_equal(f, actual, expected, layer_name, row)
+				if okv:
+					if _is_unknown_token(actual) and (f in EVIDENCE_DERIVED_FIELDS):
+						unknown_accepted.append({"layer": layer_name, "entity": eid,
+							"field": f, "value": str(actual),
+							"reason": "no identity evidence on this row"})
+					continue
+				var violation := {"layer": layer_name, "entity": eid, "field": f,
+					"actual": str(actual), "expected": str(expected)}
+				if layer_name in AUTHORITY_LAYERS:
+					authority_bad.append(violation)
+				else:
+					projection_bad.append(violation)
+	# 8a. 权威层：必须精确承载 scenario truth（不允许 unknown / 缺失）
+	_ok(authority_bad.is_empty(),
+		"authority layers (PhysicsWorld/WorldState/snapshot) match scenario truth exactly",
+		"violations=%d sample=%s" % [authority_bad.size(),
+			str(authority_bad.slice(0, 8))])
+	# 8b. 投影层：静态事实必须透传；只有无身份证据时 side/identity 才可为 unknown
+	_ok(projection_bad.is_empty(),
+		"projection layers (track/contacts) pass through metadata (unknown only for side/identity without identity evidence)",
+		"violations=%d sample=%s" % [projection_bad.size(),
+			str(projection_bad.slice(0, 8))])
+	_info("A0-T2 MATRIX: authority violations=%d, projection violations=%d, unknown-with-valid-reason=%d" % [
+		authority_bad.size(), projection_bad.size(), unknown_accepted.size()])
+	var matrix_bad: Array = []
+	matrix_bad.append_array(authority_bad)
+	matrix_bad.append_array(projection_bad)
 	_ok(matrix_bad.is_empty(),
 		"metadata pass-through matrix complete (5 layers × 7 entities × 6 fields)",
 		"violations=%d sample=%s" % [matrix_bad.size(), str(matrix_bad.slice(0, 8))])
@@ -403,15 +438,42 @@ func _run() -> void:
 
 # ── helpers ─────────────────────────────────────────────────────
 
-func _meta_equal(field: String, actual, expected) -> bool:
+## 字段比较，按层区分严格程度（A0-T2 审查修正 P1）：
+##
+##   * **权威层**（PhysicsWorld / WorldState / snapshot）：必须与 scenario truth 精确一致。
+##     任何 `unknown`、`<missing>`、`null` 都算违例 —— 权威层不允许把已知事实丢成未知。
+##   * **投影层**（track / contacts）：只有**证据派生字段**（side / identity）允许显示
+##     `unknown`，且必须同时验证「无身份证据」这一 reason（见 _unknown_reason()）。
+##     静态事实字段（batch / rcs_m2 / radius_km / has_pd）没有 unknown 豁免，必须透传。
+func _meta_equal(field: String, actual, expected, layer: String, row: Dictionary) -> bool:
 	if expected == null:
 		expected = ""
-	# 允许玩家可见层的「未知」占位：缺值必须显式 unknown，不能静默 friend
-	if actual is String and String(actual).to_lower() in SAFE_UNKNOWN:
-		if String(expected) == "" or String(expected).to_lower() in SAFE_UNKNOWN:
-			return true
-		# 有 truth 但显示 unknown 是**安全**的（不泄露），算通过
+	var actual_is_unknown := _is_unknown_token(actual)
+	if layer in AUTHORITY_LAYERS:
+		# 权威层：精确比较，unknown 一律违例。
+		if actual_is_unknown:
+			return false
+		return _meta_value_equal(field, actual, expected)
+	if actual_is_unknown:
+		# 投影层 + 非证据派生字段：不允许 unknown 豁免。
+		if not (field in EVIDENCE_DERIVED_FIELDS):
+			return false
+		# 投影层 + 证据派生字段：只在「确实没有身份证据」时接受 unknown。
+		return _unknown_reason(field, row)
+	return _meta_value_equal(field, actual, expected)
+
+
+## 判断一个值是否是「未知」占位。
+func _is_unknown_token(value) -> bool:
+	if value == null:
 		return true
+	if value is String:
+		return String(value).to_lower() in SAFE_UNKNOWN
+	return false
+
+
+## 精确值比较（不含 unknown 豁免）。
+func _meta_value_equal(field: String, actual, expected) -> bool:
 	if actual == null or actual == "<missing>":
 		return false
 	if field in NUM_FIELDS:
@@ -422,6 +484,47 @@ func _meta_equal(field: String, actual, expected) -> bool:
 	if expected is bool:
 		return actual is bool and actual == expected
 	return str(actual) == str(expected)
+
+
+## 验证投影层 `unknown` 的**原因**是否成立：只有当该行确实缺少身份证据时，
+## identity/side 才可以显示为 unknown。缺证据判定基于该行的 evidence/sources/ident 块。
+func _unknown_reason(field: String, row: Dictionary) -> bool:
+	# 1) 该行必须自证「身份未确认」：contacts 用 ident.known/confidence，tracks 用 level 或证据。
+	if row.has("ident") and row.get("ident") is Dictionary:
+		var ident: Dictionary = row.get("ident")
+		# 身份已确认（known=true）却显示 unknown => reason 不成立。
+		if bool(ident.get("known", false)):
+			return false
+		# 有身份矛盾/欺骗告警时不能静默显示 unknown（必须显式报警，不能当作「未知」）。
+		if bool(ident.get("warn", false)) or int(ident.get("contradictions", 0)) > 0:
+			return false
+		if absf(float(ident.get("confidence", 0.0))) > 0.0:
+			return false
+	# 2) 该行的证据里不得已包含身份类证据（IFF/transponder/optical 分类等）。
+	var sources: Array = row.get("sources", []) if row.get("sources") is Array else []
+	for s in sources:
+		if _is_identity_source(String(s)):
+			return false
+	var evidence: Array = row.get("evidence", []) if row.get("evidence") is Array else []
+	for raw_ev in evidence:
+		if not (raw_ev is Dictionary):
+			continue
+		var ev: Dictionary = raw_ev
+		var src := String(ev.get("source", ev.get("sensor", "")))
+		if _is_identity_source(src):
+			return false
+		if String(ev.get("type", "")) in ["iff", "identification", "classification"]:
+			return false
+	# 3) 通过：没有任何身份证据，unknown 是诚实的表达。
+	return true
+
+
+func _is_identity_source(src: String) -> bool:
+	var s := src.to_lower()
+	for known in IDENTITY_EVIDENCE_SOURCES:
+		if s == known or s.begins_with(known + "."):
+			return true
+	return false
 
 
 func _read_json(path: String) -> Dictionary:
