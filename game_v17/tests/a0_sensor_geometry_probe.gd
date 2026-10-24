@@ -449,11 +449,145 @@ func _run() -> void:
 		if conv.has_method("sensor_geometry_status") else {}
 	_eq(String(cgs.get("source", "")), "static", "frame-mismatch geometry source static")
 	_eq(bool(cgs.get("authoritative", true)), false, "frame-mismatch geometry not authoritative")
+	# 审查修正：必须精确给出 reason=frame_mismatch，不再接受空原因/provider_not_ready。
+	_eq(String(cgs.get("reason", "")), "frame_mismatch", "frame-mismatch public reason exact")
+	_eq(bool(cgs.get("complete", true)), false, "frame-mismatch geometry not complete")
+	_eq(bool(cgs.get("available", true)), false, "frame-mismatch geometry not available")
 	var c_last: Dictionary = cgs.get("last", {}) if cgs.get("last") is Dictionary else {}
-	_ok(String(c_last.get("reason", "")) in ["frame_mismatch", "provider_not_ready", ""],
-		"frame-mismatch reason recorded", "reason=" + String(c_last.get("reason", "")))
+	_eq(String(c_last.get("reason", "")), "frame_mismatch", "frame-mismatch last.reason exact")
+	_eq(bool(c_last.get("ok", true)), false, "frame-mismatch last.ok false")
+	_eq(bool(c_last.get("time_ok", true)), false, "frame-mismatch last.time_ok false")
+	# 无 physics 会话的公开 reason 也必须是精确值（不是空串）。
+	_eq(String(pgs.get("reason", "")), "no_physics_world", "no-physics public reason exact")
+	_eq(bool(pgs.get("complete", true)), false, "no-physics geometry not complete")
 
-	_step("8. determinism: same operation sequence yields identical geometry + observations")
+	_step("9. time mismatch: no observations from stale geometry")
+	# 用可控 provider 人为制造时间不匹配：几何 t 落后于传感器 t。
+	var clock = _FakeGeometryProvider.new()
+	clock.frame = FRAME
+	clock.t = 0.0
+	clock.states = {
+		"apsis": {"r": [0.0, 0.0, 0.0], "v": [0.0, 0.0, 0.0]},
+		"harmattan": {"r": [500.0, 0.0, 0.0], "v": [0.0, 0.0, 0.0]},
+	}
+	var tm = GameSessionScript.new({"sensor_service": {
+		"observer": {"id": "apsis", "pos_km": [0.0, 0.0, 0.0]},
+		"targets": [{"id": "harmattan", "pos_km": [20.0, 0.0, 0.0], "rcs_m2": 10.0}],
+		"options": {"radar_enabled": true, "emcon": false},
+	}})
+	_ok(bool(tm.ready), "time-mismatch session ready", str(tm.errors))
+	clock.t = 0.0
+	var tbind: Dictionary = tm.sensor_service.bind_geometry_provider(clock)
+	_ok(bool(tbind.get("ok", false)), "fake provider bound at t=0", str(tbind))
+	clock.t = 1.0
+	# 先跑一次正常 step（几何可用），产生基线观测（sensor t 0→1，provider t=1）
+	tm.sensor_service.step(1.0)
+	var obs_base: int = tm.sensor_service.observations.size()
+	_ok(obs_base > 0, "baseline observation generated with aligned geometry",
+		"n=" + str(obs_base))
+	# 人为制造时间不匹配：provider 时间不跟随传感器 t（step 后 sensor t=101，provider t=1）
+	tm.sensor_service.t = 100.0
+	var tstep: Dictionary = tm.sensor_service.step(1.0)
+	var tgs: Dictionary = tm.call("sensor_geometry_status") \
+		if tm.has_method("sensor_geometry_status") else {}
+	_eq(String(tgs.get("reason", "")), "time_mismatch", "time-mismatch public reason")
+	_eq(bool(tgs.get("authoritative", true)), false, "time-mismatch not authoritative")
+	_eq(bool(tgs.get("complete", true)), false, "time-mismatch not complete")
+	_eq(bool(tgs.get("available", true)), false, "time-mismatch not available")
+	_eq(bool((tgs.get("last", {}) as Dictionary).get("time_ok", true)), false,
+		"time-mismatch last.time_ok false")
+	var obs_after: int = tm.sensor_service.observations.size()
+	_ok(obs_after == obs_base, "no NEW observation generated on time mismatch",
+		"before=%d after=%d" % [obs_base, obs_after])
+	_ok(int(tgs.get("suppressed_steps", 0)) > 0,
+		"suppressed_steps counted for time mismatch",
+		"suppressed=" + str(tgs.get("suppressed_steps", 0)))
+	# 恢复一致后应能继续产生观测（不是永久关死）
+	clock.t = 102.0
+	tm.sensor_service.step(1.0)
+	var tgs2: Dictionary = tm.call("sensor_geometry_status") \
+		if tm.has_method("sensor_geometry_status") else {}
+	_eq(bool(tgs2.get("authoritative", false)), true, "geometry recovers when time aligns")
+	_ok(tm.sensor_service.observations.size() > obs_after,
+		"observations resume after time realigns",
+		"n=" + str(tm.sensor_service.observations.size()))
+
+	_step("10. partial binding failure: observer missing / target missing are not authoritative")
+	# 10a. observer 在 physics 中缺失
+	var mo = GameSessionScript.new({"sensor_service": {
+		"observer": {"id": "ghost_ship", "pos_km": [0.0, 0.0, 0.0]},
+		"targets": [{"id": "harmattan", "pos_km": [20.0, 0.0, 0.0], "rcs_m2": 10.0}],
+	}})
+	_ok(bool(mo.ready), "observer-missing session ready", str(mo.errors))
+	var mo_prov = _FakeGeometryProvider.new()
+	mo_prov.states = {"harmattan": {"r": [500.0, 0.0, 0.0], "v": [0.0, 0.0, 0.0]}}
+	mo_prov.t = 1.0
+	mo.sensor_service.bind_geometry_provider(mo_prov)
+	mo.sensor_service.step(1.0)
+	var mo_gs: Dictionary = mo.call("sensor_geometry_status") \
+		if mo.has_method("sensor_geometry_status") else {}
+	_eq(bool(mo_gs.get("authoritative", true)), false, "observer-missing not authoritative")
+	_eq(bool(mo_gs.get("complete", true)), false, "observer-missing not complete")
+	_eq(String(mo_gs.get("reason", "")), "observer_missing", "observer-missing public reason")
+	_eq(bool(mo_gs.get("observer_bound", true)), false, "observer-missing observer_bound false")
+	var mo_missing: Array = mo_gs.get("missing", []) if mo_gs.get("missing") is Array else []
+	_ok("ghost_ship" in mo_missing, "observer-missing records missing id", str(mo_missing))
+	_eq(mo.sensor_service.observations.size(), 0,
+		"observer-missing generates NO observations from stale geometry")
+	# 10b. 单个 target 在 physics 中缺失
+	var mt = GameSessionScript.new({"sensor_service": {
+		"observer": {"id": "apsis", "pos_km": [0.0, 0.0, 0.0]},
+		"targets": [
+			{"id": "harmattan", "pos_km": [20.0, 0.0, 0.0], "rcs_m2": 10.0},
+			{"id": "missing_target", "pos_km": [30.0, 0.0, 0.0], "rcs_m2": 10.0}],
+	}})
+	_ok(bool(mt.ready), "target-missing session ready", str(mt.errors))
+	var mt_prov = _FakeGeometryProvider.new()
+	mt_prov.states = {
+		"apsis": {"r": [0.0, 0.0, 0.0], "v": [0.0, 0.0, 0.0]},
+		"harmattan": {"r": [500.0, 0.0, 0.0], "v": [0.0, 0.0, 0.0]},
+	}
+	mt_prov.t = 1.0
+	mt.sensor_service.bind_geometry_provider(mt_prov)
+	mt.sensor_service.step(1.0)
+	var mt_gs: Dictionary = mt.call("sensor_geometry_status") \
+		if mt.has_method("sensor_geometry_status") else {}
+	_eq(bool(mt_gs.get("authoritative", true)), false, "target-missing not authoritative")
+	_eq(bool(mt_gs.get("complete", true)), false, "target-missing not complete")
+	_eq(String(mt_gs.get("reason", "")), "target_missing", "target-missing public reason")
+	var mt_skipped: Array = mt_gs.get("skipped", []) if mt_gs.get("skipped") is Array else []
+	_ok("missing_target" in mt_skipped, "target-missing records skipped id", str(mt_skipped))
+	_eq(mt.sensor_service.observations.size(), 0,
+		"target-missing generates NO observations (mixed geometry suppressed)")
+	# 未绑定的行必须被标记为 unavailable 且坐标已清空（不沿用旧静态坐标）
+	for raw_t in mt.sensor_service.targets:
+		if raw_t is Dictionary and String((raw_t as Dictionary).get("id", "")) == "missing_target":
+			_eq(String((raw_t as Dictionary).get("geometry_source", "")), "unavailable",
+				"missing target row marked unavailable")
+			var mpos: Array = (raw_t as Dictionary).get("pos_km", [1.0])
+			_eq(mpos.size(), 0, "missing target row has cleared pos_km (no stale coords)")
+
+	_step("11. determinism of failure paths")
+	var fa = GameSessionScript.new(_determinism_cfg())
+	var fb = GameSessionScript.new(_determinism_cfg())
+	var fa_prov = _FakeGeometryProvider.new()
+	var fb_prov = _FakeGeometryProvider.new()
+	fa_prov.states = {"apsis": {"r": [0.0, 0.0, 0.0], "v": [0.0, 0.0, 0.0]}}
+	fa_prov.t = 1.0
+	fb_prov.states = {"apsis": {"r": [0.0, 0.0, 0.0], "v": [0.0, 0.0, 0.0]}}
+	fb_prov.t = 1.0
+	fa.sensor_service.bind_geometry_provider(fa_prov)
+	fb.sensor_service.bind_geometry_provider(fb_prov)
+	fa.sensor_service.step(1.0)
+	fb.sensor_service.step(1.0)
+	var fg1 := JSON.stringify(fa.call("sensor_geometry_status"))
+	var fg2 := JSON.stringify(fb.call("sensor_geometry_status"))
+	_ok(fg1 == fg2, "identical failure-path geometry status across runs",
+		"len_a=%d len_b=%d" % [fg1.length(), fg2.length()])
+	_eq(fa.sensor_service.observations.size(), fb.sensor_service.observations.size(),
+		"identical suppressed observation count across runs")
+
+	_step("12. determinism: same operation sequence yields identical geometry + observations")
 	var d1 = GameSessionScript.new(_determinism_cfg())
 	var d2 = GameSessionScript.new(_determinism_cfg())
 	for i in range(4):
@@ -621,3 +755,33 @@ func _dist_km(a: Array, b: Array) -> float:
 	var dy := float(a[1]) - float(b[1])
 	var dz := float(a[2]) - float(b[2])
 	return sqrt(dx * dx + dy * dy + dz * dz)
+
+
+## A0-T2 失败路径测试用的可控几何 provider（只读契约实现；不写任何游戏状态）。
+## 可人为设置 t / states / frame，用来制造时间不匹配与实体缺失。
+class _FakeGeometryProvider:
+	var t := 0.0
+	var frame := "bary_rot"
+	var ready := true
+	var states: Dictionary = {}
+
+	func geometry_ready() -> bool:
+		return ready
+
+	func geometry_frame() -> String:
+		return frame
+
+	func geometry_t() -> float:
+		return t
+
+	func geometry_state(entity_id: String) -> Dictionary:
+		if not states.has(entity_id):
+			return {"ok": false, "reason": "unknown_entity", "id": entity_id}
+		var row: Dictionary = states[entity_id]
+		var r: Array = row.get("r", []) if row.get("r") is Array else []
+		var v: Array = row.get("v", []) if row.get("v") is Array else []
+		if r.size() < 3 or v.size() < 3:
+			return {"ok": false, "reason": "non_finite_state", "id": entity_id}
+		return {"ok": true, "id": entity_id, "frame": frame, "t": t,
+			"r": r.duplicate(), "v": v.duplicate(),
+			"units": {"length": "km", "velocity": "km/s", "time": "s"}}
