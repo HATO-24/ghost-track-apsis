@@ -369,7 +369,12 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 ### 7.0 当前分支实际结果 —— 75 cases（A0-T2 / Issue #4.1）
 
 > 本节是**当前分支** `phase-a1/sensor-geometry-physics`（PR #20，base=PR #19 head `8c1483a`；
-> PR #19 base=PR #17 head `5bb763d`）在 **head `e8716bb`** 上的真实执行结果。
+> PR #19 base=PR #17 head `5bb763d`）的真实执行结果。
+> **提交分工**：
+> - **`e8716bb`** = 实现/探针代码提交（运行时代码 + 143 断言探针的最后变更）；
+> - **`b13e5d1`** = 文档提交（本文件 §7.0/§7.0a 的结果同步；docs-only，不改代码/测试）；
+> - **`40084016517`** = **当前文档提交 `b13e5d1` 对应的最新 CI 验证**（§7.0 引用此 run）。
+>
 > **§7A.1–§7A.3 是 Phase 0 时期的历史记录（72 cases），不是本次运行结果**，两者不可混用。
 
 - 矩阵规模（当前仓库）：**75 cases = 70 个常规 probe + 1 个 e2e probe + 4 个 boot smoke**
@@ -384,26 +389,37 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 - Phase 0 gate：`pwsh ./run_tests.ps1 -Gate phase0 -Ci` → **6/6 PASS**，exit 0
 - A0-T2 探针（**当前**）：`integration.a0_sensor_geometry` → **PASS 143/0**
 - A0-T1 探针（前序 PR）：`integration.a0_world_physics_sync` → **PASS 97/0**
-- **CI（当前 head `e8716bb`）**：run
+- **CI（当前文档提交 `b13e5d1`）**：run
+  [40084016517](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40084016517)
+  （head `b13e5d160793b83d391989b3bff2531fc99aedec`）两个 job 均 success；
+  - `Phase 0 gate` → 6/6 PASS（[job/120843157028](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40084016517/job/120843157028)）
+  - `Full matrix (baseline-aware)` → **75 = 67 PASS / 8 KNOWN-BASELINE FAIL / 0 TIMEOUT / 0 NOT RUN**，
+    `known_fail=8 new_fail=0 drift=0 complete=true`，exit 0（[job/120843157163](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40084016517/job/120843157163)）
+  - artifacts 已 `gh run download` 核对：`full-matrix-results-40084016517-1` 396,828 B /
+    sha256 `f7ff8234d41b449f1b20b981fcdaedc6e5665627ca3419497c491d387c29f6bc`（summary
+    total=75/pass=67/fail=8/timeout=0/not_run=0、baseline complete=true）；
+    `phase0-gate-results-40084016517-1` 27,387 B /
+    sha256 `5fdb3cd031d0d9c21f3632126cd9f9e8bedea7688ffb03d0dce145b160c1a87f`（summary
+    total=6/pass=6/gate=phase0）；A0-T2 日志 `PASS=143 FAIL=0`
+
+#### 7.0a 前一轮运行（保留，勿当作当前结果）
+
+> 以下为 **PR #20 更早轮次**的运行记录，**不是当前结果**；当前结果见 §7.0。
+> 两轮代码/测试数字一致（75=67/8/0/0、A0-T2 143/0），仅提交与 run 不同。
+
+- **实现/探针代码提交 `e8716bb`**（运行时代码最后变更）：run
   [40081652773](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40081652773)
   （head `e8716bbbc1be0189120a2718488444a2425b6ceb`）两个 job 均 success；
   - `Phase 0 gate` → 6/6 PASS（[job/120836283191](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40081652773/job/120836283191)）
   - `Full matrix (baseline-aware)` → **75 = 67 PASS / 8 KNOWN-BASELINE FAIL / 0 TIMEOUT / 0 NOT RUN**，
     `known_fail=8 new_fail=0 drift=0 complete=true`，exit 0（[job/120836283376](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40081652773/job/120836283376)）
-  - artifacts 已 `gh run download` 核对：`full-matrix-results-40081652773-1` 396,878 B /
-    sha256 `a31800b31b43877e5ae4cdfc6554a49efcdc2f9476e0eba29bf464b592577cb9`（summary
-    total=75/pass=67/fail=8/timeout=0/not_run=0、baseline complete=true）；
+  - artifacts：`full-matrix-results-40081652773-1` 396,878 B /
+    sha256 `a31800b31b43877e5ae4cdfc6554a49efcdc2f9476e0eba29bf464b592577cb9`；
     `phase0-gate-results-40081652773-1` 27,380 B /
-    sha256 `bb29b80280f7d414e38175f129ad9ff189734c466a5c8d4eef6fafab34821ba3`（summary
-    total=6/pass=6/gate=phase0）；A0-T2 日志 `PASS=143 FAIL=0`
-
-#### 7.0a A0-T2 历史运行（保留，勿当作当前结果）
-
-> 以下为 **PR #20 失败路径修正之前**的运行记录，**不是当前结果**；当前结果见 §7.0。
-
+    sha256 `bb29b80280f7d414e38175f129ad9ff189734c466a5c8d4eef6fafab34821ba3`
 - **初版几何绑定（真实提交 `382f8c1`）**：A0-T2 探针 **PASS 107/0**，全量 75 = 67 PASS /
   8 FAIL / 0 TIMEOUT / 0 NOT RUN（`known_fail=8 new_fail=0 drift=0 complete=true`）。
-  > 更正：此前本节误写为 head `4d10a83`；该 SHA **在仓库中不存在**（从未有过此提交）。
+  > 更正：此前曾误写为 head `4d10a83`；该 SHA **在仓库中不存在**（从未有过此提交）。
   > 初版几何绑定的真实提交是 `382f8c1`，其后为失败路径轮 `6bd7d75`（红）/ `e8716bb`（绿）。
 - **初版 CI**：run [40070006655](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40070006655)
   （head `382f8c1345f30bf98e6e4d5a649c497fedc824b3`）两个 job 均 success；
@@ -412,7 +428,7 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
   sha256 `d9dca52e4775ad06a6d3530b95a66a2013230579e29a452f2ceb3d43603e6428`；
   `phase0-gate-results-40070006655-1` 27,393 B /
   sha256 `842fb32ae405deb86fef2f795848b4fc490a3adf3467b702800d4145c53cc431`。
-- 该轮探针为 **107 断言**；当前轮（失败路径修正后）为 **143 断言**，两者不可混用。
+- 初版探针为 **107 断言**；`e8716bb` 起（失败路径修正后）为 **143 断言**，两者不可混用。
 
 | 分类 | total | pass | fail |
 | --- | --- | --- | --- |
