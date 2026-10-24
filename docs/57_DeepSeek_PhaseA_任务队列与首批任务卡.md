@@ -2,7 +2,7 @@
 
 日期：2026-10-25（Asia/Shanghai）  
 规划：Sol；执行目标：DeepSeek v4.1 Flash；独立审查：Astra  
-状态：任务规格已起草；仅 DS-A-00 可立即开始，其余按依赖解锁。写卡不代表已启动 DeepSeek，也不代表任何实现获准合并。
+状态：任务规格已发布为 GitHub Issues #23–#30，尚待实施；仅 DS-A-00 可立即开始，其余按依赖解锁。写卡不代表已启动 DeepSeek，也不代表任何实现获准合并。
 
 ## 1. 需求与证据
 
@@ -28,14 +28,14 @@ P20 已包含 P17/P19，不得重复移植同一功能。推荐候选分支从�
 
 | 顺序 | 卡 | 当前状态 | 前置及输出 |
 | --- | --- | --- | --- |
-| 0 | [DS-A-00 契约协调](tasks/phase_a/DS-A-00_contracts.md) | READY | 冻结 PR heads、断言映射和整合候选 I0 |
-| 1 | [DS-A-01 实现链整合验收](tasks/phase_a/DS-A-01_integration.md) | WAIT A-00 | 同一提交验证已有链及剩余缺口，输出 I1 |
-| 2 | [DS-A-02 frame/epoch 与消费者来源](tasks/phase_a/DS-A-02_frame_epoch.md) | WAIT I1 | 统一明确的时间/坐标语义，输出 I2 |
-| 3 | [DS-A-03 事件历史与续写](tasks/phase_a/DS-A-03_event_continuity.md) | WAIT I1；集成在 I2 后 | EventBus 恢复接口、序号/ID 连续性，输出 I3 |
-| 4 | [DS-A-04 旧档迁移与去重](tasks/phase_a/DS-A-04_legacy_save.md) | WAIT I3 | 旧档策略与超缓冲边界，输出 I4 |
-| 5 | [DS-A-05 传感器持久化](tasks/phase_a/DS-A-05_sensor_persistence.md) | WAIT I1；集成在 I4 后 | EMCON/雷达/通道续跑一致，输出 I5 |
-| 6 | [DS-A-06 HUD 通信恢复](tasks/phase_a/DS-A-06_comms_restore.md) | WAIT I5 | 先复现 no_route，再修恢复并验收，输出 I6 |
-| 7 | [DS-A-07 长时成本标定](tasks/phase_a/DS-A-07_save_cost.md) | WAIT I6 | 可复跑成本曲线与预算建议；优化另卡 |
+| 0 | [DS-A-00 契约协调](tasks/phase_a/DS-A-00_contracts.md) · [#23](https://github.com/HATO-24/ghost-track-apsis/issues/23) | READY | 冻结 PR heads、断言映射和整合候选 I0 |
+| 1 | [DS-A-01 实现链整合验收](tasks/phase_a/DS-A-01_integration.md) · [#24](https://github.com/HATO-24/ghost-track-apsis/issues/24) | WAIT A-00 | 同一提交验证已有链及剩余缺口，输出 I1 |
+| 2 | [DS-A-02 frame/epoch 与消费者来源](tasks/phase_a/DS-A-02_frame_epoch.md) · [#25](https://github.com/HATO-24/ghost-track-apsis/issues/25) | WAIT I1 | 统一明确的时间/坐标语义，输出 I2 |
+| 3 | [DS-A-03 事件历史与续写](tasks/phase_a/DS-A-03_event_continuity.md) · [#26](https://github.com/HATO-24/ghost-track-apsis/issues/26) | WAIT I1；集成在 I2 后 | EventBus 恢复接口、序号/ID 连续性，输出 I3 |
+| 4 | [DS-A-04 旧档迁移与去重](tasks/phase_a/DS-A-04_legacy_save.md) · [#27](https://github.com/HATO-24/ghost-track-apsis/issues/27) | WAIT I3 | 旧档策略与超缓冲边界，输出 I4 |
+| 5 | [DS-A-05 传感器持久化](tasks/phase_a/DS-A-05_sensor_persistence.md) · [#28](https://github.com/HATO-24/ghost-track-apsis/issues/28) | WAIT I1；集成在 I4 后 | EMCON/雷达/通道续跑一致，输出 I5 |
+| 6 | [DS-A-06 HUD 通信恢复](tasks/phase_a/DS-A-06_comms_restore.md) · [#29](https://github.com/HATO-24/ghost-track-apsis/issues/29) | WAIT I5 | 先复现 no_route，再修恢复并验收，输出 I6 |
+| 7 | [DS-A-07 长时成本标定](tasks/phase_a/DS-A-07_save_cost.md) · [#30](https://github.com/HATO-24/ghost-track-apsis/issues/30) | WAIT I6 | 可复跑成本曲线与预算建议；优化另卡 |
 
 I0–I6 是未来交付物的名字，**不是已存在 SHA**。每张卡开始前必须把其前置交付物解析为完整 40 位 SHA，记入任务执行报告，并更新该卡的执行基线；依赖未完成时不得宣称已具备可执行基线。若 main/PR 有新提交，A-00 重新核对变化后重建候选；后卡不得凭短 SHA 或“最新分支”运行。
 
@@ -100,4 +100,4 @@ Phase A 探针在全部切片完成前仍可能为红。每卡分别报告“本
 | Phase D | 改装改变实际能力；HUD 只读视图；态势图层和资产 | 相关 A–C 数据接口稳定；行为、截图和集成分别验收 |
 | Phase E | 渐进拆分、版本化内容与迁移、mod/story 接口 | 基础闭环与回归稳定；避免整类重写 |
 
-本批交付只包含任务文档与交接卡，不把模型展示、历史 PASS、截图或误派工事件实验当作完成证据。各卡最终需 Astra 独立审查；项目负责人决定取舍与合并。
+本批交付只包含任务文档与交接卡，不把模型展示、历史 PASS、截图或误派工事件实验当作完成证据。规格经过独立静态复核，修正了测量用例超出 TrackTable 字段范围、新回归与新发现旧缺陷的区别，以及旧档去重 fixture 的日志入口；没有运行 Godot。各卡实现最终仍需 Astra 独立审查；项目负责人决定取舍与合并。
