@@ -71,17 +71,43 @@ GameSession.tick()
 
 - `refresh_geometry(t)` 校验 `|provider.geometry_t() - t| <= 1e-6 s`；
   不一致 → `ok=false, reason="time_mismatch"`，**不使用旧几何**（不静默）。
+- **时间不匹配时不生成观测/证据**：`step()` 用 `_geometry_usable()` 判定；不可用时
+  跳过 `_collect_observations` / `_collect_optical_evidence`，只记一次
+  `geometry_unavailable` 事件并累加 `suppressed_steps`（可审计）。**不会**用上一次
+  observer/target 坐标产出「当前时刻」观测。
 - 观测行的 `t` == 生成它的 `physics t` == `session t`（探针断言最新批次）。
 - 几何行携带 `geometry_t`/`geometry_frame`/`geometry_source` 供审计。
 
 ### 2.4 显式降级（不静默把旧静态位置当物理真值）
 
-| 条件 | `geometry_status().source` | `authoritative` | 记录 |
-|---|---|---|---|
-| physics 已启用且同坐标语义 | `physics_world` | `true` | `last.ok=true, time_ok=true` |
-| 无 PhysicsWorld | `static` | `false` | 静态配置位置（**非**物理真值） |
-| 4F 帧转换会话（`physics_frame_meta.applied=true`） | `static` | `false` | `reason=frame_mismatch` |
-| provider 未就绪 | `static` | `false` | `reason=provider_not_ready` |
+`geometry_status()` 的公开字段：
+
+| 字段 | 语义 |
+|---|---|
+| `source` | `physics_world` / `static` / `unavailable` / `none` |
+| `authoritative` | **仅当** source=physics_world 且 complete 时为 true |
+| `complete` / `available` | 时间一致 + observer 绑定 + targets 全部绑定 + 无帧不匹配 |
+| `reason` | 精确原因：`time_mismatch` / `observer_missing` / `target_missing` / `frame_mismatch` / `no_physics_world` / `no_sensor_service` / `provider_not_ready`（成功时为空） |
+| `missing` | observer 缺失的实体 id 列表 |
+| `skipped` | 未取得当前物理状态的 target id 列表 |
+| `mismatched_frame` | 帧不匹配的 target id 列表 |
+| `suppressed_steps` | 因几何不可用而抑制观测生成的 step 次数 |
+| `observer_bound` / `bound` | observer 是否绑定 / 本次绑定成功的 target 数 |
+| `geometry_t` / `t` | 几何采样时刻 / 传感器当前时刻 |
+
+| 条件 | `source` | `authoritative` | `reason` | 行为 |
+|---|---|---|---|---|
+| physics 已启用且同坐标语义、全部绑定成功 | `physics_world` | `true` | `""` | 正常生成观测 |
+| **provider 时间与传感器时间不一致** | `physics_world` | `false` | `time_mismatch` | **不生成观测**（旧坐标不参与） |
+| **observer 在 PhysicsWorld 中缺失** | `physics_world` | `false` | `observer_missing` | **不生成观测**；`missing` 记录 id |
+| **单个 target 缺失** | `physics_world` | `false` | `target_missing` | **不生成观测**；`skipped` 记录 id；该行 `pos_km/vel_kmps` 清空并标 `geometry_source=unavailable` |
+| 无 PhysicsWorld | `static` | `false` | `no_physics_world` | 静态配置位置（**非**物理真值） |
+| 4F 帧转换会话 | `static` | `false` | `frame_mismatch` | 显式不绑定；`mark_geometry_unavailable("frame_mismatch")` |
+| provider 未就绪 | `static` | `false` | `provider_not_ready` | 静态几何 |
+| 无 sensor_service | `none` | `false` | `no_sensor_service` | — |
+
+**关键约束**：部分绑定失败时**不写混合坐标快照**到 authority（否则旧坐标会被当成
+当前真值参与观测）；`authoritative` 不会因为「部分成功」而误报为 true。
 
 ## 3　修改文件
 
@@ -89,7 +115,7 @@ GameSession.tick()
 |---|---|---|
 | `game_v17/scripts/core/sensor_service.gd` | 修改 | 几何来源常量/状态；`bind_geometry_provider()` / `refresh_geometry()` / `geometry_status()`；`step()` 内按当前 t 刷新几何；静态元数据不被覆盖 |
 | `game_v17/scripts/core/game_session.gd` | 修改 | `_bind_sensor_geometry()` / `_sensor_geometry_bind_allowed()` / `_SensorGeometryProvider`（只读 provider）；boot 末尾绑定；`sensor_geometry_status()` 公开诊断 |
-| `game_v17/tests/a0_sensor_geometry_probe.gd` | 新增 | 真实入口集成探针（**107 断言**） |
+| `game_v17/tests/a0_sensor_geometry_probe.gd` | 新增 | 真实入口集成探针（**143 断言**） |
 | `game_v17/tests/probe_matrix.json` | 修改 | 新增 `integration.a0_sensor_geometry`（**不加入** `gates.phase0`）；75 cases |
 | `game_v17/docs/sensor_service.md` | 修改 | §2A 几何绑定契约（来源分工/采样时刻/降级/诊断/边界） |
 | `game_v17/docs/game_session.md` | 修改 | tick 编排中的 sensor 几何绑定段 |
@@ -114,7 +140,7 @@ GameSession.tick()
 不加入 `gates.phase0`）。真实入口 `main_menu → v1_hud → ShellBinder → GameSession`
 （`DSH_BUILD=orbital_sim`）。
 
-断言组（**107 断言**）：
+断言组（**143 断言**）：
 
 1. 真实入口 + sensor/physics 启用清点；
 2. **静态配置基线**：实测静态 target 位置与 physics 位置的差值（打印 `GEOMETRY GAP`，
@@ -130,11 +156,24 @@ GameSession.tick()
 6. **观测语义保留**：track 有 observation sources、identity 来自证据、
    `track.range_km ≈ 最新 observation.range_km`；CombatService track 行无 pos_km；
    HUD contact 无 truth 位置字段、使用 safe display；
-7. **降级**：无 physics → `source=static, authoritative=false`；
-   帧转换会话 → `source=static, authoritative=false, reason=frame_mismatch`；
-8. **确定性**：同一操作序列的 geometry status / observations / TrackTable 完全一致。
+7. **降级（精确 reason）**：无 physics → `source=static, authoritative=false,
+   reason=no_physics_world, complete=false`；帧转换会话 → `source=static,
+   authoritative=false, reason=frame_mismatch, complete=false, last.ok=false,
+   last.time_ok=false`（**不再接受空原因或 provider_not_ready**）；
+8. **时间不匹配失败路径**（可控 provider 人为制造）：`reason=time_mismatch`、
+   `authoritative=false`、`complete=false`、`available=false`、`last.time_ok=false`；
+   **观测数量不增加**（旧几何不产出当前观测）；`suppressed_steps > 0`；
+   时间恢复一致后 `authoritative=true` 且观测继续生成（非永久关死）；
+9. **observer 缺失失败路径**：`reason=observer_missing`、`authoritative=false`、
+   `complete=false`、`observer_bound=false`、`missing` 含该 id、**观测数 0**；
+10. **单个 target 缺失失败路径**：`reason=target_missing`、`authoritative=false`、
+    `complete=false`、`skipped` 含该 id、**观测数 0**（混合坐标被抑制）、
+    缺失行 `geometry_source=unavailable` 且 `pos_km` 已清空（不沿用旧静态坐标）；
+11. **失败路径确定性**：相同缺失场景两次运行的 geometry status / 观测数一致；
+12. **正常路径确定性**：同一操作序列的 geometry status / observations / TrackTable 完全一致。
 
-红/绿证据见 PR 描述（红 `PASS=74 FAIL=33` → 绿 `PASS=107 FAIL=0`）。
+红/绿证据见 PR 描述（初版红 `PASS=74 FAIL=33` → 绿 `PASS=107 FAIL=0`；
+失败路径轮 红 `PASS=116 FAIL=27` → 绿 `PASS=143 FAIL=0`）。
 
 ## 6　未覆盖 / NOT RUN
 

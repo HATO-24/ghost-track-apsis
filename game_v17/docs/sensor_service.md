@@ -89,13 +89,25 @@ session.sensor_geometry_status()  # 只读诊断（见下）
 
 - **采样时刻**：`step()` 在推进后按当前 `t` 刷新几何；`geometry_t == physics t == session t`。
   若 `|provider_t - t| > 1e-6 s` → `ok=false, reason="time_mismatch"`，**不使用旧几何**。
+- **几何不可用时抑制观测**：`step()` 用 `_geometry_usable()` 判定；时间不一致 / observer
+  缺失 / 目标缺失 / 帧不匹配时**不生成** observation/evidence（只记一次
+  `geometry_unavailable` 事件并累加 `suppressed_steps`）。绝不把上一次坐标当成当前观测。
 - **降级（显式，不静默）**：
-  - 无 PhysicsWorld → `source="static"`、`authoritative=false`（静态配置位置，非物理真值）；
-  - 坐标系不匹配（4F 帧转换会话）→ `source="static"`、`reason="frame_mismatch"`；
-    绝不把 bary_rot 数值写进 L1 相对语义的静态 target。
+  - 无 PhysicsWorld → `source="static"`、`authoritative=false`、`reason="no_physics_world"`
+    （静态配置位置，非物理真值）；
+  - 坐标系不匹配（4F 帧转换会话）→ `source="static"`、`reason="frame_mismatch"`
+    （由 `mark_geometry_unavailable("frame_mismatch")` 显式标记）；绝不把 bary_rot
+    数值写进 L1 相对语义的静态 target；
+  - 单个 target 缺失 → 该行 `geometry_source="unavailable"`、`pos_km/vel_kmps` 清空，
+    **不沿用旧静态坐标**参与观测；整体 `authoritative=false`。
 - **诊断** `sensor_service.geometry_status()`：
-  `{source, authoritative, frame, units, t, observer_id, observer_pos_km, targets, last, seq, writes}`；
-  `last` 含 `{ok,source,frame,t,provider_t,time_ok,bound,missing,skipped,mismatched_frame,seq}`。
+  `{source, authoritative, complete, available, reason, frame, units, t, geometry_t,
+  observer_id, observer_pos_km, observer_bound, targets, bound, missing, skipped,
+  mismatched_frame, suppressed_steps, last, seq, writes}`；
+  `last` 含 `{ok,source,frame,t,provider_t,time_ok,bound,missing,skipped,mismatched_frame,
+  observer_bound,usable,reason,seq}`。
+  `authoritative` **仅当** `source=physics_world` 且 `complete`（时间一致 + observer 绑定 +
+  targets 全部绑定 + 无帧不匹配）时为 true；部分成功不会误报。
 - **边界**：几何绑定只改内存中的 observer/targets 几何字段与 authority 快照，
   **不写 world/TrackTable/V15/UI**；`range_km`/`bearing_deg` 仍是**观测值**（含传感器噪声），
   不得替换为物理真值；HUD/CombatService 不读传感器内部真值。

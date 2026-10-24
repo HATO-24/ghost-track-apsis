@@ -64,8 +64,12 @@ GameSession
   `SensorService.step()` 在推进后按当前 `t` 刷新几何，保证 `geometry_t == physics t ==
   session t`（容差 1e-6 s）。frame=`bary_rot`，单位 km / km/s。静态元数据（rcs/side/iff/
   classification）仍来自原权威，不被几何刷新覆盖。**降级显式**：无 physics →
-  `source=static`；4F 帧转换会话 → `source=static, reason=frame_mismatch`（不做隐式跨帧）。
-  诊断：`sensor_geometry_status()` / `sensor_service.geometry_status()`。几何绑定不写
+  `source=static, reason=no_physics_world`；4F 帧转换会话 →
+  `source=static, reason=frame_mismatch`（不做隐式跨帧）。
+  诊断：`sensor_geometry_status()` / `sensor_service.geometry_status()`，含
+  `source/authoritative/complete/available/reason/missing/skipped/mismatched_frame/suppressed_steps`。
+  **几何不可用时（时间不一致 / observer 缺失 / 目标缺失 / 帧不匹配）不生成观测**，
+  绝不把旧坐标或混合坐标当成当前 PhysicsWorld 真值。几何绑定不写
   world/TrackTable/V15/UI；`range_km` 仍是**观测值**，不替换为物理真值。
 
 - **Port/Combat → EventBus**：session tick 驱动二者 step；其 outbox 事件映射为 `port.*`/`combat.*`

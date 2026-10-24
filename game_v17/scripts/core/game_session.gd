@@ -861,19 +861,24 @@ func _setup_optional_components() -> void:
 
 ## A0-T2（Issue #4.1）：传感器几何绑定统一物理世界。
 ## 只在 physics 已启用、且 seed 未做 L1→bary_rot 帧转换时绑定（同坐标语义）；
-## 否则保持静态几何，由 sensor_service.geometry_status().source 明确标注 static。
+## 否则显式标记几何不可用（公开诊断 reason 精确为 frame_mismatch / no_physics_world）。
 func _bind_sensor_geometry() -> Dictionary:
 	if sensor_service == null or physics_world_service == null:
-		return {"ok": false, "reason": "missing_component", "source": "static"}
+		var r0 := "no_sensor_service" if sensor_service == null else "no_physics_world"
+		if sensor_service != null and sensor_service.has_method("mark_geometry_unavailable"):
+			sensor_service.mark_geometry_unavailable(r0)
+		return {"ok": false, "reason": r0, "source": "static"}
 	if not _sensor_geometry_bind_allowed():
-		var st: Dictionary = sensor_service.geometry_status() if sensor_service.has_method("geometry_status") else {}
-		return {"ok": false, "reason": "frame_mismatch",
-			"source": String(st.get("source", "static")), "bound": 0}
+		# 4F 帧转换会话：坐标语义不匹配 → 显式标记不可用并给出精确 reason。
+		var frame := String(_physics_frame_meta.get("frame_origin", "l1"))
+		var detail := {"frame": frame, "mismatched_frame": [frame]}
+		if sensor_service.has_method("mark_geometry_unavailable"):
+			sensor_service.mark_geometry_unavailable("frame_mismatch", detail)
+		warnings.append("sensor geometry 保持静态（坐标系不匹配，不做隐式转换）")
+		return {"ok": false, "reason": "frame_mismatch", "source": "static", "bound": 0}
 	var res: Dictionary = sensor_service.bind_geometry_provider(_SensorGeometryProvider.new(self))
 	if not bool(res.get("ok", false)):
 		warnings.append("sensor geometry 绑定失败：" + str(res.get("reason", "")))
-		if String(res.get("reason", "")) == "frame_mismatch":
-			warnings.append("sensor geometry 保持静态（坐标系不匹配，不做隐式转换）")
 	return res
 
 func _sensor_geometry_bind_allowed() -> bool:
