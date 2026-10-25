@@ -129,6 +129,8 @@ var _last_track_t := 0.0
 var _last_story_revision := 0
 var _last_bus_routed_index := 0
 var _routed_seqs: Dictionary = {}
+# A-04：旧档迁移报告（支持矩阵 + 可恢复范围 + 无法恢复项，诚实标注）
+var _legacy_migration: Dictionary = {}
 var _sensor_track_map: Dictionary = {}
 var _sensor_target_meta: Dictionary = {}
 
@@ -1237,6 +1239,14 @@ func _apply_physics_frame_offset(body: Dictionary, offset: Array) -> bool:
 ## 4F 帧转换只读元数据（转换/未转换/偏移/原因）。
 func physics_frame_meta() -> Dictionary:
 	return _physics_frame_meta.duplicate(true)
+
+
+## A-04：旧档迁移报告（只读）。诚实列出采用的迁移版本、可恢复范围与**无法恢复**项，
+## 便于审查「重放集合合并」而非「尾部替换」，以及部分恢复的显式标注。
+func legacy_migration_report() -> Dictionary:
+	if _legacy_migration.is_empty():
+		return {"schema": "v17.legacy_migration.v1", "applied": false}
+	return _legacy_migration.duplicate(true)
 
 
 ## A-02：时间与坐标语义的**单一元数据来源**（只读）。
@@ -4726,6 +4736,11 @@ func load_state(json_text: String) -> Dictionary:
 		errors.append("load_state: schema 无效")
 		return {"ok": false, "reason": "invalid_schema"}
 	var seed = data.get("seed", {})
+	# A-04：`log` 是旧档可恢复性的唯一操作证据；缺失或类型错误必须显式拒绝，
+	# 不能默认成空日志后「静默开一场新模拟」。
+	if not data.has("log"):
+		errors.append("load_state: 缺少 log 段（无法重建可恢复历史）")
+		return {"ok": false, "reason": "missing_log"}
 	var log = data.get("log", [])
 	if not (seed is Dictionary) or not (log is Array):
 		errors.append("load_state: seed/log 类型无效")
@@ -4905,32 +4920,128 @@ func load_state(json_text: String) -> Dictionary:
 	else:
 		_combat_scale_cap_active = false
 		_scale_before_combat = 1.0
-	# A-03：恢复事件总线历史 —— 通过 EventBus 的版本化导入接口（导入 ≠ 发布，不派发历史）。
-	# 旧存档（只有 seq/events，无 schema）走兼容分支并显式标注 legacy_partial；
-	# 完整旧档迁移（超环形缓冲去重、旧版本矩阵）由 DS-A-04 承接。
+	# A-03 / A-04：恢复事件总线历史 —— 通过 EventBus 的版本化导入接口（导入 ≠ 发布，不派发历史）。
+	# 迁移必须采用「重放已用集合 ∪ 可见历史 ID」，**不是**用尾部历史替换集合：
+	# 早期显式 ID 可能已被 1000 条环形缓冲裁掉，但仍存在于 seed+log 重放结果中。
+	var replay_seen: Array = []
+	for k0 in bus._seen_ids.keys():
+		replay_seen.append(String(k0))
+	var replay_seq := int(bus.seq)
+	var replay_id_seq := int(bus._id_seq)
 	var saved_bus = data.get("bus", null)
-	if saved_bus is Dictionary:
-		var sb: Dictionary = saved_bus
-		if not sb.has("schema"):
-			# 旧档：先保留 boot 重放得到的已用 ID，再并入可见历史；高水位不倒退。
-			var legacy_seen: Array = []
-			for k in bus._seen_ids.keys():
-				legacy_seen.append(String(k))
+	_legacy_migration = {
+		"schema": "v17.legacy_migration.v1",
+		"applied": false,
+		"shape": "new",
+		"save_schema": String(data.get("schema", "")),
+		"version_adopted": 0,
+		"replay_seen_ids": replay_seen.size(),
+		"replay_seq": replay_seq,
+		"replay_id_seq": replay_id_seq,
+		"recovered": {},
+		"partial": [],
+		"unrecoverable": [],
+	}
+	if not (saved_bus is Dictionary):
+		# 形态 A：无 bus 段 → 保留重放可恢复的 seq / allocator / 已用 ID，只记录迁移版本。
+		_legacy_migration["applied"] = true
+		_legacy_migration["shape"] = "no_bus_section"
+		_legacy_migration["version_adopted"] = 1
+		_legacy_migration["recovered"] = {
+			"seq": replay_seq, "id_seq": replay_id_seq,
+			"seen_ids": replay_seen.size(), "events": bus.events.size(),
+			"source": "seed+log replay",
+		}
+		_legacy_migration["partial"].append(
+			"no bus section: visible history rebuilt from seed+log replay only")
+		warnings.append("旧档无 bus 段：按 seed+log 重放恢复（迁移版本 1）")
+	else:
+		var sb2: Dictionary = saved_bus
+		if not sb2.has("schema"):
+			# 形态 B：旧 bus（只有 seq/events）→ 合并重放已用集合 ∪ 可见历史 ID，高水位不倒退。
+			_legacy_migration["applied"] = true
+			_legacy_migration["shape"] = "legacy_bus_seq_events"
+			_legacy_migration["version_adopted"] = 2
+			# 旧 bus 的 seq/events 也必须过整数契约与类型校验（不能用 int() 静默截断）。
+			var legacy_seq_ok := true
+			var raw_legacy_seq = sb2.get("seq", 0)
+			if not (raw_legacy_seq is int or raw_legacy_seq is float):
+				legacy_seq_ok = false
+				replay_errors.append("bus legacy: seq 类型无效（%s）" % type_string(
+					typeof(raw_legacy_seq)))
+			elif is_nan(float(raw_legacy_seq)) or is_inf(float(raw_legacy_seq)):
+				legacy_seq_ok = false
+				replay_errors.append("bus legacy: seq 非有限")
+			elif absf(float(raw_legacy_seq) - roundf(float(raw_legacy_seq))) > 0.0:
+				legacy_seq_ok = false
+				replay_errors.append("bus legacy: seq 不是整数（%s）" % str(raw_legacy_seq))
+			elif float(raw_legacy_seq) < 0.0 or float(raw_legacy_seq) > 9007199254740991.0:
+				legacy_seq_ok = false
+				replay_errors.append("bus legacy: seq 越界（%s）" % str(raw_legacy_seq))
+			var raw_legacy_events = sb2.get("events", null)
+			if not (raw_legacy_events is Array):
+				legacy_seq_ok = false
+				replay_errors.append("bus legacy: events 必须是数组（实际 %s）" % type_string(
+					typeof(raw_legacy_events)))
+			var legacy_saved_seq := maxi(int(roundf(float(raw_legacy_seq)))
+				if legacy_seq_ok else 0, 0)
+			var merged_seen: Array = replay_seen.duplicate()
+			var visible_ids: Array = []
+			if raw_legacy_events is Array:
+				for raw_le in (raw_legacy_events as Array):
+					if raw_le is Dictionary:
+						var lid := String((raw_le as Dictionary).get("id", ""))
+						if lid != "" and not (lid in merged_seen):
+							merged_seen.append(lid)
+						if lid != "":
+							visible_ids.append(lid)
 			var legacy_state: Dictionary = {
-				"seq": maxi(int(sb.get("seq", 0)), int(bus.seq)),
-				"id_seq": int(bus._id_seq),
-				"events": sb.get("events", []),
-				"seen_ids": legacy_seen,
+				"seq": maxi(legacy_saved_seq, replay_seq),
+				"id_seq": replay_id_seq,
+				"events": raw_legacy_events if raw_legacy_events is Array else [],
+				"seen_ids": merged_seen,
 			}
-			var lr_bus: Dictionary = bus.import_state(legacy_state)
-			if not bool(lr_bus.get("ok", false)):
-				replay_errors.append("bus legacy 导入失败：" + str(lr_bus.get("errors", [])))
+			var lr_bus: Dictionary = {"ok": false, "errors": []}
+			if legacy_seq_ok:
+				lr_bus = bus.import_state(legacy_state)
 			else:
-				warnings.append("事件总线按 legacy_partial 迁移恢复（旧档仅含 seq/events）")
+				lr_bus = {"ok": false,
+					"errors": ["legacy bus 段校验失败，未导入（见上方具体原因）"]}
+			if not bool(lr_bus.get("ok", false)):
+				replay_errors.append("bus legacy 迁移失败：" + str(lr_bus.get("errors", [])))
+			else:
+				_legacy_migration["recovered"] = {
+					"seq": int(bus.seq), "id_seq": int(bus._id_seq),
+					"seen_ids": bus._seen_ids.size(),
+					"seen_ids_from_replay": replay_seen.size(),
+					"seen_ids_from_visible_history": visible_ids.size(),
+					"events": bus.events.size(),
+					"source": "replay used-ids UNION visible history ids",
+				}
+				_legacy_migration["partial"].append(
+					"legacy bus: allocator restored from replay; none of the ids " +
+					"evicted before save can be recovered beyond replay evidence")
+				warnings.append("旧档 bus 按「重放已用集合 ∪ 可见历史」迁移（迁移版本 2）")
 		else:
-			var br: Dictionary = bus.import_state(sb)
+			var br: Dictionary = bus.import_state(sb2)
 			if not bool(br.get("ok", false)):
 				replay_errors.append("bus 状态导入失败：" + str(br.get("errors", [])))
+			else:
+				_legacy_migration["version_adopted"] = 2
+				_legacy_migration["recovered"] = {
+					"seq": int(bus.seq), "id_seq": int(bus._id_seq),
+					"seen_ids": bus._seen_ids.size(), "events": bus.events.size(),
+					"source": "v2 bus state (full dedup set)",
+				}
+	# 旧档不可恢复的状态：显式声明（A-05 承接 SensorService 运行态）。
+	if data.get("sensor_service", null) == null:
+		_legacy_migration["unrecoverable"].append(
+			"sensor_service runtime state (EMCON/radar/channels): absent from this save; " +
+			"restored from seed defaults — DS-A-05 scope, NOT a lossless restore")
+	if data.get("entity_catalog", null) == null:
+		_legacy_migration["unrecoverable"].append(
+			"entity_catalog additions: rebuilt from the old seed by stable id "
+			+ "(fields unknown to the seed stay seed-default with source=seed)")
 	_replaying = false
 	_log = (log as Array).duplicate(true)
 	if track_table != null:
