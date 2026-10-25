@@ -222,15 +222,16 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # ── Phase A-01 authority regression gate (A0-T1/T2/T3) ───────────────────
-  # Independent of gates.phase0. These probes are EXPECTED TO FAIL on the current
-  # baseline: they encode the authority-chain defects Phase A0 located (Issues #2/#4).
-  # This job is therefore RED BY DESIGN until the underlying fixes land. It must never
-  # be made green with continue-on-error / skipped cases / relaxed assertions; the
-  # declared expected-failure baseline (phasea_baseline_failures.json) is what makes
-  # the numbers auditable. Gate phase0 is a separate job and is unaffected.
+  # ── Phase A authority regression gate (A0-T1/T2/T3 + later slices) ────────
+  # Independent of gates.phase0. The three A0 probes encode the authority-chain
+  # requirements (Issues #2/#4); some of them still fail on real, unfixed defects.
+  # IMPORTANT (DS-A-00): this job's red/green is driven by the probes' REAL exit codes,
+  # not by a hard-coded "must be FAIL" expectation. Real fixes are therefore allowed to
+  # turn this job green, while skipped / NOT RUN / inconsistent-count runs always fail.
+  # It must never be made green with continue-on-error / skipped cases / relaxed
+  # assertions. Gate phase0 is a separate job and is unaffected.
   phasea-gate:
-    name: Phase A gate (A0-T1/T2/T3 authority probes; RED BY DESIGN on the current baseline)
+    name: Phase A gate (authority probes; red/green driven by real probe exit codes)
     runs-on: windows-latest
     timeout-minutes: 30
     continue-on-error: false
@@ -391,14 +392,15 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $lines = @(
-            '## Phase A-01 authority regression gate (A0-T1/T2/T3)',
+            '## Phase A authority regression gate',
             '',
             'Cases: `-Gate phaseA` (track truth authority, entity metadata pipeline, save roundtrip authority).',
             '',
-            '**This job is RED BY DESIGN on the current baseline.** The three probes encode the authority-chain defects',
-            'that Phase A0 located (Issues #2/#4). They are declared in `game_v17/tests/phasea_baseline_failures.json` as',
-            'expected FAIL with exact counts; the CI step asserts that expected-failure SHAPE (not a green run).',
-            'Making this job green requires fixing the runtime authority chain — never skipping, hiding or relaxing the probes.',
+            '**Red/green is driven by the probes'' real exit codes** (DS-A-00 change), not by a hard-coded expectation.',
+            'Some probes still fail on real, unfixed authority-chain defects (Issues #2/#4); real fixes are allowed to',
+            'turn this job green. What the step always enforces: every declared case really executes (NOT RUN / TIMEOUT',
+            'never counts as pass), PASS has fail_count=0, FAIL has fail_count>0 and a non-zero exit code, and the',
+            'summary totals must agree with the per-case counts. Skipping, hiding or relaxing a probe is never allowed.',
             '`gates.phase0` is a separate job and is unaffected by this gate.',
             ''
           )
