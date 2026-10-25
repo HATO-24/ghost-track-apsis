@@ -781,6 +781,18 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.a0_comms_restore",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "DS-A-06: comms read-back recovery for a real HUD session. send_comms records a versioned outcome (ok/reason/mode/delivery_id/path/latency/relay/arrive_t/sent_t); replay re-executes each op and compares item by item, so an ORIGINAL failure (e.g. no_route) stays a failure instead of becoming a recovery error while a real divergence (success->failure, or mismatched reason/id/path/latency) is rejected with comms_replay_diverged. Covers LD direct, LR relay, queued and immediate deliveries with exactly-once delivery after restore, and legacy logs without outcomes are labelled legacy_unverified per the A-04 version rules.",
+      "script": "res://tests/a0_comms_restore_probe.gd",
+      "expected_markers": [
+        "A0-A06 COMMS RESTORE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 300
+    },    {
       "id": "integration.a0_sensor_persistence",
       "category": "integration",
       "profile": "",
