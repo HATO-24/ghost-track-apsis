@@ -1,0 +1,27 @@
+{
+  "bus_id_seq": 1010,
+  "bus_seq": 1011,
+  "early_event_id": "evt-legacy-early-1",
+  "early_event_seq": 6,
+  "early_event_type": "story.flag",
+  "early_payload": {
+    "fine": 0.001,
+    "flag": "legacy_early",
+    "ratio": 1.25
+  },
+  "early_still_visible": false,
+  "early_time_s": 0.125,
+  "generator_head": "f842b3db6158d08bb6da5221252745882a2cc858",
+  "op_log_contains_early_id": true,
+  "op_log_len": 1006,
+  "seen_ids_count": 1011,
+  "shape_a_removed_section": "bus",
+  "shape_b_removed_fields": [
+    "schema",
+    "version",
+    "id_seq",
+    "seen_ids",
+    "max_events"
+  ],
+  "visible_event_count": 1000
+}
