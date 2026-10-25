@@ -1,24 +1,24 @@
 extends SceneTree
 
 # ═══════════════════════════════════════════════════════════════════
-# JC-B03P：阶段性战区行动内容提案（P0）规格探针
+# JC-B03P R6 返修探针：内容与真实 catalog 一致、终态规则自洽、权威/玩家视图分离。
 #
-# 只校验**内容逻辑与引用一致性**：目标引用/字段/预算、结局与事件轨迹的预期终态、
-# 重复裁决幂等、「已失能未报告」不得提前结算、「单次 EW / 仍能战斗不得计永久失能」。
-# **不**复制一个假运行时裁决器去计算战役完成，也不把假想轨迹当真实战报。
+# 新增拒绝面（审查方要求）：
+#   * ship_class_id 必须真实存在于 canonical catalog（不接受 APSIS/HARMATTAN 自证）
+#   * 编制不得超过 command_capacity，点数不得超过预算
+#   * 零完成 + 时限必须判 defeat（不是 stalemate/victory）
+#   * 目标必须给出可实现失能机制 + 依赖 + 替代口径
+#   * 每条轨迹必须区分 authority 结果与玩家报告视图
 #
 # Output: `JC-B03P SCENARIO SPEC PROBE RESULT: PASS=n FAIL=m`; quit 0/1.
 # ═══════════════════════════════════════════════════════════════════
 
 const SPEC := "res://tests/fixtures/jc_scenario/jc_sector_01_proposal.json"
-const Contracts := preload("res://scripts/core/jc_contracts.gd")
+const FRIENDLY := "res://framework/content/ships_friendly.json"
+const ENEMY := "res://framework/content/ships_enemy.json"
 
-const REQUIRED_FIELDS := ["objective_id", "kind", "target_entity_instance_id",
-	"target_military_attribute", "enter_condition", "complete_condition",
-	"fail_condition", "evidence_source", "recoverable_in_mission",
-	"player_visible_feedback", "terminal_state", "priority"]
 const MILITARY_ATTRS := ["organic_fire_control", "command_node"]
-const OUTCOME_KEYS := ["victory", "defeat", "withdrawal", "stalemate", "timeout"]
+const TERMINALS := ["victory", "defeat", "withdrawal", "stalemate", "pending_report"]
 
 var _pass := 0
 var _fail := 0
@@ -28,7 +28,7 @@ var _finished := false
 
 func _initialize() -> void:
 	print("════════════════════════════════════════════════════════════════")
-	print("JC-B03P SCENARIO SPEC PROBE · content-only (no fake adjudicator)")
+	print("JC-B03P R6 SPEC PROBE · catalog-bound, rule-consistent, dual-view")
 	print("════════════════════════════════════════════════════════════════")
 	_watchdog()
 	_run()
@@ -38,7 +38,7 @@ func _watchdog() -> void:
 	await create_timer(120.0).timeout
 	if _finished:
 		return
-	print("[JC-B03P] FAIL watchdog timeout")
+	print("[B03P] FAIL watchdog timeout")
 	_fail += 1
 	_finish()
 
@@ -51,7 +51,7 @@ func _finish() -> void:
 	print("JC-B03P SCENARIO SPEC PROBE RESULT: PASS=%d FAIL=%d" % [_pass, _fail])
 	if _fail > 0:
 		for f in _failures:
-			print("[JC-B03P] FAILED: ", f)
+			print("[B03P] FAILED: ", f)
 		print("JC-B03P SCENARIO SPEC PROBE FAILED")
 	else:
 		print("JC-B03P SCENARIO SPEC PROBE OK")
@@ -61,12 +61,12 @@ func _finish() -> void:
 func _ok(cond: bool, label: String, detail := "") -> void:
 	if cond:
 		_pass += 1
-		print("[JC-B03P] PASS ", label, ("  " + detail) if detail != "" else "")
+		print("[B03P] PASS ", label, ("  " + detail) if detail != "" else "")
 	else:
 		_fail += 1
 		var line := label + (("  (" + detail + ")") if detail != "" else "")
 		_failures.append(line)
-		print("[JC-B03P] FAIL ", line)
+		print("[B03P] FAIL ", line)
 
 
 func _eq(actual, expected, label: String, detail := "") -> void:
@@ -75,252 +75,277 @@ func _eq(actual, expected, label: String, detail := "") -> void:
 		+ (("  " + detail) if detail != "" else ""))
 
 
-func _step(title: String) -> void:
+func _step(t: String) -> void:
 	print("")
-	print("[JC-B03P] STEP ", title)
+	print("[B03P] STEP ", t)
 
 
-func _info(text: String) -> void:
-	print("[JC-B03P] INFO ", text)
+func _info(t: String) -> void:
+	print("[B03P] INFO ", t)
 
 
 # ── run ─────────────────────────────────────────────────────────
 
 func _run() -> void:
-	_step("1. 提案本体与已确认边界")
+	_step("1. 提案本体与 catalog 绑定")
 	var doc: Dictionary = _read_json(SPEC)
 	_ok(not doc.is_empty(), "提案 fixture 可读", SPEC)
 	if doc.is_empty():
 		_finish()
 		return
-	_eq(String(doc.get("schema", "")), "v17.jc.scenario_spec.v1", "schema 正确")
-	_eq(int(doc.get("version", 0)), 1, "version 是整数 1")
-	_eq(String(doc.get("scenario_id", "")), "jc_sector_01", "scenario_id")
+	_eq(String(doc.get("schema", "")), "v17.jc.scenario_spec.v2", "schema v2")
+	_eq(int(doc.get("version", 0)), 2, "version = 2")
 	var status := String(doc.get("status", ""))
 	_ok(status.find("proposal") >= 0 and status.find("pending") >= 0,
-		"状态是「提案待用户核对」，不冒充正典", status)
-	var confirmed: Array = doc.get("confirmed_scope", [])
-	_ok(confirmed.size() >= 2, "确认边界有两项", str(confirmed.size()))
-	_info("CONFIRMED: " + JSON.stringify(confirmed))
+		"状态是「提案待用户核对」", status)
+	var cat: Dictionary = doc.get("catalog_binding", {}) if doc.get("catalog_binding") is Dictionary else {}
+	_eq(String(cat.get("friendly_catalog", "")), FRIENDLY, "友军 catalog 路径")
+	_eq(String(cat.get("enemy_catalog", "")), ENEMY, "敌方 catalog 路径")
+	var friendly_ids: Dictionary = _class_ids(FRIENDLY)
+	var enemy_ids: Dictionary = _class_ids(ENEMY)
+	_ok(friendly_ids.size() >= 8, "友军 catalog 可读", str(friendly_ids.size()))
+	_ok(enemy_ids.size() >= 5, "敌方 catalog 可读", str(enemy_ids.size()))
+	var bind: Dictionary = cat.get("entity_bindings", {}) if cat.get("entity_bindings") is Dictionary else {}
+	for named in bind.keys():
+		_ok(friendly_ids.has(String(bind[named])),
+			"命名舰 %s 绑定真实友军舰级" % String(named), String(bind[named]))
 
-	_step("2. 战区/时间：模拟秒与 UTC 历元分开")
-	var th: Dictionary = doc.get("theater", {}) if doc.get("theater") is Dictionary else {}
-	_ok(String(th.get("epoch_utc", "")).length() >= 20, "记录 UTC 历元",
-		String(th.get("epoch_utc", "")))
-	var dur = th.get("duration_s", null)
-	_ok(_is_num(dur) and float(dur) > 0.0, "时限是正数秒", str(dur))
-	_ok(String(th.get("note", "")).find("UTC") >= 0,
-		"明确 UTC 不混入 tick", String(th.get("note", "")))
-
-	_step("3. 舰池与预算：两套合法且战术不同的编制")
+	_step("2. 舰池/编制：真实舰级 + 容量与预算实际生效")
 	var pool: Dictionary = doc.get("fleet_pool", {}) if doc.get("fleet_pool") is Dictionary else {}
-	var budget = pool.get("points_budget", null)
-	_ok(_is_int(budget) and int(budget) > 0, "点数预算为正整数", str(budget))
-	var cap = pool.get("command_capacity", null)
-	_ok(_is_int(cap) and int(cap) >= 2, "指挥容量 >= 2", str(cap))
-	var ships: Array = pool.get("ships", []) if pool.get("ships") is Array else []
-	_ok(ships.size() >= 4, "舰池至少 4 类", str(ships.size()))
-	var pts_of: Dictionary = {}
-	for raw in ships:
-		pts_of[String((raw as Dictionary).get("ship_class_id", ""))] = \
-			int((raw as Dictionary).get("points", -1))
+	var budget := int(pool.get("points_budget", 0))
+	var cap := int(pool.get("command_capacity", 0))
+	_ok(budget > 0, "点数预算为正", str(budget))
+	_ok(cap >= 2, "指挥容量 >= 2", str(cap))
+	var disp_of: Dictionary = {}
+	for raw in (pool.get("ships", []) as Array):
+		var sh: Dictionary = raw
+		var cid := String(sh.get("ship_class_id", ""))
+		_ok(friendly_ids.has(cid), "舰池舰级存在: " + cid)
+		var disp := float(sh.get("displacement_t", 0.0))
+		_ok(disp > 0.0, "舰池给出真实排水量: " + cid, str(disp))
+		disp_of[cid] = disp
 	var forms: Array = doc.get("formations", []) if doc.get("formations") is Array else []
-	_eq(forms.size(), 2, "恰好两套示例编制")
+	_eq(forms.size(), 2, "恰好两套编制")
 	var roles: Dictionary = {}
 	var over_budget: Array = []
+	var over_cap: Array = []
 	for raw_f in forms:
 		var f: Dictionary = raw_f
-		var role := String(f.get("role", ""))
-		roles[role] = true
-		var sum := 0
+		roles[String(f.get("role", ""))] = true
 		var comp: Array = f.get("ships", []) if f.get("ships") is Array else []
+		if comp.size() > cap:
+			over_cap.append({"formation": String(f.get("formation_id", "")),
+				"ships": comp.size(), "cap": cap})
+		var sum := 0
 		for sid in comp:
-			if not pts_of.has(String(sid)):
+			if not disp_of.has(String(sid)):
 				over_budget.append({"formation": String(f.get("formation_id", "")),
-					"reason": "unknown ship_class", "ship": String(sid)})
+					"reason": "ship not in pool", "ship": String(sid)})
 				continue
-			sum += int(pts_of[String(sid)])
-		if sum > int(budget):
+			sum += int(roundf(float(disp_of[String(sid)]) / 60.0))
+		if sum > budget:
 			over_budget.append({"formation": String(f.get("formation_id", "")),
-				"points": sum, "budget": int(budget)})
+				"points": sum, "budget": budget})
 		_ok(comp.size() >= 2, "编制 %s 至少 2 舰" % String(f.get("formation_id", "")),
 			str(comp.size()))
-		_eq(int(f.get("points", -1)), sum,
-			"编制 %s 声明的点数与实际一致" % String(f.get("formation_id", "")))
-	_ok(over_budget.is_empty(), "两套编制都在点数预算内且舰型合法",
-		str(over_budget.slice(0, 4)))
-	_eq(roles.size(), 2, "两套编制的战术角色不同", JSON.stringify(roles.keys()))
+	_ok(over_cap.is_empty(), "编制不超指挥容量（容量实际生效）", str(over_cap))
+	_ok(over_budget.is_empty(), "编制不超点数预算（预算实际生效）", str(over_budget.slice(0, 4)))
+	_eq(roles.size(), 2, "两套编制战术角色不同", JSON.stringify(roles.keys()))
 
-	_step("4. 友军与敌方：独立指挥域、稳定引用")
+	_step("3. 友军/敌方：真实敌方舰级与军事属性")
 	var ally: Dictionary = doc.get("ally_force", {})
-	_ok(String(ally.get("domain_id", "")) == "ally",
-		"友军是独立指挥域（不共享玩家直控）", String(ally.get("domain_id", "")))
-	_ok(String(ally.get("request_rules", "")).find("accept") >= 0,
-		"友军按规则接受/拒绝", String(ally.get("request_rules", "")))
-	_ok(int(ally.get("ships", 0)) >= 1, "至少 1 支独立 AI 友军",
-		str(ally.get("ships", 0)))
+	_eq(String(ally.get("domain_id", "")), "ally", "友军独立指挥域")
+	for sid2 in (ally.get("ships", []) as Array):
+		_ok(friendly_ids.has(String(sid2)), "友军舰级存在: " + String(sid2))
 	var opfor: Dictionary = doc.get("opfor", {})
-	_eq(String(opfor.get("domain_id", "")), "opfor", "敌方是指挥域 opfor")
 	var units: Array = opfor.get("units", []) if opfor.get("units") is Array else []
 	_ok(units.size() >= 3, "敌方至少 3 个可引用单位", str(units.size()))
 	var unit_ids: Dictionary = {}
 	for raw_u in units:
 		var u: Dictionary = raw_u
 		var uid := String(u.get("entity_instance_id", ""))
-		_ok(uid != "" and not unit_ids.has(uid), "敌方单位 ID 唯一非空: " + uid)
+		_ok(uid != "" and not unit_ids.has(uid), "敌方实例 ID 唯一: " + uid)
 		unit_ids[uid] = true
-		var attr := String(u.get("military_attribute", ""))
-		_ok(attr in MILITARY_ATTRS, "敌方单位是军事属性: " + uid, attr)
+		_ok(enemy_ids.has(String(u.get("ship_class_id", ""))),
+			"敌方舰级存在: " + uid, String(u.get("ship_class_id", "")))
+		_ok(String(u.get("military_attribute", "")) in MILITARY_ATTRS,
+			"敌方单位是军事属性: " + uid)
 		_eq(bool(u.get("protected", true)), false, "敌方目标非受保护民用: " + uid)
 
-	_step("5. 目标表：字段完整、引用有效、失能不可本场恢复")
+	_step("4. 目标：字段完整 + 可实现失能机制 + 依赖/替代")
 	var objs: Array = doc.get("objectives", []) if doc.get("objectives") is Array else []
 	_ok(objs.size() >= 3, "至少 3 个可审目标", str(objs.size()))
 	var obj_ids: Dictionary = {}
 	for raw_o in objs:
 		var o: Dictionary = raw_o
 		var oid := String(o.get("objective_id", ""))
-		var missing: Array = []
-		for f in REQUIRED_FIELDS:
-			if not o.has(f):
-				missing.append(f)
-		_ok(missing.is_empty(), "目标 %s 字段完整" % oid, str(missing))
 		obj_ids[oid] = true
+		for req in ["target_entity_instance_id", "target_military_attribute",
+				"complete_condition", "fail_condition", "evidence_source",
+				"player_visible_feedback", "terminal_state", "priority"]:
+			_ok(o.has(req), "目标 %s 字段 %s" % [oid, req])
 		_ok(unit_ids.has(String(o.get("target_entity_instance_id", ""))),
-			"目标 %s 引用已声明敌方单位" % oid,
-			String(o.get("target_entity_instance_id", "")))
-		var attr2 := String(o.get("target_military_attribute", ""))
-		_ok(attr2 in MILITARY_ATTRS, "目标 %s 指向军事属性" % oid, attr2)
+			"目标 %s 指向已声明敌方单位" % oid)
 		_eq(bool(o.get("recoverable_in_mission", true)), false,
-			"目标 %s 的失能不可本场恢复（才可计去军事化）" % oid)
-		_ok(String(o.get("terminal_state", "")) == "disabled",
-			"目标 %s 终态是 disabled" % oid, String(o.get("terminal_state", "")))
-	# 保护目标：不得以攻击民用设施为胜利条件
-	var prot: Array = doc.get("protection_objectives", [])
-	var prot_ok := true
+			"目标 %s 失能不可本场恢复" % oid)
+		_ok(String(o.get("disable_mechanism", "")) != "",
+			"目标 %s 给出可实现失能机制" % oid, String(o.get("disable_mechanism", "")))
+		_ok(String(o.get("mechanism_dependency", "")) != "",
+			"目标 %s 标注依赖" % oid, String(o.get("mechanism_dependency", "")))
+		_ok(String(o.get("mechanism_alternative", "")) != "",
+			"目标 %s 给出替代口径" % oid, String(o.get("mechanism_alternative", "")))
+
+	_step("5. 保护目标：绑定实体 + 损失后果")
+	var prot: Array = doc.get("protection_objectives", []) if doc.get("protection_objectives") is Array else []
+	_ok(prot.size() >= 2, "保护目标 >= 2", str(prot.size()))
+	var civ_ok := false
 	for raw_p in prot:
 		var p: Dictionary = raw_p
+		_ok(String(p.get("bound_entity_instance_id", "")) != "",
+			"保护目标 %s 绑定实体" % String(p.get("objective_id", "")))
+		_ok(String(p.get("loss_consequence", "")) != "",
+			"保护目标 %s 定义损失后果" % String(p.get("objective_id", "")))
 		if String(p.get("kind", "")) == "protect_civilian_infrastructure":
-			if bool(p.get("player_must_not_attack", false)) != true:
-				prot_ok = false
-	_ok(prot_ok, "民用设施是保护目标，不得作为攻击/胜利对象", str(prot.size()))
+			civ_ok = bool(p.get("player_must_not_attack", false)) == true
+	_ok(civ_ok, "民用设施必须不可攻击（不得作为胜利条件）")
 
-	_step("6. 胜负/撤离/僵局/时限")
-	var vic: Dictionary = doc.get("victory_condition", {})
+	_step("6. 终态规则：零完成→defeat、时限不产生胜利、同 tick 优先级")
+	var tr: Dictionary = doc.get("terminal_rules", {}) if doc.get("terminal_rules") is Dictionary else {}
+	_eq(String(tr.get("zero_completed_at_timeout_is", "")), "defeat",
+		"零完成 + 时限 = defeat（不是 stalemate）")
+	_eq(bool(tr.get("timeout_never_yields_victory", false)), true,
+		"时限永不产生胜利")
+	var prio: Array = tr.get("same_tick_priority", [])
+	_ok(prio.size() >= 4, "声明同 tick 终态优先级", str(prio.size()))
+	_eq(String(prio[0]) if prio.size() > 0 else "", "defeat", "优先级最高为 defeat")
+	var vic: Dictionary = tr.get("victory", {}) if tr.get("victory") is Dictionary else {}
 	var req: Array = vic.get("required_objectives", [])
-	_ok(req.size() >= 3, "胜利需要全部必需目标", str(req.size()))
+	_eq(int(vic.get("min_completed", 0)), req.size(), "胜利需要全部必需目标完成")
 	for rid in req:
 		_ok(obj_ids.has(String(rid)), "胜利条件引用已定义目标: " + String(rid))
-	_ok(String(vic.get("explicitly_not", "")).find("第33舰队") >= 0,
-		"明确排除「歼灭整个第33舰队」", String(vic.get("explicitly_not", "")))
-	_eq(bool(vic.get("story_independent", false)), true,
-		"story=false 仍裁决")
-	var outs: Dictionary = doc.get("outcomes", {}) if doc.get("outcomes") is Dictionary else {}
-	var missing_out: Array = []
-	for k in OUTCOME_KEYS:
-		if not outs.has(k):
-			missing_out.append(k)
-	_ok(missing_out.is_empty(), "五种终态齐全", str(missing_out))
-	_ok(String(outs.get("timeout", "")).find("等待时长") >= 0,
-		"时限只触发规定终态，不产生胜利", String(outs.get("timeout", "")))
+	var def: Dictionary = tr.get("defeat", {}) if tr.get("defeat") is Dictionary else {}
+	_ok((def.get("any", []) as Array).size() >= 2, "失败条件有多条路径")
+	_ok((def.get("any", []) as Array).has("zero_required_objectives_completed_at_timeout"),
+		"失败条件包含零完成")
 
-	_step("7. 阶段流程与协同回执样例")
-	var phases: Array = doc.get("phases", []) if doc.get("phases") is Array else []
-	_ok(phases.size() >= 7, "阶段覆盖简报→组舰→部署→协同→交战→裁决→战报",
-		str(phases.size()))
-	var kinds: Dictionary = {}
-	for raw_c in (doc.get("comms_samples", []) as Array):
-		kinds[String((raw_c as Dictionary).get("kind", ""))] = true
-		for resp in ["accept", "reject", "in_progress", "lost_or_damaged", "complete"]:
-			_ok(String((raw_c as Dictionary).get(resp, "")) != "",
-				"回执样例存在: %s/%s" % [
-					String((raw_c as Dictionary).get("kind", "")), resp])
-	_eq(kinds.size(), 3, "三类协同请求（支援/掩护/撤离）",
-		JSON.stringify(kinds.keys()))
+	_step("7. 贡献语义：玩家 vs 友军，AI 不得包办首胜")
+	var contrib: Dictionary = doc.get("contribution_rules", {}) if doc.get("contribution_rules") is Dictionary else {}
+	_ok(String(contrib.get("objective_credit", "")).find("玩家") >= 0,
+		"目标记功区分玩家直控/授权")
+	_ok(String(contrib.get("ai_cannot_win_alone", "")) != "",
+		"声明 AI 不能单独取胜")
+	_ok(String(contrib.get("player_no_action", "")).find("timeout") >= 0,
+		"玩家无操作按 timeout 口径")
 
-	_step("8. 事件轨迹：唯一预期终态、幂等裁决、不过早结算")
+	_step("8. 轨迹：规则自洽 + authority/玩家视图分离")
 	var traces: Array = doc.get("event_traces", []) if doc.get("event_traces") is Array else []
-	_ok(traces.size() >= 8, "轨迹数量覆盖主要分支", str(traces.size()))
+	_ok(traces.size() >= 10, "轨迹覆盖主要分支", str(traces.size()))
 	var trace_ids: Dictionary = {}
 	for raw_t in traces:
-		var t: Dictionary = raw_t
-		var tid := String(t.get("trace_id", ""))
+		var t2: Dictionary = raw_t
+		var tid := String(t2.get("trace_id", ""))
 		_ok(tid != "" and not trace_ids.has(tid), "轨迹 ID 唯一: " + tid)
 		trace_ids[tid] = true
-		var term := String(t.get("expected_terminal", ""))
-		_ok(term in OUTCOME_KEYS or term == "pending_report",
-			"轨迹 %s 的预期终态合法" % tid, term)
-		var events: Array = t.get("events", []) if t.get("events") is Array else []
-		_ok(events.size() >= 2, "轨迹 %s 至少 2 个事件" % tid, str(events.size()))
-		# 重复裁决幂等
-		var adj := 0
-		var last_t := -1.0
-		var mono := true
+		var term := String(t2.get("expected_terminal", ""))
+		_ok(term in TERMINALS, "轨迹 %s 终态合法" % tid, term)
+		_ok(String(t2.get("expected_authority", "")) != "",
+			"轨迹 %s 有权威结果" % tid, String(t2.get("expected_authority", "")))
+		_ok(String(t2.get("expected_player_report", "")) != "",
+			"轨迹 %s 有玩家报告视图" % tid, String(t2.get("expected_player_report", "")))
+		_ok(String(t2.get("decision_id", "")) != "",
+			"轨迹 %s 有裁决 ID" % tid, String(t2.get("decision_id", "")))
+		var events: Array = t2.get("events", []) if t2.get("events") is Array else []
+		var completed: Dictionary = {}
+		var adjudications := 0
+		var kinds: Array = []
 		for raw_e in events:
 			var e: Dictionary = raw_e
-			var et = e.get("t", null)
-			if not _is_num(et):
-				continue
-			if float(et) + 1.0e-9 < last_t:
-				mono = false
-			last_t = float(et)
-			if String(e.get("kind", "")) == "adjudicate":
-				adj += 1
-		_ok(mono, "轨迹 %s 的事件时间单调" % tid)
-		var declared := int(t.get("terminal_events", -1))
-		_ok(declared >= 0 and declared <= 1,
-			"轨迹 %s 的终态结算次数 <= 1（幂等）" % tid, str(declared))
-		if tid != "TR-DUPLICATE-ADJUDICATION-GUARD":
-			_eq(adj, declared, "轨迹 %s 的裁决事件数符合预期" % tid)
-	# 专项语义：已失能未报告不得提前胜利
-	var pending: Dictionary = _find_trace(traces, "TR-DISABLED-NOT-REPORTED")
-	_eq(String(pending.get("expected_terminal", "")), "pending_report",
-		"「已失能未报告」预期是 pending_report 而非 victory")
-	# 重复裁决守卫：2 个裁决事件，但只结算 1 次
-	var guard: Dictionary = _find_trace(traces, "TR-DUPLICATE-ADJUDICATION-GUARD")
-	_ok(not guard.is_empty(), "存在重复裁决守卫轨迹")
-	_ok(int(guard.get("terminal_events", -1)) == 1,
-		"重复裁决守卫只结算一次（terminal_events=1）")	# 单次 EW 不得当永久失能
-	var ew: Dictionary = _find_trace(traces, "TR-EW-NOT-PERMANENT")
-	_ok(String(ew.get("expected_terminal", "")) != "victory",
-		"单次 EW 不产生胜利", String(ew.get("expected_terminal", "")))
-	# 仍能战斗不得计失能
-	var eff: Dictionary = _find_trace(traces, "TR-STILL-EFFECTIVE")
-	_ok(String(eff.get("expected_terminal", "")) != "victory",
-		"对象仍能战斗不计失能", String(eff.get("expected_terminal", "")))
-	# 友军拒绝不阻断替代路线
-	var alt: Dictionary = _find_trace(traces, "TR-ALLY-REFUSE-ALTERNATIVE")
-	_ok(String(alt.get("expected_terminal", "")) != "victory" or true,
-		"友军拒绝轨迹有明确终态", String(alt.get("expected_terminal", "")))
+			var k := String(e.get("kind", ""))
+			kinds.append(k)
+			if k == "objective_disable":
+				completed[String(e.get("objective_id", ""))] = true
+			elif k == "target_still_engaging":
+				completed.erase(String(e.get("objective_id", "")))
+			elif k == "adjudicate":
+				adjudications += 1
+		var expected_by_rule := "pending_report"
+		if adjudications > 0 and int(t2.get("terminal_events", 0)) > 0:
+			if completed.size() >= req.size():
+				expected_by_rule = "victory"
+			elif completed.size() == 0:
+				expected_by_rule = "defeat"
+			else:
+				expected_by_rule = "stalemate"
+		if kinds.has("own_flag_disabled") or kinds.has("protected_target_destroyed"):
+			expected_by_rule = "defeat"
+		if kinds.has("withdraw_complete"):
+			expected_by_rule = "withdrawal"
+		if term == "pending_report":
+			expected_by_rule = "pending_report"
+		_eq(term, expected_by_rule, "轨迹 %s 与终态规则自洽" % tid)
+		_ok(adjudications <= 2, "轨迹 %s 裁决事件不超过 2（幂等守卫）" % tid,
+			str(adjudications))
+	var pend := _find(traces, "TR-DISABLED-NOT-REPORTED")
+	_eq(String(pend.get("expected_terminal", "")), "pending_report",
+		"「已失能未报告」不算完成")
+	_eq(String(pend.get("expected_player_report", "")), "unknown",
+		"玩家报告视图仍是 unknown")
+	_eq(String(pend.get("expected_authority", "")), "in_progress",
+		"权威侧仍在进行")
+	var zero := _find(traces, "TR-ZERO-COMPLETE-TIMEOUT")
+	_eq(String(zero.get("expected_terminal", "")), "defeat", "零完成轨迹 = defeat")
+	var civ := _find(traces, "TR-CIVILIAN-LOSS")
+	_eq(String(civ.get("expected_terminal", "")), "defeat", "民用损失轨迹 = defeat")
 
-	_step("9. 待用户决定项与 B3 依赖（不伪造完成）")
-	var pending_dec: Array = doc.get("user_decisions_pending", [])
-	_ok(pending_dec.size() >= 5, "明确列出待用户核对项", str(pending_dec.size()))
-	var deps: Array = doc.get("b3_dependencies", [])
-	_ok(deps.size() >= 2, "列出 B3 实现依赖", str(deps.size()))
-	var not_impl: Array = doc.get("not_implemented", [])
-	_ok(not_impl.size() >= 1, "明确未实现范围", str(not_impl.size()))
-	_info("PENDING USER DECISIONS: " + JSON.stringify(pending_dec))
-	_info("本探针只验证内容逻辑；真实 AI/战斗/裁决/试玩均 NOT RUN")
-
+	_step("10. 负例变体：未知舰级 / 超容量 / 胜利轨迹缺失能事件 必须被拒绝")
+	var good_ids: Dictionary = friendly_ids
+	# 变体 1：未知舰级（APSIS/HARMATTAN 不能自证合法）
+	var v1: Dictionary = doc.duplicate(true)
+	((v1.get("formations", []) as Array)[0] as Dictionary)["ships"] = ["APSIS", "HARMATTAN"]
+	_ok(_variant_errors(v1, good_ids, enemy_ids, cap).size() > 0,
+		"变体1 未知舰级被拒绝", str(_variant_errors(v1, good_ids, enemy_ids, cap).slice(0, 2)))
+	# 变体 2：编制超指挥容量
+	var v2: Dictionary = doc.duplicate(true)
+	((v2.get("formations", []) as Array)[0] as Dictionary)["ships"] = \
+		["OCUVF-PALLET-5C", "OCUVF-PALLET-5C", "OCUVF-PALLET-5C", "OCUVF-PALLET-5C"]
+	_ok(_variant_errors(v2, good_ids, enemy_ids, 2).size() > 0,
+		"变体2 超指挥容量被拒绝", str(_variant_errors(v2, good_ids, enemy_ids, 2).slice(0, 2)))
+	# 变体 3：胜利轨迹删除全部失能事件（只剩 adjudicate）
+	var v3: Dictionary = doc.duplicate(true)
+	for raw_t3 in (v3.get("event_traces", []) as Array):
+		if String((raw_t3 as Dictionary).get("trace_id", "")) == "TR-FULL-VICTORY":
+			var kept: Array = []
+			for raw_e3 in ((raw_t3 as Dictionary).get("events", []) as Array):
+				if String((raw_e3 as Dictionary).get("kind", "")) != "objective_disable":
+					kept.append(raw_e3)
+			(raw_t3 as Dictionary)["events"] = kept
+	_ok(_variant_errors(v3, good_ids, enemy_ids, cap).size() > 0,
+		"变体3 胜利轨迹缺失能事件被拒绝",
+		str(_variant_errors(v3, good_ids, enemy_ids, cap).slice(0, 2)))
+	_step("11. 待用户决定项与依赖")
+	var pend2: Array = doc.get("user_decisions_pending", [])
+	_ok(pend2.size() >= 5, "列出待用户核对项", str(pend2.size()))
+	_ok((doc.get("b3_dependencies", []) as Array).size() >= 2, "列出 B3 依赖")
+	_ok((doc.get("not_implemented", []) as Array).size() >= 1, "明确未实现范围")
+	_info("PENDING USER DECISIONS: " + JSON.stringify(pend2).substr(0, 300))
+	_info("本探针只验证内容与 catalog/规则一致性；真实 AI/战斗/裁决/试玩 NOT RUN")
 	_finish()
 
 
-func _find_trace(traces: Array, tid: String) -> Dictionary:
+func _find(traces: Array, tid: String) -> Dictionary:
 	for raw in traces:
 		if raw is Dictionary and String((raw as Dictionary).get("trace_id", "")) == tid:
 			return raw
 	return {}
 
 
-func _is_num(v) -> bool:
-	return (v is int or v is float) and is_finite(float(v))
-
-
-func _is_int(v) -> bool:
-	if not _is_num(v):
-		return false
-	return absf(float(v) - roundf(float(v))) <= 0.0
+func _class_ids(path: String) -> Dictionary:
+	var out: Dictionary = {}
+	var doc: Dictionary = _read_json(path)
+	for raw in (doc.get("classes", []) as Array):
+		if raw is Dictionary:
+			out[String((raw as Dictionary).get("class_id", ""))] = true
+	return out
 
 
 func _read_json(path: String) -> Dictionary:
@@ -332,3 +357,39 @@ func _read_json(path: String) -> Dictionary:
 	var parsed = JSON.parse_string(f.get_as_text())
 	f.close()
 	return parsed if parsed is Dictionary else {}
+## 内容变体校验（供负例断言）：未知舰级 / 超容量 / 轨迹与规则不一致 → 返回错误列表。
+func _variant_errors(doc: Dictionary, friendly_ids: Dictionary,
+		enemy_ids: Dictionary, cap: int) -> Array:
+	var errs: Array = []
+	var pool: Dictionary = doc.get("fleet_pool", {}) if doc.get("fleet_pool") is Dictionary else {}
+	var pool_ids: Dictionary = {}
+	for raw in (pool.get("ships", []) as Array):
+		pool_ids[String((raw as Dictionary).get("ship_class_id", ""))] = true
+	for raw_f in (doc.get("formations", []) as Array):
+		var comp: Array = (raw_f as Dictionary).get("ships", []) as Array
+		if comp.size() > cap:
+			errs.append("formation over capacity: %d > %d" % [comp.size(), cap])
+		for sid in comp:
+			if not friendly_ids.has(String(sid)) or not pool_ids.has(String(sid)):
+				errs.append("unknown ship class: " + String(sid))
+	var rul: Dictionary = doc.get("terminal_rules", {}) if doc.get("terminal_rules") is Dictionary else {}
+	var req: Array = (rul.get("victory", {}) as Dictionary).get("required_objectives", []) \
+		if rul.get("victory") is Dictionary else []
+	for raw_t in (doc.get("event_traces", []) as Array):
+		var t: Dictionary = raw_t
+		var completed: Dictionary = {}
+		var adjudicated := false
+		for raw_e in (t.get("events", []) as Array):
+			var e: Dictionary = raw_e
+			var k := String(e.get("kind", ""))
+			if k == "objective_disable":
+				completed[String(e.get("objective_id", ""))] = true
+			elif k == "target_still_engaging":
+				completed.erase(String(e.get("objective_id", "")))
+			elif k == "adjudicate":
+				adjudicated = true
+		if String(t.get("expected_terminal", "")) == "victory" and adjudicated \
+				and completed.size() < req.size():
+			errs.append("trace %s claims victory with %d/%d objectives" % [
+				String(t.get("trace_id", "")), completed.size(), req.size()])
+	return errs

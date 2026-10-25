@@ -145,3 +145,56 @@
 7. 友军阵容与拒绝后替代路线是否符合预期。
 
 核对并冻结后，才进入 B3a/B3b 实现。
+
+---
+
+## 13. R6 返修：catalog 绑定、容量/预算生效、终态自洽、权威/玩家双视图
+
+### 13.1 真实 catalog 舰级
+- 舰级只用 canonical catalog：友军 `res://framework/content/ships_friendly.json`、敌方 `ships_enemy.json`；
+- 命名舰通过 `entity_bindings` 映射到真实舰级（`apsis → OCUVF-APOGEE`、`harmattan → OCUVF-PALLET-5C`）；
+- **`APSIS`/`HARMATTAN` 不是 `ship_class_id`**，不能自证合法；探针会读取 catalog 逐一校验。
+- 舰池：`OCUVF-APOGEE` / `OCUVF-PALLET-5C` / `OCUVF-HEMATITE-6C` / `OCUVF-GANTRY-3M`；敌方 `33OSID-RECOURSE` / `33OSID-REQUISITION` / `33OSID-SUMMONS`。
+
+### 13.2 容量与预算实际生效
+- 点数公式：`round(displacement_t / 60)`；预算 100、指挥容量 3；
+- `FORM-SENSOR` = PALLET×2 + GANTRY = 5+5+15 = **25 点 / 3 舰**；
+- `FORM-STRIKE` = HEMATITE×2 + GANTRY = 20+20+15 = **55 点 / 3 舰**；
+- 探针断言：编制舰数 ≤ 容量、点数 ≤ 预算，否则拒绝（变体验证已覆盖"超容量"）。
+
+### 13.3 终态规则自洽（零完成→defeat）
+| 条件 | 终态 |
+|---|---|
+| 三个必需目标全部完成 | victory |
+| 旗舰丧失 / 受保护民用被毁 / 零完成 | **defeat** |
+| 玩家主动撤离 | withdrawal |
+| 时限到达且完成 1~2 个 | stalemate |
+| 已失能但未获报告 | **pending_report**（玩家视图仍 unknown） |
+
+- `timeout_never_yields_victory = true`；
+- 同 tick 优先级：`defeat > victory > withdrawal > stalemate`，只结算一次；
+- 每条轨迹有唯一 `decision_id`，重复裁决幂等。
+
+### 13.4 权威结果 vs 玩家报告视图
+- 每条轨迹分别给出 `expected_authority` 与 `expected_player_report`；
+- 未知目标在玩家视图中不显示名称/坐标/损伤；
+- `TR-DISABLED-NOT-REPORTED`：权威 `in_progress`、玩家 `unknown`，**不得提前结算胜利**。
+
+### 13.5 贡献语义（玩家 vs 友军）
+- 目标记功区分「玩家直控造成」与「玩家授权友军请求执行成功」；
+- 友军自主造成且未被请求覆盖 → 计友军贡献；
+- **AI 不得单独完成必需目标取胜**；玩家无操作按 timeout 口径结算。
+
+### 13.6 失能机制与依赖/替代
+每个目标必须给出：
+- `disable_mechanism`（可实现机制）
+- `mechanism_dependency`（依赖的未实现系统）
+- `mechanism_alternative`（替代口径，且临时压制不得计永久失能）
+
+### 13.7 保护目标绑定
+- `PROT-1` 绑定 `SECTOR-RELAY-CIV`，被毁 → **defeat**；
+- `PROT-2` 绑定自有旗舰 `I-A1`，丧失 → defeat；
+- 民用设施明确不可作为攻击或胜利对象。
+
+### 13.8 探针
+`integration.jc_scenario_spec` 当前 **190/0**；含 3 个负例变体（未知舰级 / 超容量 / 胜利轨迹缺失能事件）。
