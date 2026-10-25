@@ -2,7 +2,7 @@
   "schema": "known_baseline_failures.v1",
   "description": "Phase A expected-failure baseline for the DS-A-01 delivery I1 (A-00 candidate I0 + integration fixes). Only defects still open after DS-A-01 remain here; save/load and comms restoration belong to DS-A-03..A-06. Consumed by run_tests.ps1 -BaselineExtra; each case status stays FAIL (never PASS/skipped/hidden). The Phase 0 file is NOT touched by Phase A.",
   "baseline_commit": "I1 (see report)",
-  "baseline_commit_note": "DS-A-03 I3 = DS-A-02 head 7b56914 + EventBus versioned state (export/import, int contract, no-publish import, dedup/high-water preservation) + Session integration via the EventBus API.",
+  "baseline_commit_note": "DS-A-05 I5 = DS-A-04 head b047266 + SensorService/optical_IR runtime state export/import + Session restore (quiet geometry re-bind, no history replay).",
   "captured_at": "2026-10-25",
   "phase": "A",
   "card": "DS-A-01",
@@ -30,9 +30,9 @@
       "id": "integration.a0_save_roundtrip_authority",
       "probe": "res://tests/a0_save_roundtrip_authority_probe.gd",
       "expected_exit": 1,
-      "expected_pass": 38,
-      "expected_fail": 3,
-      "reason": "A0-T3 after DS-A-03: the restored runtime event seq is now a real GDScript int (27 occurrences fixed) and the raw-JSON numeric contract passes, so 3 failures remain, all outside DS-A-03 scope: (a) live HUD session save->load still fails with replay send_comms no_route (DS-A-06); (b) save payload carries no sensor_service runtime snapshot and (c) EMCON/radar state plus full channel content are lost on load (DS-A-05).",
+      "expected_pass": 40,
+      "expected_fail": 1,
+      "reason": "A0-T3 after DS-A-05: SensorService runtime state (EMCON/radar/selected target/clock/backend channels/allocators/dedup) now persists across save/load, so the sensor persistence assertions pass. The only remaining failure is the real HUD session save->load replay send_comms no_route defect (DS-A-06 scope).",
       "defect_ref": "A0 audit C4/C5; Issues #2/#4",
       "suggested_follow_up": "DS-A-03 / DS-A-05 / DS-A-06 then re-baseline"
     }

@@ -131,6 +131,8 @@ var _last_bus_routed_index := 0
 var _routed_seqs: Dictionary = {}
 # A-04：旧档迁移报告（支持矩阵 + 可恢复范围 + 无法恢复项，诚实标注）
 var _legacy_migration: Dictionary = {}
+# A-05：传感器运行态恢复报告（重绑定结果 + 几何同刻复核）
+var _sensor_restore_report: Dictionary = {}
 var _sensor_track_map: Dictionary = {}
 var _sensor_target_meta: Dictionary = {}
 
@@ -878,14 +880,14 @@ func _setup_optional_components() -> void:
 ##                     必须标 `geometry_advisory=true`，不得冒充 LIVE；
 ##   * **unavailable** — 期望 physics 但不可用（帧不匹配 / provider 未就绪等）：
 ##                     本 tick 停止相关路由，**不生成**观测/证据。
-func _bind_sensor_geometry() -> Dictionary:
+func _bind_sensor_geometry(quiet := false) -> Dictionary:
 	if sensor_service == null:
 		return {"ok": false, "reason": "no_sensor_service", "source": "static"}
 	if physics_world_service == null or not _physics_enabled:
 		# 显式 legacy：该会话没有 physics 设计 → advisory（允许测试，但必须标注）。
 		if sensor_service.has_method("mark_geometry_unavailable"):
 			sensor_service.mark_geometry_unavailable("no_physics_world",
-				{"severity": "advisory"})
+				{"severity": "advisory"}, quiet)
 		return {"ok": false, "reason": "no_physics_world", "source": "static",
 			"mode": "advisory"}
 	if not _sensor_geometry_bind_allowed():
@@ -894,11 +896,11 @@ func _bind_sensor_geometry() -> Dictionary:
 		var detail := {"frame": frame, "mismatched_frame": [frame],
 			"severity": "unavailable"}
 		if sensor_service.has_method("mark_geometry_unavailable"):
-			sensor_service.mark_geometry_unavailable("frame_mismatch", detail)
+			sensor_service.mark_geometry_unavailable("frame_mismatch", detail, quiet)
 		warnings.append("sensor geometry 不可用（坐标系不匹配，本 tick 停止传感器路由）")
 		return {"ok": false, "reason": "frame_mismatch", "source": "static",
 			"mode": "unavailable", "bound": 0}
-	var res: Dictionary = sensor_service.bind_geometry_provider(_SensorGeometryProvider.new(self))
+	var res: Dictionary = sensor_service.bind_geometry_provider(_SensorGeometryProvider.new(self), quiet)
 	if not bool(res.get("ok", false)):
 		warnings.append("sensor geometry 绑定失败：" + str(res.get("reason", "")))
 	return res
@@ -1243,6 +1245,11 @@ func physics_frame_meta() -> Dictionary:
 
 ## A-04：旧档迁移报告（只读）。诚实列出采用的迁移版本、可恢复范围与**无法恢复**项，
 ## 便于审查「重放集合合并」而非「尾部替换」，以及部分恢复的显式标注。
+## A-05：传感器运行态恢复报告（重绑定/几何来源/frame/同刻复核）。
+func sensor_restore_report() -> Dictionary:
+	return _sensor_restore_report.duplicate(true)
+
+
 func legacy_migration_report() -> Dictionary:
 	if _legacy_migration.is_empty():
 		return {"schema": "v17.legacy_migration.v1", "applied": false}
@@ -4698,6 +4705,9 @@ func save_state() -> String:
 		"combat_service": combat_service.save_state() if combat_service != null else "",
 		"damage_service": damage_service.save_state() if damage_service != null else "",
 		"physics_world": physics_world_service.save_state() if physics_world_service != null else "",
+		# A-05：传感器运行态（控制值/时钟/通道/分配器/去重/后端子状态）。
+		# 静态 mounts/targets 与 provider 对象不入档（读档后从原权威重建/重新注入）。
+		"sensor_service": sensor_service.export_state() if sensor_service != null else null,
 		"signal_service": signal_service.save_state() if signal_service != null else "",
 		"ew_service": ew_service.save_state() if ew_service != null else "",
 		"facility_registry": facility_registry.to_dict() if facility_registry != null else null,
@@ -5055,9 +5065,40 @@ func load_state(json_text: String) -> Dictionary:
 	# physics 快照重新对齐 world 位置副本；否则 snapshot 仍是 seed 旧位置。
 	_world_sync_mode = _resolve_world_sync_mode()
 	var world_sync: Dictionary = world_physics_sync("load")
+	# A-05：SensorService 运行态恢复。顺序：world/physics 同步 → 恢复运行态 →
+	# 重绑定 physics geometry provider → 之后才允许产生新的传感器输出。
+	# 不把已恢复的证据/观测重放进 TrackTable（历史数组不导入）。
+	var saved_sensor = data.get("sensor_service", null)
+	if saved_sensor != null and sensor_service != null:
+		if not (saved_sensor is Dictionary):
+			replay_errors.append("sensor_service 运行态段必须是对象")
+		else:
+			var sr: Dictionary = sensor_service.import_state(saved_sensor)
+			if not bool(sr.get("ok", false)):
+				replay_errors.append("sensor_service 运行态恢复失败：" + str(
+					sr.get("errors", [])))
+			# 恢复结果只进 _sensor_restore_report（不写 warnings，
+			# 否则会改变 snapshot() 的可见状态，破坏 save→load 的规范化等价）。
+	# 重绑定几何 provider（provider 对象不入 JSON；按当前 session 重新注入并复核同刻）。
+	var rebound: Dictionary = _bind_sensor_geometry(true)
+	var geo_st: Dictionary = sensor_service.geometry_status() if sensor_service != null else {}
+	var sens_time_ok := true
+	if sensor_service != null:
+		sens_time_ok = absf(float(geo_st.get("t", -1.0)) - now_s()) <= 1.0e-6
+		if not sens_time_ok:
+			replay_errors.append("sensor geometry 与 session 不同刻（%.9f vs %.9f）" % [
+				float(geo_st.get("t", -1.0)), now_s()])
+	_sensor_restore_report = {
+		"schema": "v17.sensor_restore.v1",
+		"saved": saved_sensor is Dictionary,
+		"rebind": rebound,
+		"geometry_source": String(geo_st.get("source", "")),
+		"geometry_frame": String(geo_st.get("frame", "")),
+		"time_ok": sens_time_ok,
+	}
 	ready = replay_errors.is_empty() and errors.is_empty()
 	return {"ok": ready, "errors": replay_errors, "result_errors": errors.duplicate(),
-		"world_sync": world_sync}
+		"world_sync": world_sync, "sensor_restore": _sensor_restore_report.duplicate(true)}
 
 func _replay_op(op: Dictionary) -> Dictionary:
 	var kind := String(op.get("op", ""))
