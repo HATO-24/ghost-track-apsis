@@ -781,6 +781,30 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.jc_scenario_spec",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "JC-B03P (P0): concrete theater proposal content spec. Validates objective references/required fields/military attributes, fleet-pool points budget vs two tactically different formations, explicit protection objectives (civilian infrastructure must not be an attack/victory target), five terminal outcomes with timeout not producing victory, three coordination request/response templates, and event traces with unique expected terminal states, monotonic time, and idempotent adjudication (disabled-but-unreported stays pending_report; single EW or a still-engaging target never counts as permanent disable). Content logic only - it does not implement a runtime adjudicator and the traces are NOT real battle reports.",
+      "script": "res://tests/jc_scenario_spec_probe.gd",
+      "expected_markers": [
+        "JC-B03P SCENARIO SPEC PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 120
+    },    {
+      "id": "integration.jc_contracts",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "JC-B00 (K0): joint-campaign multi-fleet / command / intel contract. Validates structure, reference integrity, permission separation (faction vs controller vs intel_owner vs ROE), deployment lifecycle single-step with idempotent request ids, observation observed_t<=received_t with explicit owner/path/delay, explicit shooter within the commanding domain (never falls back to flagship), resource ledgers that cannot reference another ship, t->kg conversion exactly once, and reversible JSON roundtrip. Semantic validator only (not a full JSON Schema engine); it does not simulate AI or claim a real fleet is deployed.",
+      "script": "res://tests/jc_contracts_probe.gd",
+      "expected_markers": [
+        "JC-B00 CONTRACTS PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 120
+    },    {
       "id": "integration.a0_comms_restore",
       "category": "integration",
       "profile": "",
