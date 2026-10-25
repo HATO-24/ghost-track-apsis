@@ -395,10 +395,13 @@ func boot(config := {}) -> Dictionary:
 	world_physics_sync("boot")
 	# A0-T2：把传感器几何绑定到同一物理世界（失败/异帧时显式退化为静态几何）。
 	var sensor_geom: Dictionary = _bind_sensor_geometry()
+	# A-01：把静态特征与运动状态的只读权威注入弹道，保证弹道初始状态可追溯。
+	var ballistics_authority: Dictionary = _wire_ballistics_authority()
 	booted = true
 	ready = errors.is_empty()
 	var boot_res: Dictionary = _result(ready)
 	boot_res["sensor_geometry"] = sensor_geom.duplicate(true)
+	boot_res["ballistics_authority"] = ballistics_authority.duplicate(true)
 	return boot_res
 
 
@@ -859,27 +862,53 @@ func _setup_optional_components() -> void:
 			_physics_enabled = true
 			_seed_physics_entities(pwcfg)
 
-## A0-T2（Issue #4.1）：传感器几何绑定统一物理世界。
-## 只在 physics 已启用、且 seed 未做 L1→bary_rot 帧转换时绑定（同坐标语义）；
-## 否则显式标记几何不可用（公开诊断 reason 精确为 frame_mismatch / no_physics_world）。
+## A0-T2 / A-01：传感器几何绑定统一物理世界。
+## 只在 physics 已启用、且 seed 未做 L1→bary_rot 帧转换时绑定（同坐标语义）。
+## 降级分两级（A-01）：
+##   * **advisory**  — 无 physics 的显式 legacy/static 模式：允许产出观测，但每条观测
+##                     必须标 `geometry_advisory=true`，不得冒充 LIVE；
+##   * **unavailable** — 期望 physics 但不可用（帧不匹配 / provider 未就绪等）：
+##                     本 tick 停止相关路由，**不生成**观测/证据。
 func _bind_sensor_geometry() -> Dictionary:
-	if sensor_service == null or physics_world_service == null:
-		var r0 := "no_sensor_service" if sensor_service == null else "no_physics_world"
-		if sensor_service != null and sensor_service.has_method("mark_geometry_unavailable"):
-			sensor_service.mark_geometry_unavailable(r0)
-		return {"ok": false, "reason": r0, "source": "static"}
+	if sensor_service == null:
+		return {"ok": false, "reason": "no_sensor_service", "source": "static"}
+	if physics_world_service == null or not _physics_enabled:
+		# 显式 legacy：该会话没有 physics 设计 → advisory（允许测试，但必须标注）。
+		if sensor_service.has_method("mark_geometry_unavailable"):
+			sensor_service.mark_geometry_unavailable("no_physics_world",
+				{"severity": "advisory"})
+		return {"ok": false, "reason": "no_physics_world", "source": "static",
+			"mode": "advisory"}
 	if not _sensor_geometry_bind_allowed():
-		# 4F 帧转换会话：坐标语义不匹配 → 显式标记不可用并给出精确 reason。
+		# 4F 帧转换会话：坐标语义不匹配 → 不可用（抑制观测），给出精确 reason。
 		var frame := String(_physics_frame_meta.get("frame_origin", "l1"))
-		var detail := {"frame": frame, "mismatched_frame": [frame]}
+		var detail := {"frame": frame, "mismatched_frame": [frame],
+			"severity": "unavailable"}
 		if sensor_service.has_method("mark_geometry_unavailable"):
 			sensor_service.mark_geometry_unavailable("frame_mismatch", detail)
-		warnings.append("sensor geometry 保持静态（坐标系不匹配，不做隐式转换）")
-		return {"ok": false, "reason": "frame_mismatch", "source": "static", "bound": 0}
+		warnings.append("sensor geometry 不可用（坐标系不匹配，本 tick 停止传感器路由）")
+		return {"ok": false, "reason": "frame_mismatch", "source": "static",
+			"mode": "unavailable", "bound": 0}
 	var res: Dictionary = sensor_service.bind_geometry_provider(_SensorGeometryProvider.new(self))
 	if not bool(res.get("ok", false)):
 		warnings.append("sensor geometry 绑定失败：" + str(res.get("reason", "")))
 	return res
+
+## A-01：把 EntityCatalog（静态特征权威）与 PhysicsWorld（运动学权威）以**只读**引用
+## 注入 CombatBallistics，使弹道初始状态可追溯（source/frame/t），并让 RCS/IR 优先取
+## catalog 而不是静默缺省。本函数不写任何权威状态。
+func _wire_ballistics_authority() -> Dictionary:
+	if combat_ballistics == null:
+		return {"ok": false, "reason": "no_ballistics_service"}
+	if entity_catalog == null or not bool(entity_catalog.ready):
+		return {"ok": false, "reason": "no_entity_catalog"}
+	if physics_world_service == null:
+		return {"ok": false, "reason": "no_physics_world"}
+	combat_ballistics.catalog = entity_catalog
+	combat_ballistics.physics = physics_world_service
+	return {"ok": true, "catalog": "entity_catalog", "physics": "physics_world",
+		"catalog_entities": int(entity_catalog.count())}
+
 
 func _sensor_geometry_bind_allowed() -> bool:
 	if not _physics_enabled or physics_world_service == null:
@@ -4539,6 +4568,14 @@ func snapshot() -> Dictionary:
 			},
 		},
 		"entities": world.entities_sorted() if world != null else [],
+		# A-01：合成视图必须**说明静态字段来源**。world/snapshot 实体只承载运动投影，
+		# 静态特征（side/batch/rcs/radius/has_pd）的唯一权威在此块中按稳定 ID 提供。
+		"entity_catalog": {
+			"schema": "v17.entity_catalog.v1",
+			"source": "entity_catalog",
+			"authoritative": true,
+			"entities": entity_catalog.all_entities() if entity_catalog != null else [],
+		},
 		"track_table": track_table.snapshot() if track_table != null else null,
 		"story": story_state.snapshot() if story_state != null else null,
 		"sensor": sensor_service.vm() if sensor_service != null else null,
