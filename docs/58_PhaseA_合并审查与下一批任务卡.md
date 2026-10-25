@@ -11,6 +11,23 @@
 
 本次未修改游戏实现。隔离工作区在最终候选上运行回归和诊断，原工作区的模型/HUD/近景改动保留。
 
+GitHub任务卡已发布，R01–R05先返修，其余按各卡依赖解锁：
+
+- [R01 · #40 玩家 VM 所有分支遵守相同可见性](https://github.com/HATO-24/ghost-track-apsis/issues/40)
+- [R02 · #41 事件自动 ID 唯一与新档完整性](https://github.com/HATO-24/ghost-track-apsis/issues/41)
+- [R03 · #42 传感器严格恢复及同输入续跑一致](https://github.com/HATO-24/ghost-track-apsis/issues/42)
+- [R04 · #43 通信 outcome 的版本与完整性校验](https://github.com/HATO-24/ghost-track-apsis/issues/43)
+- [R05 · #44 成本报告使用真实字节，逐样本校验恢复](https://github.com/HATO-24/ghost-track-apsis/issues/44)
+- [H01 · #45 舰级/毁伤档案与缺档案语义（覆盖3 cases）](https://github.com/HATO-24/ghost-track-apsis/issues/45)
+- [H02 · #46 legacy TWS/显示的本舰 ID 归属（覆盖2 cases）](https://github.com/HATO-24/ghost-track-apsis/issues/46)
+- [H03 · #47 设施事故生成的输入集合（覆盖1 case）](https://github.com/HATO-24/ghost-track-apsis/issues/47)
+- [H04 · #48 现有序章文本与批准来源对齐（覆盖1 case）](https://github.com/HATO-24/ghost-track-apsis/issues/48)
+- [S01 · #49 按预算优化1000 tick恢复成本](https://github.com/HATO-24/ghost-track-apsis/issues/49)
+- [Q01 · #50 Linux/macOS支持验证](https://github.com/HATO-24/ghost-track-apsis/issues/50)
+- [Q02 · #51 非 headless 产品入口与可见性渲染验收](https://github.com/HATO-24/ghost-track-apsis/issues/51)
+- [Q03 · #52 超过1000 tick的成本与恢复正确性](https://github.com/HATO-24/ghost-track-apsis/issues/52)
+- [F01 · #53 真实RF/光学模型的规格与校准研究](https://github.com/HATO-24/ghost-track-apsis/issues/53)
+
 ## 2. 审查基线与证据
 
 | PR | 精确 head | 依赖/本轮决定 |
