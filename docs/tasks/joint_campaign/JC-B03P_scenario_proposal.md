@@ -1,5 +1,7 @@
 # JC-B03P：阶段性战区行动的具体内容与目标提案
 
+执行Issue：[JC-B03P #63](https://github.com/HATO-24/ghost-track-apsis/issues/63)。
+
 状态：READY内容设计；先用B00草案，最终对齐K0；交付P0。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
 
 ## 1. 目标与已确认边界

@@ -1,5 +1,7 @@
 # JC-A03：EW实际影响观测、航迹与火控
 
+执行Issue：[JC-A03 #60](https://github.com/HATO-24/ghost-track-apsis/issues/60)。
+
 状态：WAIT A2；交付A3。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
 
 ## 1. 目标与缺口

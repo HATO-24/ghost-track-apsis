@@ -1,5 +1,7 @@
 # JC-B00：联合战役多舰队、指挥与情报契约
 
+执行Issue：[JC-B00 #57](https://github.com/HATO-24/ghost-track-apsis/issues/57)。
+
 状态：READY设计，最终对齐G0；交付K0。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
 
 ## 1. 目标与缺口

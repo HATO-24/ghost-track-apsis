@@ -1,5 +1,7 @@
 # JC-A00：返修整链冻结与逐样本验收补齐
 
+执行Issue：[JC-A00 #56](https://github.com/HATO-24/ghost-track-apsis/issues/56)。
+
 状态：READY；承接既有R01–R05 / issues #40–#44，不重做已通过的返修。公共规则与C回归见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
 
 ## 1. 目标与已知反例

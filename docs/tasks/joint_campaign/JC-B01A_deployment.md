@@ -1,5 +1,7 @@
 # JC-B01A：两套编制转为独立、可恢复的参战部署
 
+执行Issue：[JC-B01A #62](https://github.com/HATO-24/ghost-track-apsis/issues/62)。
+
 状态：服务WAIT A1/K0，Session最终集成WAIT A4；交付D1，属于B1前半。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
 
 ## 1. 目标与缺口

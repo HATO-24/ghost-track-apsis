@@ -1,5 +1,7 @@
 # JC-A02：多来源身份收敛与IFF状态闭环
 
+执行Issue：[JC-A02 #59](https://github.com/HATO-24/ghost-track-apsis/issues/59)。
+
 状态：WAIT A1；交付A2。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
 
 ## 1. 目标与缺口

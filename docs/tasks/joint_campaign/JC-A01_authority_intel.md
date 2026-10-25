@@ -1,5 +1,7 @@
 # JC-A01：指挥权限与分方情报隔离
 
+执行Issue：[JC-A01 #58](https://github.com/HATO-24/ghost-track-apsis/issues/58)。
+
 状态：WAIT G0/K0；交付A1。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
 
 ## 1. 目标与复现

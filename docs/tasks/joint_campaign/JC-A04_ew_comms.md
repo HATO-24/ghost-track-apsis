@@ -1,5 +1,7 @@
 # JC-A04：EW进入通信链路并保持确定性恢复
 
+执行Issue：[JC-A04 #61](https://github.com/HATO-24/ghost-track-apsis/issues/61)。
+
 状态：服务可在A1后开发，Session集成WAIT A3；交付A4。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
 
 ## 1. 目标与缺口
