@@ -872,10 +872,18 @@ func vm(opts := {}) -> Dictionary:
 	var filtered: Array = filter(query) if not query.is_empty() else rows
 	var sel_id := String(o.get("selected_id", ""))
 	var sel: Dictionary = selected(sel_id) if sel_id != "" else {}
+	# A-01：vm() 是**玩家可见只读模型**；真值/内部字段（batch/rcs_m2/radius_km/has_pd）
+	# 只保留在内部航迹（all_tracks()/snapshot()）用于去重、合并与存档，不得泄漏到玩家视图。
+	var player_rows: Array = []
+	for raw_tr in filtered:
+		if raw_tr is Dictionary:
+			player_rows.append(_player_row(raw_tr))
+		else:
+			player_rows.append(raw_tr)
 	return {
 		"schema": SCHEMA_TABLE, "mode": "single_writer", "authoritative": false,
 		"ready": ready, "t": t, "writer_id": writer_id,
-		"tracks": filtered, "all_count": rows.size(),
+		"tracks": player_rows, "all_count": rows.size(),
 		"filter": query.duplicate(true), "selected": sel,
 		"summary": summary(), "events": events.duplicate(true),
 		"warnings": warnings.duplicate(), "errors": errors.duplicate(),
@@ -883,6 +891,18 @@ func vm(opts := {}) -> Dictionary:
 		"notes": ["TrackTable 单写者：仅 writer_id 可写；UI 只读",
 			"身份六级；不明不判敌（hostile 需显式授权）"],
 	}
+
+
+## A-01：玩家视图投影 —— 去掉仅真值/内部可见的静态字段。
+## 内部航迹字典本身**不被修改**（去重/合并/存档仍需要 batch）。
+const TRUTH_ONLY_FIELDS := ["batch", "rcs_m2", "radius_km", "has_pd"]
+
+func _player_row(track_row: Dictionary) -> Dictionary:
+	var out: Dictionary = track_row.duplicate(true)
+	for f in TRUTH_ONLY_FIELDS:
+		out.erase(f)
+	out["truth_fields_withheld"] = true
+	return out
 
 
 ## 保存快照（Dictionary；JSON-safe，可直接放进 SaveService payload）。
