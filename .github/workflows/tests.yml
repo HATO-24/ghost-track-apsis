@@ -280,15 +280,21 @@ jobs:
           }
 
       # The three probes are expected to FAIL against the declared Phase A baseline.
-      # We therefore capture the runner's summary and assert the EXPECTED-FAILURE SHAPE
-      # (each probe ran, exited 1, and its pass/fail counts match the declared baseline)
-      # instead of asserting a green run. Any deviation (a probe NOT RUN, a count drift,
-      # or a probe silently passing) fails this step loudly.
-      - name: Run Phase A authority gate (-Gate phaseA) and assert expected-failure shape
+      # A-00 协调后语义：这个独立 job 的**红绿由 probe 的真实退出码决定**，不再硬编码
+      # 「三个必须 FAIL」。理由：Phase A 切片会逐卡转绿（A0-T1 已在 P20 后被整合候选修复），
+      # 写死 expected FAIL 会让真实修复被判成「计数漂移」，也会掩盖真正的 NOT RUN。
+      # 判据：
+      #   * 每个声明的 Phase A case 都必须真的执行（出现且 status ∈ {PASS, FAIL}）；
+      #     0 case / NOT RUN / TIMEOUT 一律失败，不算通过。
+      #   * summary 的 totals 与逐 case 计数必须自洽（pass+fail == 实际，且与 runner 汇总一致）。
+      #   * job 退出码 = runner 的真实退出码：全绿则 job 绿，仍有真实 FAIL 则 job 红。
+      #   * 总是上传实际报告（后续 step 用 if: always()）。
+      # 完整 baseline job 仍严格核对既有失败条目（不在此 job）。
+      - name: Run Phase A authority gate (-Gate phaseA)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          pwsh -NoProfile -File ./run_tests.ps1 -Ci -Gate phaseA -Baseline game_v17/tests/known_baseline_failures.json -BaselineExtra game_v17/tests/phasea_baseline_failures.json -GodotBin $env:GODOT_CONSOLE
+          pwsh -NoProfile -File ./run_tests.ps1 -Ci -Gate phaseA -GodotBin $env:GODOT_CONSOLE
           $code = $LASTEXITCODE
           Write-Host "PHASEA_GATE_EXIT=$code"
 
@@ -301,37 +307,56 @@ jobs:
           }
           $s = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
 
-          $expected = @{
-            'integration.a0_track_truth_authority'   = @{ pass = 44; fail = 1 }
-            'integration.a0_entity_metadata_pipeline' = @{ pass = 14; fail = 10 }
-            'integration.a0_save_roundtrip_authority' = @{ pass = 34; fail = 4 }
-          }
           $problems = New-Object System.Collections.ArrayList
-          foreach ($cid in $expected.Keys) {
+          $required = @(
+            'integration.a0_track_truth_authority',
+            'integration.a0_entity_metadata_pipeline',
+            'integration.a0_save_roundtrip_authority'
+          )
+          $passCount = 0
+          $failCount = 0
+          foreach ($cid in $required) {
             $c = @($s.cases | Where-Object { [string]$_.id -eq $cid })
             if ($c.Count -ne 1) { [void]$problems.Add("$cid was NOT RUN (missing from summary)"); continue }
             $c = $c[0]
-            if ([string]$c.status -ne 'FAIL') {
-              [void]$problems.Add("$cid expected FAIL, got $($c.status)")
+            $st = [string]$c.status
+            $pf = [int]$c.pass_count
+            $ff = [int]$c.fail_count
+            Write-Host ("PHASE A CASE {0}: status={1} exit={2} pass={3} fail={4}" -f $cid, $st, $c.exit_code, $pf, $ff)
+            if ($st -eq 'PASS') {
+              if ($ff -ne 0) { [void]$problems.Add("$cid status=PASS but fail_count=$ff") }
+              $passCount++
             }
-            if ([int]$c.pass_count -ne $expected[$cid].pass -or [int]$c.fail_count -ne $expected[$cid].fail) {
-              [void]$problems.Add("$cid count drift: expected $($expected[$cid].pass)/$($expected[$cid].fail), got $($c.pass_count)/$($c.fail_count)")
+            elseif ($st -eq 'FAIL') {
+              if ($ff -le 0) { [void]$problems.Add("$cid status=FAIL but fail_count=$ff") }
+              if ([int]$c.exit_code -eq 0) { [void]$problems.Add("$cid status=FAIL but exit_code=0") }
+              $failCount++
+            }
+            else {
+              [void]$problems.Add("$cid not executed: status=$st (NOT RUN / TIMEOUT never counts as pass)")
             }
           }
-          if ($null -ne $s.phase_a_baseline) {
-            if (-not [bool]$s.phase_a_baseline.complete) {
-              [void]$problems.Add("phase_a_baseline.complete=false (expected-failure baseline not fully verified)")
-            }
-          } else {
-            [void]$problems.Add('summary.json has no phase_a_baseline block')
+          $declared = @($s.cases).Count
+          if ($declared -ne $required.Count) {
+            [void]$problems.Add("summary has $declared cases, gate declares $($required.Count)")
+          }
+          if ([int]$s.totals.pass -ne $passCount) {
+            [void]$problems.Add("totals.pass=$($s.totals.pass) != counted $passCount")
+          }
+          if ([int]$s.totals.fail -ne $failCount) {
+            [void]$problems.Add("totals.fail=$($s.totals.fail) != counted $failCount")
           }
           if ($problems.Count -gt 0) {
             $problems | ForEach-Object { Write-Host "PHASE A PROBLEM: $_" }
-            throw "PHASE A GATE ASSERT FAILED ($($problems.Count) problem(s)) - a probe was skipped, silently passed, or its counts drifted"
+            throw "PHASE A GATE ASSERT FAILED ($($problems.Count) problem(s)) - a probe was skipped, not run, or reported inconsistent counts"
           }
-          Write-Host 'PHASE A ASSERT OK: all 3 probes executed as declared FAIL with matching counts (this is the Phase A-01 baseline, NOT a pass).'
-          Write-Host 'Phase A gate is intentionally red: the authority chain is not fixed yet (Issues #2/#4).'
-          exit 1
+          if ($failCount -eq 0) {
+            Write-Host 'PHASE A ASSERT OK: all 3 authority probes executed and PASSED.'
+          }
+          else {
+            Write-Host ("PHASE A ASSERT OK: all 3 authority probes executed; {0} still FAIL on real, unfixed defects (see per-case logs)." -f $failCount)
+          }
+          exit $code
 
       - name: Assert test artifacts exist before upload
         if: always()
