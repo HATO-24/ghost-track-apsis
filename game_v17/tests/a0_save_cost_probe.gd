@@ -337,8 +337,8 @@ func _measure_scale(ticks: int) -> void:
 			"t_s": float(s.now_s()),
 			"loaded_ok": bool(lr.get("ok", false)),
 		}
-		_info("SAMPLE ticks=%d run=%d warmup=%s ok=%s bytes=%d tick=%dms save=%dms "
-			+ "write=%dms read=%dms load=%dms log_ops=%d bus_events=%d"
+		_info(("SAMPLE ticks=%d run=%d warmup=%s ok=%s bytes=%d tick=%dms save=%dms "
+			+ "write=%dms read=%dms load=%dms log_ops=%d bus_events=%d")
 			% [ticks, run_i, str(warmup), str(rec["ok"]), int(rec["bytes_utf8"]),
 				tick_total, save_elapsed, write_elapsed, read_elapsed, load_elapsed,
 				int(rec["log_ops"]), int(rec["bus_visible_events"])])
@@ -408,92 +408,272 @@ func _control_op(s, idx: int) -> Dictionary:
 			return {"ok": true, "skipped": "no_sensor"}
 
 
+## A00：完整规范化状态比较（只读）。返回违规列表；空表示恢复状态与原始一致。
+## 比较内容按契约：完整已用 ID 集合（成员，不只大小）、seq/allocator 真 int 与单调性、
+## World/Physics 同 tick 运动学、Sensor controls/backend/channel/排队观测、
+## Comms 在途队列与 outcome 记录。排除对象地址/墙钟/明示诊断计数。
+func _full_state_violations(original, restored) -> Array:
+	var bad: Array = []
+	# ── EventBus：完整已用 ID 集合成员 + seq 整数/单调 ──────────
+	var seen_o: Array = []
+	for k in original.bus._seen_ids.keys():
+		seen_o.append(String(k))
+	seen_o.sort()
+	var seen_r: Array = []
+	for k2 in restored.bus._seen_ids.keys():
+		seen_r.append(String(k2))
+	seen_r.sort()
+	if JSON.stringify(seen_o) != JSON.stringify(seen_r):
+		var only_o: Array = []
+		for s in seen_o:
+			if not (s in seen_r):
+				only_o.append(s)
+		var only_r: Array = []
+		for s2 in seen_r:
+			if not (s2 in seen_o):
+				only_r.append(s2)
+		bad.append({"area": "bus.seen_ids", "only_original": only_o.slice(0, 5),
+			"only_restored": only_r.slice(0, 5),
+			"size_equal": seen_o.size() == seen_r.size()})
+	if not (restored.bus.seq is int):
+		bad.append({"area": "bus.seq", "reason": "not int"})
+	if not (restored.bus._id_seq is int):
+		bad.append({"area": "bus.id_seq", "reason": "not int"})
+	if int(restored.bus.current_seq()) != int(original.bus.current_seq()):
+		bad.append({"area": "bus.seq", "original": int(original.bus.current_seq()),
+			"restored": int(restored.bus.current_seq())})
+	var last_seq := 0
+	for raw_ev in restored.bus.events:
+		if not (raw_ev is Dictionary):
+			continue
+		var e: Dictionary = raw_ev
+		if not (e.get("seq", 0) is int):
+			bad.append({"area": "bus.events.seq", "reason": "non-int",
+				"id": String(e.get("id", ""))})
+			break
+		if int(e.get("seq", 0)) <= last_seq:
+			bad.append({"area": "bus.events.seq", "reason": "not strictly increasing",
+				"at": String(e.get("id", ""))})
+			break
+		last_seq = int(e.get("seq", 0))
+	# 可见事件 ID/schema 顺序一致
+	var ev_ids_o: Array = []
+	for raw_o in original.bus.events:
+		ev_ids_o.append(String((raw_o as Dictionary).get("id", "")))
+	var ev_ids_r: Array = []
+	for raw_r in restored.bus.events:
+		ev_ids_r.append(String((raw_r as Dictionary).get("id", "")))
+	if JSON.stringify(ev_ids_o) != JSON.stringify(ev_ids_r):
+		bad.append({"area": "bus.events.ids", "original": ev_ids_o.size(),
+			"restored": ev_ids_r.size(),
+			"same_head": ev_ids_o.size() > 0 and ev_ids_r.size() > 0 \
+				and ev_ids_o[0] == ev_ids_r[0]})
+	# ── World / Physics 同 tick 运动学 ───────────────────────────
+	if original.physics_world_service != null and restored.physics_world_service != null:
+		if absf(float(original.physics_world_service.t)
+				- float(restored.physics_world_service.t)) > TIME_TOL:
+			bad.append({"area": "physics.t",
+				"original": float(original.physics_world_service.t),
+				"restored": float(restored.physics_world_service.t)})
+		for raw_e2 in original._seed.get("entities", []):
+			var eid := String((raw_e2 as Dictionary).get("id", ""))
+			var so: Dictionary = original.physics_state(eid)
+			var sr: Dictionary = restored.physics_state(eid)
+			var ro: Array = so.get("r", []) if so.get("r") is Array else []
+			var rr: Array = sr.get("r", []) if sr.get("r") is Array else []
+			var vo: Array = so.get("v", []) if so.get("v") is Array else []
+			var vr: Array = sr.get("v", []) if sr.get("v") is Array else []
+			if ro.size() < 3 or rr.size() < 3:
+				bad.append({"area": "physics.r", "entity": eid, "reason": "missing"})
+				continue
+			for i in range(3):
+				if absf(float(ro[i]) - float(rr[i])) > NUM_TOL:
+					bad.append({"area": "physics.r", "entity": eid, "axis": i,
+						"original": float(ro[i]), "restored": float(rr[i])})
+				if absf(float(vo[i]) - float(vr[i])) > NUM_TOL:
+					bad.append({"area": "physics.v", "entity": eid, "axis": i})
+			# world 投影必须与 physics 同刻一致（同源副本 ≤1e-9 km）
+			if original.world != null and restored.world != null:
+				var we_o: Dictionary = original.world.entity(eid)
+				var we_r: Dictionary = restored.world.entity(eid)
+				var wp_o: Array = we_o.get("pos_km", []) \
+					if we_o.get("pos_km") is Array else []
+				var wp_r: Array = we_r.get("pos_km", []) \
+					if we_r.get("pos_km") is Array else []
+				if wp_o.size() >= 3 and wp_r.size() >= 3:
+					for j in range(3):
+						if absf(float(wp_o[j]) - float(wp_r[j])) > NUM_TOL:
+							bad.append({"area": "world.pos_km", "entity": eid,
+								"axis": j})
+	# ── Sensor：controls / backend / channels / 排队观测 ────────
+	if original.sensor_service != null and restored.sensor_service != null:
+		var so2 = original.sensor_service
+		var sr2 = restored.sensor_service
+		for fld in ["emcon", "radar_enabled", "selected_target", "optical_backend"]:
+			if str(so2.get(fld)) != str(sr2.get(fld)):
+				bad.append({"area": "sensor." + fld, "original": str(so2.get(fld)),
+					"restored": str(sr2.get(fld))})
+		for af in ["obs_seq", "evidence_seq", "event_seq"]:
+			var av = so2.get("_" + af)
+			var bv = sr2.get("_" + af)
+			if not (bv is int):
+				bad.append({"area": "sensor." + af, "reason": "not int"})
+			if int(av) != int(bv):
+				bad.append({"area": "sensor." + af, "original": int(av),
+					"restored": int(bv)})
+		# backend 通道完整内容（kind/target/status/progress）
+		var be_o: Dictionary = so2._authority.export_backend_state() \
+			if so2._authority != null else {}
+		var be_r: Dictionary = sr2._authority.export_backend_state() \
+			if sr2._authority != null else {}
+		var ch_o: Array = be_o.get("channels", []) if be_o.get("channels") is Array else []
+		var ch_r: Array = be_r.get("channels", []) if be_r.get("channels") is Array else []
+		if ch_o.size() != ch_r.size():
+			bad.append({"area": "sensor.backend.channels", "original": ch_o.size(),
+				"restored": ch_r.size()})
+		else:
+			for ci in range(ch_o.size()):
+				var co: Dictionary = ch_o[ci]
+				var cr: Dictionary = ch_r[ci]
+				for cf in ["kind", "target_id", "status"]:
+					if String(co.get(cf, "")) != String(cr.get(cf, "")):
+						bad.append({"area": "sensor.backend." + cf,
+							"channel": ci, "original": String(co.get(cf, "")),
+							"restored": String(cr.get(cf, ""))})
+				if absf(float(co.get("progress", 0.0))
+						- float(cr.get("progress", 0.0))) > NUM_TOL:
+					bad.append({"area": "sensor.backend.progress", "channel": ci})
+		# 排队（待路由）观测：完整 ID 流一致
+		var ob_o: Array = []
+		for raw_o2 in so2.observations:
+			ob_o.append(String((raw_o2 as Dictionary).get("event_id", "")))
+		var ob_r: Array = []
+		for raw_r2 in sr2.observations:
+			ob_r.append(String((raw_r2 as Dictionary).get("event_id", "")))
+		if JSON.stringify(ob_o) != JSON.stringify(ob_r):
+			bad.append({"area": "sensor.observations.ids", "original": ob_o.size(),
+				"restored": ob_r.size()})
+		# 去重键完整集合
+		var dk_o: Array = so2._optical_evidence_seen.keys()
+		dk_o.sort()
+		var dk_r: Array = sr2._optical_evidence_seen.keys()
+		dk_r.sort()
+		if JSON.stringify(dk_o) != JSON.stringify(dk_r):
+			bad.append({"area": "sensor.dedup", "original": dk_o.size(),
+				"restored": dk_r.size()})
+	# ── Comms：在途队列与 outcome 记录 ─────────────────────────
+	if original.comms != null and restored.comms != null:
+		var pend_o: Array = []
+		for raw_p in original.comms.pending:
+			var po: Dictionary = raw_p
+			pend_o.append("%s@%.6f" % [String(po.get("delivery_id", "")),
+				float(po.get("arrive_t", -1.0))])
+		var pend_r: Array = []
+		for raw_pr in restored.comms.pending:
+			var pr: Dictionary = raw_pr
+			pend_r.append("%s@%.6f" % [String(pr.get("delivery_id", "")),
+				float(pr.get("arrive_t", -1.0))])
+		if JSON.stringify(pend_o) != JSON.stringify(pend_r):
+			bad.append({"area": "comms.pending", "original": pend_o.slice(0, 5),
+				"restored": pend_r.slice(0, 5)})
+		var rep_r: Dictionary = restored.comms_restore_report()
+		if int(rep_r.get("diverged", 0)) != 0:
+			bad.append({"area": "comms.restore_report", "diverged":
+				int(rep_r.get("diverged", 0))})
+	return bad
+
+
+## A00：故障注入——在**恢复会话**上制造真实状态篡改（不是直接调用 FAIL），
+## 由正常比较器发现后使驱动非零退出。fault=2 → 等长集合 ID 替换；fault=3 → 在途 ETA 改写。
+func _tamper_restored(fault: String, restored) -> Dictionary:
+	var detail := {"fault": fault, "applied": []}
+	if fault == "2":
+		# 等长差异：删掉一个已用 ID 并加一个不存在的 ID（size 不变）
+		var kids: Array = restored.bus._seen_ids.keys()
+		if kids.size() >= 2:
+			var drop := String(kids[0])
+			restored.bus._seen_ids.erase(drop)
+			restored.bus._seen_ids["evt-tampered-fault2"] = true
+			detail["applied"].append("seen_ids equal-size replacement: -" + drop)
+	elif fault == "3":
+		# 在途消息 ETA 改写（内容差异，总数不变）
+		if restored.comms != null and restored.comms.pending.size() > 0:
+			var rec: Dictionary = restored.comms.pending[0]
+			rec["arrive_t"] = float(rec.get("arrive_t", 0.0)) + 30.0
+			detail["applied"].append("pending[0].arrive_t += 30")
+	if (detail["applied"] as Array).is_empty():
+		detail["note"] = "no tamper target at this scale; comparator must still pass"
+	return detail
+
+
+## A00：逐 tick 行为比较（≥10 tick）：事件 ID/seq、观测、通信投递、通道、时钟。
+func _behavior_violations(original, restored, ticks: int) -> Array:
+	var bad: Array = []
+	for i in range(ticks):
+		var oa: Dictionary = original.tick(TICK_DT)
+		var rb: Dictionary = restored.tick(TICK_DT)
+		if not bool(oa.get("ok", false)):
+			bad.append({"tick": i, "area": "original.tick", "reason":
+				String(oa.get("reason", ""))})
+		if not bool(rb.get("ok", false)):
+			bad.append({"tick": i, "area": "restored.tick", "reason":
+				String(rb.get("reason", ""))})
+		if int(original.bus.current_seq()) != int(restored.bus.current_seq()):
+			bad.append({"tick": i, "area": "bus.seq",
+				"original": int(original.bus.current_seq()),
+				"restored": int(restored.bus.current_seq())})
+		if absf(float(original.now_s()) - float(restored.now_s())) > TIME_TOL:
+			bad.append({"tick": i, "area": "t_s"})
+		if original.sensor_service != null and restored.sensor_service != null:
+			if int(original.sensor_service._obs_seq) \
+					!= int(restored.sensor_service._obs_seq):
+				bad.append({"tick": i, "area": "sensor.obs_seq",
+					"original": int(original.sensor_service._obs_seq),
+					"restored": int(restored.sensor_service._obs_seq)})
+			if int(original.sensor_service.observations.size()) \
+					!= int(restored.sensor_service.observations.size()):
+				bad.append({"tick": i, "area": "sensor.observations"})
+		if original.comms != null and restored.comms != null:
+			if int(original.comms.pending.size()) != int(restored.comms.pending.size()):
+				bad.append({"tick": i, "area": "comms.pending"})
+			var last_o: Dictionary = original.comms.last_event() \
+				if original.comms.has_method("last_event") else {}
+			var last_r: Dictionary = restored.comms.last_event() \
+				if restored.comms.has_method("last_event") else {}
+			if String(last_o.get("kind", "")) != String(last_r.get("kind", "")):
+				bad.append({"tick": i, "area": "comms.last_event.kind",
+					"original": String(last_o.get("kind", "")),
+					"restored": String(last_r.get("kind", ""))})
+	return bad
+
+
 func _correctness(ticks: int, run_i: int, original, restored, lr: Dictionary) -> void:
 	var label := "scale %d run %d" % [ticks, run_i]
 	_ok(bool(lr.get("ok", false)), "%s: restored session loaded" % label)
 	if not bool(lr.get("ok", false)):
 		return
+	# A00：故障注入改为**真实状态篡改**，由下面的正常比较器发现；
+	# 不再用直接 _ok(false) 冒充故障发现能力。
 	var fault := OS.get_environment("A07_FAULT_SAMPLE").strip_edges()
 	if fault != "" and fault == str(run_i):
-		print("[A0-A07] FAULT INJECTED at ", label)
-		_ok(false, "%s: FAULT INJECTION — per-sample validation must fail here" % label)
-		return
-	# frame / t（A-02 契约）
-	_ok(absf(float(restored.now_s()) - float(original.now_s())) <= TIME_TOL,
-		"%s: restored relative time matches" % label,
-		"orig=%.6f rest=%.6f" % [float(original.now_s()), float(restored.now_s())])
-	var meta_o: Dictionary = original.session_time_frame_meta()
-	var meta_r: Dictionary = restored.session_time_frame_meta()
-	_ok(String(meta_r.get("runtime_frame", "")) == String(meta_o.get("runtime_frame", "")),
-		"%s: restored frame matches" % label,
-		"%s/%s" % [String(meta_o.get("runtime_frame", "")),
-			String(meta_r.get("runtime_frame", ""))])
-	# physics / world 数值
-	var pf_bad: Array = []
-	if original.physics_world_service != null and restored.physics_world_service != null:
-		for raw_e in original._seed.get("entities", []):
-			var eid := String((raw_e as Dictionary).get("id", ""))
-			var so: Dictionary = original.physics_state(eid)
-			var sr: Dictionary = restored.physics_state(eid)
-			var ro: Array = so.get("r", [])
-			var rr: Array = sr.get("r", [])
-			var vo: Array = so.get("v", [])
-			var vr: Array = sr.get("v", [])
-			if ro.size() < 3 or rr.size() < 3:
-				pf_bad.append({"entity": eid, "reason": "missing r"})
-				continue
-			for i in range(3):
-				if absf(float(ro[i]) - float(rr[i])) > NUM_TOL:
-					pf_bad.append({"entity": eid, "axis": "r%d" % i,
-						"orig": float(ro[i]), "rest": float(rr[i])})
-				if absf(float(vo[i]) - float(vr[i])) > NUM_TOL:
-					pf_bad.append({"entity": eid, "axis": "v%d" % i})
-	_ok(pf_bad.is_empty(), "%s: physics r/v roundtrip within 1e-9" % label,
-		"violations=" + str(pf_bad.slice(0, 5)))
-	# 事件 seq / 去重
-	var ev_bad: Array = []
-	for raw_ev in restored.bus.events:
-		if not ((raw_ev as Dictionary).get("seq", 0) is int):
-			ev_bad.append("non-int seq")
-			break
-	if int(restored.bus.current_seq()) < int(original.bus.current_seq()):
-		ev_bad.append("seq regression")
-	if int(restored.bus._seen_ids.size()) < int(original.bus._seen_ids.size()):
-		ev_bad.append("dedup set shrank")
-	_ok(ev_bad.is_empty(), "%s: event seq int + dedup set preserved" % label,
-		str(ev_bad))
-	# 传感器运行态（A-05 契约）
-	var sens_bad: Array = []
-	if original.sensor_service != null and restored.sensor_service != null:
-		var so2 = original.sensor_service
-		var sr2 = restored.sensor_service
-		if bool(so2.emcon) != bool(sr2.emcon):
-			sens_bad.append("emcon")
-		if bool(so2.radar_enabled) != bool(sr2.radar_enabled):
-			sens_bad.append("radar")
-		if int(so2._obs_seq) != int(sr2._obs_seq):
-			sens_bad.append("obs_seq")
-		if int(so2._event_seq) != int(sr2._event_seq):
-			sens_bad.append("event_seq")
-	_ok(sens_bad.is_empty(), "%s: sensor runtime state restored exactly" % label,
-		str(sens_bad))
-	# 与未中断会话再跑相同 10 tick
-	var ok10 := true
-	for i in range(CORRECTNESS_TICKS):
-		var a: Dictionary = original.tick(TICK_DT)
-		var b: Dictionary = restored.tick(TICK_DT)
-		if not bool(a.get("ok", false)) or not bool(b.get("ok", false)):
-			ok10 = false
-	_ok(ok10, "%s: both sessions ran %d more ticks" % [label, CORRECTNESS_TICKS])
-	_ok(absf(float(restored.now_s()) - float(original.now_s())) <= TIME_TOL,
-		"%s: time still aligned after %d more ticks" % [label, CORRECTNESS_TICKS],
-		"orig=%.9f rest=%.9f" % [float(original.now_s()), float(restored.now_s())])
-	_ok(int(restored.bus.current_seq()) >= int(original.bus.current_seq()) - 0,
-		"%s: restored bus seq continues after +%d ticks" % [label, CORRECTNESS_TICKS],
-		"orig=%d rest=%d" % [int(original.bus.current_seq()),
-			int(restored.bus.current_seq())])
-
-
+		var td: Dictionary = _tamper_restored(fault, restored)
+		print("[A0-A07] FAULT INJECTED at ", label, " tamper=", JSON.stringify(td))
+	# 1) 完整规范化状态比较（恢复时刻）
+	var state_bad: Array = _full_state_violations(original, restored)
+	_ok(state_bad.is_empty(), "%s: full normalized state matches after restore" % label,
+		"violations=" + str(state_bad.slice(0, 6)))
+	# 2) 至少 10 tick 的同输入行为比较（逐 tick）
+	var behav_bad: Array = _behavior_violations(original, restored, CORRECTNESS_TICKS)
+	_ok(behav_bad.is_empty(),
+		"%s: %d continued ticks produce the same behaviour" % [label,
+			CORRECTNESS_TICKS],
+		"violations=" + str(behav_bad.slice(0, 6)))
+	# 3) +10 tick 后再次完整比较（覆盖恢复后继续演化的状态）
+	var state_after: Array = _full_state_violations(original, restored)
+	_ok(state_after.is_empty(),
+		"%s: full normalized state still matches after %d ticks" % [label,
+			CORRECTNESS_TICKS],
+		"violations=" + str(state_after.slice(0, 6)))
 func _stats(values: Array) -> Dictionary:
 	if values.is_empty():
 		return {"median": -1, "min": -1, "max": -1, "n": 0}

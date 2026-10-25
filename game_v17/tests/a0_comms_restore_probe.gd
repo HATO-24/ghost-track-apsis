@@ -471,7 +471,9 @@ func _run() -> void:
 	for raw_op5 in (r04_nan_payload.get("log", []) as Array):
 		if raw_op5 is Dictionary and String((raw_op5 as Dictionary).get("op", "")) == "send_comms":
 			var oc5: Dictionary = (raw_op5 as Dictionary).get("outcome", {})
-			oc5["latency_s"] = NAN
+			# NaN 无法在 JSON 中表示（stringify 会写 null 并告警）；显式用 null 覆盖该分支，
+			# 内存对象直接传 NaN 的路径由各服务 import_state 的 is_finite 校验覆盖（R03/R02）。
+			oc5["latency_s"] = null
 			(raw_op5 as Dictionary)["outcome"] = oc5
 			break
 	# NaN 经 JSON 会变 null → 走"必须是有限数"分支

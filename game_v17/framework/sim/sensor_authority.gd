@@ -30,6 +30,12 @@ func export_backend_state() -> Dictionary:
 	if _optical_ir != null and _optical_ir.has_method("export_state"):
 		var st: Dictionary = _optical_ir.export_state()
 		st["backend"] = "optical_ir"
+		# A00/R03：authority 自己的时钟与步数也要持久化。通道的 lost_hold 计时用
+		# authority.t（`t - lost_at > lost_hold_s`），若只恢复子模块 t 而 authority.t
+		# 从 0 开始，恢复后 10 tick 的通道状态会与原始会话分歧（locked vs lost）。
+		st["authority_t"] = t
+		st["authority_step_count"] = step_count
+		st["authority_dt_last"] = dt_last
 		return st
 	return {"schema": "v17.optical_ir.state.v1", "version": 1,
 		"backend": "legacy", "enabled": true, "t": t, "channels": []}
@@ -40,6 +46,17 @@ func import_backend_state(state: Dictionary) -> Dictionary:
 	if _optical_ir != null and _optical_ir.has_method("import_state"):
 		var r: Dictionary = _optical_ir.import_state(state)
 		r["backend"] = "optical_ir"
+		# A00/R03：恢复 authority 自身时钟/步数（与子模块一起原子提交前先校验）。
+		if state.has("authority_t"):
+			var at = state.get("authority_t")
+			if not (at is int or at is float) or not is_finite(float(at)) or float(at) < 0.0:
+				return {"ok": false, "reason": "invalid_authority_clock",
+					"errors": ["authority_t must be finite >= 0"]}
+			t = float(at)
+		if state.has("authority_step_count"):
+			step_count = int(state.get("authority_step_count", step_count))
+		if state.has("authority_dt_last"):
+			dt_last = float(state.get("authority_dt_last", dt_last))
 		return r
 	return {"ok": false, "reason": "no_backend_state_support", "backend": "legacy"}
 
