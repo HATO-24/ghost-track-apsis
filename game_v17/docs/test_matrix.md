@@ -6,6 +6,7 @@
 > 矩阵清单：`game_v17/tests/probe_matrix.json`（schema `probe_matrix.v1`）。
 >
 > 本文档只记录**本仓库当前真实执行结果**；不复制其它文档中的历史 PASS 数。
+> 历史运行记录（Phase 0 时期 72 cases）统一放在 §7A 并明确标注为历史，不与当前结果混用。
 
 ---
 
@@ -13,7 +14,7 @@
 
 ```powershell
 # 仓库根目录
-pwsh ./run_tests.ps1                 # 全矩阵（72 cases：67 probes + 1 e2e + 4 boot smoke）
+pwsh ./run_tests.ps1                 # 全矩阵（75 cases：70 probes + 1 e2e + 4 boot smoke）
 pwsh ./run_tests.ps1 -List           # 只列出解析后的矩阵，不要求 Godot
 pwsh ./run_tests.ps1 -Category profile
 pwsh ./run_tests.ps1 -Category boot
@@ -140,7 +141,7 @@ C/CI 中它是必须为绿的检查；它**不包含**全量历史 probe，不�
 
 `pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json` 的语义（**default = strict**）：
 
-- **72 个 case 全部执行**；已知遗留失败**状态仍是 FAIL**，逐条出现在控制台表、`report.md`、
+- **75 个 case 全部执行**；已知遗留失败**状态仍是 FAIL**，逐条出现在控制台表、`report.md`、
   `summary.json`、CI job summary 与 artifact 中，绝不会被改名 PASS、跳过或 `continue-on-error`；
 - 对每个 FAIL case 额外给出 `baseline` 分类：`known`（命中已知失败且 PASS/FAIL 计数完全一致）
   或 `new`（新增失败 / 计数漂移）；
@@ -167,7 +168,7 @@ C/CI 中它是必须为绿的检查；它**不包含**全量历史 probe，不�
   (C) 筛选 + `-AllowPartialBaseline` → exit 0 但明确标记 PARTIAL/未验证。
   该脚本在 CI 的 full-matrix job 中执行，失败即 job 红。
 
-> 8 个遗留失败对应的后续责任任务（建议）见 `known_baseline_failures.json` 的 `follow_up` 字段与 §7.2。
+> 8 个遗留失败对应的后续责任任务（建议）见 `known_baseline_failures.json` 的 `follow_up` 字段与 §7A.2。
 
 ### 环境隔离
 
@@ -242,7 +243,7 @@ profile.build_profile_probe          profile      -          PASS         0     
 
 - 只有 **PASS** 行是“当前提交在 Godot 4.7.2 runtime 中实际通过”的证据；
 - 报告中出现 FAIL 时，先看 `reason` 与该 case 的 `log_path`，再看是不是已知的
-  **pre-existing 内容漂移**（见 §7）；本任务不修改 probe、不掩盖失败；
+  **pre-existing 内容漂移**（见 §7A.2）；本任务不修改 probe、不掩盖失败；
 - NOT RUN 必须带原因；`blocked: true` 是矩阵声明的前置条件未就绪，
   非预期缺失（脚本被删/改名）会让整体 exit 1。
 
@@ -288,7 +289,7 @@ profile.build_profile_probe          profile      -          PASS         0     
 | check（job） | 命令 | 语义 | PR 上的意义 |
 | --- | --- | --- | --- |
 | **Phase 0 gate (Phase 0 acceptance)** | `run_tests.ps1 -Ci -Gate phase0` | 6 个 Phase 0 必需用例必须全 PASS | Phase 0 验收门禁；不包含全量历史 probe。job 名称**不代表 branch protection 已生效**（见下） |
-| **Full matrix (baseline-aware)** | `run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json` | 72 cases 全跑；8 个已知遗留失败仍以 FAIL 显示；**strict fail-closed**：新增失败/漂移/超时/非预期 NOT RUN/**baseline 项未执行或被筛选掉/计数不符**都会红灯 | 绿灯仅表示「**无新增回归 + baseline 覆盖完整**」，**不是**「全矩阵通过」 |
+| **Full matrix (baseline-aware)** | `run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json` | 75 cases 全跑；8 个已知遗留失败仍以 FAIL 显示；**strict fail-closed**：新增失败/漂移/超时/非预期 NOT RUN/**baseline 项未执行或被筛选掉/计数不符**都会红灯 | 绿灯仅表示「**无新增回归 + baseline 覆盖完整**」，**不是**「全矩阵通过」 |
 
 公共设置：
 
@@ -365,9 +366,124 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 
 ## 7. 当前真实矩阵状态（本 session 实际执行）
 
-以下数字来自本 session 在 worktree `D:\gt_phase0`（branch `feat/phase0-simulator-first`）
-上实际执行的结果，**不是历史文档摘抄**。基准 HEAD 为 `73fc4a6c`（T1 profile 与 T3 e2e probe
-已提交；T2 runner/matrix/docs 为待提交的 worktree 改动）。
+### 7.0 当前分支实际结果 —— 75 cases（A0-T2 / Issue #4.1）
+
+> 本节是**当前分支** `phase-a1/sensor-geometry-physics`（PR #20，base=PR #19 head `8c1483a`；
+> PR #19 base=PR #17 head `5bb763d`）的真实执行结果。
+> **提交分工**：
+> - **`e8716bb`** = 实现/探针代码提交（运行时代码 + 143 断言探针的最后变更）；
+> - **`b13e5d1`** = 文档提交（本文件 §7.0/§7.0a 的结果同步；docs-only，不改代码/测试）；
+> - **`40084016517`** = **当前文档提交 `b13e5d1` 对应的最新 CI 验证**（§7.0 引用此 run）。
+>
+> **§7A.1–§7A.3 是 Phase 0 时期的历史记录（72 cases），不是本次运行结果**，两者不可混用。
+
+- 矩阵规模（当前仓库）：**75 cases = 70 个常规 probe + 1 个 e2e probe + 4 个 boot smoke**
+  （仓库当前共 **71 个 tracked `game_v17/tests/*_probe.gd`**：70 常规 + 1 e2e；
+  A0-T2 新增 `a0_sensor_geometry_probe.gd`，A0-T1 已新增 `a0_world_physics_sync_probe.gd`，
+  A1.1 已新增 `a1_entity_metadata_authority_probe.gd`）
+- 命令：`pwsh ./run_tests.ps1 -Baseline game_v17/tests/known_baseline_failures.json -Ci`
+- **totals：total=75，PASS=67，FAIL=8，TIMEOUT=0，NOT RUN=0**；
+  `BASELINE CHECK: known_fail=8 new_fail=0 drift=0 unverified=0 unselected=0 complete=true`，exit 0
+- **全量矩阵仍有 8 个已知失败**（逐条见 §7A.2 表格，计数不变）→ **不是“全部通过”**，
+  只是「无新增回归 + baseline 覆盖完整」。
+- Phase 0 gate：`pwsh ./run_tests.ps1 -Gate phase0 -Ci` → **6/6 PASS**，exit 0
+- A0-T2 探针（**当前**）：`integration.a0_sensor_geometry` → **PASS 143/0**
+- A0-T1 探针（前序 PR）：`integration.a0_world_physics_sync` → **PASS 97/0**
+- **CI（当前文档提交 `b13e5d1`）**：run
+  [40084016517](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40084016517)
+  （head `b13e5d160793b83d391989b3bff2531fc99aedec`）两个 job 均 success；
+  - `Phase 0 gate` → 6/6 PASS（[job/120843157028](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40084016517/job/120843157028)）
+  - `Full matrix (baseline-aware)` → **75 = 67 PASS / 8 KNOWN-BASELINE FAIL / 0 TIMEOUT / 0 NOT RUN**，
+    `known_fail=8 new_fail=0 drift=0 complete=true`，exit 0（[job/120843157163](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40084016517/job/120843157163)）
+  - artifacts 已 `gh run download` 核对：`full-matrix-results-40084016517-1` 396,828 B /
+    sha256 `f7ff8234d41b449f1b20b981fcdaedc6e5665627ca3419497c491d387c29f6bc`（summary
+    total=75/pass=67/fail=8/timeout=0/not_run=0、baseline complete=true）；
+    `phase0-gate-results-40084016517-1` 27,387 B /
+    sha256 `5fdb3cd031d0d9c21f3632126cd9f9e8bedea7688ffb03d0dce145b160c1a87f`（summary
+    total=6/pass=6/gate=phase0）；A0-T2 日志 `PASS=143 FAIL=0`
+
+#### 7.0a 前一轮运行（保留，勿当作当前结果）
+
+> 以下为 **PR #20 更早轮次**的运行记录，**不是当前结果**；当前结果见 §7.0。
+> 两轮代码/测试数字一致（75=67/8/0/0、A0-T2 143/0），仅提交与 run 不同。
+
+- **实现/探针代码提交 `e8716bb`**（运行时代码最后变更）：run
+  [40081652773](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40081652773)
+  （head `e8716bbbc1be0189120a2718488444a2425b6ceb`）两个 job 均 success；
+  - `Phase 0 gate` → 6/6 PASS（[job/120836283191](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40081652773/job/120836283191)）
+  - `Full matrix (baseline-aware)` → **75 = 67 PASS / 8 KNOWN-BASELINE FAIL / 0 TIMEOUT / 0 NOT RUN**，
+    `known_fail=8 new_fail=0 drift=0 complete=true`，exit 0（[job/120836283376](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40081652773/job/120836283376)）
+  - artifacts：`full-matrix-results-40081652773-1` 396,878 B /
+    sha256 `a31800b31b43877e5ae4cdfc6554a49efcdc2f9476e0eba29bf464b592577cb9`；
+    `phase0-gate-results-40081652773-1` 27,380 B /
+    sha256 `bb29b80280f7d414e38175f129ad9ff189734c466a5c8d4eef6fafab34821ba3`
+- **初版几何绑定（真实提交 `382f8c1`）**：A0-T2 探针 **PASS 107/0**，全量 75 = 67 PASS /
+  8 FAIL / 0 TIMEOUT / 0 NOT RUN（`known_fail=8 new_fail=0 drift=0 complete=true`）。
+  > 更正：此前曾误写为 head `4d10a83`；该 SHA **在仓库中不存在**（从未有过此提交）。
+  > 初版几何绑定的真实提交是 `382f8c1`，其后为失败路径轮 `6bd7d75`（红）/ `e8716bb`（绿）。
+- **初版 CI**：run [40070006655](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40070006655)
+  （head `382f8c1345f30bf98e6e4d5a649c497fedc824b3`）两个 job 均 success；
+  A0-T2 探针 107/0，75 = 67 PASS / 8 FAIL / 0 TIMEOUT / 0 NOT RUN。
+  artifacts：`full-matrix-results-40070006655-1` 396,285 B /
+  sha256 `d9dca52e4775ad06a6d3530b95a66a2013230579e29a452f2ceb3d43603e6428`；
+  `phase0-gate-results-40070006655-1` 27,393 B /
+  sha256 `842fb32ae405deb86fef2f795848b4fc490a3adf3467b702800d4145c53cc431`。
+- 初版探针为 **107 断言**；`e8716bb` 起（失败路径修正后）为 **143 断言**，两者不可混用。
+
+| 分类 | total | pass | fail |
+| --- | --- | --- | --- |
+| `profile` | 1 | 1 | 0 |
+| `content` | 8 | 6 | 2 |
+| `unit` | 37 | 35 | 2 |
+| `integration` | 24 | 20 | 4 |
+| `e2e` | 1 | 1 | 0 |
+| `boot` | 4 | 4 | 0 |
+
+### 7.0b 前序 PR #19（A0-T1）实际结果 —— 74 cases（历史对照）
+
+> 本节保留 PR #19 的验收证据。**PR #19 未合并，其 head 为 `8c1483a`**。
+
+- 矩阵规模（当时）：**74 cases = 69 个常规 probe + 1 个 e2e probe + 4 个 boot smoke**
+  （当时仓库共 **70 个 tracked `game_v17/tests/*_probe.gd`**：69 常规 + 1 e2e）
+- **totals：total=74，PASS=66，FAIL=8，TIMEOUT=0，NOT RUN=0**；
+  `BASELINE CHECK: known_fail=8 new_fail=0 drift=0 complete=true`，exit 0
+- A0-T1 新探针：`integration.a0_world_physics_sync` → **PASS 97/0**
+- **CI（代码验证 head `6f60de7`）**：run
+  [39990675827](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39990675827)
+  （head `6f60de7744ffcf551a96c78e74008cda5f6ad3cc`）两个 job 均 success；
+  - `Phase 0 gate` → 6/6 PASS（[job/120541309623](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39990675827/job/120541309623)）
+  - `Full matrix (baseline-aware)` → **74 = 66 PASS / 8 KNOWN-BASELINE FAIL / 0 TIMEOUT / 0 NOT RUN**，
+    `known_fail=8 new_fail=0 drift=0 complete=true`，exit 0（[job/120541309265](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39990675827/job/120541309265)）
+  - artifacts 已 `gh run download` 核对：`full-matrix-results-39990675827-1` 388,482 B /
+    sha256 `1f9ea7bb466d723f25bcfa8cd22af9396f6fac2e2bfc95964696570dfdf136ab`（summary
+    total=74/pass=66/fail=8/timeout=0/not_run=0、baseline complete=true）；
+    `phase0-gate-results-39990675827-1` 26,110 B /
+    sha256 `81e8119ba61d8e6404a8fe93962fd770f01003146e4a801e6222e5f54b101cde`（summary
+    total=6/pass=6/gate=phase0）；A0-T1 日志 `PASS=97 FAIL=0`
+- **CI（PR #19 最终 docs-only head `f0153ea`）**：run
+  [39996883639](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39996883639)
+  （head `f0153eac0e05863ed1d6ba998d33c5bff7da7ebd`）两个 job 均 success；
+  74 = 66 PASS / 8 FAIL / 0 TIMEOUT / 0 NOT RUN，gate 6/6，A0-T1 97/0。
+  artifacts：`full-matrix-results-39996883639-1` 388,464 B /
+  sha256 `0037b351a2b780b6849c66d32f0ca989a14c816b5252825f1cbdecd0e44691ae`；
+  `phase0-gate-results-39996883639-1` 26,113 B /
+  sha256 `becd586d23f4c749eea1b31fc5caa6fcf7fe411d42af5afa51642708b0c7b89a`
+- **修正前历史运行（保留，勿当作当前结果）**：run
+  [39973495277](https://github.com/HATO-24/ghost-track-apsis/actions/runs/39973495277)
+  （head `1fcda468`，`updated`/`mismatched` 语义修正**之前**）→ 74 = 66 PASS / 8 FAIL /
+  0 TIMEOUT / 0 NOT RUN，A0-T1 探针 **78/0**。该轮已被 97/0 取代，仅作审查修正前证据保留。
+- 注：`f0153ea` 为 PR #19 的 **docs-only** 提交，运行时代码最后变更为 `6f60de7`。
+
+---
+
+## 7A. 历史记录（Phase 0 时期，72 cases，HEAD `73fc4a6c`）
+
+> ⚠️ **以下 §7A.1–§7A.3 是 Phase 0 交付时的历史运行记录**：当时矩阵为 **72 cases**、
+> tracked probe 为 **68 个**（67 常规 + 1 e2e）。这些数字**不代表当前 PR #19 的运行结果**，
+> 仅用于保留 Phase 0 验收证据。当前结果见 §7.0 / §7.0b。
+
+Phase 0 历史基准：worktree `D:\gt_phase0`（branch `feat/phase0-simulator-first`），
+HEAD `73fc4a6c`（T1 profile 与 T3 e2e probe 已提交；T2 runner/matrix/docs 为待提交的 worktree 改动）。
 
 - 运行：`pwsh ./run_tests.ps1 -Ci`
 - run id：`.test-results/20261022-200954-73fc4a6c/`
@@ -375,12 +491,12 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 - import 预检：PASS，exit 0，6.8s，0 条 error
 - 环境隔离：清除 6 个继承的 `DSH_*` 变量（`DSH_HOME`、`DSH_PROFILE`、`DSH_PROFILE_DIR`、
   `DSH_SESSION_ID`、`DSH_SHELL`、`DSH_WEB_URL`）
-- 矩阵规模：72 cases = 67 个常规 probe + 1 个 e2e probe + 4 个 boot smoke
-  （仓库当前共 68 个 tracked `game_v17/tests/*_probe.gd`：67 常规 + 1 e2e）
-- **totals：total=72，PASS=64，FAIL=8，TIMEOUT=0，NOT RUN=0，duration=269.0s，进程 exit code=1**
+- 矩阵规模（历史）：72 cases = 67 个常规 probe + 1 个 e2e probe + 4 个 boot smoke
+  （当时仓库共 68 个 tracked `game_v17/tests/*_probe.gd`：67 常规 + 1 e2e）
+- **历史 totals：total=72，PASS=64，FAIL=8，TIMEOUT=0，NOT RUN=0，duration=269.0s，进程 exit code=1**
   （exit 1 是 8 个 pre-existing probe FAIL 的如实结果，不是环境阻塞）
 
-| 分类 | total | pass | fail |
+| 分类（历史） | total | pass | fail |
 | --- | --- | --- | --- |
 | `profile` | 1 | 1 | 0 |
 | `content` | 8 | 6 | 2 |
@@ -389,7 +505,7 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 | `e2e` | 1 | 1 | 0 |
 | `boot` | 4 | 4 | 0 |
 
-### 7.1 Phase 0 交付用例（全部 PASS）
+### 7A.1 Phase 0 交付用例（全部 PASS）
 
 | case | 结果 | 证据 |
 | --- | --- | --- |
@@ -400,7 +516,7 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 | `boot.orbital_sim` | **PASS**，exit 0，3.2s，markers 3/3 | 主场景自动跳转 + `[SHELL BINDER] BUILD profile=orbital_sim` + `FLOW SMOKE COMPLETE` |
 | `boot.sandbox` | **PASS**，exit 0，3.2s，markers 3/3 | 主场景自动跳转 + `[SHELL BINDER] BUILD profile=sandbox` + `FLOW SMOKE COMPLETE` |
 
-### 7.2 已知 pre-existing FAIL（8 个，全部 exit 1，与本轮 Phase 0 改动无关）
+### 7A.2 已知 pre-existing FAIL（8 个，全部 exit 1，与本轮 Phase 0 改动无关）
 
 这些失败在 audit HEAD 的独立基线（verifier 复跑）中同样存在，属于内容/数据漂移
 （ship catalog 已扩到 36 型、story 文本已演进、旧模块契约未同步），**本任务不修改 probe、
@@ -424,14 +540,14 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 > CI 的 `Full matrix (baseline-aware)` 会在**新增回归**时如实红灯，日常绿灯仅表示
 > 「与审计 HEAD 基线相比无新增失败/无漂移」，且 8 条失败始终保持可见（见 §6.1）。
 
-### 7.3 历史参考（同一 session 的其它真实运行，仅用于说明差异）
+### 7A.3 历史参考（同一 session 的其它真实运行，仅用于说明差异）
 
 - `.test-results/20261022-195827-122c0d14/`：e2e 用例仍为 `blocked`、慢 probe 超时仍为 120s
   时的第一次全矩阵运行 → **total=72，PASS=63，FAIL=8，TIMEOUT=0，NOT RUN=1（expected，e2e 未启用）**，
   duration=306.2s。
 - `.test-results/20261022-200412-a92867d9/`：解除 e2e 阻塞、调整慢 probe 超时后、HEAD `a92867d9`
   上的运行 → **total=72，PASS=64，FAIL=8，TIMEOUT=0，NOT RUN=0**，duration=270.7s。
-- 最终运行见 §7 主体（HEAD `73fc4a6c`，269.0s），两次全量运行结果逐 case 一致。
+- 最终运行见 §7A 主体（HEAD `73fc4a6c`，269.0s），两次全量运行结果逐 case 一致。
 
 ---
 

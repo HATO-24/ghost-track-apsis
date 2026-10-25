@@ -432,11 +432,267 @@ func _seed_comms_sample() -> void:
 	print("[V1 HUD] COMMS seed LD=", str(bool(res1.get("ok", false))), " LR=", str(bool(res2.get("ok", false))), " events=", (binder.session.comms.vm().get("events", []) as Array).size())
 
 
+## A1.1：HUD 统一显示字段；无安全字段时返回匿名值，绝不回退世界真值。
+func _contact_display(c: Dictionary) -> Dictionary:
+	if binder != null and binder.has_method("contact_display"):
+		return binder.contact_display(c)
+	var did := String(c.get("display_id", ""))
+	var dname := String(c.get("display_name", ""))
+	var dcls := String(c.get("display_class", ""))
+	if did == "":
+		did = "UNKNOWN"
+	if dname == "":
+		dname = "UNKNOWN CONTACT"
+	if dcls == "":
+		dcls = "UNKNOWN"
+	return {"id": did, "name": dname, "cls": dcls, "source": String(c.get("display_source", "unknown"))}
+
+
+## 事件流安全显示入口（A1.1 后续：通信/战斗事件匿名化）。
+## 只生成显示副本；服务内部事件数据不被修改。
+const EVENT_ID_KEYS := ["target_id", "threat_id", "shooter_id", "entity_id",
+	"source_id", "from_id", "to_id", "track_id", "signal_target_id",
+	"facility_id", "target", "from", "to"]
+
+
+func hud_comms_event_text(ev: Dictionary) -> Dictionary:
+	var from_refs := [String(ev.get("from_id", "")), String(ev.get("from", "")),
+		String(ev.get("from_name", ""))]
+	var to_refs := [String(ev.get("to_id", "")), String(ev.get("to", "")),
+		String(ev.get("to_name", ""))]
+	var from_label := _event_ref_display(from_refs)
+	var to_label := _event_ref_display(to_refs)
+	var text := String(ev.get("text", ""))
+	for r in from_refs:
+		if r != "":
+			text = text.replace(r, from_label)
+	for r in to_refs:
+		if r != "":
+			text = text.replace(r, to_label)
+	text = _safe_visible_text(text)
+	return {"from": from_label, "to": to_label, "text": text}
+
+
+func hud_comms_link_text(l: Dictionary) -> String:
+	return "%s → %s" % [
+		_event_ref_display([String(l.get("a", "")), String(l.get("from", ""))]),
+		_event_ref_display([String(l.get("b", "")), String(l.get("to", ""))])]
+
+
+func hud_combat_event_text(ev: Dictionary) -> String:
+	var payload = ev.get("payload", {})
+	return "%5.1fs %s · %s" % [float(ev.get("t", 0.0)), String(ev.get("kind", "")),
+		JSON.stringify(_safe_event_payload(payload))]
+
+
+func hud_event_payload_text(payload) -> String:
+	return JSON.stringify(_safe_event_payload(payload))
+
+
+func hud_bottom_event_text(ev: Dictionary) -> String:
+	var payload: Dictionary = ev.get("payload", {}) if ev.get("payload") is Dictionary else {}
+	var text := String(payload.get("label", ""))
+	if text == "":
+		text = String(ev.get("type", ""))
+	return _safe_visible_text(text)
+
+
+func hud_visible_text(text: String) -> String:
+	return _safe_visible_text(text)
+
+
+## 内部引用 → 安全显示；优先使用事件携带的 id/name 中能解析到 contact 的引用。
+func _event_ref_display(refs: Array) -> String:
+	for r in refs:
+		var ref := String(r)
+		if ref == "":
+			continue
+		var d: Dictionary = _display_for_internal(ref)
+		if String(d.get("source", "")) != "none":
+			return _target_display_text(ref)
+	return "UNKNOWN · UNKNOWN CONTACT"
+
+
+func _all_contact_rows() -> Array:
+	var out: Array = []
+	var seen: Dictionary = {}
+	var lists: Array = [_contacts]
+	if binder != null and binder.contacts is Array:
+		lists.append(binder.contacts)
+	for list in lists:
+		for raw in (list if list is Array else []):
+			if not (raw is Dictionary):
+				continue
+			var eid := String((raw as Dictionary).get("entity_id", ""))
+			if eid == "" or seen.has(eid):
+				continue
+			seen[eid] = true
+			out.append(raw)
+	return out
+
+
+## 通用文本脱敏：替换已知内部实体/航迹/设施/通信节点 id 与节点名。
+func _safe_visible_text(text: String) -> String:
+	var out := text
+	var pairs: Array = []
+	for raw in _all_contact_rows():
+		var r: Dictionary = raw
+		var disp: Dictionary = _contact_display(r)
+		var label := String(disp.get("id", "UNKNOWN"))
+		for key in ["entity_id", "track_id", "signal_target_id", "facility_id"]:
+			var internal := String(r.get(key, ""))
+			if internal != "":
+				pairs.append([internal, label])
+	if binder != null and binder.session != null and binder.session.comms != null:
+		var nodes: Dictionary = binder.session.comms.nodes if binder.session.comms.nodes is Dictionary else {}
+		for nid in nodes.keys():
+			var node_id := String(nid)
+			var d: Dictionary = _display_for_internal(node_id)
+			var label2 := String(d.get("id", "UNKNOWN")) if String(d.get("source", "")) != "none" else "UNKNOWN"
+			pairs.append([node_id, label2])
+			var node: Dictionary = nodes[nid] if nodes[nid] is Dictionary else {}
+			var nname := String(node.get("name", ""))
+			if nname != "":
+				pairs.append([nname, label2])
+	pairs.sort_custom(func(a, b): return String(a[0]).length() > String(b[0]).length())
+	for p in pairs:
+		var token := String(p[0])
+		if token != "":
+			out = out.replace(token, String(p[1]))
+	return out
+
+
+## 深拷贝事件 payload，把已知内部引用键替换为安全显示；原 payload 不变。
+func _safe_event_payload(value):
+	if value is Dictionary:
+		var out: Dictionary = {}
+		for k in value.keys():
+			var key := String(k)
+			if key in EVENT_ID_KEYS and value[k] is String:
+				out[key] = _target_display_text(String(value[k]))
+			else:
+				out[key] = _safe_event_payload(value[k])
+		return out
+	if value is Array:
+		var arr: Array = []
+		for v in value:
+			arr.append(_safe_event_payload(v))
+		return arr
+	return value
+
+
+## A1.1：内部目标 id → 玩家安全显示（只读查找 contacts；未知时返回匿名值）。
+func _display_for_internal(target_id: String) -> Dictionary:
+	if target_id == "":
+		return {"id": "UNKNOWN", "name": "UNKNOWN CONTACT", "cls": "UNKNOWN", "source": "none"}
+	var lists: Array = []
+	lists.append(_contacts)
+	if binder != null and binder.contacts is Array:
+		lists.append(binder.contacts)
+	for list in lists:
+		for raw in (list if list is Array else []):
+			if not (raw is Dictionary):
+				continue
+			var r: Dictionary = raw
+			if String(r.get("entity_id", "")) == target_id \
+					or String(r.get("track_id", "")) == target_id \
+					or String(r.get("signal_target_id", "")) == target_id \
+					or String(r.get("facility_id", "")) == target_id:
+				return _contact_display(r)
+	return {"id": "UNKNOWN", "name": "UNKNOWN CONTACT", "cls": "UNKNOWN", "source": "none"}
+
+
+## 安全目标文案："<display_id> · <display_name>"；绝不包含内部 id。
+func _target_display_text(target_id: String) -> String:
+	var d: Dictionary = _display_for_internal(target_id)
+	return "%s · %s" % [String(d.get("id", "UNKNOWN")), String(d.get("name", "UNKNOWN CONTACT"))]
+
+
+func _row_display_text(row: Dictionary) -> String:
+	var d: Dictionary = _contact_display(row)
+	return "%s · %s" % [String(d.get("id", "UNKNOWN")), String(d.get("name", "UNKNOWN CONTACT"))]
+
+
+func _comms_type_message(kind: String, target_id: String) -> String:
+	return "TYPE %s · target %s" % [kind, _target_display_text(target_id)]
+
+
+func _comms_send_message(kind: String, target_id: String, ok: bool, reason: String) -> String:
+	return "SEND %s → %s · %s%s" % [kind, _target_display_text(target_id),
+		"OK" if ok else "FAILED", "" if ok else (" · " + reason)]
+
+
+func _optical_message(kind: String, target_id: String, ok: bool, reason: String) -> String:
+	return "%s %s · %s%s" % [kind, _target_display_text(target_id),
+		"OK" if ok else "FAILED", "" if ok else (" · " + reason)]
+
+
+func _ident_message(kind: String, res: Dictionary, row: Dictionary) -> String:
+	var ok := bool(res.get("ok", false))
+	var tail := ""
+	if ok:
+		if kind == "INTERROGATE":
+			tail = " · status " + String(res.get("status", ""))
+		elif kind == "IFF":
+			tail = " · identity " + String(res.get("identity", ""))
+	else:
+		tail = " · " + String(res.get("reason", ""))
+	return "%s %s · %s%s" % [kind, _row_display_text(row), "OK" if ok else "FAILED", tail]
+
+
+func _optical_entity_line(row: Dictionary, tr: Dictionary) -> String:
+	var disp: Dictionary = _contact_display(row)
+	var track_label := "TRACK NOT READY"
+	var tid := String(tr.get("track_id", "")) if not tr.is_empty() else String(row.get("track_id", ""))
+	if tid != "":
+		track_label = "TRACK " + tid
+	return "ENTITY/TRACK %s · %s" % [String(disp.get("id", "UNKNOWN")), track_label]
+
+
+func _command_target_text(c: Dictionary) -> String:
+	return _target_display_text(String(c.get("target", "")))
+
+
+func _combat_target_text() -> String:
+	return _target_display_text(_combat_target)
+
+
+## 供回归探针使用：这些就是 HUD 实际绘制/动作使用的文案生成函数。
+func hud_target_texts(row: Dictionary) -> Dictionary:
+	var internal := String(row.get("entity_id", row.get("track_id", "")))
+	var track_id := String(row.get("track_id", ""))
+	var disp: Dictionary = _contact_display(row)
+	return {
+		"comms_header": "TARGET " + _target_display_text(internal),
+		"comms_type": _comms_type_message("HOLD", internal),
+		"comms_send": _comms_send_message("HOLD", internal, true, ""),
+		"optical_entity": _optical_entity_line(row, {}),
+		"optical_msg": _optical_message("IFF", internal, true, ""),
+		"ident_interrogate": _ident_message("INTERROGATE", {"ok": true, "target_id": internal}, row),
+		"ident_iff": _ident_message("IFF", {"ok": true, "target_id": internal, "identity": "unknown"}, row),
+		"ident_clear": _ident_message("CLEAR", {"ok": true, "target_id": internal}, row),
+		"fusion_target": _target_display_text(internal),
+		"command_target": _target_display_text(internal),
+		"combat_target": _target_display_text(track_id if track_id != "" else internal),
+		"internal_target": internal,
+		"internal_track_id": track_id,
+		"display_id": String(disp.get("id", "")),
+		"display_name": String(disp.get("name", "")),
+	}
+
+
 func _normalize_contacts() -> void:
 	for i in range(_contacts.size()):
 		var c: Dictionary = _contacts[i]
 		if String(c.get("entity_id", "")) == "apsis" or String(c.get("id", "")) == "apsis":
+			# 本舰是玩家已知对象；显示仍走独立安全字段，不回读世界真值名称。
 			c["id"] = "1000"
+			c["display_id"] = "1000"
+			c["name"] = "OWN SHIP"
+			c["display_name"] = "OWN SHIP"
+			c["cls"] = "FLAGSHIP"
+			c["display_class"] = "FLAGSHIP"
+			c["display_source"] = "ownship"
 			c["badge"] = "FLAG"
 			_contacts[i] = c
 	# 旗舰 1000 固定第一；其余保持原顺序（友军/中立/未知规则不变）。
@@ -688,9 +944,10 @@ func _draw() -> void:
 				break
 			var tr := Rect2(left.position.x + 8, row_y, left.size.x - 16, rh)
 			_contact_rects.append({"rect": tr, "index": i})
-			Painter.list_row(self, tr, "[%s] %s" % [String(c.get("id", "")), String(c.get("name", ""))], String(c.get("badge", "")), _type_col(c), i == _selected)
+			var disp := _contact_display(c)
+			Painter.list_row(self, tr, "[%s] %s" % [String(disp.get("id", "UNKNOWN")), String(disp.get("name", "UNKNOWN CONTACT"))], String(c.get("badge", "")), _type_col(c), i == _selected)
 			# 识别融合短标签（来源族 + 置信度 + 人工/矛盾标记）；无评估显示 —，不伪造。
-			var cls_txt := String(c.get("cls", ""))
+			var cls_txt := String(disp.get("cls", "UNKNOWN"))
 			var idn: Dictionary = c.get("ident", {}) if c.get("ident", {}) is Dictionary else {}
 			var itag := String(idn.get("tag", "—"))
 			var icol := P.a(P.FAINT, 0.95)
@@ -905,12 +1162,12 @@ func _draw_bottom(r: Rect2) -> void:
 			if i == _selected_cmd:
 				draw_rect(rr, P.a(P.PH, 0.10))
 			Painter.label(self, r.position.x + 12, y + float(i) * 14.0, "%s %s · %s → %s · %s · %s" % [
-				String(c.get("id", "")), state, String(c.get("actor", "")), String(c.get("target", "")),
+				String(c.get("id", "")), state, _target_display_text(String(c.get("actor", ""))), _command_target_text(c),
 				String(c.get("action", "")), String(c.get("delay", ""))], 7, col, true)
 		if _selected_cmd >= 0 and _selected_cmd < cmds.size():
 			var sc: Dictionary = cmds[_selected_cmd]
 			Painter.label(self, r.position.x + 12, y + 34.0, "DETAIL %s · %s → %s · %s · mode %s · delay %s · %s" % [
-				String(sc.get("id", "")), String(sc.get("actor", "")), String(sc.get("target", "")),
+				String(sc.get("id", "")), _target_display_text(String(sc.get("actor", ""))), _command_target_text(sc),
 				String(sc.get("action", "")), String(sc.get("mode", "")), String(sc.get("delay", "")), String(sc.get("state", ""))], 6, P.a(P.PH_DIM, 0.95), true)
 		var b1 := Rect2(r.position.x + 12, r.end.y - 26, 84, 18)
 		var b2 := Rect2(r.position.x + 102, r.end.y - 26, 84, 18)
@@ -926,10 +1183,7 @@ func _draw_bottom(r: Rect2) -> void:
 	else:
 		for i in range(mini(4, events.size())):
 			var e: Dictionary = events[i]
-			var payload: Dictionary = e.get("payload", {}) if e.get("payload", {}) is Dictionary else {}
-			var text := String(payload.get("label", ""))
-			if text == "":
-				text = String(e.get("type", ""))
+			var text := hud_bottom_event_text(e)
 			Painter.label(self, split + 12, y + float(i) * 14.0, "%5.1fs  %s" % [float(e.get("t", 0.0)), String(e.get("type", "—"))], 7, P.PH_DIM if i == 0 else P.DIM, true)
 			Painter.label(self, split + 154, y + float(i) * 14.0, TM.fit(text, r.size.x - (split - r.position.x) - 180, false, 7), 7, P.TXT, false)
 	Painter.label(self, r.position.x + 12, r.end.y - 8, ("GAME SESSION · TRACK/SENSOR/STORY · 自绘 V1 HUD" if live else "FALLBACK DEMO · 无 session") + " · 三色点保存", 6, P.a(P.AMBER if not live else P.FAINT, 0.85), true)
@@ -1165,7 +1419,7 @@ func _draw_comms_overlay(r: Rect2) -> void:
 	var vm: Dictionary = binder.session.comms.vm() if binder != null and binder.session != null and binder.session.comms != null else {}
 	var events: Array = vm.get("events", []) if vm.get("events", []) is Array else []
 	var links: Array = vm.get("links", []) if vm.get("links", []) is Array else []
-	var fr := _overlay_frame(r, "通信 / COMMS · 命令 / ORDERS", "双栏 · 消息流 / 链路明细 / 命令面板 · 不写 world", P.PH, "TARGET " + (_comms_target if _comms_target != "" else "—"))
+	var fr := _overlay_frame(r, "通信 / COMMS · 命令 / ORDERS", "双栏 · 消息流 / 链路明细 / 命令面板 · 不写 world", P.PH, "TARGET " + (_target_display_text(_comms_target) if _comms_target != "" else "—"))
 	var body: Rect2 = fr.body
 	var gap := 12.0
 	var left_w := floorf((body.size.x - gap) * 0.56)
@@ -1218,10 +1472,11 @@ func _draw_comms_overlay(r: Rect2) -> void:
 	var row_capacity := mini(10, maxi(1, int((lp.end.y - my - 140.0) / 16.0)))
 	for i in range(maxi(0, events.size() - row_capacity), events.size()):
 		var ev: Dictionary = events[i]
-		var from := String(ev.get("from_name", ev.get("from", "—")))
-		var to := String(ev.get("to_name", ev.get("to", "—")))
+		var disp_ev: Dictionary = hud_comms_event_text(ev)
+		var from := String(disp_ev.get("from", "—"))
+		var to := String(disp_ev.get("to", "—"))
 		var mode := String(ev.get("mode", "—"))
-		var content := String(ev.get("text", ""))
+		var content := String(disp_ev.get("text", ""))
 		if content == "":
 			content = String(ev.get("text_key", "TEXT KEY 未提供"))
 		if content == "":
@@ -1253,8 +1508,7 @@ func _draw_comms_overlay(r: Rect2) -> void:
 		Painter.label(_cv, lp.position.x + 12, link_y, "NO LINKS · NOT READY", 7, P.FAINT, true)
 	for i in range(mini(5, links.size())):
 		var l: Dictionary = links[i]
-		var la := String(l.get("a", l.get("from", "—")))
-		var lb := String(l.get("b", l.get("to", "—")))
+		var ldisp := hud_comms_link_text(l)
 		var lm := String(l.get("mode", "—"))
 		var st2 := "OPEN"
 		if bool(l.get("disabled", false)):
@@ -1263,7 +1517,7 @@ func _draw_comms_overlay(r: Rect2) -> void:
 			st2 = "OCCLUDED"
 		elif float(l.get("jam", 0.0)) >= 0.7:
 			st2 = "JAMMED"
-		Painter.label(_cv, lp.position.x + 12, link_y + float(i) * 14.0, TM.fit("%s → %s · %s · %s · %s" % [la, lb, lm, st2, "%.1fs" % float(l.get("latency_s", l.get("latency", 0.0)))], lp.size.x - 24, true, 7), 7, P.PH_DIM if st2 == "OPEN" else P.AMBER, true)
+		Painter.label(_cv, lp.position.x + 12, link_y + float(i) * 14.0, TM.fit("%s · %s · %s · %s" % [ldisp, lm, st2, "%.1fs" % float(l.get("latency_s", l.get("latency", 0.0)))], lp.size.x - 24, true, 7), 7, P.PH_DIM if st2 == "OPEN" else P.AMBER, true)
 	# 右栏命令面板
 	var px := rp.position.x + 10.0
 	var py := rp.position.y + 36.0
@@ -1278,7 +1532,7 @@ func _draw_comms_overlay(r: Rect2) -> void:
 		var active := _comms_type == String(types[i])
 		Painter.button(_cv, tr, String(types[i]), true, P.PH if active else P.PH_DIM)
 	py += 28.0
-	Painter.label(_cv, px, py, TM.fit("TARGET " + (_comms_target if _comms_target != "" else "NOT READY"), right_w - 20.0, true, 7), 7, P.TXT, true)
+	Painter.label(_cv, px, py, TM.fit("TARGET " + (_target_display_text(_comms_target) if _comms_target != "" else "NOT READY"), right_w - 20.0, true, 7), 7, P.TXT, true)
 	py += 13.0
 	Painter.label(_cv, px, py, "ISSUER apsis · MODE " + ("LD" if _comms_type in ["HOLD", "NAV"] else "SENSOR/ROE"), 6, P.DIM, true)
 	py += 16.0
@@ -1299,14 +1553,14 @@ func _draw_comms_overlay(r: Rect2) -> void:
 		_comms_cmd_rows.append({"rect": rr, "index": i})
 		if i == _selected_cmd:
 			_cv.draw_rect(rr, P.a(P.PH, 0.10))
-		Painter.label(_cv, px, rr.position.y + 11, TM.fit("%s %s · %s → %s" % [String(c.get("id", "")), String(c.get("state", "")), String(c.get("actor", "")), String(c.get("target", ""))], rr.size.x, true, 7), 7, P.PH if i == _selected_cmd else P.DIM, true)
+		Painter.label(_cv, px, rr.position.y + 11, TM.fit("%s %s · %s → %s" % [String(c.get("id", "")), String(c.get("state", "")), _target_display_text(String(c.get("actor", ""))), _command_target_text(c)], rr.size.x, true, 7), 7, P.PH if i == _selected_cmd else P.DIM, true)
 	var detail_y := rp.end.y - 140.0
 	Painter.section(_cv, px, detail_y, rp.end.x - 10, "SELECTED COMMAND / 命令详情")
 	detail_y += 15.0
 	if _selected_cmd >= 0 and _selected_cmd < cmds.size():
 		var sc: Dictionary = cmds[_selected_cmd]
 		Painter.label(_cv, px, detail_y, TM.fit("ID " + String(sc.get("id", "—")) + " · " + String(sc.get("state", "—")), right_w - 20.0, true, 7), 7, P.TXT, true)
-		Painter.label(_cv, px, detail_y + 13, TM.fit("ACTOR → TARGET  " + String(sc.get("actor", "—")) + " → " + String(sc.get("target", "—")), right_w - 20.0, true, 7), 7, P.TXT, true)
+		Painter.label(_cv, px, detail_y + 13, TM.fit("ACTOR → TARGET  " + _target_display_text(String(sc.get("actor", ""))) + " → " + _command_target_text(sc), right_w - 20.0, true, 7), 7, P.TXT, true)
 		Painter.label(_cv, px, detail_y + 26, TM.fit("ACTION " + String(sc.get("action", "—")) + " · MODE " + String(sc.get("mode", "—")) + " · DELAY " + String(sc.get("delay", "—")), right_w - 20.0, true, 7), 7, P.DIM, true)
 	else:
 		Painter.label(_cv, px, detail_y, "NO COMMAND SELECTED", 7, P.FAINT, true)
@@ -1325,7 +1579,7 @@ func _draw_comms_overlay(r: Rect2) -> void:
 
 func _comms_action(kind: String) -> void:
 	_comms_type = kind
-	_comms_msg = "TYPE " + kind + " · target " + _comms_target
+	_comms_msg = _comms_type_message(kind, _comms_target)
 	queue_redraw()
 
 
@@ -1349,7 +1603,7 @@ func _comms_send() -> void:
 			_comms_msg = "ROE LOCKED · 序章未解锁"
 			return
 		res = binder.session.set_roe("HOLD")
-	_comms_msg = "SEND %s → %s · %s%s" % [_comms_type, target, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+	_comms_msg = _comms_send_message(_comms_type, target, bool(res.get("ok", false)), String(res.get("reason", "")))
 	print("[V1 HUD] COMMS ", _comms_msg)
 	binder.refresh()
 	_selected_cmd = clampi(_selected_cmd, 0, maxi(0, binder.commands.size() - 1))
@@ -1363,11 +1617,12 @@ func _track_for_contact(c: Dictionary) -> Dictionary:
 	if not tr.is_empty():
 		return tr
 	var eid := String(c.get("entity_id", ""))
-	var cid := String(c.get("id", ""))
+	var tid := String(c.get("track_id", ""))
 	for raw in (binder.track_vm.get("tracks", []) if binder.track_vm.get("tracks", []) is Array else []):
 		if raw is Dictionary:
 			var rt: Dictionary = raw
-			if (eid != "" and String(rt.get("entity_id", "")) == eid) or (cid != "" and String(rt.get("batch", "")) == cid):
+			if (tid != "" and String(rt.get("track_id", "")) == tid) \
+					or (eid != "" and String(rt.get("entity_id", "")) == eid):
 				return rt
 	return {}
 
@@ -1376,7 +1631,7 @@ func _transponder_recent_text(fid: String, c: Dictionary) -> String:
 	if _txp_reply.is_empty():
 		return "NOT QUERIED"
 	var target := String(_txp_reply.get("target_id", ""))
-	if target != fid and target != String(c.get("entity_id", "")) and target != String(c.get("id", "")):
+	if target != fid and target != String(c.get("entity_id", "")):
 		return "NOT QUERIED"
 	return "%s · %s · %s · crypto %s" % [String(_txp_reply.get("registration_code", "—")), String(_txp_reply.get("facility_code", "—")), String(_txp_reply.get("status", "—")), ("OK" if bool((_txp_reply.get("crypto", {}) as Dictionary).get("valid", false)) else "FAIL")]
 
@@ -1466,7 +1721,7 @@ func _signal_demo() -> void:
 				_selected = i
 				var seid := String(sc.get("entity_id", ""))
 				if seid == "":
-					seid = String(sc.get("id", ""))
+					continue
 				_optical_target = seid
 				_optical_track = _track_for_contact(sc)
 				break
@@ -1599,8 +1854,6 @@ func _traffic_action(kind: String) -> void:
 			track = String(c.get("track_id"))
 		elif String(c.get("entity_id", "")) != "":
 			track = String(c.get("entity_id"))
-		elif String(c.get("id", "")) != "":
-			track = String(c.get("id"))
 	var lane := _traffic_lane
 	if lane == "":
 		var lr: Array = binder.traffic_lane_rows()
@@ -1749,7 +2002,7 @@ func _draw_traffic_overlay(r: Rect2) -> void:
 	var occrows: Array = vm.get("occupancies", []) if vm.get("occupancies", []) is Array else []
 	for i in range(mini(3, occrows.size())):
 		var o2: Dictionary = occrows[i]
-		Painter.label(_cv, rx, ry, TM.fit("OCC " + String(o2.get("lane_id", "")) + " · " + String(o2.get("occupant_id", o2.get("track_id", ""))), col_w - 4.0, true, 6), 6, P.PH_DIM, true)
+		Painter.label(_cv, rx, ry, TM.fit("OCC " + String(o2.get("lane_id", "")) + " · " + _target_display_text(String(o2.get("occupant_id", o2.get("track_id", "")))), col_w - 4.0, true, 6), 6, P.PH_DIM, true)
 		ry += 11.0
 	Painter.label(_cv, rx, ry, TM.fit("SEL OTC " + (_traffic_otc if _traffic_otc != "" else "—") + " · LANE " + (_traffic_lane if _traffic_lane != "" else "—"), col_w - 4.0, true, 7), 7, P.PH, true)
 	ry += 18.0
@@ -1768,7 +2021,7 @@ func _draw_traffic_overlay(r: Rect2) -> void:
 	for i in range(maxi(0, evs2.size() - 3), evs2.size()):
 		if ry > bottom - 4.0:
 			break
-		Painter.label(_cv, rx, ry, TM.fit(JSON.stringify((evs2[i] as Dictionary).get("payload", {})), col_w - 4.0, true, 6), 6, P.a(P.FAINT, 0.9), true)
+		Painter.label(_cv, rx, ry, TM.fit(hud_event_payload_text((evs2[i] as Dictionary).get("payload", {})), col_w - 4.0, true, 6), 6, P.a(P.FAINT, 0.9), true)
 		ry += 10.0
 	_traffic_buttons.clear()
 	var b_labels := [["REQUEST", "REQUEST"], ["PERMIT", "PERMIT"], ["OCCUPY", "OCCUPY"], ["RELEASE", "RELEASE"], ["DISGUISE", "DISGUISE"]]
@@ -2286,13 +2539,13 @@ func _draw_optical_overlay(r: Rect2) -> void:
 		tr = _track_for_contact(c)
 	var target_id := String(_optical_target)
 	if target_id == "":
-		target_id = String(c.get("entity_id", c.get("id", "")))
+		target_id = String(c.get("entity_id", ""))
 	var level := int(tr.get("level", 0)) if not tr.is_empty() else 0
 	var is_ceres := target_id == "ceres_2" and binder != null and bool(binder.ceres_ready)
 	var labels := [["VIS", "VIS / 可见光"], ["IR", "IR / 红外"], ["IFF", "IFF QUERY"], ["ELINT", "ELINT"], ["LIGHT", "LIGHT TX"], ["RECV", "LIGHT RECV"], ["ACK", "LIGHT ACK"], ["CODE_PREV", "CODE ◀"], ["CODE_NEXT", "CODE ▶"]]
 	if is_ceres:
 		labels = [["DATA_LINK", "DATA LINK"], ["VIS", "VIS"], ["ELINT", "ELINT"], ["IFF", "IFF QUERY"], ["READ_LIGHT", "READ LIGHT"], ["TYPE_L4", "TYPE L4"], ["RESCUE_PROMPT", "RESCUE PROMPT"], ["RESCUE", "RESCUE"], ["IGNORE", "IGNORE"]]
-	var fr := _overlay_frame(r, "光学 / 识别 · OPTICAL / IDENTIFICATION", "目标=当前选中 track/entity · 数据来自 track_vm / sensor_vm · 不伪造 L3/L4", P.PH, "TRACK L%d · %s" % [level, String(c.get("id", target_id))])
+	var fr := _overlay_frame(r, "光学 / 识别 · OPTICAL / IDENTIFICATION", "目标=当前选中 track/entity · 数据来自 track_vm / sensor_vm · 不伪造 L3/L4", P.PH, "TRACK L%d · %s" % [level, String(_contact_display(c).get("id", target_id))])
 	var body: Rect2 = fr.body
 	var x := body.position.x
 	var y := body.position.y
@@ -2300,8 +2553,9 @@ func _draw_optical_overlay(r: Rect2) -> void:
 	var left_w := floorf(body.size.x * 0.5 - gap * 0.5)
 	var right_x := x + left_w + gap
 	var right_w := body.size.x - left_w - gap
-	Painter.label(_cv, x, y + 10, TM.fit("TARGET  " + String(c.get("name", "NOT READY")) + " · " + String(c.get("id", target_id)), left_w, false, 9), 9, P.TXT)
-	Painter.label(_cv, x, y + 24, TM.fit("ENTITY/TRACK " + target_id + " · " + (String(tr.get("track_id", "TRACK NOT READY")) if not tr.is_empty() else "TRACK NOT READY"), left_w, true, 7), 7, P.PH_DIM, true)
+	var disp_t := _contact_display(c)
+	Painter.label(_cv, x, y + 10, TM.fit("TARGET  " + String(disp_t.get("name", "UNKNOWN CONTACT")) + " · " + String(disp_t.get("id", "UNKNOWN")), left_w, false, 9), 9, P.TXT)
+	Painter.label(_cv, x, y + 24, TM.fit(_optical_entity_line(c, tr), left_w, true, 7), 7, P.PH_DIM, true)
 	var ly := y + 48.0
 	Painter.section(_cv, x, ly, x + left_w, "IDENTIFICATION CHAIN / L1–L4")
 	ly += 16.0
@@ -2429,7 +2683,7 @@ func _optical_action(kind: String) -> void:
 			res = binder.transponder_query(target, qmode)
 			var reply: Dictionary = res.get("reply", {}) if res.get("reply", {}) is Dictionary else {}
 			_txp_reply = reply
-			_txp_msg = "IFF " + target + " · " + ("REPLY " + String(reply.get("status", "")) if bool(reply.get("ok", false)) else "NO REPLY · " + String(res.get("reason", reply.get("reason", ""))))
+			_txp_msg = "IFF " + _target_display_text(target) + " · " + ("REPLY " + String(reply.get("status", "")) if bool(reply.get("ok", false)) else "NO REPLY · " + String(res.get("reason", reply.get("reason", ""))))
 			if bool(reply.get("ok", false)):
 				_txp_msg += " · %s/%s · code %s · reg %s · fac %s · crypto %s · conf %.2f · trigger %s" % [
 					String(reply.get("entity_type", "")), String(reply.get("identity", "")),
@@ -2438,9 +2692,9 @@ func _optical_action(kind: String) -> void:
 					float(reply.get("confidence", 0.0)), String((reply.get("trigger", {}) as Dictionary).get("trigger_id", "")) if reply.get("trigger", {}) is Dictionary else ""]
 				var tid := String((reply.get("trigger", {}) as Dictionary).get("trigger_id", "")) if reply.get("trigger", {}) is Dictionary else ""
 				if tid != "":
-					_trigger_banner = tid + " · " + target + " · " + String(reply.get("status", "")) + " · " + String(reply.get("reason", ""))
+					_trigger_banner = tid + " · " + _target_display_text(target) + " · " + String(reply.get("status", "")) + " · " + String(reply.get("reason", ""))
 			elif String((res.get("trigger", {}) as Dictionary).get("trigger_id", "")) if res.get("trigger", {}) is Dictionary else "" != "":
-				_trigger_banner = String((res.get("trigger", {}) as Dictionary).get("trigger_id", "")) + " · " + target + " · " + String(res.get("reason", ""))
+				_trigger_banner = String((res.get("trigger", {}) as Dictionary).get("trigger_id", "")) + " · " + _target_display_text(target) + " · " + String(res.get("reason", ""))
 			binder.refresh()
 		"LIGHT":
 			var codes: Array = []
@@ -2478,11 +2732,11 @@ func _optical_action(kind: String) -> void:
 			if bool(res.get("ok", false)):
 				res["df"] = df
 			binder.session.tick(0.1)
-			_signal_msg = "ELINT %s · %s%s" % [target, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+			_signal_msg = "ELINT %s · %s%s" % [_target_display_text(target), "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
 			_signal_msg += " · df=" + ("OK" if bool(df.get("ok", false)) else String(df.get("reason", "FAILED")))
 		_:
 			res = {"ok": false, "reason": "unknown"}
-	_optical_msg = "%s %s · %s%s" % [kind, target, "OK" if bool(res.get("ok", false)) else "FAILED", "" if bool(res.get("ok", false)) else " · " + String(res.get("reason", ""))]
+	_optical_msg = _optical_message(kind, target, bool(res.get("ok", false)), String(res.get("reason", "")))
 	if kind in ["ELINT", "LIGHT", "RECV", "ACK"]:
 		_signal_msg = _optical_msg
 	print("[V1 HUD] OPTICAL ", _optical_msg)
@@ -2518,7 +2772,7 @@ func _draw_combat_overlay(r: Rect2) -> void:
 	var vm0: Dictionary = _combat.vm() if _combat != null and bool(_combat.ready) else {}
 	var chips := ""
 	if not vm0.is_empty():
-		chips = "ROE " + String(vm0.get("roe", "—")) + " · TGT " + (_combat_target if _combat_target != "" else "—")
+		chips = "ROE " + String(vm0.get("roe", "—")) + " · TGT " + (_combat_target_text() if _combat_target != "" else "—")
 	var fr := _overlay_frame(r, "战斗终端 / COMBAT TERMINAL", "目标/武器/ROE/授权/齐射/规划 · CR3BP 真实弹道（命中异步）", P.PH, chips)
 	var body: Rect2 = fr.body
 	var x := body.position.x
@@ -2554,7 +2808,7 @@ func _draw_combat_overlay(r: Rect2) -> void:
 		_combat_target_rows.append({"rect": tr_rect, "id": tid})
 		if tid == _combat_target:
 			_cv.draw_rect(tr_rect, P.a(P.AMBER, 0.12))
-		Painter.label(_cv, x, tr_rect.position.y + 11, TM.fit("L%d %s · %s" % [int(tr.get("level", 0)), tid, String(tr.get("identity", "unknown"))], tw - 4.0, true, 7), 7, P.PH if tid == _combat_target else P.TXT, true)
+		Painter.label(_cv, x, tr_rect.position.y + 11, TM.fit("L%d %s · %s" % [int(tr.get("level", 0)), _target_display_text(tid), String(tr.get("identity", "unknown"))], tw - 4.0, true, 7), 7, P.PH if tid == _combat_target else P.TXT, true)
 		var rng := float(tr.get("range_km", -1.0))
 		Painter.label(_cv, x + 8, tr_rect.position.y + 22, TM.fit("threat %s · %s" % [String(tr.get("threat", "—")), ("%.1f km" % rng) if rng >= 0.0 else "RANGE NOT READY"], tw - 12.0, true, 6), 6, P.a(P.DIM, 0.9), true)
 	Painter.section(_cv, wx, y, wx + ww, "WEAPON RACK / 武器架")
@@ -2648,7 +2902,7 @@ func _draw_combat_overlay(r: Rect2) -> void:
 		Painter.label(_cv, x, ey, "NO COMBAT EVENTS · NOT READY", 7, P.FAINT, true)
 	for i in range(maxi(0, evs.size() - 5), evs.size()):
 		var ev: Dictionary = evs[i]
-		Painter.label(_cv, x, ey + float(i - maxi(0, evs.size() - 5)) * 12.0, TM.fit("%5.1fs %s · %s" % [float(ev.get("t", 0.0)), String(ev.get("kind", "")), JSON.stringify(ev.get("payload", {}))], body.size.x, true, 6), 6, P.a(P.DIM, 0.9), true)
+		Painter.label(_cv, x, ey + float(i - maxi(0, evs.size() - 5)) * 12.0, TM.fit(hud_combat_event_text(ev), body.size.x, true, 6), 6, P.a(P.DIM, 0.9), true)
 	_combat_buttons.clear()
 	var actions := ["TRACK", "SOLUTION", "AUTHORIZE FIRE", "FIRE"]
 	var items: Array = []
@@ -2706,7 +2960,7 @@ func _combat_action(kind: String) -> void:
 		extra = " · " + String(res.get("reason", ""))
 		if bool(res.get("needs_salvo_reset", false)):
 			extra += " · 请下调齐射数（剩 %d 发）" % int(res.get("ammo", 0))
-	_combat_msg = "%s %s/%s%s" % [kind, _combat_target, _combat_weapon,
+	_combat_msg = "%s %s/%s%s" % [kind, _target_display_text(_combat_target), _combat_weapon,
 		(" · OK" + extra) if bool(res.get("ok", false)) else ("FAILED" + extra)]
 	print("[V1 HUD] COMBAT ", _combat_msg)
 	queue_redraw()
@@ -3398,7 +3652,7 @@ func _draw_ident_overlay(r: Rect2) -> void:
 	var evidence: Array = iv.get("evidence", []) if iv.get("evidence", []) is Array else []
 	var auto_txt := "AUTO " + ("ON" if bool(iv.get("auto_on", false)) else "OFF")
 	var fr := _overlay_frame(r, "识别融合 / IDENTIFICATION FUSION",
-		"目标 " + String(row.get("name", "—")) + " · 证据 transponder/IFF/ELINT/光学 · 只融合、不推断身份、不写航迹",
+		"目标 " + String(_contact_display(row).get("name", "—")) + " · 证据 transponder/IFF/ELINT/光学 · 只融合、不推断身份、不写航迹",
 		P.PH, auto_txt + " · truth=false", 2)
 	var body: Rect2 = fr.body
 	var footer: Rect2 = fr.footer
@@ -3615,7 +3869,7 @@ func _draw_ident_overlay(r: Rect2) -> void:
 				ecol = P.TXT
 			Painter.label(_cv, mid_x, ly, TM.fit("%6.1fs" % float(ev.get("t", 0.0)), 52.0, true, 6), 6, P.a(P.FAINT, 0.95), true)
 			Painter.label(_cv, mid_x + 58.0, ly, TM.fit(kind, 120.0, true, 6), 6, ecol, true)
-			Painter.label(_cv, mid_x + 182.0, ly, TM.fit(tgt, 120.0, true, 6), 6, P.a(P.DIM, 0.95), true)
+			Painter.label(_cv, mid_x + 182.0, ly, TM.fit(_target_display_text(tgt), 120.0, true, 6), 6, P.a(P.DIM, 0.95), true)
 			var extra := String(payload.get("identity", payload.get("reason", "")))
 			Painter.label(_cv, mid_x + 306.0, ly, TM.fit(extra, maxf(40.0, mid_w - 306.0), true, 6), 6, P.a(P.FAINT, 0.95), true)
 			ly += 12.0
@@ -3635,19 +3889,13 @@ func _ident_action(kind: String) -> void:
 	match kind:
 		"INTERROGATE":
 			res = binder.ident_interrogate(_ident_row)
-			_ident_msg = "INTERROGATE %s · %s%s" % [String(res.get("target_id", "")),
-				"OK" if bool(res.get("ok", false)) else "FAILED",
-				(" · status " + String(res.get("status", ""))) if bool(res.get("ok", false)) else (" · " + String(res.get("reason", "")))]
+			_ident_msg = _ident_message("INTERROGATE", res, _ident_row)
 		"IFF":
 			res = binder.ident_iff(_ident_row)
-			_ident_msg = "IFF %s · %s%s" % [String(res.get("target_id", "")),
-				"OK" if bool(res.get("ok", false)) else "FAILED",
-				(" · identity " + String(res.get("identity", ""))) if bool(res.get("ok", false)) else (" · " + String(res.get("reason", "")))]
+			_ident_msg = _ident_message("IFF", res, _ident_row)
 		"CLEAR":
 			res = binder.ident_clear(_ident_row)
-			_ident_msg = "CLEAR %s · %s%s" % [String(res.get("target_id", "")),
-				"OK" if bool(res.get("ok", false)) else "FAILED",
-				"" if bool(res.get("ok", false)) else (" · " + String(res.get("reason", "")))]
+			_ident_msg = _ident_message("CLEAR", res, _ident_row)
 		"AUTO":
 			var iv: Dictionary = binder.ident_view(_ident_row)
 			var turn_on := not bool(iv.get("auto_on", false))

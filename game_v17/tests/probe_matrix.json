@@ -633,6 +633,45 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.a1_entity_metadata_authority",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A1.1: entity static metadata authority (scenario -> runtime), ballistics/PD reads authority, contacts stay UNKNOWN without evidence, truth not auto-copied to player view",
+      "script": "res://tests/a1_entity_metadata_authority_probe.gd",
+      "expected_markers": [
+        "A1 ENTITY METADATA AUTHORITY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.a0_world_physics_sync",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A0-T1 (Issue #2.2): PhysicsWorld is the single runtime position/velocity authority; WorldState copy is synced at the tick boundary so snapshot()/plot/save-load all see the same simulation instant; frame-converted sessions are explicitly not synced",
+      "script": "res://tests/a0_world_physics_sync_probe.gd",
+      "expected_markers": [
+        "A0-T1 WORLD PHYSICS SYNC PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.a0_sensor_geometry",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A0-T2 (Issue #4.1): sensor geometry (observer/target position+velocity) is bound to the unified PhysicsWorld at the same simulation instant; static metadata stays from its own authority; observations keep observation semantics (TrackTable range_km is NOT replaced by physics truth); no-physics / frame-mismatch explicitly degrade to static",
+      "script": "res://tests/a0_sensor_geometry_probe.gd",
+      "expected_markers": [
+        "A0-T2 SENSOR GEOMETRY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
       "id": "integration.av4412_probe",
       "category": "integration",
       "profile": "",

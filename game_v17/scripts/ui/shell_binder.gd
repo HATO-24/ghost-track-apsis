@@ -596,31 +596,38 @@ func _build_contacts() -> Array:
 		var tr: Dictionary = raw
 		var eid := String(tr.get("entity_id", ""))
 		var e: Dictionary = entity_by_id.get(eid, {}) if entity_by_id.get(eid, {}) is Dictionary else {}
-		var name := String(e.get("name", ""))
-		if name == "":
-			name = "TRACK " + String(tr.get("track_id", tr.get("id", "")))
 		var identity := String(tr.get("identity", "unknown"))
-		var tside := String(e.get("side", identity)).to_lower() if not e.is_empty() else identity
+		# A1.1：玩家航迹的 side/identity 只能来自航迹证据；不得回读世界内部真值。
+		var tside := identity.to_lower()
 		var ttype := "friendly"
 		if tside in ["unknown", "hostile", "suspect"]:
 			ttype = "unknown"
 		elif tside == "neutral":
 			ttype = "neutral"
 		var sources: Array = tr.get("sources", []) if tr.get("sources", []) is Array else []
+		var track_id := String(tr.get("track_id", ""))
 		var bid := String(tr.get("batch", ""))
 		if bid == "":
 			bid = String(e.get("batch", ""))
 		if bid == "":
 			bid = eid
 		if bid == "":
-			bid = String(tr.get("track_id", ""))
+			bid = track_id
+		# A1.1：显示字段只使用通用标签+航迹编号；实体 name/batch/ship_class 仅内部保留。
+		var display_id := track_id if track_id != "" else "TRACK"
+		var display_name := "UNKNOWN TRACK"
+		var display_class := "TRACK L%d" % int(tr.get("level", 0))
 		var row := {
-			"id": bid,
-			"entity_id": eid, "track_id": String(tr.get("track_id", "")),
-			"name": name, "cls": "TRACK %s · L%d" % [String(tr.get("track_id", "")), int(tr.get("level", 0))],
+			"id": display_id,
+			"entity_id": eid, "track_id": track_id,
+			"name": display_name, "cls": display_class,
 			"type": ttype, "side": tside, "identity": identity, "threat": String(tr.get("threat", "unknown")),
 			"badge": "TRACK", "level": int(tr.get("level", 0)),
 			"range_km": float(tr.get("range_km", -1.0)), "sources": sources,
+			"side_source": "track_identity", "identity_source": "track",
+			"display_id": display_id, "display_name": display_name,
+			"display_class": display_class, "display_source": "track",
+			"batch_internal": bid,
 		}
 		# 识别融合：列表行只带轻量评估（不拉证据数组，避免每帧复制）。
 		var iv: Dictionary = ident_view(row)
@@ -633,6 +640,7 @@ func _build_contacts() -> Array:
 			"spoof": float(iv.get("spoof", 0.0))}
 		rows.append(row)
 	# 未产生 track 的 session 实体（站体等）仍以真实实体列入，不硬编码数据。
+	var unknown_seq := 0
 	for eid in entity_by_id.keys():
 		var found := false
 		for row in rows:
@@ -646,18 +654,22 @@ func _build_contacts() -> Array:
 		# 天体/物理基准不是接触；不得出现在 CONTACTS（Earth/Moon 由 PhysicsWorld 种入）
 		if kind in ["body", "planet", "moon", "star", "celestial", "anchor"] 				or String(eid) in ["earth", "moon", "sun", "luna"]:
 			continue
-		var eside := String(e.get("side", "friend")).to_lower()
-		var etype := "friendly"
-		if eside in ["unknown", "hostile", "suspect"]:
-			etype = "unknown"
-		elif eside == "neutral":
-			etype = "neutral"
-		elif kind == "station" or kind in ["fuel", "tank", "port", "otc", "relay"]:
+		unknown_seq += 1
+		# A1.1：没有玩家证据的实体显示为匿名未知接触；不得使用 world 的 name/batch/ship_class。
+		var eside := "unknown"
+		var etype := "unknown"
+		if kind == "station" or kind in ["fuel", "tank", "port", "otc", "relay"]:
 			etype = "station"
-		var row := {"id": String(e.get("batch", eid)), "entity_id": String(eid), "track_id": "",
-			"name": String(e.get("name", eid)), "cls": kind.to_upper(),
-			"type": etype, "side": eside, "identity": String(e.get("identity", eside)),
-			"threat": "unknown" if etype == "unknown" else "none", "badge": "ENTITY", "level": 0, "range_km": -1.0, "sources": []}
+		var display_id := "UNKNOWN-%02d" % unknown_seq
+		var display_name := "UNKNOWN CONTACT"
+		var display_class := "UNKNOWN"
+		var row := {"id": display_id, "entity_id": String(eid), "track_id": "",
+			"name": display_name, "cls": display_class,
+			"type": etype, "side": eside, "identity": "unknown",
+			"threat": "unknown" if etype == "unknown" else "none", "badge": "ENTITY", "level": 0, "range_km": -1.0, "sources": [],
+			"side_source": "unknown", "identity_source": "none",
+			"display_id": display_id, "display_name": display_name,
+			"display_class": display_class, "display_source": "anonymous"}
 		var efac_id := String(e.get("facility_id", ""))
 		if efac_id != "" and session != null and session.facility_registry != null:
 			var f0: Dictionary = session.facility_lookup(efac_id)
@@ -671,7 +683,8 @@ func _build_contacts() -> Array:
 				row["transponder_type"] = String(fac0.get("transponder_type", ""))
 				row["facility_class"] = String(fac0.get("facility_class", ""))
 				row["owner"] = String(fac0.get("owner", ""))
-				row["side"] = String(fac0.get("side", eside))
+				row["side"] = String(fac0.get("side", "unknown"))
+				row["side_source"] = "facility_registry"
 				row["cluster_id"] = String(fac0.get("parent_cluster", ""))
 				row["cluster_name"] = String(cl0.get("name", ""))
 				row["services"] = (fac0.get("services", []) as Array).duplicate()
@@ -679,6 +692,7 @@ func _build_contacts() -> Array:
 				row["physical"] = (fac0.get("physical", {}) as Dictionary).duplicate(true)
 				row["badge"] = "FACILITY"
 				row["cls"] = "设施 · " + String(fac0.get("facility_class", "")) + " · " + String(fac0.get("facility_code", "")) + " · " + String(fac0.get("transponder_code", ""))
+				_apply_facility_display(row, fac0)
 		elif kind == "station" and session != null and session.facility_registry != null:
 			var f: Dictionary = session.facility_for_entity(eid)
 			if not f.is_empty():
@@ -692,7 +706,8 @@ func _build_contacts() -> Array:
 				row["transponder_type"] = String(fac.get("transponder_type", ""))
 				row["facility_class"] = String(fac.get("facility_class", ""))
 				row["owner"] = String(fac.get("owner", ""))
-				row["side"] = String(fac.get("side", "friend"))
+				row["side"] = String(fac.get("side", "unknown"))
+				row["side_source"] = "facility_registry"
 				row["cluster_id"] = String(fac.get("parent_cluster", ""))
 				row["cluster_name"] = String(cluster.get("name", ""))
 				row["services"] = (fac.get("services", []) as Array).duplicate()
@@ -700,6 +715,7 @@ func _build_contacts() -> Array:
 				row["physical"] = (fac.get("physical", {}) as Dictionary).duplicate(true)
 				row["badge"] = "FACILITY"
 				row["cls"] = "设施 · " + String(fac.get("facility_class", "")) + " · " + String(fac.get("facility_code", "")) + " · " + String(fac.get("transponder_code", ""))
+				_apply_facility_display(row, fac)
 		rows.append(row)
 	# 已存在 track 行的 station/设施接触也补 facility 映射（entity row 可能因 track 已存在而跳过）。
 	if session != null and session.facility_registry != null:
@@ -723,7 +739,8 @@ func _build_contacts() -> Array:
 			rr["transponder_type"] = String(fac2.get("transponder_type", ""))
 			rr["facility_class"] = String(fac2.get("facility_class", ""))
 			rr["owner"] = String(fac2.get("owner", ""))
-			rr["side"] = String(fac2.get("side", "friend"))
+			rr["side"] = String(fac2.get("side", "unknown"))
+			rr["side_source"] = "facility_registry"
 			rr["cluster_id"] = String(fac2.get("parent_cluster", ""))
 			rr["cluster_name"] = String(cluster2.get("name", ""))
 			rr["services"] = (fac2.get("services", []) as Array).duplicate()
@@ -731,12 +748,14 @@ func _build_contacts() -> Array:
 			rr["physical"] = (fac2.get("physical", {}) as Dictionary).duplicate(true)
 			rr["badge"] = "FACILITY"
 			rr["cls"] = "设施 · " + String(fac2.get("facility_class", "")) + " · " + String(fac2.get("facility_code", "")) + " · " + String(fac2.get("transponder_code", ""))
+			_apply_facility_display(rr, fac2)
 	# 动态 signal targets（core signal_service.targets）补进接触列表，供任意 side 灯语/ELINT；
 	# 明确 badge=SIGNAL，不是伪造 world 实体。
 	if session != null and session.signal_service != null:
 		var known: Dictionary = {}
 		for row in rows:
 			known[String((row as Dictionary).get("entity_id", (row as Dictionary).get("id", "")))] = true
+		var signal_seq := 0
 		for raw_t in (session.signal_service.targets if session.signal_service.targets is Array else []):
 			if not (raw_t is Dictionary):
 				continue
@@ -744,12 +763,21 @@ func _build_contacts() -> Array:
 			var tid := String(t.get("id", ""))
 			if tid == "" or known.has(tid):
 				continue
-			var tside := String(t.get("side", "unknown"))
-			var ttype := "unknown" if tside in ["unknown", "hostile", "suspect"] else ("neutral" if tside == "neutral" else "friendly")
-			rows.append({"id": tid, "entity_id": String(t.get("entity_id", tid)), "track_id": "",
-				"name": "SIGNAL " + tid, "cls": "SIGNAL TARGET", "type": ttype, "side": tside,
-				"threat": "unknown" if ttype == "unknown" else "none", "badge": "SIGNAL",
-				"level": 0, "range_km": float(t.get("range_km", -1.0)), "sources": [], "signal_target": true})
+			# A1.1：signal target registry 含有世界内部 side/name/batch；不得自动显示为玩家结论。
+			var tside := "unknown"
+			var ttype := "unknown"
+			signal_seq += 1
+			var display_id := "SIGNAL-%02d" % signal_seq
+			var display_name := "UNKNOWN SIGNAL"
+			var display_class := "SIGNAL"
+			rows.append({"id": display_id, "entity_id": String(t.get("entity_id", tid)), "track_id": "",
+				"name": display_name, "cls": display_class, "type": ttype, "side": tside,
+				"identity": "unknown", "threat": "unknown", "badge": "SIGNAL",
+				"level": 0, "range_km": float(t.get("range_km", -1.0)), "sources": [],
+				"signal_target": true, "signal_target_id": tid,
+				"display_id": display_id, "display_name": display_name,
+				"display_class": display_class, "display_source": "anonymous_signal",
+				"side_source": "unknown", "identity_source": "none"})
 	# 识别融合：所有行统一带 ident 结构（track 行已在上面按评估填充）；无证据即 known=false。
 	for row2 in rows:
 		var rr0: Dictionary = row2
@@ -759,6 +787,52 @@ func _build_contacts() -> Array:
 			"confidence": 0.0, "tag": "—", "warn": false, "manual": false,
 			"enabled": ident_enabled(), "contradictions": 0, "spoof": 0.0}
 	return rows
+
+
+## A1.1：玩家可见显示字段（HUD 统一从这里取），绝不回退到世界真值。
+## 无显示字段时返回匿名安全值；内部引用请用 entity_id/track_id/facility_id。
+func contact_display(row: Dictionary) -> Dictionary:
+	var did := String(row.get("display_id", ""))
+	var dname := String(row.get("display_name", ""))
+	var dcls := String(row.get("display_class", ""))
+	var src := String(row.get("display_source", ""))
+	if did == "":
+		did = "UNKNOWN"
+	if dname == "":
+		dname = "UNKNOWN CONTACT"
+	if dcls == "":
+		dcls = "UNKNOWN"
+	if src == "":
+		src = "unknown"
+	return {"id": did, "name": dname, "cls": dcls, "source": src}
+
+
+## 设施注册表公开字段（允许展示的内容/数据库字段），单独标记来源。
+func _apply_facility_display(row: Dictionary, fac: Dictionary) -> void:
+	var code := String(fac.get("facility_code", ""))
+	var txp := String(fac.get("transponder_code", ""))
+	var fid := String(fac.get("facility_id", ""))
+	var did := code
+	if did == "":
+		did = txp
+	if did == "":
+		did = fid
+	if did == "":
+		did = "FACILITY"
+	var dname := String(fac.get("name", ""))
+	if dname == "":
+		dname = did
+	var dcls := String(fac.get("facility_class", ""))
+	if dcls == "":
+		dcls = "FACILITY"
+	row["display_id"] = did
+	row["display_name"] = dname
+	row["display_class"] = dcls
+	row["display_source"] = "facility_registry"
+	# legacy display-oriented fields 同步为安全值，避免其它 UI 路径泄露。
+	row["id"] = did
+	row["name"] = dname
+	row["cls"] = dcls
 
 
 func _build_commands() -> Array:
