@@ -781,6 +781,18 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.a0_sensor_persistence",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "DS-A-05: SensorService runtime persistence and continuation. EMCON/radar toggled away from the seed, optical+IR channels advanced past the initial state, then memory+real-file roundtrip: controls, clock, selected target, backend channel state (status/progress/samples), obs/evidence/event allocators and dedup keys must survive; static mounts/targets and provider objects are NOT persisted and are rebuilt/re-injected (same-tick geometry, bary_rot); restored history is not replayed into TrackTable; EMCON behaviour persists (no radar emissions while on, output resumes when off); negatives carry explicit reasons; old saves without the section are labelled as not having runtime state.",
+      "script": "res://tests/a0_sensor_persistence_probe.gd",
+      "expected_markers": [
+        "A0-A05 SENSOR PERSISTENCE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 300
+    },    {
       "id": "integration.a0_legacy_save",
       "category": "integration",
       "profile": "",
