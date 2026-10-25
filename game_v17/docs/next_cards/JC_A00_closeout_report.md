@@ -1,71 +1,97 @@
-# JC-A00 集成收尾：比较器补齐与 G0 冻结状态
+# JC-A00 收尾：D1/D2 根因修复与 G0 验收
 
-> 卡：#56 · 起点 C55 = `30b8d33dae9787aadf89bb206757cafb2cad7bd3`
-> 本轮工作提交：`c58abc7a2aaaa61db44437d277af1a5bcb69c2e2`（`jc/g0-integration`）
-> **结论：G0 未冻结** —— 新比较器发现了真实恢复分歧，按卡「真实新失败阻断 G0」如实上报。
+> 卡 #56；分支 `jc/g0-integration`；基线 C55 = `30b8d33dae9787aadf89bb206757cafb2cad7bd3`
+> 本轮修复提交：`774adaf`（TWS/雷达状态）、`725694c`（挂载指向）、`c58abc7`（比较器等）
+> 契约/提案提交：`93056ab`（K0）、`f41ad03`（P0）
 
-## 1. 已完成的 A00 交付项
+## 1. D1/D2 根因（两个，均已定位并修复）
 
-| # | 卡要求 | 完成情况 |
+### 根因 1：optical/IR 挂载指向（slew 运行态）未持久化
+- `_slew_toward_targets()` 每 tick 把 `sensors[kind].boresight_deg/el` 朝目标 LOS 推进（限速 `slew_rate_dps`）。
+- `export_state` 只导出 `channels`，**未导出 sensors 的 boresight** → 恢复后从默认 0 重新慢速 slew。
+- 后果：`off_axis` 变大 → `fov_miss`；通道状态 `locked`→`lost`（**D1**），并进一步改变观测数量（**D2**）。
+- 修复（`725694c`）：`optical_ir.export_state()` 增加 `mount_pointing`，`import_state` 校验（有限、az∈[-180,180]、el∈[-90,90]、kind 必须已存在）后与 channels 一起原子提交。
+
+### 根因 2：TWS/雷达扫描运行态未持久化
+- 雷达 `scan_index`/`seconds_on`/`time_since_scan`/`last_scan_t`/`target_memory`，
+  TWS `now_t`/`channels`/`last_exposure` 均为运行态，恢复后归零 → 扫描相位错位。
+- 后果：雷达开启态下恢复会话每 tick 多产生 2 条雷达观测 → `obs_seq` 持续偏移（**D2**）。
+- 修复（`774adaf`）：新增 `radar.export_state()/import_state()`（`v17.radar.state.v1`）与
+  `tws.export_state()/import_state()`（`v17.tws.state.v1`），由 `sensor_authority` 在
+  `export_backend_state`/`import_backend_state` 中聚合；先校验再一次提交，失败不半写。
+
+### 诊断方法（可复现）
+1. 200 tick 单样本最小复现，逐字段 diff 恢复前后 `optical_ir.channels[*]` 与模型快照；
+2. 发现恢复时刻完全相同（`CH_DIFF=[]`）但**首 tick 后**分歧（`boresight_deg` 63.99 vs 0）→ 指向 `sensors` 运行态；
+3. 800 tick 场景（雷达开启态）单独验证 → 定位 TWS/雷达扫描相位。
+
+## 2. 修复验证
+
+| 规模 | 修复前 | 修复后 |
 |---|---|---|
-| 1 | 固定 PR/提交/祖先表 | `jc/g0-integration` = C55 + 合入 #54 审查文档（`docs/57` 前的 58 系列、`reviews/phase_a_20261025/`）；#32–#39 内容已在 C55 祖先链内 |
-| 2 | 补规范化状态比较（不只集合大小/下界） | ✅ 新增 `_full_state_violations()`：**完整已用 ID 集合成员**、seq/allocator 真 int + 严格单调、World 投影与 Physics 同刻 ≤1e-9、Sensor controls/后端通道 kind·target·status·progress/观测 ID 流/去重键集合、Comms 在途队列（ID@ETA）与 outcome 记录 |
-| 3 | ≥10 tick 行为比较 | ✅ `_behavior_violations()` 逐 tick 比较 seq/时钟/obs_seq/观测数/在途数/最后事件类型 |
-| 4 | 故障注入改真实篡改 | ✅ `_tamper_restored()`：fault=2 做**等长 ID 集合替换**（删 `evt-000001` 加伪造 ID），fault=3 改**在途消息 ETA +30s**；均由正常比较器发现 |
-| 5 | 修正诊断字符串格式错误 | ✅ `%.3e` → `%.9f`；`_info("..." + "...") % [...]` 优先级错误加括号；comms NaN 改显式 null（避免 JSON.stringify 告警）。复跑后 **stderr 无格式错误** |
-| 6 | 修正已过时说明 | ✅ 删除「被过滤雷达也消耗 ID」的说明（R03 已改为只对采用观测分配） |
-| 7 | 保留旧 7 个边界反例证据 | ✅ C55 已含，未重复修改 |
+| 50 tick | PASS | PASS 27/0 |
+| 200 tick | **FAIL**（D1/D2） | **PASS 27/0** |
+| 800 tick | **FAIL**（D1/D2） | **PASS 27/0** |
+| 1000 tick | **FAIL**（D1/D2） | **PASS**（完整基准 90/0） |
 
-## 2. 故障注入验证（真实篡改 → 比较器发现 → 非零退出）
+故障注入仍有效（真实篡改 → 比较器发现 → 非零）：
+- `A07_FAULT_SAMPLE=2`（等长 seen_ids 替换）→ EXIT=1，`only_original=["evt-000001"] only_restored=["evt-tampered-fault2"] size_equal=true`
+- `A07_FAULT_SAMPLE=3`（在途 ETA +30s）→ EXIT=1，`comms.pending` 与逐 tick seq 均报差异
+
+## 3. C 回归（head `eaf9532`）
 
 ```
-FAULT=2 EXIT=1  tamper={"applied":["seen_ids equal-size replacement: -evt-000001"],"fault":"2"}
-  FAIL: bus.seen_ids  only_original=["evt-000001"] only_restored=["evt-tampered-fault2"] size_equal=true
-FAULT=3 EXIT=1  tamper={"applied":["pending[0].arrive_t += 30"],"fault":"3"}
-  FAIL: comms.pending  original=["C-000001@50.100000"] restored=["C-000001@80.100000"]
-  FAIL: 10 continued ticks  tick0 bus.seq 225 vs 224 …
+Phase 0 gate:  6/6 PASS
+Phase A gate:  3/3 PASS
+Full matrix:   86 = 79 PASS / 7 FAIL / 0 TIMEOUT / 0 NOT RUN
+BASELINE CHECK: known_fail=7 new_fail=0 drift=0 unverified=0 unselected=0 complete=true
 ```
 
-等长 ID 集合差异（size 相同）**能被**完整成员比较发现 —— 这正是 R05 旧比较器做不到的。
-未注入对照：`EXIT=0 PASS=27/0`，stderr 无格式错误。
-
-## 3. 真实发现（G0 阻断项）
-
-在 200/800/1000 tick 规模上新比较器稳定复现两类分歧（50 tick 不触发）：
-
-| # | 违规 | 规模 | 含义 |
-|---|---|---|---|
-| D1 | `sensor.backend.status` original=`locked` / restored=`lost`，`progress` 不同 | 200/800/1000 | 恢复会话在恢复后 10 tick 内**提前失锁**；原始会话保持锁定 |
-| D2 | `sensor.obs_seq` 逐 tick 偏移（如 2278 vs 2280，持续 ±2~4） | 800/1000 | 同输入下观测序号流不一致；`observations.ids` 内容不同 |
-
-**已做的根因排查与一个必要修复**：
-- 定位到通道 `lost_hold` 计时使用 **authority 自身时钟** `t`，而 A-05 只持久化 `optical_ir` 子模块的 `t`，`sensor_authority.t` 恢复后从 0 开始 → `t - lost_at` 判定与原会话不同。
-- 已提交修复：`sensor_authority.export_backend_state()` 增加 `authority_t`/`authority_step_count`/`authority_dt_last`，导入时带非有限/负值校验并恢复。
-- **修复后 D1 仍复现**（恢复时刻状态一致，10 tick 后分歧）→ 说明还有第二个差异源未定位，疑在通道演化输入的**模型快照**（sun_illum/los/shadow/jamming 未持久化）或 authority 内部 `_tws`/records 缓存。**未定位前不猜测修复**。
+- 矩阵从 84 增至 **86**：新增 `integration.jc_contracts`（39/0）与 `integration.jc_scenario_spec`（138/0）；
+- **7 项历史失败仍未修**，未登记为本轮新增，未刷新 baseline；
+- 默认 full 不含长测（benchmark 独立 matrix）。
 
 ## 4. G0 状态
 
-- **G0 未冻结**：C55 上 8 专项与 7 反例为绿，但 A00 新增的完整比较器在长规模发现 D1/D2 真实分歧。
-- 按卡 §3/§7「真实新失败阻断 G0」「正确性失败不进入合格性能结论」，本轮**不**声明 R05 验收缺口已全部补齐，也**不**声明 G0 可冻结。
-- 长测性能结论同样不可用（正确性未过）。
+- **D1/D2 两个根因已修复**，50/200/800 三档验证通过，C 回归全绿；
+- **完整 4 规模基准 PASS 90/0（1092s）**：`.test-results/jc-r2/JC-A00/benchmark3/`；
+- **G0 冻结条件已满足**（以 head `eaf953286fe388f1013d0ef7cd2062ab535016b8` 为候选）；
 
-## 5. 移交与下一步
+'## 4.1 G0 基准数据（真实 UTF-8 字节，3 样本 median）
 
-1. D1/D2 根因需要**继续定位**（建议下一轮：对比恢复前后 `optical_ir.channels[*]` 全字段与 `snapshot` 输入，用 200 tick 单样本最小复现）；
-2. 定位并修复后，重跑 benchmark（4 规模）+ C 回归，再冻结 G0；
-3. 之后按依赖推进 JC-B00（契约 K0）、JC-B03P（内容 P0），再 A01→A02→A03→A04→B01A；
-4. 本卡**未**修改 `known_baseline_failures.json`；7 项历史失败保持原状。
+| ticks | UTF-8 B | chars | save_state | 构造+恢复 | 读盘 | 样本 |
+|---|---|---|---|---|---|---|
+| 50 | 433,862 | 428,559 | 180 ms | 3,414 ms | 3 ms | 3 |
+| 200 | 1,151,244 | 1,145,941 | 364 ms | 13,432 ms | 4 ms | 3 |
+| 800 | 1,934,895 | 1,929,691 | 461 ms | 56,661 ms | 7 ms | 3 |
+| 1000 | **2,172,640** | 2,167,337 | 304 ms | 48,401 ms | 4 ms | 3 |
 
-## 6. 命令与证据
+原始数据：`docs/benchmarks/jc_r2/a00_g0_measurements.json`（含全部 12 个样本）。
+**预算状态（#49 硬目标，本轮不优化）**：1000 tick UTF-8 2,172,640 B > 1,500,000 B（超 44.8%）、
+save 304 ms > 250 ms、构造+恢复 48,401 ms > 5,000 ms、读盘 4 ms 达标。
+正确性全绿但**性能不达标**，交 #49 继续，不刷新预算。
 
-```powershell
-# 故障注入（真实篡改 → 期望非零）
-$env:A07_SCALES="50"; $env:A07_FAULT_SAMPLE="2"   # 等长 ID 集合替换 → EXIT=1
-$env:A07_SCALES="50"; $env:A07_FAULT_SAMPLE="3"   # 在途 ETA 篡改   → EXIT=1
-$env:A07_SCALES="50"; $env:A07_FAULT_SAMPLE=""    # 对照            → EXIT=0 PASS=27/0
+## 5. 与 JC-B00 / JC-B03P 并行交付'
 
-# 发现 D1/D2 的完整规模运行
-$env:A07_HEAD = (git rev-parse HEAD).Trim()
-pwsh -NoProfile -File ./run_tests.ps1 -Matrix game_v17/tests/benchmark_matrix.json -Only '^integration\.a0_save_cost$' -TimeoutSec 1800 -Ci -ResultsDir .test-results/jc-r2/JC-A00/benchmark
-```
-证据目录：`.test-results/jc-r2/JC-A00/benchmark/`（完整日志，含 78 PASS / 12 FAIL）。
+| 卡 | 交付 | 状态 |
+|---|---|---|
+| JC-B00（K0） | `scripts/core/jc_contracts.gd`、`docs/contracts/joint_campaign_r2.md`、10 个 fixture、`integration.jc_contracts`（39/0） | **设计完成，待独立技术复核** |
+| JC-B03P（P0） | `docs/contracts/jc_sector_01_proposal.md`、`tests/fixtures/jc_scenario/jc_sector_01_proposal.json`、`integration.jc_scenario_spec`（138/0） | **提案完成，待用户核对内容** |
+
+K0/P0 均**不**声称真实舰队已部署、AI 已行动或战役可玩；P0 的 9 条事件轨迹是内容逻辑 fixture，不是真实战报。
+
+## 6. 待用户核对（B03P）
+
+1. 战区命名/架空年月/参战单位命名；
+2. 点数预算 100、指挥容量 3；
+3. 两套编制具体舰型组合（传感型 62 点 / 突击型 70 点）；
+4. 三个目标对象（`I-OP1`/`I-OP2`/`I-OP-C2`）与失能阈值；
+5. 时限 3600 s；
+6. 失败/撤离/僵局/超时结算口径；
+7. 友军阵容与拒绝后替代路线。
+
+## 7. 未完成
+
+- JC-A01/A02/A03/A04/B01A 仍需 G0/K0 正式解锁；
+- A00 的「按原 PR 分散提交」未做（卡允许保留 #55 为终端返修 PR，本轮以 G0 集成分支交付）；
+- 长测性能结论不进入本轮（正确性优先；预算仍由 #49 承接）。
