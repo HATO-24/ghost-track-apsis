@@ -1,0 +1,138 @@
+{
+  "violations": 0,
+  "exit_code": 0,
+  "records": [
+    {
+      "name": "REVIEW_EXPLICIT_AUTO_COLLISION",
+      "data": {
+        "automatic": "evt-000002",
+        "both_ok": true,
+        "explicit": "evt-000001",
+        "same_id": false
+      }
+    },
+    {
+      "name": "REVIEW_V2_MISSING_SEEN_IDS",
+      "data": {
+        "import_ok": false,
+        "original_seen": 1002,
+        "restored_seen": 1,
+        "reused_old_id_accepted": true
+      }
+    },
+    {
+      "name": "REVIEW_PLAYER_SELECTED_TRUTH",
+      "data": {
+        "list_has_batch": false,
+        "observation_ok": true,
+        "selected_batch": "",
+        "selected_has_batch": false
+      }
+    },
+    {
+      "name": "REVIEW_COMMS_UNKNOWN_OUTCOME",
+      "data": {
+        "load_ok": false,
+        "report": {
+          "diverged": 1,
+          "legacy_unverified": 0,
+          "losless_claim": false,
+          "matched_expected_failure": 0,
+          "matched_success": 0,
+          "note": "original failures are preserved as failures; only divergences are recovery errors",
+          "ops": [
+            {
+              "from": "review-unknown-from",
+              "invalid_outcome": true,
+              "mode": "LD",
+              "recorded": {
+                "arrive_t": -1.0,
+                "delivery_id": "",
+                "latency_s": 0.0,
+                "mode": "LD",
+                "ok": false,
+                "path": [],
+                "reason": "unknown_from",
+                "relay_count": 0.0,
+                "schema": "v17.comms_outcome.v1",
+                "sent_t": 0.0,
+                "version": 999.0
+              },
+              "replay_delivery_id": "",
+              "replay_latency_s": 0.0,
+              "replay_ok": false,
+              "replay_path": [],
+              "replay_reason": "unknown_from",
+              "text_key": "COMMS_SENT",
+              "to": "review-unknown-to"
+            }
+          ],
+          "schema": "v17.comms_restore.v1",
+          "total": 1
+        }
+      }
+    },
+    {
+      "name": "REVIEW_SENSOR_FRACTIONAL_VERSION",
+      "data": {
+        "errors": [
+          "expected exact integer version 1, got 1.5"
+        ],
+        "ok": false,
+        "reason": "invalid_state_version"
+      }
+    },
+    {
+      "name": "REVIEW_SENSOR_MISSING_BACKEND",
+      "data": {
+        "import_ok": false,
+        "original_backend_channels": 1,
+        "restored_backend_channels": 0,
+        "selected_target": ""
+      }
+    },
+    {
+      "name": "REVIEW_SENSOR_CONTINUATION",
+      "data": {
+        "load_ok": true,
+        "original": {
+          "allocators": {
+            "event_seq": 4,
+            "evidence_seq": 0,
+            "obs_seq": 34
+          },
+          "channels": 4,
+          "dedup_keys": 0,
+          "emcon": true,
+          "filtered_observations": 30,
+          "optical_backend": "optical_ir",
+          "radar_enabled": false,
+          "schema": "v17.sensor_service.state.v1",
+          "selected_target": "harmattan",
+          "step_count": 16,
+          "t": 15.1,
+          "version": 1
+        },
+        "restored": {
+          "allocators": {
+            "event_seq": 4,
+            "evidence_seq": 0,
+            "obs_seq": 34
+          },
+          "channels": 4,
+          "dedup_keys": 0,
+          "emcon": true,
+          "filtered_observations": 20,
+          "optical_backend": "optical_ir",
+          "radar_enabled": false,
+          "schema": "v17.sensor_service.state.v1",
+          "selected_target": "harmattan",
+          "step_count": 16,
+          "t": 15.1,
+          "version": 1
+        }
+      }
+    }
+  ],
+  "runtime_commit": "30b8d33dae9787aadf89bb206757cafb2cad7bd3"
+}
