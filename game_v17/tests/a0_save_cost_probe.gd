@@ -370,9 +370,9 @@ func _measure_scale(ticks: int) -> void:
 		"n=" + str(samples.size()))
 	_results.append({
 		"ticks": ticks,
+		"samples": samples,
 		"bytes_utf8": _stats(sizes),
 		"chars": _stats(chars),
-		"bytes": _stats(sizes),
 		"save_state_ms": _stats(save_ms),
 		"file_write_ms": _stats(write_ms),
 		"file_read_ms": _stats(read_ms),
