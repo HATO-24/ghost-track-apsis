@@ -313,12 +313,23 @@ func export_state() -> Dictionary:
 		var raw = channels.get(k)
 		if raw is Dictionary:
 			chans.append((raw as Dictionary).duplicate(true))
+	# A00：`_slew_toward_targets()` 每 tick 把 sensors[kind] 的 boresight 朝 LOS 推进，
+	# 属**运行态**；不持久化会让恢复会话从默认 0 重新慢速 slew，导致
+	# fov_miss / obs_seq 与原始会话分歧（D1/D2 根因）。
+	var pointing: Dictionary = {}
+	for kind in sensors.keys():
+		var srow: Dictionary = sensors[kind]
+		pointing[String(kind)] = {
+			"boresight_deg": float(srow.get("boresight_deg", 0.0)),
+			"boresight_el_deg": float(srow.get("boresight_el_deg", 0.0)),
+		}
 	return {
 		"schema": STATE_SCHEMA,
 		"version": STATE_VERSION,
 		"enabled": enabled,
 		"t": t,
 		"channels": JSON.parse_string(JSON.stringify(chans)),
+		"mount_pointing": pointing,
 	}
 
 
@@ -358,9 +369,38 @@ func import_state(state: Dictionary) -> Dictionary:
 		idx += 1
 	if not problems.is_empty():
 		return {"ok": false, "reason": "invalid_state", "errors": problems.slice(0, 20)}
+	# A00：恢复挂载指向（与 channels 一起原子提交）；不合法则整体拒绝。
+	var raw_point = state.get("mount_pointing", null)
+	if raw_point != null and not (raw_point is Dictionary):
+		return {"ok": false, "reason": "invalid_mount_pointing",
+			"errors": ["mount_pointing must be an object"]}
+	if raw_point is Dictionary:
+		for kind_key in (raw_point as Dictionary).keys():
+			var prow = (raw_point as Dictionary)[kind_key]
+			if not (prow is Dictionary):
+				return {"ok": false, "reason": "invalid_mount_pointing",
+					"errors": ["mount_pointing.%s must be an object" % String(kind_key)]}
+			for pf in ["boresight_deg", "boresight_el_deg"]:
+				var pv = (prow as Dictionary).get(pf, null)
+				if not (pv is int or pv is float) or not is_finite(float(pv)):
+					return {"ok": false, "reason": "invalid_mount_pointing",
+						"errors": ["mount_pointing.%s.%s must be a finite number" % [
+							String(kind_key), pf]]}
+			if not sensors.has(String(kind_key)):
+				return {"ok": false, "reason": "unknown_sensor_kind",
+					"errors": ["mount_pointing references unknown kind: "
+						+ String(kind_key)]}
 	enabled = bool(state.get("enabled", true))
 	t = float(st)
 	channels = new_channels
+	if raw_point is Dictionary:
+		for kind_key2 in (raw_point as Dictionary).keys():
+			var srow2: Dictionary = sensors[String(kind_key2)]
+			var prow2: Dictionary = (raw_point as Dictionary)[kind_key2]
+			srow2["boresight_deg"] = wrapf(float(prow2.get("boresight_deg", 0.0)),
+				-180.0, 180.0)
+			srow2["boresight_el_deg"] = clampf(
+				float(prow2.get("boresight_el_deg", 0.0)), -90.0, 90.0)
 	return {"ok": true, "channels": channels.size(), "t": t, "enabled": enabled}
 
 func _channels_of(kind: String) -> Array:
