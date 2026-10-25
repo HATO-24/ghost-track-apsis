@@ -53,6 +53,8 @@ const EVIDENCE_DERIVED_FIELDS := ["side", "identity"]
 # 能产生身份/阵营判断的证据来源（纯雷达位置观测不能分类）。
 const IDENTITY_EVIDENCE_SOURCES := ["iff", "transponder", "optical", "vis", "ir.classify",
 	"identification"]
+# 仅真值/内部消费者可见的字段：无证据不得进入玩家视图（A-00 契约）。
+const TRUTH_ONLY_FIELDS := ["batch", "rcs_m2", "radius_km", "has_pd"]
 
 var _pass := 0
 var _fail := 0
@@ -212,67 +214,122 @@ func _run() -> void:
 		_session.tick(TICK_DT)
 	_binder.refresh()
 
-	_step("3. layer 1: PhysicsWorld — does it carry static metadata?")
-	var pw_has_meta := 0
-	var pw_missing: Array = []
-	for eid in _truth_ids:
-		var st: Dictionary = _session.physics_state(eid)
-		var found := 0
-		for f in META_FIELDS:
-			if st.has(f):
-				found += 1
-		if found == META_FIELDS.size():
-			pw_has_meta += 1
-		else:
-			pw_missing.append({"entity": eid, "fields_present": found,
-				"keys": st.keys()})
-	_ok(pw_has_meta == _truth_ids.size(),
-		"PhysicsWorld exposes all static metadata fields for 7 entities",
-		"ok=%d/7 missing=%s" % [pw_has_meta, str(pw_missing)])
+	_step("3. EntityCatalog is the static-metadata authority (query by stable ID)")
+	var catalog = _session.entity_catalog
+	_ok(catalog != null and bool(catalog.ready),
+		"EntityCatalog present and ready",
+		"ready=%s" % str(catalog.ready if catalog != null else false))
+	var catalog_bad: Array = []
+	var catalog_ok := 0
+	if catalog != null and bool(catalog.ready):
+		for eid in _truth_ids:
+			if not bool(catalog.has_entity(eid)):
+				catalog_bad.append({"entity": eid, "reason": "catalog missing entity"})
+				continue
+			var row: Dictionary = catalog.get_entity(eid)
+			if not bool(row.get("found", false)):
+				catalog_bad.append({"entity": eid, "reason": "get_entity found=false"})
+				continue
+			if String(row.get("id", "")) != eid:
+				catalog_bad.append({"entity": eid, "reason": "stable ID mismatch",
+					"catalog_id": String(row.get("id", ""))})
+				continue
+			var field_bad := _authority_field_violations(row, _truth[eid], eid, "catalog")
+			if field_bad.is_empty():
+				catalog_ok += 1
+			else:
+				catalog_bad.append_array(field_bad)
+	_ok(catalog_bad.is_empty(),
+		"catalog truth complete and exact for 7 entities × 6 fields (by stable ID)",
+		"ok=%d/7 violations=%d sample=%s" % [catalog_ok, catalog_bad.size(),
+			str(catalog_bad.slice(0, 6))])
 
-	_step("4. layer 2: WorldState — does it carry static metadata?")
-	var ws_has_meta := 0
-	var ws_missing: Array = []
-	for eid in _truth_ids:
-		var we: Dictionary = _session.world.entity(eid)
-		var found := 0
-		for f in META_FIELDS:
-			if we.has(f):
-				found += 1
-		if found == META_FIELDS.size():
-			ws_has_meta += 1
-		else:
-			ws_missing.append({"entity": eid, "fields_present": found,
-				"keys": we.keys()})
-	_ok(ws_has_meta == _truth_ids.size(),
-		"WorldState carries all static metadata fields for 7 entities",
-		"ok=%d/7 missing=%s" % [ws_has_meta, str(ws_missing)])
+	_step("4. kinematic containers may omit static fields, but must never fabricate them")
+	# 协调后契约：PhysicsWorld 只写运动学；WorldState 是投影。**不要求**它们复制静态真值
+	# （旧的「必须复制到所有容器」口径会反向强制泄漏）。但若某容器**声明**了这些字段，
+	# 其值必须与 catalog 真值一致 —— 不允许伪造/兜底冒充权威值。
+	var container_bad: Array = []
+	var container_present := 0
+	var containers := {
+		"physics": func(eid: String) -> Dictionary: return _session.physics_state(eid),
+		"world": func(eid: String) -> Dictionary: return _session.world.entity(eid),
+	}
+	for cname in containers.keys():
+		var getter = containers[cname]
+		for eid in _truth_ids:
+			var row: Dictionary = getter.call(eid)
+			for f in META_FIELDS:
+				if not row.has(f):
+					continue
+				container_present += 1
+				var vals := _authority_field_violations(row, _truth[eid], eid, cname)
+				for v in vals:
+					if String(v.get("field", "")) == f:
+						container_bad.append(v)
+	_ok(container_bad.is_empty(),
+		"kinematic containers never fabricate static fields (absent is OK, wrong is violation)",
+		"declared_fields=%d violations=%s" % [container_present, str(container_bad.slice(0, 6))])
 
-	_step("5. layer 3: snapshot().entities — does it carry static metadata?")
+	_step("5. snapshot: kinematic projection + explicit catalog source block")
 	var snap: Dictionary = _session.snapshot()
 	var snap_ents: Array = snap.get("entities", []) if snap.get("entities") is Array else []
-	_eq(snap_ents.size(), 7, "snapshot has 7 entities")
+	_eq(snap_ents.size(), 7, "snapshot has 7 kinematic entities")
 	var snap_by_id: Dictionary = {}
 	for raw_s in snap_ents:
 		if raw_s is Dictionary:
 			snap_by_id[String((raw_s as Dictionary).get("id", ""))] = raw_s
-	var snap_has_meta := 0
-	var snap_missing: Array = []
+	var snap_bad: Array = []
 	for eid in _truth_ids:
 		var se: Dictionary = snap_by_id.get(eid, {}) if snap_by_id.get(eid) is Dictionary else {}
-		var found := 0
+		if se.is_empty():
+			snap_bad.append({"entity": eid, "reason": "missing in snapshot.entities"})
+			continue
+		# snapshot 是运动投影：必须带位置/速度；静态字段若出现则必须正确。
+		if not (se.get("pos_km") is Array) or (se.get("pos_km") as Array).size() < 3:
+			snap_bad.append({"entity": eid, "reason": "snapshot entity lacks pos_km"})
 		for f in META_FIELDS:
-			if se.has(f):
-				found += 1
-		if found == META_FIELDS.size():
-			snap_has_meta += 1
-		else:
-			snap_missing.append({"entity": eid, "fields_present": found})
-	_ok(snap_has_meta == _truth_ids.size(),
-		"snapshot().entities carries all static metadata fields for 7 entities",
-		"ok=%d/7 missing=%s" % [snap_has_meta, str(snap_missing)])
+			if not se.has(f):
+				continue
+			for v in _authority_field_violations(se, _truth[eid], eid, "snapshot"):
+				if String(v.get("field", "")) == f:
+					snap_bad.append(v)
+	_ok(snap_bad.is_empty(),
+		"snapshot.entities is a kinematic projection whose declared static fields are catalog-exact",
+		"violations=%s" % str(snap_bad.slice(0, 6)))
+	# snapshot 必须能明确取得 catalog 来源（合成视图说明字段来源）
+	var snap_catalog: Dictionary = snap.get("entity_catalog", {}) \
+		if snap.get("entity_catalog") is Dictionary else {}
+	_ok(not snap_catalog.is_empty(),
+		"snapshot exposes an explicit entity_catalog source block (synthetic view declares source)",
+		"present=%s keys=%s" % [str(not snap_catalog.is_empty()), str(snap_catalog.keys())])
 
-	_step("6. layer 4: tracks — metadata traceability")
+	_step("6. ballistics reads catalog authority (no silent defaults)")
+	var ball_bad: Array = []
+	var ball_checked := 0
+	var ball = _session.combat_ballistics
+	var ball_catalog = ball.catalog if ball != null and "catalog" in ball else null
+	_ok(ball_catalog != null,
+		"CombatBallistics holds the EntityCatalog authority reference",
+		"catalog_bound=%s" % str(ball_catalog != null))
+	if ball_catalog != null:
+		for eid in _truth_ids:
+			var crow: Dictionary = ball_catalog.get_entity(eid) \
+				if ball_catalog.has_method("get_entity") else {}
+			if crow.is_empty() or not bool(crow.get("found", false)):
+				ball_bad.append({"entity": eid, "reason": "ballistics catalog lookup failed"})
+				continue
+			ball_checked += 1
+			var truth: Dictionary = _truth[eid]
+			for f in ["radius_km", "rcs_m2", "has_pd"]:
+				if not _meta_value_equal(f, crow.get(f, "<missing>"), truth.get(f, null)):
+					ball_bad.append({"entity": eid, "field": f,
+						"catalog": str(crow.get(f, "<missing>")),
+						"truth": str(truth.get(f, null))})
+	_ok(ball_checked == _truth_ids.size() and ball_bad.is_empty(),
+		"ballistics resolves radius/rcs/has_pd from catalog for all 7 entities",
+		"checked=%d violations=%s" % [ball_checked, str(ball_bad.slice(0, 6))])
+
+	_step("7. player view: tracks carry observations only (no truth leak)")
 	var tracks: Array = _session.track_table.vm().get("tracks", []) \
 		if _session.track_table.vm().get("tracks") is Array else []
 	var tr_by_entity: Dictionary = {}
@@ -281,24 +338,12 @@ func _run() -> void:
 			var tr: Dictionary = raw_t
 			tr_by_entity[String(tr.get("entity_id", ""))] = tr
 	_ok(tracks.size() > 0, "TrackTable has tracks", "n=" + str(tracks.size()))
-	var track_meta_ok := 0
-	var track_meta_bad: Array = []
-	for eid in tr_by_entity.keys():
-		var tr2: Dictionary = tr_by_entity[eid]
-		var found2 := 0
-		for f in META_FIELDS:
-			if tr2.has(f):
-				found2 += 1
-		if found2 == META_FIELDS.size():
-			track_meta_ok += 1
-		else:
-			track_meta_bad.append({"entity": eid, "fields_present": found2,
-				"keys": tr2.keys()})
-	_ok(track_meta_ok == tr_by_entity.size(),
-		"tracks carry all static metadata fields",
-		"ok=%d/%d bad=%s" % [track_meta_ok, tr_by_entity.size(), str(track_meta_bad)])
+	var track_leak: Array = _leak_violations(tr_by_entity, _truth)
+	_ok(track_leak.is_empty(),
+		"tracks do not leak truth-only fields (batch/rcs/radius/has_pd) to player view",
+		"violations=" + str(track_leak))
 
-	_step("7. layer 5: contacts — metadata + no silent friend fallback")
+	_step("8. player view: contacts anonymized, no truth leak, no silent friend")
 	var contacts: Array = _binder.get("contacts") if _binder.get("contacts") is Array else []
 	_ok(contacts.size() > 0, "binder.contacts non-empty", "n=" + str(contacts.size()))
 	var c_by_entity: Dictionary = {}
@@ -306,137 +351,156 @@ func _run() -> void:
 		if raw_c is Dictionary:
 			var c: Dictionary = raw_c
 			c_by_entity[String(c.get("entity_id", c.get("id", "")))] = c
-	# 7a. 每个 scenario 实体都应有 contact 行（或明确 reason）
 	var missing_contacts: Array = []
 	for eid in _truth_ids:
 		if not c_by_entity.has(eid):
 			missing_contacts.append(eid)
 	_ok(missing_contacts.is_empty(), "all 7 scenario entities have a contact row",
 		"missing=" + str(missing_contacts))
-	# 7b. **当前已知失败**：无证据实体不得静默回退 friend
+	# 8a. 无证据实体不得静默回退 friend
 	var friend_fallback: Array = []
-	var unknown_ok := 0
 	for eid in _truth_ids:
 		if not c_by_entity.has(eid):
 			continue
 		var c2: Dictionary = c_by_entity[eid]
 		var c_side := String(c2.get("side", "")).to_lower()
 		var c_ident := String(c2.get("identity", "")).to_lower()
-		var c_type := String(c2.get("type", "")).to_lower()
 		var truth_side := String((_truth[eid] as Dictionary).get("side", "")).to_lower()
-		_info("CONTACT %s: side=%s identity=%s type=%s (truth side=%s)" % [
-			eid, c_side, c_ident, c_type, truth_side])
-		# 无证据时不得为 friend；除非该实体是 scenario 里明确 friend（本舰/友军）
-		var truth_is_friend := truth_side in ["friend", "ally", "ocu", "ueg"]
+		_info("CONTACT %s: side=%s identity=%s side_source=%s" % [
+			eid, c_side, c_ident, String(c2.get("side_source", ""))])
+		var truth_is_friend := truth_side in ["friend", "ally", "ueg", "ocu"]
 		if c_side == "friend" and not truth_is_friend:
 			friend_fallback.append({"entity": eid, "contact_side": c_side,
 				"truth_side": truth_side})
-		elif c_side in ["unknown", "ocu", "neutral", "hostile"]:
-			unknown_ok += 1
-		# 无证据时 identity 也不得静默 friend
 		if c_ident == "friend" and not truth_is_friend:
 			friend_fallback.append({"entity": eid, "contact_identity": c_ident,
 				"truth_side": truth_side})
 	_ok(friend_fallback.is_empty(),
 		"no silent friend fallback for non-friend entities in contacts",
 		"violations=" + str(friend_fallback))
-	# 7c. contacts 元数据字段完整性
-	var c_meta_ok := 0
-	var c_meta_bad: Array = []
+	# 8b. 玩家 contacts 不得泄漏 truth-only 字段（batch/rcs/radius/has_pd）
+	var contact_leak: Array = _leak_violations(c_by_entity, _truth)
+	_ok(contact_leak.is_empty(),
+		"contacts do not leak truth-only fields (batch/rcs/radius/has_pd)",
+		"violations=" + str(contact_leak))
+	# 8c. 玩家可见字段必须声明来源（side_source/identity_source/display_source）
+	var source_bad: Array = []
 	for eid in _truth_ids:
 		if not c_by_entity.has(eid):
 			continue
 		var c3: Dictionary = c_by_entity[eid]
-		var found3 := 0
-		for f in META_FIELDS:
-			if c3.has(f) and c3.get(f) != null:
-				found3 += 1
-		if found3 == META_FIELDS.size():
-			c_meta_ok += 1
-		else:
-			c_meta_bad.append({"entity": eid, "fields_present": found3,
-				"keys": c3.keys()})
-	_ok(c_meta_ok == _truth_ids.size(),
-		"contacts carry all static metadata fields for 7 entities",
-		"ok=%d/7 bad=%s" % [c_meta_ok, str(c_meta_bad)])
-	# 7d. batch 可追溯
-	var batch_bad: Array = []
-	for eid in _truth_ids:
-		if not c_by_entity.has(eid):
-			continue
-		var c4: Dictionary = c_by_entity[eid]
-		var cb := String(c4.get("batch", ""))
-		var tb := String((_truth[eid] as Dictionary).get("batch", ""))
-		if cb == "" or cb == "<null>":
-			batch_bad.append({"entity": eid, "contact_batch": cb, "truth_batch": tb})
-	_ok(batch_bad.is_empty(), "contacts expose batch for traceability",
-		"violations=" + str(batch_bad))
+		for sf in ["side_source", "identity_source", "display_source"]:
+			if String(c3.get(sf, "")) == "":
+				source_bad.append({"entity": eid, "missing_source": sf})
+	_ok(source_bad.is_empty(),
+		"player-facing contact fields declare an explicit source (side/identity/display)",
+		"violations=" + str(source_bad.slice(0, 8)))
 
-	_step("8. per-field pass-through matrix (7 entities × 6 fields × 5 layers)")
-	var field_layers := {
-		"physics": func(eid: String) -> Dictionary: return _session.physics_state(eid),
-		"world": func(eid: String) -> Dictionary: return _session.world.entity(eid),
-		"snapshot": func(eid: String) -> Dictionary:
-			return snap_by_id.get(eid, {}) if snap_by_id.get(eid) is Dictionary else {},
-		"track": func(eid: String) -> Dictionary:
-			return tr_by_entity.get(eid, {}) if tr_by_entity.get(eid) is Dictionary else {},
-		"contact": func(eid: String) -> Dictionary:
-			return c_by_entity.get(eid, {}) if c_by_entity.get(eid) is Dictionary else {},
-	}
-	# 权威层与投影层分开统计，避免「投影层 unknown 豁免」掩盖权威层丢失事实。
-	var authority_bad: Array = []
-	var projection_bad: Array = []
-	var unknown_accepted: Array = []
-	for layer_name in ["physics", "world", "snapshot", "track", "contact"]:
-		var getter = field_layers[layer_name]
-		for eid in _truth_ids:
-			var row: Dictionary = getter.call(eid)
-			var truth: Dictionary = _truth[eid]
-			for f in META_FIELDS:
-				var expected = truth.get(f, null)
-				var actual = row.get(f, "<missing>")
-				var okv := _meta_equal(f, actual, expected, layer_name, row)
-				if okv:
-					if _is_unknown_token(actual) and (f in EVIDENCE_DERIVED_FIELDS):
-						unknown_accepted.append({"layer": layer_name, "entity": eid,
-							"field": f, "value": str(actual),
-							"reason": "no identity evidence on this row"})
-					continue
-				var violation := {"layer": layer_name, "entity": eid, "field": f,
-					"actual": str(actual), "expected": str(expected)}
-				if layer_name in AUTHORITY_LAYERS:
-					authority_bad.append(violation)
-				else:
-					projection_bad.append(violation)
-	# 8a. 权威层：必须精确承载 scenario truth（不允许 unknown / 缺失）
-	_ok(authority_bad.is_empty(),
-		"authority layers (PhysicsWorld/WorldState/snapshot) match scenario truth exactly",
-		"violations=%d sample=%s" % [authority_bad.size(),
-			str(authority_bad.slice(0, 8))])
-	# 8b. 投影层：静态事实必须透传；只有无身份证据时 side/identity 才可为 unknown
-	_ok(projection_bad.is_empty(),
-		"projection layers (track/contacts) pass through metadata (unknown only for side/identity without identity evidence)",
-		"violations=%d sample=%s" % [projection_bad.size(),
-			str(projection_bad.slice(0, 8))])
-	_info("A0-T2 MATRIX: authority violations=%d, projection violations=%d, unknown-with-valid-reason=%d" % [
-		authority_bad.size(), projection_bad.size(), unknown_accepted.size()])
-	var matrix_bad: Array = []
-	matrix_bad.append_array(authority_bad)
-	matrix_bad.append_array(projection_bad)
-	_ok(matrix_bad.is_empty(),
-		"metadata pass-through matrix complete (5 layers × 7 entities × 6 fields)",
-		"violations=%d sample=%s" % [matrix_bad.size(), str(matrix_bad.slice(0, 8))])
+	_step("9. negative examples: the assertions above actually detect breakage")
+	# 9a. catalog 字段丢失必须被检出
+	var loss_cat := _fixture_catalog_drop_field("rcs_m2")
+	var loss_bad := _authority_field_violations(loss_cat.get("row", {}),
+		_truth["harmattan"], "harmattan", "catalog")
+	_ok(not loss_bad.is_empty(),
+		"NEGATIVE: catalog field loss is detected as a violation",
+		"detected=%d" % loss_bad.size())
+	# 9b. ID 互换必须被检出（把 harmattan 的数据挂在 raider_2 的 ID 上）
+	var swap_bad := _authority_field_violations(
+		(catalog.get_entity("harmattan") if catalog != null else {}),
+		_truth["raider_2"], "raider_2", "catalog")
+	_ok(not swap_bad.is_empty(),
+		"NEGATIVE: catalog ID swap is detected as a violation",
+		"detected=%d" % swap_bad.size())
+	# 9c. radius 兜底冒充 catalog 必须被检出
+	var fallback_row := {"id": "skiff", "radius_km": 1.0, "rcs_m2": 180.0,
+		"has_pd": false, "side": "hostile", "identity": "unknown", "batch": "OCU-13"}
+	var fallback_bad := _authority_field_violations(fallback_row, _truth["skiff"],
+		"skiff", "catalog")
+	_ok(not fallback_bad.is_empty(),
+		"NEGATIVE: radius fallback impersonating catalog is detected",
+		"detected=%d" % fallback_bad.size())
+	# 9d. 玩家 contacts 的 truth 泄漏必须被检出
+	var leaked_rows := {"harmattan": {"entity_id": "harmattan", "side": "unknown",
+		"batch": "OCU-07", "rcs_m2": 1100.0, "radius_km": 0.09, "has_pd": true}}
+	var leak_bad := _leak_violations(leaked_rows, _truth)
+	_ok(not leak_bad.is_empty(),
+		"NEGATIVE: truth-field leak into player contacts is detected",
+		"detected=%d" % leak_bad.size())
+	# 9e. 未知目标变 friend 必须被检出
+	var friend_row := {"harmattan": {"entity_id": "harmattan", "side": "friend",
+		"identity": "friend"}}
+	var friend_truth_side := String((_truth["harmattan"] as Dictionary).get("side", ""))
+	var friend_detected := (String(friend_row["harmattan"].side) == "friend"
+		and not (friend_truth_side in ["friend", "ally", "ueg", "ocu"]))
+	_ok(friend_detected, "NEGATIVE: unknown target forced to friend is detected",
+		"truth_side=%s" % friend_truth_side)
 
-	_step("9. A0-T2 baseline evidence summary (expected Phase A failures)")
-	_info("A0-T2 BASELINE: physics=%d/7 world=%d/7 snapshot=%d/7 track=%d/%d contact=%d/7 have full metadata" % [
-		pw_has_meta, ws_has_meta, snap_has_meta, track_meta_ok, tr_by_entity.size(), c_meta_ok])
-	_info("A0-T2 BASELINE: %d silent friend-fallback rows in contacts" % friend_fallback.size())
-	_info("A0-T2 BASELINE: %d metadata pass-through violations" % matrix_bad.size())
+	_step("10. A0-T2 baseline evidence summary (expected Phase A failures)")
+	_info("A0-T2 BASELINE: catalog_ok=%d/7 catalog_violations=%d" % [
+		catalog_ok, catalog_bad.size()])
+	_info("A0-T2 BASELINE: container_violations=%d ballistics_violations=%d" % [
+		container_bad.size(), ball_bad.size()])
+	_info("A0-T2 BASELINE: track_leak=%d contact_leak=%d friend_fallback=%d source_missing=%d" % [
+		track_leak.size(), contact_leak.size(), friend_fallback.size(), source_bad.size()])
 
 	_finish()
 
 
 # ── helpers ─────────────────────────────────────────────────────
+
+## 协调后权威契约（A-00 断言映射）：
+##   EntityCatalog = 静态元数据唯一权威（完整、按稳定 ID 查得）；
+##   PhysicsWorld 只写运动学；WorldState/snapshot 是投影（可省略静态字段，
+##   但一旦声明就必须与 catalog 一致，不得伪造）。
+## 返回给定行相对 truth 的**字段级**违例列表（空 = 该行静态字段全部正确）。
+func _authority_field_violations(row: Dictionary, truth: Dictionary, eid: String,
+		layer: String) -> Array:
+	var out: Array = []
+	if row.is_empty():
+		out.append({"layer": layer, "entity": eid, "reason": "row missing"})
+		return out
+	for f in META_FIELDS:
+		var expected = truth.get(f, null)
+		var actual = row.get(f, "<missing>")
+		if not _meta_value_equal(f, actual, expected):
+			out.append({"layer": layer, "entity": eid, "field": f,
+				"actual": str(actual), "expected": str(expected)})
+	return out
+
+
+## 玩家视图真值泄漏检测：contact/track 行不得携带 truth-only 字段。
+## 允许例外：本舰（own ship）与有公开记录的设施（facility_id 非空）——
+## 但这些例外必须在来源字段里声明（side_source 等），由调用方单独断言。
+func _leak_violations(rows_by_entity: Dictionary, truth: Dictionary) -> Array:
+	var out: Array = []
+	for eid in rows_by_entity.keys():
+		var row: Dictionary = rows_by_entity[eid]
+		if row.is_empty():
+			continue
+		var is_own: bool = (String(eid) == "apsis")
+		var is_public_facility: bool = String(row.get("facility_id", "")) != ""
+		for f in TRUTH_ONLY_FIELDS:
+			if not row.has(f):
+				continue
+			if is_own or is_public_facility:
+				# 例外：本舰/公开设施允许，但必须声明来源
+				if String(row.get("metadata_source", "")) == "" \
+						and String(row.get("side_source", "")) == "":
+					out.append({"entity": eid, "field": f, "reason":
+						"public exception without declared source"})
+				continue
+			out.append({"entity": eid, "field": f, "value": str(row.get(f)),
+				"reason": "truth-only field leaked into player view"})
+	return out
+
+
+## 负例 fixture：构造一个「丢了某个 catalog 字段」的实体行。
+func _fixture_catalog_drop_field(drop: String) -> Dictionary:
+	var row: Dictionary = (_truth["harmattan"] as Dictionary).duplicate(true)
+	row["id"] = "harmattan"
+	row.erase(drop)
+	return {"row": row, "dropped": drop}
+
 
 ## 字段比较，按层区分严格程度（A0-T2 审查修正 P1）：
 ##
@@ -474,16 +538,46 @@ func _is_unknown_token(value) -> bool:
 
 ## 精确值比较（不含 unknown 豁免）。
 func _meta_value_equal(field: String, actual, expected) -> bool:
-	if actual == null or actual == "<missing>":
+	if actual == null:
 		return false
+	if actual is String and String(actual) == "<missing>":
+		return false
+	if expected == null:
+		return actual == null
 	if field in NUM_FIELDS:
-		if actual is int or actual is float:
-			if expected is int or expected is float:
-				return absf(float(actual) - float(expected)) <= 1.0e-9
-		return false
+		var an = _as_number(actual)
+		var en = _as_number(expected)
+		if an == null or en == null:
+			return false
+		return absf(float(an) - float(en)) <= 1.0e-9
 	if expected is bool:
-		return actual is bool and actual == expected
+		var ab = _as_bool(actual)
+		return ab != null and bool(ab) == bool(expected)
 	return str(actual) == str(expected)
+
+
+## 把 int/float/数字字符串归一为 float；非数值返回 null。
+func _as_number(v):
+	if v is int or v is float:
+		return float(v)
+	if v is String:
+		var s := String(v).strip_edges()
+		if s.is_valid_float():
+			return float(s)
+	return null
+
+
+## 把 bool/bool 字符串归一为 bool；非布尔返回 null。
+func _as_bool(v):
+	if v is bool:
+		return bool(v)
+	if v is String:
+		var s := String(v).strip_edges().to_lower()
+		if s == "true":
+			return true
+		if s == "false":
+			return false
+	return null
 
 
 ## 验证投影层 `unknown` 的**原因**是否成立：只有当该行确实缺少身份证据时，

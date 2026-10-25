@@ -334,31 +334,70 @@ func _run() -> void:
 	_ok(track_bad.is_empty(), "track numeric roundtrip within 1e-9",
 		"violations=" + str(track_bad))
 
-	_step("5. integer type stability (no int→float drift)")
-	# 5a. 事件 seq：从存档 JSON 读回后必须是 int
-	var int_bad: Array = []
+	_step("5. JSON numeric contract + restored runtime types (A-00 协调后口径)")
+	# 协调后契约（A-00 断言映射表）：
+	#   * **原始 JSON 数字**：不依赖 JSON Variant 类型（JSON 数字解析为 float 属正常），
+	#     只校验数值语义 —— 有限、整数值、落在安全整数范围 0..2^53-1、事件 seq ≥1、
+	#     且严格递增。负数/分数/越界/重复/逆序都算违例。
+	#   * **恢复后的运行时值**：必须是 GDScript int（这才是类型漂移的真实判据）。
+	const SAFE_INT_MAX := 9007199254740991.0  # 2^53-1
+	var json_num_bad: Array = []
+	var json_seq_values: Array = []
 	if save1.has("bus") and save1.get("bus") is Dictionary:
 		var busd: Dictionary = save1.get("bus")
 		var evs: Array = busd.get("events", []) if busd.get("events") is Array else []
-		for i in range(mini(evs.size(), 5)):
+		for i in range(evs.size()):
 			var ev: Dictionary = evs[i]
-			if ev.has("seq"):
-				var seq_val = ev.get("seq")
-				if not (seq_val is int):
-					int_bad.append({"where": "save.bus.events[%d].seq" % i,
-						"value": str(seq_val), "type": type_string(typeof(seq_val))})
-	# 5b. 读档后 session 内部事件 seq 也必须是 int
+			if not ev.has("seq"):
+				continue
+			var raw_reason := _json_int_violation(ev.get("seq"), 1.0, SAFE_INT_MAX)
+			if raw_reason != "":
+				json_num_bad.append({"where": "save.bus.events[%d].seq" % i,
+					"value": str(ev.get("seq")), "reason": raw_reason})
+			else:
+				json_seq_values.append(float(ev.get("seq")))
+		if busd.has("seq"):
+			var br := _json_int_violation(busd.get("seq"), 0.0, SAFE_INT_MAX)
+			if br != "":
+				json_num_bad.append({"where": "save.bus.seq",
+					"value": str(busd.get("seq")), "reason": br})
+	# 严格递增（按存档中的事件顺序）
+	var order_bad: Array = []
+	for i in range(1, json_seq_values.size()):
+		if float(json_seq_values[i]) <= float(json_seq_values[i - 1]):
+			order_bad.append({"index": i, "prev": json_seq_values[i - 1],
+				"current": json_seq_values[i], "reason": "seq not strictly increasing"})
+	_ok(json_num_bad.is_empty(),
+		"raw JSON bus/event seq are finite integral values within 0..2^53-1 (value semantics, not Variant type)",
+		"violations=" + str(json_num_bad.slice(0, 8)))
+	_ok(order_bad.is_empty(), "raw JSON event seq strictly increasing",
+		"violations=" + str(order_bad.slice(0, 8)))
+	# 5b. 读档后 session 内部事件 seq 必须是真正的 GDScript int（类型漂移判据）
+	var int_bad: Array = []
 	var loaded_events: Array = s2.bus.events if s2.bus != null and s2.bus.events is Array else []
-	for i in range(mini(loaded_events.size(), 5)):
+	for i in range(loaded_events.size()):
 		var ev2: Dictionary = loaded_events[i]
 		if ev2.has("seq"):
 			var sv2 = ev2.get("seq")
 			if not (sv2 is int):
 				int_bad.append({"where": "loaded.bus.events[%d].seq" % i,
 					"value": str(sv2), "type": type_string(typeof(sv2))})
-	_ok(int_bad.is_empty(), "event seq stays int (no int→float drift)",
-		"violations=" + str(int_bad))
-	# 5c. identification 数值字段类型（A0 C4 已定位 max_requests_per_tick 4→4.0）
+	_ok(int_bad.is_empty(), "restored runtime event seq is a real GDScript int (no type drift)",
+		"violations=" + str(int_bad.slice(0, 8)))
+	# 5c. 负例：非法 seq 形态必须被同一判据拒绝
+	var seq_neg: Array = []
+	for bad in [{-1.0: "negative"}, {0.0: "zero"}, {1.5: "fractional"},
+			{1.0e16: "out-of-range"}]:
+		for val in bad.keys():
+			var reason := _json_int_violation(val, 1.0, SAFE_INT_MAX)
+			if reason == "":
+				seq_neg.append({"value": val, "expected_reason": bad[val]})
+	# 1.0 合法（≥1）—— 用它证明判据不是「一律拒绝」
+	if _json_int_violation(1.0, 1.0, SAFE_INT_MAX) != "":
+		seq_neg.append({"value": 1.0, "reason": "legal value wrongly rejected"})
+	_ok(seq_neg.is_empty(), "NEGATIVE: illegal seq shapes are rejected by the numeric contract",
+		"violations=" + str(seq_neg))
+	# 5d. identification 数值字段类型（A0 C4 已定位 max_requests_per_tick 4→4.0）
 	var ident_type_bad: Array = []
 	if s2.identification_service != null and s2.identification_service.config is Dictionary:
 		var icfg: Dictionary = s2.identification_service.config
@@ -442,6 +481,34 @@ func _run() -> void:
 
 
 # ── helpers ─────────────────────────────────────────────────────
+
+## A-00 协调后契约：校验一个「原始 JSON 数字」是否满足整数语义（不依赖 Variant 类型）。
+## 返回 "" = 合法；否则返回拒绝原因。规则：有限、整数值、min_v..max_v 范围。
+func _json_int_violation(value, min_v: float, max_v: float) -> String:
+	if value == null:
+		return "missing"
+	var f := 0.0
+	if value is int:
+		f = float(value)
+	elif value is float:
+		f = float(value)
+	elif value is String:
+		var s := String(value).strip_edges()
+		if not s.is_valid_float():
+			return "not a number (%s)" % s
+		f = float(s)
+	else:
+		return "not a number (type %s)" % type_string(typeof(value))
+	if is_nan(f) or is_inf(f):
+		return "not finite"
+	if absf(f - roundf(f)) > 0.0:
+		return "not an integer value"
+	if f < min_v:
+		return "below minimum %s" % str(min_v)
+	if f > max_v:
+		return "above safe integer maximum %s" % str(max_v)
+	return ""
+
 
 ## A0-T3 审查修正（P2）：把 sensor channels 规范化为可比较的稳定结构。
 ## 保留全部**语义字段**（channel 类型、目标、状态、可见性、分类、几何、设备参数等），
