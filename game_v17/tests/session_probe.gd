@@ -2141,23 +2141,33 @@ func _test_signal_binding() -> void:
 			unbound_track = tr2
 	_ok(not unbound_track.is_empty(), "缺失目标 track entity 保持空")
 	# UI track_vm 可用
+	# A-01 契约协调：vm() 是**玩家可见只读模型**，真值/内部字段 batch/rcs_m2/radius_km/has_pd
+	# 不得出现在其中；它们只保留在内部航迹（all_tracks()/snapshot()）供去重/合并/存档。
 	var rows: Array = _track_rows_vm(s)
 	_ok(rows.size() >= 2, "track_vm rows")
 	var entity_rows := 0
-	var batch_rows := 0
+	var batch_leak := 0
 	for raw in rows:
 		var row: Dictionary = raw
 		_ok(String(row.get("id", "")) != "", "track_vm id")
 		_ok(row.has("entity_id"), "track_vm entity_id 字段")
-		_ok(row.has("batch"), "track_vm batch 字段")
+		_ok(not row.has("batch"), "track_vm 不得泄漏真值 batch 字段")
+		_ok(bool(row.get("truth_fields_withheld", false)),
+			"track_vm 明确标注真值字段已扣留")
 		_ok(int(row.get("level", 0)) >= 1, "track_vm level")
 		_ok(float(row.get("last_update", -1.0)) >= 0.0, "track_vm last_update")
 		if String(row.get("entity_id", "")) != "":
 			entity_rows += 1
-		if String(row.get("batch", "")) != "":
-			batch_rows += 1
+		if row.has("batch"):
+			batch_leak += 1
 	_ok(entity_rows >= 2, "track_vm 多条有 entity_id", str(entity_rows))
-	_ok(batch_rows >= 2, "track_vm 多条有 batch", str(batch_rows))
+	_ok(batch_leak == 0, "track_vm 无 batch 泄漏", str(batch_leak))
+	# 内部航迹仍保留 batch（去重/合并/存档需要），证明扣留只发生在玩家视图
+	var internal_batch := 0
+	for raw_in in s.track_table.all_tracks():
+		if raw_in is Dictionary and String((raw_in as Dictionary).get("batch", "")) != "":
+			internal_batch += 1
+	_ok(internal_batch >= 2, "内部航迹仍保留 batch（去重/存档权威）", str(internal_batch))
 	_ok(JSON.parse_string(JSON.stringify(rows)) is Array, "track_vm JSON")
 	# 失败/未知目标不新增 track
 	var cnt := _track_count(s)
