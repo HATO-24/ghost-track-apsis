@@ -24,6 +24,22 @@ const NEG_CASES := {
 	"invalid_time_order.json": "observed_t",
 	"invalid_counter.json": "threshold",
 	"invalid_not_deployed.json": "部署清单",
+	# R6：冻结 actor→controller→shooter 授权
+	"invalid_actor_controller.json": "授权名单",
+	# R6：情报共享授权者必须是情报拥有者
+	"invalid_obs_authorization.json": "未由情报拥有者授权",
+	# R6：delay 必须与 received-observed 一致
+	"invalid_delay.json": "延迟不一致",
+	# R6：幂等键冲突载荷拒绝
+	"invalid_idempotency.json": "幂等键冲突",
+	# R6：整数计数不接受浮点
+	"invalid_ledger_types.json": "非负安全整数",
+	# R6：AI 不得直读真值
+	"invalid_ai_truth.json": "reads_ground_truth",
+	# R6：roster 引用必须已登记
+	"invalid_roster_ref.json": "roster 引用未登记实例",
+	# R6：选择→部署逐一对应
+	"invalid_selection_mapping.json": "未出现在部署清单",
 }
 
 var _pass := 0
@@ -182,6 +198,7 @@ func _run() -> void:
 	# 旧调用只能映射 own_ship
 	var legacy_doc: Dictionary = doc.duplicate(true)
 	(legacy_doc.get("commands", []) as Array)[0]["legacy_context"] = "own_ship"
+	(legacy_doc.get("commands", []) as Array)[0]["own_entity_instance_id"] = "I-A1"
 	var lr: Dictionary = Contracts.validate(legacy_doc)
 	_ok(bool(lr.get("ok", false)), "legacy_context=own_ship 被接受",
 		"errors=" + str(lr.get("errors", [])))
@@ -198,7 +215,32 @@ func _run() -> void:
 	_ok(bool(obj.get("story_independent", false)),
 		"目标 story_independent=true（story=false 仍裁决）")
 
-	_step("6. 明确未实现边界（不伪造运行态）")
+	_step("6. R6 冻结项：情报分区 / AI 只读视图 / 生命周期 / legacy scope")
+	_eq(String(doc.get("intel_partitioning", "")), "per_owner_track_table",
+		"冻结分方情报方案 = per_owner_track_table")
+	var view2: Dictionary = doc.get("ai_read_view", {}) if doc.get("ai_read_view") is Dictionary else {}
+	_eq(bool(view2.get("reads_ground_truth", true)), false,
+		"AI 只读视图不得直读真值")
+	var byd: Dictionary = view2.get("by_domain", {}) if view2.get("by_domain") is Dictionary else {}
+	_ok(byd.size() >= 3, "AI 只读视图按域授权", str(byd.size()))
+	var lc: Array = doc.get("event_lifecycle", []) if doc.get("event_lifecycle") is Array else []
+	_eq(lc.size(), 6, "事件/通信生命周期冻结为 6 阶段")
+	_eq(String(lc[0]) if lc.size() > 0 else "", "created", "生命周期首阶段 created")
+	_eq(String(lc[lc.size() - 1]) if lc.size() > 0 else "", "closed", "生命周期末阶段 closed")
+	var ls: Dictionary = doc.get("legacy_scope", {}) if doc.get("legacy_scope") is Dictionary else {}
+	_eq(bool(ls.get("own_ship_only", false)), true, "legacy scope 只映射本舰")
+	# 授权绑定：合法命令的 actor 必须在该域授权名单内
+	var doms: Array = doc.get("command_domains", [])
+	var doms_by_id: Dictionary = {}
+	for raw_d in doms:
+		doms_by_id[String((raw_d as Dictionary).get("domain_id", ""))] = raw_d
+	var cmd0: Dictionary = (doc.get("commands", []) as Array)[0]
+	var cmd_dom: Dictionary = doms_by_id.get(String(cmd0.get("domain_id", "")), {})
+	var auth_actors: Array = cmd_dom.get("authorized_actors", [])
+	_ok(String(cmd0.get("actor_id", "")) in auth_actors,
+		"合法命令 actor 在域授权名单内", String(cmd0.get("actor_id", "")))
+	_ok(not auth_actors.is_empty(), "域授权名单非空（冻结 actor→controller）")
+	_step("7. 明确未实现边界（不伪造运行态）")
 	_info("本探针只证明数据契约与拒绝语义；不声称真实舰队已部署/AI 已行动/战役可玩")
 	_info("K0 字段表与权威划分见 game_v17/docs/contracts/joint_campaign_r2.md")
 	_finish()

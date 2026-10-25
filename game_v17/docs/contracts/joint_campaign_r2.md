@@ -163,3 +163,46 @@
 2. 独立技术复核确认「阵营/直控/情报/ROE」四者真正分开；
 3. G0 冻结后重述基线 SHA，并核对无字段漂移；
 4. 之后才解锁 JC-A01。
+
+---
+
+## 8. R6 返修：冻结项与拒绝面（2026-10-26）
+
+### 8.1 actor → controller → shooter 授权链（冻结）
+- 每个指挥域必须声明 `authorized_actors`（显式名单）；
+- 命令 `actor_id` 必须在该域名单内，`controller_id` 必须等于域直控；
+- `shooter_id` 必须是该域已登记实例，**禁止退回旗舰**；
+- 旧调用 `legacy_context=own_ship` 必须同时给出 `own_entity_instance_id` 且 `shooter_id == own`；
+- **玩家填 `ally_ai` 直接 fire 盟军舰船 → 拒绝**（actor 不在 ally 名单 / controller 不符 / shooter 跨域，三重拦截）。
+
+### 8.2 情报共享与延迟（冻结）
+- `observer_id` 必须是已登记实例；
+- `intel_owner_id` 必须是某域的 `intel_owner_id`（不接受任意字符串）；
+- 共享必须有 `share_authorized_by`，且**必须等于**该情报拥有者；
+- `received_t - observed_t` 必须与 `delay_s` 一致（≤1e-6 s），否则拒绝；
+- 分方情报方案冻结为 `intel_partitioning = per_owner_track_table`（每 owner 独立 TrackTable）。
+
+### 8.3 AI 只读视图（冻结）
+- `ai_read_view.reads_ground_truth` 必须为 `false`；
+- 每个域只能声明**本域** `intel_owners`；
+- 不允许 AI 直读世界真值/敌方全量状态。
+
+### 8.4 选择 → 部署映射（冻结）
+- 实例必须显式 `selected: bool`；
+- 只有 `selected=true` 且 `deployment_state=DEPLOYED` 的实例可进部署清单；
+- 所有 `selected` 实例必须逐一出现在部署清单；
+- `request_id` 必须存在且唯一；同一 `request_id` 携带不同载荷 → **幂等键冲突拒绝**；
+- `roster` 成员必须是本舰队已登记实例。
+
+### 8.5 生命周期 / legacy scope（冻结）
+- `event_lifecycle` 固定 6 阶段：`created → observed → shared → received → executed → closed`；
+- `legacy_scope.own_ship_only = true`；`unknown_campaign_behavior ∈ {reject, legacy_tag}`。
+
+### 8.6 单位与数值（区分连续与计数）
+- 连续物理量：`mass_kg` / `fuel_kg` / `delta_v_kmps` —— 有限、非负、≤1e15；
+- 整数计数：`ammo` / `cooldown_s_count` —— **不接受浮点**，非负、≤2^53-1；
+- 必要字段缺失即拒绝（不再"缺了就当 0"）；
+- JSON 数字按值语义比较；契约整数必须是真 int。
+
+### 8.7 探针
+`integration.jc_contracts` 覆盖上述全部拒绝面，当前 **64/0**；负例 fixture 17 个。
