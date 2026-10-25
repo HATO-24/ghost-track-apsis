@@ -15,6 +15,12 @@ const MODE_RUNNING := "running"
 const MODES := [MODE_PAUSED, MODE_RUNNING]
 const DEFAULT_EPOCH_S := 760.8
 const DEFAULT_MAX_DT_S := 3600.0
+# A-02：历元来源。日历历元（scenario UTC）与动力学相位基准（epoch_s / CR3BP）**分开**。
+const EPOCH_SOURCE_SCENARIO := "scenario"
+const EPOCH_SOURCE_LEGACY := "legacy_unknown"
+const EPOCH_SOURCE_INVALID := "invalid"
+# 动力学相位基准标签（与日历历元分离，禁止混用）
+const PHASE_BASIS_CR3BP := "cr3bp_phase_s"
 
 var ready := false
 var errors: Array[String] = []
@@ -22,7 +28,12 @@ var warnings: Array[String] = []
 var contract_errors: Array[String] = []
 
 var t_s := 0.0
+# 动力学相位基准（CR3BP 相位时刻；**不是** Unix epoch，也不是日历时刻）
 var epoch_s := DEFAULT_EPOCH_S
+# A-02：日历历元元数据（唯一来源；由 scenario UTC 解析一次）
+var calendar_epoch_utc := ""
+var calendar_epoch_unix_s := -1.0
+var epoch_source := EPOCH_SOURCE_LEGACY
 var scale := 1.0
 var paused := false
 var docked := false
@@ -46,6 +57,19 @@ func setup(opts := {}) -> bool:
 	contract_errors.clear()
 	t_s = float(o.get("t_s", 0.0))
 	epoch_s = float(o.get("epoch_s", DEFAULT_EPOCH_S))
+	# A-02：日历历元。空 = 旧 seed（legacy，标记不伪造）；非法 = 显式拒绝。
+	calendar_epoch_utc = String(o.get("epoch_utc", "")).strip_edges()
+	calendar_epoch_unix_s = -1.0
+	epoch_source = EPOCH_SOURCE_LEGACY
+	if calendar_epoch_utc != "":
+		var parsed := _parse_utc_epoch(calendar_epoch_utc)
+		if bool(parsed.get("ok", false)):
+			calendar_epoch_unix_s = float(parsed.get("unix_s", -1.0))
+			epoch_source = EPOCH_SOURCE_SCENARIO
+		else:
+			epoch_source = EPOCH_SOURCE_INVALID
+			errors.append("precondition: 非法 UTC 历元 '" + calendar_epoch_utc + "'")
+			return false
 	scale = float(o.get("scale", 1.0))
 	paused = bool(o.get("paused", false))
 	docked = bool(o.get("docked", false))
@@ -187,6 +211,67 @@ func now_days() -> float:
 func epoch_abs_s() -> float:
 	return epoch_s + t_s
 
+
+# ── A-02：日历历元（唯一来源）────────────────────────────────
+
+## 解析并校验 UTC 字符串（要求往返一致，避免把非法串当成 0 时刻）。
+func _parse_utc_epoch(text: String) -> Dictionary:
+	var s := String(text).strip_edges()
+	if s == "":
+		return {"ok": false, "reason": "empty"}
+	# 统一成 Godot 期望的无时区形式（尾部 Z）
+	var probe := s
+	if probe.ends_with("Z"):
+		probe = probe.substr(0, probe.length() - 1)
+	var unix_s := Time.get_unix_time_from_datetime_string(probe)
+	if unix_s == 0 and probe.substr(0, 4) != "1970":
+		return {"ok": false, "reason": "unparsable"}
+	# 往返校验：解析回来必须与输入一致（拒绝 2193-13-45 之类溢出值）。
+	# Godot 的 datetime string 用空格分隔（"YYYY-MM-DD HH:MM:SS"），先把输入归一化。
+	var norm_in := probe.replace("T", " ").replace("t", " ")
+	var back := Time.get_datetime_string_from_unix_time(unix_s, true)
+	if back != norm_in:
+		return {"ok": false, "reason": "roundtrip_mismatch",
+			"parsed": back, "input": norm_in}
+	return {"ok": true, "unix_s": float(unix_s), "utc": norm_in}
+
+
+## 相对秒 → 绝对日历时刻（UTC 字符串）。历元未知时返回 ""（不伪造日期）。
+func calendar_at(rel_s: float) -> String:
+	if epoch_source != EPOCH_SOURCE_SCENARIO or calendar_epoch_unix_s < 0.0:
+		return ""
+	var abs_s := int(round(calendar_epoch_unix_s + float(rel_s)))
+	return Time.get_datetime_string_from_unix_time(abs_s, true)
+
+
+func calendar_now_utc() -> String:
+	if epoch_source != EPOCH_SOURCE_SCENARIO:
+		return ""
+	return Time.get_datetime_string_from_unix_time(
+		int(round(calendar_epoch_unix_s + t_s)), true)
+
+
+## 历元元数据（**唯一权威**）：日历历元与动力学相位基准则分别标明，禁止混用。
+func epoch_meta() -> Dictionary:
+	var known := (epoch_source == EPOCH_SOURCE_SCENARIO)
+	return {
+		"schema": "v17.time_epoch.v2",
+		"epoch_source": epoch_source,
+		"epoch_known": known,
+		"epoch_unknown": not known,
+		"calendar_epoch_utc": calendar_epoch_utc,
+		"calendar_epoch_unix_s": calendar_epoch_unix_s if known else null,
+		"calendar_now_utc": calendar_now_utc(),
+		"t_s": t_s,
+		# 动力学相位基准：沿用现有 CR3BP 相位时刻，绝不是日历/Unix 秒
+		"phase_basis": PHASE_BASIS_CR3BP,
+		"phase_epoch_s": epoch_s,
+		"phase_abs_s": epoch_abs_s(),
+		"calendar_vs_phase_note": "date = calendar_epoch + t_s；CR3BP 相位 = phase_epoch_s + t_s；两者互不替换",
+		"raw_epoch_s_is_unix": false,
+	}
+
+
 func mode() -> String:
 	return MODE_PAUSED if paused else MODE_RUNNING
 
@@ -198,6 +283,8 @@ func event_time() -> Dictionary:
 		"t_days": now_days(),
 		"epoch_s": epoch_s,
 		"epoch_abs_s": epoch_abs_s(),
+		# A-02：日历历元/相位基准随快照持久化（唯一来源）
+		"epoch": epoch_meta(),
 		"scale": scale,
 		"paused": paused,
 		"mode": mode(),
@@ -246,6 +333,8 @@ func snapshot() -> Dictionary:
 		"t_days": now_days(),
 		"epoch_s": epoch_s,
 		"epoch_abs_s": epoch_abs_s(),
+		# A-02：日历历元/相位基准随快照持久化（唯一来源）
+		"epoch": epoch_meta(),
 		"scale": scale,
 		"paused": paused,
 		"mode": mode(),
