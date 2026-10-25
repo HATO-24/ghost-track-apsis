@@ -1,0 +1,461 @@
+{
+  "schema": "v17.jc.scenario_spec.v1",
+  "version": 1,
+  "proposal_version": "P0-draft-1",
+  "status": "proposal_pending_user_review",
+  "scenario_id": "jc_sector_01",
+  "title": "第33舰队前哨战区 · 阶段性去军事化行动",
+  "confirmed_scope": [
+    "阶段性战区行动（不宣告整个第33舰队去军事化）",
+    "自有舰队直控 + 独立AI友军协同请求"
+  ],
+  "theater": {
+    "name": "EML1-外侧 / 第33舰队前沿哨区",
+    "epoch_utc": "2193-04-11T08:00:00Z",
+    "duration_s": 3600,
+    "note": "日期仅为提案；模拟时间用秒，不把 UTC 混进 tick"
+  },
+  "fleet_pool": {
+    "points_budget": 100,
+    "command_capacity": 3,
+    "ships": [
+      {
+        "ship_class_id": "NO_SUCH_CATALOG_CLASS",
+        "points": 28,
+        "role": "flag_sensor"
+      },
+      {
+        "ship_class_id": "HARMATTAN",
+        "points": 22,
+        "role": "line"
+      },
+      {
+        "ship_class_id": "FERRIES",
+        "points": 18,
+        "role": "escort"
+      },
+      {
+        "ship_class_id": "SKIFF",
+        "points": 12,
+        "role": "picket"
+      },
+      {
+        "ship_class_id": "RAIDER",
+        "points": 24,
+        "role": "strike"
+      }
+    ]
+  },
+  "formations": [
+    {
+      "formation_id": "FORM-SENSOR",
+      "role": "sensor_heavy",
+      "ships": [
+        "NO_SUCH_CATALOG_CLASS",
+        "HARMATTAN",
+        "SKIFF"
+      ],
+      "points": 62,
+      "tactic_note": "远距探测 + 中继引导，依赖情报共享质量"
+    },
+    {
+      "formation_id": "FORM-STRIKE",
+      "role": "strike_heavy",
+      "ships": [
+        "NO_SUCH_CATALOG_CLASS",
+        "RAIDER",
+        "FERRIES"
+      ],
+      "points": 70,
+      "tactic_note": "近距突击 + 护航，依赖弹药与冷却管理"
+    }
+  ],
+  "ally_force": {
+    "fleet_id": "F-ALLY-1",
+    "domain_id": "ally",
+    "ships": 2,
+    "request_rules": "accept_if_link_and_resource",
+    "independence": "独立AI友军；按任务/资源/链路接受或拒绝，不共享玩家直控"
+  },
+  "opfor": {
+    "fleet_id": "F-OPFOR-1",
+    "domain_id": "opfor",
+    "units": [
+      {
+        "entity_instance_id": "I-OP1",
+        "ship_class_id": "RAIDER",
+        "military_attribute": "organic_fire_control",
+        "protected": false
+      },
+      {
+        "entity_instance_id": "I-OP2",
+        "ship_class_id": "HARMATTAN",
+        "military_attribute": "organic_fire_control",
+        "protected": false
+      },
+      {
+        "entity_instance_id": "I-OP-C2",
+        "ship_class_id": "FERRIES",
+        "military_attribute": "command_node",
+        "protected": false
+      }
+    ],
+    "behavior": "guard_then_attack_then_retreat_if_disabled"
+  },
+  "objectives": [
+    {
+      "objective_id": "OBJ-A",
+      "kind": "disable_fire_capability",
+      "target_entity_instance_id": "I-OP1",
+      "target_military_attribute": "organic_fire_control",
+      "enter_condition": "detected_or_engaged",
+      "complete_condition": "organic_fire_control_disabled_and_not_recoverable_in_mission",
+      "fail_condition": "target_still_effective_at_timeout",
+      "evidence_source": "observation_track_and_damage_record",
+      "recoverable_in_mission": false,
+      "player_visible_feedback": "objective_panel_status",
+      "terminal_state": "disabled",
+      "priority": 1
+    },
+    {
+      "objective_id": "OBJ-B",
+      "kind": "disable_fire_capability",
+      "target_entity_instance_id": "I-OP2",
+      "target_military_attribute": "organic_fire_control",
+      "enter_condition": "detected_or_engaged",
+      "complete_condition": "organic_fire_control_disabled_and_not_recoverable_in_mission",
+      "fail_condition": "target_still_effective_at_timeout",
+      "evidence_source": "observation_track_and_damage_record",
+      "recoverable_in_mission": false,
+      "player_visible_feedback": "objective_panel_status",
+      "terminal_state": "disabled",
+      "priority": 2
+    },
+    {
+      "objective_id": "OBJ-C",
+      "kind": "disable_command_node",
+      "target_entity_instance_id": "I-OP-C2",
+      "target_military_attribute": "command_node",
+      "enter_condition": "detected_or_engaged",
+      "complete_condition": "command_node_unable_to_direct_sector_force",
+      "fail_condition": "command_node_still_directing_at_timeout",
+      "evidence_source": "comms_intercept_and_observation",
+      "recoverable_in_mission": false,
+      "player_visible_feedback": "objective_panel_status",
+      "terminal_state": "disabled",
+      "priority": 3
+    }
+  ],
+  "protection_objectives": [
+    {
+      "objective_id": "PROT-1",
+      "kind": "protect_civilian_infrastructure",
+      "target_ref": "sector_civilian_relay",
+      "player_must_not_attack": true
+    },
+    {
+      "objective_id": "PROT-2",
+      "kind": "protect_own_fleet_core",
+      "target_ref": "own_flag",
+      "player_must_not_attack": false
+    }
+  ],
+  "victory_condition": {
+    "kind": "all_required_objectives_terminal_disabled",
+    "required_objectives": [
+      "OBJ-A",
+      "OBJ-B",
+      "OBJ-C"
+    ],
+    "explicitly_not": "歼灭整个第33舰队",
+    "story_independent": true
+  },
+  "outcomes": {
+    "victory": "全部必需目标在时限内达到不可本场恢复的失能",
+    "defeat": "自有舰队旗舰丧失或必需目标在时限内全部未失能",
+    "withdrawal": "玩家主动撤离：保留舰力但目标未达成，结算为阶段性未完成",
+    "stalemate": "时限到达且目标部分达成：结算为部分成果，不升级为胜利",
+    "timeout": "时限到达：按 objectives 终态结算，等待时长本身不产生胜利"
+  },
+  "phases": [
+    {
+      "phase_id": "P1",
+      "name": "简报",
+      "player_action": "阅读目标/情报/时限",
+      "ally_action": "none"
+    },
+    {
+      "phase_id": "P2",
+      "name": "组舰",
+      "player_action": "从池中选择舰与编制",
+      "ally_action": "none"
+    },
+    {
+      "phase_id": "P3",
+      "name": "部署",
+      "player_action": "实例化并部署",
+      "ally_action": "友军进入战区"
+    },
+    {
+      "phase_id": "P4",
+      "name": "首次协同",
+      "player_action": "发出支援/掩护/撤离请求",
+      "ally_action": "接受/拒绝并按链路执行"
+    },
+    {
+      "phase_id": "P5",
+      "name": "交战/撤离",
+      "player_action": "直控自有舰队交战或撤离",
+      "ally_action": "独立行动，改变态势"
+    },
+    {
+      "phase_id": "P6",
+      "name": "裁决",
+      "player_action": "无（权威裁决）",
+      "ally_action": "none"
+    },
+    {
+      "phase_id": "P7",
+      "name": "战报",
+      "player_action": "查看贡献与阶段成果",
+      "ally_action": "none"
+    }
+  ],
+  "comms_samples": [
+    {
+      "kind": "support_target",
+      "request": "请求友军压制 I-OP1",
+      "accept": "已受理，预计 30s 后进入射界",
+      "reject": "拒绝：当前链路受阻",
+      "in_progress": "执行中：已进入射击位",
+      "lost_or_damaged": "中断：友军受损，转由本舰承担",
+      "complete": "完成：I-OP1 火控失能"
+    },
+    {
+      "kind": "cover_group",
+      "request": "请求掩护本舰组",
+      "accept": "已受理，前出拦截",
+      "reject": "拒绝：弹药不足",
+      "in_progress": "执行中：正在拦截来袭",
+      "lost_or_damaged": "中断：链路丢失",
+      "complete": "完成：威胁已驱离"
+    },
+    {
+      "kind": "assist_withdraw",
+      "request": "请求协助撤离",
+      "accept": "已受理，提供走廊",
+      "reject": "拒绝：无法脱离当前交战",
+      "in_progress": "执行中：走廊建立",
+      "lost_or_damaged": "中断：走廊失效",
+      "complete": "完成：本舰组已脱离"
+    }
+  ],
+  "event_traces": [
+    {
+      "trace_id": "TR-FULL-VICTORY",
+      "events": [
+        {
+          "t": 60,
+          "kind": "objective_enter",
+          "objective_id": "OBJ-A"
+        },
+        {
+          "t": 240,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A"
+        },
+        {
+          "t": 300,
+          "kind": "objective_enter",
+          "objective_id": "OBJ-B"
+        },
+        {
+          "t": 520,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B"
+        },
+        {
+          "t": 700,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-C"
+        },
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "outcome": "victory"
+        }
+      ],
+      "expected_terminal": "victory",
+      "terminal_events": 1
+    },
+    {
+      "trace_id": "TR-DISABLED-NOT-REPORTED",
+      "events": [
+        {
+          "t": 240,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A"
+        },
+        {
+          "t": 300,
+          "kind": "report_delay",
+          "note": "报告未返回"
+        }
+      ],
+      "expected_terminal": "pending_report",
+      "terminal_events": 0,
+      "note": "目标已失能但未获报告 → 不得提前结算胜利"
+    },
+    {
+      "trace_id": "TR-DEFEAT",
+      "events": [
+        {
+          "t": 900,
+          "kind": "own_flag_disabled"
+        },
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "outcome": "defeat"
+        }
+      ],
+      "expected_terminal": "defeat",
+      "terminal_events": 1
+    },
+    {
+      "trace_id": "TR-WITHDRAW",
+      "events": [
+        {
+          "t": 500,
+          "kind": "withdraw_request"
+        },
+        {
+          "t": 560,
+          "kind": "withdraw_complete"
+        },
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "outcome": "withdrawal"
+        }
+      ],
+      "expected_terminal": "withdrawal",
+      "terminal_events": 1
+    },
+    {
+      "trace_id": "TR-STALEMATE",
+      "events": [
+        {
+          "t": 3600,
+          "kind": "time_limit_reached"
+        },
+        {
+          "t": 3600,
+          "kind": "adjudicate",
+          "outcome": "stalemate"
+        }
+      ],
+      "expected_terminal": "stalemate",
+      "terminal_events": 1
+    },
+    {
+      "trace_id": "TR-EW-NOT-PERMANENT",
+      "events": [
+        {
+          "t": 200,
+          "kind": "ew_effect",
+          "duration_s": 20
+        },
+        {
+          "t": 3600,
+          "kind": "adjudicate",
+          "outcome": "stalemate"
+        }
+      ],
+      "expected_terminal": "stalemate",
+      "terminal_events": 1,
+      "note": "单次 EW 不得计入永久失能"
+    },
+    {
+      "trace_id": "TR-STILL-EFFECTIVE",
+      "events": [
+        {
+          "t": 240,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A"
+        },
+        {
+          "t": 260,
+          "kind": "target_still_engaging",
+          "objective_id": "OBJ-A"
+        },
+        {
+          "t": 3600,
+          "kind": "adjudicate",
+          "outcome": "stalemate"
+        }
+      ],
+      "expected_terminal": "stalemate",
+      "terminal_events": 1,
+      "note": "对象仍能战斗 → 不能计失能"
+    },
+    {
+      "trace_id": "TR-ALLY-REFUSE-ALTERNATIVE",
+      "events": [
+        {
+          "t": 120,
+          "kind": "ally_reject",
+          "reason": "link_blocked"
+        },
+        {
+          "t": 700,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A"
+        },
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "outcome": "stalemate"
+        }
+      ],
+      "expected_terminal": "stalemate",
+      "terminal_events": 1,
+      "note": "友军拒绝不阻断替代路线，但缺必需目标不能胜利"
+    },
+    {
+      "trace_id": "TR-DUPLICATE-ADJUDICATION-GUARD",
+      "events": [
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "outcome": "victory"
+        },
+        {
+          "t": 1001,
+          "kind": "adjudicate",
+          "outcome": "victory"
+        }
+      ],
+      "expected_terminal": "victory",
+      "terminal_events": 1,
+      "note": "重复裁决必须幂等，只结算一次"
+    }
+  ],
+  "user_decisions_pending": [
+    "战区名称、架空年月与参战单位命名",
+    "舰池点数与指挥容量具体数值",
+    "两套编制的具体舰型组合",
+    "目标对象（I-OP1/I-OP2/I-OP-C2 是否合适）",
+    "失能阈值与时限（当前 3600s）",
+    "失败/撤离/僵局结算口径是否符合预期"
+  ],
+  "b3_dependencies": [
+    "目标运行层与裁决（B3a）：需要失能判定与不可恢复性判定",
+    "简报/阶段/战报（B3b）：需要玩家已知状态与贡献统计",
+    "AI 协同（B2）：友军接受/拒绝/失联回执依赖真实链路状态"
+  ],
+  "not_implemented": [
+    "真实 AI 行为、逐舰战斗账本、完整战役裁决",
+    "平民/民用设施强制攻击设定（明确禁止作为胜利条件）"
+  ]
+}
