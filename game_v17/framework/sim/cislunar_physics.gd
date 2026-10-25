@@ -226,6 +226,75 @@ static func moon_state_rot() -> Dictionary:
 
 
 # 旋转系 → 地心 ECI / 地心旋转系，反之亦然
+## A-02：**双精度标量**帧转换路径（集中转换器）。
+## 既有 Vector3 实现在 EML1 大坐标（~3.2e5 km）处会引入单精度量化误差
+## （实测速度往返误差 ~1.9e-5 km/s），不满足 Phase A 的「双精度确定性转换」阈值
+## （位置 ≤1e-6 km、速度 ≤1e-9 km/s）。这里用 GDScript double 标量实现同一公式，
+## 供物理适配层使用；Vector3 版本保留给显示层，阈值不扩大。
+static func earth_position_rot_array() -> Array:
+	return [-mu_moon_ratio() * D_KM, 0.0, 0.0]
+
+
+static func bary_rot_to_earth_eci_arrays(r: Array, v: Array, at_t: float) -> Dictionary:
+	var e := earth_position_rot_array()
+	var rx := float(r[0]) - float(e[0])
+	var ry := float(r[1]) - float(e[1])
+	var rz := float(r[2]) - float(e[2])
+	var theta := moon_mean_motion() * at_t
+	var c := cos(theta)
+	var sn := sin(theta)
+	var om := moon_mean_motion()
+	# v_rot = v + omega x r_rel（omega = (0,0,om)）
+	var vx := float(v[0]) + (-om * ry)
+	var vy := float(v[1]) + (om * rx)
+	var vz := float(v[2])
+	return {
+		"r": [rx * c - ry * sn, rx * sn + ry * c, rz],
+		"v": [vx * c - vy * sn, vx * sn + vy * c, vz],
+	}
+
+
+static func earth_eci_to_bary_rot_arrays(r: Array, v: Array, at_t: float) -> Dictionary:
+	var rx := float(r[0])
+	var ry := float(r[1])
+	var rz := float(r[2])
+	var vx := float(v[0])
+	var vy := float(v[1])
+	var vz := float(v[2])
+	var theta := moon_mean_motion() * at_t
+	var c := cos(theta)
+	var sn := sin(theta)
+	# 逆旋转（-theta）
+	var rrx := rx * c + ry * sn
+	var rry := -rx * sn + ry * c
+	var vrx := vx * c + vy * sn
+	var vry := -vx * sn + vy * c
+	var om := moon_mean_motion()
+	# v = v_rot - omega x r_rel
+	var bx := vrx - (-om * rry)
+	var by := vry - (om * rrx)
+	var e := earth_position_rot_array()
+	return {
+		"r": [rrx + float(e[0]), rry + float(e[1]), rz + float(e[2])],
+		"v": [bx, by, vz],
+	}
+
+
+static func bary_rot_to_earth_rot_arrays(r: Array, v: Array) -> Dictionary:
+	var e := earth_position_rot_array()
+	return {
+		"r": [float(r[0]) - float(e[0]), float(r[1]) - float(e[1]), float(r[2]) - float(e[2])],
+		"v": [float(v[0]), float(v[1]), float(v[2])],
+	}
+
+
+static func earth_rot_to_bary_rot_arrays(r: Array, v: Array) -> Dictionary:
+	var e := earth_position_rot_array()
+	return {
+		"r": [float(r[0]) + float(e[0]), float(r[1]) + float(e[1]), float(r[2]) + float(e[2])],
+		"v": [float(v[0]), float(v[1]), float(v[2])],
+	}
+
 static func bary_rot_to_earth_rot(state: Variant) -> Dictionary:
 	var s := as_state(state)
 	var rel: Vector3 = s["r"] - earth_position_rot()

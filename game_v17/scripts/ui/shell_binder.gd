@@ -455,6 +455,8 @@ func _scenario_seed(sensor_cfg: Dictionary) -> Dictionary:
 		"facility_registry": build_profile.enabled("port") or build_profile.enabled("traffic"),
 		"prelude": {"scenario": String(sc.get("id", "scenario")),
 			"title": String(sc.get("title", "作战演练"))},
+		# A-02：scenario 日历历元（UTC）作为唯一来源传给 session；与 CR3BP 相位基准分离
+		"epoch": String(sc.get("epoch", "")),
 		# 场景坐标已是 bary_rot 绝对坐标，禁止再做 L1 相对帧转换
 		"seed_frame": String(sc.get("frame", "bary_rot")),
 		"frame_origin": "bary_rot",
