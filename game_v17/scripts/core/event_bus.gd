@@ -103,8 +103,24 @@ func publish(raw: Dictionary) -> Dictionary:
 		"text_key": String(input.get("text_key", "")),
 	}
 	if event["id"] == "":
-		_id_seq += 1
-		event["id"] = "evt-%06d" % _id_seq
+		# R02：自动 ID 必须**跳过**任何已用 ID（显式 ID 可能已占用 evt-* 形式）。
+		var assigned := false
+		var guard := 0
+		while not assigned:
+			_id_seq += 1
+			var cand := "evt-%06d" % _id_seq
+			if not _seen_ids.has(cand):
+				event["id"] = cand
+				assigned = true
+			guard += 1
+			if guard > 1000000:
+				return {"ok": false, "reason": "id_alloc_failed",
+					"errors": ["auto id allocator cannot find a free id"]}
+	else:
+		# R02：显式 ID 若占用 evt-* 形式，抬高分配器高水位，避免后续自动分配撞车。
+		var explicit_num := _evt_id_number(String(event["id"]))
+		if explicit_num > 0 and explicit_num > _id_seq:
+			_id_seq = explicit_num
 	_seen_ids[event["id"]] = true
 	events.append(event)
 	while events.size() > MAX_EVENTS:
@@ -260,6 +276,17 @@ func _int_contract(value, min_v: float, max_v: float, label: String) -> Dictiona
 	return {"ok": true, "value": int(round(f))}
 
 
+## R02：解析 `evt-NNNNNN` 形式的显式 ID 序号（非该形式返回 0）。
+func _evt_id_number(event_id: String) -> int:
+	if not event_id.begins_with("evt-"):
+		return 0
+	var suffix := event_id.substr(4)
+	if not suffix.is_valid_int():
+		return 0
+	var n := int(suffix)
+	return n if n > 0 else 0
+
+
 ## A-03：导出完整恢复状态（可见环形历史 + 当前 seq + 自动 ID 分配器 + **完整**已用 ID 集合）。
 ## 注意：`seen_ids` 是完整去重集合，不等于可见历史（可能远大于 MAX_EVENTS）。
 func export_state() -> Dictionary:
@@ -302,6 +329,17 @@ func import_state(state: Dictionary) -> Dictionary:
 		if s_version != STATE_VERSION:
 			return {"ok": false, "reason": "invalid_state_version",
 				"errors": ["unsupported version %d (expected %d)" % [s_version, STATE_VERSION]]}
+	# R02：**新格式必需字段严格校验**。v2 state 缺 seq/id_seq/events/seen_ids 中任一
+	# 即属于损坏/不支持，必须明确拒绝；不能以默认值静默接受（否则 >1000 条历史时
+	# 会丢掉被裁出可见缓冲的旧 ID，导致去重失效）。仅无 schema 的真实旧格式走迁移。
+	if not require_legacy:
+		var missing: Array = []
+		for required in ["seq", "id_seq", "events", "seen_ids"]:
+			if not state.has(required):
+				missing.append(required)
+		if not missing.is_empty():
+			return {"ok": false, "reason": "invalid_state_missing_fields",
+				"errors": ["v2 state 缺少必需字段：" + str(missing)]}
 	# 2) seq / id_seq 整数契约（bus seq 允许 0；事件 seq 必须 >=1）
 	var seq_res: Dictionary = _int_contract(state.get("seq", null), 0.0, SAFE_INT_MAX, "seq")
 	if not bool(seq_res.get("ok", false)):
