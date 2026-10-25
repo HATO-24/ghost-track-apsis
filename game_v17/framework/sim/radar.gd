@@ -361,3 +361,47 @@ func to_dict() -> Dictionary:
 		"exposure": exposure_state(record, seconds_on, {"on": enabled}),
 		"target_memory": target_memory.duplicate(true),
 	}
+# ── A00：运行态导出/导入（扫描相位与目标记忆；读档续跑一致）──
+const STATE_SCHEMA := "v17.radar.state.v1"
+
+
+func export_state() -> Dictionary:
+	return {
+		"schema": STATE_SCHEMA, "version": 1,
+		"enabled": enabled,
+		"elapsed_s": elapsed_s, "seconds_on": seconds_on,
+		"time_since_scan": time_since_scan, "scan_index": scan_index,
+		"last_scan_t": last_scan_t,
+		"last_scan": JSON.parse_string(JSON.stringify(last_scan)),
+		"target_memory": JSON.parse_string(JSON.stringify(target_memory)),
+	}
+
+
+## 先校验，再一次提交；失败不改运行态。
+func import_state(st: Dictionary) -> Dictionary:
+	if String(st.get("schema", "")) != STATE_SCHEMA:
+		return {"ok": false, "reason": "invalid_state_schema",
+			"errors": ["expected " + STATE_SCHEMA]}
+	for fld in ["elapsed_s", "seconds_on", "time_since_scan", "last_scan_t"]:
+		var v = st.get(fld, null)
+		if not (v is int or v is float) or not is_finite(float(v)):
+			return {"ok": false, "reason": "invalid_state",
+				"errors": ["%s must be a finite number" % fld]}
+	var si = st.get("scan_index", null)
+	if not (si is int or si is float) or not is_finite(float(si)) \
+			or absf(float(si) - roundf(float(si))) > 0.0 or float(si) < 0.0:
+		return {"ok": false, "reason": "invalid_state",
+			"errors": ["scan_index must be a non-negative integer"]}
+	for df in ["last_scan", "target_memory"]:
+		if not (st.get(df, null) is Dictionary):
+			return {"ok": false, "reason": "invalid_state",
+				"errors": ["%s must be an object" % df]}
+	enabled = bool(st.get("enabled", enabled))
+	elapsed_s = float(st.get("elapsed_s", 0.0))
+	seconds_on = float(st.get("seconds_on", 0.0))
+	time_since_scan = float(st.get("time_since_scan", 0.0))
+	scan_index = int(roundf(float(si)))
+	last_scan_t = float(st.get("last_scan_t", -1.0))
+	last_scan = (st.get("last_scan", {}) as Dictionary).duplicate(true)
+	target_memory = (st.get("target_memory", {}) as Dictionary).duplicate(true)
+	return {"ok": true, "scan_index": scan_index, "seconds_on": seconds_on}

@@ -531,3 +531,50 @@ func to_dict() -> Dictionary:
 		"by_state": _count_by_state(),
 		"exposure": last_exposure.duplicate(true),
 	}
+# ── A00：运行态导出/导入（通道/记忆/雷达扫描相位）──
+const STATE_SCHEMA := "v17.tws.state.v1"
+
+
+func export_state() -> Dictionary:
+	return {
+		"schema": STATE_SCHEMA, "version": 1,
+		"now_t": now_t,
+		"scan_period_s": scan_period_s,
+		"stare_required_s": stare_required_s,
+		"channels": JSON.parse_string(JSON.stringify(channels)),
+		"last_exposure": JSON.parse_string(JSON.stringify(last_exposure)),
+		"radar": radar.export_state() if radar != null else null,
+	}
+
+
+func import_state(st: Dictionary) -> Dictionary:
+	if String(st.get("schema", "")) != STATE_SCHEMA:
+		return {"ok": false, "reason": "invalid_state_schema",
+			"errors": ["expected " + STATE_SCHEMA]}
+	for fld in ["now_t", "scan_period_s", "stare_required_s"]:
+		var v = st.get(fld, null)
+		if not (v is int or v is float) or not is_finite(float(v)) or float(v) < 0.0:
+			return {"ok": false, "reason": "invalid_state",
+				"errors": ["%s must be a finite non-negative number" % fld]}
+	for df in ["channels", "last_exposure"]:
+		if not (st.get(df, null) is Dictionary):
+			return {"ok": false, "reason": "invalid_state",
+				"errors": ["%s must be an object" % df]}
+	# 雷达子状态先校验，失败不半写
+	var raw_radar = st.get("radar", null)
+	if raw_radar != null:
+		if not (raw_radar is Dictionary):
+			return {"ok": false, "reason": "invalid_state",
+				"errors": ["radar must be an object"]}
+		if radar == null:
+			return {"ok": false, "reason": "invalid_state",
+				"errors": ["radar sub-state provided but no radar model"]}
+		var chk: Dictionary = radar.import_state(raw_radar)
+		if not bool(chk.get("ok", false)):
+			return chk
+	now_t = float(st.get("now_t", 0.0))
+	scan_period_s = float(st.get("scan_period_s", scan_period_s))
+	stare_required_s = float(st.get("stare_required_s", stare_required_s))
+	channels = (st.get("channels", {}) as Dictionary).duplicate(true)
+	last_exposure = (st.get("last_exposure", {}) as Dictionary).duplicate(true)
+	return {"ok": true, "channels": channels.size()}

@@ -33,6 +33,7 @@ func export_backend_state() -> Dictionary:
 		# A00/R03：authority 自己的时钟与步数也要持久化。通道的 lost_hold 计时用
 		# authority.t（`t - lost_at > lost_hold_s`），若只恢复子模块 t 而 authority.t
 		# 从 0 开始，恢复后 10 tick 的通道状态会与原始会话分歧（locked vs lost）。
+		st["tws"] = _tws.export_state() if _tws != null else null
 		st["authority_t"] = t
 		st["authority_step_count"] = step_count
 		st["authority_dt_last"] = dt_last
@@ -47,6 +48,16 @@ func import_backend_state(state: Dictionary) -> Dictionary:
 		var r: Dictionary = _optical_ir.import_state(state)
 		r["backend"] = "optical_ir"
 		# A00/R03：恢复 authority 自身时钟/步数（与子模块一起原子提交前先校验）。
+		# A00：恢复 TWS/雷达扫描运行态（通道/记忆/扫描相位），与子模块一起校验。
+		var raw_tws = state.get("tws", null)
+		if raw_tws != null and _tws != null:
+			if not (raw_tws is Dictionary):
+				return {"ok": false, "reason": "invalid_tws_state",
+					"errors": ["tws must be an object"]}
+			var tws_imp: Dictionary = _tws.import_state(raw_tws)
+			if not bool(tws_imp.get("ok", false)):
+				return {"ok": false, "reason": "invalid_tws_state",
+					"errors": tws_imp.get("errors", [])}
 		if state.has("authority_t"):
 			var at = state.get("authority_t")
 			if not (at is int or at is float) or not is_finite(float(at)) or float(at) < 0.0:
