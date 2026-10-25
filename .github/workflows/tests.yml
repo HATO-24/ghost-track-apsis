@@ -505,11 +505,10 @@ jobs:
           # declared baseline entry ran as expected FAIL with matching counts, and
           # there is no NEW failure, drift, timeout, unexpected NOT RUN, unverified
           # baseline entry or unselected baseline entry.
-          # Phase A-01: a SECOND, independent expected-failure baseline is passed via
-          # -BaselineExtra so the Phase A authority probes are classified separately
-          # from the Phase 0 legacy baseline. Their statuses still stay FAIL.
-          pwsh -NoProfile -File ./run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json -BaselineExtra game_v17/tests/phasea_baseline_failures.json -GodotBin $env:GODOT_CONSOLE
-          $code = $LASTEXITCODE
+          # DS-A-06: all Phase A slices are green, so the Phase A expected-failure baseline
+          # was removed (an empty -BaselineExtra would be rejected). Only the Phase 0 legacy
+          # baseline remains (7 entries after evidence-based green transitions).
+          pwsh -NoProfile -File ./run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json -GodotBin $env:GODOT_CONSOLE
           Write-Host "FULL_MATRIX_EXIT=$code"
           exit $code
 
