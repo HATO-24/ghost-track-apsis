@@ -1,0 +1,21 @@
+{
+  "schema": "probe_matrix.v1",
+  "version": 1,
+  "description": "DS-A-07 long-session save-cost benchmark matrix. Deliberately SEPARATE from probe_matrix.json so the normal full matrix (and the Phase 0 gate) never pays the long-session cost. Registered cases run only when this manifest is selected via -Matrix.",
+  "gates": {},
+  "cases": [
+    {
+      "id": "integration.a0_save_cost",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "DS-A-07: quantify save/load cost growth caused by log-replay on the SAME formal HUD orbital_sim session. Fixed load (scenario-derived seed, dt=1.0 s, scale=1, no pause, fixed control-op sequence), fresh session per scale (50/200/800/1000 ticks), 1 warmup + 3 measured runs, split timings (save_state / file write / file read / load_state replay / tick total), byte sizes, and correctness gates after restore (frame/t, physics/world numeric roundtrip, event seq + dedup, sensor runtime state, +10 tick equivalence vs an uninterrupted session). Measurement only: it does NOT introduce checkpoints/compression and does NOT assert a product performance budget.",
+      "script": "res://tests/a0_save_cost_probe.gd",
+      "expected_markers": [
+        "A0-A07 SAVE COST PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 1800
+    }
+  ]
+}
