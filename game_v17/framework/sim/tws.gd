@@ -548,27 +548,13 @@ func export_state() -> Dictionary:
 
 
 func import_state(st: Dictionary) -> Dictionary:
-	if String(st.get("schema", "")) != STATE_SCHEMA:
-		return {"ok": false, "reason": "invalid_state_schema",
-			"errors": ["expected " + STATE_SCHEMA]}
-	for fld in ["now_t", "scan_period_s", "stare_required_s"]:
-		var v = st.get(fld, null)
-		if not (v is int or v is float) or not is_finite(float(v)) or float(v) < 0.0:
-			return {"ok": false, "reason": "invalid_state",
-				"errors": ["%s must be a finite non-negative number" % fld]}
-	for df in ["channels", "last_exposure"]:
-		if not (st.get(df, null) is Dictionary):
-			return {"ok": false, "reason": "invalid_state",
-				"errors": ["%s must be an object" % df]}
-	# 雷达子状态先校验，失败不半写
+	var vres: Dictionary = validate_state(st)
+	if not bool(vres.get("ok", false)):
+		return {"ok": false, "reason": "invalid_state",
+			"errors": vres.get("errors", [])}
+	# 校验全部通过后才提交（含雷达子状态）
 	var raw_radar = st.get("radar", null)
-	if raw_radar != null:
-		if not (raw_radar is Dictionary):
-			return {"ok": false, "reason": "invalid_state",
-				"errors": ["radar must be an object"]}
-		if radar == null:
-			return {"ok": false, "reason": "invalid_state",
-				"errors": ["radar sub-state provided but no radar model"]}
+	if raw_radar is Dictionary and radar != null:
 		var chk: Dictionary = radar.import_state(raw_radar)
 		if not bool(chk.get("ok", false)):
 			return chk
@@ -578,3 +564,73 @@ func import_state(st: Dictionary) -> Dictionary:
 	channels = (st.get("channels", {}) as Dictionary).duplicate(true)
 	last_exposure = (st.get("last_exposure", {}) as Dictionary).duplicate(true)
 	return {"ok": true, "channels": channels.size()}
+# ── R6/G2：只校验不改状态（供 authority 两阶段原子导入）──
+const STATE_VERSION := 1
+const SAFE_INT_MAX := 9007199254740991.0
+const CHANNEL_REQUIRED_FIELDS := ["target_id", "state", "quality", "last_update_t"]
+const KNOWN_STATES := [STATE_SEARCH, STATE_DETECT, STATE_ACQUIRE, STATE_TRACK,
+	STATE_STARE, STATE_FIRE_CONTROL]
+
+
+func validate_state(st: Dictionary) -> Dictionary:
+	var errs: Array = []
+	if String(st.get("schema", "")) != STATE_SCHEMA:
+		errs.append("tws.schema mismatch: " + String(st.get("schema", "")))
+	var ver = st.get("version", null)
+	if not _is_exact_int(ver) or int(roundf(float(ver))) != STATE_VERSION:
+		errs.append("tws.version must be exact integer %d (got %s)" % [
+			STATE_VERSION, str(ver)])
+	for fld in ["now_t", "scan_period_s", "stare_required_s"]:
+		var v = st.get(fld, null)
+		if not _is_finite_num(v) or float(v) < 0.0:
+			errs.append("tws.%s must be finite >= 0" % fld)
+	for df in ["channels", "last_exposure"]:
+		if not (st.get(df, null) is Dictionary):
+			errs.append("tws.%s must be an object" % df)
+	# 通道完整字段：缺 last_update_t/state 会在下一次 step 触发 SCRIPT ERROR
+	var chans = st.get("channels", null)
+	if chans is Dictionary:
+		for tid in (chans as Dictionary).keys():
+			var ch = (chans as Dictionary)[tid]
+			if not (ch is Dictionary):
+				errs.append("tws.channels[%s] must be an object" % String(tid))
+				continue
+			for rf in CHANNEL_REQUIRED_FIELDS:
+				if not (ch as Dictionary).has(rf):
+					errs.append("tws.channels[%s] missing required field %s" % [
+						String(tid), rf])
+			if String((ch as Dictionary).get("target_id", "")) != String(tid):
+				errs.append("tws.channels[%s] target_id mismatch" % String(tid))
+			var cstate := String((ch as Dictionary).get("state", ""))
+			if not (cstate in KNOWN_STATES):
+				errs.append("tws.channels[%s] unknown state: %s" % [
+					String(tid), cstate])
+			var lut = (ch as Dictionary).get("last_update_t", null)
+			if not _is_finite_num(lut):
+				errs.append("tws.channels[%s].last_update_t must be finite" % String(tid))
+			var q = (ch as Dictionary).get("quality", null)
+			if not _is_finite_num(q) or float(q) < 0.0 or float(q) > 1.0:
+				errs.append("tws.channels[%s].quality must be finite in [0,1]" % String(tid))
+	# 新格式必须带完整 radar 子状态（不允许静默拼接 TWS t=200 / Radar t=0）
+	var raw_radar = st.get("radar", null)
+	if raw_radar == null:
+		errs.append("tws.radar sub-state is required (missing = incomplete restore)")
+	elif not (raw_radar is Dictionary):
+		errs.append("tws.radar must be an object")
+	elif radar == null:
+		errs.append("tws.radar provided but no radar model")
+	else:
+		var rv: Dictionary = radar.validate_state(raw_radar)
+		for e in (rv.get("errors", []) as Array):
+			errs.append(String(e))
+	return {"ok": errs.is_empty(), "errors": errs}
+
+
+func _is_finite_num(v) -> bool:
+	return (v is int or v is float) and is_finite(float(v))
+
+
+func _is_exact_int(v) -> bool:
+	if not _is_finite_num(v):
+		return false
+	return absf(float(v) - roundf(float(v))) <= 0.0

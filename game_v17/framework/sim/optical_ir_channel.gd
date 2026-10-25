@@ -301,6 +301,7 @@ func channel(kind: String, target_id: String) -> Dictionary:
 
 # ── A-05：运行态导出/导入（底层通道状态可续跑，不靠 UI 缓存伪造）──────
 const STATE_SCHEMA := "v17.optical_ir.state.v1"
+const POINTING_MODES := ["track", "fixed"]
 const STATE_VERSION := 1
 
 
@@ -319,9 +320,13 @@ func export_state() -> Dictionary:
 	var pointing: Dictionary = {}
 	for kind in sensors.keys():
 		var srow: Dictionary = sensors[kind]
+		# R6/G1：动态指向必须保存**目标与模式**，只存角度会在读档后停止跟踪
+		#（desired_target_id 为空 → `_update_pointing` 直接 continue）。
 		pointing[String(kind)] = {
 			"boresight_deg": float(srow.get("boresight_deg", 0.0)),
 			"boresight_el_deg": float(srow.get("boresight_el_deg", 0.0)),
+			"pointing_mode": String(srow.get("pointing_mode", "track")),
+			"desired_target_id": String(srow.get("desired_target_id", "")),
 		}
 	return {
 		"schema": STATE_SCHEMA,
@@ -333,6 +338,68 @@ func export_state() -> Dictionary:
 	}
 
 
+## R6/G2：只校验不改状态（供 authority 两阶段原子导入；失败不得半写）。
+func validate_state(state: Dictionary) -> Dictionary:
+	var errs: Array = []
+	if String(state.get("schema", "")) != STATE_SCHEMA:
+		errs.append("optical.schema mismatch: " + String(state.get("schema", "")))
+	var ver = state.get("version", null)
+	if not (ver is int or ver is float) or not is_finite(float(ver)) \
+			or absf(float(ver) - roundf(float(ver))) > 0.0 \
+			or int(roundf(float(ver))) != STATE_VERSION:
+		errs.append("optical.version must be exact integer %d (got %s)" % [
+			STATE_VERSION, str(ver)])
+	var stt = state.get("t", null)
+	if not (stt is int or stt is float) or not is_finite(float(stt)) \
+			or float(stt) < 0.0:
+		errs.append("optical.t must be finite >= 0")
+	if state.get("enabled", null) != null and not (state.get("enabled") is bool):
+		errs.append("optical.enabled must be bool")
+	var raw_channels = state.get("channels", null)
+	if not (raw_channels is Array):
+		errs.append("optical.channels must be an array")
+	else:
+		var seen_keys: Dictionary = {}
+		for raw_ch in (raw_channels as Array):
+			if not (raw_ch is Dictionary):
+				errs.append("optical.channels item must be an object")
+				continue
+			var ch2: Dictionary = raw_ch
+			for req in ["kind", "target_id", "status"]:
+				if String(ch2.get(req, "")) == "":
+					errs.append("optical.channels item missing %s" % req)
+			var key2 := "%s:%s" % [String(ch2.get("kind", "")),
+				String(ch2.get("target_id", ""))]
+			if seen_keys.has(key2):
+				errs.append("optical.channels duplicate key: " + key2)
+			seen_keys[key2] = true
+	var raw_p = state.get("mount_pointing", null)
+	if raw_p != null and not (raw_p is Dictionary):
+		errs.append("optical.mount_pointing must be an object")
+	elif raw_p is Dictionary:
+		for kind_key in (raw_p as Dictionary).keys():
+			var prow2 = (raw_p as Dictionary)[kind_key]
+			if not (prow2 is Dictionary):
+				errs.append("optical.mount_pointing.%s must be an object" % String(kind_key))
+				continue
+			for pf in ["boresight_deg", "boresight_el_deg"]:
+				var pv = (prow2 as Dictionary).get(pf, null)
+				if not (pv is int or pv is float) or not is_finite(float(pv)):
+					errs.append("optical.mount_pointing.%s.%s must be finite" % [
+						String(kind_key), pf])
+			if not sensors.has(String(kind_key)):
+				errs.append("optical.mount_pointing unknown kind: " + String(kind_key))
+				continue
+			var pm2 := String((prow2 as Dictionary).get("pointing_mode", "track"))
+			if not (pm2 in POINTING_MODES):
+				errs.append("optical.mount_pointing.%s.pointing_mode unsupported: %s" % [
+					String(kind_key), pm2])
+			var az2 := float((prow2 as Dictionary).get("boresight_deg", 0.0))
+			var el2 := float((prow2 as Dictionary).get("boresight_el_deg", 0.0))
+			if az2 < -180.0 or az2 > 180.0 or el2 < -90.0 or el2 > 90.0:
+				errs.append("optical.mount_pointing.%s angle out of range (az=%s el=%s)" % [
+					String(kind_key), str(az2), str(el2)])
+	return {"ok": errs.is_empty(), "errors": errs}
 ## 导入：先完整校验，再一次性提交；失败不改后端。
 func import_state(state: Dictionary) -> Dictionary:
 	if String(state.get("schema", "")) != STATE_SCHEMA:
@@ -390,6 +457,17 @@ func import_state(state: Dictionary) -> Dictionary:
 				return {"ok": false, "reason": "unknown_sensor_kind",
 					"errors": ["mount_pointing references unknown kind: "
 						+ String(kind_key)]}
+			var pm := String((prow as Dictionary).get("pointing_mode", "track"))
+			if not (pm in POINTING_MODES):
+				return {"ok": false, "reason": "invalid_mount_pointing",
+					"errors": ["mount_pointing.%s.pointing_mode unsupported: %s" % [
+						String(kind_key), pm]]}
+			var azv := float((prow as Dictionary).get("boresight_deg", 0.0))
+			var elv := float((prow as Dictionary).get("boresight_el_deg", 0.0))
+			if azv < -180.0 or azv > 180.0 or elv < -90.0 or elv > 90.0:
+				return {"ok": false, "reason": "invalid_mount_pointing",
+					"errors": ["mount_pointing.%s angle out of range: az=%s el=%s" % [
+						String(kind_key), str(azv), str(elv)]]}
 	enabled = bool(state.get("enabled", true))
 	t = float(st)
 	channels = new_channels
@@ -397,10 +475,11 @@ func import_state(state: Dictionary) -> Dictionary:
 		for kind_key2 in (raw_point as Dictionary).keys():
 			var srow2: Dictionary = sensors[String(kind_key2)]
 			var prow2: Dictionary = (raw_point as Dictionary)[kind_key2]
-			srow2["boresight_deg"] = wrapf(float(prow2.get("boresight_deg", 0.0)),
-				-180.0, 180.0)
-			srow2["boresight_el_deg"] = clampf(
-				float(prow2.get("boresight_el_deg", 0.0)), -90.0, 90.0)
+			srow2["boresight_deg"] = float(prow2.get("boresight_deg", 0.0))
+			srow2["boresight_el_deg"] = float(prow2.get("boresight_el_deg", 0.0))
+			srow2["pointing_mode"] = String(prow2.get("pointing_mode", "track"))
+			srow2["desired_target_id"] = String(
+				prow2.get("desired_target_id", ""))
 	return {"ok": true, "channels": channels.size(), "t": t, "enabled": enabled}
 
 func _channels_of(kind: String) -> Array:

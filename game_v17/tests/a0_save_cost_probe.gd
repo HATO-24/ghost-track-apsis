@@ -456,13 +456,10 @@ func _full_state_violations(original, restored) -> Array:
 				"at": String(e.get("id", ""))})
 			break
 		last_seq = int(e.get("seq", 0))
-	# 可见事件 ID/schema 顺序一致
-	var ev_ids_o: Array = []
-	for raw_o in original.bus.events:
-		ev_ids_o.append(String((raw_o as Dictionary).get("id", "")))
-	var ev_ids_r: Array = []
-	for raw_r in restored.bus.events:
-		ev_ids_r.append(String((raw_r as Dictionary).get("id", "")))
+	# G3：可见事件比较**有意义内容**（type/source/target/text_key/payload），不只 ID；
+	# 否则替换事件正文/载荷后仍会漏检。
+	var ev_ids_o: Array = _event_sigs(original.bus.events)
+	var ev_ids_r: Array = _event_sigs(restored.bus.events)
 	if JSON.stringify(ev_ids_o) != JSON.stringify(ev_ids_r):
 		bad.append({"area": "bus.events.ids", "original": ev_ids_o.size(),
 			"restored": ev_ids_r.size(),
@@ -543,16 +540,11 @@ func _full_state_violations(original, restored) -> Array:
 				if absf(float(co.get("progress", 0.0))
 						- float(cr.get("progress", 0.0))) > NUM_TOL:
 					bad.append({"area": "sensor.backend.progress", "channel": ci})
-		# 排队（待路由）观测：完整 ID 流一致
-		var ob_o: Array = []
-		for raw_o2 in so2.observations:
-			ob_o.append(String((raw_o2 as Dictionary).get("event_id", "")))
-		var ob_r: Array = []
-		for raw_r2 in sr2.observations:
-			ob_r.append(String((raw_r2 as Dictionary).get("event_id", "")))
+		var ob_o: Array = _obs_sigs(so2.observations)
+		var ob_r: Array = _obs_sigs(sr2.observations)
 		if JSON.stringify(ob_o) != JSON.stringify(ob_r):
-			bad.append({"area": "sensor.observations.ids", "original": ob_o.size(),
-				"restored": ob_r.size()})
+			bad.append({"area": "sensor.observations.content",
+				"original": ob_o.size(), "restored": ob_r.size()})
 		# 去重键完整集合
 		var dk_o: Array = so2._optical_evidence_seen.keys()
 		dk_o.sort()
@@ -563,16 +555,14 @@ func _full_state_violations(original, restored) -> Array:
 				"restored": dk_r.size()})
 	# ── Comms：在途队列与 outcome 记录 ─────────────────────────
 	if original.comms != null and restored.comms != null:
-		var pend_o: Array = []
-		for raw_p in original.comms.pending:
-			var po: Dictionary = raw_p
-			pend_o.append("%s@%.6f" % [String(po.get("delivery_id", "")),
-				float(po.get("arrive_t", -1.0))])
-		var pend_r: Array = []
-		for raw_pr in restored.comms.pending:
-			var pr: Dictionary = raw_pr
-			pend_r.append("%s@%.6f" % [String(pr.get("delivery_id", "")),
-				float(pr.get("arrive_t", -1.0))])
+		# G3：通信分配器值必须一致（不只比较在途数量）
+		if int(restored.comms._delivery_seq) != int(original.comms._delivery_seq):
+			bad.append({"area": "comms._delivery_seq",
+				"original": int(original.comms._delivery_seq),
+				"restored": int(restored.comms._delivery_seq)})
+		# G3：在途消息比较**完整记录**（正文/接收者/路径/时延），不只 ID@ETA。
+		var pend_o: Array = _comms_sigs(original.comms.pending)
+		var pend_r: Array = _comms_sigs(restored.comms.pending)
 		if JSON.stringify(pend_o) != JSON.stringify(pend_r):
 			bad.append({"area": "comms.pending", "original": pend_o.slice(0, 5),
 				"restored": pend_r.slice(0, 5)})
@@ -585,28 +575,33 @@ func _full_state_violations(original, restored) -> Array:
 
 ## A00：故障注入——在**恢复会话**上制造真实状态篡改（不是直接调用 FAIL），
 ## 由正常比较器发现后使驱动非零退出。fault=2 → 等长集合 ID 替换；fault=3 → 在途 ETA 改写。
-func _tamper_restored(fault: String, restored) -> Dictionary:
-	var detail := {"fault": fault, "applied": []}
-	if fault == "2":
-		# 等长差异：删掉一个已用 ID 并加一个不存在的 ID（size 不变）
+## A00：故障注入——在**恢复会话**上制造真实状态篡改（不是直接调用 FAIL），
+## 由正常比较器发现后使驱动非零退出。
+##   kind=seen_ids   → 等长已用 ID 集合替换
+##   kind=eta        → 在途消息 arrive_t 改写
+##   kind=comms_text → 在途消息正文篡改（只比 ID@ETA 时会漏检）
+func _tamper_restored(kind: String, restored) -> Dictionary:
+	var detail := {"fault": kind, "applied": []}
+	if kind == "seen_ids":
 		var kids: Array = restored.bus._seen_ids.keys()
 		if kids.size() >= 2:
 			var drop := String(kids[0])
 			restored.bus._seen_ids.erase(drop)
 			restored.bus._seen_ids["evt-tampered-fault2"] = true
 			detail["applied"].append("seen_ids equal-size replacement: -" + drop)
-	elif fault == "3":
-		# 在途消息 ETA 改写（内容差异，总数不变）
+	elif kind == "eta":
 		if restored.comms != null and restored.comms.pending.size() > 0:
 			var rec: Dictionary = restored.comms.pending[0]
 			rec["arrive_t"] = float(rec.get("arrive_t", 0.0)) + 30.0
 			detail["applied"].append("pending[0].arrive_t += 30")
+	elif kind == "comms_text":
+		if restored.comms != null and restored.comms.pending.size() > 0:
+			var rec4: Dictionary = restored.comms.pending[0]
+			rec4["text"] = "TAMPERED_DELIVERY_CONTENT"
+			detail["applied"].append("pending[0].text tampered")
 	if (detail["applied"] as Array).is_empty():
 		detail["note"] = "no tamper target at this scale; comparator must still pass"
 	return detail
-
-
-## A00：逐 tick 行为比较（≥10 tick）：事件 ID/seq、观测、通信投递、通道、时钟。
 func _behavior_violations(original, restored, ticks: int) -> Array:
 	var bad: Array = []
 	for i in range(ticks):
@@ -655,9 +650,14 @@ func _correctness(ticks: int, run_i: int, original, restored, lr: Dictionary) ->
 	# A00：故障注入改为**真实状态篡改**，由下面的正常比较器发现；
 	# 不再用直接 _ok(false) 冒充故障发现能力。
 	var fault := OS.get_environment("A07_FAULT_SAMPLE").strip_edges()
+	var fault_kind := OS.get_environment("A07_FAULT_KIND").strip_edges()
 	if fault != "" and fault == str(run_i):
-		var td: Dictionary = _tamper_restored(fault, restored)
-		print("[A0-A07] FAULT INJECTED at ", label, " tamper=", JSON.stringify(td))
+		var kind2 := fault_kind
+		if kind2 == "":
+			kind2 = "seen_ids" if fault == "2" else ("eta" if fault == "3" else "none")
+		var td: Dictionary = _tamper_restored(kind2, restored)
+		print("[A0-A07] FAULT INJECTED at ", label, " kind=", kind2,
+			" tamper=", JSON.stringify(td))
 	# 1) 完整规范化状态比较（恢复时刻）
 	var state_bad: Array = _full_state_violations(original, restored)
 	_ok(state_bad.is_empty(), "%s: full normalized state matches after restore" % label,
@@ -674,6 +674,89 @@ func _correctness(ticks: int, run_i: int, original, restored, lr: Dictionary) ->
 		"%s: full normalized state still matches after %d ticks" % [label,
 			CORRECTNESS_TICKS],
 		"violations=" + str(state_after.slice(0, 6)))
+## G3：规范化 JSON（递归按键排序），避免字典键序差异造成假分歧。
+func _canonical_json(v) -> String:
+	return JSON.stringify(_canon(v))
+
+
+func _canon(v):
+	if v is Dictionary:
+		var keys: Array = (v as Dictionary).keys()
+		keys.sort()
+		var out: Dictionary = {}
+		for k in keys:
+			out[String(k)] = _canon((v as Dictionary)[k])
+		return out
+	if v is Array:
+		var arr: Array = []
+		for item in (v as Array):
+			arr.append(_canon(item))
+		return arr
+	# 数值按**值**语义比较（JSON 往返会把 int 2 变成 float 2.0；
+	# 这是载体差异而非内容漂移，契约整数由各自专项断言校验）。
+	if v is int or v is float:
+		return "n:%s" % str(float(v))
+	return v
+
+
+## G3：事件内容签名（type/source/target/text_key/payload），用于比较有意义内容。
+func _event_sigs(rows: Array) -> Array:
+	var out: Array = []
+	for raw in rows:
+		if not (raw is Dictionary):
+			continue
+		var e: Dictionary = raw
+		out.append("%s|%s|%s|%s|%s|%s" % [
+			String(e.get("id", "")), String(e.get("type", "")),
+			String(e.get("source", "")), String(e.get("target", "")),
+			String(e.get("text_key", "")),
+			_canonical_json(e.get("payload", {}))])
+	return out
+
+
+## G3：观测内容签名（质量/量测/传感器/目标），不只 event_id。
+func _obs_sigs(rows: Array) -> Array:
+	var out: Array = []
+	for raw in rows:
+		if not (raw is Dictionary):
+			continue
+		var o: Dictionary = raw
+		out.append("%s|%s|%s|%.9f|%.9f|%.9f" % [
+			String(o.get("event_id", "")), String(o.get("sensor", "")),
+			String(o.get("target_id", "")), float(o.get("quality", 0.0)),
+			float(o.get("range_km", -1.0)), float(o.get("bearing_deg", -1.0))])
+	return out
+
+
+## G3：在途消息完整签名（正文/接收者/路径/时延/到达时刻），不只 ID@ETA。
+func _comms_sigs(rows: Array) -> Array:
+	var out: Array = []
+	for raw in rows:
+		if not (raw is Dictionary):
+			continue
+		var r: Dictionary = raw
+		out.append("%s|%s|%s|%s|%s|%s|%.6f|%s" % [
+			String(r.get("delivery_id", "")), String(r.get("from", "")),
+			String(r.get("to", "")), String(r.get("mode", "")),
+			String(r.get("text_key", "")), String(r.get("text", "")),
+			float(r.get("arrive_t", -1.0)), JSON.stringify(r.get("path", []))])
+	return out
+
+
+## G3：通信事件流内容签名（不含墙钟字段）。
+func _comms_event_sigs(rows: Array) -> Array:
+	var out: Array = []
+	for raw in rows:
+		if not (raw is Dictionary):
+			continue
+		var e: Dictionary = raw
+		out.append("%s|%s|%s|%s|%s" % [
+			String(e.get("kind", "")), String(e.get("delivery_id", "")),
+			String(e.get("from", "")), String(e.get("to", "")),
+			String(e.get("text", ""))])
+	return out
+
+
 func _stats(values: Array) -> Dictionary:
 	if values.is_empty():
 		return {"median": -1, "min": -1, "max": -1, "n": 0}

@@ -43,33 +43,55 @@ func export_backend_state() -> Dictionary:
 
 
 ## 导入后端运行态；静态 mounts/targets 不在此恢复（从原权威重建）。
+## 导入后端运行态；静态 mounts/targets 不在此恢复（从原权威重建）。
+## R6/G2：**两阶段**——先把 optical / TWS / authority 元数据全部校验通过，
+## 再统一提交；任何一层失败都保持原状态（含子模块时钟）完全不变，不半写。
 func import_backend_state(state: Dictionary) -> Dictionary:
-	if _optical_ir != null and _optical_ir.has_method("import_state"):
-		var r: Dictionary = _optical_ir.import_state(state)
-		r["backend"] = "optical_ir"
-		# A00/R03：恢复 authority 自身时钟/步数（与子模块一起原子提交前先校验）。
-		# A00：恢复 TWS/雷达扫描运行态（通道/记忆/扫描相位），与子模块一起校验。
-		var raw_tws = state.get("tws", null)
-		if raw_tws != null and _tws != null:
-			if not (raw_tws is Dictionary):
-				return {"ok": false, "reason": "invalid_tws_state",
-					"errors": ["tws must be an object"]}
-			var tws_imp: Dictionary = _tws.import_state(raw_tws)
-			if not bool(tws_imp.get("ok", false)):
-				return {"ok": false, "reason": "invalid_tws_state",
-					"errors": tws_imp.get("errors", [])}
-		if state.has("authority_t"):
-			var at = state.get("authority_t")
-			if not (at is int or at is float) or not is_finite(float(at)) or float(at) < 0.0:
-				return {"ok": false, "reason": "invalid_authority_clock",
-					"errors": ["authority_t must be finite >= 0"]}
-			t = float(at)
-		if state.has("authority_step_count"):
-			step_count = int(state.get("authority_step_count", step_count))
-		if state.has("authority_dt_last"):
-			dt_last = float(state.get("authority_dt_last", dt_last))
-		return r
-	return {"ok": false, "reason": "no_backend_state_support", "backend": "legacy"}
+	if _optical_ir == null or not _optical_ir.has_method("validate_state"):
+		return {"ok": false, "reason": "no_backend_state_support", "backend": "legacy"}
+	var errs: Array = []
+	# 阶段 1：只校验，不改状态
+	var opt_v: Dictionary = _optical_ir.validate_state(state)
+	for e in (opt_v.get("errors", []) as Array):
+		errs.append("optical: " + String(e))
+	var raw_tws = state.get("tws", null)
+	if raw_tws == null:
+		errs.append("authority: tws sub-state is required (missing = incomplete restore)")
+	elif not (raw_tws is Dictionary):
+		errs.append("authority: tws must be an object")
+	elif _tws == null:
+		errs.append("authority: tws provided but no TWS model")
+	else:
+		var tws_v: Dictionary = _tws.validate_state(raw_tws)
+		for e2 in (tws_v.get("errors", []) as Array):
+			errs.append("tws: " + String(e2))
+	var at = state.get("authority_t", null)
+	if not (at is int or at is float) or not is_finite(float(at)) or float(at) < 0.0:
+		errs.append("authority_t must be finite >= 0")
+	var asc = state.get("authority_step_count", null)
+	if not (asc is int or asc is float) or not is_finite(float(asc)) \
+			or absf(float(asc) - roundf(float(asc))) > 0.0 or float(asc) < 0.0:
+		errs.append("authority_step_count must be a non-negative integer")
+	var adl = state.get("authority_dt_last", null)
+	if not (adl is int or adl is float) or not is_finite(float(adl)) or float(adl) < 0.0:
+		errs.append("authority_dt_last must be finite >= 0")
+	if not errs.is_empty():
+		return {"ok": false, "reason": "invalid_backend_state", "errors": errs}
+	# 阶段 2：全部通过后才提交（此刻起失败即代码缺陷，不再有校验拒绝）
+	var r: Dictionary = _optical_ir.import_state(state)
+	if not bool(r.get("ok", false)):
+		return {"ok": false, "reason": "invalid_backend_state",
+			"errors": r.get("errors", [])}
+	var tws_imp: Dictionary = _tws.import_state(raw_tws)
+	if not bool(tws_imp.get("ok", false)):
+		return {"ok": false, "reason": "invalid_backend_state",
+			"errors": tws_imp.get("errors", [])}
+	t = float(at)
+	step_count = int(roundf(float(asc)))
+	dt_last = float(adl)
+	r["backend"] = "optical_ir"
+	r["tws"] = "restored"
+	return r
 
 const OpticalModel := preload("res://framework/sim/optical.gd")
 const OpticalIRModel := preload("res://framework/sim/optical_ir_channel.gd")

@@ -781,6 +781,18 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.jc_a00_sensor_state",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "JC-A00 R6 (G1/G2): sensor runtime state completeness and atomic import. G1 verifies the FULL dynamic pointing state (pointing_mode + desired_target_id + az/el) survives restore so a slowly moving target keeps being tracked for 130 ticks with zero divergence (an angle-only save freezes tracking). G2 verifies two-phase atomic import (optical / TWS / radar / authority metadata are all validated before ANY layer commits) and strict rejection of: fractional or unknown versions, out-of-range angles, illegal pointing modes, negative times, fractional scan_index, malformed channel fields, and missing TWS/radar sub-state - each rejection must leave every child clock unchanged.",
+      "script": "res://tests/jc_a00_sensor_state_probe.gd",
+      "expected_markers": [
+        "JC-A00 R6 SENSOR STATE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 300
+    },    {
       "id": "integration.jc_scenario_spec",
       "category": "integration",
       "profile": "",
