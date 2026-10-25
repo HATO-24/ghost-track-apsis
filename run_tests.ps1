@@ -91,6 +91,16 @@
     unselected declared baseline entry turns the run red. See .DESCRIPTION for the
     exact fail-closed semantics and exit codes.
 
+.PARAMETER BaselineExtra
+    Optional SECOND known_baseline_failures.v1 file (Phase A-01 use case:
+    game_v17/tests/phasea_baseline_failures.json). Its entries are classified the same
+    way as -Baseline entries (statuses stay FAIL, never PASS/hidden), but they are
+    reported in separate counters (known_phase_a / new_fail_phase_a / drift_phase_a /
+    unverified_phase_a / unselected_phase_a) so a Phase A expected-failure baseline is
+    never confused with the Phase 0 legacy baseline. Requires -Baseline (the Phase 0
+    file stays the primary baseline). Phase 0 semantics are unchanged: -Gate phase0
+    never reads either file.
+
 .PARAMETER AllowPartialBaseline
     LOCAL DEBUGGING ONLY (never used by CI). Only meaningful together with -Baseline.
     Allows unselected/unverified declared baseline entries to not force exit 1 so a
@@ -135,6 +145,7 @@ param(
     [string]$ResultsDir = '',
     [string]$Gate = '',
     [string]$Baseline = '',
+    [string]$BaselineExtra = '',
     [switch]$AllowPartialBaseline
 )
 
@@ -163,6 +174,9 @@ $script:RunDir = ''
 $script:GateProvided = $PSBoundParameters.ContainsKey('Gate')
 $script:BaselineProvided = $PSBoundParameters.ContainsKey('Baseline')
 $script:BaselineData = $null
+$script:BaselineExtraProvided = $PSBoundParameters.ContainsKey('BaselineExtra')
+$script:BaselineExtraData = $null
+$script:BaselineExtraStatsRef = $null
 $script:AllowPartialBaseline = [bool]$AllowPartialBaseline
 
 # ── console helpers ────────────────────────────────────────────────────────
@@ -489,11 +503,17 @@ function Load-Baseline {
 }
 
 function Get-CaseBaselineInfo {
-    param($Result, $BaselineData)
+    param($Result, $BaselineData, $ExcludeData = $null)
     if ($null -eq $BaselineData) { return $null }
     $id = [string]$Result.id
     $status = [string]$Result.status
     if (-not $BaselineData.map.ContainsKey($id)) {
+        # Phase A-01: a case declared by the OTHER baseline file is not a "new failure"
+        # for this baseline. It is classified by that other file's own counters instead,
+        # so the two baselines never pollute each other's new_fail count.
+        if ($null -ne $ExcludeData -and $ExcludeData.map.ContainsKey($id)) {
+            return $null
+        }
         if ($status -eq 'FAIL') {
             return [ordered]@{
                 known    = $false
@@ -561,6 +581,81 @@ function Get-CaseBaselineInfo {
     }
 }
 
+function Get-BaselineExtraStats {
+    # Phase A-01: classify the SECOND baseline file (-BaselineExtra). Deliberately kept
+    # separate from Get-BaselineStats so the Phase 0 baseline semantics/counters are
+    # byte-for-byte unchanged. Statuses are never changed; entries stay FAIL and are
+    # only classified. Counters are reported separately so a Phase A expected failure
+    # can never be mistaken for a Phase 0 legacy failure.
+    param([object[]]$Results, $ExtraData, [bool]$PartialBaseline = $false)
+    if ($null -eq $ExtraData) { return $null }
+    $knownFail = 0
+    $newFail = 0
+    $drift = 0
+    $unverifiedCount = 0
+    $seenIds = @{}
+    $unverifiedEntries = New-Object System.Collections.ArrayList
+    foreach ($r in $Results) {
+        $id = [string]$r.id
+        $seenIds[$id] = $true
+        $info = Get-CaseBaselineInfo -Result $r -BaselineData $ExtraData -ExcludeData $script:BaselineData
+        if ($null -eq $info) { continue }
+        if ($info.known) { $r['baseline_phase_a'] = $info }
+        $status = [string]$r.status
+        if ($status -eq 'FAIL') {
+            if ($info.expected) { $knownFail++ }
+            elseif ($info.known) { $drift++ }
+            else { $newFail++ }
+        }
+        elseif ($status -eq 'PASS') {
+            if ($info.known) { $drift++ }
+        }
+        elseif ($status -eq 'TIMEOUT') {
+            if ($info.known) { $drift++ }
+        }
+        else {
+            if ($info.known) {
+                $unverifiedCount++
+                [void]$unverifiedEntries.Add([ordered]@{
+                        id = $id; status = $status; reason = [string]$info.reason
+                    })
+            }
+        }
+    }
+    $unselectedIds = New-Object System.Collections.ArrayList
+    foreach ($id in @($ExtraData.map.Keys | Sort-Object)) {
+        if (-not $seenIds.ContainsKey([string]$id)) { [void]$unselectedIds.Add([string]$id) }
+    }
+    $entriesTotal = [int]$ExtraData.entries_total
+    $selectedCount = $entriesTotal - $unselectedIds.Count
+    if ($selectedCount -lt 0) { $selectedCount = 0 }
+    $executedCount = $selectedCount - $unverifiedCount
+    if ($executedCount -lt 0) { $executedCount = 0 }
+    $rawComplete = ($knownFail -eq $entriesTotal) -and ($newFail -eq 0) -and ($drift -eq 0) -and ($unverifiedCount -eq 0) -and ($unselectedIds.Count -eq 0)
+    $effectiveComplete = $rawComplete -and (-not $PartialBaseline)
+    return [pscustomobject]@{
+        path                 = [string]$ExtraData.path
+        file_sha256          = [string]$ExtraData.file_sha256
+        commit               = [string]$ExtraData.commit
+        known_fail           = $knownFail
+        new_fail             = $newFail
+        baseline_drift       = $drift
+        baseline_unverified  = $unverifiedCount
+        baseline_unselected  = $unselectedIds.Count
+        entries_total        = $entriesTotal
+        unselected_ids       = @($unselectedIds)
+        unverified           = @($unverifiedEntries)
+        coverage             = [ordered]@{
+            required = $entriesTotal
+            selected = $selectedCount
+            executed = $executedCount
+            verified = $knownFail
+        }
+        complete             = [bool]$effectiveComplete
+        partial              = [bool]$PartialBaseline
+    }
+}
+
 function Get-BaselineStats {
     param([object[]]$Results, $BaselineData, [bool]$PartialBaseline = $false)
     $knownFail = 0
@@ -572,7 +667,7 @@ function Get-BaselineStats {
     foreach ($r in $Results) {
         $id = [string]$r.id
         $seenIds[$id] = $true
-        $info = Get-CaseBaselineInfo -Result $r -BaselineData $BaselineData
+        $info = Get-CaseBaselineInfo -Result $r -BaselineData $BaselineData -ExcludeData $script:BaselineExtraData
         $r['baseline'] = $info
         if ($null -eq $info) { continue }
         $status = [string]$r.status
@@ -1220,6 +1315,27 @@ function Write-SummaryJson {
             unverified          = $baselineUnverifiedBlock
             coverage            = $(if ($null -ne $BaselineStats) { $BaselineStats.coverage } else { $null })
         }
+        # Phase A-01 expected-failure baseline (-BaselineExtra). Deliberately a SEPARATE
+        # block so Phase 0 baseline consumers keep reading the unchanged `baseline` block.
+        phase_a_baseline  = $(if ($null -ne $script:BaselineExtraData) {
+            [ordered]@{
+                mode                = $true
+                partial             = [bool]$PartialBaseline
+                complete            = $(if ($null -ne $script:BaselineExtraStatsRef) { [bool]$script:BaselineExtraStatsRef.complete } else { $false })
+                path                = [string]$script:BaselineExtraData.path
+                schema              = [string]$script:BaselineExtraData.schema
+                baseline_commit     = [string]$script:BaselineExtraData.commit
+                file_sha256         = [string]$script:BaselineExtraData.file_sha256
+                evidence_provenance = [string]$script:BaselineExtraData.provenance
+                known_fail          = $(if ($null -ne $script:BaselineExtraStatsRef) { [int]$script:BaselineExtraStatsRef.known_fail } else { $null })
+                new_fail            = $(if ($null -ne $script:BaselineExtraStatsRef) { [int]$script:BaselineExtraStatsRef.new_fail } else { $null })
+                baseline_drift      = $(if ($null -ne $script:BaselineExtraStatsRef) { [int]$script:BaselineExtraStatsRef.baseline_drift } else { $null })
+                baseline_unverified = $(if ($null -ne $script:BaselineExtraStatsRef) { [int]$script:BaselineExtraStatsRef.baseline_unverified } else { $null })
+                baseline_unselected = $(if ($null -ne $script:BaselineExtraStatsRef) { [int]$script:BaselineExtraStatsRef.baseline_unselected } else { $null })
+                entries_total       = [int]$script:BaselineExtraData.entries_total
+                coverage            = $(if ($null -ne $script:BaselineExtraStatsRef) { $script:BaselineExtraStatsRef.coverage } else { $null })
+            }
+        } else { $null })
         godot             = $godotBlock
         # Top-level convenience aliases (a few CI consumers only read flat fields).
         godot_version     = $(if ($null -ne $GodotVersion) { [string]$GodotVersion.version_raw } else { $null })
@@ -1362,6 +1478,25 @@ try {
         $unknownBaselineIds = @($script:BaselineData.map.Keys | Where-Object { $caseIdsForBaseline -notcontains [string]$_ })
         if ($unknownBaselineIds.Count -gt 0) {
             throw ("baseline file references case id(s) not present in matrix: " + ($unknownBaselineIds -join ', '))
+        }
+    }
+    # ── optional SECOND baseline file (Phase A-01 expected failures) ──
+    if ($script:BaselineExtraProvided) {
+        if ([string]::IsNullOrWhiteSpace($BaselineExtra)) {
+            throw 'empty -BaselineExtra path; expected e.g. game_v17/tests/phasea_baseline_failures.json'
+        }
+        if (-not $script:BaselineProvided) {
+            throw '-BaselineExtra requires -Baseline (the Phase 0 baseline stays primary)'
+        }
+        $script:BaselineExtraData = Load-Baseline $BaselineExtra
+        $caseIdsForExtra = @($allCases | ForEach-Object { [string]$_.id })
+        $unknownExtraIds = @($script:BaselineExtraData.map.Keys | Where-Object { $caseIdsForExtra -notcontains [string]$_ })
+        if ($unknownExtraIds.Count -gt 0) {
+            throw ("extra baseline file references case id(s) not present in matrix: " + ($unknownExtraIds -join ', '))
+        }
+        $overlap = @($script:BaselineExtraData.map.Keys | Where-Object { $script:BaselineData.map.ContainsKey([string]$_) })
+        if ($overlap.Count -gt 0) {
+            throw ("case id(s) declared in BOTH -Baseline and -BaselineExtra: " + ($overlap -join ', '))
         }
     }
 
@@ -1694,6 +1829,38 @@ try {
         $totals['baseline_complete'] = $null
     }
     $exitCode = Get-ExitCodeForTotals -Totals $totals -BaselineMode ($null -ne $script:BaselineData) -PartialBaseline $script:AllowPartialBaseline
+    # ── Phase A-01 second baseline (-BaselineExtra) ──
+    $baselineExtraStats = $null
+    if ($null -ne $script:BaselineExtraData) {
+        $baselineExtraStats = Get-BaselineExtraStats -Results $resultsArray -ExtraData $script:BaselineExtraData -PartialBaseline $script:AllowPartialBaseline
+        $script:BaselineExtraStatsRef = $baselineExtraStats
+        $totals['known_phase_a'] = $baselineExtraStats.known_fail
+        $totals['new_fail_phase_a'] = $baselineExtraStats.new_fail
+        $totals['drift_phase_a'] = $baselineExtraStats.baseline_drift
+        $totals['unverified_phase_a'] = $baselineExtraStats.baseline_unverified
+        $totals['unselected_phase_a'] = $baselineExtraStats.baseline_unselected
+        $totals['phase_a_baseline_complete'] = [bool]$baselineExtraStats.complete
+        $totals['phase_a_baseline_entries'] = $baselineExtraStats.entries_total
+        # Phase A expected failures must be exact; a mismatch is a real red, same
+        # fail-closed rule as the Phase 0 baseline.
+        if ($exitCode -eq 0) {
+            if ($baselineExtraStats.new_fail -gt 0) { $exitCode = 1 }
+            elseif ($baselineExtraStats.baseline_drift -gt 0) { $exitCode = 1 }
+            elseif (-not $baselineExtraStats.partial) {
+                if ($baselineExtraStats.baseline_unverified -gt 0) { $exitCode = 1 }
+                elseif ($baselineExtraStats.baseline_unselected -gt 0) { $exitCode = 1 }
+                elseif (-not $baselineExtraStats.complete) { $exitCode = 1 }
+            }
+        }
+    }
+    else {
+        $totals['known_phase_a'] = $null
+        $totals['new_fail_phase_a'] = $null
+        $totals['drift_phase_a'] = $null
+        $totals['unverified_phase_a'] = $null
+        $totals['unselected_phase_a'] = $null
+        $totals['phase_a_baseline_complete'] = $null
+    }
     $endedAt = (Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')
     $summaryPath = Join-Path $script:RunDir 'summary.json'
     $reportPath = Join-Path $script:RunDir 'report.md'
@@ -1718,6 +1885,19 @@ try {
             Write-Warn 'baseline gate: PARTIAL mode (-AllowPartialBaseline) - LOCAL DEBUG ONLY'
         }
     }
+    if ($null -ne $baselineExtraStats) {
+        Write-Head '-- PHASE A BASELINE --------------------------------------------'
+        Write-Info ("PHASE A BASELINE CHECK: known_fail={0} new_fail={1} drift={2} unverified={3} unselected={4} complete={5}" -f $baselineExtraStats.known_fail, $baselineExtraStats.new_fail, $baselineExtraStats.baseline_drift, $baselineExtraStats.baseline_unverified, $baselineExtraStats.baseline_unselected, $(if ($baselineExtraStats.complete) { 'true' } else { 'false' }))
+        Write-Info ("phase A coverage: required={0} selected={1} executed={2} verified={3}" -f $baselineExtraStats.coverage.required, $baselineExtraStats.coverage.selected, $baselineExtraStats.coverage.executed, $baselineExtraStats.coverage.verified)
+        Write-Info ("phase A baseline file: {0} (commit {1}, sha256 {2})" -f $baselineExtraStats.path, $baselineExtraStats.commit, $baselineExtraStats.file_sha256)
+        Write-Info 'phase A expected failures stay FAIL (never PASS/skipped/hidden); they are a declared Phase A-01 baseline, not Phase 0 legacy failures.'
+        if ($baselineExtraStats.baseline_unselected -gt 0) {
+            Write-Err ("phase A baseline entries NOT SELECTED by filters: {0} of {1}: {2}" -f $baselineExtraStats.baseline_unselected, $baselineExtraStats.entries_total, (@($baselineExtraStats.unselected_ids) -join ', '))
+        }
+        foreach ($uv in @($baselineExtraStats.unverified)) {
+            Write-Err ("phase A baseline entry NOT VERIFIED (not executed): {0} status={1} reason={2}" -f $uv.id, $uv.status, $uv.reason)
+        }
+    }
     Write-Info ("summary: {0}" -f (Format-RepoRelative $summaryPath))
     Write-Info ("report:  {0}" -f (Format-RepoRelative $reportPath))
     if ($exitCode -eq 0) {
@@ -1727,6 +1907,9 @@ try {
             }
             else {
                 Write-Ok ("RESULT: BASELINE MATCH - all {0} baseline entries executed as expected FAIL with matching counts (known_fail={0}, new_fail=0, drift=0, unverified=0, unselected=0, complete=true)" -f $baselineStats.entries_total)
+                if ($null -ne $baselineExtraStats) {
+                    Write-Ok ("RESULT: PHASE A BASELINE MATCH - all {0} Phase A expected-failure entries executed as expected FAIL with matching counts (NOT a claim that Phase A passes)" -f $baselineExtraStats.entries_total)
+                }
             }
         }
         else {
@@ -1736,6 +1919,9 @@ try {
     else {
         if ($null -ne $baselineStats) {
             Write-Err ("RESULT: BASELINE CHECK FAILED - new_fail={0} drift={1} unverified={2} unselected={3} timeout={4} unexpected_not_run={5}" -f $baselineStats.new_fail, $baselineStats.baseline_drift, $baselineStats.baseline_unverified, $baselineStats.baseline_unselected, $totals.timeout, $totals.not_run_unexpected)
+            if ($null -ne $baselineExtraStats) {
+                Write-Err ("RESULT: PHASE A BASELINE CHECK FAILED - new_fail={0} drift={1} unverified={2} unselected={3} complete={4}" -f $baselineExtraStats.new_fail, $baselineExtraStats.baseline_drift, $baselineExtraStats.baseline_unverified, $baselineExtraStats.baseline_unselected, $(if ($baselineExtraStats.complete) { 'true' } else { 'false' }))
+            }
         }
         else {
             Write-Err 'RESULT: FAILURES PRESENT'
