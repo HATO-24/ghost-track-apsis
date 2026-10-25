@@ -24,6 +24,25 @@ extends RefCounted
 const Types := preload("res://framework/sim/sensor_types.gd")
 const RadarModel := preload("res://framework/sim/radar.gd")
 const TwsModel := preload("res://framework/sim/tws.gd")
+# ── A-05：光学/IR 后端运行态委托（供 SensorService 聚合导出/导入）──────
+## 导出后端运行态；legacy 后端无可续跑通道状态 → 显式标记 backend=legacy。
+func export_backend_state() -> Dictionary:
+	if _optical_ir != null and _optical_ir.has_method("export_state"):
+		var st: Dictionary = _optical_ir.export_state()
+		st["backend"] = "optical_ir"
+		return st
+	return {"schema": "v17.optical_ir.state.v1", "version": 1,
+		"backend": "legacy", "enabled": true, "t": t, "channels": []}
+
+
+## 导入后端运行态；静态 mounts/targets 不在此恢复（从原权威重建）。
+func import_backend_state(state: Dictionary) -> Dictionary:
+	if _optical_ir != null and _optical_ir.has_method("import_state"):
+		var r: Dictionary = _optical_ir.import_state(state)
+		r["backend"] = "optical_ir"
+		return r
+	return {"ok": false, "reason": "no_backend_state_support", "backend": "legacy"}
+
 const OpticalModel := preload("res://framework/sim/optical.gd")
 const OpticalIRModel := preload("res://framework/sim/optical_ir_channel.gd")
 
