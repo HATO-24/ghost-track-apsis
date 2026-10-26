@@ -83,6 +83,13 @@ func publish(raw: Dictionary) -> Dictionary:
 	if not errs.is_empty():
 		errors.append_array(errs)
 		return {"ok": false, "reason": "invalid_event", "errors": errs}
+	# A-03：达到安全整数上限时明确拒绝继续分配（不溢出、不四舍五入）。
+	if float(seq) >= SAFE_INT_MAX:
+		return {"ok": false, "reason": "seq_exhausted",
+			"errors": ["event seq reached the safe integer maximum %s" % str(SAFE_INT_MAX)]}
+	if float(_id_seq) >= SAFE_INT_MAX:
+		return {"ok": false, "reason": "id_exhausted",
+			"errors": ["auto event id allocator reached the safe integer maximum"]}
 	seq += 1
 	var event := {
 		"schema": SCHEMA,
@@ -220,6 +227,174 @@ func check_invariants() -> Dictionary:
 			break
 		last_seq = int(e.get("seq", -1))
 	return {"ok": violations.is_empty(), "violations": violations, "schema": BUS_SCHEMA}
+
+# ── A-03：版本化导出/导入（历史恢复 = 导入，绝不 publish/派发）──────
+const STATE_SCHEMA := "v17.event_bus.state.v2"
+const STATE_VERSION := 2
+# 本批 numeric JSON 兼容范围：安全整数 2^53-1
+const SAFE_INT_MAX := 9007199254740991.0
+
+
+## A-03：把「一个原始 JSON 数字」按整数契约归一为 int。
+## 规则：有限、整数值、落在 [min_v, max_v]；接受 int 或 float（JSON 解析结果），
+## 拒绝字符串/布尔/分数/越界。不依赖 JSON 数字的 Variant 类型。
+func _int_contract(value, min_v: float, max_v: float, label: String) -> Dictionary:
+	if value == null:
+		return {"ok": false, "reason": "%s: missing" % label}
+	var f := 0.0
+	if value is int:
+		f = float(value)
+	elif value is float:
+		f = float(value)
+	else:
+		return {"ok": false, "reason": "%s: not a number (type %s)" % [
+			label, type_string(typeof(value))]}
+	if is_nan(f) or is_inf(f):
+		return {"ok": false, "reason": "%s: not finite" % label}
+	if absf(f - roundf(f)) > 0.0:
+		return {"ok": false, "reason": "%s: not an integer value (%s)" % [label, str(f)]}
+	if f < min_v:
+		return {"ok": false, "reason": "%s: below %s" % [label, str(min_v)]}
+	if f > max_v:
+		return {"ok": false, "reason": "%s: above safe integer max %s" % [label, str(max_v)]}
+	return {"ok": true, "value": int(round(f))}
+
+
+## A-03：导出完整恢复状态（可见环形历史 + 当前 seq + 自动 ID 分配器 + **完整**已用 ID 集合）。
+## 注意：`seen_ids` 是完整去重集合，不等于可见历史（可能远大于 MAX_EVENTS）。
+func export_state() -> Dictionary:
+	var seen: Array = []
+	for k in _seen_ids.keys():
+		seen.append(String(k))
+	seen.sort()
+	return {
+		"schema": STATE_SCHEMA,
+		"version": STATE_VERSION,
+		"seq": seq,
+		"id_seq": _id_seq,
+		"seen_ids": seen,
+		"events": JSON.parse_string(JSON.stringify(events)),
+		"max_events": MAX_EVENTS,
+	}
+
+
+## A-03：导入恢复状态。**先完整校验，再一次提交**；失败不半写 bus。
+## 不调用 publish、不派发历史事件、不改订阅者。
+func import_state(state: Dictionary) -> Dictionary:
+	if not ready:
+		return {"ok": false, "reason": "not_ready", "errors": errors.duplicate()}
+	var problems: Array = []
+	var require_legacy := false
+	# 1) schema/version
+	var s_schema := String(state.get("schema", ""))
+	if s_schema == "":
+		require_legacy = true
+	elif s_schema != STATE_SCHEMA:
+		return {"ok": false, "reason": "invalid_state_schema", "schema": s_schema,
+			"errors": ["unsupported event_bus state schema: " + s_schema]}
+	var s_version := 0
+	if not require_legacy:
+		var ver: Dictionary = _int_contract(state.get("version", null), 0.0, 1.0e6, "version")
+		if not bool(ver.get("ok", false)):
+			return {"ok": false, "reason": "invalid_state_version",
+				"errors": [String(ver.get("reason", ""))]}
+		s_version = int(ver.get("value", 0))
+		if s_version != STATE_VERSION:
+			return {"ok": false, "reason": "invalid_state_version",
+				"errors": ["unsupported version %d (expected %d)" % [s_version, STATE_VERSION]]}
+	# 2) seq / id_seq 整数契约（bus seq 允许 0；事件 seq 必须 >=1）
+	var seq_res: Dictionary = _int_contract(state.get("seq", null), 0.0, SAFE_INT_MAX, "seq")
+	if not bool(seq_res.get("ok", false)):
+		return {"ok": false, "reason": "invalid_seq",
+			"errors": [String(seq_res.get("reason", ""))]}
+	var new_seq := int(seq_res.get("value", 0))
+	var id_res: Dictionary = _int_contract(state.get("id_seq", 0), 0.0, SAFE_INT_MAX, "id_seq")
+	if not bool(id_res.get("ok", false)):
+		return {"ok": false, "reason": "invalid_id_seq",
+			"errors": [String(id_res.get("reason", ""))]}
+	var new_id_seq := int(id_res.get("value", 0))
+	# 3) 可见历史：逐条校验 seq（>=1、严格递增）、id 唯一、payload 类型
+	var raw_events = state.get("events", null)
+	if not (raw_events is Array):
+		return {"ok": false, "reason": "invalid_events",
+			"errors": ["events must be an array"]}
+	var new_events: Array = []
+	var new_seen: Dictionary = {}
+	var last_seq := 0
+	var idx := 0
+	for raw in (raw_events as Array):
+		if not (raw is Dictionary):
+			problems.append("events[%d]: not an object" % idx)
+			idx += 1
+			continue
+		var ev: Dictionary = (raw as Dictionary).duplicate(true)
+		var ev_seq_res: Dictionary = _int_contract(ev.get("seq", null), 1.0,
+			SAFE_INT_MAX, "events[%d].seq" % idx)
+		if not bool(ev_seq_res.get("ok", false)):
+			problems.append(String(ev_seq_res.get("reason", "")))
+			idx += 1
+			continue
+		var ev_seq := int(ev_seq_res.get("value", 0))
+		if ev_seq <= last_seq:
+			problems.append("events[%d].seq 非严格递增 (%d <= %d)" % [idx, ev_seq, last_seq])
+		last_seq = ev_seq
+		ev["seq"] = ev_seq
+		var ev_id := String(ev.get("id", ""))
+		if ev_id == "":
+			problems.append("events[%d]: missing id" % idx)
+		elif new_seen.has(ev_id):
+			problems.append("events[%d]: duplicate id %s" % [idx, ev_id])
+		else:
+			new_seen[ev_id] = true
+		if not (ev.get("payload", {}) is Dictionary):
+			problems.append("events[%d]: payload must be an object" % idx)
+		if not (ev.get("t", 0.0) is int or ev.get("t", 0.0) is float):
+			problems.append("events[%d]: t must be a number" % idx)
+		new_events.append(ev)
+		idx += 1
+	# 4) last event seq <= 当前 seq
+	if last_seq > new_seq:
+		problems.append("history tail seq %d > current seq %d" % [last_seq, new_seq])
+	# 5) seen_ids：完整已用 ID 集合（可以远大于可见历史）；可见历史每个 id 必须在内
+	var raw_seen = state.get("seen_ids", null)
+	var imported_seen_count := 0
+	if raw_seen is Array:
+		for raw_id in (raw_seen as Array):
+			var sid := String(raw_id)
+			if sid == "":
+				problems.append("seen_ids: empty id")
+				continue
+			new_seen[sid] = true
+			imported_seen_count += 1
+	elif raw_seen != null:
+		problems.append("seen_ids must be an array")
+	# 6) 自动 ID 分配器不得与已用 evt-* ID 冲突：
+	#    `id_seq` 是**最后已分配**的序号，因此必须 >= 已用 evt-* 的最大序号；
+	#    小于则下一次分配会重发一个已存在的 ID。
+	var evt_prefix := "evt-"
+	var max_evt_num := 0
+	for sid2 in new_seen.keys():
+		var key := String(sid2)
+		if key.begins_with(evt_prefix):
+			var suffix := key.substr(evt_prefix.length())
+			if suffix.is_valid_int() and int(suffix) > max_evt_num:
+				max_evt_num = int(suffix)
+	if new_id_seq < max_evt_num:
+		problems.append("allocator collision: id_seq=%d < max used evt id %d" % [
+			new_id_seq, max_evt_num])
+	if not problems.is_empty():
+		# 失败：bus 状态**完全不变**（不半写）
+		return {"ok": false, "reason": "invalid_state", "errors": problems.slice(0, 20)}
+	# 7) 一次提交（导入 = 导入，绝不 publish/dispatch）
+	events = new_events
+	seq = new_seq
+	_id_seq = new_id_seq
+	_seen_ids = new_seen
+	while events.size() > MAX_EVENTS:
+		events.pop_front()
+	return {"ok": true, "mode": ("legacy_partial" if require_legacy else "v2"),
+		"seq": seq, "id_seq": _id_seq, "events": events.size(),
+		"seen_ids": _seen_ids.size(), "seen_ids_imported": imported_seen_count}
 
 func snapshot() -> Dictionary:
 	return {

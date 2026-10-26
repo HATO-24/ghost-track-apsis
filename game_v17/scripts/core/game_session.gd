@@ -4707,10 +4707,9 @@ func save_state() -> String:
 		"fleet_refit": fleet_refit.save_state() if fleet_refit != null else null,
 		"combat_time_cap": {"active": _combat_scale_cap_active,
 			"restore_to": _scale_before_combat, "cap": COMBAT_SCALE_CAP},
-		"bus": {
-			"seq": bus.current_seq(),
-			"events": JSON.parse_string(JSON.stringify(bus.events)),
-		},
+		# A-03：事件总线恢复使用 EventBus 的版本化导出（含完整去重集合与自动 ID 分配器），
+		# 不再只存 seq/events；Session 不直接重建 EventBus 私有字段。
+		"bus": bus.export_state() if bus != null else null,
 	}
 	return JSON.stringify(payload)
 
@@ -4906,16 +4905,32 @@ func load_state(json_text: String) -> Dictionary:
 	else:
 		_combat_scale_cap_active = false
 		_scale_before_combat = 1.0
-	# 恢复事件总线历史（旧存档无 bus 字段 → 兼容）
+	# A-03：恢复事件总线历史 —— 通过 EventBus 的版本化导入接口（导入 ≠ 发布，不派发历史）。
+	# 旧存档（只有 seq/events，无 schema）走兼容分支并显式标注 legacy_partial；
+	# 完整旧档迁移（超环形缓冲去重、旧版本矩阵）由 DS-A-04 承接。
 	var saved_bus = data.get("bus", null)
 	if saved_bus is Dictionary:
-		var evs = (saved_bus as Dictionary).get("events", [])
-		if evs is Array:
-			bus.events = JSON.parse_string(JSON.stringify(evs))
-			bus.seq = int((saved_bus as Dictionary).get("seq", bus.events.size()))
-			for raw_ev in bus.events:
-				if raw_ev is Dictionary:
-					bus._seen_ids[String((raw_ev as Dictionary).get("id", ""))] = true
+		var sb: Dictionary = saved_bus
+		if not sb.has("schema"):
+			# 旧档：先保留 boot 重放得到的已用 ID，再并入可见历史；高水位不倒退。
+			var legacy_seen: Array = []
+			for k in bus._seen_ids.keys():
+				legacy_seen.append(String(k))
+			var legacy_state: Dictionary = {
+				"seq": maxi(int(sb.get("seq", 0)), int(bus.seq)),
+				"id_seq": int(bus._id_seq),
+				"events": sb.get("events", []),
+				"seen_ids": legacy_seen,
+			}
+			var lr_bus: Dictionary = bus.import_state(legacy_state)
+			if not bool(lr_bus.get("ok", false)):
+				replay_errors.append("bus legacy 导入失败：" + str(lr_bus.get("errors", [])))
+			else:
+				warnings.append("事件总线按 legacy_partial 迁移恢复（旧档仅含 seq/events）")
+		else:
+			var br: Dictionary = bus.import_state(sb)
+			if not bool(br.get("ok", false)):
+				replay_errors.append("bus 状态导入失败：" + str(br.get("errors", [])))
 	_replaying = false
 	_log = (log as Array).duplicate(true)
 	if track_table != null:

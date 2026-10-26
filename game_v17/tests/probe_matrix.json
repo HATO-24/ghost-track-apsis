@@ -781,6 +781,18 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.a0_event_continuity",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "DS-A-03: EventBus versioned state export/import. History restore is an IMPORT (no publish, no dispatch, subscribers called 0 times); numeric JSON contract uses value semantics (finite integral, 0..2^53-1, event seq >=1, strictly increasing) while restored runtime seq/allocator MUST be real GDScript ints; full used-id set preserved past MAX_EVENTS=1000; allocator never collides with used evt-* ids; invalid seq/version/ordering rejected atomically (bus state unchanged); real-file session save->load->continue produces identical seq/allocator/ids.",
+      "script": "res://tests/a0_event_continuity_probe.gd",
+      "expected_markers": [
+        "A0-A03 EVENT CONTINUITY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },    {
       "id": "integration.a0_frame_epoch",
       "category": "integration",
       "profile": "",

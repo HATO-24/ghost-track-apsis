@@ -56,15 +56,6 @@
       "suggested_follow_up": "new content/contract-sync task (TBD); incident record content"
     },
     {
-      "id": "unit.save_probe",
-      "probe": "res://tests/save_probe.gd",
-      "expected_exit": 1,
-      "expected_pass": 153,
-      "expected_fail": 3,
-      "reason": "Three save-contract assertions drifted from the current SaveService behaviour/schema expectations.",
-      "suggested_follow_up": "new save-contract sync task (TBD); related to #11 (mod/content API and save compatibility)"
-    },
-    {
       "id": "integration.damage_integration_probe",
       "probe": "res://tests/damage_integration_probe.gd",
       "expected_exit": 1,
