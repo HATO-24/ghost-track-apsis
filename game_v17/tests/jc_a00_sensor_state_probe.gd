@@ -210,6 +210,56 @@ func _run() -> void:
 	_ok(bool(auth2._tws.validate_state(bad_be2.get("tws", {})).get("ok", true)) == false,
 		"G2 radar scan_index=1e100 被拒绝（安全整数范围）")
 
+	_step("G2/R7 STARE 通道：字段齐全但缺 FSM 必需字段必须拒绝")
+	for stare_name in _stare_cases():
+		var lbl := String(stare_name)
+		var bad3: Dictionary = JSON.parse_string(JSON.stringify(good_state))
+		_make_stare_case(String(stare_name), bad3)
+		var pr = GS.new(_seed(range_km, vtrans))
+		pr.sensor_service.start_channel("optical", "harmattan")
+		for i in range(3):
+			pr.tick(TICK_DT)
+		var r3: Dictionary = pr.sensor_service.import_state(bad3)
+		_ok(bool(r3.get("ok", true)) == false, "G2/R7 拒绝: " + lbl,
+			str(r3.get("errors", []).slice(0, 2)))
+
+	_step("C 旧档迁移：v1 合法旧数据做可重建迁移并如实标 partial，不冒充完整恢复")
+	# 模拟 C55 旧档：backend 无 tws / authority_* / mount_pointing
+	var legacy: Dictionary = JSON.parse_string(JSON.stringify(good_state))
+	var lb: Dictionary = legacy.get("backend", {}) as Dictionary
+	lb.erase("tws")
+	lb.erase("authority_t")
+	lb.erase("authority_step_count")
+	lb.erase("authority_dt_last")
+	lb.erase("mount_pointing")
+	legacy["backend"] = lb
+	var leg_sess = GS.new(_seed(range_km, vtrans))
+	leg_sess.sensor_service.start_channel("optical", "harmattan")
+	for i in range(3):
+		leg_sess.tick(TICK_DT)
+	var legr: Dictionary = leg_sess.sensor_service.import_state(legacy)
+	_ok(bool(legr.get("ok", false)), "C 旧 v1 档可迁移导入（不误判为损坏）",
+		str(legr.get("reason", "")))
+	_eq(String(legr.get("restore_mode", "")), "partial",
+		"C 旧档明确标记 partial restore")
+	var prs: Array = legr.get("partial_reasons", [])
+	_ok(prs.size() > 0, "C 旧档列出部分恢复原因", str(prs))
+	_ok(String(JSON.stringify(prs)).find("tws_runtime_reset_unrecoverable") >= 0,
+		"C 明确标注 TWS 运行态不可重建", str(prs.slice(0, 3)))
+	_ok(String(JSON.stringify(prs)).find("pointing_target_not_persisted") >= 0,
+		"C 明确标注旧档指向目标未持久化", str(prs.slice(0, 3)))
+	# 对照：新格式缺 tws 仍必须拒绝（损坏而非旧档）
+	var broken_new: Dictionary = JSON.parse_string(JSON.stringify(good_state))
+	((broken_new.get("backend", {}) as Dictionary))["authority_t"] = 5.0
+	((broken_new.get("backend", {}) as Dictionary)).erase("tws")
+	var brk_sess = GS.new(_seed(range_km, vtrans))
+	brk_sess.sensor_service.start_channel("optical", "harmattan")
+	for i in range(3):
+		brk_sess.tick(TICK_DT)
+	var brkr: Dictionary = brk_sess.sensor_service.import_state(broken_new)
+	_ok(bool(brkr.get("ok", true)) == false,
+		"C 新格式缺 TWS 仍拒绝（与旧档区分）", str(brkr.get("errors", []).slice(0, 2)))
+
 	_step("总结")
 	print("[R6] INFO G1 指向/模式持久化 + G2 两阶段原子导入与严格校验已覆盖")
 	_finish()
@@ -237,6 +287,43 @@ func _mutate_atom(case_name: String, bad: Dictionary) -> void:
 			backend["authority_t"] = INF
 		"缺 TWS 子状态":
 			backend.erase("tws")
+
+
+func _stare_cases() -> Array:
+	return ["STARE 缺 stare_s/stare_required_s", "通道缺 scan_index/last_miss_t",
+		"quality 非数字"]
+
+
+func _make_stare_case(case_name: String, bad: Dictionary) -> void:
+	var backend: Dictionary = bad.get("backend", {}) as Dictionary
+	var tws: Dictionary = backend.get("tws", {}) as Dictionary
+	match case_name:
+		"STARE 缺 stare_s/stare_required_s":
+			tws["channels"] = {"broken": {"target_id": "broken",
+				"state": "STARE", "quality": 1.0, "last_update_t": 0.0}}
+			backend["tws"] = tws
+		"通道缺 scan_index/last_miss_t":
+			var chans: Dictionary = tws.get("channels", {}) as Dictionary
+			chans["x"] = {"target_id": "x", "state": "TRACK",
+				"state_since_t": 0.0, "slot": 0, "quality": 0.5, "age_s": 0.0,
+				"pd": 0.5, "hits": 1, "consecutive_hits": 1, "misses": 0,
+				"update_count": 1, "update_rate_hz": 1.0, "last_update_t": 1.0,
+				"range_km": 10.0, "bearing_deg": 0.0, "elevation_deg": 0.0,
+				"range_sigma_km": 0.1, "bearing_sigma_deg": 0.1,
+				"stable_track": true, "in_sphere": true,
+				"effective_radius_km": 1.0, "stare_s": 0.0,
+				"stare_required_s": 8.0, "stare_progress": 0.0,
+				"fire_control": {}, "lost_lock_count": 0, "exposure": {},
+				"history": []}
+			tws["channels"] = chans
+			backend["tws"] = tws
+		"quality 非数字":
+			var chans3: Dictionary = tws.get("channels", {}) as Dictionary
+			for k in chans3.keys():
+				(chans3[k] as Dictionary)["quality"] = "high"
+				break
+			tws["channels"] = chans3
+			backend["tws"] = tws
 
 
 func _strict_cases() -> Array:

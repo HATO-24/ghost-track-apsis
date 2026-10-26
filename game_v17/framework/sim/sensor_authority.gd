@@ -49,49 +49,119 @@ func export_backend_state() -> Dictionary:
 func import_backend_state(state: Dictionary) -> Dictionary:
 	if _optical_ir == null or not _optical_ir.has_method("validate_state"):
 		return {"ok": false, "reason": "no_backend_state_support", "backend": "legacy"}
-	var errs: Array = []
-	# 阶段 1：只校验，不改状态
-	var opt_v: Dictionary = _optical_ir.validate_state(state)
-	for e in (opt_v.get("errors", []) as Array):
-		errs.append("optical: " + String(e))
-	var raw_tws = state.get("tws", null)
-	if raw_tws == null:
-		errs.append("authority: tws sub-state is required (missing = incomplete restore)")
-	elif not (raw_tws is Dictionary):
-		errs.append("authority: tws must be an object")
-	elif _tws == null:
-		errs.append("authority: tws provided but no TWS model")
-	else:
-		var tws_v: Dictionary = _tws.validate_state(raw_tws)
-		for e2 in (tws_v.get("errors", []) as Array):
-			errs.append("tws: " + String(e2))
-	var at = state.get("authority_t", null)
-	if not (at is int or at is float) or not is_finite(float(at)) or float(at) < 0.0:
-		errs.append("authority_t must be finite >= 0")
-	var asc = state.get("authority_step_count", null)
-	if not (asc is int or asc is float) or not is_finite(float(asc)) \
-			or absf(float(asc) - roundf(float(asc))) > 0.0 or float(asc) < 0.0:
-		errs.append("authority_step_count must be a non-negative integer")
-	var adl = state.get("authority_dt_last", null)
-	if not (adl is int or adl is float) or not is_finite(float(adl)) or float(adl) < 0.0:
-		errs.append("authority_dt_last must be finite >= 0")
-	if not errs.is_empty():
-		return {"ok": false, "reason": "invalid_backend_state", "errors": errs}
-	# 阶段 2：全部通过后才提交（此刻起失败即代码缺陷，不再有校验拒绝）
-	var r: Dictionary = _optical_ir.import_state(state)
-	if not bool(r.get("ok", false)):
+	# R7/C：旧档（C55 及更早）没有 tws / authority_* 段，这是**合法旧数据**而不是损坏。
+	# 支持矩阵：
+	#   * 新格式（含 tws 或 authority_t）→ 必须完整，缺任何子状态 = 拒绝（损坏）。
+	#   * 旧 v1 格式（两者都缺）→ 迁移可重建部分（optical 通道 + 角度指向），
+	#     TWS/扫描相位等无法重建的运行态**如实置为 boot 默认并标 partial**，
+	#     不声称完整恢复。
+	var is_new_format := state.has("tws") or state.has("authority_t") \
+		or state.has("authority_step_count") or state.has("authority_dt_last")
+	var partial: Array = []
+	if is_new_format:
+		var errs: Array = []
+		var opt_v: Dictionary = _optical_ir.validate_state(state)
+		for e in (opt_v.get("errors", []) as Array):
+			errs.append("optical: " + String(e))
+		var raw_tws_new = state.get("tws", null)
+		if raw_tws_new == null:
+			errs.append("authority: tws sub-state is required (missing = incomplete restore)")
+		elif not (raw_tws_new is Dictionary):
+			errs.append("authority: tws must be an object")
+		elif _tws == null:
+			errs.append("authority: tws provided but no TWS model")
+		else:
+			var tws_v: Dictionary = _tws.validate_state(raw_tws_new)
+			for e2 in (tws_v.get("errors", []) as Array):
+				errs.append("tws: " + String(e2))
+		var at = state.get("authority_t", null)
+		if not (at is int or at is float) or not is_finite(float(at)) or float(at) < 0.0:
+			errs.append("authority_t must be finite >= 0")
+		var asc = state.get("authority_step_count", null)
+		if not (asc is int or asc is float) or not is_finite(float(asc)) \
+				or absf(float(asc) - roundf(float(asc))) > 0.0 or float(asc) < 0.0:
+			errs.append("authority_step_count must be a non-negative integer")
+		var adl = state.get("authority_dt_last", null)
+		if not (adl is int or adl is float) or not is_finite(float(adl)) or float(adl) < 0.0:
+			errs.append("authority_dt_last must be finite >= 0")
+		if not errs.is_empty():
+			return {"ok": false, "reason": "invalid_backend_state", "errors": errs}
+		# 阶段 2：全部通过后才提交
+		var r2: Dictionary = _optical_ir.import_state(state)
+		if not bool(r2.get("ok", false)):
+			return {"ok": false, "reason": "invalid_backend_state",
+				"errors": r2.get("errors", [])}
+		var tws_imp2: Dictionary = _tws.import_state(raw_tws_new)
+		if not bool(tws_imp2.get("ok", false)):
+			return {"ok": false, "reason": "invalid_backend_state",
+				"errors": tws_imp2.get("errors", [])}
+		t = float(at)
+		step_count = int(roundf(float(asc)))
+		dt_last = float(adl)
+		r2["backend"] = "optical_ir"
+		r2["tws"] = "restored"
+		r2["restore_mode"] = "full"
+		return r2
+	# ── 旧 v1 迁移路径 ────────────────────────────────────────────
+	# 1) optical：旧档可能缺 mount_pointing（更早只有角度）→ 允许，用通道自带
+	#    boresight 值重建一次；缺该字段也记录为 partial。
+	var legacy_state: Dictionary = state.duplicate(true)
+	if not legacy_state.has("mount_pointing"):
+		var rebuilt: Dictionary = {}
+		for raw_ch in (legacy_state.get("channels", []) as Array):
+			if not (raw_ch is Dictionary):
+				continue
+			var chd: Dictionary = raw_ch
+			var kindv := String(chd.get("kind", ""))
+			if kindv == "":
+				continue
+			rebuilt[kindv] = {
+				"boresight_deg": float(chd.get("boresight_deg", 0.0)),
+				"boresight_el_deg": float(chd.get("boresight_el_deg", 0.0)),
+				"pointing_mode": "fixed",
+				"desired_target_id": "",
+			}
+		if not rebuilt.is_empty():
+			legacy_state["mount_pointing"] = rebuilt
+			partial.append("mount_pointing_rebuilt_from_channels")
+			# 旧档只存角度：指向目标/模式本就没有 → 逐 kind 如实标注。
+			for kk2 in rebuilt.keys():
+				partial.append("pointing_target_not_persisted:%s" % String(kk2))
+		else:
+			partial.append("mount_pointing_missing")
+	# 2) 旧档指向缺目标/模式 → 明确标 partial（不以默认空目标声称完整恢复）
+	var mp_legacy = legacy_state.get("mount_pointing", {})
+	if mp_legacy is Dictionary:
+		for kk in (mp_legacy as Dictionary).keys():
+			var prow = (mp_legacy as Dictionary)[kk]
+			if prow is Dictionary and not (prow as Dictionary).has("pointing_mode"):
+				(prow as Dictionary)["pointing_mode"] = "fixed"
+				(prow as Dictionary)["desired_target_id"] = ""
+				partial.append("pointing_target_not_persisted:%s" % String(kk))
+	var opt_v2: Dictionary = _optical_ir.validate_state(legacy_state)
+	if not bool(opt_v2.get("ok", false)):
 		return {"ok": false, "reason": "invalid_backend_state",
-			"errors": r.get("errors", [])}
-	var tws_imp: Dictionary = _tws.import_state(raw_tws)
-	if not bool(tws_imp.get("ok", false)):
+			"errors": opt_v2.get("errors", [])}
+	var r3: Dictionary = _optical_ir.import_state(legacy_state)
+	if not bool(r3.get("ok", false)):
 		return {"ok": false, "reason": "invalid_backend_state",
-			"errors": tws_imp.get("errors", [])}
-	t = float(at)
-	step_count = int(roundf(float(asc)))
-	dt_last = float(adl)
-	r["backend"] = "optical_ir"
-	r["tws"] = "restored"
-	return r
+			"errors": r3.get("errors", [])}
+	# 3) TWS/扫描相位无法重建 → 保持 boot 默认（不伪造），并如实标 partial。
+	if _tws != null:
+		partial.append("tws_runtime_reset_unrecoverable")
+	# 4) authority 时钟：用 optical 存档时钟作最接近的重建值。
+	var legacy_t = legacy_state.get("t", 0.0)
+	if (legacy_t is int or legacy_t is float) and is_finite(float(legacy_t)) \
+			and float(legacy_t) >= 0.0:
+		t = float(legacy_t)
+	partial.append("authority_clock_rebuilt_from_optical_t")
+	if _tws != null:
+		_tws.now_t = t
+	r3["backend"] = "optical_ir"
+	r3["tws"] = "reset_legacy"
+	r3["restore_mode"] = "partial"
+	r3["partial_reasons"] = partial
+	return r3
 
 const OpticalModel := preload("res://framework/sim/optical.gd")
 const OpticalIRModel := preload("res://framework/sim/optical_ir_channel.gd")

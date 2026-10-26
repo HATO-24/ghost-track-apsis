@@ -439,6 +439,10 @@ func _full_state_violations(original, restored) -> Array:
 		bad.append({"area": "bus.seq", "reason": "not int"})
 	if not (restored.bus._id_seq is int):
 		bad.append({"area": "bus.id_seq", "reason": "not int"})
+	# R7/G3：分配器**值**必须一致（旧 quick 把 220 改成 320 仍得 violations=[]）
+	elif int(restored.bus._id_seq) != int(original.bus._id_seq):
+		bad.append({"area": "bus.id_seq", "original": int(original.bus._id_seq),
+			"restored": int(restored.bus._id_seq)})
 	if int(restored.bus.current_seq()) != int(original.bus.current_seq()):
 		bad.append({"area": "bus.seq", "original": int(original.bus.current_seq()),
 			"restored": int(restored.bus.current_seq())})
@@ -605,6 +609,18 @@ func _tamper_restored(kind: String, restored) -> Dictionary:
 func _behavior_violations(original, restored, ticks: int) -> Array:
 	var bad: Array = []
 	for i in range(ticks):
+		# R7/G3：逐 tick 记录**新增产出**的数量与内容签名，让事件/通信/观测
+		# 真正参与比较（旧实现查不存在的 last_event()，两个会话都返回 {}）。
+		var ev_n0: int = int(original.bus.events.size())
+		var ev_m0: int = int(restored.bus.events.size())
+		var ce_n0: int = int(original.comms.events.size()) \
+			if original.comms != null else 0
+		var ce_m0: int = int(restored.comms.events.size()) \
+			if restored.comms != null else 0
+		var ob_n0: int = int((original.sensor_service.observations as Array).size()) \
+			if original.sensor_service != null else 0
+		var ob_m0: int = int((restored.sensor_service.observations as Array).size()) \
+			if restored.sensor_service != null else 0
 		var oa: Dictionary = original.tick(TICK_DT)
 		var rb: Dictionary = restored.tick(TICK_DT)
 		if not bool(oa.get("ok", false)):
@@ -619,26 +635,42 @@ func _behavior_violations(original, restored, ticks: int) -> Array:
 				"restored": int(restored.bus.current_seq())})
 		if absf(float(original.now_s()) - float(restored.now_s())) > TIME_TOL:
 			bad.append({"tick": i, "area": "t_s"})
+		# 本 tick 新增 EventBus 事件：内容签名必须一致
+		var new_ev_o: Array = _event_sigs(
+			(original.bus.events as Array).slice(ev_n0))
+		var new_ev_r: Array = _event_sigs(
+			(restored.bus.events as Array).slice(ev_m0))
+		if JSON.stringify(new_ev_o) != JSON.stringify(new_ev_r):
+			bad.append({"tick": i, "area": "bus.events.new",
+				"original": new_ev_o.size(), "restored": new_ev_r.size(),
+				"first": _first_diff(new_ev_o, new_ev_r)})
 		if original.sensor_service != null and restored.sensor_service != null:
 			if int(original.sensor_service._obs_seq) \
 					!= int(restored.sensor_service._obs_seq):
 				bad.append({"tick": i, "area": "sensor.obs_seq",
 					"original": int(original.sensor_service._obs_seq),
 					"restored": int(restored.sensor_service._obs_seq)})
-			if int(original.sensor_service.observations.size()) \
-					!= int(restored.sensor_service.observations.size()):
-				bad.append({"tick": i, "area": "sensor.observations"})
+			# 本 tick 新增观测：质量/量测内容必须一致
+			var new_ob_o: Array = _obs_sigs(
+				(original.sensor_service.observations as Array).slice(ob_n0))
+			var new_ob_r: Array = _obs_sigs(
+				(restored.sensor_service.observations as Array).slice(ob_m0))
+			if JSON.stringify(new_ob_o) != JSON.stringify(new_ob_r):
+				bad.append({"tick": i, "area": "sensor.observations.new",
+					"original": new_ob_o.size(), "restored": new_ob_r.size(),
+					"first": _first_diff(new_ob_o, new_ob_r)})
 		if original.comms != null and restored.comms != null:
 			if int(original.comms.pending.size()) != int(restored.comms.pending.size()):
 				bad.append({"tick": i, "area": "comms.pending"})
-			var last_o: Dictionary = original.comms.last_event() \
-				if original.comms.has_method("last_event") else {}
-			var last_r: Dictionary = restored.comms.last_event() \
-				if restored.comms.has_method("last_event") else {}
-			if String(last_o.get("kind", "")) != String(last_r.get("kind", "")):
-				bad.append({"tick": i, "area": "comms.last_event.kind",
-					"original": String(last_o.get("kind", "")),
-					"restored": String(last_r.get("kind", ""))})
+			# 本 tick 新增通信事件（投递/丢失/拒绝）：正文与去向必须一致
+			var new_ce_o: Array = _comms_event_sigs(
+				(original.comms.events as Array).slice(ce_n0))
+			var new_ce_r: Array = _comms_event_sigs(
+				(restored.comms.events as Array).slice(ce_m0))
+			if JSON.stringify(new_ce_o) != JSON.stringify(new_ce_r):
+				bad.append({"tick": i, "area": "comms.events.new",
+					"original": new_ce_o.size(), "restored": new_ce_r.size(),
+					"first": _first_diff(new_ce_o, new_ce_r)})
 	return bad
 
 
@@ -697,6 +729,17 @@ func _canon(v):
 	if v is int or v is float:
 		return "n:%s" % str(float(v))
 	return v
+
+
+## R7/G3：两串签名的首个差异位置（便于定位漏检点）。
+func _first_diff(a: Array, b: Array) -> String:
+	var n := mini((a as Array).size(), (b as Array).size())
+	for i in range(n):
+		if String((a as Array)[i]) != String((b as Array)[i]):
+			return "idx=%d A=%s B=%s" % [i,
+				String((a as Array)[i]).substr(0, 80),
+				String((b as Array)[i]).substr(0, 80)]
+	return "len %d vs %d" % [(a as Array).size(), (b as Array).size()]
 
 
 ## G3：事件内容签名（type/source/target/text_key/payload），用于比较有意义内容。

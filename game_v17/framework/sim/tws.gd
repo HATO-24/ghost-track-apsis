@@ -567,7 +567,24 @@ func import_state(st: Dictionary) -> Dictionary:
 # ── R6/G2：只校验不改状态（供 authority 两阶段原子导入）──
 const STATE_VERSION := 1
 const SAFE_INT_MAX := 9007199254740991.0
-const CHANNEL_REQUIRED_FIELDS := ["target_id", "state", "quality", "last_update_t"]
+# R7/G2：按 FSM 实际消费的完整字段集（名称 → 期望类型）
+const CHANNEL_FIELD_SPEC := {
+	"target_id": "str", "state": "str", "state_since_t": "num", "slot": "int",
+	"quality": "num", "age_s": "num", "pd": "num", "hits": "int",
+	"consecutive_hits": "int", "misses": "int", "update_count": "int",
+	"update_rate_hz": "num", "last_update_t": "num", "last_miss_t": "num",
+	"range_km": "num", "bearing_deg": "num", "elevation_deg": "num",
+	"range_sigma_km": "num", "bearing_sigma_deg": "num",
+	"stable_track": "bool", "in_sphere": "bool", "effective_radius_km": "num",
+	"scan_index": "int", "stare_s": "num", "stare_required_s": "num",
+	"stare_progress": "num", "fire_control": "dict", "lost_lock_count": "int",
+	"exposure": "dict", "history": "array",
+}
+# 各状态额外必需的字段（FSM 分支实际读取）
+const CHANNEL_STATE_EXTRA := {
+	STATE_STARE: ["stare_s", "stare_required_s", "stare_progress"],
+	STATE_FIRE_CONTROL: ["fire_control"],
+}
 const KNOWN_STATES := [STATE_SEARCH, STATE_DETECT, STATE_ACQUIRE, STATE_TRACK,
 	STATE_STARE, STATE_FIRE_CONTROL]
 
@@ -595,22 +612,69 @@ func validate_state(st: Dictionary) -> Dictionary:
 			if not (ch is Dictionary):
 				errs.append("tws.channels[%s] must be an object" % String(tid))
 				continue
-			for rf in CHANNEL_REQUIRED_FIELDS:
+			# R7/G2：按 FSM 实际消费的**完整**字段集校验类型/范围/关联，
+			# 不只查上次缺席的那几个字段（STARE 态缺 stare_s 会在 step 里 SCRIPT ERROR）。
+			var missing: Array = []
+			for rf in CHANNEL_FIELD_SPEC.keys():
 				if not (ch as Dictionary).has(rf):
-					errs.append("tws.channels[%s] missing required field %s" % [
-						String(tid), rf])
+					missing.append(rf)
+			if not missing.is_empty():
+				errs.append("tws.channels[%s] missing required fields %s" % [
+					String(tid), str(missing)])
 			if String((ch as Dictionary).get("target_id", "")) != String(tid):
 				errs.append("tws.channels[%s] target_id mismatch" % String(tid))
 			var cstate := String((ch as Dictionary).get("state", ""))
 			if not (cstate in KNOWN_STATES):
 				errs.append("tws.channels[%s] unknown state: %s" % [
 					String(tid), cstate])
-			var lut = (ch as Dictionary).get("last_update_t", null)
-			if not _is_finite_num(lut):
-				errs.append("tws.channels[%s].last_update_t must be finite" % String(tid))
+			var st_spec: Array = CHANNEL_STATE_EXTRA.get(cstate, [])
+			if not (st_spec as Array).is_empty():
+				var miss2: Array = []
+				for sf in (st_spec as Array):
+					if not (ch as Dictionary).has(sf):
+						miss2.append(sf)
+				if not miss2.is_empty():
+					errs.append("tws.channels[%s] state %s requires %s" % [
+						String(tid), cstate, str(miss2)])
+			for perf in CHANNEL_FIELD_SPEC.keys():
+				var val = (ch as Dictionary).get(perf, null)
+				if val == null:
+					continue
+				var kind_name := String(CHANNEL_FIELD_SPEC[perf])
+				if kind_name == "num":
+					if not _is_finite_num(val):
+						errs.append("tws.channels[%s].%s must be finite number" % [
+							String(tid), perf])
+				elif kind_name == "int":
+					if not _is_exact_int(val) or float(val) < 0.0 \
+							or float(val) > SAFE_INT_MAX:
+						errs.append("tws.channels[%s].%s must be safe non-negative int" % [
+							String(tid), perf])
+				elif kind_name == "bool":
+					if not (val is bool):
+						errs.append("tws.channels[%s].%s must be bool" % [
+							String(tid), perf])
+				elif kind_name == "dict":
+					if not (val is Dictionary):
+						errs.append("tws.channels[%s].%s must be object" % [
+							String(tid), perf])
+				elif kind_name == "array":
+					if not (val is Array):
+						errs.append("tws.channels[%s].%s must be array" % [
+							String(tid), perf])
+				elif kind_name == "str":
+					if not (val is String):
+						errs.append("tws.channels[%s].%s must be string" % [
+							String(tid), perf])
 			var q = (ch as Dictionary).get("quality", null)
-			if not _is_finite_num(q) or float(q) < 0.0 or float(q) > 1.0:
-				errs.append("tws.channels[%s].quality must be finite in [0,1]" % String(tid))
+			if _is_finite_num(q) and (float(q) < 0.0 or float(q) > 1.0):
+				errs.append("tws.channels[%s].quality must be in [0,1]" % String(tid))
+			var sp = (ch as Dictionary).get("stare_progress", null)
+			if _is_finite_num(sp) and (float(sp) < 0.0 or float(sp) > 1.0):
+				errs.append("tws.channels[%s].stare_progress must be in [0,1]" % String(tid))
+			var sr = (ch as Dictionary).get("stare_required_s", null)
+			if _is_finite_num(sr) and float(sr) < 0.0:
+				errs.append("tws.channels[%s].stare_required_s must be >= 0" % String(tid))
 	# 新格式必须带完整 radar 子状态（不允许静默拼接 TWS t=200 / Radar t=0）
 	var raw_radar = st.get("radar", null)
 	if raw_radar == null:
