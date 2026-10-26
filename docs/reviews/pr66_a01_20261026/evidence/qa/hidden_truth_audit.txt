@@ -1,0 +1,11 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+JC-A01 AUTHORITY/INTEL PROBE · 指挥权限 + 分方情报隔离
+════════════════════════════════════════════════════════════════
+HIDDEN_TRUTH_AUDIT {"actual_truth_unchanged":true,"candidate":"1d1e8399da438b77b74acee40d753711c8d2a8f9","hook":{"entity_id":"enemy_ship","intel_notified":false,"moved_surfaces":1,"new_id":"RENAMED_HIDDEN","ok":true},"physics_after":{"attitude":[1.0,0.0,0.0,0.0],"energy_km2_s2":-1.54738887839925,"frame":"bary_rot","id":"enemy_ship","jacobi":2.95627379597276,"mass_kg":1000.0,"r":[321719.0,800.0,0.0],"schema":"physics_entity_state.v1","speed_kmps":0.5,"t":0.0,"units":{"angle":"deg","attitude":"quaternion_wxyz","length":"km","mass":"kg","time":"s","velocity":"km/s"},"v":[0.0,0.5,0.0],"writes":{"track_table":false,"ui":false,"v15":false,"world":false}},"physics_before":{"attitude":[1.0,0.0,0.0,0.0],"energy_km2_s2":-1.54738887839925,"frame":"bary_rot","id":"enemy_ship","jacobi":2.95627379597276,"mass_kg":1000.0,"r":[321719.0,800.0,0.0],"schema":"physics_entity_state.v1","speed_kmps":0.5,"t":0.0,"units":{"angle":"deg","attitude":"quaternion_wxyz","length":"km","mass":"kg","time":"s","velocity":"km/s"},"v":[0.0,0.5,0.0],"writes":{"track_table":false,"ui":false,"v15":false,"world":false}},"physics_has_set_position":false,"session_ready":true,"world_after":{"alive":true,"flags":{},"id":"enemy_ship","kind":"ship","name":"enemy_ship","pos_km":[321719.0,800.0,0.0],"vel_kmps":[0.0,0.5,0.0],"version":1},"world_before":{"alive":true,"flags":{},"id":"enemy_ship","kind":"ship","name":"enemy_ship","pos_km":[321719.0,800.0,0.0],"vel_kmps":[0.0,0.5,0.0],"version":1}}
+AUDIO OK files=36 headless=true muted=false
+WARNING: 50 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 20 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

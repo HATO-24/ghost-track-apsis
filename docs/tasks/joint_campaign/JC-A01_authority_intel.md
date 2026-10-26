@@ -2,7 +2,22 @@
 
 执行Issue：[JC-A01 #58](https://github.com/HATO-24/ghost-track-apsis/issues/58)。
 
-状态：READY，G0/K0已冻结；交付A1。
+状态：RETURNED，PR #66首轮复核未通过；继续JC-A01，A1未冻结。
+
+## 2026-10-26 PR #66首轮复核：继续原卡返修
+
+候选 `1d1e8399da438b77b74acee40d753711c8d2a8f9`；独立8专项通过，但真实入口负例未通过，**A1不冻结，PR66暂缓合并**。[复核、最小反例与证据](../../reviews/pr66_a01_20261026/review.md)。保留已修未知/敌/盟shooter拒绝、合法本舰真发射、有效文件往返。
+
+原卡内仅六组闭环：
+
+1. **R1 授权**：实际校验请求actor/controller/fleet→shooter；legacy不能抹去显式非法context；没有真正独立运行态的其他本方舰必须unavailable，不能凭bool借旗舰账本。
+2. **R2 Context**：规范化actor/controller/fleet/shooter进入操作/事件/审计与重放，含模拟时刻和兼容来源。
+3. **R3 实际情报消费**：每owner融合/衰减/selected与HUD/list/plot/玩家导出统一；空情报不回退PhysicsWorld/snapshot全量真值，盟军未共享观测不进玩家全局表。
+4. **R4 共享到达**：合法来源/授权/接收域、真实到达、observed/received/delay和去重；至少一个基本共享走实际投递链。EW/完整AI协议留后续，基本到达门属于本卡。
+5. **R5 恢复**：旧全局航迹只迁可信本舰owner；存在但畸形的新段拒绝，不能静默当legacy；公开authority恢复模式；新旧文件对照。
+6. **R6 验收**：隐藏真值须先证明确实变更，再测真实HUD；有效有限库存射击＋拒绝零副作用；三个owner、真实文件/在途共享恢复后继续10tick。现有生产测试钩子实际没改真值，不能据它宣布不泄漏。
+
+不新增AI/EW/B1b范围、不重做已通过修复；根本生产代码继续由DeepSeek实现。先保存上述红证据，再最小修复、证据/报告分提交，最终同一40位SHA按原C回归核对。下方R8解锁记录为历史；G0/K0仍已完成，#59–#62按原依赖等待。
 
 ## 2026-10-26 R8独立复核更新
 
