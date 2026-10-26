@@ -1,0 +1,23 @@
+[
+  {
+    "mutation": "unknown_catalog",
+    "exit_code": 1,
+    "result": "JC-B03P SCENARIO SPEC PROBE RESULT: PASS=189 FAIL=1",
+    "failed": "[B03P] FAILED: 舰池舰级存在: NO_SUCH_CATALOG_CLASS",
+    "log": "C:\\Users\\ASUS\\.codex\\worktrees\\jc-r6-validation\\GHOST TRACK_APSIS\\.test-results\\r6-p0-audit\\unknown_catalog.log"
+  },
+  {
+    "mutation": "over_capacity",
+    "exit_code": 1,
+    "result": "JC-B03P SCENARIO SPEC PROBE RESULT: PASS=189 FAIL=1",
+    "failed": "[B03P] FAILED: 编制不超指挥容量（容量实际生效）  ([{ \"formation\": \"FORM-SENSOR\", \"ships\": 3, \"cap\": 2 }, { \"formation\": \"FORM-STRIKE\", \"ships\": 3, \"cap\": 2 }])",
+    "log": "C:\\Users\\ASUS\\.codex\\worktrees\\jc-r6-validation\\GHOST TRACK_APSIS\\.test-results\\r6-p0-audit\\over_capacity.log"
+  },
+  {
+    "mutation": "unsupported_victory",
+    "exit_code": 1,
+    "result": "JC-B03P SCENARIO SPEC PROBE RESULT: PASS=189 FAIL=1",
+    "failed": "[B03P] FAILED: 轨迹 TR-FULL-VICTORY 与终态规则自洽  (actual=victory expected=defeat)",
+    "log": "C:\\Users\\ASUS\\.codex\\worktrees\\jc-r6-validation\\GHOST TRACK_APSIS\\.test-results\\r6-p0-audit\\unsupported_victory.log"
+  }
+]

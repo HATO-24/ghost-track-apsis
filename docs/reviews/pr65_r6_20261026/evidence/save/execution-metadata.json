@@ -1,0 +1,32 @@
+[
+  {
+    "actual_head": "5d7208b82ebae81da874e059c2d88286317c6483",
+    "name": "original_eight_audit",
+    "engine": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+    "arguments": [
+      "--headless",
+      "--path",
+      "game_v17",
+      "--script",
+      "C:\\Users\\ASUS\\.codex\\worktrees\\jc-r6-validation\\GHOST TRACK_APSIS\\.test-results\\r6-save-audit\\original_eight_audit.gd"
+    ],
+    "script": "C:\\Users\\ASUS\\.codex\\worktrees\\jc-r6-validation\\GHOST TRACK_APSIS\\.test-results\\r6-save-audit\\original_eight_audit.gd",
+    "log": "C:\\Users\\ASUS\\.codex\\worktrees\\jc-r6-validation\\GHOST TRACK_APSIS\\.test-results\\r6-save-audit\\original_eight_audit.log",
+    "engine_exit": 0
+  },
+  {
+    "actual_head": "5d7208b82ebae81da874e059c2d88286317c6483",
+    "name": "stare_channel_audit",
+    "engine": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+    "arguments": [
+      "--headless",
+      "--path",
+      "game_v17",
+      "--script",
+      "C:\\Users\\ASUS\\.codex\\worktrees\\jc-r6-validation\\GHOST TRACK_APSIS\\.test-results\\r6-save-audit\\stare_channel_audit.gd"
+    ],
+    "script": "C:\\Users\\ASUS\\.codex\\worktrees\\jc-r6-validation\\GHOST TRACK_APSIS\\.test-results\\r6-save-audit\\stare_channel_audit.gd",
+    "log": "C:\\Users\\ASUS\\.codex\\worktrees\\jc-r6-validation\\GHOST TRACK_APSIS\\.test-results\\r6-save-audit\\stare_channel_audit.log",
+    "engine_exit": 1
+  }
+]

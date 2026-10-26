@@ -1,0 +1,295 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE2A PROBE · TimeService / EventBus / WorldState
+════════════════════════════════════════════════════════════
+
+── 1 TimeService 基础 ──
+[PASS] time ready  []
+[PASS] time 无 errors  actual=0 expected=0
+[PASS] 初始 t=0  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] 默认 epoch=760.8  actual=760.800000 expected=760.800000 tol=0.000000
+[PASS] 默认 scale=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] 默认不暂停  actual=false expected=false
+[PASS] mode running  actual=running expected=running
+[PASS] 初始不变量 ok
+[PASS] tick_count=0  actual=0 expected=0
+[PASS] tick(1) ok  actual=true expected=true
+[PASS] t=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] scaled dt=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] t=3.5  actual=3.500000 expected=3.500000 tol=0.000000
+[PASS] t 单调
+[PASS] tick_count=2  actual=2 expected=2
+[PASS] last_dt=2.5  actual=2.500000 expected=2.500000 tol=0.000000
+[PASS] epoch_abs=epoch+t  actual=764.300000 expected=764.300000 tol=0.000000
+[PASS] now_days  actual=0.000041 expected=0.000041 tol=0.000000
+[PASS] 负 dt 拒绝  actual=false expected=false
+[PASS] 负 dt 不改变 t  actual=3.500000 expected=3.500000 tol=0.000000
+[PASS] 负 dt 记录 contract error
+[PASS] NaN dt 拒绝  actual=false expected=false
+[PASS] tick(0) ok  actual=true expected=true
+[PASS] tick(0) 不改变 t  actual=3.500000 expected=3.500000 tol=0.000000
+[PASS] 推进后不变量 ok
+[PASS] event_time schema  actual=v17.time_service.v1 expected=v17.time_service.v1
+[PASS] event_time t_s  actual=3.500000 expected=3.500000 tol=0.000000
+[PASS] event_time epoch_abs
+
+── 2 TimeService 控制 ──
+[PASS] pause  actual=true expected=true
+[PASS] mode paused  actual=paused expected=paused
+[PASS] 暂停 tick ok  actual=true expected=true
+[PASS] 暂停不推进  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] 暂停 scaled dt=0  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] resume 后推进  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] set_scale(2) ok  actual=true expected=true
+[PASS] scale=2 推进 2s  actual=3.000000 expected=3.000000 tol=0.000000
+[PASS] 负 scale 拒绝  actual=false expected=false
+[PASS] 负 scale 不生效  actual=2.000000 expected=2.000000 tol=0.000000
+[PASS] max_dt 裁剪到 5s  actual=5.000000 expected=5.000000 tol=0.000000
+[PASS] max_dt 裁剪记录 warning
+[PASS] docked 时 docked_s 推进  actual=3.000000 expected=3.000000 tol=0.000000
+[PASS] 非 docked 不推进 docked_s  actual=3.000000 expected=3.000000 tol=0.000000
+[PASS] docked_s <= t_s
+[PASS] 非法 scale setup 失败  actual=false expected=false
+[PASS] 非法 setup 记录 errors
+
+── 3 TimeService 窗口/seek ──
+[PASS] set_window(5)  actual=true expected=true
+[PASS] window active  actual=true expected=true
+[PASS] window left=3  actual=3.000000 expected=3.000000 tol=0.000000
+[PASS] snapshot window active  actual=true expected=true
+[PASS] 窗口过期后 active=false  actual=false expected=false
+[PASS] window expired=true  actual=true expected=true
+[PASS] window left=0  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] 负窗口拒绝  actual=false expected=false
+[PASS] clear_window  actual=false expected=false
+[PASS] seek 向前 ok  actual=true expected=true
+[PASS] seek t=10  actual=10.000000 expected=10.000000 tol=0.000000
+[PASS] seek 回退拒绝  actual=false expected=false
+[PASS] 回退不改变 t  actual=10.000000 expected=10.000000 tol=0.000000
+[PASS] seek 负值拒绝  actual=false expected=false
+[PASS] seek 后不变量 ok
+[PASS] time snapshot JSON  len=977
+[PASS] time snapshot 回读
+[PASS] reset t=0  actual=0.000000 expected=0.000000 tol=0.000000
+
+── 4 EventBus 发布 ──
+[PASS] bus ready
+[PASS] 初始 seq=0  actual=0 expected=0
+[PASS] 初始 count=0  actual=0 expected=0
+[PASS] publish 合法 ok  actual=true expected=true · []
+[PASS] seq=1  actual=1 expected=1
+[PASS] count=1  actual=1 expected=1
+[PASS] event schema  actual=v17.event.v1 expected=v17.event.v1
+[PASS] event id 自动生成
+[PASS] event seq=1  actual=1 expected=1
+[PASS] event type  actual=entity.spawn expected=entity.spawn
+[PASS] event payload
+[PASS] 显式 id publish ok  actual=true expected=true
+[PASS] 显式 id  actual=custom-evt-1 expected=custom-evt-1
+[PASS] seq=2  actual=2 expected=2
+[PASS] last_event seq=2  actual=2 expected=2
+[PASS] event_by_id
+[PASS] event_by_id 未知
+[PASS] 缺 type 拒绝  actual=false expected=false
+[PASS] 缺 source 拒绝  actual=false expected=false
+[PASS] NaN t 拒绝  actual=false expected=false
+[PASS] 负 t 拒绝  actual=false expected=false
+[PASS] payload 非对象拒绝  actual=false expected=false
+[PASS] target 非字符串拒绝  actual=false expected=false
+[PASS] 重复 event id 拒绝  actual=false expected=false
+[PASS] 非法发布不增加 count  actual=2 expected=2
+[PASS] 非法发布记录 errors
+[PASS] bus 不变量 ok
+
+── 5 EventBus 过滤/订阅 ──
+[PASS] recent 4  actual=4 expected=4
+[PASS] recent 顺序首 seq=1  actual=1 expected=1
+[PASS] recent 顺序末 seq=4  actual=4 expected=4
+[PASS] recent(2) 2 条  actual=2 expected=2
+[PASS] recent(2) 首 seq=3  actual=3 expected=3
+[PASS] type 前缀 entity 2 条  actual=2 expected=2
+[PASS] type+source 过滤  actual=1 expected=1
+[PASS] target 过滤 3 条  actual=3 expected=3
+[PASS] since_t 过滤 2 条  actual=2 expected=2
+[PASS] type_exact 1 条  actual=1 expected=1
+[PASS] subscribe entity ok  actual=true expected=true
+[PASS] subscribers=1  actual=1 expected=1
+[PASS] subscribers=2  actual=2 expected=2
+[PASS] dispatched=2  actual=2 expected=2
+[PASS] entity 订阅收到  actual=1 expected=1
+[PASS] 全订阅仅收到新事件  actual=1 expected=1
+[PASS] entity 订阅不收 order  actual=1 expected=1
+[PASS] 全订阅收到第二条  actual=2 expected=2
+[PASS] unsubscribe ok  actual=true expected=true
+[PASS] 取消后不再收到  actual=1 expected=1
+[PASS] 未知 token 取消拒绝  actual=false expected=false
+[PASS] 订阅后不变量 ok
+
+── 6 WorldState 基础 ──
+[PASS] world ready  []
+[PASS] writer=world  actual=world expected=world
+[PASS] 初始 0 实体  actual=0 expected=0
+[PASS] spawn ok  actual=true expected=true · []
+[PASS] entity_count=1  actual=1 expected=1
+[PASS] version=1  actual=1 expected=1
+[PASS] entity kind  actual=ship expected=ship
+[PASS] entity name  actual=远地点 expected=远地点
+[PASS] entity flags  actual=true expected=true
+[PASS] entity version=1  actual=1 expected=1
+[PASS] event_ref 1  actual=1 expected=1
+[PASS] has_entity
+[PASS] has_entity 未知 false
+[PASS] entity 未知空
+[PASS] move ok  actual=true expected=true
+[PASS] move pos 更新  actual=10 expected=10.0
+[PASS] move vel 更新  actual=0.3 expected=0.3
+[PASS] entity version=2  actual=2 expected=2
+[PASS] world version=2  actual=2 expected=2
+[PASS] flag ok  actual=true expected=true
+[PASS] flag 值  actual=true expected=true
+[PASS] rename ok  actual=true expected=true
+[PASS] rename 值  actual=旗舰 expected=旗舰
+[PASS] note ok  actual=true expected=true
+[PASS] snapshot schema  actual=v17.world_state.v1 expected=v17.world_state.v1
+[PASS] snapshot entity_count  actual=1 expected=1
+[PASS] snapshot entities 1  actual=1 expected=1
+[PASS] snapshot 深拷贝只读  actual=旗舰 expected=旗舰
+[PASS] snapshot 不变量 ok
+[PASS] snapshot event_refs
+[PASS] despawn ok  actual=true expected=true
+[PASS] despawn 后 0 实体  actual=0 expected=0
+[PASS] world 不变量 ok
+
+── 7 WorldState 单写者 ──
+[PASS] writer 冲突拒绝  actual=false expected=false
+[PASS] 冲突 reason  actual=writer_conflict expected=writer_conflict
+[PASS] 相同 writer 认领 ok  actual=true expected=true
+[PASS] 无 writer setup ready  actual=true expected=true
+[PASS] 未认领 writer 拒绝  actual=false expected=false
+[PASS] no_writer reason  actual=no_writer expected=no_writer
+[PASS] claim w1  actual=true expected=true
+[PASS] 第二写者拒绝  actual=false expected=false
+[PASS] 错误 token 拒绝  actual=false expected=false
+[PASS] writer_mismatch reason  actual=writer_mismatch expected=writer_mismatch
+[PASS] 正确 token 写入 ok  actual=true expected=true
+[PASS] 错误 token release 拒绝  actual=false expected=false
+[PASS] release w1  actual=true expected=true
+[PASS] release 后认领 w2  actual=true expected=true
+
+── 8 WorldState 拒绝 ──
+[PASS] 重复 spawn 拒绝  actual=false expected=false
+[PASS] duplicate reason  actual=duplicate_entity expected=duplicate_entity
+[PASS] move 未知实体拒绝  actual=false expected=false
+[PASS] 非法实体 id 拒绝  actual=false expected=false
+[PASS] NaN 位置拒绝  actual=false expected=false
+[PASS] 非法 move pos 拒绝  actual=false expected=false
+[PASS] 非白名单事件拒绝  actual=false expected=false
+[PASS] 非法事件 reason  actual=invalid_event expected=invalid_event
+[PASS] flag 空 key 拒绝  actual=false expected=false
+[PASS] rename 空名拒绝  actual=false expected=false
+[PASS] 缺 source 事件拒绝  actual=false expected=false
+[PASS] NaN t 事件拒绝  actual=false expected=false
+[PASS] 拒绝事件不增加 version  actual=1 expected=1
+[PASS] 拒绝事件不改变实体数  actual=1 expected=1
+[PASS] 拒绝记录 errors
+[PASS] 拒绝记录 contract_errors
+[PASS] 拒绝后不变量 ok
+
+── 9 跨模块 ──
+[PASS] world 时钟引用 t=10  actual=10.0 expected=10.0
+[PASS] bus 发布 spawn ok  actual=true expected=true
+[PASS] bus 发布不自动写 world  actual=0 expected=0
+[PASS] bus 事件交 world 应用 ok  actual=true expected=true · []
+[PASS] world 应用后 1 实体  actual=1 expected=1
+[PASS] world event_ref 1  actual=1 expected=1
+[PASS] event_ref type  actual=entity.spawn expected=entity.spawn
+[PASS] bus 可发布任意 type  actual=true expected=true
+[PASS] world 拒绝非白名单 bus 事件  actual=false expected=false
+[PASS] 非法事件不改变 world  actual=1 expected=1
+[PASS] 事件时间=t  actual=10.000000 expected=10.000000 tol=0.000000
+
+── 10 JSON/确定性 ──
+[PASS] time snapshot JSON  len=808
+[PASS] time snapshot 回读
+[PASS] bus snapshot JSON  len=693
+[PASS] bus snapshot 回读
+[PASS] 回读 bus count=2  actual=2 expected=2
+[PASS] world snapshot JSON  len=558
+[PASS] world snapshot 回读
+[PASS] world 同操作 snapshot 一致（确定性）
+[PASS] bus 同事件 snapshot 一致（确定性）
+[PASS] time 同输入 snapshot 一致（确定性）
+────────────────────────────────────────────────────────────
+[DATA] time_basic = t=3.500 tick_count=3 单调/拒绝负/NaN
+[DATA] time_controls = pause/scale=2/max_dt=5/docked 时间 正常
+[DATA] time_window_seek = window countdown/expire · seek 单向 · JSON
+[DATA] event_publish = 合法/显式 id/非法/重复 拒绝 · seq 单调
+[DATA] event_filters = recent/前缀/target/since/exact · 订阅/取消/顺序
+[DATA] world_basic = spawn/move/flag/rename/note/despawn · snapshot 只读
+[DATA] world_writer = 单写者 claim/冲突/错误 token 拒绝/释放
+[DATA] world_rejections = 重复/未知/非法 id/NaN/非白名单/source/t 拒绝且无副作用
+[DATA] cross = time 引用/bus 发布不写 world/world 只接受白名单事件
+[DATA] json_determinism = 三个内核 snapshot JSON 可回读 · 同输入确定性
+────────────────────────────────────────────────────────────
+V17 CORE TIME EVENT PROBE RESULT: PASS=197 FAIL=0
+V17 CORE TIME EVENT PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: TimeService: precondition: tick(dt) 要求 dt 有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] tick (res://scripts/core/time_service.gd:122)
+       [2] _test_time_basic (res://tests/core_time_event_probe.gd:118)
+       [3] _initialize (res://tests/core_time_event_probe.gd:26)
+ERROR: TimeService: precondition: tick(dt) 要求 dt 有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] tick (res://scripts/core/time_service.gd:122)
+       [2] _test_time_basic (res://tests/core_time_event_probe.gd:122)
+       [3] _initialize (res://tests/core_time_event_probe.gd:26)
+ERROR: TimeService: precondition: scale 必须有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] set_scale (res://scripts/core/time_service.gd:162)
+       [2] _test_time_controls (res://tests/core_time_event_probe.gd:152)
+       [3] _initialize (res://tests/core_time_event_probe.gd:27)
+ERROR: TimeService: precondition: window_duration_s 必须有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] set_window (res://scripts/core/time_service.gd:176)
+       [2] _test_time_window_seek (res://tests/core_time_event_probe.gd:189)
+       [3] _initialize (res://tests/core_time_event_probe.gd:28)
+ERROR: TimeService: precondition: seek 不允许回退（5.000 < 10.000）
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] seek (res://scripts/core/time_service.gd:197)
+       [2] _test_time_window_seek (res://tests/core_time_event_probe.gd:198)
+       [3] _initialize (res://tests/core_time_event_probe.gd:28)
+ERROR: TimeService: precondition: seek 目标必须有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] seek (res://scripts/core/time_service.gd:194)
+       [2] _test_time_window_seek (res://tests/core_time_event_probe.gd:201)
+       [3] _initialize (res://tests/core_time_event_probe.gd:28)
+ERROR: WorldState: precondition: writer 冲突（当前 world，请求 other）
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/world_state.gd:321)
+       [1] claim_writer (res://scripts/core/world_state.gd:69)
+       [2] _test_world_writer (res://tests/core_time_event_probe.gd:376)
+       [3] _initialize (res://tests/core_time_event_probe.gd:32)
+ERROR: WorldState: precondition: writer 冲突（当前 w1，请求 w2）
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/world_state.gd:321)
+       [1] claim_writer (res://scripts/core/world_state.gd:69)
+       [2] _test_world_writer (res://tests/core_time_event_probe.gd:389)
+       [3] _initialize (res://tests/core_time_event_probe.gd:32)
