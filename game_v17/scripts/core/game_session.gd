@@ -2775,8 +2775,9 @@ func _reconcile_standalone(before_ids: Array) -> void:
 			"text_key": String(info.get("text_key", "")),
 		}))
 		_standalone.erase(id)
-		# JC-A01：若该投递承载情报共享，则**到达后**才把它融合进接收 owner。
-		_deliver_intel_share(id, String(info.get("latency_s", "0")))
+		# JC-A01/R4：若该投递承载情报共享，则**到达后**才把它融合进接收 owner。
+		# 传 info 而非字符串时延，避免 String() 对非字符串字段的非法构造。
+		_deliver_intel_share(id, info)
 
 # ── PortService 委托（可选）─────────────────────────────────────
 
@@ -4840,6 +4841,8 @@ func save_state() -> String:
 			if (_authority_enabled and authority_intel != null) else null,
 		# JC-A01：在途共享随档保存（恢复后按到达时刻继续）
 		"pending_intel_shares": _pending_intel_shares.duplicate(true),
+		# R4：在途投递登记也必须随档，否则恢复后到达回调不会触发
+		"standalone": JSON.parse_string(JSON.stringify(_standalone)),
 	}
 	return JSON.stringify(payload)
 
@@ -5211,12 +5214,12 @@ func load_state(json_text: String) -> Dictionary:
 	var ai_state = data.get("authority_intel", null)
 	var ai_res: Dictionary = {"ok": true, "restore_mode": "legacy_own_ship_only"}
 	if _authority_enabled and authority_intel != null:
-		if data.has("authority_intel") and ai_state != null \
-				and not (ai_state is Dictionary):
-			# 畸形新段不得静默降级为旧档
+		if data.has("authority_intel") and not (ai_state is Dictionary):
+			# R5/C：字段**存在**但为 null/非对象 = 坏新段，必须明确失败；
+			# 只有字段完全缺失才是真正旧档（迁移路径）。
 			ai_res = {"ok": false, "reason": "invalid_authority_intel_section",
-				"detail": "authority_intel 必须是对象（收到 %s）" % type_string(
-					typeof(ai_state))}
+				"detail": "authority_intel 必须是对象（收到 %s）" % (
+					"null" if ai_state == null else type_string(typeof(ai_state)))}
 			replay_errors.append("authority_intel 段畸形：" + String(
 				ai_res.get("detail", "")))
 		else:
@@ -5256,6 +5259,14 @@ func load_state(json_text: String) -> Dictionary:
 			var pv = (raw_pending as Dictionary)[pk]
 			if pv is Dictionary:
 				_pending_intel_shares[String(pk)] = (pv as Dictionary).duplicate(true)
+	# R4：恢复在途投递登记，使到达回调在继续 tick 时正常触发
+	_standalone = {}
+	var raw_standalone = data.get("standalone", null)
+	if raw_standalone is Dictionary:
+		for sk in (raw_standalone as Dictionary).keys():
+			var sv = (raw_standalone as Dictionary)[sk]
+			if sv is Dictionary:
+				_standalone[String(sk)] = (sv as Dictionary).duplicate(true)
 	_sensor_restore_report = {
 		"schema": "v17.sensor_restore.v2",
 		"saved": saved_sensor is Dictionary,
@@ -5954,18 +5965,20 @@ func _drain_intel_deliveries() -> void:
 
 
 ## 处理已到达的共享：只把 delivered 的共享转成 receiver 的融合输入。
-func _deliver_intel_share(delivery_id: String, latency_raw) -> void:
+func _deliver_intel_share(delivery_id: String, info := {}) -> void:
 	if not _authority_enabled or authority_intel == null:
 		return
 	if not _pending_intel_shares.has(delivery_id):
 		return
 	var pend: Dictionary = _pending_intel_shares[delivery_id]
 	var row: Dictionary = (pend.get("row", {}) as Dictionary).duplicate(true)
+	var info_d: Dictionary = info if info is Dictionary else {}
 	var latency := 0.0
-	if latency_raw is String:
-		latency = float(latency_raw) if String(latency_raw) != "" else 0.0
-	elif latency_raw is int or latency_raw is float:
-		latency = float(latency_raw)
+	var lat_raw = info_d.get("latency_s", null)
+	if lat_raw is int or lat_raw is float:
+		latency = float(lat_raw)
+	elif lat_raw is String and String(lat_raw) != "":
+		latency = float(String(lat_raw))
 	var delivery := {"delivery_id": delivery_id,
 		"received_t": float(now_s()),
 		"now_t": float(now_s()),
@@ -5975,9 +5988,7 @@ func _deliver_intel_share(delivery_id: String, latency_raw) -> void:
 	# 延迟必须与实际到达一致（received - observed），不能用链路理论时延冒充
 	var obs_t := float(row.get("observed_t", 0.0))
 	delivery["delay_s"] = maxf(0.0, float(now_s()) - obs_t)
-	if latency_raw != null:
-		delivery["link_latency_s"] = float(latency_raw) if not (latency_raw is String) \
-			else float(latency_raw)
+	delivery["link_latency_s"] = latency
 	var rr: Dictionary = authority_intel.receive_observation(
 		String(pend.get("owner_id", "")), row, delivery)
 	_last_intel_share_result = {"delivery_id": delivery_id,

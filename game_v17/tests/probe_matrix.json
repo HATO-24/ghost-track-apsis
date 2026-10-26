@@ -794,6 +794,19 @@
       "timeout_s": 300
     },
     {
+      "id": "integration.jc_authority_intel",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "JC-A01 (#58) R6: command authority and per-owner intel. Explicit request context (actor/controller/domain/fleet) is validated before resources; invalid context is rejected with zero side effects; real per-ship runtime is injected from actual combat state (config bool cannot self-certify); normalized context goes to log/audit/replay; HUD contacts/selected/plot read only the owner-scoped intel facade (empty stays empty, no physics-truth fallback); shared observations must arrive through the real Comms chain with source-owner authorization and consistent times, then fuse only for the receiver and dedupe on redelivery; legacy saves migrate into the own-ship owner only, malformed new sections fail explicitly, and restore mode is public; the hidden-truth hook provably changes the tested truth while player view stays unchanged; real file save/load plus 10 continued ticks keep owner views consistent including in-flight shares.",
+      "script": "res://tests/jc_authority_intel_probe.gd",
+      "expected_markers": [
+        "JC-A01 AUTHORITY INTEL PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 300
+    },
+    {
       "id": "integration.jc_scenario_spec",
       "category": "integration",
       "profile": "",

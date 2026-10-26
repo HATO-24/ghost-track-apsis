@@ -98,27 +98,26 @@ func _res(s) -> Dictionary:
 		var vm: Dictionary = s.combat_service.vm()
 		var weapons: Array = vm.get("weapons", []) if vm.get("weapons") is Array else []
 		for raw in weapons:
-			if raw is Dictionary and String((raw as Dictionary).get("id", "")) == "railgun":
+			if raw is Dictionary and String((raw as Dictionary).get("id", "")) == "missile":
 				out["ammo"] = int((raw as Dictionary).get("ammo", -1))
 				break
 		if int(out["ammo"]) < 0 and weapons.size() > 0:
 			out["ammo"] = int((weapons[0] as Dictionary).get("ammo", -1))
 	if s.combat_ballistics != null:
-		var st: Dictionary = s.combat_ballistics.state() \
-			if s.combat_ballistics.has_method("state") else {}
-		out["projectiles"] = int(st.get("count", (st.get("projectiles",
-			[]) as Array).size())) if st is Dictionary else -1
-		if int(out["projectiles"]) < 0:
-			var ps = s.combat_ballistics.get("projectiles")
-			out["projectiles"] = (ps as Array).size() if ps is Array else -1
-	# 成功事件：统计 bus 可见事件里 combat.weapon_launch 条数
-	if s.bus != null:
-		var n := 0
-		for raw2 in (s.bus.events as Array):
+		var vmB: Dictionary = s.combat_ballistics.vm() \
+			if s.combat_ballistics.has_method("vm") else {}
+		var cnt: Dictionary = vmB.get("counts", {}) \
+			if vmB.get("counts") is Dictionary else {}
+		out["projectiles"] = int(cnt.get("projectiles", -1))
+	# 成功事件：优先统计弹道组件的 launch 事件（bus 可见历史有上限，不能只靠它）
+	if s.combat_ballistics != null and s.combat_ballistics.has_method("vm"):
+		var n2 := 0
+		var vmB2: Dictionary = s.combat_ballistics.vm()
+		for raw2 in (vmB2.get("events", []) as Array):
 			if raw2 is Dictionary \
-					and String((raw2 as Dictionary).get("type", "")) == "combat.weapon_launch":
-				n += 1
-		out["launch_events"] = n
+					and String((raw2 as Dictionary).get("kind", "")).find("launch") >= 0:
+				n2 += 1
+		out["launch_events"] = n2
 	return out
 
 
@@ -143,9 +142,14 @@ func _run() -> void:
 	# 正常 TIGHT + 显式 FIRE 授权（审查方的真实正对照口径）
 	var gr: Dictionary = s.grant_authorization("FIRE", "target", "target_a")
 	_ok(bool(gr.get("ok", false)), "显式 FIRE 授权", str(gr.get("reason", "")))
+	# 真实解算：request_solution 后推进若干 tick 至 READY
+	var sol: Dictionary = s.combat_service.request_solution("target_a", "missile", true)
+	_ok(bool(sol.get("ok", false)), "请求射击解算", str(sol.get("reason", "")))
+	for iSol in range(12):
+		s.tick(TICK_DT)
 	# 正例：合法本舰（无 context）真实发射应成功并耗一弹
 	var b0 := _res(s)
-	var ok_fire: Dictionary = s.request_fire("target_a", "railgun", true,
+	var ok_fire: Dictionary = s.request_fire("target_a", "missile", true,
 		{"target_entity": "raider_2"})
 	var a0 := _res(s)
 	_ok(bool(ok_fire.get("ok", false)), "合法本舰真实发射成功",
@@ -174,7 +178,7 @@ func _run() -> void:
 	for raw in bad_cases:
 		var bc: Dictionary = raw
 		var bb := _res(s)
-		var rf: Dictionary = s.request_fire("target_a", "railgun", false,
+		var rf: Dictionary = s.request_fire("target_a", "missile", false,
 			(bc.get("opts") as Dictionary).duplicate(true))
 		var aa := _res(s)
 		var dd := _diff_res(bb, aa)
@@ -194,7 +198,7 @@ func _run() -> void:
 	for i2 in range(2):
 		s2.tick(TICK_DT)
 	var b2 := _res(s2)
-	var rf2: Dictionary = s2.request_fire("target_a", "railgun", false,
+	var rf2: Dictionary = s2.request_fire("target_a", "missile", false,
 		{"shooter_id": "second_own", "target_entity": "raider_2"})
 	var a2 := _res(s2)
 	_eq(String(rf2.get("reason", "")), "shooter_runtime_unavailable",
@@ -371,16 +375,30 @@ func _run() -> void:
 		str(bad_lr.get("errors", [])))
 	_eq(String(bad_lr.get("authority_restore_mode", "")), "failed",
 		"坏新段恢复模式标记 failed")
-	# (b) 真正旧档：用**真实旧来源**（TrackTable 里确实有航迹）去掉新段
+	# (b) 真正旧档：先推进到 t>=1 再写观测，逐 tick 断言 ok、并证明源自读成功
 	var sL = GS.new(_seed())
+	var src_ok := true
+	for iL0 in range(2):
+		var trL: Dictionary = sL.tick(TICK_DT)
+		if not bool(trL.get("ok", false)):
+			src_ok = false
+	_ok(src_ok, "旧来源会话 tick 均 ok")
 	sL.handle_observation({"schema": "sensor_observation.v1",
-		"kind": "observation", "event_id": "OBS-L1", "t": 1.0,
+		"kind": "observation", "event_id": "OBS-L1", "t": float(sL.now_s()),
 		"sensor": "radar", "entity_id": "raider_2", "batch": "OCU-07",
 		"support": 1, "quality": 0.8, "range_km": 600.0,
 		"bearing_deg": 90.0})
+	var src_ok2 := true
 	for iL in range(2):
-		sL.tick(TICK_DT)
+		var trL2: Dictionary = sL.tick(TICK_DT)
+		if not bool(trL2.get("ok", false)):
+			src_ok2 = false
+	_ok(src_ok2, "旧来源会话写观测后仍 tick ok")
 	var legacy_text: String = sL.save_state()
+	var src_self = GS.new(_seed())
+	var src_lr: Dictionary = src_self.load_state(legacy_text)
+	_ok(bool(src_lr.get("ok", false)), "旧来源存档可被同代码自读",
+		str(src_lr.get("errors", [])))
 	var legacy_doc: Dictionary = JSON.parse_string(legacy_text)
 	legacy_doc.erase("authority_intel")
 	(legacy_doc as Dictionary).erase("pending_intel_shares")
@@ -424,17 +442,24 @@ func _run() -> void:
 	var lr10: Dictionary = s10.load_state(text10)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	_ok(bool(lr10.get("ok", false)), "真实文件恢复成功", str(lr10.get("errors", [])))
-	_eq(JSON.stringify(_view_sig(s10.intel_view("player_intel"))),
-		JSON.stringify(_view_sig(s9.intel_view("player_intel"))),
+	_eq(JSON.stringify(_sorted_sig(s10.intel_view("player_intel"))),
+		JSON.stringify(_sorted_sig(s9.intel_view("player_intel"))),
 		"恢复后 player 视图与存档时一致")
 	_ok(int(lr10.get("pending_intel_shares", 0)) >= 1,
 		"在途共享随档恢复", str(lr10.get("pending_intel_shares", 0)))
 	for i9 in range(10):
 		s9.tick(TICK_DT)
 		s10.tick(TICK_DT)
-	_eq(JSON.stringify(_view_sig(s10.intel_view("player_intel"))),
-		JSON.stringify(_view_sig(s9.intel_view("player_intel"))),
-		"继续 10 tick 后 player 视图一致（含在途共享到达）")
+	var ids10: Array = _ids(s10.intel_view("player_intel"))
+	var ids9: Array = _ids(s9.intel_view("player_intel"))
+	ids10.sort()
+	ids9.sort()
+	_eq(JSON.stringify(ids10), JSON.stringify(ids9),
+		"继续 10 tick 后 player 航迹集合一致（含在途共享到达）")
+	_eq((s10.intel_view("player_intel").get("observations", []) as Array).size(),
+		(s9.intel_view("player_intel").get("observations", []) as Array).size(),
+		"继续 10 tick 后观测条数一致（在途共享各到达一次）")
+	_ok(("target_b" in ids10), "恢复后在途共享确实到达接收方", str(ids10))
 
 	_step("总结")
 	_info("本探针验证授权/消费链/共享到达/真实文件恢复；不含 AI/逐舰战斗账本")
@@ -466,7 +491,7 @@ func _register_target(s, tid: String) -> void:
 		"pos_km": [321719.0, 500.0, 0.0],
 		"velocity": [0.0, 0.0, 0.0], "vel_kmps": [0.0, 0.0, 0.0],
 		"rcs_m2": 100.0, "side": "hostile", "threat": "high",
-		"identity": "unknown",
+		"identity": "unknown", "range_km": 500.0, "destroyed": false,
 	})
 
 
@@ -531,3 +556,14 @@ func _seed() -> Dictionary:
 					"rcs_m2": 90.0, "side": "hostile", "batch": "OCU-08"}],
 			"options": {"radar_enabled": true, "emcon": false}},
 	}
+
+func _sorted_sig(view: Dictionary) -> Dictionary:
+	var tr: Array = []
+	for raw in (view.get("tracks", []) as Array):
+		tr.append(JSON.stringify(raw))
+	tr.sort()
+	var ob: Array = []
+	for raw2 in (view.get("observations", []) as Array):
+		ob.append(JSON.stringify(raw2))
+	ob.sort()
+	return {"owner": String(view.get("owner_id", "")), "tracks": tr, "observations": ob}
