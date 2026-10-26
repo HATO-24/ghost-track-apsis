@@ -781,6 +781,18 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.a0_legacy_save",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "DS-A-04: legacy save migration and dedup beyond the 1000-event ring buffer. Real I3 fixtures with documented provenance; shape A (no bus section) and shape B (legacy bus.seq/events only) must merge the replay used-id set UNION the visible history ids (never a tail replacement), so an early explicit id evicted from the visible ring is still rejected on re-publish; high watermark never goes backwards; new seq continues monotonically and auto ids never collide; partial recovery and unrecoverable sensor state are labelled honestly; corrupt/unknown/illegal inputs are rejected explicitly instead of silently starting a new simulation.",
+      "script": "res://tests/a0_legacy_save_probe.gd",
+      "expected_markers": [
+        "A0-A04 LEGACY SAVE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 300
+    },    {
       "id": "integration.a0_event_continuity",
       "category": "integration",
       "profile": "",
