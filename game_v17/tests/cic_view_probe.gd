@@ -400,7 +400,9 @@ func _test_track_table_integration() -> void:
 	_eq((v.get("tracks", []) as Array).size(), 1, "CIC TT tracks 1")
 	var tr: Dictionary = (v.get("tracks", []) as Array)[0]
 	_eq(int(tr.get("level", 0)), 2, "TT 融合 L2")
-	_eq(str(tr.get("batch", "")), "2001", "TT batch")
+	# A-01 契约协调：CICView 是玩家视图，真值 batch 不得以玩家字段名暴露；仅保留内部名。
+	_ok(not tr.has("batch"), "TT 不得暴露玩家字段 batch")
+	_ok(not tr.has("batch_internal"), "TT 不得暴露真值 batch（含内部别名）")
 	_ok(tr.get("estimate_km", null) != null, "TT L2 estimate")
 	_near(float(tr.get("range_km", 0.0)), 900.0, 1.0e-6, "TT range")
 	var est: Array = tr.get("estimate_km", []) as Array

@@ -40,6 +40,13 @@ const GEOMETRY_UNIT_LENGTH := "km"
 const GEOMETRY_UNIT_VELOCITY := "km/s"
 # 采样时刻一致性容差（秒）：几何快照与传感器 step 后的 t 必须来自同一仿真时刻。
 const GEOMETRY_TIME_TOL_S := 1.0e-6
+# A-01：几何可用性等级（决定观测能否作为 LIVE 观测路由给 TrackTable）
+#   "live"        — 绑定统一 PhysicsWorld 且同刻可用；观测可当 LIVE 使用
+#   "advisory"    — 显式 legacy/static（无 physics 设计）；观测允许但必须标 ADVISORY
+#   "unavailable" — 期望 physics 但不可用（frame 不匹配/provider 未就绪等）；禁止产出观测
+const GEOMETRY_MODE_LIVE := "live"
+const GEOMETRY_MODE_ADVISORY := "advisory"
+const GEOMETRY_MODE_UNAVAILABLE := "unavailable"
 
 
 var ready := false
@@ -78,6 +85,9 @@ var _geometry_last: Dictionary = {}
 var _geometry_seq := 0
 # A0-T2 失败路径：因几何不可用而抑制观测生成的 step 计数（可审计）。
 var _geometry_suppressed_steps := 0
+# A-01：几何可用性等级；unavailable 表示「期望 physics 但不可用」→ 必须抑制观测。
+var geometry_mode := GEOMETRY_MODE_ADVISORY
+var _geometry_unavailable := false
 
 
 func _init(cfg := {}) -> void:
@@ -320,6 +330,8 @@ func bind_geometry_provider(provider) -> Dictionary:
 			"source": GEOMETRY_SOURCE_STATIC, "frame": frame})
 		return _geometry_last
 	geometry_source = GEOMETRY_SOURCE_PHYSICS
+	geometry_mode = GEOMETRY_MODE_LIVE
+	_geometry_unavailable = false
 	var res: Dictionary = _refresh_geometry(t)
 	_push_event("geometry_bind", {"ok": bool(res.get("ok", false)),
 		"source": geometry_source, "frame": frame, "bound": int(res.get("bound", 0))})
@@ -436,14 +448,17 @@ func _refresh_geometry(t_expected: float) -> Dictionary:
 	return out
 
 
-## A0-T2：当前几何是否可用于生成观测。
-## 语义：
-##   * **未绑定 provider**（纯静态几何 / 显式 mark_geometry_unavailable）→ true：
-##     保持既有静态行为（诊断会标 source=static / authoritative=false，调用方可知
-##     其非物理真值）；这不会把旧坐标伪装成 physics 真值。
-##   * **已绑定 provider**（physics 几何模式）→ 必须时间一致 + observer 绑定 +
-##     targets 全部绑定 + 无帧不匹配；任一不满足即**不可用**（不生成观测）。
+## A-01：当前几何是否可用于生成观测。
+## 语义（按 geometry_mode 区分）：
+##   * **unavailable**（期望 physics 但不可用：frame 不匹配 / provider 未就绪 / 失败）→
+##     **false**：本 tick 不生成任何观测，避免把静态演示几何当成当前真值路由给 TrackTable。
+##   * **advisory**（显式 legacy/static，无 physics 设计）→ true：允许产出，但每条观测
+##     必须带 `geometry_mode=advisory`，消费者不得把它当 LIVE。
+##   * **live**（已绑定 provider）→ 必须时间一致 + observer 绑定 + targets 全部绑定 +
+##     无帧不匹配；任一不满足即不可用（不生成观测）。
 func _geometry_usable() -> bool:
+	if _geometry_unavailable or geometry_mode == GEOMETRY_MODE_UNAVAILABLE:
+		return false
 	if _geometry_provider == null:
 		return true
 	if geometry_source != GEOMETRY_SOURCE_PHYSICS:
@@ -460,24 +475,32 @@ func _geometry_usable() -> bool:
 	return bool(last.get("ok", false))
 
 
-## A0-T2：显式把几何标记为不可用/降级（不绑定 provider），并记录原因。
-## 用于「有 physics 但坐标语义不匹配」等由上层判定的场景，确保公开诊断能给出
-## 精确 reason（例如 frame_mismatch），而不是空原因或泛化的 static。
+## A-01：显式把几何标记为降级/不可用（不绑定 provider），并记录原因。
+## severity:
+##   "advisory"    — 显式 legacy/static 模式（无 physics 设计）：允许产出，但标 ADVISORY。
+##   "unavailable" — 期望 physics 但不可用（frame 不匹配、provider 未就绪等）：
+##                   **抑制**本 tick 的观测生成。
 func mark_geometry_unavailable(reason: String, detail := {}) -> Dictionary:
+	var severity := String(detail.get("severity", "unavailable"))
+	if not (severity in [GEOMETRY_MODE_ADVISORY, GEOMETRY_MODE_UNAVAILABLE]):
+		severity = GEOMETRY_MODE_UNAVAILABLE
 	_geometry_provider = null
 	geometry_source = GEOMETRY_SOURCE_STATIC
+	geometry_mode = severity
+	_geometry_unavailable = (severity == GEOMETRY_MODE_UNAVAILABLE)
 	_geometry_last = {
 		"ok": false, "source": GEOMETRY_SOURCE_STATIC, "reason": reason,
+		"mode": geometry_mode,
 		"frame": String(detail.get("frame", "")), "t": t, "provider_t": -1.0,
 		"time_ok": false, "bound": 0, "observer_bound": false,
 		"missing": [], "skipped": [], "mismatched_frame":
 			(detail.get("mismatched_frame", []) as Array).duplicate() \
 			if detail.get("mismatched_frame") is Array else [],
-		"usable": false, "seq": _geometry_seq,
+		"usable": not _geometry_unavailable, "seq": _geometry_seq,
 	}
 	_geometry_seq += 1
 	_push_event("geometry_bind", {"ok": false, "reason": reason,
-		"source": GEOMETRY_SOURCE_STATIC})
+		"source": GEOMETRY_SOURCE_STATIC, "mode": geometry_mode})
 	return _geometry_last.duplicate(true)
 
 
@@ -513,6 +536,9 @@ func geometry_status() -> Dictionary:
 	return {
 		"schema": "sensor_geometry_status.v1",
 		"source": geometry_source,
+		"mode": geometry_mode,
+		"advisory": geometry_mode == GEOMETRY_MODE_ADVISORY,
+		"unavailable": _geometry_unavailable or geometry_mode == GEOMETRY_MODE_UNAVAILABLE,
 		"authoritative": authoritative,
 		"complete": complete,
 		"available": complete,
@@ -645,6 +671,9 @@ func _collect_observations(av: Dictionary, new_events: Array) -> void:
 			"sensor_model": model,
 			"reason": String(o.get("reason", "")),
 			"provenance": "sensor_service/authority",
+			# A-01：几何可用性等级随观测下发，消费者不得把 advisory 当 LIVE。
+			"geometry_mode": geometry_mode,
+			"geometry_advisory": geometry_mode == GEOMETRY_MODE_ADVISORY,
 			"level_decided": false,
 			"produces_contact": false,
 			"writes_v15": false,

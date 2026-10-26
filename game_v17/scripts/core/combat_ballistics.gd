@@ -99,6 +99,13 @@ var _seq_impact := 0
 var _outbox: Array = []
 var _t_cur := 0.0          # 子步内当前时刻（事件时间戳用；t 仍是 step 结束时刻）
 var _substeps_last := 0
+# A-01：静态特征与运动状态的**只读**权威引用（由 GameSession 注入；本服务不写它们）。
+#   catalog — EntityCatalog（静态特征唯一权威：rcs_m2 / radius_km / has_pd / ir_signature）
+#   physics — PhysicsWorld（运动学唯一权威：r / v）
+var catalog = null
+var physics = null
+# 最近一次「静态特征退回缺省」的诊断记录（可审计，不静默）。
+var _last_feature_fallback: Dictionary = {}
 
 
 func _init(cfg := {}) -> void:
@@ -441,14 +448,81 @@ func _make_seeker(w: Dictionary) -> Dictionary:
 		"eff_range_km": 0.0, "jam_ratio": 0.0}
 
 
+## A-01：弹道初始状态的**可追溯来源**。返回 state + 其权威来源，供整合验收逐项核对
+## source / frame / t；缺来源时明确 ok=false（不返回未标明的演示值）。
+func state_source(entity_id: String) -> Dictionary:
+	var out := {"ok": false, "entity_id": entity_id}
+	if physics == null:
+		out["reason"] = "no_physics_authority"
+		return out
+	if not physics.has_method("has_entity") or not bool(physics.has_entity(entity_id)):
+		out["reason"] = "unknown_entity"
+		return out
+	var st: Dictionary = physics.state(entity_id, "bary_rot")
+	var r = st.get("r", [])
+	var v = st.get("v", [])
+	if not (r is Array) or (r as Array).size() < 3 or not (v is Array) or (v as Array).size() < 3:
+		out["reason"] = "invalid_state"
+		return out
+	out["ok"] = true
+	out["source"] = "physics_world"
+	out["frame"] = String(st.get("frame", "bary_rot"))
+	out["t"] = float(st.get("t", -1.0))
+	out["r"] = (r as Array).duplicate()
+	out["v"] = (v as Array).duplicate()
+	out["catalog_source"] = ("entity_catalog" if catalog != null else "")
+	if catalog != null and catalog.has_method("get_entity"):
+		var crow: Dictionary = catalog.get_entity(entity_id)
+		if bool(crow.get("found", false)):
+			out["rcs_m2"] = float(crow.get("rcs_m2", 0.0))
+			out["radius_km"] = float(crow.get("radius_km", 0.0))
+			out["has_pd"] = bool(crow.get("has_pd", false))
+			out["ir_signature"] = float(crow.get("ir_signature", 0.0))
+	return out
+
+
+## A-01：优先用 catalog 的静态特征（唯一权威）；只有 catalog 明确不认识该实体时才
+## 退回默认值，并记录 `_last_feature_fallback` 以便诊断（不静默兜底）。
+func feature_from_catalog(entity_id: String, field: String) -> Dictionary:
+	if catalog != null and catalog.has_method("get_entity"):
+		var crow: Dictionary = catalog.get_entity(entity_id)
+		if bool(crow.get("found", false)) and crow.has(field):
+			return {"ok": true, "source": "entity_catalog", "value": crow.get(field)}
+	return {"ok": false, "source": "unknown", "reason": "not_in_catalog"}
+
+
+## A-01：RCS 优先取 catalog 权威（按稳定 entity_id）；调用方已给出合法值时尊重之；
+## 只有当 catalog 不认识该实体且调用方未给值时，才退回缺省并记录 fallback（不静默）。
 func _target_rcs(ts: Dictionary) -> float:
 	var rcs := float(ts.get("rcs_m2", 0.0))
-	return rcs if rcs > 0.0 else RCS_DEFAULT_M2
+	if rcs > 0.0:
+		return rcs
+	var eid := String(ts.get("entity_id", ts.get("id", "")))
+	if eid != "":
+		var feat: Dictionary = feature_from_catalog(eid, "rcs_m2")
+		if bool(feat.get("ok", false)):
+			var cv := float(feat.get("value", 0.0))
+			if cv > 0.0:
+				return cv
+	_last_feature_fallback = {"field": "rcs_m2", "entity_id": eid,
+		"value": RCS_DEFAULT_M2, "reason": "not_in_catalog_or_unset"}
+	return RCS_DEFAULT_M2
 
 
 func _target_ir(ts: Dictionary) -> float:
 	var ir := float(ts.get("ir_signature", 0.0))
-	return ir if ir > 0.0 else IR_DEFAULT
+	if ir > 0.0:
+		return ir
+	var eid := String(ts.get("entity_id", ts.get("id", "")))
+	if eid != "":
+		var feat: Dictionary = feature_from_catalog(eid, "ir_signature")
+		if bool(feat.get("ok", false)):
+			var cv := float(feat.get("value", 0.0))
+			if cv > 0.0:
+				return cv
+	_last_feature_fallback = {"field": "ir_signature", "entity_id": eid,
+		"value": IR_DEFAULT, "reason": "not_in_catalog_or_unset"}
+	return IR_DEFAULT
 
 
 func _eff_range_km(sk: Dictionary, rcs_m2: float, ir_sig: float, jam_ratio: float) -> float:

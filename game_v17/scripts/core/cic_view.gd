@@ -192,7 +192,7 @@ func build() -> Dictionary:
 			and float(bearing) >= 0.0
 		var has_range := (range is int or range is float) and is_finite(float(range)) \
 			and float(range) > 0.0
-		var row := {"id": tid, "batch": str(tr.get("batch", "")),
+		var row := {"id": tid,
 			"entity_id": entity_id, "facility_id": facility_id, "known": known,
 			"level": level, "level_name": str(LEVEL_NAMES.get(level, "L%d" % level)),
 			"level_label": str(LEVEL_LABELS.get(level, "")),

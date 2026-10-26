@@ -781,6 +781,18 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.a0_integration_authority",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "DS-A-01: same-commit integration acceptance of the P17/P19/P20 chain. No-noise scalar geometry (provider vs independent double math), observer AND target moved separately via the authorized physics API, uncertainty observation kept as measurement (not pulled to truth), production error params traced from the real radar/optical/IR backend records, per-consumer source/frame/t table, failure/degradation reasons with advisory-vs-unavailable geometry labelling (invalid geometry must stop routing), and player-visibility checks.",
+      "script": "res://tests/a0_integration_authority_probe.gd",
+      "expected_markers": [
+        "A0-A01 INTEGRATION AUTHORITY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },    {
       "id": "integration.a0_track_truth_authority",
       "category": "integration",
       "profile": "",
