@@ -366,7 +366,7 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 
 ## 7. 当前真实矩阵状态（本 session 实际执行）
 
-### 7.0 当前整合交付 I4 实际结果 —— 82 cases（DS-A-04）
+### 7.0 当前整合交付 I5 实际结果 —— 83 cases（DS-A-05）
 
 > 本节是 **DS-A-00 整合候选 I0**（`phase-a/ds-a-00-candidate`，head `b9101c8`）的真实执行结果：
 > S0 `4b0b102` + merge P20 `7a4f325`（已含 P17 `5bb763d` + P19 `8c1483a`）+ merge T22 `8bf7517`，
@@ -374,11 +374,11 @@ Godot 4.7.2 即可；`run_tests.ps1` 不依赖 Windows 专有 API（进程/环�
 >
 > **§7A.1–§7A.3 是 Phase 0 时期的历史记录（72 cases），不是本次运行结果**，两者不可混用。
 
-- 矩阵规模（当前仓库）：**82 cases = 77 个常规 probe + 1 个 e2e probe + 4 个 boot smoke**
+- 矩阵规模（当前仓库）：**83 cases = 78 个常规 probe + 1 个 e2e probe + 4 个 boot smoke**
   （仓库当前共 **74 个 tracked `game_v17/tests/*_probe.gd`**：73 常规 + 1 e2e。
   P17/P19/P20/T22 的探针已去重合并，无重复 case）
 - 命令：`pwsh ./run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json -BaselineExtra game_v17/tests/phasea_baseline_failures.json -ResultsDir .test-results/phase-a/cards/DS-A-00/full`
-- **totals：total=82，PASS=74，FAIL=8，TIMEOUT=0，NOT RUN=0**
+- **totals：total=83，PASS=75，FAIL=8，TIMEOUT=0，NOT RUN=0**
   - Phase 0 legacy baseline：`known_fail=7 new_fail=0 drift=0 unverified=0 unselected=0 complete=true`（`unit.save_probe` 已真实转绿移除）
   - Phase A baseline：`known_fail=1 new_fail=0 drift=0 unverified=0 unselected=0 complete=true`
 - **10 个 FAIL = 8 个 Phase 0 历史失败 + 2 个 Phase A 尚未修复缺陷**，逐条可见

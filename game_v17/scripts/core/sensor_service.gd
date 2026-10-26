@@ -303,7 +303,7 @@ func set_emcon(on: bool) -> Dictionary:
 ##   provider.geometry_state(entity_id) -> {ok, frame, t, r:[x,y,z] km, v:[x,y,z] km/s}
 ## 绑定成功后，`step()` 在每次推进前用**当前时刻**的 physics 位置/速度刷新
 ## observer 与 targets 的几何字段；静态元数据（rcs/side/iff/classification…）保持不变。
-func bind_geometry_provider(provider) -> Dictionary:
+func bind_geometry_provider(provider, quiet := false) -> Dictionary:
 	_geometry_provider = provider
 	geometry_source = GEOMETRY_SOURCE_STATIC
 	_geometry_last = {}
@@ -318,23 +318,26 @@ func bind_geometry_provider(provider) -> Dictionary:
 		_geometry_last = {"ok": false, "source": GEOMETRY_SOURCE_STATIC,
 			"reason": "provider_not_ready", "frame": frame, "t": t, "bound": 0,
 			"missing": [], "skipped": [], "mismatched_frame": []}
-		_push_event("geometry_bind", {"ok": false, "reason": "provider_not_ready",
-			"source": GEOMETRY_SOURCE_STATIC})
+		if not quiet:
+			_push_event("geometry_bind", {"ok": false, "reason": "provider_not_ready",
+				"source": GEOMETRY_SOURCE_STATIC})
 		return _geometry_last
 	if frame != GEOMETRY_FRAME:
 		# 坐标系不匹配：显式退化为静态几何并记录原因，绝不把异帧坐标当物理真值。
 		_geometry_last = {"ok": false, "source": GEOMETRY_SOURCE_STATIC,
 			"reason": "frame_mismatch", "frame": frame, "t": t, "bound": 0,
 			"missing": [], "skipped": [], "mismatched_frame": [frame]}
-		_push_event("geometry_bind", {"ok": false, "reason": "frame_mismatch",
-			"source": GEOMETRY_SOURCE_STATIC, "frame": frame})
+		if not quiet:
+			_push_event("geometry_bind", {"ok": false, "reason": "frame_mismatch",
+				"source": GEOMETRY_SOURCE_STATIC, "frame": frame})
 		return _geometry_last
 	geometry_source = GEOMETRY_SOURCE_PHYSICS
 	geometry_mode = GEOMETRY_MODE_LIVE
 	_geometry_unavailable = false
 	var res: Dictionary = _refresh_geometry(t)
-	_push_event("geometry_bind", {"ok": bool(res.get("ok", false)),
-		"source": geometry_source, "frame": frame, "bound": int(res.get("bound", 0))})
+	if not quiet:
+		_push_event("geometry_bind", {"ok": bool(res.get("ok", false)),
+			"source": geometry_source, "frame": frame, "bound": int(res.get("bound", 0))})
 	return res
 
 
@@ -480,7 +483,7 @@ func _geometry_usable() -> bool:
 ##   "advisory"    — 显式 legacy/static 模式（无 physics 设计）：允许产出，但标 ADVISORY。
 ##   "unavailable" — 期望 physics 但不可用（frame 不匹配、provider 未就绪等）：
 ##                   **抑制**本 tick 的观测生成。
-func mark_geometry_unavailable(reason: String, detail := {}) -> Dictionary:
+func mark_geometry_unavailable(reason: String, detail := {}, quiet := false) -> Dictionary:
 	var severity := String(detail.get("severity", "unavailable"))
 	if not (severity in [GEOMETRY_MODE_ADVISORY, GEOMETRY_MODE_UNAVAILABLE]):
 		severity = GEOMETRY_MODE_UNAVAILABLE
@@ -499,8 +502,9 @@ func mark_geometry_unavailable(reason: String, detail := {}) -> Dictionary:
 		"usable": not _geometry_unavailable, "seq": _geometry_seq,
 	}
 	_geometry_seq += 1
-	_push_event("geometry_bind", {"ok": false, "reason": reason,
-		"source": GEOMETRY_SOURCE_STATIC, "mode": geometry_mode})
+	if not quiet:
+		_push_event("geometry_bind", {"ok": false, "reason": reason,
+			"source": GEOMETRY_SOURCE_STATIC, "mode": geometry_mode})
 	return _geometry_last.duplicate(true)
 
 
@@ -839,6 +843,150 @@ func _count_evidence(etype: String) -> int:
 			n += 1
 	return n
 
+
+# ── A-05：运行态导出/导入（持久化控制值/时钟/通道/分配器/去重；静态元数据不持久化）──
+const STATE_SCHEMA := "v17.sensor_service.state.v1"
+const STATE_VERSION := 1
+
+
+## 导出运行态。**不**包含 provider 对象 / Callable / 静态 mounts·targets（从原权威重建）。
+func export_state() -> Dictionary:
+	var dedup: Array = _optical_evidence_seen.keys()
+	dedup.sort()
+	return {
+		"schema": STATE_SCHEMA,
+		"version": STATE_VERSION,
+		"t": t,
+		"dt_last": dt_last,
+		"step_count": step_count,
+		"controls": {
+			"selected_target": selected_target,
+			"radar_enabled": radar_enabled,
+			"emcon": emcon,
+			"optical_backend": optical_backend,
+		},
+		"allocators": {
+			"obs_seq": _obs_seq, "evidence_seq": _evidence_seq, "event_seq": _event_seq,
+		},
+		"dedup": {"optical_evidence_seen": dedup},
+		# 底层后端可续跑状态（不是 UI 缓存；_last_channels 只作交叉校验）
+		"backend": _authority.export_backend_state() if _authority != null \
+			and _authority.has_method("export_backend_state") else null,
+		"channels_view": JSON.parse_string(JSON.stringify(_last_channels)),
+		# 历史数组作为**数据**持久化（读档后不重放进 TrackTable），仅用于诊断视图一致性。
+		"history": {
+			"observations": JSON.parse_string(JSON.stringify(observations)),
+			"evidence": JSON.parse_string(JSON.stringify(evidence)),
+			"events": JSON.parse_string(JSON.stringify(events)),
+		},
+	}
+
+
+## 导入运行态：先完整校验，再一次性提交；失败不改运行态（不半写）。
+func import_state(state: Dictionary) -> Dictionary:
+	if String(state.get("schema", "")) != STATE_SCHEMA:
+		return {"ok": false, "reason": "invalid_state_schema",
+			"errors": ["expected " + STATE_SCHEMA]}
+	if int(state.get("version", 0)) != STATE_VERSION:
+		return {"ok": false, "reason": "invalid_state_version",
+			"errors": ["expected version %d" % STATE_VERSION]}
+	var problems: Array = []
+	# 时钟/计数
+	var nt = state.get("t", null)
+	if not (nt is int or nt is float) or not is_finite(float(nt)) or float(nt) < 0.0:
+		problems.append("t must be finite >= 0")
+	var nsc = state.get("step_count", 0)
+	if not (nsc is int or nsc is float) or int(nsc) < 0:
+		problems.append("step_count must be a non-negative integer")
+	# 控制值
+	var ctrls = state.get("controls", null)
+	if not (ctrls is Dictionary):
+		problems.append("controls must be an object")
+	var c2: Dictionary = ctrls if ctrls is Dictionary else {}
+	if not (c2.get("radar_enabled", true) is bool):
+		problems.append("controls.radar_enabled must be bool")
+	if not (c2.get("emcon", false) is bool):
+		problems.append("controls.emcon must be bool")
+	var ob := String(c2.get("optical_backend", ""))
+	if not (ob in ["optical_ir", "legacy"]):
+		problems.append("controls.optical_backend unsupported: " + ob)
+	# 分配器（整数契约）
+	var allocs = state.get("allocators", null)
+	if not (allocs is Dictionary):
+		problems.append("allocators must be an object")
+	var a2: Dictionary = allocs if allocs is Dictionary else {}
+	for fld in ["obs_seq", "evidence_seq", "event_seq"]:
+		var v = a2.get(fld, 0)
+		if not (v is int or v is float):
+			problems.append("allocators.%s must be a number" % fld)
+		elif not is_finite(float(v)) or float(v) < 0.0 \
+				or absf(float(v) - roundf(float(v))) > 0.0:
+			problems.append("allocators.%s must be a non-negative integer" % fld)
+	if not problems.is_empty():
+		return {"ok": false, "reason": "invalid_state", "errors": problems.slice(0, 20)}
+	# 去重集合
+	var dedup_rows: Array = []
+	var dd = state.get("dedup", null)
+	if dd is Dictionary:
+		var rows = (dd as Dictionary).get("optical_evidence_seen", [])
+		if rows is Array:
+			for k in (rows as Array):
+				dedup_rows.append(String(k))
+	# 后端子状态先校验（用临时实例，避免失败时已改主状态）
+	var backend = state.get("backend", null)
+	var backend_res: Dictionary = {"ok": true, "backend": "none"}
+	if backend is Dictionary and _authority != null \
+			and _authority.has_method("import_backend_state"):
+		# 预检：schema/version 一致才提交
+		if String((backend as Dictionary).get("schema", "")) != "v17.optical_ir.state.v1":
+			return {"ok": false, "reason": "invalid_backend_state",
+				"errors": ["backend schema mismatch"]}
+		backend_res = _authority.import_backend_state(backend)
+		if not bool(backend_res.get("ok", false)):
+			return {"ok": false, "reason": "invalid_backend_state",
+				"errors": backend_res.get("errors", [])}
+	# 一次性提交（静态 mounts/targets/observer 保持 boot 重建的值）
+	t = float(nt)
+	dt_last = float(state.get("dt_last", 0.0))
+	step_count = int(nsc)
+	selected_target = String(c2.get("selected_target", ""))
+	radar_enabled = bool(c2.get("radar_enabled", true))
+	emcon = bool(c2.get("emcon", false))
+	optical_backend = ob
+	_obs_seq = int(a2.get("obs_seq", 0))
+	_evidence_seq = int(a2.get("evidence_seq", 0))
+	_event_seq = int(a2.get("event_seq", 0))
+	_optical_evidence_seen = {}
+	for k2 in dedup_rows:
+		_optical_evidence_seen[k2] = true
+	var hist = state.get("history", null)
+	if hist is Dictionary:
+		observations = (hist as Dictionary).get("observations", []) if (hist as Dictionary).get("observations", []) is Array else []
+		evidence = (hist as Dictionary).get("evidence", []) if (hist as Dictionary).get("evidence", []) is Array else []
+		events = (hist as Dictionary).get("events", []) if (hist as Dictionary).get("events", []) is Array else []
+	var view = state.get("channels_view", [])
+	_last_channels = (view as Array).duplicate(true) if view is Array else []
+	# 历史观测/证据**不**导入（不重放已恢复证据到 TrackTable）；分配器保证 ID 不重复。
+	return {"ok": true, "t": t, "radar_enabled": radar_enabled, "emcon": emcon,
+		"channels": backend_res.get("channels", _last_channels.size()),
+		"backend": backend_res.get("backend", "none"),
+		"allocators": {"obs_seq": _obs_seq, "evidence_seq": _evidence_seq,
+			"event_seq": _event_seq},
+		"dedup": _optical_evidence_seen.size()}
+
+
+## 只读诊断：运行态摘要（不写 world/track_table）。
+func runtime_state_summary() -> Dictionary:
+	return {
+		"schema": STATE_SCHEMA, "version": STATE_VERSION,
+		"t": t, "step_count": step_count,
+		"radar_enabled": radar_enabled, "emcon": emcon,
+		"selected_target": selected_target, "optical_backend": optical_backend,
+		"allocators": {"obs_seq": _obs_seq, "evidence_seq": _evidence_seq,
+			"event_seq": _event_seq},
+		"dedup_keys": _optical_evidence_seen.size(),
+		"channels": _last_channels.size(),
+	}
 
 func vm(_opts := {}) -> Dictionary:
 	return _vm_current()

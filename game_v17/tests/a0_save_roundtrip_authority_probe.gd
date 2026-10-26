@@ -568,6 +568,14 @@ func _canonical_diff(a, b, path := "") -> Array:
 		for i in range(mini(aa.size(), bb.size())):
 			out.append_array(_canonical_diff(aa[i], bb[i], path + "[%d]" % i))
 		return out
+	# A-00/A-05 值语义：JSON 数字往返后 int↔float 类型会变化（1024 → 1024.0），
+	# 这不是内容漂移。数字按**数值**比较（容差 NUM_TOL）；
+	# 「必须精确为 int」的整数分配器在专项断言里单独校验。
+	if (a is int or a is float) and (b is int or b is float):
+		if absf(float(a) - float(b)) > NUM_TOL:
+			out.append({"path": path, "reason": "numeric diff", "before": float(a),
+				"after": float(b)})
+		return out
 	if typeof(a) != typeof(b):
 		out.append({"path": path, "reason": "type %s != %s" % [
 			type_string(typeof(a)), type_string(typeof(b))],

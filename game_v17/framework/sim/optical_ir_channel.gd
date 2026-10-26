@@ -299,6 +299,70 @@ func channel(kind: String, target_id: String) -> Dictionary:
 	return raw if raw is Dictionary else {}
 
 
+# ── A-05：运行态导出/导入（底层通道状态可续跑，不靠 UI 缓存伪造）──────
+const STATE_SCHEMA := "v17.optical_ir.state.v1"
+const STATE_VERSION := 1
+
+
+## 导出：enabled + 时钟 + 每个通道的完整运行态（kind/target/status/progress/...）。
+func export_state() -> Dictionary:
+	var chans: Array = []
+	var keys: Array = channels.keys()
+	keys.sort()
+	for k in keys:
+		var raw = channels.get(k)
+		if raw is Dictionary:
+			chans.append((raw as Dictionary).duplicate(true))
+	return {
+		"schema": STATE_SCHEMA,
+		"version": STATE_VERSION,
+		"enabled": enabled,
+		"t": t,
+		"channels": JSON.parse_string(JSON.stringify(chans)),
+	}
+
+
+## 导入：先完整校验，再一次性提交；失败不改后端。
+func import_state(state: Dictionary) -> Dictionary:
+	if String(state.get("schema", "")) != STATE_SCHEMA:
+		return {"ok": false, "reason": "invalid_state_schema",
+			"errors": ["expected " + STATE_SCHEMA]}
+	if int(state.get("version", 0)) != STATE_VERSION:
+		return {"ok": false, "reason": "invalid_state_version",
+			"errors": ["expected version %d" % STATE_VERSION]}
+	var st = state.get("t", null)
+	if not (st is int or st is float) or not is_finite(float(st)) or float(st) < 0.0:
+		return {"ok": false, "reason": "invalid_clock", "errors": ["t must be finite >= 0"]}
+	var raw_chans = state.get("channels", null)
+	if not (raw_chans is Array):
+		return {"ok": false, "reason": "invalid_channels", "errors": ["channels must be array"]}
+	var new_channels: Dictionary = {}
+	var problems: Array = []
+	var idx := 0
+	for raw in (raw_chans as Array):
+		if not (raw is Dictionary):
+			problems.append("channels[%d]: not an object" % idx)
+			idx += 1
+			continue
+		var ch: Dictionary = (raw as Dictionary).duplicate(true)
+		var kind := String(ch.get("kind", ""))
+		var tid := String(ch.get("target_id", ""))
+		if kind == "":
+			problems.append("channels[%d]: missing kind" % idx)
+		if tid == "":
+			problems.append("channels[%d]: missing target_id" % idx)
+		var key := _key(kind, tid)
+		if new_channels.has(key):
+			problems.append("channels[%d]: duplicate key %s" % [idx, key])
+		new_channels[key] = ch
+		idx += 1
+	if not problems.is_empty():
+		return {"ok": false, "reason": "invalid_state", "errors": problems.slice(0, 20)}
+	enabled = bool(state.get("enabled", true))
+	t = float(st)
+	channels = new_channels
+	return {"ok": true, "channels": channels.size(), "t": t, "enabled": enabled}
+
 func _channels_of(kind: String) -> Array:
 	var out: Array = []
 	for raw in channels.values():
