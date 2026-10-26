@@ -871,9 +871,11 @@ func vm(opts := {}) -> Dictionary:
 	var query: Dictionary = o.get("filter", {}) if o.get("filter") is Dictionary else {}
 	var filtered: Array = filter(query) if not query.is_empty() else rows
 	var sel_id := String(o.get("selected_id", ""))
-	var sel: Dictionary = selected(sel_id) if sel_id != "" else {}
-	# A-01：vm() 是**玩家可见只读模型**；真值/内部字段（batch/rcs_m2/radius_km/has_pd）
-	# 只保留在内部航迹（all_tracks()/snapshot()）用于去重、合并与存档，不得泄漏到玩家视图。
+	# A-01 / R01：vm() 是**玩家可见只读模型**。真值/内部字段（batch/rcs_m2/radius_km/has_pd）
+	# 只保留在内部航迹（all_tracks()/snapshot()）用于去重、合并与存档。
+	# R01：**同一字段策略必须覆盖所有公开分支**（tracks / selected / events），
+	# 不能只投影 tracks 而让 selected 泄漏 batch。
+	var sel: Dictionary = _player_row(selected(sel_id)) if sel_id != "" else {}
 	var player_rows: Array = []
 	for raw_tr in filtered:
 		if raw_tr is Dictionary:
@@ -885,7 +887,7 @@ func vm(opts := {}) -> Dictionary:
 		"ready": ready, "t": t, "writer_id": writer_id,
 		"tracks": player_rows, "all_count": rows.size(),
 		"filter": query.duplicate(true), "selected": sel,
-		"summary": summary(), "events": events.duplicate(true),
+		"summary": summary(), "events": _player_events(events),
 		"warnings": warnings.duplicate(), "errors": errors.duplicate(),
 		"writes": {"track_table": false, "v15": false},
 		"notes": ["TrackTable 单写者：仅 writer_id 可写；UI 只读",
@@ -893,7 +895,24 @@ func vm(opts := {}) -> Dictionary:
 	}
 
 
+## R01：事件分支使用与 track/selected 相同的玩家字段策略。
+## 当前 TrackTable 事件不含 truth-only 字段（防御性投影，避免后续事件扩展时泄漏）。
+func _player_events(rows: Array) -> Array:
+	var out: Array = []
+	for raw in rows:
+		if raw is Dictionary:
+			var ev: Dictionary = (raw as Dictionary).duplicate(true)
+			for f in TRUTH_ONLY_FIELDS:
+				ev.erase(f)
+			out.append(ev)
+		else:
+			out.append(raw)
+	return out
+
+
 ## A-01：玩家视图投影 —— 去掉仅真值/内部可见的静态字段。
+## R01：本卡**不引入**本舰/公开设施例外（当前一律扣留）；若未来确需公开，
+## 必须在该行显式带 `truth_source` 字段说明公开依据，否则一律扣留。
 ## 内部航迹字典本身**不被修改**（去重/合并/存档仍需要 batch）。
 const TRUTH_ONLY_FIELDS := ["batch", "rcs_m2", "radius_km", "has_pd"]
 

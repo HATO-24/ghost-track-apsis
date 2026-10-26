@@ -398,6 +398,118 @@ func _run() -> void:
 		"legacy comms op is explicitly reported as unverified")
 	_eq(int(lrep.get("diverged", -1)), 0, "legacy unverified is not counted as divergence")
 
+
+	# ── R04：outcome 版本与完整性 ────────────────────────────────
+	# 反例：已有 outcome 但 version=999，曾被降格为 legacy_unverified 且 load 成功。
+	var r04_base = GameSessionScript.new(_fixture_seed())
+	r04_base.send_comms("apsis", "relay1", "LR", "COMMS_SENT", {}, {})
+	var r04_text: String = r04_base.save_state()
+	var r04_payload: Dictionary = JSON.parse_string(r04_text)
+	var r04_bad_ver: Dictionary = r04_payload.duplicate(true)
+	for raw_op in (r04_bad_ver.get("log", []) as Array):
+		if raw_op is Dictionary and String((raw_op as Dictionary).get("op", "")) == "send_comms":
+			var oc: Dictionary = (raw_op as Dictionary).get("outcome", {})
+			oc["version"] = 999
+			(raw_op as Dictionary)["outcome"] = oc
+			break
+	var r04_s1 = GameSessionScript.new()
+	var r04_lr1: Dictionary = r04_s1.load_state(JSON.stringify(r04_bad_ver))
+	_ok(bool(r04_lr1.get("ok", true)) == false,
+		"R04: unknown outcome version (999) is REJECTED, not treated as legacy",
+		str(r04_lr1.get("reason", "")))
+	_ok(JSON.stringify(r04_lr1.get("errors", [])).find("comms_outcome_invalid") >= 0,
+		"R04: rejection reason names the invalid outcome",
+		str(r04_lr1.get("errors", [])))
+	# 未知 schema
+	var r04_bad_schema: Dictionary = r04_payload.duplicate(true)
+	for raw_op2 in (r04_bad_schema.get("log", []) as Array):
+		if raw_op2 is Dictionary and String((raw_op2 as Dictionary).get("op", "")) == "send_comms":
+			var oc2: Dictionary = (raw_op2 as Dictionary).get("outcome", {})
+			oc2["schema"] = "v17.comms_outcome.v999"
+			(raw_op2 as Dictionary)["outcome"] = oc2
+			break
+	var r04_s2 = GameSessionScript.new()
+	var r04_lr2: Dictionary = r04_s2.load_state(JSON.stringify(r04_bad_schema))
+	_ok(bool(r04_lr2.get("ok", true)) == false,
+		"R04: unknown outcome schema is rejected", str(r04_lr2.get("reason", "")))
+	# 分数版本
+	var r04_frac: Dictionary = r04_payload.duplicate(true)
+	for raw_op3 in (r04_frac.get("log", []) as Array):
+		if raw_op3 is Dictionary and String((raw_op3 as Dictionary).get("op", "")) == "send_comms":
+			var oc3: Dictionary = (raw_op3 as Dictionary).get("outcome", {})
+			oc3["version"] = 1.5
+			(raw_op3 as Dictionary)["outcome"] = oc3
+			break
+	var r04_s3 = GameSessionScript.new()
+	var r04_lr3: Dictionary = r04_s3.load_state(JSON.stringify(r04_frac))
+	_ok(bool(r04_lr3.get("ok", true)) == false,
+		"R04: fractional outcome version is rejected", str(r04_lr3.get("reason", "")))
+	# 错误类型（ok 不是 bool）与缺必需字段
+	for case_row in [["okType", {"ok": "yes"}], ["missingMode", {"mode": null}]]:
+		var label := String(case_row[0])
+		var patch: Dictionary = case_row[1]
+		var broken: Dictionary = r04_payload.duplicate(true)
+		for raw_op4 in (broken.get("log", []) as Array):
+			if raw_op4 is Dictionary and String((raw_op4 as Dictionary).get("op", "")) == "send_comms":
+				var oc4: Dictionary = (raw_op4 as Dictionary).get("outcome", {})
+				for k in patch.keys():
+					oc4[k] = patch[k]
+				(raw_op4 as Dictionary)["outcome"] = oc4
+				break
+		var s_bad = GameSessionScript.new()
+		var lr_bad: Dictionary = s_bad.load_state(JSON.stringify(broken))
+		_ok(bool(lr_bad.get("ok", true)) == false,
+			"R04: invalid outcome field (%s) is rejected" % label,
+			str(lr_bad.get("reason", "")))
+	# 溢出/非有限数字（内存对象直接构造 NaN/Inf）
+	var r04_nan := GameSessionScript.new(_fixture_seed())
+	var r04_nan_res: Dictionary = r04_nan.send_comms("apsis", "relay1", "LR",
+		"COMMS_SENT", {}, {})
+	_ok(bool(r04_nan_res.get("ok", false)), "R04: baseline send ok for NaN case")
+	var r04_nan_text: String = r04_nan.save_state()
+	var r04_nan_payload: Dictionary = JSON.parse_string(r04_nan_text)
+	for raw_op5 in (r04_nan_payload.get("log", []) as Array):
+		if raw_op5 is Dictionary and String((raw_op5 as Dictionary).get("op", "")) == "send_comms":
+			var oc5: Dictionary = (raw_op5 as Dictionary).get("outcome", {})
+			oc5["latency_s"] = NAN
+			(raw_op5 as Dictionary)["outcome"] = oc5
+			break
+	# NaN 经 JSON 会变 null → 走"必须是有限数"分支
+	var r04_s5 = GameSessionScript.new()
+	var r04_lr5: Dictionary = r04_s5.load_state(JSON.stringify(r04_nan_payload))
+	_ok(bool(r04_lr5.get("ok", true)) == false,
+		"R04: NaN/Inf outcome numbers are rejected", str(r04_lr5.get("reason", "")))
+	# 旧日志确实无 outcome → 仍诚实标 legacy_unverified（不误伤）
+	var r04_legacy: Dictionary = r04_payload.duplicate(true)
+	for raw_op6 in (r04_legacy.get("log", []) as Array):
+		if raw_op6 is Dictionary and String((raw_op6 as Dictionary).get("op", "")) == "send_comms":
+			(raw_op6 as Dictionary).erase("outcome")
+	var r04_s6 = GameSessionScript.new()
+	var r04_lr6: Dictionary = r04_s6.load_state(JSON.stringify(r04_legacy))
+	_ok(bool(r04_lr6.get("ok", false)),
+		"R04: genuinely legacy op (no outcome field) still loads",
+		str(r04_lr6.get("errors", [])))
+	_eq(int(r04_s6.comms_restore_report().get("legacy_unverified", -1)), 1,
+		"R04: legacy op is the only legacy_unverified entry")
+	_eq(int(r04_s6.comms_restore_report().get("diverged", -1)), 0,
+		"R04: legacy unverified is not a divergence")
+	# 原成功 / 原 no_route 失败仍按同一结果恢复；真正分歧拒绝
+	var r04_ok_sess = GameSessionScript.new(_fixture_seed())
+	var r04_ok_send: Dictionary = r04_ok_sess.send_comms("apsis", "relay1", "LR",
+		"COMMS_SENT", {}, {})
+	var r04_ok_text: String = r04_ok_sess.save_state()
+	var r04_ok_loaded = GameSessionScript.new()
+	var r04_ok_lr: Dictionary = r04_ok_loaded.load_state(r04_ok_text)
+	_ok(bool(r04_ok_lr.get("ok", false)), "R04: original success restores",
+		str(r04_ok_lr.get("errors", [])))
+	_eq(int(r04_ok_loaded.comms_restore_report().get("matched_success", -1)), 1,
+		"R04: original success counted as matched_success")
+	var r04_ok_ev: Array = []
+	for raw_ev4 in r04_ok_sess.comms.events:
+		if raw_ev4 is Dictionary and String((raw_ev4 as Dictionary).get("kind", "")) == "SENT":
+			r04_ok_ev.append(String((raw_ev4 as Dictionary).get("delivery_id", "")))
+	_ok(r04_ok_ev.size() >= 1, "R04: original SENT event recorded",
+		str(r04_ok_ev))
 	_step("5. A-06 summary")
 	_info("A-06: outcomes versioned; expected failures preserved; divergences rejected; "
 		+ "queued/delivered/relay/LD restore + exactly-once delivery; legacy labelled")

@@ -622,6 +622,44 @@ func _run() -> void:
 	_ok(friend_bad.is_empty(), "anonymous contacts have no silent friend fallback",
 		"violations=" + str(friend_bad))
 
+	# R01：玩家 VM 的**所有公开分支**（tracks / selected / events）遵守同一可见性策略。
+	# 反例：selected 命中未知目标时曾直接返回内部航迹的 batch（真值泄漏）。
+	var r01_vm: Dictionary = _session.track_vm({})
+	var r01_rows: Array = r01_vm.get("tracks", []) if r01_vm.get("tracks") is Array else []
+	var r01_tid := ""
+	if r01_rows.size() > 0:
+		r01_tid = String((r01_rows[0] as Dictionary).get("id", ""))
+	_ok(r01_tid != "", "R01: live HUD session exposes a stable track id", r01_tid)
+	var r01_sel: Dictionary = _session.track_vm({"selected_id": r01_tid}).get("selected", {}) \
+		if r01_tid != "" else {}
+	var r01_leak: Array = []
+	for f2 in TRUTH_ONLY_FIELDS:
+		if r01_sel.has(f2):
+			r01_leak.append({"branch": "selected", "field": f2,
+				"value": str(r01_sel.get(f2, ""))})
+	for raw_r in r01_rows:
+		if raw_r is Dictionary:
+			for f3 in TRUTH_ONLY_FIELDS:
+				if (raw_r as Dictionary).has(f3):
+					r01_leak.append({"branch": "tracks", "field": f3})
+	for raw_ev2 in (r01_vm.get("events", []) as Array):
+		if raw_ev2 is Dictionary:
+			for f4 in TRUTH_ONLY_FIELDS:
+				if (raw_ev2 as Dictionary).has(f4):
+					r01_leak.append({"branch": "events", "field": f4})
+	_ok(r01_leak.is_empty(),
+		"R01: player VM tracks/selected/events all withhold truth-only fields",
+		"violations=" + str(r01_leak.slice(0, 6)))
+	_ok(String(r01_sel.get("id", "")) == r01_tid,
+		"R01: selected branch keeps the stable id (commands still usable)",
+		String(r01_sel.get("id", "")))
+	# 内部记录必须继续保留 batch（不能靠删字段过关）
+	var r01_internal: Dictionary = _session.track_table.selected(r01_tid) if r01_tid != "" else {}
+	_ok(String(r01_internal.get("batch", "")) != "",
+		"R01: internal track record still keeps batch for dedup/save",
+		String(r01_internal.get("batch", "")))
+
+
 	_step("10. A-01 summary")
 	_info("A-01: no-noise range=5 verified; observer+target moves verified; uncertainty measurement preserved; "
 		+ "error params traced; consumer table checked; invalid geometry suppression checked; visibility checked")

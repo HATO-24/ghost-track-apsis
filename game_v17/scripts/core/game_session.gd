@@ -5147,8 +5147,44 @@ func _replay_send_comms(op: Dictionary) -> Dictionary:
 			if res.get("path") is Array else [],
 	}
 	var rec_outcome = op.get("outcome", null)
-	if rec_outcome is Dictionary \
-			and int((rec_outcome as Dictionary).get("version", 0)) == COMMS_OUTCOME_VERSION:
+	# R04：**outcome 存在即必须合法**。字段存在但 schema/version/类型错误属于
+	# 损坏或不支持，必须明确拒绝；只有「确实没有 outcome 字段」的旧操作才可标
+	# legacy_unverified（此前 version=999 会被当成旧档而 load 成功）。
+	if op.has("outcome"):
+		var oc_problems: Array = []
+		if not (rec_outcome is Dictionary):
+			oc_problems.append("outcome must be an object")
+		else:
+			var oc: Dictionary = rec_outcome
+			if String(oc.get("schema", "")) != COMMS_OUTCOME_SCHEMA:
+				oc_problems.append("outcome.schema unsupported: " + String(oc.get("schema", "")))
+			var oc_ver = oc.get("version", null)
+			if not (oc_ver is int or oc_ver is float) or not is_finite(float(oc_ver)) \
+					or absf(float(oc_ver) - roundf(float(oc_ver))) > 0.0 \
+					or int(roundf(float(oc_ver))) != COMMS_OUTCOME_VERSION:
+				oc_problems.append("outcome.version unsupported: " + str(oc_ver))
+			if not (oc.get("ok", null) is bool):
+				oc_problems.append("outcome.ok must be bool")
+			for sf in ["reason", "mode", "delivery_id"]:
+				if not (oc.get(sf, null) is String):
+					oc_problems.append("outcome.%s must be a string" % sf)
+			for nf in ["latency_s", "arrive_t", "sent_t"]:
+				var nv = oc.get(nf, null)
+				if not (nv is int or nv is float) or not is_finite(float(nv)):
+					oc_problems.append("outcome.%s must be a finite number" % nf)
+			var rc = oc.get("relay_count", null)
+			if not (rc is int or rc is float) or not is_finite(float(rc)) \
+					or absf(float(rc) - roundf(float(rc))) > 0.0 or float(rc) < 0.0:
+				oc_problems.append("outcome.relay_count must be a non-negative integer")
+			if not (oc.get("path", null) is Array):
+				oc_problems.append("outcome.path must be an array")
+		if not oc_problems.is_empty():
+			row["invalid_outcome"] = true
+			row["recorded"] = rec_outcome.duplicate(true) if rec_outcome is Dictionary else {}
+			_comms_restore.append(row)
+			return {"ok": false, "reason": "comms_outcome_invalid", "comms": row,
+				"errors": ["send_comms outcome 不合法：" + str(oc_problems)]}
+	if rec_outcome is Dictionary:
 		var ro: Dictionary = rec_outcome
 		row["recorded"] = {
 			"ok": bool(ro.get("ok", false)), "reason": String(ro.get("reason", "")),
@@ -5169,6 +5205,14 @@ func _replay_send_comms(op: Dictionary) -> Dictionary:
 		if absf(float(ro.get("latency_s", 0.0)) - float(res.get("latency_s", 0.0))) \
 				> 1.0e-6:
 			diverge.append("latency_s")
+		# R04：离散值精确、时间 ≤1e-6 s——核对声明保存的 mode / relay_count / arrive_t。
+		if String(ro.get("mode", "")) != String(res.get("mode", "")):
+			diverge.append("mode")
+		if int(ro.get("relay_count", 0)) != int(res.get("relay_count", 0)):
+			diverge.append("relay_count")
+		if absf(float(ro.get("arrive_t", -1.0)) - float(res.get("arrive_t", -1.0))) \
+				> 1.0e-6:
+			diverge.append("arrive_t")
 		if JSON.stringify(ro.get("path", [])) != JSON.stringify(row["replay_path"]):
 			diverge.append("path")
 		row["expected_failure"] = not rec_ok

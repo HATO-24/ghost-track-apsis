@@ -457,3 +457,59 @@ func _test_save_load() -> void:
 	bad_id["tracks"] = [bt2, bt2b]
 	_ok(not bool(r.load_state(bad_id).get("ok", true)), "重复 track id 快照拒绝")
 	_ok(_json_ok(r.vm()), "恢复后 VM JSON")
+	# ── R01：玩家 VM 所有公开分支遵守同一可见性策略 ──────────────
+	# 内部行保留 truth-only 字段（去重/合并/存档需要），但玩家 VM 的
+	# tracks / selected / events 三个分支都必须扣留同一组字段。
+	var r01 = TrackTable.new({})
+	r01.setup({"writer": "unit"})
+	r01.claim_writer("session_fusion")
+	r01.tick(30.0)
+	var r01_obs := {
+		"schema": "sensor_observation.v1", "kind": "observation",
+		"event_id": "OBS-R01-1", "t": 30.0, "observer_id": "apsis",
+		"target_id": "harmattan", "sensor": "radar", "sensor_model": "YW-R9",
+		"support": 2, "quality": 1.0, "range_km": 100.0, "bearing_deg": 10.0,
+		"range_sigma_km": 0.1, "bearing_sigma_deg": 0.02,
+		"batch": "SECRET-9001", "rcs_m2": 1234.0,
+	}
+	var r01_res: Dictionary = r01.handle_observation(r01_obs, r01.current_writer())
+	_ok(bool(r01_res.get("ok", false)), "R01: 观测写入成功", str(r01_res.get("reason", "")))
+	var r01_vm: Dictionary = r01.vm({})
+	var r01_rows: Array = r01_vm.get("tracks", []) if r01_vm.get("tracks") is Array else []
+	_ok(r01_rows.size() > 0, "R01: VM 有航迹")
+	var r01_tid := String((r01_rows[0] as Dictionary).get("id", "")) if r01_rows.size() > 0 else ""
+	var truth_only := ["batch", "rcs_m2", "radius_km", "has_pd"]
+	var r01_list_leak: Array = []
+	for raw in r01_rows:
+		if raw is Dictionary:
+			for f in truth_only:
+				if (raw as Dictionary).has(f):
+					r01_list_leak.append({"branch": "tracks", "field": f})
+	_ok(r01_list_leak.is_empty(), "R01: VM tracks 不泄漏 truth-only 字段",
+		str(r01_list_leak))
+	var r01_sel: Dictionary = r01.vm({"selected_id": r01_tid}).get("selected", {})
+	var r01_sel_leak: Array = []
+	for f in truth_only:
+		if r01_sel.has(f):
+			r01_sel_leak.append(f)
+	_ok(r01_sel_leak.is_empty(),
+		"R01: VM selected 分支遵守同一策略（不得返回 batch）", str(r01_sel_leak))
+	_ok(String(r01_sel.get("id", "")) == r01_tid,
+		"R01: selected 分支仍返回可用的稳定 id/命令入口", String(r01_sel.get("id", "")))
+	var r01_ev_leak: Array = []
+	for raw_e in (r01_vm.get("events", []) as Array):
+		if raw_e is Dictionary:
+			for f2 in truth_only:
+				if (raw_e as Dictionary).has(f2):
+					r01_ev_leak.append(f2)
+	_ok(r01_ev_leak.is_empty(), "R01: VM events 嵌套分支遵守同一策略", str(r01_ev_leak))
+	# 内部记录必须继续保留去重信息，不能被"删字段"式修复清空
+	_ok(String(r01.selected(r01_tid).get("batch", "")) != "",
+		"R01: 内部 selected() 仍保留 batch（去重/存档权威）")
+	var r01_all_batch := 0
+	for raw_i in r01.all_tracks():
+		if raw_i is Dictionary and String((raw_i as Dictionary).get("batch", "")) != "":
+			r01_all_batch += 1
+	_ok(r01_all_batch >= 1, "R01: 内部 all_tracks() 仍保留 batch", str(r01_all_batch))
+	print("[R01] INFO internal batch=", str(r01.selected(r01_tid).get("batch", "")),
+		" | player selected keys=", r01_sel.keys().size())

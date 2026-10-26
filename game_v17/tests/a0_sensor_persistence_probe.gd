@@ -23,6 +23,7 @@ const OpticalIRScript := preload("res://framework/sim/optical_ir_channel.gd")
 const WATCHDOG_S := 240.0
 const TICK_DT := 60.0
 const FLOAT_TOL := 1.0e-9
+const TIME_TOL := 1.0e-6
 const GEOM_TIME_TOL := 1.0e-6
 
 var _pass := 0
@@ -341,6 +342,93 @@ func _run() -> void:
 		"NEGATIVE: failed import leaves the runtime state unchanged")
 
 	_step("5. optional profile (no sensor component) and old save without the section")
+
+	# ── R03：严格版本/后端校验 + 同输入续跑一致 ──────────────────
+	# 反例 1：version=1.5 曾被 int 截断成 1 并接受。
+	var r03_split: Dictionary = svc.export_state()
+	r03_split["version"] = 1.5
+	var r03_s1 = GameSessionScript.new(_seed())
+	var r03_r1: Dictionary = r03_s1.sensor_service.import_state(r03_split)
+	_ok(bool(r03_r1.get("ok", true)) == false,
+		"R03: fractional state version (1.5) is REJECTED", str(r03_r1.get("reason", "")))
+	_eq(String(r03_r1.get("reason", "")), "invalid_state_version",
+		"R03: fractional version rejection reason")
+	# 反例 2：非空通道但 backend=null 曾被接受，恢复后真实通道从 N 变 0。
+	var r03_nullbe: Dictionary = svc.export_state()
+	var r03_pre_backend_ch: int = ((r03_nullbe.get("backend", {}) as Dictionary)
+		.get("channels", []) as Array).size()
+	_ok(r03_pre_backend_ch >= 2,
+		"R03: source state has non-empty backend channels", str(r03_pre_backend_ch))
+	r03_nullbe["backend"] = null
+	var r03_s2 = GameSessionScript.new(_seed())
+	var r03_r2: Dictionary = r03_s2.sensor_service.import_state(r03_nullbe)
+	_ok(bool(r03_r2.get("ok", true)) == false,
+		"R03: non-empty channels with backend=null is REJECTED",
+		str(r03_r2.get("reason", "")))
+	_eq(String(r03_r2.get("reason", "")), "invalid_backend_state",
+		"R03: null-backend rejection reason")
+	_ok((r03_s2.sensor_service._last_channels as Array).is_empty(),
+		"R03: rejected null-backend import left the runtime state untouched",
+		str((r03_s2.sensor_service._last_channels as Array).size()))
+	# 反例 3：同 seed/输入，保存恢复后继续 10 tick 的观测序号必须一致（曾 64 vs 68）。
+	var r03_a = GameSessionScript.new(_seed())
+	r03_a.sensor_service.set_emcon(true)
+	r03_a.sensor_service.start_channel("optical", "harmattan")
+	r03_a.sensor_service.start_channel("ir", "harmattan")
+	for i in range(3):
+		r03_a.tick(TICK_DT)
+	var r03_text: String = r03_a.save_state()
+	var r03_b = GameSessionScript.new()
+	var r03_lr: Dictionary = r03_b.load_state(r03_text)
+	_ok(bool(r03_lr.get("ok", false)), "R03: continuation fixture load ok",
+		str(r03_lr.get("errors", [])))
+	var r03_seq_a: Array = []
+	var r03_seq_b: Array = []
+	for i in range(10):
+		r03_a.tick(TICK_DT)
+		r03_b.tick(TICK_DT)
+		r03_seq_a.append(int(r03_a.sensor_service._obs_seq))
+		r03_seq_b.append(int(r03_b.sensor_service._obs_seq))
+	_ok(JSON.stringify(r03_seq_a) == JSON.stringify(r03_seq_b),
+		"R03: same inputs give the same observation sequence after restore",
+		"orig=%s restored=%s" % [str(r03_seq_a), str(r03_seq_b)])
+	_eq(int(r03_b.sensor_service._obs_seq), int(r03_a.sensor_service._obs_seq),
+		"R03: final observation allocator is identical")
+	_eq(int(r03_b.sensor_service._evidence_seq), int(r03_a.sensor_service._evidence_seq),
+		"R03: final evidence allocator is identical")
+	_eq(int(r03_b.sensor_service._event_seq), int(r03_a.sensor_service._event_seq),
+		"R03: final sensor event allocator is identical")
+	_near(float(r03_b.sensor_service.t), float(r03_a.sensor_service.t), TIME_TOL,
+		"R03: clocks stay aligned after 10 ticks")
+	# 恢复后新增观测的 ID 不重复且逐条对齐（不是只比较下界）
+	var r03_ids_a: Array = []
+	for raw_oa in r03_a.sensor_service.observations:
+		r03_ids_a.append(String((raw_oa as Dictionary).get("event_id", "")))
+	var r03_ids_b: Array = []
+	for raw_ob in r03_b.sensor_service.observations:
+		r03_ids_b.append(String((raw_ob as Dictionary).get("event_id", "")))
+	_ok(JSON.stringify(r03_ids_a) == JSON.stringify(r03_ids_b),
+		"R03: observation id stream is identical after restore",
+		"orig=%d restored=%d" % [r03_ids_a.size(), r03_ids_b.size()])
+	# 恢复的完整规范化状态一致（时钟/控制/后端通道/分配器/去重）
+	var r03_sa: Dictionary = r03_a.sensor_service.export_state()
+	var r03_sb: Dictionary = r03_b.sensor_service.export_state()
+	_eq(int(r03_sb.get("allocators", {}).get("obs_seq", -1)),
+		int(r03_sa.get("allocators", {}).get("obs_seq", -1)),
+		"R03: exported obs_seq matches")
+	_ok(((r03_sb.get("backend", {}) as Dictionary).get("channels", []) as Array).size()
+		== ((r03_sa.get("backend", {}) as Dictionary).get("channels", []) as Array).size(),
+		"R03: backend channel count matches after continuum")
+	# 静默同步：导入期不得推进 event_seq（分配器已从存档恢复）
+	var r03_s3 = GameSessionScript.new(_seed())
+	var r03_pre_ev := int(r03_s3.sensor_service._event_seq)
+	var r03_imp: Dictionary = r03_s3.sensor_service.import_state(svc.export_state())
+	_ok(bool(r03_imp.get("ok", false)), "R03: valid state import ok",
+		str(r03_imp.get("errors", [])))
+	_ok(int(r03_s3.sensor_service._event_seq)
+		== int((svc.export_state().get("allocators", {}) as Dictionary).get("event_seq", -1)),
+		"R03: import restores (does not advance) the sensor event allocator",
+		"pre=%d" % r03_pre_ev)
 	var plain = GameSessionScript.new(_plain_seed())
 	_ok(bool(plain.ready), "session without sensor component ready", str(plain.errors))
 	_eq(plain.sensor_service == null, true, "sensor_service absent for this profile")

@@ -188,8 +188,10 @@ func _run() -> void:
 		"seed_keys": _seed.keys().size(),
 		"dt_s": TICK_DT, "time_scale": 1.0, "paused": false,
 		"op_every_ticks": OP_EVERY,
-		"scales": SCALES, "warmup_runs": 1, "measured_runs": MEASURED_RUNS,
-		"git_head": OS.get_environment("A07_HEAD"),
+		"scales": _scales(), "warmup_runs": 1, "measured_runs": MEASURED_RUNS,
+		# R05：记录**真实代码 SHA**（不再用空环境变量当 provenance）。
+		"git_head": _git_head(),
+		"git_head_source": String(_git_head_provenance),
 	}
 	_info("ENV: " + JSON.stringify(_env))
 	_ok(String(_env["scenario_sha256"]).length() == 64,
@@ -198,7 +200,7 @@ func _run() -> void:
 	_ok(bool(_env["headless"]), "running headless (stated explicitly in the report)")
 
 	_step("2. per-scale measurement (fresh session each scale, 1 warmup + 3 measured)")
-	for n in SCALES:
+	for n in _scales():
 		_measure_scale(int(n))
 
 	_step("3. cost table summary")
@@ -206,8 +208,59 @@ func _run() -> void:
 	_finish()
 
 
+## R05：解析真实代码 SHA。依次尝试 CI 环境变量与工作区 .git，并记录来源。
+var _git_head_provenance := "none"
+
+func _git_head() -> String:
+	for env_key in ["GITHUB_SHA", "A07_HEAD", "CI_COMMIT_SHA"]:
+		var v := OS.get_environment(env_key).strip_edges()
+		if v.length() >= 7:
+			_git_head_provenance = "env:" + env_key
+			return v
+	# 工作区 .git（res:// 是 game_v17/，仓库根在上一级）
+	var repo_root := ProjectSettings.globalize_path("res://").get_base_dir()
+	for base in [repo_root.path_join(".git"), ProjectSettings.globalize_path("res://.git")]:
+		var head_path: String = String(base).path_join("HEAD")
+		if not FileAccess.file_exists(head_path):
+			continue
+		var head_txt := FileAccess.get_file_as_string(head_path).strip_edges()
+		if head_txt.begins_with("ref:"):
+			var ref := head_txt.substr(4).strip_edges()
+			var ref_path: String = String(base).path_join(ref)
+			if FileAccess.file_exists(ref_path):
+				_git_head_provenance = ".git/" + ref
+				return FileAccess.get_file_as_string(ref_path).strip_edges()
+			# packed-refs 回退
+			var packed: String = String(base).path_join("packed-refs")
+			if FileAccess.file_exists(packed):
+				for line in FileAccess.get_file_as_string(packed).split("\n"):
+					var parts := line.strip_edges().split(" ")
+					if parts.size() == 2 and parts[1] == ref:
+						_git_head_provenance = ".git/packed-refs"
+						return parts[0]
+		elif head_txt.length() >= 7:
+			_git_head_provenance = ".git/HEAD(detached)"
+			return head_txt
+	_git_head_provenance = "none"
+	return ""
+
+
+## R05/Q03：规模可通过 A07_SCALES（逗号分隔）覆盖；默认沿 A-07 的 50/200/800/1000。
+func _scales() -> Array:
+	var raw := OS.get_environment("A07_SCALES").strip_edges()
+	if raw == "":
+		return SCALES.duplicate()
+	var out: Array = []
+	for part in raw.split(","):
+		var p := String(part).strip_edges()
+		if p.is_valid_int() and int(p) > 0:
+			out.append(int(p))
+	return out if not out.is_empty() else SCALES.duplicate()
+
+
 func _measure_scale(ticks: int) -> void:
 	var sizes: Array = []
+	var chars: Array = []
 	var save_ms: Array = []
 	var write_ms: Array = []
 	var read_ms: Array = []
@@ -250,6 +303,10 @@ func _measure_scale(ticks: int) -> void:
 			f.store_string(text)
 			f.close()
 		var write_elapsed := Time.get_ticks_msec() - t_w
+		# R05：**落盘文件真实长度**（与 UTF-8 编码后的字节数交叉核对）
+		var file_bytes := 0
+		if FileAccess.file_exists(path):
+			file_bytes = FileAccess.get_file_as_bytes(path).size()
 		var t_r := Time.get_ticks_msec()
 		var read_text := FileAccess.get_file_as_string(path)
 		var read_elapsed := Time.get_ticks_msec() - t_r
@@ -268,8 +325,10 @@ func _measure_scale(ticks: int) -> void:
 			"file_write_ms": write_elapsed,
 			"file_read_ms": read_elapsed,
 			"load_state_ms": load_elapsed,
-			"bytes": text.length(),
+			# R05：字符数与真实 UTF-8 字节分列；并与落盘文件长度交叉核对。
+			"chars": text.length(),
 			"bytes_utf8": text.to_utf8_buffer().size(),
+			"file_bytes": file_bytes,
 			"bus_visible_events": int(s.bus.events.size()),
 			"bus_used_ids": int(s.bus._seen_ids.size()),
 			"bus_seq": int(s.bus.current_seq()),
@@ -280,11 +339,12 @@ func _measure_scale(ticks: int) -> void:
 		}
 		_info("SAMPLE ticks=%d run=%d warmup=%s ok=%s bytes=%d tick=%dms save=%dms "
 			+ "write=%dms read=%dms load=%dms log_ops=%d bus_events=%d"
-			% [ticks, run_i, str(warmup), str(rec["ok"]), int(rec["bytes"]),
+			% [ticks, run_i, str(warmup), str(rec["ok"]), int(rec["bytes_utf8"]),
 				tick_total, save_elapsed, write_elapsed, read_elapsed, load_elapsed,
 				int(rec["log_ops"]), int(rec["bus_visible_events"])])
 		if not warmup:
-			sizes.append(int(rec["bytes"]))
+			sizes.append(int(rec["bytes_utf8"]))
+			chars.append(int(rec["chars"]))
 			save_ms.append(save_elapsed)
 			write_ms.append(write_elapsed)
 			read_ms.append(read_elapsed)
@@ -294,9 +354,14 @@ func _measure_scale(ticks: int) -> void:
 			seen_ids.append(int(rec["bus_used_ids"]))
 			log_ops.append(int(rec["log_ops"]))
 			samples.append(rec)
-			# 正确性：取第一份可用恢复样本做完整核对（其余只核 ok）
-			if samples.size() == 1:
-				_correctness(ticks, s, loaded, lr)
+			# R05：**每一个**非预热样本都做完整核对（不能只查首样本）；
+			# 并支持故障注入：注入后驱动必须 FAIL。
+			_correctness(ticks, run_i, s, loaded, lr)
+		# R05：UTF-8 字节必须与落盘文件长度一致（不能只报字符数）。
+		_ok(file_bytes > 0 and file_bytes == int(rec["bytes_utf8"]),
+			"scale %d run %d: UTF-8 bytes match the on-disk file size" % [ticks, run_i],
+			"file=%d utf8=%d chars=%d" % [file_bytes, int(rec["bytes_utf8"]),
+				int(rec["chars"])])
 		_ok(bool(lr.get("ok", false)),
 			"scale %d run %d: load_state ok" % [ticks, run_i],
 			str(lr.get("errors", [])))
@@ -306,7 +371,8 @@ func _measure_scale(ticks: int) -> void:
 	_results.append({
 		"ticks": ticks,
 		"samples": samples,
-		"bytes": _stats(sizes),
+		"bytes_utf8": _stats(sizes),
+		"chars": _stats(chars),
 		"save_state_ms": _stats(save_ms),
 		"file_write_ms": _stats(write_ms),
 		"file_read_ms": _stats(read_ms),
@@ -342,10 +408,15 @@ func _control_op(s, idx: int) -> Dictionary:
 			return {"ok": true, "skipped": "no_sensor"}
 
 
-func _correctness(ticks: int, original, restored, lr: Dictionary) -> void:
-	var label := "scale %d" % ticks
+func _correctness(ticks: int, run_i: int, original, restored, lr: Dictionary) -> void:
+	var label := "scale %d run %d" % [ticks, run_i]
 	_ok(bool(lr.get("ok", false)), "%s: restored session loaded" % label)
 	if not bool(lr.get("ok", false)):
+		return
+	var fault := OS.get_environment("A07_FAULT_SAMPLE").strip_edges()
+	if fault != "" and fault == str(run_i):
+		print("[A0-A07] FAULT INJECTED at ", label)
+		_ok(false, "%s: FAULT INJECTION — per-sample validation must fail here" % label)
 		return
 	# frame / t（A-02 契约）
 	_ok(absf(float(restored.now_s()) - float(original.now_s())) <= TIME_TOL,
@@ -440,9 +511,9 @@ func _scale_table() -> Array:
 		var r: Dictionary = raw
 		out.append({
 			"ticks": r.get("ticks", 0),
-			"bytes_median": (r.get("bytes", {}) as Dictionary).get("median", -1),
-			"bytes_min": (r.get("bytes", {}) as Dictionary).get("min", -1),
-			"bytes_max": (r.get("bytes", {}) as Dictionary).get("max", -1),
+			"bytes_utf8_median": (r.get("bytes_utf8", {}) as Dictionary).get("median", -1),
+			"bytes_utf8_min": (r.get("bytes_utf8", {}) as Dictionary).get("min", -1),
+			"bytes_utf8_max": (r.get("bytes_utf8", {}) as Dictionary).get("max", -1),
 			"tick_ms_median": (r.get("tick_total_ms", {}) as Dictionary).get("median", -1),
 			"save_ms_median": (r.get("save_state_ms", {}) as Dictionary).get("median", -1),
 			"write_ms_median": (r.get("file_write_ms", {}) as Dictionary).get("median", -1),

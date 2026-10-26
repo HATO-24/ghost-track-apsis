@@ -78,6 +78,10 @@ var _optical_evidence_seen: Dictionary = {}
 var _outbox: Array = []
 var _last_channels: Array = []
 var _last_iff_targets: Dictionary = {}
+var _filtered_observations := 0
+# R03：导入运行态期间禁止产生/记录事件（分配器已从存档恢复）。
+var _importing := false
+# R03：被 EMCON 过滤掉的主动雷达 advisory 计数（可审计；不影响输出）。
 # A0-T2：几何来源与最近一次绑定结果（只读诊断；不写 world/track_table）。
 var geometry_source := GEOMETRY_SOURCE_STATIC
 var _geometry_provider = null
@@ -655,12 +659,17 @@ func _collect_observations(av: Dictionary, new_events: Array) -> void:
 		if not (raw is Dictionary):
 			continue
 		var o: Dictionary = (raw as Dictionary).duplicate(true)
-		_obs_seq += 1
 		var model := String(o.get("sensor_model", o.get("model", "")))
 		var sensor := _sensor_name(o, model)
 		# 雷达/EMCON 关闭：不产生主动雷达观测；被动光学仍可
 		if (not radar_enabled or emcon) and sensor in ["radar", "radar.tws"]:
+			# R03：可审计诊断——被 EMCON 过滤掉的主动雷达 advisory 计数。
+			_filtered_observations += 1
 			continue
+		# R03：观测序号只对**实际采用的观测**分配。此前在过滤前递增，导致 authority
+		# 残留的雷达 advisory（A 会话不产生、恢复会话产生）也消耗序号，出现
+		# 「同 seed/同时刻，原会话 obs_seq=64 vs 恢复会话=68」的漂移。
+		_obs_seq += 1
 		var ev := {
 			"schema": SCHEMA_OBS, "kind": "observation",
 			"event_id": "OBS-%06d" % _obs_seq,
@@ -887,9 +896,14 @@ func import_state(state: Dictionary) -> Dictionary:
 	if String(state.get("schema", "")) != STATE_SCHEMA:
 		return {"ok": false, "reason": "invalid_state_schema",
 			"errors": ["expected " + STATE_SCHEMA]}
-	if int(state.get("version", 0)) != STATE_VERSION:
+	# R03：版本必须**精确整数**（不接受 1.5 被 int 截断成 1）。
+	var ver = state.get("version", null)
+	if not (ver is int or ver is float) or not is_finite(float(ver)) \
+			or absf(float(ver) - roundf(float(ver))) > 0.0 \
+			or int(roundf(float(ver))) != STATE_VERSION:
 		return {"ok": false, "reason": "invalid_state_version",
-			"errors": ["expected version %d" % STATE_VERSION]}
+			"errors": ["expected exact integer version %d, got %s" % [STATE_VERSION,
+				str(ver)]]}
 	var problems: Array = []
 	# 时钟/计数
 	var nt = state.get("t", null)
@@ -933,7 +947,19 @@ func import_state(state: Dictionary) -> Dictionary:
 			for k in (rows as Array):
 				dedup_rows.append(String(k))
 	# 后端子状态先校验（用临时实例，避免失败时已改主状态）
+	# R03：新档**不能以默认值掩盖缺字段**。
+	#  - `backend` 键必须存在；
+	#  - `channels_view` 非空（保存时有真实通道）却给 backend=null → 拒绝，
+	#    否则恢复后真实通道会从 N 变 0（静默丢失运行态）。
+	var view_rows_check: Array = state.get("channels_view", []) \
+		if state.get("channels_view", []) is Array else []
+	if not state.has("backend"):
+		return {"ok": false, "reason": "invalid_backend_state",
+			"errors": ["sensor state 缺少必需字段 backend"]}
 	var backend = state.get("backend", null)
+	if backend == null and not view_rows_check.is_empty():
+		return {"ok": false, "reason": "invalid_backend_state",
+			"errors": ["backend 为 null 但存在 %d 个运行通道（拒绝丢失真实通道）" % view_rows_check.size()]}
 	var backend_res: Dictionary = {"ok": true, "backend": "none"}
 	if backend is Dictionary and _authority != null \
 			and _authority.has_method("import_backend_state"):
@@ -966,6 +992,13 @@ func import_state(state: Dictionary) -> Dictionary:
 		events = (hist as Dictionary).get("events", []) if (hist as Dictionary).get("events", []) is Array else []
 	var view = state.get("channels_view", [])
 	_last_channels = (view as Array).duplicate(true) if view is Array else []
+	# R03：控制值必须**同步到传感器后端/authority**。否则恢复后 authority 仍认为雷达开启，
+	# 每 tick 产出被 EMCON 过滤掉的雷达 advisory，却消耗 obs_seq → 同输入续跑序号漂移。
+	# 同步静默：不 push 事件、不推进 event_seq（该分配器已从存档恢复）。
+	var prev_importing := _importing
+	_importing = true
+	_apply_controls()
+	_importing = prev_importing
 	# 历史观测/证据**不**导入（不重放已恢复证据到 TrackTable）；分配器保证 ID 不重复。
 	return {"ok": true, "t": t, "radar_enabled": radar_enabled, "emcon": emcon,
 		"channels": backend_res.get("channels", _last_channels.size()),
@@ -985,6 +1018,7 @@ func runtime_state_summary() -> Dictionary:
 		"allocators": {"obs_seq": _obs_seq, "evidence_seq": _evidence_seq,
 			"event_seq": _event_seq},
 		"dedup_keys": _optical_evidence_seen.size(),
+		"filtered_observations": _filtered_observations,
 		"channels": _last_channels.size(),
 	}
 
@@ -1041,6 +1075,9 @@ func _target_from_snapshot(id: String) -> Dictionary:
 
 
 func _push_event(kind: String, detail: Dictionary) -> void:
+	# R03：导入期间后端同步不得写事件/推进分配器。
+	if _importing:
+		return
 	_event_seq += 1
 	var ev := {"schema": SCHEMA_EVENT, "kind": kind, "seq": _event_seq, "t": t,
 		"observer_id": String(observer.get("id", "")), "detail": detail.duplicate(true),

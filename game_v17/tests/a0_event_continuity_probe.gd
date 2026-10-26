@@ -277,6 +277,99 @@ func _run() -> void:
 	_ok(bool(cr.get("ok", true)) == false,
 		"NEGATIVE: allocator below max used evt-* id is rejected", str(cr.get("errors", [])))
 
+
+	# ── R02：自动 ID 唯一 & 新档完整性 ────────────────────────────
+	# 缺陷 1：显式 evt-000001 已用后，自动分配仍产出同一 ID（成功 publish 出现重复 ID）。
+	var r02 = EventBusScript.new()
+	var r02_x: Dictionary = r02.publish({"id": "evt-000001", "type": "r02",
+		"t": 0.0, "source": "u", "target": "A", "payload": {}})
+	_ok(bool(r02_x.get("ok", false)), "R02: explicit evt-000001 accepted")
+	var r02_a: Dictionary = r02.publish({"type": "r02", "t": 1.0, "source": "u",
+		"target": "B", "payload": {}})
+	var r02_auto_id := String((r02_a.get("event", {}) as Dictionary).get("id", ""))
+	_ok(bool(r02_a.get("ok", false)), "R02: auto publish after explicit id ok")
+	_ok(r02_auto_id != "evt-000001",
+		"R02: auto id SKIPS the explicit id already in use", r02_auto_id)
+	# 隔多个 ID：显式 evt-000005 后自动分配必须跳过高水位
+	r02.publish({"id": "evt-000005", "type": "r02", "t": 2.0, "source": "u",
+		"target": "C", "payload": {}})
+	var r02_b: Dictionary = r02.publish({"type": "r02", "t": 3.0, "source": "u",
+		"target": "D", "payload": {}})
+	var r02_b_id := String((r02_b.get("event", {}) as Dictionary).get("id", ""))
+	_ok(r02_b_id != "evt-000005" and r02_b_id != "",
+		"R02: auto id after a later explicit id does not collide", r02_b_id)
+	# 所有成功 publish 的 ID 必须唯一
+	var r02_ids: Dictionary = {}
+	var r02_dups: Array = []
+	for raw_ev in r02.events:
+		var rid := String((raw_ev as Dictionary).get("id", ""))
+		if r02_ids.has(rid):
+			r02_dups.append(rid)
+		r02_ids[rid] = true
+	_ok(r02_dups.is_empty(), "R02: every published id is unique", str(r02_dups))
+	# 恢复后继续发布无碰撞
+	var r02_state: Dictionary = JSON.parse_string(JSON.stringify(r02.export_state()))
+	var r02_r = EventBusScript.new()
+	var r02_ir: Dictionary = r02_r.import_state(r02_state)
+	_ok(bool(r02_ir.get("ok", false)), "R02: state with explicit evt-* ids imports ok",
+		str(r02_ir.get("errors", [])))
+	var r02_c: Dictionary = r02_r.publish({"type": "r02", "t": 4.0, "source": "u",
+		"target": "E", "payload": {}})
+	var r02_c_id := String((r02_c.get("event", {}) as Dictionary).get("id", ""))
+	_ok(bool(r02_c.get("ok", false)) and r02_c_id != "" and not r02_ids.has(r02_c_id),
+		"R02: publish after restore produces a fresh unique id", r02_c_id)
+	# 缺陷 2：>1000 条历史后删掉 seen_ids 的新档必须拒绝，且原 bus 状态不变
+	var r02_big = EventBusScript.new()
+	for i in range(1005):
+		r02_big.publish({"type": "bulk", "t": float(i), "source": "u",
+			"target": "T%d" % i, "payload": {"i": i}})
+	var r02_big_state: Dictionary = r02_big.export_state()
+	var r02_seen_full := int(r02_big._seen_ids.size())
+	_ok(r02_seen_full == 1005, "R02: source bus has the full used-id set",
+		str(r02_seen_full))
+	var r02_target = EventBusScript.new()
+	var r02_seed_ok: Dictionary = r02_target.import_state(
+		JSON.parse_string(JSON.stringify(r02_big_state)))
+	_ok(bool(r02_seed_ok.get("ok", false)), "R02: baseline v2 state imports ok")
+	var r02_before_json := JSON.stringify(r02_target.export_state())
+	var r02_broken: Dictionary = JSON.parse_string(JSON.stringify(r02_big_state))
+	r02_broken.erase("seen_ids")
+	var r02_rej: Dictionary = r02_target.import_state(r02_broken)
+	_ok(bool(r02_rej.get("ok", true)) == false,
+		"R02: v2 state missing seen_ids is REJECTED (not silently accepted)",
+		str(r02_rej.get("reason", "")))
+	_ok(String(r02_rej.get("reason", "")) == "invalid_state_missing_fields",
+		"R02: rejection reason names the missing fields",
+		String(r02_rej.get("reason", "")))
+	_ok(JSON.stringify(r02_target.export_state()) == r02_before_json,
+		"R02: failed import leaves the bus byte-identical (no half write)")
+	_ok(int(r02_target._seen_ids.size()) == 1005,
+		"R02: existing dedup set was not damaged by the rejected import",
+		str(r02_target._seen_ids.size()))
+	# 被裁出可见缓冲的早期 ID 仍然拒绝重发
+	var r02_early: Dictionary = r02_target.publish({"id": "evt-000001", "type": "bulk",
+		"t": 0.0, "source": "u", "target": "X", "payload": {}})
+	_ok(bool(r02_early.get("ok", true)) == false,
+		"R02: evicted early id is still rejected after the rejected import",
+		str(r02_early.get("reason", "")))
+	# 分配边界：id 分配器达到安全上限时明确拒绝且不推进 counter
+	var r02_edge = EventBusScript.new()
+	var r02_edge_state: Dictionary = r02_edge.export_state()
+	r02_edge_state["id_seq"] = 9007199254740991.0
+	r02_edge_state["seq"] = 1.0
+	r02_edge_state["events"] = []
+	r02_edge_state["seen_ids"] = []
+	var r02_edge_ir: Dictionary = r02_edge.import_state(r02_edge_state)
+	_ok(bool(r02_edge_ir.get("ok", false)),
+		"R02: boundary state (id_seq at safe max) imports",
+		str(r02_edge_ir.get("errors", [])))
+	var r02_edge_pub: Dictionary = r02_edge.publish({"type": "edge", "t": 0.0,
+		"source": "u", "target": "Z", "payload": {}})
+	_ok(bool(r02_edge_pub.get("ok", true)) == false,
+		"R02: allocation at the safe-integer boundary is refused",
+		str(r02_edge_pub.get("reason", "")))
+	_ok(int(r02_edge.current_seq()) == 1,
+		"R02: refused allocation did not advance seq", str(r02_edge.current_seq()))
 	_step("8. integration: real GameSession save→load→continue (same event stream)")
 	var s1 = GameSessionScript.new(_session_seed())
 	_ok(bool(s1.ready), "source session ready", str(s1.errors))
