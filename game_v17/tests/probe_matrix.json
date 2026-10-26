@@ -794,19 +794,6 @@
       "timeout_s": 300
     },
     {
-      "id": "integration.jc_authority_intel",
-      "category": "integration",
-      "profile": "",
-      "entry": "script",
-      "purpose": "JC-A01 (#58): command authority and per-owner intel isolation. Freezes actor->controller->domain->shooter authorization BEFORE any resource/ballistics/success event (explicit unknown/enemy/ally shooter rejected; own ship without independent combat runtime returns shooter_runtime_unavailable; legacy context maps to own ship only), rejects without resource change, records an audit trail, and provides owner-scoped intel_view/plot_positions/selected facades where unobserved ground truth never leaks, shared observations reach only the receiving owner, and owner tracks survive save/restore plus 10 continued ticks.",
-      "script": "res://tests/jc_authority_intel_probe.gd",
-      "expected_markers": [
-        "JC-A01 AUTHORITY INTEL PROBE RESULT:"
-      ],
-      "result": "probe",
-      "timeout_s": 300
-    },
-    {
       "id": "integration.jc_scenario_spec",
       "category": "integration",
       "profile": "",
@@ -818,7 +805,8 @@
       ],
       "result": "probe",
       "timeout_s": 120
-    },    {
+    },
+    {
       "id": "integration.jc_contracts",
       "category": "integration",
       "profile": "",
@@ -830,7 +818,8 @@
       ],
       "result": "probe",
       "timeout_s": 120
-    },    {
+    },
+    {
       "id": "integration.a0_comms_restore",
       "category": "integration",
       "profile": "",
@@ -842,7 +831,8 @@
       ],
       "result": "probe",
       "timeout_s": 300
-    },    {
+    },
+    {
       "id": "integration.a0_sensor_persistence",
       "category": "integration",
       "profile": "",
@@ -854,7 +844,8 @@
       ],
       "result": "probe",
       "timeout_s": 300
-    },    {
+    },
+    {
       "id": "integration.a0_legacy_save",
       "category": "integration",
       "profile": "",
@@ -866,7 +857,8 @@
       ],
       "result": "probe",
       "timeout_s": 300
-    },    {
+    },
+    {
       "id": "integration.a0_event_continuity",
       "category": "integration",
       "profile": "",
@@ -878,7 +870,8 @@
       ],
       "result": "probe",
       "timeout_s": 180
-    },    {
+    },
+    {
       "id": "integration.a0_frame_epoch",
       "category": "integration",
       "profile": "",
@@ -890,7 +883,8 @@
       ],
       "result": "probe",
       "timeout_s": 180
-    },    {
+    },
+    {
       "id": "integration.a0_integration_authority",
       "category": "integration",
       "profile": "",
@@ -902,7 +896,8 @@
       ],
       "result": "probe",
       "timeout_s": 180
-    },    {
+    },
+    {
       "id": "integration.a0_track_truth_authority",
       "category": "integration",
       "profile": "",

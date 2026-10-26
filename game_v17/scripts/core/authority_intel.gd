@@ -1,14 +1,15 @@
 extends RefCounted
 
 # ═══════════════════════════════════════════════════════════════════
-# JC-A01（#58）：指挥权限与分方情报隔离
+# JC-A01（#58）R1–R6 返修版：指挥权限与分方情报隔离
 #
 # 职责：
-#   * 冻结「actor → controller → domain → shooter」授权链，并在**消耗资源/排弹/
-#     成功事件之前**给出明确拒绝原因；
-#   * 每个 intel owner 独立的观测入口与读取 facade（list/selected/plot/导出）；
+#   * 冻结「请求 context(actor/controller/fleet/domain) → shooter」授权链，
+#     在**消耗资源/排弹/成功事件之前**给出明确拒绝原因；
+#   * 真实逐舰运行态由调用方（GameSession）按**实际运行态**注入，配置 bool 不得自证；
+#   * 每个 intel owner 独立的观测入口与读取 facade；共享必须经授权与**实际到达**；
 #   * 隐藏真值（未观测）不得进入任何 owner 视图；
-#   * owner 航迹与授权 context 纳入存档/恢复，旧档只迁入本舰域。
+#   * owner 航迹、授权 context、审计纳入存档/恢复；旧档只迁入本舰域。
 #
 # 不做：完整 AI、逐舰战斗账本、真实协同协议。
 # ═══════════════════════════════════════════════════════════════════
@@ -17,6 +18,7 @@ const SCHEMA := "v17.authority_intel.v1"
 const VERSION := 1
 
 const LEGACY_CONTEXT := "own_ship"
+const TIME_TOL := 1.0e-6
 
 # 拒绝原因（冻结，供探针与审计使用）
 const R_UNKNOWN_SHOOTER := "unknown_shooter"
@@ -25,18 +27,29 @@ const R_ALLY_DIRECT := "direct_command_not_permitted"
 const R_RUNTIME_UNAVAILABLE := "shooter_runtime_unavailable"
 const R_LEGACY_ANCHOR_UNKNOWN := "legacy_anchor_unknown"
 const R_DOMAIN_UNKNOWN := "domain_unknown"
+const R_ACTOR_NOT_AUTHORIZED := "actor_not_authorized"
+const R_CONTROLLER_MISMATCH := "controller_mismatch"
+const R_FLEET_MISMATCH := "fleet_mismatch"
+const R_CONTEXT_DOMAIN_MISMATCH := "context_domain_mismatch"
+const R_OBSERVER_UNKNOWN := "unknown_observer"
+const R_SHARE_NOT_AUTHORIZED := "share_not_authorized"
+const R_RECEIVER_MISMATCH := "receiver_mismatch"
+const R_TIME_INVALID := "invalid_observation_time"
+const R_NOT_ARRIVED := "observation_not_arrived"
 
 var ready := false
 var errors: Array[String] = []
 
-# domain_id -> {controller_id, intel_owner_id, kind, faction, authorized_actors}
+# domain_id -> {controller_id, intel_owner_id, kind, faction, authorized_actors, fleet_id}
 var domains: Dictionary = {}
-# entity_instance_id -> {domain_id, combat_runtime}
+# entity_instance_id -> {domain_id, fleet_id}
 var instances: Dictionary = {}
 # intel_owner_id -> {track_id -> track dict}（各 owner 独立，不共享）
 var intel: Dictionary = {}
 # owner_id 观测流（含 observed_t/received_t/来源与路径）
 var observations: Dictionary = {}
+# 幂等键：owner|delivery_id|observation_id -> true
+var seen_deliveries: Dictionary = {}
 # fire 审计（拒绝与成功都记录，不消耗资源）
 var audit: Array = []
 var own_entity := ""
@@ -50,6 +63,7 @@ func setup(cfg: Dictionary) -> bool:
 	instances = {}
 	intel = {}
 	observations = {}
+	seen_deliveries = {}
 	audit = []
 	own_entity = String(cfg.get("own_entity", ""))
 	var raw_domains = cfg.get("command_domains", [])
@@ -67,26 +81,31 @@ func setup(cfg: Dictionary) -> bool:
 				"intel_owner_id": String(d.get("intel_owner_id", "")),
 				"kind": String(d.get("kind", "ai_ally")),
 				"faction": String(d.get("faction", "")),
+				"fleet_id": String(d.get("fleet_id", "")),
 				"authorized_actors": (d.get("authorized_actors", []) as Array).duplicate(),
 			}
 	else:
-		# 默认三域（旧 seed 兼容：本舰域 + 无观测的盟军/敌方域）
 		domains["player"] = {"controller_id": "player_ctrl",
 			"intel_owner_id": "player_intel", "kind": "player",
-			"faction": "", "authorized_actors": ["player_ctrl"]}
+			"faction": "", "fleet_id": "own_fleet",
+			"authorized_actors": ["player_ctrl"]}
 		domains["ally"] = {"controller_id": "ally_ai",
 			"intel_owner_id": "ally_intel", "kind": "ai_ally",
-			"faction": "", "authorized_actors": ["ally_ai"]}
+			"faction": "", "fleet_id": "ally_fleet",
+			"authorized_actors": ["ally_ai"]}
 		domains["opfor"] = {"controller_id": "opfor_ai",
 			"intel_owner_id": "opfor_intel", "kind": "ai_hostile",
-			"faction": "", "authorized_actors": ["opfor_ai"]}
+			"faction": "", "fleet_id": "enemy_fleet",
+			"authorized_actors": ["opfor_ai"]}
 	for did2 in domains.keys():
-		intel[String((domains[did2] as Dictionary).get("intel_owner_id", ""))] = {}
-		observations[String((domains[did2] as Dictionary).get("intel_owner_id", ""))] = []
+		var owner := String((domains[did2] as Dictionary).get("intel_owner_id", ""))
+		intel[owner] = {}
+		observations[owner] = []
 	own_owner = String((domains.get("player", {}) as Dictionary).get("intel_owner_id", ""))
-	# 实例归属：本舰 + 可选 fleet_instances
+	# 实例归属：本舰 + 可选 fleet_instances（fleet_id 参与授权）
 	if own_entity != "":
-		instances[own_entity] = {"domain_id": "player", "combat_runtime": true}
+		instances[own_entity] = {"domain_id": "player",
+			"fleet_id": String((domains["player"] as Dictionary).get("fleet_id", ""))}
 	for raw2 in (cfg.get("fleet_instances", []) as Array):
 		if not (raw2 is Dictionary):
 			continue
@@ -95,67 +114,122 @@ func setup(cfg: Dictionary) -> bool:
 		if eid == "":
 			continue
 		var dom := String(inst.get("domain_id", "player"))
-		instances[eid] = {"domain_id": dom,
-			"combat_runtime": eid == own_entity}
-	for raw3 in (cfg.get("own_fleet", []) as Array):
-		if not (raw3 is Dictionary):
-			continue
-		var of: Dictionary = raw3
-		var oid := String(of.get("entity_instance_id", ""))
-		if oid == "":
-			continue
-		if not instances.has(oid):
-			instances[oid] = {"domain_id": "player", "combat_runtime": false}
-		instances[oid]["combat_runtime"] = bool(of.get("combat_runtime", false)) \
-			or oid == own_entity
+		var fleet := String(inst.get("fleet_id",
+			String((domains.get(dom, {}) as Dictionary).get("fleet_id", ""))))
+		instances[eid] = {"domain_id": dom, "fleet_id": fleet}
 	ready = errors.is_empty() and domains.size() > 0
 	return ready
 
 
 # ── 授权：fire 入口 ─────────────────────────────────────────────
 
-## 返回 {ok, reason, shooter_id, domain_id, controller_id, legacy_context, own_entity_instance_id}
-## 该函数**不**消耗资源；调用方必须在弹道/弹药之前使用它。
-func authorize_fire(opts: Dictionary) -> Dictionary:
+## 授权检查。**不**消耗资源；调用方必须在弹道/弹药之前使用。
+## opts 可含：shooter_id / actor_id / controller_id / domain_id / fleet_id / target_id
+## runtime_ids：**由调用方按真实运行态注入**的可发射实例集合（配置 bool 不得自证）
+func authorize_fire(opts: Dictionary, runtime_ids := []) -> Dictionary:
 	var o: Dictionary = opts if opts is Dictionary else {}
 	var explicit := String(o.get("shooter_id", ""))
+	# 请求 context：任一字段出现即视为「显式 context」，必须完整合法
+	var ctx_actor := String(o.get("actor_id", ""))
+	var ctx_ctrl := String(o.get("controller_id", ""))
+	var ctx_dom := String(o.get("domain_id", ""))
+	var ctx_fleet := String(o.get("fleet_id", ""))
+	var has_ctx := ctx_actor != "" or ctx_ctrl != "" or ctx_dom != "" or ctx_fleet != ""
+	var resolved := ""
+	var legacy := ""
 	if explicit == "":
-		# 旧调用：只映射本舰（可信锚点来自场景配置，不由命令自证）
 		if own_entity == "":
-			# 无本舰锚点的会话（如纯服务测试）：授权门**不抢先拒绝**，
-			# 交回既有 combat/ballistics 检查，保持旧语义不变；审计记录 deferred。
+			# 无本舰锚点的纯服务会话：不抢先拒绝，交回既有检查（旧语义不变）
 			return {"ok": true, "reason": "legacy_no_anchor_deferred",
 				"shooter_id": "", "deferred": true,
 				"detail": "场景未配置 own_entity：授权门放行由既有服务检查"}
+		if has_ctx:
+			# 显式非法 context 不得被抹成 legacy：先按 context 校验
+			var bad: Dictionary = _validate_context(ctx_actor, ctx_ctrl, ctx_dom, ctx_fleet)
+			if not bool(bad.get("ok", false)):
+				return bad
 		if not instances.has(own_entity):
 			return {"ok": false, "reason": R_LEGACY_ANCHOR_UNKNOWN,
 				"detail": "本舰未登记为实例: " + own_entity}
-		return {"ok": true, "reason": "ok", "shooter_id": own_entity,
-			"domain_id": "player", "controller_id": _controller_of("player"),
-			"legacy_context": LEGACY_CONTEXT,
-			"own_entity_instance_id": own_entity}
-	if not instances.has(explicit):
+		resolved = own_entity
+		legacy = LEGACY_CONTEXT
+	else:
+		resolved = explicit
+	if not instances.has(resolved):
 		return {"ok": false, "reason": R_UNKNOWN_SHOOTER,
-			"detail": "shooter 不是已登记实例: " + explicit}
-	var info: Dictionary = instances[explicit]
+			"detail": "shooter 不是已登记实例: " + resolved}
+	var info: Dictionary = instances[resolved]
 	var dom := String(info.get("domain_id", ""))
 	if not domains.has(dom):
 		return {"ok": false, "reason": R_DOMAIN_UNKNOWN,
 			"detail": "shooter 所属域未知: " + dom}
-	var kind := String((domains[dom] as Dictionary).get("kind", ""))
+	var dom_row: Dictionary = domains[dom]
+	# 显式 context（含给定 shooter 时也校验其一致性）
+	if has_ctx:
+		var chk: Dictionary = _validate_context(ctx_actor, ctx_ctrl, ctx_dom, ctx_fleet,
+			dom, String(info.get("fleet_id", "")))
+		if not bool(chk.get("ok", false)):
+			return chk
+	# 域种类限制
+	var kind := String(dom_row.get("kind", ""))
 	if kind == "ai_hostile":
 		return {"ok": false, "reason": R_NOT_AUTHORIZED,
-			"detail": "敌方实例不能接受本方命令: " + explicit}
+			"detail": "敌方实例不能接受本方命令: " + resolved}
 	if kind == "ai_ally":
 		return {"ok": false, "reason": R_ALLY_DIRECT,
-			"detail": "盟军不能接受直接命令（应走协同请求协议）: " + explicit}
-	# 本方其他舰：若尚无独立战斗运行态 → 明确不可用，绝不借旗舰
-	if not bool(info.get("combat_runtime", false)):
+			"detail": "盟军不能接受直接命令（应走协同请求协议）: " + resolved}
+	# R1b：真实逐舰运行态由调用方注入，配置 bool 不得自证
+	var has_runtime := false
+	for rid in (runtime_ids as Array):
+		if String(rid) == resolved:
+			has_runtime = true
+			break
+	if not has_runtime:
 		return {"ok": false, "reason": R_RUNTIME_UNAVAILABLE,
-			"detail": "该本方舰尚无独立战斗运行态: " + explicit}
-	return {"ok": true, "reason": "ok", "shooter_id": explicit,
-		"domain_id": dom, "controller_id": _controller_of(dom),
-		"legacy_context": ""}
+			"detail": "该本方舰无真实战斗运行态: " + resolved}
+	return {"ok": true, "reason": "ok", "shooter_id": resolved,
+		"domain_id": dom, "fleet_id": String(info.get("fleet_id", "")),
+		"controller_id": String(dom_row.get("controller_id", "")),
+		"actor_id": String(ctx_actor) if ctx_actor != "" \
+			else String(dom_row.get("authorized_actors", [""])[0]),
+		"legacy_context": legacy,
+		"context_source": "explicit" if has_ctx else "shooter_only"}
+
+
+## 校验显式 context；给定 shooter 域/舰队时要求一致。
+func _validate_context(actor: String, ctrl: String, dom: String, fleet: String,
+		shooter_dom := "", shooter_fleet := "") -> Dictionary:
+	if dom != "":
+		if not domains.has(dom):
+			return {"ok": false, "reason": R_DOMAIN_UNKNOWN,
+				"detail": "context domain 未知: " + dom}
+		if shooter_dom != "" and dom != shooter_dom:
+			return {"ok": false, "reason": R_CONTEXT_DOMAIN_MISMATCH,
+				"detail": "context domain=%s 与 shooter 域=%s 不一致" % [dom, shooter_dom]}
+	var check_dom := dom if dom != "" else shooter_dom
+	if check_dom == "":
+		return {"ok": false, "reason": R_CONTEXT_DOMAIN_MISMATCH,
+			"detail": "缺少可判定的域"}
+	var row: Dictionary = domains[check_dom]
+	if actor != "":
+		var actors: Array = row.get("authorized_actors", [])
+		if not (actor in actors):
+			return {"ok": false, "reason": R_ACTOR_NOT_AUTHORIZED,
+				"detail": "actor %s 不在域 %s 授权名单" % [actor, check_dom]}
+	if ctrl != "":
+		if ctrl != String(row.get("controller_id", "")):
+			return {"ok": false, "reason": R_CONTROLLER_MISMATCH,
+				"detail": "controller %s 与域 %s 直控 %s 不一致" % [
+					ctrl, check_dom, String(row.get("controller_id", ""))]}
+	if fleet != "":
+		var want := String(row.get("fleet_id", ""))
+		if want != "" and fleet != want:
+			return {"ok": false, "reason": R_FLEET_MISMATCH,
+				"detail": "fleet %s 与域 %s 舰队 %s 不一致" % [fleet, check_dom, want]}
+		if shooter_fleet != "" and fleet != shooter_fleet:
+			return {"ok": false, "reason": R_FLEET_MISMATCH,
+				"detail": "fleet %s 与 shooter 舰队 %s 不一致" % [fleet, shooter_fleet]}
+	return {"ok": true}
 
 
 func _controller_of(dom: String) -> String:
@@ -180,22 +254,91 @@ func fire_audit() -> Array:
 
 func owner_of_entity(entity_id: String) -> String:
 	var info: Dictionary = instances.get(entity_id, {}) if instances.get(entity_id) is Dictionary else {}
-	var dom := String(info.get("domain_id", "player"))
-	return String((domains.get(dom, {}) as Dictionary).get("intel_owner_id", own_owner))
+	if info.is_empty():
+		return ""
+	var dom := String(info.get("domain_id", ""))
+	return String((domains.get(dom, {}) as Dictionary).get("intel_owner_id", ""))
 
 
 func has_owner(owner_id: String) -> bool:
 	return intel.has(owner_id)
 
 
-## 接收观测：只有接收 owner 自己的视图可见；其他 owner 不可见。
-## row: {observation_id, observer_id, target_id, sensor, observed_t, received_t,
-##       delay_s, source, path, quality, range_km, bearing_deg}
-func receive_observation(owner_id: String, row: Dictionary) -> Dictionary:
+## 接收观测（**必须**经真实投递到达）。
+## row: observation_id/observer_id/target_id/sensor/source/observed_t/pos_km/quality...
+## delivery: delivery_id / received_t / share_authorized_by / path / now_t
+## 返回 {ok, reason?, duplicated?}
+func receive_observation(owner_id: String, row: Dictionary,
+		delivery := {}) -> Dictionary:
 	if not intel.has(owner_id):
 		return {"ok": false, "reason": "unknown_intel_owner", "owner_id": owner_id}
 	var r: Dictionary = row.duplicate(true)
+	var d: Dictionary = delivery if delivery is Dictionary else {}
+	var observer := String(r.get("observer_id", ""))
+	# 未知 observer 不得默认本方（旧实现默认 player）
+	if observer == "":
+		return {"ok": false, "reason": "missing_observer"}
+	if not instances.has(observer):
+		return {"ok": false, "reason": R_OBSERVER_UNKNOWN,
+			"detail": "observer 不是已登记实例: " + observer}
+	var observer_owner := owner_of_entity(observer)
+	# 跨 owner 共享：必须有原始 owner 授权 + 真实投递
+	var delivery_id := String(d.get("delivery_id", ""))
+	if observer_owner != owner_id:
+		var authz := String(d.get("share_authorized_by", ""))
+		if authz == "":
+			return {"ok": false, "reason": R_SHARE_NOT_AUTHORIZED,
+				"detail": "跨 owner 共享缺少 share_authorized_by"}
+		if authz != observer_owner:
+			return {"ok": false, "reason": R_SHARE_NOT_AUTHORIZED,
+				"detail": "共享授权者 %s 不是观察者原始 owner %s" % [
+					authz, observer_owner]}
+		if delivery_id == "":
+			return {"ok": false, "reason": R_NOT_ARRIVED,
+				"detail": "跨 owner 共享必须经真实投递（缺 delivery_id）"}
+	# 时间契约：有限非负、received>=observed、delay 与差值一致、不得来自未来
+	var observed_t := float(r.get("observed_t", -1.0))
+	if not is_finite(observed_t) or observed_t < 0.0:
+		return {"ok": false, "reason": R_TIME_INVALID, "detail": "observed_t 非法"}
+	var received_raw = d.get("received_t", r.get("received_t", null))
+	if received_raw == null or not is_finite(float(received_raw)) \
+			or float(received_raw) < 0.0:
+		return {"ok": false, "reason": R_TIME_INVALID, "detail": "received_t 非法"}
+	var received_t := float(received_raw)
+	if received_t + TIME_TOL < observed_t:
+		return {"ok": false, "reason": R_TIME_INVALID,
+			"detail": "received_t 早于 observed_t"}
+	var now_raw = d.get("now_t", null)
+	if now_raw != null:
+		if not is_finite(float(now_raw)):
+			return {"ok": false, "reason": R_TIME_INVALID, "detail": "now_t 非法"}
+		if received_t > float(now_raw) + TIME_TOL:
+			return {"ok": false, "reason": R_NOT_ARRIVED,
+				"detail": "received_t 晚于当前时刻（尚未到达）"}
+	var delay_raw = d.get("delay_s", r.get("delay_s", null))
+	if delay_raw != null:
+		var delay := float(delay_raw)
+		if not is_finite(delay) or delay < 0.0:
+			return {"ok": false, "reason": R_TIME_INVALID, "detail": "delay_s 非法"}
+		if absf((received_t - observed_t) - delay) > TIME_TOL:
+			return {"ok": false, "reason": R_TIME_INVALID,
+				"detail": "delay_s 与 received-observed 不一致"}
+	# 幂等：同一 owner + delivery/observation 只融合一次
+	var obs_id := String(r.get("observation_id", ""))
+	var idem_key := "%s|%s|%s" % [owner_id, delivery_id,
+		obs_id if obs_id != "" else "%s@%.6f" % [String(r.get("target_id", "")), observed_t]]
+	if seen_deliveries.has(idem_key):
+		return {"ok": true, "duplicated": true, "owner_id": owner_id,
+			"observation_id": obs_id}
+	seen_deliveries[idem_key] = true
 	r["intel_owner_id"] = owner_id
+	r["delivery_id"] = delivery_id
+	r["received_t"] = received_t
+	r["observed_t"] = observed_t
+	if d.get("path", null) != null:
+		r["path"] = String(d.get("path", ""))
+	if d.get("share_authorized_by", null) != null:
+		r["share_authorized_by"] = String(d.get("share_authorized_by", ""))
 	(observations[owner_id] as Array).append(r)
 	var tid := String(r.get("target_id", ""))
 	if tid != "":
@@ -203,11 +346,10 @@ func receive_observation(owner_id: String, row: Dictionary) -> Dictionary:
 		var trk: Dictionary = cur if cur is Dictionary else {}
 		trk["id"] = tid
 		trk["intel_owner_id"] = owner_id
-		trk["last_observed_t"] = float(r.get("observed_t", 0.0))
-		trk["last_received_t"] = float(r.get("received_t", 0.0))
+		trk["last_observed_t"] = observed_t
+		trk["last_received_t"] = received_t
 		trk["source"] = String(r.get("source", ""))
 		trk["quality"] = float(r.get("quality", 0.0))
-		# 几何以 observed_t 的观测为准；不得用当前真值替换
 		if r.get("pos_km") is Array and (r.get("pos_km") as Array).size() >= 3:
 			trk["pos_km"] = (r.get("pos_km") as Array).duplicate()
 		if r.get("range_km") != null:
@@ -215,7 +357,8 @@ func receive_observation(owner_id: String, row: Dictionary) -> Dictionary:
 		if r.get("bearing_deg") != null:
 			trk["bearing_deg"] = float(r.get("bearing_deg"))
 		(intel[owner_id] as Dictionary)[tid] = trk
-	return {"ok": true, "owner_id": owner_id, "track_id": tid}
+	return {"ok": true, "owner_id": owner_id, "track_id": tid,
+		"observation_id": obs_id}
 
 
 ## 分方读取视图：只返回该 owner 自己的航迹与观测（不含任何其他 owner 数据）
@@ -257,6 +400,27 @@ func selected(owner_id: String) -> Array:
 	return out
 
 
+## 旧档迁移：把旧 TrackTable 航迹迁入**可信本舰 owner**（不复制给盟军/敌方）
+func migrate_legacy_tracks(own_owner_id: String, tracks: Array) -> Dictionary:
+	if not intel.has(own_owner_id):
+		return {"ok": false, "reason": "unknown_intel_owner"}
+	var migrated := 0
+	for raw in tracks:
+		if not (raw is Dictionary):
+			continue
+		var t: Dictionary = raw
+		var tid := String(t.get("id", t.get("track_id", "")))
+		if tid == "":
+			continue
+		var trk: Dictionary = t.duplicate(true)
+		trk["id"] = tid
+		trk["intel_owner_id"] = own_owner_id
+		trk["source"] = "legacy_migration"
+		(intel[own_owner_id] as Dictionary)[tid] = trk
+		migrated += 1
+	return {"ok": true, "migrated": migrated, "owner": own_owner_id}
+
+
 # ── 存档/恢复 ───────────────────────────────────────────────────
 
 func export_state() -> Dictionary:
@@ -266,19 +430,29 @@ func export_state() -> Dictionary:
 		"instances": JSON.parse_string(JSON.stringify(instances)),
 		"intel": JSON.parse_string(JSON.stringify(intel)),
 		"observations": JSON.parse_string(JSON.stringify(observations)),
+		"seen_deliveries": JSON.parse_string(JSON.stringify(seen_deliveries)),
 		"audit": JSON.parse_string(JSON.stringify(audit))}
 
 
-## 恢复：owner 航迹与 context 一致；旧档（无本段）只迁入本舰域，不复制到盟军。
-func import_state(st: Dictionary) -> Dictionary:
-	if st == null or not (st is Dictionary) or (st as Dictionary).is_empty():
+## 恢复：owner 航迹与 context 一致；真正旧档只迁入本舰域，不复制到盟军。
+func import_state(st) -> Dictionary:
+	if st == null:
 		return {"ok": true, "restore_mode": "legacy_own_ship_only",
-			"note": "旧档无 authority/intel 段：仅本舰域，不复制到盟军"}
+			"note": "无 authority/intel 段：旧档迁移路径"}
+	if not (st is Dictionary):
+		# R5：**已存在但畸形**的新段必须明确失败，不得静默降级为旧档
+		return {"ok": false, "reason": "invalid_state_type",
+			"detail": "authority_intel 段必须是对象（收到 %s）" % type_string(typeof(st))}
 	var s: Dictionary = st
+	if s.is_empty():
+		return {"ok": true, "restore_mode": "legacy_own_ship_only",
+			"note": "空段：按旧档迁移"}
 	if String(s.get("schema", "")) != SCHEMA:
-		return {"ok": false, "reason": "invalid_schema"}
+		return {"ok": false, "reason": "invalid_schema",
+			"detail": "schema=%s" % String(s.get("schema", ""))}
 	if int(s.get("version", 0)) != VERSION:
-		return {"ok": false, "reason": "invalid_version"}
+		return {"ok": false, "reason": "invalid_version",
+			"detail": "version=%s" % str(s.get("version", 0))}
 	var new_intel: Dictionary = {}
 	var new_obs: Dictionary = {}
 	for did in domains.keys():
@@ -303,6 +477,9 @@ func import_state(st: Dictionary) -> Dictionary:
 				new_obs[String(owner3)] = (a3 as Array).duplicate(true)
 	intel = new_intel
 	observations = new_obs
+	var raw_seen = s.get("seen_deliveries", {})
+	seen_deliveries = (raw_seen as Dictionary).duplicate(true) \
+		if raw_seen is Dictionary else {}
 	var raw_audit = s.get("audit", [])
 	audit = (raw_audit as Array).duplicate(true) if raw_audit is Array else []
 	return {"ok": true, "restore_mode": "full",

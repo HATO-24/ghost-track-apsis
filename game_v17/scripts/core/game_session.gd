@@ -120,6 +120,13 @@ var _ballistics_enabled := false
 # JC-A01：指挥权限与分方情报（授权门 + owner 隔离读入口）
 var authority_intel = null
 var _authority_enabled := false
+# JC-A01：经 Comms 链路在途的情报共享（发出→到达→仅接收方融合）
+var _pending_intel_shares: Dictionary = {}
+# JC-A01/R5：授权/情报恢复模式与原因（公开披露，不污染 snapshot）
+var _authority_restore_mode := ""
+var _authority_restore_reasons: Array = []
+# JC-A01/R4：最近一次共享到达的判定结果（诊断用，不写 snapshot）
+var _last_intel_share_result: Dictionary = {}
 var _ship_catalog_enabled := false
 var _refit_enabled := false
 var _fleet_refit_enabled := false
@@ -2768,6 +2775,8 @@ func _reconcile_standalone(before_ids: Array) -> void:
 			"text_key": String(info.get("text_key", "")),
 		}))
 		_standalone.erase(id)
+		# JC-A01：若该投递承载情报共享，则**到达后**才把它融合进接收 owner。
+		_deliver_intel_share(id, String(info.get("latency_s", "0")))
 
 # ── PortService 委托（可选）─────────────────────────────────────
 
@@ -2949,6 +2958,10 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 	if entity == "":
 		entity = _entity_for_track(target_id)
 	var states: Dictionary = _ballistics_states()
+	# 授权门已解析出合法 shooter；以它为准（不再让下游空 shooter 再猜）
+	var resolved_shooter := String(auth.get("shooter_id", ""))
+	if resolved_shooter != "":
+		o["shooter_id"] = resolved_shooter
 	var shooter := String(o.get("shooter_id", ""))
 	var ss: Dictionary = states.get(shooter, {}) if states.get(shooter) is Dictionary else {}
 	if ss.is_empty():
@@ -2964,9 +2977,29 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 	var gate: Dictionary = combat_service.request_fire(target_id, weapon_id, confirmed, o)
 	if not bool(gate.get("ok", false)):
 		return gate
+	# R2：日志必须保存**同一份规范化授权 context**（供重放按同样语义恢复）
 	_record({"op": "request_fire", "target_id": target_id,
-		"weapon_id": weapon_id, "confirmed": confirmed, "salvo": int(gate.get("salvo", 1))})
+		"weapon_id": weapon_id, "confirmed": confirmed, "salvo": int(gate.get("salvo", 1)),
+		"actor_id": String(auth.get("actor_id", "")),
+		"controller_id": String(auth.get("controller_id", "")),
+		"domain_id": String(auth.get("domain_id", "")),
+		"fleet_id": String(auth.get("fleet_id", "")),
+		"shooter_id": String(auth.get("shooter_id", "")),
+		"legacy_context": String(auth.get("legacy_context", "")),
+		"context_source": String(auth.get("context_source", "")),
+		"t_s": float(now_s())})
 	var res: Dictionary = gate.duplicate(true)
+	# R2：把同一份规范化授权 context 透出到返回值（与日志一致）
+	res["authority_context"] = {
+		"actor_id": String(auth.get("actor_id", "")),
+		"controller_id": String(auth.get("controller_id", "")),
+		"domain_id": String(auth.get("domain_id", "")),
+		"fleet_id": String(auth.get("fleet_id", "")),
+		"shooter_id": String(auth.get("shooter_id", "")),
+		"legacy_context": String(auth.get("legacy_context", "")),
+		"context_source": String(auth.get("context_source", "")),
+		"t_s": float(now_s()),
+	}
 	res["launched"] = 0
 	res["projectile_ids"] = []
 	res["physics"] = "none"
@@ -4805,6 +4838,8 @@ func save_state() -> String:
 		# JC-A01：授权/分方情报（owner 航迹 + 授权 context + 审计）
 		"authority_intel": authority_intel.export_state() \
 			if (_authority_enabled and authority_intel != null) else null,
+		# JC-A01：在途共享随档保存（恢复后按到达时刻继续）
+		"pending_intel_shares": _pending_intel_shares.duplicate(true),
 	}
 	return JSON.stringify(payload)
 
@@ -5172,14 +5207,55 @@ func load_state(json_text: String) -> Dictionary:
 			replay_errors.append("sensor geometry 与 session 不同刻（%.9f vs %.9f）" % [
 				float(geo_st.get("t", -1.0)), now_s()])
 	# JC-A01：恢复授权/分方情报（owner 航迹 + 授权 context + 审计）。
-	# 旧档无本段 → 只迁入本舰域，不复制到盟军。
+	# R5：真正旧档（缺段）→ 只迁入本舰 owner；已存在但畸形的新段 → 明确失败。
 	var ai_state = data.get("authority_intel", null)
 	var ai_res: Dictionary = {"ok": true, "restore_mode": "legacy_own_ship_only"}
 	if _authority_enabled and authority_intel != null:
-		ai_res = authority_intel.import_state(ai_state if ai_state is Dictionary else {})
-		if not bool(ai_res.get("ok", false)):
-			replay_errors.append("authority_intel 恢复失败：" + str(
-				ai_res.get("reason", "")))
+		if data.has("authority_intel") and ai_state != null \
+				and not (ai_state is Dictionary):
+			# 畸形新段不得静默降级为旧档
+			ai_res = {"ok": false, "reason": "invalid_authority_intel_section",
+				"detail": "authority_intel 必须是对象（收到 %s）" % type_string(
+					typeof(ai_state))}
+			replay_errors.append("authority_intel 段畸形：" + String(
+				ai_res.get("detail", "")))
+		else:
+			ai_res = authority_intel.import_state(ai_state)
+			if not bool(ai_res.get("ok", false)):
+				replay_errors.append("authority_intel 恢复失败：" + str(
+					ai_res.get("reason", "")))
+			elif String(ai_res.get("restore_mode", "")) == "legacy_own_ship_only":
+				# 真正旧来源：把旧 TrackTable 航迹迁入**本舰 owner**（不复制给盟军）
+				var legacy_tracks: Array = []
+				if track_table != null and track_table.has_method("all_tracks"):
+					legacy_tracks = track_table.all_tracks()
+				elif track_table != null and track_table.has_method("snapshot"):
+					var snap_l: Dictionary = track_table.snapshot()
+					if snap_l.get("tracks") is Array:
+						legacy_tracks = snap_l.get("tracks")
+				var own_owner_id := String(
+					(authority_intel.domains.get("player", {}) as Dictionary)
+						.get("intel_owner_id", "player_intel"))
+				var mig: Dictionary = authority_intel.migrate_legacy_tracks(
+					own_owner_id, legacy_tracks)
+				ai_res["legacy_migrated"] = int(mig.get("migrated", 0))
+				ai_res["legacy_owner"] = own_owner_id
+	_authority_restore_mode = String(ai_res.get("restore_mode", "full"))
+	_authority_restore_reasons = []
+	if not bool(ai_res.get("ok", true)):
+		_authority_restore_mode = "failed"
+		_authority_restore_reasons.append(String(ai_res.get("reason", "")))
+	elif int(ai_res.get("legacy_migrated", 0)) > 0:
+		_authority_restore_reasons.append("legacy_tracks_migrated:%d" % int(
+			ai_res.get("legacy_migrated", 0)))
+	# 在途共享：恢复后继续按到达时刻融合
+	_pending_intel_shares = {}
+	var raw_pending = data.get("pending_intel_shares", null)
+	if raw_pending is Dictionary:
+		for pk in (raw_pending as Dictionary).keys():
+			var pv = (raw_pending as Dictionary)[pk]
+			if pv is Dictionary:
+				_pending_intel_shares[String(pk)] = (pv as Dictionary).duplicate(true)
 	_sensor_restore_report = {
 		"schema": "v17.sensor_restore.v2",
 		"saved": saved_sensor is Dictionary,
@@ -5195,7 +5271,19 @@ func load_state(json_text: String) -> Dictionary:
 	ready = replay_errors.is_empty() and errors.is_empty()
 	return {"ok": ready, "errors": replay_errors, "result_errors": errors.duplicate(),
 		"world_sync": world_sync, "sensor_restore": _sensor_restore_report.duplicate(true),
-		"sensor_restore_mode": sr_mode, "sensor_partial_reasons": sr_partial}
+		"sensor_restore_mode": sr_mode, "sensor_partial_reasons": sr_partial,
+		# R5：授权/情报恢复模式与原因公开可读
+		"authority_restore_mode": _authority_restore_mode,
+		"authority_restore_reasons": _authority_restore_reasons.duplicate(),
+		"pending_intel_shares": _pending_intel_shares.size()}
+
+
+## R5：授权/情报恢复报告（公开披露，不污染规范化 snapshot）。
+func authority_restore_report() -> Dictionary:
+	return {"schema": "v17.authority_restore.v1",
+		"restore_mode": _authority_restore_mode,
+		"reasons": _authority_restore_reasons.duplicate(),
+		"pending_shares": _pending_intel_shares.size()}
 
 # ── A-06：通信重放核对 ─────────────────────────────────────────
 ## 重放一次 send_comms，并与操作日志里记录的版本化 outcome 逐项核对：
@@ -5472,9 +5560,16 @@ func _replay_op(op: Dictionary) -> Dictionary:
 		"request_fire":
 			if combat_service == null:
 				return {"ok": true, "skipped": "no_combat_service"}
+			# R2：重放必须按日志中的**同一份规范化 context**恢复同样语义，
+			# 不能只传 salvo 退回无 shooter 的 legacy 路径。
+			var rf_opts: Dictionary = {"salvo": int(op.get("salvo", 1))}
+			for ck in ["actor_id", "controller_id", "domain_id", "fleet_id",
+					"shooter_id", "legacy_context"]:
+				if op.has(ck) and String(op.get(ck, "")) != "":
+					rf_opts[ck] = String(op.get(ck, ""))
 			return request_fire(String(op.get("target_id", "")),
 				String(op.get("weapon_id", "")), bool(op.get("confirmed", false)),
-				{"salvo": int(op.get("salvo", 1))})
+				rf_opts)
 		"set_weapon_salvo":
 			if combat_service == null:
 				return {"ok": true, "skipped": "no_combat_service"}
@@ -5703,23 +5798,38 @@ func _result(ok: bool) -> Dictionary:
 # ═══════════════════════════════════════════════════════════════════
 
 ## 授权检查（fire 入口用；不消耗资源）。
+## R1b：真实逐舰运行态**按实际运行态注入**，配置 bool 不得自证。
 func authorize_fire(opts := {}) -> Dictionary:
 	if not _authority_enabled or authority_intel == null:
 		return {"ok": false, "reason": "authority_unavailable"}
-	return authority_intel.authorize_fire(opts if opts is Dictionary else {})
+	var runtime_ids: Array = []
+	if combat_service != null and combat_service.get("own_id") != null:
+		var own_id := String(combat_service.own_id)
+		if own_id != "":
+			runtime_ids.append(own_id)
+	return authority_intel.authorize_fire(
+		opts if opts is Dictionary else {}, runtime_ids)
 
 
 func _record_fire_audit(target_id: String, weapon_id: String, opts: Dictionary,
 		auth: Dictionary, rejected: bool) -> void:
 	if not _authority_enabled or authority_intel == null:
 		return
+	# R2：审计必须带**同一份规范化 context**（actor/controller/fleet/shooter/t/legacy）
 	authority_intel.record_audit({
 		"t": float(now_s()), "op": "request_fire", "target_id": target_id,
 		"weapon_id": weapon_id,
 		"requested_shooter": String(opts.get("shooter_id", "")),
+		"requested_actor": String(opts.get("actor_id", "")),
+		"requested_controller": String(opts.get("controller_id", "")),
+		"requested_domain": String(opts.get("domain_id", "")),
+		"requested_fleet": String(opts.get("fleet_id", "")),
 		"resolved_shooter": String(auth.get("shooter_id", "")),
-		"domain_id": String(auth.get("domain_id", "")),
+		"actor_id": String(auth.get("actor_id", "")),
 		"controller_id": String(auth.get("controller_id", "")),
+		"domain_id": String(auth.get("domain_id", "")),
+		"fleet_id": String(auth.get("fleet_id", "")),
+		"context_source": String(auth.get("context_source", "")),
 		"legacy_context": String(auth.get("legacy_context", "")),
 		"own_entity_instance_id": String(auth.get("own_entity_instance_id", "")),
 		"ok": not rejected, "reason": String(auth.get("reason", "")),
@@ -5737,6 +5847,11 @@ func intel_owner_of(entity_id: String) -> String:
 	if not _authority_enabled or authority_intel == null:
 		return ""
 	return authority_intel.owner_of_entity(entity_id)
+
+
+## 本舰实体 id（可信锚点；供 HUD/情报 facade 解析默认 owner）。
+func own_entity_id() -> String:
+	return String(_seed.get("own_entity", ""))
 
 
 ## owner 隔离读入口：只返回该 owner 自己的航迹与观测。
@@ -5760,28 +5875,178 @@ func selected_tracks(owner_id: String) -> Array:
 	return authority_intel.selected(owner_id)
 
 
-## 接收共享观测：只有接收 owner 自己的视图可见（未来由协同协议调用）。
-func receive_intel_observation(owner_id: String, row: Dictionary) -> Dictionary:
+## 接收共享观测：**必须经真实投递到达**；只有接收 owner 自己的视图可见。
+## delivery: delivery_id / received_t / share_authorized_by / path / delay_s
+func receive_intel_observation(owner_id: String, row: Dictionary,
+		delivery := {}) -> Dictionary:
 	if not _authority_enabled or authority_intel == null:
 		return {"ok": false, "reason": "authority_unavailable"}
-	return authority_intel.receive_observation(owner_id, row)
+	var d: Dictionary = delivery if delivery is Dictionary else {}
+	# 实际到达时刻默认取会话当前时刻（不得由调用方随意填未来时间）
+	if not d.has("received_t"):
+		d["received_t"] = float(now_s())
+	if not d.has("now_t"):
+		d["now_t"] = float(now_s())
+	return authority_intel.receive_observation(owner_id, row, d)
+
+
+## 经既有 Comms 链路发起一次情报共享（发出→未到达不可见→到达仅接收方融合）。
+func queue_intel_share(from_id: String, to_id: String, owner_id: String,
+		row: Dictionary, text_key := "COMMS_SENT") -> Dictionary:
+	if comms == null:
+		return {"ok": false, "reason": "no_comms"}
+	var payload := {"intel_share": {
+		"owner_id": owner_id,
+		"row": row.duplicate(true),
+		"share_authorized_by": String(row.get("observer_id", "")) \
+			if false else String(row.get("share_authorized_by", "")),
+	}}
+	var sr: Dictionary = comms.send(from_id, to_id, "LD", text_key, payload, {})
+	if not bool(sr.get("ok", false)):
+		return sr
+	var did := String(sr.get("delivery_id", ""))
+	# 与 send_comms 相同：登记到 _standalone，使到达时由 _reconcile_standalone 投递
+	_standalone[did] = {"from": from_id, "to": to_id, "mode": "LD",
+		"text_key": text_key, "sent_t": now_s(),
+		"latency_s": float(sr.get("latency_s", 0.0))}
+	_pending_intel_shares[did] = {
+		"owner_id": owner_id, "row": row.duplicate(true),
+		"from": from_id, "to": to_id,
+		"share_authorized_by": String(row.get("share_authorized_by", "")),
+	}
+	return {"ok": true, "delivery_id": did, "pending": _pending_intel_shares.size()}
+
+
+## 处理已到达的共享：只把 delivered 事件转成 receiver 的融合输入。
+func _drain_intel_deliveries() -> void:
+	if comms == null or not _authority_enabled or authority_intel == null:
+		return
+	var evs: Array = comms.take_events()
+	for raw in evs:
+		if not (raw is Dictionary):
+			continue
+		var ev: Dictionary = raw
+		var kind := String(ev.get("kind", ""))
+		var did := String(ev.get("delivery_id", ""))
+		if did == "" or not _pending_intel_shares.has(did):
+			continue
+		if kind != "delivered":
+			continue
+		var pend: Dictionary = _pending_intel_shares[did]
+		_pending_intel_shares.erase(did)
+		var row: Dictionary = (pend.get("row", {}) as Dictionary).duplicate(true)
+		var delivery := {"delivery_id": did,
+			"received_t": float(ev.get("t", now_s())),
+			"now_t": float(now_s()),
+			"share_authorized_by": String(pend.get("share_authorized_by", "")),
+			"path": "%s->%s" % [String(pend.get("from", "")),
+				String(pend.get("to", ""))]}
+		if row.get("delay_s", null) == null:
+			delivery["delay_s"] = float(ev.get("latency_s", 0.0))
+		var rr: Dictionary = authority_intel.receive_observation(
+			String(pend.get("owner_id", "")), row, delivery)
+		if bool(rr.get("ok", false)):
+			(ev as Dictionary)["intel_owner_id"] = String(pend.get("owner_id", ""))
+			# 到达后立即触发一次 owner 融合读（保证 HUD/列表读到的是融合结果）
+			var _v: Dictionary = authority_intel.intel_view(
+				String(pend.get("owner_id", "")))
+			_v.clear()
+
+
+## 处理已到达的共享：只把 delivered 的共享转成 receiver 的融合输入。
+func _deliver_intel_share(delivery_id: String, latency_raw) -> void:
+	if not _authority_enabled or authority_intel == null:
+		return
+	if not _pending_intel_shares.has(delivery_id):
+		return
+	var pend: Dictionary = _pending_intel_shares[delivery_id]
+	var row: Dictionary = (pend.get("row", {}) as Dictionary).duplicate(true)
+	var latency := 0.0
+	if latency_raw is String:
+		latency = float(latency_raw) if String(latency_raw) != "" else 0.0
+	elif latency_raw is int or latency_raw is float:
+		latency = float(latency_raw)
+	var delivery := {"delivery_id": delivery_id,
+		"received_t": float(now_s()),
+		"now_t": float(now_s()),
+		"share_authorized_by": String(pend.get("share_authorized_by", "")),
+		"path": "%s->%s" % [String(pend.get("from", "")),
+			String(pend.get("to", ""))]}
+	# 延迟必须与实际到达一致（received - observed），不能用链路理论时延冒充
+	var obs_t := float(row.get("observed_t", 0.0))
+	delivery["delay_s"] = maxf(0.0, float(now_s()) - obs_t)
+	if latency_raw != null:
+		delivery["link_latency_s"] = float(latency_raw) if not (latency_raw is String) \
+			else float(latency_raw)
+	var rr: Dictionary = authority_intel.receive_observation(
+		String(pend.get("owner_id", "")), row, delivery)
+	_last_intel_share_result = {"delivery_id": delivery_id,
+		"result": rr.duplicate(true), "delivery": delivery.duplicate(true)}
+	if bool(rr.get("ok", false)):
+		_pending_intel_shares.erase(delivery_id)
+
+
+## R4 诊断：最近一次共享到达的判定结果
+func last_intel_share_result() -> Dictionary:
+	return _last_intel_share_result.duplicate(true)
+
+## 已到达共享的待融合项（供恢复后继续处理）。
+func pending_intel_shares() -> Dictionary:
+	return _pending_intel_shares.duplicate(true)
 
 
 ## 测试钩子：直接改世界真值（模拟未观测到的敌方改名/移动），**不**通知任何 owner。
+## R6：必须实际改变被测真值表面，并回传前后值供断言。
 func _apply_hidden_truth_mutation(entity_id: String, new_id: String,
 		new_pos: Array) -> Dictionary:
+	var before := {}
+	var after := {}
 	var moved := 0
-	if physics_world_service != null and physics_world_service.has_method("set_position"):
-		var st: Dictionary = physics_state(entity_id)
-		if not st.is_empty():
-			physics_world_service.set_position(entity_id, new_pos,
-				st.get("v", [0.0, 0.0, 0.0]))
-			moved += 1
+	# 1) WorldState 是实体元数据权威：用既有 entity.move 事件真实改坐标
+	if world != null and world.has_method("entity") and world.has_method("apply"):
+		var e0: Dictionary = world.entity(entity_id)
+		if not e0.is_empty():
+			before["world"] = {"pos_km": (e0.get("pos_km", []) as Array).duplicate(),
+				"name": String(e0.get("name", ""))}
+	if world != null and world.has_method("apply"):
+		if new_pos is Array and (new_pos as Array).size() >= 3:
+			var ev: Dictionary = _mk_event("entity.move", entity_id,
+				{"pos_km": (new_pos as Array).duplicate()})
+			var w: String = String(world.get("writer"))
+			if w == "":
+				w = String(_seed.get("writer", "session"))
+			var r: Dictionary = world.apply(ev, w)
+			if bool(r.get("ok", false)):
+				moved += 1
 	if world != null and world.has_method("entity"):
-		var e: Dictionary = world.entity(entity_id)
-		if not e.is_empty():
-			e["pos_km"] = (new_pos as Array).duplicate()
-			e["name"] = new_id
-			moved += 1
+		var e1: Dictionary = world.entity(entity_id)
+		if not e1.is_empty():
+			after["world"] = {"pos_km": (e1.get("pos_km", []) as Array).duplicate(),
+				"name": String(e1.get("name", ""))}
+	# 2) 物理表面：若提供真实 upsert/重置接口则同步（不同实现命名不同）
+	if physics_world_service != null:
+		for m in ["upsert_entity", "set_position", "set_entity_state"]:
+			if physics_world_service.has_method(m):
+				var st: Dictionary = physics_state(entity_id)
+				var vel = st.get("v", [0.0, 0.0, 0.0])
+				if m == "upsert_entity":
+					physics_world_service.call(m, entity_id,
+						{"r": (new_pos as Array).duplicate(), "v": vel})
+				elif m == "set_position":
+					physics_world_service.call(m, entity_id,
+						(new_pos as Array).duplicate(), vel)
+				else:
+					physics_world_service.call(m, entity_id,
+						{"r": (new_pos as Array).duplicate(), "v": vel})
+				moved += 1
+				break
+	var before_pos: Array = (before.get("world", {}) as Dictionary).get("pos_km", [])
+	var after_pos: Array = (after.get("world", {}) as Dictionary).get("pos_km", [])
+	var changed := false
+	if before_pos.size() >= 3 and after_pos.size() >= 3:
+		changed = absf(float(before_pos[0]) - float(after_pos[0])) > 1.0e-9 \
+			or absf(float(before_pos[1]) - float(after_pos[1])) > 1.0e-9 \
+			or absf(float(before_pos[2]) - float(after_pos[2])) > 1.0e-9
 	return {"ok": true, "entity_id": entity_id, "new_id": new_id,
-		"moved_surfaces": moved, "intel_notified": false}
+		"moved_surfaces": moved, "truth_changed": changed,
+		"before": before, "after": after, "intel_notified": false}

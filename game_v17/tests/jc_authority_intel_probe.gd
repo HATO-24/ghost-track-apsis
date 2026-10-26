@@ -1,21 +1,20 @@
 extends SceneTree
 
 # ═══════════════════════════════════════════════════════════════════
-# JC-A01（#58）：指挥权限与分方情报隔离
+# JC-A01（#58）R1–R6 返修验收探针
 #
-# 红例（实现前应失败，作为证据保留）：
-#   R1 显式无效 shooter 回退本舰/旗舰发起
-#   R2 玩家可见的 plot 直接取物理真值（隐藏敌方真值变化泄漏）
-#   R3 无 owner 隔离的情报读入口（三 owner 观测串域）
-#
-# 正例：自有舰授权、合法本舰旧调用、三 owner 独立观测、共享经链路到达后仅接收方可见
-# 负例：未知/敌方/友军 shooter 无资源变化；未实现的本方其他舰返回 unavailable；
-#       隐藏目标改名/改坐标但合法观测不变时玩家视图不变；无观测 owner 仍未知
+#   红→绿：显式非法 context（actor/controller/fleet）拒绝且零副作用；
+#           配置 bool 不得代替真实逐舰运行态；日志/审计/重放携带同一 context；
+#           玩家 HUD contacts/plot 只走 owner 情报 facade（无真值补齐）；
+#           共享必须经真实 Comms 投递到达（发出→不可见→到达仅接收方→重投幂等）；
+#           真正旧档迁移只进本舰 owner；坏新段明确失败；恢复模式公开可读；
+#           隐藏真值钩子必须**实际改变**被测真值，同时玩家视图不变。
 #
 # Output: `JC-A01 AUTHORITY INTEL PROBE RESULT: PASS=n FAIL=m`; quit 0/1
 # ═══════════════════════════════════════════════════════════════════
 
 const GS := preload("res://scripts/core/game_session.gd")
+const Binder := preload("res://scripts/ui/shell_binder.gd")
 const TICK_DT := 1.0
 
 var _pass := 0
@@ -26,7 +25,7 @@ var _finished := false
 
 func _initialize() -> void:
 	print("════════════════════════════════════════════════════════════════")
-	print("JC-A01 AUTHORITY/INTEL PROBE · 指挥权限 + 分方情报隔离")
+	print("JC-A01 R6 PROBE · 真实授权/消费链/共享到达/恢复")
 	print("════════════════════════════════════════════════════════════════")
 	_watchdog()
 	_run()
@@ -80,164 +79,365 @@ func _info(t: String) -> void:
 	print("[A01] INFO ", t)
 
 
+func _is_authority_reason(reason: String) -> bool:
+	return reason in ["unknown_shooter", "shooter_not_authorized",
+		"direct_command_not_permitted", "shooter_runtime_unavailable",
+		"legacy_anchor_unknown", "domain_unknown", "authority_unavailable",
+		"actor_not_authorized", "controller_mismatch", "fleet_mismatch",
+		"context_domain_mismatch"]
+
+
+# ── 资源快照（真实库存/弹体/成功事件）──────────────────────────
+
+func _res(s) -> Dictionary:
+	var out := {"ammo": -1, "projectiles": -1, "launch_events": -1,
+		"tracks_touched": -1}
+	if s == null:
+		return out
+	if s.combat_service != null:
+		var vm: Dictionary = s.combat_service.vm()
+		var weapons: Array = vm.get("weapons", []) if vm.get("weapons") is Array else []
+		for raw in weapons:
+			if raw is Dictionary and String((raw as Dictionary).get("id", "")) == "railgun":
+				out["ammo"] = int((raw as Dictionary).get("ammo", -1))
+				break
+		if int(out["ammo"]) < 0 and weapons.size() > 0:
+			out["ammo"] = int((weapons[0] as Dictionary).get("ammo", -1))
+	if s.combat_ballistics != null:
+		var st: Dictionary = s.combat_ballistics.state() \
+			if s.combat_ballistics.has_method("state") else {}
+		out["projectiles"] = int(st.get("count", (st.get("projectiles",
+			[]) as Array).size())) if st is Dictionary else -1
+		if int(out["projectiles"]) < 0:
+			var ps = s.combat_ballistics.get("projectiles")
+			out["projectiles"] = (ps as Array).size() if ps is Array else -1
+	# 成功事件：统计 bus 可见事件里 combat.weapon_launch 条数
+	if s.bus != null:
+		var n := 0
+		for raw2 in (s.bus.events as Array):
+			if raw2 is Dictionary \
+					and String((raw2 as Dictionary).get("type", "")) == "combat.weapon_launch":
+				n += 1
+		out["launch_events"] = n
+	return out
+
+
+func _diff_res(before: Dictionary, after: Dictionary) -> Dictionary:
+	return {"ammo": int(after.get("ammo", -1)) - int(before.get("ammo", -1)),
+		"projectiles": int(after.get("projectiles", -1)) - int(before.get("projectiles", -1)),
+		"launch_events": int(after.get("launch_events", -1)) - int(before.get("launch_events", -1))}
+
+
 # ── run ─────────────────────────────────────────────────────────
 
 func _run() -> void:
-	_step("R1 显式无效 shooter 不得回退本舰")
+	_step("R1a/R1b 真实发射授权：context 与运行态")
 	var s = GS.new(_seed())
 	_ok(bool(s.ready), "session ready", str(s.errors))
 	if not bool(s.ready):
 		_finish()
 		return
 	_register_target(s, "target_a")
-	var before := _res(s)
-	var r1: Dictionary = s.request_fire("target_a", "gun", false,
-		{"shooter_id": "ghost_ship", "target_entity": "target_a"})
-	_ok(bool(r1.get("ok", true)) == false,
-		"R1 未知 shooter 必须拒绝（当前会回退本舰发起）", str(r1.get("reason", "")))
-	var after := _res(s)
-	_ok(JSON.stringify(before) == JSON.stringify(after),
-		"R1 拒绝时资源/弹体不得变化",
-		"before=%s after=%s" % [JSON.stringify(before), JSON.stringify(after)])
+	for i in range(2):
+		s.tick(TICK_DT)
+	# 正常 TIGHT + 显式 FIRE 授权（审查方的真实正对照口径）
+	var gr: Dictionary = s.grant_authorization("FIRE", "target", "target_a")
+	_ok(bool(gr.get("ok", false)), "显式 FIRE 授权", str(gr.get("reason", "")))
+	# 正例：合法本舰（无 context）真实发射应成功并耗一弹
+	var b0 := _res(s)
+	var ok_fire: Dictionary = s.request_fire("target_a", "railgun", true,
+		{"target_entity": "raider_2"})
+	var a0 := _res(s)
+	_ok(bool(ok_fire.get("ok", false)), "合法本舰真实发射成功",
+		String(ok_fire.get("reason", "")))
+	var d0 := _diff_res(b0, a0)
+	_eq(int(d0.get("ammo", 0)), -1, "真实发射消耗 1 发弹药")
+	_ok(int(d0.get("projectiles", 0)) >= 1, "真实发射产生弹体",
+		str(d0.get("projectiles", 0)))
+	_ok(int(d0.get("launch_events", 0)) >= 1, "真实发射产生 combat.weapon_launch 事件",
+		str(d0.get("launch_events", 0)))
+	var ctx0: Dictionary = ok_fire.get("authority_context", {}) if ok_fire.get("authority_context") is Dictionary else {}
+	_eq(String(ctx0.get("legacy_context", "")), "own_ship", "结果透出 legacy context")
+	_eq(String(ctx0.get("shooter_id", "")), "own_ship", "结果透出 shooter")
 
-	_step("R1b 敌方/友军 shooter 直接命令必须拒绝")
-	var r1b: Dictionary = s.request_fire("target_a", "gun", false,
-		{"shooter_id": "enemy_ship", "target_entity": "target_a"})
-	_ok(bool(r1b.get("ok", true)) == false, "敌方 shooter 拒绝",
-		str(r1b.get("reason", "")))
-	var r1c: Dictionary = s.request_fire("target_a", "gun", false,
-		{"shooter_id": "ally_ship", "target_entity": "target_a"})
-	_ok(bool(r1c.get("ok", true)) == false, "友军直接命令拒绝",
-		str(r1c.get("reason", "")))
+	# 负例：显式非法 context（四例）→ 拒绝且零副作用
+	var bad_cases: Array = [
+		{"label": "actor=opfor_ai", "opts": {"shooter_id": "own_ship",
+			"actor_id": "opfor_ai", "target_entity": "raider_2"}},
+		{"label": "controller=opfor_ai", "opts": {"shooter_id": "own_ship",
+			"controller_id": "opfor_ai", "target_entity": "raider_2"}},
+		{"label": "fleet=enemy_fleet", "opts": {"shooter_id": "own_ship",
+			"fleet_id": "enemy_fleet", "target_entity": "raider_2"}},
+		{"label": "无 shooter 但敌人 actor", "opts": {"actor_id": "opfor_ai",
+			"target_entity": "target_a"}},
+	]
+	for raw in bad_cases:
+		var bc: Dictionary = raw
+		var bb := _res(s)
+		var rf: Dictionary = s.request_fire("target_a", "railgun", false,
+			(bc.get("opts") as Dictionary).duplicate(true))
+		var aa := _res(s)
+		var dd := _diff_res(bb, aa)
+		_ok(bool(rf.get("ok", true)) == false,
+			"非法 context 拒绝: " + String(bc.get("label", "")),
+			String(rf.get("reason", "")))
+		_ok(_is_authority_reason(String(rf.get("reason", ""))),
+			"拒绝原因属授权类: " + String(bc.get("label", "")),
+			String(rf.get("reason", "")))
+		_ok(int(dd.get("ammo", 0)) == 0 and int(dd.get("projectiles", 0)) == 0 \
+			and int(dd.get("launch_events", 0)) == 0,
+			"拒绝零副作用: " + String(bc.get("label", "")), str(dd))
 
-	_step("R1d 合法自有舰授权仍可发起（正例）")
-	var d1: Dictionary = s.authorize_fire({"shooter_id": "own_ship"})
-	_ok(bool(d1.get("ok", false)), "自有舰通过授权门", str(d1.get("reason", "")))
-	var r1d: Dictionary = s.request_fire("target_a", "gun", false,
-		{"shooter_id": "own_ship", "target_entity": "target_a"})
-	_ok(not _is_authority_reason(String(r1d.get("reason", ""))),
-		"自有舰发射路径未被授权拒绝", str(r1d.get("reason", "")))
-
-	_step("R1e 合法旧调用（无 shooter）只映射本舰")
+	# R1b：第二本方舰即使配置 runtime=true 也不得借旗舰账本
 	var s2 = GS.new(_seed())
 	_register_target(s2, "target_a")
-	var lr2: Dictionary = s2.authorize_fire({})
-	_ok(bool(lr2.get("ok", false)), "旧调用通过授权门", str(lr2.get("reason", "")))
-	_eq(String(lr2.get("shooter_id", "")), "own_ship",
-		"旧调用 shooter 固定为本舰（不借其他舰）")
-	_eq(String(lr2.get("legacy_context", "")), "own_ship",
-		"旧调用记录 legacy context")
-	var r1e: Dictionary = s2.request_fire("target_a", "gun", false,
-		{"target_entity": "target_a"})
-	_ok(not _is_authority_reason(String(r1e.get("reason", ""))),
-		"旧调用发射路径未被授权拒绝", str(r1e.get("reason", "")))
+	for i2 in range(2):
+		s2.tick(TICK_DT)
+	var b2 := _res(s2)
+	var rf2: Dictionary = s2.request_fire("target_a", "railgun", false,
+		{"shooter_id": "second_own", "target_entity": "raider_2"})
+	var a2 := _res(s2)
+	_eq(String(rf2.get("reason", "")), "shooter_runtime_unavailable",
+		"第二本方舰无真实运行态 → unavailable")
+	var d2 := _diff_res(b2, a2)
+	_ok(int(d2.get("ammo", 0)) == 0 and int(d2.get("projectiles", 0)) == 0,
+		"unavailable 零副作用", str(d2))
 
-	_step("R3 分方情报：三 owner 观测必须隔离")
+	_step("R2 授权 context 进入日志/审计/重放")
+	var audit: Array = s.fire_audit()
+	_ok(audit.size() >= 5, "审计记录成功与拒绝", str(audit.size()))
+	var has_ctx := false
+	for raw3 in audit:
+		var e: Dictionary = raw3
+		if bool(e.get("ok", false)) \
+				and String(e.get("actor_id", "")) != "" \
+				and String(e.get("controller_id", "")) != "" \
+				and String(e.get("fleet_id", "")) != "" \
+				and String(e.get("resolved_shooter", "")) == "own_ship":
+			has_ctx = true
+			break
+	_ok(has_ctx, "审计含 actor/controller/fleet/shooter 规范化 context")
+	var log_rows: Array = s._log
+	var log_ok := false
+	for raw4 in log_rows:
+		if not (raw4 is Dictionary):
+			continue
+		var lo: Dictionary = raw4
+		if String(lo.get("op", "")) == "request_fire" \
+				and String(lo.get("shooter_id", "")) == "own_ship" \
+				and lo.has("controller_id") and lo.has("fleet_id") \
+				and lo.has("actor_id"):
+			log_ok = true
+			break
+	_ok(log_ok, "操作日志保存同一份 context（重放可用）")
+
+	_step("R3a/R3b 玩家读路径：HUD contacts 与 plot 只走 owner facade")
 	var s3 = GS.new(_seed())
-	for i in range(6):
+	_register_target(s3, "target_a")
+	for i3 in range(2):
 		s3.tick(TICK_DT)
-	# 链路投递：本舰域观测（direct）
+	# 本舰一条真实观测（facade 直投，本域 owner）
 	s3.receive_intel_observation("player_intel", {
 		"observation_id": "OBS-1", "observer_id": "own_ship",
 		"target_id": "target_a", "sensor": "radar", "source": "radar",
-		"observed_t": 6.0, "received_t": 6.0, "delay_s": 0.0,
-		"path": "direct", "quality": 0.7, "range_km": 500.0,
-		"bearing_deg": 90.0})
-	# 盟军自己的观测（只对 ally_intel 可见）
-	s3.receive_intel_observation("ally_intel", {
+		"observed_t": 2.0, "quality": 0.7, "range_km": 500.0,
+		"bearing_deg": 90.0, "pos_km": [321719.0, 500.0, 0.0]})
+	var binder = Binder.new()
+	binder.session = s3
+	binder.refresh()
+	var contact_ids: Array = []
+	for raw5 in (binder.contacts as Array):
+		contact_ids.append(String((raw5 as Dictionary).get("id", "")))
+	_ok(contact_ids.size() >= 1, "HUD contacts 来自 owner 情报", str(contact_ids))
+	_ok(not ("raider_2" in contact_ids), "隐藏实体不出现在 HUD contacts",
+		str(contact_ids))
+	var plot: Dictionary = binder.plot_positions()
+	var p_ids: Array = []
+	for raw6 in (plot.get("positions", []) as Array):
+		p_ids.append(String((raw6 as Dictionary).get("id", "")))
+	_ok(String(plot.get("source", "")) == "intel",
+		"plot 数据源为 intel（不直出物理真值）", String(plot.get("source", "")))
+	_ok(not ("raider_2" in p_ids), "隐藏实体不出现在 plot", str(p_ids))
+	# 空情报 → 空（不回退真值）
+	var s3b = GS.new(_seed())
+	binder.session = s3b
+	binder.refresh()
+	var plot_empty: Dictionary = binder.plot_positions()
+	_eq(String(plot_empty.get("source", "")), "intel",
+		"空情报 plot 仍为 intel 源（不回退 physics）")
+	_eq((plot_empty.get("positions", []) as Array).size(), 0,
+		"空情报 plot 为空（不补物理真值）")
+
+	_step("R6 隐藏真值钩子必须真实改变被测真值，且玩家视图不变")
+	var s4 = GS.new(_seed())
+	for i4 in range(2):
+		s4.tick(TICK_DT)
+	s4.receive_intel_observation("player_intel", {
+		"observation_id": "OBS-2", "observer_id": "own_ship",
+		"target_id": "target_a", "sensor": "radar", "source": "radar",
+		"observed_t": 2.0, "quality": 0.7, "range_km": 500.0,
+		"bearing_deg": 90.0, "pos_km": [321719.0, 500.0, 0.0]})
+	var v_before: Dictionary = s4.intel_view("player_intel")
+	var mut: Dictionary = s4._apply_hidden_truth_mutation("raider_2",
+		"hidden_renamed", [999.0, 1234.0, 77.0])
+	_ok(bool(mut.get("truth_changed", false)),
+		"隐藏真值钩子确实改变了被测真值", JSON.stringify(mut.get("before", {})).substr(0, 120))
+	var v_after: Dictionary = s4.intel_view("player_intel")
+	_eq(JSON.stringify(_view_sig(v_after)), JSON.stringify(_view_sig(v_before)),
+		"真值变化不影响未观测的玩家视图")
+
+	_step("R4 共享必须经真实 Comms 投递到达、仅接收方融合、重投幂等")
+	var s5 = GS.new(_seed())
+	for i5 in range(2):
+		s5.tick(TICK_DT)
+	# 盟军观测（先进入 ally 自己的 owner）
+	s5.receive_intel_observation("ally_intel", {
 		"observation_id": "OBS-A", "observer_id": "ally_ship",
 		"target_id": "target_b", "sensor": "optical", "source": "optical",
-		"observed_t": 6.0, "received_t": 36.0, "delay_s": 30.0,
-		"path": "direct", "quality": 0.6, "range_km": 800.0,
+		"observed_t": 2.0, "quality": 0.6, "range_km": 800.0,
 		"bearing_deg": 45.0})
-	_ok(s3.has_method("intel_view"), "存在 owner 隔离读入口 intel_view(owner_id)")
-	if s3.has_method("intel_view"):
-		var pv: Dictionary = s3.intel_view("player_intel")
-		var av: Dictionary = s3.intel_view("ally_intel")
-		var ov: Dictionary = s3.intel_view("opfor_intel")
-		_ok((pv.get("tracks", []) as Array).size() >= 1, "player owner 有本舰观测航迹",
-			str((pv.get("tracks", []) as Array).size()))
-		var p_ids: Array = _ids(pv)
-		_ok(not ("enemy_ship" in p_ids), "player 视图不因真值含敌方而自动出现",
-			str(p_ids))
-		_ok(not ("target_b" in p_ids), "player 不因 ally 观测而自动获得 target_b",
-			str(p_ids))
-		_ok((av.get("tracks", []) as Array).size() == 1,
-			"ally 只看到自己的 1 条航迹", str(_ids(av)))
-		_ok((ov.get("tracks", []) as Array).size() == 0,
-			"opfor 未观测时视图为空", str(_ids(ov)))
-		# 共享：ally 观测经授权链路到达 player 后才对 player 可见
-		s3.receive_intel_observation("player_intel", {
-			"observation_id": "OBS-A2", "observer_id": "ally_ship",
+	_ok((s5.intel_view("ally_intel").get("tracks", []) as Array).size() == 1,
+		"ally 自己可见其观测")
+	_ok((s5.intel_view("player_intel").get("tracks", []) as Array).size() == 0,
+		"共享发出前 player 不可见")
+	var share_row := {"observation_id": "OBS-A2", "observer_id": "ally_ship",
+		"target_id": "target_b", "sensor": "optical", "source": "optical",
+		"observed_t": 2.0, "quality": 0.6, "range_km": 800.0,
+		"bearing_deg": 45.0, "share_authorized_by": "ally_intel"}
+	var qs: Dictionary = s5.queue_intel_share("ally_ship", "own_ship",
+		"player_intel", share_row)
+	_ok(bool(qs.get("ok", false)), "共享经 Comms 发出", str(qs.get("reason", "")))
+	_ok((s5.intel_view("player_intel").get("tracks", []) as Array).size() == 0,
+		"发出后但未到达 → player 仍不可见")
+	# 推进到消息到达（延迟 > 0）
+	for i6 in range(8):
+		s5.tick(TICK_DT)
+	var pv5: Dictionary = s5.intel_view("player_intel")
+	_ok(("target_b" in _ids(pv5)), "到达后仅接收方融合 target_b",
+		str(_ids(pv5)) + " share_result=" + JSON.stringify(
+			s5.last_intel_share_result()).substr(0, 220))
+	_ok((s5.intel_view("opfor_intel").get("tracks", []) as Array).size() == 0,
+		"共享不泄漏给第三方 owner")
+	# 重投幂等：同一 delivery 再投一次不重复增长
+	var before_obs: int = (s5.intel_view("player_intel").get("observations", []) as Array).size()
+	var dup: Dictionary = s5.receive_intel_observation("player_intel", share_row,
+		{"delivery_id": String(qs.get("delivery_id", "")),
+			"received_t": float(s5.now_s()), "share_authorized_by": "ally_intel",
+			"now_t": float(s5.now_s())})
+	var after_obs: int = (s5.intel_view("player_intel").get("observations", []) as Array).size()
+	_eq(after_obs, before_obs, "重复投递不增长观测流（幂等）")
+	_ok(bool(dup.get("duplicated", false)) or bool(dup.get("ok", false)),
+		"重复投递返回幂等结果", JSON.stringify(dup).substr(0, 120))
+	# 负例：未授权共享（enemy observer 自报 player）、未来时间、时间不一致
+	var s6 = GS.new(_seed())
+	for i7 in range(2):
+		s6.tick(TICK_DT)
+	var neg_cases: Array = [
+		{"label": "未授权跨 owner 共享", "owner": "player_intel",
+			"row": {"observation_id": "X1", "observer_id": "enemy_ship",
+				"target_id": "raider_2", "observed_t": 2.0, "quality": 0.5},
+			"delivery": {"delivery_id": "D1", "received_t": 2.0,
+				"now_t": 2.0, "share_authorized_by": ""}},
+		{"label": "未来到达时刻", "owner": "player_intel",
+			"row": {"observation_id": "X2", "observer_id": "own_ship",
+				"target_id": "target_a", "observed_t": 2.0, "quality": 0.5},
+			"delivery": {"delivery_id": "D2", "received_t": 99.0, "now_t": 2.0}},
+		{"label": "received<observed", "owner": "player_intel",
+			"row": {"observation_id": "X3", "observer_id": "own_ship",
+				"target_id": "target_a", "observed_t": 9.0, "quality": 0.5},
+			"delivery": {"delivery_id": "D3", "received_t": 1.0, "now_t": 9.0}},
+		{"label": "未知 owner", "owner": "ghost_intel",
+			"row": {"observation_id": "X4", "observer_id": "own_ship",
+				"target_id": "target_a", "observed_t": 2.0},
+			"delivery": {"delivery_id": "D4", "received_t": 2.0, "now_t": 2.0}},
+	]
+	for raw7 in neg_cases:
+		var nc: Dictionary = raw7
+		var rr: Dictionary = s6.receive_intel_observation(
+			String(nc.get("owner", "")), (nc.get("row") as Dictionary),
+			(nc.get("delivery") as Dictionary))
+		_ok(bool(rr.get("ok", true)) == false,
+			"共享负例拒绝: " + String(nc.get("label", "")),
+			String(rr.get("reason", "")))
+
+	_step("R5 旧档迁移 / 坏新段 / 公开恢复模式")
+	# (a) 坏新段必须明确失败
+	var bad_text: String = s3.save_state()
+	var bad_doc: Dictionary = JSON.parse_string(bad_text)
+	bad_doc["authority_intel"] = "broken"
+	var s7 = GS.new(_seed())
+	var bad_lr: Dictionary = s7.load_state(JSON.stringify(bad_doc))
+	_ok(bool(bad_lr.get("ok", true)) == false, "坏 authority_intel 新段明确失败",
+		str(bad_lr.get("errors", [])))
+	_eq(String(bad_lr.get("authority_restore_mode", "")), "failed",
+		"坏新段恢复模式标记 failed")
+	# (b) 真正旧档：用**真实旧来源**（TrackTable 里确实有航迹）去掉新段
+	var sL = GS.new(_seed())
+	sL.handle_observation({"schema": "sensor_observation.v1",
+		"kind": "observation", "event_id": "OBS-L1", "t": 1.0,
+		"sensor": "radar", "entity_id": "raider_2", "batch": "OCU-07",
+		"support": 1, "quality": 0.8, "range_km": 600.0,
+		"bearing_deg": 90.0})
+	for iL in range(2):
+		sL.tick(TICK_DT)
+	var legacy_text: String = sL.save_state()
+	var legacy_doc: Dictionary = JSON.parse_string(legacy_text)
+	legacy_doc.erase("authority_intel")
+	(legacy_doc as Dictionary).erase("pending_intel_shares")
+	var s8 = GS.new(_seed())
+	var leg_lr: Dictionary = s8.load_state(JSON.stringify(legacy_doc))
+	_ok(bool(leg_lr.get("ok", false)), "真正旧档可加载",
+		str(leg_lr.get("errors", [])))
+	_eq(String(leg_lr.get("authority_restore_mode", "")), "legacy_own_ship_only",
+		"旧档恢复模式公开为 legacy_own_ship_only")
+	var leg_rep: Dictionary = s8.authority_restore_report()
+	_eq(String(leg_rep.get("restore_mode", "")), "legacy_own_ship_only",
+		"恢复报告可读 restore_mode")
+	var leg_player: Array = s8.intel_view("player_intel").get("tracks", []) as Array
+	var leg_ally: Array = s8.intel_view("ally_intel").get("tracks", []) as Array
+	_ok(leg_player.size() >= 1, "旧航迹迁移到本舰 owner", str(leg_player.size()))
+	_ok(leg_ally.size() == 0, "旧航迹不复制给盟军", str(leg_ally.size()))
+
+	_step("R6 真实文件恢复 + 在途共享 + 继续 10 tick")
+	var s9 = GS.new(_seed())
+	_register_target(s9, "target_a")
+	for i8 in range(2):
+		s9.tick(TICK_DT)
+	s9.receive_intel_observation("player_intel", {
+		"observation_id": "OBS-9", "observer_id": "own_ship",
+		"target_id": "target_a", "sensor": "radar", "source": "radar",
+		"observed_t": 2.0, "quality": 0.7, "range_km": 500.0,
+		"bearing_deg": 90.0, "pos_km": [321719.0, 500.0, 0.0]})
+	# 在途共享（尚未到达）
+	var qs9: Dictionary = s9.queue_intel_share("ally_ship", "own_ship",
+		"player_intel", {"observation_id": "OBS-9S", "observer_id": "ally_ship",
 			"target_id": "target_b", "sensor": "optical", "source": "optical",
-			"observed_t": 6.0, "received_t": 36.0, "delay_s": 30.0,
-			"path": "relay:ally->player", "quality": 0.6,
-			"range_km": 800.0, "bearing_deg": 45.0})
-		var pv2: Dictionary = s3.intel_view("player_intel")
-		_ok(("target_b" in _ids(pv2)),
-			"共享观测到达后接收方可见 target_b", str(_ids(pv2)))
-		_ok((s3.intel_view("opfor_intel").get("tracks", []) as Array).size() == 0,
-			"共享不会泄漏给第三方 owner")
-
-	_step("R2 玩家 plot 不得直出物理真值")
-	_ok(s3.has_method("plot_positions"), "存在 owner 限定的 plot_positions(owner_id)")
-	if s3.has_method("plot_positions"):
-		var plot: Dictionary = s3.plot_positions("player_intel")
-		var ids: Array = []
-		for raw in (plot.get("positions", []) as Array):
-			ids.append(String((raw as Dictionary).get("id", "")))
-		_ok(not ("enemy_ship" in ids),
-			"隐藏敌方不因物理真值出现在玩家 plot（当前 shell_binder 直取真值）",
-			str(ids))
-		_ok(String(plot.get("source", "")) != "physics",
-			"plot 数据源不得标记为 physics 真值", String(plot.get("source", "")))
-
-	_step("R2b 隐藏目标改名/改坐标但合法观测不变 → 玩家视图不变")
-	var s4 = GS.new(_seed())
-	for i in range(6):
-		s4.tick(TICK_DT)
-	_ok(s4.has_method("intel_view"), "intel_view 可用于视图不变性对照")
-	if s4.has_method("intel_view"):
-		var v_before: Dictionary = s4.intel_view("player_intel")
-		_ok(s4.has_method("_apply_hidden_truth_mutation"),
-			"存在隐藏真值变更测试钩子（仅测试用）")
-		if s4.has_method("_apply_hidden_truth_mutation"):
-			s4._apply_hidden_truth_mutation("enemy_ship", "renamed-hidden", [999.0, 0.0, 0.0])
-			var v_after: Dictionary = s4.intel_view("player_intel")
-			_eq(JSON.stringify(_view_sig(v_after)), JSON.stringify(_view_sig(v_before)),
-				"真值变更不影响未观测的玩家视图")
-
-	_step("R4 存档/恢复：owner 航迹与授权 context 一致")
-	if s3.has_method("intel_view"):
-		var text: String = s3.save_state()
-		var s5 = GS.new(_seed())
-		var lr: Dictionary = s5.load_state(text)
-		_ok(bool(lr.get("ok", false)), "存档恢复成功", str(lr.get("errors", [])))
-		if bool(lr.get("ok", false)):
-			var v_rec: Dictionary = s5.intel_view("player_intel")
-			_eq(JSON.stringify(_view_sig(v_rec)), JSON.stringify(_view_sig(
-				s3.intel_view("player_intel"))), "恢复后 player 视图一致")
-			for i in range(10):
-				s3.tick(TICK_DT)
-				s5.tick(TICK_DT)
-			_eq(JSON.stringify(_view_sig(s5.intel_view("player_intel"))),
-				JSON.stringify(_view_sig(s3.intel_view("player_intel"))),
-				"继续 10 tick 后 player 视图一致")
-
-	_step("R5 拒绝审计可记录且不消耗资源")
-	_ok(s.has_method("fire_audit"), "存在 fire_audit() 审计入口")
-	if s.has_method("fire_audit"):
-		var aud: Array = s.fire_audit()
-		_ok(aud.size() >= 3, "拒绝/成功均记入审计", str(aud.size()))
-		var rejected: Array = []
-		for raw in aud:
-			if not bool((raw as Dictionary).get("ok", true)):
-				rejected.append(raw)
-		_ok(rejected.size() >= 3, "拒绝条目带原因",
-			str(rejected.size()))
+			"observed_t": 2.0, "quality": 0.6, "range_km": 800.0,
+			"bearing_deg": 45.0, "share_authorized_by": "ally_intel"})
+	_ok(bool(qs9.get("ok", false)), "在途共享已发出", str(qs9.get("reason", "")))
+	var path := "user://jc_a01_probe_save.json"
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(s9.save_state())
+	f.close()
+	var s10 = GS.new(_seed())
+	var text10 := FileAccess.get_file_as_string(path)
+	var lr10: Dictionary = s10.load_state(text10)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	_ok(bool(lr10.get("ok", false)), "真实文件恢复成功", str(lr10.get("errors", [])))
+	_eq(JSON.stringify(_view_sig(s10.intel_view("player_intel"))),
+		JSON.stringify(_view_sig(s9.intel_view("player_intel"))),
+		"恢复后 player 视图与存档时一致")
+	_ok(int(lr10.get("pending_intel_shares", 0)) >= 1,
+		"在途共享随档恢复", str(lr10.get("pending_intel_shares", 0)))
+	for i9 in range(10):
+		s9.tick(TICK_DT)
+		s10.tick(TICK_DT)
+	_eq(JSON.stringify(_view_sig(s10.intel_view("player_intel"))),
+		JSON.stringify(_view_sig(s9.intel_view("player_intel"))),
+		"继续 10 tick 后 player 视图一致（含在途共享到达）")
 
 	_step("总结")
-	_info("本探针只验证指挥授权与分方情报边界；不实现 AI/逐舰战斗账本")
+	_info("本探针验证授权/消费链/共享到达/真实文件恢复；不含 AI/逐舰战斗账本")
 	_finish()
 
 
@@ -258,63 +458,6 @@ func _view_sig(view: Dictionary) -> Dictionary:
 	return out
 
 
-func _res(s) -> Dictionary:
-	var ammo := {}
-	var cb = s.combat_ballistics
-	if cb != null:
-		ammo["projectiles"] = (cb.projectiles as Array).size() if cb.get("projectiles") != null else -1
-	var ca = s.combat_service
-	if ca != null:
-		var st: Dictionary = ca.state() if ca.has_method("state") else {}
-		ammo["salvo"] = int(st.get("salvo_count", -1))
-	return ammo
-
-
-func _seed() -> Dictionary:
-	return {
-		"own_entity": "own_ship",
-		"physics_world": true,
-		"seed_frame": "bary_rot", "frame_origin": "bary_rot",
-		"track_table": true,
-		"command_domains": [
-			{"domain_id": "player", "kind": "player", "controller_id": "player_ctrl",
-				"intel_owner_id": "player_intel", "faction": "ueg", "roe": "TIGHT",
-				"authorized_actors": ["player_ctrl"]},
-			{"domain_id": "ally", "kind": "ai_ally", "controller_id": "ally_ai",
-				"intel_owner_id": "ally_intel", "faction": "ueg", "roe": "DEFENSIVE",
-				"authorized_actors": ["ally_ai"]},
-			{"domain_id": "opfor", "kind": "ai_hostile", "controller_id": "opfor_ai",
-				"intel_owner_id": "opfor_intel", "faction": "ocu", "roe": "AGGRESSIVE",
-				"authorized_actors": ["opfor_ai"]},
-		],
-		"own_fleet": [{"entity_instance_id": "own_ship", "ship_class_id": "APSIS",
-			"combat_runtime": true}],
-		"fleet_instances": [
-			{"entity_instance_id": "own_ship", "domain_id": "player", "role": "flag"},
-			{"entity_instance_id": "ally_ship", "domain_id": "ally", "role": "picket"},
-			{"entity_instance_id": "enemy_ship", "domain_id": "opfor", "role": "raider"},
-		],
-		"entities": [
-			{"id": "own_ship", "kind": "ship", "pos_km": [321719.0, 0.0, 0.0],
-				"vel_kmps": [0.0, 0.0, 0.0]},
-			{"id": "ally_ship", "kind": "ship", "pos_km": [321719.0, 300.0, 0.0],
-				"vel_kmps": [0.0, 0.0, 0.0]},
-			{"id": "enemy_ship", "kind": "ship", "pos_km": [321719.0, 800.0, 0.0],
-				"vel_kmps": [0.0, 0.5, 0.0]}],
-		"sensor_service": {
-			"observer": {"id": "own_ship", "pos_km": [321719.0, 0.0, 0.0]},
-			"targets": [
-				{"id": "target_a", "pos_km": [321719.0, 500.0, 0.0],
-					"rcs_m2": 100.0, "side": "hostile", "batch": "OCU-07"}],
-			"options": {"radar_enabled": true, "emcon": false}},
-		"combat_ballistics": {
-			"content_path": "res://framework/content/weapons_l1.json"},
-		"combat_service": {
-			"content_path": "res://framework/content/weapons_l1.json",
-			"roe": "TIGHT", "own_id": "own_ship", "fleet_id": "taskforce"},
-	}
-
-## 注入一条合法敌方航迹（供 request_fire 使用；不属于被测权限逻辑）。
 func _register_target(s, tid: String) -> void:
 	if s == null or s.combat_service == null:
 		return
@@ -326,7 +469,65 @@ func _register_target(s, tid: String) -> void:
 		"identity": "unknown",
 	})
 
-func _is_authority_reason(reason: String) -> bool:
-	return reason in ["unknown_shooter", "shooter_not_authorized",
-		"direct_command_not_permitted", "shooter_runtime_unavailable",
-		"legacy_anchor_unknown", "domain_unknown", "authority_unavailable"]
+
+func _seed() -> Dictionary:
+	return {
+		"own_entity": "own_ship", "physics_world": true,
+		"seed_frame": "bary_rot", "frame_origin": "bary_rot",
+		"track_table": true,
+		"command_domains": [
+			{"domain_id": "player", "kind": "player", "controller_id": "player_ctrl",
+				"intel_owner_id": "player_intel", "faction": "ueg", "roe": "TIGHT",
+				"fleet_id": "own_fleet", "authorized_actors": ["player_ctrl"]},
+			{"domain_id": "ally", "kind": "ai_ally", "controller_id": "ally_ai",
+				"intel_owner_id": "ally_intel", "faction": "ueg", "roe": "DEFENSIVE",
+				"fleet_id": "ally_fleet", "authorized_actors": ["ally_ai"]},
+			{"domain_id": "opfor", "kind": "ai_hostile", "controller_id": "opfor_ai",
+				"intel_owner_id": "opfor_intel", "faction": "ocu", "roe": "AGGRESSIVE",
+				"fleet_id": "enemy_fleet", "authorized_actors": ["opfor_ai"]},
+		],
+		"fleet_instances": [
+			{"entity_instance_id": "own_ship", "domain_id": "player",
+				"fleet_id": "own_fleet", "role": "flag"},
+			{"entity_instance_id": "second_own", "domain_id": "player",
+				"fleet_id": "own_fleet", "role": "escort"},
+			{"entity_instance_id": "ally_ship", "domain_id": "ally",
+				"fleet_id": "ally_fleet", "role": "picket"},
+			{"entity_instance_id": "enemy_ship", "domain_id": "opfor",
+				"fleet_id": "enemy_fleet", "role": "raider"},
+		],
+		"own_fleet": [
+			{"entity_instance_id": "own_ship"},
+			{"entity_instance_id": "second_own", "combat_runtime": true},
+		],
+		"nodes": [{"id": "own_ship"}, {"id": "ally_ship"}, {"id": "enemy_ship"}],
+		"links": [
+			{"a": "ally_ship", "b": "own_ship", "mode": "LD",
+				"latency_s": 3.0, "packet_loss": 0.0},
+			{"a": "own_ship", "b": "enemy_ship", "mode": "LD",
+				"latency_s": 3.0, "packet_loss": 0.0}],
+		"combat_ballistics": {
+			"content_path": "res://framework/content/weapons_l1.json"},
+		"combat_service": {
+			"content_path": "res://framework/content/weapons_l1.json",
+			"roe": "TIGHT", "own_id": "own_ship", "fleet_id": "own_fleet"},
+		"entities": [
+			{"id": "own_ship", "kind": "ship", "pos_km": [321719.0, 0.0, 0.0],
+				"vel_kmps": [0.0, 0.0, 0.0]},
+			{"id": "second_own", "kind": "ship",
+				"pos_km": [321719.0, 120.0, 0.0], "vel_kmps": [0.0, 0.0, 0.0]},
+			{"id": "ally_ship", "kind": "ship",
+				"pos_km": [321719.0, 300.0, 0.0], "vel_kmps": [0.0, 0.0, 0.0]},
+			{"id": "raider_2", "kind": "ship",
+				"pos_km": [321719.0, 600.0, 0.0], "vel_kmps": [0.0, 0.4, 0.0]},
+			{"id": "enemy_ship", "kind": "ship",
+				"pos_km": [321719.0, 800.0, 0.0], "vel_kmps": [0.0, 0.5, 0.0]}],
+		"sensor_service": {
+			"observer": {"id": "own_ship", "pos_km": [321719.0, 0.0, 0.0]},
+			"targets": [
+				{"id": "target_a", "pos_km": [321719.0, 500.0, 0.0],
+					"rcs_m2": 100.0, "side": "hostile", "batch": "OCU-07"},
+				{"id": "target_b", "pos_km": [321719.0, 800.0, 0.0],
+					"rcs_m2": 90.0, "side": "hostile", "batch": "OCU-08"}],
+			"options": {"radar_enabled": true, "emcon": false}},
+	}

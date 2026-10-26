@@ -569,7 +569,12 @@ func refresh() -> void:
 	story_vm = session.story_vm() if session.story_state != null else {}
 	sensor_vm = session.sensor_service.vm() if session.sensor_service != null else {}
 	_refresh_cic()
-	contacts = _build_contacts()
+	# JC-A01/R3b：玩家可见 contacts 只走**分方情报 facade**（owner 隔离），
+	# 不再使用全局 track_vm / snapshot 真值补齐。无情报即空。
+	if session.has_method("intel_view"):
+		contacts = _build_contacts_from_intel(_intel_owner())
+	else:
+		contacts = _build_contacts()
 	_sync_signal_targets()
 	commands = _build_commands()
 	events = session.bus.recent(8) if session.bus != null else []
@@ -583,6 +588,65 @@ func refresh() -> void:
 	else:
 		roe_text = "ROE NOT READY · story_state 未启用"
 	delta_v_ready = delta_v_ready and delta_v_mps > 0.0
+
+
+func _intel_owner() -> String:
+	if session == null:
+		return "player_intel"
+	if session.has_method("intel_owner_of"):
+		var own_hint := ""
+		if session.has_method("own_entity_id"):
+			own_hint = String(session.call("own_entity_id"))
+		var oe := String(session.call("intel_owner_of", own_hint))
+		if oe != "":
+			return oe
+	return "player_intel"
+
+
+## JC-A01/R3b：玩家 contacts 只来自 owner 隔离视图（无情报 = 空，不补真值）。
+func _build_contacts_from_intel(owner_id: String) -> Array:
+	var rows: Array = []
+	if session == null or not session.has_method("intel_view"):
+		return rows
+	var iv: Dictionary = session.intel_view(owner_id)
+	for raw in (iv.get("tracks", []) as Array):
+		if not (raw is Dictionary):
+			continue
+		var tr: Dictionary = raw
+		var tid := String(tr.get("id", ""))
+		if tid == "":
+			continue
+		var identity := "unknown"
+		var tside := identity
+		var ttype := "unknown"
+		var row := {
+			"id": tid, "entity_id": "", "track_id": tid,
+			"name": "UNKNOWN TRACK",
+			"cls": "TRACK L0",
+			"type": ttype, "side": tside, "identity": identity,
+			"threat": "unknown", "badge": "TRACK", "level": 0,
+			"range_km": float(tr.get("range_km", -1.0)),
+			"sources": [String(tr.get("source", "intel"))],
+			"side_source": "intel_view", "identity_source": "intel_view",
+			"display_id": tid, "display_name": "UNKNOWN TRACK",
+			"display_class": "TRACK L0", "display_source": "intel_view",
+			"batch_internal": tid,
+			"intel_owner_id": owner_id,
+			"observed_t": float(tr.get("last_observed_t", 0.0)),
+			"pos_km": (tr.get("pos_km", []) as Array).duplicate() \
+				if tr.get("pos_km") is Array else [],
+		}
+		var iv2: Dictionary = ident_view(row)
+		row["ident"] = {"known": bool(iv2.get("known", false)),
+			"identity": String(iv2.get("identity", "unknown")),
+			"confidence": float(iv2.get("confidence", 0.0)),
+			"tag": String(iv2.get("tag", "—")), "warn": bool(iv2.get("warn", false)),
+			"manual": bool(iv2.get("manual", false)),
+			"enabled": bool(iv2.get("enabled", false)),
+			"contradictions": (iv2.get("contradictions", []) as Array).size(),
+			"spoof": float(iv2.get("spoof", 0.0))}
+		rows.append(row)
+	return rows
 
 
 func _build_contacts() -> Array:
@@ -1515,11 +1579,7 @@ func plot_positions() -> Dictionary:
 	# JC-A01：玩家绘图只能读**本舰域情报视图**，不得直出物理真值。
 	# 真实弹体/物理解算仍可读内部真值，但不随玩家视图外泄。
 	if session != null and session.has_method("plot_positions"):
-		var owner_id := "player_intel"
-		if session.has_method("intel_owner_of"):
-			var oe := String(session.call("intel_owner_of", "apsis"))
-			if oe != "":
-				owner_id = oe
+		var owner_id := _intel_owner()
 		var iv: Dictionary = session.plot_positions(owner_id)
 		var positions: Array = []
 		for raw in (iv.get("positions", []) as Array):
@@ -1533,6 +1593,9 @@ func plot_positions() -> Dictionary:
 		if not positions.is_empty():
 			return {"source": "intel", "reference": owner_id,
 				"positions": positions, "reference_pos": [0.0, 0.0, 0.0]}
+		# R3a：有情报 facade 时**空就是空**，不得回退到物理真值/snapshot 补齐。
+		return {"source": "intel", "reference": owner_id,
+			"positions": [], "reference_pos": [0.0, 0.0, 0.0]}
 	var out: Dictionary = {"source": "contacts", "reference": "apsis", "positions": [], "reference_pos": [0.0, 0.0, 0.0]}
 	var ref: Array = [0.0, 0.0, 0.0]
 	var physics := physics_world_ready()
