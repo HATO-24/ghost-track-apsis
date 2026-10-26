@@ -133,6 +133,8 @@ var _routed_seqs: Dictionary = {}
 var _legacy_migration: Dictionary = {}
 # A-05：传感器运行态恢复报告（重绑定结果 + 几何同刻复核）
 var _sensor_restore_report: Dictionary = {}
+# A-06：通信操作重放核对记录（原始 outcome vs 重放 outcome，逐项）
+var _comms_restore: Array = []
 var _sensor_track_map: Dictionary = {}
 var _sensor_target_meta: Dictionary = {}
 
@@ -2212,6 +2214,10 @@ func _flush_identification_outputs() -> Dictionary:
 		out["events"] = int(out["events"]) + 1
 	return out
 
+# A-06：通信操作 outcome 记录版本（读档重放时逐项核对）
+const COMMS_OUTCOME_SCHEMA := "v17.comms_outcome.v1"
+const COMMS_OUTCOME_VERSION := 1
+
 const ROUTABLE_TYPES := ["story.flag", "story.evidence", "story.choice",
 	"track.observation", "track.evidence"]
 
@@ -2608,9 +2614,25 @@ func send_comms(from_id: String, to_id: String, mode := "LD",
 	_tick_events = []
 	var pl_norm = _json_norm(payload)
 	var po_norm = _json_norm(opts)
-	_record({"op": "send_comms", "from_id": from_id, "to_id": to_id, "mode": mode,
-		"text_key": text_key, "payload": pl_norm, "opts": po_norm})
 	var res: Dictionary = comms.send(from_id, to_id, mode, text_key, pl_norm, po_norm)
+	# A-06：操作记录带**版本化 outcome**。原始失败（例如 orbital_sim 无 LR 链 → no_route）
+	# 必须在读档重放后仍是同一失败，而不能被当成恢复错误。
+	# 先执行再记录，保证 outcome 是原始执行的实测值。
+	_record({"op": "send_comms", "from_id": from_id, "to_id": to_id, "mode": mode,
+		"text_key": text_key, "payload": pl_norm, "opts": po_norm,
+		"outcome": {
+			"schema": COMMS_OUTCOME_SCHEMA, "version": COMMS_OUTCOME_VERSION,
+			"ok": bool(res.get("ok", false)),
+			"reason": String(res.get("reason", "")),
+			"mode": String(res.get("mode", mode)),
+			"delivery_id": String(res.get("delivery_id", "")),
+			"path": (res.get("path", []) as Array).duplicate() \
+				if res.get("path") is Array else [],
+			"latency_s": float(res.get("latency_s", 0.0)),
+			"relay_count": int(res.get("relay_count", 0)),
+			"arrive_t": float(res.get("arrive_t", -1.0)),
+			"sent_t": now_s(),
+		}})
 	var ev_type := "comms.sent" if bool(res.get("ok", false)) else "comms.failed"
 	_publish(_mk_event(ev_type, to_id, {
 		"delivery_id": String(res.get("delivery_id", "")),
@@ -4759,6 +4781,7 @@ func load_state(json_text: String) -> Dictionary:
 	if not ready:
 		return {"ok": false, "reason": "boot_failed", "errors": errors.duplicate()}
 	_replaying = true
+	_comms_restore = []
 	var replay_errors: Array = []
 	for raw in (log as Array):
 		if not (raw is Dictionary):
@@ -5100,6 +5123,102 @@ func load_state(json_text: String) -> Dictionary:
 	return {"ok": ready, "errors": replay_errors, "result_errors": errors.duplicate(),
 		"world_sync": world_sync, "sensor_restore": _sensor_restore_report.duplicate(true)}
 
+# ── A-06：通信重放核对 ─────────────────────────────────────────
+## 重放一次 send_comms，并与操作日志里记录的版本化 outcome 逐项核对：
+##   * 原始失败（ok=false，如 no_route）→ 重放必须得到**同一失败**，不算恢复错误；
+##   * 原始成功但重放失败，或原因/消息 ID/路径/延迟不一致 → 明确 `comms_replay_diverged`；
+##   * 旧日志没有 outcome → 按 A-04 版本规则显式标 `legacy_unverified`，不静默忽略。
+func _replay_send_comms(op: Dictionary) -> Dictionary:
+	var from_id := String(op.get("from_id", ""))
+	var to_id := String(op.get("to_id", ""))
+	var mode := String(op.get("mode", "LD"))
+	var text_key := String(op.get("text_key", "COMMS_SENT"))
+	var payload = op.get("payload", {})
+	var opts = op.get("opts", {})
+	var res: Dictionary = send_comms(from_id, to_id, mode, text_key,
+		payload if payload is Dictionary else {}, opts if opts is Dictionary else {})
+	var row: Dictionary = {
+		"from": from_id, "to": to_id, "mode": mode, "text_key": text_key,
+		"replay_ok": bool(res.get("ok", false)),
+		"replay_reason": String(res.get("reason", "")),
+		"replay_delivery_id": String(res.get("delivery_id", "")),
+		"replay_latency_s": float(res.get("latency_s", 0.0)),
+		"replay_path": (res.get("path", []) as Array).duplicate() \
+			if res.get("path") is Array else [],
+	}
+	var rec_outcome = op.get("outcome", null)
+	if rec_outcome is Dictionary \
+			and int((rec_outcome as Dictionary).get("version", 0)) == COMMS_OUTCOME_VERSION:
+		var ro: Dictionary = rec_outcome
+		row["recorded"] = {
+			"ok": bool(ro.get("ok", false)), "reason": String(ro.get("reason", "")),
+			"delivery_id": String(ro.get("delivery_id", "")),
+			"latency_s": float(ro.get("latency_s", 0.0)),
+			"path": (ro.get("path", []) as Array).duplicate() \
+				if ro.get("path") is Array else [],
+			"relay_count": int(ro.get("relay_count", 0)),
+		}
+		var rec_ok := bool(ro.get("ok", false))
+		var diverge: Array = []
+		if rec_ok != bool(res.get("ok", false)):
+			diverge.append("ok")
+		if String(ro.get("reason", "")) != String(res.get("reason", "")):
+			diverge.append("reason")
+		if String(ro.get("delivery_id", "")) != String(res.get("delivery_id", "")):
+			diverge.append("delivery_id")
+		if absf(float(ro.get("latency_s", 0.0)) - float(res.get("latency_s", 0.0))) \
+				> 1.0e-6:
+			diverge.append("latency_s")
+		if JSON.stringify(ro.get("path", [])) != JSON.stringify(row["replay_path"]):
+			diverge.append("path")
+		row["expected_failure"] = not rec_ok
+		row["divergence"] = diverge
+		row["matched"] = diverge.is_empty()
+		_comms_restore.append(row)
+		if not diverge.is_empty():
+			return {"ok": false, "reason": "comms_replay_diverged", "comms": row,
+				"errors": ["send_comms 重放与原始 outcome 不一致：" + str(diverge)]}
+		return {"ok": true, "comms": row}
+	# 旧日志：无 outcome 字段 → 可恢复范围按 A-04 规则显式标注
+	row["legacy_unverified"] = true
+	row["expected_failure"] = false
+	row["matched"] = false
+	_comms_restore.append(row)
+	return {"ok": true, "comms": row}
+
+
+## A-06：通信恢复报告（只读）：逐项 outcome 对照 + 计数。
+func comms_restore_report() -> Dictionary:
+	var matched := 0
+	var expected_failures := 0
+	var legacy := 0
+	var diverged := 0
+	for raw in _comms_restore:
+		if not (raw is Dictionary):
+			continue
+		var r: Dictionary = raw
+		if bool(r.get("legacy_unverified", false)):
+			legacy += 1
+			continue
+		if not bool(r.get("matched", false)):
+			diverged += 1
+		elif bool(r.get("expected_failure", false)):
+			expected_failures += 1
+		else:
+			matched += 1
+	return {
+		"schema": "v17.comms_restore.v1",
+		"ops": _comms_restore.duplicate(true),
+		"total": _comms_restore.size(),
+		"matched_success": matched,
+		"matched_expected_failure": expected_failures,
+		"legacy_unverified": legacy,
+		"diverged": diverged,
+		"losless_claim": false,
+		"note": "original failures are preserved as failures; only divergences are recovery errors",
+	}
+
+
 func _replay_op(op: Dictionary) -> Dictionary:
 	var kind := String(op.get("op", ""))
 	match kind:
@@ -5129,9 +5248,7 @@ func _replay_op(op: Dictionary) -> Dictionary:
 			return reject_order(String(op.get("order_id", "")), String(op.get("reason", "rejected")),
 				String(op.get("by", "")))
 		"send_comms":
-			return send_comms(String(op.get("from_id", "")), String(op.get("to_id", "")),
-				String(op.get("mode", "LD")), String(op.get("text_key", "COMMS_SENT")),
-				op.get("payload", {}), op.get("opts", {}))
+			return _replay_send_comms(op)
 		"set_link":
 			return set_link(String(op.get("a", "")), String(op.get("b", "")), op.get("opts", {}))
 		"handle_observation":
