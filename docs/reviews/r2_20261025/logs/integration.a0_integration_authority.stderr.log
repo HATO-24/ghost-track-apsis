@@ -1,0 +1,9 @@
+ERROR: String formatting error: unsupported format character.
+   at: validated_evaluate (core/variant/variant_op.h:770)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://tests/a0_integration_authority_probe.gd:234)
+       [1] _await_v1_hud (res://tests/a0_integration_authority_probe.gd:834)
+WARNING: 122 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 30 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

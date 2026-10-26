@@ -1,0 +1,168 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+JC-B03P SCENARIO SPEC PROBE · content-only (no fake adjudicator)
+════════════════════════════════════════════════════════════════
+
+[JC-B03P] STEP 1. 提案本体与已确认边界
+[JC-B03P] PASS 提案 fixture 可读  C:/Users/ASUS/.codex/worktrees/jc-g0-k0-rereview/GHOST TRACK_APSIS/.test-results/r5-p0-audit/unknown_catalog.json
+[JC-B03P] PASS schema 正确  actual=v17.jc.scenario_spec.v1 expected=v17.jc.scenario_spec.v1
+[JC-B03P] PASS version 是整数 1  actual=1 expected=1
+[JC-B03P] PASS scenario_id  actual=jc_sector_01 expected=jc_sector_01
+[JC-B03P] PASS 状态是「提案待用户核对」，不冒充正典  proposal_pending_user_review
+[JC-B03P] PASS 确认边界有两项  2
+[JC-B03P] INFO CONFIRMED: ["阶段性战区行动（不宣告整个第33舰队去军事化）","自有舰队直控 + 独立AI友军协同请求"]
+
+[JC-B03P] STEP 2. 战区/时间：模拟秒与 UTC 历元分开
+[JC-B03P] PASS 记录 UTC 历元  2193-04-11T08:00:00Z
+[JC-B03P] PASS 时限是正数秒  3600.0
+[JC-B03P] PASS 明确 UTC 不混入 tick  日期仅为提案；模拟时间用秒，不把 UTC 混进 tick
+
+[JC-B03P] STEP 3. 舰池与预算：两套合法且战术不同的编制
+[JC-B03P] PASS 点数预算为正整数  100.0
+[JC-B03P] PASS 指挥容量 >= 2  3.0
+[JC-B03P] PASS 舰池至少 4 类  5
+[JC-B03P] PASS 恰好两套示例编制  actual=2 expected=2
+[JC-B03P] PASS 编制 FORM-SENSOR 至少 2 舰  3
+[JC-B03P] PASS 编制 FORM-SENSOR 声明的点数与实际一致  actual=62 expected=62
+[JC-B03P] PASS 编制 FORM-STRIKE 至少 2 舰  3
+[JC-B03P] PASS 编制 FORM-STRIKE 声明的点数与实际一致  actual=70 expected=70
+[JC-B03P] PASS 两套编制都在点数预算内且舰型合法  []
+[JC-B03P] PASS 两套编制的战术角色不同  actual=2 expected=2  ["sensor_heavy","strike_heavy"]
+
+[JC-B03P] STEP 4. 友军与敌方：独立指挥域、稳定引用
+[JC-B03P] PASS 友军是独立指挥域（不共享玩家直控）  ally
+[JC-B03P] PASS 友军按规则接受/拒绝  accept_if_link_and_resource
+[JC-B03P] PASS 至少 1 支独立 AI 友军  2.0
+[JC-B03P] PASS 敌方是指挥域 opfor  actual=opfor expected=opfor
+[JC-B03P] PASS 敌方至少 3 个可引用单位  3
+[JC-B03P] PASS 敌方单位 ID 唯一非空: I-OP1
+[JC-B03P] PASS 敌方单位是军事属性: I-OP1  organic_fire_control
+[JC-B03P] PASS 敌方目标非受保护民用: I-OP1  actual=false expected=false
+[JC-B03P] PASS 敌方单位 ID 唯一非空: I-OP2
+[JC-B03P] PASS 敌方单位是军事属性: I-OP2  organic_fire_control
+[JC-B03P] PASS 敌方目标非受保护民用: I-OP2  actual=false expected=false
+[JC-B03P] PASS 敌方单位 ID 唯一非空: I-OP-C2
+[JC-B03P] PASS 敌方单位是军事属性: I-OP-C2  command_node
+[JC-B03P] PASS 敌方目标非受保护民用: I-OP-C2  actual=false expected=false
+
+[JC-B03P] STEP 5. 目标表：字段完整、引用有效、失能不可本场恢复
+[JC-B03P] PASS 至少 3 个可审目标  3
+[JC-B03P] PASS 目标 OBJ-A 字段完整  []
+[JC-B03P] PASS 目标 OBJ-A 引用已声明敌方单位  I-OP1
+[JC-B03P] PASS 目标 OBJ-A 指向军事属性  organic_fire_control
+[JC-B03P] PASS 目标 OBJ-A 的失能不可本场恢复（才可计去军事化）  actual=false expected=false
+[JC-B03P] PASS 目标 OBJ-A 终态是 disabled  disabled
+[JC-B03P] PASS 目标 OBJ-B 字段完整  []
+[JC-B03P] PASS 目标 OBJ-B 引用已声明敌方单位  I-OP2
+[JC-B03P] PASS 目标 OBJ-B 指向军事属性  organic_fire_control
+[JC-B03P] PASS 目标 OBJ-B 的失能不可本场恢复（才可计去军事化）  actual=false expected=false
+[JC-B03P] PASS 目标 OBJ-B 终态是 disabled  disabled
+[JC-B03P] PASS 目标 OBJ-C 字段完整  []
+[JC-B03P] PASS 目标 OBJ-C 引用已声明敌方单位  I-OP-C2
+[JC-B03P] PASS 目标 OBJ-C 指向军事属性  command_node
+[JC-B03P] PASS 目标 OBJ-C 的失能不可本场恢复（才可计去军事化）  actual=false expected=false
+[JC-B03P] PASS 目标 OBJ-C 终态是 disabled  disabled
+[JC-B03P] PASS 民用设施是保护目标，不得作为攻击/胜利对象  2
+
+[JC-B03P] STEP 6. 胜负/撤离/僵局/时限
+[JC-B03P] PASS 胜利需要全部必需目标  3
+[JC-B03P] PASS 胜利条件引用已定义目标: OBJ-A
+[JC-B03P] PASS 胜利条件引用已定义目标: OBJ-B
+[JC-B03P] PASS 胜利条件引用已定义目标: OBJ-C
+[JC-B03P] PASS 明确排除「歼灭整个第33舰队」  歼灭整个第33舰队
+[JC-B03P] PASS story=false 仍裁决  actual=true expected=true
+[JC-B03P] PASS 五种终态齐全  []
+[JC-B03P] PASS 时限只触发规定终态，不产生胜利  时限到达：按 objectives 终态结算，等待时长本身不产生胜利
+
+[JC-B03P] STEP 7. 阶段流程与协同回执样例
+[JC-B03P] PASS 阶段覆盖简报→组舰→部署→协同→交战→裁决→战报  7
+[JC-B03P] PASS 回执样例存在: support_target/accept
+[JC-B03P] PASS 回执样例存在: support_target/reject
+[JC-B03P] PASS 回执样例存在: support_target/in_progress
+[JC-B03P] PASS 回执样例存在: support_target/lost_or_damaged
+[JC-B03P] PASS 回执样例存在: support_target/complete
+[JC-B03P] PASS 回执样例存在: cover_group/accept
+[JC-B03P] PASS 回执样例存在: cover_group/reject
+[JC-B03P] PASS 回执样例存在: cover_group/in_progress
+[JC-B03P] PASS 回执样例存在: cover_group/lost_or_damaged
+[JC-B03P] PASS 回执样例存在: cover_group/complete
+[JC-B03P] PASS 回执样例存在: assist_withdraw/accept
+[JC-B03P] PASS 回执样例存在: assist_withdraw/reject
+[JC-B03P] PASS 回执样例存在: assist_withdraw/in_progress
+[JC-B03P] PASS 回执样例存在: assist_withdraw/lost_or_damaged
+[JC-B03P] PASS 回执样例存在: assist_withdraw/complete
+[JC-B03P] PASS 三类协同请求（支援/掩护/撤离）  actual=3 expected=3  ["support_target","cover_group","assist_withdraw"]
+
+[JC-B03P] STEP 8. 事件轨迹：唯一预期终态、幂等裁决、不过早结算
+[JC-B03P] PASS 轨迹数量覆盖主要分支  9
+[JC-B03P] PASS 轨迹 ID 唯一: TR-FULL-VICTORY
+[JC-B03P] PASS 轨迹 TR-FULL-VICTORY 的预期终态合法  victory
+[JC-B03P] PASS 轨迹 TR-FULL-VICTORY 至少 2 个事件  6
+[JC-B03P] PASS 轨迹 TR-FULL-VICTORY 的事件时间单调
+[JC-B03P] PASS 轨迹 TR-FULL-VICTORY 的终态结算次数 <= 1（幂等）  1
+[JC-B03P] PASS 轨迹 TR-FULL-VICTORY 的裁决事件数符合预期  actual=1 expected=1
+[JC-B03P] PASS 轨迹 ID 唯一: TR-DISABLED-NOT-REPORTED
+[JC-B03P] PASS 轨迹 TR-DISABLED-NOT-REPORTED 的预期终态合法  pending_report
+[JC-B03P] PASS 轨迹 TR-DISABLED-NOT-REPORTED 至少 2 个事件  2
+[JC-B03P] PASS 轨迹 TR-DISABLED-NOT-REPORTED 的事件时间单调
+[JC-B03P] PASS 轨迹 TR-DISABLED-NOT-REPORTED 的终态结算次数 <= 1（幂等）  0
+[JC-B03P] PASS 轨迹 TR-DISABLED-NOT-REPORTED 的裁决事件数符合预期  actual=0 expected=0
+[JC-B03P] PASS 轨迹 ID 唯一: TR-DEFEAT
+[JC-B03P] PASS 轨迹 TR-DEFEAT 的预期终态合法  defeat
+[JC-B03P] PASS 轨迹 TR-DEFEAT 至少 2 个事件  2
+[JC-B03P] PASS 轨迹 TR-DEFEAT 的事件时间单调
+[JC-B03P] PASS 轨迹 TR-DEFEAT 的终态结算次数 <= 1（幂等）  1
+[JC-B03P] PASS 轨迹 TR-DEFEAT 的裁决事件数符合预期  actual=1 expected=1
+[JC-B03P] PASS 轨迹 ID 唯一: TR-WITHDRAW
+[JC-B03P] PASS 轨迹 TR-WITHDRAW 的预期终态合法  withdrawal
+[JC-B03P] PASS 轨迹 TR-WITHDRAW 至少 2 个事件  3
+[JC-B03P] PASS 轨迹 TR-WITHDRAW 的事件时间单调
+[JC-B03P] PASS 轨迹 TR-WITHDRAW 的终态结算次数 <= 1（幂等）  1
+[JC-B03P] PASS 轨迹 TR-WITHDRAW 的裁决事件数符合预期  actual=1 expected=1
+[JC-B03P] PASS 轨迹 ID 唯一: TR-STALEMATE
+[JC-B03P] PASS 轨迹 TR-STALEMATE 的预期终态合法  stalemate
+[JC-B03P] PASS 轨迹 TR-STALEMATE 至少 2 个事件  2
+[JC-B03P] PASS 轨迹 TR-STALEMATE 的事件时间单调
+[JC-B03P] PASS 轨迹 TR-STALEMATE 的终态结算次数 <= 1（幂等）  1
+[JC-B03P] PASS 轨迹 TR-STALEMATE 的裁决事件数符合预期  actual=1 expected=1
+[JC-B03P] PASS 轨迹 ID 唯一: TR-EW-NOT-PERMANENT
+[JC-B03P] PASS 轨迹 TR-EW-NOT-PERMANENT 的预期终态合法  stalemate
+[JC-B03P] PASS 轨迹 TR-EW-NOT-PERMANENT 至少 2 个事件  2
+[JC-B03P] PASS 轨迹 TR-EW-NOT-PERMANENT 的事件时间单调
+[JC-B03P] PASS 轨迹 TR-EW-NOT-PERMANENT 的终态结算次数 <= 1（幂等）  1
+[JC-B03P] PASS 轨迹 TR-EW-NOT-PERMANENT 的裁决事件数符合预期  actual=1 expected=1
+[JC-B03P] PASS 轨迹 ID 唯一: TR-STILL-EFFECTIVE
+[JC-B03P] PASS 轨迹 TR-STILL-EFFECTIVE 的预期终态合法  stalemate
+[JC-B03P] PASS 轨迹 TR-STILL-EFFECTIVE 至少 2 个事件  3
+[JC-B03P] PASS 轨迹 TR-STILL-EFFECTIVE 的事件时间单调
+[JC-B03P] PASS 轨迹 TR-STILL-EFFECTIVE 的终态结算次数 <= 1（幂等）  1
+[JC-B03P] PASS 轨迹 TR-STILL-EFFECTIVE 的裁决事件数符合预期  actual=1 expected=1
+[JC-B03P] PASS 轨迹 ID 唯一: TR-ALLY-REFUSE-ALTERNATIVE
+[JC-B03P] PASS 轨迹 TR-ALLY-REFUSE-ALTERNATIVE 的预期终态合法  stalemate
+[JC-B03P] PASS 轨迹 TR-ALLY-REFUSE-ALTERNATIVE 至少 2 个事件  3
+[JC-B03P] PASS 轨迹 TR-ALLY-REFUSE-ALTERNATIVE 的事件时间单调
+[JC-B03P] PASS 轨迹 TR-ALLY-REFUSE-ALTERNATIVE 的终态结算次数 <= 1（幂等）  1
+[JC-B03P] PASS 轨迹 TR-ALLY-REFUSE-ALTERNATIVE 的裁决事件数符合预期  actual=1 expected=1
+[JC-B03P] PASS 轨迹 ID 唯一: TR-DUPLICATE-ADJUDICATION-GUARD
+[JC-B03P] PASS 轨迹 TR-DUPLICATE-ADJUDICATION-GUARD 的预期终态合法  victory
+[JC-B03P] PASS 轨迹 TR-DUPLICATE-ADJUDICATION-GUARD 至少 2 个事件  2
+[JC-B03P] PASS 轨迹 TR-DUPLICATE-ADJUDICATION-GUARD 的事件时间单调
+[JC-B03P] PASS 轨迹 TR-DUPLICATE-ADJUDICATION-GUARD 的终态结算次数 <= 1（幂等）  1
+[JC-B03P] PASS 「已失能未报告」预期是 pending_report 而非 victory  actual=pending_report expected=pending_report
+[JC-B03P] PASS 存在重复裁决守卫轨迹
+[JC-B03P] PASS 重复裁决守卫只结算一次（terminal_events=1）
+[JC-B03P] PASS 单次 EW 不产生胜利  stalemate
+[JC-B03P] PASS 对象仍能战斗不计失能  stalemate
+[JC-B03P] PASS 友军拒绝轨迹有明确终态  stalemate
+
+[JC-B03P] STEP 9. 待用户决定项与 B3 依赖（不伪造完成）
+[JC-B03P] PASS 明确列出待用户核对项  6
+[JC-B03P] PASS 列出 B3 实现依赖  3
+[JC-B03P] PASS 明确未实现范围  2
+[JC-B03P] INFO PENDING USER DECISIONS: ["战区名称、架空年月与参战单位命名","舰池点数与指挥容量具体数值","两套编制的具体舰型组合","目标对象（I-OP1/I-OP2/I-OP-C2 是否合适）","失能阈值与时限（当前 3600s）","失败/撤离/僵局结算口径是否符合预期"]
+[JC-B03P] INFO 本探针只验证内容逻辑；真实 AI/战斗/裁决/试玩均 NOT RUN
+────────────────────────────────────────────────────────────────
+JC-B03P SCENARIO SPEC PROBE RESULT: PASS=138 FAIL=0
+JC-B03P SCENARIO SPEC PROBE OK
+AUDIO OK files=36 headless=true muted=false

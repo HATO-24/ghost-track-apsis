@@ -1,0 +1,8 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+R6-STARE-AUDIT head=5d7208b82ebae81da874e059c2d88286317c6483
+R6-STARE-AUDIT VALIDATE={"errors":["tws.channels[broken] missing required fields [\"state_since_t\", \"slot\", \"age_s\", \"pd\", \"hits\", \"consecutive_hits\", \"misses\", \"update_count\", \"update_rate_hz\", \"last_miss_t\", \"range_km\", \"bearing_deg\", \"elevation_deg\", \"range_sigma_km\", \"bearing_sigma_deg\", \"stable_track\", \"in_sphere\", \"effective_radius_km\", \"scan_index\", \"stare_s\", \"stare_required_s\", \"stare_progress\", \"fire_control\", \"lost_lock_count\", \"exposure\", \"history\"]","tws.channels[broken] state STARE requires [\"stare_s\", \"stare_required_s\", \"stare_progress\"]"],"ok":false}
+R6-STARE-AUDIT IMPORT={"errors":["tws.channels[broken] missing required fields [\"state_since_t\", \"slot\", \"age_s\", \"pd\", \"hits\", \"consecutive_hits\", \"misses\", \"update_count\", \"update_rate_hz\", \"last_miss_t\", \"range_km\", \"bearing_deg\", \"elevation_deg\", \"range_sigma_km\", \"bearing_sigma_deg\", \"stable_track\", \"in_sphere\", \"effective_radius_km\", \"scan_index\", \"stare_s\", \"stare_required_s\", \"stare_progress\", \"fire_control\", \"lost_lock_count\", \"exposure\", \"history\"]","tws.channels[broken] state STARE requires [\"stare_s\", \"stare_required_s\", \"stare_progress\"]"],"ok":false,"reason":"invalid_state"}
+R6-STARE-AUDIT IMPORTED_CHANNELS={}
+R6-STARE-AUDIT PASS malformed channel rejected before continuation
+AUDIO OK files=36 headless=true muted=false

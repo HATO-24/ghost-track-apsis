@@ -1,0 +1,20 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[K0-AUDIT] {"case":"baseline_valid","errors":[],"ok":true}
+[K0-AUDIT] {"case":"player_actor_direct_fires_ally","errors":[],"ok":true}
+[K0-AUDIT] {"case":"legacy_own_ship_label_with_ally_shooter","errors":[],"ok":true}
+[K0-AUDIT] {"case":"unknown_intel_owner_observer_and_delay_conflict","errors":[],"ok":true}
+[K0-AUDIT] {"case":"player_and_ally_share_intel_owner_without_share_grant","errors":[],"ok":true}
+[K0-AUDIT] {"case":"all_three_domains_are_player","errors":[],"ok":true}
+[K0-AUDIT] {"case":"unselected_instance_still_deployed","errors":[],"ok":true}
+[K0-AUDIT] {"case":"same_deploy_request_id_different_instances","errors":[],"ok":true}
+[K0-AUDIT] {"case":"idempotent_replay_flag_bypasses_missing_request_id","errors":[],"ok":true}
+[K0-AUDIT] {"case":"deployment_negative_time_and_transition_disagrees_current_state","errors":[],"ok":true}
+[K0-AUDIT] {"case":"player_roster_references_ally_instance","errors":[],"ok":true}
+[K0-AUDIT] {"case":"duplicate_command_id","errors":[],"ok":true}
+[K0-AUDIT] {"case":"missing_command_id","errors":[],"ok":true}
+[K0-AUDIT] {"case":"native_int_exceeds_safe_integer","errors":[],"ok":true}
+[K0-AUDIT] {"case":"infinite_mass","errors":[],"ok":true}
+[K0-AUDIT] {"case":"ledger_without_ammo_fuel_cooldown","errors":[],"ok":true}
+[K0-AUDIT] {"case":"fractional_kg_fuel_rejected","errors":["ledger I-A1 的 fuel_kg 必须是非负整数"],"ok":false}
+AUDIO OK files=36 headless=true muted=false

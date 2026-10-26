@@ -1,0 +1,148 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+A0-A06 COMMS RESTORE PROBE · baseline I5
+Godot 4.7.2-stable (official) · profile=orbital_sim
+════════════════════════════════════════════════════════════════
+
+[A0-A06] STEP 1. real entry main_menu → v1_hud (orbital_sim), capture startup comms
+[A0-A06] PASS change_scene_to_file(main_menu) == OK  err=0
+AUDIO OK files=36 headless=true muted=false
+[MAIN MENU] BUILD=orbital_sim → skip to res://v1_hud.tscn
+[BUILD PROFILE] id=orbital_sim mode=simulator scene=res://v1_hud.tscn scenario=res://framework/content/scenario_orbital_sim.json save_root=user://saves_sim
+[BUILD PROFILE] SYSTEM story=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM prelude=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM triggers=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM identification=ON
+[BUILD PROFILE] SYSTEM traffic=ON
+[BUILD PROFILE] SYSTEM port=ON
+[BUILD PROFILE] SYSTEM signal=ON
+[BUILD PROFILE] SYSTEM combat=ON
+[BUILD PROFILE] SYSTEM ballistics=ON
+[BUILD PROFILE] SYSTEM damage=ON
+[BUILD PROFILE] SYSTEM physics_world=ON
+[BUILD PROFILE] SYSTEM sandbox=OFF reason=非测试剖面
+[BUILD PROFILE] SYSTEM ship_catalog=ON
+[BUILD PROFILE] SYSTEM refit=ON
+[BUILD PROFILE][LIMITATION] 轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。
+[BUILD PROFILE][LIMITATION] EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。
+[BUILD PROFILE][LIMITATION] UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。
+[SHELL BINDER] BUILD profile=orbital_sim mode=simulator label=GHOST TRACK // APSIS — ORBITAL SIM save_root=user://saves_sim
+[SHELL BINDER] SANDBOX entities=7 scenario=res://framework/content/scenario_orbital_sim.json
+[SHELL BINDER] SYSTEMS physics=true sensors=true track_table=true combat=true ballistics=true damage=true ew=true identification=true traffic=true port=true ship_catalog=true refit=true story=disabled
+[SHELL BINDER] CeresChain ready state=L1 entity=ceres_2 texts=9 code=7600
+[SHELL BINDER] ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0
+[SHELL BINDER] AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=19 threat=0 trust=0
+[SHELL BINDER] AfterActionReport ready branches=6 templates=3
+[SHELL BINDER] TrafficControl source=session ready=true lanes=18 otc=19 npc=6
+[SHELL BINDER] physics ready=true plot_source=physics positions=7 facilities=12 facility_source=facility_registry_l1
+[SHELL BINDER] fleet_data ready=true friendly=8 enemy=24 total=32
+[SHELL BINDER] refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL
+[SHELL BINDER] CICView ready=true truth=false tracks=2 levels={ "1": 0, "2": 2, "3": 0, "4": 0 } facilities=110
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[SHELL BINDER] signal targets synced added=0 updated=7 count=7
+[V1 HUD] binder boot=true errors=[] contacts=7 orders=0
+[V1 HUD] COMMS seed LD=true LR=false events=2
+[V1 HUD] COMBAT source=session sandbox={ "unlimited_ammo": false, "auto_authorize": false }
+[V1 HUD] COMBAT tracks=2 weapons=5 target=T0001 weapon=missile
+[V1 HUD] damage_model=true sections=7 combat=true roe=TIGHT roe_locked=true
+[SHELL BINDER] plot_bodies source=physics earth=[-326389.684568483, -0.0, 0.0] moon=[58010.3154315171, -0.0, 0.0]
+[SHELL BINDER] plot_sensors ready=true rings=4 obs=4 tws=2 emcon=false ew_ready=true
+[SHELL BINDER] plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=2 solutions=0 grants=0 incoming=0 pred=true
+[SHELL BINDER] plot_commands ready=true orders=0 pending=0 transmitted=0 executed=0
+[V1 PLOT3D] labels=18 conflicts=6 hidden_facility=8 bodies=physics
+[A0-A06] PASS ShellBinder ready
+[A0-A06] PASS GameSession available
+[A0-A06] PASS CommsService present
+[A0-A06] PASS session recorded comms operations at startup  n=2
+[A0-A06] PASS comms op carries a versioned outcome record  LD
+[A0-A06] PASS comms op carries a versioned outcome record  LR
+[A0-A06] PASS every comms op has an outcome  actual=2 expected=2
+[A0-A06] INFO STARTUP COMMS: [{"delivery_id":"C-000001","from":"harmattan","latency_s":0.4,"mode":"LD","ok":true,"reason":"","to":"l1_station"},{"delivery_id":"","from":"harmattan","latency_s":0.0,"mode":"LR","ok":false,"reason":"no_route","to":"l1_station"}]
+[A0-A06] INFO STARTUP: expected_failure_ops=1 / total=2
+[A0-A06] PASS comms topology has nodes  nodes=7 links=7
+[A0-A06] INFO TOPOLOGY: {"link_apsis_LD":true,"link_l1_station_LD":true,"links":7,"nodes":7}
+
+[A0-A06] STEP 2. real SaveService file roundtrip; compare original vs replayed outcomes
+[A0-A06] PASS SaveService ready  []
+[A0-A06] PASS SaveService.save_session ok  []
+[A0-A06] PASS SaveService.load_session ok (real file)  []
+[A0-A06] PASS loaded session object present
+[A0-A06] PASS no comms replay divergence on the real HUD save  actual=0 expected=0
+[A0-A06] PASS every recorded comms op was replayed and checked  actual=2 expected=2  total=2 ops=2
+[A0-A06] PASS no legacy-unverified comms ops (the save carries outcomes)  actual=0 expected=0
+[A0-A06] PASS originally failing sends are preserved AS FAILURES (not recovery errors)  actual=1 expected=1  expected=1 report=1
+[A0-A06] PASS per-op comparison matches on mode/from/to/ok/reason/delivery_id/latency  violations=[]
+[A0-A06] INFO RESTORE REPORT: {"diverged":0,"legacy_unverified":0,"matched_expected_failure":1,"matched_success":1,"total":2}
+[A0-A06] PASS restored session keeps the same number of comms.failed events  actual=1 expected=1  before=1 after=1
+
+[A0-A06] STEP 3. fixture: LD direct + relay + queued + immediate delivery, continue ticks
+[A0-A06] PASS fixture comms session ready  []
+[A0-A06] PASS LD direct send ok
+[A0-A06] PASS LR relay send ok
+[A0-A06] PASS queued (delayed) send accepted
+[A0-A06] INFO FIXTURE SENDS: ids=["C-000001", "C-000002", "C-000003"] arrivals=[4.0, 8.0, 4.0]
+[A0-A06] PASS fixture load ok  []
+[A0-A06] PASS fixture: no comms divergence  actual=0 expected=0
+[A0-A06] PASS fixture: all three successful sends matched  actual=3 expected=3
+[A0-A06] PASS restored session delivers exactly the same messages (id/receiver/order)  actual=[{"arrive_t":-1.0,"delivery_id":"C-000001","from":"apsis","mode":"LD","to":"harmattan"},{"arrive_t":-1.0,"delivery_id":"C-000002","from":"apsis","mode":"LR","to":"relay1"},{"arrive_t":-1.0,"delivery_id":"C-000003","from":"apsis","mode":"LD","to":"harmattan"}] expected=[{"arrive_t":-1.0,"delivery_id":"C-000001","from":"apsis","mode":"LD","to":"harmattan"},{"arrive_t":-1.0,"delivery_id":"C-000002","from":"apsis","mode":"LR","to":"relay1"},{"arrive_t":-1.0,"delivery_id":"C-000003","from":"apsis","mode":"LD","to":"harmattan"}]  3 vs 3
+[A0-A06] PASS no duplicate delivery after restore  []
+[A0-A06] PASS restored session actually delivered messages  n=3
+[A0-A06] PASS pending queue length matches after continuation  orig=0 rest=0
+
+[A0-A06] STEP 4. negatives: original failure preserved, divergence detected, legacy labelled
+[A0-A06] PASS LR with no LR link fails originally (no_route)  actual=false expected=false
+[A0-A06] PASS original failure reason is no_route  actual=no_route expected=no_route
+[A0-A06] PASS load succeeds even though an operation originally failed  []
+[A0-A06] PASS the original no_route failure is preserved as an expected failure  actual=1 expected=1
+[A0-A06] PASS preserved failure is not a divergence  actual=0 expected=0
+[A0-A06] PASS restored session still shows the comms.failed event  actual=1 expected=1
+[A0-A06] PASS NEGATIVE: a tampered recorded outcome is detected as divergence (load fails)
+[A0-A06] PASS NEGATIVE: divergence reports the exact reason  ["replay send_comms 失败：comms_replay_diverged"]
+[A0-A06] PASS unknown mode fails with invalid_mode  actual=invalid_mode expected=invalid_mode
+[A0-A06] PASS wrong target fails with unknown_to  actual=unknown_to expected=unknown_to
+[A0-A06] PASS invalid-mode/unknown-target failures load cleanly  []
+[A0-A06] PASS both invalid sends preserved as expected failures  actual=2 expected=2
+[A0-A06] PASS legacy log without outcome still loads  []
+[A0-A06] PASS legacy comms op is explicitly reported as unverified  actual=1 expected=1
+[A0-A06] PASS legacy unverified is not counted as divergence  actual=0 expected=0
+[A0-A06] PASS R04: unknown outcome version (999) is REJECTED, not treated as legacy
+[A0-A06] PASS R04: rejection reason names the invalid outcome  ["replay send_comms 失败：comms_outcome_invalid"]
+[A0-A06] PASS R04: unknown outcome schema is rejected
+[A0-A06] PASS R04: fractional outcome version is rejected
+[A0-A06] PASS R04: invalid outcome field (okType) is rejected
+[A0-A06] PASS R04: invalid outcome field (missingMode) is rejected
+[A0-A06] PASS R04: baseline send ok for NaN case
+[A0-A06] PASS R04: NaN/Inf outcome numbers are rejected
+[A0-A06] PASS R04: genuinely legacy op (no outcome field) still loads  []
+[A0-A06] PASS R04: legacy op is the only legacy_unverified entry  actual=1 expected=1
+[A0-A06] PASS R04: legacy unverified is not a divergence  actual=0 expected=0
+[A0-A06] PASS R04: original success restores  []
+[A0-A06] PASS R04: original success counted as matched_success  actual=1 expected=1
+[A0-A06] PASS R04: original SENT event recorded  ["C-000001"]
+
+[A0-A06] STEP 5. A-06 summary
+[A0-A06] INFO A-06: outcomes versioned; expected failures preserved; divergences rejected; queued/delivered/relay/LD restore + exactly-once delivery; legacy labelled
+────────────────────────────────────────────────────────────────
+A0-A06 COMMS RESTORE PROBE RESULT: PASS=59 FAIL=0
+A0-A06 COMMS RESTORE PROBE OK
+[SHELL BINDER] signal targets synced added=0 updated=7 count=7
+
+--- STDERR ---
+WARNING: `NaN` ("Not a Number") found in argument passed to JSON.stringify(). `NaN` cannot be represented in JSON, so the value has been replaced with `null`. This warning will not be printed for any later NaN occurrences.
+   at: _stringify (core/io/json.cpp:86)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://tests/a0_comms_restore_probe.gd:479)
+       [1] _await_v1_hud (res://tests/a0_comms_restore_probe.gd:612)
+WARNING: 118 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 30 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

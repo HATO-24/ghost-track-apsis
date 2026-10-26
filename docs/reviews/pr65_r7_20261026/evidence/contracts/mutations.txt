@@ -1,0 +1,17 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[R7-K0-AUDIT] {"case":"baseline_valid","errors":[],"expected_ok":true,"matches":true,"ok":true}
+[R7-K0-AUDIT] {"case":"r6_unselected_undeployed_shooter","errors":["命令 CMD-1 的 shooter I-A2 未被选中，不能受令","命令 CMD-1 的 shooter I-A2 未部署（当前 DRAFT），不能受令"],"expected_ok":false,"matches":true,"ok":false}
+[R7-K0-AUDIT] {"case":"r6_enemy_observer_player_selfauth","errors":["观测共享授权者不是原始 owner：observer_owner=opfor_intel authorized_by=player_intel"],"expected_ok":false,"matches":true,"ok":false}
+[R7-K0-AUDIT] {"case":"r6_deployment_negative_t","errors":["deployments I-A1 的 t 必须是有限非负秒"],"expected_ok":false,"matches":true,"ok":false}
+[R7-K0-AUDIT] {"case":"r6_deployment_final_state_mismatch","errors":["deployments I-A1 记录到 VALIDATED，但实例当前状态是 DEPLOYED（记录与状态不一致）"],"expected_ok":false,"matches":true,"ok":false}
+[R7-K0-AUDIT] {"case":"r6_missing_command_id","errors":["命令缺少 command_id（标识与幂等必须显式）"],"expected_ok":false,"matches":true,"ok":false}
+[R7-K0-AUDIT] {"case":"missing_seq","errors":[],"expected_ok":false,"matches":false,"ok":true}
+[R7-K0-AUDIT] {"case":"unknown_lifecycle_version","errors":[],"expected_ok":false,"matches":false,"ok":true}
+[R7-K0-AUDIT] {"case":"reverse_lifecycle_time","errors":[],"expected_ok":false,"matches":false,"ok":true}
+[R7-K0-AUDIT] {"case":"rejected_then_completed","errors":[],"expected_ok":false,"matches":false,"ok":true}
+[R7-K0-AUDIT] {"case":"wrong_request_correlation","errors":["命令 CMD-1 的 lifecycle.execution 未关联同一 request_id"],"expected_ok":false,"matches":true,"ok":false}
+[R7-K0-AUDIT] {"case":"duplicate_event_id_seq_request_across_commands","errors":[],"expected_ok":false,"matches":false,"ok":true}
+[R7-K0-AUDIT] {"case":"legacy_self_declared_other_own","errors":[],"expected_ok":true,"matches":true,"ok":true}
+[R7-K0-AUDIT] {"case":"cross_owner_missing_explicit_receiver","errors":[],"expected_ok":false,"matches":false,"ok":true}
+AUDIO OK files=36 headless=true muted=false

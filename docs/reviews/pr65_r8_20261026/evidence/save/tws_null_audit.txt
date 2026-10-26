@@ -1,0 +1,9 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+R8_NULL_CONTROL {"continued":1,"import":{"channels":1,"ok":true}}
+R8_NULL_PRESTEP {"field":"history","import":{"errors":["tws.channels[broken].history is null (required)"],"ok":false,"reason":"invalid_state"},"unchanged":true,"validation":{"errors":["tws.channels[broken].history is null (required)"],"ok":false}}
+R8_NULL_PRESTEP {"field":"stare_s","import":{"errors":["tws.channels[broken].stare_s is null (required)"],"ok":false,"reason":"invalid_state"},"unchanged":true,"validation":{"errors":["tws.channels[broken].stare_s is null (required)"],"ok":false}}
+R8_NULL_PRESTEP {"field":"stare_required_s","import":{"errors":["tws.channels[broken].stare_required_s is null (required)"],"ok":false,"reason":"invalid_state"},"unchanged":true,"validation":{"errors":["tws.channels[broken].stare_required_s is null (required)"],"ok":false}}
+R8_NULL_PRESTEP {"field":"quality","import":{"errors":["tws.channels[broken].quality is null (required)"],"ok":false,"reason":"invalid_state"},"unchanged":true,"validation":{"errors":["tws.channels[broken].quality is null (required)"],"ok":false}}
+R8_NULL_PRESTEP {"field":"state_since_t","import":{"errors":["tws.channels[broken].state_since_t is null (required)"],"ok":false,"reason":"invalid_state"},"unchanged":true,"validation":{"errors":["tws.channels[broken].state_since_t is null (required)"],"ok":false}}
+AUDIO OK files=36 headless=true muted=false

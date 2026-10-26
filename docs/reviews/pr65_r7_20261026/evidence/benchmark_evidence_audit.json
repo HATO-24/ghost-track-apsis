@@ -1,0 +1,56 @@
+{
+  "candidate": "2ae7bf7cba8af32ff4456cefe28efa3650b868dd",
+  "measurement_sha": "a51e19f2e2609b69f4e90a87da7855538de205c4",
+  "summary_sha": "a51e19f2e2609b69f4e90a87da7855538de205c4",
+  "recorded_files": [
+    "docs/benchmarks/jc_r2/r7_a51e19f2_20261026/README.md",
+    "docs/benchmarks/jc_r2/r7_a51e19f2_20261026/measurements.json",
+    "docs/benchmarks/jc_r2/r7_a51e19f2_20261026/summary.json"
+  ],
+  "missing_declared_logs": [
+    "a0_save_cost.log",
+    "a0_save_cost.stderr.log"
+  ],
+  "total_measured_samples": 12,
+  "scales": [
+    {
+      "ticks": 50,
+      "samples": 3,
+      "bytes_max": 433956,
+      "save_max_ms": 102,
+      "restore_max_ms": 1508,
+      "read_max_ms": 2
+    },
+    {
+      "ticks": 200,
+      "samples": 3,
+      "bytes_max": 1151356,
+      "save_max_ms": 306,
+      "restore_max_ms": 7349,
+      "read_max_ms": 4
+    },
+    {
+      "ticks": 800,
+      "samples": 3,
+      "bytes_max": 1935007,
+      "save_max_ms": 415,
+      "restore_max_ms": 42290,
+      "read_max_ms": 7
+    },
+    {
+      "ticks": 1000,
+      "samples": 3,
+      "bytes_max": 2172752,
+      "save_max_ms": 495,
+      "restore_max_ms": 69618,
+      "read_max_ms": 5
+    }
+  ],
+  "claimed_result": {
+    "exit_code": 0,
+    "pass": 90,
+    "fail": 0,
+    "duration_s": 860.51
+  },
+  "independent_four_scale_run": false
+}

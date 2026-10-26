@@ -1,0 +1,97 @@
+{
+  "date": "2026-10-26",
+  "candidate": "9d0f3b4380275b0a30fffb4a29fa5c44ef58165f",
+  "main_after_code": "e5628ca088f25f49d129dff3f311b8fbac648fcd",
+  "game_subtree": "ccfcded8e9e254fbc7726b4d75ad6628b05b3a9b",
+  "merges": [
+    {
+      "pr": 32,
+      "head": "882e058e2a0550684ade73f6978122fef46d42d7",
+      "previous_base": "main",
+      "merged_into": "main",
+      "merge_sha": "69143a65329bea9d0c246414bd1fa4100df25e18",
+      "message": "Pull Request successfully merged"
+    },
+    {
+      "pr": 33,
+      "head": "26f1d5398a4ed6654b057f23a27819e4bf700b31",
+      "previous_base": "phase-a/ds-a-00-candidate",
+      "merged_into": "main",
+      "merge_sha": "4254f61c1fcf0f58340b594eabd8fa345709e085",
+      "message": "Pull Request successfully merged"
+    },
+    {
+      "pr": 34,
+      "head": "7b5691482929d493467aec12eddbe20f3782f35e",
+      "previous_base": "phase-a/ds-a-01-integration",
+      "merged_into": "main",
+      "merge_sha": "a0dd57cb46735b5916c7d2e22db930be567e35c1",
+      "message": "Pull Request successfully merged"
+    },
+    {
+      "pr": 35,
+      "head": "f842b3db6158d08bb6da5221252745882a2cc858",
+      "previous_base": "phase-a/ds-a-02-frame-epoch",
+      "merged_into": "main",
+      "merge_sha": "ab4f9083c03a7a9a9e835a5bae04cb366019bbbf",
+      "message": "Pull Request successfully merged"
+    },
+    {
+      "pr": 36,
+      "head": "b04726641057aa80ccc83829e8da00b973f2f733",
+      "previous_base": "phase-a/ds-a-03-event-continuity",
+      "merged_into": "main",
+      "merge_sha": "5f5ff39e1e4f9d3c34908c6d93717394891c328f",
+      "message": "Pull Request successfully merged"
+    },
+    {
+      "pr": 37,
+      "head": "0a66ea2ca45e36739e3c92da80f742526b8b24cb",
+      "previous_base": "phase-a/ds-a-04-legacy-migration",
+      "merged_into": "main",
+      "merge_sha": "40ff0f8474b7d9b79af6b845970cceee8927d03f",
+      "message": "Pull Request successfully merged"
+    },
+    {
+      "pr": 38,
+      "head": "10a48653f9ff5b07517d6eb39c06dbdffb09104e",
+      "previous_base": "phase-a/ds-a-05-sensor-persistence",
+      "merged_into": "main",
+      "merge_sha": "a14df17eeb8230f931f537f4db25cd47e3f2b1ce",
+      "message": "Pull Request successfully merged"
+    },
+    {
+      "pr": 39,
+      "head": "af5b92471a0f12f1ab95c7defda88360e171e277",
+      "previous_base": "phase-a/ds-a-06-comms-restore",
+      "merged_into": "main",
+      "merge_sha": "853ba70ae255a34d5b9f83173b3468eac9011f3c",
+      "message": "Pull Request successfully merged"
+    },
+    {
+      "pr": 54,
+      "head": "c558f30846fcd9ab7e5943684e31311debb55ac0",
+      "previous_base": "phase-a/ds-a-07-save-cost",
+      "merged_into": "main",
+      "merge_sha": "57232d9c48c4fa038f35a3db697280c7768b9794",
+      "message": "Pull Request successfully merged"
+    },
+    {
+      "pr": 55,
+      "head": "30b8d33dae9787aadf89bb206757cafb2cad7bd3",
+      "previous_base": "codex/phase-a-review-next-batch-20261025",
+      "merged_into": "main",
+      "merge_sha": "08ef720bbb82ce5ca720e61aa040c2531973d997",
+      "message": "Pull Request successfully merged"
+    },
+    {
+      "pr": 65,
+      "head": "9d0f3b4380275b0a30fffb4a29fa5c44ef58165f",
+      "previous_base": "fix/phase-a-merge-review",
+      "merged_into": "main",
+      "merge_sha": "e5628ca088f25f49d129dff3f311b8fbac648fcd",
+      "message": "Pull Request successfully merged"
+    }
+  ],
+  "documentation_pr64": "Docs-only final merge; authoritative final SHA in PR64 metadata and issue58 current record"
+}

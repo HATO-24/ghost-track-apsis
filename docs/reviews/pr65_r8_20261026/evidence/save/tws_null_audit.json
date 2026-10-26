@@ -1,0 +1,96 @@
+{
+	"all_ok": true,
+	"cases": [
+		{
+			"field": "history",
+			"import": {
+				"errors": [
+					"tws.channels[broken].history is null (required)"
+				],
+				"ok": false,
+				"reason": "invalid_state"
+			},
+			"unchanged": true,
+			"validation": {
+				"errors": [
+					"tws.channels[broken].history is null (required)"
+				],
+				"ok": false
+			}
+		},
+		{
+			"field": "stare_s",
+			"import": {
+				"errors": [
+					"tws.channels[broken].stare_s is null (required)"
+				],
+				"ok": false,
+				"reason": "invalid_state"
+			},
+			"unchanged": true,
+			"validation": {
+				"errors": [
+					"tws.channels[broken].stare_s is null (required)"
+				],
+				"ok": false
+			}
+		},
+		{
+			"field": "stare_required_s",
+			"import": {
+				"errors": [
+					"tws.channels[broken].stare_required_s is null (required)"
+				],
+				"ok": false,
+				"reason": "invalid_state"
+			},
+			"unchanged": true,
+			"validation": {
+				"errors": [
+					"tws.channels[broken].stare_required_s is null (required)"
+				],
+				"ok": false
+			}
+		},
+		{
+			"field": "quality",
+			"import": {
+				"errors": [
+					"tws.channels[broken].quality is null (required)"
+				],
+				"ok": false,
+				"reason": "invalid_state"
+			},
+			"unchanged": true,
+			"validation": {
+				"errors": [
+					"tws.channels[broken].quality is null (required)"
+				],
+				"ok": false
+			}
+		},
+		{
+			"field": "state_since_t",
+			"import": {
+				"errors": [
+					"tws.channels[broken].state_since_t is null (required)"
+				],
+				"ok": false,
+				"reason": "invalid_state"
+			},
+			"unchanged": true,
+			"validation": {
+				"errors": [
+					"tws.channels[broken].state_since_t is null (required)"
+				],
+				"ok": false
+			}
+		}
+	],
+	"head": "9d0f3b4380275b0a30fffb4a29fa5c44ef58165f",
+	"positive_continued_channel_count": 1,
+	"positive_import": {
+		"channels": 1,
+		"ok": true
+	}
+}

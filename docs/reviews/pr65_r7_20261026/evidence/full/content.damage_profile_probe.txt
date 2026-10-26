@@ -1,0 +1,612 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+DAMAGE PROFILE PROBE · 完整游戏-阶段5C
+════════════════════════════════════════════════════════════════
+
+── 1. 36 型 class damage profile ──
+[PASS] profile service ready  []
+[PASS] profile service 无错误
+[PASS] 36 型档案  actual=36 expected=36
+[PASS] 36 class ids  actual=36 expected=36
+[PASS] schema  actual=damage_profiles.v1 expected=damage_profiles.v1
+[PASS] version  actual=1.0.0 expected=1.0.0
+[PASS] 4 材质  actual=4 expected=4
+[PASS] ShipCatalog ready
+[FAIL] 档案数=ShipCatalog 36  (actual=36 expected=32)
+[FAIL] class_id 与 ShipCatalog 一致
+[PASS] 档案存在 33OSID-ENFORCEMENT
+[PASS] class_id 33OSID-ENFORCEMENT  actual=33OSID-ENFORCEMENT expected=33OSID-ENFORCEMENT
+[PASS] name 33OSID-ENFORCEMENT
+[PASS] hull_class 33OSID-ENFORCEMENT  CA
+[PASS] sections 33OSID-ENFORCEMENT
+[PASS] mass sum 33OSID-ENFORCEMENT
+[PASS] armor effects 33OSID-ENFORCEMENT
+[PASS] penetration effects 33OSID-ENFORCEMENT
+[PASS] section fields 33OSID-ENFORCEMENT
+[PASS] section material 33OSID-ENFORCEMENT
+[PASS] section mass 33OSID-ENFORCEMENT
+[PASS] sections API 33OSID-ENFORCEMENT
+[PASS] 档案存在 33OSID-ENFORCEMENT-ASSAULT
+[PASS] class_id 33OSID-ENFORCEMENT-ASSAULT  actual=33OSID-ENFORCEMENT-ASSAULT expected=33OSID-ENFORCEMENT-ASSAULT
+[PASS] name 33OSID-ENFORCEMENT-ASSAULT
+[PASS] hull_class 33OSID-ENFORCEMENT-ASSAULT  CA
+[PASS] sections 33OSID-ENFORCEMENT-ASSAULT
+[PASS] mass sum 33OSID-ENFORCEMENT-ASSAULT
+[PASS] armor effects 33OSID-ENFORCEMENT-ASSAULT
+[PASS] penetration effects 33OSID-ENFORCEMENT-ASSAULT
+[PASS] section fields 33OSID-ENFORCEMENT-ASSAULT
+[PASS] section material 33OSID-ENFORCEMENT-ASSAULT
+[PASS] section mass 33OSID-ENFORCEMENT-ASSAULT
+[PASS] sections API 33OSID-ENFORCEMENT-ASSAULT
+[PASS] 档案存在 33OSID-ENFORCEMENT-STD
+[PASS] class_id 33OSID-ENFORCEMENT-STD  actual=33OSID-ENFORCEMENT-STD expected=33OSID-ENFORCEMENT-STD
+[PASS] name 33OSID-ENFORCEMENT-STD
+[PASS] hull_class 33OSID-ENFORCEMENT-STD  CA
+[PASS] sections 33OSID-ENFORCEMENT-STD
+[PASS] mass sum 33OSID-ENFORCEMENT-STD
+[PASS] armor effects 33OSID-ENFORCEMENT-STD
+[PASS] penetration effects 33OSID-ENFORCEMENT-STD
+[PASS] section fields 33OSID-ENFORCEMENT-STD
+[PASS] section material 33OSID-ENFORCEMENT-STD
+[PASS] section mass 33OSID-ENFORCEMENT-STD
+[PASS] sections API 33OSID-ENFORCEMENT-STD
+[PASS] 档案存在 33OSID-INTERDICT
+[PASS] class_id 33OSID-INTERDICT  actual=33OSID-INTERDICT expected=33OSID-INTERDICT
+[PASS] name 33OSID-INTERDICT
+[PASS] hull_class 33OSID-INTERDICT  CL
+[PASS] sections 33OSID-INTERDICT
+[PASS] mass sum 33OSID-INTERDICT
+[PASS] armor effects 33OSID-INTERDICT
+[PASS] penetration effects 33OSID-INTERDICT
+[PASS] section fields 33OSID-INTERDICT
+[PASS] section material 33OSID-INTERDICT
+[PASS] section mass 33OSID-INTERDICT
+[PASS] sections API 33OSID-INTERDICT
+[PASS] 档案存在 33OSID-INTERDICT-ASSAULT
+[PASS] class_id 33OSID-INTERDICT-ASSAULT  actual=33OSID-INTERDICT-ASSAULT expected=33OSID-INTERDICT-ASSAULT
+[PASS] name 33OSID-INTERDICT-ASSAULT
+[PASS] hull_class 33OSID-INTERDICT-ASSAULT  CL
+[PASS] sections 33OSID-INTERDICT-ASSAULT
+[PASS] mass sum 33OSID-INTERDICT-ASSAULT
+[PASS] armor effects 33OSID-INTERDICT-ASSAULT
+[PASS] penetration effects 33OSID-INTERDICT-ASSAULT
+[PASS] section fields 33OSID-INTERDICT-ASSAULT
+[PASS] section material 33OSID-INTERDICT-ASSAULT
+[PASS] section mass 33OSID-INTERDICT-ASSAULT
+[PASS] sections API 33OSID-INTERDICT-ASSAULT
+[PASS] 档案存在 33OSID-INTERDICT-STD
+[PASS] class_id 33OSID-INTERDICT-STD  actual=33OSID-INTERDICT-STD expected=33OSID-INTERDICT-STD
+[PASS] name 33OSID-INTERDICT-STD
+[PASS] hull_class 33OSID-INTERDICT-STD  CL
+[PASS] sections 33OSID-INTERDICT-STD
+[PASS] mass sum 33OSID-INTERDICT-STD
+[PASS] armor effects 33OSID-INTERDICT-STD
+[PASS] penetration effects 33OSID-INTERDICT-STD
+[PASS] section fields 33OSID-INTERDICT-STD
+[PASS] section material 33OSID-INTERDICT-STD
+[PASS] section mass 33OSID-INTERDICT-STD
+[PASS] sections API 33OSID-INTERDICT-STD
+[PASS] 档案存在 33OSID-RECEIVERSHIP
+[PASS] class_id 33OSID-RECEIVERSHIP  actual=33OSID-RECEIVERSHIP expected=33OSID-RECEIVERSHIP
+[PASS] name 33OSID-RECEIVERSHIP
+[PASS] hull_class 33OSID-RECEIVERSHIP  BB
+[PASS] sections 33OSID-RECEIVERSHIP
+[PASS] mass sum 33OSID-RECEIVERSHIP
+[PASS] armor effects 33OSID-RECEIVERSHIP
+[PASS] penetration effects 33OSID-RECEIVERSHIP
+[PASS] section fields 33OSID-RECEIVERSHIP
+[PASS] section material 33OSID-RECEIVERSHIP
+[PASS] section mass 33OSID-RECEIVERSHIP
+[PASS] sections API 33OSID-RECEIVERSHIP
+[PASS] 档案存在 33OSID-RECEIVERSHIP-ASSAULT
+[PASS] class_id 33OSID-RECEIVERSHIP-ASSAULT  actual=33OSID-RECEIVERSHIP-ASSAULT expected=33OSID-RECEIVERSHIP-ASSAULT
+[PASS] name 33OSID-RECEIVERSHIP-ASSAULT
+[PASS] hull_class 33OSID-RECEIVERSHIP-ASSAULT  BB
+[PASS] sections 33OSID-RECEIVERSHIP-ASSAULT
+[PASS] mass sum 33OSID-RECEIVERSHIP-ASSAULT
+[PASS] armor effects 33OSID-RECEIVERSHIP-ASSAULT
+[PASS] penetration effects 33OSID-RECEIVERSHIP-ASSAULT
+[PASS] section fields 33OSID-RECEIVERSHIP-ASSAULT
+[PASS] section material 33OSID-RECEIVERSHIP-ASSAULT
+[PASS] section mass 33OSID-RECEIVERSHIP-ASSAULT
+[PASS] sections API 33OSID-RECEIVERSHIP-ASSAULT
+[PASS] 档案存在 33OSID-RECEIVERSHIP-STD
+[PASS] class_id 33OSID-RECEIVERSHIP-STD  actual=33OSID-RECEIVERSHIP-STD expected=33OSID-RECEIVERSHIP-STD
+[PASS] name 33OSID-RECEIVERSHIP-STD
+[PASS] hull_class 33OSID-RECEIVERSHIP-STD  BB
+[PASS] sections 33OSID-RECEIVERSHIP-STD
+[PASS] mass sum 33OSID-RECEIVERSHIP-STD
+[PASS] armor effects 33OSID-RECEIVERSHIP-STD
+[PASS] penetration effects 33OSID-RECEIVERSHIP-STD
+[PASS] section fields 33OSID-RECEIVERSHIP-STD
+[PASS] section material 33OSID-RECEIVERSHIP-STD
+[PASS] section mass 33OSID-RECEIVERSHIP-STD
+[PASS] sections API 33OSID-RECEIVERSHIP-STD
+[PASS] 档案存在 33OSID-RECOURSE
+[PASS] class_id 33OSID-RECOURSE  actual=33OSID-RECOURSE expected=33OSID-RECOURSE
+[PASS] name 33OSID-RECOURSE
+[PASS] hull_class 33OSID-RECOURSE  DD
+[PASS] sections 33OSID-RECOURSE
+[PASS] mass sum 33OSID-RECOURSE
+[PASS] armor effects 33OSID-RECOURSE
+[PASS] penetration effects 33OSID-RECOURSE
+[PASS] section fields 33OSID-RECOURSE
+[PASS] section material 33OSID-RECOURSE
+[PASS] section mass 33OSID-RECOURSE
+[PASS] sections API 33OSID-RECOURSE
+[PASS] 档案存在 33OSID-RECOURSE-ASSAULT
+[PASS] class_id 33OSID-RECOURSE-ASSAULT  actual=33OSID-RECOURSE-ASSAULT expected=33OSID-RECOURSE-ASSAULT
+[PASS] name 33OSID-RECOURSE-ASSAULT
+[PASS] hull_class 33OSID-RECOURSE-ASSAULT  DD
+[PASS] sections 33OSID-RECOURSE-ASSAULT
+[PASS] mass sum 33OSID-RECOURSE-ASSAULT
+[PASS] armor effects 33OSID-RECOURSE-ASSAULT
+[PASS] penetration effects 33OSID-RECOURSE-ASSAULT
+[PASS] section fields 33OSID-RECOURSE-ASSAULT
+[PASS] section material 33OSID-RECOURSE-ASSAULT
+[PASS] section mass 33OSID-RECOURSE-ASSAULT
+[PASS] sections API 33OSID-RECOURSE-ASSAULT
+[PASS] 档案存在 33OSID-RECOURSE-STD
+[PASS] class_id 33OSID-RECOURSE-STD  actual=33OSID-RECOURSE-STD expected=33OSID-RECOURSE-STD
+[PASS] name 33OSID-RECOURSE-STD
+[PASS] hull_class 33OSID-RECOURSE-STD  DD
+[PASS] sections 33OSID-RECOURSE-STD
+[PASS] mass sum 33OSID-RECOURSE-STD
+[PASS] armor effects 33OSID-RECOURSE-STD
+[PASS] penetration effects 33OSID-RECOURSE-STD
+[PASS] section fields 33OSID-RECOURSE-STD
+[PASS] section material 33OSID-RECOURSE-STD
+[PASS] section mass 33OSID-RECOURSE-STD
+[PASS] sections API 33OSID-RECOURSE-STD
+[PASS] 档案存在 33OSID-REQUISITION
+[PASS] class_id 33OSID-REQUISITION  actual=33OSID-REQUISITION expected=33OSID-REQUISITION
+[PASS] name 33OSID-REQUISITION
+[PASS] hull_class 33OSID-REQUISITION  FF
+[PASS] sections 33OSID-REQUISITION
+[PASS] mass sum 33OSID-REQUISITION
+[PASS] armor effects 33OSID-REQUISITION
+[PASS] penetration effects 33OSID-REQUISITION
+[PASS] section fields 33OSID-REQUISITION
+[PASS] section material 33OSID-REQUISITION
+[PASS] section mass 33OSID-REQUISITION
+[PASS] sections API 33OSID-REQUISITION
+[PASS] 档案存在 33OSID-REQUISITION-ASSAULT
+[PASS] class_id 33OSID-REQUISITION-ASSAULT  actual=33OSID-REQUISITION-ASSAULT expected=33OSID-REQUISITION-ASSAULT
+[PASS] name 33OSID-REQUISITION-ASSAULT
+[PASS] hull_class 33OSID-REQUISITION-ASSAULT  FF
+[PASS] sections 33OSID-REQUISITION-ASSAULT
+[PASS] mass sum 33OSID-REQUISITION-ASSAULT
+[PASS] armor effects 33OSID-REQUISITION-ASSAULT
+[PASS] penetration effects 33OSID-REQUISITION-ASSAULT
+[PASS] section fields 33OSID-REQUISITION-ASSAULT
+[PASS] section material 33OSID-REQUISITION-ASSAULT
+[PASS] section mass 33OSID-REQUISITION-ASSAULT
+[PASS] sections API 33OSID-REQUISITION-ASSAULT
+[PASS] 档案存在 33OSID-REQUISITION-STD
+[PASS] class_id 33OSID-REQUISITION-STD  actual=33OSID-REQUISITION-STD expected=33OSID-REQUISITION-STD
+[PASS] name 33OSID-REQUISITION-STD
+[PASS] hull_class 33OSID-REQUISITION-STD  FF
+[PASS] sections 33OSID-REQUISITION-STD
+[PASS] mass sum 33OSID-REQUISITION-STD
+[PASS] armor effects 33OSID-REQUISITION-STD
+[PASS] penetration effects 33OSID-REQUISITION-STD
+[PASS] section fields 33OSID-REQUISITION-STD
+[PASS] section material 33OSID-REQUISITION-STD
+[PASS] section mass 33OSID-REQUISITION-STD
+[PASS] sections API 33OSID-REQUISITION-STD
+[PASS] 档案存在 33OSID-SUMMONS
+[PASS] class_id 33OSID-SUMMONS  actual=33OSID-SUMMONS expected=33OSID-SUMMONS
+[PASS] name 33OSID-SUMMONS
+[PASS] hull_class 33OSID-SUMMONS  FF
+[PASS] sections 33OSID-SUMMONS
+[PASS] mass sum 33OSID-SUMMONS
+[PASS] armor effects 33OSID-SUMMONS
+[PASS] penetration effects 33OSID-SUMMONS
+[PASS] section fields 33OSID-SUMMONS
+[PASS] section material 33OSID-SUMMONS
+[PASS] section mass 33OSID-SUMMONS
+[PASS] sections API 33OSID-SUMMONS
+[PASS] 档案存在 33OSID-SUMMONS-ASSAULT
+[PASS] class_id 33OSID-SUMMONS-ASSAULT  actual=33OSID-SUMMONS-ASSAULT expected=33OSID-SUMMONS-ASSAULT
+[PASS] name 33OSID-SUMMONS-ASSAULT
+[PASS] hull_class 33OSID-SUMMONS-ASSAULT  FF
+[PASS] sections 33OSID-SUMMONS-ASSAULT
+[PASS] mass sum 33OSID-SUMMONS-ASSAULT
+[PASS] armor effects 33OSID-SUMMONS-ASSAULT
+[PASS] penetration effects 33OSID-SUMMONS-ASSAULT
+[PASS] section fields 33OSID-SUMMONS-ASSAULT
+[PASS] section material 33OSID-SUMMONS-ASSAULT
+[PASS] section mass 33OSID-SUMMONS-ASSAULT
+[PASS] sections API 33OSID-SUMMONS-ASSAULT
+[PASS] 档案存在 33OSID-SUMMONS-STD
+[PASS] class_id 33OSID-SUMMONS-STD  actual=33OSID-SUMMONS-STD expected=33OSID-SUMMONS-STD
+[PASS] name 33OSID-SUMMONS-STD
+[PASS] hull_class 33OSID-SUMMONS-STD  FF
+[PASS] sections 33OSID-SUMMONS-STD
+[PASS] mass sum 33OSID-SUMMONS-STD
+[PASS] armor effects 33OSID-SUMMONS-STD
+[PASS] penetration effects 33OSID-SUMMONS-STD
+[PASS] section fields 33OSID-SUMMONS-STD
+[PASS] section material 33OSID-SUMMONS-STD
+[PASS] section mass 33OSID-SUMMONS-STD
+[PASS] sections API 33OSID-SUMMONS-STD
+[PASS] 档案存在 OCUVF-APOGEE
+[PASS] class_id OCUVF-APOGEE  actual=OCUVF-APOGEE expected=OCUVF-APOGEE
+[PASS] name OCUVF-APOGEE
+[PASS] hull_class OCUVF-APOGEE  AUX
+[PASS] sections OCUVF-APOGEE
+[PASS] mass sum OCUVF-APOGEE
+[PASS] armor effects OCUVF-APOGEE
+[PASS] penetration effects OCUVF-APOGEE
+[PASS] section fields OCUVF-APOGEE
+[PASS] section material OCUVF-APOGEE
+[PASS] section mass OCUVF-APOGEE
+[PASS] sections API OCUVF-APOGEE
+[PASS] 档案存在 OCUVF-ARIA-1
+[PASS] class_id OCUVF-ARIA-1  actual=OCUVF-ARIA-1 expected=OCUVF-ARIA-1
+[PASS] name OCUVF-ARIA-1
+[PASS] hull_class OCUVF-ARIA-1  AUX
+[PASS] sections OCUVF-ARIA-1
+[PASS] mass sum OCUVF-ARIA-1
+[PASS] armor effects OCUVF-ARIA-1
+[PASS] penetration effects OCUVF-ARIA-1
+[PASS] section fields OCUVF-ARIA-1
+[PASS] section material OCUVF-ARIA-1
+[PASS] section mass OCUVF-ARIA-1
+[PASS] sections API OCUVF-ARIA-1
+[PASS] 档案存在 OCUVF-GANTRY-3M
+[PASS] class_id OCUVF-GANTRY-3M  actual=OCUVF-GANTRY-3M expected=OCUVF-GANTRY-3M
+[PASS] name OCUVF-GANTRY-3M
+[PASS] hull_class OCUVF-GANTRY-3M  DD
+[PASS] sections OCUVF-GANTRY-3M
+[PASS] mass sum OCUVF-GANTRY-3M
+[PASS] armor effects OCUVF-GANTRY-3M
+[PASS] penetration effects OCUVF-GANTRY-3M
+[PASS] section fields OCUVF-GANTRY-3M
+[PASS] section material OCUVF-GANTRY-3M
+[PASS] section mass OCUVF-GANTRY-3M
+[PASS] sections API OCUVF-GANTRY-3M
+[PASS] 档案存在 OCUVF-HEMATITE-6C
+[PASS] class_id OCUVF-HEMATITE-6C  actual=OCUVF-HEMATITE-6C expected=OCUVF-HEMATITE-6C
+[PASS] name OCUVF-HEMATITE-6C
+[PASS] hull_class OCUVF-HEMATITE-6C  DD
+[PASS] sections OCUVF-HEMATITE-6C
+[PASS] mass sum OCUVF-HEMATITE-6C
+[PASS] armor effects OCUVF-HEMATITE-6C
+[PASS] penetration effects OCUVF-HEMATITE-6C
+[PASS] section fields OCUVF-HEMATITE-6C
+[PASS] section material OCUVF-HEMATITE-6C
+[PASS] section mass OCUVF-HEMATITE-6C
+[PASS] sections API OCUVF-HEMATITE-6C
+[PASS] 档案存在 OCUVF-MOONPORT-4
+[PASS] class_id OCUVF-MOONPORT-4  actual=OCUVF-MOONPORT-4 expected=OCUVF-MOONPORT-4
+[PASS] name OCUVF-MOONPORT-4
+[PASS] hull_class OCUVF-MOONPORT-4  AUX
+[PASS] sections OCUVF-MOONPORT-4
+[PASS] mass sum OCUVF-MOONPORT-4
+[PASS] armor effects OCUVF-MOONPORT-4
+[PASS] penetration effects OCUVF-MOONPORT-4
+[PASS] section fields OCUVF-MOONPORT-4
+[PASS] section material OCUVF-MOONPORT-4
+[PASS] section mass OCUVF-MOONPORT-4
+[PASS] sections API OCUVF-MOONPORT-4
+[PASS] 档案存在 OCUVF-PALLET-5C
+[PASS] class_id OCUVF-PALLET-5C  actual=OCUVF-PALLET-5C expected=OCUVF-PALLET-5C
+[PASS] name OCUVF-PALLET-5C
+[PASS] hull_class OCUVF-PALLET-5C  DD
+[PASS] sections OCUVF-PALLET-5C
+[PASS] mass sum OCUVF-PALLET-5C
+[PASS] armor effects OCUVF-PALLET-5C
+[PASS] penetration effects OCUVF-PALLET-5C
+[PASS] section fields OCUVF-PALLET-5C
+[PASS] section material OCUVF-PALLET-5C
+[PASS] section mass OCUVF-PALLET-5C
+[PASS] sections API OCUVF-PALLET-5C
+[PASS] 档案存在 OCUVF-SAFEHARBOR-1
+[PASS] class_id OCUVF-SAFEHARBOR-1  actual=OCUVF-SAFEHARBOR-1 expected=OCUVF-SAFEHARBOR-1
+[PASS] name OCUVF-SAFEHARBOR-1
+[PASS] hull_class OCUVF-SAFEHARBOR-1  AUX
+[PASS] sections OCUVF-SAFEHARBOR-1
+[PASS] mass sum OCUVF-SAFEHARBOR-1
+[PASS] armor effects OCUVF-SAFEHARBOR-1
+[PASS] penetration effects OCUVF-SAFEHARBOR-1
+[PASS] section fields OCUVF-SAFEHARBOR-1
+[PASS] section material OCUVF-SAFEHARBOR-1
+[PASS] section mass OCUVF-SAFEHARBOR-1
+[PASS] sections API OCUVF-SAFEHARBOR-1
+[PASS] 档案存在 OCUVF-WINCH-2
+[PASS] class_id OCUVF-WINCH-2  actual=OCUVF-WINCH-2 expected=OCUVF-WINCH-2
+[PASS] name OCUVF-WINCH-2
+[PASS] hull_class OCUVF-WINCH-2  AUX
+[PASS] sections OCUVF-WINCH-2
+[PASS] mass sum OCUVF-WINCH-2
+[PASS] armor effects OCUVF-WINCH-2
+[PASS] penetration effects OCUVF-WINCH-2
+[PASS] section fields OCUVF-WINCH-2
+[PASS] section material OCUVF-WINCH-2
+[PASS] section mass OCUVF-WINCH-2
+[PASS] sections API OCUVF-WINCH-2
+[PASS] 档案存在 ORBFLT-BEACON
+[PASS] class_id ORBFLT-BEACON  actual=ORBFLT-BEACON expected=ORBFLT-BEACON
+[PASS] name ORBFLT-BEACON
+[PASS] hull_class ORBFLT-BEACON  STATION
+[PASS] sections ORBFLT-BEACON
+[PASS] mass sum ORBFLT-BEACON
+[PASS] armor effects ORBFLT-BEACON
+[PASS] penetration effects ORBFLT-BEACON
+[PASS] section fields ORBFLT-BEACON
+[PASS] section material ORBFLT-BEACON
+[PASS] section mass ORBFLT-BEACON
+[PASS] sections API ORBFLT-BEACON
+[PASS] 档案存在 ORBFLT-FORGE
+[PASS] class_id ORBFLT-FORGE  actual=ORBFLT-FORGE expected=ORBFLT-FORGE
+[PASS] name ORBFLT-FORGE
+[PASS] hull_class ORBFLT-FORGE  AUX
+[PASS] sections ORBFLT-FORGE
+[PASS] mass sum ORBFLT-FORGE
+[PASS] armor effects ORBFLT-FORGE
+[PASS] penetration effects ORBFLT-FORGE
+[PASS] section fields ORBFLT-FORGE
+[PASS] section material ORBFLT-FORGE
+[PASS] section mass ORBFLT-FORGE
+[PASS] sections API ORBFLT-FORGE
+[PASS] 档案存在 ORBFLT-GATEKEEPER
+[PASS] class_id ORBFLT-GATEKEEPER  actual=ORBFLT-GATEKEEPER expected=ORBFLT-GATEKEEPER
+[PASS] name ORBFLT-GATEKEEPER
+[PASS] hull_class ORBFLT-GATEKEEPER  FF
+[PASS] sections ORBFLT-GATEKEEPER
+[PASS] mass sum ORBFLT-GATEKEEPER
+[PASS] armor effects ORBFLT-GATEKEEPER
+[PASS] penetration effects ORBFLT-GATEKEEPER
+[PASS] section fields ORBFLT-GATEKEEPER
+[PASS] section material ORBFLT-GATEKEEPER
+[PASS] section mass ORBFLT-GATEKEEPER
+[PASS] sections API ORBFLT-GATEKEEPER
+[PASS] 档案存在 ORBFLT-POLARIS
+[PASS] class_id ORBFLT-POLARIS  actual=ORBFLT-POLARIS expected=ORBFLT-POLARIS
+[PASS] name ORBFLT-POLARIS
+[PASS] hull_class ORBFLT-POLARIS  AUX
+[PASS] sections ORBFLT-POLARIS
+[PASS] mass sum ORBFLT-POLARIS
+[PASS] armor effects ORBFLT-POLARIS
+[PASS] penetration effects ORBFLT-POLARIS
+[PASS] section fields ORBFLT-POLARIS
+[PASS] section material ORBFLT-POLARIS
+[PASS] section mass ORBFLT-POLARIS
+[PASS] sections API ORBFLT-POLARIS
+[PASS] 档案存在 ORBFLT-SENTINEL
+[PASS] class_id ORBFLT-SENTINEL  actual=ORBFLT-SENTINEL expected=ORBFLT-SENTINEL
+[PASS] name ORBFLT-SENTINEL
+[PASS] hull_class ORBFLT-SENTINEL  DD
+[PASS] sections ORBFLT-SENTINEL
+[PASS] mass sum ORBFLT-SENTINEL
+[PASS] armor effects ORBFLT-SENTINEL
+[PASS] penetration effects ORBFLT-SENTINEL
+[PASS] section fields ORBFLT-SENTINEL
+[PASS] section material ORBFLT-SENTINEL
+[PASS] section mass ORBFLT-SENTINEL
+[PASS] sections API ORBFLT-SENTINEL
+[PASS] 档案存在 ORBFLT-TRACTOR
+[PASS] class_id ORBFLT-TRACTOR  actual=ORBFLT-TRACTOR expected=ORBFLT-TRACTOR
+[PASS] name ORBFLT-TRACTOR
+[PASS] hull_class ORBFLT-TRACTOR  AUX
+[PASS] sections ORBFLT-TRACTOR
+[PASS] mass sum ORBFLT-TRACTOR
+[PASS] armor effects ORBFLT-TRACTOR
+[PASS] penetration effects ORBFLT-TRACTOR
+[PASS] section fields ORBFLT-TRACTOR
+[PASS] section material ORBFLT-TRACTOR
+[PASS] section mass ORBFLT-TRACTOR
+[PASS] sections API ORBFLT-TRACTOR
+[PASS] 档案存在 UEOF-3RD-CA
+[PASS] class_id UEOF-3RD-CA  actual=UEOF-3RD-CA expected=UEOF-3RD-CA
+[PASS] name UEOF-3RD-CA
+[PASS] hull_class UEOF-3RD-CA  CL
+[PASS] sections UEOF-3RD-CA
+[PASS] mass sum UEOF-3RD-CA
+[PASS] armor effects UEOF-3RD-CA
+[PASS] penetration effects UEOF-3RD-CA
+[PASS] section fields UEOF-3RD-CA
+[PASS] section material UEOF-3RD-CA
+[PASS] section mass UEOF-3RD-CA
+[PASS] sections API UEOF-3RD-CA
+[PASS] 档案存在 UEOF-3RD-DD
+[PASS] class_id UEOF-3RD-DD  actual=UEOF-3RD-DD expected=UEOF-3RD-DD
+[PASS] name UEOF-3RD-DD
+[PASS] hull_class UEOF-3RD-DD  DD
+[PASS] sections UEOF-3RD-DD
+[PASS] mass sum UEOF-3RD-DD
+[PASS] armor effects UEOF-3RD-DD
+[PASS] penetration effects UEOF-3RD-DD
+[PASS] section fields UEOF-3RD-DD
+[PASS] section material UEOF-3RD-DD
+[PASS] section mass UEOF-3RD-DD
+[PASS] sections API UEOF-3RD-DD
+[PASS] 档案存在 UEOF-7TH-CA
+[PASS] class_id UEOF-7TH-CA  actual=UEOF-7TH-CA expected=UEOF-7TH-CA
+[PASS] name UEOF-7TH-CA
+[PASS] hull_class UEOF-7TH-CA  CL
+[PASS] sections UEOF-7TH-CA
+[PASS] mass sum UEOF-7TH-CA
+[PASS] armor effects UEOF-7TH-CA
+[PASS] penetration effects UEOF-7TH-CA
+[PASS] section fields UEOF-7TH-CA
+[PASS] section material UEOF-7TH-CA
+[PASS] section mass UEOF-7TH-CA
+[PASS] sections API UEOF-7TH-CA
+[PASS] 档案存在 UEOF-7TH-DD
+[PASS] class_id UEOF-7TH-DD  actual=UEOF-7TH-DD expected=UEOF-7TH-DD
+[PASS] name UEOF-7TH-DD
+[PASS] hull_class UEOF-7TH-DD  DD
+[PASS] sections UEOF-7TH-DD
+[PASS] mass sum UEOF-7TH-DD
+[PASS] armor effects UEOF-7TH-DD
+[PASS] penetration effects UEOF-7TH-DD
+[PASS] section fields UEOF-7TH-DD
+[PASS] section material UEOF-7TH-DD
+[PASS] section mass UEOF-7TH-DD
+[PASS] sections API UEOF-7TH-DD
+[PASS] BB 7 分区
+[PASS] 站体无 propulsion
+[PASS] 站体无动力分区
+[PASS] BB > CA 装甲
+[PASS] CA > CL 装甲
+[PASS] CL > DD 装甲
+[PASS] DD > FF 装甲
+[PASS] 油船储罐质量占比
+[PASS] 油船储罐火灾风险
+[PASS] 油船储罐失压风险
+[PASS] hull material
+[PASS] profiles to_dict JSON
+
+── 2. DamageProfileService 查询 / 实体 / 回退 ──
+[PASS] class 查询
+[PASS] class 非回退
+[PASS] 未知 class 回退
+[PASS] 未知回退 default  actual=UEOF-7TH-DD expected=UEOF-7TH-DD
+[FAIL] entity harmattan→class  (actual=UEOF-7TH-DD expected=OCUVF-PALLET-5C)
+[FAIL] entity 非回退
+[PASS] entity 大写  actual=OCUVF-PALLET-5C expected=OCUVF-PALLET-5C
+[PASS] hull→class  actual=33OSID-ENFORCEMENT expected=33OSID-ENFORCEMENT
+[PASS] entity apsis→class
+[PASS] 空 query 回退
+[PASS] sections API
+[PASS] section API
+[PASS] 未知 section 空
+[PASS] armor kinetic
+[PASS] armor energy
+[PASS] effects armor/penetration
+[PASS] hull_class BB  actual=BB expected=BB
+[PASS] hull_class STATION  actual=STATION expected=STATION
+[PASS] summary classes 36  actual=36 expected=36
+[PASS] summary by_hull
+[PASS] summary by_material
+[PASS] summary JSON
+[PASS] to_json
+[PASS] 缺 classes 不 ready
+[PASS] 缺 classes errors
+[PASS] 缺 class 不 ready
+[PASS] final profile JSON
+
+── 3. DamageModel 按 class 接入 / 旧覆盖优先 ──
+[PASS] model BB setup  []
+[PASS] model class_id  actual=33OSID-RECEIVERSHIP expected=33OSID-RECEIVERSHIP
+[PASS] model source class_profile  actual=class_profile expected=class_profile
+[PASS] model ship_class  actual=33OSID-RECEIVERSHIP / class_profile expected=33OSID-RECEIVERSHIP / class_profile
+[PASS] model BB sections
+[PASS] model hull armor field
+[PASS] hull armor value
+[PASS] tanks material
+[PASS] tanks mass_fraction
+[PASS] tanks critical_systems
+[PASS] vm class_id
+[PASS] vm class_id value  actual=33OSID-RECEIVERSHIP expected=33OSID-RECEIVERSHIP
+[PASS] vm profile_source  actual=class_profile expected=class_profile
+[PASS] vm section armor
+[PASS] vm section material
+[PASS] model FF setup
+[PASS] BB 伤害 < FF 伤害  bb=0.3312 ff=0.4625
+[PASS] tanker model setup
+[PASS] tanks 命中
+[PASS] tanks 火灾触发
+[PASS] tanks 失压触发
+[PASS] tick 火灾/失压损伤
+[PASS] tanker vm JSON
+[PASS] station model setup
+[PASS] station 无 propulsion 分区
+[PASS] station sections 6
+[PASS] old override setup
+[PASS] old override source  actual=damage_l1 expected=damage_l1
+[PASS] old override class_id 空
+[PASS] old override sections
+[PASS] old override 无 class armor 字段
+[PASS] reset 保留 class  actual=33OSID-RECEIVERSHIP expected=33OSID-RECEIVERSHIP
+[PASS] reset t  actual=0.0 expected=0.0
+[PASS] model vm JSON
+
+── 4. DamageService 按 class / 自动建档 / 旧行为 ──
+[PASS] service class ships ready  []
+[PASS] profiles enabled
+[PASS] class ships 2  actual=2 expected=2
+[PASS] service ship class  actual=33OSID-RECEIVERSHIP expected=33OSID-RECEIVERSHIP
+[PASS] vm profiles enabled
+[PASS] vm profile classes  actual=36 expected=36
+[PASS] summary profile classes  actual=36 expected=36
+[PASS] add_ship class  []
+[PASS] add class id  actual=33OSID-ENFORCEMENT expected=33OSID-ENFORCEMENT
+[PASS] ca1 class  actual=33OSID-ENFORCEMENT expected=33OSID-ENFORCEMENT
+[PASS] ca1 in ships
+[PASS] 未知 class add false
+[PASS] class ship damage  []
+[PASS] class ship applied
+[PASS] bb1 vm sections
+[PASS] 未知舰 class_id 自动建档  []
+[PASS] auto_dd in ships
+[PASS] old override service ready
+[PASS] 旧显式档案 class_id 空  actual= expected=
+[PASS] 旧显式档案 source
+[PASS] legacy service ready
+[PASS] legacy ships 6  actual=6 expected=6
+[PASS] legacy harmattan class_id 空  actual= expected=
+[PASS] legacy profile service loaded
+[PASS] save ship_classes
+[PASS] class service load ok  []
+[PASS] load class-added ca1
+[PASS] load auto_dd
+[PASS] load bb1 class  actual=33OSID-RECEIVERSHIP expected=33OSID-RECEIVERSHIP
+[PASS] class service vm JSON
+[PASS] 非法 profile 配置不 ready
+[PASS] 非法 profile errors
+
+── 5. JSON / 确定性 ──
+[PASS] profile summary JSON
+[PASS] profile to_json
+[PASS] model setup determinism
+[PASS] hit JSON
+[PASS] model vm JSON
+[PASS] model 确定性 hit
+[PASS] model 确定性 summary
+[PASS] service 确定性 VM
+[PASS] service summary JSON
+[PASS] 不写 world
+[PASS] 不写 UI
+────────────────────────────────────────────────────────────────
+DAMAGE PROFILE PROBE RESULT: PASS=554 FAIL=4
+[FAILED] 档案数=ShipCatalog 36  (actual=36 expected=32)
+[FAILED] class_id 与 ShipCatalog 一致
+[FAILED] entity harmattan→class  (actual=UEOF-7TH-DD expected=OCUVF-PALLET-5C)
+[FAILED] entity 非回退
+DAMAGE PROFILE PROBE FAILED
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+   at: V2DamageProfileService._resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+   GDScript backtrace (most recent call first):
+       [0] _resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+       [1] profile_for (res://scripts/core/damage_profile_service.gd:186)
+       [2] _test_profile_service (res://tests/damage_profile_probe.gd:185)
+       [3] _initialize (res://tests/damage_profile_probe.gd:27)
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+   at: V2DamageProfileService._resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+   GDScript backtrace (most recent call first):
+       [0] _resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+       [1] profile_for (res://scripts/core/damage_profile_service.gd:186)
+       [2] _test_profile_service (res://tests/damage_profile_probe.gd:186)
+       [3] _initialize (res://tests/damage_profile_probe.gd:27)
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+   at: V2DamageProfileService._resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+   GDScript backtrace (most recent call first):
+       [0] _resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+       [1] profile_for (res://scripts/core/damage_profile_service.gd:186)
+       [2] _test_profile_service (res://tests/damage_profile_probe.gd:187)
+       [3] _initialize (res://tests/damage_profile_probe.gd:27)
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+   at: V2DamageProfileService._resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+   GDScript backtrace (most recent call first):
+       [0] _resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+       [1] profile_for (res://scripts/core/damage_profile_service.gd:186)
+       [2] add_ship (res://scripts/core/damage_service.gd:204)
+       [3] _test_service_integration (res://tests/damage_profile_probe.gd:314)
+       [4] _initialize (res://tests/damage_profile_probe.gd:29)

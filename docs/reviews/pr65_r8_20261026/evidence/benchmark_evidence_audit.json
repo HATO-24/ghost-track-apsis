@@ -1,0 +1,71 @@
+{
+  "candidate": "9d0f3b4380275b0a30fffb4a29fa5c44ef58165f",
+  "measurement_sha": "196d53c04b85ef46305e96e88477588b54820bc0",
+  "summary_sha": "196d53c04b85ef46305e96e88477588b54820bc0",
+  "json_matches_stdout": true,
+  "stdout_result": [
+    "A0-A07 SAVE COST PROBE RESULT: PASS=90 FAIL=0"
+  ],
+  "raw_files_tracked": [
+    "docs/benchmarks/jc_r2/r8_196d53c0_20261026/README.md",
+    "docs/benchmarks/jc_r2/r8_196d53c0_20261026/a0_save_cost.stderr.txt",
+    "docs/benchmarks/jc_r2/r8_196d53c0_20261026/a0_save_cost.stdout.txt",
+    "docs/benchmarks/jc_r2/r8_196d53c0_20261026/measurements.json",
+    "docs/benchmarks/jc_r2/r8_196d53c0_20261026/saturation/saturation.stderr.txt",
+    "docs/benchmarks/jc_r2/r8_196d53c0_20261026/saturation/saturation.stdout.txt",
+    "docs/benchmarks/jc_r2/r8_196d53c0_20261026/summary.json"
+  ],
+  "scale_samples": [
+    {
+      "ticks": 50,
+      "samples": 3,
+      "save_min": 80,
+      "save_median": 84,
+      "save_max": 86,
+      "restore_min": 1397,
+      "restore_median": 1422,
+      "restore_max": 1506,
+      "bytes": 433956,
+      "read_max": 2
+    },
+    {
+      "ticks": 200,
+      "samples": 3,
+      "save_min": 219,
+      "save_median": 256,
+      "save_max": 283,
+      "restore_min": 8545,
+      "restore_median": 8772,
+      "restore_max": 8918,
+      "bytes": 1151356,
+      "read_max": 5
+    },
+    {
+      "ticks": 800,
+      "samples": 3,
+      "save_min": 356,
+      "save_median": 361,
+      "save_max": 368,
+      "restore_min": 48853,
+      "restore_median": 49600,
+      "restore_max": 50994,
+      "bytes": 1935007,
+      "read_max": 8
+    },
+    {
+      "ticks": 1000,
+      "samples": 3,
+      "save_min": 423,
+      "save_median": 438,
+      "save_max": 619,
+      "restore_min": 72171,
+      "restore_median": 74895,
+      "restore_max": 78913,
+      "bytes": 2172752,
+      "read_max": 6
+    }
+  ],
+  "script_errors": [],
+  "independent_four_scale_run": false,
+  "readme_erratum": "README 1000tick values (374ms/60244ms/5ms) differ from raw R8 (438ms/74895ms/6ms); raw is authoritative"
+}

@@ -1,0 +1,364 @@
+{
+  "head": "9d0f3b4380275b0a30fffb4a29fa5c44ef58165f",
+  "date": "2026-10-26",
+  "timezone": "Asia/Shanghai",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "platform": "Windows",
+  "scope": "R7 remaining #56 null / public partial / saturated output comparator only",
+  "production_edits": false,
+  "github_writes": false,
+  "conclusion": "CLOSED all three narrow items",
+  "tests": {
+    "null": {
+      "exit_code": 0,
+      "result": {
+        "all_ok": true,
+        "cases": [
+          {
+            "field": "history",
+            "import": {
+              "errors": [
+                "tws.channels[broken].history is null (required)"
+              ],
+              "ok": false,
+              "reason": "invalid_state"
+            },
+            "unchanged": true,
+            "validation": {
+              "errors": [
+                "tws.channels[broken].history is null (required)"
+              ],
+              "ok": false
+            }
+          },
+          {
+            "field": "stare_s",
+            "import": {
+              "errors": [
+                "tws.channels[broken].stare_s is null (required)"
+              ],
+              "ok": false,
+              "reason": "invalid_state"
+            },
+            "unchanged": true,
+            "validation": {
+              "errors": [
+                "tws.channels[broken].stare_s is null (required)"
+              ],
+              "ok": false
+            }
+          },
+          {
+            "field": "stare_required_s",
+            "import": {
+              "errors": [
+                "tws.channels[broken].stare_required_s is null (required)"
+              ],
+              "ok": false,
+              "reason": "invalid_state"
+            },
+            "unchanged": true,
+            "validation": {
+              "errors": [
+                "tws.channels[broken].stare_required_s is null (required)"
+              ],
+              "ok": false
+            }
+          },
+          {
+            "field": "quality",
+            "import": {
+              "errors": [
+                "tws.channels[broken].quality is null (required)"
+              ],
+              "ok": false,
+              "reason": "invalid_state"
+            },
+            "unchanged": true,
+            "validation": {
+              "errors": [
+                "tws.channels[broken].quality is null (required)"
+              ],
+              "ok": false
+            }
+          },
+          {
+            "field": "state_since_t",
+            "import": {
+              "errors": [
+                "tws.channels[broken].state_since_t is null (required)"
+              ],
+              "ok": false,
+              "reason": "invalid_state"
+            },
+            "unchanged": true,
+            "validation": {
+              "errors": [
+                "tws.channels[broken].state_since_t is null (required)"
+              ],
+              "ok": false
+            }
+          }
+        ],
+        "head": "9d0f3b4380275b0a30fffb4a29fa5c44ef58165f",
+        "positive_continued_channel_count": 1,
+        "positive_import": {
+          "channels": 1,
+          "ok": true
+        }
+      }
+    },
+    "legacy": {
+      "exit_code": 0,
+      "result": {
+        "direct_sensor_import": {
+          "allocators": {
+            "event_seq": 1,
+            "evidence_seq": 0,
+            "obs_seq": 14
+          },
+          "backend": "optical_ir",
+          "channels": 0,
+          "dedup": 0,
+          "emcon": false,
+          "ok": true,
+          "partial_reasons": [
+            "mount_pointing_missing",
+            "tws_runtime_reset_unrecoverable",
+            "authority_clock_rebuilt_from_optical_t"
+          ],
+          "radar_enabled": true,
+          "restore_mode": "partial",
+          "t": 5.1
+        },
+        "full_control": true,
+        "full_resave_load": {
+          "errors": [],
+          "ok": true,
+          "result_errors": [],
+          "sensor_partial_reasons": [],
+          "sensor_restore": {
+            "geometry_frame": "bary_rot",
+            "geometry_source": "physics_world",
+            "is_partial": false,
+            "partial_reasons": [],
+            "rebind": {
+              "bound": 2,
+              "frame": "bary_rot",
+              "mismatched_frame": [],
+              "missing": [],
+              "observer_bound": true,
+              "observer_id": "apsis",
+              "ok": true,
+              "provider_t": 5.1,
+              "reason": "",
+              "seq": 8,
+              "skipped": [],
+              "source": "physics_world",
+              "t": 5.1,
+              "time_ok": true,
+              "usable": true
+            },
+            "restore_mode": "full",
+            "saved": true,
+            "schema": "v17.sensor_restore.v2",
+            "time_ok": true
+          },
+          "sensor_restore_mode": "full",
+          "world_sync": {
+            "compared": 7,
+            "enabled": true,
+            "failures": [],
+            "frame": "bary_rot",
+            "in_sync": true,
+            "mismatched": [],
+            "mode": "tick",
+            "ok": true,
+            "reason": "load",
+            "skipped": [],
+            "synced": 0,
+            "updated": []
+          }
+        },
+        "partial_disclosed": true,
+        "public_load_result": {
+          "errors": [],
+          "ok": true,
+          "result_errors": [],
+          "sensor_partial_reasons": [
+            "mount_pointing_missing",
+            "tws_runtime_reset_unrecoverable",
+            "authority_clock_rebuilt_from_optical_t"
+          ],
+          "sensor_restore": {
+            "geometry_frame": "bary_rot",
+            "geometry_source": "physics_world",
+            "is_partial": true,
+            "partial_reasons": [
+              "mount_pointing_missing",
+              "tws_runtime_reset_unrecoverable",
+              "authority_clock_rebuilt_from_optical_t"
+            ],
+            "rebind": {
+              "bound": 2,
+              "frame": "bary_rot",
+              "mismatched_frame": [],
+              "missing": [],
+              "observer_bound": true,
+              "observer_id": "apsis",
+              "ok": true,
+              "provider_t": 5.1,
+              "reason": "",
+              "seq": 8,
+              "skipped": [],
+              "source": "physics_world",
+              "t": 5.1,
+              "time_ok": true,
+              "usable": true
+            },
+            "restore_mode": "partial",
+            "saved": true,
+            "schema": "v17.sensor_restore.v2",
+            "time_ok": true
+          },
+          "sensor_restore_mode": "partial",
+          "world_sync": {
+            "compared": 7,
+            "enabled": true,
+            "failures": [],
+            "frame": "bary_rot",
+            "in_sync": true,
+            "mismatched": [],
+            "mode": "tick",
+            "ok": true,
+            "reason": "load",
+            "skipped": [],
+            "synced": 0,
+            "updated": []
+          }
+        },
+        "public_sensor_report": {
+          "geometry_frame": "bary_rot",
+          "geometry_source": "physics_world",
+          "is_partial": true,
+          "partial_reasons": [
+            "mount_pointing_missing",
+            "tws_runtime_reset_unrecoverable",
+            "authority_clock_rebuilt_from_optical_t"
+          ],
+          "rebind": {
+            "bound": 2,
+            "frame": "bary_rot",
+            "mismatched_frame": [],
+            "missing": [],
+            "observer_bound": true,
+            "observer_id": "apsis",
+            "ok": true,
+            "provider_t": 5.1,
+            "reason": "",
+            "seq": 8,
+            "skipped": [],
+            "source": "physics_world",
+            "t": 5.1,
+            "time_ok": true,
+            "usable": true
+          },
+          "restore_mode": "partial",
+          "saved": true,
+          "schema": "v17.sensor_restore.v2",
+          "time_ok": true
+        },
+        "target_head": "9d0f3b4380275b0a30fffb4a29fa5c44ef58165f"
+      }
+    },
+    "saturated_comms": {
+      "exit_code": 0,
+      "result": {
+        "baseline": [],
+        "behavior": [
+          {
+            "area": "comms.events.new",
+            "first": "idx=0 A=DELIVERED|C-000002|apsis|harmattan|[apsis 至 harmattan]-[LD]-[] B=DELIVERED|C-000002|apsis|harmattan|TAMPERED_DELIVERY_CONTENT",
+            "original": 1,
+            "restored": 1,
+            "tick": 0
+          }
+        ],
+        "counts_after": {
+          "original": 200,
+          "restored": 200
+        },
+        "counts_before": {
+          "original": 200,
+          "restored": 200
+        },
+        "delivered_original": {
+          "delivery_id": "C-000002",
+          "from": "apsis",
+          "from_name": "apsis",
+          "kind": "DELIVERED",
+          "latency_s": 0.1,
+          "mode": "LD",
+          "path": [
+            "apsis",
+            "harmattan"
+          ],
+          "reason": "",
+          "relay_count": 0,
+          "schema": "comms_event.v1",
+          "seq": 203,
+          "shadow": true,
+          "t": 52.0,
+          "text": "[apsis 至 harmattan]-[LD]-[]",
+          "text_key": "COMMS_SENT",
+          "to": "harmattan",
+          "to_name": "harmattan",
+          "writes_track_table": false,
+          "writes_v15": false
+        },
+        "delivered_restored": {
+          "delivery_id": "C-000002",
+          "from": "apsis",
+          "from_name": "apsis",
+          "kind": "DELIVERED",
+          "latency_s": 0.1,
+          "mode": "LD",
+          "path": [
+            "apsis",
+            "harmattan"
+          ],
+          "reason": "",
+          "relay_count": 0,
+          "schema": "comms_event.v1",
+          "seq": 203,
+          "shadow": true,
+          "t": 52.0,
+          "text": "TAMPERED_DELIVERY_CONTENT",
+          "text_key": "COMMS_SENT",
+          "to": "harmattan",
+          "to_name": "harmattan",
+          "writes_track_table": false,
+          "writes_v15": false
+        },
+        "head": "9d0f3b4380275b0a30fffb4a29fa5c44ef58165f",
+        "history_cap": 200,
+        "immediate": [
+          {
+            "area": "comms.pending",
+            "original": [
+              "C-000002|apsis|harmattan|LD|COMMS_SENT|[apsis 至 harmattan]-[LD]-[]|51.100000|[\"apsis\",\"harmattan\"]"
+            ],
+            "restored": [
+              "C-000002|apsis|harmattan|LD|COMMS_SENT|TAMPERED_DELIVERY_CONTENT|51.100000|[\"apsis\",\"harmattan\"]"
+            ]
+          }
+        ],
+        "load_ok": true,
+        "output_detected": true,
+        "pending_count": 1,
+        "send_original": true,
+        "send_restored": true
+      }
+    }
+  }
+}

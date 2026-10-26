@@ -1,0 +1,152 @@
+{
+  "cases": [
+    {
+      "after": {},
+      "before": {},
+      "case": "positive_roundtrip",
+      "expected": "ok=true",
+      "result": {
+        "backend": "optical_ir",
+        "channels": 0,
+        "enabled": true,
+        "ok": true,
+        "t": 0.0
+      },
+      "violation": false
+    },
+    {
+      "after": {
+        "optical_t": 123.0
+      },
+      "before": {
+        "optical_t": 0.0
+      },
+      "case": "bad_tws_partial_optical_commit",
+      "expected": "reject and optical.t unchanged",
+      "result": {
+        "errors": [
+          "tws must be an object"
+        ],
+        "ok": false,
+        "reason": "invalid_tws_state"
+      },
+      "violation": true
+    },
+    {
+      "after": {
+        "tws_t": 321.0
+      },
+      "before": {
+        "tws_t": 0.0
+      },
+      "case": "bad_optical_partial_tws_commit",
+      "expected": "reject and tws.now_t unchanged",
+      "result": {
+        "backend": "optical_ir",
+        "errors": [
+          "expected v17.optical_ir.state.v1"
+        ],
+        "ok": false,
+        "reason": "invalid_state_schema"
+      },
+      "violation": true
+    },
+    {
+      "after": {
+        "radar_input_version": 999,
+        "tws_input_version": 999
+      },
+      "before": {},
+      "case": "future_nested_versions",
+      "expected": "unsupported version rejected",
+      "result": {
+        "channels": 0,
+        "ok": true
+      },
+      "violation": true
+    },
+    {
+      "after": {
+        "scan_index": -9223372036854775808
+      },
+      "before": {
+        "scan_index": 0
+      },
+      "case": "scan_index_overflow",
+      "expected": "out-of-range integer rejected",
+      "result": {
+        "ok": true,
+        "scan_index": -9223372036854775808,
+        "seconds_on": 0.0
+      },
+      "violation": true
+    },
+    {
+      "after": {
+        "elapsed_s": -10.0,
+        "seconds_on": -7.0,
+        "time_since_scan": -4.0
+      },
+      "before": {},
+      "case": "negative_radar_timers",
+      "expected": "negative elapsed/on/phase rejected",
+      "result": {
+        "ok": true,
+        "scan_index": 0,
+        "seconds_on": -7.0
+      },
+      "violation": true
+    },
+    {
+      "after": {
+        "boresight_deg": -80.0,
+        "boresight_el_deg": 90.0
+      },
+      "before": {
+        "az": 1000.0,
+        "el": 120.0
+      },
+      "case": "out_of_range_mount_pointing",
+      "expected": "out-of-range angles rejected as report claims",
+      "result": {
+        "channels": 0,
+        "enabled": true,
+        "ok": true,
+        "t": 0.0
+      },
+      "violation": true
+    },
+    {
+      "after": {
+        "radar_t": 0.0,
+        "scan_index": 0,
+        "tws_t": 200.0
+      },
+      "before": {},
+      "case": "missing_radar_substate",
+      "expected": "new TWS snapshot must reject or explicitly migrate missing radar",
+      "result": {
+        "channels": 0,
+        "ok": true
+      },
+      "violation": true
+    },
+    {
+      "after": {
+        "channels": {
+          "broken": {}
+        }
+      },
+      "before": {},
+      "case": "malformed_tws_channel",
+      "expected": "reject malformed channel before continuation",
+      "result": {
+        "channels": 1,
+        "ok": true
+      },
+      "violation": true
+    }
+  ],
+  "head": "dc3821eda91d25f14e44dd9f57e6f5a985e04a9c",
+  "violations": 8
+}

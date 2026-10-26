@@ -1,0 +1,90 @@
+{
+	"direct_sensor_import": {
+		"allocators": {
+			"event_seq": 1,
+			"evidence_seq": 0,
+			"obs_seq": 14
+		},
+		"backend": "optical_ir",
+		"channels": 0,
+		"dedup": 0,
+		"emcon": false,
+		"ok": true,
+		"partial_reasons": [
+			"mount_pointing_missing",
+			"tws_runtime_reset_unrecoverable",
+			"authority_clock_rebuilt_from_optical_t"
+		],
+		"radar_enabled": true,
+		"restore_mode": "partial",
+		"t": 5.1
+	},
+	"public_load_result": {
+		"errors": [],
+		"ok": true,
+		"result_errors": [],
+		"sensor_restore": {
+			"geometry_frame": "bary_rot",
+			"geometry_source": "physics_world",
+			"rebind": {
+				"bound": 2,
+				"frame": "bary_rot",
+				"mismatched_frame": [],
+				"missing": [],
+				"observer_bound": true,
+				"observer_id": "apsis",
+				"ok": true,
+				"provider_t": 5.1,
+				"reason": "",
+				"seq": 8,
+				"skipped": [],
+				"source": "physics_world",
+				"t": 5.1,
+				"time_ok": true,
+				"usable": true
+			},
+			"saved": true,
+			"schema": "v17.sensor_restore.v1",
+			"time_ok": true
+		},
+		"world_sync": {
+			"compared": 7,
+			"enabled": true,
+			"failures": [],
+			"frame": "bary_rot",
+			"in_sync": true,
+			"mismatched": [],
+			"mode": "tick",
+			"ok": true,
+			"reason": "load",
+			"skipped": [],
+			"synced": 0,
+			"updated": []
+		}
+	},
+	"public_sensor_report": {
+		"geometry_frame": "bary_rot",
+		"geometry_source": "physics_world",
+		"rebind": {
+			"bound": 2,
+			"frame": "bary_rot",
+			"mismatched_frame": [],
+			"missing": [],
+			"observer_bound": true,
+			"observer_id": "apsis",
+			"ok": true,
+			"provider_t": 5.1,
+			"reason": "",
+			"seq": 8,
+			"skipped": [],
+			"source": "physics_world",
+			"t": 5.1,
+			"time_ok": true,
+			"usable": true
+		},
+		"saved": true,
+		"schema": "v17.sensor_restore.v1",
+		"time_ok": true
+	},
+	"target_head": "2ae7bf7cba8af32ff4456cefe28efa3650b868dd"
+}

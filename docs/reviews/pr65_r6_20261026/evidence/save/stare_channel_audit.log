@@ -1,0 +1,16 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+R6-STARE-AUDIT head=5d7208b82ebae81da874e059c2d88286317c6483
+R6-STARE-AUDIT VALIDATE={"errors":[],"ok":true}
+R6-STARE-AUDIT IMPORT={"channels":1,"ok":true}
+R6-STARE-AUDIT IMPORTED_CHANNELS={"broken":{"last_update_t":0.0,"quality":1.0,"state":"STARE","target_id":"broken"}}
+R6-STARE-AUDIT BEFORE STEP (any SCRIPT ERROR means failure)
+SCRIPT ERROR: Invalid access to property or key 'stare_s' on a base object of type 'Dictionary'.
+   at: V2TwsModel._advance_channels (res://framework/sim/tws.gd:339)
+   GDScript backtrace (most recent call first):
+       [0] _advance_channels (res://framework/sim/tws.gd:339)
+       [1] step (res://framework/sim/tws.gd:113)
+       [2] _initialize (C:/Users/ASUS/.codex/worktrees/jc-r6-validation/GHOST TRACK_APSIS/.test-results/r6-save-audit/stare_channel_audit.gd:22)
+R6-STARE-AUDIT AFTER STEP={"by_state":{"ACQUIRE":0,"DETECT":0,"FIRE_CONTROL":0,"SEARCH":0,"STARE":1,"TRACK":0},"channel_count":1,"channels":[{"age_s":1.0,"bearing_deg":-1.0,"bearing_sigma_deg":0.0,"consecutive_hits":0,"elevation_deg":0.0,"fire_control":{},"history":[],"hits":0,"in_sphere":false,"lost_lock_count":0,"misses":0,"pd":0.0,"quality":1.0,"range_km":-1.0,"range_sigma_km":-1.0,"slot":-1,"stable_track":false,"stare_progress":0.0,"stare_required_s":0.0,"stare_s":0.0,"state":"STARE","state_since_t":0.0,"target_id":"broken","update_count":0,"update_rate_hz":0.0}],"dt":1.0,"enabled":true,"events":[],"exposure":{"bearing_sigma_deg":1.0,"elint_intercept_range_km":0.0,"emission_class":"","emission_level":0.0,"exposed":false,"exposure_kind":"passive","fix_after_s":0.0,"fix_progress":0.0,"fixed":false,"seconds_on":1.0,"warning":""},"max_channels":6,"radar":{"scan_index":1,"scan_period_s":6.0,"seconds_on":1.0,"tws_capacity":0},"scan_index":1,"scan_period_s":6.0,"scanned":true,"sphere":{"center_km":"(0.0, 0.0, 0.0)","nominal_radius_km":0.0,"refresh_s":6.0,"shape":"sphere"},"t":1.0}
+R6-STARE-AUDIT FAIL malformed STARE channel was accepted
+AUDIO OK files=36 headless=true muted=false

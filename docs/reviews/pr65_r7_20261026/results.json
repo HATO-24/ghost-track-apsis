@@ -1,0 +1,120 @@
+{
+  "schema": "sol.pr_review.v1",
+  "date": "2026-10-26",
+  "timezone": "Asia/Shanghai",
+  "candidate": "2ae7bf7cba8af32ff4456cefe28efa3650b868dd",
+  "previous": "5d7208b82ebae81da874e059c2d88286317c6483",
+  "independent_full": {
+    "run_id": "20261026-192709-2ae7bf7c",
+    "exit_code": 0,
+    "totals": {
+      "total": 87,
+      "pass": 80,
+      "fail": 7,
+      "timeout": 0,
+      "not_run": 0,
+      "not_run_expected": 0,
+      "not_run_unexpected": 0,
+      "ran": 87,
+      "duration_s": 412.12,
+      "known_fail": 7,
+      "new_fail": 0,
+      "baseline_drift": 0,
+      "baseline_unverified": 0,
+      "baseline_unselected": 0,
+      "baseline_complete": true,
+      "baseline_entries": 7,
+      "baseline_entries_not_selected": 0,
+      "known_phase_a": null,
+      "new_fail_phase_a": null,
+      "drift_phase_a": null,
+      "unverified_phase_a": null,
+      "unselected_phase_a": null,
+      "phase_a_baseline_complete": null
+    },
+    "baseline": {
+      "mode": true,
+      "partial": false,
+      "complete": true,
+      "verified": true,
+      "path": "game_v17/tests/known_baseline_failures.json",
+      "schema": "known_baseline_failures.v1",
+      "baseline_commit": "263e97e",
+      "file_sha256": "5fdfb46a27d8d0057b50d51b3ceed87ce1d126a933db6b93f803a11e6ab2c9e4",
+      "evidence_provenance": "Report-provided baseline evidence, NOT independently re-executed from the audit HEAD in the CI environment. The counts below come from the verifier's independent baseline run (T4), docs/54 section 2.1, and the Phase 0 PR-head re-run, which agree item by item. CI treats this file as a declared baseline only; it does not prove those failures are acceptable — they are content/contract drift that Phase 0 explicitly does not fix.",
+      "environment": {
+        "os": "Windows",
+        "godot_version": "4.7.2.stable.official.ed1daf0bf",
+        "godot_binary": "Godot_v4.7.2-stable_win64_console.exe",
+        "runner": "run_tests.ps1 (result_parsers: probe / summary / checks)",
+        "worktrees": "D:\\gt_verify (pristine verifier worktree) and D:\\gt_phase0 (Phase 0 PR head re-run)"
+      },
+      "known_fail": 7,
+      "new_fail": 0,
+      "baseline_drift": 0,
+      "baseline_unverified": 0,
+      "baseline_unselected": 0,
+      "entries_total": 7,
+      "entries_not_selected": 0,
+      "unselected_ids": [],
+      "unverified": [],
+      "coverage": {
+        "required": 7,
+        "selected": 7,
+        "executed": 7,
+        "verified": 7
+      }
+    }
+  },
+  "ci_run": 40311846698,
+  "independent_four_scale_run": false,
+  "author_benchmark": "a51e19f2e2609b69f4e90a87da7855538de205c4",
+  "archive_full_case_ids": [
+    "profile.build_profile_probe",
+    "content.damage_profile_probe",
+    "content.story_text_probe",
+    "unit.core_time_event_probe",
+    "unit.incident_record_probe",
+    "unit.track_table_probe",
+    "integration.damage_integration_probe",
+    "integration.plot_tws_probe",
+    "integration.jc_a00_sensor_state",
+    "integration.jc_scenario_spec",
+    "integration.jc_contracts",
+    "integration.a0_comms_restore",
+    "integration.a0_sensor_persistence",
+    "integration.a0_legacy_save",
+    "integration.a0_event_continuity",
+    "integration.a0_integration_authority",
+    "integration.a0_save_roundtrip_authority",
+    "integration.v17_nav_integration_probe",
+    "integration.v17_sensor_authority_display_probe",
+    "e2e.orbital_sim",
+    "boot.full",
+    "boot.legacy_combat_sim",
+    "boot.orbital_sim",
+    "boot.sandbox"
+  ],
+  "remaining": {
+    "issue56": [
+      "required TWS null rejection",
+      "partial report propagation",
+      "bounded-history output comparison",
+      "missing raw benchmark logs"
+    ],
+    "issue57": [
+      "seq policy",
+      "lifecycle version policy",
+      "receiver policy",
+      "canonical contract alignment"
+    ],
+    "issue63": [
+      "named entity mapping",
+      "custom formations vs presets",
+      "terminal table exception",
+      "specific briefing/debrief sample"
+    ]
+  },
+  "decision": "hold merge; keep G0/K0 gated; narrow same three cards",
+  "production_edits": false
+}

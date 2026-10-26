@@ -1,0 +1,66 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+JC-A00 R6 SENSOR STATE PROBE · G1 动态指向 + G2 原子导入
+══════════════════════════════════════════════════════════════
+
+[R6] STEP G1 完整动态指向：移动目标恢复后继续跟踪
+[R6] PASS G1 session ready  []
+[R6] PASS G1 original 已在持续指向（非初始 0°）  az=0.719747
+[R6] PASS G1 original pointing_mode 是 track  actual=track expected=track
+[R6] PASS G1 original desired_target_id 已记录  actual=harmattan expected=harmattan
+[R6] PASS G1 restore ok  []
+[R6] PASS G1 恢复后 pointing_mode 仍是 track  actual=track expected=track
+[R6] PASS G1 恢复后 desired_target_id 仍是 harmattan  actual=harmattan expected=harmattan
+[R6] INFO G1 first divergence at tick -1
+[R6] PASS G1 恢复后 130 tick 持续跟踪无分歧（审查方 123 tick 反例）  actual=-1 expected=-1
+[R6] PASS G1 最终通道状态一致  actual=lost expected=lost  orig=lost rest=lost
+[R6] PASS G1 最终指向角一致  orig=1.109990287 rest=1.109990287
+
+[R6] STEP G2 原子性：坏子状态不得半写（optical / TWS / authority 元数据）
+[R6] PASS G2 拒绝: 坏 optical channels（缺 status）  invalid_backend_state
+[R6] PASS G2 拒绝后全部时钟不变: 坏 optical channels（缺 status）  before={"auth_step":3,"auth_t":3.0,"opt_t":3.0,"radar_t":3.0,"tws_t":3.0} after={"auth_step":3,"auth_t":3.0,"opt_t":3.0,"radar_t":3.0,"tws_t":3.0}
+[R6] PASS G2 拒绝: 坏 TWS channels（缺 last_update_t）  invalid_backend_state
+[R6] PASS G2 拒绝后全部时钟不变: 坏 TWS channels（缺 last_update_t）  before={"auth_step":3,"auth_t":3.0,"opt_t":3.0,"radar_t":3.0,"tws_t":3.0} after={"auth_step":3,"auth_t":3.0,"opt_t":3.0,"radar_t":3.0,"tws_t":3.0}
+[R6] PASS G2 拒绝: 坏 authority_t（Inf）  invalid_backend_state
+[R6] PASS G2 拒绝后全部时钟不变: 坏 authority_t（Inf）  before={"auth_step":3,"auth_t":3.0,"opt_t":3.0,"radar_t":3.0,"tws_t":3.0} after={"auth_step":3,"auth_t":3.0,"opt_t":3.0,"radar_t":3.0,"tws_t":3.0}
+[R6] PASS G2 拒绝: 缺 TWS 子状态  invalid_backend_state
+[R6] PASS G2 拒绝后全部时钟不变: 缺 TWS 子状态  before={"auth_step":3,"auth_t":3.0,"opt_t":3.0,"radar_t":3.0,"tws_t":3.0} after={"auth_step":3,"auth_t":3.0,"opt_t":3.0,"radar_t":3.0,"tws_t":3.0}
+
+[R6] STEP G2 严格校验矩阵（版本/溢出/负值/畸形通道/缺子段/角度越界）
+[R6] PASS G2 合法状态往返通过
+[R6] PASS G2 STRICT 拒绝: sensor version=1.5  ["expected exact integer version 1, got 1.5"]
+[R6] PASS G2 STRICT 拒绝: optical version=999  ["optical: optical.version must be exact integer 1 (got 999)"]
+[R6] PASS G2 STRICT 拒绝: optical az=1000 越界  ["optical: optical.mount_pointing.optical angle out of range (az=1000.0 el=0.0)"]
+[R6] PASS G2 STRICT 拒绝: optical pointing_mode 非法  ["optical: optical.mount_pointing.optical.pointing_mode unsupported: slewing"]
+[R6] PASS G2 STRICT 拒绝: tws negative now_t  ["tws: tws.now_t must be finite >= 0"]
+[R6] PASS G2 STRICT 拒绝: radar scan_index 分数  ["tws: radar.scan_index must be a safe non-negative integer"]
+[R6] PASS G2 tws 自身导出态通过 validate_state  []
+[R6] PASS G2 tws version=999 被 validate_state 拒绝
+[R6] PASS G2 radar scan_index=1e100 被拒绝（安全整数范围）
+
+[R6] STEP G2/R7 STARE 通道：字段齐全但缺 FSM 必需字段必须拒绝
+[R6] PASS G2/R7 拒绝: STARE 缺 stare_s/stare_required_s  ["tws: tws.channels[broken] missing required fields [\"state_since_t\", \"slot\", \"age_s\", \"pd\", \"hits\", \"consecutive_hits\", \"misses\", \"update_count\", \"update_rate_hz\", \"last_miss_t\", \"range_km\", \"bearing_deg\", \"elevation_deg\", \"range_sigma_km\", \"bearing_sigma_deg\", \"stable_track\", \"in_sphere\", \"effective_radius_km\", \"scan_index\", \"stare_s\", \"stare_required_s\", \"stare_progress\", \"fire_control\", \"lost_lock_count\", \"exposure\", \"history\"]", "tws: tws.channels[broken] state STARE requires [\"stare_s\", \"stare_required_s\", \"stare_progress\"]"]
+[R6] PASS G2/R7 拒绝: 通道缺 scan_index/last_miss_t  ["tws: tws.channels[x] missing required fields [\"last_miss_t\", \"scan_index\"]"]
+[R6] PASS G2/R7 拒绝: quality 非数字  ["tws: tws.channels[harmattan].quality must be finite number"]
+
+[R6] STEP C 旧档迁移：v1 合法旧数据做可重建迁移并如实标 partial，不冒充完整恢复
+[R6] PASS C 旧 v1 档可迁移导入（不误判为损坏）
+[R6] PASS C 旧档明确标记 partial restore  actual=partial expected=partial
+[R6] PASS C 旧档列出部分恢复原因  ["mount_pointing_rebuilt_from_channels", "pointing_target_not_persisted:optical", "tws_runtime_reset_unrecoverable", "authority_clock_rebuilt_from_optical_t"]
+[R6] PASS C 明确标注 TWS 运行态不可重建  ["mount_pointing_rebuilt_from_channels", "pointing_target_not_persisted:optical", "tws_runtime_reset_unrecoverable"]
+[R6] PASS C 明确标注旧档指向目标未持久化  ["mount_pointing_rebuilt_from_channels", "pointing_target_not_persisted:optical", "tws_runtime_reset_unrecoverable"]
+[R6] PASS C 新格式缺 TWS 仍拒绝（与旧档区分）  ["authority: tws sub-state is required (missing = incomplete restore)"]
+
+[R6] STEP 总结
+[R6] INFO G1 指向/模式持久化 + G2 两阶段原子导入与严格校验已覆盖
+────────────────────────────────────────────────────────────────
+JC-A00 R6 SENSOR STATE PROBE RESULT: PASS=37 FAIL=0
+JC-A00 R6 SENSOR STATE PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 435 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 17 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

@@ -1,0 +1,92 @@
+{
+	"cases": [
+		{
+			"case": "baseline_valid",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "player_actor_direct_fires_ally",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "legacy_own_ship_label_with_ally_shooter",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "unknown_intel_owner_observer_and_delay_conflict",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "player_and_ally_share_intel_owner_without_share_grant",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "all_three_domains_are_player",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "unselected_instance_still_deployed",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "same_deploy_request_id_different_instances",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "idempotent_replay_flag_bypasses_missing_request_id",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "deployment_negative_time_and_transition_disagrees_current_state",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "player_roster_references_ally_instance",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "duplicate_command_id",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "missing_command_id",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "native_int_exceeds_safe_integer",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "infinite_mass",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "ledger_without_ammo_fuel_cooldown",
+			"errors": [],
+			"ok": true
+		},
+		{
+			"case": "fractional_kg_fuel_rejected",
+			"errors": [
+				"ledger I-A1 的 fuel_kg 必须是非负整数"
+			],
+			"ok": false
+		}
+	],
+	"head": "dc3821eda91d25f14e44dd9f57e6f5a985e04a9c"
+}

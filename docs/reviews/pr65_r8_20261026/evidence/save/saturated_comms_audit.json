@@ -1,0 +1,86 @@
+{
+	"baseline": [],
+	"behavior": [
+		{
+			"area": "comms.events.new",
+			"first": "idx=0 A=DELIVERED|C-000002|apsis|harmattan|[apsis 至 harmattan]-[LD]-[] B=DELIVERED|C-000002|apsis|harmattan|TAMPERED_DELIVERY_CONTENT",
+			"original": 1,
+			"restored": 1,
+			"tick": 0
+		}
+	],
+	"counts_after": {
+		"original": 200,
+		"restored": 200
+	},
+	"counts_before": {
+		"original": 200,
+		"restored": 200
+	},
+	"delivered_original": {
+		"delivery_id": "C-000002",
+		"from": "apsis",
+		"from_name": "apsis",
+		"kind": "DELIVERED",
+		"latency_s": 0.1,
+		"mode": "LD",
+		"path": [
+			"apsis",
+			"harmattan"
+		],
+		"reason": "",
+		"relay_count": 0,
+		"schema": "comms_event.v1",
+		"seq": 203,
+		"shadow": true,
+		"t": 52.0,
+		"text": "[apsis 至 harmattan]-[LD]-[]",
+		"text_key": "COMMS_SENT",
+		"to": "harmattan",
+		"to_name": "harmattan",
+		"writes_track_table": false,
+		"writes_v15": false
+	},
+	"delivered_restored": {
+		"delivery_id": "C-000002",
+		"from": "apsis",
+		"from_name": "apsis",
+		"kind": "DELIVERED",
+		"latency_s": 0.1,
+		"mode": "LD",
+		"path": [
+			"apsis",
+			"harmattan"
+		],
+		"reason": "",
+		"relay_count": 0,
+		"schema": "comms_event.v1",
+		"seq": 203,
+		"shadow": true,
+		"t": 52.0,
+		"text": "TAMPERED_DELIVERY_CONTENT",
+		"text_key": "COMMS_SENT",
+		"to": "harmattan",
+		"to_name": "harmattan",
+		"writes_track_table": false,
+		"writes_v15": false
+	},
+	"head": "9d0f3b4380275b0a30fffb4a29fa5c44ef58165f",
+	"history_cap": 200,
+	"immediate": [
+		{
+			"area": "comms.pending",
+			"original": [
+				"C-000002|apsis|harmattan|LD|COMMS_SENT|[apsis 至 harmattan]-[LD]-[]|51.100000|[\"apsis\",\"harmattan\"]"
+			],
+			"restored": [
+				"C-000002|apsis|harmattan|LD|COMMS_SENT|TAMPERED_DELIVERY_CONTENT|51.100000|[\"apsis\",\"harmattan\"]"
+			]
+		}
+	],
+	"load_ok": true,
+	"output_detected": true,
+	"pending_count": 1,
+	"send_original": true,
+	"send_restored": true
+}

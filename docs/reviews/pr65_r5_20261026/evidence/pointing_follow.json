@@ -1,0 +1,407 @@
+{
+  "before": {
+    "original": {
+      "aperture_m": 0.35,
+      "band": "8-12 um",
+      "boresight_deg": 45.0,
+      "boresight_el_deg": 0.0,
+      "classification_px": 0.0,
+      "desired_target_id": "moving_target",
+      "detector_px": 1024,
+      "detector_width_m": 0.01536,
+      "diffraction_rad": 0.0000348571428571429,
+      "focal_m": 1.2,
+      "fov_deg": 0.733375964850313,
+      "fov_half_deg": 0.366687982425157,
+      "ifov_eff_rad": 0.0000348571428571429,
+      "ifov_eff_urad": 34.8571428571429,
+      "ifov_rad": 0.0000125,
+      "ifov_urad": 12.5,
+      "illum_min": 0.0,
+      "kind": "ir",
+      "lost_hold_s": 8.0,
+      "max_channels": 6,
+      "max_exposure_s": 0.25,
+      "min_snr_db": 8.0,
+      "model": "CH-IR2",
+      "pixel_pitch_um": 15.0,
+      "pointing_mode": "track",
+      "range_band_edges": [
+        0.333,
+        0.667
+      ],
+      "range_km": 60000.0,
+      "ref_aperture_m": 0.35,
+      "ref_area_m2": 1000.0,
+      "ref_exposure_s": 0.25,
+      "ref_range_km": 60000.0,
+      "ref_snr_db": 20.0,
+      "ref_temp_k": 300.0,
+      "refresh_s": 1.0,
+      "reset_angular_rate_dps": 1.0,
+      "reset_maneuver_g": 0.05,
+      "shadow_contrast": 0.6,
+      "sigma_bearing_deg": 1.2,
+      "slew_rate_dps": 6.0,
+      "stare_ref_km": 0.0,
+      "stare_s_ref": 4.0,
+      "sun_avoid_deg": 0.0,
+      "track_rate_dps": 1.2,
+      "wavelength_um": 10.0
+    },
+    "restored": {
+      "aperture_m": 0.35,
+      "band": "8-12 um",
+      "boresight_deg": 45.0,
+      "boresight_el_deg": 0.0,
+      "classification_px": 0.0,
+      "desired_target_id": "",
+      "detector_px": 1024,
+      "detector_width_m": 0.01536,
+      "diffraction_rad": 0.0000348571428571429,
+      "focal_m": 1.2,
+      "fov_deg": 0.733375964850313,
+      "fov_half_deg": 0.366687982425157,
+      "ifov_eff_rad": 0.0000348571428571429,
+      "ifov_eff_urad": 34.8571428571429,
+      "ifov_rad": 0.0000125,
+      "ifov_urad": 12.5,
+      "illum_min": 0.0,
+      "kind": "ir",
+      "lost_hold_s": 8.0,
+      "max_channels": 6,
+      "max_exposure_s": 0.25,
+      "min_snr_db": 8.0,
+      "model": "CH-IR2",
+      "pixel_pitch_um": 15.0,
+      "pointing_mode": "track",
+      "range_band_edges": [
+        0.333,
+        0.667
+      ],
+      "range_km": 60000.0,
+      "ref_aperture_m": 0.35,
+      "ref_area_m2": 1000.0,
+      "ref_exposure_s": 0.25,
+      "ref_range_km": 60000.0,
+      "ref_snr_db": 20.0,
+      "ref_temp_k": 300.0,
+      "refresh_s": 1.0,
+      "reset_angular_rate_dps": 1.0,
+      "reset_maneuver_g": 0.05,
+      "shadow_contrast": 0.6,
+      "sigma_bearing_deg": 1.2,
+      "slew_rate_dps": 6.0,
+      "stare_ref_km": 0.0,
+      "stare_s_ref": 4.0,
+      "sun_avoid_deg": 0.0,
+      "track_rate_dps": 1.2,
+      "wavelength_um": 10.0
+    }
+  },
+  "continued_ticks": 150,
+  "first_divergent_tick": 123,
+  "head": "dc3821eda91d25f14e44dd9f57e6f5a985e04a9c",
+  "input_rate_deg_s": 0.003,
+  "load_ok": true,
+  "rows": [
+    {
+      "original_boresight": 45.0029994974417,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "",
+      "restored_status": "locked",
+      "tick": 1
+    },
+    {
+      "original_boresight": 45.0060014676596,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "",
+      "restored_status": "locked",
+      "tick": 2
+    },
+    {
+      "original_boresight": 45.360001403354,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "",
+      "restored_status": "locked",
+      "tick": 120
+    },
+    {
+      "original_boresight": 45.3629984931418,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "",
+      "restored_status": "locked",
+      "tick": 121
+    },
+    {
+      "original_boresight": 45.366000528497,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "",
+      "restored_status": "locked",
+      "tick": 122
+    },
+    {
+      "original_boresight": 45.369000075249,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 123
+    },
+    {
+      "original_boresight": 45.3719996539004,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 124
+    },
+    {
+      "original_boresight": 45.3749992004743,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 125
+    },
+    {
+      "original_boresight": 45.3780012358575,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 126
+    },
+    {
+      "original_boresight": 45.3809983257625,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 127
+    },
+    {
+      "original_boresight": 45.3840003611262,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 128
+    },
+    {
+      "original_boresight": 45.3869999404206,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 129
+    },
+    {
+      "original_boresight": 45.3899994862606,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 130
+    },
+    {
+      "original_boresight": 45.3929990656973,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 131
+    },
+    {
+      "original_boresight": 45.396001100953,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 132
+    },
+    {
+      "original_boresight": 45.399000680595,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 133
+    },
+    {
+      "original_boresight": 45.4020002603801,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 134
+    },
+    {
+      "original_boresight": 45.4049998053339,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 135
+    },
+    {
+      "original_boresight": 45.4079993850969,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 136
+    },
+    {
+      "original_boresight": 45.4109989649537,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 137
+    },
+    {
+      "original_boresight": 45.4139985448879,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 138
+    },
+    {
+      "original_boresight": 45.4170005796132,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 139
+    },
+    {
+      "original_boresight": 45.4200001595222,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 140
+    },
+    {
+      "original_boresight": 45.4229997394593,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 141
+    },
+    {
+      "original_boresight": 45.4259993194079,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 142
+    },
+    {
+      "original_boresight": 45.4289988993516,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 143
+    },
+    {
+      "original_boresight": 45.4320009706405,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 144
+    },
+    {
+      "original_boresight": 45.4350005506535,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 145
+    },
+    {
+      "original_boresight": 45.4380001306123,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 146
+    },
+    {
+      "original_boresight": 45.4409997105004,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 147
+    },
+    {
+      "original_boresight": 45.4439992903013,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 148
+    },
+    {
+      "original_boresight": 45.4470013620076,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 149
+    },
+    {
+      "original_boresight": 45.4499984884181,
+      "original_reason": "",
+      "original_status": "locked",
+      "restored_boresight": 45.0,
+      "restored_reason": "fov_miss",
+      "restored_status": "lost",
+      "tick": 150
+    }
+  ],
+  "state_equal": false
+}

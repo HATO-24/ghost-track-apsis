@@ -1,0 +1,29 @@
+{
+  "k0_audit_exit": 0,
+  "r6_legacy_import_exit": 1,
+  "old_moving_target_exit": 0,
+  "targeted": {
+    "duration_s": 62.8,
+    "fail": 0,
+    "pass": 11,
+    "total": 11,
+    "exit": 0
+  },
+  "head": "5d7208b82ebae81da874e059c2d88286317c6483",
+  "quick_exit": 1,
+  "original_eight_violations": 0,
+  "p0_original_mutation_exit": [
+    1,
+    1,
+    1
+  ],
+  "quick_remaining": "bus._id_seq value mismatch",
+  "benchmark_independently_run": false,
+  "stare_exit": 1,
+  "k0_result": "old cases correct, residuals documented",
+  "original_eight_exit": 0,
+  "stare_script_error_expected": "missing stare_s after accepted import",
+  "p0_priority_control_exit": 1,
+  "full_independently_run": false,
+  "c55_export_roundtrip_exit": 0
+}

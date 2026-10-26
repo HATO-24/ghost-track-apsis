@@ -1,0 +1,20 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[R6-K0-AUDIT] {"case":"baseline_valid","errors":[],"expected_ok":true,"ok":true}
+[R6-K0-AUDIT] {"case":"old_player_actor_direct_fires_ally","errors":["命令 CMD-1 的 actor player_commander 不在域 ally 授权名单内（冻结 actor→controller）"],"expected_ok":false,"ok":false}
+[R6-K0-AUDIT] {"case":"old_unselected_instance_still_deployed","errors":["未选择的实例 I-A1 不得进入部署清单"],"expected_ok":false,"ok":false}
+[R6-K0-AUDIT] {"case":"old_replay_flag_bypasses_request_id","errors":["deployments I-A1 缺少 request_id（重复请求须幂等）"],"expected_ok":false,"ok":false}
+[R6-K0-AUDIT] {"case":"old_same_request_different_instance","errors":["幂等键冲突：request_id req-a1 携带不同载荷（I-A1|VALIDATED|DEPLOYED vs I-A2|VALIDATED|DEPLOYED）"],"expected_ok":false,"ok":false}
+[R6-K0-AUDIT] {"case":"old_unknown_owner_observer_delay","errors":["观测 observer 不是已登记实例: NO-SUCH-OBSERVER","观测 intel_owner_id 不是任何域的 intel_owner: NOT-A-DOMAIN-OWNER","观测共享未由情报拥有者授权：owner=NOT-A-DOMAIN-OWNER authorized_by=player_intel","观测延迟不一致：received-observed=2.000000000 但 delay_s=999.000000000"],"expected_ok":false,"ok":false}
+[R6-K0-AUDIT] {"case":"old_fractional_kg_fuel","errors":[],"expected_ok":true,"ok":true}
+[R6-K0-AUDIT] {"case":"old_infinite_mass","errors":["ledger I-A1 的 mass_kg 必须是安全范围内的有限非负数"],"expected_ok":false,"ok":false}
+[R6-K0-AUDIT] {"case":"old_native_int_above_safe_range","errors":["objective OBJ-1 的 threshold 必须是非负整数"],"expected_ok":false,"ok":false}
+[R6-K0-AUDIT] {"case":"old_missing_required_fuel","errors":["ledger I-A1 缺少必要连续资源 fuel_kg"],"expected_ok":false,"ok":false}
+[R6-K0-AUDIT] {"case":"old_player_roster_ally_reference","errors":["fleet F-PLAYER-A 的 roster 成员 I-AL1 不属于本舰队"],"expected_ok":false,"ok":false}
+[R6-K0-AUDIT] {"case":"residual_deployment_negative_t","errors":[],"expected_ok":false,"ok":true}
+[R6-K0-AUDIT] {"case":"residual_deployment_transition_disagrees_current_state","errors":[],"expected_ok":false,"ok":true}
+[R6-K0-AUDIT] {"case":"residual_fire_unselected_undeployed_shooter","errors":[],"expected_ok":false,"ok":true}
+[R6-K0-AUDIT] {"case":"residual_enemy_observer_self_authorized_as_player_intel","errors":[],"expected_ok":false,"ok":true}
+[R6-K0-AUDIT] {"case":"residual_legacy_self_declares_second_ship_as_own","errors":[],"expected_ok":false,"ok":true}
+[R6-K0-AUDIT] {"case":"residual_missing_command_id","errors":[],"expected_ok":false,"ok":true}
+AUDIO OK files=36 headless=true muted=false
