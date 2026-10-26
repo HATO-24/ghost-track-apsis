@@ -35,6 +35,7 @@ const TrafficControlServiceScript := preload("res://scripts/core/traffic_control
 const PhysicsScript := preload("res://framework/sim/cislunar_physics.gd")
 const CombatBallisticsScript := preload("res://scripts/core/combat_ballistics.gd")
 const CombatPlannerScript := preload("res://scripts/core/combat_planner.gd")
+const AuthorityIntelScript := preload("res://scripts/core/authority_intel.gd")
 const ShipCatalogScript := preload("res://scripts/core/ship_catalog.gd")
 const RefitServiceScript := preload("res://scripts/core/refit_service.gd")
 const DamageProfileServiceScript := preload("res://scripts/core/damage_profile_service.gd")
@@ -116,6 +117,9 @@ var _identification_enabled := false
 var _legal_enabled := false
 var _traffic_enabled := false
 var _ballistics_enabled := false
+# JC-A01：指挥权限与分方情报（授权门 + owner 隔离读入口）
+var authority_intel = null
+var _authority_enabled := false
 var _ship_catalog_enabled := false
 var _refit_enabled := false
 var _fleet_refit_enabled := false
@@ -185,7 +189,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "fleet_refit", "fleet_formation", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity", "epoch"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "fleet_refit", "fleet_formation", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity", "epoch", "command_domains", "fleet_instances", "own_fleet"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -864,6 +868,12 @@ func _setup_optional_components() -> void:
 			errors.append("combat_ballistics 未就绪：" + str(combat_ballistics.errors))
 		else:
 			_ballistics_enabled = true
+	# JC-A01：授权/情报服务（不依赖球体/战斗运行态即可建立边界）
+	authority_intel = AuthorityIntelScript.new()
+	if not bool(authority_intel.setup(_seed)):
+		errors.append("authority_intel 未就绪：" + str(authority_intel.errors))
+	else:
+		_authority_enabled = true
 	var pw = _seed.get("physics_world", null)
 	var pw_on := (pw is Dictionary) or (pw is bool and bool(pw))
 	if pw_on:
@@ -1491,6 +1501,26 @@ func _advance_sensors(sim_dt: float) -> Dictionary:
 					obs_ev["entity_id"] = String(meta.get("entity_id", ""))
 				if String(obs_ev.get("batch", "")) == "":
 					obs_ev["batch"] = String(meta.get("batch", ""))
+			# JC-A01：把观测投递给**观察者所属域的情报拥有者**（分方隔离）。
+			# 只有该 owner 的 intel_view 可见；其他 owner 不会因此获得航迹。
+			if _authority_enabled and authority_intel != null:
+				var obs_owner: String = authority_intel.owner_of_entity(
+					String(obs_ev.get("observer_id", "")))
+				if obs_owner != "":
+					authority_intel.receive_observation(obs_owner, {
+						"observation_id": String(obs_ev.get("event_id", "")),
+						"observer_id": String(obs_ev.get("observer_id", "")),
+						"target_id": String(obs_ev.get("target_id", "")),
+						"sensor": String(obs_ev.get("sensor", "")),
+						"source": String(obs_ev.get("sensor", "")),
+						"observed_t": float(obs_ev.get("t", now_s())),
+						"received_t": float(obs_ev.get("t", now_s())),
+						"delay_s": 0.0,
+						"path": "direct",
+						"quality": float(obs_ev.get("quality", 0.0)),
+						"range_km": float(obs_ev.get("range_km", -1.0)),
+						"bearing_deg": float(obs_ev.get("bearing_deg", -1.0)),
+					})
 			var r: Dictionary = track_table.handle_observation(obs_ev, _track_writer)
 			if bool(r.get("ok", false)):
 				out["observations"] = int(out["observations"]) + 1
@@ -2892,6 +2922,18 @@ func revoke_authorization(grant_id := "") -> Dictionary:
 ## 返回 {ok, launched, projectile_ids, salvo, ...}；调用方不得再假设 hit/miss。
 ## 物理前置检查在门禁之前：打不出去就明确失败，绝不白扣弹药。
 func request_fire(target_id: String, weapon_id: String, confirmed := false, opts := {}) -> Dictionary:
+	# JC-A01：**授权门必须在任何资源/弹道/成功事件之前**。
+	# 显式无效 shooter 不再回退本舰；敌方/盟军直接命令拒绝；本方无运行态返回 unavailable。
+	var gate_opts: Dictionary = opts if opts is Dictionary else {}
+	var auth: Dictionary = authorize_fire(gate_opts)
+	if not bool(auth.get("ok", false)):
+		_record_fire_audit(target_id, weapon_id, gate_opts, auth, true)
+		var denied: Dictionary = auth.duplicate(true)
+		denied["ok"] = false
+		denied["target_id"] = target_id
+		denied["weapon_id"] = weapon_id
+		denied["gate"] = "authority"
+		return denied
 	if combat_service == null:
 		return {"ok": false, "reason": "no_combat_service"}
 	var o: Dictionary = opts if opts is Dictionary else {}
@@ -2954,6 +2996,14 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 	res["physics"] = "ballistics"
 	res["shooter_id"] = shooter
 	res["target_entity"] = entity
+	# JC-A01：授权 context 透出（legacy 调用明确 own_ship 与本舰锚点）
+	res["domain_id"] = String(auth.get("domain_id", ""))
+	res["controller_id"] = String(auth.get("controller_id", ""))
+	if String(auth.get("legacy_context", "")) != "":
+		res["legacy_context"] = String(auth.get("legacy_context", ""))
+		res["own_entity_instance_id"] = String(
+			auth.get("own_entity_instance_id", ""))
+	_record_fire_audit(target_id, weapon_id, gate_opts, auth, false)
 	res["launched"] = int(lr.get("salvo_launched", 1 if bool(lr.get("ok", false)) else 0))
 	var pids: Array = lr.get("projectile_ids", []) if lr.get("projectile_ids") is Array else []
 	if pids.is_empty() and bool(lr.get("ok", false)) and String(lr.get("projectile_id", "")) != "":
@@ -4752,6 +4802,9 @@ func save_state() -> String:
 		# A-03：事件总线恢复使用 EventBus 的版本化导出（含完整去重集合与自动 ID 分配器），
 		# 不再只存 seq/events；Session 不直接重建 EventBus 私有字段。
 		"bus": bus.export_state() if bus != null else null,
+		# JC-A01：授权/分方情报（owner 航迹 + 授权 context + 审计）
+		"authority_intel": authority_intel.export_state() \
+			if (_authority_enabled and authority_intel != null) else null,
 	}
 	return JSON.stringify(payload)
 
@@ -5118,6 +5171,15 @@ func load_state(json_text: String) -> Dictionary:
 		if not sens_time_ok:
 			replay_errors.append("sensor geometry 与 session 不同刻（%.9f vs %.9f）" % [
 				float(geo_st.get("t", -1.0)), now_s()])
+	# JC-A01：恢复授权/分方情报（owner 航迹 + 授权 context + 审计）。
+	# 旧档无本段 → 只迁入本舰域，不复制到盟军。
+	var ai_state = data.get("authority_intel", null)
+	var ai_res: Dictionary = {"ok": true, "restore_mode": "legacy_own_ship_only"}
+	if _authority_enabled and authority_intel != null:
+		ai_res = authority_intel.import_state(ai_state if ai_state is Dictionary else {})
+		if not bool(ai_res.get("ok", false)):
+			replay_errors.append("authority_intel 恢复失败：" + str(
+				ai_res.get("reason", "")))
 	_sensor_restore_report = {
 		"schema": "v17.sensor_restore.v2",
 		"saved": saved_sensor is Dictionary,
@@ -5635,3 +5697,91 @@ func _result(ok: bool) -> Dictionary:
 	return {"ok": ok, "ready": ready, "booted": booted,
 		"writer": writer, "t_s": now_s(), "errors": errors.duplicate(),
 		"warnings": warnings.duplicate(), "snapshot": snapshot()}
+
+# ═══════════════════════════════════════════════════════════════════
+# JC-A01（#58）：指挥权限与分方情报 facade
+# ═══════════════════════════════════════════════════════════════════
+
+## 授权检查（fire 入口用；不消耗资源）。
+func authorize_fire(opts := {}) -> Dictionary:
+	if not _authority_enabled or authority_intel == null:
+		return {"ok": false, "reason": "authority_unavailable"}
+	return authority_intel.authorize_fire(opts if opts is Dictionary else {})
+
+
+func _record_fire_audit(target_id: String, weapon_id: String, opts: Dictionary,
+		auth: Dictionary, rejected: bool) -> void:
+	if not _authority_enabled or authority_intel == null:
+		return
+	authority_intel.record_audit({
+		"t": float(now_s()), "op": "request_fire", "target_id": target_id,
+		"weapon_id": weapon_id,
+		"requested_shooter": String(opts.get("shooter_id", "")),
+		"resolved_shooter": String(auth.get("shooter_id", "")),
+		"domain_id": String(auth.get("domain_id", "")),
+		"controller_id": String(auth.get("controller_id", "")),
+		"legacy_context": String(auth.get("legacy_context", "")),
+		"own_entity_instance_id": String(auth.get("own_entity_instance_id", "")),
+		"ok": not rejected, "reason": String(auth.get("reason", "")),
+		"detail": String(auth.get("detail", "")),
+	})
+
+
+func fire_audit() -> Array:
+	if not _authority_enabled or authority_intel == null:
+		return []
+	return authority_intel.fire_audit()
+
+
+func intel_owner_of(entity_id: String) -> String:
+	if not _authority_enabled or authority_intel == null:
+		return ""
+	return authority_intel.owner_of_entity(entity_id)
+
+
+## owner 隔离读入口：只返回该 owner 自己的航迹与观测。
+func intel_view(owner_id: String) -> Dictionary:
+	if not _authority_enabled or authority_intel == null:
+		return {"owner_id": owner_id, "tracks": [], "observations": [],
+			"reason": "authority_unavailable"}
+	return authority_intel.intel_view(owner_id)
+
+
+## 玩家/AI 可读的绘图位置：只来自该 owner 航迹（绝不读物理真值）。
+func plot_positions(owner_id: String) -> Dictionary:
+	if not _authority_enabled or authority_intel == null:
+		return {"owner_id": owner_id, "source": "unavailable", "positions": []}
+	return authority_intel.plot_positions(owner_id)
+
+
+func selected_tracks(owner_id: String) -> Array:
+	if not _authority_enabled or authority_intel == null:
+		return []
+	return authority_intel.selected(owner_id)
+
+
+## 接收共享观测：只有接收 owner 自己的视图可见（未来由协同协议调用）。
+func receive_intel_observation(owner_id: String, row: Dictionary) -> Dictionary:
+	if not _authority_enabled or authority_intel == null:
+		return {"ok": false, "reason": "authority_unavailable"}
+	return authority_intel.receive_observation(owner_id, row)
+
+
+## 测试钩子：直接改世界真值（模拟未观测到的敌方改名/移动），**不**通知任何 owner。
+func _apply_hidden_truth_mutation(entity_id: String, new_id: String,
+		new_pos: Array) -> Dictionary:
+	var moved := 0
+	if physics_world_service != null and physics_world_service.has_method("set_position"):
+		var st: Dictionary = physics_state(entity_id)
+		if not st.is_empty():
+			physics_world_service.set_position(entity_id, new_pos,
+				st.get("v", [0.0, 0.0, 0.0]))
+			moved += 1
+	if world != null and world.has_method("entity"):
+		var e: Dictionary = world.entity(entity_id)
+		if not e.is_empty():
+			e["pos_km"] = (new_pos as Array).duplicate()
+			e["name"] = new_id
+			moved += 1
+	return {"ok": true, "entity_id": entity_id, "new_id": new_id,
+		"moved_surfaces": moved, "intel_notified": false}

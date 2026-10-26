@@ -1,0 +1,61 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+JC-A01 AUTHORITY/INTEL PROBE · 指挥权限 + 分方情报隔离
+════════════════════════════════════════════════════════════════
+
+[A01] STEP R1 显式无效 shooter 不得回退本舰
+[A01] PASS session ready  []
+[A01] PASS R1 未知 shooter 必须拒绝（当前会回退本舰发起）  unknown_shooter
+[A01] PASS R1 拒绝时资源/弹体不得变化  before={"projectiles":0,"salvo":-1} after={"projectiles":0,"salvo":-1}
+
+[A01] STEP R1b 敌方/友军 shooter 直接命令必须拒绝
+[A01] PASS 敌方 shooter 拒绝  shooter_not_authorized
+[A01] PASS 友军直接命令拒绝  direct_command_not_permitted
+
+[A01] STEP R1d 合法自有舰授权仍可发起（正例）
+[A01] PASS 自有舰通过授权门  ok
+[A01] PASS 自有舰发射路径未被授权拒绝  no_physics_state
+
+[A01] STEP R1e 合法旧调用（无 shooter）只映射本舰
+[A01] PASS 旧调用通过授权门  ok
+[A01] PASS 旧调用 shooter 固定为本舰（不借其他舰）  actual=own_ship expected=own_ship
+[A01] PASS 旧调用记录 legacy context  actual=own_ship expected=own_ship
+[A01] PASS 旧调用发射路径未被授权拒绝  no_physics_state
+
+[A01] STEP R3 分方情报：三 owner 观测必须隔离
+[A01] PASS 存在 owner 隔离读入口 intel_view(owner_id)
+[A01] PASS player owner 有本舰观测航迹  1
+[A01] PASS player 视图不因真值含敌方而自动出现  ["target_a"]
+[A01] PASS player 不因 ally 观测而自动获得 target_b  ["target_a"]
+[A01] PASS ally 只看到自己的 1 条航迹  ["target_b"]
+[A01] PASS opfor 未观测时视图为空  []
+[A01] PASS 共享观测到达后接收方可见 target_b  ["target_a", "target_b"]
+[A01] PASS 共享不会泄漏给第三方 owner
+
+[A01] STEP R2 玩家 plot 不得直出物理真值
+[A01] PASS 存在 owner 限定的 plot_positions(owner_id)
+[A01] PASS 隐藏敌方不因物理真值出现在玩家 plot（当前 shell_binder 直取真值）  []
+[A01] PASS plot 数据源不得标记为 physics 真值  intel
+
+[A01] STEP R2b 隐藏目标改名/改坐标但合法观测不变 → 玩家视图不变
+[A01] PASS intel_view 可用于视图不变性对照
+[A01] PASS 存在隐藏真值变更测试钩子（仅测试用）
+[A01] PASS 真值变更不影响未观测的玩家视图  actual={"observations":[],"owner":"player_intel","tracks":[]} expected={"observations":[],"owner":"player_intel","tracks":[]}
+
+[A01] STEP R4 存档/恢复：owner 航迹与授权 context 一致
+[A01] PASS 存档恢复成功  []
+[A01] PASS 恢复后 player 视图一致  actual={"observations":[{"bearing_deg":90.0,"delay_s":0.0,"intel_owner_id":"player_intel","observation_id":"OBS-1","observed_t":6.0,"observer_id":"own_ship","path":"direct","quality":0.7,"range_km":500.0,"received_t":6.0,"sensor":"radar","source":"radar","target_id":"target_a"},{"bearing_deg":45.0,"delay_s":30.0,"intel_owner_id":"player_intel","observation_id":"OBS-A2","observed_t":6.0,"observer_id":"ally_ship","path":"relay:ally->player","quality":0.6,"range_km":800.0,"received_t":36.0,"sensor":"optical","source":"optical","target_id":"target_b"}],"owner":"player_intel","tracks":[{"bearing_deg":90.0,"id":"target_a","intel_owner_id":"player_intel","last_observed_t":6.0,"last_received_t":6.0,"quality":0.7,"range_km":500.0,"source":"radar"},{"bearing_deg":45.0,"id":"target_b","intel_owner_id":"player_intel","last_observed_t":6.0,"last_received_t":36.0,"quality":0.6,"range_km":800.0,"source":"optical"}]} expected={"observations":[{"bearing_deg":90.0,"delay_s":0.0,"intel_owner_id":"player_intel","observation_id":"OBS-1","observed_t":6.0,"observer_id":"own_ship","path":"direct","quality":0.7,"range_km":500.0,"received_t":6.0,"sensor":"radar","source":"radar","target_id":"target_a"},{"bearing_deg":45.0,"delay_s":30.0,"intel_owner_id":"player_intel","observation_id":"OBS-A2","observed_t":6.0,"observer_id":"ally_ship","path":"relay:ally->player","quality":0.6,"range_km":800.0,"received_t":36.0,"sensor":"optical","source":"optical","target_id":"target_b"}],"owner":"player_intel","tracks":[{"bearing_deg":90.0,"id":"target_a","intel_owner_id":"player_intel","last_observed_t":6.0,"last_received_t":6.0,"quality":0.7,"range_km":500.0,"source":"radar"},{"bearing_deg":45.0,"id":"target_b","intel_owner_id":"player_intel","last_observed_t":6.0,"last_received_t":36.0,"quality":0.6,"range_km":800.0,"source":"optical"}]}
+[A01] PASS 继续 10 tick 后 player 视图一致  actual={"observations":[{"bearing_deg":90.0,"delay_s":0.0,"intel_owner_id":"player_intel","observation_id":"OBS-1","observed_t":6.0,"observer_id":"own_ship","path":"direct","quality":0.7,"range_km":500.0,"received_t":6.0,"sensor":"radar","source":"radar","target_id":"target_a"},{"bearing_deg":45.0,"delay_s":30.0,"intel_owner_id":"player_intel","observation_id":"OBS-A2","observed_t":6.0,"observer_id":"ally_ship","path":"relay:ally->player","quality":0.6,"range_km":800.0,"received_t":36.0,"sensor":"optical","source":"optical","target_id":"target_b"}],"owner":"player_intel","tracks":[{"bearing_deg":90.0,"id":"target_a","intel_owner_id":"player_intel","last_observed_t":6.0,"last_received_t":6.0,"quality":0.7,"range_km":500.0,"source":"radar"},{"bearing_deg":45.0,"id":"target_b","intel_owner_id":"player_intel","last_observed_t":6.0,"last_received_t":36.0,"quality":0.6,"range_km":800.0,"source":"optical"}]} expected={"observations":[{"bearing_deg":90.0,"delay_s":0.0,"intel_owner_id":"player_intel","observation_id":"OBS-1","observed_t":6.0,"observer_id":"own_ship","path":"direct","quality":0.7,"range_km":500.0,"received_t":6.0,"sensor":"radar","source":"radar","target_id":"target_a"},{"bearing_deg":45.0,"delay_s":30.0,"intel_owner_id":"player_intel","observation_id":"OBS-A2","observed_t":6.0,"observer_id":"ally_ship","path":"relay:ally->player","quality":0.6,"range_km":800.0,"received_t":36.0,"sensor":"optical","source":"optical","target_id":"target_b"}],"owner":"player_intel","tracks":[{"bearing_deg":90.0,"id":"target_a","intel_owner_id":"player_intel","last_observed_t":6.0,"last_received_t":6.0,"quality":0.7,"range_km":500.0,"source":"radar"},{"bearing_deg":45.0,"id":"target_b","intel_owner_id":"player_intel","last_observed_t":6.0,"last_received_t":36.0,"quality":0.6,"range_km":800.0,"source":"optical"}]}
+
+[A01] STEP R5 拒绝审计可记录且不消耗资源
+[A01] PASS 存在 fire_audit() 审计入口
+[A01] PASS 拒绝/成功均记入审计  3
+[A01] PASS 拒绝条目带原因  3
+
+[A01] STEP 总结
+[A01] INFO 本探针只验证指挥授权与分方情报边界；不实现 AI/逐舰战斗账本
+────────────────────────────────────────────────────────────────
+JC-A01 AUTHORITY INTEL PROBE RESULT: PASS=31 FAIL=0
+JC-A01 AUTHORITY INTEL PROBE OK
+AUDIO OK files=36 headless=true muted=false

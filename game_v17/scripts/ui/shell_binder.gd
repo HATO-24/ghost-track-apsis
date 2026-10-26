@@ -1512,6 +1512,27 @@ func physics_world_ready() -> bool:
 
 
 func plot_positions() -> Dictionary:
+	# JC-A01：玩家绘图只能读**本舰域情报视图**，不得直出物理真值。
+	# 真实弹体/物理解算仍可读内部真值，但不随玩家视图外泄。
+	if session != null and session.has_method("plot_positions"):
+		var owner_id := "player_intel"
+		if session.has_method("intel_owner_of"):
+			var oe := String(session.call("intel_owner_of", "apsis"))
+			if oe != "":
+				owner_id = oe
+		var iv: Dictionary = session.plot_positions(owner_id)
+		var positions: Array = []
+		for raw in (iv.get("positions", []) as Array):
+			var row: Dictionary = raw
+			var p: Array = row.get("pos_km", []) if row.get("pos_km") is Array else []
+			if p.size() >= 3:
+				positions.append({"id": String(row.get("id", "")),
+					"pos_km": [float(p[0]), float(p[1]), float(p[2])],
+					"vel_kmps": [],
+					"observed_t": float(row.get("observed_t", 0.0))})
+		if not positions.is_empty():
+			return {"source": "intel", "reference": owner_id,
+				"positions": positions, "reference_pos": [0.0, 0.0, 0.0]}
 	var out: Dictionary = {"source": "contacts", "reference": "apsis", "positions": [], "reference_pos": [0.0, 0.0, 0.0]}
 	var ref: Array = [0.0, 0.0, 0.0]
 	var physics := physics_world_ready()
