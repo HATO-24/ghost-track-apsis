@@ -30,6 +30,9 @@ const PLAYER_KNOWN_STATES := ["unknown", "suspected", "confirmed", "disabled"]
 const INTEL_PARTITION_MODES := ["per_owner_track_table", "explicit_partition"]
 # R6：事件/通信生命周期冻结（顺序固定，状态机不得跳步）
 const EVENT_LIFECYCLE := ["created", "observed", "shared", "received", "executed", "closed"]
+# R7：命令请求/回执/执行记录的状态枚举（生命周期冻结）
+const LIFECYCLE_STATES := ["pending", "accepted", "rejected", "executing",
+	"completed", "failed", "lost"]
 const LEGACY_UNKNOWN_BEHAVIOR := ["reject", "legacy_tag"]
 
 # 1 t = 1000 kg（旧舰队名册用 t，PhysicsWorld 用 kg；只允许转换一次）
@@ -260,6 +263,14 @@ static func _validate_deployments(raw, index: Dictionary) -> Array:
 			var ti := DEPLOYMENT_ORDER.find(to)
 			if ti != fi + 1:
 				errs.append("deployments %s 必须单步前进（%s→%s）" % [eid, from, to])
+		# R7：部署记录时间必须有限非负；记录终点必须与实例当前状态一致
+		#（历史迁移链应写进 history 字段，不能用 DRAFT→VALIDATED 记录解释 DEPLOYED 实例）。
+		var dtv = d.get("t", null)
+		if not _is_finite(dtv) or float(dtv) < 0.0:
+			errs.append("deployments %s 的 t 必须是有限非负秒" % eid)
+		if to != "" and to != String(info.get("deployment_state", "")):
+			errs.append("deployments %s 记录到 %s，但实例当前状态是 %s（记录与状态不一致）" % [
+				eid, to, String(info.get("deployment_state", ""))])
 		# R6：幂等键必须存在且唯一；重复时载荷必须一致（冲突拒绝）
 		var rid := String(d.get("request_id", ""))
 		if rid == "":
@@ -299,24 +310,38 @@ static func _validate_observations(raw, index: Dictionary, dom_index: Dictionary
 		if String(o.get("source", "")) == "":
 			errs.append("观测缺少 source（证据来源）")
 		var observer := String(o.get("observer_id", ""))
+		var observer_owner := ""
 		if observer == "":
 			errs.append("观测缺少 observer_id")
 		elif not index.has(observer):
 			errs.append("观测 observer 不是已登记实例: " + observer)
+		else:
+			# R7：**原始 owner 固定**——观测最初归 observer 所属域的情报拥有者。
+			var obs_dom := String((index[observer] as Dictionary).get("domain_id", ""))
+			observer_owner = String((dom_index.get(obs_dom, {}) as Dictionary)
+				.get("intel_owner_id", ""))
 		var owner := String(o.get("intel_owner_id", ""))
 		if owner == "":
 			errs.append("观测缺少 intel_owner_id（必须归某个情报拥有者）")
 		elif not intel_owners.has(owner):
 			errs.append("观测 intel_owner_id 不是任何域的 intel_owner: " + owner)
-		# R6：共享必须有授权者，且授权者必须是情报拥有者
+		# R7：共享授权者必须是**原始 owner**（observer 所属域），不能自授权敌方观测。
 		var authz := String(o.get("share_authorized_by", ""))
 		if authz == "":
 			errs.append("观测缺少 share_authorized_by（共享授权必须显式）")
 		elif not intel_owners.has(authz):
 			errs.append("观测 share_authorized_by 不是任何域的 intel_owner: " + authz)
-		elif authz != owner:
-			errs.append("观测共享未由情报拥有者授权：owner=%s authorized_by=%s" % [
-				owner, authz])
+		elif observer_owner != "" and authz != observer_owner:
+			errs.append("观测共享授权者不是原始 owner：observer_owner=%s authorized_by=%s" % [
+				observer_owner, authz])
+		# R7：接收方必须显式且与授权路径一致；跨 owner 共享必须声明 receiver。
+		var receiver := String(o.get("received_by_intel_owner_id", owner))
+		if not intel_owners.has(receiver):
+			errs.append("观测 received_by_intel_owner_id 不是任何域的 intel_owner: " + receiver)
+		elif receiver != owner:
+			errs.append("观测接收 owner 与 intel_owner_id 不一致：%s vs %s" % [
+				receiver, owner])
+		# 他人观测只能经原始 owner 授权；自我授权敌观测已由上面的 owner 校验拒绝。
 		for tf in ["observed_t", "received_t"]:
 			var v = o.get(tf, null)
 			if not _is_finite(v) or float(v) < 0.0:
@@ -350,10 +375,48 @@ static func _validate_commands(raw, index: Dictionary, dom_index: Dictionary) ->
 			continue
 		var c: Dictionary = r
 		var cid := String(c.get("command_id", ""))
-		if cid != "":
+		if cid == "":
+			# R7：命令标识必须显式；缺 ID 无法幂等/追溯，直接拒绝。
+			errs.append("命令缺少 command_id（标识与幂等必须显式）")
+		else:
 			if seen_cmd.has(cid):
 				errs.append("重复 command_id: " + cid)
 			seen_cmd[cid] = true
+		# R7：命令需要事件 ID/seq 与请求/回执/执行记录的版本与关联。
+		var ev_id := String(c.get("event_id", ""))
+		if ev_id == "":
+			errs.append("命令 %s 缺少 event_id（事件标识必须显式）" % cid)
+		var seqv = c.get("seq", null)
+		if seqv != null and (not _is_int(seqv) or float(seqv) < 0.0):
+			errs.append("命令 %s 的 seq 必须是非负整数" % cid)
+		var lc: Dictionary = c.get("lifecycle", {}) if c.get("lifecycle") is Dictionary else {}
+		if lc.is_empty():
+			errs.append("命令 %s 缺少 lifecycle（请求/回执/执行记录必须冻结）" % cid)
+		else:
+			if String(lc.get("lifecycle_version", "")) == "":
+				errs.append("命令 %s 的 lifecycle 缺少版本" % cid)
+			for stage in ["request", "receipt", "execution"]:
+				var row = lc.get(stage, null)
+				if not (row is Dictionary):
+					errs.append("命令 %s 的 lifecycle 缺少 %s 记录" % [cid, stage])
+					continue
+				var rt = (row as Dictionary).get("t", null)
+				if not _is_finite(rt) or float(rt) < 0.0:
+					errs.append("命令 %s 的 lifecycle.%s.t 必须有限非负" % [cid, stage])
+				var stt := String((row as Dictionary).get("state", ""))
+				if not (stt in LIFECYCLE_STATES):
+					errs.append("命令 %s 的 lifecycle.%s.state 非法: %s" % [
+						cid, stage, stt])
+			# 关联：回执/执行必须引用同一 request_id
+			var req_rid := String((lc.get("request", {}) as Dictionary).get("request_id", ""))
+			if req_rid == "":
+				errs.append("命令 %s 的 lifecycle.request 缺少 request_id" % cid)
+			for st2 in ["receipt", "execution"]:
+				if lc.get(st2) is Dictionary:
+					var r2 := String((lc.get(st2) as Dictionary).get("request_id", ""))
+					if r2 != req_rid:
+						errs.append("命令 %s 的 lifecycle.%s 未关联同一 request_id" % [
+							cid, st2])
 		var dom := String(c.get("domain_id", ""))
 		if not dom_index.has(dom):
 			errs.append("命令引用未知 domain_id: " + dom)
@@ -378,10 +441,17 @@ static func _validate_commands(raw, index: Dictionary, dom_index: Dictionary) ->
 		elif not index.has(sid):
 			errs.append("命令 %s 的 shooter_id 不是有效实例: %s" % [cid, sid])
 		else:
-			var sdom := String((index[sid] as Dictionary).get("domain_id", ""))
+			var sinfo: Dictionary = index[sid]
+			var sdom := String(sinfo.get("domain_id", ""))
 			if sdom != dom:
 				errs.append("命令 %s 的 shooter %s 属于域 %s，不在指挥域 %s 内" % [
 					cid, sid, sdom, dom])
+			# R7：shooter 必须是**实际参战/可受令**的实例，不只是已登记。
+			if bool(sinfo.get("selected", false)) != true:
+				errs.append("命令 %s 的 shooter %s 未被选中，不能受令" % [cid, sid])
+			if String(sinfo.get("deployment_state", "")) != "DEPLOYED":
+				errs.append("命令 %s 的 shooter %s 未部署（当前 %s），不能受令" % [
+					cid, sid, String(sinfo.get("deployment_state", ""))])
 		# legacy 只能绑定真实本舰：必须给出 own_entity_instance_id 且 shooter==own
 		var legacy := String(c.get("legacy_context", ""))
 		if legacy != "":

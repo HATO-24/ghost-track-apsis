@@ -1,0 +1,308 @@
+{
+  "schema": "v17.jc.contracts.v1",
+  "version": 1,
+  "campaign_id": "jc_sector_01",
+  "intel_partitioning": "per_owner_track_table",
+  "command_domains": [
+    {
+      "domain_id": "player",
+      "kind": "player",
+      "controller_id": "player_commander",
+      "intel_owner_id": "player_intel",
+      "faction": "ueg",
+      "roe": "TIGHT",
+      "authorized_actors": [
+        "player_commander"
+      ]
+    },
+    {
+      "domain_id": "ally",
+      "kind": "ai_ally",
+      "controller_id": "ally_ai",
+      "intel_owner_id": "ally_intel",
+      "faction": "ueg",
+      "roe": "DEFENSIVE",
+      "authorized_actors": [
+        "ally_ai"
+      ]
+    },
+    {
+      "domain_id": "opfor",
+      "kind": "ai_hostile",
+      "controller_id": "opfor_ai",
+      "intel_owner_id": "opfor_intel",
+      "faction": "ocu",
+      "roe": "AGGRESSIVE",
+      "authorized_actors": [
+        "opfor_ai"
+      ]
+    }
+  ],
+  "fleets": [
+    {
+      "fleet_id": "F-PLAYER-A",
+      "domain_id": "player",
+      "roster": [
+        {
+          "entity_instance_id": "I-A1"
+        },
+        {
+          "entity_instance_id": "I-A2"
+        }
+      ]
+    },
+    {
+      "fleet_id": "F-PLAYER-B",
+      "domain_id": "player",
+      "roster": [
+        {
+          "entity_instance_id": "I-B1"
+        }
+      ]
+    },
+    {
+      "fleet_id": "F-ALLY-1",
+      "domain_id": "ally",
+      "roster": [
+        {
+          "entity_instance_id": "I-AL1"
+        }
+      ]
+    },
+    {
+      "fleet_id": "F-OPFOR-1",
+      "domain_id": "opfor",
+      "roster": [
+        {
+          "entity_instance_id": "I-OP1"
+        }
+      ]
+    }
+  ],
+  "instances": [
+    {
+      "entity_instance_id": "I-A1",
+      "fleet_id": "F-PLAYER-A",
+      "domain_id": "player",
+      "ship_class_id": "APSIS",
+      "ship_class_config_revision": 1,
+      "deployment_state": "DEPLOYED",
+      "selected": true
+    },
+    {
+      "entity_instance_id": "I-A2",
+      "fleet_id": "F-PLAYER-A",
+      "domain_id": "player",
+      "ship_class_id": "HARMATTAN",
+      "ship_class_config_revision": 1,
+      "deployment_state": "DEPLOYED",
+      "selected": true
+    },
+    {
+      "entity_instance_id": "I-B1",
+      "fleet_id": "F-PLAYER-B",
+      "domain_id": "player",
+      "ship_class_id": "FERRIES",
+      "ship_class_config_revision": 1,
+      "deployment_state": "DEPLOYED",
+      "selected": true
+    },
+    {
+      "entity_instance_id": "I-AL1",
+      "fleet_id": "F-ALLY-1",
+      "domain_id": "ally",
+      "ship_class_id": "SKIFF",
+      "ship_class_config_revision": 1,
+      "deployment_state": "DEPLOYED",
+      "selected": true
+    },
+    {
+      "entity_instance_id": "I-OP1",
+      "fleet_id": "F-OPFOR-1",
+      "domain_id": "opfor",
+      "ship_class_id": "RAIDER",
+      "ship_class_config_revision": 1,
+      "deployment_state": "DEPLOYED",
+      "selected": true
+    }
+  ],
+  "deployments": [
+    {
+      "entity_instance_id": "I-A1",
+      "request_id": "req-a1",
+      "from_state": "DRAFT",
+      "to_state": "VALIDATED",
+      "t": 0.0
+    },
+    {
+      "entity_instance_id": "I-A2",
+      "request_id": "req-a2",
+      "from_state": "VALIDATED",
+      "to_state": "DEPLOYED",
+      "t": 0.0
+    },
+    {
+      "entity_instance_id": "I-B1",
+      "request_id": "req-b1",
+      "from_state": "VALIDATED",
+      "to_state": "DEPLOYED",
+      "t": 0.0
+    },
+    {
+      "entity_instance_id": "I-AL1",
+      "request_id": "req-al1",
+      "from_state": "VALIDATED",
+      "to_state": "DEPLOYED",
+      "t": 0.0
+    },
+    {
+      "entity_instance_id": "I-OP1",
+      "request_id": "req-op1",
+      "from_state": "VALIDATED",
+      "to_state": "DEPLOYED",
+      "t": 0.0
+    }
+  ],
+  "observation_shares": [
+    {
+      "observation_id": "OBS-1",
+      "source": "radar",
+      "observer_id": "I-A1",
+      "intel_owner_id": "player_intel",
+      "share_authorized_by": "player_intel",
+      "target_entity_instance_id": "I-OP1",
+      "observed_t": 100.0,
+      "received_t": 102.0,
+      "delay_s": 2.0,
+      "path": "direct"
+    },
+    {
+      "observation_id": "OBS-2",
+      "source": "optical",
+      "observer_id": "I-AL1",
+      "intel_owner_id": "ally_intel",
+      "share_authorized_by": "ally_intel",
+      "received_by_intel_owner_id": "ally_intel",
+      "target_entity_instance_id": "I-OP1",
+      "observed_t": 100.0,
+      "received_t": 130.0,
+      "delay_s": 30.0,
+      "path": "relay:ally"
+    },
+    {
+      "observation_id": "OBS-3",
+      "source": "optical",
+      "observer_id": "I-AL1",
+      "intel_owner_id": "player_intel",
+      "share_authorized_by": "ally_intel",
+      "received_by_intel_owner_id": "player_intel",
+      "target_entity_instance_id": "I-OP1",
+      "observed_t": 200.0,
+      "received_t": 260.0,
+      "delay_s": 60.0,
+      "path": "relay:ally->player"
+    }
+  ],
+  "commands": [
+    {
+      "command_id": "CMD-1",
+      "event_id": "evt-cmd-1",
+      "seq": 1,
+      "actor_id": "player_commander",
+      "controller_id": "player_commander",
+      "domain_id": "player",
+      "shooter_id": "I-A1",
+      "kind": "fire",
+      "ammo": 1,
+      "t": 120.0,
+      "lifecycle": {
+        "lifecycle_version": "v17.cmd_lifecycle.v1",
+        "request": {
+          "request_id": "REQ-1",
+          "state": "accepted",
+          "t": 120.0
+        },
+        "receipt": {
+          "request_id": "REQ-1",
+          "state": "accepted",
+          "t": 121.0
+        },
+        "execution": {
+          "request_id": "REQ-1",
+          "state": "completed",
+          "t": 122.0
+        }
+      }
+    }
+  ],
+  "objectives": [
+    {
+      "objective_id": "OBJ-1",
+      "kind": "disable_unit",
+      "target_entity_instance_id": "I-OP1",
+      "threshold": 1,
+      "authority_state": "active",
+      "player_known_state": "suspected",
+      "story_independent": true
+    }
+  ],
+  "ledgers": [
+    {
+      "entity_instance_id": "I-A1",
+      "units": {
+        "mass": "kg",
+        "fuel": "kg",
+        "delta_v": "km/s"
+      },
+      "mass_kg": 12000.0,
+      "fuel_kg": 3000.0,
+      "delta_v_kmps": 2.5,
+      "ammo": 8,
+      "cooldown_s_count": 0,
+      "resource_owner_instance_id": "I-A1"
+    }
+  ],
+  "ai_read_view": {
+    "reads_ground_truth": false,
+    "by_domain": {
+      "player": {
+        "intel_owners": [
+          "player_intel"
+        ],
+        "fields": [
+          "track",
+          "status"
+        ]
+      },
+      "ally": {
+        "intel_owners": [
+          "ally_intel"
+        ],
+        "fields": [
+          "track",
+          "status"
+        ]
+      },
+      "opfor": {
+        "intel_owners": [
+          "opfor_intel"
+        ],
+        "fields": [
+          "track"
+        ]
+      }
+    }
+  },
+  "event_lifecycle": [
+    "created",
+    "observed",
+    "shared",
+    "received",
+    "executed",
+    "closed"
+  ],
+  "legacy_scope": {
+    "own_ship_only": true,
+    "unknown_campaign_behavior": "legacy_tag"
+  }
+}

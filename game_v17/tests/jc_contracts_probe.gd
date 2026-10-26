@@ -26,8 +26,22 @@ const NEG_CASES := {
 	"invalid_not_deployed.json": "部署清单",
 	# R6：冻结 actor→controller→shooter 授权
 	"invalid_actor_controller.json": "授权名单",
-	# R6：情报共享授权者必须是情报拥有者
-	"invalid_obs_authorization.json": "未由情报拥有者授权",
+	# R6/R7：情报共享授权者必须是**原始 owner**（observer 所属域）
+	"invalid_obs_authorization.json": "不是原始 owner",
+	# R7：敌方观测不能自报为我方情报并自授权
+	"invalid_obs_enemy_selftrust.json": "不是原始 owner",
+	# R7：接收 owner 必须与 intel_owner_id 一致
+	"invalid_obs_receiver.json": "接收 owner",
+	# R7：未选中/未部署实例不能作为 shooter
+	"invalid_shooter_not_participating.json": "不能受令",
+	# R7：缺 command_id 必须拒绝
+	"invalid_missing_command_id.json": "缺少 command_id",
+	# R7：命令缺生命周期/事件 ID 必须拒绝
+	"invalid_command_lifecycle.json": "lifecycle",
+	# R7：部署记录时间非法
+	"invalid_deploy_time.json": "有限非负",
+	# R7：部署记录终点与实例状态不一致
+	"invalid_deploy_state_mismatch.json": "记录与状态不一致",
 	# R6：delay 必须与 received-observed 一致
 	"invalid_delay.json": "延迟不一致",
 	# R6：幂等键冲突载荷拒绝

@@ -182,23 +182,45 @@
       "observer_id": "I-AL1",
       "intel_owner_id": "ally_intel",
       "share_authorized_by": "ally_intel",
+      "received_by_intel_owner_id": "ally_intel",
       "target_entity_instance_id": "I-OP1",
       "observed_t": 100.0,
       "received_t": 130.0,
       "delay_s": 30.0,
       "path": "relay:ally"
+    },
+    {
+      "observation_id": "OBS-3",
+      "source": "optical",
+      "observer_id": "I-AL1",
+      "intel_owner_id": "player_intel",
+      "share_authorized_by": "ally_intel",
+      "received_by_intel_owner_id": "player_intel",
+      "target_entity_instance_id": "I-OP1",
+      "observed_t": 200.0,
+      "received_t": 260.0,
+      "delay_s": 60.0,
+      "path": "relay:ally->player"
     }
   ],
   "commands": [
     {
       "command_id": "CMD-1",
+      "event_id": "evt-cmd-1",
+      "seq": 1,
       "actor_id": "player_commander",
       "controller_id": "player_commander",
       "domain_id": "player",
       "shooter_id": "I-A1",
       "kind": "fire",
       "ammo": 1,
-      "t": 120.0
+      "t": 120.0,
+      "lifecycle": {
+        "lifecycle_version": "v17.cmd_lifecycle.v1",
+        "request": {"request_id": "REQ-1", "state": "accepted", "t": 120.0},
+        "receipt": {"request_id": "REQ-1", "state": "accepted", "t": 121.0},
+        "execution": {"request_id": "REQ-1", "state": "completed", "t": 122.0}
+      }
     }
   ],
   "objectives": [
