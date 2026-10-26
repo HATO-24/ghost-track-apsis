@@ -93,8 +93,8 @@ func _run() -> void:
 	if doc.is_empty():
 		_finish()
 		return
-	_eq(String(doc.get("schema", "")), "v17.jc.scenario_spec.v2", "schema v2")
-	_eq(int(doc.get("version", 0)), 2, "version = 2")
+	_eq(String(doc.get("schema", "")), "v17.jc.scenario_spec.v3", "schema v3")
+	_eq(int(doc.get("version", 0)), 3, "version = 3")
 	var status := String(doc.get("status", ""))
 	_ok(status.find("proposal") >= 0 and status.find("pending") >= 0,
 		"状态是「提案待用户核对」", status)
@@ -268,23 +268,49 @@ func _run() -> void:
 				completed.erase(String(e.get("objective_id", "")))
 			elif k == "adjudicate":
 				adjudications += 1
+		# R7：按声明的 same_tick_priority 计算同 tick 冲突，不按事件顺序覆盖
+		var cands: Array = []
+		# 零完成只在**时限到达**时判 defeat（主动撤离不算零完成失败）
+		var at_timeout := kinds.has("time_limit_reached")
+		if completed.size() >= req.size():
+			cands.append("victory")
+		elif at_timeout and completed.size() == 0:
+			cands.append("defeat")
+		elif completed.size() > 0 and completed.size() < req.size():
+			cands.append("stalemate")
+		if kinds.has("own_flag_disabled") or kinds.has("protected_target_destroyed"):
+			cands.append("defeat")
+		if kinds.has("withdraw_complete"):
+			cands.append("withdrawal")
+		# R7：必需目标全部由友军自主完成 → 不得判 victory（改判 stalemate）
+		var ally_only := true
+		for raw_e4 in events:
+			if String((raw_e4 as Dictionary).get("kind", "")) == "objective_disable" \
+					and String((raw_e4 as Dictionary).get("credited_to", "")) != "ally_autonomous":
+				ally_only = false
+		if ally_only and cands.has("victory"):
+			cands.erase("victory")
+			if not cands.has("stalemate"):
+				cands.append("stalemate")
+		var prio_list: Array = tr.get("same_tick_priority", []) \
+			if tr.get("same_tick_priority") is Array else []
 		var expected_by_rule := "pending_report"
 		if adjudications > 0 and int(t2.get("terminal_events", 0)) > 0:
-			if completed.size() >= req.size():
-				expected_by_rule = "victory"
-			elif completed.size() == 0:
-				expected_by_rule = "defeat"
-			else:
-				expected_by_rule = "stalemate"
-		if kinds.has("own_flag_disabled") or kinds.has("protected_target_destroyed"):
-			expected_by_rule = "defeat"
-		if kinds.has("withdraw_complete"):
-			expected_by_rule = "withdrawal"
+			expected_by_rule = ""
+			for p in prio_list:
+				if String(p) in cands:
+					expected_by_rule = String(p)
+					break
+			if expected_by_rule == "":
+				expected_by_rule = String(cands[0]) if cands.size() > 0 else "stalemate"
 		if term == "pending_report":
 			expected_by_rule = "pending_report"
-		_eq(term, expected_by_rule, "轨迹 %s 与终态规则自洽" % tid)
+		_eq(term, expected_by_rule, "轨迹 %s 与终态规则自洽（含同 tick 优先级）" % tid,
+			"candidates=" + JSON.stringify(cands))
 		_ok(adjudications <= 2, "轨迹 %s 裁决事件不超过 2（幂等守卫）" % tid,
 			str(adjudications))
+		_ok(String(t2.get("player_contribution", "")) != "",
+			"轨迹 %s 区分玩家贡献与目标完成" % tid)
 	var pend := _find(traces, "TR-DISABLED-NOT-REPORTED")
 	_eq(String(pend.get("expected_terminal", "")), "pending_report",
 		"「已失能未报告」不算完成")
@@ -292,10 +318,85 @@ func _run() -> void:
 		"玩家报告视图仍是 unknown")
 	_eq(String(pend.get("expected_authority", "")), "in_progress",
 		"权威侧仍在进行")
+	var allno := _find(traces, "TR-ALL-DISABLED-NO-REPORT")
+	_eq(String(allno.get("expected_authority", "")), "all_objectives_disabled",
+		"全部目标已失能：权威侧已达成")
+	_eq(String(allno.get("expected_player_report", "")), "unknown",
+		"全部目标已失能：玩家视图仍 unknown（完整双视图样例）")
 	var zero := _find(traces, "TR-ZERO-COMPLETE-TIMEOUT")
 	_eq(String(zero.get("expected_terminal", "")), "defeat", "零完成轨迹 = defeat")
 	var civ := _find(traces, "TR-CIVILIAN-LOSS")
 	_eq(String(civ.get("expected_terminal", "")), "defeat", "民用损失轨迹 = defeat")
+	var civw := _find(traces, "TR-CIVILIAN-LOSS-SAME-TICK-WITHDRAW")
+	_eq(String(civw.get("expected_terminal", "")), "defeat",
+		"同 tick 撤离完成 + 民用损失 = defeat（按优先级）")
+	var allywin := _find(traces, "TR-ALLY-AUTONOMOUS-WIN")
+	_ok(String(allywin.get("expected_terminal", "")) != "victory",
+		"友军自主完成不得判 victory", String(allywin.get("expected_terminal", "")))
+
+	_step("9. 旗舰与预算自洽：旗舰在编制内、计入点数、不超预算")
+	var flag: Dictionary = doc.get("own_flag", {}) if doc.get("own_flag") is Dictionary else {}
+	var flag_class := String(flag.get("ship_class_id", ""))
+	_ok(friendly_ids.has(flag_class), "旗舰舰级存在", flag_class)
+	_eq(String(flag.get("deployment_rule", "")), "in_formation",
+		"旗舰按编制内占位（不额外部署）")
+	var flag_in_all := true
+	for raw_f2 in forms:
+		var ships2: Array = (raw_f2 as Dictionary).get("ships", []) as Array
+		if not (flag_class in ships2):
+			flag_in_all = false
+	var flag_cost := int(roundf(float(disp_of.get(flag_class, 0.0)) / 60.0))
+	_ok(flag_cost <= budget, "旗舰点数不超预算", "%d <= %d" % [flag_cost, budget])
+	_ok(flag_in_all, "两套编制都含旗舰舰级（任一选择都有旗舰）",
+		"flag=" + flag_class)
+
+	_step("9b. 友军能力：无武装舰只做侦察/中继/撤离，回执不得含开火")
+	var ally2: Dictionary = doc.get("ally_force", {})
+	var unarmed_only := true
+	for sid3 in (ally2.get("ships", []) as Array):
+		if not friendly_ids.has(String(sid3)):
+			unarmed_only = false
+	# 直接从 catalog 读 weapons，确认友军阵容确实无武装
+	for sid4 in (ally2.get("ships", []) as Array):
+		var wl: Array = _weapons_of(FRIENDLY, String(sid4))
+		_ok(wl.is_empty(), "友军 %s 在 catalog 中无武器（不能开火）" % String(sid4),
+			str(wl))
+	var cs: Array = doc.get("comms_samples", []) if doc.get("comms_samples") is Array else []
+	var fire_words := ["射击位", "拦截", "火控失能", "开火", "压制"]
+	var resp_fields := ["request", "accept", "reject", "in_progress",
+		"lost_or_damaged", "complete"]
+	var fire_found: Array = []
+	for raw_c in cs:
+		var parts: Array = []
+		for rf2 in resp_fields:
+			parts.append(String((raw_c as Dictionary).get(rf2, "")))
+		var txt := JSON.stringify(parts)
+		for fw in fire_words:
+			if txt.find(String(fw)) >= 0:
+				fire_found.append(String((raw_c as Dictionary).get("kind", "")) + ":" + String(fw))
+	_ok(fire_found.is_empty(), "无武装友军回执不含开火表述", str(fire_found))
+	_eq(String(ally2.get("capability", "")), "unarmed_recon_relay_withdraw",
+		"友军能力声明为侦察/中继/撤离")
+
+	_step("9c. 双视图 / 贡献 / 简报战报完整样例")
+	var dvs: Array = doc.get("dual_view_samples", [])
+	_ok(dvs.size() >= 2, "双视图样例 >= 2", str(dvs.size()))
+	var dv1 := _find_by(dvs, "sample_id", "DV-1")
+	_eq(String(dv1.get("authority_state", "")), "all_objectives_disabled",
+		"DV-1 权威已完成")
+	_eq(String(dv1.get("player_view_state", "")), "unknown",
+		"DV-1 玩家视图未知")
+	var cr2: Dictionary = doc.get("contribution_rules", {}) if doc.get("contribution_rules") is Dictionary else {}
+	_ok(String(cr2.get("objective_completion", "")).find("分开") >= 0,
+		"目标完成与玩家贡献分开统计")
+	_ok(String(cr2.get("ai_autonomous_recommendation", "")) != "",
+		"给出 AI 自主完成后的推荐口径", String(cr2.get("ai_autonomous_recommendation", "")))
+	var br: Dictionary = doc.get("briefing_sample", {}) if doc.get("briefing_sample") is Dictionary else {}
+	_ok((br.get("sections", []) as Array).size() >= 5, "简报样例完整",
+		str((br.get("sections", []) as Array).size()))
+	var db: Dictionary = doc.get("debrief_sample", {}) if doc.get("debrief_sample") is Dictionary else {}
+	_ok((db.get("sections", []) as Array).size() >= 5, "战报样例完整",
+		str((db.get("sections", []) as Array).size()))
 
 	_step("10. 负例变体：未知舰级 / 超容量 / 胜利轨迹缺失能事件 必须被拒绝")
 	var good_ids: Dictionary = friendly_ids
@@ -322,6 +423,29 @@ func _run() -> void:
 	_ok(_variant_errors(v3, good_ids, enemy_ids, cap).size() > 0,
 		"变体3 胜利轨迹缺失能事件被拒绝",
 		str(_variant_errors(v3, good_ids, enemy_ids, cap).slice(0, 2)))
+	# 变体 4：旗舰不在编制内（旗舰与部署冲突）
+	var v4: Dictionary = doc.duplicate(true)
+	((v4.get("own_flag", {}) as Dictionary))["ship_class_id"] = "OCUVF-GANTRY-3M"
+	((v4.get("formations", []) as Array)[1] as Dictionary)["ships"] = \
+		["OCUVF-HEMATITE-6C", "OCUVF-GANTRY-3M", "OCUVF-GANTRY-3M"]
+	_ok(_variant_errors(v4, good_ids, enemy_ids, cap).size() > 0,
+		"变体4 旗舰不在全部编制内被拒绝",
+		str(_variant_errors(v4, good_ids, enemy_ids, cap).slice(0, 2)))
+	# 变体 5：无武装友军回执却声称开火
+	var v5: Dictionary = doc.duplicate(true)
+	((v5.get("comms_samples", []) as Array)[0] as Dictionary)["complete"] = \
+		"完成：I-OP1 火控失能"
+	_ok(_variant_errors(v5, good_ids, enemy_ids, cap).size() > 0,
+		"变体5 无武装友军回执声称开火被拒绝",
+		str(_variant_errors(v5, good_ids, enemy_ids, cap).slice(0, 2)))
+	# 变体 6：同 tick 冲突被判成 withdrawal（违反声明优先级）
+	var v6: Dictionary = doc.duplicate(true)
+	for raw_t6 in (v6.get("event_traces", []) as Array):
+		if String((raw_t6 as Dictionary).get("trace_id", "")) == "TR-CIVILIAN-LOSS-SAME-TICK-WITHDRAW":
+			(raw_t6 as Dictionary)["expected_terminal"] = "withdrawal"
+	_ok(_variant_errors(v6, good_ids, enemy_ids, cap).size() > 0,
+		"变体6 同 tick 冲突违反优先级被拒绝",
+		str(_variant_errors(v6, good_ids, enemy_ids, cap).slice(0, 2)))
 	_step("11. 待用户决定项与依赖")
 	var pend2: Array = doc.get("user_decisions_pending", [])
 	_ok(pend2.size() >= 5, "列出待用户核对项", str(pend2.size()))
@@ -337,6 +461,24 @@ func _find(traces: Array, tid: String) -> Dictionary:
 		if raw is Dictionary and String((raw as Dictionary).get("trace_id", "")) == tid:
 			return raw
 	return {}
+
+
+func _find_by(rows: Array, key: String, want: String) -> Dictionary:
+	for raw in rows:
+		if raw is Dictionary and String((raw as Dictionary).get(key, "")) == want:
+			return raw
+	return {}
+
+
+## 从 catalog 读某舰级的 weapons 列表（用于验证友军是否有武装）。
+func _weapons_of(path: String, class_id: String) -> Array:
+	var doc: Dictionary = _read_json(path)
+	for raw in (doc.get("classes", []) as Array):
+		if raw is Dictionary \
+				and String((raw as Dictionary).get("class_id", "")) == class_id:
+			var w = (raw as Dictionary).get("weapons", [])
+			return w if w is Array else []
+	return []
 
 
 func _class_ids(path: String) -> Dictionary:
@@ -375,21 +517,81 @@ func _variant_errors(doc: Dictionary, friendly_ids: Dictionary,
 	var rul: Dictionary = doc.get("terminal_rules", {}) if doc.get("terminal_rules") is Dictionary else {}
 	var req: Array = (rul.get("victory", {}) as Dictionary).get("required_objectives", []) \
 		if rul.get("victory") is Dictionary else []
+	var prio: Array = rul.get("same_tick_priority", []) if rul.get("same_tick_priority") is Array else []
+	# R7：旗舰必须出现在每套编制内且不超预算
+	var flag2: Dictionary = doc.get("own_flag", {}) if doc.get("own_flag") is Dictionary else {}
+	var fclass := String(flag2.get("ship_class_id", ""))
+	if fclass != "":
+		var in_all := true
+		for raw_f2 in (doc.get("formations", []) as Array):
+			if not (fclass in ((raw_f2 as Dictionary).get("ships", []) as Array)):
+				in_all = false
+		if not in_all:
+			errs.append("flag class not present in every formation: " + fclass)
+		var fcost := int(roundf(float(_disp_of(doc, fclass)) / 60.0))
+		var bud := int((doc.get("fleet_pool", {}) as Dictionary).get("points_budget", 0))
+		if fcost > bud:
+			errs.append("flag points %d over budget %d" % [fcost, bud])
+	# R7：无武装友军回执不得含开火表述
+	var ally3: Dictionary = doc.get("ally_force", {}) if doc.get("ally_force") is Dictionary else {}
+	var ally_unarmed := true
+	for sid5 in (ally3.get("ships", []) as Array):
+		var wl2: Array = _weapons_of(FRIENDLY, String(sid5))
+		if not wl2.is_empty():
+			ally_unarmed = false
+	if ally_unarmed:
+		for raw_c2 in (doc.get("comms_samples", []) as Array):
+			for rf3 in ["request", "accept", "reject", "in_progress", "lost_or_damaged", "complete"]:
+				var tv := String((raw_c2 as Dictionary).get(rf3, ""))
+				for fw2 in ["射击位", "拦截", "火控失能"]:
+					if tv.find(String(fw2)) >= 0:
+						errs.append("unarmed ally receipt claims fire: " + tv)
+						break
 	for raw_t in (doc.get("event_traces", []) as Array):
 		var t: Dictionary = raw_t
 		var completed: Dictionary = {}
 		var adjudicated := false
+		var kinds2: Array = []
 		for raw_e in (t.get("events", []) as Array):
 			var e: Dictionary = raw_e
 			var k := String(e.get("kind", ""))
+			kinds2.append(k)
 			if k == "objective_disable":
 				completed[String(e.get("objective_id", ""))] = true
 			elif k == "target_still_engaging":
 				completed.erase(String(e.get("objective_id", "")))
 			elif k == "adjudicate":
 				adjudicated = true
-		if String(t.get("expected_terminal", "")) == "victory" and adjudicated \
-				and completed.size() < req.size():
-			errs.append("trace %s claims victory with %d/%d objectives" % [
-				String(t.get("trace_id", "")), completed.size(), req.size()])
+		if not adjudicated or int(t.get("terminal_events", 0)) <= 0:
+			continue
+		# R7：按 same_tick_priority 推导，与轨迹声明不符即视为规格冲突
+		var cs2: Array = []
+		if completed.size() >= req.size():
+			cs2.append("victory")
+		elif kinds2.has("time_limit_reached") and completed.size() == 0:
+			cs2.append("defeat")
+		elif completed.size() > 0 and completed.size() < req.size():
+			cs2.append("stalemate")
+		if kinds2.has("own_flag_disabled") or kinds2.has("protected_target_destroyed"):
+			cs2.append("defeat")
+		if kinds2.has("withdraw_complete"):
+			cs2.append("withdrawal")
+		var want := ""
+		for p2 in prio:
+			if String(p2) in cs2:
+				want = String(p2)
+				break
+		if want == "" and cs2.size() > 0:
+			want = String(cs2[0])
+		if want != "" and String(t.get("expected_terminal", "")) != want \
+				and String(t.get("expected_terminal", "")) != "pending_report":
+			errs.append("trace %s terminal %s conflicts with priority %s" % [
+				String(t.get("trace_id", "")), String(t.get("expected_terminal", "")), want])
 	return errs
+
+
+func _disp_of(doc: Dictionary, class_id: String) -> float:
+	for raw in ((doc.get("fleet_pool", {}) as Dictionary).get("ships", []) as Array):
+		if String((raw as Dictionary).get("ship_class_id", "")) == class_id:
+			return float((raw as Dictionary).get("displacement_t", 0.0))
+	return 0.0
