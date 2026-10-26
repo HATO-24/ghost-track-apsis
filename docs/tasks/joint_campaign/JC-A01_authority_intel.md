@@ -2,7 +2,11 @@
 
 执行Issue：[JC-A01 #58](https://github.com/HATO-24/ghost-track-apsis/issues/58)。
 
-状态：WAIT G0/K0；交付A1。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：READY，G0/K0已冻结；交付A1。
+
+## 2026-10-26 R8独立复核更新
+
+**READY：G0=K0=`9d0f3b4380275b0a30fffb4a29fa5c44ef58165f`。** 先fetch main并确认包含该候选；若后续main有代码变化先审差异，记录实际40位执行基线。按本卡原八段先做红例，再落指挥授权和每owner情报/读取/存档，主要代码由DeepSeek实现。此轮只启动这一张核心卡，不并行重写GameSession。P0产品待确认不阻塞本卡。见[解锁依据](../../reviews/pr65_r8_20261026/review.md)。
 
 ## 1. 目标与复现
 

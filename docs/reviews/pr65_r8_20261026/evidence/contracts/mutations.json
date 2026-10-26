@@ -1,0 +1,136 @@
+{
+	"cases": [
+		{
+			"case": "baseline_valid",
+			"errors": [],
+			"expected_ok": true,
+			"gating": true,
+			"matches": true,
+			"ok": true
+		},
+		{
+			"case": "r6_unselected_undeployed_shooter",
+			"errors": [
+				"命令 CMD-1 的 shooter I-A2 未被选中，不能受令",
+				"命令 CMD-1 的 shooter I-A2 未部署（当前 DRAFT），不能受令"
+			],
+			"expected_ok": false,
+			"gating": true,
+			"matches": true,
+			"ok": false
+		},
+		{
+			"case": "r6_enemy_observer_player_selfauth",
+			"errors": [
+				"观测共享授权者不是原始 owner：observer_owner=opfor_intel authorized_by=player_intel"
+			],
+			"expected_ok": false,
+			"gating": true,
+			"matches": true,
+			"ok": false
+		},
+		{
+			"case": "r6_deployment_negative_t",
+			"errors": [
+				"deployments I-A1 的 t 必须是有限非负秒"
+			],
+			"expected_ok": false,
+			"gating": true,
+			"matches": true,
+			"ok": false
+		},
+		{
+			"case": "r6_deployment_final_state_mismatch",
+			"errors": [
+				"deployments I-A1 记录到 VALIDATED，但实例当前状态是 DEPLOYED（记录与状态不一致）"
+			],
+			"expected_ok": false,
+			"gating": true,
+			"matches": true,
+			"ok": false
+		},
+		{
+			"case": "r6_missing_command_id",
+			"errors": [
+				"命令缺少 command_id（标识与幂等必须显式）"
+			],
+			"expected_ok": false,
+			"gating": true,
+			"matches": true,
+			"ok": false
+		},
+		{
+			"case": "missing_seq",
+			"errors": [
+				"命令 CMD-1 缺少 seq（事件序号必须显式）"
+			],
+			"expected_ok": false,
+			"gating": true,
+			"matches": true,
+			"ok": false
+		},
+		{
+			"case": "unknown_lifecycle_version",
+			"errors": [
+				"命令 CMD-1 的 lifecycle 版本不受支持: UNSUPPORTED-999（支持 [\"v17.cmd_lifecycle.v1\"]）"
+			],
+			"expected_ok": false,
+			"gating": true,
+			"matches": true,
+			"ok": false
+		},
+		{
+			"case": "reverse_lifecycle_time",
+			"errors": [],
+			"expected_ok": false,
+			"gating": false,
+			"matches": false,
+			"ok": true
+		},
+		{
+			"case": "rejected_then_completed",
+			"errors": [],
+			"expected_ok": false,
+			"gating": false,
+			"matches": false,
+			"ok": true
+		},
+		{
+			"case": "wrong_request_correlation",
+			"errors": [
+				"命令 CMD-1 的 lifecycle.execution 未关联同一 request_id"
+			],
+			"expected_ok": false,
+			"gating": true,
+			"matches": true,
+			"ok": false
+		},
+		{
+			"case": "duplicate_event_id_seq_request_across_commands",
+			"errors": [],
+			"expected_ok": false,
+			"gating": false,
+			"matches": false,
+			"ok": true
+		},
+		{
+			"case": "legacy_self_declared_other_own",
+			"errors": [],
+			"expected_ok": true,
+			"gating": false,
+			"matches": true,
+			"ok": true
+		},
+		{
+			"case": "cross_owner_missing_explicit_receiver",
+			"errors": [
+				"观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"
+			],
+			"expected_ok": false,
+			"gating": true,
+			"matches": true,
+			"ok": false
+		}
+	],
+	"head": "9d0f3b4380275b0a30fffb4a29fa5c44ef58165f"
+}

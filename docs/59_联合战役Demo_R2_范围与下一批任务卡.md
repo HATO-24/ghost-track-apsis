@@ -4,6 +4,10 @@
 
 延续[40号审计与原路线图](40_系统完成度复核与开发任务队列.md)的权威/测试契约；以下以56 R2更新产品范围，并用当前提交和本轮复核替换40号文档的历史状态判断。
 
+## 2026-10-26 R8独立复核更新
+
+**R8技术复核通过：G0与K0冻结为同一候选 `9d0f3b4380275b0a30fffb4a29fa5c44ef58165f`。** #56/#57原残项全部关闭。#58 JC-A01解除G0/K0等待，作为下一张核心实现卡；#59–#62仍按原依赖等待。#63只剩旗舰口径及反事实战报两项非阻塞文本校正，产品数字/内容尚未获批。顺序合并记录和独立全量结果见[本轮报告](reviews/pr65_r8_20261026/review.md)，下方R7/R6/R5均为历史。
+
 ## 2026-10-26 R7独立复核更新
 
 [本轮关闭项与窄收尾清单](reviews/pr65_r7_20261026/review.md)：被审 `2ae7bf7cba8af32ff4456cefe28efa3650b868dd`。allocator值、非满历史真实投递、原STARE缺字段、K0核心参战/共享/部署负例均关闭；底层C55迁移现partial可用。剩余null拒绝、公共partial报告、满载输出比较和原日志归档；K0归一字段/版本/共享合同；P0归一命名映射、自由组合边界与具体文案。**继续原#56/#57/#63，G0/K0尚未放行；不新增功能范围。** 下方R6/R5为历史。
@@ -96,14 +100,14 @@ G0、K0等是未来任务交付物的名字，当前不是有效SHA。每张卡�
 
 | 卡 | 状态 | 前置/输出 | 目标 |
 | --- | --- | --- | --- |
-| [JC-A00](tasks/joint_campaign/JC-A00_integration_closeout.md) · [#56](https://github.com/HATO-24/ghost-track-apsis/issues/56) | READY | C55→G0 | 返修整链冻结及验收补齐，复用#55 |
-| [JC-B00](tasks/joint_campaign/JC-B00_contracts.md) · [#57](https://github.com/HATO-24/ghost-track-apsis/issues/57) | READY设计 | C55；最终对齐G0→K0 | 多舰队数据、指挥与情报契约，B0规格与schema fixtures |
-| [JC-A01](tasks/joint_campaign/JC-A01_authority_intel.md) · [#58](https://github.com/HATO-24/ghost-track-apsis/issues/58) | WAIT G0/K0 | →A1 | 指挥权限及分方情报读写隔离 |
+| [JC-A00](tasks/joint_campaign/JC-A00_integration_closeout.md) · [#56](https://github.com/HATO-24/ghost-track-apsis/issues/56) | DONE（R8） | G0=`9d0f3b4…`，完整SHA见上文 | 返修整链冻结及验收补齐，复用#55 |
+| [JC-B00](tasks/joint_campaign/JC-B00_contracts.md) · [#57](https://github.com/HATO-24/ghost-track-apsis/issues/57) | DONE（R8） | K0=`9d0f3b4…`，完整SHA见上文 | 多舰队数据、指挥与情报契约，B0规格与schema fixtures |
+| [JC-A01](tasks/joint_campaign/JC-A01_authority_intel.md) · [#58](https://github.com/HATO-24/ghost-track-apsis/issues/58) | READY（R8解锁） | G0/K0已冻结→A1 | 指挥权限及分方情报读写隔离 |
 | [JC-A02](tasks/joint_campaign/JC-A02_identity.md) · [#59](https://github.com/HATO-24/ghost-track-apsis/issues/59) | WAIT A1 | →A2 | 身份证据单一出口、IFF/ELINT/光学/人工一致性 |
 | [JC-A03](tasks/joint_campaign/JC-A03_ew_observation.md) · [#60](https://github.com/HATO-24/ghost-track-apsis/issues/60) | WAIT A2 | →A3 | EW进入真实观测与火控消费者 |
 | [JC-A04](tasks/joint_campaign/JC-A04_ew_comms.md) · [#61](https://github.com/HATO-24/ghost-track-apsis/issues/61) | 服务可在A1后；Session接入在A3后 | →A4 | EW进入实际通信，保留恢复与权限语义 |
 | [JC-B01A](tasks/joint_campaign/JC-B01A_deployment.md) · [#62](https://github.com/HATO-24/ghost-track-apsis/issues/62) | WAIT A1/K0，最终集成在A4后 | →D1 | 两套合法编制转为独立、可恢复的部署实例；多舰发射仍属后续B1b |
-| [JC-B03P](tasks/joint_campaign/JC-B03P_scenario_proposal.md) · [#63](https://github.com/HATO-24/ghost-track-apsis/issues/63) | READY内容设计 | 先用B00草案，最终对齐K0→P0 | 具体战区、目标判据、简报/战报方案，交用户核对 |
+| [JC-B03P](tasks/joint_campaign/JC-B03P_scenario_proposal.md) · [#63](https://github.com/HATO-24/ghost-track-apsis/issues/63) | P0草案；产品核对前文字校正 | K0已冻结→待核对P0 | 具体战区、目标判据、简报/战报方案，交用户核对 |
 
 ```mermaid
 flowchart TD

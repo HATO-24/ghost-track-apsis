@@ -1,0 +1,90 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+==== V17 SENSOR-1 TWS PROBE · GHOST TRACK / APSIS ====
+[SRC] scripts/{state,tws_bridge,plot}.gd × framework/sim/{radar,tws,optical}.gd
+
+── 1. V15 state 只读场景（T+46）──
+[PASS] V15 tracks 8 条（7 舰 + 9002 虚警）  n=8
+[PASS] tau=46 s（脚本时序 T+20 雷达已开机 26 s）  tau=46.0
+[PASS] V15 sensor_on：哈马丹 YW-R9 开机
+
+── 2. V17TwsBridge：V2 模型装载（framework/sim）──
+[PASS] V2SensorTypes 记录装载（radar_record）
+[PASS] V2TwsModel / V2OpticalModel 实例就绪
+[PASS] 雷达型号 YW-R9  YW-R9
+[PASS] 刷新率 = 6 s
+[PASS] TWS 通道容量 = 6
+[PASS] V2 记录：球形搜索体（非扇形）
+
+── 3. step()：TWS 六通道 / 状态迁移 / 质量 / 更新率 ──
+[PASS] bridge.step 成功
+[PASS] 雷达 active（plot 可画球）
+[PASS] TWS 六通道（非本舰 6 个目标）  n=6
+[PASS] 6 通道 active  n=6
+[PASS] 雷达开机 26 s 后六通道全部 FIRE_CONTROL  { "SEARCH": 0, "DETECT": 0, "ACQUIRE": 0, "TRACK": 0, "STARE": 0, "FIRE_CONTROL": 6 }
+[PASS] 短标签 FC / fire_control_ready  FC
+[PASS] quality ≥0.85  q=0.95
+[PASS] 更新率 ≈1/6 Hz  0.167
+[PASS] age ≤ 扫描周期  age=1.5
+[PASS] 通道带距离（plot/TWS 环用）  337 km
+[PASS] 通道 join V15 航迹资料（batch/name）  1001 哈马丹
+[PASS] 单通道状态序列覆盖 DETECT→ACQUIRE→TRACK→STARE→FIRE_CONTROL  ["DETECT", "ACQUIRE", "TRACK", "STARE", "FIRE_CONTROL"]
+[PASS] 状态机到达 FIRE_CONTROL
+[PASS] step(6 s) 继续刷新（update_count 增长）  5→6
+[PASS] step 声明 state_modified=false
+
+── 4. 球形雷达 R_eff / 暴露（非扇形）──
+[PASS] 球形雷达 available/active
+[PASS] shape=sphere / no_sector  sphere
+[PASS] 标称球半径 30,000 km（YW-R9）
+[PASS] R_eff 与 V2RadarModel 直接计算一致  30000.000 km
+[PASS] 稳定跟踪半径 15,000 km
+[PASS] 球刷新 6 s
+[PASS] 6 目标全部在球内  total=6 in=6
+[PASS] 暴露 emission_level=1.0（开机即暴露）
+[PASS] ELINT 截获 45,000 km（V2 暴露模型）
+[PASS] 20 s 可定位（fix_after_s）
+[PASS] T+30 已被定位（fixed=true）  progress=1.00
+[PASS] exposure_line 含真实 R_eff/截获距离  球面搜索 · R_eff 30,000 km · ELINT 截获 45,000 km
+[PASS] summary 可读  TWS harmattan · YW-R9 · 6 CH (6 active) · R_eff 30000 km · RADAR ON
+
+── 5. snapshot()：V15 tracks → V2 world_snapshot ──
+[PASS] world_snapshot 目标 6（非本舰）  n=6
+[FAIL] observer = 本舰 track 1001  1000
+[PASS] observer pos_km 为 3D 局部坐标
+[PASS] 目标行含 pos_km/rcs_m2/classification
+[PASS] step/snapshot 输出 JSON 可序列化
+[PASS] plot 可用 state.board_pos 投影全部通道目标
+
+── 6. 雷达关机 / EMCON ──
+[PASS] 关机后 is_radar_on=false
+[PASS] 关机后 step.active=false（plot 不画球）
+[PASS] 关机后球形 active=false / 无暴露
+[PASS] 重新开机 is_radar_on=true
+[PASS] EMCON 时 is_radar_on=false
+[PASS] EMCON 时 step.active=false
+[PASS] 解除 EMCON 恢复
+
+── 7. 光学/IR 通道（V2OpticalModel）──
+[PASS] 未建通道时光学通道 0
+[PASS] 建立 VIS 凝视通道（2001）
+[PASS] 1 条 VIS 通道  n=1
+[PASS] VIS 凝视 5 s 锁定（目标 ~319 km）  status=locked
+[PASS] VIS 锁定支撑 L3
+[PASS] stop_optical 清空通道
+
+── 8. 只读契约：bridge 不修改 state ──
+[PASS] state.clock/tracks/sensor_on/own_events 未被 bridge 修改
+[PASS] tracks 数量不变
+[PASS] last_step JSON 可序列化
+
+[API] V17TwsBridge.new(state, {ship,radar_model}) / step(dt<0 自动追帧|dt>=0) / channels() / radar_sphere() / exposure_line() / optical_channels() / start_optical/start_ir/stop_optical / snapshot()
+[API] plot：_draw_radar_sphere()（SPHERICAL SEARCH · R_eff ... km，1px 球壳线框）/ _draw_tws_channels()（六态环 + 短标签 SRCH/DET/ACQ/TRK/STARE/FC，蓝/琥珀）/ _v17_exposure_line()
+[REPORT] bridge: TWS harmattan · YW-R9 · 6 CH (6 active) · R_eff 30000 km · RADAR ON
+[REPORT] by_state: {"ACQUIRE":0,"DETECT":0,"FIRE_CONTROL":6,"SEARCH":0,"STARE":0,"TRACK":0}
+[REPORT] sphere: {"eff_km":30000.0,"in_sphere":6,"no_sector":true,"nominal_km":30000.0,"refresh_s":6.0,"shape":"sphere","track_km":15000.0}
+[REPORT] channel[0]: {"active":true,"age_s":1.5,"batch":"1001","bearing_deg":141.9059172162,"bearing_sigma_deg":0.15,"en":"HARMATTAN","fire_control":{"age_s":1.5,"bearing_deg":141.9059172162,"bearing_sigma_deg":0.15,"elevation_deg":-10.444882890455,"range_km":336.919494628906,"range_sigma_km":0.842298736572266,"t":26.0,"target_id":"1001","track_quality":0.9496715625,"update_rate_hz":0.166666666666667},"fire_control_ready":true,"level":4,"lost_lock":false,"lost_lock_count":0,"name":"哈马丹","quality":0.9496715625,"range_km":336.919494628906,"range_sigma_km":0.842298736572266,"short":"FC","side":"friend","slot":0,"stable_track":true,"stare_progress":1.0,"state":"FIRE_CONTROL","state_index":5,"target_track_id":"1001","update_count":5,"update_rate_hz":0.166666666666667}
+
+[SUMMARY] pass=58 fail=1
+V17 SENSOR-1 TWS PROBE FAIL
+AUDIO OK files=36 headless=true muted=false

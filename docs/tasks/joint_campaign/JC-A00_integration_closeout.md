@@ -2,7 +2,11 @@
 
 执行Issue：[JC-A00 #56](https://github.com/HATO-24/ghost-track-apsis/issues/56)。
 
-状态：R7独立复核后收尾，G0/K0尚未放行。公共规则与C回归见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：DONE，R8独立复核通过，交付G0。
+
+## 2026-10-26 R8独立复核更新
+
+R8已独立关闭全部原残项：null五变体原子拒绝、真C55公开partial及新格式full对照、200条满载投递内容检出、实际长测原始文件tracked且JSON/stdout相符。**G0=`9d0f3b4380275b0a30fffb4a29fa5c44ef58165f`**；性能继续#49，不改预算。原反例不再整项返工。见[证据](../../reviews/pr65_r8_20261026/review.md)。
 
 ## 2026-10-26 R7复核后的当前执行范围
 

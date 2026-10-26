@@ -1,0 +1,56 @@
+ERROR: TimeService: precondition: tick(dt) 要求 dt 有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] tick (res://scripts/core/time_service.gd:122)
+       [2] _test_time_basic (res://tests/core_time_event_probe.gd:118)
+       [3] _initialize (res://tests/core_time_event_probe.gd:26)
+ERROR: TimeService: precondition: tick(dt) 要求 dt 有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] tick (res://scripts/core/time_service.gd:122)
+       [2] _test_time_basic (res://tests/core_time_event_probe.gd:122)
+       [3] _initialize (res://tests/core_time_event_probe.gd:26)
+ERROR: TimeService: precondition: scale 必须有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] set_scale (res://scripts/core/time_service.gd:162)
+       [2] _test_time_controls (res://tests/core_time_event_probe.gd:152)
+       [3] _initialize (res://tests/core_time_event_probe.gd:27)
+ERROR: TimeService: precondition: window_duration_s 必须有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] set_window (res://scripts/core/time_service.gd:176)
+       [2] _test_time_window_seek (res://tests/core_time_event_probe.gd:189)
+       [3] _initialize (res://tests/core_time_event_probe.gd:28)
+ERROR: TimeService: precondition: seek 不允许回退（5.000 < 10.000）
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] seek (res://scripts/core/time_service.gd:197)
+       [2] _test_time_window_seek (res://tests/core_time_event_probe.gd:198)
+       [3] _initialize (res://tests/core_time_event_probe.gd:28)
+ERROR: TimeService: precondition: seek 目标必须有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/time_service.gd:326)
+       [1] seek (res://scripts/core/time_service.gd:194)
+       [2] _test_time_window_seek (res://tests/core_time_event_probe.gd:201)
+       [3] _initialize (res://tests/core_time_event_probe.gd:28)
+ERROR: WorldState: precondition: writer 冲突（当前 world，请求 other）
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/world_state.gd:321)
+       [1] claim_writer (res://scripts/core/world_state.gd:69)
+       [2] _test_world_writer (res://tests/core_time_event_probe.gd:376)
+       [3] _initialize (res://tests/core_time_event_probe.gd:32)
+ERROR: WorldState: precondition: writer 冲突（当前 w1，请求 w2）
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/world_state.gd:321)
+       [1] claim_writer (res://scripts/core/world_state.gd:69)
+       [2] _test_world_writer (res://tests/core_time_event_probe.gd:389)
+       [3] _initialize (res://tests/core_time_event_probe.gd:32)

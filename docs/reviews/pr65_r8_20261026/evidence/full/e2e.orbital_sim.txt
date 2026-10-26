@@ -1,0 +1,266 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+E2E ORBITAL SIM PROBE · 真实入口 main_menu → v1_hud → ShellBinder → GameSession
+Godot 4.7.2-stable (official) · target profile=orbital_sim
+════════════════════════════════════════════════════════════════
+[E2E] STEP 0 · 环境: DSH_BUILD=orbital_sim DSH_SHOT='' DSH_FLOW_SMOKE='' DSH_NO_AUTOSKIP='' DSH_V1_TEST=''
+
+[E2E] STEP 1. 真实入口 main_menu → v1_hud（SceneTree.change_scene_to_file）
+[E2E] PASS change_scene_to_file(main_menu) 返回 OK  err=0
+AUDIO OK files=36 headless=true muted=false
+[MAIN MENU] BUILD=orbital_sim → skip to res://v1_hud.tscn
+[BUILD PROFILE] id=orbital_sim mode=simulator scene=res://v1_hud.tscn scenario=res://framework/content/scenario_orbital_sim.json save_root=user://saves_sim
+[BUILD PROFILE] SYSTEM story=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM prelude=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM triggers=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM identification=ON
+[BUILD PROFILE] SYSTEM traffic=ON
+[BUILD PROFILE] SYSTEM port=ON
+[BUILD PROFILE] SYSTEM signal=ON
+[BUILD PROFILE] SYSTEM combat=ON
+[BUILD PROFILE] SYSTEM ballistics=ON
+[BUILD PROFILE] SYSTEM damage=ON
+[BUILD PROFILE] SYSTEM physics_world=ON
+[BUILD PROFILE] SYSTEM sandbox=OFF reason=非测试剖面
+[BUILD PROFILE] SYSTEM ship_catalog=ON
+[BUILD PROFILE] SYSTEM refit=ON
+[BUILD PROFILE][LIMITATION] 轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。
+[BUILD PROFILE][LIMITATION] EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。
+[BUILD PROFILE][LIMITATION] UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。
+[SHELL BINDER] BUILD profile=orbital_sim mode=simulator label=GHOST TRACK // APSIS — ORBITAL SIM save_root=user://saves_sim
+[SHELL BINDER] SANDBOX entities=7 scenario=res://framework/content/scenario_orbital_sim.json
+[SHELL BINDER] SYSTEMS physics=true sensors=true track_table=true combat=true ballistics=true damage=true ew=true identification=true traffic=true port=true ship_catalog=true refit=true story=disabled
+[SHELL BINDER] CeresChain ready state=L1 entity=ceres_2 texts=9 code=7600
+[SHELL BINDER] ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0
+[SHELL BINDER] AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=19 threat=0 trust=0
+[SHELL BINDER] AfterActionReport ready branches=6 templates=3
+[SHELL BINDER] TrafficControl source=session ready=true lanes=18 otc=19 npc=6
+[SHELL BINDER] physics ready=true plot_source=physics positions=7 facilities=12 facility_source=facility_registry_l1
+[SHELL BINDER] fleet_data ready=true friendly=8 enemy=24 total=32
+[SHELL BINDER] refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL
+[SHELL BINDER] CICView ready=true truth=false tracks=2 levels={ "1": 0, "2": 2, "3": 0, "4": 0 } facilities=110
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[SHELL BINDER] signal targets synced added=0 updated=7 count=7
+[V1 HUD] binder boot=true errors=[] contacts=7 orders=0
+[V1 HUD] COMMS seed LD=true LR=false events=2
+[V1 HUD] COMBAT source=session sandbox={ "unlimited_ammo": false, "auto_authorize": false }
+[V1 HUD] COMBAT tracks=2 weapons=5 target=T0001 weapon=missile
+[V1 HUD] damage_model=true sections=7 combat=true roe=TIGHT roe_locked=true
+[SHELL BINDER] plot_bodies source=physics earth=[-326389.684568483, -0.0, 0.0] moon=[58010.3154315171, -0.0, 0.0]
+[SHELL BINDER] plot_sensors ready=true rings=4 obs=4 tws=2 emcon=false ew_ready=true
+[SHELL BINDER] plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=2 solutions=0 grants=0 incoming=0 pred=true
+[SHELL BINDER] plot_commands ready=true orders=0 pending=0 transmitted=0 executed=0
+[V1 PLOT3D] labels=18 conflicts=6 hidden_facility=8 bodies=physics
+[E2E] PASS 真实入口经过 main_menu（主菜单自动跳过已触发）  saw_main_menu=true frames=3
+[E2E] PASS current_scene 为 V1HUD 且脚本为 v1_hud.gd  path=res://v1_hud.tscn
+[E2E] PASS 入口在帧上限内完成  frames=3
+[E2E] INFO 首帧到 HUD 用时 3 帧 / 1622 ms
+
+[E2E] STEP 2. BuildProfile / ShellBinder
+[E2E] PASS V1HUD.binder 已创建
+[E2E] PASS binder.session 存在
+[E2E] PASS ShellBinder.ready == true  errors=[]
+[E2E] PASS ShellBinder boot 无错误  []
+[E2E] PASS binder.build_profile 存在
+[E2E] PASS BuildProfile.ready == true  errors=[]
+[E2E] PASS BuildProfile 加载无错误  []
+[E2E] PASS profile id  actual=orbital_sim expected=orbital_sim
+[E2E] PASS profile boot_mode  actual=simulator expected=simulator
+[E2E] PASS profile entry_scene  actual=res://v1_hud.tscn expected=res://v1_hud.tscn
+[E2E] PASS profile scenario 精确指向验收场景文件  actual=res://framework/content/scenario_orbital_sim.json expected=res://framework/content/scenario_orbital_sim.json
+[E2E] PASS profile feature story  actual=false expected=false
+[E2E] PASS profile feature prelude  actual=false expected=false
+[E2E] PASS profile feature triggers  actual=false expected=false
+[E2E] PASS profile feature identification  actual=true expected=true
+[E2E] PASS profile feature traffic  actual=true expected=true
+[E2E] PASS profile feature port  actual=true expected=true
+[E2E] PASS profile feature signal  actual=true expected=true
+[E2E] PASS profile feature combat  actual=true expected=true
+[E2E] PASS profile feature ballistics  actual=true expected=true
+[E2E] PASS profile feature damage  actual=true expected=true
+[E2E] PASS profile feature physics_world  actual=true expected=true
+[E2E] PASS profile feature sandbox  actual=false expected=false
+[E2E] PASS profile feature ship_catalog  actual=true expected=true
+[E2E] PASS profile feature refit  actual=true expected=true
+[E2E] PASS BuildProfile 提供 is_simulator()
+[E2E] PASS is_simulator() == true
+[E2E] PASS BuildProfile 提供 is_sandbox()
+[E2E] PASS is_sandbox() == false（拟真剖面不是 sandbox）
+[E2E] PASS BuildProfile 提供 is_simulation()
+[E2E] PASS is_simulation() == true（模拟器跳过剧情）
+[E2E] PASS profile.limitations 数量 >= 6  n=7
+[E2E] INFO LIMITATION 轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。
+[E2E] INFO LIMITATION EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。
+[E2E] INFO LIMITATION 传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。
+[E2E] INFO LIMITATION 交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。
+[E2E] INFO LIMITATION 交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。
+[E2E] INFO LIMITATION 舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。
+[E2E] INFO LIMITATION UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。
+[E2E] PASS profile.limitations 条目均非空  actual=0 expected=0
+
+[E2E] STEP 3. GameSession 启动
+[E2E] PASS GameSession 实例存在
+[E2E] PASS GameSession.ready == true  errors=[]
+[E2E] PASS GameSession.booted == true
+[E2E] PASS GameSession.boot 无错误  []
+[E2E] PASS session 时间基准可读  t=0.100
+
+[E2E] STEP 4. 真实系统装配（以真实服务对象 ready 为准）
+[E2E] SYSTEM physics_world          READY          required
+[E2E] PASS 系统就绪: physics_world  present=true ready=true
+[E2E] SYSTEM sensor_service         READY          required
+[E2E] PASS 系统就绪: sensor_service  present=true ready=true
+[E2E] SYSTEM track_table            READY          required
+[E2E] PASS 系统就绪: track_table  present=true ready=true
+[E2E] SYSTEM combat_service         READY          required
+[E2E] PASS 系统就绪: combat_service  present=true ready=true
+[E2E] SYSTEM combat_ballistics      READY          required
+[E2E] PASS 系统就绪: combat_ballistics  present=true ready=true
+[E2E] SYSTEM damage_service         READY          required
+[E2E] PASS 系统就绪: damage_service  present=true ready=true
+[E2E] SYSTEM ew_service             READY          required
+[E2E] PASS 系统就绪: ew_service  present=true ready=true
+[E2E] SYSTEM identification_service READY          required
+[E2E] PASS 系统就绪: identification_service  present=true ready=true
+[E2E] SYSTEM traffic_control        READY          required
+[E2E] PASS 系统就绪: traffic_control  present=true ready=true
+[E2E] SYSTEM port_service           READY          required
+[E2E] PASS 系统就绪: port_service  present=true ready=true
+[E2E] SYSTEM ship_catalog           READY          required
+[E2E] PASS 系统就绪: ship_catalog  present=true ready=true
+[E2E] SYSTEM refit_service          READY          required
+[E2E] PASS 系统就绪: refit_service  present=true ready=true
+[E2E] PASS binder.systems_vm() 非空（与启动日志同源）
+[E2E] PASS systems_vm.profile  actual=orbital_sim expected=orbital_sim
+[E2E] PASS systems_vm.mode  actual=simulator expected=simulator
+[E2E] PASS systems_vm.scenario  actual=res://framework/content/scenario_orbital_sim.json expected=res://framework/content/scenario_orbital_sim.json
+[E2E] PASS systems_vm.physics == true  actual=true expected=true
+[E2E] PASS systems_vm.sensors == true  actual=true expected=true
+[E2E] PASS systems_vm.track_table == true  actual=true expected=true
+[E2E] PASS systems_vm.combat == true  actual=true expected=true
+[E2E] PASS systems_vm.ballistics == true  actual=true expected=true
+[E2E] PASS systems_vm.damage == true  actual=true expected=true
+[E2E] PASS systems_vm.ew == true  actual=true expected=true
+[E2E] PASS systems_vm.identification == true  actual=true expected=true
+[E2E] PASS systems_vm.traffic == true  actual=true expected=true
+[E2E] PASS systems_vm.port == true  actual=true expected=true
+[E2E] PASS systems_vm.ship_catalog == true  actual=true expected=true
+[E2E] PASS systems_vm.refit == true  actual=true expected=true
+[E2E] PASS systems_vm.story == disabled（无剧情状态）  actual=disabled expected=disabled
+[E2E] PASS PhysicsWorld 有真实实体  entities=7
+[E2E] PASS binder.physics_world_ready() == true
+
+[E2E] STEP 5. 场景实体 / own_entity / 无剧情状态
+[E2E] PASS 场景 JSON 可读  res://framework/content/scenario_orbital_sim.json
+[E2E] PASS 场景实体表非空  n=7
+[E2E] PASS GameSession 世界实体数 == 场景实体数  actual=7 expected=7
+[E2E] PASS 场景每个实体都在真实 world 中  missing=[]
+[E2E] INFO CONTACT SIDE MISMATCH n=5: ["harmattan(truth=hostile,contact=unknown,badge=TRACK)", "ferry(truth=neutral,contact=unknown,badge=ENTITY)", "raider_2(truth=hostile,contact=unknown,badge=ENTITY)", "skiff(truth=hostile,contact=unknown,badge=ENTITY)", "watchtower(truth=neutral,contact=unknown,badge=ENTITY)"]
+[E2E] PASS 场景声明 own_entity  apsis
+[E2E] PASS session._seed.own_entity  actual=apsis expected=apsis
+[E2E] PASS own_entity 存在且是真实实体  apsis
+[E2E] PASS session.story_state == null（无剧情状态机）
+[E2E] PASS session.story_vm() 为空（无伪造剧情 VM）
+[E2E] PASS binder.story_vm 为空
+[E2E] PASS binder.used_prelude == false（未走序章路径）
+[E2E] INFO session.prelude=<null>
+[E2E] PASS PhysicsWorld 实体数 == 场景实体数  actual=7 expected=7
+[E2E] PASS 场景每个实体都进入 PhysicsWorld  missing=[]
+
+[E2E] STEP 6. 拟真默认（无便利项）
+[E2E] PASS combat_service 存在
+[E2E] PASS combat_service.unlimited_ammo == false  actual=false expected=false
+[E2E] PASS combat_service.auto_authorize == false  actual=false expected=false
+[E2E] PASS combat_vm.sandbox.unlimited_ammo == false  actual=false expected=false
+[E2E] PASS combat_vm.sandbox.auto_authorize == false  actual=false expected=false
+[E2E] PASS profile.sandbox_opts 键数  actual=3 expected=3
+[E2E] PASS profile.sandbox_opts.unlimited_ammo == false  actual=false expected=false
+[E2E] PASS profile.sandbox_opt(unlimited_ammo) == false  actual=false expected=false
+[E2E] PASS profile.sandbox_opts.auto_authorize == false  actual=false expected=false
+[E2E] PASS profile.sandbox_opt(auto_authorize) == false  actual=false expected=false
+[E2E] PASS profile.sandbox_opts.quick_restart == false  actual=false expected=false
+[E2E] PASS profile.sandbox_opt(quick_restart) == false  actual=false expected=false
+[E2E] PASS binder.quick_restart() 被拒（拟真剖面无快速重开）  { "ok": false, "reason": "not_allowed" }
+[E2E] PASS quick_restart 拒绝原因明确  not_allowed
+
+[E2E] STEP 7. 交通 / 港口实时查询
+[E2E] PASS binder.traffic_service 存在
+[E2E] PASS binder.traffic_ready == true  []
+[E2E] PASS traffic 来源为 session（真实装配，不是 direct-fallback 桩）  actual=session expected=session
+[E2E] PASS binder.traffic_service 就是 session.traffic_control（同一真实对象）
+[E2E] PASS binder.traffic_vm() 非空
+[E2E] PASS traffic 真实车道数据  lanes=18
+[E2E] PASS traffic 真实设施数据  facilities=110
+[E2E] PASS traffic 真实 OTC 数据  otc=19
+[E2E] PASS binder.traffic_lane_rows() 非空  n=18
+[E2E] PASS binder.traffic_otc_rows() 非空
+[E2E] PASS binder.traffic_lane('LANE-L1-IN-01') 可查询  ["lane_id", "name", "cluster_id", "from", "to", "direction", "capacity", "transit_s", "priority", "windows", "monitor_otc", "hazards", "status"]
+[E2E] PASS traffic_lane 返回真实车道对象  lane_id=LANE-L1-IN-01
+[E2E] INFO traffic lane sample: lane_id=LANE-L1-IN-01 cluster=L1_MERIDIAN
+[E2E] PASS session.port_service 存在
+[E2E] PASS session.port_service.ready == true
+[E2E] PASS port_service.vm().ports 非空  n=1
+[E2E] PASS port 资源汇总有真实港口  ports=1
+[E2E] PASS port 泊位资源非零  berths_total=2
+[E2E] PASS port_summary('l1_meridian_05') 可查询
+[E2E] PASS window_status('l1_meridian_05') 可查询  { "ok": true, "is_open": true, "window": { "id": "W1", "open_t": 0.0, "close_t": 1000000.0 }, "t_s": 0.1 }
+[E2E] INFO port sample: id=l1_meridian_05 name=L1 Meridian berths=2
+
+[E2E] STEP 8. 战斗闭环（未授权拒绝 → TRACK → SOLUTION → 授权 → FIRE → 弹道结果）
+[E2E] PASS 传感器→航迹产生真实 track  track_ticks=0
+[E2E] PASS 从真实航迹选中可交战目标（真实敌对实体）  target=T0001 entity=harmattan weapon=railgun track_range=420.0km diag=[]
+[E2E] PASS 目标实体在场景 truth 中为敌对/可疑  side=hostile identity=hostile
+[E2E] INFO 选定目标: track=T0001 fusion_identity=unknown fusion_threat=none · entity=harmattan truth_side=hostile
+[E2E] INFO physics truth range apsis→harmattan = 420.0 km（航迹融合值 420.0 km）
+[E2E] PASS 目标出现在 binder.contacts 真实接触表
+[E2E] PASS set_weapon_salvo(railgun, 1)  { "ok": true, "reason": "", "weapon_id": "railgun", "salvo": 1, "salvo_max": 1, "ammo": 120 }
+[E2E] PASS 开火前弹药 > 0  ammo=120
+[E2E] PASS 未授权 FIRE 被拒  { "ok": false, "reason": "needs_authorization", "needs_authorization": true, "target_id": "T0001", "weapon_id": "railgun" }
+[E2E] PASS 拒绝原因非空  needs_authorization
+[E2E] PASS 未授权拒绝原因 == needs_authorization（ROE 授权门禁生效）  actual=needs_authorization expected=needs_authorization
+[E2E] PASS 未授权拒绝不消耗弹药  actual=120 expected=120
+[E2E] PASS TRACK 真实火控请求  { "ok": true, "reason": "grant_or_confirm", "target_id": "T0001", "auto": false, "roe": "TIGHT" }
+[E2E] PASS SOLUTION 真实解算请求  { "ok": true, "reason": "", "solution": { "solution_id": "SOL-000001", "target_id": "T0001", "weapon_id": "railgun", "status": "COMPUTING", "start_t": 0.1, "ready_t": 4.1, "quality": 0.0, "error_km": -1.0, "reason": "", "fire_ready": false } }
+[E2E] PASS 解算 READY（真实 tick 推进）  ticks=4
+[E2E] PASS grant_authorization(FIRE, target)  { "ok": true, "reason": "", "grant": { "grant_id": "GR-000001", "level": "FIRE", "scope_type": "target", "scope_id": "T0001", "granted_t": 4.1, "duration_s": 0.0, "until_destroyed": false, "expires_t": -1.0 } }
+[E2E] PASS combat_authorization 读到真实授权
+[E2E] PASS FIRE 真实发射
+[E2E] PASS 开火走真实弹道（physics=ballistics）  actual=ballistics expected=ballistics
+[E2E] PASS FIRE 返回不伪造同步命中（命中异步等 impact）  ["ok", "reason", "shot_id", "salvo", "weapon_id", "target_id", "ammo_left", "cooldown_until", "solution", "prediction", "physics", "no_physics", "launch_spec", "launched", "projectile_ids", "launch", "shooter_id", "target_entity", "time_cap"]
+[E2E] PASS launched >= 1  launched=1
+[E2E] PASS projectile_ids 数与 launched 一致  actual=1 expected=1
+[E2E] PASS shooter 解析为 own_entity  actual=apsis expected=apsis
+[E2E] PASS target 实体解析正确  actual=harmattan expected=harmattan
+[E2E] PASS 弹药真实扣减（before-launched）  actual=119 expected=119
+[E2E] PASS fire.ammo_left == 实时弹药余量  actual=119 expected=119
+[E2E] PASS 有真实弹丸在飞  active=1
+[E2E] PASS 弹道闭环：无在飞弹  ticks=14 dt=2
+[E2E] PASS 真实弹道结果记录存在（impact/intercept/miss，不是伪造成功）  impacts=1 intercepts=0 miss=0
+[E2E] PASS impact 记录有 id  IMP-00001
+[E2E] PASS impact target 与真实目标实体一致  actual=harmattan expected=harmattan
+[E2E] PASS impact 有真实时间戳  t=32.1
+[E2E] INFO impact: id=IMP-00001 weapon=railgun miss_dist=0.0000km proximity=false
+[E2E] PASS 命中伤害真实进入 DamageService（integrity 下降）  integrity_avg=0.9424
+[E2E] PASS combat_service 有 weapon_launch 真实事件  n=1
+[E2E] PASS weapon_launch 事件数 == launched  actual=1 expected=1
+[E2E] PASS 弹道服务 projectile 计数 >= launched  projectiles=1
+[E2E] INFO 战后航迹: damaged=0.35 destroyed=false
+────────────────────────────────────────────────────────────────
+E2E ORBITAL SIM PROBE RESULT: PASS=153 FAIL=0
+E2E ORBITAL SIM PROBE OK · target=orbital_sim
+[SHELL BINDER] signal targets synced added=0 updated=7 count=7
+
+--- STDERR ---
+WARNING: 76 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 30 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

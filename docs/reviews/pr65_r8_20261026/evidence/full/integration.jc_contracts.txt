@@ -1,0 +1,109 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+JC-B00 CONTRACTS PROBE · schema=v17.jc.contracts.v1 version=1
+════════════════════════════════════════════════════════════════
+
+[JC-B00] STEP 1. 合法契约：三分域 + 两套自有编制 + 单舰账本
+[JC-B00] PASS valid fixture 可读  res://tests/fixtures/jc_contracts/valid_three_domains.json
+[JC-B00] PASS valid fixture 通过语义校验  errors=[]
+[JC-B00] PASS valid fixture 无错误
+[JC-B00] PASS 恰好 3 个指挥域（player/ai_ally/ai_hostile）  actual=3 expected=3
+[JC-B00] PASS 玩家有 2 套自有编制  actual=2 expected=2
+[JC-B00] PASS 阵营与直控是两个字段（friend≠直控）
+[JC-B00] PASS 情报拥有者独立建模  player_intel
+[JC-B00] PASS ROE 授权独立建模  TIGHT
+[JC-B00] PASS roster 成员都是本舰队的实例（选择→实例关系明确）
+[JC-B00] PASS 部署清单只包含已登记实例
+
+[JC-B00] STEP 2. 可逆序列化（JSON 往返后语义不变）
+[JC-B00] PASS JSON 往返后仍通过校验  errors=[]
+[JC-B00] PASS 往返后指挥域数量一致  actual=3 expected=3
+[JC-B00] PASS 往返后 version 仍是整数值  1.0
+
+[JC-B00] STEP 3. 单位契约：t→kg 只换算一次
+[JC-B00] PASS 12 t → 12000 kg  actual=12000.0 expected=12000.0
+[JC-B00] PASS 1 t → 1000 kg  actual=1000.0 expected=1000.0
+[JC-B00] PASS 重复换算会得到不同量级（证明只允许一次）  1000000.0
+
+[JC-B00] STEP 4. 负例矩阵：逐项明确拒绝
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_duplicate_instance.json  reason=["重复 entity_instance_id: I-A1", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_duplicate_instance.json  expect~重复 entity_instance_id
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_cross_domain.json  reason=["跨域指挥：instance I-A2 的域 opfor 与 fleet F-PLAYER-A 的域 player 不一致", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_cross_domain.json  expect~跨域指挥
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_shooter.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_shooter.json  expect~shooter_id
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_resource_owner.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_resource_owner.json  expect~资源引用别舰
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_units.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_units.json  expect~单位
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_version.json  reason=["version 必须是精确整数 1（收到 999.0）", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_version.json  expect~version
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_time_order.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "时序错误：observed_t(200.0) 晚于 received_t(102.0)"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_time_order.json  expect~observed_t
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_counter.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_counter.json  expect~threshold
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_not_deployed.json  reason=["实例 I-A1 尚未 DEPLOYED（当前 DRAFT），不能出现在部署清单", "deployments I-A1 记录到 DEPLOYED，但实例当前状态是 DRAFT（记录与状态不一致）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_not_deployed.json  expect~部署清单
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_actor_controller.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_actor_controller.json  expect~授权名单
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_obs_authorization.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "观测共享授权者不是原始 owner：observer_owner=ally_intel authorized_by=player_intel"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_obs_authorization.json  expect~不是原始 owner
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_obs_enemy_selftrust.json  reason=["观测共享授权者不是原始 owner：observer_owner=opfor_intel authorized_by=player_intel"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_obs_enemy_selftrust.json  expect~不是原始 owner
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_obs_receiver.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "观测接收 owner 与 intel_owner_id 不一致：opfor_intel vs player_intel"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_obs_receiver.json  expect~接收 owner
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_obs_missing_receiver.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_obs_missing_receiver.json  expect~received_by_intel_owner_id
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_missing_seq.json  reason=["命令 CMD-1 缺少 seq（事件序号必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_missing_seq.json  expect~缺少 seq
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_lifecycle_version.json  reason=["命令 CMD-1 的 lifecycle 版本不受支持: UNSUPPORTED-999（支持 [\"v17.cmd_lifecycle.v1\"]）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_lifecycle_version.json  expect~版本不受支持
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_shooter_not_participating.json  reason=["未选择的实例 I-A1 不得进入部署清单", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_shooter_not_participating.json  expect~不能受令
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_missing_command_id.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "命令缺少 command_id（标识与幂等必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_missing_command_id.json  expect~缺少 command_id
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_command_lifecycle.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "命令 CMD-1 缺少 lifecycle（请求/回执/执行记录必须冻结）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_command_lifecycle.json  expect~lifecycle
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_deploy_time.json  reason=["deployments I-A1 的 t 必须是有限非负秒", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_deploy_time.json  expect~有限非负
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_deploy_state_mismatch.json  reason=["deployments I-A1 记录到 VALIDATED，但实例当前状态是 DEPLOYED（记录与状态不一致）", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_deploy_state_mismatch.json  expect~记录与状态不一致
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_delay.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "观测延迟不一致：received-observed=2.000000000 但 delay_s=99.000000000"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_delay.json  expect~延迟不一致
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_idempotency.json  reason=["幂等键冲突：request_id req-a1 携带不同载荷（I-A1|VALIDATED|DEPLOYED vs I-A2|VALIDATED|DEPLOYED）", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_idempotency.json  expect~幂等键冲突
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_ledger_types.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_ledger_types.json  expect~非负安全整数
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_ai_truth.json  reason=["观测缺少 received_by_intel_owner_id（接收 owner 必须显式）", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_ai_truth.json  expect~reads_ground_truth
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_roster_ref.json  reason=["fleet F-PLAYER-A 的 roster 引用未登记实例: I-GHOST", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_roster_ref.json  expect~roster 引用未登记实例
+[JC-B00] PASS NEGATIVE 被拒绝: invalid_selection_mapping.json  reason=["已选择实例 I-B1 未出现在部署清单", "观测缺少 received_by_intel_owner_id（接收 owner 必须显式）"]
+[JC-B00] PASS NEGATIVE 命中期望原因: invalid_selection_mapping.json  expect~未出现在部署清单
+
+[JC-B00] STEP 5. 权限分离与旧调用语义
+[JC-B00] PASS 合法命令的 controller 与域直控一致  actual=player_commander expected=player_commander
+[JC-B00] PASS legacy_context=own_ship 被接受  errors=[]
+[JC-B00] PASS NEGATIVE: 旧调用不能扩成所有友舰  reason=["旧调用只能映射 own_ship，不能扩成所有友舰", "命令 CMD-1 声明 legacy_context 但缺少 own_entity_instance_id"]
+[JC-B00] PASS 目标同时有 authority_state 与 player_known_state
+[JC-B00] PASS 目标 story_independent=true（story=false 仍裁决）
+
+[JC-B00] STEP 6. R6 冻结项：情报分区 / AI 只读视图 / 生命周期 / legacy scope
+[JC-B00] PASS 冻结分方情报方案 = per_owner_track_table  actual=per_owner_track_table expected=per_owner_track_table
+[JC-B00] PASS AI 只读视图不得直读真值  actual=false expected=false
+[JC-B00] PASS AI 只读视图按域授权  3
+[JC-B00] PASS 事件/通信生命周期冻结为 6 阶段  actual=6 expected=6
+[JC-B00] PASS 生命周期首阶段 created  actual=created expected=created
+[JC-B00] PASS 生命周期末阶段 closed  actual=closed expected=closed
+[JC-B00] PASS legacy scope 只映射本舰  actual=true expected=true
+[JC-B00] PASS 合法命令 actor 在域授权名单内  player_commander
+[JC-B00] PASS 域授权名单非空（冻结 actor→controller）
+
+[JC-B00] STEP 7. 明确未实现边界（不伪造运行态）
+[JC-B00] INFO 本探针只证明数据契约与拒绝语义；不声称真实舰队已部署/AI 已行动/战役可玩
+[JC-B00] INFO K0 字段表与权威划分见 game_v17/docs/contracts/joint_campaign_r2.md
+────────────────────────────────────────────────────────────────
+JC-B00 CONTRACTS PROBE RESULT: PASS=84 FAIL=0
+JC-B00 CONTRACTS PROBE OK
+AUDIO OK files=36 headless=true muted=false
