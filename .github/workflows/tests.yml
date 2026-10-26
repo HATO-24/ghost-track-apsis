@@ -15,7 +15,7 @@
 #      is evidence. See PR body.
 #
 #   2) "Full matrix (baseline-aware; known legacy FAILs shown, red only on new
-#      regressions)" — runs ALL 72 cases (67 probes + 1 E2E + 4 boot smokes) with
+#      regressions)" — runs ALL cases declared in probe_matrix.json (Phase A1.1 adds the entity-metadata authority probe) with
 #      `-Baseline game_v17/tests/known_baseline_failures.json`.
 #      The 8 known pre-existing failures are STILL EXECUTED, STILL REPORTED AS
 #      FAIL (never renamed PASS, never skipped, no continue-on-error).
@@ -222,6 +222,230 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  # ── Phase A authority regression gate (A0-T1/T2/T3 + later slices) ────────
+  # Independent of gates.phase0. The three A0 probes encode the authority-chain
+  # requirements (Issues #2/#4); some of them still fail on real, unfixed defects.
+  # IMPORTANT (DS-A-00): this job's red/green is driven by the probes' REAL exit codes,
+  # not by a hard-coded "must be FAIL" expectation. Real fixes are therefore allowed to
+  # turn this job green, while skipped / NOT RUN / inconsistent-count runs always fail.
+  # It must never be made green with continue-on-error / skipped cases / relaxed
+  # assertions. Gate phase0 is a separate job and is unaffected.
+  phasea-gate:
+    name: Phase A gate (authority probes; red/green driven by real probe exit codes)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    continue-on-error: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache pinned Godot 4.7.2 download
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GODOT_DIR }}
+          key: godot-${{ runner.os }}-${{ env.GODOT_VERSION }}-${{ env.GODOT_ZIP_SHA256 }}
+
+      - name: Download + verify + extract Godot 4.7.2 (cache miss only)
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zipPath = Join-Path $env:RUNNER_TEMP $env:GODOT_ZIP
+          Write-Host "Downloading $env:GODOT_ZIP_URL"
+          Invoke-WebRequest -Uri $env:GODOT_ZIP_URL -OutFile $zipPath -UseBasicParsing
+
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $zipPath).Hash.ToLowerInvariant()
+          $expected = $env:GODOT_ZIP_SHA256.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Godot archive SHA-256 mismatch: expected $expected, got $actual"
+          }
+          Write-Host "SHA-256 verified: $actual"
+
+          New-Item -ItemType Directory -Path $env:GODOT_DIR -Force | Out-Null
+          Expand-Archive -LiteralPath $zipPath -DestinationPath $env:GODOT_DIR -Force
+          Get-ChildItem -LiteralPath $env:GODOT_DIR | Select-Object Name, Length
+
+      - name: Verify Godot version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path -LiteralPath $env:GODOT_CONSOLE)) {
+            throw "Expected Godot console executable not found: $env:GODOT_CONSOLE"
+          }
+          $version = & $env:GODOT_CONSOLE --version 2>&1 | Out-String
+          Write-Host "Godot version: $version"
+          if ($version -notmatch [regex]::Escape('4.7.2')) {
+            throw "Expected Godot 4.7.2, got: $version"
+          }
+
+      # The three probes are expected to FAIL against the declared Phase A baseline.
+      # A-00 协调后语义：这个独立 job 的**红绿由 probe 的真实退出码决定**，不再硬编码
+      # 「三个必须 FAIL」。理由：Phase A 切片会逐卡转绿（A0-T1 已在 P20 后被整合候选修复），
+      # 写死 expected FAIL 会让真实修复被判成「计数漂移」，也会掩盖真正的 NOT RUN。
+      # 判据：
+      #   * 每个声明的 Phase A case 都必须真的执行（出现且 status ∈ {PASS, FAIL}）；
+      #     0 case / NOT RUN / TIMEOUT 一律失败，不算通过。
+      #   * summary 的 totals 与逐 case 计数必须自洽（pass+fail == 实际，且与 runner 汇总一致）。
+      #   * job 退出码 = runner 的真实退出码：全绿则 job 绿，仍有真实 FAIL 则 job 红。
+      #   * 总是上传实际报告（后续 step 用 if: always()）。
+      # 完整 baseline job 仍严格核对既有失败条目（不在此 job）。
+      - name: Run Phase A authority gate (-Gate phaseA)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File ./run_tests.ps1 -Ci -Gate phaseA -GodotBin $env:GODOT_CONSOLE
+          $code = $LASTEXITCODE
+          Write-Host "PHASEA_GATE_EXIT=$code"
+
+          $dirs = @(Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending)
+          if ($dirs.Count -eq 0) { throw 'PHASE A ASSERT FAILED: no .test-results run directory' }
+          $summaryPath = Join-Path $dirs[0].FullName 'summary.json'
+          if (-not (Test-Path -LiteralPath $summaryPath)) {
+            throw "PHASE A ASSERT FAILED: missing $summaryPath"
+          }
+          $s = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
+
+          $problems = New-Object System.Collections.ArrayList
+          $required = @(
+            'integration.a0_track_truth_authority',
+            'integration.a0_entity_metadata_pipeline',
+            'integration.a0_save_roundtrip_authority'
+          )
+          $passCount = 0
+          $failCount = 0
+          foreach ($cid in $required) {
+            $c = @($s.cases | Where-Object { [string]$_.id -eq $cid })
+            if ($c.Count -ne 1) { [void]$problems.Add("$cid was NOT RUN (missing from summary)"); continue }
+            $c = $c[0]
+            $st = [string]$c.status
+            $pf = [int]$c.pass_count
+            $ff = [int]$c.fail_count
+            Write-Host ("PHASE A CASE {0}: status={1} exit={2} pass={3} fail={4}" -f $cid, $st, $c.exit_code, $pf, $ff)
+            if ($st -eq 'PASS') {
+              if ($ff -ne 0) { [void]$problems.Add("$cid status=PASS but fail_count=$ff") }
+              $passCount++
+            }
+            elseif ($st -eq 'FAIL') {
+              if ($ff -le 0) { [void]$problems.Add("$cid status=FAIL but fail_count=$ff") }
+              if ([int]$c.exit_code -eq 0) { [void]$problems.Add("$cid status=FAIL but exit_code=0") }
+              $failCount++
+            }
+            else {
+              [void]$problems.Add("$cid not executed: status=$st (NOT RUN / TIMEOUT never counts as pass)")
+            }
+          }
+          $declared = @($s.cases).Count
+          if ($declared -ne $required.Count) {
+            [void]$problems.Add("summary has $declared cases, gate declares $($required.Count)")
+          }
+          if ([int]$s.totals.pass -ne $passCount) {
+            [void]$problems.Add("totals.pass=$($s.totals.pass) != counted $passCount")
+          }
+          if ([int]$s.totals.fail -ne $failCount) {
+            [void]$problems.Add("totals.fail=$($s.totals.fail) != counted $failCount")
+          }
+          if ($problems.Count -gt 0) {
+            $problems | ForEach-Object { Write-Host "PHASE A PROBLEM: $_" }
+            throw "PHASE A GATE ASSERT FAILED ($($problems.Count) problem(s)) - a probe was skipped, not run, or reported inconsistent counts"
+          }
+          if ($failCount -eq 0) {
+            Write-Host 'PHASE A ASSERT OK: all 3 authority probes executed and PASSED.'
+          }
+          else {
+            Write-Host ("PHASE A ASSERT OK: all 3 authority probes executed; {0} still FAIL on real, unfixed defects (see per-case logs)." -f $failCount)
+          }
+          exit $code
+
+      - name: Assert test artifacts exist before upload
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dirs = @(Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending)
+          if ($dirs.Count -eq 0) {
+            throw 'ARTIFACT ASSERT FAILED: no .test-results run directory was produced'
+          }
+          $runDir = $dirs[0]
+          foreach ($name in @('summary.json', 'report.md')) {
+            $p = Join-Path $runDir.FullName $name
+            if (-not (Test-Path -LiteralPath $p -PathType Leaf)) {
+              throw "ARTIFACT ASSERT FAILED: missing required file $p"
+            }
+            if ((Get-Item -LiteralPath $p).Length -le 0) {
+              throw "ARTIFACT ASSERT FAILED: empty required file $p"
+            }
+          }
+          $logDir = Join-Path $runDir.FullName 'logs'
+          $logs = @(Get-ChildItem -LiteralPath $logDir -File -ErrorAction SilentlyContinue)
+          if ($logs.Count -eq 0) {
+            throw "ARTIFACT ASSERT FAILED: no per-case logs under $logDir"
+          }
+          Write-Host "ARTIFACT ASSERT OK run_dir=$($runDir.Name) logs=$($logs.Count)"
+
+      - name: Job summary — Phase A gate
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lines = @(
+            '## Phase A authority regression gate',
+            '',
+            'Cases: `-Gate phaseA` (track truth authority, entity metadata pipeline, save roundtrip authority).',
+            '',
+            '**Red/green is driven by the probes'' real exit codes** (DS-A-00 change), not by a hard-coded expectation.',
+            'Some probes still fail on real, unfixed authority-chain defects (Issues #2/#4); real fixes are allowed to',
+            'turn this job green. What the step always enforces: every declared case really executes (NOT RUN / TIMEOUT',
+            'never counts as pass), PASS has fail_count=0, FAIL has fail_count>0 and a non-zero exit code, and the',
+            'summary totals must agree with the per-case counts. Skipping, hiding or relaxing a probe is never allowed.',
+            '`gates.phase0` is a separate job and is unaffected by this gate.',
+            ''
+          )
+          $runDir = Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if ($null -eq $runDir) {
+            $lines += '**No `.test-results` output directory was produced by the runner.**'
+          } else {
+            $summaryPath = Join-Path $runDir.FullName 'summary.json'
+            $lines += "Run directory: ``$($runDir.Name)``"
+            if (Test-Path -LiteralPath $summaryPath) {
+              $s = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
+              $lines += ''
+              $lines += '| total | pass | fail | timeout | not run | exit code |'
+              $lines += '| --- | --- | --- | --- | --- | --- |'
+              $lines += "| $($s.totals.total) | $($s.totals.pass) | $($s.totals.fail) | $($s.totals.timeout) | $($s.totals.not_run) | $($s.exit_code) |"
+              if ($null -ne $s.phase_a_baseline) {
+                $pa = $s.phase_a_baseline
+                $lines += ''
+                $lines += "Phase A expected-failure baseline: known=$($pa.known_fail) new=$($pa.new_fail) drift=$($pa.baseline_drift) unverified=$($pa.baseline_unverified) unselected=$($pa.baseline_unselected) complete=$($pa.complete)"
+              }
+              $lines += ''
+              $lines += '| case | status | exit | pass/fail | declared expected FAIL |'
+              $lines += '| --- | --- | --- | --- | --- |'
+              foreach ($c in @($s.cases)) {
+                $pf = if ($null -ne $c.pass_count) { "$($c.pass_count)/$($c.fail_count)" } else { '-' }
+                $exp = if ($null -ne $c.baseline) { "exit=$($c.baseline.expected)" } else { '-' }
+                $lines += "| ``$($c.id)`` | $($c.status) | $($c.exit_code) | $pf | $exp |"
+              }
+            } else {
+              $lines += '**summary.json missing — investigate the runner output.**'
+            }
+          }
+          $lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Upload Phase A gate test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phasea-gate-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .test-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
   # ── Full historical matrix, baseline-aware (legacy failures stay visible) ──
   full-matrix:
     name: Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)
@@ -276,12 +500,15 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          # All 72 cases are executed. Known pre-existing failures stay FAIL in the
+          # All matrix cases are executed. Known pre-existing failures stay FAIL in the
           # output/report. Strict fail-closed semantics: exit 0 only when every
           # declared baseline entry ran as expected FAIL with matching counts, and
           # there is no NEW failure, drift, timeout, unexpected NOT RUN, unverified
           # baseline entry or unselected baseline entry.
-          pwsh -NoProfile -File ./run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json -GodotBin $env:GODOT_CONSOLE
+          # Phase A-01: a SECOND, independent expected-failure baseline is passed via
+          # -BaselineExtra so the Phase A authority probes are classified separately
+          # from the Phase 0 legacy baseline. Their statuses still stay FAIL.
+          pwsh -NoProfile -File ./run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json -BaselineExtra game_v17/tests/phasea_baseline_failures.json -GodotBin $env:GODOT_CONSOLE
           $code = $LASTEXITCODE
           Write-Host "FULL_MATRIX_EXIT=$code"
           exit $code
@@ -342,7 +569,7 @@ jobs:
           $lines = @(
             '## Full regression matrix (baseline-aware, NOT a claim that all tests pass)',
             '',
-            'All 72 cases were executed. Known pre-existing failures below are still FAIL records — they are not skipped, renamed or silenced.',
+            'All matrix cases were executed. Known pre-existing failures below are still FAIL records — they are not skipped, renamed or silenced.',
             'STRICT fail-closed: this check turns red if any declared baseline entry is NOT RUN / blocked / filtered out / missing / count-mismatched, or on NEW failures, drift, timeouts or unexpected NOT RUN.',
             'The baseline gate self-test step must also be green (proves blocked and filtered-out baseline entries fail).',
             ''

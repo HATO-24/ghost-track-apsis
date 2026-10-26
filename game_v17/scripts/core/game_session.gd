@@ -15,6 +15,7 @@ extends RefCounted
 const TimeService := preload("res://scripts/core/time_service.gd")
 const EventBus := preload("res://scripts/core/event_bus.gd")
 const WorldState := preload("res://scripts/core/world_state.gd")
+const EntityCatalogScript := preload("res://scripts/core/entity_catalog.gd")
 const OrderService := preload("res://scripts/core/order_service.gd")
 const CommsService := preload("res://scripts/core/comms_service.gd")
 const TrackTableScript := preload("res://scripts/core/track_table.gd")
@@ -44,6 +45,7 @@ const SCHEMA := "v17.game_session.v1"
 const SAVE_SCHEMA := "v17.game_session_save.v1"
 const VERSION := "1.0.0"
 const WRITER_DEFAULT := "session"
+const FRAME_BARY_ROT := "bary_rot"
 const ACTIVE_ORDER_STATES := ["ISSUED", "TRANSMITTING", "DELIVERED", "QUEUED",
 	"PENDING_EFFECT", "AUTHORIZED", "EXECUTING"]
 
@@ -57,6 +59,7 @@ var writer := WRITER_DEFAULT
 var time = null
 var bus = null
 var world = null
+var entity_catalog = null
 var orders = null
 var comms = null
 var track_table = null
@@ -92,6 +95,19 @@ var _combat_enabled := false
 var _damage_enabled := false
 var _physics_enabled := false
 var _physics_frame_meta: Dictionary = {}
+# A0-T1：WorldState 位置/速度副本同步策略（PhysicsWorld 唯一写入者）。
+#   "tick"   — 每个业务 tick 边界把 physics 只读副本写入 world（默认，仅当
+#              seed 与 physics 同坐标空间时启用）；
+#   "frame_mismatch" — seed 经过 L1→bary_rot 帧转换，world 副本仍是另一坐标
+#              语义，显式不同步并记录原因（不猜测、不做隐式转换）；
+#   "no_physics" / "disabled" — 无 physics 或显式关闭。
+const WORLD_SYNC_MODE_TICK := "tick"
+const WORLD_SYNC_MODE_FRAME_MISMATCH := "frame_mismatch"
+const WORLD_SYNC_MODE_NO_PHYSICS := "no_physics"
+const WORLD_SYNC_MODE_DISABLED := "disabled"
+var _world_sync_mode := WORLD_SYNC_MODE_NO_PHYSICS
+var _world_sync_last: Dictionary = {}
+var _world_sync_total := 0
 var _signal_enabled := false
 var _ew_enabled := false
 var _facility_enabled := false
@@ -187,6 +203,7 @@ func boot(config := {}) -> Dictionary:
 	combat_service = null
 	damage_service = null
 	physics_world_service = null
+	entity_catalog = null
 	signal_service = null
 	ew_service = null
 	facility_registry = null
@@ -219,6 +236,9 @@ func boot(config := {}) -> Dictionary:
 	_fleet_formation_enabled = false
 	_physics_enabled = false
 	_physics_frame_meta = {}
+	_world_sync_mode = WORLD_SYNC_MODE_NO_PHYSICS
+	_world_sync_last = {}
+	_world_sync_total = 0
 	_track_writer = ""
 	_last_track_t = 0.0
 	_last_story_revision = 0
@@ -228,6 +248,14 @@ func boot(config := {}) -> Dictionary:
 	_sensor_target_meta = {}
 	_seed = _normalize_seed(config if config is Dictionary else {})
 	_seed = _json_norm(_seed)
+	# Phase A1.1：静态元数据唯一权威（scenario/seed → EntityCatalog）。
+	# 只保存静态资料；位置/速度仍归 PhysicsWorld，world 保持既有职责。
+	entity_catalog = EntityCatalogScript.new({
+		"entities": _seed.get("entities", []),
+		"source": "seed",
+	})
+	if not bool(entity_catalog.ready):
+		errors.append("entity_catalog 未就绪：" + str(entity_catalog.errors))
 	writer = String(_seed.get("writer", WRITER_DEFAULT))
 	time = TimeService.new(_seed.get("time", {}) if _seed.get("time") is Dictionary else {})
 	bus = EventBus.new()
@@ -287,10 +315,11 @@ func boot(config := {}) -> Dictionary:
 	if damage_profile_service != null and not bool(damage_profile_service.ready):
 		extra_ok = false
 	if not bool(time.ready) or not bool(bus.ready) or not bool(world.ready) \
-			or not bool(orders.ready) or not bool(comms.ready) or not extra_ok:
-		errors.append("session 组件未就绪：time=%s bus=%s world=%s orders=%s comms=%s" % [
+			or not bool(orders.ready) or not bool(comms.ready) \
+			or not bool(entity_catalog.ready) or not extra_ok:
+		errors.append("session 组件未就绪：time=%s bus=%s world=%s orders=%s comms=%s catalog=%s" % [
 			str(time.ready), str(bus.ready), str(world.ready),
-			str(orders.ready), str(comms.ready)])
+			str(orders.ready), str(comms.ready), str(entity_catalog.ready)])
 		return _result(false)
 	# seed 实体（session 是唯一写者：bus 发事件 + world 显式 apply）
 	for raw in (_seed.get("entities", []) as Array):
@@ -360,9 +389,187 @@ func boot(config := {}) -> Dictionary:
 	_flush_component_events()
 	_last_bus_routed_index = bus.count()
 	_last_time_s = time.now_s()
+	# A0-T1：确定 world 位置副本同步策略，并在 boot 时把同一时刻的 physics 只读
+	# 副本写入 world（world 只由 session 写；PhysicsWorld 仍是位置/速度唯一权威）。
+	_world_sync_mode = _resolve_world_sync_mode()
+	world_physics_sync("boot")
+	# A0-T2：把传感器几何绑定到同一物理世界（失败/异帧时显式退化为静态几何）。
+	var sensor_geom: Dictionary = _bind_sensor_geometry()
 	booted = true
 	ready = errors.is_empty()
-	return _result(ready)
+	var boot_res: Dictionary = _result(ready)
+	boot_res["sensor_geometry"] = sensor_geom.duplicate(true)
+	return boot_res
+
+
+## A0-T1：WorldState 位置副本同步策略判定（只读；不推进任何服务时间）。
+## 只有 seed 与 physics 处于同一坐标语义（未做 L1→bary_rot 帧转换）时才自动同步，
+## 否则显式不同步并记录 frame_mismatch —— 不做隐式跨帧搬运。
+func _resolve_world_sync_mode() -> String:
+	if not _physics_enabled or physics_world_service == null:
+		return WORLD_SYNC_MODE_NO_PHYSICS
+	if world == null:
+		return WORLD_SYNC_MODE_NO_PHYSICS
+	if bool(_physics_frame_meta.get("applied", false)):
+		return WORLD_SYNC_MODE_FRAME_MISMATCH
+	return WORLD_SYNC_MODE_TICK
+
+
+## A0-T1：tick 边界同步入口。把 PhysicsWorld 当前时刻的 r/v 作为**只读副本**写入
+## WorldState（world 写者仍是 session）；绝不反向写 physics，也不推进 physics 时间。
+## reason 仅用于区分触发点（boot/tick/explicit），不改变语义。
+##
+## 返回字段语义（审查修正：成功写回 ≠ 未对齐）：
+##   updated      — 本次同步**成功写回**的实体 id 列表（本次被修复的对象）
+##   mismatched   — 同步**之后**仍未与 physics 对齐的实体（正常情况下应为空；
+##                  仅当写入失败/被拒时才有内容，此时同时出现在 failures）
+##   failures     — 写入失败的 {id, reason}
+##   skipped      — physics 有但 world 没有的实体（不在副本范围）
+##   compared     — 本次参与比较的实体数
+##   in_sync      — 同步后整体是否逐位一致（== mismatched 为空且 failures 为空）
+func world_physics_sync(reason := "tick") -> Dictionary:
+	var out := {"ok": true, "enabled": false, "in_sync": false, "frame": "",
+		"mode": _world_sync_mode, "reason": reason, "synced": 0, "compared": 0,
+		"updated": [], "mismatched": [], "failures": [], "skipped": []}
+	if _world_sync_mode != WORLD_SYNC_MODE_TICK:
+		out["enabled"] = false
+		out["sync_reason"] = _world_sync_mode
+		if _world_sync_mode == WORLD_SYNC_MODE_FRAME_MISMATCH:
+			out["in_sync"] = false
+		else:
+			# 无 physics：world 是唯一来源，视作自洽（不比较）。
+			out["in_sync"] = true
+		_world_sync_last = out.duplicate(true)
+		return out
+	if world == null or physics_world_service == null:
+		out["ok"] = false
+		out["sync_reason"] = "missing_component"
+		_world_sync_last = out.duplicate(true)
+		return out
+	out["enabled"] = true
+	out["frame"] = FRAME_BARY_ROT
+	var updated: Array = []
+	var failures: Array = []
+	var skipped: Array = []
+	for id in physics_world_service.entity_ids():
+		var eid := String(id)
+		if not world.has_entity(eid):
+			skipped.append(eid)
+			continue
+		var st: Dictionary = physics_world_service.state(eid, FRAME_BARY_ROT)
+		var r = st.get("r", null)
+		var v = st.get("v", null)
+		if not (r is Array) or (r as Array).size() < 3 \
+				or not (v is Array) or (v as Array).size() < 3:
+			failures.append({"id": eid, "reason": "non_finite_state"})
+			continue
+		out["compared"] = int(out["compared"]) + 1
+		var cur: Dictionary = world.entity(eid)
+		var cur_r: Array = cur.get("pos_km", []) if cur.get("pos_km") is Array else []
+		var cur_v: Array = cur.get("vel_kmps", []) if cur.get("vel_kmps") is Array else []
+		if _vec3_equal(cur_r, r) and _vec3_equal(cur_v, v):
+			continue
+		var ev: Dictionary = {"type": "entity.move", "t": now_s(),
+			"source": "physics_world", "target": eid,
+			"payload": {"pos_km": (r as Array).duplicate(),
+				"vel_kmps": (v as Array).duplicate()}}
+		var res: Dictionary = world.apply(ev, writer)
+		if bool(res.get("ok", false)):
+			updated.append(eid)
+			# 注意：tick 边界同步是机械副本写入，不逐实体发 bus 事件（避免每 tick
+			# 7 条噪声）；显式 sync_world_from_physics() 仍发布 physics.world_synced。
+		else:
+			failures.append({"id": eid, "reason": String(res.get("reason", ""))})
+	# 同步后再全量复核一次：mismatched 只装「同步后仍未对齐」的实体。
+	var mismatched: Array = []
+	for id2 in physics_world_service.entity_ids():
+		var eid2 := String(id2)
+		if not world.has_entity(eid2):
+			continue
+		var st2: Dictionary = physics_world_service.state(eid2, FRAME_BARY_ROT)
+		var cur2: Dictionary = world.entity(eid2)
+		var cur_r2: Array = cur2.get("pos_km", []) if cur2.get("pos_km") is Array else []
+		var cur_v2: Array = cur2.get("vel_kmps", []) if cur2.get("vel_kmps") is Array else []
+		if not _vec3_equal(cur_r2, st2.get("r", [])) \
+				or not _vec3_equal(cur_v2, st2.get("v", [])):
+			mismatched.append({"id": eid2, "world_pos_km": cur_r2,
+				"physics_pos_km": st2.get("r", [])})
+	out["synced"] = updated.size()
+	out["updated"] = updated
+	out["mismatched"] = mismatched
+	out["failures"] = failures
+	out["skipped"] = skipped
+	out["ok"] = failures.is_empty()
+	out["in_sync"] = out["ok"] and mismatched.is_empty()
+	if not updated.is_empty():
+		_world_sync_total += 1
+	_world_sync_last = out.duplicate(true)
+	return out
+
+
+## A0-T1：当前 world 副本是否与 physics 同一时刻一致（只读比较，不写入）。
+func _world_copy_in_sync() -> bool:
+	if world == null or physics_world_service == null:
+		return false
+	for id in physics_world_service.entity_ids():
+		var eid := String(id)
+		if not world.has_entity(eid):
+			continue
+		var st: Dictionary = physics_world_service.state(eid, FRAME_BARY_ROT)
+		var cur: Dictionary = world.entity(eid)
+		var cur_r: Array = cur.get("pos_km", []) if cur.get("pos_km") is Array else []
+		var cur_v: Array = cur.get("vel_kmps", []) if cur.get("vel_kmps") is Array else []
+		if not _vec3_equal(cur_r, st.get("r", [])) or not _vec3_equal(cur_v, st.get("v", [])):
+			return false
+	return true
+
+
+func _vec3_equal(a: Array, b: Array) -> bool:
+	if not (a is Array) or not (b is Array) or a.size() < 3 or b.size() < 3:
+		return false
+	for i in range(3):
+		var x = a[i]
+		var y = b[i]
+		if not ((x is int or x is float) and (y is int or y is float)):
+			return false
+		# 逐位相等：副本就是 physics 同一 double 的拷贝，任何差异都值得写入。
+		if float(x) != float(y):
+			return false
+	return true
+
+
+## A0-T1：world/physics 同步状态（只读诊断；不写任何状态）。
+## 供探针/运维核对「副本是否与 physics 同一时刻」；不推进时间。
+func world_physics_sync_status() -> Dictionary:
+	var out := {"enabled": _world_sync_mode == WORLD_SYNC_MODE_TICK,
+		"mode": _world_sync_mode, "frame": FRAME_BARY_ROT if _physics_enabled else "",
+		"in_sync": false, "compared": 0, "mismatched": [], "last": _world_sync_last,
+		"sync_count": _world_sync_total, "reason": ""}
+	if _world_sync_mode == WORLD_SYNC_MODE_FRAME_MISMATCH:
+		out["reason"] = "frame_mismatch"
+		out["frame"] = String(_physics_frame_meta.get("frame_origin", ""))
+		return out
+	if _world_sync_mode != WORLD_SYNC_MODE_TICK:
+		out["reason"] = _world_sync_mode
+		out["in_sync"] = true
+		return out
+	var mismatched: Array = []
+	for id in physics_world_service.entity_ids():
+		var eid := String(id)
+		if not world.has_entity(eid):
+			continue
+		out["compared"] = int(out["compared"]) + 1
+		var st: Dictionary = physics_world_service.state(eid, FRAME_BARY_ROT)
+		var cur: Dictionary = world.entity(eid)
+		var cur_r: Array = cur.get("pos_km", []) if cur.get("pos_km") is Array else []
+		var cur_v: Array = cur.get("vel_kmps", []) if cur.get("vel_kmps") is Array else []
+		if not _vec3_equal(cur_r, st.get("r", [])) or not _vec3_equal(cur_v, st.get("v", [])):
+			mismatched.append({"id": eid, "world_pos_km": cur_r,
+				"physics_pos_km": st.get("r", [])})
+	out["mismatched"] = mismatched
+	out["in_sync"] = mismatched.is_empty()
+	return out
+
 
 func _entities_map() -> Dictionary:
 	var out := {}
@@ -651,6 +858,75 @@ func _setup_optional_components() -> void:
 		else:
 			_physics_enabled = true
 			_seed_physics_entities(pwcfg)
+
+## A0-T2（Issue #4.1）：传感器几何绑定统一物理世界。
+## 只在 physics 已启用、且 seed 未做 L1→bary_rot 帧转换时绑定（同坐标语义）；
+## 否则显式标记几何不可用（公开诊断 reason 精确为 frame_mismatch / no_physics_world）。
+func _bind_sensor_geometry() -> Dictionary:
+	if sensor_service == null or physics_world_service == null:
+		var r0 := "no_sensor_service" if sensor_service == null else "no_physics_world"
+		if sensor_service != null and sensor_service.has_method("mark_geometry_unavailable"):
+			sensor_service.mark_geometry_unavailable(r0)
+		return {"ok": false, "reason": r0, "source": "static"}
+	if not _sensor_geometry_bind_allowed():
+		# 4F 帧转换会话：坐标语义不匹配 → 显式标记不可用并给出精确 reason。
+		var frame := String(_physics_frame_meta.get("frame_origin", "l1"))
+		var detail := {"frame": frame, "mismatched_frame": [frame]}
+		if sensor_service.has_method("mark_geometry_unavailable"):
+			sensor_service.mark_geometry_unavailable("frame_mismatch", detail)
+		warnings.append("sensor geometry 保持静态（坐标系不匹配，不做隐式转换）")
+		return {"ok": false, "reason": "frame_mismatch", "source": "static", "bound": 0}
+	var res: Dictionary = sensor_service.bind_geometry_provider(_SensorGeometryProvider.new(self))
+	if not bool(res.get("ok", false)):
+		warnings.append("sensor geometry 绑定失败：" + str(res.get("reason", "")))
+	return res
+
+func _sensor_geometry_bind_allowed() -> bool:
+	if not _physics_enabled or physics_world_service == null:
+		return false
+	if sensor_service == null:
+		return false
+	# 4F 帧转换后的 seed 是 bary_rot，但配置的静态 target 仍是 L1 相对语义；
+	# 不同坐标空间不能混用，显式退化为静态几何。
+	if bool(_physics_frame_meta.get("applied", false)):
+		return false
+	return true
+
+## A0-T2：GameSession 侧的几何提供者（只读；不写 world/TrackTable/UI）。
+## sensor_service 通过该对象读取「同一仿真时刻」的 physics 位置/速度。
+class _SensorGeometryProvider:
+	var _session = null
+
+	func _init(sess) -> void:
+		_session = sess
+
+	func geometry_ready() -> bool:
+		return _session != null and _session.physics_world_service != null \
+			and bool(_session.physics_world_service.ready)
+
+	func geometry_frame() -> String:
+		return "bary_rot"
+
+	func geometry_t() -> float:
+		if _session == null or _session.physics_world_service == null:
+			return -1.0
+		return float(_session.physics_world_service.t)
+
+	func geometry_state(entity_id: String) -> Dictionary:
+		if _session == null or _session.physics_world_service == null:
+			return {"ok": false, "reason": "no_physics_world"}
+		if not _session.physics_world_service.has_entity(entity_id):
+			return {"ok": false, "reason": "unknown_entity", "id": entity_id}
+		var st: Dictionary = _session.physics_world_service.state(entity_id, "bary_rot")
+		var r = st.get("r", null)
+		var v = st.get("v", null)
+		if not (r is Array) or (r as Array).size() < 3 \
+				or not (v is Array) or (v as Array).size() < 3:
+			return {"ok": false, "reason": "non_finite_state", "id": entity_id}
+		return {"ok": true, "id": entity_id, "frame": String(st.get("frame", "bary_rot")),
+			"t": float(st.get("t", -1.0)),
+			"r": (r as Array).duplicate(), "v": (v as Array).duplicate(),
+			"units": {"length": "km", "velocity": "km/s", "time": "s"}}
 
 ## 示例港口配置（boot 时 port_service=true 使用；不进入关卡）。
 func _demo_port_config() -> Dictionary:
@@ -979,8 +1255,11 @@ func tick(dt: float) -> Dictionary:
 	if not bool(tr.get("ok", false)):
 		return {"ok": false, "reason": "time_tick_failed", "errors": time.errors.duplicate()}
 	var sim_dt := float(tr.get("dt_scaled_s", 0.0))
-	# tick 顺序：time → physics（位置权威）→ world/sensor/track/orders（见文档）
+	# tick 顺序：time → physics（位置权威）→ world 副本同步 → sensor/track/orders
+	# （见文档）。A0-T1：physics 推进后立刻把只读副本同步进 WorldState，保证同一
+	# tick 内后续消费者与对外 snapshot 看到同一仿真时刻的位置/速度。
 	var physics_tick: Dictionary = _advance_physics(sim_dt)
+	var world_sync: Dictionary = world_physics_sync("tick")
 	var ot: Dictionary = orders.tick(sim_dt)
 	if not bool(ot.get("ok", false)):
 		warnings.append("orders tick 失败：" + str(ot.get("reason", "")))
@@ -1034,6 +1313,7 @@ func tick(dt: float) -> Dictionary:
 		"port_combat": port_combat,
 		"damage_tick": damage_tick,
 		"physics_tick": physics_tick,
+		"world_sync": world_sync,
 		"signal_step": signal_step,
 		"ew_step": ew_step,
 		"signal_route": signal_route,
@@ -1641,24 +1921,29 @@ func _ballistics_states() -> Dictionary:
 		var v = pos.get("v", pos.get("vel_kmps", []))
 		if not (r is Array) or (r as Array).size() < 3:
 			continue
-		var ent: Dictionary = {}
-		if world != null and world.has_entity(str(id)):
-			ent = world.entity(str(id))
-		var flags: Dictionary = ent.get("flags", {}) if ent.get("flags") is Dictionary else {}
-		var side := str(ent.get("side", flags.get("side", "")))
-		var has_pd := bool(ent.get("has_pd", flags.get("has_pd", false)))
+		var meta: Dictionary = entity_metadata(str(id))
+		var metadata_found := bool(meta.get("found", false))
+		var side := str(meta.get("side", ""))
+		var has_pd := bool(meta.get("has_pd", false))
 		if pd_platform != "" and str(id) == pd_platform:
 			has_pd = true
-		# 引导头需要的目标特征：显式字段优先，缺省由 ballistics 按舰型给默认值
-		var rcs := float(ent.get("rcs_m2", flags.get("rcs_m2", 0.0)))
-		var ir := float(ent.get("ir_signature", flags.get("ir_signature", 0.0)))
-		var kind := str(ent.get("kind", ent.get("ship_class", flags.get("kind", ""))))
-		var radius_km := float(ent.get("radius_km", flags.get("radius_km", 0.0)))
-		if radius_km <= 0.0:
+		# 引导头/PD 需要的目标特征来自静态元数据权威（A1.1）；缺失时显式兜底并标记
+		# radius_source=default，避免把兜底尺寸误当真实尺寸。
+		var rcs := float(meta.get("rcs_m2", 0.0))
+		var ir := float(meta.get("ir_signature", 0.0))
+		var kind := str(meta.get("kind", ""))
+		if kind == "" and world != null and world.has_entity(str(id)):
+			var went: Dictionary = world.entity(str(id))
+			kind = str(went.get("kind", went.get("ship_class", "")))
+		var radius_km := float(meta.get("radius_km", 0.0))
+		var radius_source := "catalog"
+		if not metadata_found or radius_km <= 0.0:
+			radius_source = "default"
 			radius_km = _default_radius_km(kind)
 		out[str(id)] = {"id": str(id), "pos_km": (r as Array).duplicate(),
 			"vel_kmps": (v as Array).duplicate() if v is Array else [0.0, 0.0, 0.0],
-			"radius_km": radius_km,
+			"radius_km": radius_km, "radius_source": radius_source,
+			"metadata_found": metadata_found,
 			"has_pd": has_pd, "side": side,
 			"kind": kind,
 			"rcs_m2": rcs, "ir_signature": ir}
@@ -2021,6 +2306,17 @@ func set_sensor_target(target_id: String) -> Dictionary:
 	if bool(res.get("ok", false)):
 		_record({"op": "set_sensor_target", "target_id": target_id})
 	return res
+
+## A0-T2（Issue #4.1）：传感器几何来源/采样时刻只读诊断。
+## source=physics_world 表示几何来自统一物理世界；static 表示退化（含原因）。
+func sensor_geometry_status() -> Dictionary:
+	if sensor_service == null:
+		return {"schema": "sensor_geometry_status.v1", "source": "none",
+			"authoritative": false, "reason": "no_sensor_service", "targets": 0}
+	if sensor_service.has_method("geometry_status"):
+		return sensor_service.geometry_status()
+	return {"schema": "sensor_geometry_status.v1", "source": "static",
+		"authoritative": false, "reason": "no_geometry_api", "targets": 0}
 
 func start_sensor_channel(kind: String, target := "", opts := {}) -> Dictionary:
 	if sensor_service == null:
@@ -2799,6 +3095,34 @@ func damage_ships() -> Array:
 	if damage_service == null:
 		return []
 	return damage_service.ship_ids_list()
+# ── EntityCatalog 委托（静态元数据权威；只读）────────────────────
+
+func entity_catalog_ready() -> bool:
+	return entity_catalog != null and bool(entity_catalog.ready)
+
+## 按 entity_id 返回静态元数据只读副本；未知实体返回 {found:false,id}。
+## 这些是**世界内部真值/静态资料**，不得自动写入玩家航迹/UI；玩家可见结论
+## 必须来自观测/证据/人工授权链路。
+func entity_metadata(entity_id: String) -> Dictionary:
+	if entity_catalog == null:
+		return {"found": false, "id": entity_id, "reason": "no_entity_catalog"}
+	return entity_catalog.get_entity(entity_id)
+
+func entity_metadata_ids() -> Array:
+	if entity_catalog == null:
+		return []
+	return entity_catalog.entity_ids()
+
+func entity_metadata_all() -> Array:
+	if entity_catalog == null:
+		return []
+	return entity_catalog.all_entities()
+
+func entity_catalog_snapshot() -> Dictionary:
+	if entity_catalog == null:
+		return {"schema": "v17.entity_catalog.v1", "ready": false, "entities": []}
+	return entity_catalog.snapshot()
+
 # ── PhysicsWorld 委托（位置权威；可选）──────────────────────────
 
 func physics_vm() -> Dictionary:
@@ -4083,6 +4407,10 @@ func check_contracts() -> Dictionary:
 				str(physics_world_service.t), str(now_s())])
 		if not bool(physics_world_service.check_contracts().get("ok", false)):
 			v.append("physics 不变量失败")
+		# A0-T1：位置副本必须与 physics 同一时刻（仅同坐标语义时校验；帧转换
+		# 会话显式不同步，不在本不变量范围内）。
+		if _world_sync_mode == WORLD_SYNC_MODE_TICK and not _world_copy_in_sync():
+			v.append("world 位置副本与 physics 不一致")
 	if signal_service != null:
 		if not bool(signal_service.ready):
 			v.append("signal_service 未就绪")
@@ -4505,8 +4833,13 @@ func load_state(json_text: String) -> Dictionary:
 	_last_bus_routed_index = bus.events.size()
 	_routed_seqs = {}
 	_last_time_s = now_s()
+	# A0-T1：replay 只重放业务操作（physics 不参与 replay），因此读档后必须用恢复的
+	# physics 快照重新对齐 world 位置副本；否则 snapshot 仍是 seed 旧位置。
+	_world_sync_mode = _resolve_world_sync_mode()
+	var world_sync: Dictionary = world_physics_sync("load")
 	ready = replay_errors.is_empty() and errors.is_empty()
-	return {"ok": ready, "errors": replay_errors, "result_errors": errors.duplicate()}
+	return {"ok": ready, "errors": replay_errors, "result_errors": errors.duplicate(),
+		"world_sync": world_sync}
 
 func _replay_op(op: Dictionary) -> Dictionary:
 	var kind := String(op.get("op", ""))

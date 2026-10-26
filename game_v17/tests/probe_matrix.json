@@ -9,6 +9,11 @@
       "boot.legacy_combat_sim",
       "boot.orbital_sim",
       "boot.sandbox"
+    ],
+    "phaseA": [
+      "integration.a0_track_truth_authority",
+      "integration.a0_entity_metadata_pipeline",
+      "integration.a0_save_roundtrip_authority"
     ]
   },
   "description": "GHOST TRACK // APSIS V17 unified headless regression matrix. One case = one Godot process; deterministic order.",
@@ -633,6 +638,45 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.a1_entity_metadata_authority",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A1.1: entity static metadata authority (scenario -> runtime), ballistics/PD reads authority, contacts stay UNKNOWN without evidence, truth not auto-copied to player view",
+      "script": "res://tests/a1_entity_metadata_authority_probe.gd",
+      "expected_markers": [
+        "A1 ENTITY METADATA AUTHORITY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.a0_world_physics_sync",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A0-T1 (Issue #2.2): PhysicsWorld is the single runtime position/velocity authority; WorldState copy is synced at the tick boundary so snapshot()/plot/save-load all see the same simulation instant; frame-converted sessions are explicitly not synced",
+      "script": "res://tests/a0_world_physics_sync_probe.gd",
+      "expected_markers": [
+        "A0-T1 WORLD PHYSICS SYNC PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.a0_sensor_geometry",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A0-T2 (Issue #4.1): sensor geometry (observer/target position+velocity) is bound to the unified PhysicsWorld at the same simulation instant; static metadata stays from its own authority; observations keep observation semantics (TrackTable range_km is NOT replaced by physics truth); no-physics / frame-mismatch explicitly degrade to static",
+      "script": "res://tests/a0_sensor_geometry_probe.gd",
+      "expected_markers": [
+        "A0-T2 SENSOR GEOMETRY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
       "id": "integration.av4412_probe",
       "category": "integration",
       "profile": "",
@@ -732,6 +776,45 @@
       "script": "res://tests/report_probe.gd",
       "expected_markers": [
         "V17 REPORT PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.a0_track_truth_authority",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A-01 / A0-T1: real-entry track vs PhysicsWorld truth authority (range error <= 0.5 km, timestamps <= 1e-6 s, identity/provenance/single-writer/frame+units). Known Phase A failures are reported, not hidden.",
+      "script": "res://tests/a0_track_truth_authority_probe.gd",
+      "expected_markers": [
+        "A0-T1 TRACK TRUTH AUTHORITY PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.a0_entity_metadata_pipeline",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A-01 / A0-T2: entity metadata pipeline (side/identity/batch/rcs/radius/has_pd) through PhysicsWorld -> WorldState -> snapshot -> track -> contacts; missing values must be explicit unknown, never a silent friend fallback.",
+      "script": "res://tests/a0_entity_metadata_pipeline_probe.gd",
+      "expected_markers": [
+        "A0-T2 ENTITY METADATA PIPELINE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },
+    {
+      "id": "integration.a0_save_roundtrip_authority",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Phase A-01 / A0-T3: physics/world/track/sensor/identification save->load roundtrip (numeric <= 1e-9, int type stability, SensorService runtime state, canonical equality, 1000-tick save performance). Known Phase A failures are reported, not hidden.",
+      "script": "res://tests/a0_save_roundtrip_authority_probe.gd",
+      "expected_markers": [
+        "A0-T3 SAVE ROUNDTRIP AUTHORITY PROBE RESULT:"
       ],
       "result": "probe",
       "timeout_s": 180

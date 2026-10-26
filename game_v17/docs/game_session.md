@@ -3,7 +3,7 @@
 > 任务 完整游戏-阶段2C（task-121）+ 2H（task-129）+ 2J（task-131）+ 3I（task-142）+ 2K（task-146）+ 2M（task-154）+ 3L（task-157）+ 3M（task-159）+ 3N（task-160）+ 3O（task-162）+ 3P（task-164）+ 3R（task-167）+ **4Z 交战物理化（统一开火路径）**。工程 `game_v17`。
 > 修改（不改其他；不接旧场景/UI/旧 transit；未 commit）：
 > - `scripts/core/game_session.gd`
-> - `tests/session_probe.gd`（`PASS=1534 FAIL=0`）
+> - `tests/session_probe.gd`（`PASS=1541 FAIL=0`）
 > - 本文件
 > 不实现物理/UI/剧情/ROE；组合既有内核并做内存 save/load。
 
@@ -33,7 +33,7 @@ GameSession
  ├─ PortService（可选） 港口/对接/加注/维修/拖曳/穿梭机状态机与资源
  ├─ CombatService（可选） ROE/授权/火控/武器/点防御（damage event 不直接应用）
  ├─ DamageService（可选） 每舰 V2DamageModel；combat damage 事件→分区伤害/维修
- ├─ PhysicsWorld（可选） 单一位置权威；固定步长 CR3BP/星历；显式同步 world
+ ├─ PhysicsWorld（可选） 单一位置/速度权威；固定步长 CR3BP/星历；tick 边界同步 world 只读副本
  ├─ SignalService（可选） ELINT/DF/灯语；observation/evidence→TrackTable，light→bus
 ├─ EWService（可选） 干扰/欺骗/假目标/EMCON/通信 spoof/激光；effect 接口不写 world
  ├─ FacilityRegistry（可选） 全设施只读注册表；cluster/站/应答机/港口/物理参数
@@ -59,14 +59,40 @@ GameSession
 - **Sensor → TrackTable**：SensorService 只输出 observation/evidence（不写 TrackTable/world/UI）；
   session 在 tick 中取走其事件，按 schema/kind 白名单（`sensor_observation.v1` support 1..2、
   `track_evidence.v1`）路由到 TrackTable；support=0/>2 的非 L1/L2 行忽略。
+- **Sensor 几何 → PhysicsWorld（A0-T2 / Issue #4.1）**：boot 末尾由
+  `_bind_sensor_geometry()` 把传感器几何（observer/targets 的位置+速度）绑定到统一物理世界；
+  `SensorService.step()` 在推进后按当前 `t` 刷新几何，保证 `geometry_t == physics t ==
+  session t`（容差 1e-6 s）。frame=`bary_rot`，单位 km / km/s。静态元数据（rcs/side/iff/
+  classification）仍来自原权威，不被几何刷新覆盖。**降级显式**：无 physics →
+  `source=static, reason=no_physics_world`；4F 帧转换会话 →
+  `source=static, reason=frame_mismatch`（不做隐式跨帧）。
+  诊断：`sensor_geometry_status()` / `sensor_service.geometry_status()`，含
+  `source/authoritative/complete/available/reason/missing/skipped/mismatched_frame/suppressed_steps`。
+  **几何不可用时（时间不一致 / observer 缺失 / 目标缺失 / 帧不匹配）不生成观测**，
+  绝不把旧坐标或混合坐标当成当前 PhysicsWorld 真值。几何绑定不写
+  world/TrackTable/V15/UI；`range_km` 仍是**观测值**，不替换为物理真值。
+
 - **Port/Combat → EventBus**：session tick 驱动二者 step；其 outbox 事件映射为 `port.*`/`combat.*`
   发布到 bus（只读事件）；Port/Combat 不写 world/TrackTable/物理/UI。
 - **Combat → Damage**：combat `combat_damage_event`（combat_hit/incoming_impact 内嵌
   `damage_event`）经显式白名单路由到 DamageService（`applied=true` 才写损伤）；`shot_id` 去重，
   同一伤害不会因 request_fire 立即应用 + tick flush 二次应用。Damage 事件发布 `damage.*`。
-- **Physics 位置权威**：启用 `physics_world` 时实体位置/速度以 PhysicsWorld 为准（`position_of/
-  physics_state` 读 physics）；tick 不自动改 world（不双写），只提供显式 `sync_world_from_physics()`
-  把 physics 位置应用到 world（world 写仍由 session）；仅 PhysicsWorld 内部推进位置。
+- **Physics 位置权威（A0-T1 更新）**：启用 `physics_world` 时实体位置/速度以 PhysicsWorld 为
+  唯一权威（`position_of/physics_state` 读 physics；仅 PhysicsWorld 内部推进位置）。tick 顺序为
+  `time → physics.step → world 副本同步 → orders/sensor/track/...`：**tick 边界**把 physics 当前
+  时刻的 r/v 作为**只读副本**写入 WorldState（world 写者仍是 session，`source="physics_world"`），
+  使 `snapshot().entities`、`plot_positions()` 物理分支、存档恢复后的 world 副本与 physics 处于
+  同一仿真时刻。策略与诊断：`world_physics_sync_status()` 返回 `{enabled,mode,frame,in_sync,
+  compared,mismatched,sync_count,last}`；tick 返回值新增 `world_sync` 段。
+  - **单向性**：副本写入绝不反向覆盖 physics；调用方手写 world 位置后，下一次 tick 边界会用
+    physics 覆盖回来（副本自愈）。
+  - **帧门禁**：若 seed 做过 L1→bary_rot 帧转换（`physics_frame_meta.applied=true`），world 副本
+    仍是 L1 相对语义，与 physics 不同坐标空间 → 策略为 `frame_mismatch`，**显式不同步**并在
+    `world_physics_sync_status().reason` 记录；不做隐式跨帧搬运（4F 帧契约不变）。
+  - **不变量**：`check_contracts()` 在 `mode=tick` 时新增「world 位置副本与 physics 一致」检查。
+  - `sync_world_from_physics()` 保留为**显式全量同步**入口（全量写一遍并发布
+    `physics.world_synced`，供存档/调试/外部脚本使用）；tick 边界同步不逐实体发 bus 事件（避免
+    每 tick 噪声）。
 - **Physics 帧（4F）**：Prelude/`scenario_prologue` 的 `pos_km/vel_kmps` 是 **L1 相对 km**，
   PhysicsWorld 默认 **bary_rot**。boot 自动灌入 seed 时，`_seed_physics_entities` 默认
   `seed_frame=auto`：检测到 prelude（`prelude` 标记/特定实体 id）→ 把 r 平移到 L1 bary
@@ -75,6 +101,8 @@ GameSession
   origin；非法帧 warning 并按 bary 处理。只转换本次 boot 的 seed 实体、不重复转换；
   显式 `physics_world.entities[]` 默认视为已 bary（除非显式请求 l1）。转换元数据见
   `physics_frame_meta()`/`snapshot().physics_frame`；world 实体仍保留 L1 相对坐标（不写 world）。
+  A0-T1 后这类帧转换会话的 world 副本同步策略为 `frame_mismatch`（显式不同步），
+  保证不会把 bary_rot 数值写进 L1 语义的 world 实体。
 - **Signal → TrackTable/EventBus**：SignalService 的 `sensor_observation.v1`/`track_evidence.v1`
   经白名单路由到 TrackTable（共享 target→track 映射，不重复建 track；elint.comms→elint；
   elint_fix→elint 类型归一）；`light_*` 事件映射为 `light_signal.*` 发布 EventBus；
@@ -220,7 +248,8 @@ config 可覆盖字段（省略用 demo）：
 | `physics_vm/physics_summary/physics_state/physics_entity_ids/physics_positions/position_of` | PhysicsWorld 只读 VM/状态/位置权威读取（position_of 无 physics 时退回 world 只读） |
 | `physics_frame_meta()` / `physics_l1_position()` | 4F 帧转换元数据（seed_frame/frame_origin/offset/applied/converted/conversion_count/reason）与 L1 bary 位置 |
 | `upsert_physics_entity/remove_physics_entity/set_physics_time` | 物理实体增删/显式设置物理时间（向前推进整个 session；暂停/回退拒绝） |
-| `sync_world_from_physics` | **显式同步边界**：把 physics 位置/速度应用有 world 实体；不自动同步、不双写 |
+| `sync_world_from_physics` | **显式全量同步**：把 physics 位置/速度写一遍到 world 已有实体并发布 `physics.world_synced`（tick 边界已自动同步只读副本；单向、不反向写 physics） |
+| `world_physics_sync(reason)` / `world_physics_sync_status()` | A0-T1：tick 边界副本同步入口与只读诊断（`enabled/mode/frame/in_sync/compared/mismatched/sync_count/last`；`frame_mismatch` 会话显式不同步） |
 | `signal_intercept/signal_df/signal_resolve` | ELINT 拦截/多站 DF/候选 fix 解析；失败不改状态 |
 | `signal_upsert_target/signal_remove_target/signal_set_targets/signal_sync_targets` | Signal 动态目标增删/全量替换/增量同步（side/light_capable/receiver_facing 等）；失败不改状态 |
 | `signal_target_ids/signal_target/signal_sync_from_world/signal_sync_from_contacts` | 目标只读/从 world 实体或 TrackTable 接触同步（只读 source，不写 world） |
@@ -335,9 +364,9 @@ config 可覆盖字段（省略用 demo）：
   contracts/ROE 合法；失败委托（无服务/错误状态/非法 ROE/冷却/未授权）不改组件状态。
 - **Damage 一致**：`damage_service.t == now_s()`、ready、内部 contracts ok；combat damage 只在
   whitelist 路由且 `shot_id` 去重；伤害/维修失败不改状态。
-- **Physics 一致**：`physics_world.t == now_s()`、ready、内部 contracts ok；tick 前
-  time→physics 顺序固定；暂停不推进；world 只在显式 `sync_world_from_physics()` 时更新
-  （同步边界，不自动双写）。
+- **Physics 一致**：`physics_world.t == now_s()`、ready、内部 contracts ok；tick 顺序
+  time→physics→world 副本同步固定；暂停不推进；`mode=tick` 时 world 位置/速度副本必须与
+  physics 逐位一致（不变量），`frame_mismatch` 会话显式不同步且不参与该不变量。
 - **Signal 一致**：`signal_service.t == now_s()`、ready；ELINT observation/evidence 只进
   TrackTable（不重复建 track），light 事件只进 bus；不写 world/UI/V15；失败委托不改状态。
 - **Signal 绑定一致**：observation/evidence 的 entity_id/batch 来自 target_meta/world；
@@ -513,7 +542,7 @@ summary 与保存前一致。旧存档 seed 无 sensor_service 时，log 中 sen
 ```powershell
 .\tools\godot\Godot_v4.7.2-stable_win64_console.exe --headless `
     --path .\game_v17 --script res://tests/session_probe.gd
-# V17 SESSION PROBE RESULT: PASS=1534 FAIL=0（exit 0，只跑一次）
+# V17 SESSION PROBE RESULT: PASS=1541 FAIL=0（exit 0，只跑一次）
 ```
 
 覆盖（40 节）：boot（多组件/seed 实体/节点链路/contracts/snapshot schema）；订单流
@@ -550,7 +579,7 @@ class_vm、refit 30 模块事务/槽位/质量/功率/成本/地点/事件、dam
 优先、save/load/旧档/失败原子/确定性）；**5G 集成**（fleet_formation/fleet_refit 联动启用、
 13 舰/8 槽/19 位、自由 assign/move/unassign、command/角色/槽满/limits、refit 多舰共享资源/
 逐舰独立、fleet.* + fleet_refit.* bus、save/load/旧档/坏配置/确定性）。
-当前 `V17 SESSION PROBE RESULT: PASS=1534 FAIL=0`（含 legal/traffic/帧转换/ballistics/统一开火/5D/5G；exit 0，只跑一次）。
+当前 `V17 SESSION PROBE RESULT: PASS=1541 FAIL=0`（含 legal/traffic/帧转换/ballistics/统一开火/5D/5G；exit 0，只跑一次）。
 
 ## 7　边界 / 未完成
 
@@ -572,9 +601,16 @@ class_vm、refit 30 模块事务/槽位/质量/功率/成本/地点/事件、dam
 - IdentificationService 只做证据融合/识别建议：自动最高 suspect/L3，hostile 需授权，
   L4 需人工/授权或两类独立高置信证据；自动询问不发射武器；不写 world/TrackTable/UI；
   confidence/阈值是可调游戏参数，不复刻真实 IFF 概率模型。
-- 4F 帧转换只发生在 boot physics seed 灌入（L1 相对→bary_rot）；world 实体不被改写，
-  `sync_world_from_physics()` 若被调用则把 bary 坐标写回 world（调用方自行决定帧语义）；
+- 4F 帧转换只发生在 boot physics seed 灌入（L1 相对→bary_rot）；world 实体不被改写。
+  A0-T1 后这类会话的 world 副本同步策略为 `frame_mismatch`（**显式不同步**），
+  `sync_world_from_physics()` 若被显式调用仍会把 bary 坐标写回 world（调用方自行决定帧语义）；
   不要混用 L1 相对坐标与 bary_rot 坐标。
+- **A0-T1 未覆盖的位置消费者（明确记录）**：`CICView` 的位置由 `ownship+bearing+range` 派生且
+  声明 `position_truth=false`（不读 physics truth，属信息战设计，不在本任务范围）；contacts
+  `range_km` 来自航迹观测几何（保留航迹作为观测信息的语义，传感器目标几何绑定属后续 #4.1，
+  **本任务不把 TrackTable 距离改成物理真值**）；`combat_ballistics`/`_ballistics_states()` 走
+  `_entity_kinematics()`（physics 优先，本任务前已正确）；`probe` 的 world 手工事件仍可显式写
+  world（不反向写 physics）。`SensorService` 的目标几何仍是静态配置（#4.1）。
 - TrafficControlService 只做 OTC/航道/NPC/伪装线索：申请/许可/占用/释放由显式 API 驱动；
   `traffic.*` 只读事件进 bus；不写 world/TrackTable/UI/V15；不做物理/泊位/身份判定。
 - CombatBallisticsService 只做弹道/导弹/PD/诱饵与 damage_event：states 由 session 每步只读提供；

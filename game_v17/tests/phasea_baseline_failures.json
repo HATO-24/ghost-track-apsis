@@ -1,0 +1,47 @@
+{
+  "schema": "known_baseline_failures.v1",
+  "description": "Phase A expected-failure baseline for the DS-A-00 integration candidate I0 (S0 + P20 chain + T22 probes, reconciled contract). These are NOT Phase 0 legacy failures: they are the concrete authority-chain defects still open on I0 that later Phase A cards (A-01..A-06) must fix one by one. Consumed by run_tests.ps1 -BaselineExtra so the full matrix shows them as DECLARED Phase A expected failures while keeping each case status FAIL (never PASS, never skipped, never hidden). The Phase 0 file game_v17/tests/known_baseline_failures.json is NOT touched by Phase A.",
+  "baseline_commit": "b9101c8",
+  "baseline_commit_full": "b9101c8369c44dc293e579701efa0a4029d28dec",
+  "baseline_commit_note": "DS-A-00 integration candidate I0 = S0 4b0b102 + merge P20 7a4f325 (which already contains P17 5bb763d + P19 8c1483a) + merge T22 8bf7517, with the reconciled assertion contract applied on top.",
+  "captured_at": "2026-10-25",
+  "phase": "A",
+  "card": "DS-A-00",
+  "related": ["Issue #2", "Issue #4", "docs/55_PhaseA0_物理与信息权威基线调查.md", "docs/57_DeepSeek_PhaseA_任务队列与首批任务卡.md"],
+  "environment": {
+    "os": "Windows",
+    "godot_version": "4.7.2.stable.official.ed1daf0bf",
+    "godot_binary": "Godot_v4.7.2-stable_win64_console.exe",
+    "runner": "run_tests.ps1 (result_parsers: probe)",
+    "worktree": "D:\\gt_a00 (branch phase-a/ds-a-00-candidate, base 4b0b102, I0 head b9101c8)"
+  },
+  "evidence_provenance": "Independently executed on I0 b9101c8 through the real product entry (main_menu -> v1_hud -> ShellBinder -> GameSession, DSH_BUILD=orbital_sim). Counts are deterministic across repeated runs. Every entry is a real, still-open authority-chain defect reproduced on I0, NOT an accepted regression.",
+  "notes": [
+    "A0-T1 was REMOVED from this baseline on I0: the P20 chain fixes the sensor-geometry binding, so integration.a0_track_truth_authority now PASSES 45/0 on I0. Removal is backed by the DS-A-00 baseline run log, not by relaxing any assertion.",
+    "These entries must remain FAIL until the owning cards fix the underlying authority chain. Refreshing expected_pass/expected_fail is allowed only together with a runtime fix that legitimately changes the counts, in its own reviewed commit.",
+    "Phase 0 gate semantics are unchanged: -Gate phase0 never reads this file.",
+    "This file must never be merged into game_v17/tests/known_baseline_failures.json."
+  ],
+  "failures": [
+    {
+      "id": "integration.a0_entity_metadata_pipeline",
+      "probe": "res://tests/a0_entity_metadata_pipeline_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 26,
+      "expected_fail": 4,
+      "reason": "A0-T2 (reconciled contract): EntityCatalog is now verified complete and exact (7/7 entities x 6 fields by stable ID, 0 violations) and player-view anonymization already holds (no contact truth leak, no silent friend fallback, all side/identity/display sources declared). Four real gaps remain open on I0: (1) snapshot() exposes no explicit entity_catalog source block, so a synthetic view cannot declare where static fields come from; (2) CombatBallistics holds no EntityCatalog reference and (3) therefore resolves radius/rcs/has_pd from local defaults (RCS_DEFAULT_M2=800) instead of the catalog authority; (4) fused track rows leak the truth-only 'batch' field into the player view.",
+      "defect_ref": "A0 audit C2/C3 (metadata pipeline); Issue #2; reconciled by DS-A-00 contract table",
+      "suggested_follow_up": "DS-A-01 (catalog-sourced ballistics input, snapshot source declaration, track batch leak) -> then re-baseline"
+    },
+    {
+      "id": "integration.a0_save_roundtrip_authority",
+      "probe": "res://tests/a0_save_roundtrip_authority_probe.gd",
+      "expected_exit": 1,
+      "expected_pass": 37,
+      "expected_fail": 4,
+      "reason": "A0-T3 (reconciled contract): the raw-JSON numeric contract now PASSES (bus/event seq are finite integral values inside 0..2^53-1 and strictly increasing, judged by value semantics rather than by the JSON Variant type), and physics/world/track numeric roundtrip (<=1e-9), identification int config and save->load->save canonical equality also pass. Four real gaps remain open on I0: (a) the live HUD session save->load still fails with replay 'send_comms' no_route; (b) restored runtime event seq is a float instead of a real GDScript int (27 occurrences across the loaded bus); (c) the save payload carries no sensor_service runtime snapshot; (d) SensorService EMCON/radar state and full channel content are therefore lost on load (EMCON toggled to the opposite of its seed value before saving, 3 channels -> 1, 59 normalized content differences).",
+      "defect_ref": "A0 audit C4/C5 (event seq type drift, sensor runtime state not persisted); Issues #2/#4",
+      "suggested_follow_up": "DS-A-03 (EventBus restore + int seq) / DS-A-05 (sensor runtime persistence) / DS-A-06 (comms no_route) -> then re-baseline"
+    }
+  ]
+}
