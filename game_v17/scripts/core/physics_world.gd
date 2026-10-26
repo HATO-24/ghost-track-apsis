@@ -574,28 +574,33 @@ func _to_arr(value) -> Array:
 		return out
 	return []
 
+## A-02：帧转换适配层改用集中转换器的**双精度标量**路径。
+## 原 Vector3 路径在大绝对坐标（EML1 ~3.2e5 km）有单精度量化误差（速度 ~1.9e-5 km/s），
+## 不满足 Phase A 阈值；这里不扩大门槛，而是提升适配精度。Vector3 版本仍供显示层使用。
 func _to_bary_rot(r: Array, v: Array, frame_in: String) -> Dictionary:
 	if frame_in == FRAME:
 		return {"ok": true, "r": r.duplicate(), "v": v.duplicate()}
-	var s := Physics.make_state(Vector3(float(r[0]), float(r[1]), float(r[2])),
-		Vector3(float(v[0]), float(v[1]), float(v[2])))
+	if not _finite_vec3(r) or not _finite_vec3(v):
+		return {"ok": false, "reason": "invalid_state"}
 	if frame_in == "earth_eci":
-		var d := Physics.earth_eci_to_bary_rot(s, t)
-		return {"ok": true, "r": _vec_arr(d.get("r")), "v": _vec_arr(d.get("v"))}
+		var d: Dictionary = Physics.earth_eci_to_bary_rot_arrays(r, v, t)
+		return {"ok": true, "r": d.get("r", []), "v": d.get("v", [])}
 	if frame_in == "earth_rot":
-		var d2 := Physics.earth_rot_to_bary_rot(s)
-		return {"ok": true, "r": _vec_arr(d2.get("r")), "v": _vec_arr(d2.get("v"))}
+		var d2: Dictionary = Physics.earth_rot_to_bary_rot_arrays(r, v)
+		return {"ok": true, "r": d2.get("r", []), "v": d2.get("v", [])}
 	return {"ok": false, "reason": "invalid_frame"}
 
 func _from_bary_rot(r: Array, v: Array, out_frame: String) -> Dictionary:
-	var s := Physics.make_state(Vector3(float(r[0]), float(r[1]), float(r[2])),
-		Vector3(float(v[0]), float(v[1]), float(v[2])))
+	if out_frame == FRAME:
+		return {"ok": true, "r": r.duplicate(), "v": v.duplicate()}
+	if not _finite_vec3(r) or not _finite_vec3(v):
+		return {"ok": false, "reason": "invalid_state"}
 	if out_frame == "earth_eci":
-		var d := Physics.bary_rot_to_earth_eci(s, t)
-		return {"ok": true, "r": _vec_arr(d.get("r")), "v": _vec_arr(d.get("v"))}
+		var d3: Dictionary = Physics.bary_rot_to_earth_eci_arrays(r, v, t)
+		return {"ok": true, "r": d3.get("r", []), "v": d3.get("v", [])}
 	if out_frame == "earth_rot":
-		var d2 := Physics.bary_rot_to_earth_rot(s)
-		return {"ok": true, "r": _vec_arr(d2.get("r")), "v": _vec_arr(d2.get("v"))}
+		var d4: Dictionary = Physics.bary_rot_to_earth_rot_arrays(r, v)
+		return {"ok": true, "r": d4.get("r", []), "v": d4.get("v", [])}
 	return {"ok": false, "reason": "invalid_frame"}
 
 func _vec_arr(v) -> Array:

@@ -179,7 +179,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "fleet_refit", "fleet_formation", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "fleet_refit", "fleet_formation", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity", "epoch"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -257,7 +257,14 @@ func boot(config := {}) -> Dictionary:
 	if not bool(entity_catalog.ready):
 		errors.append("entity_catalog 未就绪：" + str(entity_catalog.errors))
 	writer = String(_seed.get("writer", WRITER_DEFAULT))
-	time = TimeService.new(_seed.get("time", {}) if _seed.get("time") is Dictionary else {})
+	# A-02：把 scenario 日历历元（UTC）作为**唯一来源**交给 TimeService；
+	# 与 CR3BP 相位基准（time.epoch_s）分开，不互相替换。
+	var time_cfg: Dictionary = _seed.get("time", {}) if _seed.get("time") is Dictionary else {}
+	var time_cfg2: Dictionary = time_cfg.duplicate(true)
+	var scenario_epoch := String(_seed.get("epoch", "")).strip_edges()
+	if scenario_epoch != "" and not time_cfg2.has("epoch_utc"):
+		time_cfg2["epoch_utc"] = scenario_epoch
+	time = TimeService.new(time_cfg2)
 	bus = EventBus.new()
 	world = WorldState.new({"writer": writer, "time": time, "bus": bus})
 	comms = CommsService.new({
@@ -1230,6 +1237,54 @@ func _apply_physics_frame_offset(body: Dictionary, offset: Array) -> bool:
 ## 4F 帧转换只读元数据（转换/未转换/偏移/原因）。
 func physics_frame_meta() -> Dictionary:
 	return _physics_frame_meta.duplicate(true)
+
+
+## A-02：时间与坐标语义的**单一元数据来源**（只读）。
+## 明确区分日历历元（scenario UTC，仅一个来源）与动力学相位基准（CR3BP epoch_s），
+## 并给出各消费者的 frame / source / 采样阶段，供整合验收逐项核对。
+func session_time_frame_meta() -> Dictionary:
+	var epoch: Dictionary = time.epoch_meta() if time != null else {}
+	var frame_meta := physics_frame_meta()
+	var snapshot_frame := FRAME_BARY_ROT
+	if booted:
+		var snap: Dictionary = snapshot()
+		var pf: Dictionary = snap.get("physics_frame", {}) \
+			if snap.get("physics_frame") is Dictionary else {}
+		snapshot_frame = String(pf.get("frame", FRAME_BARY_ROT))
+	var sens: Dictionary = sensor_geometry_status() if sensor_service != null else {}
+	return {
+		"schema": "v17.session_time_frame.v1",
+		"t_s": now_s(),
+		"epoch": epoch,
+		"calendar_epoch_source": String(epoch.get("epoch_source", "")),
+		"phase_basis": String(epoch.get("phase_basis", "")),
+		"physics_time_ok": absf(float(physics_world_service.t) - now_s()) <= 1.0e-6 \
+			if physics_world_service != null else false,
+		"physics_t": float(physics_world_service.t) if physics_world_service != null else -1.0,
+		"runtime_frame": FRAME_BARY_ROT,
+		"runtime_units": {"length": "km", "velocity": "km/s", "time": "s"},
+		"seed_frame": String(_seed.get("seed_frame", "")),
+		"frame_conversion": {
+			"applied": bool(frame_meta.get("applied", false)),
+			"source": "seed" if bool(frame_meta.get("source_is_seed", false)) else "explicit",
+			"conversion_count": int(frame_meta.get("conversion_count", 0)),
+			"converted": int(frame_meta.get("converted", 0)),
+			"skipped": int(frame_meta.get("skipped", 0)),
+			"origin": String(frame_meta.get("frame_origin", "")),
+			"reason": String(frame_meta.get("reason", "")),
+		},
+		"consumers": {
+			"physics": {"frame": FRAME_BARY_ROT,
+				"t_s": float(physics_world_service.t) if physics_world_service != null else -1.0,
+				"source": "physics_world"},
+			"world_projection": {"frame": FRAME_BARY_ROT, "source": "physics_world(copy)"},
+			"snapshot": {"frame": snapshot_frame, "source": "session.snapshot"},
+			"sensor_geometry": {"frame": String(sens.get("frame", "")),
+				"source": String(sens.get("source", ""))},
+			"ballistics": {"frame": FRAME_BARY_ROT, "source": "physics_world"},
+		},
+		"writes": {"world": false, "track_table": false, "v15": false},
+	}
 
 func physics_l1_position() -> Array:
 	return _l1_bary_position()

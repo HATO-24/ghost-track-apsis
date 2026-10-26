@@ -781,6 +781,18 @@
       "timeout_s": 180
     },
     {
+      "id": "integration.a0_frame_epoch",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "DS-A-02: frame/epoch and consumer time sources. Scenario UTC epoch is the single calendar source (exactly consistent with the integer epoch label); the CR3BP phase basis is explicitly separated and never replaced by UTC seconds; every physics-chain consumer declares frame=bary_rot with a source; L1 seed conversion happens exactly once and is marked applied/source; the central frame converter roundtrips in double precision near origin and at EML1 large coordinates; save/load preserves epoch/relative time/frame/source; invalid UTC / unknown frame / legacy seed are explicit (no fabricated calendar date).",
+      "script": "res://tests/a0_frame_epoch_probe.gd",
+      "expected_markers": [
+        "A0-A02 FRAME EPOCH PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 180
+    },    {
       "id": "integration.a0_integration_authority",
       "category": "integration",
       "profile": "",
