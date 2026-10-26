@@ -2,7 +2,22 @@
 
 执行Issue：[JC-A01 #58](https://github.com/HATO-24/ghost-track-apsis/issues/58)。
 
-状态：RETURNED，PR #66首轮复核未通过；继续JC-A01，A1未冻结。
+状态：RETURNED，PR #66第二轮仍为未完成进度；已修项保留，A1未冻结。
+
+## 2026-10-27 PR #66第二轮：保留关闭项，仅收尾剩余
+
+候选 `61f27fc8e841666705b5fd2e843824a03bf6c0b8`。[第二轮独立复核与证据](../../reviews/pr66_a01_r2_20261027/review.md)。**进度提交未完成，继续原#58，A1不冻结、#66不合并。**
+
+**已关闭，不再重修**：敌actor/错controller/fleet/legacy敌actor拒绝；伪runtime第二舰不借账本；真实有限8弹合法射击；日志/审计context字段；HUD空情报不退回真值；contacts不混入盟军未共享观测；实际旧来源迁player不迁盟军；broken/999拒绝与公开恢复模式。动态重放随最终验收继续验证。
+
+仅剩：
+
+1. 原R3的**selected/详情/导出与每owner融合/衰减/选择**，当前selected(T0001)仍读盟军私有range456；保留contacts/plot修复。
+2. 原R4**真实到达回调**：2779处String构造异常使首次共享未融合；先修实际成功投递，再查幂等和在途文件继续，不把首次未成功后的首次手工接收误认作新的去重根因。
+3. 原R5 **present-null**：真正缺段旧档已通过，显式authority_intel:null仍被当legacy，补拒绝而非重做全部旧档。
+4. 原R6 **有效验收/集成回归**：用主审正常TIGHT/真实grant/有限弹夹具修新probe正例和库存读取；新probe的所谓旧档先送未来t=1观测、再tick造成table/session错时，修夹具而非跳过旧log重放。恢复A01探针注册。空contacts处理UI index0越界；owner适配后的门禁断言按等强度契约映射，不恢复真值泄漏。修继承的full workflow缺少LASTEXITCODE捕获，不能把实际失败包装成绿job。
+
+独立结果：新probe **45/12 exit1**（作者旧摘要43/13）；基础专项4/5、Phase0 4/6、PhaseA 1/3。CI full原始87=71/16、7旧+9新，页面绿色不代表通过。最终同40位SHA跑原C回归，7旧失败不刷新，不新增AI/EW/B1b范围。下方首轮清单及R8记录均为历史，关闭项以上表为准。
 
 ## 2026-10-26 PR #66首轮复核：继续原卡返修
 

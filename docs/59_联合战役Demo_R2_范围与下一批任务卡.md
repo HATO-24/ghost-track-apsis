@@ -4,6 +4,10 @@
 
 延续[40号审计与原路线图](40_系统完成度复核与开发任务队列.md)的权威/测试契约；以下以56 R2更新产品范围，并用当前提交和本轮复核替换40号文档的历史状态判断。
 
+## 2026-10-27 JC-A01第二轮复核
+
+[PR66第二轮关闭项与剩余](reviews/pr66_a01_r2_20261027/review.md)：被审 `61f27fc8e841666705b5fd2e843824a03bf6c0b8`。真实发射授权/运行态与context字段、空绘图/contacts、真正旧来源迁移已有关闭证据。**继续原#58**，只剩selected/owner融合、真实共享回调及成功后的幂等/在途继续、present-null和有效probe/门禁适配。主probe45/12、Phase0 4/6、PhaseA 1/3；full日志87=71/16（7旧+9新），绿色job有退出码包装缺陷。A1不冻结、#59–#62不提前解锁；不重开已修项、不新增AI/EW/B1b范围。下方首轮和R8为历史。
+
 ## 2026-10-26 JC-A01首轮交付复核
 
 [PR #66独立复核](reviews/pr66_a01_20261026/review.md)：被审 `1d1e8399da438b77b74acee40d753711c8d2a8f9`。8专项通过；真实有限资源射击仍接受敌actor/错controller/fleet，HUD仍能回退物理真值、盟军观测进入玩家全局融合；基础共享与新旧档迁移未闭环。**继续原#58返修，A1尚未冻结，PR66暂缓合并，#59–#62不提前解锁。** G0/K0与此前12个PR合并结论保留；已通过的shooter拒绝、正常本舰射击和有效文件往返保留。范围限原卡授权/情报/共享/恢复及真实消费者验证，不新增完整AI/EW/逐舰账本。下方R8为此前完成状态。
@@ -106,7 +110,7 @@ G0、K0等是未来任务交付物的名字，当前不是有效SHA。每张卡�
 | --- | --- | --- | --- |
 | [JC-A00](tasks/joint_campaign/JC-A00_integration_closeout.md) · [#56](https://github.com/HATO-24/ghost-track-apsis/issues/56) | DONE（R8） | G0=`9d0f3b4…`，完整SHA见上文 | 返修整链冻结及验收补齐，复用#55 |
 | [JC-B00](tasks/joint_campaign/JC-B00_contracts.md) · [#57](https://github.com/HATO-24/ghost-track-apsis/issues/57) | DONE（R8） | K0=`9d0f3b4…`，完整SHA见上文 | 多舰队数据、指挥与情报契约，B0规格与schema fixtures |
-| [JC-A01](tasks/joint_campaign/JC-A01_authority_intel.md) · [#58](https://github.com/HATO-24/ghost-track-apsis/issues/58) | RETURNED（PR66首轮） | G0/K0已冻结；A1未冻结 | 指挥权限及分方情报读写隔离 |
+| [JC-A01](tasks/joint_campaign/JC-A01_authority_intel.md) · [#58](https://github.com/HATO-24/ghost-track-apsis/issues/58) | RETURNED（PR66第二轮） | G0/K0已冻结；A1未冻结 | 指挥权限及分方情报读写隔离 |
 | [JC-A02](tasks/joint_campaign/JC-A02_identity.md) · [#59](https://github.com/HATO-24/ghost-track-apsis/issues/59) | WAIT A1 | →A2 | 身份证据单一出口、IFF/ELINT/光学/人工一致性 |
 | [JC-A03](tasks/joint_campaign/JC-A03_ew_observation.md) · [#60](https://github.com/HATO-24/ghost-track-apsis/issues/60) | WAIT A2 | →A3 | EW进入真实观测与火控消费者 |
 | [JC-A04](tasks/joint_campaign/JC-A04_ew_comms.md) · [#61](https://github.com/HATO-24/ghost-track-apsis/issues/61) | 服务可在A1后；Session接入在A3后 | →A4 | EW进入实际通信，保留恢复与权限语义 |

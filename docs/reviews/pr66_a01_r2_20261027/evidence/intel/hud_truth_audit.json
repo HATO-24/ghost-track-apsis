@@ -1,0 +1,21 @@
+{
+	"facade_unchanged": true,
+	"head": "61f27fc8e841666705b5fd2e843824a03bf6c0b8",
+	"hud_changed": false,
+	"hud_positions": 0,
+	"hud_source": "intel",
+	"hud_target_after": {},
+	"hud_target_before": {},
+	"owner": "player_intel",
+	"owner_positions": 0,
+	"owner_tracks": 2,
+	"owner_view_unchanged": true,
+	"real_entry": {
+		"binder_ready": true,
+		"saw_main_menu": true,
+		"scene": "res://v1_hud.tscn"
+	},
+	"target": "raider_2",
+	"target_in_owner_view": false,
+	"truth_move_ok": true
+}

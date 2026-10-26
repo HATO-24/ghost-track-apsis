@@ -1,0 +1,151 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+JC-A01 R6 PROBE · 真实授权/消费链/共享到达/恢复
+════════════════════════════════════════════════════════════════
+
+[A01] STEP R1a/R1b 真实发射授权：context 与运行态
+[A01] PASS session ready  []
+[A01] PASS 显式 FIRE 授权
+[A01] FAIL 合法本舰真实发射成功  (no_ready_solution)
+[A01] FAIL 真实发射消耗 1 发弹药  (actual=0 expected=-1)
+[A01] FAIL 真实发射产生弹体  (0)
+[A01] FAIL 真实发射产生 combat.weapon_launch 事件  (0)
+[A01] FAIL 结果透出 legacy context  (actual= expected=own_ship)
+[A01] FAIL 结果透出 shooter  (actual= expected=own_ship)
+[A01] PASS 非法 context 拒绝: actor=opfor_ai  actor_not_authorized
+[A01] PASS 拒绝原因属授权类: actor=opfor_ai  actor_not_authorized
+[A01] PASS 拒绝零副作用: actor=opfor_ai  { "ammo": 0, "projectiles": 0, "launch_events": 0 }
+[A01] PASS 非法 context 拒绝: controller=opfor_ai  controller_mismatch
+[A01] PASS 拒绝原因属授权类: controller=opfor_ai  controller_mismatch
+[A01] PASS 拒绝零副作用: controller=opfor_ai  { "ammo": 0, "projectiles": 0, "launch_events": 0 }
+[A01] PASS 非法 context 拒绝: fleet=enemy_fleet  fleet_mismatch
+[A01] PASS 拒绝原因属授权类: fleet=enemy_fleet  fleet_mismatch
+[A01] PASS 拒绝零副作用: fleet=enemy_fleet  { "ammo": 0, "projectiles": 0, "launch_events": 0 }
+[A01] PASS 非法 context 拒绝: 无 shooter 但敌人 actor  context_domain_mismatch
+[A01] PASS 拒绝原因属授权类: 无 shooter 但敌人 actor  context_domain_mismatch
+[A01] PASS 拒绝零副作用: 无 shooter 但敌人 actor  { "ammo": 0, "projectiles": 0, "launch_events": 0 }
+[A01] PASS 第二本方舰无真实运行态 → unavailable  actual=shooter_runtime_unavailable expected=shooter_runtime_unavailable
+[A01] PASS unavailable 零副作用  { "ammo": 0, "projectiles": 0, "launch_events": 0 }
+
+[A01] STEP R2 授权 context 进入日志/审计/重放
+[A01] FAIL 审计记录成功与拒绝  (4)
+[A01] FAIL 审计含 actor/controller/fleet/shooter 规范化 context
+[A01] FAIL 操作日志保存同一份 context（重放可用）
+
+[A01] STEP R3a/R3b 玩家读路径：HUD contacts 与 plot 只走 owner facade
+[SHELL BINDER] CICView ready=true truth=false tracks=0 levels={ "1": 0, "2": 0, "3": 0, "4": 0 } facilities=0
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=false targets=0 by_identity={  } evidence={  } auto=false
+[A01] PASS HUD contacts 来自 owner 情报  ["target_a"]
+[A01] PASS 隐藏实体不出现在 HUD contacts  ["target_a"]
+[A01] PASS plot 数据源为 intel（不直出物理真值）  intel
+[A01] PASS 隐藏实体不出现在 plot  ["target_a"]
+[A01] PASS 空情报 plot 仍为 intel 源（不回退 physics）  actual=intel expected=intel
+[A01] PASS 空情报 plot 为空（不补物理真值）  actual=0 expected=0
+
+[A01] STEP R6 隐藏真值钩子必须真实改变被测真值，且玩家视图不变
+[A01] PASS 隐藏真值钩子确实改变了被测真值  {"world":{"name":"raider_2","pos_km":[321719.000004247,600.799999964582,0.0]}}
+[A01] PASS 真值变化不影响未观测的玩家视图  actual={"observations":[{"bearing_deg":90.0,"delivery_id":"","intel_owner_id":"player_intel","observation_id":"OBS-2","observed_t":2.0,"observer_id":"own_ship","pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"received_t":2.0,"sensor":"radar","source":"radar","target_id":"target_a"}],"owner":"player_intel","tracks":[{"bearing_deg":90.0,"id":"target_a","intel_owner_id":"player_intel","last_observed_t":2.0,"last_received_t":2.0,"pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"source":"radar"}]} expected={"observations":[{"bearing_deg":90.0,"delivery_id":"","intel_owner_id":"player_intel","observation_id":"OBS-2","observed_t":2.0,"observer_id":"own_ship","pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"received_t":2.0,"sensor":"radar","source":"radar","target_id":"target_a"}],"owner":"player_intel","tracks":[{"bearing_deg":90.0,"id":"target_a","intel_owner_id":"player_intel","last_observed_t":2.0,"last_received_t":2.0,"pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"source":"radar"}]}
+
+[A01] STEP R4 共享必须经真实 Comms 投递到达、仅接收方融合、重投幂等
+[A01] PASS ally 自己可见其观测
+[A01] PASS 共享发出前 player 不可见
+[A01] PASS 共享经 Comms 发出
+[A01] PASS 发出后但未到达 → player 仍不可见
+SCRIPT ERROR: Invalid call 'String' constructor: COMMS_SENT
+   at: _reconcile_standalone (res://scripts/core/game_session.gd:2779)
+   GDScript backtrace (most recent call first):
+       [0] _reconcile_standalone (res://scripts/core/game_session.gd:2779)
+       [1] tick (res://scripts/core/game_session.gd:1402)
+       [2] _run (res://tests/jc_authority_intel_probe.gd:314)
+       [3] _initialize (res://tests/jc_authority_intel_probe.gd:31)
+[A01] FAIL 到达后仅接收方融合 target_b  ([] share_result={})
+[A01] PASS 共享不泄漏给第三方 owner
+[A01] FAIL 重复投递不增长观测流（幂等）  (actual=1 expected=0)
+[A01] PASS 重复投递返回幂等结果  {"observation_id":"OBS-A2","ok":true,"owner_id":"player_intel","track_id":"target_b"}
+[A01] PASS 共享负例拒绝: 未授权跨 owner 共享  share_not_authorized
+[A01] PASS 共享负例拒绝: 未来到达时刻  observation_not_arrived
+[A01] PASS 共享负例拒绝: received<observed  invalid_observation_time
+[A01] PASS 共享负例拒绝: 未知 owner  unknown_intel_owner
+
+[A01] STEP R5 旧档迁移 / 坏新段 / 公开恢复模式
+[A01] PASS 坏 authority_intel 新段明确失败  ["authority_intel 段畸形：authority_intel 必须是对象（收到 String）"]
+[A01] PASS 坏新段恢复模式标记 failed  actual=failed expected=failed
+ERROR: GameSession: postcondition: ["track_table 时间与会话不一致：2.0 != 1.0"]
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/game_session.gd:4717)
+       [1] tick (res://scripts/core/game_session.gd:1405)
+       [2] _run (res://tests/jc_authority_intel_probe.gd:382)
+       [3] _initialize (res://tests/jc_authority_intel_probe.gd:31)
+ERROR: GameSession: postcondition: ["track_table 时间与会话不一致：3.0 != 2.0"]
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/game_session.gd:4717)
+       [1] tick (res://scripts/core/game_session.gd:1405)
+       [2] _run (res://tests/jc_authority_intel_probe.gd:382)
+       [3] _initialize (res://tests/jc_authority_intel_probe.gd:31)
+ERROR: GameSession: postcondition: ["track_table 时间与会话不一致：2.0 != 1.0"]
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/game_session.gd:4717)
+       [1] tick (res://scripts/core/game_session.gd:1405)
+       [2] _replay_op (res://scripts/core/game_session.gd:5440)
+       [3] load_state (res://scripts/core/game_session.gd:4878)
+       [4] _run (res://tests/jc_authority_intel_probe.gd:388)
+       [5] _initialize (res://tests/jc_authority_intel_probe.gd:31)
+ERROR: GameSession: postcondition: ["track_table 时间与会话不一致：3.0 != 2.0"]
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _contract (res://scripts/core/game_session.gd:4717)
+       [1] tick (res://scripts/core/game_session.gd:1405)
+       [2] _replay_op (res://scripts/core/game_session.gd:5440)
+       [3] load_state (res://scripts/core/game_session.gd:4878)
+       [4] _run (res://tests/jc_authority_intel_probe.gd:388)
+       [5] _initialize (res://tests/jc_authority_intel_probe.gd:31)
+[A01] FAIL 真正旧档可加载  (["replay tick 失败：contract_violation", "replay tick 失败：contract_violation"])
+[A01] PASS 旧档恢复模式公开为 legacy_own_ship_only  actual=legacy_own_ship_only expected=legacy_own_ship_only
+[A01] PASS 恢复报告可读 restore_mode  actual=legacy_own_ship_only expected=legacy_own_ship_only
+[A01] PASS 旧航迹迁移到本舰 owner  1
+[A01] PASS 旧航迹不复制给盟军  0
+
+[A01] STEP R6 真实文件恢复 + 在途共享 + 继续 10 tick
+[A01] PASS 在途共享已发出
+[A01] PASS 真实文件恢复成功  []
+[A01] PASS 恢复后 player 视图与存档时一致  actual={"observations":[{"bearing_deg":90.0,"delivery_id":"","intel_owner_id":"player_intel","observation_id":"OBS-9","observed_t":2.0,"observer_id":"own_ship","pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"received_t":2.0,"sensor":"radar","source":"radar","target_id":"target_a"}],"owner":"player_intel","tracks":[{"bearing_deg":90.0,"id":"target_a","intel_owner_id":"player_intel","last_observed_t":2.0,"last_received_t":2.0,"pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"source":"radar"}]} expected={"observations":[{"bearing_deg":90.0,"delivery_id":"","intel_owner_id":"player_intel","observation_id":"OBS-9","observed_t":2.0,"observer_id":"own_ship","pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"received_t":2.0,"sensor":"radar","source":"radar","target_id":"target_a"}],"owner":"player_intel","tracks":[{"bearing_deg":90.0,"id":"target_a","intel_owner_id":"player_intel","last_observed_t":2.0,"last_received_t":2.0,"pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"source":"radar"}]}
+[A01] PASS 在途共享随档恢复  1
+SCRIPT ERROR: Invalid call 'String' constructor: COMMS_SENT
+   at: _reconcile_standalone (res://scripts/core/game_session.gd:2779)
+   GDScript backtrace (most recent call first):
+       [0] _reconcile_standalone (res://scripts/core/game_session.gd:2779)
+       [1] tick (res://scripts/core/game_session.gd:1402)
+       [2] _run (res://tests/jc_authority_intel_probe.gd:433)
+       [3] _initialize (res://tests/jc_authority_intel_probe.gd:31)
+[A01] PASS 继续 10 tick 后 player 视图一致（含在途共享到达）  actual={"observations":[{"bearing_deg":90.0,"delivery_id":"","intel_owner_id":"player_intel","observation_id":"OBS-9","observed_t":2.0,"observer_id":"own_ship","pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"received_t":2.0,"sensor":"radar","source":"radar","target_id":"target_a"}],"owner":"player_intel","tracks":[{"bearing_deg":90.0,"id":"target_a","intel_owner_id":"player_intel","last_observed_t":2.0,"last_received_t":2.0,"pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"source":"radar"}]} expected={"observations":[{"bearing_deg":90.0,"delivery_id":"","intel_owner_id":"player_intel","observation_id":"OBS-9","observed_t":2.0,"observer_id":"own_ship","pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"received_t":2.0,"sensor":"radar","source":"radar","target_id":"target_a"}],"owner":"player_intel","tracks":[{"bearing_deg":90.0,"id":"target_a","intel_owner_id":"player_intel","last_observed_t":2.0,"last_received_t":2.0,"pos_km":[321719.0,500.0,0.0],"quality":0.7,"range_km":500.0,"source":"radar"}]}
+
+[A01] STEP 总结
+[A01] INFO 本探针验证授权/消费链/共享到达/真实文件恢复；不含 AI/逐舰战斗账本
+────────────────────────────────────────────────────────────────
+JC-A01 AUTHORITY INTEL PROBE RESULT: PASS=45 FAIL=12
+[A01] FAILED: 合法本舰真实发射成功  (no_ready_solution)
+[A01] FAILED: 真实发射消耗 1 发弹药  (actual=0 expected=-1)
+[A01] FAILED: 真实发射产生弹体  (0)
+[A01] FAILED: 真实发射产生 combat.weapon_launch 事件  (0)
+[A01] FAILED: 结果透出 legacy context  (actual= expected=own_ship)
+[A01] FAILED: 结果透出 shooter  (actual= expected=own_ship)
+[A01] FAILED: 审计记录成功与拒绝  (4)
+[A01] FAILED: 审计含 actor/controller/fleet/shooter 规范化 context
+[A01] FAILED: 操作日志保存同一份 context（重放可用）
+[A01] FAILED: 到达后仅接收方融合 target_b  ([] share_result={})
+[A01] FAILED: 重复投递不增长观测流（幂等）  (actual=1 expected=0)
+[A01] FAILED: 真正旧档可加载  (["replay tick 失败：contract_violation", "replay tick 失败：contract_violation"])
+JC-A01 AUTHORITY INTEL PROBE FAILED
+AUDIO OK files=36 headless=true muted=false
+WARNING: 336 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 20 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

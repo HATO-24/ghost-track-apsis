@@ -1,0 +1,586 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+BUILD PROFILE PROBE · 版本划分
+════════════════════════════════════════════════════════════════
+
+── 1. 配置文件（四剖面）──
+[PASS] build_profiles.json 可读
+[PASS] schema  actual=build_profiles.v1 expected=build_profiles.v1
+[PASS] version
+[PASS] 默认剖面 full（不静默改默认）  actual=full expected=full
+[PASS] 四个剖面  actual=4 expected=4
+[PASS] 有 full
+[PASS] 有 orbital_sim
+[PASS] 有 sandbox
+[PASS] 有 combat_sim
+[PASS] full label
+[PASS] full subtitle
+[PASS] full entry_scene
+[PASS] full save_root
+[PASS] full features
+[PASS] full 开关 story
+[PASS] full 开关 prelude
+[PASS] full 开关 triggers
+[PASS] full 开关 identification
+[PASS] full 开关 traffic
+[PASS] full 开关 port
+[PASS] full 开关 signal
+[PASS] full 开关 combat
+[PASS] full 开关 ballistics
+[PASS] full 开关 damage
+[PASS] full 开关 physics_world
+[PASS] full 开关 sandbox
+[PASS] full 开关 ship_catalog
+[PASS] full 开关 refit
+[PASS] orbital_sim label
+[PASS] orbital_sim subtitle
+[PASS] orbital_sim entry_scene
+[PASS] orbital_sim save_root
+[PASS] orbital_sim features
+[PASS] orbital_sim 开关 story
+[PASS] orbital_sim 开关 prelude
+[PASS] orbital_sim 开关 triggers
+[PASS] orbital_sim 开关 identification
+[PASS] orbital_sim 开关 traffic
+[PASS] orbital_sim 开关 port
+[PASS] orbital_sim 开关 signal
+[PASS] orbital_sim 开关 combat
+[PASS] orbital_sim 开关 ballistics
+[PASS] orbital_sim 开关 damage
+[PASS] orbital_sim 开关 physics_world
+[PASS] orbital_sim 开关 sandbox
+[PASS] orbital_sim 开关 ship_catalog
+[PASS] orbital_sim 开关 refit
+[PASS] sandbox label
+[PASS] sandbox subtitle
+[PASS] sandbox entry_scene
+[PASS] sandbox save_root
+[PASS] sandbox features
+[PASS] sandbox 开关 story
+[PASS] sandbox 开关 prelude
+[PASS] sandbox 开关 triggers
+[PASS] sandbox 开关 identification
+[PASS] sandbox 开关 traffic
+[PASS] sandbox 开关 port
+[PASS] sandbox 开关 signal
+[PASS] sandbox 开关 combat
+[PASS] sandbox 开关 ballistics
+[PASS] sandbox 开关 damage
+[PASS] sandbox 开关 physics_world
+[PASS] sandbox 开关 sandbox
+[PASS] sandbox 开关 ship_catalog
+[PASS] sandbox 开关 refit
+[PASS] combat_sim 保留旧开关 story
+[PASS] combat_sim 保留旧开关 prelude
+[PASS] combat_sim 保留旧开关 triggers
+[PASS] combat_sim 保留旧开关 identification
+[PASS] combat_sim 保留旧开关 traffic
+[PASS] combat_sim 保留旧开关 port
+[PASS] combat_sim 保留旧开关 signal
+[PASS] combat_sim 保留旧开关 combat
+[PASS] combat_sim 保留旧开关 ballistics
+[PASS] combat_sim 保留旧开关 damage
+[PASS] combat_sim 保留旧开关 physics_world
+[PASS] combat_sim 保留旧开关 sandbox
+[PASS] combat_sim 未新增 ship_catalog（旧矩阵不变）
+[PASS] combat_sim 未新增 refit（旧矩阵不变）
+[PASS] full 存档根  actual=user://saves expected=user://saves
+[PASS] orbital_sim 存档根  actual=user://saves_sim expected=user://saves_sim
+[PASS] sandbox 存档根  actual=user://saves_sandbox expected=user://saves_sandbox
+[PASS] combat_sim 存档根  actual=user://saves_sim expected=user://saves_sim
+[PASS] full / orbital_sim 存档根不同
+[PASS] orbital_sim / sandbox 存档根不同
+[PASS] orbital_sim boot_mode=simulator  actual=simulator expected=simulator
+[PASS] orbital_sim 场景路径  actual=res://framework/content/scenario_orbital_sim.json expected=res://framework/content/scenario_orbital_sim.json
+[PASS] orbital_sim 直接进战术台  actual=res://v1_hud.tscn expected=res://v1_hud.tscn
+[PASS] orbital_sim 关闭 story  actual=false expected=false
+[PASS] orbital_sim 关闭 prelude  actual=false expected=false
+[PASS] orbital_sim 关闭 triggers  actual=false expected=false
+[PASS] orbital_sim 关闭 sandbox  actual=false expected=false
+[PASS] orbital_sim 开启 identification  actual=true expected=true
+[PASS] orbital_sim 开启 traffic  actual=true expected=true
+[PASS] orbital_sim 开启 port  actual=true expected=true
+[PASS] orbital_sim 开启 signal  actual=true expected=true
+[PASS] orbital_sim 开启 combat  actual=true expected=true
+[PASS] orbital_sim 开启 ballistics  actual=true expected=true
+[PASS] orbital_sim 开启 damage  actual=true expected=true
+[PASS] orbital_sim 开启 physics_world  actual=true expected=true
+[PASS] orbital_sim 开启 ship_catalog  actual=true expected=true
+[PASS] orbital_sim 开启 refit  actual=true expected=true
+[PASS] orbital_sim 无作弊项（sandbox_opts 缺失/全 false）  <null>
+[PASS] orbital_sim limitations ≥6  7
+[PASS] limitations 全为非空字符串
+[PASS] orbital_sim 不是 deprecated
+[PASS] sandbox boot_mode=sandbox  actual=sandbox expected=sandbox
+[PASS] sandbox 使用同一 orbital_sim 场景  actual=res://framework/content/scenario_orbital_sim.json expected=res://framework/content/scenario_orbital_sim.json
+[PASS] sandbox 开启便利项 unlimited_ammo  actual=true expected=true
+[PASS] sandbox 开启便利项 auto_authorize  actual=true expected=true
+[PASS] sandbox 开启便利项 quick_restart  actual=true expected=true
+[PASS] sandbox 关闭 story  actual=false expected=false
+[PASS] sandbox 关闭 prelude  actual=false expected=false
+[PASS] sandbox 关闭 triggers  actual=false expected=false
+[PASS] sandbox 开启 identification  actual=true expected=true
+[PASS] sandbox 开启 traffic  actual=true expected=true
+[PASS] sandbox 开启 port  actual=true expected=true
+[PASS] sandbox 开启 signal  actual=true expected=true
+[PASS] sandbox 开启 combat  actual=true expected=true
+[PASS] sandbox 开启 ballistics  actual=true expected=true
+[PASS] sandbox 开启 damage  actual=true expected=true
+[PASS] sandbox 开启 physics_world  actual=true expected=true
+[PASS] sandbox 开启 sandbox  actual=true expected=true
+[PASS] sandbox 开启 ship_catalog  actual=true expected=true
+[PASS] sandbox 开启 refit  actual=true expected=true
+[PASS] sandbox label/subtitle 明确标注开发测试
+[PASS] combat_sim deprecated=true
+[PASS] combat_sim deprecated_reason 指向新剖面  旧作战模拟器演示 profile；新正式模拟器请用 orbital_sim，开发测试请用 sandbox
+[PASS] combat_sim notes 含迁移提示
+[PASS] full 加载器 ready  []
+[PASS] full features 全集  actual=14 expected=14
+[PASS] orbital_sim 加载器 ready  []
+[PASS] orbital_sim features 全集  actual=14 expected=14
+[PASS] sandbox 加载器 ready  []
+[PASS] sandbox features 全集  actual=14 expected=14
+[PASS] combat_sim 加载器 ready  []
+[PASS] combat_sim features 全集  actual=14 expected=14
+
+── 2. 默认（full 剧情本体）──
+[PASS] ready  []
+[PASS] 默认选 full  actual=full expected=full
+[PASS] full boot_mode=prelude  actual=prelude expected=prelude
+[PASS] full 不是 sandbox
+[PASS] full 不是 simulator
+[PASS] full 不是 simulation
+[PASS] full 不是模拟器
+[PASS] full 开启 story
+[PASS] full 开启 prelude
+[PASS] full 开启 triggers
+[PASS] full 开启 identification
+[PASS] full 开启 traffic
+[PASS] full 开启 port
+[PASS] full 开启 signal
+[PASS] full 开启 combat
+[PASS] full 开启 ballistics
+[PASS] full 开启 damage
+[PASS] full 开启 physics_world
+[PASS] full 开启 ship_catalog
+[PASS] full 开启 refit
+[PASS] full 不开 sandbox
+[PASS] full 入口主菜单  actual=res://main_menu.tscn expected=res://main_menu.tscn
+[PASS] full 存档根  actual=user://saves expected=user://saves
+[PASS] 可选剖面 4 个  actual=4 expected=4
+[PASS] full 无 limitations  actual=0 expected=0
+[PASS] full 不是 deprecated
+[PASS] full 便利项恒关 unlimited_ammo
+[PASS] full 便利项恒关 auto_authorize
+[PASS] full 便利项恒关 quick_restart
+
+── 3. orbital_sim（正式拟真剖面）──
+[PASS] ready  []
+[PASS] 无校验 error  []
+[PASS] 选中 orbital_sim  actual=orbital_sim expected=orbital_sim
+[PASS] boot_mode=simulator  actual=simulator expected=simulator
+[PASS] is_simulator
+[PASS] is_simulation
+[PASS] 不是 sandbox 剖面
+[PASS] 不是 combat_sim
+[PASS] 模拟器关闭 story
+[PASS] 模拟器关闭 prelude
+[PASS] 模拟器关闭 triggers
+[PASS] 模拟器开启 combat
+[PASS] 模拟器开启 ballistics
+[PASS] 模拟器开启 damage
+[PASS] 模拟器开启 physics_world
+[PASS] 模拟器开启 traffic
+[PASS] 模拟器开启 port
+[PASS] 模拟器开启 identification
+[PASS] 模拟器开启 signal
+[PASS] 模拟器开启 ship_catalog
+[PASS] 模拟器开启 refit
+[PASS] 模拟器不开 sandbox
+[PASS] 模拟器直接进战术台  actual=res://v1_hud.tscn expected=res://v1_hud.tscn
+[PASS] 模拟器存档根  actual=user://saves_sim expected=user://saves_sim
+[PASS] orbital_sim 场景路径  actual=res://framework/content/scenario_orbital_sim.json expected=res://framework/content/scenario_orbital_sim.json
+[PASS] limitations ≥6  7
+[PASS] 有说明文字
+[PASS] orbital_sim 不是 deprecated
+[PASS] deprecated_reason 为空  actual= expected=
+[PASS] 拟真剖面便利项恒关 unlimited_ammo
+[PASS] 拟真剖面便利项恒关 auto_authorize
+[PASS] 拟真剖面便利项恒关 quick_restart
+[PASS] sandbox_opts 三键存在但全 false  actual=3 expected=3
+[PASS] sandbox_opts 全 false
+[PASS] feature_status_vm 覆盖全集  actual=14 expected=14
+[PASS] feature_status 含 enabled/reason story
+[PASS] 关闭项有 OFF 原因 story
+[PASS] feature_status 含 enabled/reason prelude
+[PASS] 关闭项有 OFF 原因 prelude
+[PASS] feature_status 含 enabled/reason triggers
+[PASS] 关闭项有 OFF 原因 triggers
+[PASS] feature_status 含 enabled/reason identification
+[PASS] 开启项无 OFF 原因 identification  actual= expected=
+[PASS] feature_status 含 enabled/reason traffic
+[PASS] 开启项无 OFF 原因 traffic  actual= expected=
+[PASS] feature_status 含 enabled/reason port
+[PASS] 开启项无 OFF 原因 port  actual= expected=
+[PASS] feature_status 含 enabled/reason signal
+[PASS] 开启项无 OFF 原因 signal  actual= expected=
+[PASS] feature_status 含 enabled/reason combat
+[PASS] 开启项无 OFF 原因 combat  actual= expected=
+[PASS] feature_status 含 enabled/reason ballistics
+[PASS] 开启项无 OFF 原因 ballistics  actual= expected=
+[PASS] feature_status 含 enabled/reason damage
+[PASS] 开启项无 OFF 原因 damage  actual= expected=
+[PASS] feature_status 含 enabled/reason physics_world
+[PASS] 开启项无 OFF 原因 physics_world  actual= expected=
+[PASS] feature_status 含 enabled/reason sandbox
+[PASS] 关闭项有 OFF 原因 sandbox
+[PASS] feature_status 含 enabled/reason ship_catalog
+[PASS] 开启项无 OFF 原因 ship_catalog  actual= expected=
+[PASS] feature_status 含 enabled/reason refit
+[PASS] 开启项无 OFF 原因 refit  actual= expected=
+[PASS] 关闭原因含「剧情」 story  剧情扩写暂停（Phase 0）
+[PASS] 关闭原因含「剧情」 prelude  剧情扩写暂停（Phase 0）
+[PASS] 关闭原因含「剧情」 triggers  剧情扩写暂停（Phase 0）
+[PASS] sandbox 关闭原因非空
+[PASS] vm 暴露 limitations  actual=7 expected=7
+[PASS] vm 暴露 deprecated  actual=false expected=false
+[PASS] vm 暴露 feature_status
+[PASS] vm 暴露 is_simulation
+[PASS] orbital_sim vm JSON 安全
+[PASS] summary 暴露 limitations  actual=7 expected=7
+[PASS] summary 暴露 deprecated  actual=false expected=false
+[PASS] orbital_sim summary JSON 安全
+
+── 4. sandbox（开发测试剖面）──
+[PASS] ready  []
+[PASS] boot_mode=sandbox  actual=sandbox expected=sandbox
+[PASS] is_sandbox
+[PASS] is_simulation
+[PASS] 不是 simulator
+[PASS] 直接进战术台  actual=res://v1_hud.tscn expected=res://v1_hud.tscn
+[PASS] 测试独立存档根  actual=user://saves_sandbox expected=user://saves_sandbox
+[PASS] 使用 orbital_sim 场景  actual=res://framework/content/scenario_orbital_sim.json expected=res://framework/content/scenario_orbital_sim.json
+[PASS] sandbox 开启 identification
+[PASS] sandbox 开启 traffic
+[PASS] sandbox 开启 port
+[PASS] sandbox 开启 signal
+[PASS] sandbox 开启 combat
+[PASS] sandbox 开启 ballistics
+[PASS] sandbox 开启 damage
+[PASS] sandbox 开启 physics_world
+[PASS] sandbox 开启 ship_catalog
+[PASS] sandbox 开启 refit
+[PASS] sandbox 开关
+[PASS] sandbox 关闭 story
+[PASS] sandbox 关闭 prelude
+[PASS] sandbox 关闭 triggers
+[PASS] sandbox 便利项开启 unlimited_ammo
+[PASS] sandbox 便利项开启 auto_authorize
+[PASS] sandbox 便利项开启 quick_restart
+[PASS] sandbox_opts 三项  actual=3 expected=3
+[PASS] vm 暴露 sandbox_opts  actual=true expected=true
+[PASS] sandbox 不是 deprecated
+
+── 5. combat_sim（旧作战模拟器·向后兼容）──
+[PASS] ready  []
+[PASS] 选中模拟器  actual=combat_sim expected=combat_sim
+[PASS] boot_mode=sandbox  actual=sandbox expected=sandbox
+[PASS] is_sandbox
+[PASS] is_combat_sim
+[PASS] 旧模拟器关闭 story
+[PASS] 旧模拟器关闭 prelude
+[PASS] 旧模拟器关闭 triggers
+[PASS] 旧模拟器开启 combat
+[PASS] 旧模拟器开启 ballistics
+[PASS] 旧模拟器开启 damage
+[PASS] 旧模拟器开启 physics_world
+[PASS] sandbox 开关
+[PASS] 旧模拟器关闭 traffic
+[PASS] 旧模拟器关闭 port
+[PASS] 旧模拟器 identification 开
+[PASS] 旧模拟器 signal 开
+[PASS] 旧模拟器 ship_catalog 缺省 false
+[PASS] 旧模拟器 refit 缺省 false
+[PASS] 旧模拟器直接进战术台  actual=res://v1_hud.tscn expected=res://v1_hud.tscn
+[PASS] 旧模拟器独立存档根（未改）  actual=user://saves_sim expected=user://saves_sim
+[PASS] 旧 sandbox 场景路径（未改）  actual=res://framework/content/scenario_combat_sandbox.json expected=res://framework/content/scenario_combat_sandbox.json
+[PASS] 有说明文字
+[PASS] 旧模拟器便利项开启 unlimited_ammo
+[PASS] 旧模拟器便利项开启 auto_authorize
+[PASS] 旧模拟器便利项开启 quick_restart
+[PASS] sandbox_opts 三项  actual=3 expected=3
+[PASS] vm 暴露 sandbox_opts  actual=true expected=true
+[PASS] combat_sim deprecated=true
+[PASS] deprecated_reason 非空
+[PASS] 选中 deprecated 剖面留告警  ["选中的剖面 \'combat_sim\' 已弃用（deprecated）：旧作战模拟器演示 profile；新正式模拟器请用 orbital_sim，开发测试请用 sandbox"]
+[PASS] combat_sim 开关保持 story  actual=false expected=false
+[PASS] combat_sim 开关保持 prelude  actual=false expected=false
+[PASS] combat_sim 开关保持 triggers  actual=false expected=false
+[PASS] combat_sim 开关保持 identification  actual=true expected=true
+[PASS] combat_sim 开关保持 traffic  actual=false expected=false
+[PASS] combat_sim 开关保持 port  actual=false expected=false
+[PASS] combat_sim 开关保持 signal  actual=true expected=true
+[PASS] combat_sim 开关保持 combat  actual=true expected=true
+[PASS] combat_sim 开关保持 ballistics  actual=true expected=true
+[PASS] combat_sim 开关保持 damage  actual=true expected=true
+[PASS] combat_sim 开关保持 physics_world  actual=true expected=true
+[PASS] combat_sim 开关保持 sandbox  actual=true expected=true
+[PASS] combat_sim 开关保持 ship_catalog  actual=false expected=false
+[PASS] combat_sim 开关保持 refit  actual=false expected=false
+
+── 6. simulator 剖面校验（负例不崩溃）──
+[PASS] traffic=false 时 ready=false
+[PASS] 缺核心系统报错并点明核心系统  ["simulator 剖面缺少核心系统 traffic：核心系统不得关闭后开机（traffic=false）"]
+[PASS] 不自动开启被关掉的核心系统
+[PASS] port=false 时 ready=false
+[PASS] 错误信息含 port
+[PASS] 注入 sandbox_opts 仍 ready（只告警）  []
+[PASS] simulator 强制关闭便利项 unlimited_ammo
+[PASS] simulator 强制关闭便利项 auto_authorize
+[PASS] simulator 强制关闭便利项 quick_restart
+[PASS] 注入 sandbox_opts 留告警  ["simulator 剖面禁止沙盒便利项（已强制关闭）：unlimited_ammo, auto_authorize, quick_restart"]
+[PASS] vm.sandbox_opts 全 false
+[PASS] simulator 强制关闭 story
+[PASS] 强制关闭剧情留告警  ["simulator 剖面强制关闭剧情开关 story（拟真模拟器不跑剧情）"]
+[PASS] simulator 缺 scenario 时 ready=false
+[PASS] 错误信息含 scenario
+[PASS] 未知 boot_mode 回退 prelude  actual=prelude expected=prelude
+[PASS] 未知 boot_mode 留 error
+[PASS] 未知 boot_mode 不 ready
+
+── 7. sandbox_opts 只在 sandbox 生效 ──
+[PASS] full ready  []
+[PASS] 本体便利项恒关 unlimited_ammo
+[PASS] 本体便利项恒关 auto_authorize
+[PASS] 本体便利项恒关 quick_restart
+[PASS] 本体 vm.sandbox_opts.unlimited_ammo=false  actual=false expected=false
+[PASS] 注入配置 ready  []
+[PASS] 仍是 prelude  actual=prelude expected=prelude
+[PASS] prelude 剖面忽略 sandbox_opts.unlimited_ammo
+[PASS] 回退 ready
+[PASS] 回退剖面便利项恒关 unlimited_ammo
+[PASS] 回退剖面便利项恒关 auto_authorize
+[PASS] 回退剖面便利项恒关 quick_restart
+
+── 8. 选择优先级 / 切换 ──
+[PASS] 显式 id 压过环境变量  actual=full expected=full
+[PASS] 环境变量生效  actual=orbital_sim expected=orbital_sim
+[PASS] 环境变量→simulator 剖面  actual=simulator expected=simulator
+[PASS] 环境变量→sandbox 剖面  actual=sandbox expected=sandbox
+[PASS] 无环境变量回落 default  actual=full expected=full
+[PASS] select orbital_sim
+[PASS] 切换后 boot_mode=simulator  actual=simulator expected=simulator
+[PASS] select sandbox
+[PASS] switch 后 boot_mode=sandbox  actual=sandbox expected=sandbox
+[PASS] select combat_sim
+[PASS] 旧剖面仍是 sandbox  actual=sandbox expected=sandbox
+[PASS] select deprecated 剖面留告警
+[PASS] select 回 full
+[PASS] 切回 prelude  actual=prelude expected=prelude
+[PASS] select 未知剖面拒绝
+[PASS] select 失败留告警
+
+── 9. 坏配置回退（绝不把游戏打死）──
+[PASS] 缺失配置仍 ready
+[PASS] 回退 full  actual=full expected=full
+[PASS] 留回退告警
+[PASS] 回退后开启 story
+[PASS] 回退后开启 prelude
+[PASS] 回退后开启 combat
+[PASS] 回退后开启 ballistics
+[PASS] 回退后开启 ship_catalog
+[PASS] 回退后开启 refit
+[PASS] 回退不是模拟器剖面
+[PASS] 回退无 limitations  actual=0 expected=0
+[PASS] 回退不是 deprecated
+[PASS] schema 不符仍 ready
+[PASS] schema 不符回退 full  actual=full expected=full
+[PASS] 无 profiles 仍 ready
+[PASS] 无 profiles 回退 full  actual=full expected=full
+[PASS] 坏 default 仍 ready
+[PASS] 坏 default 回落 full  actual=full expected=full
+[PASS] 坏 default 留告警
+[PASS] 坏环境变量回落 default  actual=full expected=full
+
+── 10a. 旧 sandbox 场景（真实地月系几何，向后兼容）──
+[PASS] 场景可读：res://framework/content/scenario_combat_sandbox.json
+[PASS] 场景 schema  actual=scenario_combat_sandbox.v1 expected=scenario_combat_sandbox.v1
+[PASS] 坐标系 bary_rot  actual=bary_rot expected=bary_rot
+[PASS] 场景 id  actual=combat_sandbox_eml1 expected=combat_sandbox_eml1
+[PASS] 实体数 ≥5  7
+[PASS] own_entity 非空
+[PASS] 实体 id 非空
+[PASS] apsis pos_km 三元
+[PASS] apsis vel_kmps 三元
+[PASS] apsis radius_km
+[PASS] apsis side
+[PASS] 实体 id 非空
+[PASS] harmattan pos_km 三元
+[PASS] harmattan vel_kmps 三元
+[PASS] harmattan radius_km
+[PASS] harmattan side
+[PASS] 实体 id 非空
+[PASS] raider_2 pos_km 三元
+[PASS] raider_2 vel_kmps 三元
+[PASS] raider_2 radius_km
+[PASS] raider_2 side
+[PASS] 实体 id 非空
+[PASS] skiff pos_km 三元
+[PASS] skiff vel_kmps 三元
+[PASS] skiff radius_km
+[PASS] skiff side
+[PASS] 实体 id 非空
+[PASS] l1_station pos_km 三元
+[PASS] l1_station vel_kmps 三元
+[PASS] l1_station radius_km
+[PASS] l1_station side
+[PASS] 实体 id 非空
+[PASS] watchtower pos_km 三元
+[PASS] watchtower vel_kmps 三元
+[PASS] watchtower radius_km
+[PASS] watchtower side
+[PASS] 实体 id 非空
+[PASS] ferry pos_km 三元
+[PASS] ferry vel_kmps 三元
+[PASS] ferry radius_km
+[PASS] ferry side
+[PASS] own_entity 在实体表里
+[PASS] apsis 位于 EML1 附近  x=321719
+[PASS] harmattan 位于 EML1 附近  x=322139
+[PASS] raider_2 位于 EML1 附近  x=324200
+[PASS] skiff 位于 EML1 附近  x=321819
+[PASS] l1_station 位于 EML1 附近  x=321719
+[PASS] watchtower 位于 EML1 附近  x=320700
+[PASS] ferry 位于 EML1 附近  x=321400
+[PASS] nodes 覆盖实体
+[PASS] links 非空
+[PASS] combat.own_id = own_entity  actual=apsis expected=apsis
+[PASS] combat.pd_platform_id 指定
+[PASS] 有交战提示
+
+── 10b. orbital_sim 正式场景 ──
+[PASS] 场景可读：res://framework/content/scenario_orbital_sim.json
+[PASS] 场景 schema  actual=scenario_orbital_sim.v1 expected=scenario_orbital_sim.v1
+[PASS] 坐标系 bary_rot  actual=bary_rot expected=bary_rot
+[PASS] 实体数 ≥5  7
+[PASS] own_entity 非空
+[PASS] 实体 id 非空
+[PASS] apsis pos_km 三元
+[PASS] apsis vel_kmps 三元
+[PASS] apsis radius_km
+[PASS] apsis side
+[PASS] 实体 id 非空
+[PASS] harmattan pos_km 三元
+[PASS] harmattan vel_kmps 三元
+[PASS] harmattan radius_km
+[PASS] harmattan side
+[PASS] 实体 id 非空
+[PASS] raider_2 pos_km 三元
+[PASS] raider_2 vel_kmps 三元
+[PASS] raider_2 radius_km
+[PASS] raider_2 side
+[PASS] 实体 id 非空
+[PASS] skiff pos_km 三元
+[PASS] skiff vel_kmps 三元
+[PASS] skiff radius_km
+[PASS] skiff side
+[PASS] 实体 id 非空
+[PASS] l1_station pos_km 三元
+[PASS] l1_station vel_kmps 三元
+[PASS] l1_station radius_km
+[PASS] l1_station side
+[PASS] 实体 id 非空
+[PASS] watchtower pos_km 三元
+[PASS] watchtower vel_kmps 三元
+[PASS] watchtower radius_km
+[PASS] watchtower side
+[PASS] 实体 id 非空
+[PASS] ferry pos_km 三元
+[PASS] ferry vel_kmps 三元
+[PASS] ferry radius_km
+[PASS] ferry side
+[PASS] own_entity 在实体表里
+[PASS] apsis 位于 EML1 附近  x=321719
+[PASS] harmattan 位于 EML1 附近  x=322139
+[PASS] raider_2 位于 EML1 附近  x=324200
+[PASS] skiff 位于 EML1 附近  x=321819
+[PASS] l1_station 位于 EML1 附近  x=321719
+[PASS] watchtower 位于 EML1 附近  x=320700
+[PASS] ferry 位于 EML1 附近  x=321400
+[PASS] nodes 覆盖实体
+[PASS] links 非空
+[PASS] combat.own_id = own_entity  actual=apsis expected=apsis
+[PASS] combat.pd_platform_id 指定
+[PASS] 有交战提示
+[PASS] orbital_sim 场景可读
+[PASS] orbital_sim 场景 title
+[PASS] orbital_sim 场景 subtitle
+[PASS] orbital_sim 场景 description
+[PASS] orbital_sim own_entity=apsis
+[PASS] orbital_sim ROE TIGHT（真实授权流程）  actual=TIGHT expected=TIGHT
+[PASS] orbital_sim combat.own_id  actual=apsis expected=apsis
+[PASS] orbital_sim pd_platform_id
+[PASS] orbital_sim 实体=7（与 smoke 一致）  actual=7 expected=7
+[PASS] orbital_sim 场景无 sandbox_opts
+[PASS] 场景文本无 unlimited_ammo
+[PASS] 场景文本无 auto_authorize
+[PASS] 场景文本无 quick_restart
+[PASS] orbital_sim 与旧场景同实体族
+[PASS] orbital_sim 实弹档目标在射程内
+[PASS] orbital_sim 导弹档目标在远距
+[PASS] 旧 sandbox 场景仍有 harmattan
+[PASS] 旧 sandbox 场景仍有 skiff
+[PASS] 旧 sandbox 场景仍有 raider_2
+[PASS] 旧 sandbox 场景仍有 l1_station
+[PASS] 旧 sandbox 场景仍有 ferry
+[PASS] 旧 sandbox 场景仍有 watchtower
+
+── 11. JSON / 边界 ──
+[PASS] full vm schema  actual=build_profile.v1 expected=build_profile.v1
+[PASS] full vm JSON 安全
+[PASS] full summary JSON 安全
+[PASS] full 不写 world
+[PASS] full 不写 track_table
+[PASS] full 不写 ui
+[PASS] full entry_scene 非空
+[PASS] full save_root 非空
+[PASS] full boot_mode 合法  prelude
+[PASS] full vm 含 limitations/deprecated
+[PASS] orbital_sim vm schema  actual=build_profile.v1 expected=build_profile.v1
+[PASS] orbital_sim vm JSON 安全
+[PASS] orbital_sim summary JSON 安全
+[PASS] orbital_sim 不写 world
+[PASS] orbital_sim 不写 track_table
+[PASS] orbital_sim 不写 ui
+[PASS] orbital_sim entry_scene 非空
+[PASS] orbital_sim save_root 非空
+[PASS] orbital_sim boot_mode 合法  simulator
+[PASS] orbital_sim vm 含 limitations/deprecated
+[PASS] sandbox vm schema  actual=build_profile.v1 expected=build_profile.v1
+[PASS] sandbox vm JSON 安全
+[PASS] sandbox summary JSON 安全
+[PASS] sandbox 不写 world
+[PASS] sandbox 不写 track_table
+[PASS] sandbox 不写 ui
+[PASS] sandbox entry_scene 非空
+[PASS] sandbox save_root 非空
+[PASS] sandbox boot_mode 合法  sandbox
+[PASS] sandbox vm 含 limitations/deprecated
+[PASS] combat_sim vm schema  actual=build_profile.v1 expected=build_profile.v1
+[PASS] combat_sim vm JSON 安全
+[PASS] combat_sim summary JSON 安全
+[PASS] combat_sim 不写 world
+[PASS] combat_sim 不写 track_table
+[PASS] combat_sim 不写 ui
+[PASS] combat_sim entry_scene 非空
+[PASS] combat_sim save_root 非空
+[PASS] combat_sim boot_mode 合法  sandbox
+[PASS] combat_sim vm 含 limitations/deprecated
+[PASS] orbital_sim 同配置 VM 逐字节一致
+[PASS] sandbox 同配置 VM 逐字节一致
+[PASS] combat_sim 同配置 VM 逐字节一致
+────────────────────────────────────────────────────────────────
+BUILD PROFILE PROBE RESULT: PASS=553 FAIL=0
+BUILD PROFILE PROBE OK
+AUDIO OK files=36 headless=true muted=false
