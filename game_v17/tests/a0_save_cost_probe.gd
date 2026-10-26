@@ -611,16 +611,19 @@ func _behavior_violations(original, restored, ticks: int) -> Array:
 	for i in range(ticks):
 		# R7/G3：逐 tick 记录**新增产出**的数量与内容签名，让事件/通信/观测
 		# 真正参与比较（旧实现查不存在的 last_event()，两个会话都返回 {}）。
-		var ev_n0: int = int(original.bus.events.size())
-		var ev_m0: int = int(restored.bus.events.size())
-		var ce_n0: int = int(original.comms.events.size()) \
-			if original.comms != null else 0
-		var ce_m0: int = int(restored.comms.events.size()) \
-			if restored.comms != null else 0
-		var ob_n0: int = int((original.sensor_service.observations as Array).size()) \
-			if original.sensor_service != null else 0
-		var ob_m0: int = int((restored.sensor_service.observations as Array).size()) \
-			if restored.sensor_service != null else 0
+	# R8/G0-3：这些历史是**有界滚动队列**（Comms MAX_EVENTS=200、Sensor MAX_OBS=200、
+	# EventBus 可见历史也有上限）。满载后长度不再增长，旧实现按 length 切片会漏掉
+	# 「同长度但内容被替换」的真实新增输出。改用**稳定序号水位**提取新增记录。
+		var ev_wm: String = _tail_key(original.bus.events, "id")
+		var ev_wm_r: String = _tail_key(restored.bus.events, "id")
+		var ce_wm: String = _tail_key(original.comms.events, "seq") \
+			if original.comms != null else ""
+		var ce_wm_r: String = _tail_key(restored.comms.events, "seq") \
+			if restored.comms != null else ""
+		var ob_wm: String = _tail_key(original.sensor_service.observations, "event_id") \
+			if original.sensor_service != null else ""
+		var ob_wm_r: String = _tail_key(restored.sensor_service.observations, "event_id") \
+			if restored.sensor_service != null else ""
 		var oa: Dictionary = original.tick(TICK_DT)
 		var rb: Dictionary = restored.tick(TICK_DT)
 		if not bool(oa.get("ok", false)):
@@ -635,11 +638,11 @@ func _behavior_violations(original, restored, ticks: int) -> Array:
 				"restored": int(restored.bus.current_seq())})
 		if absf(float(original.now_s()) - float(restored.now_s())) > TIME_TOL:
 			bad.append({"tick": i, "area": "t_s"})
-		# 本 tick 新增 EventBus 事件：内容签名必须一致
+		# 本 tick 新增 EventBus 事件：内容签名必须一致（按 id 水位，不按长度）
 		var new_ev_o: Array = _event_sigs(
-			(original.bus.events as Array).slice(ev_n0))
+			_records_after(original.bus.events, "id", ev_wm))
 		var new_ev_r: Array = _event_sigs(
-			(restored.bus.events as Array).slice(ev_m0))
+			_records_after(restored.bus.events, "id", ev_wm_r))
 		if JSON.stringify(new_ev_o) != JSON.stringify(new_ev_r):
 			bad.append({"tick": i, "area": "bus.events.new",
 				"original": new_ev_o.size(), "restored": new_ev_r.size(),
@@ -650,11 +653,11 @@ func _behavior_violations(original, restored, ticks: int) -> Array:
 				bad.append({"tick": i, "area": "sensor.obs_seq",
 					"original": int(original.sensor_service._obs_seq),
 					"restored": int(restored.sensor_service._obs_seq)})
-			# 本 tick 新增观测：质量/量测内容必须一致
+			# 本 tick 新增观测：质量/量测内容必须一致（按 event_id 水位）
 			var new_ob_o: Array = _obs_sigs(
-				(original.sensor_service.observations as Array).slice(ob_n0))
+				_records_after(original.sensor_service.observations, "event_id", ob_wm))
 			var new_ob_r: Array = _obs_sigs(
-				(restored.sensor_service.observations as Array).slice(ob_m0))
+				_records_after(restored.sensor_service.observations, "event_id", ob_wm_r))
 			if JSON.stringify(new_ob_o) != JSON.stringify(new_ob_r):
 				bad.append({"tick": i, "area": "sensor.observations.new",
 					"original": new_ob_o.size(), "restored": new_ob_r.size(),
@@ -662,16 +665,75 @@ func _behavior_violations(original, restored, ticks: int) -> Array:
 		if original.comms != null and restored.comms != null:
 			if int(original.comms.pending.size()) != int(restored.comms.pending.size()):
 				bad.append({"tick": i, "area": "comms.pending"})
-			# 本 tick 新增通信事件（投递/丢失/拒绝）：正文与去向必须一致
+			# 本 tick 新增通信事件（投递/丢失/拒绝）：正文与去向必须一致（按 seq 水位）
 			var new_ce_o: Array = _comms_event_sigs(
-				(original.comms.events as Array).slice(ce_n0))
+				_records_after(original.comms.events, "seq", ce_wm))
 			var new_ce_r: Array = _comms_event_sigs(
-				(restored.comms.events as Array).slice(ce_m0))
+				_records_after(restored.comms.events, "seq", ce_wm_r))
 			if JSON.stringify(new_ce_o) != JSON.stringify(new_ce_r):
 				bad.append({"tick": i, "area": "comms.events.new",
 					"original": new_ce_o.size(), "restored": new_ce_r.size(),
 					"first": _first_diff(new_ce_o, new_ce_r)})
 	return bad
+
+
+## R8/G0-3：把某会话的通信历史重置为同构 200 条（用于满载边界对照）。
+func _seed_saturated(sess) -> void:
+	if sess == null or sess.comms == null:
+		return
+	(sess.comms.events as Array).clear()
+	for k in range(1, 201):
+		(sess.comms.events as Array).append({"schema": "v17.comms_event.v1",
+			"seq": k, "t": float(k), "kind": "DELIVERED",
+			"delivery_id": "C-%06d" % k, "from": "apsis", "to": "harmattan",
+			"mode": "LD", "text_key": "COMMS_SENT", "text": "seed-%d" % k,
+			"reason": "", "path": ["apsis", "harmattan"], "relay_count": 0,
+			"latency_s": 1.0})
+
+
+## R8/G0-3：满载滚动历史回归——两会话通信历史各预置 200 条合法记录后，
+## 只篡改恢复会话在途正文；逐 tick 比较必须能发现（旧实现按长度切片会漏）。
+func _saturated_check(ticks: int, run_i: int, original, restored) -> void:
+	if OS.get_environment("A07_SATURATION_CHECK").strip_edges() != "1":
+		return
+	if original.comms == null or restored.comms == null:
+		return
+	if run_i != 1:
+		return
+	var label := "scale %d saturated-history" % ticks
+	# 两会话预置同构 200 条历史（seq 1..200），保留真实 pending 不动
+	_seed_saturated(original)
+	_seed_saturated(restored)
+	# 两会话各注入一条**同 ID 但正文不同**的在途消息，下一 tick 同时投递；
+	# 历史已满载 200 条，长度不再增长 → 只有按水位比较才能发现。
+	var now_t := float(original.now_s())
+	var rec_o := {"delivery_id": "C-SAT-201", "from": "apsis", "to": "harmattan",
+		"mode": "LD", "text_key": "COMMS_SENT", "text": "SAT_ORIGINAL",
+		"content": {}, "path": ["apsis", "harmattan"], "latency_s": 1.0,
+		"relay_count": 0, "packet_loss": 0.0, "arrive_t": now_t + 0.0,
+		"sent_t": now_t - 1.0, "links": []}
+	var rec_r: Dictionary = rec_o.duplicate(true)
+	rec_r["text"] = "SATURATED_TAMPERED"
+	original.comms.pending.append(rec_o)
+	restored.comms.pending.append(rec_r)
+	var bad: Array = _behavior_violations(original, restored, 1)
+	_ok(bad.is_empty() == false, "%s: 满载历史下正文篡改仍被逐 tick 比较发现" % label,
+		"violations=" + str(bad.slice(0, 2)))
+	# 对照：**重新**把两会话历史同步为同构 200 条（消除上一轮已投递差异），
+	# 再注入正文一致的在途消息 → 逐 tick 比较必须为空（排除假阳性）。
+	_seed_saturated(original)
+	_seed_saturated(restored)
+	var now2 := float(original.now_s() + TICK_DT)
+	var rec_o2 := {"delivery_id": "C-SAT-202", "from": "apsis", "to": "harmattan",
+		"mode": "LD", "text_key": "COMMS_SENT", "text": "SAT_CONTROL",
+		"content": {}, "path": ["apsis", "harmattan"], "latency_s": 1.0,
+		"relay_count": 0, "packet_loss": 0.0, "arrive_t": now2 + 0.0,
+		"sent_t": now2 - 1.0, "links": []}
+	original.comms.pending.append(rec_o2.duplicate(true))
+	restored.comms.pending.append(rec_o2.duplicate(true))
+	var bad2: Array = _behavior_violations(original, restored, 1)
+	_ok(bad2.is_empty(), "%s: 满载历史 + 正文一致时逐 tick 比较为空（对照）" % label,
+		"violations=" + str(bad2.slice(0, 2)))
 
 
 func _correctness(ticks: int, run_i: int, original, restored, lr: Dictionary) -> void:
@@ -706,6 +768,10 @@ func _correctness(ticks: int, run_i: int, original, restored, lr: Dictionary) ->
 		"%s: full normalized state still matches after %d ticks" % [label,
 			CORRECTNESS_TICKS],
 		"violations=" + str(state_after.slice(0, 6)))
+	# R8/G0-3：满载滚动历史回归（放在所有比较之后，因为它会预置历史并再 tick）
+	_saturated_check(ticks, run_i, original, restored)
+
+
 ## G3：规范化 JSON（递归按键排序），避免字典键序差异造成假分歧。
 func _canonical_json(v) -> String:
 	return JSON.stringify(_canon(v))
@@ -729,6 +795,34 @@ func _canon(v):
 	if v is int or v is float:
 		return "n:%s" % str(float(v))
 	return v
+
+
+## R8/G0-3：取滚动队列最后一条记录的稳定序号（id/seq/event_id）。
+func _tail_key(rows: Array, key_name: String) -> String:
+	for i in range((rows as Array).size() - 1, -1, -1):
+		var r = (rows as Array)[i]
+		if r is Dictionary and (r as Dictionary).has(key_name):
+			return str((r as Dictionary)[key_name])
+	return ""
+
+
+## R8/G0-3：按**水位记录**提取其后的新增记录；水位已被滚动淘汰时退回全量比较。
+func _records_after(rows: Array, key_name: String, watermark: String) -> Array:
+	if watermark == "":
+		return (rows as Array).duplicate()
+	var start := -1
+	for i in range((rows as Array).size()):
+		var r = (rows as Array)[i]
+		if r is Dictionary and str((r as Dictionary).get(key_name, "")) == watermark:
+			start = i
+			break
+	if start < 0:
+		# 水位记录已被淘汰（超过队列容量）→ 无法按水位比较，退化为全量比较
+		return (rows as Array).duplicate()
+	var out: Array = []
+	for i2 in range(start + 1, (rows as Array).size()):
+		out.append((rows as Array)[i2])
+	return out
 
 
 ## R7/G3：两串签名的首个差异位置（便于定位漏检点）。

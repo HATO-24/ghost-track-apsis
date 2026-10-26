@@ -638,7 +638,13 @@ func validate_state(st: Dictionary) -> Dictionary:
 						String(tid), cstate, str(miss2)])
 			for perf in CHANNEL_FIELD_SPEC.keys():
 				var val = (ch as Dictionary).get(perf, null)
+				# R8/G0-1：显式 null 不能绕过类型校验（旧实现 `null → continue`，
+				# 导致 history=null 等被接受，step 里 Nil→Array 报 SCRIPT ERROR）。
 				if val == null:
+					# 缺键已由上面的 missing 检查报告；这里只额外报告「键在但值为 null」。
+					if (ch as Dictionary).has(perf):
+						errs.append("tws.channels[%s].%s is null (required)" % [
+							String(tid), perf])
 					continue
 				var kind_name := String(CHANNEL_FIELD_SPEC[perf])
 				if kind_name == "num":

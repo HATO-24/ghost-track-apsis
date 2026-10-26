@@ -260,6 +260,44 @@ func _run() -> void:
 	_ok(bool(brkr.get("ok", true)) == false,
 		"C 新格式缺 TWS 仍拒绝（与旧档区分）", str(brkr.get("errors", []).slice(0, 2)))
 
+	_step("C2 公共 load 透传：GameSession.load_state 必须报告 partial 模式与原因")
+	var gs_sess = GS.new(_seed(range_km, vtrans))
+	gs_sess.sensor_service.start_channel("optical", "harmattan")
+	for i in range(3):
+		gs_sess.tick(TICK_DT)
+	var gs_text: String = gs_sess.save_state()
+	var gs_doc: Dictionary = JSON.parse_string(gs_text)
+	var gs_backend: Dictionary = (gs_doc.get("sensor_service", {}) as Dictionary) \
+		.get("backend", {}) as Dictionary
+	gs_backend.erase("tws")
+	gs_backend.erase("authority_t")
+	gs_backend.erase("authority_step_count")
+	gs_backend.erase("authority_dt_last")
+	gs_backend.erase("mount_pointing")
+	(gs_doc.get("sensor_service", {}) as Dictionary)["backend"] = gs_backend
+	var gs_r = GS.new()
+	var gs_lr: Dictionary = gs_r.load_state(JSON.stringify(gs_doc))
+	_ok(bool(gs_lr.get("ok", false)), "C2 旧档经公共 load 成功",
+		str(gs_lr.get("errors", [])))
+	_eq(String(gs_lr.get("sensor_restore_mode", "")), "partial",
+		"C2 公共 load 结果透传 restore_mode=partial")
+	var gsrp: Dictionary = gs_r.sensor_restore_report()
+	_eq(bool(gsrp.get("is_partial", false)), true,
+		"C2 恢复报告标记 is_partial")
+	_ok((gsrp.get("partial_reasons", []) as Array).size() > 0,
+		"C2 恢复报告携带 partial_reasons",
+		str((gsrp.get("partial_reasons", []) as Array).slice(0, 3)))
+	# 对照：完整档必须是 full
+	var full_sess = GS.new(_seed(range_km, vtrans))
+	full_sess.sensor_service.start_channel("optical", "harmattan")
+	for i in range(3):
+		full_sess.tick(TICK_DT)
+	var full_text: String = full_sess.save_state()
+	var full_r = GS.new()
+	var full_lr: Dictionary = full_r.load_state(full_text)
+	_eq(String(full_lr.get("sensor_restore_mode", "")), "full",
+		"C2 完整档经公共 load 报告 full")
+
 	_step("总结")
 	print("[R6] INFO G1 指向/模式持久化 + G2 两阶段原子导入与严格校验已覆盖")
 	_finish()
@@ -291,7 +329,8 @@ func _mutate_atom(case_name: String, bad: Dictionary) -> void:
 
 func _stare_cases() -> Array:
 	return ["STARE 缺 stare_s/stare_required_s", "通道缺 scan_index/last_miss_t",
-		"quality 非数字"]
+		"quality 非数字", "history 显式 null", "stare_s 显式 null",
+		"state_since_t 显式 null"]
 
 
 func _make_stare_case(case_name: String, bad: Dictionary) -> void:
@@ -323,6 +362,27 @@ func _make_stare_case(case_name: String, bad: Dictionary) -> void:
 				(chans3[k] as Dictionary)["quality"] = "high"
 				break
 			tws["channels"] = chans3
+			backend["tws"] = tws
+		"history 显式 null":
+			var chans4: Dictionary = tws.get("channels", {}) as Dictionary
+			for k4 in chans4.keys():
+				(chans4[k4] as Dictionary)["history"] = null
+				break
+			tws["channels"] = chans4
+			backend["tws"] = tws
+		"stare_s 显式 null":
+			var chans5: Dictionary = tws.get("channels", {}) as Dictionary
+			for k5 in chans5.keys():
+				(chans5[k5] as Dictionary)["stare_s"] = null
+				break
+			tws["channels"] = chans5
+			backend["tws"] = tws
+		"state_since_t 显式 null":
+			var chans6: Dictionary = tws.get("channels", {}) as Dictionary
+			for k6 in chans6.keys():
+				(chans6[k6] as Dictionary)["state_since_t"] = null
+				break
+			tws["channels"] = chans6
 			backend["tws"] = tws
 
 
