@@ -32,6 +32,12 @@ const NEG_CASES := {
 	"invalid_obs_enemy_selftrust.json": "不是原始 owner",
 	# R7：接收 owner 必须与 intel_owner_id 一致
 	"invalid_obs_receiver.json": "接收 owner",
+	# R8/K0-3：接收 owner 必须显式声明（不得默认放行）
+	"invalid_obs_missing_receiver.json": "received_by_intel_owner_id",
+	# R8/K0-1：seq 必需
+	"invalid_missing_seq.json": "缺少 seq",
+	# R8/K0-2：lifecycle 版本必须是受支持版本
+	"invalid_lifecycle_version.json": "版本不受支持",
 	# R7：未选中/未部署实例不能作为 shooter
 	"invalid_shooter_not_participating.json": "不能受令",
 	# R7：缺 command_id 必须拒绝

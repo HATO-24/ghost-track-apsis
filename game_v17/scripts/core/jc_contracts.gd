@@ -33,6 +33,8 @@ const EVENT_LIFECYCLE := ["created", "observed", "shared", "received", "executed
 # R7：命令请求/回执/执行记录的状态枚举（生命周期冻结）
 const LIFECYCLE_STATES := ["pending", "accepted", "rejected", "executing",
 	"completed", "failed", "lost"]
+# R8/K0-2：受支持的 lifecycle 版本身份（未知版本明确拒绝）
+const LIFECYCLE_VERSIONS := ["v17.cmd_lifecycle.v1"]
 const LEGACY_UNKNOWN_BEHAVIOR := ["reject", "legacy_tag"]
 
 # 1 t = 1000 kg（旧舰队名册用 t，PhysicsWorld 用 kg；只允许转换一次）
@@ -334,13 +336,18 @@ static func _validate_observations(raw, index: Dictionary, dom_index: Dictionary
 		elif observer_owner != "" and authz != observer_owner:
 			errs.append("观测共享授权者不是原始 owner：observer_owner=%s authorized_by=%s" % [
 				observer_owner, authz])
-		# R7：接收方必须显式且与授权路径一致；跨 owner 共享必须声明 receiver。
-		var receiver := String(o.get("received_by_intel_owner_id", owner))
-		if not intel_owners.has(receiver):
-			errs.append("观测 received_by_intel_owner_id 不是任何域的 intel_owner: " + receiver)
-		elif receiver != owner:
-			errs.append("观测接收 owner 与 intel_owner_id 不一致：%s vs %s" % [
-				receiver, owner])
+		# R8/K0-3：接收方**必须显式**声明（不再默认成 intel_owner 静默放行）。
+		var raw_receiver = o.get("received_by_intel_owner_id", null)
+		if raw_receiver == null:
+			errs.append("观测缺少 received_by_intel_owner_id（接收 owner 必须显式）")
+		else:
+			var receiver := String(raw_receiver)
+			if not intel_owners.has(receiver):
+				errs.append("观测 received_by_intel_owner_id 不是任何域的 intel_owner: "
+					+ receiver)
+			elif receiver != owner:
+				errs.append("观测接收 owner 与 intel_owner_id 不一致：%s vs %s" % [
+					receiver, owner])
 		# 他人观测只能经原始 owner 授权；自我授权敌观测已由上面的 owner 校验拒绝。
 		for tf in ["observed_t", "received_t"]:
 			var v = o.get(tf, null)
@@ -387,14 +394,22 @@ static func _validate_commands(raw, index: Dictionary, dom_index: Dictionary) ->
 		if ev_id == "":
 			errs.append("命令 %s 缺少 event_id（事件标识必须显式）" % cid)
 		var seqv = c.get("seq", null)
-		if seqv != null and (not _is_int(seqv) or float(seqv) < 0.0):
+		# R8/K0-1：seq 是冻结契约的一部分，**必需**（不接受"合法省略"两套口径）。
+		if seqv == null:
+			errs.append("命令 %s 缺少 seq（事件序号必须显式）" % cid)
+		elif not _is_int(seqv) or float(seqv) < 0.0:
 			errs.append("命令 %s 的 seq 必须是非负整数" % cid)
 		var lc: Dictionary = c.get("lifecycle", {}) if c.get("lifecycle") is Dictionary else {}
 		if lc.is_empty():
 			errs.append("命令 %s 缺少 lifecycle（请求/回执/执行记录必须冻结）" % cid)
 		else:
-			if String(lc.get("lifecycle_version", "")) == "":
+			# R8/K0-2：lifecycle 版本必须属于受支持集合，未知版本明确拒绝。
+			var lv := String(lc.get("lifecycle_version", ""))
+			if lv == "":
 				errs.append("命令 %s 的 lifecycle 缺少版本" % cid)
+			elif not (lv in LIFECYCLE_VERSIONS):
+				errs.append("命令 %s 的 lifecycle 版本不受支持: %s（支持 %s）" % [
+					cid, lv, str(LIFECYCLE_VERSIONS)])
 			for stage in ["request", "receipt", "execution"]:
 				var row = lc.get(stage, null)
 				if not (row is Dictionary):

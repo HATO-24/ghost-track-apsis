@@ -175,12 +175,25 @@
 - 旧调用 `legacy_context=own_ship` 必须同时给出 `own_entity_instance_id` 且 `shooter_id == own`；
 - **玩家填 `ally_ai` 直接 fire 盟军舰船 → 拒绝**（actor 不在 ally 名单 / controller 不符 / shooter 跨域，三重拦截）。
 
-### 8.2 情报共享与延迟（冻结）
-- `observer_id` 必须是已登记实例；
-- `intel_owner_id` 必须是某域的 `intel_owner_id`（不接受任意字符串）；
-- 共享必须有 `share_authorized_by`，且**必须等于**该情报拥有者；
+### 8.2 情报共享与延迟（冻结 · R8 归一）
+- `observer_id` 必须是已登记实例；**原始 owner 固定** = observer 所属域的 `intel_owner_id`；
+- `share_authorized_by` 必须等于**原始 owner**（不是接收方，也不能自授权敌方观测）；
+- `intel_owner_id` = **接收 owner**，必须是某域的 `intel_owner_id`；
+- `received_by_intel_owner_id` **必须显式声明**（不再默认成 `intel_owner_id`），且必须等于 `intel_owner_id`；
+- 因此「ally 观测 → player 接收」是合法形态：`share_authorized_by=ally_intel`、`intel_owner_id=player_intel`；
 - `received_t - observed_t` 必须与 `delay_s` 一致（≤1e-6 s），否则拒绝；
 - 分方情报方案冻结为 `intel_partitioning = per_owner_track_table`（每 owner 独立 TrackTable）。
+
+### 8.2.1 观测共享字段表（R8 新增）
+
+| 字段 | 类型 | 唯一写者 | 读者 | 时间/单位 | 可见域 | 拒绝原因 |
+|---|---|---|---|---|---|---|
+| `observer_id` | String | 感知服务 | 各 owner TrackTable | 采样时刻 `observed_t` | 全局 | 非实例 |
+| `share_authorized_by` | String | **原始 owner** | 接收 owner、审计 | — | 全局 | 空 / 非 intel_owner / ≠ 原始 owner |
+| `intel_owner_id` | String | 接收 owner | 该 owner 融合 | — | 该 owner | 空 / 非 intel_owner |
+| `received_by_intel_owner_id` | String | 接收 owner | 融合、战报 | `received_t`（秒） | 该 owner | 缺失 / 非 intel_owner / ≠ `intel_owner_id` |
+| `delay_s` | float | 共享链路 | 融合、UI | 秒 | 全局 | 负/非有限/与 `received-observed` 不一致 |
+| `path` | String | 共享链路 | 审计 | — | 全局 | 空 |
 
 ### 8.3 AI 只读视图（冻结）
 - `ai_read_view.reads_ground_truth` 必须为 `false`；
@@ -194,9 +207,33 @@
 - `request_id` 必须存在且唯一；同一 `request_id` 携带不同载荷 → **幂等键冲突拒绝**；
 - `roster` 成员必须是本舰队已登记实例。
 
-### 8.5 生命周期 / legacy scope（冻结）
+### 8.5 生命周期 / legacy scope（冻结 · R8 归一）
 - `event_lifecycle` 固定 6 阶段：`created → observed → shared → received → executed → closed`；
+- 命令必须携带 `event_id`、`seq`（**必需**，非负整数）与 `lifecycle`：
+  - `lifecycle_version` 必须属于受支持集合 `["v17.cmd_lifecycle.v1"]`，未知版本**明确拒绝**；
+  - 必须包含 `request` / `receipt` / `execution` 三段，每段有 `t`（有限非负秒）与 `state`；
+  - `state` ∈ `pending|accepted|rejected|executing|completed|failed|lost`；
+  - `receipt` / `execution` 必须引用与 `request` 相同的 `request_id`；
 - `legacy_scope.own_ship_only = true`；`unknown_campaign_behavior ∈ {reject, legacy_tag}`。
+
+### 8.5.1 事件/命令字段表（R8 新增）
+
+| 字段 | 类型 | 唯一写者 | 读者 | 时间/单位 | 可见域 | 拒绝原因 |
+|---|---|---|---|---|---|---|
+| `command_id` | String | 指挥层 | 命令队列、战报 | — | 全局 | 空 / 重复 |
+| `event_id` | String | 指挥层 | EventBus 关联 | — | 全局 | 空 |
+| `seq` | int | 指挥层 | 排序、幂等 | — | 全局 | 缺失 / 非整数 / 负 |
+| `lifecycle.lifecycle_version` | String | 指挥层 | 迁移、审计 | 版本标识 | 全局 | 缺失 / 不在支持集合 |
+| `lifecycle.request.request_id` | String | 指挥层 | 回执、执行 | — | 全局 | 空 |
+| `lifecycle.<stage>.t` | float | 指挥层 | 时序核对 | 模拟秒 | 全局 | 非有限 / 负 |
+| `lifecycle.<stage>.state` | String | 指挥层 | 状态机 | 枚举 | 全局 | 不在枚举 |
+
+### 8.5.2 legacy 本舰锚点（可信来源）
+旧调用 `legacy_context=own_ship` 必须同时给出 **`own_entity_instance_id`** 且 `shooter_id == own`；
+`own` 必须是本场的**可信本舰锚点**（由场景配置给出，不接受由命令自身字符串自证）。
+- 正例：`legacy_context=own_ship` + `own_entity_instance_id=I-A1` + `shooter_id=I-A1`；
+- 负例：`legacy_context=all_allies`（扩成所有友舰）→ 拒绝；
+- 负例：`legacy_context=own_ship` 但 `shooter_id` 指向第二艘舰 → 拒绝。
 
 ### 8.6 单位与数值（区分连续与计数）
 - 连续物理量：`mass_kg` / `fuel_kg` / `delta_v_kmps` —— 有限、非负、≤1e15；
@@ -205,4 +242,5 @@
 - JSON 数字按值语义比较；契约整数必须是真 int。
 
 ### 8.7 探针
-`integration.jc_contracts` 覆盖上述全部拒绝面，当前 **64/0**；负例 fixture 17 个。
+`integration.jc_contracts` 覆盖上述全部拒绝面，当前 **84/0**；负例 fixture **27 个**（含 R8 新增：
+缺 `seq`、未知 lifecycle 版本、缺 `received_by_intel_owner_id`）。

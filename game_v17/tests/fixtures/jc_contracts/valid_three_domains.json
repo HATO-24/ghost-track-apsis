@@ -174,7 +174,8 @@
       "observed_t": 100.0,
       "received_t": 102.0,
       "delay_s": 2.0,
-      "path": "direct"
+      "path": "direct",
+      "received_by_intel_owner_id": "player_intel"
     },
     {
       "observation_id": "OBS-2",
@@ -217,9 +218,21 @@
       "t": 120.0,
       "lifecycle": {
         "lifecycle_version": "v17.cmd_lifecycle.v1",
-        "request": {"request_id": "REQ-1", "state": "accepted", "t": 120.0},
-        "receipt": {"request_id": "REQ-1", "state": "accepted", "t": 121.0},
-        "execution": {"request_id": "REQ-1", "state": "completed", "t": 122.0}
+        "request": {
+          "request_id": "REQ-1",
+          "state": "accepted",
+          "t": 120.0
+        },
+        "receipt": {
+          "request_id": "REQ-1",
+          "state": "accepted",
+          "t": 121.0
+        },
+        "execution": {
+          "request_id": "REQ-1",
+          "state": "completed",
+          "t": 122.0
+        }
       }
     }
   ],
