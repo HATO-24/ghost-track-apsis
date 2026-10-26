@@ -1,0 +1,277 @@
+{
+  "head": "2ae7bf7cba8af32ff4456cefe28efa3650b868dd",
+  "date": "2026-10-26",
+  "timezone": "Asia/Shanghai",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "platform": "Windows",
+  "production_edits": false,
+  "tests": {
+    "original_stare": {
+      "exit_code": 0,
+      "malformed_rejected": true
+    },
+    "original_quick": {
+      "exit_code": 0,
+      "review_defects": 0,
+      "allocator": {
+        "original": 220,
+        "restored": 320,
+        "violations": [
+          {
+            "area": "bus.id_seq",
+            "original": 220,
+            "restored": 320
+          }
+        ]
+      },
+      "comms": {
+        "after_violations": [],
+        "behavior_violations": [
+          {
+            "area": "comms.events.new",
+            "first": "idx=0 A=DELIVERED|C-000001|apsis|harmattan|[apsis 至 harmattan]-[LD]-[] B=DELIVERED|C-000001|apsis|harmattan|TAMPERED_DELIVERY_CONTENT",
+            "original": 1,
+            "restored": 1,
+            "tick": 0
+          }
+        ],
+        "has_last_event_method": false,
+        "restored_last_event": {
+          "delivery_id": "C-000001",
+          "from": "apsis",
+          "from_name": "apsis",
+          "kind": "DELIVERED",
+          "latency_s": 0.1,
+          "mode": "LD",
+          "path": [
+            "apsis",
+            "harmattan"
+          ],
+          "reason": "",
+          "relay_count": 0,
+          "schema": "comms_event.v1",
+          "seq": 2,
+          "shadow": true,
+          "t": 51.0,
+          "text": "TAMPERED_DELIVERY_CONTENT",
+          "text_key": "COMMS_SENT",
+          "to": "harmattan",
+          "to_name": "harmattan",
+          "writes_track_table": false,
+          "writes_v15": false
+        },
+        "state_violations": [
+          {
+            "area": "comms.pending",
+            "original": [
+              "C-000001|apsis|harmattan|LD|COMMS_SENT|[apsis 至 harmattan]-[LD]-[]|50.100000|[\"apsis\",\"harmattan\"]"
+            ],
+            "restored": [
+              "C-000001|apsis|harmattan|LD|COMMS_SENT|TAMPERED_DELIVERY_CONTENT|50.100000|[\"apsis\",\"harmattan\"]"
+            ]
+          }
+        ]
+      }
+    },
+    "null_history": {
+      "exit_code": 1,
+      "history_null_accepted": true,
+      "continuation_script_error": true,
+      "variants": [
+        {
+          "field": "history",
+          "import": {
+            "channels": 1,
+            "ok": true
+          },
+          "validation": {
+            "errors": [],
+            "ok": true
+          }
+        },
+        {
+          "field": "stare_s",
+          "import": {
+            "channels": 1,
+            "ok": true
+          },
+          "validation": {
+            "errors": [],
+            "ok": true
+          }
+        },
+        {
+          "field": "stare_required_s",
+          "import": {
+            "channels": 1,
+            "ok": true
+          },
+          "validation": {
+            "errors": [],
+            "ok": true
+          }
+        },
+        {
+          "field": "quality",
+          "import": {
+            "channels": 1,
+            "ok": true
+          },
+          "validation": {
+            "errors": [],
+            "ok": true
+          }
+        },
+        {
+          "field": "state_since_t",
+          "import": {
+            "channels": 1,
+            "ok": true
+          },
+          "validation": {
+            "errors": [],
+            "ok": true
+          }
+        }
+      ]
+    },
+    "saturated_comms": {
+      "exit_code": 0,
+      "exit_means": "diagnostic completed; inspect arrays",
+      "history_cap": 200,
+      "output": {
+        "after_violations": [],
+        "behavior_violations": [],
+        "has_last_event_method": false,
+        "restored_last_event": {
+          "delivery_id": "C-000001",
+          "from": "apsis",
+          "from_name": "apsis",
+          "kind": "DELIVERED",
+          "latency_s": 0.1,
+          "mode": "LD",
+          "path": [
+            "apsis",
+            "harmattan"
+          ],
+          "reason": "",
+          "relay_count": 0,
+          "schema": "comms_event.v1",
+          "seq": 201,
+          "shadow": true,
+          "t": 51.0,
+          "text": "TAMPERED_DELIVERY_CONTENT",
+          "text_key": "COMMS_SENT",
+          "to": "harmattan",
+          "to_name": "harmattan",
+          "writes_track_table": false,
+          "writes_v15": false
+        },
+        "state_violations": [
+          {
+            "area": "comms.pending",
+            "original": [
+              "C-000001|apsis|harmattan|LD|COMMS_SENT|[apsis 至 harmattan]-[LD]-[]|50.100000|[\"apsis\",\"harmattan\"]"
+            ],
+            "restored": [
+              "C-000001|apsis|harmattan|LD|COMMS_SENT|TAMPERED_DELIVERY_CONTENT|50.100000|[\"apsis\",\"harmattan\"]"
+            ]
+          }
+        ]
+      }
+    },
+    "legacy": {
+      "exit_code": 0,
+      "result": {
+        "direct_sensor_import": {
+          "allocators": {
+            "event_seq": 1,
+            "evidence_seq": 0,
+            "obs_seq": 14
+          },
+          "backend": "optical_ir",
+          "channels": 0,
+          "dedup": 0,
+          "emcon": false,
+          "ok": true,
+          "partial_reasons": [
+            "mount_pointing_missing",
+            "tws_runtime_reset_unrecoverable",
+            "authority_clock_rebuilt_from_optical_t"
+          ],
+          "radar_enabled": true,
+          "restore_mode": "partial",
+          "t": 5.1
+        },
+        "public_load_result": {
+          "errors": [],
+          "ok": true,
+          "result_errors": [],
+          "sensor_restore": {
+            "geometry_frame": "bary_rot",
+            "geometry_source": "physics_world",
+            "rebind": {
+              "bound": 2,
+              "frame": "bary_rot",
+              "mismatched_frame": [],
+              "missing": [],
+              "observer_bound": true,
+              "observer_id": "apsis",
+              "ok": true,
+              "provider_t": 5.1,
+              "reason": "",
+              "seq": 8,
+              "skipped": [],
+              "source": "physics_world",
+              "t": 5.1,
+              "time_ok": true,
+              "usable": true
+            },
+            "saved": true,
+            "schema": "v17.sensor_restore.v1",
+            "time_ok": true
+          },
+          "world_sync": {
+            "compared": 7,
+            "enabled": true,
+            "failures": [],
+            "frame": "bary_rot",
+            "in_sync": true,
+            "mismatched": [],
+            "mode": "tick",
+            "ok": true,
+            "reason": "load",
+            "skipped": [],
+            "synced": 0,
+            "updated": []
+          }
+        },
+        "public_sensor_report": {
+          "geometry_frame": "bary_rot",
+          "geometry_source": "physics_world",
+          "rebind": {
+            "bound": 2,
+            "frame": "bary_rot",
+            "mismatched_frame": [],
+            "missing": [],
+            "observer_bound": true,
+            "observer_id": "apsis",
+            "ok": true,
+            "provider_t": 5.1,
+            "reason": "",
+            "seq": 8,
+            "skipped": [],
+            "source": "physics_world",
+            "t": 5.1,
+            "time_ok": true,
+            "usable": true
+          },
+          "saved": true,
+          "schema": "v17.sensor_restore.v1",
+          "time_ok": true
+        },
+        "target_head": "2ae7bf7cba8af32ff4456cefe28efa3650b868dd"
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+R7_NULL_PRESTEP {"field":"history","import":{"channels":1,"ok":true},"validation":{"errors":[],"ok":true}}
+SCRIPT ERROR: Trying to assign value of type 'Nil' to a variable of type 'Array'.
+   at: V2TwsModel._transition (res://framework/sim/tws.gd:413)
+   GDScript backtrace (most recent call first):
+       [0] _transition (res://framework/sim/tws.gd:413)
+       [1] _advance_channels (res://framework/sim/tws.gd:346)
+       [2] step (res://framework/sim/tws.gd:113)
+       [3] _initialize (C:/Users/ASUS/.codex/worktrees/jc-r7-validation/GHOST TRACK_APSIS/.test-results/r7-save-audit/tws_null_audit.gd:24)
+SCRIPT ERROR: Invalid cast: could not convert value to 'Array'.
+   at: V2TwsModel._export_channel (res://framework/sim/tws.gd:470)
+   GDScript backtrace (most recent call first):
+       [0] _export_channel (res://framework/sim/tws.gd:470)
+       [1] _export_channels (res://framework/sim/tws.gd:465)
+       [2] step (res://framework/sim/tws.gd:115)
+       [3] _initialize (C:/Users/ASUS/.codex/worktrees/jc-r7-validation/GHOST TRACK_APSIS/.test-results/r7-save-audit/tws_null_audit.gd:24)
+R7_NULL_POSTSTEP {"by_state":{"ACQUIRE":0,"DETECT":0,"FIRE_CONTROL":1,"SEARCH":0,"STARE":0,"TRACK":0},"channel_count":1,"channels":[{}],"dt":1.0,"enabled":true,"events":[{"from":"STARE","kind":"state_change","quality":1.0,"reason":"fire_solution_ready","scan_index":1,"t":1.0,"target_id":"broken","to":"FIRE_CONTROL"},{"age_s":1.0,"bearing_sigma_deg":0.0,"kind":"fire_control_ready","quality":1.0,"range_km":10.0,"range_sigma_km":-1.0,"t":1.0,"target_id":"broken"}],"exposure":{"bearing_sigma_deg":1.0,"elint_intercept_range_km":0.0,"emission_class":"","emission_level":0.0,"exposed":false,"exposure_kind":"passive","fix_after_s":0.0,"fix_progress":0.0,"fixed":false,"seconds_on":1.0,"warning":""},"max_channels":6,"radar":{"scan_index":1,"scan_period_s":6.0,"seconds_on":1.0,"tws_capacity":0},"scan_index":1,"scan_period_s":6.0,"scanned":true,"sphere":{"center_km":"(0.0, 0.0, 0.0)","nominal_radius_km":0.0,"refresh_s":6.0,"shape":"sphere"},"t":1.0}
+R7_NULL_PRESTEP {"field":"stare_s","import":{"channels":1,"ok":true},"validation":{"errors":[],"ok":true}}
+R7_NULL_PRESTEP {"field":"stare_required_s","import":{"channels":1,"ok":true},"validation":{"errors":[],"ok":true}}
+R7_NULL_PRESTEP {"field":"quality","import":{"channels":1,"ok":true},"validation":{"errors":[],"ok":true}}
+R7_NULL_PRESTEP {"field":"state_since_t","import":{"channels":1,"ok":true},"validation":{"errors":[],"ok":true}}
+AUDIO OK files=36 headless=true muted=false
