@@ -109,6 +109,21 @@ func _run() -> void:
 	for named in bind.keys():
 		_ok(friendly_ids.has(String(bind[named])),
 			"命名舰 %s 绑定真实友军舰级" % String(named), String(bind[named]))
+	# R8/P0-1：既有命名实体映射不得被覆盖；场景必须用新的虚构实例声明
+	var ib: Array = cat.get("instance_bindings", []) if cat.get("instance_bindings") is Array else []
+	_ok(ib.size() >= 1, "使用显式 instance_bindings 声明虚构实例", str(ib.size()))
+	for raw_ib in ib:
+		var row_ib: Dictionary = raw_ib
+		_ok(friendly_ids.has(String(row_ib.get("ship_class_id", ""))),
+			"虚构实例 %s 绑定真实舰级" % String(row_ib.get("entity_instance_id", "")),
+			String(row_ib.get("ship_class_id", "")))
+		_ok(bool(row_ib.get("fictional", false)) == true,
+			"实例 %s 明确标注为虚构（不覆盖既有命名舰）" % String(
+				row_ib.get("entity_instance_id", "")))
+	# 不得把既有命名实体改绑到不同舰级：本场景 entity_bindings 必须为空，
+	# 既有 apsis→APOGEE / harmattan→PALLET 的目录原义保持不变。
+	_ok(bind.is_empty(), "不覆盖既有命名实体映射（entity_bindings 为空）",
+		str(bind.keys()))
 
 	_step("2. 舰池/编制：真实舰级 + 容量与预算实际生效")
 	var pool: Dictionary = doc.get("fleet_pool", {}) if doc.get("fleet_pool") is Dictionary else {}
@@ -397,6 +412,45 @@ func _run() -> void:
 	var db: Dictionary = doc.get("debrief_sample", {}) if doc.get("debrief_sample") is Dictionary else {}
 	_ok((db.get("sections", []) as Array).size() >= 5, "战报样例完整",
 		str((db.get("sections", []) as Array).size()))
+
+	_step("9d. 自由编制与预设关系（R8/P0-2）")
+	var cr3: Dictionary = doc.get("composition_rules", {}) if doc.get("composition_rules") is Dictionary else {}
+	_eq(bool(cr3.get("presets_are_recommendations", false)), true,
+		"两套编制是推荐预设，不是唯一选择")
+	_eq(bool(cr3.get("free_composition", false)), true, "允许池内自由组合")
+	var pq: Dictionary = cr3.get("pool_quantities", {}) if cr3.get("pool_quantities") is Dictionary else {}
+	_ok(pq.size() >= 3, "声明舰池可用数量", str(pq.size()))
+	_eq(int(cr3.get("max_ships", 0)), cap, "自由组合不得超过指挥容量")
+	_ok(String(cr3.get("flagship_slot", "")) != "",
+		"声明旗舰占位口径", String(cr3.get("flagship_slot", "")))
+	_ok(String(cr3.get("custom_flagship_note", "")) != "",
+		"说明自定义旗舰与 PROT-2 绑定关系")
+
+	_step("9e. 终态表补贡献例外（R8/P0-3）")
+	_ok(String((tr.get("victory", {}) as Dictionary).get("exception", "")) != "",
+		"胜利条件写入友军自主完成例外",
+		String((tr.get("victory", {}) as Dictionary).get("exception", "")).substr(0, 40))
+	_ok(String(tr.get("contribution_exception", "")) != "",
+		"terminal_rules 声明贡献例外", String(tr.get("contribution_exception", "")))
+	_ok(String((tr.get("stalemate", {}) as Dictionary).get("also_covers", "")) != "",
+		"僵局条件说明也覆盖友军自主完成")
+
+	_step("9f. 具体简报/战报文本样例（R8/P0-4）")
+	var ts: Dictionary = doc.get("text_samples", {}) if doc.get("text_samples") is Dictionary else {}
+	var br_lines: Array = ts.get("briefing", []) if ts.get("briefing") is Array else []
+	_ok(br_lines.size() >= 6, "简报具体文本完整", str(br_lines.size()))
+	_ok(JSON.stringify(br_lines).find("虚构样例") >= 0, "简报标注虚构样例")
+	_ok(JSON.stringify(br_lines).find("100") >= 0, "简报含具体预算数值")
+	var dbv: Array = ts.get("debrief_victory", []) if ts.get("debrief_victory") is Array else []
+	_ok(dbv.size() >= 6, "胜利战报具体文本完整", str(dbv.size()))
+	_ok(JSON.stringify(dbv).find("TR-FULL-VICTORY") >= 0,
+		"战报与具体轨迹一致")
+	_ok(JSON.stringify(dbv).find("友军") >= 0, "战报含友军贡献")
+	_ok(JSON.stringify(dbv).find("延迟") >= 0 or JSON.stringify(dbv).find("时效") >= 0,
+		"战报含延迟/时效")
+	var dbs: Array = ts.get("debrief_stalemate", []) if ts.get("debrief_stalemate") is Array else []
+	_ok(dbs.size() >= 4, "友军自主完成战报具体文本完整", str(dbs.size()))
+	_ok(JSON.stringify(dbs).find("僵局") >= 0, "友军自主完成战报判僵局")
 
 	_step("10. 负例变体：未知舰级 / 超容量 / 胜利轨迹缺失能事件 必须被拒绝")
 	var good_ids: Dictionary = friendly_ids

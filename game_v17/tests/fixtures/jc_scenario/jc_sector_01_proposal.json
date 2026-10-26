@@ -13,11 +13,22 @@
   "catalog_binding": {
     "friendly_catalog": "res://framework/content/ships_friendly.json",
     "enemy_catalog": "res://framework/content/ships_enemy.json",
-    "entity_bindings": {
-      "apsis": "OCUVF-HEMATITE-6C",
-      "harmattan": "OCUVF-PALLET-5C"
-    },
-    "note": "舰级必须来自 canonical catalog；APSIS/HARMATTAN 是命名舰映射，不是 class_id"
+    "entity_bindings": {},
+    "note": "舰级必须来自 canonical catalog；本场景使用**新的虚构实例**（I-A1/I-P1…），不覆盖既有命名舰映射（apsis→APOGEE、harmattan→PALLET 保持目录原义）",
+    "instance_bindings": [
+      {
+        "entity_instance_id": "I-A1",
+        "ship_class_id": "OCUVF-HEMATITE-6C",
+        "fictional": true,
+        "note": "本场景虚构旗舰实例，不覆盖既有 apsis 命名舰映射"
+      },
+      {
+        "entity_instance_id": "I-P1",
+        "ship_class_id": "OCUVF-PALLET-5C",
+        "fictional": true,
+        "note": "虚构哨舰实例"
+      }
+    ]
   },
   "theater": {
     "name": "EML1-外侧 / 第33舰队前沿哨区",
@@ -40,13 +51,17 @@
         "ship_class_id": "OCUVF-HEMATITE-6C",
         "role": "gun",
         "displacement_t": 1200,
-        "weapons": ["OCUVF-HEMATITE-6C 主炮"]
+        "weapons": [
+          "OCUVF-HEMATITE-6C 主炮"
+        ]
       },
       {
         "ship_class_id": "OCUVF-GANTRY-3M",
         "role": "missile",
         "displacement_t": 900,
-        "weapons": ["OCUVF-GANTRY-3M 导弹发射架"]
+        "weapons": [
+          "OCUVF-GANTRY-3M 导弹发射架"
+        ]
       },
       {
         "ship_class_id": "OCUVF-SAFEHARBOR-1",
@@ -67,20 +82,31 @@
     {
       "formation_id": "FORM-SENSOR",
       "role": "sensor_heavy",
-      "ships": ["OCUVF-HEMATITE-6C", "OCUVF-PALLET-5C", "OCUVF-PALLET-5C"],
+      "ships": [
+        "OCUVF-HEMATITE-6C",
+        "OCUVF-PALLET-5C",
+        "OCUVF-PALLET-5C"
+      ],
       "tactic_note": "旗舰居中 + 双哨舰远距探测，依赖情报共享质量"
     },
     {
       "formation_id": "FORM-STRIKE",
       "role": "strike_heavy",
-      "ships": ["OCUVF-HEMATITE-6C", "OCUVF-HEMATITE-6C", "OCUVF-GANTRY-3M"],
+      "ships": [
+        "OCUVF-HEMATITE-6C",
+        "OCUVF-HEMATITE-6C",
+        "OCUVF-GANTRY-3M"
+      ],
       "tactic_note": "双炮舰近距突击 + 弹舱饱和，依赖弹药与冷却管理"
     }
   ],
   "ally_force": {
     "fleet_id": "F-ALLY-1",
     "domain_id": "ally",
-    "ships": ["OCUVF-PALLET-5C", "OCUVF-SAFEHARBOR-1"],
+    "ships": [
+      "OCUVF-PALLET-5C",
+      "OCUVF-SAFEHARBOR-1"
+    ],
     "capability": "unarmed_recon_relay_withdraw",
     "request_rules": "accept_if_link_and_resource",
     "independence": "独立AI友军；按任务/资源/链路接受或拒绝，不共享玩家直控",
@@ -190,8 +216,13 @@
     "authority_source": "战役裁决（B3a）",
     "player_view_source": "intel_report（只含已获情报，未知目标不显示名称/坐标/损伤）",
     "victory": {
-      "required_objectives": ["OBJ-A", "OBJ-B", "OBJ-C"],
-      "min_completed": 3
+      "required_objectives": [
+        "OBJ-A",
+        "OBJ-B",
+        "OBJ-C"
+      ],
+      "min_completed": 3,
+      "exception": "必需目标全部由友军自主完成时不得判 victory，改判 stalemate（见 contribution_rules.ai_cannot_win_alone）"
     },
     "defeat": {
       "any": [
@@ -200,12 +231,25 @@
         "protected_civilian_destroyed"
       ]
     },
-    "withdrawal": {"player_initiated": true, "objectives_complete": false},
-    "stalemate": {"at_timeout_min_completed": 1, "at_timeout_max_completed": 2},
+    "withdrawal": {
+      "player_initiated": true,
+      "objectives_complete": false
+    },
+    "stalemate": {
+      "at_timeout_min_completed": 1,
+      "at_timeout_max_completed": 2,
+      "also_covers": "时限到达完成1~2目标；或必需目标全部由友军自主完成（贡献例外）"
+    },
     "zero_completed_at_timeout_is": "defeat",
     "timeout_never_yields_victory": true,
-    "same_tick_priority": ["defeat", "victory", "withdrawal", "stalemate"],
-    "same_tick_rule": "同一 tick 同时满足多个终态时按 same_tick_priority 取最高优先级，只结算一次；defeat 高于 withdrawal，故同 tick 撤离完成 + 民用损失 = defeat"
+    "same_tick_priority": [
+      "defeat",
+      "victory",
+      "withdrawal",
+      "stalemate"
+    ],
+    "same_tick_rule": "同一 tick 同时满足多个终态时按 same_tick_priority 取最高优先级，只结算一次；defeat 高于 withdrawal，故同 tick 撤离完成 + 民用损失 = defeat",
+    "contribution_exception": "ally_autonomous_all_required → stalemate（推荐口径，待用户核对）"
   },
   "contribution_rules": {
     "objective_completion": "由权威裁决按真实状态判定，与玩家贡献分开统计",
@@ -266,13 +310,41 @@
     "timeout": "时限到达：按 terminal_rules 结算，等待时长本身不产生胜利"
   },
   "phases": [
-    {"phase_id": "P1", "name": "简报", "player_action": "阅读目标/情报/时限"},
-    {"phase_id": "P2", "name": "组舰", "player_action": "从池中选择编制（受 command_capacity 限制）"},
-    {"phase_id": "P3", "name": "部署", "player_action": "实例化已选舰并部署"},
-    {"phase_id": "P4", "name": "首次协同", "player_action": "请求友军侦察/中继/协助撤离"},
-    {"phase_id": "P5", "name": "交战/撤离", "player_action": "直控自有舰队交战或撤离"},
-    {"phase_id": "P6", "name": "裁决", "player_action": "无（权威裁决）"},
-    {"phase_id": "P7", "name": "战报", "player_action": "查看玩家贡献与友军贡献分列"}
+    {
+      "phase_id": "P1",
+      "name": "简报",
+      "player_action": "阅读目标/情报/时限"
+    },
+    {
+      "phase_id": "P2",
+      "name": "组舰",
+      "player_action": "从池中选择编制（受 command_capacity 限制）"
+    },
+    {
+      "phase_id": "P3",
+      "name": "部署",
+      "player_action": "实例化已选舰并部署"
+    },
+    {
+      "phase_id": "P4",
+      "name": "首次协同",
+      "player_action": "请求友军侦察/中继/协助撤离"
+    },
+    {
+      "phase_id": "P5",
+      "name": "交战/撤离",
+      "player_action": "直控自有舰队交战或撤离"
+    },
+    {
+      "phase_id": "P6",
+      "name": "裁决",
+      "player_action": "无（权威裁决）"
+    },
+    {
+      "phase_id": "P7",
+      "name": "战报",
+      "player_action": "查看玩家贡献与友军贡献分列"
+    }
   ],
   "comms_samples": [
     {
@@ -311,12 +383,39 @@
       "trace_id": "TR-FULL-VICTORY",
       "decision_id": "DEC-1000",
       "events": [
-        {"t": 60, "kind": "objective_enter", "objective_id": "OBJ-A"},
-        {"t": 240, "kind": "objective_disable", "objective_id": "OBJ-A", "credited_to": "player"},
-        {"t": 300, "kind": "objective_enter", "objective_id": "OBJ-B"},
-        {"t": 520, "kind": "objective_disable", "objective_id": "OBJ-B", "credited_to": "player"},
-        {"t": 700, "kind": "objective_disable", "objective_id": "OBJ-C", "credited_to": "player"},
-        {"t": 1000, "kind": "adjudicate", "decision_id": "DEC-1000"}
+        {
+          "t": 60,
+          "kind": "objective_enter",
+          "objective_id": "OBJ-A"
+        },
+        {
+          "t": 240,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "credited_to": "player"
+        },
+        {
+          "t": 300,
+          "kind": "objective_enter",
+          "objective_id": "OBJ-B"
+        },
+        {
+          "t": 520,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "credited_to": "player"
+        },
+        {
+          "t": 700,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-C",
+          "credited_to": "player"
+        },
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "decision_id": "DEC-1000"
+        }
       ],
       "expected_terminal": "victory",
       "expected_authority": "victory",
@@ -328,10 +427,29 @@
       "trace_id": "TR-ALL-DISABLED-NO-REPORT",
       "decision_id": "DEC-1001",
       "events": [
-        {"t": 240, "kind": "objective_disable", "objective_id": "OBJ-A", "credited_to": "player"},
-        {"t": 520, "kind": "objective_disable", "objective_id": "OBJ-B", "credited_to": "player"},
-        {"t": 700, "kind": "objective_disable", "objective_id": "OBJ-C", "credited_to": "player"},
-        {"t": 720, "kind": "report_delay", "note": "全部报告未返回"}
+        {
+          "t": 240,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "credited_to": "player"
+        },
+        {
+          "t": 520,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "credited_to": "player"
+        },
+        {
+          "t": 700,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-C",
+          "credited_to": "player"
+        },
+        {
+          "t": 720,
+          "kind": "report_delay",
+          "note": "全部报告未返回"
+        }
       ],
       "expected_terminal": "pending_report",
       "expected_authority": "all_objectives_disabled",
@@ -344,8 +462,17 @@
       "trace_id": "TR-DISABLED-NOT-REPORTED",
       "decision_id": "DEC-240",
       "events": [
-        {"t": 240, "kind": "objective_disable", "objective_id": "OBJ-A", "credited_to": "player"},
-        {"t": 300, "kind": "report_delay", "note": "报告未返回"}
+        {
+          "t": 240,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "credited_to": "player"
+        },
+        {
+          "t": 300,
+          "kind": "report_delay",
+          "note": "报告未返回"
+        }
       ],
       "expected_terminal": "pending_report",
       "expected_authority": "in_progress",
@@ -357,8 +484,15 @@
       "trace_id": "TR-DEFEAT",
       "decision_id": "DEC-900",
       "events": [
-        {"t": 900, "kind": "own_flag_disabled"},
-        {"t": 1000, "kind": "adjudicate", "decision_id": "DEC-900"}
+        {
+          "t": 900,
+          "kind": "own_flag_disabled"
+        },
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "decision_id": "DEC-900"
+        }
       ],
       "expected_terminal": "defeat",
       "expected_authority": "defeat",
@@ -370,9 +504,19 @@
       "trace_id": "TR-WITHDRAW",
       "decision_id": "DEC-560",
       "events": [
-        {"t": 500, "kind": "withdraw_request"},
-        {"t": 560, "kind": "withdraw_complete"},
-        {"t": 1000, "kind": "adjudicate", "decision_id": "DEC-560"}
+        {
+          "t": 500,
+          "kind": "withdraw_request"
+        },
+        {
+          "t": 560,
+          "kind": "withdraw_complete"
+        },
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "decision_id": "DEC-560"
+        }
       ],
       "expected_terminal": "withdrawal",
       "expected_authority": "withdrawal",
@@ -384,9 +528,21 @@
       "trace_id": "TR-STALEMATE",
       "decision_id": "DEC-3600",
       "events": [
-        {"t": 700, "kind": "objective_disable", "objective_id": "OBJ-A", "credited_to": "player"},
-        {"t": 3600, "kind": "time_limit_reached"},
-        {"t": 3600, "kind": "adjudicate", "decision_id": "DEC-3600"}
+        {
+          "t": 700,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "credited_to": "player"
+        },
+        {
+          "t": 3600,
+          "kind": "time_limit_reached"
+        },
+        {
+          "t": 3600,
+          "kind": "adjudicate",
+          "decision_id": "DEC-3600"
+        }
       ],
       "expected_terminal": "stalemate",
       "expected_authority": "stalemate",
@@ -398,8 +554,15 @@
       "trace_id": "TR-ZERO-COMPLETE-TIMEOUT",
       "decision_id": "DEC-3601",
       "events": [
-        {"t": 3600, "kind": "time_limit_reached"},
-        {"t": 3600, "kind": "adjudicate", "decision_id": "DEC-3601"}
+        {
+          "t": 3600,
+          "kind": "time_limit_reached"
+        },
+        {
+          "t": 3600,
+          "kind": "adjudicate",
+          "decision_id": "DEC-3601"
+        }
       ],
       "expected_terminal": "defeat",
       "expected_authority": "defeat",
@@ -412,9 +575,20 @@
       "trace_id": "TR-EW-NOT-PERMANENT",
       "decision_id": "DEC-3602",
       "events": [
-        {"t": 200, "kind": "ew_effect", "duration_s": 20},
-        {"t": 3600, "kind": "time_limit_reached"},
-        {"t": 3600, "kind": "adjudicate", "decision_id": "DEC-3602"}
+        {
+          "t": 200,
+          "kind": "ew_effect",
+          "duration_s": 20
+        },
+        {
+          "t": 3600,
+          "kind": "time_limit_reached"
+        },
+        {
+          "t": 3600,
+          "kind": "adjudicate",
+          "decision_id": "DEC-3602"
+        }
       ],
       "expected_terminal": "defeat",
       "expected_authority": "defeat",
@@ -427,10 +601,26 @@
       "trace_id": "TR-STILL-EFFECTIVE",
       "decision_id": "DEC-3603",
       "events": [
-        {"t": 240, "kind": "objective_disable", "objective_id": "OBJ-A", "credited_to": "player"},
-        {"t": 260, "kind": "target_still_engaging", "objective_id": "OBJ-A"},
-        {"t": 3600, "kind": "time_limit_reached"},
-        {"t": 3600, "kind": "adjudicate", "decision_id": "DEC-3603"}
+        {
+          "t": 240,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "credited_to": "player"
+        },
+        {
+          "t": 260,
+          "kind": "target_still_engaging",
+          "objective_id": "OBJ-A"
+        },
+        {
+          "t": 3600,
+          "kind": "time_limit_reached"
+        },
+        {
+          "t": 3600,
+          "kind": "adjudicate",
+          "decision_id": "DEC-3603"
+        }
       ],
       "expected_terminal": "defeat",
       "expected_authority": "defeat",
@@ -442,9 +632,22 @@
       "trace_id": "TR-ALLY-REFUSE-ALTERNATIVE",
       "decision_id": "DEC-3604",
       "events": [
-        {"t": 120, "kind": "ally_reject", "reason": "link_blocked"},
-        {"t": 700, "kind": "objective_disable", "objective_id": "OBJ-A", "credited_to": "player"},
-        {"t": 3600, "kind": "adjudicate", "decision_id": "DEC-3604"}
+        {
+          "t": 120,
+          "kind": "ally_reject",
+          "reason": "link_blocked"
+        },
+        {
+          "t": 700,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "credited_to": "player"
+        },
+        {
+          "t": 3600,
+          "kind": "adjudicate",
+          "decision_id": "DEC-3604"
+        }
       ],
       "expected_terminal": "stalemate",
       "expected_authority": "stalemate",
@@ -456,10 +659,29 @@
       "trace_id": "TR-ALLY-AUTONOMOUS-WIN",
       "decision_id": "DEC-3605",
       "events": [
-        {"t": 300, "kind": "objective_disable", "objective_id": "OBJ-A", "credited_to": "ally_autonomous"},
-        {"t": 600, "kind": "objective_disable", "objective_id": "OBJ-B", "credited_to": "ally_autonomous"},
-        {"t": 900, "kind": "objective_disable", "objective_id": "OBJ-C", "credited_to": "ally_autonomous"},
-        {"t": 3600, "kind": "adjudicate", "decision_id": "DEC-3605"}
+        {
+          "t": 300,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "credited_to": "ally_autonomous"
+        },
+        {
+          "t": 600,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "credited_to": "ally_autonomous"
+        },
+        {
+          "t": 900,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-C",
+          "credited_to": "ally_autonomous"
+        },
+        {
+          "t": 3600,
+          "kind": "adjudicate",
+          "decision_id": "DEC-3605"
+        }
       ],
       "expected_terminal": "stalemate",
       "expected_authority": "stalemate",
@@ -472,11 +694,34 @@
       "trace_id": "TR-DUPLICATE-ADJUDICATION-GUARD",
       "decision_id": "DEC-1001",
       "events": [
-        {"t": 240, "kind": "objective_disable", "objective_id": "OBJ-A", "credited_to": "player"},
-        {"t": 520, "kind": "objective_disable", "objective_id": "OBJ-B", "credited_to": "player"},
-        {"t": 700, "kind": "objective_disable", "objective_id": "OBJ-C", "credited_to": "player"},
-        {"t": 1000, "kind": "adjudicate", "decision_id": "DEC-1000"},
-        {"t": 1001, "kind": "adjudicate", "decision_id": "DEC-1001"}
+        {
+          "t": 240,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "credited_to": "player"
+        },
+        {
+          "t": 520,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "credited_to": "player"
+        },
+        {
+          "t": 700,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-C",
+          "credited_to": "player"
+        },
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "decision_id": "DEC-1000"
+        },
+        {
+          "t": 1001,
+          "kind": "adjudicate",
+          "decision_id": "DEC-1001"
+        }
       ],
       "expected_terminal": "victory",
       "expected_authority": "victory",
@@ -489,8 +734,16 @@
       "trace_id": "TR-CIVILIAN-LOSS",
       "decision_id": "DEC-800",
       "events": [
-        {"t": 800, "kind": "protected_target_destroyed", "objective_id": "PROT-1"},
-        {"t": 1000, "kind": "adjudicate", "decision_id": "DEC-800"}
+        {
+          "t": 800,
+          "kind": "protected_target_destroyed",
+          "objective_id": "PROT-1"
+        },
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "decision_id": "DEC-800"
+        }
       ],
       "expected_terminal": "defeat",
       "expected_authority": "defeat",
@@ -502,9 +755,20 @@
       "trace_id": "TR-CIVILIAN-LOSS-SAME-TICK-WITHDRAW",
       "decision_id": "DEC-801",
       "events": [
-        {"t": 800, "kind": "protected_target_destroyed", "objective_id": "PROT-1"},
-        {"t": 800, "kind": "withdraw_complete"},
-        {"t": 801, "kind": "adjudicate", "decision_id": "DEC-801"}
+        {
+          "t": 800,
+          "kind": "protected_target_destroyed",
+          "objective_id": "PROT-1"
+        },
+        {
+          "t": 800,
+          "kind": "withdraw_complete"
+        },
+        {
+          "t": 801,
+          "kind": "adjudicate",
+          "decision_id": "DEC-801"
+        }
       ],
       "expected_terminal": "defeat",
       "expected_authority": "defeat",
@@ -535,10 +799,61 @@
   "appendix_legacy": {
     "note": "以下为已废弃的历史方案，仅存档对照，不得作为当前主案",
     "P0-r6-1": {
-      "points": {"FORM-SENSOR": 25, "FORM-STRIKE": 55},
+      "points": {
+        "FORM-SENSOR": 25,
+        "FORM-STRIKE": 55
+      },
       "own_flag": "OCUVF-APOGEE（9000t → 150 点，超预算 100，已废弃）",
-      "ally_ships": ["OCUVF-PALLET-5C", "OCUVF-SAFEHARBOR-1"],
+      "ally_ships": [
+        "OCUVF-PALLET-5C",
+        "OCUVF-SAFEHARBOR-1"
+      ],
       "problem": "旗舰超预算、友军无武器却写射击回执、旧正文与追加方案并存"
     }
+  },
+  "composition_rules": {
+    "presets_are_recommendations": true,
+    "free_composition": true,
+    "pool_quantities": {
+      "OCUVF-PALLET-5C": 4,
+      "OCUVF-HEMATITE-6C": 3,
+      "OCUVF-GANTRY-3M": 2,
+      "OCUVF-SAFEHARBOR-1": 1
+    },
+    "repeat_allowed": true,
+    "max_ships": 3,
+    "flagship_slot": "one_of_selected_ships_must_be_flag_class",
+    "custom_flagship_note": "玩家可在合法池内任选一舰作旗舰，但必须与 PROT-2 绑定的 I-A1 一致；不自选产品旗舰",
+    "validation": "sum(points) <= points_budget and ships <= command_capacity and flag_class in ships"
+  },
+  "text_samples": {
+    "briefing": [
+      "【阶段简报 · 虚构样例】",
+      "任务：对第33舰队前哨战区实施阶段性去军事化，解除其有组织作战能力；不要求整支舰队覆灭。",
+      "必需目标：OBJ-A（I-OP1 火控）、OBJ-B（I-OP2 火控）、OBJ-C（I-OP-C2 指挥节点）；三者须不可本场恢复。",
+      "保护目标：民用中继 SECTOR-RELAY-CIV（禁止攻击，被毁即失败）；本舰旗舰 I-A1（丧失即失败）。",
+      "兵力：预算 100 点 / 指挥容量 3；建议预设 FORM-SENSOR（30 点）或 FORM-STRIKE（55 点），也可在池内自由组合。",
+      "友军：F-ALLY-1 独立 AI，无武装，仅提供侦察、中继、协助撤离；可拒绝请求。",
+      "时限：3600 模拟秒。零完成按失败结算；同 tick 冲突按 失败>胜利>撤离>僵局。",
+      "情报：不完整且有延迟；未知目标不显示名称/坐标/损伤。"
+    ],
+    "debrief_victory": [
+      "【阶段战报 · 虚构样例 · 对应 TR-FULL-VICTORY】",
+      "结论：胜利（无重复结算，decision DEC-1000）。",
+      "OBJ-A：240s 失能，判定依据＝火控段损伤且不可本场恢复，贡献＝玩家直控。",
+      "OBJ-B：520s 失能，同上，贡献＝玩家直控。",
+      "OBJ-C：700s 由玩家授权友军侦察中继定位后、本舰打击致指挥节点失能，贡献＝玩家授权行动。",
+      "友军贡献：F-ALLY-1 提供 2 次中继（延迟 30s/55s），未开火。",
+      "保护目标：SECTOR-RELAY-CIV 完好；旗舰 I-A1 完好。",
+      "情报时效：OBJ-A 失能→报告 18s；OBJ-B 42s；OBJ-C 65s。"
+    ],
+    "debrief_stalemate": [
+      "【阶段战报 · 虚构样例 · 对应 TR-ALLY-AUTONOMOUS-WIN】",
+      "结论：僵局（推荐口径：必需目标全部由友军自主完成，不授予玩家胜利）。",
+      "OBJ-A/B/C 均由友军自主造成，玩家未直控也未授权；玩家贡献＝无。",
+      "友军贡献：全部三次失能。",
+      "保护目标：均完好。",
+      "提示：玩家未参与决胜，建议后续提高玩家参与度。"
+    ]
   }
 }
