@@ -1,0 +1,105 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+A0-A07 SAVE COST PROBE · baseline I6 · MEASUREMENT ONLY
+Godot 4.7.2-stable (official) · profile=orbital_sim
+════════════════════════════════════════════════════════════════
+
+[A0-A07] STEP 1. assemble the fixed workload from the real HUD orbital_sim entry
+[A0-A07] PASS change_scene_to_file(main_menu) == OK  err=0
+AUDIO OK files=36 headless=true muted=false
+[MAIN MENU] BUILD=orbital_sim → skip to res://v1_hud.tscn
+[BUILD PROFILE] id=orbital_sim mode=simulator scene=res://v1_hud.tscn scenario=res://framework/content/scenario_orbital_sim.json save_root=user://saves_sim
+[BUILD PROFILE] SYSTEM story=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM prelude=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM triggers=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM identification=ON
+[BUILD PROFILE] SYSTEM traffic=ON
+[BUILD PROFILE] SYSTEM port=ON
+[BUILD PROFILE] SYSTEM signal=ON
+[BUILD PROFILE] SYSTEM combat=ON
+[BUILD PROFILE] SYSTEM ballistics=ON
+[BUILD PROFILE] SYSTEM damage=ON
+[BUILD PROFILE] SYSTEM physics_world=ON
+[BUILD PROFILE] SYSTEM sandbox=OFF reason=非测试剖面
+[BUILD PROFILE] SYSTEM ship_catalog=ON
+[BUILD PROFILE] SYSTEM refit=ON
+[BUILD PROFILE][LIMITATION] 轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。
+[BUILD PROFILE][LIMITATION] EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。
+[BUILD PROFILE][LIMITATION] UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。
+[SHELL BINDER] BUILD profile=orbital_sim mode=simulator label=GHOST TRACK // APSIS — ORBITAL SIM save_root=user://saves_sim
+[SHELL BINDER] SANDBOX entities=7 scenario=res://framework/content/scenario_orbital_sim.json
+[SHELL BINDER] SYSTEMS physics=true sensors=true track_table=true combat=true ballistics=true damage=true ew=true identification=true traffic=true port=true ship_catalog=true refit=true story=disabled
+[SHELL BINDER] CeresChain ready state=L1 entity=ceres_2 texts=9 code=7600
+[SHELL BINDER] ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0
+[SHELL BINDER] AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=19 threat=0 trust=0
+[SHELL BINDER] AfterActionReport ready branches=6 templates=3
+[SHELL BINDER] TrafficControl source=session ready=true lanes=18 otc=19 npc=6
+[SHELL BINDER] physics ready=true plot_source=physics positions=7 facilities=12 facility_source=facility_registry_l1
+[SHELL BINDER] fleet_data ready=true friendly=8 enemy=24 total=32
+[SHELL BINDER] refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL
+[SHELL BINDER] CICView ready=true truth=false tracks=2 levels={ "1": 0, "2": 2, "3": 0, "4": 0 } facilities=110
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[SHELL BINDER] signal targets synced added=0 updated=7 count=7
+[V1 HUD] binder boot=true errors=[] contacts=7 orders=0
+[V1 HUD] COMMS seed LD=true LR=false events=2
+[V1 HUD] COMBAT source=session sandbox={ "unlimited_ammo": false, "auto_authorize": false }
+[V1 HUD] COMBAT tracks=2 weapons=5 target=T0001 weapon=missile
+[V1 HUD] damage_model=true sections=7 combat=true roe=TIGHT roe_locked=true
+[SHELL BINDER] plot_bodies source=physics earth=[-326389.684568483, -0.0, 0.0] moon=[58010.3154315171, -0.0, 0.0]
+[SHELL BINDER] plot_sensors ready=true rings=4 obs=4 tws=2 emcon=false ew_ready=true
+[SHELL BINDER] plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=2 solutions=0 grants=0 incoming=0 pred=true
+[SHELL BINDER] plot_commands ready=true orders=0 pending=0 transmitted=0 executed=0
+[V1 PLOT3D] labels=18 conflicts=6 hidden_facility=8 bodies=physics
+[A0-A07] PASS GameSession available from the real entry
+[A0-A07] PASS captured the normalized seed from the real HUD session  keys=28
+[A0-A07] INFO ENV: {"cpu_count":16,"dt_s":1.0,"git_head":"","git_head_source":"none","godot":"4.7.2-stable (official)","headless":true,"measured_runs":3,"op_every_ticks":50,"os":"Windows","os_version":"10.0.26200","paused":false,"processor":"AMD Ryzen 7 7435H","profile":"orbital_sim","renderer":"headless","scales":[50],"scenario_path":"res://framework/content/scenario_orbital_sim.json","scenario_sha256":"cdd46e8b074840f34369da415f821ff7247a0806f8b76d86c181c41d9ff3cbf1","seed_keys":28,"seed_sha256":"2de7681ffb1d7578105146d7b7005e7890710e72d9aa7a1512d5c93431333760","static_memory_mb":109.953393936157,"time_scale":1.0,"warmup_runs":1}
+[A0-A07] PASS scenario content hash recorded (sha256)
+[A0-A07] PASS seed hash recorded (sha256)
+[A0-A07] PASS running headless (stated explicitly in the report)
+
+[A0-A07] STEP 2. per-scale measurement (fresh session each scale, 1 warmup + 3 measured)
+[A0-A07] INFO SAMPLE ticks=50 run=0 warmup=true ok=true bytes=433956 tick=1308ms save=99ms write=2ms read=1ms load=1598ms log_ops=51 bus_events=220
+[A0-A07] PASS scale 50 run 0: UTF-8 bytes match the on-disk file size  file=433956 utf8=433956 chars=428653
+[A0-A07] PASS scale 50 run 0: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=50 run=1 warmup=false ok=true bytes=433956 tick=1343ms save=112ms write=2ms read=2ms load=1496ms log_ops=51 bus_events=220
+[A0-A07] PASS scale 50 run 1: restored session loaded
+[A0-A07] PASS scale 50 run 1: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 50 run 1: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 50 run 1: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 50 saturated-history: 满载历史下正文篡改仍被逐 tick 比较发现  violations=[{ "tick": 0, "area": "comms.events.new", "original": 1, "restored": 1, "first": "idx=0 A=DELIVERED|C-SAT-201|apsis|harmattan|SAT_ORIGINAL B=DELIVERED|C-SAT-201|apsis|harmattan|SATURATED_TAMPERED" }]
+[A0-A07] PASS scale 50 saturated-history: 满载历史 + 正文一致时逐 tick 比较为空（对照）  violations=[]
+[A0-A07] PASS scale 50 run 1: UTF-8 bytes match the on-disk file size  file=433956 utf8=433956 chars=428653
+[A0-A07] PASS scale 50 run 1: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=50 run=2 warmup=false ok=true bytes=433956 tick=1400ms save=103ms write=2ms read=2ms load=1552ms log_ops=51 bus_events=220
+[A0-A07] PASS scale 50 run 2: restored session loaded
+[A0-A07] PASS scale 50 run 2: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 50 run 2: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 50 run 2: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 50 run 2: UTF-8 bytes match the on-disk file size  file=433956 utf8=433956 chars=428653
+[A0-A07] PASS scale 50 run 2: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=50 run=3 warmup=false ok=true bytes=433956 tick=1271ms save=94ms write=2ms read=2ms load=1536ms log_ops=51 bus_events=220
+[A0-A07] PASS scale 50 run 3: restored session loaded
+[A0-A07] PASS scale 50 run 3: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 50 run 3: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 50 run 3: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 50 run 3: UTF-8 bytes match the on-disk file size  file=433956 utf8=433956 chars=428653
+[A0-A07] PASS scale 50 run 3: load_state ok  []
+[A0-A07] PASS scale 50: 3 measured samples recorded  n=3
+[A0-A07] INFO SCALE 50 DONE: bytes={"max":433956,"median":433956,"min":433956,"n":3} load_ms={"max":1552,"median":1536,"min":1496,"n":3} save_ms={"max":112,"median":103,"min":94,"n":3}
+
+[A0-A07] STEP 3. cost table summary
+[A0-A07] INFO SCALE_TABLE: [{"bus_used_ids":220,"bus_visible_events":220,"bytes_utf8_max":433956,"bytes_utf8_median":433956,"bytes_utf8_min":433956,"load_ms_median":1536,"log_ops":51,"read_ms_median":2,"save_ms_median":103,"tick_ms_median":1343,"ticks":50,"write_ms_median":2}]
+A0-A07 MEASUREMENTS JSON: {"environment":{"cpu_count":16,"dt_s":1.0,"git_head":"","git_head_source":"none","godot":"4.7.2-stable (official)","headless":true,"measured_runs":3,"op_every_ticks":50,"os":"Windows","os_version":"10.0.26200","paused":false,"processor":"AMD Ryzen 7 7435H","profile":"orbital_sim","renderer":"headless","scales":[50],"scenario_path":"res://framework/content/scenario_orbital_sim.json","scenario_sha256":"cdd46e8b074840f34369da415f821ff7247a0806f8b76d86c181c41d9ff3cbf1","seed_keys":28,"seed_sha256":"2de7681ffb1d7578105146d7b7005e7890710e72d9aa7a1512d5c93431333760","static_memory_mb":109.953393936157,"time_scale":1.0,"warmup_runs":1},"product_budget_claim":false,"safe_timeout_s":1800,"scales":[{"bus_used_ids":220,"bus_visible_events":220,"bytes_utf8":{"max":433956,"median":433956,"min":433956,"n":3},"chars":{"max":428653,"median":428653,"min":428653,"n":3},"file_read_ms":{"max":2,"median":2,"min":2,"n":3},"file_write_ms":{"max":2,"median":2,"min":2,"n":3},"load_state_ms":{"max":1552,"median":1536,"min":1496,"n":3},"log_ops":51,"note":"median/min/max over 3 measured samples (NOT a p95 claim)","samples":[{"bus_seq":220,"bus_used_ids":220,"bus_visible_events":220,"bytes_utf8":433956,"chars":428653,"entities":7,"file_bytes":433956,"file_read_ms":2,"file_write_ms":2,"load_state_ms":1496,"loaded_ok":true,"log_ops":51,"ok":true,"run":1,"save_state_ms":112,"t_s":50.0,"tick_errors":0,"tick_total_ms":1343,"ticks":50,"warmup":false},{"bus_seq":220,"bus_used_ids":220,"bus_visible_events":220,"bytes_utf8":433956,"chars":428653,"entities":7,"file_bytes":433956,"file_read_ms":2,"file_write_ms":2,"load_state_ms":1552,"loaded_ok":true,"log_ops":51,"ok":true,"run":2,"save_state_ms":103,"t_s":50.0,"tick_errors":0,"tick_total_ms":1400,"ticks":50,"warmup":false},{"bus_seq":220,"bus_used_ids":220,"bus_visible_events":220,"bytes_utf8":433956,"chars":428653,"entities":7,"file_bytes":433956,"file_read_ms":2,"file_write_ms":2,"load_state_ms":1536,"loaded_ok":true,"log_ops":51,"ok":true,"run":3,"save_state_ms":94,"t_s":50.0,"tick_errors":0,"tick_total_ms":1271,"ticks":50,"warmup":false}],"save_state_ms":{"max":112,"median":103,"min":94,"n":3},"tick_total_ms":{"max":1400,"median":1343,"min":1271,"n":3},"ticks":50}],"schema":"v17.save_cost.v1","version":1}
+────────────────────────────────────────────────────────────────
+A0-A07 SAVE COST PROBE RESULT: PASS=29 FAIL=0
+A0-A07 SAVE COST PROBE OK
+[SHELL BINDER] signal targets synced added=0 updated=7 count=7
