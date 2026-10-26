@@ -231,7 +231,7 @@ func _run() -> void:
 		"real session: provider range == independent scalar range (<=1e-6 km)")
 	_near(float(g0.get("bearing_err_deg", -1.0)), 0.0, GEO_BEARING_TOL_DEG,
 		"real session: provider bearing == independent scalar bearing (<=1e-6 deg)")
-	_info("REAL SESSION: dist=%.9f err=%.3e km | bearing=%.9f err=%.3e deg" % [
+	_info("REAL SESSION: dist=%.9f err=%.9f km | bearing=%.9f err=%.9f deg" % [
 		float(g0.get("range_km", -1.0)), float(g0.get("range_err_km", -1.0)),
 		float(g0.get("bearing_deg", -1.0)), float(g0.get("bearing_err_deg", -1.0))])
 	# 非零速度输入 + provider 速度保留（真实 session 的 apsis 有轨道速度）

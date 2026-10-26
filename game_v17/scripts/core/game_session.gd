@@ -5092,6 +5092,10 @@ func load_state(json_text: String) -> Dictionary:
 	# 重绑定 physics geometry provider → 之后才允许产生新的传感器输出。
 	# 不把已恢复的证据/观测重放进 TrackTable（历史数组不导入）。
 	var saved_sensor = data.get("sensor_service", null)
+	# R8/G0-2：传感器恢复模式/原因必须透传到公共 load 结果与恢复报告，
+	# 让调用者能区分「完整恢复」与「可接受的旧档部分迁移」。
+	var sr_mode := "full"
+	var sr_partial: Array = []
 	if saved_sensor != null and sensor_service != null:
 		if not (saved_sensor is Dictionary):
 			replay_errors.append("sensor_service 运行态段必须是对象")
@@ -5100,6 +5104,9 @@ func load_state(json_text: String) -> Dictionary:
 			if not bool(sr.get("ok", false)):
 				replay_errors.append("sensor_service 运行态恢复失败：" + str(
 					sr.get("errors", [])))
+			else:
+				sr_mode = String(sr.get("restore_mode", "full"))
+				sr_partial = (sr.get("partial_reasons", []) as Array).duplicate()
 			# 恢复结果只进 _sensor_restore_report（不写 warnings，
 			# 否则会改变 snapshot() 的可见状态，破坏 save→load 的规范化等价）。
 	# 重绑定几何 provider（provider 对象不入 JSON；按当前 session 重新注入并复核同刻）。
@@ -5112,16 +5119,21 @@ func load_state(json_text: String) -> Dictionary:
 			replay_errors.append("sensor geometry 与 session 不同刻（%.9f vs %.9f）" % [
 				float(geo_st.get("t", -1.0)), now_s()])
 	_sensor_restore_report = {
-		"schema": "v17.sensor_restore.v1",
+		"schema": "v17.sensor_restore.v2",
 		"saved": saved_sensor is Dictionary,
 		"rebind": rebound,
 		"geometry_source": String(geo_st.get("source", "")),
 		"geometry_frame": String(geo_st.get("frame", "")),
 		"time_ok": sens_time_ok,
+		# R8/G0-2：完整恢复 vs 可接受的旧档部分迁移（含不可重建项原因）
+		"restore_mode": sr_mode,
+		"partial_reasons": sr_partial,
+		"is_partial": sr_mode == "partial",
 	}
 	ready = replay_errors.is_empty() and errors.is_empty()
 	return {"ok": ready, "errors": replay_errors, "result_errors": errors.duplicate(),
-		"world_sync": world_sync, "sensor_restore": _sensor_restore_report.duplicate(true)}
+		"world_sync": world_sync, "sensor_restore": _sensor_restore_report.duplicate(true),
+		"sensor_restore_mode": sr_mode, "sensor_partial_reasons": sr_partial}
 
 # ── A-06：通信重放核对 ─────────────────────────────────────────
 ## 重放一次 send_comms，并与操作日志里记录的版本化 outcome 逐项核对：

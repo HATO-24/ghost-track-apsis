@@ -1,0 +1,187 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+A0-A07 SAVE COST PROBE · baseline I6 · MEASUREMENT ONLY
+Godot 4.7.2-stable (official) · profile=orbital_sim
+════════════════════════════════════════════════════════════════
+
+[A0-A07] STEP 1. assemble the fixed workload from the real HUD orbital_sim entry
+[A0-A07] PASS change_scene_to_file(main_menu) == OK  err=0
+AUDIO OK files=36 headless=true muted=false
+[MAIN MENU] BUILD=orbital_sim → skip to res://v1_hud.tscn
+[BUILD PROFILE] id=orbital_sim mode=simulator scene=res://v1_hud.tscn scenario=res://framework/content/scenario_orbital_sim.json save_root=user://saves_sim
+[BUILD PROFILE] SYSTEM story=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM prelude=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM triggers=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM identification=ON
+[BUILD PROFILE] SYSTEM traffic=ON
+[BUILD PROFILE] SYSTEM port=ON
+[BUILD PROFILE] SYSTEM signal=ON
+[BUILD PROFILE] SYSTEM combat=ON
+[BUILD PROFILE] SYSTEM ballistics=ON
+[BUILD PROFILE] SYSTEM damage=ON
+[BUILD PROFILE] SYSTEM physics_world=ON
+[BUILD PROFILE] SYSTEM sandbox=OFF reason=非测试剖面
+[BUILD PROFILE] SYSTEM ship_catalog=ON
+[BUILD PROFILE] SYSTEM refit=ON
+[BUILD PROFILE][LIMITATION] 轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。
+[BUILD PROFILE][LIMITATION] EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。
+[BUILD PROFILE][LIMITATION] UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。
+[SHELL BINDER] BUILD profile=orbital_sim mode=simulator label=GHOST TRACK // APSIS — ORBITAL SIM save_root=user://saves_sim
+[SHELL BINDER] SANDBOX entities=7 scenario=res://framework/content/scenario_orbital_sim.json
+[SHELL BINDER] SYSTEMS physics=true sensors=true track_table=true combat=true ballistics=true damage=true ew=true identification=true traffic=true port=true ship_catalog=true refit=true story=disabled
+[SHELL BINDER] CeresChain ready state=L1 entity=ceres_2 texts=9 code=7600
+[SHELL BINDER] ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0
+[SHELL BINDER] AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=19 threat=0 trust=0
+[SHELL BINDER] AfterActionReport ready branches=6 templates=3
+[SHELL BINDER] TrafficControl source=session ready=true lanes=18 otc=19 npc=6
+[SHELL BINDER] physics ready=true plot_source=physics positions=7 facilities=12 facility_source=facility_registry_l1
+[SHELL BINDER] fleet_data ready=true friendly=8 enemy=24 total=32
+[SHELL BINDER] refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL
+[SHELL BINDER] CICView ready=true truth=false tracks=2 levels={ "1": 0, "2": 2, "3": 0, "4": 0 } facilities=110
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[SHELL BINDER] signal targets synced added=0 updated=7 count=7
+[V1 HUD] binder boot=true errors=[] contacts=7 orders=0
+[V1 HUD] COMMS seed LD=true LR=false events=2
+[V1 HUD] COMBAT source=session sandbox={ "unlimited_ammo": false, "auto_authorize": false }
+[V1 HUD] COMBAT tracks=2 weapons=5 target=T0001 weapon=missile
+[V1 HUD] damage_model=true sections=7 combat=true roe=TIGHT roe_locked=true
+[SHELL BINDER] plot_bodies source=physics earth=[-326389.684568483, -0.0, 0.0] moon=[58010.3154315171, -0.0, 0.0]
+[SHELL BINDER] plot_sensors ready=true rings=4 obs=4 tws=2 emcon=false ew_ready=true
+[SHELL BINDER] plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=2 solutions=0 grants=0 incoming=0 pred=true
+[SHELL BINDER] plot_commands ready=true orders=0 pending=0 transmitted=0 executed=0
+[V1 PLOT3D] labels=18 conflicts=6 hidden_facility=8 bodies=physics
+[A0-A07] PASS GameSession available from the real entry
+[A0-A07] PASS captured the normalized seed from the real HUD session  keys=28
+[A0-A07] INFO ENV: {"cpu_count":16,"dt_s":1.0,"git_head":"a51e19f2e2609b69f4e90a87da7855538de205c4","git_head_source":"env:A07_HEAD","godot":"4.7.2-stable (official)","headless":true,"measured_runs":3,"op_every_ticks":50,"os":"Windows","os_version":"10.0.26200","paused":false,"processor":"AMD Ryzen 7 7435H","profile":"orbital_sim","renderer":"headless","scales":[50,200,800,1000],"scenario_path":"res://framework/content/scenario_orbital_sim.json","scenario_sha256":"cdd46e8b074840f34369da415f821ff7247a0806f8b76d86c181c41d9ff3cbf1","seed_keys":28,"seed_sha256":"2de7681ffb1d7578105146d7b7005e7890710e72d9aa7a1512d5c93431333760","static_memory_mb":109.907661437988,"time_scale":1.0,"warmup_runs":1}
+[A0-A07] PASS scenario content hash recorded (sha256)
+[A0-A07] PASS seed hash recorded (sha256)
+[A0-A07] PASS running headless (stated explicitly in the report)
+
+[A0-A07] STEP 2. per-scale measurement (fresh session each scale, 1 warmup + 3 measured)
+[A0-A07] INFO SAMPLE ticks=50 run=0 warmup=true ok=true bytes=433956 tick=1302ms save=116ms write=3ms read=4ms load=1402ms log_ops=51 bus_events=220
+[A0-A07] PASS scale 50 run 0: UTF-8 bytes match the on-disk file size  file=433956 utf8=433956 chars=428653
+[A0-A07] PASS scale 50 run 0: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=50 run=1 warmup=false ok=true bytes=433956 tick=1293ms save=90ms write=3ms read=2ms load=1508ms log_ops=51 bus_events=220
+[A0-A07] PASS scale 50 run 1: restored session loaded
+[A0-A07] PASS scale 50 run 1: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 50 run 1: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 50 run 1: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 50 run 1: UTF-8 bytes match the on-disk file size  file=433956 utf8=433956 chars=428653
+[A0-A07] PASS scale 50 run 1: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=50 run=2 warmup=false ok=true bytes=433956 tick=1340ms save=102ms write=3ms read=2ms load=1295ms log_ops=51 bus_events=220
+[A0-A07] PASS scale 50 run 2: restored session loaded
+[A0-A07] PASS scale 50 run 2: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 50 run 2: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 50 run 2: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 50 run 2: UTF-8 bytes match the on-disk file size  file=433956 utf8=433956 chars=428653
+[A0-A07] PASS scale 50 run 2: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=50 run=3 warmup=false ok=true bytes=433956 tick=1101ms save=85ms write=3ms read=2ms load=1279ms log_ops=51 bus_events=220
+[A0-A07] PASS scale 50 run 3: restored session loaded
+[A0-A07] PASS scale 50 run 3: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 50 run 3: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 50 run 3: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 50 run 3: UTF-8 bytes match the on-disk file size  file=433956 utf8=433956 chars=428653
+[A0-A07] PASS scale 50 run 3: load_state ok  []
+[A0-A07] PASS scale 50: 3 measured samples recorded  n=3
+[A0-A07] INFO SCALE 50 DONE: bytes={"max":433956,"median":433956,"min":433956,"n":3} load_ms={"max":1508,"median":1295,"min":1279,"n":3} save_ms={"max":102,"median":90,"min":85,"n":3}
+[A0-A07] INFO SAMPLE ticks=200 run=0 warmup=true ok=true bytes=1151356 tick=7415ms save=264ms write=4ms read=2ms load=6685ms log_ops=201 bus_events=825
+[A0-A07] PASS scale 200 run 0: UTF-8 bytes match the on-disk file size  file=1151356 utf8=1151356 chars=1146053
+[A0-A07] PASS scale 200 run 0: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=200 run=1 warmup=false ok=true bytes=1151356 tick=7667ms save=306ms write=4ms read=4ms load=7349ms log_ops=201 bus_events=825
+[A0-A07] PASS scale 200 run 1: restored session loaded
+[A0-A07] PASS scale 200 run 1: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 200 run 1: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 200 run 1: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 200 run 1: UTF-8 bytes match the on-disk file size  file=1151356 utf8=1151356 chars=1146053
+[A0-A07] PASS scale 200 run 1: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=200 run=2 warmup=false ok=true bytes=1151356 tick=6722ms save=269ms write=5ms read=3ms load=6863ms log_ops=201 bus_events=825
+[A0-A07] PASS scale 200 run 2: restored session loaded
+[A0-A07] PASS scale 200 run 2: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 200 run 2: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 200 run 2: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 200 run 2: UTF-8 bytes match the on-disk file size  file=1151356 utf8=1151356 chars=1146053
+[A0-A07] PASS scale 200 run 2: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=200 run=3 warmup=false ok=true bytes=1151356 tick=7126ms save=228ms write=3ms read=3ms load=7077ms log_ops=201 bus_events=825
+[A0-A07] PASS scale 200 run 3: restored session loaded
+[A0-A07] PASS scale 200 run 3: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 200 run 3: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 200 run 3: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 200 run 3: UTF-8 bytes match the on-disk file size  file=1151356 utf8=1151356 chars=1146053
+[A0-A07] PASS scale 200 run 3: load_state ok  []
+[A0-A07] PASS scale 200: 3 measured samples recorded  n=3
+[A0-A07] INFO SCALE 200 DONE: bytes={"max":1151356,"median":1151356,"min":1151356,"n":3} load_ms={"max":7349,"median":7077,"min":6863,"n":3} save_ms={"max":306,"median":269,"min":228,"n":3}
+[A0-A07] INFO SAMPLE ticks=800 run=0 warmup=true ok=true bytes=1935007 tick=39323ms save=352ms write=5ms read=4ms load=45465ms log_ops=804 bus_events=1000
+[A0-A07] PASS scale 800 run 0: UTF-8 bytes match the on-disk file size  file=1935007 utf8=1935007 chars=1929803
+[A0-A07] PASS scale 800 run 0: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=800 run=1 warmup=false ok=true bytes=1935007 tick=40328ms save=415ms write=6ms read=7ms load=42290ms log_ops=804 bus_events=1000
+[A0-A07] PASS scale 800 run 1: restored session loaded
+[A0-A07] PASS scale 800 run 1: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 800 run 1: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 800 run 1: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 800 run 1: UTF-8 bytes match the on-disk file size  file=1935007 utf8=1935007 chars=1929803
+[A0-A07] PASS scale 800 run 1: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=800 run=2 warmup=false ok=true bytes=1935007 tick=33903ms save=324ms write=5ms read=5ms load=41676ms log_ops=804 bus_events=1000
+[A0-A07] PASS scale 800 run 2: restored session loaded
+[A0-A07] PASS scale 800 run 2: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 800 run 2: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 800 run 2: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 800 run 2: UTF-8 bytes match the on-disk file size  file=1935007 utf8=1935007 chars=1929803
+[A0-A07] PASS scale 800 run 2: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=800 run=3 warmup=false ok=true bytes=1935007 tick=38830ms save=318ms write=4ms read=4ms load=39769ms log_ops=804 bus_events=1000
+[A0-A07] PASS scale 800 run 3: restored session loaded
+[A0-A07] PASS scale 800 run 3: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 800 run 3: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 800 run 3: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 800 run 3: UTF-8 bytes match the on-disk file size  file=1935007 utf8=1935007 chars=1929803
+[A0-A07] PASS scale 800 run 3: load_state ok  []
+[A0-A07] PASS scale 800: 3 measured samples recorded  n=3
+[A0-A07] INFO SCALE 800 DONE: bytes={"max":1935007,"median":1935007,"min":1935007,"n":3} load_ms={"max":42290,"median":41676,"min":39769,"n":3} save_ms={"max":415,"median":324,"min":318,"n":3}
+[A0-A07] INFO SAMPLE ticks=1000 run=0 warmup=true ok=true bytes=2172752 tick=47046ms save=381ms write=5ms read=5ms load=56210ms log_ops=1005 bus_events=1000
+[A0-A07] PASS scale 1000 run 0: UTF-8 bytes match the on-disk file size  file=2172752 utf8=2172752 chars=2167449
+[A0-A07] PASS scale 1000 run 0: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=1000 run=1 warmup=false ok=true bytes=2172752 tick=46364ms save=383ms write=5ms read=5ms load=57707ms log_ops=1005 bus_events=1000
+[A0-A07] PASS scale 1000 run 1: restored session loaded
+[A0-A07] PASS scale 1000 run 1: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 1000 run 1: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 1000 run 1: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 1000 run 1: UTF-8 bytes match the on-disk file size  file=2172752 utf8=2172752 chars=2167449
+[A0-A07] PASS scale 1000 run 1: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=1000 run=2 warmup=false ok=true bytes=2172752 tick=47307ms save=374ms write=5ms read=4ms load=60009ms log_ops=1005 bus_events=1000
+[A0-A07] PASS scale 1000 run 2: restored session loaded
+[A0-A07] PASS scale 1000 run 2: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 1000 run 2: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 1000 run 2: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 1000 run 2: UTF-8 bytes match the on-disk file size  file=2172752 utf8=2172752 chars=2167449
+[A0-A07] PASS scale 1000 run 2: load_state ok  []
+[A0-A07] INFO SAMPLE ticks=1000 run=3 warmup=false ok=true bytes=2172752 tick=61702ms save=495ms write=6ms read=5ms load=69618ms log_ops=1005 bus_events=1000
+[A0-A07] PASS scale 1000 run 3: restored session loaded
+[A0-A07] PASS scale 1000 run 3: full normalized state matches after restore  violations=[]
+[A0-A07] PASS scale 1000 run 3: 10 continued ticks produce the same behaviour  violations=[]
+[A0-A07] PASS scale 1000 run 3: full normalized state still matches after 10 ticks  violations=[]
+[A0-A07] PASS scale 1000 run 3: UTF-8 bytes match the on-disk file size  file=2172752 utf8=2172752 chars=2167449
+[A0-A07] PASS scale 1000 run 3: load_state ok  []
+[A0-A07] PASS scale 1000: 3 measured samples recorded  n=3
+[A0-A07] INFO SCALE 1000 DONE: bytes={"max":2172752,"median":2172752,"min":2172752,"n":3} load_ms={"max":69618,"median":60009,"min":57707,"n":3} save_ms={"max":495,"median":383,"min":374,"n":3}
+
+[A0-A07] STEP 3. cost table summary
+[A0-A07] INFO SCALE_TABLE: [{"bus_used_ids":220,"bus_visible_events":220,"bytes_utf8_max":433956,"bytes_utf8_median":433956,"bytes_utf8_min":433956,"load_ms_median":1295,"log_ops":51,"read_ms_median":2,"save_ms_median":90,"tick_ms_median":1293,"ticks":50,"write_ms_median":3},{"bus_used_ids":825,"bus_visible_events":825,"bytes_utf8_max":1151356,"bytes_utf8_median":1151356,"bytes_utf8_min":1151356,"load_ms_median":7077,"log_ops":201,"read_ms_median":3,"save_ms_median":269,"tick_ms_median":7126,"ticks":200,"write_ms_median":4},{"bus_used_ids":3232,"bus_visible_events":1000,"bytes_utf8_max":1935007,"bytes_utf8_median":1935007,"bytes_utf8_min":1935007,"load_ms_median":41676,"log_ops":804,"read_ms_median":5,"save_ms_median":324,"tick_ms_median":38830,"ticks":800,"write_ms_median":5},{"bus_used_ids":4034,"bus_visible_events":1000,"bytes_utf8_max":2172752,"bytes_utf8_median":2172752,"bytes_utf8_min":2172752,"load_ms_median":60009,"log_ops":1005,"read_ms_median":5,"save_ms_median":383,"tick_ms_median":47307,"ticks":1000,"write_ms_median":5}]
+A0-A07 MEASUREMENTS JSON: {"environment":{"cpu_count":16,"dt_s":1.0,"git_head":"a51e19f2e2609b69f4e90a87da7855538de205c4","git_head_source":"env:A07_HEAD","godot":"4.7.2-stable (official)","headless":true,"measured_runs":3,"op_every_ticks":50,"os":"Windows","os_version":"10.0.26200","paused":false,"processor":"AMD Ryzen 7 7435H","profile":"orbital_sim","renderer":"headless","scales":[50,200,800,1000],"scenario_path":"res://framework/content/scenario_orbital_sim.json","scenario_sha256":"cdd46e8b074840f34369da415f821ff7247a0806f8b76d86c181c41d9ff3cbf1","seed_keys":28,"seed_sha256":"2de7681ffb1d7578105146d7b7005e7890710e72d9aa7a1512d5c93431333760","static_memory_mb":109.907661437988,"time_scale":1.0,"warmup_runs":1},"product_budget_claim":false,"safe_timeout_s":1800,"scales":[{"bus_used_ids":220,"bus_visible_events":220,"bytes_utf8":{"max":433956,"median":433956,"min":433956,"n":3},"chars":{"max":428653,"median":428653,"min":428653,"n":3},"file_read_ms":{"max":2,"median":2,"min":2,"n":3},"file_write_ms":{"max":3,"median":3,"min":3,"n":3},"load_state_ms":{"max":1508,"median":1295,"min":1279,"n":3},"log_ops":51,"note":"median/min/max over 3 measured samples (NOT a p95 claim)","samples":[{"bus_seq":220,"bus_used_ids":220,"bus_visible_events":220,"bytes_utf8":433956,"chars":428653,"entities":7,"file_bytes":433956,"file_read_ms":2,"file_write_ms":3,"load_state_ms":1508,"loaded_ok":true,"log_ops":51,"ok":true,"run":1,"save_state_ms":90,"t_s":50.0,"tick_errors":0,"tick_total_ms":1293,"ticks":50,"warmup":false},{"bus_seq":220,"bus_used_ids":220,"bus_visible_events":220,"bytes_utf8":433956,"chars":428653,"entities":7,"file_bytes":433956,"file_read_ms":2,"file_write_ms":3,"load_state_ms":1295,"loaded_ok":true,"log_ops":51,"ok":true,"run":2,"save_state_ms":102,"t_s":50.0,"tick_errors":0,"tick_total_ms":1340,"ticks":50,"warmup":false},{"bus_seq":220,"bus_used_ids":220,"bus_visible_events":220,"bytes_utf8":433956,"chars":428653,"entities":7,"file_bytes":433956,"file_read_ms":2,"file_write_ms":3,"load_state_ms":1279,"loaded_ok":true,"log_ops":51,"ok":true,"run":3,"save_state_ms":85,"t_s":50.0,"tick_errors":0,"tick_total_ms":1101,"ticks":50,"warmup":false}],"save_state_ms":{"max":102,"median":90,"min":85,"n":3},"tick_total_ms":{"max":1340,"median":1293,"min":1101,"n":3},"ticks":50},{"bus_used_ids":825,"bus_visible_events":825,"bytes_utf8":{"max":1151356,"median":1151356,"min":1151356,"n":3},"chars":{"max":1146053,"median":1146053,"min":1146053,"n":3},"file_read_ms":{"max":4,"median":3,"min":3,"n":3},"file_write_ms":{"max":5,"median":4,"min":3,"n":3},"load_state_ms":{"max":7349,"median":7077,"min":6863,"n":3},"log_ops":201,"note":"median/min/max over 3 measured samples (NOT a p95 claim)","samples":[{"bus_seq":825,"bus_used_ids":825,"bus_visible_events":825,"bytes_utf8":1151356,"chars":1146053,"entities":7,"file_bytes":1151356,"file_read_ms":4,"file_write_ms":4,"load_state_ms":7349,"loaded_ok":true,"log_ops":201,"ok":true,"run":1,"save_state_ms":306,"t_s":200.0,"tick_errors":0,"tick_total_ms":7667,"ticks":200,"warmup":false},{"bus_seq":825,"bus_used_ids":825,"bus_visible_events":825,"bytes_utf8":1151356,"chars":1146053,"entities":7,"file_bytes":1151356,"file_read_ms":3,"file_write_ms":5,"load_state_ms":6863,"loaded_ok":true,"log_ops":201,"ok":true,"run":2,"save_state_ms":269,"t_s":200.0,"tick_errors":0,"tick_total_ms":6722,"ticks":200,"warmup":false},{"bus_seq":825,"bus_used_ids":825,"bus_visible_events":825,"bytes_utf8":1151356,"chars":1146053,"entities":7,"file_bytes":1151356,"file_read_ms":3,"file_write_ms":3,"load_state_ms":7077,"loaded_ok":true,"log_ops":201,"ok":true,"run":3,"save_state_ms":228,"t_s":200.0,"tick_errors":0,"tick_total_ms":7126,"ticks":200,"warmup":false}],"save_state_ms":{"max":306,"median":269,"min":228,"n":3},"tick_total_ms":{"max":7667,"median":7126,"min":6722,"n":3},"ticks":200},{"bus_used_ids":3232,"bus_visible_events":1000,"bytes_utf8":{"max":1935007,"median":1935007,"min":1935007,"n":3},"chars":{"max":1929803,"median":1929803,"min":1929803,"n":3},"file_read_ms":{"max":7,"median":5,"min":4,"n":3},"file_write_ms":{"max":6,"median":5,"min":4,"n":3},"load_state_ms":{"max":42290,"median":41676,"min":39769,"n":3},"log_ops":804,"note":"median/min/max over 3 measured samples (NOT a p95 claim)","samples":[{"bus_seq":3232,"bus_used_ids":3232,"bus_visible_events":1000,"bytes_utf8":1935007,"chars":1929803,"entities":7,"file_bytes":1935007,"file_read_ms":7,"file_write_ms":6,"load_state_ms":42290,"loaded_ok":true,"log_ops":804,"ok":true,"run":1,"save_state_ms":415,"t_s":800.0,"tick_errors":0,"tick_total_ms":40328,"ticks":800,"warmup":false},{"bus_seq":3232,"bus_used_ids":3232,"bus_visible_events":1000,"bytes_utf8":1935007,"chars":1929803,"entities":7,"file_bytes":1935007,"file_read_ms":5,"file_write_ms":5,"load_state_ms":41676,"loaded_ok":true,"log_ops":804,"ok":true,"run":2,"save_state_ms":324,"t_s":800.0,"tick_errors":0,"tick_total_ms":33903,"ticks":800,"warmup":false},{"bus_seq":3232,"bus_used_ids":3232,"bus_visible_events":1000,"bytes_utf8":1935007,"chars":1929803,"entities":7,"file_bytes":1935007,"file_read_ms":4,"file_write_ms":4,"load_state_ms":39769,"loaded_ok":true,"log_ops":804,"ok":true,"run":3,"save_state_ms":318,"t_s":800.0,"tick_errors":0,"tick_total_ms":38830,"ticks":800,"warmup":false}],"save_state_ms":{"max":415,"median":324,"min":318,"n":3},"tick_total_ms":{"max":40328,"median":38830,"min":33903,"n":3},"ticks":800},{"bus_used_ids":4034,"bus_visible_events":1000,"bytes_utf8":{"max":2172752,"median":2172752,"min":2172752,"n":3},"chars":{"max":2167449,"median":2167449,"min":2167449,"n":3},"file_read_ms":{"max":5,"median":5,"min":4,"n":3},"file_write_ms":{"max":6,"median":5,"min":5,"n":3},"load_state_ms":{"max":69618,"median":60009,"min":57707,"n":3},"log_ops":1005,"note":"median/min/max over 3 measured samples (NOT a p95 claim)","samples":[{"bus_seq":4034,"bus_used_ids":4034,"bus_visible_events":1000,"bytes_utf8":2172752,"chars":2167449,"entities":7,"file_bytes":2172752,"file_read_ms":5,"file_write_ms":5,"load_state_ms":57707,"loaded_ok":true,"log_ops":1005,"ok":true,"run":1,"save_state_ms":383,"t_s":1000.0,"tick_errors":0,"tick_total_ms":46364,"ticks":1000,"warmup":false},{"bus_seq":4034,"bus_used_ids":4034,"bus_visible_events":1000,"bytes_utf8":2172752,"chars":2167449,"entities":7,"file_bytes":2172752,"file_read_ms":4,"file_write_ms":5,"load_state_ms":60009,"loaded_ok":true,"log_ops":1005,"ok":true,"run":2,"save_state_ms":374,"t_s":1000.0,"tick_errors":0,"tick_total_ms":47307,"ticks":1000,"warmup":false},{"bus_seq":4034,"bus_used_ids":4034,"bus_visible_events":1000,"bytes_utf8":2172752,"chars":2167449,"entities":7,"file_bytes":2172752,"file_read_ms":5,"file_write_ms":6,"load_state_ms":69618,"loaded_ok":true,"log_ops":1005,"ok":true,"run":3,"save_state_ms":495,"t_s":1000.0,"tick_errors":0,"tick_total_ms":61702,"ticks":1000,"warmup":false}],"save_state_ms":{"max":495,"median":383,"min":374,"n":3},"tick_total_ms":{"max":61702,"median":47307,"min":46364,"n":3},"ticks":1000}],"schema":"v17.save_cost.v1","version":1}
+────────────────────────────────────────────────────────────────
+A0-A07 SAVE COST PROBE RESULT: PASS=90 FAIL=0
+A0-A07 SAVE COST PROBE OK
+[SHELL BINDER] signal targets synced added=0 updated=7 count=7
+
+--- STDERR ---
+WARNING: 1420 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 30 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

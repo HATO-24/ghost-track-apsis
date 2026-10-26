@@ -361,3 +361,74 @@ func to_dict() -> Dictionary:
 		"exposure": exposure_state(record, seconds_on, {"on": enabled}),
 		"target_memory": target_memory.duplicate(true),
 	}
+# ── A00：运行态导出/导入（扫描相位与目标记忆；读档续跑一致）──
+const STATE_SCHEMA := "v17.radar.state.v1"
+
+
+func export_state() -> Dictionary:
+	return {
+		"schema": STATE_SCHEMA, "version": 1,
+		"enabled": enabled,
+		"elapsed_s": elapsed_s, "seconds_on": seconds_on,
+		"time_since_scan": time_since_scan, "scan_index": scan_index,
+		"last_scan_t": last_scan_t,
+		"last_scan": JSON.parse_string(JSON.stringify(last_scan)),
+		"target_memory": JSON.parse_string(JSON.stringify(target_memory)),
+	}
+
+
+## 先校验，再一次提交；失败不改运行态（R6/G2：校验逻辑集中在 validate_state）。
+func import_state(st: Dictionary) -> Dictionary:
+	var vres: Dictionary = validate_state(st)
+	if not bool(vres.get("ok", false)):
+		return {"ok": false, "reason": "invalid_state",
+			"errors": vres.get("errors", [])}
+	var si = st.get("scan_index", 0)
+	enabled = bool(st.get("enabled", enabled))
+	elapsed_s = float(st.get("elapsed_s", 0.0))
+	seconds_on = float(st.get("seconds_on", 0.0))
+	time_since_scan = float(st.get("time_since_scan", 0.0))
+	scan_index = int(roundf(float(si)))
+	last_scan_t = float(st.get("last_scan_t", -1.0))
+	last_scan = (st.get("last_scan", {}) as Dictionary).duplicate(true)
+	target_memory = (st.get("target_memory", {}) as Dictionary).duplicate(true)
+	return {"ok": true, "scan_index": scan_index, "seconds_on": seconds_on}
+# ── R6/G2：**只校验不改状态**（供 authority 两阶段原子导入）──
+const SAFE_INT_MAX := 9007199254740991.0
+const STATE_VERSION := 1
+
+
+func validate_state(st: Dictionary) -> Dictionary:
+	var errs: Array = []
+	if String(st.get("schema", "")) != STATE_SCHEMA:
+		errs.append("radar.schema mismatch: " + String(st.get("schema", "")))
+	var ver = st.get("version", null)
+	if not _is_exact_int(ver) or int(roundf(float(ver))) != STATE_VERSION:
+		errs.append("radar.version must be exact integer %d (got %s)" % [
+			STATE_VERSION, str(ver)])
+	for fld in ["elapsed_s", "seconds_on", "time_since_scan"]:
+		var v = st.get(fld, null)
+		if not _is_finite_num(v) or float(v) < 0.0:
+			errs.append("radar.%s must be finite >= 0" % fld)
+	var lst = st.get("last_scan_t", null)
+	if not _is_finite_num(lst):
+		errs.append("radar.last_scan_t must be finite")
+	var si = st.get("scan_index", null)
+	if not _is_exact_int(si) or float(si) < 0.0 or float(si) > SAFE_INT_MAX:
+		errs.append("radar.scan_index must be a safe non-negative integer")
+	for df in ["last_scan", "target_memory"]:
+		if not (st.get(df, null) is Dictionary):
+			errs.append("radar.%s must be an object" % df)
+	if st.get("enabled", null) != null and not (st.get("enabled") is bool):
+		errs.append("radar.enabled must be bool")
+	return {"ok": errs.is_empty(), "errors": errs}
+
+
+func _is_finite_num(v) -> bool:
+	return (v is int or v is float) and is_finite(float(v))
+
+
+func _is_exact_int(v) -> bool:
+	if not _is_finite_num(v):
+		return false
+	return absf(float(v) - roundf(float(v))) <= 0.0

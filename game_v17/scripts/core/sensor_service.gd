@@ -1003,6 +1003,8 @@ func import_state(state: Dictionary) -> Dictionary:
 	return {"ok": true, "t": t, "radar_enabled": radar_enabled, "emcon": emcon,
 		"channels": backend_res.get("channels", _last_channels.size()),
 		"backend": backend_res.get("backend", "none"),
+		"restore_mode": String(backend_res.get("restore_mode", "full")),
+		"partial_reasons": backend_res.get("partial_reasons", []),
 		"allocators": {"obs_seq": _obs_seq, "evidence_seq": _evidence_seq,
 			"event_seq": _event_seq},
 		"dedup": _optical_evidence_seen.size()}

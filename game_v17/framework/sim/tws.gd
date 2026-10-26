@@ -531,3 +531,176 @@ func to_dict() -> Dictionary:
 		"by_state": _count_by_state(),
 		"exposure": last_exposure.duplicate(true),
 	}
+# ── A00：运行态导出/导入（通道/记忆/雷达扫描相位）──
+const STATE_SCHEMA := "v17.tws.state.v1"
+
+
+func export_state() -> Dictionary:
+	return {
+		"schema": STATE_SCHEMA, "version": 1,
+		"now_t": now_t,
+		"scan_period_s": scan_period_s,
+		"stare_required_s": stare_required_s,
+		"channels": JSON.parse_string(JSON.stringify(channels)),
+		"last_exposure": JSON.parse_string(JSON.stringify(last_exposure)),
+		"radar": radar.export_state() if radar != null else null,
+	}
+
+
+func import_state(st: Dictionary) -> Dictionary:
+	var vres: Dictionary = validate_state(st)
+	if not bool(vres.get("ok", false)):
+		return {"ok": false, "reason": "invalid_state",
+			"errors": vres.get("errors", [])}
+	# 校验全部通过后才提交（含雷达子状态）
+	var raw_radar = st.get("radar", null)
+	if raw_radar is Dictionary and radar != null:
+		var chk: Dictionary = radar.import_state(raw_radar)
+		if not bool(chk.get("ok", false)):
+			return chk
+	now_t = float(st.get("now_t", 0.0))
+	scan_period_s = float(st.get("scan_period_s", scan_period_s))
+	stare_required_s = float(st.get("stare_required_s", stare_required_s))
+	channels = (st.get("channels", {}) as Dictionary).duplicate(true)
+	last_exposure = (st.get("last_exposure", {}) as Dictionary).duplicate(true)
+	return {"ok": true, "channels": channels.size()}
+# ── R6/G2：只校验不改状态（供 authority 两阶段原子导入）──
+const STATE_VERSION := 1
+const SAFE_INT_MAX := 9007199254740991.0
+# R7/G2：按 FSM 实际消费的完整字段集（名称 → 期望类型）
+const CHANNEL_FIELD_SPEC := {
+	"target_id": "str", "state": "str", "state_since_t": "num", "slot": "int",
+	"quality": "num", "age_s": "num", "pd": "num", "hits": "int",
+	"consecutive_hits": "int", "misses": "int", "update_count": "int",
+	"update_rate_hz": "num", "last_update_t": "num", "last_miss_t": "num",
+	"range_km": "num", "bearing_deg": "num", "elevation_deg": "num",
+	"range_sigma_km": "num", "bearing_sigma_deg": "num",
+	"stable_track": "bool", "in_sphere": "bool", "effective_radius_km": "num",
+	"scan_index": "int", "stare_s": "num", "stare_required_s": "num",
+	"stare_progress": "num", "fire_control": "dict", "lost_lock_count": "int",
+	"exposure": "dict", "history": "array",
+}
+# 各状态额外必需的字段（FSM 分支实际读取）
+const CHANNEL_STATE_EXTRA := {
+	STATE_STARE: ["stare_s", "stare_required_s", "stare_progress"],
+	STATE_FIRE_CONTROL: ["fire_control"],
+}
+const KNOWN_STATES := [STATE_SEARCH, STATE_DETECT, STATE_ACQUIRE, STATE_TRACK,
+	STATE_STARE, STATE_FIRE_CONTROL]
+
+
+func validate_state(st: Dictionary) -> Dictionary:
+	var errs: Array = []
+	if String(st.get("schema", "")) != STATE_SCHEMA:
+		errs.append("tws.schema mismatch: " + String(st.get("schema", "")))
+	var ver = st.get("version", null)
+	if not _is_exact_int(ver) or int(roundf(float(ver))) != STATE_VERSION:
+		errs.append("tws.version must be exact integer %d (got %s)" % [
+			STATE_VERSION, str(ver)])
+	for fld in ["now_t", "scan_period_s", "stare_required_s"]:
+		var v = st.get(fld, null)
+		if not _is_finite_num(v) or float(v) < 0.0:
+			errs.append("tws.%s must be finite >= 0" % fld)
+	for df in ["channels", "last_exposure"]:
+		if not (st.get(df, null) is Dictionary):
+			errs.append("tws.%s must be an object" % df)
+	# 通道完整字段：缺 last_update_t/state 会在下一次 step 触发 SCRIPT ERROR
+	var chans = st.get("channels", null)
+	if chans is Dictionary:
+		for tid in (chans as Dictionary).keys():
+			var ch = (chans as Dictionary)[tid]
+			if not (ch is Dictionary):
+				errs.append("tws.channels[%s] must be an object" % String(tid))
+				continue
+			# R7/G2：按 FSM 实际消费的**完整**字段集校验类型/范围/关联，
+			# 不只查上次缺席的那几个字段（STARE 态缺 stare_s 会在 step 里 SCRIPT ERROR）。
+			var missing: Array = []
+			for rf in CHANNEL_FIELD_SPEC.keys():
+				if not (ch as Dictionary).has(rf):
+					missing.append(rf)
+			if not missing.is_empty():
+				errs.append("tws.channels[%s] missing required fields %s" % [
+					String(tid), str(missing)])
+			if String((ch as Dictionary).get("target_id", "")) != String(tid):
+				errs.append("tws.channels[%s] target_id mismatch" % String(tid))
+			var cstate := String((ch as Dictionary).get("state", ""))
+			if not (cstate in KNOWN_STATES):
+				errs.append("tws.channels[%s] unknown state: %s" % [
+					String(tid), cstate])
+			var st_spec: Array = CHANNEL_STATE_EXTRA.get(cstate, [])
+			if not (st_spec as Array).is_empty():
+				var miss2: Array = []
+				for sf in (st_spec as Array):
+					if not (ch as Dictionary).has(sf):
+						miss2.append(sf)
+				if not miss2.is_empty():
+					errs.append("tws.channels[%s] state %s requires %s" % [
+						String(tid), cstate, str(miss2)])
+			for perf in CHANNEL_FIELD_SPEC.keys():
+				var val = (ch as Dictionary).get(perf, null)
+				# R8/G0-1：显式 null 不能绕过类型校验（旧实现 `null → continue`，
+				# 导致 history=null 等被接受，step 里 Nil→Array 报 SCRIPT ERROR）。
+				if val == null:
+					# 缺键已由上面的 missing 检查报告；这里只额外报告「键在但值为 null」。
+					if (ch as Dictionary).has(perf):
+						errs.append("tws.channels[%s].%s is null (required)" % [
+							String(tid), perf])
+					continue
+				var kind_name := String(CHANNEL_FIELD_SPEC[perf])
+				if kind_name == "num":
+					if not _is_finite_num(val):
+						errs.append("tws.channels[%s].%s must be finite number" % [
+							String(tid), perf])
+				elif kind_name == "int":
+					if not _is_exact_int(val) or float(val) < 0.0 \
+							or float(val) > SAFE_INT_MAX:
+						errs.append("tws.channels[%s].%s must be safe non-negative int" % [
+							String(tid), perf])
+				elif kind_name == "bool":
+					if not (val is bool):
+						errs.append("tws.channels[%s].%s must be bool" % [
+							String(tid), perf])
+				elif kind_name == "dict":
+					if not (val is Dictionary):
+						errs.append("tws.channels[%s].%s must be object" % [
+							String(tid), perf])
+				elif kind_name == "array":
+					if not (val is Array):
+						errs.append("tws.channels[%s].%s must be array" % [
+							String(tid), perf])
+				elif kind_name == "str":
+					if not (val is String):
+						errs.append("tws.channels[%s].%s must be string" % [
+							String(tid), perf])
+			var q = (ch as Dictionary).get("quality", null)
+			if _is_finite_num(q) and (float(q) < 0.0 or float(q) > 1.0):
+				errs.append("tws.channels[%s].quality must be in [0,1]" % String(tid))
+			var sp = (ch as Dictionary).get("stare_progress", null)
+			if _is_finite_num(sp) and (float(sp) < 0.0 or float(sp) > 1.0):
+				errs.append("tws.channels[%s].stare_progress must be in [0,1]" % String(tid))
+			var sr = (ch as Dictionary).get("stare_required_s", null)
+			if _is_finite_num(sr) and float(sr) < 0.0:
+				errs.append("tws.channels[%s].stare_required_s must be >= 0" % String(tid))
+	# 新格式必须带完整 radar 子状态（不允许静默拼接 TWS t=200 / Radar t=0）
+	var raw_radar = st.get("radar", null)
+	if raw_radar == null:
+		errs.append("tws.radar sub-state is required (missing = incomplete restore)")
+	elif not (raw_radar is Dictionary):
+		errs.append("tws.radar must be an object")
+	elif radar == null:
+		errs.append("tws.radar provided but no radar model")
+	else:
+		var rv: Dictionary = radar.validate_state(raw_radar)
+		for e in (rv.get("errors", []) as Array):
+			errs.append(String(e))
+	return {"ok": errs.is_empty(), "errors": errs}
+
+
+func _is_finite_num(v) -> bool:
+	return (v is int or v is float) and is_finite(float(v))
+
+
+func _is_exact_int(v) -> bool:
+	if not _is_finite_num(v):
+		return false
+	return absf(float(v) - roundf(float(v))) <= 0.0
