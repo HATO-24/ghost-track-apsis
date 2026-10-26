@@ -1,0 +1,133 @@
+{
+  "source_head": "af5b92471a0f12f1ab95c7defda88360e171e277",
+  "godot": "4.7.2.stable.official.ed1daf0bf",
+  "exit_code": 1,
+  "violations": 7,
+  "records": [
+    {
+      "label": "REVIEW_EXPLICIT_AUTO_COLLISION",
+      "result": {
+        "automatic": "evt-000001",
+        "both_ok": true,
+        "explicit": "evt-000001",
+        "same_id": true
+      }
+    },
+    {
+      "label": "REVIEW_V2_MISSING_SEEN_IDS",
+      "result": {
+        "import_ok": true,
+        "original_seen": 1002,
+        "restored_seen": 1001,
+        "reused_old_id_accepted": true
+      }
+    },
+    {
+      "label": "REVIEW_PLAYER_SELECTED_TRUTH",
+      "result": {
+        "list_has_batch": false,
+        "observation_ok": true,
+        "selected_batch": "SECRET-9001",
+        "selected_has_batch": true
+      }
+    },
+    {
+      "label": "REVIEW_COMMS_UNKNOWN_OUTCOME",
+      "result": {
+        "load_ok": true,
+        "report": {
+          "diverged": 0,
+          "legacy_unverified": 1,
+          "losless_claim": false,
+          "matched_expected_failure": 0,
+          "matched_success": 0,
+          "note": "original failures are preserved as failures; only divergences are recovery errors",
+          "ops": [
+            {
+              "expected_failure": false,
+              "from": "review-unknown-from",
+              "legacy_unverified": true,
+              "matched": false,
+              "mode": "LD",
+              "replay_delivery_id": "",
+              "replay_latency_s": 0.0,
+              "replay_ok": false,
+              "replay_path": [],
+              "replay_reason": "unknown_from",
+              "text_key": "COMMS_SENT",
+              "to": "review-unknown-to"
+            }
+          ],
+          "schema": "v17.comms_restore.v1",
+          "total": 1
+        }
+      }
+    },
+    {
+      "label": "REVIEW_SENSOR_FRACTIONAL_VERSION",
+      "result": {
+        "allocators": {
+          "event_seq": 2,
+          "evidence_seq": 0,
+          "obs_seq": 4
+        },
+        "backend": "optical_ir",
+        "channels": 1,
+        "dedup": 0,
+        "emcon": false,
+        "ok": true,
+        "radar_enabled": true,
+        "t": 0.1
+      }
+    },
+    {
+      "label": "REVIEW_SENSOR_MISSING_BACKEND",
+      "result": {
+        "import_ok": true,
+        "original_backend_channels": 1,
+        "restored_backend_channels": 0,
+        "selected_target": "harmattan"
+      }
+    },
+    {
+      "label": "REVIEW_SENSOR_CONTINUATION",
+      "result": {
+        "load_ok": true,
+        "original": {
+          "allocators": {
+            "event_seq": 4,
+            "evidence_seq": 0,
+            "obs_seq": 64
+          },
+          "channels": 4,
+          "dedup_keys": 0,
+          "emcon": true,
+          "optical_backend": "optical_ir",
+          "radar_enabled": false,
+          "schema": "v17.sensor_service.state.v1",
+          "selected_target": "harmattan",
+          "step_count": 16,
+          "t": 15.1,
+          "version": 1
+        },
+        "restored": {
+          "allocators": {
+            "event_seq": 4,
+            "evidence_seq": 0,
+            "obs_seq": 68
+          },
+          "channels": 4,
+          "dedup_keys": 0,
+          "emcon": true,
+          "optical_backend": "optical_ir",
+          "radar_enabled": false,
+          "schema": "v17.sensor_service.state.v1",
+          "selected_target": "harmattan",
+          "step_count": 16,
+          "t": 15.1,
+          "version": 1
+        }
+      }
+    }
+  ]
+}
