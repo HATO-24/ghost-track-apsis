@@ -116,9 +116,9 @@ AUDIO OK files=36 headless=true muted=false
 
 [A0-T3] STEP 8. 1000-tick save performance (INFO evidence)
 [A0-T3] PASS perf session ready  []
-[A0-T3] INFO A0-T3 PERF: 1000 ticks=82ms save=8ms (26669 bytes) load=72ms ok=true
+[A0-T3] INFO A0-T3 PERF: 1000 ticks=78ms save=11ms (26669 bytes) load=73ms ok=true
 [A0-T3] PASS 1000-tick save non-empty  len=26669
-[A0-T3] PASS 1000-tick load completed  ms=72
+[A0-T3] PASS 1000-tick load completed  ms=73
 [A0-T3] INFO A0-T3 PERF NOTE: 存档体积与读档时间随 tick 线性增长（A0 C4 已记录），本探针只记录实测值
 
 [A0-T3] STEP 9. A0-T3 baseline evidence summary (expected Phase A failures)

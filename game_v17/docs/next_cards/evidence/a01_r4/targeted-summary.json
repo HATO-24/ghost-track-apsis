@@ -1,8 +1,8 @@
 {
   "schema": "test_summary.v1",
-  "run_id": "20261027-185114-eb4b9853",
-  "started_at": "2026-10-27T18:51:14+08:00",
-  "ended_at": "2026-10-27T18:51:37+08:00",
+  "run_id": "20261027-190151-00cdc297",
+  "started_at": "2026-10-27T19:01:50+08:00",
+  "ended_at": "2026-10-27T19:02:16+08:00",
   "invocation": {
     "script": "run_tests.ps1",
     "matrix": "game_v17/tests/probe_matrix.json",
@@ -56,19 +56,14 @@
   "godot_version": "4.7.2.stable.official.ed1daf0bf",
   "git": {
     "branch": "jc/a01-authority-intel",
-    "commit": "eb4b98530b589dd5c452a78d46549660985557d3",
-    "commit_short": "eb4b9853",
-    "worktree_dirty": true,
-    "modified_tracked": [
-      "M game_v17/scripts/core/game_session.gd",
-      "M game_v17/tests/a0_world_physics_sync_probe.gd",
-      "M game_v17/tests/a1_entity_metadata_authority_probe.gd",
-      "M game_v17/tests/jc_authority_intel_probe.gd"
-    ],
+    "commit": "00cdc2976516febb0d8fa0f571568bea104edaa1",
+    "commit_short": "00cdc297",
+    "worktree_dirty": false,
+    "modified_tracked": null,
     "read_error": ""
   },
   "git_branch": "jc/a01-authority-intel",
-  "git_commit": "eb4b98530b589dd5c452a78d46549660985557d3",
+  "git_commit": "00cdc2976516febb0d8fa0f571568bea104edaa1",
   "host": {
     "os": "Microsoft Windows NT 10.0.26200.0",
     "os_name": "Windows_NT",
@@ -114,14 +109,14 @@
       "command": "tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game_v17 --script res://tests/a1_entity_metadata_authority_probe.gd",
       "exit_code": 0,
       "status": "PASS",
-      "duration_s": 3.92,
+      "duration_s": 6.06,
       "pass_count": 359,
       "fail_count": 0,
       "expected_markers": [
         "A1 ENTITY METADATA AUTHORITY PROBE RESULT:"
       ],
       "marker_ok": true,
-      "log_path": ".test-results/jc-r2/JC-A01/r4t/20261027-185114-eb4b9853/logs/integration.a1_entity_metadata_authority.log",
+      "log_path": ".test-results/jc-r2/JC-A01/r4t-sha/20261027-190151-00cdc297/logs/integration.a1_entity_metadata_authority.log",
       "reason": "",
       "attempts": 1,
       "blocked": false,
@@ -140,14 +135,14 @@
       "command": "tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game_v17 --script res://tests/a0_world_physics_sync_probe.gd",
       "exit_code": 0,
       "status": "PASS",
-      "duration_s": 4.65,
+      "duration_s": 4.37,
       "pass_count": 107,
       "fail_count": 0,
       "expected_markers": [
         "A0-T1 WORLD PHYSICS SYNC PROBE RESULT:"
       ],
       "marker_ok": true,
-      "log_path": ".test-results/jc-r2/JC-A01/r4t/20261027-185114-eb4b9853/logs/integration.a0_world_physics_sync.log",
+      "log_path": ".test-results/jc-r2/JC-A01/r4t-sha/20261027-190151-00cdc297/logs/integration.a0_world_physics_sync.log",
       "reason": "",
       "attempts": 1,
       "blocked": false,
@@ -166,14 +161,14 @@
       "command": "tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game_v17 --script res://tests/jc_authority_intel_probe.gd",
       "exit_code": 0,
       "status": "PASS",
-      "duration_s": 5.77,
+      "duration_s": 5.67,
       "pass_count": 90,
       "fail_count": 0,
       "expected_markers": [
         "JC-A01 AUTHORITY INTEL PROBE RESULT:"
       ],
       "marker_ok": true,
-      "log_path": ".test-results/jc-r2/JC-A01/r4t/20261027-185114-eb4b9853/logs/integration.jc_authority_intel.log",
+      "log_path": ".test-results/jc-r2/JC-A01/r4t-sha/20261027-190151-00cdc297/logs/integration.jc_authority_intel.log",
       "reason": "",
       "attempts": 1,
       "blocked": false,
@@ -199,7 +194,7 @@
         "A0-A01 INTEGRATION AUTHORITY PROBE RESULT:"
       ],
       "marker_ok": true,
-      "log_path": ".test-results/jc-r2/JC-A01/r4t/20261027-185114-eb4b9853/logs/integration.a0_integration_authority.log",
+      "log_path": ".test-results/jc-r2/JC-A01/r4t-sha/20261027-190151-00cdc297/logs/integration.a0_integration_authority.log",
       "reason": "",
       "attempts": 1,
       "blocked": false,
@@ -225,7 +220,7 @@
         "A0-T3 SAVE ROUNDTRIP AUTHORITY PROBE RESULT:"
       ],
       "marker_ok": true,
-      "log_path": ".test-results/jc-r2/JC-A01/r4t/20261027-185114-eb4b9853/logs/integration.a0_save_roundtrip_authority.log",
+      "log_path": ".test-results/jc-r2/JC-A01/r4t-sha/20261027-190151-00cdc297/logs/integration.a0_save_roundtrip_authority.log",
       "reason": "",
       "attempts": 1,
       "blocked": false,
@@ -242,7 +237,7 @@
     "not_run_expected": 0,
     "not_run_unexpected": 0,
     "ran": 5,
-    "duration_s": 23.9,
+    "duration_s": 25.74,
     "known_fail": null,
     "new_fail": null,
     "baseline_drift": null,

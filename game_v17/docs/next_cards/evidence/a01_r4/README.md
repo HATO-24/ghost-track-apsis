@@ -21,10 +21,11 @@ egctl_*.exit.txt。
 - 0_world_physics_sync：**107/0** —— 观测/变更/比较同一真实目标 harmattan；先证明 truth_changed + physics_changed + physics 坐标确已变；无新观测时 plot 保持旧采样；合法新观测后同一目标位置/时间更新。
 - jc_authority_intel：**90/0** —— 显式 target_a contact 行断言 + 同目标隐藏变更/新观测更新。
 
-## 归档运行（代码 SHA eb4b98530b589dd5c452a78d46549660985557d3，其后仅新增文档）
+## 归档运行（最终代码 SHA `00cdc2976516febb0d8fa0f571568bea104edaa1`）
 
 | 文件 | 内容 |
 |---|---|
 | targeted-summary.json / *.log.txt | 复核指定 5 项：全 PASS（A01 90/0、metadata 359/0、world-sync 107/0、integration 65/0、save 41/0） |
 | r4g0-summary.json / r4ga-summary.json | Phase 0 6/6、Phase A 3/3 |
 | full-summary.json | 完整 strict 88 项：**81 PASS / 7 历史 FAIL / new_fail=0 / drift=0 / complete=true** |
+

@@ -1,6 +1,6 @@
 # JC-A01（#58）第四轮：T1/T2 验收测试强度收尾报告
 
-> 分支 `jc/a01-authority-intel`（PR #66）；实现基线 main `3045311657609dfe10a133802b93dde2fc8abb79`（G0=K0=`9d0f3b4…`）
+> 最终代码 SHA `00cdc2976516febb0d8fa0f571568bea104edaa1`（分支 `jc/a01-authority-intel`，PR #66）；实现基线 main `3045311657609dfe10a133802b93dde2fc8abb79`（G0=K0=`9d0f3b4…`）
 > 环境：Godot `4.7.2.stable.official.ed1daf0bf`，Windows；证据：`evidence/a01_r4/`
 
 本轮只按复核 T1/T2 补**正式回归保护**与契约映射，不修改已 CLOSED 的服务实现（仅给隐藏真值诊断钩子补 PhysicsWorld 面记录，见下）。
