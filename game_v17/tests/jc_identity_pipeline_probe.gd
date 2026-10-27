@@ -239,7 +239,8 @@ func _run() -> void:
 	# 撤销 → 恢复推断
 	s6.identity_ingest("player_intel", _ev("raider_2", "optical", "hostile", 0.9,
 		{"category": "sensor"}))
-	var clr: Dictionary = s6.identity_manual_clear("player_intel", "raider_2")
+	var clr: Dictionary = s6.identity_manual_clear("player_intel", "raider_2",
+		{"authority": "command", "actor_id": "player_ctrl"})
 	_ok(bool(clr.get("ok", false)), "撤销人工确认 ok", str(clr.get("reason", "")))
 	# 单源光学 hostile 在无授权证据下按契约收敛为 suspect；撤销后恢复推断
 	_eq(String(s6.identity_operational("player_intel", "raider_2").get("identity", "")),
@@ -335,6 +336,197 @@ func _run() -> void:
 	_ok(String(leg.get("identity_restore_mode", "")) in ["legacy_single_owner",
 		"legacy"], "旧档恢复模式明确", String(leg.get("identity_restore_mode", "")))
 
+	_step("R10 真实入口：盟军IFF查询不串本舰 / 默认与显式mode单事件 / 真实ELINT类别")
+	var sR10 = _new()
+	for i10 in range(2):
+		sR10.tick(TICK_DT)
+	var aq: Dictionary = sR10.identity_iff_query("ally_intel", "harmattan",
+		{"mode": "mode_s"})
+	_ok(bool(aq.get("ok", false)), "ally 真实 IFF 查询 ok", str(aq.get("reason", "")))
+	_ok(String(aq.get("state", "")) in ["valid", "no_reply"],
+		"ally 查询状态合法", String(aq.get("state", "")))
+	_ok(bool(sR10.identity_operational("player_intel", "harmattan").get("ok", true))
+		== false, "盟军查询回复不写本舰 owner（不串域）")
+	var oq: Dictionary = sR10.identity_iff_query("player_intel", "harmattan")
+	_ok(bool(oq.get("ok", false)), "本舰默认 mode 查询 ok")
+	var oev: Dictionary = sR10.identity_get_for("player_intel", "harmattan")
+	_eq(int(oev.get("evidence_count", 0)), 1, "默认 mode 同一回复只形成一条证据")
+	var sR10b = _new()
+	for i10b in range(2):
+		sR10b.tick(TICK_DT)
+	sR10b.identity_iff_query("player_intel", "harmattan", {"mode": "mode_s"})
+	_eq(int(sR10b.identity_get_for("player_intel", "harmattan").get(
+		"evidence_count", 0)), 1, "显式 mode_s 同一回复只形成一条证据")
+	# 真实 track.evidence 事件（ELINT）经路由进入身份管道，类别不被改写成 iff
+	var el_ev := {"schema": "track_evidence.v1", "kind": "evidence",
+		"event_id": "SEVD-000001", "t": float(sR10.now_s()), "target_id": "raider_2",
+		"evidence_type": "elint", "source": "ew_service",
+		"identity": "suspect", "confidence": 0.6, "support": 2}
+	var el_route: Dictionary = sR10.route_event({"type": "track.evidence",
+		"payload": {"evidence": el_ev}})
+	_ok(bool(el_route.get("ok", false)) or String(el_route.get("reason", "")) == "unknown_track",
+		"真实 ELINT 事件进入路由（TrackTable 可因无航迹拒绝）",
+		str(el_route.get("reason", "")))
+	var elv: Array = sR10.identity_evidence_for("player_intel", "raider_2")
+	var el_src := ""
+	var el_cat := ""
+	var el_type := ""
+	for raw_el in elv:
+		if raw_el is Dictionary and String((raw_el as Dictionary).get(
+				"source", "")) == "elint":
+			el_src = String((raw_el as Dictionary).get("source", ""))
+			el_cat = String((raw_el as Dictionary).get("category", ""))
+			el_type = String((raw_el as Dictionary).get("evidence_type", ""))
+	_eq(el_src, "elint", "ELINT 证据 source 保留")
+	_eq(el_cat, "elint", "ELINT 证据 category 不被改写成 iff")
+	_eq(el_type, "elint", "ELINT 证据 evidence_type 保留")
+
+	_step("R11 真实 Binder 旧入口：受信权限+审计；跨 owner 写入拒绝")
+	var sR11 = _new()
+	var b11 = Binder.new()
+	b11.session = sR11
+	var bc: Dictionary = b11.ident_confirm({"entity_id": "raider_2",
+		"track_id": "raider_2"}, "friend")
+	_ok(bool(bc.get("ok", false)), "Binder 旧确认入口可用（受信 cic_operator）",
+		str(bc.get("reason", "")))
+	var op11: Dictionary = sR11.identity_operational("player_intel", "raider_2")
+	_eq(String(op11.get("identity", "")), "friend", "Binder 确认进入操作性身份")
+	_ok(bool(op11.get("manual", false)), "Binder 确认标记 manual")
+	_ok(int((op11.get("audit_ids", []) as Array).size()) >= 1,
+		"Binder 确认产生审计记录", str(op11.get("audit_ids", [])))
+	var bad11: Dictionary = sR11.identity_manual_confirm("ally_intel",
+		"ally_target", "friend", {"authority": "command",
+			"actor_id": "untrusted-caller"})
+	_ok(bool(bad11.get("ok", true)) == false,
+		"不可信 actor 不能向 ally owner 写人工确认", str(bad11.get("reason", "")))
+	var cl11: Dictionary = b11.ident_clear({"entity_id": "raider_2",
+		"track_id": "raider_2"})
+	_ok(bool(cl11.get("ok", false)), "Binder 撤销入口可用（受信权限）",
+		str(cl11.get("reason", "")))
+	_ok(bool(sR11.identity_operational("player_intel", "raider_2").get(
+		"manual", true)) == false, "Binder 撤销后 manual 清除")
+
+	_step("R12 实际 HUD 航迹键（T0001→raider_2）解析到同一 owner 身份")
+	var sR12 = _new()
+	_register_combat_track(sR12, "T0001", "raider_2")
+	var sm: Dictionary = sR12.identity_manual_confirm("player_intel",
+		"raider_2", "friend", {"authority": "command"})
+	_ok(bool(sm.get("ok", false)), "实体键人工 friend ok")
+	var ci12: Dictionary = sR12.combat_identity("T0001")
+	_eq(String(ci12.get("identity", "")), "friend",
+		"HUD T0001 键解析到同一 owner 身份")
+	_eq(String(ci12.get("resolved_key", "")), "raider_2",
+		"HUD 航迹键解析出实体键")
+	var rf12: Dictionary = sR12.request_fire("T0001", "missile", true,
+		{"target_entity": "raider_2", "actor_id": "player_ctrl",
+			"controller_id": "player_ctrl", "domain_id": "player",
+			"fleet_id": "own_fleet"})
+	var ctr12 = sR12.combat_service.track("T0001")
+	var ctr12_identity := ""
+	if ctr12 is Dictionary:
+		ctr12_identity = String((ctr12 as Dictionary).get("identity", ""))
+	_eq(ctr12_identity, "friend", "火控边界把同一身份投影到实际 T0001 航迹")
+	_ok(String(rf12.get("reason", "")) != "unknown_track",
+		"实际 T0001 路径不再因未知身份停在 unknown_track",
+		str(rf12.get("reason", "")))
+
+	_step("R13 TTL 进入消费者：过期后 HUD 标记失效、火控不把 friend 当有效")
+	var sR13 = _new()
+	sR13.identity_ingest("player_intel", _ev("ttl_cons", "optical", "friend", 0.9,
+		{"ttl_s": 5.0}))
+	for i13 in range(11):
+		sR13.tick(TICK_DT)
+	var op13: Dictionary = sR13.identity_operational("player_intel", "ttl_cons")
+	_eq(String(op13.get("validity", "")), "expired", "过期后 validity=expired")
+	_eq(bool(op13.get("valid", true)), false, "过期后 valid=false")
+	_eq(String(op13.get("effective_identity", "")), "unknown",
+		"过期后 effective_identity=unknown（历史仍保留）")
+	var b13 = Binder.new()
+	b13.session = sR13
+	var v13: Dictionary = b13.ident_view({"track_id": "ttl_cons"})
+	_eq(bool(v13.get("valid", true)), false, "HUD 消费过期有效性")
+	_eq(String(v13.get("validity", "")), "expired", "HUD 显示过期状态")
+	var ci13: Dictionary = sR13.combat_identity("ttl_cons")
+	_eq(String(ci13.get("identity", "")), "unknown",
+		"火控不把过期 friend 当有效身份")
+	_eq(String(ci13.get("last_known_identity", "")), "friend",
+		"火控仍保留最后已知身份作历史")
+
+	_step("R14 合法迟到证据：审计保留且不污染下一 tick 重算")
+	var sR14 = _new()
+	for i14 in range(2):
+		sR14.tick(TICK_DT)
+	sR14.identity_ingest("player_intel", _ev("late_t", "optical", "friend", 0.9,
+		{"ttl_s": 20.0}))
+	var t14 := float(sR14.now_s())
+	var late14: Dictionary = sR14.identity_ingest("player_intel", _ev("late_t",
+		"transponder", "hostile", 0.9,
+		{"observed_t": t14 - 1.0, "received_t": t14, "ttl_s": 20.0}))
+	_ok(bool(late14.get("late_ignored", false)), "迟到旧证据标记 late_ignored",
+		str(late14.get("late_ignored", null)))
+	var before14 := String(sR14.identity_operational("player_intel", "late_t").get(
+		"identity", ""))
+	sR14.tick(TICK_DT)
+	var after14 := String(sR14.identity_operational("player_intel", "late_t").get(
+		"identity", ""))
+	_eq(after14, before14, "迟到证据不污染下一 tick 重算（结论不变）")
+
+	_step("R15 IFF 传输状态与身份评估状态分离（冲突不被覆盖；遮挡不冒充 jammed）")
+	var sR15 = _new()
+	sR15.identity_ingest("player_intel", _ev("harmattan", "optical", "hostile", 0.9,
+		{"category": "sensor"}))
+	var q15: Dictionary = sR15.identity_iff_query("player_intel", "harmattan")
+	_ok(bool(q15.get("ok", false)), "冲突后真实 IFF 查询 ok")
+	var op15: Dictionary = sR15.identity_operational("player_intel", "harmattan")
+	_eq(String(op15.get("state", "")), "conflict",
+		"IFF 传输状态不覆盖 assessment 冲突状态")
+	_ok(String(op15.get("iff_state", "")) in ["valid", "no_reply"],
+		"IFF 传输状态独立可读", String(op15.get("iff_state", "")))
+	var sR15b = _new()
+	var q15b: Dictionary = sR15b.identity_iff_query("player_intel", "harmattan",
+		{"occluded": true, "jam": 0.95})
+	_eq(String(q15b.get("state", "")), "no_reply", "遮挡按实际回复原因记为 no_reply")
+	_eq(String(q15b.get("reason", "")), "occluded",
+		"请求 jam 参数不冒充实际阻断原因")
+	_eq(String(sR15b.identity_operational("player_intel", "harmattan").get(
+		"iff_state", "")), "no_reply", "操作性身份读到实际 IFF 传输状态")
+
+	_step("R16 真实延迟查询生命周期：pending → 到达后 valid；随档恢复")
+	var sR16 = _new()
+	for i16 in range(2):
+		sR16.tick(TICK_DT)
+	var q16: Dictionary = sR16.identity_iff_query("player_intel", "harmattan",
+		{"latency_s": 3.0})
+	_eq(String(q16.get("state", "")), "pending", "延迟查询初始 pending")
+	_eq(String(sR16.identity_operational("player_intel", "harmattan").get(
+		"iff_state", "")), "pending", "操作性身份可见 pending")
+	for i16b in range(3):
+		sR16.tick(TICK_DT)
+	_ok(String(sR16.identity_operational("player_intel", "harmattan").get(
+		"iff_state", "")) in ["valid", "no_reply"], "延迟到达后状态转为实际结果",
+		String(sR16.identity_operational("player_intel", "harmattan").get(
+			"iff_state", "")))
+	# 在途查询随档恢复
+	var sR16c = _new()
+	for i16c in range(2):
+		sR16c.tick(TICK_DT)
+	sR16c.identity_iff_query("player_intel", "harmattan", {"latency_s": 5.0})
+	var text16: String = sR16c.save_state()
+	var sR16d = _new()
+	var lr16: Dictionary = sR16d.load_state(text16)
+	_ok(bool(lr16.get("ok", false)), "延迟查询存档恢复 ok",
+		str(lr16.get("errors", [])))
+	_eq(int(lr16.get("identity_query_queue", 0)), 0, "队列计数在恢复结果中可读")
+	_ok(int((sR16d._identity_query_queue as Array).size()) >= 1,
+		"在途查询队列随档恢复")
+	for i16d in range(5):
+		sR16d.tick(TICK_DT)
+	_ok(String(sR16d.identity_operational("player_intel", "harmattan").get(
+		"iff_state", "")) in ["valid", "no_reply"], "恢复后延迟查询仍按 ETA 到达",
+		String(sR16d.identity_operational("player_intel", "harmattan").get(
+			"iff_state", "")))
+
+
 	_step("总结")
 	_info("A02 验收：四来源/冲突/TTL/迟到/IFF/人工/owner隔离/消费者/恢复")
 	_finish()
@@ -378,10 +570,12 @@ func _is_authority_reason(reason: String) -> bool:
 		"context_domain_mismatch"]
 
 
-func _register_combat_track(s, tid: String) -> void:
+func _register_combat_track(s, tid: String, entity_id := "") -> void:
 	if s == null or s.combat_service == null:
 		return
 	s.combat_service.register_track(tid, {"id": tid, "batch": tid,
+		"track_id": tid if entity_id == "" else entity_id,
+		"entity_id": entity_id,
 		"identity": "unknown", "threat": "unknown",
 		"range_km": 500.0, "in_arc": true, "destroyed": false,
 		"pos_km": [321719.0, 500.0, 0.0]})

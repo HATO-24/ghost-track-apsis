@@ -78,3 +78,15 @@ Full strict: 见证据目录 full-summary.json（期望 89 = 82 PASS / 7 历史 
 - 未新增 AI/EW/逐舰账本；EW/ELINT 只保留正常证据通道，不实现 EW 新特性。
 - Linux/macOS、非 headless 真实渲染、人工可读性、>1000 tick 成本：NOT RUN。
 - UI-01 文案/HUD 文件排程仍按 61 号队列与 A02 串行，本卡未改 UI 布局。
+
+## 6. PR69 复核五组返修（真实路径）
+
+| 组 | 修复（最小接线，不改计算器算法） | 正式 probe 断言 |
+|---|---|---|
+| R1 来源/owner/去重 | 证据事件携带可信 `owner_id`（真实查询/桥接/路由），无 owner 的 legacy 才回退本舰；同一事件 `<event_id>\|<owner>` 只消费一次；track.evidence 先入身份管道再交 TrackTable；四来源 category 显式映射（ELINT 不再被写成 iff） | ally IFF 查询不写本舰 owner；默认/显式 mode 同一回复仅 1 条证据；真实 `SEVD-000001` ELINT 证据 source/category/evidence_type 均保留 |
+| R2 人工权限/审计 | Binder 旧入口、新旧公开入口、日志重放统一走受信 `identity_manual_confirm/clear`：authority 白名单 + owner 域授权 actor（非本舰 owner 必须显式 actor）；审计记录 id/actor/authority/operator 并入操作性身份 audit_ids；旧入口不再直写旧计算器 | Binder 旧确认可用且有审计；不可信 caller 不能写 ally owner；Binder 撤销需受信权限并清 manual |
+| R3 HUD 航迹键 | `_identity_resolve_target`：owner 身份/owner 航迹 track_id/entity_id/combat track 字段/sensor 映射逐级解析；匿名显示 ID 不参与路由，内部 ID 不改写；火控同步按实际 combat 键投影 | T0001→raider_2 解析到同一 owner friend；request_fire 后实际 T0001 航迹也被投影，不再因未知身份停 unknown_track |
+| R4 TTL/迟到 | 有效性先算后统一别名（`valid/validity/effective_identity` 同源）；过期时火控用 effective 身份、HUD 显示 expired 并保留 last-known；迟到证据只记审计、**不进入计算器**，不再污染下一 tick 重算 | 过期后 validity=expired、effective=unknown、HUD valid=false、火控 unknown 且保留 last-known；迟到旧证据标记 late_ignored 且下一 tick 结论不变 |
+| R5 IFF 状态分离 | `identity_state`（assessment：valid/conflict/manual/unknown）与 `identity_iff_state`（传输：not_queried/pending/valid/no_reply/unavailable/jammed/expired）分开字段、分别写入；查询状态按实际 transponder 回复原因，请求 jam 不冒充实际阻断；实现真实延迟查询队列（pending→ETA 到达）并随档恢复 | 冲突不被 IFF 回复覆盖；occluded 记 no_reply/reason=occluded；延迟查询 pending→到达到结果；队列随档恢复后按 ETA 到达 |
+
+正式 probe 断言数：66 → **110**（新增 44 条真实入口断言）；`integration.jc_identity_pipeline` **110/0**。

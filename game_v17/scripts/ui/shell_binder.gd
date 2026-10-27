@@ -2012,12 +2012,24 @@ func ident_view(row: Dictionary, with_evidence := false) -> Dictionary:
 			"manual_identity": String(op.get("identity", "")) \
 				if bool(op.get("identity_manual", false)) else "",
 			"contradictions": contradictions,
+			"valid": bool(op.get("valid", false)),
+			"validity": String(op.get("validity", "valid")),
+			"effective_identity": String(op.get("effective_identity", "unknown")),
+			"iff_state": String(op.get("iff_state", "not_queried")),
+			"iff_reason": String(op.get("iff_reason", "")),
 			"manual_t": float(op.get("identity_updated_t", 0.0))}
 	else:
 		a = session.identification_get(tid)
 	if a.is_empty():
 		return out
 	out["known"] = true
+	out["known"] = true
+	out["valid"] = bool(a.get("valid", true))
+	out["validity"] = String(a.get("validity", "valid"))
+	out["effective_identity"] = String(a.get("effective_identity",
+		a.get("identity", "unknown")))
+	out["iff_state"] = String(a.get("iff_state", "not_queried"))
+	out["iff_reason"] = String(a.get("iff_reason", ""))
 	out["identity"] = String(a.get("identity", "unknown"))
 	out["confidence"] = float(a.get("confidence", 0.0))
 	out["level"] = int(a.get("level", 1))
@@ -2097,7 +2109,7 @@ func ident_clear(row: Dictionary) -> Dictionary:
 	var tid := ident_target_id(row)
 	if session == null:
 		return {"ok": false, "reason": "no_session", "target_id": tid}
-	var res: Dictionary = session.identification_clear_manual(tid)
+	var res: Dictionary = session.identification_clear_manual(tid, {"authority": "cic_operator"})
 	return {"ok": bool(res.get("ok", false)), "target_id": tid,
 		"reason": String(res.get("reason", ""))}
 
