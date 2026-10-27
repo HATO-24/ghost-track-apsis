@@ -1,0 +1,14 @@
+{
+  "candidate": "845584733df619feb3e372e8c06a7caa9f3fdaba",
+  "code_commit": "00cdc2976516febb0d8fa0f571568bea104edaa1",
+  "previous_main": "3045311657609dfe10a133802b93dde2fc8abb79",
+  "merge": {
+    "sha": "f62e5e6f48b3faf1098cbb44b2801c5c8fde394e",
+    "merged": true,
+    "message": "Pull Request successfully merged"
+  },
+  "merged_commit_tree": "1e6650950d35db19219431c58619f3932392bfdc",
+  "candidate_tree": "1e6650950d35db19219431c58619f3932392bfdc",
+  "exact_tree_equal": true,
+  "game_v17_tree": "82c99ebaa16a676e447c693d71b73b39df5fdeca"
+}

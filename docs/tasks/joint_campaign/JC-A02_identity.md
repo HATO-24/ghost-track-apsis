@@ -2,7 +2,17 @@
 
 执行Issue：[JC-A02 #59](https://github.com/HATO-24/ghost-track-apsis/issues/59)。
 
-状态：WAIT A1；交付A2。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：READY，A1已冻结并合入main；交付A2。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-27 A1独立放行后的开工交接
+
+这是DeepSeek下一张核心实现卡。A1=`845584733df619feb3e372e8c06a7caa9f3fdaba`，已审main合并=`f62e5e6f48b3faf1098cbb44b2801c5c8fde394e`；G0/K0仍 `9d0f3b4380275b0a30fffb4a29fa5c44ef58165f`。先fetch main，确认包含f62e5e6f并记录实际40位执行SHA，不能从旧C55/main3045311覆盖A1。[放行与完整回归证据](../../reviews/pr66_a01_r5_20261027/review.md)。
+
+已刷新当前接入点：`GameSession._advance_identification`推进既有计算器，`_flush_identification_outputs`目前发布assessment事件；Binder的contacts/plot已改为owner facade，`ident_view`仍经旧识别读取口。**A02须让相同owner的最终操作性身份统一进入当前真实UI/火控消费者**，不能只写旧全局TrackTable或单例assessment便宣告完成。按原卡做owner隔离、唯一写入/防重复、兼容和在途查询/衰减恢复；不要求改成指定类名或重做A1服务。
+
+先交写者/读者与四来源字段表并保存有效红例，再分提交接服务→owner操作结果→IFF配置/查询回执→真实消费者→文件继续与证据。保留A01 90/0、metadata359/0、world-sync107/0及对应缺行/no-op红灯保护；不将计数当永久硬编码期望。七项历史FAIL不刷新；同最终SHA按原C回归。
+
+核心只启动本卡；#60仍WAIT A2，#61/#62按原规则可准备独立服务但不得提前接GameSession。若改HUD/Binder，在PR登记文件归属，UI-01文案显示接入与本卡串行。UI文档/术语/交互由GPT维护；本卡代码由DeepSeek实现。原八段范围与验收如下，不增加完整AI/EW/逐舰账本。
 
 ## 1. 目标与缺口
 

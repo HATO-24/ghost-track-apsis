@@ -2,7 +2,15 @@
 
 执行Issue：[JC-A01 #58](https://github.com/HATO-24/ghost-track-apsis/issues/58)。
 
-状态：实现原缺口CLOSED；仅两组验收测试RETURNED，A1未冻结。
+状态：DONE，A1已独立通过并合入main。
+
+## 2026-10-27 PR #66第五轮：全部收尾完成，A1冻结
+
+A1候选 `845584733df619feb3e372e8c06a7caa9f3fdaba`，代码 `00cdc2976516febb0d8fa0f571568bea104edaa1`。[独立放行与证据](../../reviews/pr66_a01_r5_20261027/review.md)。PR66合并main为 `f62e5e6f48b3faf1098cbb44b2801c5c8fde394e`，整个tree与被审候选完全相同。
+
+T1合法已知contact缺行必须红，T2同目标真实physics移动/旧观测保持/新观测更新，均已关闭。独立控制分别281/1与104/3、退出1且为预期断言失败；正常五专项5/5（359/0、107/0、90/0、65/0、41/0）。本轮完整C **88=81PASS/7历史FAIL、new_fail0、drift0、complete=true、退出0**，341.5s。所有原实现与测试残项到此结束，不重新派发。
+
+下一张核心卡是[JC-A02 / #59](JC-A02_identity.md)，从包含A1合并提交的main开始，继续owner隔离的身份/IFF闭环。UI文档由GPT/Sol维护，运行时UI按61设计核对/文件归属排程。下方四轮为历史，原卡八段契约保留。
 
 ## 2026-10-27 PR #66第四轮：三项实现关闭，仅补两组正式测试
 

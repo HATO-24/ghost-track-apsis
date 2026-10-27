@@ -1,0 +1,17 @@
+{
+  "candidate": "845584733df619feb3e372e8c06a7caa9f3fdaba",
+  "run_id": 40493987784,
+  "phase0": {
+    "job_id": 122154665624,
+    "conclusion": "success"
+  },
+  "phaseA": {
+    "job_id": 122154665408,
+    "conclusion": "success"
+  },
+  "full": {
+    "job_id": 122154665126,
+    "conclusion": "success"
+  },
+  "source": "GitHub check-runs API; local full has separate raw summary"
+}

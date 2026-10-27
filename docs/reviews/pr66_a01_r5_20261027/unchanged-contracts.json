@@ -1,0 +1,38 @@
+[
+  {
+    "path": "game_v17/scripts/core/authority_intel.gd",
+    "before": "734d76a9428d9ab8e627564a3cd114e2f8ee90b6",
+    "after": "734d76a9428d9ab8e627564a3cd114e2f8ee90b6",
+    "identical": true
+  },
+  {
+    "path": "game_v17/scripts/core/comms_service.gd",
+    "before": "32a8c150620775a3cf29f31d158e8ef726d81915",
+    "after": "32a8c150620775a3cf29f31d158e8ef726d81915",
+    "identical": true
+  },
+  {
+    "path": "game_v17/scripts/ui/v1_hud.gd",
+    "before": "c91613a41df7775e755b2293714e31e4cedc7194",
+    "after": "c91613a41df7775e755b2293714e31e4cedc7194",
+    "identical": true
+  },
+  {
+    "path": "game_v17/scripts/ui/shell_binder.gd",
+    "before": "961f39b3c9eff8779eca6ed4a88ae0af0c6d29b2",
+    "after": "961f39b3c9eff8779eca6ed4a88ae0af0c6d29b2",
+    "identical": true
+  },
+  {
+    "path": "game_v17/tests/probe_matrix.json",
+    "before": "883f35ad651aa6551851f59905af7d2509a5ac3a",
+    "after": "883f35ad651aa6551851f59905af7d2509a5ac3a",
+    "identical": true
+  },
+  {
+    "path": "game_v17/tests/known_baseline_failures.json",
+    "before": "ec9345868d4e174883acf6ad2146cac86a913f3a",
+    "after": "ec9345868d4e174883acf6ad2146cac86a913f3a",
+    "identical": true
+  }
+]
