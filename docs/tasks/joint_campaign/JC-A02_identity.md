@@ -2,7 +2,21 @@
 
 执行Issue：[JC-A02 #59](https://github.com/HATO-24/ghost-track-apsis/issues/59)。
 
-状态：READY，A1已冻结并合入main；交付A2。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：RETURNED，PR68首轮真实入口未闭环；A1已完成，A2不冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-27 PR68首轮复核：继续原#59五组收尾
+
+候选 `7293058d1c0d3cdedceff1fae6233523e7f8b313`，main `1738a5e41509c09e04dc34da382dc07f4b8982e9`。[复核与真实反例](../../reviews/pr68_a02_20261027/review.md)。根七专项7/7（新66/0）；CI合成merge full89=82PASS/7历史FAIL、new_fail0、complete=true。绿色probe未覆盖真实路径，PR68暂缓合并。
+
+保留：直接owner存储隔离、未知owner拒绝、真实本舰IFF/光学/ELINT已有接线、正常新人工正例；非本舰owner真实文件10tick身份/置信度/事件ID一致。手工pending行只证明序列化。A1完成不重开，不整项重做。
+
+1. **R1真实来源/owner/单次消费**：盟军IFF回复未共享却写player；默认mode同回复两条证据/confidence0.563，显式mode_s一条/0.75；ELINT类别变iff。保留可信owner、原始事件/实际mode/时间/TTL/类别，修同一来源链，不靠UI过滤。
+2. **R2人工权限/兼容/审计**：真实Binder走旧wrapper绕新门变authorized hostile、审计空；新口能自报command写盟军，撤销无actor，operator丢失。新旧入口/重放统一可信权限和审计，保留合法指挥员正例。
+3. **R3实际消费者键**：HUD为T0001、身份键为raider_2，HUD friend但火控unknown。按owner合法映射统一内部键，保留匿名显示/实体键兼容；当前请求停needs_authorization，不声称实际发射。
+4. **R4有效性/迟到**：TTL过期字段未被HUD/火控消费，state别名冲突；合法t2迟到证据即时late_ignored，下一tick仍改结论。修实际TTL/消费者策略和迟到接纳，不另设阈值或硬定过期皆unknown。
+5. **R5查询/评估状态**：IFF valid覆盖conflict，遮挡被请求jam改报；区分查询与评估/人工状态，按原卡补实际等待/过期及查询继续，不用手工容器冒充运行链。
+
+先真实红例再修，逐项对照，不只新API自比较；最终同SHA原C回归，七历史失败不刷新，不扩AI/EW/逐舰/真实RF。#60继续WAIT A2，UI接入与本卡共享文件串行。下方A1解锁是历史前置，原八段契约保留。
 
 ## 2026-10-27 A1独立放行后的开工交接
 

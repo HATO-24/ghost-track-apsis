@@ -1,0 +1,27 @@
+{
+  "candidate": "7293058d1c0d3cdedceff1fae6233523e7f8b313",
+  "run_id": 40506547800,
+  "ci_checkout": "2d8bac3f16ef825d95a901234fbb3f8da7f626bd",
+  "phase0": {
+    "job_id": 122197191866,
+    "conclusion": "success"
+  },
+  "phaseA": {
+    "job_id": 122197191806,
+    "conclusion": "success"
+  },
+  "full": {
+    "job_id": 122197191501,
+    "conclusion": "success",
+    "total": 89,
+    "pass": 82,
+    "fail": 7,
+    "known_fail": 7,
+    "new_fail": 0,
+    "drift": 0,
+    "complete": true,
+    "exit": 0,
+    "duration_s": 254.0
+  },
+  "source": "GitHub Actions check metadata and downloaded job log"
+}

@@ -1,0 +1,350 @@
+{
+	"iff_conflict_overwrite": {
+		"after": {
+			"identity": "suspect",
+			"iff_state": "valid",
+			"sources": [
+				"optical",
+				"transponder"
+			],
+			"state": "valid"
+		},
+		"before": {
+			"identity": "suspect",
+			"sources": [
+				"optical"
+			],
+			"state": "conflict"
+		},
+		"ingest": {
+			"assessment": {
+				"age": 0.0,
+				"authorized": false,
+				"auto": true,
+				"categories": [
+					"sensor"
+				],
+				"confidence": 0.712,
+				"contradictions": [],
+				"evidence_count": 1,
+				"identity": "suspect",
+				"last_update": 0.0,
+				"level": 3,
+				"level_name": "L3_CLASSIFIED",
+				"manual": false,
+				"notes": [],
+				"schema": "identity_assessment.v1",
+				"sources": [
+					"optical"
+				],
+				"spoof_suspicion": 0.0,
+				"target_id": "harmattan",
+				"trigger_hint": "suspect_identity",
+				"writes_v15": false
+			},
+			"duplicate": false,
+			"evidence_id": "IEV-000001",
+			"late_ignored": false,
+			"ok": true,
+			"operational": {
+				"identity": "suspect",
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.712,
+				"identity_evidence_count": 1,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 0.0,
+				"identity_sources": [
+					"optical"
+				],
+				"identity_state": "conflict",
+				"identity_ttl_s": 12.0,
+				"identity_updated_t": 0.0,
+				"owner_id": "player_intel",
+				"target_id": "harmattan",
+				"write_seq": 1
+			},
+			"owner_id": "player_intel",
+			"target_id": "harmattan"
+		},
+		"query": {
+			"identity": "friend",
+			"ok": true,
+			"operational": {
+				"identity": "suspect",
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.56,
+				"identity_evidence_count": 2,
+				"identity_iff_state": "valid",
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 0.0,
+				"identity_sources": [
+					"optical",
+					"transponder"
+				],
+				"identity_state": "valid",
+				"identity_ttl_s": 12.0,
+				"identity_updated_t": 0.0,
+				"owner_id": "player_intel",
+				"target_id": "harmattan",
+				"write_seq": 3
+			},
+			"owner_id": "player_intel",
+			"profile_id": "harmattan",
+			"reply_status": "normal",
+			"state": "valid",
+			"target_id": "harmattan"
+		}
+	},
+	"iff_jam_attribution": {
+		"jam_and_occluded": {
+			"identity": "unknown",
+			"ok": true,
+			"operational": {
+				"identity": "unknown",
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.15,
+				"identity_evidence_count": 1,
+				"identity_iff_state": "jammed",
+				"identity_level": 2,
+				"identity_manual": false,
+				"identity_observed_t": 0.0,
+				"identity_sources": [
+					"transponder"
+				],
+				"identity_state": "jammed",
+				"identity_ttl_s": 12.0,
+				"identity_updated_t": 0.0,
+				"owner_id": "player_intel",
+				"target_id": "harmattan",
+				"write_seq": 4
+			},
+			"owner_id": "player_intel",
+			"profile_id": "harmattan",
+			"reply_status": "occluded",
+			"state": "jammed",
+			"target_id": "harmattan"
+		},
+		"occluded_only": {
+			"identity": "unknown",
+			"ok": true,
+			"operational": {
+				"identity": "unknown",
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.15,
+				"identity_evidence_count": 1,
+				"identity_iff_state": "no_reply",
+				"identity_level": 2,
+				"identity_manual": false,
+				"identity_observed_t": 0.0,
+				"identity_sources": [
+					"transponder"
+				],
+				"identity_state": "no_reply",
+				"identity_ttl_s": 12.0,
+				"identity_updated_t": 0.0,
+				"owner_id": "player_intel",
+				"target_id": "harmattan",
+				"write_seq": 2
+			},
+			"owner_id": "player_intel",
+			"profile_id": "harmattan",
+			"reply_status": "occluded",
+			"state": "no_reply",
+			"target_id": "harmattan"
+		}
+	},
+	"init": {
+		"identity_enabled": true,
+		"owners": []
+	},
+	"manual_self_auth_and_cross_owner": {
+		"ally": {
+			"audit_ids": [],
+			"audited": false,
+			"authorized": false,
+			"confidence": 0.0,
+			"evidence_count": 0,
+			"identity": "unknown",
+			"identity_audit_ids": [],
+			"identity_audited": false,
+			"identity_authorized": false,
+			"identity_confidence": 0.0,
+			"identity_evidence_count": 0,
+			"identity_level": 1,
+			"identity_manual": false,
+			"identity_observed_t": 0.0,
+			"identity_sources": [],
+			"identity_state": "unknown",
+			"identity_ttl_s": 0.0,
+			"identity_updated_t": 0.0,
+			"manual": false,
+			"ok": true,
+			"owner_id": "ally_intel",
+			"sources": [],
+			"state": "unknown",
+			"target_id": "harmattan",
+			"write_seq": 2
+		},
+		"audit": [
+			{
+				"authority": "command",
+				"id": "IDA-000001",
+				"identity": "friend",
+				"kind": "manual_confirm",
+				"operator": "",
+				"owner_id": "ally_intel",
+				"t": 0.0,
+				"target_id": "harmattan"
+			},
+			{
+				"authority": "",
+				"id": "IDA-000002",
+				"identity": "",
+				"kind": "manual_clear",
+				"operator": "",
+				"owner_id": "ally_intel",
+				"t": 0.0,
+				"target_id": "harmattan"
+			}
+		],
+		"clear_without_actor": {
+			"assessment": {
+				"age": 0.0,
+				"authorized": false,
+				"auto": true,
+				"categories": [],
+				"confidence": 0.0,
+				"contradictions": [],
+				"evidence_count": 0,
+				"identity": "unknown",
+				"last_update": 0.0,
+				"level": 1,
+				"level_name": "L1_BEARING",
+				"manual": false,
+				"manual_authority": "",
+				"manual_confidence": 0.0,
+				"manual_identity": "",
+				"manual_t": 0.0,
+				"notes": [],
+				"schema": "identity_assessment.v1",
+				"sources": [],
+				"spoof_suspicion": 0.0,
+				"target_id": "harmattan",
+				"trigger_hint": "",
+				"writes_v15": false
+			},
+			"ok": true,
+			"operational": {
+				"identity": "unknown",
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.0,
+				"identity_evidence_count": 0,
+				"identity_level": 1,
+				"identity_manual": false,
+				"identity_observed_t": 0.0,
+				"identity_sources": [],
+				"identity_state": "unknown",
+				"identity_ttl_s": 0.0,
+				"identity_updated_t": 0.0,
+				"owner_id": "ally_intel",
+				"target_id": "harmattan",
+				"write_seq": 2
+			}
+		},
+		"confirm": {
+			"assessment": {
+				"age": 0.0,
+				"authorized": true,
+				"auto": false,
+				"categories": [],
+				"confidence": 1.0,
+				"contradictions": [],
+				"evidence_count": 0,
+				"identity": "friend",
+				"last_update": 0.0,
+				"level": 4,
+				"level_name": "L4_IDENTIFIED",
+				"manual": true,
+				"manual_authority": "command",
+				"manual_confidence": 1.0,
+				"manual_identity": "friend",
+				"manual_t": 0.0,
+				"notes": [],
+				"schema": "identity_assessment.v1",
+				"sources": [],
+				"spoof_suspicion": 0.0,
+				"target_id": "harmattan",
+				"trigger_hint": "",
+				"writes_v15": false
+			},
+			"audit_ids": [
+				"IDA-000001"
+			],
+			"ok": true,
+			"operational": {
+				"identity": "friend",
+				"identity_audit_ids": [
+					"IDA-000001"
+				],
+				"identity_audited": true,
+				"identity_authorized": true,
+				"identity_confidence": 1.0,
+				"identity_evidence_count": 0,
+				"identity_level": 4,
+				"identity_manual": true,
+				"identity_observed_t": 0.0,
+				"identity_sources": [],
+				"identity_state": "manual",
+				"identity_ttl_s": 0.0,
+				"identity_updated_t": 0.0,
+				"owner_id": "ally_intel",
+				"target_id": "harmattan",
+				"write_seq": 1
+			}
+		},
+		"player": {
+			"audit_ids": [],
+			"audited": false,
+			"authorized": false,
+			"confidence": 0.45,
+			"evidence_count": 1,
+			"identity": "neutral",
+			"identity_age_s": 0.0,
+			"identity_audit_ids": [],
+			"identity_audited": false,
+			"identity_authorized": false,
+			"identity_confidence": 0.45,
+			"identity_evidence_count": 1,
+			"identity_level": 3,
+			"identity_manual": false,
+			"identity_observed_t": 0.0,
+			"identity_sources": [
+				"optical"
+			],
+			"identity_state": "valid",
+			"identity_ttl_s": 12.0,
+			"identity_updated_t": 0.0,
+			"manual": false,
+			"ok": true,
+			"owner_id": "player_intel",
+			"sources": [
+				"optical"
+			],
+			"state": "valid",
+			"target_id": "harmattan",
+			"write_seq": 1
+		}
+	}
+}
