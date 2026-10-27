@@ -1,0 +1,5 @@
+SCRIPT ERROR: Out of bounds get index '0' (on base: 'Array')
+   at: _select_preserving (res://scripts/ui/v1_hud.gd:723)
+   GDScript backtrace (most recent call first):
+       [0] _select_preserving (res://scripts/ui/v1_hud.gd:723)
+       [1] _process (res://scripts/ui/v1_hud.gd:857)

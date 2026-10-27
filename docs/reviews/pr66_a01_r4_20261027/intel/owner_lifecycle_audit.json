@@ -1,0 +1,276 @@
+{
+	"closed": true,
+	"code_head": "c704f85952eb33ec44c1ac21dfef95d2f8b6a032",
+	"head": "eb4b98530b589dd5c452a78d46549660985557d3",
+	"lifecycle": {
+		"closed": true,
+		"forget_after_s": 300.0,
+		"global_control_input": {
+			"action": "track_created",
+			"created": true,
+			"event": {
+				"action": "track_created",
+				"detail": "",
+				"evidence_id": "E000001",
+				"identity": "unknown",
+				"input": "observation",
+				"level": 2,
+				"level_after": 2,
+				"reason": "",
+				"schema": "fused_track_event.v1",
+				"seq": 2,
+				"shadow": true,
+				"t": 0.0,
+				"threat": "none",
+				"track_id": "T0001",
+				"writes_track_table": false,
+				"writes_v15": false
+			},
+			"level": 2,
+			"ok": true,
+			"reason": "",
+			"track": {
+				"batch": "",
+				"bearing_deg": 30.0,
+				"created_t": 0.0,
+				"entity_id": "aging_contact",
+				"evidence": [
+					{
+						"evidence_id": "E000001",
+						"level": 2,
+						"reason": "observation:radar",
+						"t": 0.0,
+						"type": "level"
+					},
+					{
+						"detail": "",
+						"evidence_id": "E000001",
+						"quality": 0.8,
+						"sensor": "radar",
+						"seq": 1,
+						"source": "radar",
+						"support": 2,
+						"t": 0.0,
+						"type": "observation"
+					}
+				],
+				"evidence_ids": [
+					"E000001"
+				],
+				"id": "T0001",
+				"identity": "unknown",
+				"identity_label": "未知",
+				"last_update": 0.0,
+				"level": 2,
+				"level_evidence": {
+					"2": 0.0
+				},
+				"level_name": "L2_POSITION",
+				"merged_from": [],
+				"quality": 0.8,
+				"range_km": 500.0,
+				"schema": "fused_track.v1",
+				"sources": [
+					"radar"
+				],
+				"stale": false,
+				"threat": "none",
+				"track_id": "T0001"
+			}
+		},
+		"global_forgotten": true,
+		"owner_input": {
+			"observation_id": "AGE-ONE",
+			"ok": true,
+			"owner_id": "player_intel",
+			"track_id": "aging_contact"
+		},
+		"owner_retained_after_forget": false,
+		"ready": true,
+		"stale_after_s": 30.0,
+		"ticks": [
+			{
+				"dt": 31.0,
+				"ok": true,
+				"reason": ""
+			},
+			{
+				"dt": 270.0,
+				"ok": true,
+				"reason": ""
+			}
+		],
+		"timeline": [
+			{
+				"global": {
+					"bearing_deg": 30.0,
+					"created_t": 0.0,
+					"entity_id": "aging_contact",
+					"evidence": [
+						{
+							"evidence_id": "E000001",
+							"level": 2,
+							"reason": "observation:radar",
+							"t": 0.0,
+							"type": "level"
+						},
+						{
+							"detail": "",
+							"evidence_id": "E000001",
+							"quality": 0.8,
+							"sensor": "radar",
+							"seq": 1,
+							"source": "radar",
+							"support": 2,
+							"t": 0.0,
+							"type": "observation"
+						}
+					],
+					"evidence_ids": [
+						"E000001"
+					],
+					"id": "T0001",
+					"identity": "unknown",
+					"identity_label": "未知",
+					"last_update": 0.0,
+					"level": 2,
+					"level_evidence": {
+						"2": 0.0
+					},
+					"level_name": "L2_POSITION",
+					"merged_from": [],
+					"quality": 0.8,
+					"range_km": 500.0,
+					"schema": "fused_track.v1",
+					"sources": [
+						"radar"
+					],
+					"stale": false,
+					"threat": "none",
+					"track_id": "T0001",
+					"truth_fields_withheld": true
+				},
+				"owner": {
+					"age_s": 0.0,
+					"bearing_deg": 30.0,
+					"id": "aging_contact",
+					"intel_owner_id": "player_intel",
+					"last_observed_t": 0.0,
+					"last_received_t": 0.0,
+					"quality": 0.8,
+					"range_km": 500.0,
+					"source": "radar",
+					"stale": false
+				},
+				"t": 0.0
+			},
+			{
+				"global": {
+					"bearing_deg": 30.0,
+					"created_t": 0.0,
+					"entity_id": "aging_contact",
+					"evidence": [
+						{
+							"evidence_id": "E000001",
+							"level": 2,
+							"reason": "observation:radar",
+							"t": 0.0,
+							"type": "level"
+						},
+						{
+							"detail": "",
+							"evidence_id": "E000001",
+							"quality": 0.8,
+							"sensor": "radar",
+							"seq": 1,
+							"source": "radar",
+							"support": 2,
+							"t": 0.0,
+							"type": "observation"
+						}
+					],
+					"evidence_ids": [
+						"E000001"
+					],
+					"id": "T0001",
+					"identity": "unknown",
+					"identity_label": "未知",
+					"last_update": 0.0,
+					"level": 2,
+					"level_evidence": {
+						"2": 0.0
+					},
+					"level_name": "L2_POSITION",
+					"merged_from": [],
+					"quality": 0.8,
+					"range_km": 500.0,
+					"schema": "fused_track.v1",
+					"sources": [
+						"radar"
+					],
+					"stale": true,
+					"threat": "none",
+					"track_id": "T0001",
+					"truth_fields_withheld": true
+				},
+				"owner": {
+					"age_s": 31.0,
+					"bearing_deg": 30.0,
+					"id": "aging_contact",
+					"intel_owner_id": "player_intel",
+					"last_observed_t": 0.0,
+					"last_received_t": 0.0,
+					"quality": 0.8,
+					"range_km": 500.0,
+					"source": "radar",
+					"stale": true
+				},
+				"t": 31.0
+			},
+			{
+				"global": {},
+				"owner": {},
+				"t": 301.0
+			}
+		]
+	},
+	"selected": {
+		"closed": true,
+		"foreign_entity": {},
+		"foreign_track": {},
+		"global_foreign_exists": true,
+		"local_entity": {
+			"entity_id": "local_contact",
+			"id": "local_contact",
+			"intel_owner_id": "player_intel",
+			"observed_t": 0.0,
+			"source": "intel_view"
+		},
+		"local_receive": {
+			"observation_id": "LOCAL",
+			"ok": true,
+			"owner_id": "player_intel",
+			"track_id": "local_contact"
+		},
+		"local_track": {
+			"age_s": 0.0,
+			"bearing_deg": 11.0,
+			"id": "local_contact",
+			"intel_owner_id": "player_intel",
+			"last_observed_t": 0.0,
+			"last_received_t": 0.0,
+			"quality": 0.8,
+			"range_km": 111.0,
+			"source": "radar",
+			"stale": false
+		},
+		"route": {
+			"enabled": true,
+			"evidence": 0,
+			"failed": 0,
+			"observations": 1,
+			"ok": true,
+			"reasons": []
+		}
+	}
+}

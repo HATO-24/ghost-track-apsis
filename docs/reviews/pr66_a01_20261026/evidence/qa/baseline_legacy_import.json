@@ -1,0 +1,102 @@
+{
+	"ally_view": {
+		"observations": [],
+		"owner_id": "ally_intel",
+		"schema": "v17.authority_intel.v1",
+		"tracks": []
+	},
+	"candidate": "1d1e8399da438b77b74acee40d753711c8d2a8f9",
+	"global_tracks": [
+		{
+			"batch": "",
+			"bearing_deg": 45.0,
+			"created_t": 1.0,
+			"entity_id": "",
+			"evidence": [
+				{
+					"evidence_id": "E000001",
+					"level": 1,
+					"reason": "observation:radar",
+					"t": 1.0,
+					"type": "level"
+				},
+				{
+					"detail": "",
+					"evidence_id": "E000001",
+					"quality": 1.0,
+					"sensor": "radar",
+					"seq": 1,
+					"source": "radar",
+					"support": 1,
+					"t": 1.0,
+					"type": "observation"
+				}
+			],
+			"evidence_ids": [
+				"E000001"
+			],
+			"id": "T0001",
+			"identity": "unknown",
+			"identity_label": "未知",
+			"last_update": 1.0,
+			"level": 1,
+			"level_evidence": {
+				"1": 1.0
+			},
+			"level_name": "L1_BEARING",
+			"merged_from": [],
+			"quality": 1.0,
+			"range_km": 123.0,
+			"schema": "fused_track.v1",
+			"sources": [
+				"radar"
+			],
+			"stale": false,
+			"threat": "none",
+			"track_id": "T0001"
+		}
+	],
+	"load": {
+		"errors": [],
+		"ok": true,
+		"result_errors": [],
+		"sensor_partial_reasons": [],
+		"sensor_restore": {
+			"geometry_frame": "",
+			"geometry_source": "",
+			"is_partial": false,
+			"partial_reasons": [],
+			"rebind": {
+				"ok": false,
+				"reason": "no_sensor_service",
+				"source": "static"
+			},
+			"restore_mode": "full",
+			"saved": false,
+			"schema": "v17.sensor_restore.v2",
+			"time_ok": true
+		},
+		"sensor_restore_mode": "full",
+		"world_sync": {
+			"compared": 0,
+			"enabled": false,
+			"failures": [],
+			"frame": "",
+			"in_sync": true,
+			"mismatched": [],
+			"mode": "no_physics",
+			"ok": true,
+			"reason": "load",
+			"skipped": [],
+			"sync_reason": "no_physics",
+			"synced": 0,
+			"updated": []
+		}
+	},
+	"player_view": {
+		"observations": [],
+		"owner_id": "player_intel",
+		"schema": "v17.authority_intel.v1",
+		"tracks": []
+	}
+}

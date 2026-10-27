@@ -1,0 +1,51 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE3T PROBE · StoryTextLibrary
+════════════════════════════════════════════════════════════
+
+── 1 load/keys ──
+
+── 2 docs/44 原文 ──
+[FAIL] verify_against_source ok  actual=false expected=true · [{ "text_key": "briefing.body", "source_lines": [56.0] }, { "text_key": "deputy.hello", "source_lines": [74.0] }, { "text_key": "deputy.terminal", "source_lines": [75.0] }, { "text_key": "deputy.nav", "source_lines": [76.0] }, { "text_key": "deputy.nav_panel", "source_lines": [78.0] }, { "text_key": "deputy.command", "source_lines": [79.0] }, { "text_key": "nav.wrong_dest", "source_lines": [82.0] }, { "text_key": "nav.correct", "source_lines": [84.0] }, { "text_key": "nav.depart_prompt", "source_lines": [84.0] }, { "text_key": "comms.hammer", "source_lines": [86.0, 87.0] }, { "text_key": "comms.formation", "source_lines": [88.0, 89.0] }, { "text_key": "nav.arrival_prompt", "source_lines": [93.0] }]
+[FAIL] 逐字匹配 docs/44 briefing.body  
+[FAIL] 逐字匹配 docs/44 deputy.hello  
+[FAIL] 逐字匹配 docs/44 deputy.terminal  
+[FAIL] 逐字匹配 docs/44 deputy.nav  
+[FAIL] 逐字匹配 docs/44 deputy.nav_panel  
+[FAIL] 逐字匹配 docs/44 deputy.command  
+[FAIL] 逐字匹配 docs/44 nav.wrong_dest  
+[FAIL] 逐字匹配 docs/44 nav.correct  
+[FAIL] 逐字匹配 docs/44 nav.depart_prompt  
+[FAIL] 逐字匹配 docs/44 comms.hammer  
+[FAIL] 逐字匹配 docs/44 comms.formation  
+[FAIL] 逐字匹配 docs/44 nav.arrival_prompt  
+
+── 3 render/vars ──
+
+── 4 非法/原子 ──
+
+── 5 JSON/确定性 ──
+────────────────────────────────────────────────────────────
+[DATA] keys = 12 keys/channels briefing1+deputy5+nav4+comms2 · schema 字段全 · draft
+[DATA] verbatim = 12 条逐字匹配 docs/44 · 关键句 · en 不伪译 · verify 可发现改写
+[DATA] render = 无变量原文 · 缺变量错误 · 替换占位 · unknown key/lang · en 缺失
+[DATA] invalid = 14 类非法内容原子拒绝 · 非对象/空/不存在文件拒绝
+[DATA] json = to_dict/to_json 往返 · 两次加载/verify/contracts 确定
+────────────────────────────────────────────────────────────
+V17 STORY TEXT PROBE RESULT: PASS=469 FAIL=13
+[FAILED] 2 docs/44 原文 · verify_against_source ok  (actual=false expected=true · [{ "text_key": "briefing.body", "source_lines": [56.0] }, { "text_key": "deputy.hello", "source_lines": [74.0] }, { "text_key": "deputy.terminal", "source_lines": [75.0] }, { "text_key": "deputy.nav", "source_lines": [76.0] }, { "text_key": "deputy.nav_panel", "source_lines": [78.0] }, { "text_key": "deputy.command", "source_lines": [79.0] }, { "text_key": "nav.wrong_dest", "source_lines": [82.0] }, { "text_key": "nav.correct", "source_lines": [84.0] }, { "text_key": "nav.depart_prompt", "source_lines": [84.0] }, { "text_key": "comms.hammer", "source_lines": [86.0, 87.0] }, { "text_key": "comms.formation", "source_lines": [88.0, 89.0] }, { "text_key": "nav.arrival_prompt", "source_lines": [93.0] }])
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 briefing.body
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 deputy.hello
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 deputy.terminal
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 deputy.nav
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 deputy.nav_panel
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 deputy.command
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 nav.wrong_dest
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 nav.correct
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 nav.depart_prompt
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 comms.hammer
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 comms.formation
+[FAILED] 2 docs/44 原文 · 逐字匹配 docs/44 nav.arrival_prompt
+V17 STORY TEXT PROBE FAILED
+AUDIO OK files=36 headless=true muted=false

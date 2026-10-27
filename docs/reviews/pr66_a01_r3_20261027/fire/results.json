@@ -1,0 +1,124 @@
+{
+  "candidate": "8b4cf990021bafe0f5b2945039c850b5c985cf5a",
+  "date": "2026-10-27",
+  "timezone": "Asia/Shanghai",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "exit_code": 0,
+  "scope": "unchanged original ten fire cases",
+  "positive_fire_cases": 1,
+  "rejected_cases": 9,
+  "cases": [
+    {
+      "mode": "control",
+      "ready": true,
+      "request_ok": true,
+      "reason": "",
+      "ammo_before": 8,
+      "ammo_after": 7,
+      "projectiles": 1,
+      "success_events": 1,
+      "actual_shooter": "session_ship"
+    },
+    {
+      "mode": "unknown_shooter",
+      "ready": true,
+      "request_ok": false,
+      "reason": "unknown_shooter",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "ally_shooter",
+      "ready": true,
+      "request_ok": false,
+      "reason": "actor_not_authorized",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "enemy_shooter",
+      "ready": true,
+      "request_ok": false,
+      "reason": "actor_not_authorized",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "other_own_unavailable",
+      "ready": true,
+      "request_ok": false,
+      "reason": "shooter_runtime_unavailable",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "hostile_actor",
+      "ready": true,
+      "request_ok": false,
+      "reason": "actor_not_authorized",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "wrong_controller",
+      "ready": true,
+      "request_ok": false,
+      "reason": "controller_mismatch",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "foreign_fleet",
+      "ready": true,
+      "request_ok": false,
+      "reason": "fleet_mismatch",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "legacy_hostile_actor",
+      "ready": true,
+      "request_ok": false,
+      "reason": "context_domain_mismatch",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "other_own_runtime_flag",
+      "ready": true,
+      "request_ok": false,
+      "reason": "shooter_runtime_unavailable",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    }
+  ],
+  "production_edits": false,
+  "github_writes": false
+}

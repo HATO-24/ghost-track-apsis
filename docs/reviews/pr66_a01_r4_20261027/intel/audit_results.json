@@ -1,0 +1,243 @@
+{
+  "head": "eb4b98530b589dd5c452a78d46549660985557d3",
+  "code_head": "c704f85952eb33ec44c1ac21dfef95d2f8b6a032",
+  "date": "2026-10-27",
+  "scope": "PR66 R4 original remaining intel gaps only",
+  "owner_script_exit": 0,
+  "share_script_exit": 0,
+  "selected_closed": true,
+  "owner_lifecycle_closed": true,
+  "owner_timeline": [
+    {
+      "global": {
+        "bearing_deg": 30.0,
+        "created_t": 0.0,
+        "entity_id": "aging_contact",
+        "evidence": [
+          {
+            "evidence_id": "E000001",
+            "level": 2,
+            "reason": "observation:radar",
+            "t": 0.0,
+            "type": "level"
+          },
+          {
+            "detail": "",
+            "evidence_id": "E000001",
+            "quality": 0.8,
+            "sensor": "radar",
+            "seq": 1,
+            "source": "radar",
+            "support": 2,
+            "t": 0.0,
+            "type": "observation"
+          }
+        ],
+        "evidence_ids": [
+          "E000001"
+        ],
+        "id": "T0001",
+        "identity": "unknown",
+        "identity_label": "未知",
+        "last_update": 0.0,
+        "level": 2,
+        "level_evidence": {
+          "2": 0.0
+        },
+        "level_name": "L2_POSITION",
+        "merged_from": [],
+        "quality": 0.8,
+        "range_km": 500.0,
+        "schema": "fused_track.v1",
+        "sources": [
+          "radar"
+        ],
+        "stale": false,
+        "threat": "none",
+        "track_id": "T0001",
+        "truth_fields_withheld": true
+      },
+      "owner": {
+        "age_s": 0.0,
+        "bearing_deg": 30.0,
+        "id": "aging_contact",
+        "intel_owner_id": "player_intel",
+        "last_observed_t": 0.0,
+        "last_received_t": 0.0,
+        "quality": 0.8,
+        "range_km": 500.0,
+        "source": "radar",
+        "stale": false
+      },
+      "t": 0.0
+    },
+    {
+      "global": {
+        "bearing_deg": 30.0,
+        "created_t": 0.0,
+        "entity_id": "aging_contact",
+        "evidence": [
+          {
+            "evidence_id": "E000001",
+            "level": 2,
+            "reason": "observation:radar",
+            "t": 0.0,
+            "type": "level"
+          },
+          {
+            "detail": "",
+            "evidence_id": "E000001",
+            "quality": 0.8,
+            "sensor": "radar",
+            "seq": 1,
+            "source": "radar",
+            "support": 2,
+            "t": 0.0,
+            "type": "observation"
+          }
+        ],
+        "evidence_ids": [
+          "E000001"
+        ],
+        "id": "T0001",
+        "identity": "unknown",
+        "identity_label": "未知",
+        "last_update": 0.0,
+        "level": 2,
+        "level_evidence": {
+          "2": 0.0
+        },
+        "level_name": "L2_POSITION",
+        "merged_from": [],
+        "quality": 0.8,
+        "range_km": 500.0,
+        "schema": "fused_track.v1",
+        "sources": [
+          "radar"
+        ],
+        "stale": true,
+        "threat": "none",
+        "track_id": "T0001",
+        "truth_fields_withheld": true
+      },
+      "owner": {
+        "age_s": 31.0,
+        "bearing_deg": 30.0,
+        "id": "aging_contact",
+        "intel_owner_id": "player_intel",
+        "last_observed_t": 0.0,
+        "last_received_t": 0.0,
+        "quality": 0.8,
+        "range_km": 500.0,
+        "source": "radar",
+        "stale": true
+      },
+      "t": 31.0
+    },
+    {
+      "global": {},
+      "owner": {},
+      "t": 301.0
+    }
+  ],
+  "share": {
+    "memory": {
+      "closed": true,
+      "normal_arrival_closed": true,
+      "pending_eta_restored": true,
+      "duplicate_closed": true,
+      "continuation_equal": true,
+      "save_ok": true,
+      "load_ok": true,
+      "ticks": 10,
+      "first_original_visible_t": 5.0,
+      "first_restored_visible_t": 5.0,
+      "original_duplicate": {
+        "after": 1,
+        "before": 1,
+        "closed": true,
+        "result": {
+          "duplicated": true,
+          "observation_id": "PENDING-ONE",
+          "ok": true,
+          "owner_id": "player_intel"
+        }
+      },
+      "restored_duplicate": {
+        "after": 1,
+        "before": 1,
+        "closed": true,
+        "result": {
+          "duplicated": true,
+          "observation_id": "PENDING-ONE",
+          "ok": true,
+          "owner_id": "player_intel"
+        }
+      },
+      "per_tick_view_equal": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "file": {
+      "closed": true,
+      "normal_arrival_closed": true,
+      "pending_eta_restored": true,
+      "duplicate_closed": true,
+      "continuation_equal": true,
+      "save_ok": true,
+      "load_ok": true,
+      "ticks": 10,
+      "first_original_visible_t": 5.0,
+      "first_restored_visible_t": 5.0,
+      "original_duplicate": {
+        "after": 1,
+        "before": 1,
+        "closed": true,
+        "result": {
+          "duplicated": true,
+          "observation_id": "PENDING-ONE",
+          "ok": true,
+          "owner_id": "player_intel"
+        }
+      },
+      "restored_duplicate": {
+        "after": 1,
+        "before": 1,
+        "closed": true,
+        "result": {
+          "duplicated": true,
+          "observation_id": "PENDING-ONE",
+          "ok": true,
+          "owner_id": "player_intel"
+        }
+      },
+      "per_tick_view_equal": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  },
+  "all_original_remaining_closed": true,
+  "stopped_after_pass": true,
+  "production_or_formal_test_changes": false,
+  "github_or_baseline_changes": false,
+  "file_save": ".test-results/sol-a01-r4/intel/file-save/save.json",
+  "findings": ".test-results/sol-a01-r4/intel/findings.md"
+}

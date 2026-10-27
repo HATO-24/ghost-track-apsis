@@ -1,0 +1,55 @@
+{
+  "task": "PR66 original T1/T2 closure",
+  "head": "845584733df619feb3e372e8c06a7caa9f3fdaba",
+  "code_commit": "00cdc2976516febb0d8fa0f571568bea104edaa1",
+  "scope": "Only original T1/T2; no production, formal probe, or GitHub edits by this review",
+  "engine": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+  "positive_runs": {
+    "a1_entity_metadata_authority_probe": { "pass": 359, "fail": 0, "source": "root import-ready status" },
+    "a0_world_physics_sync_probe": { "pass": 107, "fail": 0, "source": "root import-ready status" },
+    "jc_authority_intel_probe": { "pass": 90, "fail": 0, "source": "root import-ready status" },
+    "a0_integration_authority_probe": { "pass": 65, "fail": 0, "source": "root import-ready status" },
+    "a0_save_roundtrip_authority_probe": { "pass": 41, "fail": 0, "source": "root import-ready status" }
+  },
+  "controls": [
+    {
+      "id": "T1_missing_contact",
+      "script": "controls/negctl_a1_missing_contact.gd",
+      "sha256": "1C1581F6DA64A768B1A47C432ABF48F90EE716F980563B8752693C244F099BB7",
+      "exit": 1,
+      "pass": 281,
+      "fail": 1,
+      "failure": "every acquired-evidence target has a contact row",
+      "detail": "[\"harmattan\"]",
+      "parse_or_load_error": false,
+      "stdout": "controls/negctl_a1_missing_contact.stdout.txt",
+      "stderr_file": "controls/negctl_a1_missing_contact.stderr.txt",
+      "exit_file": "controls/negctl_a1_missing_contact.exit.txt",
+      "stderr_diagnostic": "Godot shutdown cleanup: 78 ObjectDB instances leaked; 31 resources still in use"
+    },
+    {
+      "id": "T2_noop_mutation",
+      "script": "controls/negctl_ws_noop_mutation.gd",
+      "sha256": "79B9AD6ECD7806ECCADEF6ECF42E6E14EB362670D4F46A9FFF10760F6AC4E09E",
+      "exit": 1,
+      "pass": 104,
+      "fail": 3,
+      "failures": [
+        "hidden mutation actually changed the compared target",
+        "hidden mutation changed PhysicsWorld",
+        "physics now holds the mutated coordinate"
+      ],
+      "parse_or_load_error": false,
+      "stdout": "controls/negctl_ws_noop_mutation.stdout.txt",
+      "stderr_file": "controls/negctl_ws_noop_mutation.stderr.txt",
+      "exit_file": "controls/negctl_ws_noop_mutation.exit.txt",
+      "stderr_diagnostic": "Godot shutdown cleanup: 78 ObjectDB instances leaked; 31 resources still in use"
+    }
+  ],
+  "earlier_invalid_launch": {
+    "script_loaded": false,
+    "counted_as_control_run": false,
+    "reason": "Start-Process did not quote the path containing spaces; Godot truncated it and reported Resource file not found"
+  },
+  "production_service_rework_needed": false
+}

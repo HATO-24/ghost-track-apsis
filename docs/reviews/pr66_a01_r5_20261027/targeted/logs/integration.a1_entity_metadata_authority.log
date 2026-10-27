@@ -1,0 +1,460 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+A1 ENTITY METADATA AUTHORITY PROBE · real entry main_menu → v1_hud → ShellBinder
+Godot 4.7.2-stable (official) · profile=orbital_sim
+════════════════════════════════════════════════════════════════
+
+[A1] STEP 1. real entry main_menu → v1_hud (change_scene_to_file)
+[A1] PASS change_scene_to_file(main_menu) == OK  err=0
+AUDIO OK files=36 headless=true muted=false
+[MAIN MENU] BUILD=orbital_sim → skip to res://v1_hud.tscn
+[BUILD PROFILE] id=orbital_sim mode=simulator scene=res://v1_hud.tscn scenario=res://framework/content/scenario_orbital_sim.json save_root=user://saves_sim
+[BUILD PROFILE] SYSTEM story=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM prelude=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM triggers=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM identification=ON
+[BUILD PROFILE] SYSTEM traffic=ON
+[BUILD PROFILE] SYSTEM port=ON
+[BUILD PROFILE] SYSTEM signal=ON
+[BUILD PROFILE] SYSTEM combat=ON
+[BUILD PROFILE] SYSTEM ballistics=ON
+[BUILD PROFILE] SYSTEM damage=ON
+[BUILD PROFILE] SYSTEM physics_world=ON
+[BUILD PROFILE] SYSTEM sandbox=OFF reason=非测试剖面
+[BUILD PROFILE] SYSTEM ship_catalog=ON
+[BUILD PROFILE] SYSTEM refit=ON
+[BUILD PROFILE][LIMITATION] 轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。
+[BUILD PROFILE][LIMITATION] EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。
+[BUILD PROFILE][LIMITATION] UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。
+[SHELL BINDER] BUILD profile=orbital_sim mode=simulator label=GHOST TRACK // APSIS — ORBITAL SIM save_root=user://saves_sim
+[SHELL BINDER] SANDBOX entities=7 scenario=res://framework/content/scenario_orbital_sim.json
+[SHELL BINDER] SYSTEMS physics=true sensors=true track_table=true combat=true ballistics=true damage=true ew=true identification=true traffic=true port=true ship_catalog=true refit=true story=disabled
+[SHELL BINDER] CeresChain ready state=L1 entity=ceres_2 texts=9 code=7600
+[SHELL BINDER] ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0
+[SHELL BINDER] AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=19 threat=0 trust=0
+[SHELL BINDER] AfterActionReport ready branches=6 templates=3
+[SHELL BINDER] TrafficControl source=session ready=true lanes=18 otc=19 npc=6
+[SHELL BINDER] physics ready=true plot_source=intel positions=0 facilities=12 facility_source=facility_registry_l1
+[SHELL BINDER] fleet_data ready=true friendly=8 enemy=24 total=32
+[SHELL BINDER] refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL
+[SHELL BINDER] CICView ready=true truth=false tracks=2 levels={ "1": 0, "2": 2, "3": 0, "4": 0 } facilities=110
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[V1 HUD] binder boot=true errors=[] contacts=2 orders=0
+[V1 HUD] COMMS seed LD=true LR=false events=2
+[V1 HUD] COMBAT source=session sandbox={ "unlimited_ammo": false, "auto_authorize": false }
+[V1 HUD] COMBAT tracks=2 weapons=5 target=T0001 weapon=missile
+[V1 HUD] damage_model=true sections=7 combat=true roe=TIGHT roe_locked=true
+[SHELL BINDER] plot_bodies source=physics earth=[-326389.684568483, -0.0, 0.0] moon=[58010.3154315171, -0.0, 0.0]
+[SHELL BINDER] plot_sensors ready=true rings=4 obs=4 tws=2 emcon=false ew_ready=true
+[SHELL BINDER] plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=2 solutions=0 grants=0 incoming=0 pred=true
+[SHELL BINDER] plot_commands ready=true orders=0 pending=0 transmitted=0 executed=0
+[V1 PLOT3D] labels=18 conflicts=6 hidden_facility=8 bodies=physics
+[A1] PASS real entry passed main_menu  saw=true frames=3
+[A1] PASS current_scene is V1HUD with v1_hud.gd  res://v1_hud.tscn
+[A1] PASS ShellBinder ready  errors=[]
+[A1] PASS GameSession available
+
+[A1] STEP 2. scenario truth table (read directly from scenario JSON)
+[A1] PASS scenario JSON readable  res://framework/content/scenario_orbital_sim.json
+[A1] PASS scenario entity count  actual=7 expected=7
+[A1] PASS scenario truth table has 7 entities  ["apsis", "ferry", "harmattan", "l1_station", "raider_2", "skiff", "watchtower"]
+
+[A1] STEP 3. entity metadata authority (catalog) by entity id
+[A1] PASS GameSession.entity_metadata(id) API exists
+[A1] PASS metadata found: apsis  meta_keys=["id", "name", "kind", "ship_class", "side", "identity", "batch", "facility_id", "transponder_profile", "rcs_m2", "ir_signature", "radius_km", "has_pd", "found"]
+[A1] PASS metadata apsis.side preserved  actual=friend expected=friend legacy=false
+[A1] PASS metadata apsis.identity preserved  actual=friend expected=friend legacy=false
+[A1] PASS metadata apsis.batch preserved  actual=UEG-01 expected=UEG-01 legacy=false
+[A1] PASS metadata apsis.ship_class preserved  actual=corvette expected=corvette legacy=false
+[A1] PASS metadata apsis.rcs_m2 preserved  actual=900.0 expected=900.0 legacy=false
+[A1] PASS metadata apsis.ir_signature preserved  actual=1.0 expected=1.0 legacy=false
+[A1] PASS metadata apsis.radius_km preserved  actual=0.08 expected=0.08 legacy=false
+[A1] PASS metadata apsis.has_pd preserved  actual=true expected=true legacy=false
+[A1] PASS metadata apsis.facility_id preserved  actual= expected= legacy=false
+[A1] PASS metadata apsis.transponder_profile preserved  actual=ueg_military expected=ueg_military legacy=false
+[A1] PASS metadata found: ferry  meta_keys=["id", "name", "kind", "ship_class", "side", "identity", "batch", "facility_id", "transponder_profile", "rcs_m2", "ir_signature", "radius_km", "has_pd", "found"]
+[A1] PASS metadata ferry.side preserved  actual=neutral expected=neutral legacy=false
+[A1] PASS metadata ferry.identity preserved  actual=neutral expected=neutral legacy=false
+[A1] PASS metadata ferry.batch preserved  actual=CIV-08 expected=CIV-08 legacy=false
+[A1] PASS metadata ferry.ship_class preserved  actual=ferry expected=ferry legacy=false
+[A1] PASS metadata ferry.rcs_m2 preserved  actual=2600.0 expected=2600.0 legacy=false
+[A1] PASS metadata ferry.ir_signature preserved  actual=1.5 expected=1.5 legacy=false
+[A1] PASS metadata ferry.radius_km preserved  actual=0.07 expected=0.07 legacy=false
+[A1] PASS metadata ferry.has_pd preserved  actual=false expected=false legacy=false
+[A1] PASS metadata ferry.facility_id preserved  actual= expected= legacy=false
+[A1] PASS metadata ferry.transponder_profile preserved  actual=civ_ferry expected=civ_ferry legacy=false
+[A1] PASS metadata found: harmattan  meta_keys=["id", "name", "kind", "ship_class", "side", "identity", "batch", "facility_id", "transponder_profile", "rcs_m2", "ir_signature", "radius_km", "has_pd", "found"]
+[A1] PASS metadata harmattan.side preserved  actual=hostile expected=hostile legacy=false
+[A1] PASS metadata harmattan.identity preserved  actual=hostile expected=hostile legacy=false
+[A1] PASS metadata harmattan.batch preserved  actual=OCU-07 expected=OCU-07 legacy=false
+[A1] PASS metadata harmattan.ship_class preserved  actual=corvette expected=corvette legacy=false
+[A1] PASS metadata harmattan.rcs_m2 preserved  actual=1100.0 expected=1100.0 legacy=false
+[A1] PASS metadata harmattan.ir_signature preserved  actual=1.2 expected=1.2 legacy=false
+[A1] PASS metadata harmattan.radius_km preserved  actual=0.09 expected=0.09 legacy=false
+[A1] PASS metadata harmattan.has_pd preserved  actual=true expected=true legacy=false
+[A1] PASS metadata harmattan.facility_id preserved  actual= expected= legacy=false
+[A1] PASS metadata harmattan.transponder_profile preserved  actual=ocu_military expected=ocu_military legacy=false
+[A1] PASS metadata found: l1_station  meta_keys=["id", "name", "kind", "ship_class", "side", "identity", "batch", "facility_id", "transponder_profile", "rcs_m2", "ir_signature", "radius_km", "has_pd", "found"]
+[A1] PASS metadata l1_station.side preserved  actual=friend expected=friend legacy=false
+[A1] PASS metadata l1_station.identity preserved  actual=station expected=station legacy=false
+[A1] PASS metadata l1_station.batch preserved  actual=UEG-L1 expected=UEG-L1 legacy=false
+[A1] PASS metadata l1_station.ship_class preserved  actual=station expected=station legacy=false
+[A1] PASS metadata l1_station.rcs_m2 preserved  actual=9000.0 expected=9000.0 legacy=false
+[A1] PASS metadata l1_station.ir_signature preserved  actual=2.0 expected=2.0 legacy=false
+[A1] PASS metadata l1_station.radius_km preserved  actual=0.35 expected=0.35 legacy=false
+[A1] PASS metadata l1_station.has_pd preserved  actual=true expected=true legacy=false
+[A1] PASS metadata l1_station.facility_id preserved  actual=l1_meridian_05 expected=l1_meridian_05 legacy=false
+[A1] PASS metadata l1_station.transponder_profile preserved  actual=ueg_station expected=ueg_station legacy=false
+[A1] PASS metadata found: raider_2  meta_keys=["id", "name", "kind", "ship_class", "side", "identity", "batch", "facility_id", "transponder_profile", "rcs_m2", "ir_signature", "radius_km", "has_pd", "found"]
+[A1] PASS metadata raider_2.side preserved  actual=hostile expected=hostile legacy=false
+[A1] PASS metadata raider_2.identity preserved  actual=suspect expected=suspect legacy=false
+[A1] PASS metadata raider_2.batch preserved  actual=OCU-11 expected=OCU-11 legacy=false
+[A1] PASS metadata raider_2.ship_class preserved  actual=raider expected=raider legacy=false
+[A1] PASS metadata raider_2.rcs_m2 preserved  actual=520.0 expected=520.0 legacy=false
+[A1] PASS metadata raider_2.ir_signature preserved  actual=0.7 expected=0.7 legacy=false
+[A1] PASS metadata raider_2.radius_km preserved  actual=0.06 expected=0.06 legacy=false
+[A1] PASS metadata raider_2.has_pd preserved  actual=false expected=false legacy=false
+[A1] PASS metadata raider_2.facility_id preserved  actual= expected= legacy=false
+[A1] PASS metadata raider_2.transponder_profile preserved  actual=ocu_raider expected=ocu_raider legacy=false
+[A1] PASS metadata found: skiff  meta_keys=["id", "name", "kind", "ship_class", "side", "identity", "batch", "facility_id", "transponder_profile", "rcs_m2", "ir_signature", "radius_km", "has_pd", "found"]
+[A1] PASS metadata skiff.side preserved  actual=hostile expected=hostile legacy=false
+[A1] PASS metadata skiff.identity preserved  actual=unknown expected=unknown legacy=false
+[A1] PASS metadata skiff.batch preserved  actual=OCU-13 expected=OCU-13 legacy=false
+[A1] PASS metadata skiff.ship_class preserved  actual=skiff expected=skiff legacy=false
+[A1] PASS metadata skiff.rcs_m2 preserved  actual=180.0 expected=180.0 legacy=false
+[A1] PASS metadata skiff.ir_signature preserved  actual=0.4 expected=0.4 legacy=false
+[A1] PASS metadata skiff.radius_km preserved  actual=0.04 expected=0.04 legacy=false
+[A1] PASS metadata skiff.has_pd preserved  actual=false expected=false legacy=false
+[A1] PASS metadata skiff.facility_id preserved  actual= expected= legacy=false
+[A1] PASS metadata skiff.transponder_profile preserved  actual=ocu_raider expected=ocu_raider legacy=false
+[A1] PASS metadata found: watchtower  meta_keys=["id", "name", "kind", "ship_class", "side", "identity", "batch", "facility_id", "transponder_profile", "rcs_m2", "ir_signature", "radius_km", "has_pd", "found"]
+[A1] PASS metadata watchtower.side preserved  actual=neutral expected=neutral legacy=false
+[A1] PASS metadata watchtower.identity preserved  actual=neutral expected=neutral legacy=false
+[A1] PASS metadata watchtower.batch preserved  actual=CIV-22 expected=CIV-22 legacy=false
+[A1] PASS metadata watchtower.ship_class preserved  actual=picket expected=picket legacy=false
+[A1] PASS metadata watchtower.rcs_m2 preserved  actual=400.0 expected=400.0 legacy=false
+[A1] PASS metadata watchtower.ir_signature preserved  actual=0.6 expected=0.6 legacy=false
+[A1] PASS metadata watchtower.radius_km preserved  actual=0.05 expected=0.05 legacy=false
+[A1] PASS metadata watchtower.has_pd preserved  actual=false expected=false legacy=false
+[A1] PASS metadata watchtower.facility_id preserved  actual= expected= legacy=false
+[A1] PASS metadata watchtower.transponder_profile preserved  actual=civ_picket expected=civ_picket legacy=false
+[A1] PASS unknown id -> found=false  meta={ "found": false, "id": "__no_such_entity__" }
+
+[A1] STEP 4. ballistics / PD state reads authority (no silent defaults)
+[A1] PASS session._ballistics_states() non-empty  n=7
+[A1] PASS ballistics state exists: apsis
+[A1] PASS ballistics apsis.side from authority  actual=friend expected=friend
+[A1] PASS ballistics apsis.has_pd from authority  actual=true expected=true
+[A1] PASS ballistics apsis.rcs_m2 from authority  actual=900.0 expected=900.0
+[A1] PASS ballistics apsis.ir_signature from authority  actual=1.0 expected=1.0
+[A1] PASS ballistics apsis.radius_km from authority  actual=0.08 expected=0.08
+[A1] PASS ballistics state metadata_found=true: apsis  metadata_found=true
+[A1] PASS ballistics radius from catalog (not silent default): apsis  actual=catalog expected=catalog
+[A1] PASS ballistics state exists: ferry
+[A1] PASS ballistics ferry.side from authority  actual=neutral expected=neutral
+[A1] PASS ballistics ferry.has_pd from authority  actual=false expected=false
+[A1] PASS ballistics ferry.rcs_m2 from authority  actual=2600.0 expected=2600.0
+[A1] PASS ballistics ferry.ir_signature from authority  actual=1.5 expected=1.5
+[A1] PASS ballistics ferry.radius_km from authority  actual=0.07 expected=0.07
+[A1] PASS ballistics state metadata_found=true: ferry  metadata_found=true
+[A1] PASS ballistics radius from catalog (not silent default): ferry  actual=catalog expected=catalog
+[A1] PASS ballistics state exists: harmattan
+[A1] PASS ballistics harmattan.side from authority  actual=hostile expected=hostile
+[A1] PASS ballistics harmattan.has_pd from authority  actual=true expected=true
+[A1] PASS ballistics harmattan.rcs_m2 from authority  actual=1100.0 expected=1100.0
+[A1] PASS ballistics harmattan.ir_signature from authority  actual=1.2 expected=1.2
+[A1] PASS ballistics harmattan.radius_km from authority  actual=0.09 expected=0.09
+[A1] PASS ballistics state metadata_found=true: harmattan  metadata_found=true
+[A1] PASS ballistics radius from catalog (not silent default): harmattan  actual=catalog expected=catalog
+[A1] PASS ballistics state exists: l1_station
+[A1] PASS ballistics l1_station.side from authority  actual=friend expected=friend
+[A1] PASS ballistics l1_station.has_pd from authority  actual=true expected=true
+[A1] PASS ballistics l1_station.rcs_m2 from authority  actual=9000.0 expected=9000.0
+[A1] PASS ballistics l1_station.ir_signature from authority  actual=2.0 expected=2.0
+[A1] PASS ballistics l1_station.radius_km from authority  actual=0.35 expected=0.35
+[A1] PASS ballistics state metadata_found=true: l1_station  metadata_found=true
+[A1] PASS ballistics radius from catalog (not silent default): l1_station  actual=catalog expected=catalog
+[A1] PASS ballistics state exists: raider_2
+[A1] PASS ballistics raider_2.side from authority  actual=hostile expected=hostile
+[A1] PASS ballistics raider_2.has_pd from authority  actual=false expected=false
+[A1] PASS ballistics raider_2.rcs_m2 from authority  actual=520.0 expected=520.0
+[A1] PASS ballistics raider_2.ir_signature from authority  actual=0.7 expected=0.7
+[A1] PASS ballistics raider_2.radius_km from authority  actual=0.06 expected=0.06
+[A1] PASS ballistics state metadata_found=true: raider_2  metadata_found=true
+[A1] PASS ballistics radius from catalog (not silent default): raider_2  actual=catalog expected=catalog
+[A1] PASS ballistics state exists: skiff
+[A1] PASS ballistics skiff.side from authority  actual=hostile expected=hostile
+[A1] PASS ballistics skiff.has_pd from authority  actual=false expected=false
+[A1] PASS ballistics skiff.rcs_m2 from authority  actual=180.0 expected=180.0
+[A1] PASS ballistics skiff.ir_signature from authority  actual=0.4 expected=0.4
+[A1] PASS ballistics skiff.radius_km from authority  actual=0.04 expected=0.04
+[A1] PASS ballistics state metadata_found=true: skiff  metadata_found=true
+[A1] PASS ballistics radius from catalog (not silent default): skiff  actual=catalog expected=catalog
+[A1] PASS ballistics state exists: watchtower
+[A1] PASS ballistics watchtower.side from authority  actual=neutral expected=neutral
+[A1] PASS ballistics watchtower.has_pd from authority  actual=false expected=false
+[A1] PASS ballistics watchtower.rcs_m2 from authority  actual=400.0 expected=400.0
+[A1] PASS ballistics watchtower.ir_signature from authority  actual=0.6 expected=0.6
+[A1] PASS ballistics watchtower.radius_km from authority  actual=0.05 expected=0.05
+[A1] PASS ballistics state metadata_found=true: watchtower  metadata_found=true
+[A1] PASS ballistics radius from catalog (not silent default): watchtower  actual=catalog expected=catalog
+
+[A1] STEP 5. contacts: missing info stays UNKNOWN; no truth auto-copy; no friend default
+[A1] PASS binder.contacts non-empty  n=2
+[A1] PASS trusted owner has acquired-evidence tracks  ["harmattan", "l1_station"]
+[A1] PASS every acquired-evidence target has a contact row  []
+[A1] INFO contact absent for apsis (allowed only if not a player contact)
+[A1] INFO contact absent for ferry (allowed only if not a player contact)
+[A1] PASS contact has explicit side_source: harmattan  badge=TRACK side=unknown
+[A1] PASS contact has explicit identity_source: harmattan  badge=TRACK identity=unknown
+[A1] PASS display fields present: harmattan  id=TRACK-001 name=UNKNOWN TRACK class=TRACK L0 source=intel_view
+[A1] PASS internal entity_id preserved: harmattan  actual=harmattan expected=harmattan
+[A1] PASS track display source: harmattan  actual=intel_view expected=intel_view
+[A1] PASS track display id is anonymous safe label: harmattan  id=TRACK-001
+[A1] PASS contact owner is binder trusted owner: harmattan  actual=player_intel expected=player_intel
+[A1] PASS contact track traceable in owner view: harmattan  harmattan
+[A1] PASS contact range matches owner evidence: harmattan  420.0 vs 420.0
+[A1] PASS contact observed_t matches owner evidence: harmattan  0.1 vs 0.1
+[A1] PASS track display name generic: harmattan  actual=UNKNOWN TRACK expected=UNKNOWN TRACK
+[A1] PASS track display class only level: harmattan  class=TRACK L0
+[A1] PASS display fields contain no scenario truth: harmattan  id=TRACK-001 name=UNKNOWN TRACK class=TRACK L0
+[A1] PASS legacy contact id equals safe display id: harmattan  actual=TRACK-001 expected=TRACK-001
+[A1] PASS legacy contact name equals safe display name: harmattan  actual=UNKNOWN TRACK expected=UNKNOWN TRACK
+[A1] PASS legacy contact cls equals safe display class: harmattan  actual=TRACK L0 expected=TRACK L0
+[A1] PASS HUD display id uses safe field: harmattan  actual=TRACK-001 expected=TRACK-001
+[A1] PASS HUD display name uses safe field: harmattan  actual=UNKNOWN TRACK expected=UNKNOWN TRACK
+[A1] PASS HUD display class uses safe field: harmattan  actual=TRACK L0 expected=TRACK L0
+[A1] PASS HUD display fields contain no truth: harmattan
+[A1] PASS HUD contact row exists: harmattan
+[A1] PASS HUD comms_msg non-empty: harmattan  text=TYPE HOLD · target TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD comms_msg contains no truth: harmattan  text=TYPE HOLD · target TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD comms_msg uses safe display: harmattan  text=TYPE HOLD · target TRACK-001 · UNKNOWN TRACK disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD comms internal target preserved: harmattan  actual=harmattan expected=harmattan
+[V1 HUD] IDENT INTERROGATE · INTERROGATE TRACK-001 · UNKNOWN TRACK · FAILED · no_transponder_service
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[A1] PASS HUD ident_msg non-empty: harmattan  text=INTERROGATE TRACK-001 · UNKNOWN TRACK · FAILED · no_transponder_service
+[A1] PASS HUD ident_msg contains no truth: harmattan  text=INTERROGATE TRACK-001 · UNKNOWN TRACK · FAILED · no_transponder_service
+[A1] PASS HUD ident_msg uses safe display: harmattan  text=INTERROGATE TRACK-001 · UNKNOWN TRACK · FAILED · no_transponder_service disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD ident internal target preserved: harmattan  actual=harmattan expected=harmattan
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[V1 HUD] OPTICAL IFF TRACK-001 · UNKNOWN TRACK · FAILED · no_transponder_service
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[A1] PASS HUD optical_msg non-empty: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · FAILED · no_transponder_service
+[A1] PASS HUD optical_msg contains no truth: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · FAILED · no_transponder_service
+[A1] PASS HUD optical_msg uses safe display: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · FAILED · no_transponder_service disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD txp_msg non-empty: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · NO REPLY · no_transponder_service
+[A1] PASS HUD txp_msg contains no truth: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · NO REPLY · no_transponder_service
+[A1] PASS HUD txp_msg uses safe display: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · NO REPLY · no_transponder_service disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD optical internal target preserved: harmattan  actual=harmattan expected=harmattan
+[A1] PASS HUD comms_header non-empty: harmattan  text=TARGET TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD comms_header contains no truth: harmattan  text=TARGET TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD comms_header uses safe display: harmattan  text=TARGET TRACK-001 · UNKNOWN TRACK disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD comms_type non-empty: harmattan  text=TYPE HOLD · target TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD comms_type contains no truth: harmattan  text=TYPE HOLD · target TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD comms_type uses safe display: harmattan  text=TYPE HOLD · target TRACK-001 · UNKNOWN TRACK disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD comms_send non-empty: harmattan  text=SEND HOLD → TRACK-001 · UNKNOWN TRACK · OK
+[A1] PASS HUD comms_send contains no truth: harmattan  text=SEND HOLD → TRACK-001 · UNKNOWN TRACK · OK
+[A1] PASS HUD comms_send uses safe display: harmattan  text=SEND HOLD → TRACK-001 · UNKNOWN TRACK · OK disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD optical_entity non-empty: harmattan  text=ENTITY/TRACK TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD optical_entity contains no truth: harmattan  text=ENTITY/TRACK TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD optical_entity uses safe display: harmattan  text=ENTITY/TRACK TRACK-001 · UNKNOWN TRACK disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD optical_msg non-empty: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · OK
+[A1] PASS HUD optical_msg contains no truth: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · OK
+[A1] PASS HUD optical_msg uses safe display: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · OK disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD ident_interrogate non-empty: harmattan  text=INTERROGATE TRACK-001 · UNKNOWN TRACK · OK · status 
+[A1] PASS HUD ident_interrogate contains no truth: harmattan  text=INTERROGATE TRACK-001 · UNKNOWN TRACK · OK · status 
+[A1] PASS HUD ident_interrogate uses safe display: harmattan  text=INTERROGATE TRACK-001 · UNKNOWN TRACK · OK · status  disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD ident_iff non-empty: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · OK · identity unknown
+[A1] PASS HUD ident_iff contains no truth: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · OK · identity unknown
+[A1] PASS HUD ident_iff uses safe display: harmattan  text=IFF TRACK-001 · UNKNOWN TRACK · OK · identity unknown disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD ident_clear non-empty: harmattan  text=CLEAR TRACK-001 · UNKNOWN TRACK · OK
+[A1] PASS HUD ident_clear contains no truth: harmattan  text=CLEAR TRACK-001 · UNKNOWN TRACK · OK
+[A1] PASS HUD ident_clear uses safe display: harmattan  text=CLEAR TRACK-001 · UNKNOWN TRACK · OK disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD fusion_target non-empty: harmattan  text=TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD fusion_target contains no truth: harmattan  text=TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD fusion_target uses safe display: harmattan  text=TRACK-001 · UNKNOWN TRACK disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD command_target non-empty: harmattan  text=TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD command_target contains no truth: harmattan  text=TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD command_target uses safe display: harmattan  text=TRACK-001 · UNKNOWN TRACK disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD combat_target non-empty: harmattan  text=TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD combat_target contains no truth: harmattan  text=TRACK-001 · UNKNOWN TRACK
+[A1] PASS HUD combat_target uses safe display: harmattan  text=TRACK-001 · UNKNOWN TRACK disp={ "id": "TRACK-001", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD generated texts keep internal target: harmattan  actual=harmattan expected=harmattan
+[A1] PASS HUD generated texts keep internal track id: harmattan  actual=harmattan expected=harmattan
+[A1] PASS contact side unknown (no evidence): harmattan  side=unknown side_source=intel_view badge=TRACK
+[A1] PASS contact identity unknown (no evidence): harmattan  actual=unknown expected=unknown
+[A1] PASS contact does not default to friend: harmattan  side=unknown
+[A1] PASS contact side not auto-copied from world truth: harmattan  contact=unknown truth=hostile
+[A1] PASS contact has explicit side_source: l1_station  badge=TRACK side=unknown
+[A1] PASS contact has explicit identity_source: l1_station  badge=TRACK identity=unknown
+[A1] PASS display fields present: l1_station  id=TRACK-002 name=UNKNOWN TRACK class=TRACK L0 source=intel_view
+[A1] PASS internal entity_id preserved: l1_station  actual=l1_station expected=l1_station
+[A1] PASS track display source: l1_station  actual=intel_view expected=intel_view
+[A1] PASS track display id is anonymous safe label: l1_station  id=TRACK-002
+[A1] PASS contact owner is binder trusted owner: l1_station  actual=player_intel expected=player_intel
+[A1] PASS contact track traceable in owner view: l1_station  l1_station
+[A1] PASS contact range matches owner evidence: l1_station  90.0 vs 90.0
+[A1] PASS contact observed_t matches owner evidence: l1_station  0.1 vs 0.1
+[A1] PASS track display name generic: l1_station  actual=UNKNOWN TRACK expected=UNKNOWN TRACK
+[A1] PASS track display class only level: l1_station  class=TRACK L0
+[A1] PASS display fields contain no scenario truth: l1_station  id=TRACK-002 name=UNKNOWN TRACK class=TRACK L0
+[A1] PASS legacy contact id equals safe display id: l1_station  actual=TRACK-002 expected=TRACK-002
+[A1] PASS legacy contact name equals safe display name: l1_station  actual=UNKNOWN TRACK expected=UNKNOWN TRACK
+[A1] PASS legacy contact cls equals safe display class: l1_station  actual=TRACK L0 expected=TRACK L0
+[A1] PASS HUD display id uses safe field: l1_station  actual=TRACK-002 expected=TRACK-002
+[A1] PASS HUD display name uses safe field: l1_station  actual=UNKNOWN TRACK expected=UNKNOWN TRACK
+[A1] PASS HUD display class uses safe field: l1_station  actual=TRACK L0 expected=TRACK L0
+[A1] PASS HUD display fields contain no truth: l1_station
+[A1] PASS HUD contact row exists: l1_station
+[A1] PASS HUD comms_msg non-empty: l1_station  text=TYPE HOLD · target TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD comms_msg contains no truth: l1_station  text=TYPE HOLD · target TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD comms_msg uses safe display: l1_station  text=TYPE HOLD · target TRACK-002 · UNKNOWN TRACK disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD comms internal target preserved: l1_station  actual=l1_station expected=l1_station
+[V1 HUD] IDENT INTERROGATE · INTERROGATE TRACK-002 · UNKNOWN TRACK · FAILED · no_transponder_service
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[A1] PASS HUD ident_msg non-empty: l1_station  text=INTERROGATE TRACK-002 · UNKNOWN TRACK · FAILED · no_transponder_service
+[A1] PASS HUD ident_msg contains no truth: l1_station  text=INTERROGATE TRACK-002 · UNKNOWN TRACK · FAILED · no_transponder_service
+[A1] PASS HUD ident_msg uses safe display: l1_station  text=INTERROGATE TRACK-002 · UNKNOWN TRACK · FAILED · no_transponder_service disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD ident internal target preserved: l1_station  actual=l1_station expected=l1_station
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[V1 HUD] OPTICAL IFF TRACK-002 · UNKNOWN TRACK · FAILED · no_transponder_service
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[A1] PASS HUD optical_msg non-empty: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · FAILED · no_transponder_service
+[A1] PASS HUD optical_msg contains no truth: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · FAILED · no_transponder_service
+[A1] PASS HUD optical_msg uses safe display: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · FAILED · no_transponder_service disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD txp_msg non-empty: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · NO REPLY · no_transponder_service
+[A1] PASS HUD txp_msg contains no truth: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · NO REPLY · no_transponder_service
+[A1] PASS HUD txp_msg uses safe display: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · NO REPLY · no_transponder_service disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD optical internal target preserved: l1_station  actual=l1_station expected=l1_station
+[A1] PASS HUD comms_header non-empty: l1_station  text=TARGET TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD comms_header contains no truth: l1_station  text=TARGET TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD comms_header uses safe display: l1_station  text=TARGET TRACK-002 · UNKNOWN TRACK disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD comms_type non-empty: l1_station  text=TYPE HOLD · target TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD comms_type contains no truth: l1_station  text=TYPE HOLD · target TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD comms_type uses safe display: l1_station  text=TYPE HOLD · target TRACK-002 · UNKNOWN TRACK disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD comms_send non-empty: l1_station  text=SEND HOLD → TRACK-002 · UNKNOWN TRACK · OK
+[A1] PASS HUD comms_send contains no truth: l1_station  text=SEND HOLD → TRACK-002 · UNKNOWN TRACK · OK
+[A1] PASS HUD comms_send uses safe display: l1_station  text=SEND HOLD → TRACK-002 · UNKNOWN TRACK · OK disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD optical_entity non-empty: l1_station  text=ENTITY/TRACK TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD optical_entity contains no truth: l1_station  text=ENTITY/TRACK TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD optical_entity uses safe display: l1_station  text=ENTITY/TRACK TRACK-002 · UNKNOWN TRACK disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD optical_msg non-empty: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · OK
+[A1] PASS HUD optical_msg contains no truth: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · OK
+[A1] PASS HUD optical_msg uses safe display: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · OK disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD ident_interrogate non-empty: l1_station  text=INTERROGATE TRACK-002 · UNKNOWN TRACK · OK · status 
+[A1] PASS HUD ident_interrogate contains no truth: l1_station  text=INTERROGATE TRACK-002 · UNKNOWN TRACK · OK · status 
+[A1] PASS HUD ident_interrogate uses safe display: l1_station  text=INTERROGATE TRACK-002 · UNKNOWN TRACK · OK · status  disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD ident_iff non-empty: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · OK · identity unknown
+[A1] PASS HUD ident_iff contains no truth: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · OK · identity unknown
+[A1] PASS HUD ident_iff uses safe display: l1_station  text=IFF TRACK-002 · UNKNOWN TRACK · OK · identity unknown disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD ident_clear non-empty: l1_station  text=CLEAR TRACK-002 · UNKNOWN TRACK · OK
+[A1] PASS HUD ident_clear contains no truth: l1_station  text=CLEAR TRACK-002 · UNKNOWN TRACK · OK
+[A1] PASS HUD ident_clear uses safe display: l1_station  text=CLEAR TRACK-002 · UNKNOWN TRACK · OK disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD fusion_target non-empty: l1_station  text=TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD fusion_target contains no truth: l1_station  text=TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD fusion_target uses safe display: l1_station  text=TRACK-002 · UNKNOWN TRACK disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD command_target non-empty: l1_station  text=TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD command_target contains no truth: l1_station  text=TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD command_target uses safe display: l1_station  text=TRACK-002 · UNKNOWN TRACK disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD combat_target non-empty: l1_station  text=TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD combat_target contains no truth: l1_station  text=TRACK-002 · UNKNOWN TRACK
+[A1] PASS HUD combat_target uses safe display: l1_station  text=TRACK-002 · UNKNOWN TRACK disp={ "id": "TRACK-002", "name": "UNKNOWN TRACK", "cls": "TRACK L0", "source": "intel_view" }
+[A1] PASS HUD generated texts keep internal target: l1_station  actual=l1_station expected=l1_station
+[A1] PASS HUD generated texts keep internal track id: l1_station  actual=l1_station expected=l1_station
+[A1] PASS contact side unknown (no evidence): l1_station  side=unknown side_source=intel_view badge=TRACK
+[A1] PASS contact identity unknown (no evidence): l1_station  actual=unknown expected=unknown
+[A1] PASS contact does not default to friend: l1_station  side=unknown
+[A1] PASS contact side not auto-copied from world truth: l1_station  contact=unknown truth=friend
+[A1] INFO contact absent for raider_2 (allowed only if not a player contact)
+[A1] INFO contact absent for skiff (allowed only if not a player contact)
+[A1] INFO contact absent for watchtower (allowed only if not a player contact)
+[A1] PASS no silent friend default in contacts  friend_contacts=[]
+[A1] PASS no truth side leaked into contacts  leaks=[]
+
+[A1] STEP 5b. SIGNAL rows: truth-like target metadata must stay anonymous
+[A1] PASS synthetic signal target registered
+[SHELL BINDER] signal targets synced added=0 updated=2 count=8
+[A1] PASS signal registration alone does not create a player contact  []
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+
+[A1] STEP 6. truth vs player view separation (explicit evidence)
+[A1] PASS catalog truth harmattan side  actual=hostile expected=hostile
+[A1] PASS player contact does not reveal catalog truth side  contact=unknown truth=hostile
+[A1] PASS player track identity is evidence-derived, not catalog truth  contact=unknown truth=hostile
+
+[A1] STEP 7. event stream texts (COMMS/COMBAT/traffic/bottom) + internal refs preserved
+[A1] PASS comms synthetic no internal token: SENTINEL-C-FROM  text=UNKNOWN · UNKNOWN CONTACT|UNKNOWN · UNKNOWN CONTACT|[UNKNOWN · UNKNOWN CONTACT 至 UNKNOWN · UNKNOWN CONTACT]-[LD]-[CONTENT]
+[A1] PASS comms synthetic no internal token: SENTINEL-C-TO  text=UNKNOWN · UNKNOWN CONTACT|UNKNOWN · UNKNOWN CONTACT|[UNKNOWN · UNKNOWN CONTACT 至 UNKNOWN · UNKNOWN CONTACT]-[LD]-[CONTENT]
+[A1] PASS comms synthetic contains safe/placeholder label  text=UNKNOWN · UNKNOWN CONTACT|UNKNOWN · UNKNOWN CONTACT|[UNKNOWN · UNKNOWN CONTACT 至 UNKNOWN · UNKNOWN CONTACT]-[LD]-[CONTENT] required=["UNKNOWN"]
+[A1] PASS comms synthetic event unchanged by formatting  actual={"from":"SENTINEL-C-FROM","from_id":"SENTINEL-C-FROM","from_name":"SENTINEL-C-FROM","kind":"SENT","mode":"LD","text":"[SENTINEL-C-FROM 至 SENTINEL-C-TO]-[LD]-[CONTENT]","to":"SENTINEL-C-TO","to_id":"SENTINEL-C-TO","to_name":"SENTINEL-C-TO"} expected={"from":"SENTINEL-C-FROM","from_id":"SENTINEL-C-FROM","from_name":"SENTINEL-C-FROM","kind":"SENT","mode":"LD","text":"[SENTINEL-C-FROM 至 SENTINEL-C-TO]-[LD]-[CONTENT]","to":"SENTINEL-C-TO","to_id":"SENTINEL-C-TO","to_name":"SENTINEL-C-TO"}
+[A1] PASS comms known internal no internal token: harmattan  text=TRACK-001 · UNKNOWN TRACK|UNKNOWN · UNKNOWN CONTACT|[TRACK-001 · UNKNOWN TRACK 至 UNKNOWN · UNKNOWN CONTACT]-[LD]-[CONTENT]
+[A1] PASS comms known internal no internal token: raider_2  text=TRACK-001 · UNKNOWN TRACK|UNKNOWN · UNKNOWN CONTACT|[TRACK-001 · UNKNOWN TRACK 至 UNKNOWN · UNKNOWN CONTACT]-[LD]-[CONTENT]
+[A1] PASS comms known internal contains safe/placeholder label  text=TRACK-001 · UNKNOWN TRACK|UNKNOWN · UNKNOWN CONTACT|[TRACK-001 · UNKNOWN TRACK 至 UNKNOWN · UNKNOWN CONTACT]-[LD]-[CONTENT] required=["t0001", "unknown track", "unknown contact", "unknown"]
+[A1] PASS comms known event unchanged by formatting  actual={"from":"harmattan","from_id":"harmattan","from_name":"harmattan","kind":"SENT","mode":"LD","text":"[harmattan 至 raider_2]-[LD]-[CONTENT]","to":"raider_2","to_id":"raider_2","to_name":"raider_2"} expected={"from":"harmattan","from_id":"harmattan","from_name":"harmattan","kind":"SENT","mode":"LD","text":"[harmattan 至 raider_2]-[LD]-[CONTENT]","to":"raider_2","to_id":"raider_2","to_name":"raider_2"}
+[A1] PASS comms link no internal token: SENTINEL-LINK-A  text=UNKNOWN · UNKNOWN CONTACT → UNKNOWN · UNKNOWN CONTACT
+[A1] PASS comms link no internal token: SENTINEL-LINK-B  text=UNKNOWN · UNKNOWN CONTACT → UNKNOWN · UNKNOWN CONTACT
+[A1] PASS comms link contains safe/placeholder label  text=UNKNOWN · UNKNOWN CONTACT → UNKNOWN · UNKNOWN CONTACT required=["UNKNOWN"]
+[A1] PASS combat synthetic no internal token: SENTINEL-T  text=  1.0s weapon_launch · {"entity_id":"UNKNOWN · UNKNOWN CONTACT","nested":{"target_id":"UNKNOWN · UNKNOWN CONTACT"},"shooter_id":"UNKNOWN · UNKNOWN CONTACT","target_id":"UNKNOWN · UNKNOWN CONTACT","threat_id":"UNKNOWN · UNKNOWN CONTACT"}
+[A1] PASS combat synthetic no internal token: SENTINEL-H  text=  1.0s weapon_launch · {"entity_id":"UNKNOWN · UNKNOWN CONTACT","nested":{"target_id":"UNKNOWN · UNKNOWN CONTACT"},"shooter_id":"UNKNOWN · UNKNOWN CONTACT","target_id":"UNKNOWN · UNKNOWN CONTACT","threat_id":"UNKNOWN · UNKNOWN CONTACT"}
+[A1] PASS combat synthetic no internal token: SENTINEL-S  text=  1.0s weapon_launch · {"entity_id":"UNKNOWN · UNKNOWN CONTACT","nested":{"target_id":"UNKNOWN · UNKNOWN CONTACT"},"shooter_id":"UNKNOWN · UNKNOWN CONTACT","target_id":"UNKNOWN · UNKNOWN CONTACT","threat_id":"UNKNOWN · UNKNOWN CONTACT"}
+[A1] PASS combat synthetic no internal token: SENTINEL-E  text=  1.0s weapon_launch · {"entity_id":"UNKNOWN · UNKNOWN CONTACT","nested":{"target_id":"UNKNOWN · UNKNOWN CONTACT"},"shooter_id":"UNKNOWN · UNKNOWN CONTACT","target_id":"UNKNOWN · UNKNOWN CONTACT","threat_id":"UNKNOWN · UNKNOWN CONTACT"}
+[A1] PASS combat synthetic no internal token: SENTINEL-N  text=  1.0s weapon_launch · {"entity_id":"UNKNOWN · UNKNOWN CONTACT","nested":{"target_id":"UNKNOWN · UNKNOWN CONTACT"},"shooter_id":"UNKNOWN · UNKNOWN CONTACT","target_id":"UNKNOWN · UNKNOWN CONTACT","threat_id":"UNKNOWN · UNKNOWN CONTACT"}
+[A1] PASS combat synthetic contains safe/placeholder label  text=  1.0s weapon_launch · {"entity_id":"UNKNOWN · UNKNOWN CONTACT","nested":{"target_id":"UNKNOWN · UNKNOWN CONTACT"},"shooter_id":"UNKNOWN · UNKNOWN CONTACT","target_id":"UNKNOWN · UNKNOWN CONTACT","threat_id":"UNKNOWN · UNKNOWN CONTACT"} required=["UNKNOWN"]
+[A1] PASS combat synthetic event unchanged by formatting  actual={"kind":"weapon_launch","payload":{"entity_id":"SENTINEL-E","nested":{"target_id":"SENTINEL-N"},"shooter_id":"SENTINEL-S","target_id":"SENTINEL-T","threat_id":"SENTINEL-H"},"t":1.0} expected={"kind":"weapon_launch","payload":{"entity_id":"SENTINEL-E","nested":{"target_id":"SENTINEL-N"},"shooter_id":"SENTINEL-S","target_id":"SENTINEL-T","threat_id":"SENTINEL-H"},"t":1.0}
+[A1] PASS combat known internal no internal token: harmattan  text=  2.0s weapon_launch · {"shooter_id":"UNKNOWN · UNKNOWN CONTACT","target_id":"TRACK-001 · UNKNOWN TRACK"}
+[A1] PASS combat known internal no internal token: apsis  text=  2.0s weapon_launch · {"shooter_id":"UNKNOWN · UNKNOWN CONTACT","target_id":"TRACK-001 · UNKNOWN TRACK"}
+[A1] PASS combat known internal contains safe/placeholder label  text=  2.0s weapon_launch · {"shooter_id":"UNKNOWN · UNKNOWN CONTACT","target_id":"TRACK-001 · UNKNOWN TRACK"} required=["t0001", "1000", "own ship", "unknown"]
+[A1] PASS combat known event unchanged by formatting  actual={"kind":"weapon_launch","payload":{"shooter_id":"apsis","target_id":"harmattan"},"t":2.0} expected={"kind":"weapon_launch","payload":{"shooter_id":"apsis","target_id":"harmattan"},"t":2.0}
+[A1] PASS real CombatService ready for incoming_impact fixture
+[A1] PASS real incoming missile fixture registered
+[A1] PASS real incoming_impact event emitted
+[A1] PASS incoming_impact damage_event schema  actual=combat_damage_event.v1 expected=combat_damage_event.v1
+[A1] PASS incoming_impact damage_event.source_id is internal threat ref  actual=SENTINEL-THREAT expected=SENTINEL-THREAT
+[A1] PASS incoming_impact damage_event.target_id is internal target ref  actual=SENTINEL-TARGET expected=SENTINEL-TARGET
+[A1] PASS combat incoming_impact no internal token: SENTINEL-THREAT  text=  0.0s incoming_impact · {"damage_event":{"applied":false,"damage":0.0,"damage_kind":"explosive","kind":"damage","penetration":0.5,"schema":"combat_damage_event.v1","shot_id":"INC-000001","source":"combat_service/incoming","source_id":"UNKNOWN · UNKNOWN CONTACT","suggested_section":"hull","t":0.0,"target_id":"UNKNOWN · UNKNOWN CONTACT","weapon_id":"incoming","writes_v15":false},"incoming_id":"INC-000001","target_id":"UNKNOWN · UNKNOWN CONTACT"}
+[A1] PASS combat incoming_impact no internal token: SENTINEL-TARGET  text=  0.0s incoming_impact · {"damage_event":{"applied":false,"damage":0.0,"damage_kind":"explosive","kind":"damage","penetration":0.5,"schema":"combat_damage_event.v1","shot_id":"INC-000001","source":"combat_service/incoming","source_id":"UNKNOWN · UNKNOWN CONTACT","suggested_section":"hull","t":0.0,"target_id":"UNKNOWN · UNKNOWN CONTACT","weapon_id":"incoming","writes_v15":false},"incoming_id":"INC-000001","target_id":"UNKNOWN · UNKNOWN CONTACT"}
+[A1] PASS combat incoming_impact contains safe/placeholder label  text=  0.0s incoming_impact · {"damage_event":{"applied":false,"damage":0.0,"damage_kind":"explosive","kind":"damage","penetration":0.5,"schema":"combat_damage_event.v1","shot_id":"INC-000001","source":"combat_service/incoming","source_id":"UNKNOWN · UNKNOWN CONTACT","suggested_section":"hull","t":0.0,"target_id":"UNKNOWN · UNKNOWN CONTACT","weapon_id":"incoming","writes_v15":false},"incoming_id":"INC-000001","target_id":"UNKNOWN · UNKNOWN CONTACT"} required=["UNKNOWN"]
+[A1] PASS incoming_impact event unchanged by HUD formatting  actual={"kind":"incoming_impact","payload":{"damage_event":{"applied":false,"damage":0.0,"damage_kind":"explosive","kind":"damage","penetration":0.5,"schema":"combat_damage_event.v1","shot_id":"INC-000001","source":"combat_service/incoming","source_id":"SENTINEL-THREAT","suggested_section":"hull","t":0.0,"target_id":"SENTINEL-TARGET","weapon_id":"incoming","writes_v15":false},"incoming_id":"INC-000001","target_id":"SENTINEL-TARGET"},"schema":"combat_event.v1","seq":3,"shadow":true,"t":0.0,"writes_v15":false} expected={"kind":"incoming_impact","payload":{"damage_event":{"applied":false,"damage":0.0,"damage_kind":"explosive","kind":"damage","penetration":0.5,"schema":"combat_damage_event.v1","shot_id":"INC-000001","source":"combat_service/incoming","source_id":"SENTINEL-THREAT","suggested_section":"hull","t":0.0,"target_id":"SENTINEL-TARGET","weapon_id":"incoming","writes_v15":false},"incoming_id":"INC-000001","target_id":"SENTINEL-TARGET"},"schema":"combat_event.v1","seq":3,"shadow":true,"t":0.0,"writes_v15":false}
+[A1] PASS incoming_impact source_id internal value preserved after formatting  actual=SENTINEL-THREAT expected=SENTINEL-THREAT
+[A1] PASS incoming_impact event id kept visible (event id, not entity ref)  text=  0.0s incoming_impact · {"damage_event":{"applied":false,"damage":0.0,"damage_kind":"explosive","kind":"damage","penetration":0.5,"schema":"combat_damage_event.v1","shot_id":"INC-000001","source":"combat_service/incoming","source_id":"UNKNOWN · UNKNOWN CONTACT","suggested_section":"hull","t":0.0,"target_id":"UNKNOWN · UNKNOWN CONTACT","weapon_id":"incoming","writes_v15":false},"incoming_id":"INC-000001","target_id":"UNKNOWN · UNKNOWN CONTACT"}
+[A1] PASS traffic payload no internal token: SENTINEL-TRK  text={"entity_id":"UNKNOWN · UNKNOWN CONTACT","nested":{"target_id":"UNKNOWN · UNKNOWN CONTACT"},"track_id":"UNKNOWN · UNKNOWN CONTACT"}
+[A1] PASS traffic payload no internal token: SENTINEL-ENT  text={"entity_id":"UNKNOWN · UNKNOWN CONTACT","nested":{"target_id":"UNKNOWN · UNKNOWN CONTACT"},"track_id":"UNKNOWN · UNKNOWN CONTACT"}
+[A1] PASS traffic payload no internal token: SENTINEL-NEST  text={"entity_id":"UNKNOWN · UNKNOWN CONTACT","nested":{"target_id":"UNKNOWN · UNKNOWN CONTACT"},"track_id":"UNKNOWN · UNKNOWN CONTACT"}
+[A1] PASS traffic payload contains safe/placeholder label  text={"entity_id":"UNKNOWN · UNKNOWN CONTACT","nested":{"target_id":"UNKNOWN · UNKNOWN CONTACT"},"track_id":"UNKNOWN · UNKNOWN CONTACT"} required=["UNKNOWN"]
+[A1] PASS bottom event no internal token: harmattan  text=REPORT TRACK-001 → UNKNOWN
+[A1] PASS bottom event no internal token: raider_2  text=REPORT TRACK-001 → UNKNOWN
+[A1] PASS bottom event contains safe/placeholder label  text=REPORT TRACK-001 → UNKNOWN required=["t0001", "unknown"]
+[A1] PASS visible text no internal token: harmattan  text=LOG TRACK-001 → UNKNOWN
+[A1] PASS visible text no internal token: raider_2  text=LOG TRACK-001 → UNKNOWN
+[A1] PASS visible text contains safe/placeholder label  text=LOG TRACK-001 → UNKNOWN required=["t0001", "unknown"]
+[A1] PASS real comms route send ok  nodes=7
+[A1] PASS real comms event found
+[A1] PASS comms event from internal id preserved  actual=apsis expected=apsis
+[A1] PASS comms event to internal id preserved  actual=l1_station expected=l1_station
+[A1] PASS real comms event no internal token: apsis  text=UNKNOWN · UNKNOWN CONTACT|TRACK-002 · UNKNOWN TRACK|[UNKNOWN · UNKNOWN CONTACT 至 TRACK-002 · UNKNOWN TRACK]-[LD]-[]
+[A1] PASS real comms event no internal token: l1_station  text=UNKNOWN · UNKNOWN CONTACT|TRACK-002 · UNKNOWN TRACK|[UNKNOWN · UNKNOWN CONTACT 至 TRACK-002 · UNKNOWN TRACK]-[LD]-[]
+[A1] PASS real comms event contains safe/placeholder label  text=UNKNOWN · UNKNOWN CONTACT|TRACK-002 · UNKNOWN TRACK|[UNKNOWN · UNKNOWN CONTACT 至 TRACK-002 · UNKNOWN TRACK]-[LD]-[] required=["unknown", "t0001", "1000", "own ship"]
+[A1] PASS comms event from unchanged after formatting  actual=apsis expected=apsis
+[A1] PASS comms event to unchanged after formatting  actual=l1_station expected=l1_station
+[A1] PASS comms stored event payload unchanged by HUD formatting  actual={"delivery_id":"C-000002","from":"apsis","from_name":"apsis","kind":"SENT","latency_s":0.1,"mode":"LD","path":["apsis","l1_station"],"reason":"","relay_count":0,"schema":"comms_event.v1","seq":3,"shadow":true,"t":0.1,"text":"[apsis 至 l1_station]-[LD]-[]","text_key":"COMMS_SENT","to":"l1_station","to_name":"l1_station","writes_track_table":false,"writes_v15":false} expected={"delivery_id":"C-000002","from":"apsis","from_name":"apsis","kind":"SENT","latency_s":0.1,"mode":"LD","path":["apsis","l1_station"],"reason":"","relay_count":0,"schema":"comms_event.v1","seq":3,"shadow":true,"t":0.1,"text":"[apsis 至 l1_station]-[LD]-[]","text_key":"COMMS_SENT","to":"l1_station","to_name":"l1_station","writes_track_table":false,"writes_v15":false}
+[A1] PASS combat target internal id preserved after HUD formatting  actual=T0001 expected=T0001
+────────────────────────────────────────────────────────────────
+A1 ENTITY METADATA AUTHORITY PROBE RESULT: PASS=359 FAIL=0
+A1 ENTITY METADATA AUTHORITY PROBE OK
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+
+--- STDERR ---
+WARNING: 78 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 31 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

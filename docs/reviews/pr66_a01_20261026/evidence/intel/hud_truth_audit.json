@@ -1,0 +1,45 @@
+{
+	"facade_unchanged": true,
+	"head": "1d1e8399da438b77b74acee40d753711c8d2a8f9",
+	"hud_changed": true,
+	"hud_positions": 7,
+	"hud_source": "physics",
+	"hud_target_after": {
+		"id": "raider_2",
+		"pos_km": [
+			3714.99700000102,
+			377.000000000749,
+			-90.9999999999801
+		],
+		"vel_kmps": [
+			-0.0299999798645668,
+			0.0000000149875738947111,
+			0.000000000398385746775189
+		]
+	},
+	"hud_target_before": {
+		"id": "raider_2",
+		"pos_km": [
+			2480.99700000102,
+			300.000000000749,
+			-99.9999999999801
+		],
+		"vel_kmps": [
+			-0.0299999798645668,
+			0.0000000149875738947111,
+			0.000000000398385746775189
+		]
+	},
+	"owner": "player_intel",
+	"owner_positions": 0,
+	"owner_tracks": 2,
+	"owner_view_unchanged": true,
+	"real_entry": {
+		"binder_ready": true,
+		"saw_main_menu": true,
+		"scene": "res://v1_hud.tscn"
+	},
+	"target": "raider_2",
+	"target_in_owner_view": false,
+	"truth_move_ok": true
+}

@@ -1,0 +1,413 @@
+{
+	"ally_sensor_route": {
+		"ally_owner_view": {
+			"observations": [
+				{
+					"bearing_deg": 33.0,
+					"delay_s": 0.0,
+					"intel_owner_id": "ally_intel",
+					"observation_id": "ALLY-OBS-REAL-ROUTE",
+					"observed_t": 0.0,
+					"observer_id": "ally_ship",
+					"path": "direct",
+					"quality": 0.8,
+					"range_km": 456.0,
+					"received_t": 0.0,
+					"sensor": "optical",
+					"source": "optical",
+					"target_id": "ally_private_contact"
+				}
+			],
+			"owner_id": "ally_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": [
+				{
+					"bearing_deg": 33.0,
+					"id": "ally_private_contact",
+					"intel_owner_id": "ally_intel",
+					"last_observed_t": 0.0,
+					"last_received_t": 0.0,
+					"quality": 0.8,
+					"range_km": 456.0,
+					"source": "optical"
+				}
+			]
+		},
+		"global_tracks": {
+			"all_count": 1,
+			"authoritative": false,
+			"errors": [],
+			"events": [
+				{
+					"action": "track_created",
+					"detail": "",
+					"evidence_id": "E000001",
+					"identity": "unknown",
+					"input": "observation",
+					"level": 2,
+					"level_after": 2,
+					"reason": "",
+					"schema": "fused_track_event.v1",
+					"seq": 2,
+					"shadow": true,
+					"t": 0.0,
+					"threat": "none",
+					"track_id": "T0001",
+					"writes_track_table": false,
+					"writes_v15": false
+				}
+			],
+			"filter": {},
+			"mode": "single_writer",
+			"notes": [
+				"TrackTable 单写者：仅 writer_id 可写；UI 只读",
+				"身份六级；不明不判敌（hostile 需显式授权）"
+			],
+			"ready": true,
+			"schema": "fused_track_table.v1",
+			"selected": {},
+			"summary": {
+				"active": 1,
+				"by_identity": {
+					"unknown": 1
+				},
+				"by_level": {
+					"1": 0,
+					"2": 1,
+					"3": 0,
+					"4": 0
+				},
+				"evidence": 2,
+				"schema": "fused_track_table.v1",
+				"stale": 0,
+				"t": 0.0,
+				"tracks": 1,
+				"writer_id": "session_fusion",
+				"writes": {
+					"track_table": false,
+					"v15": false
+				}
+			},
+			"t": 0.0,
+			"tracks": [
+				{
+					"bearing_deg": 33.0,
+					"created_t": 0.0,
+					"entity_id": "ally_private_contact",
+					"evidence": [
+						{
+							"evidence_id": "E000001",
+							"level": 2,
+							"reason": "observation:optical",
+							"t": 0.0,
+							"type": "level"
+						},
+						{
+							"detail": "",
+							"evidence_id": "E000001",
+							"quality": 0.8,
+							"sensor": "optical",
+							"seq": 1,
+							"source": "optical",
+							"support": 2,
+							"t": 0.0,
+							"type": "observation"
+						}
+					],
+					"evidence_ids": [
+						"E000001"
+					],
+					"id": "T0001",
+					"identity": "unknown",
+					"identity_label": "未知",
+					"last_update": 0.0,
+					"level": 2,
+					"level_evidence": {
+						"2": 0.0
+					},
+					"level_name": "L2_POSITION",
+					"merged_from": [],
+					"quality": 0.8,
+					"range_km": 456.0,
+					"schema": "fused_track.v1",
+					"sources": [
+						"optical"
+					],
+					"stale": false,
+					"threat": "none",
+					"track_id": "T0001",
+					"truth_fields_withheld": true
+				}
+			],
+			"warnings": [],
+			"writer_id": "session_fusion",
+			"writes": {
+				"track_table": false,
+				"v15": false
+			}
+		},
+		"player_binder_contacts": [
+			{
+				"badge": "TRACK",
+				"batch_internal": "ally_private_contact",
+				"cls": "TRACK L2",
+				"display_class": "TRACK L2",
+				"display_id": "T0001",
+				"display_name": "UNKNOWN TRACK",
+				"display_source": "track",
+				"entity_id": "ally_private_contact",
+				"id": "T0001",
+				"ident": {
+					"confidence": 0.0,
+					"contradictions": 0,
+					"enabled": false,
+					"identity": "unknown",
+					"known": false,
+					"manual": false,
+					"spoof": 0.0,
+					"tag": "—",
+					"warn": false
+				},
+				"identity": "unknown",
+				"identity_source": "track",
+				"level": 2,
+				"name": "UNKNOWN TRACK",
+				"range_km": 456.0,
+				"side": "unknown",
+				"side_source": "track_identity",
+				"sources": [
+					"optical"
+				],
+				"threat": "none",
+				"track_id": "T0001",
+				"type": "unknown"
+			}
+		],
+		"player_owner_view": {
+			"observations": [],
+			"owner_id": "player_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": []
+		},
+		"route": {
+			"enabled": true,
+			"evidence": 0,
+			"failed": 0,
+			"observations": 1,
+			"ok": true,
+			"reasons": []
+		}
+	},
+	"cross_owner_direct": {
+		"result": {
+			"ok": true,
+			"owner_id": "player_intel",
+			"track_id": "secret_enemy_contact"
+		},
+		"view": {
+			"observations": [
+				{
+					"bearing_deg": 22.0,
+					"delay_s": 0.0,
+					"intel_owner_id": "player_intel",
+					"observation_id": "OWN-OK",
+					"observed_t": 0.0,
+					"observer_id": "own_ship",
+					"path": "direct",
+					"quality": 0.8,
+					"range_km": 900.0,
+					"received_t": 0.0,
+					"sensor": "optical",
+					"source": "optical",
+					"target_id": "local_contact"
+				},
+				{
+					"bearing_deg": 22.0,
+					"delay_s": 0.0,
+					"intel_owner_id": "player_intel",
+					"observation_id": "CROSS",
+					"observed_t": 0.0,
+					"observer_id": "enemy_ship",
+					"path": "direct",
+					"quality": 0.8,
+					"range_km": 900.0,
+					"received_t": 0.0,
+					"sensor": "optical",
+					"source": "optical",
+					"target_id": "secret_enemy_contact"
+				}
+			],
+			"owner_id": "player_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": [
+				{
+					"bearing_deg": 22.0,
+					"id": "local_contact",
+					"intel_owner_id": "player_intel",
+					"last_observed_t": 0.0,
+					"last_received_t": 0.0,
+					"quality": 0.8,
+					"range_km": 900.0,
+					"source": "optical"
+				},
+				{
+					"bearing_deg": 22.0,
+					"id": "secret_enemy_contact",
+					"intel_owner_id": "player_intel",
+					"last_observed_t": 0.0,
+					"last_received_t": 0.0,
+					"quality": 0.8,
+					"range_km": 900.0,
+					"source": "optical"
+				}
+			]
+		}
+	},
+	"duplicate": {
+		"after_observations": 3,
+		"before_observations": 2
+	},
+	"future_receipt": {
+		"now_s": 0.0,
+		"result": {
+			"ok": true,
+			"owner_id": "ally_intel",
+			"track_id": "future_contact"
+		},
+		"view": {
+			"observations": [
+				{
+					"bearing_deg": 22.0,
+					"delay_s": 30.0,
+					"intel_owner_id": "ally_intel",
+					"observation_id": "FUTURE",
+					"observed_t": 0.0,
+					"observer_id": "ally_ship",
+					"path": "direct",
+					"quality": 0.8,
+					"range_km": 900.0,
+					"received_t": 30.0,
+					"sensor": "optical",
+					"source": "optical",
+					"target_id": "future_contact"
+				}
+			],
+			"owner_id": "ally_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": [
+				{
+					"bearing_deg": 22.0,
+					"id": "future_contact",
+					"intel_owner_id": "ally_intel",
+					"last_observed_t": 0.0,
+					"last_received_t": 30.0,
+					"quality": 0.8,
+					"range_km": 900.0,
+					"source": "optical"
+				}
+			]
+		}
+	},
+	"head": "1d1e8399da438b77b74acee40d753711c8d2a8f9",
+	"invalid_times": {
+		"result": {
+			"ok": true,
+			"owner_id": "player_intel",
+			"track_id": "bad_time_contact"
+		},
+		"view": {
+			"observations": [
+				{
+					"bearing_deg": 22.0,
+					"delay_s": 0.0,
+					"intel_owner_id": "player_intel",
+					"observation_id": "OWN-OK",
+					"observed_t": 0.0,
+					"observer_id": "own_ship",
+					"path": "direct",
+					"quality": 0.8,
+					"range_km": 900.0,
+					"received_t": 0.0,
+					"sensor": "optical",
+					"source": "optical",
+					"target_id": "local_contact"
+				},
+				{
+					"bearing_deg": 22.0,
+					"delay_s": 0.0,
+					"intel_owner_id": "player_intel",
+					"observation_id": "CROSS",
+					"observed_t": 0.0,
+					"observer_id": "enemy_ship",
+					"path": "direct",
+					"quality": 0.8,
+					"range_km": 900.0,
+					"received_t": 0.0,
+					"sensor": "optical",
+					"source": "optical",
+					"target_id": "secret_enemy_contact"
+				},
+				{
+					"bearing_deg": 22.0,
+					"delay_s": -98.0,
+					"intel_owner_id": "player_intel",
+					"observation_id": "BADTIME",
+					"observed_t": 99.0,
+					"observer_id": "own_ship",
+					"path": "direct",
+					"quality": 0.8,
+					"range_km": 900.0,
+					"received_t": 1.0,
+					"sensor": "optical",
+					"source": "optical",
+					"target_id": "bad_time_contact"
+				}
+			],
+			"owner_id": "player_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": [
+				{
+					"bearing_deg": 22.0,
+					"id": "bad_time_contact",
+					"intel_owner_id": "player_intel",
+					"last_observed_t": 99.0,
+					"last_received_t": 1.0,
+					"quality": 0.8,
+					"range_km": 900.0,
+					"source": "optical"
+				},
+				{
+					"bearing_deg": 22.0,
+					"id": "local_contact",
+					"intel_owner_id": "player_intel",
+					"last_observed_t": 0.0,
+					"last_received_t": 0.0,
+					"quality": 0.8,
+					"range_km": 900.0,
+					"source": "optical"
+				},
+				{
+					"bearing_deg": 22.0,
+					"id": "secret_enemy_contact",
+					"intel_owner_id": "player_intel",
+					"last_observed_t": 0.0,
+					"last_received_t": 0.0,
+					"quality": 0.8,
+					"range_km": 900.0,
+					"source": "optical"
+				}
+			]
+		}
+	},
+	"unknown_observer_owner": "player_intel",
+	"unknown_owner_control": {
+		"ok": false,
+		"owner_id": "not_an_owner",
+		"reason": "unknown_intel_owner"
+	},
+	"valid_direct_control": {
+		"ok": true,
+		"owner_id": "player_intel",
+		"track_id": "local_contact"
+	}
+}

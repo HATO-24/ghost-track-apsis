@@ -1,0 +1,22 @@
+2026-10-26T15:47:15.3255547Z [36;1m  Write-Host ("PHASE A CASE {0}: status={1} exit={2} pass={3} fail={4}" -f $cid, $st, $c.exit_code, $pf, $ff)[0m
+2026-10-26T15:47:15.3257350Z [36;1m  elseif ($st -eq 'FAIL') {[0m
+2026-10-26T15:47:15.3257720Z [36;1m    if ($ff -le 0) { [void]$problems.Add("$cid status=FAIL but fail_count=$ff") }[0m
+2026-10-26T15:47:15.3258259Z [36;1m    if ([int]$c.exit_code -eq 0) { [void]$problems.Add("$cid status=FAIL but exit_code=0") }[0m
+2026-10-26T15:47:15.3269975Z [36;1m  Write-Host ("PHASE A ASSERT OK: all 3 authority probes executed; {0} still FAIL on real, unfixed defects (see per-case logs)." -f $failCount)[0m
+2026-10-26T15:47:17.8964293Z git:      @ 5031e361
+2026-10-26T15:47:17.8974075Z run dir: .test-results/20261026-154717-5031e361
+2026-10-26T15:47:33.6385745Z CASE                                 CATEGORY     PROFILE    STATUS    EXIT     TIME PASS/FAIL LOG
+2026-10-26T15:47:33.6527409Z RUN [1/3] integration.a0_track_truth_authority
+2026-10-26T15:47:40.4841631Z integration.a0_track_truth_authority integration  -          FAIL         1     6.8s     44/1 .test-results/20261026-154717-5031e361/logs/integration.a0_track_truth_authority.log
+2026-10-26T15:47:40.4865301Z       FAIL: exit code 1
+2026-10-26T15:47:40.4886566Z RUN [2/3] integration.a0_entity_metadata_pipeline
+2026-10-26T15:47:47.3165819Z integration.a0_entity_metadata_pipeline integration  -          FAIL         1     6.8s     29/1 .test-results/20261026-154717-5031e361/logs/integration.a0_entity_metadata_pipeline.log
+2026-10-26T15:47:47.3223246Z       FAIL: exit code 1
+2026-10-26T15:47:47.3248543Z RUN [3/3] integration.a0_save_roundtrip_authority
+2026-10-26T15:47:51.3997319Z total=3  pass=1  fail=2  timeout=0  not_run=0 (expected=0 unexpected=0)  duration=35.0s
+2026-10-26T15:47:51.4015965Z RESULT: FAILURES PRESENT
+2026-10-26T15:47:51.5803481Z PHASE A CASE integration.a0_track_truth_authority: status=FAIL exit=1 pass=44 fail=1
+2026-10-26T15:47:51.5842811Z PHASE A CASE integration.a0_entity_metadata_pipeline: status=FAIL exit=1 pass=29 fail=1
+2026-10-26T15:47:51.5852952Z PHASE A CASE integration.a0_save_roundtrip_authority: status=PASS exit=0 pass=41 fail=0
+2026-10-26T15:47:51.5931171Z PHASE A ASSERT OK: all 3 authority probes executed; 2 still FAIL on real, unfixed defects (see per-case logs).
+2026-10-26T15:47:52.2703854Z [36;1m  'never counts as pass), PASS has fail_count=0, FAIL has fail_count>0 and a non-zero exit code, and the',[0m

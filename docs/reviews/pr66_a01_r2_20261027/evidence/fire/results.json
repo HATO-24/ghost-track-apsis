@@ -1,0 +1,136 @@
+{
+  "candidate": "61f27fc8e841666705b5fd2e843824a03bf6c0b8",
+  "date": "2026-10-26",
+  "timezone": "Asia/Shanghai",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "exit_code": 0,
+  "scope": "Only unchanged original 10 fire-context cases; no new variants",
+  "fixture": "Existing session_probe._unified_cfg/_unified_prepare; TIGHT, finite 8 missiles, real FIRE grant",
+  "positive_fire_cases": 1,
+  "rejected_cases": 9,
+  "cases": [
+    {
+      "mode": "control",
+      "ready": true,
+      "request_ok": true,
+      "reason": "",
+      "ammo_before": 8,
+      "ammo_after": 7,
+      "projectiles": 1,
+      "success_events": 1,
+      "actual_shooter": "session_ship"
+    },
+    {
+      "mode": "unknown_shooter",
+      "ready": true,
+      "request_ok": false,
+      "reason": "unknown_shooter",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "ally_shooter",
+      "ready": true,
+      "request_ok": false,
+      "reason": "actor_not_authorized",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "enemy_shooter",
+      "ready": true,
+      "request_ok": false,
+      "reason": "actor_not_authorized",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "other_own_unavailable",
+      "ready": true,
+      "request_ok": false,
+      "reason": "shooter_runtime_unavailable",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "hostile_actor",
+      "ready": true,
+      "request_ok": false,
+      "reason": "actor_not_authorized",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "wrong_controller",
+      "ready": true,
+      "request_ok": false,
+      "reason": "controller_mismatch",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "foreign_fleet",
+      "ready": true,
+      "request_ok": false,
+      "reason": "fleet_mismatch",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "legacy_hostile_actor",
+      "ready": true,
+      "request_ok": false,
+      "reason": "context_domain_mismatch",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    },
+    {
+      "mode": "other_own_runtime_flag",
+      "ready": true,
+      "request_ok": false,
+      "reason": "shooter_runtime_unavailable",
+      "ammo_before": 8,
+      "ammo_after": 8,
+      "projectiles": 0,
+      "success_events": 0,
+      "actual_shooter": null
+    }
+  ],
+  "closed_original_symptoms": [
+    "explicit invalid caller actor/controller/fleet fires own ship",
+    "configured second-ship bool borrows flagship ammo",
+    "successful operation/audit missing authorization context and replay only passing salvo"
+  ],
+  "limits": [
+    "No full matrix",
+    "No new adversarial variants",
+    "No independent dynamic file roundtrip in this sub-review",
+    "Overall A01 and restore validation handled by root"
+  ],
+  "production_edits": false,
+  "github_writes": false
+}

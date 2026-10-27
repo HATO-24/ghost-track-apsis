@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-27",
+  "timezone": "Asia/Shanghai",
+  "candidate": "eb4b98530b589dd5c452a78d46549660985557d3",
+  "code_commit": "c704f85952eb33ec44c1ac21dfef95d2f8b6a032",
+  "base_main": "3045311657609dfe10a133802b93dde2fc8abb79",
+  "engine": "4.7.2.stable.official.ed1daf0bf",
+  "targeted": {
+    "total": 5,
+    "pass": 5,
+    "fail": 0,
+    "exit": 0,
+    "duration_s": 46.1,
+    "import_s": 22.1
+  },
+  "full": {
+    "total": 88,
+    "pass": 81,
+    "fail": 7,
+    "known_fail": 7,
+    "new_fail": 0,
+    "drift": 0,
+    "complete": true,
+    "exit": 0,
+    "duration_s": 340.45,
+    "no_import": true
+  },
+  "intel_original_remaining_closed": true,
+  "diagnostic_controls": {
+    "metadata_observed_contact_removed": {
+      "pass": 280,
+      "fail": 0,
+      "exit": 0
+    },
+    "world_hidden_move_disabled": {
+      "pass": 100,
+      "fail": 0,
+      "exit": 0
+    }
+  },
+  "production_edits": false,
+  "formal_tests_edits": false,
+  "baseline_edits": false,
+  "decision": "implementation remaining closed; original acceptance-test contract pending"
+}

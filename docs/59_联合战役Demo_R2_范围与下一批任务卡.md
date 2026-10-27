@@ -4,6 +4,32 @@
 
 延续[40号审计与原路线图](40_系统完成度复核与开发任务队列.md)的权威/测试契约；以下以56 R2更新产品范围，并用当前提交和本轮复核替换40号文档的历史状态判断。
 
+## 2026-10-27 JC-A01第五轮：PASS，A1合入，解锁A02
+
+[独立放行与本轮证据](reviews/pr66_a01_r5_20261027/review.md)：A1冻结 `845584733df619feb3e372e8c06a7caa9f3fdaba`，PR66已合main `f62e5e6f48b3faf1098cbb44b2801c5c8fde394e`，整个tree等于被审候选。T1已知contact缺行红灯、T2同目标真实移动/合法更新红灯均关闭；原实现关闭结论保持。根五专项5/5；完整原C **88=81PASS/7历史FAIL、new_fail0、drift0、complete=true、退出0**。
+
+#58完成，下一张核心卡为[JC-A02 / #59](tasks/joint_campaign/JC-A02_identity.md)，从包含A1合并提交的main开始。#60等待A2，#61/#62仅按原依赖准备独立服务，核心仍A02→A03→A04→B01A。新UI文档由GPT/Sol维护；A1等待解除，UI-01仍按61号文案核对和HUD/Binder文件排程执行，不与A02同时改同文件。下方前四轮为历史，不再派发其已关闭残项。
+
+## 2026-10-27 JC-A01第四轮：实现缺口关闭，仅验收测试收尾
+
+[独立复核与控制实验](reviews/pr66_a01_r4_20261027/review.md)，HEAD `eb4b98530b589dd5c452a78d46549660985557d3`、代码c704f859（差异仅报告）。owner老化、内存/公开文件10tick在途共享继续、光学标签三项均CLOSED，selected及前轮修复保留。根五专项5/5通过；完整C **88=81PASS/7历史FAIL、new_fail0、drift0、complete=true、退出0**。不再派发三项实现返工。
+
+只继续原#58两组等强度测试：指定合法观测contact不能缺行仍绿；隐藏移动须与被比较的已观测实体相同、证明真值实变，再验证合法新观测更新。控制副本分别过滤已知harmattan仍280/0、关闭移动仍100/0；并非正式probe或生产代码被改。A1暂不冻结、PR66不合并，#59–#62不提前解锁；UI文档继续GPT/Sol维护，DS只接明确代码实现卡，UI运行时按61等待A1。下方前轮为历史。
+
+## 2026-10-27 JC-A01第三轮与UI指引拆卡
+
+[PR66第三轮复核](reviews/pr66_a01_r3_20261027/review.md)，head `8b4cf990021bafe0f5b2945039c850b5c985cf5a`。selected/详情隔离、正常共享到达和重投幂等、null拒绝、probe有效性与退出码包装已关闭。**继续原#58**窄修owner老化、在途恢复提前融合、实际光学内部ID泄漏，并按逐项等强度映射修两旧probe。本地5项3PASS/2FAIL、A01 63/0；CI关联同head的合成merge full88=79/9（7旧+2新）、drift0、complete=false、退出1。A1不冻结、PR66不合并，#59–#62依赖不提前解锁。下方前轮为历史，不重开已修项。
+
+新[60 Astra UI规范](60_Astra_UI与文案设计规范_交Sol.md)原样收录，不覆盖56 R2或当前底层卡。[61 UI实施队列](61_UI文案台账与实施队列.md)已交40条文案台账、术语表、五状态规格、UI-01至04细卡：有限文案→真实字体/组件→层级与反馈→并入B1/B2视图。设计审校可并行，运行时等待A1及相应设计/接口条件；现有#8作为范围索引，不重复开全屏重写任务。没有新UI实机验收；A01光学泄漏在#58修，不推给UI-01。
+
+## 2026-10-27 JC-A01第二轮复核
+
+[PR66第二轮关闭项与剩余](reviews/pr66_a01_r2_20261027/review.md)：被审 `61f27fc8e841666705b5fd2e843824a03bf6c0b8`。真实发射授权/运行态与context字段、空绘图/contacts、真正旧来源迁移已有关闭证据。**继续原#58**，只剩selected/owner融合、真实共享回调及成功后的幂等/在途继续、present-null和有效probe/门禁适配。主probe45/12、Phase0 4/6、PhaseA 1/3；full日志87=71/16（7旧+9新），绿色job有退出码包装缺陷。A1不冻结、#59–#62不提前解锁；不重开已修项、不新增AI/EW/B1b范围。下方首轮和R8为历史。
+
+## 2026-10-26 JC-A01首轮交付复核
+
+[PR #66独立复核](reviews/pr66_a01_20261026/review.md)：被审 `1d1e8399da438b77b74acee40d753711c8d2a8f9`。8专项通过；真实有限资源射击仍接受敌actor/错controller/fleet，HUD仍能回退物理真值、盟军观测进入玩家全局融合；基础共享与新旧档迁移未闭环。**继续原#58返修，A1尚未冻结，PR66暂缓合并，#59–#62不提前解锁。** G0/K0与此前12个PR合并结论保留；已通过的shooter拒绝、正常本舰射击和有效文件往返保留。范围限原卡授权/情报/共享/恢复及真实消费者验证，不新增完整AI/EW/逐舰账本。下方R8为此前完成状态。
+
 ## 2026-10-26 R8独立复核更新
 
 **R8技术复核通过：G0与K0冻结为同一候选 `9d0f3b4380275b0a30fffb4a29fa5c44ef58165f`。** #56/#57原残项全部关闭。#58 JC-A01解除G0/K0等待，作为下一张核心实现卡；#59–#62仍按原依赖等待。#63只剩旗舰口径及反事实战报两项非阻塞文本校正，产品数字/内容尚未获批。顺序合并记录和独立全量结果见[本轮报告](reviews/pr65_r8_20261026/review.md)，下方R7/R6/R5均为历史。
@@ -102,8 +128,8 @@ G0、K0等是未来任务交付物的名字，当前不是有效SHA。每张卡�
 | --- | --- | --- | --- |
 | [JC-A00](tasks/joint_campaign/JC-A00_integration_closeout.md) · [#56](https://github.com/HATO-24/ghost-track-apsis/issues/56) | DONE（R8） | G0=`9d0f3b4…`，完整SHA见上文 | 返修整链冻结及验收补齐，复用#55 |
 | [JC-B00](tasks/joint_campaign/JC-B00_contracts.md) · [#57](https://github.com/HATO-24/ghost-track-apsis/issues/57) | DONE（R8） | K0=`9d0f3b4…`，完整SHA见上文 | 多舰队数据、指挥与情报契约，B0规格与schema fixtures |
-| [JC-A01](tasks/joint_campaign/JC-A01_authority_intel.md) · [#58](https://github.com/HATO-24/ghost-track-apsis/issues/58) | READY（R8解锁） | G0/K0已冻结→A1 | 指挥权限及分方情报读写隔离 |
-| [JC-A02](tasks/joint_campaign/JC-A02_identity.md) · [#59](https://github.com/HATO-24/ghost-track-apsis/issues/59) | WAIT A1 | →A2 | 身份证据单一出口、IFF/ELINT/光学/人工一致性 |
+| [JC-A01](tasks/joint_campaign/JC-A01_authority_intel.md) · [#58](https://github.com/HATO-24/ghost-track-apsis/issues/58) | DONE（第五轮） | A1=84558473，main=f62e5e6f，完整SHA见上文 | 指挥权限及分方情报读写隔离 |
+| [JC-A02](tasks/joint_campaign/JC-A02_identity.md) · [#59](https://github.com/HATO-24/ghost-track-apsis/issues/59) | READY（下一张核心卡） | A1/K0已满足→A2 | 身份证据单一出口、IFF/ELINT/光学/人工一致性 |
 | [JC-A03](tasks/joint_campaign/JC-A03_ew_observation.md) · [#60](https://github.com/HATO-24/ghost-track-apsis/issues/60) | WAIT A2 | →A3 | EW进入真实观测与火控消费者 |
 | [JC-A04](tasks/joint_campaign/JC-A04_ew_comms.md) · [#61](https://github.com/HATO-24/ghost-track-apsis/issues/61) | 服务可在A1后；Session接入在A3后 | →A4 | EW进入实际通信，保留恢复与权限语义 |
 | [JC-B01A](tasks/joint_campaign/JC-B01A_deployment.md) · [#62](https://github.com/HATO-24/ghost-track-apsis/issues/62) | WAIT A1/K0，最终集成在A4后 | →D1 | 两套合法编制转为独立、可恢复的部署实例；多舰发射仍属后续B1b |

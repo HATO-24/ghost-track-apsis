@@ -1,0 +1,15 @@
+2026-10-26T15:47:16.8631971Z git:      @ 5031e361
+2026-10-26T15:47:16.8640241Z run dir: .test-results/20261026-154716-5031e361
+2026-10-26T15:47:38.6975062Z CASE                                 CATEGORY     PROFILE    STATUS    EXIT     TIME PASS/FAIL LOG
+2026-10-26T15:47:38.6976438Z RUN [1/6] profile.build_profile_probe
+2026-10-26T15:47:38.6980053Z RUN [2/6] e2e.orbital_sim
+2026-10-26T15:47:40.8050463Z e2e.orbital_sim                      e2e          orbital_sim FAIL         1     5.3s    152/1 .test-results/20261026-154716-5031e361/logs/e2e.orbital_sim.log
+2026-10-26T15:47:40.8071625Z       FAIL: exit code 1
+2026-10-26T15:47:40.8088708Z RUN [3/6] boot.full
+2026-10-26T15:47:43.9617231Z boot.full                            boot         full       FAIL         0     3.1s      3/0 .test-results/20261026-154716-5031e361/logs/boot.full.log
+2026-10-26T15:47:43.9620091Z       FAIL: fatal runtime error in boot log: SCRIPT ERROR
+2026-10-26T15:47:43.9637039Z RUN [4/6] boot.legacy_combat_sim
+2026-10-26T15:47:47.2342734Z RUN [5/6] boot.orbital_sim
+2026-10-26T15:47:50.4065651Z RUN [6/6] boot.sandbox
+2026-10-26T15:47:53.7548876Z total=6  pass=4  fail=2  timeout=0  not_run=0 (expected=0 unexpected=0)  duration=37.6s
+2026-10-26T15:47:53.7568486Z RESULT: FAILURES PRESENT
