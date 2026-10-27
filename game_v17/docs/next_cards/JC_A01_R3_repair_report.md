@@ -1,6 +1,6 @@
 # JC-A01（#58）第三轮返修报告：三项实际缺口关闭 + 两探针等强度适配
 
-> 分支 `jc/a01-authority-intel`；实现基线 main `3045311657609dfe10a133802b93dde2fc8abb79`（G0=K0=`9d0f3b4…`）
+> 最终代码 SHA `c704f85952eb33ec44c1ac21dfef95d2f8b6a032`（分支 `jc/a01-authority-intel`，PR #66）；实现基线 main `3045311657609dfe10a133802b93dde2fc8abb79`（G0=K0=`9d0f3b4…`）
 > 证据目录：`docs/next_cards/evidence/a01_r3/`；环境：Godot `4.7.2.stable.official.ed1daf0bf`，Windows
 
 ## 一、三项实际缺口（生产代码）
