@@ -249,6 +249,33 @@ func _run() -> void:
 			if ceid != "":
 				by_eid[ceid] = c
 	_ok(contacts.size() > 0, "binder.contacts non-empty", "n=" + str(contacts.size()))
+	# T1：从可信 owner 的已获证据导出「必须可见」集合，逐项要求 contact 存在；
+	# 已知目标掉行必须变红（不能只靠"非空"或对缺失项 continue 跳过）。
+	var trusted_owner := String(_binder.call("_intel_owner")) \
+		if _binder != null and _binder.has_method("_intel_owner") else ""
+	var owner_view: Dictionary = _session.intel_view(trusted_owner) \
+		if _session != null and _session.has_method("intel_view") else {}
+	var observed_tids: Array = []
+	for raw_ot in (owner_view.get("tracks", []) as Array):
+		if raw_ot is Dictionary:
+			var otid := String((raw_ot as Dictionary).get("id", ""))
+			if otid != "":
+				observed_tids.append(otid)
+	_ok(observed_tids.size() > 0, "trusted owner has acquired-evidence tracks",
+		str(observed_tids))
+	var missing_observed: Array = []
+	for tid_ot in observed_tids:
+		var found_row := false
+		for raw_cc in contacts:
+			if raw_cc is Dictionary \
+					and String((raw_cc as Dictionary).get("track_id", "")) == tid_ot:
+				found_row = true
+				break
+		if not found_row:
+			missing_observed.append(String(tid_ot))
+	_ok(missing_observed.is_empty(),
+		"every acquired-evidence target has a contact row",
+		str(missing_observed))
 	for eid in _truth_ids:
 		var truth: Dictionary = _truth[eid]
 		var truth_side := String(truth.get("side", "")).to_lower()

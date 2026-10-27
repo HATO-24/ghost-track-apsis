@@ -350,14 +350,14 @@ func _run() -> void:
 		_ok(unmapped.is_empty(),
 			"every player plot point maps to its owner's approved observation",
 			str(unmapped))
-		# 合法观测正例：写入一条该 owner 的观测后，玩家 plot 必须出现并保持该采样。
-		var obs_pos: Array = [321719.0, 500.0, 0.0]
+		# T2：选真实存在且该 owner 已获合法观测的**同一目标**（harmattan）做隐藏移动对照
+		var p0: Array = _physics_r("harmattan")
 		var obs: Dictionary = _session.receive_intel_observation(owner_id, {
 			"observation_id": "OBS-WS-1", "observer_id": String(
 				_session.own_entity_id()) if _session.has_method("own_entity_id") else "apsis",
-			"target_id": "ws_target", "sensor": "radar", "source": "radar",
+			"target_id": "harmattan", "sensor": "radar", "source": "radar",
 			"observed_t": float(_session.now_s()), "quality": 0.9,
-			"range_km": 500.0, "bearing_deg": 90.0, "pos_km": obs_pos})
+			"range_km": 500.0, "bearing_deg": 90.0, "pos_km": p0})
 		_ok(bool(obs.get("ok", false)), "legit owner observation accepted",
 			str(obs.get("reason", "")))
 		var pp2: Dictionary = _binder.call("plot_positions")
@@ -365,25 +365,60 @@ func _run() -> void:
 		for raw_p2 in (pp2.get("positions", []) as Array):
 			if raw_p2 is Dictionary:
 				got[String((raw_p2 as Dictionary).get("id", ""))] = raw_p2
-		var wrow: Dictionary = got.get("ws_target", {}) if got.get("ws_target") is Dictionary else {}
+		var wrow: Dictionary = got.get("harmattan", {}) if got.get("harmattan") is Dictionary else {}
 		var wpos: Array = wrow.get("pos_km", []) if wrow.get("pos_km") is Array else []
-		_ok(_vec_near(wpos, obs_pos, POS_TOL_KM),
+		var obs_t0 := float(wrow.get("observed_t", -1.0))
+		_ok(_vec_near(wpos, p0, POS_TOL_KM),
 			"player plot reflects the newly observed position", str(wpos))
-		# 隐藏 physics 移动但不给新观测 → 玩家 plot 不跟随
-		var before_move: Dictionary = pp2.duplicate(true)
+		# 实际变更**同一目标**隐藏真值；先证明 truth/physics 都真的变了
+		var p1: Array = [999.0, 1234.0, 77.0]
+		var mut: Dictionary = {}
 		if _session != null and _session.has_method("_apply_hidden_truth_mutation"):
-			_session.call("_apply_hidden_truth_mutation", "harmattan", "hidden_ws",
-				[999.0, 1234.0, 77.0])
+			mut = _session.call("_apply_hidden_truth_mutation", "harmattan",
+				"hidden_ws", p1)
+		_ok(bool(mut.get("truth_changed", false)),
+			"hidden mutation actually changed the compared target",
+			JSON.stringify(mut.get("before", {})).substr(0, 120))
+		_ok(bool(mut.get("physics_changed", false)),
+			"hidden mutation changed PhysicsWorld (not just a world copy)")
+		var ph1: Array = _physics_r("harmattan")
+		_ok(_vec_near(ph1, p1, POS_TOL_KM),
+			"physics now holds the mutated coordinate", str(ph1))
 		var pp3: Dictionary = _binder.call("plot_positions")
 		var now_pos: Dictionary = {}
 		for raw_p3 in (pp3.get("positions", []) as Array):
 			if raw_p3 is Dictionary:
 				now_pos[String((raw_p3 as Dictionary).get("id", ""))] = raw_p3
-		var wrow3: Dictionary = now_pos.get("ws_target", {}) if now_pos.get("ws_target") is Dictionary else {}
+		var wrow3: Dictionary = now_pos.get("harmattan", {}) if now_pos.get("harmattan") is Dictionary else {}
 		var wpos3: Array = wrow3.get("pos_km", []) if wrow3.get("pos_km") is Array else []
-		_ok(_vec_near(wpos3, obs_pos, POS_TOL_KM),
+		_ok(_vec_near(wpos3, p0, POS_TOL_KM),
 			"player plot does not follow hidden physics motion without new observation",
 			str(wpos3))
+		_ok(absf(float(wrow3.get("observed_t", -2.0)) - obs_t0) <= 1.0e-9,
+			"player plot keeps the old sampling time until a new observation")
+		# 合法新观测到达 → 同一目标位置/时间确实更新（防止永远冻结）
+		_session.tick(TICK_DT)
+		var obs2: Dictionary = _session.receive_intel_observation(owner_id, {
+			"observation_id": "OBS-WS-2", "observer_id": String(
+				_session.own_entity_id()) if _session.has_method("own_entity_id") else "apsis",
+			"target_id": "harmattan", "sensor": "radar", "source": "radar",
+			"observed_t": float(_session.now_s()), "quality": 0.9,
+			"range_km": 3.0, "bearing_deg": 0.0, "pos_km": p1})
+		_ok(bool(obs2.get("ok", false)), "second legit observation accepted",
+			str(obs2.get("reason", "")))
+		var pp4: Dictionary = _binder.call("plot_positions")
+		var got4: Dictionary = {}
+		for raw_p4 in (pp4.get("positions", []) as Array):
+			if raw_p4 is Dictionary:
+				got4[String((raw_p4 as Dictionary).get("id", ""))] = raw_p4
+		var wrow4: Dictionary = got4.get("harmattan", {}) if got4.get("harmattan") is Dictionary else {}
+		var wpos4: Array = wrow4.get("pos_km", []) if wrow4.get("pos_km") is Array else []
+		_ok(_vec_near(wpos4, p1, POS_TOL_KM),
+			"player plot updates for the same target after a legit new observation",
+			str(wpos4))
+		_ok(float(wrow4.get("observed_t", -1.0)) > obs_t0,
+			"player plot sampling time advanced after the new observation",
+			str(wrow4.get("observed_t", null)))
 	else:
 		_ok(false, "ShellBinder.plot_positions() exists")
 

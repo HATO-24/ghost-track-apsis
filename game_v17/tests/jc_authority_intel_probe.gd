@@ -255,6 +255,23 @@ func _run() -> void:
 	_ok(contact_ids.size() >= 1, "HUD contacts 来自 owner 情报", str(contact_ids))
 	_ok(not ("raider_2" in contact_ids), "隐藏实体不出现在 HUD contacts",
 		str(contact_ids))
+	# T1：显式合法目标必须有真实 contact 行（不能只断言"非空"就跳过）
+	var rows_by_tid: Dictionary = {}
+	for raw5b in (binder.contacts as Array):
+		if raw5b is Dictionary:
+			rows_by_tid[String((raw5b as Dictionary).get("track_id", ""))] = raw5b
+	var c_a: Dictionary = rows_by_tid.get("target_a", {}) \
+		if rows_by_tid.get("target_a") is Dictionary else {}
+	_ok(not c_a.is_empty(), "已观测合法目标 target_a 有 contact 行",
+		str(rows_by_tid.keys()))
+	if not c_a.is_empty():
+		var disp_a := String(c_a.get("display_id", ""))
+		_ok(disp_a != "" and disp_a != "target_a",
+			"contact 显示 ID 匿名（不回读内部目标名）", disp_a)
+		_eq(String(c_a.get("intel_owner_id", "")), "player_intel",
+			"contact 归属可信本舰 owner")
+		_eq(String(c_a.get("side_source", "")), "intel_view",
+			"contact side 来源为 owner 情报")
 	var plot: Dictionary = binder.plot_positions()
 	var p_ids: Array = []
 	for raw6 in (plot.get("positions", []) as Array):
@@ -272,23 +289,62 @@ func _run() -> void:
 	_eq((plot_empty.get("positions", []) as Array).size(), 0,
 		"空情报 plot 为空（不补物理真值）")
 
-	_step("R6 隐藏真值钩子必须真实改变被测真值，且玩家视图不变")
+	_step("T2 同一已观测目标的隐藏真值变更：真值确实改变、玩家视图暂不跟随、新观测后更新")
 	var s4 = GS.new(_seed())
 	for i4 in range(2):
 		s4.tick(TICK_DT)
+	var p0: Array = [321719.0, 600.0, 0.0]
+	var p1: Array = [999.0, 1234.0, 77.0]
+	# 只观测真实存在的世界/物理实体 raider_2（与被变更目标同一）
 	s4.receive_intel_observation("player_intel", {
 		"observation_id": "OBS-2", "observer_id": "own_ship",
-		"target_id": "target_a", "sensor": "radar", "source": "radar",
-		"observed_t": 2.0, "quality": 0.7, "range_km": 500.0,
-		"bearing_deg": 90.0, "pos_km": [321719.0, 500.0, 0.0]})
-	var v_before: Dictionary = s4.intel_view("player_intel")
+		"target_id": "raider_2", "sensor": "radar", "source": "radar",
+		"observed_t": float(s4.now_s()), "quality": 0.7, "range_km": 600.0,
+		"bearing_deg": 90.0, "pos_km": p0})
+	var b4 = Binder.new()
+	b4.session = s4
+	b4.refresh()
+	var row4: Dictionary = _contact_by_track(b4.contacts, "raider_2")
+	_ok(not row4.is_empty(), "T2: 已观测目标 raider_2 有 contact")
+	var plot4a: Dictionary = _plot_by_id(b4.plot_positions(), "raider_2")
+	var pos4a: Array = plot4a.get("pos_km", []) if plot4a.get("pos_km") is Array else []
+	_ok(_vec_near(pos4a, p0, 1.0e-6), "T2: plot 为已获观测位置", str(pos4a))
+	var t4a := float(plot4a.get("observed_t", -1.0))
+	# 实际改变**同一目标**的隐藏真值（WorldState + PhysicsWorld 两个面）
 	var mut: Dictionary = s4._apply_hidden_truth_mutation("raider_2",
-		"hidden_renamed", [999.0, 1234.0, 77.0])
+		"hidden_renamed", p1)
+	_ok(bool(mut.get("ok", false)), "T2: 隐藏真值变更执行成功")
 	_ok(bool(mut.get("truth_changed", false)),
-		"隐藏真值钩子确实改变了被测真值", JSON.stringify(mut.get("before", {})).substr(0, 120))
-	var v_after: Dictionary = s4.intel_view("player_intel")
-	_eq(JSON.stringify(_view_sig(v_after)), JSON.stringify(_view_sig(v_before)),
-		"真值变化不影响未观测的玩家视图")
+		"T2: 真值变更前后确实改变", JSON.stringify(mut.get("before", {})).substr(0, 120))
+	_ok(bool(mut.get("world_changed", false)), "T2: WorldState 面确实改变")
+	_ok(bool(mut.get("physics_changed", false)), "T2: PhysicsWorld 面确实改变")
+	var ph4: Dictionary = s4.physics_state("raider_2")
+	var ph4r: Array = ph4.get("r", []) if ph4.get("r") is Array else []
+	_ok(_vec_near(ph4r, p1, 1.0e-6), "T2: physics 就是被变更后的坐标", str(ph4r))
+	# 未投递新观测：真实 HUD/plot 仍读旧获准数据
+	b4.refresh()
+	var row4b: Dictionary = _contact_by_track(b4.contacts, "raider_2")
+	var plot4b: Dictionary = _plot_by_id(b4.plot_positions(), "raider_2")
+	var pos4b: Array = plot4b.get("pos_km", []) if plot4b.get("pos_km") is Array else []
+	_ok(not row4b.is_empty(), "T2: 未获新观测前 contact 仍在")
+	_ok(_vec_near(pos4b, p0, 1.0e-6),
+		"T2: 隐藏 physics 移动后 plot 不跟随（仍为旧获准数据）", str(pos4b))
+	_eq(float(plot4b.get("observed_t", -2.0)), t4a,
+		"T2: 未获新观测前采样时间不变")
+	# 合法新观测到达 → 同一目标位置/时间更新（防止永远冻结）
+	s4.tick(TICK_DT)
+	s4.receive_intel_observation("player_intel", {
+		"observation_id": "OBS-2B", "observer_id": "own_ship",
+		"target_id": "raider_2", "sensor": "radar", "source": "radar",
+		"observed_t": float(s4.now_s()), "quality": 0.7,
+		"range_km": 3.0, "bearing_deg": 0.0, "pos_km": p1})
+	b4.refresh()
+	var plot4c: Dictionary = _plot_by_id(b4.plot_positions(), "raider_2")
+	var pos4c: Array = plot4c.get("pos_km", []) if plot4c.get("pos_km") is Array else []
+	_ok(_vec_near(pos4c, p1, 1.0e-6),
+		"T2: 合法新观测后同一目标 plot 确实更新", str(pos4c))
+	_ok(float(plot4c.get("observed_t", -1.0)) > t4a,
+		"T2: 合法新观测后采样时间已更新", str(plot4c.get("observed_t", null)))
 
 	_step("R4 共享必须经真实 Comms 投递到达、仅接收方融合、重投幂等")
 	var s5 = GS.new(_seed())
@@ -670,3 +726,25 @@ func _track(view: Dictionary, tid: String) -> Dictionary:
 		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == tid:
 			return raw
 	return {}
+
+func _contact_by_track(rows: Array, tid: String) -> Dictionary:
+	for raw in rows:
+		if raw is Dictionary \
+				and String((raw as Dictionary).get("track_id", "")) == tid:
+			return raw
+	return {}
+
+
+func _plot_by_id(plot: Dictionary, tid: String) -> Dictionary:
+	for raw in (plot.get("positions", []) as Array):
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == tid:
+			return raw
+	return {}
+
+
+func _vec_near(a: Array, b: Array, tol: float) -> bool:
+	if a.size() < 3 or b.size() < 3:
+		return false
+	return absf(float(a[0]) - float(b[0])) <= tol \
+		and absf(float(a[1]) - float(b[1])) <= tol \
+		and absf(float(a[2]) - float(b[2])) <= tol

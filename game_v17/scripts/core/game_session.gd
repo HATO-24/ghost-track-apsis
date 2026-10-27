@@ -6024,6 +6024,14 @@ func _apply_hidden_truth_mutation(entity_id: String, new_id: String,
 	var before := {}
 	var after := {}
 	var moved := 0
+	# 0) 物理表面基线（T2：声称 physics 就核对 physics，不能只比 WorldState 副本）
+	var phys_before: Array = []
+	if physics_world_service != null:
+		var st0: Dictionary = physics_state(entity_id)
+		if st0.get("r") is Array:
+			phys_before = (st0.get("r") as Array).duplicate()
+	if not phys_before.is_empty():
+		before["physics"] = {"pos_km": phys_before.duplicate()}
 	# 1) WorldState 是实体元数据权威：用既有 entity.move 事件真实改坐标
 	if world != null and world.has_method("entity") and world.has_method("apply"):
 		var e0: Dictionary = world.entity(entity_id)
@@ -6064,11 +6072,24 @@ func _apply_hidden_truth_mutation(entity_id: String, new_id: String,
 				break
 	var before_pos: Array = (before.get("world", {}) as Dictionary).get("pos_km", [])
 	var after_pos: Array = (after.get("world", {}) as Dictionary).get("pos_km", [])
+	var phys_after: Array = []
+	if physics_world_service != null:
+		var st1: Dictionary = physics_state(entity_id)
+		if st1.get("r") is Array:
+			phys_after = (st1.get("r") as Array).duplicate()
+	if not phys_after.is_empty():
+		after["physics"] = {"pos_km": phys_after.duplicate()}
 	var changed := false
 	if before_pos.size() >= 3 and after_pos.size() >= 3:
 		changed = absf(float(before_pos[0]) - float(after_pos[0])) > 1.0e-9 \
 			or absf(float(before_pos[1]) - float(after_pos[1])) > 1.0e-9 \
 			or absf(float(before_pos[2]) - float(after_pos[2])) > 1.0e-9
+	var physics_changed := false
+	if phys_before.size() >= 3 and phys_after.size() >= 3:
+		physics_changed = absf(float(phys_before[0]) - float(phys_after[0])) > 1.0e-9 \
+			or absf(float(phys_before[1]) - float(phys_after[1])) > 1.0e-9 \
+			or absf(float(phys_before[2]) - float(phys_after[2])) > 1.0e-9
 	return {"ok": true, "entity_id": entity_id, "new_id": new_id,
-		"moved_surfaces": moved, "truth_changed": changed,
+		"moved_surfaces": moved, "truth_changed": changed or physics_changed,
+		"world_changed": changed, "physics_changed": physics_changed,
 		"before": before, "after": after, "intel_notified": false}

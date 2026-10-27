@@ -1,0 +1,169 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+A0-A01 INTEGRATION AUTHORITY PROBE · baseline I0 b9101c8 / A-00 head 882e058
+Godot 4.7.2-stable (official) · profile=orbital_sim
+════════════════════════════════════════════════════════════════
+
+[A0-A01] STEP 1. real entry main_menu → v1_hud
+[A0-A01] PASS change_scene_to_file(main_menu) == OK  err=0
+AUDIO OK files=36 headless=true muted=false
+[MAIN MENU] BUILD=orbital_sim → skip to res://v1_hud.tscn
+[BUILD PROFILE] id=orbital_sim mode=simulator scene=res://v1_hud.tscn scenario=res://framework/content/scenario_orbital_sim.json save_root=user://saves_sim
+[BUILD PROFILE] SYSTEM story=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM prelude=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM triggers=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM identification=ON
+[BUILD PROFILE] SYSTEM traffic=ON
+[BUILD PROFILE] SYSTEM port=ON
+[BUILD PROFILE] SYSTEM signal=ON
+[BUILD PROFILE] SYSTEM combat=ON
+[BUILD PROFILE] SYSTEM ballistics=ON
+[BUILD PROFILE] SYSTEM damage=ON
+[BUILD PROFILE] SYSTEM physics_world=ON
+[BUILD PROFILE] SYSTEM sandbox=OFF reason=非测试剖面
+[BUILD PROFILE] SYSTEM ship_catalog=ON
+[BUILD PROFILE] SYSTEM refit=ON
+[BUILD PROFILE][LIMITATION] 轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。
+[BUILD PROFILE][LIMITATION] EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。
+[BUILD PROFILE][LIMITATION] UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。
+[SHELL BINDER] BUILD profile=orbital_sim mode=simulator label=GHOST TRACK // APSIS — ORBITAL SIM save_root=user://saves_sim
+[SHELL BINDER] SANDBOX entities=7 scenario=res://framework/content/scenario_orbital_sim.json
+[SHELL BINDER] SYSTEMS physics=true sensors=true track_table=true combat=true ballistics=true damage=true ew=true identification=true traffic=true port=true ship_catalog=true refit=true story=disabled
+[SHELL BINDER] CeresChain ready state=L1 entity=ceres_2 texts=9 code=7600
+[SHELL BINDER] ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0
+[SHELL BINDER] AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=19 threat=0 trust=0
+[SHELL BINDER] AfterActionReport ready branches=6 templates=3
+[SHELL BINDER] TrafficControl source=session ready=true lanes=18 otc=19 npc=6
+[SHELL BINDER] physics ready=true plot_source=intel positions=0 facilities=12 facility_source=facility_registry_l1
+[SHELL BINDER] fleet_data ready=true friendly=8 enemy=24 total=32
+[SHELL BINDER] refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL
+[SHELL BINDER] CICView ready=true truth=false tracks=2 levels={ "1": 0, "2": 2, "3": 0, "4": 0 } facilities=110
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[V1 HUD] binder boot=true errors=[] contacts=2 orders=0
+[V1 HUD] COMMS seed LD=true LR=false events=2
+[V1 HUD] COMBAT source=session sandbox={ "unlimited_ammo": false, "auto_authorize": false }
+[V1 HUD] COMBAT tracks=2 weapons=5 target=T0001 weapon=missile
+[V1 HUD] damage_model=true sections=7 combat=true roe=TIGHT roe_locked=true
+[SHELL BINDER] plot_bodies source=physics earth=[-326389.684568483, -0.0, 0.0] moon=[58010.3154315171, -0.0, 0.0]
+[SHELL BINDER] plot_sensors ready=true rings=4 obs=4 tws=2 emcon=false ew_ready=true
+[SHELL BINDER] plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=2 solutions=0 grants=0 incoming=0 pred=true
+[SHELL BINDER] plot_commands ready=true orders=0 pending=0 transmitted=0 executed=0
+[V1 PLOT3D] labels=18 conflicts=6 hidden_facility=8 bodies=physics
+[A0-A01] PASS real entry passed main_menu  saw=true frames=3
+[A0-A01] PASS current_scene is V1HUD with v1_hud.gd  res://v1_hud.tscn
+[A0-A01] PASS ShellBinder ready
+[A0-A01] PASS GameSession available
+[A0-A01] PASS PhysicsWorld enabled
+[A0-A01] PASS SensorService enabled
+[A0-A01] PASS TrackTable enabled
+[A0-A01] PASS EntityCatalog ready
+
+[A0-A01] STEP 2. scenario truth + local no-noise scalar geometry
+[A0-A01] PASS scenario truth table has 7 entities  actual=7 expected=7
+[A0-A01] PASS local no-noise scalar expectation: [0,0,0]->[3,4,0] is exactly 5 km  actual=5.000000000000 expected=5.000000000000 tol=0.0
+[A0-A01] PASS local no-noise scalar expectation: bearing uses the atan2(dx,dy) axis definition  actual=36.869897645844 expected=36.869897645844 tol=0.0
+[A0-A01] INFO NO-NOISE scalar: range=5.000000000000 bearing=36.869897645844
+
+[A0-A01] STEP 3. real session: provider geometry == independent scalar geometry (same tick)
+[A0-A01] PASS provider geometry matches scalar expectation on the real session
+[A0-A01] PASS real session: provider range == independent scalar range (<=1e-6 km)  actual=0.000000000000 expected=0.000000000000 tol=0.000001
+[A0-A01] PASS real session: provider bearing == independent scalar bearing (<=1e-6 deg)  actual=0.000000000000 expected=0.000000000000 tol=0.000001
+[A0-A01] INFO REAL SESSION: dist=420.017722061 err=0.000000000 km | bearing=89.508635370 err=0.000000000 deg
+[A0-A01] PASS observer velocity readable from physics  [-0.0000009882316, 0.00000000047373, 0.0]
+[A0-A01] PASS observer has a non-zero velocity input  [-0.0000009882316, 0.00000000047373, 0.0]
+
+[A0-A01] STEP 4. observer and target moved SEPARATELY via authorized physics API (10×60s each)
+[A0-A01] PASS observer position readable before move  [321718.99991101, 0.00000002843962, 0.0]
+[A0-A01] PASS authorized physics API moved observer
+[A0-A01] PASS after OBSERVER move: provider geometry still matches scalar expectation
+[A0-A01] PASS after OBSERVER move: range error <= 1e-6 km  actual=0.000000000000 expected=0.000000000000 tol=0.000001
+[A0-A01] PASS after OBSERVER move: bearing error <= 1e-6 deg  actual=0.000000000000 expected=0.000000000000 tol=0.000001
+[A0-A01] PASS OBSERVER move actually changed the observed geometry  before=420.017722 after=395.902067 km
+[A0-A01] INFO OBSERVER MOVE: range 420.017722 -> 395.902067 km
+[A0-A01] PASS target position readable before move  [322139.041045682, 15.601895703583, 0.0]
+[A0-A01] PASS authorized physics API moved target
+[A0-A01] PASS after TARGET move: provider geometry still matches scalar expectation
+[A0-A01] PASS after TARGET move: range error <= 1e-6 km  actual=0.000000000000 expected=0.000000000000 tol=0.000001
+[A0-A01] PASS after TARGET move: bearing error <= 1e-6 deg  actual=0.000000000000 expected=0.000000000000 tol=0.000001
+[A0-A01] PASS TARGET move actually changed the observed geometry  before=395.902067 after=359.410242 km
+[A0-A01] INFO TARGET MOVE: range 395.902067 -> 359.410242 km
+
+[A0-A01] STEP 4. uncertainty observation fixture: measurement preserved, not pulled to truth
+[A0-A01] PASS uncertainty fixture session ready  []
+[A0-A01] PASS uncertainty observation accepted by TrackTable
+[A0-A01] PASS uncertainty fixture produced 1 track  actual=1 expected=1
+[A0-A01] PASS track keeps the MEASURED range (5.25), not the true range (5.0)  actual=5.250000000000 expected=5.250000000000 tol=0.000000001
+[A0-A01] PASS track range was NOT pulled back to truth  track=5.250000 truth=5.000000
+[A0-A01] INFO UNCERTAINTY fixture: truth=5.000 measured=5.250 sigma=0.100/0.020 track=5.250000
+
+[A0-A01] STEP 5. production error parameters from the actual radar/optical backend
+[A0-A01] INFO MODEL YW-R9: range=30000.000 km, sigma_bearing=0.150000 deg, sigma_range_frac=0.002500, sigma_range_floor=0.500000 km
+[A0-A01] INFO MODEL MS-OT2: range=15000.000 km, sigma_bearing=0.050000 deg, sigma_range_frac=0.000000, sigma_range_floor=0.000000 km
+[A0-A01] INFO MODEL CH-IR2: range=60000.000 km, sigma_bearing=1.200000 deg, sigma_range_frac=0.000000, sigma_range_floor=0.000000 km
+[A0-A01] PASS bearing/range model params present with units for radar/optical/IR backends  violations=[]
+[A0-A01] PASS all three sensor model records resolved  n=3
+[A0-A01] INFO RANGE SIGMA: measured models=["YW-R9"] | range sigma UNVERIFIED (declares no range measurement)=["MS-OT2", "CH-IR2"]
+[A0-A01] PASS at least one backend declares a traceable range sigma (radar ranging)  ["YW-R9"]
+[A0-A01] INFO EXPLICIT UNVERIFIED: models without range sigma are NOT claimed to have range accuracy: ["MS-OT2", "CH-IR2"]
+
+[A0-A01] STEP 6. consumer source/frame/t table (same entity id)
+[A0-A01] PASS sensor geometry sampled at the same session tick  actual=1380.100000000000 expected=1380.100000000000 tol=0.000001
+[A0-A01] PASS all consumers expose a traceable source/frame/t (physics/world/snapshot/sensor/ballistics/HUD)  violations=[]
+[A0-A01] INFO CONSUMER TABLE: physics frame=bary_rot t=1380.100 | world copy<=1e-9 | snapshot frame_keys=["seed_frame", "frame_origin", "offset_km", "applied", "explicit", "auto_prelude", "reason", "source_is_seed", "converted", "skipped", "conversion_count", "entities"] | sensor source=physics_world t=1380.100 | ballistics=physics_world | hud side_source=intel_view
+
+[A0-A01] STEP 7. invalid geometry must stop this tick's routing (P20 branch risk)
+[A0-A01] PASS frame-mismatch fixture ready  []
+[A0-A01] PASS frame-mismatch geometry source is static  actual=static expected=static
+[A0-A01] PASS frame-mismatch geometry is not authoritative  actual=false expected=false
+[A0-A01] PASS frame-mismatch reason recorded  actual=frame_mismatch expected=frame_mismatch
+[A0-A01] PASS frame-mismatch fixture still has PhysicsWorld
+[A0-A01] INFO FRAME-MISMATCH: observations=0 tracks=0 suppressed=2
+[A0-A01] PASS invalid geometry (frame_mismatch) suppresses ALL observations for these ticks  observations=0
+[A0-A01] PASS invalid geometry (frame_mismatch) does not create tracks  tracks=0
+[A0-A01] PASS any observation produced under degraded geometry is labelled advisory
+
+[A0-A01] STEP 8. failure reasons + explicit degradation (no silent stale geometry)
+[A0-A01] PASS missing-entity fixture ready  []
+[A0-A01] INFO MISSING ENTITY: reason=target_missing skipped=["ghost_target"] suppressed=2 obs=0
+[A0-A01] PASS missing target recorded in geometry skipped list  ["ghost_target"]
+[A0-A01] PASS missing target produces no observations from stale static geometry  observations=0
+[A0-A01] PASS observer-missing fixture ready  []
+[A0-A01] PASS missing observer recorded in geometry missing list  ["ghost_ship"]
+[A0-A01] PASS missing observer produces no observations  observations=0
+[A0-A01] PASS no-physics legacy fixture ready  []
+[A0-A01] PASS legacy static mode declares source=static  static
+[A0-A01] PASS legacy static mode is explicitly labelled advisory (not LIVE)  advisory=true
+[A0-A01] PASS all degradation cases carry an explicit reason  violations=[]
+
+[A0-A01] STEP 9. visibility: catalog attribution + anonymous contacts
+[A0-A01] PASS 7 scenario entities have correct catalog attribution  violations=[]
+[A0-A01] PASS binder contacts non-empty  n=2
+[A0-A01] PASS anonymous contacts leak no truth-only fields  violations=[]
+[A0-A01] PASS anonymous contacts have no silent friend fallback  violations=[]
+[A0-A01] PASS R01: live HUD session exposes a stable track id  T0001
+[A0-A01] PASS R01: player VM tracks/selected/events all withhold truth-only fields  violations=[]
+[A0-A01] PASS R01: selected branch keeps the stable id (commands still usable)  T0001
+[A0-A01] PASS R01: internal track record still keeps batch for dedup/save  1001
+
+[A0-A01] STEP 10. A-01 summary
+[A0-A01] INFO A-01: no-noise range=5 verified; observer+target moves verified; uncertainty measurement preserved; error params traced; consumer table checked; invalid geometry suppression checked; visibility checked
+────────────────────────────────────────────────────────────────
+A0-A01 INTEGRATION AUTHORITY PROBE RESULT: PASS=65 FAIL=0
+A0-A01 INTEGRATION AUTHORITY PROBE OK
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+
+--- STDERR ---
+WARNING: 126 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 31 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)
