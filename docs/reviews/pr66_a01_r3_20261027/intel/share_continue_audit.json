@@ -1,0 +1,374 @@
+{
+	"before": {
+		"comms_pending": [
+			{
+				"arrive_t": 5.0,
+				"content": "",
+				"delivery_id": "C-000001",
+				"from": "ally_ship",
+				"latency_s": 3.0,
+				"links": [
+					0
+				],
+				"mode": "LD",
+				"packet_loss": 0.0,
+				"path": [
+					"ally_ship",
+					"own_ship"
+				],
+				"relay_count": 0,
+				"sent_t": 2.0,
+				"text": "[ally_ship 至 own_ship]-[LD]-[]",
+				"text_key": "COMMS_SENT",
+				"to": "own_ship"
+			}
+		],
+		"pending": {
+			"C-000001": {
+				"from": "ally_ship",
+				"owner_id": "player_intel",
+				"row": {
+					"bearing_deg": 45.0,
+					"observation_id": "PENDING-ONE",
+					"observed_t": 2.0,
+					"observer_id": "ally_ship",
+					"quality": 0.6,
+					"range_km": 800.0,
+					"sensor": "optical",
+					"share_authorized_by": "ally_intel",
+					"source": "optical",
+					"target_id": "pending_contact"
+				},
+				"share_authorized_by": "ally_intel",
+				"to": "own_ship"
+			}
+		},
+		"view": {
+			"observations": [],
+			"owner_id": "player_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": []
+		}
+	},
+	"closed": false,
+	"continuation_equal": false,
+	"duplicate": {
+		"after": 1,
+		"before": 1,
+		"result": {
+			"duplicated": true,
+			"observation_id": "PENDING-ONE",
+			"ok": true,
+			"owner_id": "player_intel"
+		}
+	},
+	"duplicate_closed": true,
+	"head": "8b4cf990021bafe0f5b2945039c850b5c985cf5a",
+	"load": {
+		"authority_restore_mode": "full",
+		"authority_restore_reasons": [],
+		"errors": [],
+		"ok": true,
+		"pending_intel_shares": 1,
+		"result_errors": [],
+		"sensor_partial_reasons": [],
+		"sensor_restore": {
+			"geometry_frame": "bary_rot",
+			"geometry_source": "physics_world",
+			"is_partial": false,
+			"partial_reasons": [],
+			"rebind": {
+				"bound": 0,
+				"frame": "bary_rot",
+				"mismatched_frame": [],
+				"missing": [],
+				"observer_bound": true,
+				"observer_id": "own_ship",
+				"ok": false,
+				"provider_t": 2.0,
+				"reason": "target_missing",
+				"seq": 4,
+				"skipped": [
+					"target_a",
+					"target_b"
+				],
+				"source": "physics_world",
+				"t": 2.0,
+				"time_ok": true,
+				"usable": false
+			},
+			"restore_mode": "full",
+			"saved": true,
+			"schema": "v17.sensor_restore.v2",
+			"time_ok": true
+		},
+		"sensor_restore_mode": "full",
+		"world_sync": {
+			"compared": 5,
+			"enabled": true,
+			"failures": [],
+			"frame": "bary_rot",
+			"in_sync": true,
+			"mismatched": [],
+			"mode": "tick",
+			"ok": true,
+			"reason": "load",
+			"skipped": [],
+			"synced": 0,
+			"updated": []
+		}
+	},
+	"normal_arrival_closed": true,
+	"original_last_delivery": {
+		"delivery": {
+			"delay_s": 3.0,
+			"delivery_id": "C-000001",
+			"link_latency_s": 3.0,
+			"now_t": 5.0,
+			"path": "ally_ship->own_ship",
+			"received_t": 5.0,
+			"share_authorized_by": "ally_intel"
+		},
+		"delivery_id": "C-000001",
+		"result": {
+			"observation_id": "PENDING-ONE",
+			"ok": true,
+			"owner_id": "player_intel",
+			"track_id": "pending_contact"
+		}
+	},
+	"original_view": {
+		"observations": [
+			{
+				"bearing_deg": 45.0,
+				"delivery_id": "C-000001",
+				"intel_owner_id": "player_intel",
+				"observation_id": "PENDING-ONE",
+				"observed_t": 2.0,
+				"observer_id": "ally_ship",
+				"path": "ally_ship->own_ship",
+				"quality": 0.6,
+				"range_km": 800.0,
+				"received_t": 5.0,
+				"sensor": "optical",
+				"share_authorized_by": "ally_intel",
+				"source": "optical",
+				"target_id": "pending_contact"
+			}
+		],
+		"owner_id": "player_intel",
+		"schema": "v17.authority_intel.v1",
+		"tracks": [
+			{
+				"bearing_deg": 45.0,
+				"id": "pending_contact",
+				"intel_owner_id": "player_intel",
+				"last_observed_t": 2.0,
+				"last_received_t": 5.0,
+				"quality": 0.6,
+				"range_km": 800.0,
+				"source": "optical"
+			}
+		]
+	},
+	"queued": {
+		"delivery_id": "C-000001",
+		"ok": true,
+		"pending": 1
+	},
+	"restored_before": {
+		"comms_pending": [],
+		"pending": {
+			"C-000001": {
+				"from": "ally_ship",
+				"owner_id": "player_intel",
+				"row": {
+					"bearing_deg": 45.0,
+					"observation_id": "PENDING-ONE",
+					"observed_t": 2.0,
+					"observer_id": "ally_ship",
+					"quality": 0.6,
+					"range_km": 800.0,
+					"sensor": "optical",
+					"share_authorized_by": "ally_intel",
+					"source": "optical",
+					"target_id": "pending_contact"
+				},
+				"share_authorized_by": "ally_intel",
+				"to": "own_ship"
+			}
+		},
+		"view": {
+			"observations": [],
+			"owner_id": "player_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": []
+		}
+	},
+	"restored_last_delivery": {
+		"delivery": {
+			"delay_s": 1.0,
+			"delivery_id": "C-000001",
+			"link_latency_s": 3.0,
+			"now_t": 3.0,
+			"path": "ally_ship->own_ship",
+			"received_t": 3.0,
+			"share_authorized_by": "ally_intel"
+		},
+		"delivery_id": "C-000001",
+		"result": {
+			"observation_id": "PENDING-ONE",
+			"ok": true,
+			"owner_id": "player_intel",
+			"track_id": "pending_contact"
+		}
+	},
+	"restored_view": {
+		"observations": [
+			{
+				"bearing_deg": 45.0,
+				"delivery_id": "C-000001",
+				"intel_owner_id": "player_intel",
+				"observation_id": "PENDING-ONE",
+				"observed_t": 2.0,
+				"observer_id": "ally_ship",
+				"path": "ally_ship->own_ship",
+				"quality": 0.6,
+				"range_km": 800.0,
+				"received_t": 3.0,
+				"sensor": "optical",
+				"share_authorized_by": "ally_intel",
+				"source": "optical",
+				"target_id": "pending_contact"
+			}
+		],
+		"owner_id": "player_intel",
+		"schema": "v17.authority_intel.v1",
+		"tracks": [
+			{
+				"bearing_deg": 45.0,
+				"id": "pending_contact",
+				"intel_owner_id": "player_intel",
+				"last_observed_t": 2.0,
+				"last_received_t": 3.0,
+				"quality": 0.6,
+				"range_km": 800.0,
+				"source": "optical"
+			}
+		]
+	},
+	"third_owner_original": {
+		"observations": [],
+		"owner_id": "opfor_intel",
+		"schema": "v17.authority_intel.v1",
+		"tracks": []
+	},
+	"third_owner_restored": {
+		"observations": [],
+		"owner_id": "opfor_intel",
+		"schema": "v17.authority_intel.v1",
+		"tracks": []
+	},
+	"timeline": [
+		{
+			"original_ids": [],
+			"original_pending": 1,
+			"original_tick_ok": true,
+			"restored_ids": [
+				"pending_contact"
+			],
+			"restored_pending": 0,
+			"restored_tick_ok": true,
+			"t": 3.0
+		},
+		{
+			"original_ids": [],
+			"original_pending": 1,
+			"original_tick_ok": true,
+			"restored_ids": [
+				"pending_contact"
+			],
+			"restored_pending": 0,
+			"restored_tick_ok": true,
+			"t": 4.0
+		},
+		{
+			"original_ids": [
+				"pending_contact"
+			],
+			"original_pending": 0,
+			"original_tick_ok": true,
+			"restored_ids": [
+				"pending_contact"
+			],
+			"restored_pending": 0,
+			"restored_tick_ok": true,
+			"t": 5.0
+		},
+		{
+			"original_ids": [
+				"pending_contact"
+			],
+			"original_pending": 0,
+			"original_tick_ok": true,
+			"restored_ids": [
+				"pending_contact"
+			],
+			"restored_pending": 0,
+			"restored_tick_ok": true,
+			"t": 6.0
+		},
+		{
+			"original_ids": [
+				"pending_contact"
+			],
+			"original_pending": 0,
+			"original_tick_ok": true,
+			"restored_ids": [
+				"pending_contact"
+			],
+			"restored_pending": 0,
+			"restored_tick_ok": true,
+			"t": 7.0
+		},
+		{
+			"original_ids": [
+				"pending_contact"
+			],
+			"original_pending": 0,
+			"original_tick_ok": true,
+			"restored_ids": [
+				"pending_contact"
+			],
+			"restored_pending": 0,
+			"restored_tick_ok": true,
+			"t": 8.0
+		},
+		{
+			"original_ids": [
+				"pending_contact"
+			],
+			"original_pending": 0,
+			"original_tick_ok": true,
+			"restored_ids": [
+				"pending_contact"
+			],
+			"restored_pending": 0,
+			"restored_tick_ok": true,
+			"t": 9.0
+		},
+		{
+			"original_ids": [
+				"pending_contact"
+			],
+			"original_pending": 0,
+			"original_tick_ok": true,
+			"restored_ids": [
+				"pending_contact"
+			],
+			"restored_pending": 0,
+			"restored_tick_ok": true,
+			"t": 10.0
+		}
+	]
+}

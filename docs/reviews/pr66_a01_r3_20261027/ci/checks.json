@@ -1,0 +1,32 @@
+{
+  "retrieved_at_local": "2026-10-27",
+  "candidate": "8b4cf990021bafe0f5b2945039c850b5c985cf5a",
+  "ci_checkout": "1196fdb14483dbcf3c1e19095d26e0b68b00053d",
+  "run_id": 40360314445,
+  "checks": [
+    {
+      "id": 121703656671,
+      "name": "Phase A gate (authority probes; red/green driven by real probe exit codes)",
+      "head_sha": "8b4cf990021bafe0f5b2945039c850b5c985cf5a",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/HATO-24/ghost-track-apsis/actions/runs/40360314445/job/121703656671"
+    },
+    {
+      "id": 121703656604,
+      "name": "Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)",
+      "head_sha": "8b4cf990021bafe0f5b2945039c850b5c985cf5a",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/HATO-24/ghost-track-apsis/actions/runs/40360314445/job/121703656604"
+    },
+    {
+      "id": 121703656244,
+      "name": "Phase 0 gate (Phase 0 acceptance) — profile / boot smokes / real-entry E2E",
+      "head_sha": "8b4cf990021bafe0f5b2945039c850b5c985cf5a",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/HATO-24/ghost-track-apsis/actions/runs/40360314445/job/121703656244"
+    }
+  ]
+}

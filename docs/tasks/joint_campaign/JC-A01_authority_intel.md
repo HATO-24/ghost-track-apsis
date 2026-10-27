@@ -2,7 +2,24 @@
 
 执行Issue：[JC-A01 #58](https://github.com/HATO-24/ghost-track-apsis/issues/58)。
 
-状态：RETURNED，PR #66第二轮仍为未完成进度；已修项保留，A1未冻结。
+状态：RETURNED，PR #66第三轮仍有窄收尾；已修项保留，A1未冻结。
+
+## 2026-10-27 PR #66第三轮：三项实现收尾＋等强度旧probe映射
+
+候选 `8b4cf990021bafe0f5b2945039c850b5c985cf5a`。[第三轮独立复核与原始证据](../../reviews/pr66_a01_r3_20261027/review.md)。**继续原#58，PR66不合并，A1不冻结。** 下方前轮是历史，不重新派发其已关闭问题。
+
+已关闭：实际来源授权/伪runtime借账本、正常有限8弹真发射与context字段；contacts/空plot不退真值；selected/详情owner绕过；共享正常到达与同键重投幂等；旧来源迁移、畸形/999/null拒绝；probe注册/合法夹具、空contacts越界、full退出码传递。保留绿证据，不整项返工。
+
+仅本卡内收尾：
+
+1. **原R3 owner生命周期**：t0一次观测后，真实tick31/301s，全局表已stale/forget，owner仍原range500/quality0.8无老化。落实各owner融合/衰减/忘却及恢复等价，不要求固定类名，不另立新产品阈值。
+2. **原R4在途继续**：t2发ETA5，save/load后共享索引在但实际Comms.pending为空，恢复t3提前融合而连续会话t5才到。恢复实际在途队列/ETA/投递结果，逐tick对照并继续原卡至少10tick；正常投递与幂等不重做。
+3. **原R3光学实际文本**：`_optical_entity_line`输出匿名标签后又拼接harmattan/l1_station内部ID。修显示，保留内部路由ID，不能放宽no-truth负例；此项不等待UI-01。
+4. **两probe等强度映射**：[逐项修正表](../../reviews/pr66_a01_r3_20261027/contracts/findings.md)。metadata7条FAIL中的旧source/显示ID4条、signal无观测1条可改合同，另2条须先修真实泄漏；world-sync3条玩家plot旧全真值断言换owner观测正负对照，内部7实体与物理精度/单向权威检查保留。不删case、不加历史baseline、不靠空列表或只放宽source消红。
+
+独立5项=3PASS/2FAIL：A01 **63/0**，metadata342/7，world-sync94/3，integration65/0，save41/0，整体退出1。CI关联同head、实际PR merge1196fdb1，Phase0/PhaseA成功，full **88=79PASS/9FAIL（7旧+2新）、drift0、complete=false、退出1**；旧退出码包装问题已修。本地未重跑完整88项。最终同40位SHA跑原C回归与真实文件/共享继续，不新增AI/EW/B1b范围。
+
+新[60/61 UI材料](../../61_UI文案台账与实施队列.md)已拆文案/字体组件/层级/Phase B视图卡，设计可并行，运行时等待A1及设计核对；不得与本卡争改HUD/Binder。主要代码继续DeepSeek，Sol复核。
 
 ## 2026-10-27 PR #66第二轮：保留关闭项，仅收尾剩余
 
