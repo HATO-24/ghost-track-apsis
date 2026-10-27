@@ -839,6 +839,8 @@ func _setup_optional_components() -> void:
 			errors.append("transponder_service 未就绪：" + str(transponder_service.errors))
 		else:
 			_transponder_enabled = true
+			# JC-A02：按 scenario 实体的 transponder_profile 装入应答配置（缺失保留明确 unavailable）
+			_install_scenario_transponders()
 	var idf = _seed.get("identification_service", null)
 	var idf_on := (idf is Dictionary) or (idf is bool and bool(idf))
 	if idf_on:
@@ -848,6 +850,9 @@ func _setup_optional_components() -> void:
 			errors.append("identification_service 未就绪：" + str(identification_service.errors))
 		else:
 			_identification_enabled = true
+			# JC-A02：owner 身份管道配置（每 owner 复用同一计算器配置）
+			_identity_cfg = icfg.duplicate(true)
+			_identity_enabled = true
 	var legal = _seed.get("legal_status", null)
 	var legal_on := (legal is Dictionary) or (legal is bool and bool(legal))
 	if legal_on:
@@ -1955,6 +1960,9 @@ func _advance_identification(sim_dt: float) -> Dictionary:
 				if bool(ex.get("ok", false)):
 					executed.append(ex)
 	_flush_identification_outputs()
+	_flush_identification_outputs()
+	# JC-A02：其余 owner 计算器推进；所有 owner 的 assessment 只在此路由一次
+	_identity_advance_owners(sim_dt)
 	return {"enabled": true, "t": float(identification_service.t),
 		"auto": auto_enabled, "requests": requests.size(),
 		"executed": executed.size(), "targets": identification_service.assessments.size()}
@@ -2218,7 +2226,15 @@ func _execute_identification_query(req: Dictionary) -> Dictionary:
 		ingest_ev["identity"] = "unknown"
 		ingest_ev["confidence"] = 0.2
 		ingest_ev["status"] = String(r.get("reason", "no_reply"))
-	var ir: Dictionary = identification_service.ingest(ingest_ev)
+	var ir: Dictionary = {}
+	if _identity_enabled:
+		var own_q := _identity_own_owner()
+		if own_q != "":
+			ir = identity_ingest(own_q, ingest_ev)
+		else:
+			ir = identification_service.ingest(ingest_ev)
+	else:
+		ir = identification_service.ingest(ingest_ev)
 	return {"ok": bool(ir.get("ok", false)), "target_id": target,
 		"profile_id": prof_id, "reply_status": String((reply as Dictionary).get("status", "")) if reply is Dictionary else "no_reply"}
 
@@ -2978,6 +2994,8 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 			"target_id": target_id, "weapon_id": weapon_id,
 			"missing": {"shooter": ss.is_empty(), "target": ts.is_empty(),
 				"target_entity": entity, "states": states.keys()}}
+	# JC-A02：火控读取 owner 操作性身份（消费者边界投影，不新建真值）
+	_sync_combat_identity(target_id)
 	var gate: Dictionary = combat_service.request_fire(target_id, weapon_id, confirmed, o)
 	if not bool(gate.get("ok", false)):
 		return gate
@@ -3819,19 +3837,487 @@ func _bridge_identity_evidence(ev: Dictionary) -> void:
 		ident_source = "database"
 	elif raw_source == "sensor_service":
 		ident_source = "sensor"
-	identification_service.ingest({
-		"target_id": tid, "source": ident_source,
-		"t": float(ev.get("t", now_s())),
-		"identity": str(ev.get("identity", "unknown")),
-		"confidence": float(ev.get("confidence", 0.5)),
-		"spoofed": bool(ev.get("spoofed", false)),
-		"status": str(ev.get("status", "")),
-		"mode": str(ev.get("mode", "")),
-		"evidence_type": et if et != "" else ident_source,
-	})
-
+	# JC-A02：真实证据通道 → owner 归一化入口（唯一写者），不再直写全局单实例
+	if _identity_enabled:
+		var own_owner := _identity_own_owner()
+		if own_owner != "":
+			identity_ingest(own_owner, {
+				"target_id": tid, "source": ident_source,
+				"observed_t": float(ev.get("t", now_s())),
+				"identity": str(ev.get("identity", "unknown")),
+				"confidence": float(ev.get("confidence", 0.5)),
+				"spoofed": bool(ev.get("spoofed", false)),
+				"status": str(ev.get("status", "")),
+				"mode": str(ev.get("mode", "")),
+				"category": "sensor" if ident_source in ["optical", "sensor", "track"] else "iff",
+				"note": "track_evidence_bridge"})
+		else:
+			identification_service.ingest({
+				"target_id": tid, "source": ident_source,
+				"identity": str(ev.get("identity", "unknown")),
+				"confidence": float(ev.get("confidence", 0.5)),
+				"spoofed": bool(ev.get("spoofed", false)),
+				"status": str(ev.get("status", "")),
+				"mode": str(ev.get("mode", "")),
+				"evidence_type": et if et != "" else ident_source})
+	else:
+		identification_service.ingest({
+			"target_id": tid, "source": ident_source,
+			"t": float(ev.get("t", now_s())),
+			"identity": str(ev.get("identity", "unknown")),
+			"confidence": float(ev.get("confidence", 0.5)),
+			"spoofed": bool(ev.get("spoofed", false)),
+			"status": str(ev.get("status", "")),
+			"mode": str(ev.get("mode", "")),
+			"evidence_type": et if et != "" else ident_source})
 
 ## 识别服务是否可用（未在 seed 启用时为 false，UI 必须显示 NOT READY）。
+## ── JC-A02：多来源身份管道（owner 维度）────────────────────────
+## 唯一写者：Session 归一化四来源证据 → owner 计算器 → authority_intel.apply_identity。
+## HUD/火控只读该操作结果；不在此处改写隐藏真值。
+const IDENTITY_SOURCES := ["transponder", "iff", "elint", "ew", "optical",
+	"sensor", "manual", "track"]
+const IDENTITY_SOURCE_ALIAS := {"iff": "transponder", "ew": "elint"}
+const IDENTITY_MANUAL_AUTHORITIES := ["command", "co", "captain",
+	"tactical", "watch_officer"]
+
+var _identity_owners: Dictionary = {}       # owner -> IdentificationService
+var _identity_enabled := false
+var _identity_cfg: Dictionary = {}
+var _identity_restore_mode := "absent"
+var _identity_pending_queries: Dictionary = {}  # owner -> [query]
+var _last_identity_audit_id := ""
+var identity_operational_writes := 0
+
+
+func _identity_own_owner() -> String:
+	if authority_intel != null and String(authority_intel.own_owner) != "":
+		return String(authority_intel.own_owner)
+	if authority_intel != null and String(_seed.get("own_entity", "")) != "":
+		return String(authority_intel.owner_of_entity(
+			String(_seed.get("own_entity", ""))))
+	return ""
+
+
+func _identity_service_for(owner_id: String):
+	if not _identity_enabled or owner_id == "":
+		return null
+	if owner_id == _identity_own_owner() and identification_service != null:
+		_identity_owners[owner_id] = identification_service
+		return identification_service
+	if _identity_owners.has(owner_id):
+		return _identity_owners[owner_id]
+	var svc = IdentificationServiceScript.new(_identity_cfg.duplicate(true))
+	if not bool(svc.ready):
+		errors.append("identity owner 计算器未就绪：" + owner_id)
+		return null
+	svc.set_time(now_s())
+	_identity_owners[owner_id] = svc
+	return svc
+
+
+func _identity_owner_ok(owner_id: String) -> bool:
+	return owner_id != "" and authority_intel != null \
+		and bool(authority_intel.owner_known(owner_id))
+
+
+func identity_enabled() -> bool:
+	return _identity_enabled
+
+
+## 四来源归一化入口：校验 owner/来源/时间区间/TTL 后写入该 owner 计算器。
+func identity_ingest(owner_id: String, raw: Variant) -> Dictionary:
+	if not _identity_enabled:
+		return {"ok": false, "reason": "identity_disabled"}
+	if not _identity_owner_ok(owner_id):
+		return {"ok": false, "reason": "unknown_owner", "owner_id": owner_id}
+	if not (raw is Dictionary):
+		return {"ok": false, "reason": "invalid_evidence"}
+	var svc = _identity_service_for(owner_id)
+	if svc == null:
+		return {"ok": false, "reason": "no_identity_service"}
+	var r: Dictionary = raw
+	var target := String(r.get("target_id", ""))
+	if target == "":
+		return {"ok": false, "reason": "invalid_target"}
+	var source := String(r.get("source", "")).to_lower()
+	if source == "":
+		return {"ok": false, "reason": "invalid_source"}
+	if not (source in IDENTITY_SOURCES):
+		return {"ok": false, "reason": "unsupported_source", "source": source}
+	var now := now_s()
+	var obs_t := now
+	if r.has("observed_t"):
+		var ov = r.get("observed_t")
+		if not (ov is int or ov is float) or not is_finite(float(ov)):
+			return {"ok": false, "reason": "invalid_observed_t"}
+		obs_t = float(ov)
+	if obs_t > now + 1.0e-9:
+		return {"ok": false, "reason": "observed_in_future"}
+	var recv_t := now
+	if r.has("received_t"):
+		var rv = r.get("received_t")
+		if not (rv is int or rv is float) or not is_finite(float(rv)):
+			return {"ok": false, "reason": "invalid_received_t"}
+		recv_t = float(rv)
+	if recv_t + 1.0e-9 < obs_t:
+		return {"ok": false, "reason": "received_before_observed"}
+	var ttl_s := float(_identity_cfg.get("evidence_ttl_s", 120.0))
+	if r.get("ttl_s") is int or r.get("ttl_s") is float:
+		ttl_s = maxf(0.0, float(r.get("ttl_s")))
+	var identity := String(r.get("identity", "unknown")).to_lower()
+	var confidence := clampf(float(r.get("confidence", 0.5)), 0.0, 1.0)
+	var mode := String(r.get("mode", ""))
+	var status := String(r.get("status", ""))
+	var category := String(r.get("category", ""))
+	if category == "":
+		category = "sensor" if source in ["optical", "sensor"] else "iff"
+	var service_source := String(IDENTITY_SOURCE_ALIAS.get(source, source))
+	var env := {"target_id": target, "source": service_source,
+		"t": obs_t, "identity": identity, "confidence": confidence,
+		"mode": mode, "status": status, "category": category,
+		"spoofed": bool(r.get("spoofed", false)),
+		"range_km": float(r.get("range_km", 0.0)),
+		"los": bool(r.get("los", true)), "emcon": bool(r.get("emcon", false)),
+		"evidence_type": String(r.get("evidence_type", category)),
+		"note": String(r.get("note", ""))}
+	# 迟到证据：观测时刻早于该 owner 已采纳的最新证据 → 只留审计，不改写当前结论
+	var latest_t := -1.0e18
+	var ev_list = svc.evidence_by_target.get(target, [])
+	if ev_list is Array:
+		for raw_e in (ev_list as Array):
+			if raw_e is Dictionary:
+				latest_t = maxf(latest_t,
+					float((raw_e as Dictionary).get("t", -1.0e18)))
+	var late := latest_t > -1.0e17 and obs_t + 1.0e-9 < latest_t
+	var ir: Dictionary = svc.ingest(env)
+	if not bool(ir.get("ok", false)):
+		return ir
+	var ev_rec: Dictionary = ir.get("evidence", {}) \
+		if ir.get("evidence") is Dictionary else {}
+	if not ev_rec.is_empty():
+		ev_rec["owner_id"] = owner_id
+		ev_rec["received_t"] = recv_t
+		ev_rec["ttl_s"] = ttl_s
+		ev_rec["raw_source"] = source
+	var assessment: Dictionary = ir.get("assessment", {}) \
+		if ir.get("assessment") is Dictionary else {}
+	var routed := {}
+	if late:
+		routed = authority_intel.identity_operational(owner_id, target)
+		_identity_audit(owner_id, target, "late_evidence_ignored",
+			String(assessment.get("identity", "")), String(source))
+	else:
+		routed = _route_identity_assessment(owner_id, target, assessment, {
+			"source": source, "observed_t": obs_t, "ttl_s": ttl_s})
+	return {"ok": true, "owner_id": owner_id, "target_id": target,
+		"late_ignored": late,
+		"duplicate": bool(ir.get("duplicate", false)),
+		"evidence_id": String(ev_rec.get("evidence_id", "")),
+		"assessment": assessment.duplicate(true),
+		"operational": routed}
+
+
+## 唯一路由：把 assessment 写入该 owner 的操作性身份（同结论不重复写）。
+func _route_identity_assessment(owner_id: String, target_id: String,
+		assessment: Dictionary, meta := {}) -> Dictionary:
+	if authority_intel == null:
+		return {}
+	var identity := String(assessment.get("identity", "unknown"))
+	var confidence := float(assessment.get("confidence", 0.0))
+	var manual := bool(assessment.get("manual", false))
+	var authorized := bool(assessment.get("authorized", false))
+	var sources: Array = (assessment.get("sources", []) as Array).duplicate() \
+		if assessment.get("sources") is Array else []
+	var contradictions: Array = (assessment.get("contradictions", []) as Array) \
+		.duplicate() if assessment.get("contradictions") is Array else []
+	var state := "valid"
+	if contradictions.size() > 0 or identity == "suspect":
+		state = "conflict"
+	elif identity == "unknown":
+		state = "unknown"
+	if manual:
+		state = "manual"
+	var prev: Dictionary = authority_intel.identity_operational(owner_id, target_id)
+	var changed := prev.is_empty() \
+		or String(prev.get("identity", "")) != identity \
+		or absf(float(prev.get("identity_confidence", 0.0)) - confidence) > 1.0e-12 \
+		or String(prev.get("identity_state", "")) != state \
+		or bool(prev.get("identity_manual", false)) != manual
+	if not changed and not bool(meta.get("force", false)):
+		return prev
+	var patch := {"identity": identity,
+		"identity_confidence": confidence,
+		"identity_state": state,
+		"identity_manual": manual,
+		"identity_authorized": authorized,
+		"identity_sources": sources,
+		"identity_evidence_count": int(assessment.get("evidence_count", 0)),
+		"identity_observed_t": float(meta.get("observed_t", now_s())),
+		"identity_updated_t": float(now_s()),
+		"identity_ttl_s": float(meta.get("ttl_s", 0.0)),
+		"identity_level": int(assessment.get("level", 1)),
+		"identity_audited": bool(meta.get("audited", false)),
+		"identity_audit_ids": (meta.get("audit_ids", []) as Array).duplicate() \
+			if meta.get("audit_ids") is Array else []}
+	var wr: Dictionary = authority_intel.apply_identity(owner_id, target_id, patch)
+	if bool(wr.get("ok", false)):
+		identity_operational_writes += 1
+		_publish({"type": "identity.operational", "t": now_s(),
+			"source": "identity_pipeline", "target": target_id,
+			"payload": {"owner_id": owner_id, "target_id": target_id,
+				"identity": identity, "state": state,
+				"confidence": confidence, "manual": manual,
+				"authorized": authorized, "source": String(meta.get("source", ""))},
+			"text_key": ""})
+	return authority_intel.identity_operational(owner_id, target_id)
+
+
+func identity_operational(owner_id: String, target_id: String) -> Dictionary:
+	if authority_intel == null:
+		return {}
+	var rec: Dictionary = authority_intel.identity_operational(owner_id, target_id)
+	if rec.is_empty():
+		return {"ok": false, "reason": "unknown_target", "owner_id": owner_id,
+			"target_id": target_id, "identity": "unknown"}
+	var out := rec.duplicate(true)
+	out["ok"] = true
+	# 对外统一别名字段（HUD/火控/探针读同一操作结果）
+	out["confidence"] = float(out.get("identity_confidence", 0.0))
+	out["state"] = String(out.get("identity_state", ""))
+	out["manual"] = bool(out.get("identity_manual", false))
+	out["authorized"] = bool(out.get("identity_authorized", false))
+	out["sources"] = (out.get("identity_sources", []) as Array).duplicate() if out.get("identity_sources") is Array else []
+	out["evidence_count"] = int(out.get("identity_evidence_count", 0))
+	out["audited"] = bool(out.get("identity_audited", false))
+	out["audit_ids"] = (out.get("identity_audit_ids", []) as Array).duplicate() if out.get("identity_audit_ids") is Array else []
+	var ttl := float(out.get("identity_ttl_s", 0.0))
+	var obs := float(out.get("identity_observed_t", 0.0))
+	if ttl > 0.0:
+		var age := maxf(0.0, now_s() - obs)
+		out["identity_age_s"] = age
+		if age > ttl * 2.0 + 1.0e-9:
+			out["identity_state"] = "expired"
+		elif age > ttl + 1.0e-9 \
+				and String(out.get("identity_state", "")) in ["valid", "conflict"]:
+			out["identity_state"] = "stale"
+	return out
+
+
+func identity_get_for(owner_id: String, target_id: String) -> Dictionary:
+	var svc = _identity_service_for(owner_id)
+	if svc == null:
+		return {}
+	return svc.get_assessment(target_id)
+
+
+func identity_iff_query(owner_id: String, target_id: String,
+		opts := {}) -> Dictionary:
+	if not _identity_enabled:
+		return {"ok": false, "reason": "identity_disabled", "state": "unavailable"}
+	if not _identity_owner_ok(owner_id):
+		return {"ok": false, "reason": "unknown_owner", "state": "unavailable"}
+	if transponder_service == null:
+		return {"ok": false, "reason": "no_transponder_service",
+			"state": "unavailable"}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var prof_id := _transponder_profile_id_for(target_id)
+	if prof_id == "":
+		# 缺应答配置 → 明确 unavailable，绝不静默当友军
+		_route_identity_assessment(owner_id, target_id,
+			{"identity": "unknown", "confidence": 0.0, "manual": false,
+				"authorized": false, "sources": []},
+			{"source": "transponder"})
+		return {"ok": false, "reason": "no_transponder_profile",
+			"state": "unavailable", "target_id": target_id}
+	var mode := String(o.get("mode", ""))
+	var tq: Dictionary = transponder_service.interrogate("identification",
+		prof_id, mode, {"range_km": float(o.get("range_km", 0.0)),
+			"occluded": bool(o.get("occluded", false)),
+			"jam": float(o.get("jam", 0.0)),
+			"latency_s": float(o.get("latency_s", 0.0))})
+	_flush_transponder_outputs(tq.get("events", []), tq.get("evidence", []))
+	var reply = tq.get("reply", null)
+	var state := "no_reply"
+	var reply_identity := "unknown"
+	var status := ""
+	var spoofed := false
+	if reply is Dictionary and bool((reply as Dictionary).get("ok", false)):
+		var rp: Dictionary = reply
+		reply_identity = String(rp.get("identity", "unknown"))
+		status = String(rp.get("status", "normal"))
+		spoofed = bool(rp.get("spoofed", false))
+		if status in ["crypto_fail", "faulty", "off", "captured", "spoofed"]:
+			state = "jammed" if status == "jammed" else "no_reply"
+		else:
+			state = "valid"
+	else:
+		status = String(tq.get("reason", "no_reply"))
+		if float(o.get("jam", 0.0)) >= 0.7:
+			state = "jammed"
+	var ir: Dictionary = identity_ingest(owner_id, {
+		"target_id": target_id, "source": "transponder",
+		"identity": reply_identity,
+		"confidence": 0.5 if state == "valid" else 0.2,
+		"status": status, "mode": mode, "spoofed": spoofed,
+		"observed_t": now_s(),
+		"range_km": float(o.get("range_km", 0.0)),
+		"note": "iff_query"})
+	if not bool(ir.get("ok", false)):
+		return {"ok": false, "reason": String(ir.get("reason", "")),
+			"state": "unavailable", "target_id": target_id}
+	authority_intel.apply_identity(owner_id, target_id, {
+		"identity_iff_state": state, "identity_state": state})
+	var rec: Dictionary = authority_intel.identity_operational(owner_id, target_id)
+	return {"ok": true, "state": state, "identity": reply_identity,
+		"profile_id": prof_id, "reply_status": status,
+		"target_id": target_id, "owner_id": owner_id,
+		"operational": rec.duplicate(true)}
+
+
+func identity_manual_confirm(owner_id: String, target_id: String,
+		identity: String, opts := {}) -> Dictionary:
+	if not _identity_enabled:
+		return {"ok": false, "reason": "identity_disabled"}
+	if not _identity_owner_ok(owner_id):
+		return {"ok": false, "reason": "unknown_owner"}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var authority := String(o.get("authority", ""))
+	if not (authority in IDENTITY_MANUAL_AUTHORITIES):
+		return {"ok": false, "reason": "unauthorized",
+			"detail": "人工确认需要授权 authority"}
+	var svc = _identity_service_for(owner_id)
+	if svc == null:
+		return {"ok": false, "reason": "no_identity_service"}
+	var mo: Dictionary = {"authority": authority,
+		"operator": String(o.get("operator", "")),
+		"authorized": true, "confidence": float(o.get("confidence", 1.0))}
+	var mr: Dictionary = svc.manual_confirm(target_id, identity, mo)
+	if not bool(mr.get("ok", false)):
+		return mr
+	_identity_audit(owner_id, target_id, "manual_confirm", identity, authority)
+	var a: Dictionary = mr.get("assessment", {}) \
+		if mr.get("assessment") is Dictionary else {}
+	var routed := _route_identity_assessment(owner_id, target_id, a,
+		{"source": "manual", "force": true, "audited": true, "audit_ids": [_last_identity_audit_id]})
+	return {"ok": true, "assessment": a, "operational": routed,
+		"audit_ids": [_last_identity_audit_id]}
+
+
+func identity_manual_clear(owner_id: String, target_id: String) -> Dictionary:
+	if not _identity_enabled:
+		return {"ok": false, "reason": "identity_disabled"}
+	if not _identity_owner_ok(owner_id):
+		return {"ok": false, "reason": "unknown_owner"}
+	var svc = _identity_service_for(owner_id)
+	if svc == null:
+		return {"ok": false, "reason": "no_identity_service"}
+	var cr: Dictionary = svc.clear_manual(target_id)
+	if not bool(cr.get("ok", false)):
+		return cr
+	_identity_audit(owner_id, target_id, "manual_clear", "", "")
+	var a: Dictionary = cr.get("assessment", {}) \
+		if cr.get("assessment") is Dictionary else {}
+	var routed := _route_identity_assessment(owner_id, target_id, a,
+		{"source": "manual", "force": true})
+	return {"ok": true, "assessment": a, "operational": routed}
+
+
+func _identity_audit(owner_id: String, target_id: String, kind: String,
+		identity: String, authority: String) -> void:
+	if authority_intel == null:
+		return
+	_last_identity_audit_id = "IDA-%06d" % (
+		int((authority_intel.identity_audit as Array).size()) + 1)
+	(authority_intel.identity_audit as Array).append({"id": _last_identity_audit_id,
+		"kind": kind, "owner_id": owner_id, "target_id": target_id,
+		"identity": identity, "authority": authority,
+		"operator": "", "t": now_s()})
+
+
+func combat_identity(target_id: String) -> Dictionary:
+	var owner := _identity_own_owner()
+	var op: Dictionary = identity_operational(owner, target_id)
+	if bool(op.get("ok", false)):
+		return {"identity": String(op.get("identity", "unknown")),
+			"source": "operational_identity", "owner_id": owner,
+			"state": String(op.get("identity_state", "")),
+			"confidence": float(op.get("identity_confidence", 0.0))}
+	if combat_service != null:
+		var tr = combat_service.track(target_id)
+		if tr is Dictionary and not (tr as Dictionary).is_empty():
+			return {"identity": String(
+				(tr as Dictionary).get("identity", "unknown")),
+				"source": "combat_track"}
+	return {"identity": "unknown", "source": "none"}
+
+
+## 火控消费者边界：把 owner 操作性身份投影到 combat track（不新增真值库）。
+func _sync_combat_identity(target_id: String) -> void:
+	if combat_service == null:
+		return
+	var ci: Dictionary = combat_identity(target_id)
+	if String(ci.get("source", "")) != "operational_identity":
+		return
+	var tr = combat_service.track(target_id)
+	if not (tr is Dictionary) or (tr as Dictionary).is_empty():
+		return
+	if String((tr as Dictionary).get("identity", "")) \
+			!= String(ci.get("identity", "")):
+		combat_service.update_track(target_id, {
+			"identity": String(ci.get("identity", "unknown"))})
+
+
+func identity_report() -> Dictionary:
+	var owners: Dictionary = {}
+	for owner_id in _identity_owners.keys():
+		var svc = _identity_owners[owner_id]
+		owners[owner_id] = {"assessments": svc.assessments.size(),
+			"evidence_targets": svc.evidence_by_target.size()}
+	var ar: Dictionary = authority_intel.identity_report() \
+		if authority_intel != null else {"writes": {}}
+	return {"ok": true, "schema": "v17.identity_pipeline.v1",
+		"enabled": _identity_enabled, "owners": owners,
+		"writes": ar.get("writes", {}), "restore_mode": _identity_restore_mode,
+		"pending_queries": _identity_pending_queries.size(),
+		"audit": ar.get("audit", 0), "own_owner": _identity_own_owner()}
+
+
+## 推进所有 owner 计算器，并只在此处路由一次 assessment → 操作性身份。
+func _identity_advance_owners(sim_dt: float) -> Dictionary:
+	if not _identity_enabled:
+		return {"enabled": false}
+	var own := _identity_own_owner()
+	if own != "" and identification_service != null:
+		_identity_owners[own] = identification_service
+	var advanced := 0
+	for owner_id in _identity_owners.keys():
+		var svc = _identity_owners[owner_id]
+		if owner_id == own:
+			continue  # 本舰 owner 已由 _advance_identification 推进
+		svc.set_time(now_s() - maxf(0.0, float(sim_dt)))
+		svc.step(sim_dt)
+		advanced += 1
+	for owner_id2 in _identity_owners.keys():
+		var svc2 = _identity_owners[owner_id2]
+		for target_id in svc2.assessments.keys():
+			var tid2 := String(target_id)
+			var a: Dictionary = svc2.get_assessment(tid2)
+			if a.is_empty():
+				continue
+			# 保留已有 TTL/采样时刻（tick 重算不得把 TTL 清成 0）
+			var prev2: Dictionary = authority_intel.identity_operational(
+				String(owner_id2), tid2) if authority_intel != null else {}
+			var meta2 := {"source": "tick"}
+			if not prev2.is_empty():
+				meta2["observed_t"] = float(prev2.get("identity_observed_t", now_s()))
+				meta2["ttl_s"] = float(prev2.get("identity_ttl_s", 0.0))
+			_route_identity_assessment(String(owner_id2), tid2, a, meta2)
+	if authority_intel != null:
+		authority_intel.identity_advance(now_s())
+	return {"enabled": true, "owners": _identity_owners.size(),
+		"advanced": advanced}
+
 func identification_enabled() -> bool:
 	return identification_service != null
 
@@ -4824,6 +5310,9 @@ func save_state() -> String:
 		"facility_registry": facility_registry.to_dict() if facility_registry != null else null,
 		"transponder_service": transponder_service.save_state() if transponder_service != null else "",
 		"identification_service": identification_service.save_state() if identification_service != null else "",
+		# JC-A02：每 owner 计算器状态（不含本舰 owner，其状态在 identification_service 段）+ 待处理查询
+		"identity_owners": _identity_owners_export(),
+		"identity_pending_queries": JSON.parse_string(JSON.stringify(_identity_pending_queries)),
 		"legal_status_service": legal_status_service.save_state() if legal_status_service != null else "",
 		"traffic_control": traffic_control.save_state() if traffic_control != null else "",
 		"combat_ballistics": combat_ballistics.save_state() if combat_ballistics != null else "",
@@ -4990,6 +5479,8 @@ func load_state(json_text: String) -> Dictionary:
 			var idr: Dictionary = identification_service.load_state(saved_idf)
 			if not bool(idr.get("ok", false)):
 				replay_errors.append("identification_service 快照恢复失败：" + str(idr.get("errors", [])))
+	# JC-A02：owner 身份管道恢复（旧档只有单实例 → legacy_single_owner 迁移）
+	_identity_restore_identity(data)
 	var saved_legal = data.get("legal_status_service", null)
 	if saved_legal != null and String(saved_legal) != "":
 		if legal_status_service == null:
@@ -5297,6 +5788,7 @@ func load_state(json_text: String) -> Dictionary:
 		# R5：授权/情报恢复模式与原因公开可读
 		"authority_restore_mode": _authority_restore_mode,
 		"authority_restore_reasons": _authority_restore_reasons.duplicate(),
+		"identity_restore_mode": _identity_restore_mode,
 		"pending_intel_shares": _pending_intel_shares.size()}
 
 
@@ -6093,3 +6585,84 @@ func _apply_hidden_truth_mutation(entity_id: String, new_id: String,
 		"moved_surfaces": moved, "truth_changed": changed or physics_changed,
 		"world_changed": changed, "physics_changed": physics_changed,
 		"before": before, "after": after, "intel_notified": false}
+# ── JC-A02：owner 身份管道的存档/恢复 ─────────────────────────────
+
+func _identity_owners_export() -> Dictionary:
+	var out: Dictionary = {}
+	for owner_id in _identity_owners.keys():
+		if owner_id == _identity_own_owner():
+			continue  # 本舰 owner 状态已写入 identification_service 段
+		var svc = _identity_owners[owner_id]
+		out[String(owner_id)] = svc.save_state()
+	return out
+
+
+func _identity_restore_identity(data: Dictionary) -> void:
+	if not _identity_enabled:
+		_identity_restore_mode = "disabled"
+		return
+	var own := _identity_own_owner()
+	if own != "" and identification_service != null:
+		_identity_owners[own] = identification_service
+	var raw = data.get("identity_owners", null)
+	if raw is Dictionary:
+		_identity_restore_mode = "full"
+		for owner_id in (raw as Dictionary).keys():
+			if String(owner_id) == own:
+				continue
+			if not _identity_owner_ok(String(owner_id)):
+				continue
+			var svc = _identity_service_for(String(owner_id))
+			if svc == null:
+				continue
+			var state = (raw as Dictionary)[owner_id]
+			if state is String and String(state) != "":
+				svc.load_state(state)
+	else:
+		# 旧单实例存档：只迁移到本舰 owner（不复制到盟军/敌方）
+		_identity_restore_mode = "legacy_single_owner"
+	var raw_q = data.get("identity_pending_queries", null)
+	_identity_pending_queries = {}
+	if raw_q is Dictionary:
+		for owner_id2 in (raw_q as Dictionary).keys():
+			var rows = (raw_q as Dictionary)[owner_id2]
+			if rows is Array and _identity_owner_ok(String(owner_id2)):
+				_identity_pending_queries[String(owner_id2)] = (rows as Array).duplicate(true)
+# ── JC-A02：scenario 应答配置安装（缺失保留明确 unavailable，不静默全友军）──
+func _install_scenario_transponders() -> void:
+	if transponder_service == null:
+		return
+	var ents = _seed.get("entities", [])
+	if not (ents is Array):
+		return
+	for raw in (ents as Array):
+		if not (raw is Dictionary):
+			continue
+		var e: Dictionary = raw
+		var tpl := String(e.get("transponder_profile", ""))
+		var eid := String(e.get("id", ""))
+		if tpl == "" or eid == "":
+			continue
+		if _transponder_profile_id_for(eid) != "":
+			continue
+		# 应答声明单独字段；没有就如实 unknown（不用隐藏 side/identity 解题）
+		var claimed := String(e.get("transponder_claimed_identity", "unknown"))
+		var ur: Dictionary = transponder_service.upsert_profile({
+			"profile_id": tpl + ":" + eid,
+			"name": String(e.get("name", eid)),
+			"entity_type": String(e.get("kind", "ship")),
+			"entity_id": eid, "facility_id": "", "facility_code": "",
+			"transponder_code": "TXP-" + eid.to_upper(),
+			"registration_code": "REG-" + eid.to_upper(),
+			"side": "unknown", "identity": claimed,
+			"modes": ["mode_s"], "default_mode": "mode_s",
+			"status": "normal", "range_km": 5000.0, "silent": false,
+			"broadcast": {"interval_s": 30.0, "modes": ["mode_s"],
+				"enabled": false},
+			"crypto": {"captured": false, "epoch": 1, "valid": true,
+				"key_id": ""},
+			"trigger_map": {}, "note": "scenario claimed transponder profile"})
+		if not bool(ur.get("ok", false)):
+			warnings.append("scenario transponder 安装失败：" + eid + " " + str(
+				ur.get("errors", []))) 
+

@@ -1990,7 +1990,31 @@ func ident_view(row: Dictionary, with_evidence := false) -> Dictionary:
 		"auto_on": ident_auto_on(), "evidence": [], "tag": "—", "warn": false}
 	if not ident_enabled() or tid == "":
 		return out
-	var a: Dictionary = session.identification_get(tid)
+	# JC-A02：HUD 优先读该 owner 的操作性身份（与火控同一结果）
+	var owner_hint := _intel_owner()
+	var op: Dictionary = {}
+	if session.has_method("identity_operational"):
+		op = session.identity_operational(owner_hint, tid)
+	var a: Dictionary = {}
+	if not op.is_empty() and bool(op.get("ok", false)):
+		var contradictions: Array = []
+		if String(op.get("identity_state", "")) == "conflict":
+			contradictions.append("conflict")
+		a = {"identity": String(op.get("identity", "unknown")),
+			"confidence": float(op.get("identity_confidence", 0.0)),
+			"level": int(op.get("identity_level", 1)),
+			"level_name": "L%d_OPERATIONAL" % int(op.get("identity_level", 1)),
+			"sources": (op.get("identity_sources", []) as Array).duplicate() \
+				if op.get("identity_sources") is Array else [],
+			"evidence_count": int(op.get("identity_evidence_count", 0)),
+			"manual": bool(op.get("identity_manual", false)),
+			"authorized": bool(op.get("identity_authorized", false)),
+			"manual_identity": String(op.get("identity", "")) \
+				if bool(op.get("identity_manual", false)) else "",
+			"contradictions": contradictions,
+			"manual_t": float(op.get("identity_updated_t", 0.0))}
+	else:
+		a = session.identification_get(tid)
 	if a.is_empty():
 		return out
 	out["known"] = true

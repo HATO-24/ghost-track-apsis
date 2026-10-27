@@ -794,6 +794,19 @@
       "timeout_s": 300
     },
     {
+      "id": "integration.jc_identity_pipeline",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "JC-A02 (#59): multi-source identity convergence and IFF loop; four evidence sources normalize per owner; single operational-identity writer; duplicate suppressed; conflict/TTL/late evidence; IFF valid/no_reply/unavailable/jammed; manual confirm authorized/auditable/no fire grant/revoke; owner isolation; HUD and fire control read the same identity; legacy migration and file restore consistent across 10 ticks.",
+      "script": "res://tests/jc_identity_pipeline_probe.gd",
+      "expected_markers": [
+        "JC-A02 IDENTITY PIPELINE PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 420
+    },
+    {
       "id": "integration.jc_authority_intel",
       "category": "integration",
       "profile": "",
