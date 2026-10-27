@@ -1,0 +1,14 @@
+[
+  {
+    "command": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path ./game_v17 --script ./.test-results/sol-a02-r2/sources/source_consumer_audit.gd",
+    "exit_code": 1,
+    "executed_diagnostic": false,
+    "reason": "Relative script resolved under res:// and was not found; corrected to absolute filesystem script path."
+  },
+  {
+    "command": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path ./game_v17 --script C:/Users/ASUS/.codex/worktrees/jc-a02-r2-validation/GHOST TRACK_APSIS/.test-results/sol-a02-r2/sources/source_consumer_audit.gd",
+    "exit_code": 0,
+    "executed_diagnostic": true,
+    "reason": "Diagnostic completed; exit 0 is not an acceptance result."
+  }
+]

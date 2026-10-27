@@ -1,0 +1,28 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE3R PROBE · IdentificationService
+════════════════════════════════════════════════════════════
+
+── 1 setup/融合 ──
+
+── 2 hostile/矛盾/欺骗 ──
+
+── 3 L3/L4/manual ──
+
+── 4 衰减/重复 ──
+
+── 5 自动询问 ──
+
+── 7 批量矩阵 ──
+────────────────────────────────────────────────────────────
+[DATA] setup/fusion = 单源 L3/双源独立 L4 · friend/neutral/station/unknown · 非法证据原子拒绝
+[DATA] contradiction = IFF 单独/双源 hostile 仍 suspect · 冲突→suspect · spoofed/captured 降级
+[DATA] levels = 自动最高 L3 · 双类高置信 L4 · manual/authorize hostile L4 · clear/state
+[DATA] decay = 重复抑制 · step 衰减/age · ttl 过期清证据 → unknown/L1 · 非法 dt
+[DATA] auto = interval/priority/mode · range/LOS/EMCON 允许 · manual 跳过 · 无武器
+[DATA] matrix = 5 身份×4 来源 · source→category · 冲突对 · L4 置信边界 · auto 多目标过滤
+────────────────────────────────────────────────────────────
+V17 IDENTIFICATION PROBE RESULT: PASS=310 FAIL=0
+V17 IDENTIFICATION PROBE OK
+AUDIO OK files=36 headless=true muted=false

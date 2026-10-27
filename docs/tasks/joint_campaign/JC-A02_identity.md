@@ -2,7 +2,20 @@
 
 执行Issue：[JC-A02 #59](https://github.com/HATO-24/ghost-track-apsis/issues/59)。
 
-状态：RETURNED，PR68首轮真实入口未闭环；A1已完成，A2不冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：RETURNED，PR68第二轮仅剩实际消费者两处；A1已完成，A2不冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-28 PR68第二轮：关闭大部分残项，仅消费者收口
+
+候选 `4a658699868b8d046ec5472f9c4b9ea204af6be9`。[本轮关闭项与证据](../../reviews/pr68_a02_r2_20261028/review.md)。根七专项7/7、新110/0；CI合成merge full89=82/7、new_fail0、complete=true。继续原#59，PR68不合并。
+
+**不再重做**：R1来源owner/单次消费/ELINT类别；R2真实Binder与新旧人工权限/审计；R4合法迟到不污染、过期有效性与火控unknown、别名一致；R5冲突与IFF态分离、真实遮挡原因、自然API延迟队列实际文件恢复后10tick逐项一致。A1完成保留。
+
+仅剩：
+
+1. **原R3真实T0001映射**：实际HUD._seed_combat_tracks种入的T0001映射字段为空，entity raider_2已friend但fire仍unknown。_entity_for_track未反查sensor map，物理已解析的target_entity未供身份同步。正式R12手工预填映射没有覆盖原路径；须接真实映射并以实际HUD入口验收，保留预填字段/实体键正例。不声称已有真实发射。
+2. **原R4实际HUD有效性**：服务/火控已过，Binder有expired/valid=false/effective_unknown，但普通HUD仍取raw identity绘制FRIEND。接有效身份或明确最后已知/失效区分，历史原值可保留；不重做TTL算法或新开全屏UI。state评估态与validity时效可不同，不把stale保留friend单独当新问题。
+
+只补这两个消费者及真实入口回归，已关闭项不重派；最终同SHA原C和七历史baseline规则不变。#60继续WAIT A2。下方首轮五组为历史，以本轮关闭/剩余表为准。
 
 ## 2026-10-27 PR68首轮复核：继续原#59五组收尾
 
