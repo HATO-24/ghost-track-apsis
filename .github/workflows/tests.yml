@@ -509,6 +509,9 @@ jobs:
           # was removed (an empty -BaselineExtra would be rejected). Only the Phase 0 legacy
           # baseline remains (7 entries after evidence-based green transitions).
           pwsh -NoProfile -File ./run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json -GodotBin $env:GODOT_CONSOLE
+          # R6/D：必须把 runner 的真实退出码传给 job；旧写法未给 $code 赋值，
+          # 导致 full 失败被吞成 job success。
+          $code = $LASTEXITCODE
           Write-Host "FULL_MATRIX_EXIT=$code"
           exit $code
 

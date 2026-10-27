@@ -642,11 +642,12 @@ func _ident_message(kind: String, res: Dictionary, row: Dictionary) -> String:
 
 func _optical_entity_line(row: Dictionary, tr: Dictionary) -> String:
 	var disp: Dictionary = _contact_display(row)
-	var track_label := "TRACK NOT READY"
-	var tid := String(tr.get("track_id", "")) if not tr.is_empty() else String(row.get("track_id", ""))
-	if tid != "":
-		track_label = "TRACK " + tid
-	return "ENTITY/TRACK %s · %s" % [String(disp.get("id", "UNKNOWN")), track_label]
+	# JC-A01/R3.3：人类可见标签只用安全显示标识；内部 track_id/entity_id
+	# 仍保留在非显示字段与操作路由里，但不得拼进可见文本（否则泄露内部真值 ID）。
+	var label := String(disp.get("display_name", disp.get("name", "UNKNOWN TRACK")))
+	if label == "" or label == "UNKNOWN TRACK":
+		label = "UNKNOWN TRACK"
+	return "ENTITY/TRACK %s · %s" % [String(disp.get("id", "UNKNOWN")), label]
 
 
 func _command_target_text(c: Dictionary) -> String:
@@ -714,6 +715,12 @@ func _select_preserving(preferred_id := "") -> void:
 	if old_id == "" and _selected >= 0 and _selected < _contacts.size():
 		old_id = String((_contacts[_selected] as Dictionary).get("id", ""))
 	_normalize_contacts()
+	# JC-A01/R3b：空/未知情报是合法输入（owner 隔离下可能没有任何接触），
+	# 不能对空数组取 index 0 造成真实越界。
+	if _contacts.is_empty():
+		_selected = -1
+		_comms_target = ""
+		return
 	_selected = 0
 	if old_id != "":
 		for i in range(_contacts.size()):

@@ -351,12 +351,25 @@ func _run() -> void:
 		if raw_c is Dictionary:
 			var c: Dictionary = raw_c
 			c_by_entity[String(c.get("entity_id", c.get("id", "")))] = c
-	var missing_contacts: Array = []
+	# JC-A01/R3b：owner 隔离后，内部元数据仍覆盖全部实体，但玩家可见 contacts
+	# 只应是"玩家已知子集"；不能要求全部实体都有 contact（那等于用世界真值补齐）。
+	var meta_missing: Array = []
 	for eid in _truth_ids:
-		if not c_by_entity.has(eid):
-			missing_contacts.append(eid)
-	_ok(missing_contacts.is_empty(), "all 7 scenario entities have a contact row",
-		"missing=" + str(missing_contacts))
+		var meta: Dictionary = {}
+		if _session != null and _session.has_method("entity_metadata"):
+			meta = _session.entity_metadata(eid)
+		if meta.is_empty():
+			meta_missing.append(eid)
+	_ok(meta_missing.is_empty(), "internal metadata covers all 7 scenario entities",
+		"missing=" + str(meta_missing))
+	var unknown_contact_entities: Array = []
+	for ceid in c_by_entity.keys():
+		var ce := String(ceid)
+		if ce != "" and not (ce in _truth_ids):
+			unknown_contact_entities.append(ce)
+	_ok(unknown_contact_entities.is_empty(),
+		"player contacts are a subset of scenario entities (no truth-fill)",
+		str(unknown_contact_entities))
 	# 8a. 无证据实体不得静默回退 friend
 	var friend_fallback: Array = []
 	for eid in _truth_ids:

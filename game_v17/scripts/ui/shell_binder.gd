@@ -569,7 +569,12 @@ func refresh() -> void:
 	story_vm = session.story_vm() if session.story_state != null else {}
 	sensor_vm = session.sensor_service.vm() if session.sensor_service != null else {}
 	_refresh_cic()
-	contacts = _build_contacts()
+	# JC-A01/R3b：玩家可见 contacts 只走**分方情报 facade**（owner 隔离），
+	# 不再使用全局 track_vm / snapshot 真值补齐。无情报即空。
+	if session.has_method("intel_view"):
+		contacts = _build_contacts_from_intel(_intel_owner())
+	else:
+		contacts = _build_contacts()
 	_sync_signal_targets()
 	commands = _build_commands()
 	events = session.bus.recent(8) if session.bus != null else []
@@ -583,6 +588,75 @@ func refresh() -> void:
 	else:
 		roe_text = "ROE NOT READY · story_state 未启用"
 	delta_v_ready = delta_v_ready and delta_v_mps > 0.0
+
+
+func _intel_owner() -> String:
+	if session == null:
+		return "player_intel"
+	if session.has_method("intel_owner_of"):
+		var own_hint := ""
+		if session.has_method("own_entity_id"):
+			own_hint = String(session.call("own_entity_id"))
+		var oe := String(session.call("intel_owner_of", own_hint))
+		if oe != "":
+			return oe
+	return "player_intel"
+
+
+## JC-A01/R3b：玩家 contacts 只来自 owner 隔离视图（无情报 = 空，不补真值）。
+func _build_contacts_from_intel(owner_id: String) -> Array:
+	var rows: Array = []
+	if session == null or not session.has_method("intel_view"):
+		return rows
+	var iv: Dictionary = session.intel_view(owner_id)
+	for raw in (iv.get("tracks", []) as Array):
+		if not (raw is Dictionary):
+			continue
+		var tr: Dictionary = raw
+		var tid := String(tr.get("id", ""))
+		if tid == "":
+			continue
+		var identity := String(tr.get("identity", "unknown")).to_lower()
+		var tside := identity
+		var ttype := "unknown"
+		# 证据管线已有的 track↔entity 映射（玩家已知证据），不读世界真值
+		var eid_map := ""
+		if session.has_method("_entity_for_track"):
+			eid_map = String(session.call("_entity_for_track", tid))
+		if tside in ["friend", "friendly"]:
+			ttype = "friendly"
+		elif tside == "neutral":
+			ttype = "neutral"
+		var disp_id := "TRACK-%03d" % (rows.size() + 1)
+		var row := {
+			"id": disp_id, "entity_id": eid_map, "track_id": tid,
+			"name": "UNKNOWN TRACK",
+			"cls": "TRACK L0",
+			"type": ttype, "side": tside, "identity": identity,
+			"threat": String(tr.get("threat", "unknown")), "badge": "TRACK",
+			"level": int(tr.get("level", 0)),
+			"range_km": float(tr.get("range_km", -1.0)),
+			"sources": [String(tr.get("source", "intel"))],
+			"side_source": "intel_view", "identity_source": "intel_view",
+			"display_id": disp_id, "display_name": "UNKNOWN TRACK",
+			"display_class": "TRACK L0", "display_source": "intel_view",
+			"batch_internal": tid,
+			"intel_owner_id": owner_id,
+			"observed_t": float(tr.get("last_observed_t", 0.0)),
+			"pos_km": (tr.get("pos_km", []) as Array).duplicate() \
+				if tr.get("pos_km") is Array else [],
+		}
+		var iv2: Dictionary = ident_view(row)
+		row["ident"] = {"known": bool(iv2.get("known", false)),
+			"identity": String(iv2.get("identity", "unknown")),
+			"confidence": float(iv2.get("confidence", 0.0)),
+			"tag": String(iv2.get("tag", "—")), "warn": bool(iv2.get("warn", false)),
+			"manual": bool(iv2.get("manual", false)),
+			"enabled": bool(iv2.get("enabled", false)),
+			"contradictions": (iv2.get("contradictions", []) as Array).size(),
+			"spoof": float(iv2.get("spoof", 0.0))}
+		rows.append(row)
+	return rows
 
 
 func _build_contacts() -> Array:
@@ -901,6 +975,17 @@ func _sync_signal_targets() -> void:
 
 
 func selected_entity(row: Dictionary) -> Dictionary:
+	# JC-A01/R3b：有情报 facade 时，实体详情也只能来自**该 owner 的航迹**，
+	# 不得从全局 snapshot 真值补 name/batch/ship_class。
+	if session != null and session.has_method("intel_view"):
+		var tr0 := selected_track(row)
+		if tr0.is_empty():
+			return {}
+		return {"id": String(tr0.get("id", "")),
+			"entity_id": String(tr0.get("id", "")),
+			"intel_owner_id": String(tr0.get("intel_owner_id", "")),
+			"source": "intel_view",
+			"observed_t": float(tr0.get("last_observed_t", 0.0))}
 	var eid := String(row.get("entity_id", ""))
 	for raw in (snapshot.get("entities", []) if snapshot.get("entities", []) is Array else []):
 		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == eid:
@@ -910,6 +995,19 @@ func selected_entity(row: Dictionary) -> Dictionary:
 
 func selected_track(row: Dictionary) -> Dictionary:
 	var tid := String(row.get("track_id", ""))
+	if tid == "":
+		tid = String(row.get("id", ""))
+	# JC-A01/R3b：有 facade 时只从该 owner 视图取 selected 详情（不读全局 track_vm），
+	# 未共享的盟军/隐藏目标即使存在于全局 TrackTable 也不可见。
+	if session != null and session.has_method("intel_view"):
+		var owner := _intel_owner()
+		var iv: Dictionary = session.intel_view(owner)
+		for raw in (iv.get("tracks", []) as Array):
+			if raw is Dictionary:
+				var tr: Dictionary = raw
+				if String(tr.get("id", "")) == tid:
+					return tr
+		return {}
 	for raw in (track_vm.get("tracks", []) if track_vm.get("tracks", []) is Array else []):
 		if raw is Dictionary and String((raw as Dictionary).get("track_id", "")) == tid:
 			return raw
@@ -1512,6 +1610,26 @@ func physics_world_ready() -> bool:
 
 
 func plot_positions() -> Dictionary:
+	# JC-A01：玩家绘图只能读**本舰域情报视图**，不得直出物理真值。
+	# 真实弹体/物理解算仍可读内部真值，但不随玩家视图外泄。
+	if session != null and session.has_method("plot_positions"):
+		var owner_id := _intel_owner()
+		var iv: Dictionary = session.plot_positions(owner_id)
+		var positions: Array = []
+		for raw in (iv.get("positions", []) as Array):
+			var row: Dictionary = raw
+			var p: Array = row.get("pos_km", []) if row.get("pos_km") is Array else []
+			if p.size() >= 3:
+				positions.append({"id": String(row.get("id", "")),
+					"pos_km": [float(p[0]), float(p[1]), float(p[2])],
+					"vel_kmps": [],
+					"observed_t": float(row.get("observed_t", 0.0))})
+		if not positions.is_empty():
+			return {"source": "intel", "reference": owner_id,
+				"positions": positions, "reference_pos": [0.0, 0.0, 0.0]}
+		# R3a：有情报 facade 时**空就是空**，不得回退到物理真值/snapshot 补齐。
+		return {"source": "intel", "reference": owner_id,
+			"positions": [], "reference_pos": [0.0, 0.0, 0.0]}
 	var out: Dictionary = {"source": "contacts", "reference": "apsis", "positions": [], "reference_pos": [0.0, 0.0, 0.0]}
 	var ref: Array = [0.0, 0.0, 0.0]
 	var physics := physics_world_ready()

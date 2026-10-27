@@ -1,0 +1,51 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+JC-A01 AUTHORITY/INTEL PROBE · 指挥权限 + 分方情报隔离
+════════════════════════════════════════════════════════════════
+
+[A01] STEP R1 显式无效 shooter 不得回退本舰
+[A01] PASS session ready  []
+[A01] PASS R1 未知 shooter 必须拒绝（当前会回退本舰发起）  no_physics_state
+[A01] PASS R1 拒绝时资源/弹体不得变化  before={"projectiles":0,"salvo":-1} after={"projectiles":0,"salvo":-1}
+
+[A01] STEP R1b 敌方/友军 shooter 直接命令必须拒绝
+[A01] PASS 敌方 shooter 拒绝  no_physics_state
+[A01] PASS 友军直接命令拒绝  no_physics_state
+
+[A01] STEP R1d 合法自有舰授权仍可发起（正例）
+[A01] FAIL 自有舰授权射击成功  (no_physics_state)
+
+[A01] STEP R1e 合法旧调用（无 shooter）只映射本舰
+[A01] FAIL 旧调用仍可发射  (no_physics_state)
+[A01] FAIL 旧调用 shooter 固定为本舰（不借其他舰）  (actual= expected=own_ship)
+[A01] FAIL 旧调用记录 legacy context  (actual= expected=own_ship)
+
+[A01] STEP R3 分方情报：三 owner 观测必须隔离
+[A01] FAIL 存在 owner 隔离读入口 intel_view(owner_id)
+
+[A01] STEP R2 玩家 plot 不得直出物理真值
+[A01] FAIL 存在 owner 限定的 plot_positions(owner_id)
+
+[A01] STEP R2b 隐藏目标改名/改坐标但合法观测不变 → 玩家视图不变
+[A01] FAIL intel_view 可用于视图不变性对照
+
+[A01] STEP R4 存档/恢复：owner 航迹与授权 context 一致
+
+[A01] STEP R5 拒绝审计可记录且不消耗资源
+[A01] FAIL 存在 fire_audit() 审计入口
+
+[A01] STEP 总结
+[A01] INFO 本探针只验证指挥授权与分方情报边界；不实现 AI/逐舰战斗账本
+────────────────────────────────────────────────────────────────
+JC-A01 AUTHORITY INTEL PROBE RESULT: PASS=5 FAIL=8
+[A01] FAILED: 自有舰授权射击成功  (no_physics_state)
+[A01] FAILED: 旧调用仍可发射  (no_physics_state)
+[A01] FAILED: 旧调用 shooter 固定为本舰（不借其他舰）  (actual= expected=own_ship)
+[A01] FAILED: 旧调用记录 legacy context  (actual= expected=own_ship)
+[A01] FAILED: 存在 owner 隔离读入口 intel_view(owner_id)
+[A01] FAILED: 存在 owner 限定的 plot_positions(owner_id)
+[A01] FAILED: intel_view 可用于视图不变性对照
+[A01] FAILED: 存在 fire_audit() 审计入口
+JC-A01 AUTHORITY INTEL PROBE FAILED
+AUDIO OK files=36 headless=true muted=false
