@@ -720,3 +720,108 @@ func to_dict() -> Dictionary:
 
 func to_json() -> String:
 	return JSON.stringify(vm())
+
+# ── JC-A01/R4：在途投递与链路状态的存档/恢复 ─────────────────────
+# 旧实现只保存会话其他组件，Comms.pending 丢失会被误判为「已送达」。
+const STATE_SCHEMA := "v17.comms.state.v1"
+const STATE_VERSION := 1
+
+
+func export_state() -> Dictionary:
+	var pend: Array = []
+	for raw in pending:
+		if raw is Dictionary:
+			pend.append((raw as Dictionary).duplicate(true))
+	# 链路运行态（enabled/jam/occluded）按 a/b/mode 稳定键保存
+	var link_rows: Array = []
+	for raw2 in links:
+		if not (raw2 is Dictionary):
+			continue
+		var l: Dictionary = raw2
+		link_rows.append({"a": String(l.get("a", "")), "b": String(l.get("b", "")),
+			"mode": String(l.get("mode", "")),
+			"enabled": bool(l.get("enabled", true)),
+			"jam": float(l.get("jam", 0.0)),
+			"occluded": bool(l.get("occluded", false))})
+	var node_rows: Dictionary = {}
+	for nid in nodes.keys():
+		var n: Dictionary = nodes[nid]
+		node_rows[String(nid)] = {"status": String(n.get("status", "ok")),
+			"enabled": bool(n.get("enabled", true)),
+			"damage": float(n.get("damage", 0.0))}
+	return {"schema": STATE_SCHEMA, "version": STATE_VERSION,
+		"t": t, "dt_last": dt_last, "step_count": step_count,
+		"delivery_seq": _delivery_seq, "event_seq": _event_seq,
+		"pending": JSON.parse_string(JSON.stringify(pend)),
+		"links": link_rows, "nodes": node_rows}
+
+
+## 全量校验后再提交；失败不改运行态。
+func load_state(st) -> Dictionary:
+	if st == null:
+		return {"ok": true, "restore_mode": "absent", "pending": pending.size()}
+	if not (st is Dictionary):
+		return {"ok": false, "reason": "invalid_state_type"}
+	var s: Dictionary = st
+	if String(s.get("schema", "")) != STATE_SCHEMA:
+		return {"ok": false, "reason": "invalid_schema"}
+	if int(s.get("version", 0)) != STATE_VERSION:
+		return {"ok": false, "reason": "invalid_version"}
+	for fld in ["t", "dt_last"]:
+		var v = s.get(fld, null)
+		if not (v is int or v is float) or not is_finite(float(v)) or float(v) < 0.0:
+			return {"ok": false, "reason": "invalid_state", "errors": [fld]}
+	for fld2 in ["step_count", "delivery_seq", "event_seq"]:
+		var v2 = s.get(fld2, null)
+		if v2 != null and (not (v2 is int or v2 is float) or not is_finite(float(v2))
+				or float(v2) < 0.0):
+			return {"ok": false, "reason": "invalid_state", "errors": [fld2]}
+	var raw_pending = s.get("pending", [])
+	if not (raw_pending is Array):
+		return {"ok": false, "reason": "invalid_state", "errors": ["pending"]}
+	var new_pending: Array = []
+	for raw3 in (raw_pending as Array):
+		if not (raw3 is Dictionary):
+			return {"ok": false, "reason": "invalid_state", "errors": ["pending item"]}
+		var rec: Dictionary = (raw3 as Dictionary).duplicate(true)
+		if String(rec.get("delivery_id", "")) == "":
+			return {"ok": false, "reason": "invalid_state",
+				"errors": ["pending.delivery_id"]}
+		var at = rec.get("arrive_t", null)
+		if not (at is int or at is float) or not is_finite(float(at)):
+			return {"ok": false, "reason": "invalid_state",
+				"errors": ["pending.arrive_t"]}
+		new_pending.append(rec)
+	# 提交
+	t = float(s.get("t", 0.0))
+	dt_last = float(s.get("dt_last", 0.0))
+	step_count = maxi(step_count, int(s.get("step_count", step_count)))
+	_delivery_seq = maxi(_delivery_seq, int(s.get("delivery_seq", _delivery_seq)))
+	_event_seq = maxi(_event_seq, int(s.get("event_seq", _event_seq)))
+	pending = new_pending
+	var raw_links = s.get("links", [])
+	if raw_links is Array:
+		for raw4 in (raw_links as Array):
+			if not (raw4 is Dictionary):
+				continue
+			var lr: Dictionary = raw4
+			for idx in range(links.size()):
+				var l2: Dictionary = links[idx]
+				if String(l2.get("a", "")) == String(lr.get("a", "")) \
+						and String(l2.get("b", "")) == String(lr.get("b", "")) \
+						and String(l2.get("mode", "")) == String(lr.get("mode", "")):
+					l2["enabled"] = bool(lr.get("enabled", true))
+					l2["jam"] = clampf(float(lr.get("jam", 0.0)), 0.0, 1.0)
+					l2["occluded"] = bool(lr.get("occluded", false))
+					break
+	var raw_nodes = s.get("nodes", {})
+	if raw_nodes is Dictionary:
+		for nid2 in (raw_nodes as Dictionary).keys():
+			if nodes.has(String(nid2)) and (raw_nodes as Dictionary)[nid2] is Dictionary:
+				var nr: Dictionary = (raw_nodes as Dictionary)[nid2]
+				var n2: Dictionary = nodes[String(nid2)]
+				n2["status"] = String(nr.get("status", n2.get("status", "ok")))
+				n2["enabled"] = bool(nr.get("enabled", n2.get("enabled", true)))
+				n2["damage"] = float(nr.get("damage", n2.get("damage", 0.0)))
+	return {"ok": true, "restore_mode": "full", "pending": pending.size(),
+		"t": t}

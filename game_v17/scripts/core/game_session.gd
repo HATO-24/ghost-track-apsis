@@ -1385,6 +1385,9 @@ func tick(dt: float) -> Dictionary:
 		warnings.append("orders tick 失败：" + str(ot.get("reason", "")))
 	_flush_order_events()
 	_advance_components(sim_dt)
+	# JC-A01/R3 剩余：每 owner 航迹老化/忘却（与 TrackTable 同一合同，只作用于该 owner）
+	if _authority_enabled and authority_intel != null:
+		authority_intel.advance(now_s())
 	var ballistics_step: Dictionary = _advance_ballistics(sim_dt)
 	var sensor_route: Dictionary = _advance_sensors(sim_dt)
 	var signal_step: Dictionary = _advance_signal(sim_dt)
@@ -4815,6 +4818,8 @@ func save_state() -> String:
 		# 静态 mounts/targets 与 provider 对象不入档（读档后从原权威重建/重新注入）。
 		"sensor_service": sensor_service.export_state() if sensor_service != null else null,
 		"signal_service": signal_service.save_state() if signal_service != null else "",
+		# JC-A01/R4：Comms 在途队列/ETA/链路状态（恢复后不得把丢失当送达）
+		"comms": comms.export_state() if comms != null else null,
 		"ew_service": ew_service.save_state() if ew_service != null else "",
 		"facility_registry": facility_registry.to_dict() if facility_registry != null else null,
 		"transponder_service": transponder_service.save_state() if transponder_service != null else "",
@@ -4883,6 +4888,12 @@ func load_state(json_text: String) -> Dictionary:
 			replay_errors.append("replay %s 失败：%s" % [str((raw as Dictionary).get("op", "")),
 				str(res.get("reason", ""))])
 	# 恢复可选组件快照（新存档才有；旧存档缺字段 → 兼容、组件保持退化）
+	# JC-A01/R4：Comms 在途状态必须在 replay 之后按存档权威恢复，
+	# 否则「队列项消失」会被 _reconcile_standalone 误判为已送达。
+	if comms != null and data.has("comms"):
+		var cr: Dictionary = comms.load_state(data.get("comms"))
+		if not bool(cr.get("ok", false)):
+			replay_errors.append("comms 状态恢复失败：" + str(cr.get("reason", "")))
 	var saved_track = data.get("track_table", null)
 	var saved_story = data.get("story", null)
 	if saved_track != null:

@@ -461,6 +461,103 @@ func _run() -> void:
 		"继续 10 tick 后观测条数一致（在途共享各到达一次）")
 	_ok(("target_b" in ids10), "恢复后在途共享确实到达接收方", str(ids10))
 
+	_step("R3 剩余：owner 航迹老化（>30s 标旧，>300s 忘却；新观测刷新）")
+	var sA = GS.new(_seed())
+	var trA0: Dictionary = sA.tick(TICK_DT)
+	_ok(bool(trA0.get("ok", false)), "aging fixture tick ok")
+	sA.receive_intel_observation("player_intel", {
+		"observation_id": "OBS-AGE", "observer_id": "own_ship",
+		"target_id": "target_age", "sensor": "radar", "source": "radar",
+		"observed_t": float(sA.now_s()), "quality": 0.8,
+		"range_km": 500.0, "bearing_deg": 90.0})
+	var vA0: Dictionary = sA.intel_view("player_intel")
+	var tA0: Dictionary = _track(vA0, "target_age")
+	_ok(not tA0.is_empty(), "aging: fresh track present")
+	_eq(bool(tA0.get("stale", false)), false, "aging: fresh track not stale")
+	# 推进到 >30s
+	var guard := 0
+	while float(sA.now_s()) < 32.0 and guard < 64:
+		sA.tick(TICK_DT)
+		guard += 1
+	var tA1: Dictionary = _track(sA.intel_view("player_intel"), "target_age")
+	_ok(not tA1.is_empty(), "aging: track retained before forget threshold")
+	_ok(bool(tA1.get("stale", false)) == true,
+		"aging: track marked stale after stale_after_s", str(tA1.get("age_s", null)))
+	# 合法新观测刷新 → 不再 stale
+	sA.receive_intel_observation("player_intel", {
+		"observation_id": "OBS-AGE-2", "observer_id": "own_ship",
+		"target_id": "target_age", "sensor": "radar", "source": "radar",
+		"observed_t": float(sA.now_s()), "quality": 0.8,
+		"range_km": 500.0, "bearing_deg": 90.0})
+	var tA2: Dictionary = _track(sA.intel_view("player_intel"), "target_age")
+	_ok(bool(tA2.get("stale", false)) == false,
+		"aging: legitimate new observation refreshes the track")
+	# 推进到 >300s → 忘却
+	var guard2 := 0
+	while float(sA.now_s()) < 340.0 and guard2 < 360:
+		sA.tick(TICK_DT)
+		guard2 += 1
+	var tA3: Dictionary = _track(sA.intel_view("player_intel"), "target_age")
+	_ok(tA3.is_empty(), "aging: track forgotten after forget_after_s",
+		"present=" + str(not tA3.is_empty()))
+
+	_step("R4 剩余：到达前 save/load 的在途共享不得提前可见（逐 tick 对照）")
+	var sB = GS.new(_seed())
+	for iB in range(2):
+		sB.tick(TICK_DT)
+	sB.receive_intel_observation("ally_intel", {
+		"observation_id": "OBS-B1", "observer_id": "ally_ship",
+		"target_id": "target_b", "sensor": "optical", "source": "optical",
+		"observed_t": float(sB.now_s()), "quality": 0.6,
+		"range_km": 800.0, "bearing_deg": 45.0})
+	var qB: Dictionary = sB.queue_intel_share("ally_ship", "own_ship",
+		"player_intel", {"observation_id": "OBS-B2", "observer_id": "ally_ship",
+			"target_id": "target_b", "sensor": "optical", "source": "optical",
+			"observed_t": float(sB.now_s()), "quality": 0.6,
+			"range_km": 800.0, "bearing_deg": 45.0,
+			"share_authorized_by": "ally_intel"})
+	_ok(bool(qB.get("ok", false)), "in-flight share queued before save")
+	var pathB := "user://jc_a01_inflight.json"
+	var fB := FileAccess.open(pathB, FileAccess.WRITE)
+	fB.store_string(sB.save_state())
+	fB.close()
+	var sB2 = GS.new(_seed())
+	var lrB: Dictionary = sB2.load_state(FileAccess.get_file_as_string(pathB))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(pathB))
+	_ok(bool(lrB.get("ok", false)), "in-flight restore load ok",
+		str(lrB.get("errors", [])))
+	_ok((sB2.comms_pending() as Array).size() >= 1,
+		"Comms in-flight queue restored (not lost->delivered)",
+		str((sB2.comms_pending() as Array).size()))
+	var vis_ok := true
+	var first_visible := -1
+	for iC in range(10):
+		sB.tick(TICK_DT)
+		sB2.tick(TICK_DT)
+		var idsB: Array = _ids(sB.intel_view("player_intel"))
+		var idsB2: Array = _ids(sB2.intel_view("player_intel"))
+		idsB.sort()
+		idsB2.sort()
+		if JSON.stringify(idsB) != JSON.stringify(idsB2):
+			vis_ok = false
+		if first_visible < 0 and ("target_b" in idsB2):
+			first_visible = iC + 1
+	_ok(vis_ok, "in-flight: per-tick visible set equal between continuous and restored")
+	_eq(first_visible, 3,
+		"in-flight: restored session first sees share at the real ETA tick")
+	var obsB: Array = sB.intel_view("player_intel").get("observations", []) as Array
+	var obsB2: Array = sB2.intel_view("player_intel").get("observations", []) as Array
+	var rtB := -1.0
+	var rtB2 := -2.0
+	for rawB in obsB:
+		if String((rawB as Dictionary).get("observation_id", "")) == "OBS-B2":
+			rtB = float((rawB as Dictionary).get("received_t", -1.0))
+	for rawB2 in obsB2:
+		if String((rawB2 as Dictionary).get("observation_id", "")) == "OBS-B2":
+			rtB2 = float((rawB2 as Dictionary).get("received_t", -1.0))
+	_ok(absf(rtB - rtB2) <= 1.0e-6,
+		"in-flight: received_t identical after restore", "cont=%s rest=%s" % [str(rtB), str(rtB2)])
+
 	_step("总结")
 	_info("本探针验证授权/消费链/共享到达/真实文件恢复；不含 AI/逐舰战斗账本")
 	_finish()
@@ -567,3 +664,9 @@ func _sorted_sig(view: Dictionary) -> Dictionary:
 		ob.append(JSON.stringify(raw2))
 	ob.sort()
 	return {"owner": String(view.get("owner_id", "")), "tracks": tr, "observations": ob}
+
+func _track(view: Dictionary, tid: String) -> Dictionary:
+	for raw in (view.get("tracks", []) as Array):
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == tid:
+			return raw
+	return {}

@@ -332,9 +332,12 @@ func _run() -> void:
 		if raw_s is Dictionary and String((raw_s as Dictionary).get("entity_id", "")) == "sig_probe_entity":
 			sig_row = raw_s
 			break
-	_ok(not sig_row.is_empty(), "SIGNAL contact row exists for synthetic target")
+	# JC-A01/R3b：signal 注册本身不是「该 owner 收到观测」，不得产生玩家可见行。
+	_ok(sig_row.is_empty(),
+		"signal registration alone does not create a player contact",
+		str(sig_row.keys()))
 	if not sig_row.is_empty():
-		_eq(String(sig_row.get("badge", "")), "SIGNAL", "synthetic row badge SIGNAL")
+		# 若产品的合法到达链确实开放了该行，仍必须匿名且无真值。
 		_ok(String(sig_row.get("side", "")).to_lower() == "unknown",
 			"SIGNAL row side unknown (no evidence)",
 			"side=" + String(sig_row.get("side", "")))
@@ -645,8 +648,39 @@ func _check_display_fields(eid: String, row: Dictionary, truth: Dictionary) -> v
 					String(fac.get("transponder_code", ""))])
 	else:
 		if badge == "TRACK" or String(row.get("track_id", "")) != "":
-			_eq(dsrc, "track", "track display source: " + eid)
-			_eq(did, String(row.get("track_id", "")), "track display id is track number: " + eid)
+			# JC-A01：正常 A01 路径的玩家航迹来源是 owner 情报视图（不是全局 track 表）。
+			_eq(dsrc, "intel_view", "track display source: " + eid)
+			# 显示 ID 必须是安全匿名标签：不得回读实体名/batch/class/side 等未获证据真值。
+			_ok(did != "" and did != eid and not _contains_truth(did, _truth.get(eid, {}) if _truth.get(eid) is Dictionary else {}, eid, false),
+				"track display id is anonymous safe label: " + eid, "id=" + did)
+			# 追溯：owner 必须是 binder 的可信本舰 owner，且 track_id 能在该 owner 的
+			# intel_view.tracks 找到，内容/采样时刻与该证据一致。
+			var row_owner := String(row.get("intel_owner_id", ""))
+			var binder_owner := String(_binder.call("_intel_owner")) \
+				if _binder != null and _binder.has_method("_intel_owner") else ""
+			_eq(row_owner, binder_owner, "contact owner is binder trusted owner: " + eid)
+			var ov: Dictionary = _session.intel_view(row_owner) \
+				if _session != null and _session.has_method("intel_view") else {}
+			var tid_row := String(row.get("track_id", ""))
+			var found_tr: Dictionary = {}
+			for raw_tr in (ov.get("tracks", []) if ov.get("tracks") is Array else []):
+				if raw_tr is Dictionary \
+						and String((raw_tr as Dictionary).get("id", "")) == tid_row:
+					found_tr = raw_tr
+					break
+			_ok(not found_tr.is_empty(),
+				"contact track traceable in owner view: " + eid, tid_row)
+			if not found_tr.is_empty():
+				_ok(absf(float(found_tr.get("range_km", -1.0))
+						- float(row.get("range_km", -2.0))) <= 1.0e-6,
+					"contact range matches owner evidence: " + eid,
+					"%s vs %s" % [str(found_tr.get("range_km", null)),
+						str(row.get("range_km", null))])
+				_ok(absf(float(found_tr.get("last_observed_t", -1.0))
+						- float(row.get("observed_t", -2.0))) <= 1.0e-6,
+					"contact observed_t matches owner evidence: " + eid,
+					"%s vs %s" % [str(found_tr.get("last_observed_t", null)),
+						str(row.get("observed_t", null))])
 			_eq(dname, TRACK_DISPLAY_NAME, "track display name generic: " + eid)
 			_ok(dcls.begins_with("TRACK L"), "track display class only level: " + eid,
 				"class=" + dcls)

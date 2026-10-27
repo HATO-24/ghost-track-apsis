@@ -54,6 +54,9 @@ var seen_deliveries: Dictionary = {}
 var audit: Array = []
 var own_entity := ""
 var own_owner := ""
+# R3 剩余：owner 航迹老化/忘却策略（与 TrackTable 合同一致，不新定产品阈值）
+var stale_after_s := 30.0
+var forget_after_s := 300.0
 
 
 func setup(cfg: Dictionary) -> bool:
@@ -66,6 +69,11 @@ func setup(cfg: Dictionary) -> bool:
 	seen_deliveries = {}
 	audit = []
 	own_entity = String(cfg.get("own_entity", ""))
+	var ttc: Dictionary = cfg.get("track_table", {}) if cfg.get("track_table") is Dictionary else {}
+	if ttc.get("stale_after_s") is int or ttc.get("stale_after_s") is float:
+		stale_after_s = float(ttc.get("stale_after_s"))
+	if ttc.get("forget_after_s") is int or ttc.get("forget_after_s") is float:
+		forget_after_s = float(ttc.get("forget_after_s"))
 	var raw_domains = cfg.get("command_domains", [])
 	if raw_domains is Array and not (raw_domains as Array).is_empty():
 		for raw in (raw_domains as Array):
@@ -349,6 +357,9 @@ func receive_observation(owner_id: String, row: Dictionary,
 		trk["last_observed_t"] = observed_t
 		trk["last_received_t"] = received_t
 		trk["source"] = String(r.get("source", ""))
+		# 合法新观测刷新：清 stale 与 age（老化由 advance 重新累计）
+		trk["stale"] = false
+		trk["age_s"] = 0.0
 		trk["quality"] = float(r.get("quality", 0.0))
 		if r.get("pos_km") is Array and (r.get("pos_km") as Array).size() >= 3:
 			trk["pos_km"] = (r.get("pos_km") as Array).duplicate()
@@ -484,3 +495,30 @@ func import_state(st) -> Dictionary:
 	audit = (raw_audit as Array).duplicate(true) if raw_audit is Array else []
 	return {"ok": true, "restore_mode": "full",
 		"owners": intel.keys(), "audit": audit.size()}
+
+# ── R3 剩余：每 owner 融合生命周期（老化/忘却）───────────────────
+## 与全局 TrackTable 同一合同：超过 stale_after_s 标记 stale，超过 forget_after_s 移除。
+## 只作用于该 owner 自己的航迹，不影响其他 owner。
+func advance(t_now: float) -> Dictionary:
+	var aged := 0
+	var forgotten := 0
+	for owner_id in intel.keys():
+		var m: Dictionary = intel[owner_id]
+		var drop: Array = []
+		for tid in m.keys():
+			var trk: Dictionary = m[tid]
+			var obs_t := float(trk.get("last_observed_t", 0.0))
+			var age := maxf(0.0, float(t_now) - obs_t)
+			trk["age_s"] = age
+			if age > forget_after_s + 1.0e-9:
+				drop.append(tid)
+				continue
+			var is_stale := age > stale_after_s + 1.0e-9
+			if bool(trk.get("stale", false)) != is_stale:
+				aged += 1
+			trk["stale"] = is_stale
+		for tid2 in drop:
+			m.erase(tid2)
+			forgotten += 1
+	return {"ok": true, "t": float(t_now), "aged": aged, "forgotten": forgotten,
+		"stale_after_s": stale_after_s, "forget_after_s": forget_after_s}

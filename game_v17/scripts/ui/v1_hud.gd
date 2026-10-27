@@ -642,11 +642,12 @@ func _ident_message(kind: String, res: Dictionary, row: Dictionary) -> String:
 
 func _optical_entity_line(row: Dictionary, tr: Dictionary) -> String:
 	var disp: Dictionary = _contact_display(row)
-	var track_label := "TRACK NOT READY"
-	var tid := String(tr.get("track_id", "")) if not tr.is_empty() else String(row.get("track_id", ""))
-	if tid != "":
-		track_label = "TRACK " + tid
-	return "ENTITY/TRACK %s · %s" % [String(disp.get("id", "UNKNOWN")), track_label]
+	# JC-A01/R3.3：人类可见标签只用安全显示标识；内部 track_id/entity_id
+	# 仍保留在非显示字段与操作路由里，但不得拼进可见文本（否则泄露内部真值 ID）。
+	var label := String(disp.get("display_name", disp.get("name", "UNKNOWN TRACK")))
+	if label == "" or label == "UNKNOWN TRACK":
+		label = "UNKNOWN TRACK"
+	return "ENTITY/TRACK %s · %s" % [String(disp.get("id", "UNKNOWN")), label]
 
 
 func _command_target_text(c: Dictionary) -> String:
