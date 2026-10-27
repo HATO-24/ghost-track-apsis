@@ -2,7 +2,22 @@
 
 执行Issue：[JC-A01 #58](https://github.com/HATO-24/ghost-track-apsis/issues/58)。
 
-状态：RETURNED，PR #66第三轮仍有窄收尾；已修项保留，A1未冻结。
+状态：实现原缺口CLOSED；仅两组验收测试RETURNED，A1未冻结。
+
+## 2026-10-27 PR #66第四轮：三项实现关闭，仅补两组正式测试
+
+被审HEAD `eb4b98530b589dd5c452a78d46549660985557d3`，代码`c704f85952eb33ec44c1ac21dfef95d2f8b6a032`；二者仅报告头不同。[独立复核、控制实验及证据](../../reviews/pr66_a01_r4_20261027/review.md)。**不重做三项实现，继续原#58验收收尾；PR66暂缓合并、A1尚未冻结。**
+
+原owner老化、在途共享恢复、光学标签均已独立关闭：t31 stale/t301忘却；内存/公开文件各继续10tick，20对完整view相等、ETA5才可见、重投1→1；真实光学文本匿名且内部路由保留。selected及此前关闭项继续保持。
+
+根代理五专项5/5 PASS（metadata357/0、world100/0、A01 76/0、integration65/0、save41/0）；完整原C **88=81PASS/7历史FAIL，new_fail0、drift0、complete=true、退出0**，340.45s。正式矩阵确实通过基线检查；余下不是三项运行时修复仍失败。
+
+仅原R6等强度测试两组：
+
+1. **T1指定合法contact正例**：metadata只检查数量，再允许任意缺行；诊断副本过滤已知harmattan后仍280/0。按可信owner已获证据明确至少一目标必须有contact及匿名HUD，用内部track_id匹配，不硬比匿名显示ID。未观测对象仍不显示，不恢复7实体全真值；可在已有A01正例补足，不要求重复整套。
+2. **T2同目标隐藏移动/更新**：world probe观测ws_target却改harmattan，未核验变更；关闭变更的诊断副本仍100/0。用真实已观测同一目标，证明隐藏真值确变但真实HUD/plot仍读旧采样，再有合法新观测才更新。声称physics移动则实际核对physics，内部全7实体/精度/单向权威负例不放宽。A01当前改raider_2、比target_a view不能替代。
+
+仅补正式测试、逐项映射及同最终SHA的原C结果；不因测试收尾预先改写已通过服务。不扩SIGNAL新任务或AI/EW/B1b。实现三项已CLOSED，不在下一轮重派。UI文档由GPT/Sol维护，DS接明确实现卡；UI运行时仍等待A1。下方前轮均为历史。
 
 ## 2026-10-27 PR #66第三轮：三项实现收尾＋等强度旧probe映射
 

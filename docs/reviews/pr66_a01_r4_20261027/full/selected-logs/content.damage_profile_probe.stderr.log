@@ -1,0 +1,29 @@
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+   at: V2DamageProfileService._resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+   GDScript backtrace (most recent call first):
+       [0] _resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+       [1] profile_for (res://scripts/core/damage_profile_service.gd:186)
+       [2] _test_profile_service (res://tests/damage_profile_probe.gd:185)
+       [3] _initialize (res://tests/damage_profile_probe.gd:27)
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+   at: V2DamageProfileService._resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+   GDScript backtrace (most recent call first):
+       [0] _resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+       [1] profile_for (res://scripts/core/damage_profile_service.gd:186)
+       [2] _test_profile_service (res://tests/damage_profile_probe.gd:186)
+       [3] _initialize (res://tests/damage_profile_probe.gd:27)
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+   at: V2DamageProfileService._resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+   GDScript backtrace (most recent call first):
+       [0] _resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+       [1] profile_for (res://scripts/core/damage_profile_service.gd:186)
+       [2] _test_profile_service (res://tests/damage_profile_probe.gd:187)
+       [3] _initialize (res://tests/damage_profile_probe.gd:27)
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+   at: V2DamageProfileService._resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+   GDScript backtrace (most recent call first):
+       [0] _resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+       [1] profile_for (res://scripts/core/damage_profile_service.gd:186)
+       [2] add_ship (res://scripts/core/damage_service.gd:204)
+       [3] _test_service_integration (res://tests/damage_profile_probe.gd:314)
+       [4] _initialize (res://tests/damage_profile_probe.gd:29)

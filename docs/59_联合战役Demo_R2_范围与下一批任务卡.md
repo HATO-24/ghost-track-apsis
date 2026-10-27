@@ -4,6 +4,12 @@
 
 延续[40号审计与原路线图](40_系统完成度复核与开发任务队列.md)的权威/测试契约；以下以56 R2更新产品范围，并用当前提交和本轮复核替换40号文档的历史状态判断。
 
+## 2026-10-27 JC-A01第四轮：实现缺口关闭，仅验收测试收尾
+
+[独立复核与控制实验](reviews/pr66_a01_r4_20261027/review.md)，HEAD `eb4b98530b589dd5c452a78d46549660985557d3`、代码c704f859（差异仅报告）。owner老化、内存/公开文件10tick在途共享继续、光学标签三项均CLOSED，selected及前轮修复保留。根五专项5/5通过；完整C **88=81PASS/7历史FAIL、new_fail0、drift0、complete=true、退出0**。不再派发三项实现返工。
+
+只继续原#58两组等强度测试：指定合法观测contact不能缺行仍绿；隐藏移动须与被比较的已观测实体相同、证明真值实变，再验证合法新观测更新。控制副本分别过滤已知harmattan仍280/0、关闭移动仍100/0；并非正式probe或生产代码被改。A1暂不冻结、PR66不合并，#59–#62不提前解锁；UI文档继续GPT/Sol维护，DS只接明确代码实现卡，UI运行时按61等待A1。下方前轮为历史。
+
 ## 2026-10-27 JC-A01第三轮与UI指引拆卡
 
 [PR66第三轮复核](reviews/pr66_a01_r3_20261027/review.md)，head `8b4cf990021bafe0f5b2945039c850b5c985cf5a`。selected/详情隔离、正常共享到达和重投幂等、null拒绝、probe有效性与退出码包装已关闭。**继续原#58**窄修owner老化、在途恢复提前融合、实际光学内部ID泄漏，并按逐项等强度映射修两旧probe。本地5项3PASS/2FAIL、A01 63/0；CI关联同head的合成merge full88=79/9（7旧+2新）、drift0、complete=false、退出1。A1不冻结、PR66不合并，#59–#62依赖不提前解锁。下方前轮为历史，不重开已修项。
@@ -116,7 +122,7 @@ G0、K0等是未来任务交付物的名字，当前不是有效SHA。每张卡�
 | --- | --- | --- | --- |
 | [JC-A00](tasks/joint_campaign/JC-A00_integration_closeout.md) · [#56](https://github.com/HATO-24/ghost-track-apsis/issues/56) | DONE（R8） | G0=`9d0f3b4…`，完整SHA见上文 | 返修整链冻结及验收补齐，复用#55 |
 | [JC-B00](tasks/joint_campaign/JC-B00_contracts.md) · [#57](https://github.com/HATO-24/ghost-track-apsis/issues/57) | DONE（R8） | K0=`9d0f3b4…`，完整SHA见上文 | 多舰队数据、指挥与情报契约，B0规格与schema fixtures |
-| [JC-A01](tasks/joint_campaign/JC-A01_authority_intel.md) · [#58](https://github.com/HATO-24/ghost-track-apsis/issues/58) | RETURNED（PR66第三轮） | G0/K0已冻结；A1未冻结 | 指挥权限及分方情报读写隔离 |
+| [JC-A01](tasks/joint_campaign/JC-A01_authority_intel.md) · [#58](https://github.com/HATO-24/ghost-track-apsis/issues/58) | 实现CLOSED；验收测试RETURNED（PR66第四轮） | G0/K0已冻结；A1未冻结 | 指挥权限及分方情报读写隔离 |
 | [JC-A02](tasks/joint_campaign/JC-A02_identity.md) · [#59](https://github.com/HATO-24/ghost-track-apsis/issues/59) | WAIT A1 | →A2 | 身份证据单一出口、IFF/ELINT/光学/人工一致性 |
 | [JC-A03](tasks/joint_campaign/JC-A03_ew_observation.md) · [#60](https://github.com/HATO-24/ghost-track-apsis/issues/60) | WAIT A2 | →A3 | EW进入真实观测与火控消费者 |
 | [JC-A04](tasks/joint_campaign/JC-A04_ew_comms.md) · [#61](https://github.com/HATO-24/ghost-track-apsis/issues/61) | 服务可在A1后；Session接入在A3后 | →A4 | EW进入实际通信，保留恢复与权限语义 |

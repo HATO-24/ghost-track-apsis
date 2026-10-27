@@ -1,0 +1,2848 @@
+{
+	"closed": true,
+	"code_head": "c704f85952eb33ec44c1ac21dfef95d2f8b6a032",
+	"file": {
+		"before": {
+			"comms_pending": [
+				{
+					"arrive_t": 5.0,
+					"content": "",
+					"delivery_id": "C-000001",
+					"from": "ally_ship",
+					"latency_s": 3.0,
+					"links": [
+						0
+					],
+					"mode": "LD",
+					"packet_loss": 0.0,
+					"path": [
+						"ally_ship",
+						"own_ship"
+					],
+					"relay_count": 0,
+					"sent_t": 2.0,
+					"text": "[ally_ship 至 own_ship]-[LD]-[]",
+					"text_key": "COMMS_SENT",
+					"to": "own_ship"
+				}
+			],
+			"pending": {
+				"C-000001": {
+					"from": "ally_ship",
+					"owner_id": "player_intel",
+					"row": {
+						"bearing_deg": 45.0,
+						"observation_id": "PENDING-ONE",
+						"observed_t": 2.0,
+						"observer_id": "ally_ship",
+						"quality": 0.6,
+						"range_km": 800.0,
+						"sensor": "optical",
+						"share_authorized_by": "ally_intel",
+						"source": "optical",
+						"target_id": "pending_contact"
+					},
+					"share_authorized_by": "ally_intel",
+					"to": "own_ship"
+				}
+			},
+			"t": 2.0,
+			"third_owner": {
+				"observations": [],
+				"owner_id": "opfor_intel",
+				"schema": "v17.authority_intel.v1",
+				"tracks": []
+			},
+			"view": {
+				"observations": [],
+				"owner_id": "player_intel",
+				"schema": "v17.authority_intel.v1",
+				"tracks": []
+			}
+		},
+		"closed": true,
+		"continuation_equal": true,
+		"duplicate_closed": true,
+		"first_original_visible_t": 5.0,
+		"first_restored_visible_t": 5.0,
+		"fixture_ticks": [
+			{
+				"ballistics_step": {
+					"active": 0,
+					"damage_applied": 0,
+					"damage_duplicates": 0,
+					"damage_failed": 0,
+					"enabled": true,
+					"impacts": 0,
+					"intercepts": 0,
+					"ok": true,
+					"routes": 1,
+					"substeps": 1,
+					"t": 1.0,
+					"time_cap": {
+						"capped": false,
+						"ok": true,
+						"scale": 1.0
+					}
+				},
+				"components": {
+					"combat_ballistics": true,
+					"damage_profile": false,
+					"ew": false,
+					"facility": false,
+					"fleet_formation": false,
+					"fleet_refit": false,
+					"identification": false,
+					"legal_status": false,
+					"physics": true,
+					"refit": false,
+					"sensor": true,
+					"ship_catalog": false,
+					"signal": false,
+					"story": false,
+					"track": true,
+					"traffic": false,
+					"transponder": false
+				},
+				"contracts": {
+					"ok": true,
+					"schema": "v17.game_session.v1",
+					"violations": []
+				},
+				"damage_tick": {
+					"enabled": false
+				},
+				"dt_scaled_s": 1.0,
+				"events": [
+					{
+						"id": "evt-000013",
+						"payload": {
+							"kind": "ballistics_ready",
+							"payload": {
+								"model": "cr3bp_rk4",
+								"substep_max_s": 1.0,
+								"weapons": 5
+							},
+							"schema": "ballistics_event.v1",
+							"seq": 1,
+							"shadow": true,
+							"t": 0.0,
+							"writes_v15": false
+						},
+						"schema": "v17.event.v1",
+						"seq": 13,
+						"source": "session",
+						"t": 1.0,
+						"target": "",
+						"text_key": "",
+						"type": "ballistics.ballistics_ready"
+					},
+					{
+						"id": "evt-000014",
+						"payload": {
+							"dt": 1.0,
+							"entities": 5,
+							"t": 0.0
+						},
+						"schema": "v17.event.v1",
+						"seq": 14,
+						"source": "physics_world",
+						"t": 1.0,
+						"target": "",
+						"text_key": "",
+						"type": "physics.step_started"
+					},
+					{
+						"id": "evt-000015",
+						"payload": {
+							"dt": 1.0,
+							"step_s": 1.0,
+							"steps": 1,
+							"t": 1.0
+						},
+						"schema": "v17.event.v1",
+						"seq": 15,
+						"source": "physics_world",
+						"t": 1.0,
+						"target": "",
+						"text_key": "",
+						"type": "physics.step_completed"
+					}
+				],
+				"ew_step": {
+					"enabled": false
+				},
+				"identification_tick": {
+					"enabled": false
+				},
+				"legal_status_tick": {
+					"enabled": false
+				},
+				"ok": true,
+				"order_counts": {
+					"ABORTED": 0,
+					"AUTHORIZED": 0,
+					"DELIVERED": 0,
+					"DONE": 0,
+					"DRAFT": 0,
+					"EXECUTING": 0,
+					"ISSUED": 0,
+					"PENDING_EFFECT": 0,
+					"QUEUED": 0,
+					"REJECTED": 0,
+					"STALE": 0,
+					"TRANSMITTING": 0
+				},
+				"paused": false,
+				"physics_tick": {
+					"enabled": true,
+					"entities": 5,
+					"ok": true,
+					"steps": 1,
+					"t": 1.0
+				},
+				"port_combat": {
+					"combat": true,
+					"port": false
+				},
+				"routed": [],
+				"sensor_route": {
+					"enabled": true,
+					"evidence": 0,
+					"failed": 0,
+					"observations": 0,
+					"ok": true,
+					"reasons": []
+				},
+				"signal_route": {},
+				"signal_step": {
+					"enabled": false
+				},
+				"t_s": 1.0,
+				"traffic_step": {
+					"enabled": false
+				},
+				"transponder_tick": {
+					"enabled": false
+				},
+				"world_sync": {
+					"compared": 5,
+					"enabled": true,
+					"failures": [],
+					"frame": "bary_rot",
+					"in_sync": true,
+					"mismatched": [],
+					"mode": "tick",
+					"ok": true,
+					"reason": "tick",
+					"skipped": [],
+					"synced": 5,
+					"updated": [
+						"ally_ship",
+						"enemy_ship",
+						"own_ship",
+						"raider_2",
+						"second_own"
+					]
+				}
+			},
+			{
+				"ballistics_step": {
+					"active": 0,
+					"damage_applied": 0,
+					"damage_duplicates": 0,
+					"damage_failed": 0,
+					"enabled": true,
+					"impacts": 0,
+					"intercepts": 0,
+					"ok": true,
+					"routes": 0,
+					"substeps": 1,
+					"t": 2.0,
+					"time_cap": {
+						"capped": false,
+						"ok": true,
+						"scale": 1.0
+					}
+				},
+				"components": {
+					"combat_ballistics": true,
+					"damage_profile": false,
+					"ew": false,
+					"facility": false,
+					"fleet_formation": false,
+					"fleet_refit": false,
+					"identification": false,
+					"legal_status": false,
+					"physics": true,
+					"refit": false,
+					"sensor": true,
+					"ship_catalog": false,
+					"signal": false,
+					"story": false,
+					"track": true,
+					"traffic": false,
+					"transponder": false
+				},
+				"contracts": {
+					"ok": true,
+					"schema": "v17.game_session.v1",
+					"violations": []
+				},
+				"damage_tick": {
+					"enabled": false
+				},
+				"dt_scaled_s": 1.0,
+				"events": [
+					{
+						"id": "evt-000016",
+						"payload": {
+							"dt": 1.0,
+							"entities": 5,
+							"t": 1.0
+						},
+						"schema": "v17.event.v1",
+						"seq": 16,
+						"source": "physics_world",
+						"t": 2.0,
+						"target": "",
+						"text_key": "",
+						"type": "physics.step_started"
+					},
+					{
+						"id": "evt-000017",
+						"payload": {
+							"dt": 1.0,
+							"step_s": 1.0,
+							"steps": 1,
+							"t": 2.0
+						},
+						"schema": "v17.event.v1",
+						"seq": 17,
+						"source": "physics_world",
+						"t": 2.0,
+						"target": "",
+						"text_key": "",
+						"type": "physics.step_completed"
+					}
+				],
+				"ew_step": {
+					"enabled": false
+				},
+				"identification_tick": {
+					"enabled": false
+				},
+				"legal_status_tick": {
+					"enabled": false
+				},
+				"ok": true,
+				"order_counts": {
+					"ABORTED": 0,
+					"AUTHORIZED": 0,
+					"DELIVERED": 0,
+					"DONE": 0,
+					"DRAFT": 0,
+					"EXECUTING": 0,
+					"ISSUED": 0,
+					"PENDING_EFFECT": 0,
+					"QUEUED": 0,
+					"REJECTED": 0,
+					"STALE": 0,
+					"TRANSMITTING": 0
+				},
+				"paused": false,
+				"physics_tick": {
+					"enabled": true,
+					"entities": 5,
+					"ok": true,
+					"steps": 1,
+					"t": 2.0
+				},
+				"port_combat": {
+					"combat": true,
+					"port": false
+				},
+				"routed": [],
+				"sensor_route": {
+					"enabled": true,
+					"evidence": 0,
+					"failed": 0,
+					"observations": 0,
+					"ok": true,
+					"reasons": []
+				},
+				"signal_route": {},
+				"signal_step": {
+					"enabled": false
+				},
+				"t_s": 2.0,
+				"traffic_step": {
+					"enabled": false
+				},
+				"transponder_tick": {
+					"enabled": false
+				},
+				"world_sync": {
+					"compared": 5,
+					"enabled": true,
+					"failures": [],
+					"frame": "bary_rot",
+					"in_sync": true,
+					"mismatched": [],
+					"mode": "tick",
+					"ok": true,
+					"reason": "tick",
+					"skipped": [],
+					"synced": 5,
+					"updated": [
+						"ally_ship",
+						"enemy_ship",
+						"own_ship",
+						"raider_2",
+						"second_own"
+					]
+				}
+			}
+		],
+		"load": {
+			"errors": [],
+			"meta": {
+				"chapter": "A01_R4",
+				"created_at": 1793094193.312,
+				"game_version": "v17",
+				"location": "inflight_eta5",
+				"migrated": false,
+				"migrated_from": "1.0.0",
+				"order_count": 0,
+				"slot": "save",
+				"t_s": 2.0,
+				"updated_at": 1793094193.312,
+				"version": "1.0.0",
+				"writer": "session"
+			},
+			"migrated": false,
+			"ok": true,
+			"slot": "save"
+		},
+		"mode": "file",
+		"normal_arrival_closed": true,
+		"original_duplicate": {
+			"after": 1,
+			"before": 1,
+			"closed": true,
+			"result": {
+				"duplicated": true,
+				"observation_id": "PENDING-ONE",
+				"ok": true,
+				"owner_id": "player_intel"
+			}
+		},
+		"original_last_delivery": {
+			"delivery": {
+				"delay_s": 3.0,
+				"delivery_id": "C-000001",
+				"link_latency_s": 3.0,
+				"now_t": 5.0,
+				"path": "ally_ship->own_ship",
+				"received_t": 5.0,
+				"share_authorized_by": "ally_intel"
+			},
+			"delivery_id": "C-000001",
+			"result": {
+				"observation_id": "PENDING-ONE",
+				"ok": true,
+				"owner_id": "player_intel",
+				"track_id": "pending_contact"
+			}
+		},
+		"original_view": {
+			"observations": [
+				{
+					"bearing_deg": 45.0,
+					"delivery_id": "C-000001",
+					"intel_owner_id": "player_intel",
+					"observation_id": "PENDING-ONE",
+					"observed_t": 2.0,
+					"observer_id": "ally_ship",
+					"path": "ally_ship->own_ship",
+					"quality": 0.6,
+					"range_km": 800.0,
+					"received_t": 5.0,
+					"sensor": "optical",
+					"share_authorized_by": "ally_intel",
+					"source": "optical",
+					"target_id": "pending_contact"
+				}
+			],
+			"owner_id": "player_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": [
+				{
+					"age_s": 10.0,
+					"bearing_deg": 45.0,
+					"id": "pending_contact",
+					"intel_owner_id": "player_intel",
+					"last_observed_t": 2.0,
+					"last_received_t": 5.0,
+					"quality": 0.6,
+					"range_km": 800.0,
+					"source": "optical",
+					"stale": false
+				}
+			]
+		},
+		"pending_eta_restored": true,
+		"queued": {
+			"delivery_id": "C-000001",
+			"ok": true,
+			"pending": 1
+		},
+		"restored_before": {
+			"comms_pending": [
+				{
+					"arrive_t": 5.0,
+					"content": "",
+					"delivery_id": "C-000001",
+					"from": "ally_ship",
+					"latency_s": 3.0,
+					"links": [
+						0.0
+					],
+					"mode": "LD",
+					"packet_loss": 0.0,
+					"path": [
+						"ally_ship",
+						"own_ship"
+					],
+					"relay_count": 0.0,
+					"sent_t": 2.0,
+					"text": "[ally_ship 至 own_ship]-[LD]-[]",
+					"text_key": "COMMS_SENT",
+					"to": "own_ship"
+				}
+			],
+			"pending": {
+				"C-000001": {
+					"from": "ally_ship",
+					"owner_id": "player_intel",
+					"row": {
+						"bearing_deg": 45.0,
+						"observation_id": "PENDING-ONE",
+						"observed_t": 2.0,
+						"observer_id": "ally_ship",
+						"quality": 0.6,
+						"range_km": 800.0,
+						"sensor": "optical",
+						"share_authorized_by": "ally_intel",
+						"source": "optical",
+						"target_id": "pending_contact"
+					},
+					"share_authorized_by": "ally_intel",
+					"to": "own_ship"
+				}
+			},
+			"t": 2.0,
+			"third_owner": {
+				"observations": [],
+				"owner_id": "opfor_intel",
+				"schema": "v17.authority_intel.v1",
+				"tracks": []
+			},
+			"view": {
+				"observations": [],
+				"owner_id": "player_intel",
+				"schema": "v17.authority_intel.v1",
+				"tracks": []
+			}
+		},
+		"restored_duplicate": {
+			"after": 1,
+			"before": 1,
+			"closed": true,
+			"result": {
+				"duplicated": true,
+				"observation_id": "PENDING-ONE",
+				"ok": true,
+				"owner_id": "player_intel"
+			}
+		},
+		"restored_last_delivery": {
+			"delivery": {
+				"delay_s": 3.0,
+				"delivery_id": "C-000001",
+				"link_latency_s": 3.0,
+				"now_t": 5.0,
+				"path": "ally_ship->own_ship",
+				"received_t": 5.0,
+				"share_authorized_by": "ally_intel"
+			},
+			"delivery_id": "C-000001",
+			"result": {
+				"observation_id": "PENDING-ONE",
+				"ok": true,
+				"owner_id": "player_intel",
+				"track_id": "pending_contact"
+			}
+		},
+		"restored_view": {
+			"observations": [
+				{
+					"bearing_deg": 45.0,
+					"delivery_id": "C-000001",
+					"intel_owner_id": "player_intel",
+					"observation_id": "PENDING-ONE",
+					"observed_t": 2.0,
+					"observer_id": "ally_ship",
+					"path": "ally_ship->own_ship",
+					"quality": 0.6,
+					"range_km": 800.0,
+					"received_t": 5.0,
+					"sensor": "optical",
+					"share_authorized_by": "ally_intel",
+					"source": "optical",
+					"target_id": "pending_contact"
+				}
+			],
+			"owner_id": "player_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": [
+				{
+					"age_s": 10.0,
+					"bearing_deg": 45.0,
+					"id": "pending_contact",
+					"intel_owner_id": "player_intel",
+					"last_observed_t": 2.0,
+					"last_received_t": 5.0,
+					"quality": 0.6,
+					"range_km": 800.0,
+					"source": "optical",
+					"stale": false
+				}
+			]
+		},
+		"save": {
+			"backup_path": "C:\\Users\\ASUS\\.codex\\worktrees\\jc-a01-r4-validation\\GHOST TRACK_APSIS\\.test-results\\sol-a01-r4\\intel\\file-save/save.json.bak",
+			"bytes": 32825,
+			"checksum": "76d7ed0f0aa75146dc67afdc1f5378b6a7ec47086306a16210f95c2ed632a41c",
+			"created_at": 1793094193.312,
+			"has_backup": false,
+			"ok": true,
+			"path": "C:\\Users\\ASUS\\.codex\\worktrees\\jc-a01-r4-validation\\GHOST TRACK_APSIS\\.test-results\\sol-a01-r4\\intel\\file-save/save.json",
+			"slot": "save",
+			"updated_at": 1793094193.312,
+			"version": "1.0.0"
+		},
+		"third_owner_original": {
+			"observations": [],
+			"owner_id": "opfor_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": []
+		},
+		"third_owner_restored": {
+			"observations": [],
+			"owner_id": "opfor_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": []
+		},
+		"timeline": [
+			{
+				"original_comms_pending": 1,
+				"original_ids": [],
+				"original_pending": 1,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": []
+				},
+				"restored_comms_pending": 1,
+				"restored_ids": [],
+				"restored_pending": 1,
+				"restored_t": 3.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": []
+				},
+				"t": 3.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 1,
+				"original_ids": [],
+				"original_pending": 1,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": []
+				},
+				"restored_comms_pending": 1,
+				"restored_ids": [],
+				"restored_pending": 1,
+				"restored_t": 4.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": []
+				},
+				"t": 4.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 0.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 5.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 0.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 5.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 4.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 6.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 4.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 6.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 5.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 7.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 5.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 7.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 6.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 8.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 6.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 8.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 7.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 9.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 7.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 9.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 8.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 10.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 8.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 10.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 9.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 11.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 9.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 11.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 10.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 12.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 10.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 12.0,
+				"view_signature_equal": true
+			}
+		]
+	},
+	"head": "eb4b98530b589dd5c452a78d46549660985557d3",
+	"memory": {
+		"before": {
+			"comms_pending": [
+				{
+					"arrive_t": 5.0,
+					"content": "",
+					"delivery_id": "C-000001",
+					"from": "ally_ship",
+					"latency_s": 3.0,
+					"links": [
+						0
+					],
+					"mode": "LD",
+					"packet_loss": 0.0,
+					"path": [
+						"ally_ship",
+						"own_ship"
+					],
+					"relay_count": 0,
+					"sent_t": 2.0,
+					"text": "[ally_ship 至 own_ship]-[LD]-[]",
+					"text_key": "COMMS_SENT",
+					"to": "own_ship"
+				}
+			],
+			"pending": {
+				"C-000001": {
+					"from": "ally_ship",
+					"owner_id": "player_intel",
+					"row": {
+						"bearing_deg": 45.0,
+						"observation_id": "PENDING-ONE",
+						"observed_t": 2.0,
+						"observer_id": "ally_ship",
+						"quality": 0.6,
+						"range_km": 800.0,
+						"sensor": "optical",
+						"share_authorized_by": "ally_intel",
+						"source": "optical",
+						"target_id": "pending_contact"
+					},
+					"share_authorized_by": "ally_intel",
+					"to": "own_ship"
+				}
+			},
+			"t": 2.0,
+			"third_owner": {
+				"observations": [],
+				"owner_id": "opfor_intel",
+				"schema": "v17.authority_intel.v1",
+				"tracks": []
+			},
+			"view": {
+				"observations": [],
+				"owner_id": "player_intel",
+				"schema": "v17.authority_intel.v1",
+				"tracks": []
+			}
+		},
+		"closed": true,
+		"continuation_equal": true,
+		"duplicate_closed": true,
+		"first_original_visible_t": 5.0,
+		"first_restored_visible_t": 5.0,
+		"fixture_ticks": [
+			{
+				"ballistics_step": {
+					"active": 0,
+					"damage_applied": 0,
+					"damage_duplicates": 0,
+					"damage_failed": 0,
+					"enabled": true,
+					"impacts": 0,
+					"intercepts": 0,
+					"ok": true,
+					"routes": 1,
+					"substeps": 1,
+					"t": 1.0,
+					"time_cap": {
+						"capped": false,
+						"ok": true,
+						"scale": 1.0
+					}
+				},
+				"components": {
+					"combat_ballistics": true,
+					"damage_profile": false,
+					"ew": false,
+					"facility": false,
+					"fleet_formation": false,
+					"fleet_refit": false,
+					"identification": false,
+					"legal_status": false,
+					"physics": true,
+					"refit": false,
+					"sensor": true,
+					"ship_catalog": false,
+					"signal": false,
+					"story": false,
+					"track": true,
+					"traffic": false,
+					"transponder": false
+				},
+				"contracts": {
+					"ok": true,
+					"schema": "v17.game_session.v1",
+					"violations": []
+				},
+				"damage_tick": {
+					"enabled": false
+				},
+				"dt_scaled_s": 1.0,
+				"events": [
+					{
+						"id": "evt-000013",
+						"payload": {
+							"kind": "ballistics_ready",
+							"payload": {
+								"model": "cr3bp_rk4",
+								"substep_max_s": 1.0,
+								"weapons": 5
+							},
+							"schema": "ballistics_event.v1",
+							"seq": 1,
+							"shadow": true,
+							"t": 0.0,
+							"writes_v15": false
+						},
+						"schema": "v17.event.v1",
+						"seq": 13,
+						"source": "session",
+						"t": 1.0,
+						"target": "",
+						"text_key": "",
+						"type": "ballistics.ballistics_ready"
+					},
+					{
+						"id": "evt-000014",
+						"payload": {
+							"dt": 1.0,
+							"entities": 5,
+							"t": 0.0
+						},
+						"schema": "v17.event.v1",
+						"seq": 14,
+						"source": "physics_world",
+						"t": 1.0,
+						"target": "",
+						"text_key": "",
+						"type": "physics.step_started"
+					},
+					{
+						"id": "evt-000015",
+						"payload": {
+							"dt": 1.0,
+							"step_s": 1.0,
+							"steps": 1,
+							"t": 1.0
+						},
+						"schema": "v17.event.v1",
+						"seq": 15,
+						"source": "physics_world",
+						"t": 1.0,
+						"target": "",
+						"text_key": "",
+						"type": "physics.step_completed"
+					}
+				],
+				"ew_step": {
+					"enabled": false
+				},
+				"identification_tick": {
+					"enabled": false
+				},
+				"legal_status_tick": {
+					"enabled": false
+				},
+				"ok": true,
+				"order_counts": {
+					"ABORTED": 0,
+					"AUTHORIZED": 0,
+					"DELIVERED": 0,
+					"DONE": 0,
+					"DRAFT": 0,
+					"EXECUTING": 0,
+					"ISSUED": 0,
+					"PENDING_EFFECT": 0,
+					"QUEUED": 0,
+					"REJECTED": 0,
+					"STALE": 0,
+					"TRANSMITTING": 0
+				},
+				"paused": false,
+				"physics_tick": {
+					"enabled": true,
+					"entities": 5,
+					"ok": true,
+					"steps": 1,
+					"t": 1.0
+				},
+				"port_combat": {
+					"combat": true,
+					"port": false
+				},
+				"routed": [],
+				"sensor_route": {
+					"enabled": true,
+					"evidence": 0,
+					"failed": 0,
+					"observations": 0,
+					"ok": true,
+					"reasons": []
+				},
+				"signal_route": {},
+				"signal_step": {
+					"enabled": false
+				},
+				"t_s": 1.0,
+				"traffic_step": {
+					"enabled": false
+				},
+				"transponder_tick": {
+					"enabled": false
+				},
+				"world_sync": {
+					"compared": 5,
+					"enabled": true,
+					"failures": [],
+					"frame": "bary_rot",
+					"in_sync": true,
+					"mismatched": [],
+					"mode": "tick",
+					"ok": true,
+					"reason": "tick",
+					"skipped": [],
+					"synced": 5,
+					"updated": [
+						"ally_ship",
+						"enemy_ship",
+						"own_ship",
+						"raider_2",
+						"second_own"
+					]
+				}
+			},
+			{
+				"ballistics_step": {
+					"active": 0,
+					"damage_applied": 0,
+					"damage_duplicates": 0,
+					"damage_failed": 0,
+					"enabled": true,
+					"impacts": 0,
+					"intercepts": 0,
+					"ok": true,
+					"routes": 0,
+					"substeps": 1,
+					"t": 2.0,
+					"time_cap": {
+						"capped": false,
+						"ok": true,
+						"scale": 1.0
+					}
+				},
+				"components": {
+					"combat_ballistics": true,
+					"damage_profile": false,
+					"ew": false,
+					"facility": false,
+					"fleet_formation": false,
+					"fleet_refit": false,
+					"identification": false,
+					"legal_status": false,
+					"physics": true,
+					"refit": false,
+					"sensor": true,
+					"ship_catalog": false,
+					"signal": false,
+					"story": false,
+					"track": true,
+					"traffic": false,
+					"transponder": false
+				},
+				"contracts": {
+					"ok": true,
+					"schema": "v17.game_session.v1",
+					"violations": []
+				},
+				"damage_tick": {
+					"enabled": false
+				},
+				"dt_scaled_s": 1.0,
+				"events": [
+					{
+						"id": "evt-000016",
+						"payload": {
+							"dt": 1.0,
+							"entities": 5,
+							"t": 1.0
+						},
+						"schema": "v17.event.v1",
+						"seq": 16,
+						"source": "physics_world",
+						"t": 2.0,
+						"target": "",
+						"text_key": "",
+						"type": "physics.step_started"
+					},
+					{
+						"id": "evt-000017",
+						"payload": {
+							"dt": 1.0,
+							"step_s": 1.0,
+							"steps": 1,
+							"t": 2.0
+						},
+						"schema": "v17.event.v1",
+						"seq": 17,
+						"source": "physics_world",
+						"t": 2.0,
+						"target": "",
+						"text_key": "",
+						"type": "physics.step_completed"
+					}
+				],
+				"ew_step": {
+					"enabled": false
+				},
+				"identification_tick": {
+					"enabled": false
+				},
+				"legal_status_tick": {
+					"enabled": false
+				},
+				"ok": true,
+				"order_counts": {
+					"ABORTED": 0,
+					"AUTHORIZED": 0,
+					"DELIVERED": 0,
+					"DONE": 0,
+					"DRAFT": 0,
+					"EXECUTING": 0,
+					"ISSUED": 0,
+					"PENDING_EFFECT": 0,
+					"QUEUED": 0,
+					"REJECTED": 0,
+					"STALE": 0,
+					"TRANSMITTING": 0
+				},
+				"paused": false,
+				"physics_tick": {
+					"enabled": true,
+					"entities": 5,
+					"ok": true,
+					"steps": 1,
+					"t": 2.0
+				},
+				"port_combat": {
+					"combat": true,
+					"port": false
+				},
+				"routed": [],
+				"sensor_route": {
+					"enabled": true,
+					"evidence": 0,
+					"failed": 0,
+					"observations": 0,
+					"ok": true,
+					"reasons": []
+				},
+				"signal_route": {},
+				"signal_step": {
+					"enabled": false
+				},
+				"t_s": 2.0,
+				"traffic_step": {
+					"enabled": false
+				},
+				"transponder_tick": {
+					"enabled": false
+				},
+				"world_sync": {
+					"compared": 5,
+					"enabled": true,
+					"failures": [],
+					"frame": "bary_rot",
+					"in_sync": true,
+					"mismatched": [],
+					"mode": "tick",
+					"ok": true,
+					"reason": "tick",
+					"skipped": [],
+					"synced": 5,
+					"updated": [
+						"ally_ship",
+						"enemy_ship",
+						"own_ship",
+						"raider_2",
+						"second_own"
+					]
+				}
+			}
+		],
+		"load": {
+			"authority_restore_mode": "full",
+			"authority_restore_reasons": [],
+			"errors": [],
+			"ok": true,
+			"pending_intel_shares": 1,
+			"result_errors": [],
+			"sensor_partial_reasons": [],
+			"sensor_restore": {
+				"geometry_frame": "bary_rot",
+				"geometry_source": "physics_world",
+				"is_partial": false,
+				"partial_reasons": [],
+				"rebind": {
+					"bound": 0,
+					"frame": "bary_rot",
+					"mismatched_frame": [],
+					"missing": [],
+					"observer_bound": true,
+					"observer_id": "own_ship",
+					"ok": false,
+					"provider_t": 2.0,
+					"reason": "target_missing",
+					"seq": 4,
+					"skipped": [
+						"target_a",
+						"target_b"
+					],
+					"source": "physics_world",
+					"t": 2.0,
+					"time_ok": true,
+					"usable": false
+				},
+				"restore_mode": "full",
+				"saved": true,
+				"schema": "v17.sensor_restore.v2",
+				"time_ok": true
+			},
+			"sensor_restore_mode": "full",
+			"world_sync": {
+				"compared": 5,
+				"enabled": true,
+				"failures": [],
+				"frame": "bary_rot",
+				"in_sync": true,
+				"mismatched": [],
+				"mode": "tick",
+				"ok": true,
+				"reason": "load",
+				"skipped": [],
+				"synced": 0,
+				"updated": []
+			}
+		},
+		"mode": "memory",
+		"normal_arrival_closed": true,
+		"original_duplicate": {
+			"after": 1,
+			"before": 1,
+			"closed": true,
+			"result": {
+				"duplicated": true,
+				"observation_id": "PENDING-ONE",
+				"ok": true,
+				"owner_id": "player_intel"
+			}
+		},
+		"original_last_delivery": {
+			"delivery": {
+				"delay_s": 3.0,
+				"delivery_id": "C-000001",
+				"link_latency_s": 3.0,
+				"now_t": 5.0,
+				"path": "ally_ship->own_ship",
+				"received_t": 5.0,
+				"share_authorized_by": "ally_intel"
+			},
+			"delivery_id": "C-000001",
+			"result": {
+				"observation_id": "PENDING-ONE",
+				"ok": true,
+				"owner_id": "player_intel",
+				"track_id": "pending_contact"
+			}
+		},
+		"original_view": {
+			"observations": [
+				{
+					"bearing_deg": 45.0,
+					"delivery_id": "C-000001",
+					"intel_owner_id": "player_intel",
+					"observation_id": "PENDING-ONE",
+					"observed_t": 2.0,
+					"observer_id": "ally_ship",
+					"path": "ally_ship->own_ship",
+					"quality": 0.6,
+					"range_km": 800.0,
+					"received_t": 5.0,
+					"sensor": "optical",
+					"share_authorized_by": "ally_intel",
+					"source": "optical",
+					"target_id": "pending_contact"
+				}
+			],
+			"owner_id": "player_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": [
+				{
+					"age_s": 10.0,
+					"bearing_deg": 45.0,
+					"id": "pending_contact",
+					"intel_owner_id": "player_intel",
+					"last_observed_t": 2.0,
+					"last_received_t": 5.0,
+					"quality": 0.6,
+					"range_km": 800.0,
+					"source": "optical",
+					"stale": false
+				}
+			]
+		},
+		"pending_eta_restored": true,
+		"queued": {
+			"delivery_id": "C-000001",
+			"ok": true,
+			"pending": 1
+		},
+		"restored_before": {
+			"comms_pending": [
+				{
+					"arrive_t": 5.0,
+					"content": "",
+					"delivery_id": "C-000001",
+					"from": "ally_ship",
+					"latency_s": 3.0,
+					"links": [
+						0.0
+					],
+					"mode": "LD",
+					"packet_loss": 0.0,
+					"path": [
+						"ally_ship",
+						"own_ship"
+					],
+					"relay_count": 0.0,
+					"sent_t": 2.0,
+					"text": "[ally_ship 至 own_ship]-[LD]-[]",
+					"text_key": "COMMS_SENT",
+					"to": "own_ship"
+				}
+			],
+			"pending": {
+				"C-000001": {
+					"from": "ally_ship",
+					"owner_id": "player_intel",
+					"row": {
+						"bearing_deg": 45.0,
+						"observation_id": "PENDING-ONE",
+						"observed_t": 2.0,
+						"observer_id": "ally_ship",
+						"quality": 0.6,
+						"range_km": 800.0,
+						"sensor": "optical",
+						"share_authorized_by": "ally_intel",
+						"source": "optical",
+						"target_id": "pending_contact"
+					},
+					"share_authorized_by": "ally_intel",
+					"to": "own_ship"
+				}
+			},
+			"t": 2.0,
+			"third_owner": {
+				"observations": [],
+				"owner_id": "opfor_intel",
+				"schema": "v17.authority_intel.v1",
+				"tracks": []
+			},
+			"view": {
+				"observations": [],
+				"owner_id": "player_intel",
+				"schema": "v17.authority_intel.v1",
+				"tracks": []
+			}
+		},
+		"restored_duplicate": {
+			"after": 1,
+			"before": 1,
+			"closed": true,
+			"result": {
+				"duplicated": true,
+				"observation_id": "PENDING-ONE",
+				"ok": true,
+				"owner_id": "player_intel"
+			}
+		},
+		"restored_last_delivery": {
+			"delivery": {
+				"delay_s": 3.0,
+				"delivery_id": "C-000001",
+				"link_latency_s": 3.0,
+				"now_t": 5.0,
+				"path": "ally_ship->own_ship",
+				"received_t": 5.0,
+				"share_authorized_by": "ally_intel"
+			},
+			"delivery_id": "C-000001",
+			"result": {
+				"observation_id": "PENDING-ONE",
+				"ok": true,
+				"owner_id": "player_intel",
+				"track_id": "pending_contact"
+			}
+		},
+		"restored_view": {
+			"observations": [
+				{
+					"bearing_deg": 45.0,
+					"delivery_id": "C-000001",
+					"intel_owner_id": "player_intel",
+					"observation_id": "PENDING-ONE",
+					"observed_t": 2.0,
+					"observer_id": "ally_ship",
+					"path": "ally_ship->own_ship",
+					"quality": 0.6,
+					"range_km": 800.0,
+					"received_t": 5.0,
+					"sensor": "optical",
+					"share_authorized_by": "ally_intel",
+					"source": "optical",
+					"target_id": "pending_contact"
+				}
+			],
+			"owner_id": "player_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": [
+				{
+					"age_s": 10.0,
+					"bearing_deg": 45.0,
+					"id": "pending_contact",
+					"intel_owner_id": "player_intel",
+					"last_observed_t": 2.0,
+					"last_received_t": 5.0,
+					"quality": 0.6,
+					"range_km": 800.0,
+					"source": "optical",
+					"stale": false
+				}
+			]
+		},
+		"save": {
+			"bytes": 21402,
+			"entry": "GameSession.save_state",
+			"ok": true
+		},
+		"third_owner_original": {
+			"observations": [],
+			"owner_id": "opfor_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": []
+		},
+		"third_owner_restored": {
+			"observations": [],
+			"owner_id": "opfor_intel",
+			"schema": "v17.authority_intel.v1",
+			"tracks": []
+		},
+		"timeline": [
+			{
+				"original_comms_pending": 1,
+				"original_ids": [],
+				"original_pending": 1,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": []
+				},
+				"restored_comms_pending": 1,
+				"restored_ids": [],
+				"restored_pending": 1,
+				"restored_t": 3.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": []
+				},
+				"t": 3.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 1,
+				"original_ids": [],
+				"original_pending": 1,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": []
+				},
+				"restored_comms_pending": 1,
+				"restored_ids": [],
+				"restored_pending": 1,
+				"restored_t": 4.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": []
+				},
+				"t": 4.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 0.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 5.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 0.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 5.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 4.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 6.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 4.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 6.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 5.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 7.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 5.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 7.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 6.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 8.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 6.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 8.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 7.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 9.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 7.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 9.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 8.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 10.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 8.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 10.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 9.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 11.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 9.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 11.0,
+				"view_signature_equal": true
+			},
+			{
+				"original_comms_pending": 0,
+				"original_ids": [
+					"pending_contact"
+				],
+				"original_pending": 0,
+				"original_tick_ok": true,
+				"original_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 10.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"restored_comms_pending": 0,
+				"restored_ids": [
+					"pending_contact"
+				],
+				"restored_pending": 0,
+				"restored_t": 12.0,
+				"restored_tick_ok": true,
+				"restored_view": {
+					"observations": [
+						{
+							"bearing_deg": 45.0,
+							"delivery_id": "C-000001",
+							"intel_owner_id": "player_intel",
+							"observation_id": "PENDING-ONE",
+							"observed_t": 2.0,
+							"observer_id": "ally_ship",
+							"path": "ally_ship->own_ship",
+							"quality": 0.6,
+							"range_km": 800.0,
+							"received_t": 5.0,
+							"sensor": "optical",
+							"share_authorized_by": "ally_intel",
+							"source": "optical",
+							"target_id": "pending_contact"
+						}
+					],
+					"owner_id": "player_intel",
+					"schema": "v17.authority_intel.v1",
+					"tracks": [
+						{
+							"age_s": 10.0,
+							"bearing_deg": 45.0,
+							"id": "pending_contact",
+							"intel_owner_id": "player_intel",
+							"last_observed_t": 2.0,
+							"last_received_t": 5.0,
+							"quality": 0.6,
+							"range_km": 800.0,
+							"source": "optical",
+							"stale": false
+						}
+					]
+				},
+				"t": 12.0,
+				"view_signature_equal": true
+			}
+		]
+	}
+}
