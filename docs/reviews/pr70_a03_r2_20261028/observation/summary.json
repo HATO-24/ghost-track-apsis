@@ -1,0 +1,63 @@
+{
+  "head": "ea29da7138ad353c4198f76547f57c4e0b07142d",
+  "previous_head": "6bd919aa19898bbf31f5dd7c3287befc47392877",
+  "diagnostic_runs": 1,
+  "diagnostic_exit_code": 0,
+  "formal_probes_run": 0,
+  "original_exact_replay": "CLOSED",
+  "original_replay_unchanged_fields": {
+    "player_measurement": true,
+    "combat_track": true,
+    "combat_quality_cache": true,
+    "candidates": true,
+    "identity_evidence": true,
+    "delivered": true,
+    "player_observations": true,
+    "ally_observations": true,
+    "sensor_track_map": true
+  },
+  "real_candidate_replay": "CLOSED",
+  "candidate_unchanged_fields": {
+    "player_measurement": true,
+    "combat_track": true,
+    "combat_quality_cache": true,
+    "candidates": true,
+    "identity_evidence": true,
+    "delivered": true,
+    "player_observations": true,
+    "ally_observations": true,
+    "sensor_track_map": true
+  },
+  "normal_new_observations": {
+    "own_before": 10,
+    "own_after": 19,
+    "ally_before": 1,
+    "ally_after": 4,
+    "player_observations_in_ally_control": 0
+  },
+  "remaining": [
+    {
+      "priority": 2,
+      "title": "Owner rejection occurs before unconditional global TrackTable/map mutation",
+      "line": 2662,
+      "rejection": {
+        "observation_id": "OBS-000008",
+        "owner_id": "ally_intel",
+        "reason": "share_not_authorized",
+        "t": 7.0,
+        "target_id": "raider_2"
+      },
+      "global_tracks_before": 0,
+      "global_tracks_after": 1,
+      "map_before": {},
+      "map_after": {
+        "raider_2": "T0001"
+      },
+      "owner_observations_after": {
+        "player": 0,
+        "ally": 0
+      },
+      "normal_delivery_audit_after": 0
+    }
+  ]
+}

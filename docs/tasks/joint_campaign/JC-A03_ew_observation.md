@@ -2,7 +2,21 @@
 
 执行Issue：[JC-A03 #60](https://github.com/HATO-24/ghost-track-apsis/issues/60)。
 
-状态：RETURNED，PR70首轮四组收尾；A2已完成，A3不冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：RETURNED，PR70第二轮仅R1/R2/R3各一处窄收尾；R4关闭，A2已完成，A3不冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-28 PR70第二轮：关闭大部分原反例，只剩三个连接/错误边界
+
+被审 `ea29da7138ad353c4198f76547f57c4e0b07142d`，main `3845852bd78821ee6b3c70c4d8f9c81a23dca5d6`。[本轮关闭表与原始数据](../../reviews/pr70_a03_r2_20261028/review.md)。根11/11专项PASS，新EW83/0、A02 122/0、A1 90/0；CI同head合成merge full90=83PASS/7历史FAIL、new_fail0、drift0、complete=true，根未重复本地全量。PR70暂缓合并，继续原#60。
+
+**保留已过**：CombatService READY/预测/射击字段的精度因子和measurement时刻/状态；真实原观测/非空候选重投幂等及正常own/ally新观测；完整文件full、null队列invalid且有字段原因、全EW缺段legacy_absent；A02注册恢复、90个ID非空唯一和W7真实文件10tick队列/捕获几何质量/投递/owner/实际解算对照。原R4完全关闭，不再派发。低质量仍可发射本身不是缺陷，硬禁射推断不恢复。
+
+只补原三组的剩余边界：
+
+1. **R1 [P2] 真实Ballistics输入**：同seed、同t24/600km几何，clean q=.90849375、moderate q=.7994745；CombatService已正确.8775/.735→.745875/1.52475，但最终Ballistics prediction仍双方.8775/.735，弹体初始aim/velocity也相同。Session launch_opts/真实predict没有传测量质量或误差。把既有抽象精度/误差接入真正发射/弹道路径，保持风险返回与实际输入一致；不要求单发必然脱靶、完整制导或禁射新策略，已过接口层不重做。
+2. **R2 [P2] owner拒绝前拦写者**：原重投已不回滚。仅错投接收owner的真实条目被share_not_authorized拒绝，measurement/owner observations无写入，却仍在拒绝return前创建全局TrackTable 0→1和map。拦住这些写入，保留已过重投/候选及新观测；不扩通用事务架构。
+3. **R3 [P2] 部分新段规范化**：原queue=null已明确拒绝。只缺ew_combat_quality仍触发Dictionary转换SCRIPT ERROR；公开load虽失败，但mode=absent、错误field空。按字段必需/可选合同给明确缺失拒绝或有意兼容默认，避免运行时异常并解释字段原因；不重写存档或重做正常10tick。
+
+补上述真实残例和原正例，最终同40位HEAD专项+原C，七历史baseline不刷新。A04/B01A核心接入仍等A3；UI设计文档GPT/Sol，代码DeepSeek。下面首轮/口径纠正为历史，优先按本轮关闭/剩余表执行。
 
 ## 2026-10-28 PR70首轮：保留正常链路，只补实际消费者边界
 

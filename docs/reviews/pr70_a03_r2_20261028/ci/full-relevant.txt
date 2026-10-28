@@ -1,0 +1,5 @@
+2026-10-28T10:56:11.4888745Z HEAD is now at 82e2e87 Merge ea29da7138ad353c4198f76547f57c4e0b07142d into 3845852bd78821ee6b3c70c4d8f9c81a23dca5d6
+2026-10-28T11:02:35.1313343Z total=90  pass=83  fail=7  timeout=0  not_run=0 (expected=0 unexpected=0)  duration=375.4s
+2026-10-28T11:02:35.1324455Z BASELINE CHECK: known_fail=7 new_fail=0 drift=0 unverified=0 unselected=0 complete=true
+2026-10-28T11:02:35.3051317Z FULL_MATRIX_EXIT=0
+2026-10-28T11:02:54.4874812Z ARTIFACT ASSERT OK run_dir=20261028-105619-82e2e87c cases=90 logs=149

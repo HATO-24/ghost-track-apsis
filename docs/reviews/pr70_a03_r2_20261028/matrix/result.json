@@ -1,0 +1,10 @@
+{
+  "head": "ea29da7138ad353c4198f76547f57c4e0b07142d",
+  "case_count": 90,
+  "nonempty_id_count": 90,
+  "unique_id_count": 90,
+  "a02_id_matches": 1,
+  "a02_script": "res://tests/jc_identity_pipeline_probe.gd",
+  "list_exit": 0,
+  "baseline_unchanged": true
+}
