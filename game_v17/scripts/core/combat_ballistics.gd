@@ -876,6 +876,23 @@ func predict(shooter_state: Dictionary, target_state: Dictionary, weapon_id: Str
 	var q := clampf(float(w.get("accuracy", 0.5))
 		* (1.0 - clampf(range_km / maxf(1.0, float(w.get("range_km", 1.0))), 0.0, 1.0) * 0.25),
 		0.0, 1.0)
+	# JC-A03/R1：真实弹道预测消费抽象测量质量/误差；若调用方已给规范化
+	# quality/error（接口层计算），直接采用同一值，避免双重惩罚。
+	var o_pred: Dictionary = opts if opts is Dictionary else {}
+	var mq_pred := clampf(float(o_pred.get("measurement_quality", 1.0)), 0.0, 1.0)
+	var acc_mult_pred := float(o_pred.get("quality_accuracy_mult",
+		0.85 if mq_pred < 0.9 - 1.0e-9 else 1.0))
+	var q_explicit = o_pred.get("quality", null)
+	if (q_explicit is int or q_explicit is float) \
+			and float(q_explicit) >= 0.0 and float(q_explicit) <= 1.0:
+		q = clampf(float(q_explicit), 0.0, 1.0)
+	else:
+		# 仅 mq、无显式 quality/error：实际应用既定因子并据此生成误差
+		q = clampf(q * acc_mult_pred, 0.0, 1.0)
+	var err_final := maxf(0.0, range_km * (1.0 - q) * 0.01)
+	var err_explicit = o_pred.get("error_km", null)
+	if (err_explicit is int or err_explicit is float) and float(err_explicit) >= 0.0:
+		err_final = float(err_explicit)
 	var lead_offset := aim - tp
 	return {"ok": true, "reason": "", "schema": "ballistic_prediction.v1",
 		"no_physics": false, "mode": "guided" if guided else "ballistic",
@@ -887,7 +904,10 @@ func predict(shooter_state: Dictionary, target_state: Dictionary, weapon_id: Str
 		"lead_offset_km": _arr(lead_offset), "residual_km": residual,
 		"fuel_s": float(w.get("fuel_s", 0.0)),
 		"dv_budget_kmps": float(w.get("max_accel_kmps2", 0.0)) * float(w.get("fuel_s", 0.0)),
-		"hit_probability": q, "error_km": maxf(0.0, range_km * (1.0 - q) * 0.01),
+		"hit_probability": q, "error_km": err_final,
+		"measurement_quality": mq_pred,
+		"quality_accuracy_mult": acc_mult_pred,
+		"applied_error_km": err_final,
 		"guidance": String(w.get("guidance", "")),
 		"interceptable": bool(w.get("interceptable", false)),
 		"seeker": (w.get("seeker", {}) as Dictionary).duplicate(true) if w.get("seeker") is Dictionary else {}}
@@ -982,6 +1002,13 @@ func _launch_projectile(shooter_id: String, target_id: String, weapon_id: String
 		aim = _v3(sol.get("aim_km", _arr(tp)))
 		tof = float(sol.get("time_of_flight_s", 0.0))
 		residual = float(sol.get("residual_km", 0.0))
+	# JC-A03/R1：真实弹体消费抽象测量误差（确定性，可存档可复现）；
+	# 与接口层返回的 error_km 一致，clean/moderate 初始态因此不同。
+	var mq_launch := clampf(float(o.get("measurement_quality", 1.0)), 0.0, 1.0)
+	var applied_error := maxf(0.0, float(o.get("error_km", 0.0)))
+	var acc_mult_launch := 0.85 if mq_launch < 0.9 - 1.0e-9 else 1.0
+	if applied_error > 0.0:
+		aim += Vector3(0.0, applied_error, 0.0)
 	if bool(o.get("aim_error", false)):
 		aim += Vector3(0.0, float(o.get("aim_error_km", 50.0)), 0.0)
 	var dir := aim - sp
@@ -1057,6 +1084,9 @@ func _launch_projectile(shooter_id: String, target_id: String, weapon_id: String
 		"wp_index": 0,
 		"salvo_index": index, "salvo_total": total,
 		"aim_km": _arr(aim), "planned_tof_s": tof, "solve_residual_km": residual,
+		"measurement_quality": mq_launch,
+		"quality_accuracy_mult": acc_mult_launch,
+		"applied_error_km": applied_error,
 		"active": true, "status": "FLIGHT", "hit": false,
 		"intercepted": false, "guidance_lost": false, "decoyed": false,
 		"closest_km": _v3(ss.get("pos_km")).distance_to(tp),

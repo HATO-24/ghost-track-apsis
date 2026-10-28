@@ -1,0 +1,189 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R5-OPTICAL-IR-1 PROBE · 完整光学 / IR 通道模型（单次）
+════════════════════════════════════════════════════════════
+
+── 1 相机参数 / FOV / IFOV / 模式 ──
+[PASS] 默认 setup 无错误  []
+[PASS] VIS+IR 两个传感器
+[PASS] VIS/IR 均可用
+[PASS] VIS 型号 MS-OT2
+[PASS] IR 型号 CH-IR2
+[PASS] VIS 口径 1.2 m  actual=1.2 expected=1.2 diff=0.0 tol=0.000000001
+[PASS] VIS 焦距 4.8 m  actual=4.8 expected=4.8 diff=0.0 tol=0.000000001
+[PASS] VIS 4096 px
+[PASS] VIS 像元 5 µm  actual=5.0 expected=5.0 diff=0.0 tol=0.000000001
+[PASS] VIS FOV≈0.244°  actual=0.24446162173227 expected=0.2444 diff=0.00006162173227 tol=0.0002
+[PASS] VIS IFOV≈1.04 µrad  actual=1.04166666666667 expected=1.0417 diff=0.00003333333333 tol=0.001
+[PASS] VIS IFOV_eff=IFOV（非衍射限）  actual=1.04166666666667 expected=1.0417 diff=0.00003333333333 tol=0.001
+[PASS] VIS 衍射 < 探测器 IFOV
+[PASS] IR 口径 0.35 m  actual=0.35 expected=0.35 diff=0.0 tol=0.000000001
+[PASS] IR 焦距 1.2 m  actual=1.2 expected=1.2 diff=0.0 tol=0.000000001
+[PASS] IR FOV≈0.733°  actual=0.73337596485031 expected=0.7334 diff=0.00002403514969 tol=0.0002
+[PASS] IR 探测器 IFOV=12.5 µrad  actual=12.5 expected=12.5 diff=0.0 tol=0.000001
+[PASS] IR IFOV_eff 受衍射限
+[PASS] VIS 波段
+[PASS] IR 波段
+[PASS] VIS refresh 8 s  actual=8.0 expected=8.0 diff=0.0 tol=0.000000001
+[PASS] IR refresh 1 s  actual=1.0 expected=1.0 diff=0.0 tol=0.000000001
+[PASS] VIS 曝光 1 s  actual=1.0 expected=1.0 diff=0.0 tol=0.000000001
+[PASS] IR 曝光 0.25 s  actual=0.25 expected=0.25 diff=0.0 tol=0.000000001
+[PASS] VIS FOV 与 detector/focal 一致  actual=0.24446162173227 expected=0.24446162173227 diff=0.0 tol=0.000000001
+[PASS] IR FOV 与 detector/focal 一致  actual=0.73337596485031 expected=0.73337596485031 diff=0.0 tol=0.000000001
+[PASS] mode=shadow
+[PASS] authoritative=false
+[PASS] 不写 TrackTable
+[PASS] 不写 V15
+[PASS] 可只配 VIS
+[PASS] 缺 IR → no_sensor
+
+── 2 FOV 内 / 外 / 视轴 / 万向架 ──
+[PASS] VIS 通道建立
+[PASS] channel fov_deg 输出  actual=0.24446162173227 expected=0.2444 diff=0.00006162173227 tol=0.0002
+[PASS] 视轴内 → staring
+[PASS] 视轴内 visible
+[PASS] ON off_axis=0  actual=0.0 expected=0.0 diff=0.0 tol=0.000001
+[PASS] 视轴外 → fov_miss
+[PASS] 视轴外 status=lost
+[PASS] 视轴外 not visible
+[PASS] off_axis > FOV/2
+[PASS] 手动 set_boresight
+[PASS] 转视轴后不再 fov_miss
+[PASS] 转视轴后 visible
+
+── 3 地球/月球遮挡 / LOS ──
+[PASS] 目标在地球背面 → occluded
+[PASS] occluded status=lost
+[PASS] occluded not visible
+[PASS] snapshot los=false → occluded
+[PASS] 月球挡线 → occluded
+[PASS] 月球离线 → 不遮挡
+
+── 4 光照 / 阴影 / 地球反照 / 太阳眩光 ──
+[PASS] 阴影/太阳 0 → too_dark
+[PASS] shadow illum<0.1
+[PASS] 太阳 1 → 不 too_dark
+[PASS] illum≈1+albedo 弱补光  actual=1.015 expected=1.015 diff=0.0 tol=0.000001
+[PASS] 太阳在视轴 → dazzled
+[PASS] 太阳离轴 → 不 dazzled
+
+── 5 角尺寸 / N_px / SNR / 曝光 ──
+[PASS] 目标角尺寸 θ=size/R  actual=0.00000625 expected=0.00000625 diff=0.0 tol=0.0
+[PASS] N_px(50 m @ 8000 km)≈6  actual=6.0 expected=6.0 diff=0.0 tol=0.000001
+[PASS] SNR 高于阈值
+[PASS] 曝光 ≤ max_exposure
+[PASS] N_px(50 m @ 15,000 km)≈3.2  actual=3.2 expected=3.2 diff=0.0 tol=0.01
+[PASS] N_px(50 m @ 30,000 km)≈1.6  actual=1.6 expected=1.6 diff=0.0 tol=0.01
+[PASS] 30k 仍可锁定（探测）
+[PASS] N_px<3 → 不可分类
+[PASS] 不可分类时 VIS 仅 L1
+[PASS] 大口径 SNR 更高  22.09 > 10.04
+[PASS] SNR 口径 20log10 关系  actual=12.0411998265592 expected=12.0411998265592 diff=0.0 tol=0.000001
+[PASS] min_snr 高 → low_snr
+
+── 6 凝视 / 锁定 / VIS 分类 L3 / 失锁 ──
+[PASS] 20 s：staring
+[PASS] 进度在 0..1
+[PASS] 8,000 km 所需凝视≈40 s  39.4088669950739
+[PASS] 40+ s → locked
+[PASS] locked 标记
+[PASS] lock 后像素/SNR 满足 → 分类
+[PASS] VIS 分类 → L3
+[PASS] classification ship_class 来自目标
+[PASS] classification 不写 identity
+[PASS] 不给测量距离  actual=-1.0 expected=-1.0 diff=0.0 tol=0.000000001
+[PASS] 锁定 SNR 达标
+[PASS] 视轴失配 → lost
+[PASS] lost 后进度不增/保留
+[PASS] 恢复视轴 → 重新捕获
+[PASS] 超出 lost_hold_s → 凝视清零  actual=0.0 expected=0.0 diff=0.0 tol=0.000000001
+
+── 7 运动模糊 / 相对角速度 / 自舰机动 ──
+[PASS] smear>1 → blurred
+[PASS] smear_px >1
+[PASS] 角速度低于跟瞄上限
+[PASS] 角速度>track_rate → too_fast
+[PASS] 低速目标不 blurred
+[PASS] 机动前有进度
+[PASS] 自舰 0.03 g → maneuver
+[PASS] 机动后凝视清零  actual=0.0 expected=0.0 diff=0.0 tol=0.000000001
+[PASS] 自舰 2°/s → too_fast/blurred
+
+── 8 IR：锁定 4 s / 阴影可用 / L1 / 热对比 ──
+[PASS] IR 2 s 尚未锁定
+[PASS] IR 4+ s → locked
+[PASS] IR locked 标记
+[PASS] IR 锁定 → L1（不升 L3）
+[PASS] IR 不分类
+[PASS] IR range_band=near
+[PASS] IR 不给测量距离  actual=-1.0 expected=-1.0 diff=0.0 tol=0.000000001
+[PASS] IR identity=unknown
+[PASS] 阴影内 IR 仍 locked
+[PASS] 阴影 IR L1
+[PASS] 阴影热对比降低
+[PASS] 600 K 热对比 >1
+[PASS] 热目标 SNR 更高
+[PASS] 远距 IR range_band mid/far
+
+── 9 多目标 / VIS+IR 独立 / 容量 ──
+[PASS] VIS 同时开 A/B 通道
+[PASS] 同目标 IR 通道独立
+[PASS] VIS 活动目标 2
+[PASS] A/B 均可见
+[PASS] IR A 可见
+[PASS] 停 VIS A
+[PASS] VIS B 保留
+[PASS] IR A 保留
+[PASS] 停 IR 全部
+[PASS] 停 IR 不影响 VIS B
+[PASS] 容量内第 1 通道
+[PASS] 容量满 → capacity_full
+[PASS] sensor 输出 boresight_deg
+[PASS] sensor 输出 active_channels
+
+── 10 错误 / JSON / 确定性 / 只读 ──
+[PASS] 未知 kind
+[PASS] 空 target
+[PASS] 禁用时 start 拒绝
+[PASS] step 目标缺失
+[PASS] vm JSON 可序列化
+[PASS] channels JSON
+[PASS] JSON 含 schema
+[PASS] JSON 无 Vector3
+[PASS] JSON 含只读标记
+[PASS] 模型无 tracks 字段
+[PASS] to_dict schema
+[PASS] vm 字段 schema
+[PASS] vm 字段 mode
+[PASS] vm 字段 authoritative
+[PASS] vm 字段 enabled
+[PASS] vm 字段 t
+[PASS] vm 字段 sensors
+[PASS] vm 字段 channels
+[PASS] vm 字段 by_status
+[PASS] vm 字段 events
+[PASS] vm 字段 warnings
+[PASS] vm 字段 writes
+[PASS] vm 字段 summary
+[PASS] vm.writes.track_table=false
+[PASS] 同输入 → vm 逐位一致
+[PASS] channels 一致
+[PASS] 只读 vm 不改状态
+[PASS] summary channels=1
+[PASS] summary 不写 V15
+────────────────────────────────────────────────────────────
+[DATA] optics = VIS fov=0.2445°/ifov=1.042µrad · IR fov=0.7334°/ifov_eff=34.86µrad
+[DATA] fov = fov=0.2445° half=0.1222°；off_axis 90° → fov_miss；set_boresight 后可见
+[DATA] occlusion = 地球背面/环境 LOS/月球挡线 → occluded；月球离线不挡
+[DATA] illum = shadow→too_dark；illum=1.015；sun_avoid_deg=5 → dazzled
+[DATA] resolution = N_px 6@8k / 3.2@15k / 1.6@30k；SNR 口径关系验证
+[DATA] stare = required≈39 s；锁定→L3+classification；失锁保留/超时清零
+[DATA] motion = smear=ω·t/IFOV；10 km/s→blurred，500 km/s→too_fast，0.03g→maneuver
+[DATA] ir = CH-IR2 locked 4s / 阴影可锁 / L1 / range_band / contrast
+[DATA] multi = VIS A/B + IR A 独立；停 VIS A 不影响 B/IR；容量/视轴输出
+[DATA] json = json=2768 bytes；errors/边界；两实例确定性
+────────────────────────────────────────────────────────────
+OPTICAL IR PROBE RESULT: PASS=149 FAIL=0
+OPTICAL IR PROBE OK
+AUDIO OK files=36 headless=true muted=false

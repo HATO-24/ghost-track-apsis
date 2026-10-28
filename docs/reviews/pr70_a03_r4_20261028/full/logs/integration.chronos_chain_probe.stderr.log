@@ -1,0 +1,6 @@
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/chronos_chain.gd:503)
+       [1] _test_save_load (res://tests/chronos_chain_probe.gd:465)
+       [2] _initialize (res://tests/chronos_chain_probe.gd:41)

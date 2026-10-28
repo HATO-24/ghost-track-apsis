@@ -597,6 +597,45 @@ func apply_identity(owner_id: String, target_id: String, patch: Dictionary) -> D
 		"operational": cur.duplicate(true)}
 
 
+# ── JC-A03：owner 航迹当前测量质量（与历史聚合分开，供 HUD/火控消费者）──
+func apply_measurement(owner_id: String, target_id: String, patch: Dictionary) -> Dictionary:
+	if not intel.has(owner_id):
+		return {"ok": false, "reason": "unknown_owner", "owner_id": owner_id}
+	if target_id == "":
+		return {"ok": false, "reason": "empty_target"}
+	var m: Dictionary = intel[owner_id]
+	if not m.has(target_id):
+		m[target_id] = {"id": target_id, "intel_owner_id": owner_id,
+			"source": "measurement", "identity": "unknown",
+			"range_km": -1.0, "pos_km": [], "stale": false, "age_s": 0.0}
+	var trk: Dictionary = m[target_id]
+	for k in patch.keys():
+		trk[str(k)] = patch[k]
+	trk["intel_owner_id"] = owner_id
+	return {"ok": true, "owner_id": owner_id, "target_id": target_id,
+		"track": trk.duplicate(true)}
+
+
+func measurement_quality(owner_id: String, target_id: String) -> Dictionary:
+	if not intel.has(owner_id):
+		return {"ok": false, "reason": "unknown_owner"}
+	var m: Dictionary = intel[owner_id]
+	if not m.has(target_id):
+		return {"ok": false, "reason": "unknown_target"}
+	var trk: Dictionary = m[target_id]
+	if not trk.has("measurement_quality"):
+		return {"ok": false, "reason": "no_measurement_quality",
+			"owner_id": owner_id, "target_id": target_id}
+	return {"ok": true, "owner_id": owner_id, "target_id": target_id,
+		"measurement_quality": float(trk.get("measurement_quality", 1.0)),
+		"measurement_t": float(trk.get("measurement_t", 0.0)),
+		"measurement_source": String(trk.get("measurement_source", "")),
+		"measurement_original": float(trk.get("measurement_original", 1.0)),
+		"aggregate_quality": float(trk.get("aggregate_quality", 1.0)),
+		"degraded": bool(trk.get("measurement_degraded", false)),
+		"effect": (trk.get("measurement_effect", {}) as Dictionary).duplicate(true) \
+			if trk.get("measurement_effect") is Dictionary else {}}
+
 func identity_operational(owner_id: String, target_id: String) -> Dictionary:
 	if not identity_store.has(owner_id):
 		return {}

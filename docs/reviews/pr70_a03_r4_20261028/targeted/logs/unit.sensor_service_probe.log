@@ -1,0 +1,147 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+SENSOR SERVICE PROBE · 完整游戏-阶段2I
+════════════════════════════════════════════════════════════════
+
+── 1. setup / 雷达观测事件 ──
+[PASS] service ready  []
+[PASS] setup 无错误
+[PASS] observer id  actual=harmattan expected=harmattan
+[PASS] mounts 默认装配
+[PASS] VM schema
+[PASS] mode shadow
+[PASS] VM ready
+[PASS] step 产生 observations  5
+[PASS] 雷达观测存在  { "radar": 5 }
+[PASS] radar 观测计数
+[PASS] observation schema  actual=sensor_observation.v1 expected=sensor_observation.v1
+[PASS] observation event_id
+[PASS] observation t
+[PASS] 不判等级
+[PASS] observation 不产生 contact
+[PASS] observation 不写 V15
+[PASS] position 字段（可为空）
+[PASS] observation quality
+[PASS] observation range
+[PASS] observation bearing
+[PASS] observation sensor_model
+[PASS] observation provenance
+[PASS] TWS channel 存在
+[PASS] TWS sensor_model
+[PASS] TWS hits 字段
+[PASS] counts.events
+[PASS] observation event 可检索
+[PASS] TWS/传感器 channels
+[PASS] counts observations
+[PASS] VM JSON
+[PASS] 不写 TrackTable
+[PASS] 不写 V15
+[PASS] 不写 world
+[PASS] setup/step 确定性
+
+── 2. VIS/IR / 目标 / 光学 Evidence ──
+[PASS] set_target T1
+[PASS] start optical T1
+[PASS] start IR T1
+[PASS] optical channel 存在
+[PASS] IR channel 存在
+[PASS] VIS locked  locked
+[PASS] IR locked  locked
+[PASS] VIS FOV
+[PASS] VIS IFOV
+[PASS] VIS SNR
+[PASS] VIS 无遮挡
+[PASS] VIS off_axis
+[PASS] VIS detected
+[PASS] VIS backend
+[PASS] IR L1（不分类）
+[PASS] 光学/IR observation 类型  { "radar": 10, "optical": 1, "ir": 1 }
+[PASS] 光学 Evidence 产生
+[PASS] optical evidence 存在
+[PASS] optical evidence support=3  actual=3 expected=3
+[PASS] evidence 不产生 contact
+[PASS] evidence 不产生位置
+[PASS] evidence 不判等级
+[PASS] evidence classification
+[PASS] VIS/IR 观测存在  { "radar": 10, "optical": 1, "ir": 1 }
+[PASS] counts optical_evidence
+[PASS] evidence JSON
+[PASS] VIS/IR VM JSON
+[PASS] stop optical T1
+[PASS] stop 后 optical 状态
+
+── 3. 雷达开关 / EMCON ──
+[PASS] 初始 radar=true
+[PASS] set_radar_enabled(false)
+[PASS] radar=false
+[PASS] emcon=true
+[PASS] VM radar=false
+[PASS] VM emcon=true
+[PASS] radar off event
+[PASS] off 后不新增雷达观测
+[PASS] EMCON 下 IFF 返回证据
+[PASS] IFF blocked  actual=blocked expected=blocked
+[PASS] set_radar_enabled(true)
+[PASS] radar=true
+[PASS] emcon=false
+[PASS] VM radar 恢复
+[PASS] set_emcon(true)
+[PASS] emcon explicit
+[PASS] set_emcon(false)
+[PASS] emcon off
+[PASS] controls VM JSON
+
+── 4. IFF 身份证据 / 不产生位置接触 ──
+[PASS] IFF T1 ok
+[PASS] T1 friend  actual=friend expected=friend
+[PASS] T1 identity friend  actual=friend expected=friend
+[PASS] T1 never_hostile
+[PASS] IFF evidence schema  actual=track_evidence.v1 expected=track_evidence.v1
+[PASS] IFF evidence type  actual=iff expected=iff
+[PASS] IFF support=4  actual=4 expected=4
+[PASS] IFF 不产生 contact
+[PASS] IFF 不产生位置
+[PASS] IFF 不 hostile
+[PASS] IFF evidence 无位置
+[PASS] IFF evidence event_id
+[PASS] IFF evidence status
+[PASS] IFF raw status
+[PASS] IFF 不判等级
+[PASS] T3 faulty  actual=faulty_transponder expected=faulty_transponder
+[PASS] T2 out_of_range  actual=out_of_range expected=out_of_range
+[PASS] IFF 未知目标  actual=unknown_target expected=unknown_target
+[PASS] IFF 未选目标  actual=no_target expected=no_target
+[PASS] IFF 不增 observation
+[PASS] IFF evidence 累计
+[PASS] IFF evidence 计数
+[PASS] IFF VM JSON
+[PASS] IFF 不写 TrackTable
+
+── 5. 无目标/超距/遮挡 / JSON / 确定性 ──
+[PASS] set_target 未知 false
+[PASS] start 未知目标 false
+[PASS] start 非法 kind false
+[PASS] stop 无匹配 false
+[PASS] 远目标通道建立
+[PASS] 远目标 channel 存在
+[PASS] 远目标 lost
+[PASS] 远目标 reason  out_of_range
+[PASS] 远目标 detected=false
+[PASS] 远目标 SNR 字段
+[PASS] 失败步骤仍记录观测/事件
+[PASS] 遮挡 service ready
+[PASS] 遮挡通道建立
+[PASS] 遮挡 reason=occluded
+[PASS] 遮挡 occluded=true
+[PASS] take_events 非空
+[PASS] 最终 VM JSON
+[PASS] summary JSON
+[PASS] events JSON
+[PASS] 确定性 VM
+[PASS] 确定性 events
+[PASS] 最终不写 TrackTable
+────────────────────────────────────────────────────────────────
+SENSOR SERVICE PROBE RESULT: PASS=128 FAIL=0
+SENSOR SERVICE PROBE OK
+AUDIO OK files=36 headless=true muted=false

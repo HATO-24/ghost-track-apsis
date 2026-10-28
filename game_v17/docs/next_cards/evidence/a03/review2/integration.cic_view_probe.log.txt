@@ -1,0 +1,31 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE4I PROBE · CICView
+════════════════════════════════════════════════════════════
+
+── 1 setup/错误 ──
+
+── 2 L1 方位线 ──
+
+── 3 L2/L3/L4 ──
+
+── 4 metadata/设施/ownship ──
+
+── 5 无 truth/只读 ──
+
+── 6 TrackTable 集成 ──
+
+── 7 确定/JSON ──
+────────────────────────────────────────────────────────────
+[DATA] setup = 缺 VM/tracks/ownship/heading 失败 · 合法 view truth=false/writes=false/ownship known
+[DATA] l1 = 只有 bearing_ray/cone · range=null · 无 estimate/position · 缺 bearing 不伪造 · cone 随质量/年龄
+[DATA] l2-l4 = L2 估计=own+bearing/range · uncertainty/age/quality · L3/L4 identity/threat/evidence · 缺 range/bearing 不伪造
+[DATA] metadata/facilities = known/entity/facility 映射 · 设施 registry/array · ownship 平移 · summary
+[DATA] no-truth = truth:false/writes 全 false · 忽略 truth position/true_identity/hidden entity · 输入只读
+[DATA] track-table = 实际 TrackTable 两观测 L2 · bearing/range→estimate · metadata known · check
+[DATA] determinism = 两次 build/to_json 一致 · 排序/重复 build · 空 tracks · not_ready reason
+────────────────────────────────────────────────────────────
+V17 CIC VIEW PROBE RESULT: PASS=925 FAIL=0
+V17 CIC VIEW PROBE OK
+AUDIO OK files=36 headless=true muted=false

@@ -2,7 +2,15 @@
 
 执行Issue：[JC-A03 #60](https://github.com/HATO-24/ghost-track-apsis/issues/60)。
 
-状态：RETURNED，第三轮只剩R1发射前预测与R3旧档覆盖两处；R2/R4关闭，A2已完成，A3不冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：DONE（第四轮独立放行）；A3已冻结并合入，#60完成，下一张核心卡A04/#61。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-28 PR70第四轮：PASS，A3放行
+
+A3冻结 `5d372ea2df7c49badeea3846c16b839b1f6faef1`，PR70合入main `c3fca1c52a4158f374661f1906b32103dab5360c`，整个tree等于被审候选。[本轮独立证据与交接](../../reviews/pr70_a03_r4_20261028/review.md)。普通实体/HUD匿名键的发射前预测现在读取同一owner质量，mq-only实际应用既定因子，显式规范化输入不双重惩罚；旧档覆盖会清除前会话EW运行态，正式pending反例与独立真实文件fresh/active对照均关闭。原R2/R4及射后真实运动/partial/full/null结论保留，不再返工。
+
+根专项11/11、新EW126/0、A02 122/0；原C Phase0 6/6、PhaseA 3/3、full90=83PASS/7历史FAIL、new_fail0、drift0、complete=true、退出0。七历史baseline未刷新。低质量仍能发射本身不是缺陷，硬禁射推断不恢复。
+
+#60完成，下一张核心卡为[A04/#61](JC-A04_ew_comms.md)，从包含上述main合入提交的最新main开始。UI设计/文档GPT/Sol，主要代码DeepSeek，核心A04→B01A。下方前三轮是复核历史，以本轮放行与关闭表为准，不重复派发已关闭工作。
 
 ## 2026-10-28 PR70第三轮：真实发射/R2/partial已好，仅两处入口
 

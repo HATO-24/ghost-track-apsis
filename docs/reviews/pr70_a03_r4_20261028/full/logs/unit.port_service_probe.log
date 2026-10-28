@@ -1,0 +1,257 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE3E PROBE · PortService
+════════════════════════════════════════════════════════════
+
+── 1 配置/初始 ──
+[PASS] PortService ready  []
+[PASS] ports 2  actual=2 expected=2
+[PASS] summary schema  actual=v17.port_service.v1 expected=v17.port_service.v1
+[PASS] summary ports  actual=2 expected=2
+[PASS] 初始 requests 0  actual=0 expected=0
+[PASS] 全局泊位 3  actual=3 expected=3
+[PASS] 初始泊位全空闲  actual=3 expected=3
+[PASS] 全局船坞 1  actual=1 expected=1
+[PASS] 全局拖船 1  actual=1 expected=1
+[PASS] 全局燃料 1100  actual=1100.000000 expected=1100.000000
+[PASS] vm schema  actual=v17.port_service.v1 expected=v17.port_service.v1
+[PASS] vm ports
+[PASS] vm requests
+[PASS] vm queue
+[PASS] 不写 v15  actual=false expected=false
+[PASS] 不写 world  actual=false expected=false
+[PASS] 初始 contracts ok
+[PASS] p1 泊位 2  actual=2 expected=2
+[PASS] p1 corridor  actual=C1 expected=C1
+[PASS] p1 窗口初始开放
+[PASS] 非法配置拒绝  actual=false expected=false
+[PASS] 非法配置拒绝  actual=false expected=false
+[PASS] 非法配置拒绝  actual=false expected=false
+[PASS] 非法配置拒绝  actual=false expected=false
+[PASS] 非法配置拒绝  actual=false expected=false
+[PASS] 非法配置拒绝  actual=false expected=false
+[PASS] 非法配置拒绝  actual=false expected=false
+[PASS] 非法配置拒绝  actual=false expected=false
+
+── 2 request ──
+[PASS] PortService ready  []
+[PASS] 非法 kind 拒绝  actual=invalid_kind expected=invalid_kind
+[PASS] 空 ship 拒绝  actual=invalid_ship expected=invalid_ship
+[PASS] 未知 port 拒绝  actual=unknown_port expected=unknown_port
+[PASS] request dock ok  actual=true expected=true
+[PASS] request_id 生成
+[PASS] 初始 REQUESTED  actual=REQUESTED expected=REQUESTED
+[PASS] kind  actual=dock expected=dock
+[PASS] ship_id  actual=ship1 expected=ship1
+[PASS] port_id  actual=p1 expected=p1
+[PASS] priority  actual=3 expected=3
+[PASS] 未许可无 berth  actual= expected=
+[PASS] contracts_ok
+[PASS] request 后 contracts ok
+[PASS] 同舰第二请求拒绝  actual=ship_busy expected=ship_busy
+[PASS] 无自动 grant  actual=REQUESTED expected=REQUESTED
+[PASS] queue 1  actual=1 expected=1
+[PASS] queue request  actual=PR-000001 expected=PR-000001
+
+── 3 permit/资源 ──
+[PASS] PortService ready  []
+[PASS] 无许可拒绝  actual=false expected=false
+[PASS] no_permit  actual=no_permit expected=no_permit
+[PASS] status DENIED  actual=DENIED expected=DENIED
+[PASS] 第一个 grant  actual=GRANTED expected=GRANTED
+[PASS] grant 分配 berth
+[PASS] 无泊位 HOLD  actual=no_berth expected=no_berth
+[PASS] status HOLD  actual=HOLD expected=HOLD
+[PASS] HOLD 进队列
+[PASS] queue 包含 held  actual=PR-000003 expected=PR-000003
+[PASS] 资源释放后 HOLD permit ok  actual=true expected=true
+[PASS] HOLD→GRANTED  actual=GRANTED expected=GRANTED
+[PASS] deny 返回 false  actual=false expected=false
+[PASS] deny 后 DENIED  actual=DENIED expected=DENIED
+[PASS] deny reason  actual=manual_deny expected=manual_deny
+[PASS] port 不接受拒绝  actual=port_not_accepting expected=port_not_accepting
+[PASS] PortService ready  []
+[PASS] 窗口已关  actual=false expected=false
+[PASS] 窗口关 HOLD  actual=window_not_open expected=window_not_open
+[PASS] 窗口关 status HOLD  actual=HOLD expected=HOLD
+[PASS] 再次 permit 仍 HOLD  actual=window_not_open expected=window_not_open
+[PASS] 容量满 reason  actual=no_berth expected=no_berth
+[PASS] hold=false 时 DENIED  actual=DENIED expected=DENIED
+
+── 4 对接全流程 ──
+[PASS] PortService ready  []
+[PASS] REQUESTED approach 拒绝  actual=wrong_state expected=wrong_state
+[PASS] REQUESTED dock 拒绝  actual=wrong_state expected=wrong_state
+[PASS] permit GRANTED  actual=GRANTED expected=GRANTED
+[PASS] 分配 B1  actual=B1 expected=B1
+[PASS] grant 后空闲泊位 1  actual=1 expected=1
+[PASS] GRANTED dock 拒绝  actual=wrong_state expected=wrong_state
+[PASS] approach APPROACH  actual=APPROACH expected=APPROACH
+[PASS] corridor C1  actual=C1 expected=C1
+[PASS] dock DOCKED  actual=DOCKED expected=DOCKED
+[PASS] DOCKED berth  actual=B1 expected=B1
+[PASS] granted_t  actual=0.000000 expected=0.000000
+[PASS] docked_t  actual=0.000000 expected=0.000000
+[PASS] history 状态迁移
+[PASS] history 末 DOCKED  actual=DOCKED expected=DOCKED
+[PASS] SERVICING undock 拒绝  actual=wrong_state expected=wrong_state
+[PASS] finish 回 DOCKED  actual=DOCKED expected=DOCKED
+[PASS] undock DEPARTED  actual=DEPARTED expected=DEPARTED
+[PASS] 离港释放泊位  actual=2 expected=2
+[PASS] 重复 undock 拒绝  actual=wrong_state expected=wrong_state
+[PASS] 全流程 contracts ok
+
+── 5 加注/维修 ──
+[PASS] PortService ready  []
+[PASS] helper grant ship1  actual=GRANTED expected=GRANTED
+[PASS] helper dock ship1  actual=DOCKED expected=DOCKED
+[PASS] services 4  actual=4 expected=4
+[PASS] refuel available
+[PASS] amount 0 拒绝  actual=invalid_amount expected=invalid_amount
+[PASS] amount 负拒绝  actual=invalid_amount expected=invalid_amount
+[PASS] refuel ok  actual=true expected=true
+[PASS] refuel SERVICING  actual=SERVICING expected=SERVICING
+[PASS] 燃料扣除  actual=900.000000 expected=900.000000
+[PASS] SERVICING 再加注拒绝  actual=wrong_state expected=wrong_state
+[PASS] refuel finish DOCKED  actual=DOCKED expected=DOCKED
+[PASS] service_done
+[PASS] 燃料保持扣除  actual=900.000000 expected=900.000000
+[PASS] repair SERVICING  actual=SERVICING expected=SERVICING
+[PASS] 船坞占用 1  actual=1 expected=1
+[PASS] SERVICING 重复维修拒绝  actual=wrong_state expected=wrong_state
+[PASS] repair finish DOCKED  actual=DOCKED expected=DOCKED
+[PASS] 船坞释放  actual=0 expected=0
+[PASS] 燃料不足拒绝  actual=insufficient_fuel expected=insufficient_fuel
+[PASS] p2 不支持 repair  actual=service_unavailable expected=service_unavailable
+[PASS] p2 repair locked
+[PASS] PortService ready  []
+[PASS] 未 docked refuel 拒绝  actual=wrong_state expected=wrong_state
+
+── 6 拖曳/穿梭机 ──
+[PASS] PortService ready  []
+[PASS] tow request ok  actual=true expected=true
+[PASS] tow REQUESTED  actual=REQUESTED expected=REQUESTED
+[PASS] tow permit GRANTED  actual=GRANTED expected=GRANTED
+[PASS] tow 分配 drag  actual=TUG1 expected=TUG1
+[PASS] tug 占用  actual=0 expected=0
+[PASS] 无拖船 HOLD  actual=no_tug expected=no_tug
+[PASS] 第二拖曳 HOLD  actual=HOLD expected=HOLD
+[PASS] tow approach  actual=APPROACH expected=APPROACH
+[PASS] tow dock DOCKED  actual=DOCKED expected=DOCKED
+[PASS] tow dock 分配 berth
+[PASS] tow departed  actual=DEPARTED expected=DEPARTED
+[PASS] tow 离港释放 tug  actual=1 expected=1
+[PASS] tug 释放后第二拖曳 grant  actual=GRANTED expected=GRANTED
+[PASS] shuttle grant  actual=GRANTED expected=GRANTED
+[PASS] shuttle 分配 berth
+[PASS] shuttle approach  actual=APPROACH expected=APPROACH
+[PASS] shuttle docked  actual=DOCKED expected=DOCKED
+[PASS] shuttle departed  actual=DEPARTED expected=DEPARTED
+[PASS] tow/shuttle contracts ok
+
+── 7 队列/窗口/tick ──
+[PASS] PortService ready  []
+[PASS] queue 3  actual=3 expected=3
+[PASS] 优先级最高排第一  actual=PR-000002 expected=PR-000002
+[PASS] 优先级次高第二  actual=PR-000003 expected=PR-000003
+[PASS] 低优先级最后  actual=PR-000001 expected=PR-000001
+[PASS] tick ok  actual=true expected=true
+[PASS] tick 不自动 grant  actual=0 expected=0
+[PASS] tick 不自动 dock  actual=0 expected=0
+[PASS] tick 后仍 REQUESTED  actual=REQUESTED expected=REQUESTED
+[PASS] tick 推进时间  actual=1.000000 expected=1.000000
+[PASS] 负 dt 拒绝  actual=invalid_dt expected=invalid_dt
+[PASS] NaN dt 拒绝  actual=invalid_dt expected=invalid_dt
+[PASS] PortService ready  []
+[PASS] 到期前仍 REQUESTED  actual=REQUESTED expected=REQUESTED
+[PASS] 到期后 DENIED  actual=DENIED expected=DENIED
+[PASS] window_expired  actual=window_expired expected=window_expired
+[PASS] 燃料按 tick 补充  actual=150.000000 expected=150.000000
+[PASS] 全局容量摘要
+
+── 8 存档 ──
+[PASS] PortService ready  []
+[PASS] helper grant ship1  actual=GRANTED expected=GRANTED
+[PASS] helper dock ship1  actual=DOCKED expected=DOCKED
+[PASS] save JSON 可解析
+[PASS] save schema  actual=v17.port_service_save.v1 expected=v17.port_service_save.v1
+[PASS] save ports
+[PASS] save requests
+[PASS] save requests 1  actual=1 expected=1
+[PASS] load ok  actual=true expected=true · []
+[PASS] load 后 VM 一致
+[PASS] load 后再次 save 一致
+[PASS] load 保留 SERVICING  actual=SERVICING expected=SERVICING
+[PASS] load 燃料一致  actual=950.000000 expected=950.000000
+[PASS] load 后继续 finish/undock  actual=DEPARTED expected=DEPARTED
+[PASS] load 后 contracts ok
+[PASS] 非法存档拒绝：  actual=false expected=false
+[PASS] 非法存档拒绝：{bad  actual=false expected=false
+[PASS] 非法存档拒绝：{"schema":"bad"}  actual=false expected=false
+[PASS] 非法存档拒绝：{"schema":"v17.port_service_save.v1"  actual=false expected=false
+[PASS] 非法存档拒绝：{"ports":[],"requests":{},"schema":"  actual=false expected=false
+[PASS] 非法存档拒绝：{"ports":{"p1":{"berth_state":{},"fu  actual=false expected=false
+[PASS] 非法存档不改状态  actual={"ports":[{"accepting":true,"id":"p1","name":"L1 Meridian","require_permit":true,"resources":{"berths_free":2.0,"berths_occupied":[],"berths_total":2.0,"corridor":"C1","drydock_free":1.0,"drydock_total":1.0,"drydock_used":0.0,"fuel_available_t":950.0,"fuel_capacity_t":1000.0,"port_id":"p1","services":["refuel","repair","tow","shuttle"],"tugs_free":1.0,"tugs_total":1.0,"window":{"is_open":true,"ok":true,"t_s":0.0,"window":{"close_t":1000.0,"id":"W1","open_t":0.0}}},"windows":[{"close_t":1000.0,"id":"W1","open_t":0.0}]},{"accepting":true,"id":"p2","name":"L4 Hammer","require_permit":false,"resources":{"berths_free":1.0,"berths_occupied":[],"berths_total":1.0,"corridor":"C2","drydock_free":0.0,"drydock_total":0.0,"drydock_used":0.0,"fuel_available_t":100.0,"fuel_capacity_t":100.0,"port_id":"p2","services":["refuel"],"tugs_free":0.0,"tugs_total":0.0,"window":{"is_open":true,"ok":true,"t_s":0.0,"window":{"close_t":1000.0,"id":"W1","open_t":0.0}}},"windows":[{"close_t":1000.0,"id":"W1","open_t":0.0}]}],"requests":[{"approach_t":0.0,"berth_id":"","clearance":"CLR-1","created_t":0.0,"departed_t":0.0,"docked_t":0.0,"drydock":false,"expire":false,"expire_t":-1.0,"granted_t":0.0,"history":[{"reason":"created","status":"REQUESTED","t":0.0},{"reason":"permit","status":"GRANTED","t":0.0},{"reason":"corridor:C1","status":"APPROACH","t":0.0},{"reason":"B1","status":"DOCKED","t":0.0},{"reason":"refuel 50.0t","status":"SERVICING","t":0.0},{"reason":"service_finished","status":"DOCKED","t":0.0},{"reason":"undock","status":"DEPARTED","t":0.0}],"kind":"dock","port_id":"p1","priority":1.0,"reason":"","request_id":"PR-000001","schema":"port_request.v1","service_amount_t":50.0,"service_done":true,"service_finished_t":0.0,"service_kind":"refuel","service_started_t":0.0,"ship_id":"ship1","status":"DEPARTED","tug_id":"","window_id":""}],"summary":{"counts":{"APPROACH":0.0,"DENIED":0.0,"DEPARTED":1.0,"DOCKED":0.0,"GRANTED":0.0,"HOLD":0.0,"REQUESTED":0.0,"SERVICING":0.0},"ports":2.0,"ready":true,"requests":1.0,"resources":{"berths_free":3.0,"berths_total":3.0,"drydock_free":1.0,"drydock_total":1.0,"fuel_available_t":1050.0,"fuel_capacity_t":1100.0,"ports":2.0,"schema":"v17.port_service.v1","tugs_free":1.0,"tugs_total":1.0},"schema":"v17.port_service.v1","t":0.0,"writes_v15":false},"t_s":0.0} expected={"ports":[{"accepting":true,"id":"p1","name":"L1 Meridian","require_permit":true,"resources":{"berths_free":2.0,"berths_occupied":[],"berths_total":2.0,"corridor":"C1","drydock_free":1.0,"drydock_total":1.0,"drydock_used":0.0,"fuel_available_t":950.0,"fuel_capacity_t":1000.0,"port_id":"p1","services":["refuel","repair","tow","shuttle"],"tugs_free":1.0,"tugs_total":1.0,"window":{"is_open":true,"ok":true,"t_s":0.0,"window":{"close_t":1000.0,"id":"W1","open_t":0.0}}},"windows":[{"close_t":1000.0,"id":"W1","open_t":0.0}]},{"accepting":true,"id":"p2","name":"L4 Hammer","require_permit":false,"resources":{"berths_free":1.0,"berths_occupied":[],"berths_total":1.0,"corridor":"C2","drydock_free":0.0,"drydock_total":0.0,"drydock_used":0.0,"fuel_available_t":100.0,"fuel_capacity_t":100.0,"port_id":"p2","services":["refuel"],"tugs_free":0.0,"tugs_total":0.0,"window":{"is_open":true,"ok":true,"t_s":0.0,"window":{"close_t":1000.0,"id":"W1","open_t":0.0}}},"windows":[{"close_t":1000.0,"id":"W1","open_t":0.0}]}],"requests":[{"approach_t":0.0,"berth_id":"","clearance":"CLR-1","created_t":0.0,"departed_t":0.0,"docked_t":0.0,"drydock":false,"expire":false,"expire_t":-1.0,"granted_t":0.0,"history":[{"reason":"created","status":"REQUESTED","t":0.0},{"reason":"permit","status":"GRANTED","t":0.0},{"reason":"corridor:C1","status":"APPROACH","t":0.0},{"reason":"B1","status":"DOCKED","t":0.0},{"reason":"refuel 50.0t","status":"SERVICING","t":0.0},{"reason":"service_finished","status":"DOCKED","t":0.0},{"reason":"undock","status":"DEPARTED","t":0.0}],"kind":"dock","port_id":"p1","priority":1.0,"reason":"","request_id":"PR-000001","schema":"port_request.v1","service_amount_t":50.0,"service_done":true,"service_finished_t":0.0,"service_kind":"refuel","service_started_t":0.0,"ship_id":"ship1","status":"DEPARTED","tug_id":"","window_id":""}],"summary":{"counts":{"APPROACH":0.0,"DENIED":0.0,"DEPARTED":1.0,"DOCKED":0.0,"GRANTED":0.0,"HOLD":0.0,"REQUESTED":0.0,"SERVICING":0.0},"ports":2.0,"ready":true,"requests":1.0,"resources":{"berths_free":3.0,"berths_total":3.0,"drydock_free":1.0,"drydock_total":1.0,"fuel_available_t":1050.0,"fuel_capacity_t":1100.0,"ports":2.0,"schema":"v17.port_service.v1","tugs_free":1.0,"tugs_total":1.0},"schema":"v17.port_service.v1","t":0.0,"writes_v15":false},"t_s":0.0}
+
+── 9 事件/JSON/确定性 ──
+[PASS] PortService ready  []
+[PASS] helper grant ship1  actual=GRANTED expected=GRANTED
+[PASS] helper dock ship1  actual=DOCKED expected=DOCKED
+[PASS] 事件 schema
+[PASS] 事件不写 v15
+[PASS] 事件 schema
+[PASS] 事件不写 v15
+[PASS] 事件 schema
+[PASS] 事件不写 v15
+[PASS] 事件 schema
+[PASS] 事件不写 v15
+[PASS] 事件 schema
+[PASS] 事件不写 v15
+[PASS] 事件 schema
+[PASS] 事件不写 v15
+[PASS] 事件 schema
+[PASS] 事件不写 v15
+[PASS] 事件 schema
+[PASS] 事件不写 v15
+[PASS] 事件 schema
+[PASS] 事件不写 v15
+[PASS] 事件存在：port.request_created
+[PASS] 事件存在：port.request_granted
+[PASS] 事件存在：port.approach
+[PASS] 事件存在：port.docked
+[PASS] 事件存在：port.service_started
+[PASS] 事件存在：port.service_finished
+[PASS] 事件存在：port.departed
+[PASS] events_since 过滤
+[PASS] take_events
+[PASS] take 后 events 空  actual=0 expected=0
+[PASS] EventBus 收到事件
+[PASS] vm JSON 可解析
+[PASS] vm summary
+[PASS] vm queue
+[PASS] 同操作 vm 一致
+[PASS] 同操作 save 一致
+[PASS] 确定性 contracts ok
+────────────────────────────────────────────────────────────
+[DATA] request = 字段/priority/无自动 grant/同舰 busy/queue
+[DATA] permit = permit/deny/HOLD 队列/释放后 grant/不接受/窗口/容量满分支
+[DATA] dock_lifecycle = REQUESTED→GRANTED→APPROACH→DOCKED→SERVICING→DOCKED→DEPARTED
+[DATA] services = refuel 扣油/服务态互斥/维修占船坞/燃料不足/服务不可用
+[DATA] tow_shuttle = tow 占 tug→dock 分配泊位→释放 · shuttle 占泊位 · 容量 HOLD
+[DATA] queue = 优先级排序 · tick 不自动 · expire→DENIED · 燃料补充 · 全局容量
+[DATA] save_load = save/load VM 一致 · 继续服务/离港 · 非法存档拒绝
+[DATA] events_json = 事件序列·EventBus·vm JSON·同操作确定性
+────────────────────────────────────────────────────────────
+V17 PORT PROBE RESULT: PASS=212 FAIL=0
+V17 PORT PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] _load_state_impl (res://scripts/core/port_service.gd:761)
+       [1] load_state (res://scripts/core/port_service.gd:752)
+       [2] _test_save_load (res://tests/port_service_probe.gd:526)
+       [3] _initialize (res://tests/port_service_probe.gd:32)

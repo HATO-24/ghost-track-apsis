@@ -1,0 +1,8 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+A03_R4_TIME_RESTORE={"cases":[{"case":"legacy_active_equals_fresh","same":true},{"case":"full_inflight","mode":"full","ok":true,"state":{"candidates":[],"combat_quality":{},"delivered":0,"quality_history":{},"queue":1,"rejected":0,"samples":1,"seq":1}},{"case":"partial_missing_ew_combat_quality","missing":["ew_combat_quality"],"mode":"partial","ok":true,"queue":1},{"case":"present_queue_null","errors":["EW 状态恢复失败：invalid_ew_state field=ew_observation_queue"],"mode":"invalid","ok":false}],"head":"5d372ea2df7c49badeea3846c16b839b1f6faef1","legacy_active_load":{"after":{"candidates":[],"combat_quality":{},"delivered":0,"quality_history":{},"queue":0,"rejected":0,"samples":0,"seq":0},"before":{"candidates":[],"combat_quality":{},"delivered":1,"quality_history":{"player_intel|raider_2":0.7},"queue":0,"rejected":0,"samples":1,"seq":1},"mode":"legacy_absent","ok":true},"legacy_fresh_load":{"after":{"candidates":[],"combat_quality":{},"delivered":0,"quality_history":{},"queue":0,"rejected":0,"samples":0,"seq":0},"mode":"legacy_absent","ok":true}}
+AUDIO OK files=36 headless=true muted=false
+WARNING: 213 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 20 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

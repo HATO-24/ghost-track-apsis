@@ -1,0 +1,35 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE3Y PROBE · IncidentRecordService
+════════════════════════════════════════════════════════════
+
+── 1 setup/content ──
+[FAIL] registry 输入同设施数  actual=89 expected=23
+
+── 2 排程/频率 ──
+
+── 3 记录结构 ──
+
+── 4 查询/文本 ──
+
+── 5 save/reset/非法 ──
+────────────────────────────────────────────────────────────
+[DATA] setup = 9 类模板 · 23 可用设施/6 NESOSS 排除 · pressure 0..1 · Registry 输入
+[DATA] schedule = 开场后不规则排程 · 递增/不重复间隔 · 同站点多次 · 高 pressure 更高频 · 确定
+[DATA] records = 事故日志字段 · 遥测前后采样/4 通道/缺口/异常/编辑/hash · OTC track/transponder/clearance/handoff · 线索
+[DATA] queries/format = in_between 秒/ISO · records/clues 查询 · 三文本含 id/facility/type/hash · 无台词
+[DATA] save/reset = save 字段/load VM 一致 · reset 重生成一致 · 非法 generate/存档原子拒绝 · 确定
+────────────────────────────────────────────────────────────
+V17 INCIDENT RECORD PROBE RESULT: PASS=2761 FAIL=1
+[FAILED] 1 setup/content · registry 输入同设施数  (actual=89 expected=23)
+V17 INCIDENT RECORD PROBE FAILED
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/incident_record_service.gd:749)
+       [1] _test_save_reset_invalid (res://tests/incident_record_probe.gd:434)
+       [2] _initialize (res://tests/incident_record_probe.gd:35)

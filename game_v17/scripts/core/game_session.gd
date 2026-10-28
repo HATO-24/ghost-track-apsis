@@ -1395,6 +1395,8 @@ func tick(dt: float) -> Dictionary:
 		authority_intel.advance(now_s())
 	var ballistics_step: Dictionary = _advance_ballistics(sim_dt)
 	var sensor_route: Dictionary = _advance_sensors(sim_dt)
+	# JC-A03：投递已到达的延迟观测（采样在 sensors；EW 之后同一 tick 不重复采样）
+	_ew_deliver_due_count = _deliver_due_ew_observations()
 	var signal_step: Dictionary = _advance_signal(sim_dt)
 	var ew_step: Dictionary = _advance_ew(sim_dt)
 	var port_combat: Dictionary = _advance_port_combat(sim_dt)
@@ -1516,36 +1518,16 @@ func _advance_sensors(sim_dt: float) -> Dictionary:
 					obs_ev["entity_id"] = String(meta.get("entity_id", ""))
 				if String(obs_ev.get("batch", "")) == "":
 					obs_ev["batch"] = String(meta.get("batch", ""))
-			# JC-A01：把观测投递给**观察者所属域的情报拥有者**（分方隔离）。
-			# 只有该 owner 的 intel_view 可见；其他 owner 不会因此获得航迹。
+			# JC-A02/A03：观测按观察者域投递；EW 质量/延迟在采样点决定，
+			# 延迟期间不入 owner 情报/TrackTable（由投递器统一处理）。
+			var obs_owner := ""
 			if _authority_enabled and authority_intel != null:
-				var obs_owner: String = authority_intel.owner_of_entity(
+				obs_owner = authority_intel.owner_of_entity(
 					String(obs_ev.get("observer_id", "")))
-				if obs_owner != "":
-					authority_intel.receive_observation(obs_owner, {
-						"observation_id": String(obs_ev.get("event_id", "")),
-						"observer_id": String(obs_ev.get("observer_id", "")),
-						"target_id": String(obs_ev.get("target_id", "")),
-						"sensor": String(obs_ev.get("sensor", "")),
-						"source": String(obs_ev.get("sensor", "")),
-						"observed_t": float(obs_ev.get("t", now_s())),
-						"received_t": float(obs_ev.get("t", now_s())),
-						"delay_s": 0.0,
-						"path": "direct",
-						"quality": float(obs_ev.get("quality", 0.0)),
-						"range_km": float(obs_ev.get("range_km", -1.0)),
-						"bearing_deg": float(obs_ev.get("bearing_deg", -1.0)),
-					})
-			var r: Dictionary = track_table.handle_observation(obs_ev, _track_writer)
-			if bool(r.get("ok", false)):
-				out["observations"] = int(out["observations"]) + 1
-				var tr = r.get("track", {})
-				if tr is Dictionary and String((tr as Dictionary).get("id", "")) != "":
-					_sensor_track_map[String(ev.get("target_id", ""))] = String((tr as Dictionary).get("id", ""))
-			else:
-				out["failed"] = int(out["failed"]) + 1
-				reasons.append("observation:" + str(r.get("reason", "")))
-				warnings.append("sensor observation 路由失败：" + str(r.get("reason", "")))
+			var staged: Dictionary = _ew_stage_observation(obs_owner, obs_ev)
+			out["observations"] = int(out["observations"]) + 1
+			if bool(staged.get("queued", false)):
+				out["ew_delayed"] = int(out.get("ew_delayed", 0)) + 1
 		elif schema == "track_evidence.v1" and kind == "evidence":
 			var ev2: Dictionary = ev.duplicate(true)
 			_enrich_track_id(ev2)
@@ -2547,6 +2529,443 @@ func query_iff(target_id := "") -> Dictionary:
 	_record({"op": "query_iff", "target_id": String(res.get("target_id", target_id))})
 	return res
 
+## ── JC-A03：EW 观测采样 / 延迟队列 / 当前测量质量 ────────────────
+## 唯一采样点：_advance_sensors 生成观测时查询 ew_service（EW 尚未 step），
+## 质量与延迟在此计算；延迟投递后才进入 owner 情报/TrackTable/火控。
+var _ew_samples: Array = []
+var _ew_obs_queue: Array = []
+var _ew_delivered: Array = []
+var _ew_candidates: Array = []
+var _ew_obs_seq := 0
+var _ew_restore_mode := "absent"
+var _ew_restore_missing: Array = []
+var _ew_rejected_deliveries: Array = []
+var _ew_quality_history: Dictionary = {}   # "<owner>|<target>" -> max quality
+var _ew_combat_quality: Dictionary = {}    # target -> {quality, t, source}
+var _ew_deliver_due_count := 0
+
+
+func _ew_sensor_kind(sensor: String) -> String:
+	var s := sensor.to_lower()
+	if s in ["radar", "rwr", "esm"]:
+		return "radar"
+	if s in ["optical", "ir", "vis", "visual", "laser"]:
+		return "optical"
+	return s if s != "" else "radar"
+
+
+## 同 tick 采样：只查询 effect，不推进 EW；返回可持久化快照。
+func _ew_sample_for(target_id: String, sensor_kind: String) -> Dictionary:
+	if ew_service == null:
+		return {}
+	var eff: Dictionary = ew_service.observation_effect(target_id, sensor_kind)
+	var out := {"schema": "ew_observation_sample.v1", "target_id": target_id,
+		"sensor_kind": sensor_kind, "sampled_t": now_s(),
+		"confidence_mult": float(eff.get("confidence_mult", 1.0)),
+		"delay_s": float(eff.get("delay_s", 0.0)),
+		"jammed": bool(eff.get("jammed", false)),
+		"noise_severity": float(eff.get("noise_severity", 0.0)),
+		"deception_severity": float(eff.get("deception_severity", 0.0)),
+		"chaff_severity": float(eff.get("chaff_severity", 0.0)),
+		"false_observations": (eff.get("false_observations", []) as Array).duplicate(true) \
+			if eff.get("false_observations") is Array else [],
+		"effect": eff.duplicate(true)}
+	return out
+
+
+func _ew_quality_aggregate(owner_id: String, target_id: String, quality: float) -> float:
+	var key := owner_id + "|" + target_id
+	var prev := float(_ew_quality_history.get(key, 0.0))
+	var agg := maxf(prev, float(quality))
+	_ew_quality_history[key] = agg
+	return agg
+
+
+## 生成观测时调用：有延迟则入队（到达前不可见），否则立即投递。
+func _ew_stage_observation(owner_id: String, obs_ev: Dictionary) -> Dictionary:
+	var target := String(obs_ev.get("target_id", ""))
+	var sensor := String(obs_ev.get("sensor", "radar"))
+	var kind := _ew_sensor_kind(sensor)
+	var snap := _ew_sample_for(target, kind)
+	if snap.is_empty():
+		snap = {"schema": "ew_observation_sample.v1", "target_id": target,
+			"sensor_kind": kind, "sampled_t": now_s(),
+			"confidence_mult": 1.0, "delay_s": 0.0, "jammed": false,
+			"noise_severity": 0.0, "deception_severity": 0.0,
+			"chaff_severity": 0.0, "false_observations": [], "effect": {}}
+	var q0 := float(obs_ev.get("quality", 0.0))
+	var q1 := clampf(q0 * float(snap.get("confidence_mult", 1.0)), 0.0, 1.0)
+	var sample := snap.duplicate(true)
+	sample["quality_before"] = q0
+	sample["quality_after"] = q1
+	sample["observed_t"] = float(obs_ev.get("t", now_s()))
+	(_ew_samples as Array).append(sample)
+	while (_ew_samples as Array).size() > 400:
+		(_ew_samples as Array).pop_front()
+	obs_ev["quality_original"] = q0
+	obs_ev["quality"] = q1
+	obs_ev["ew_effect"] = snap.get("effect", {}) if snap.get("effect") is Dictionary else {}
+	(_ew_obs_seq) += 1
+	var oid := String(obs_ev.get("event_id", ""))
+	if oid == "":
+		oid = "EWOBS-%06d" % _ew_obs_seq
+		obs_ev["event_id"] = oid
+	var delay := float(snap.get("delay_s", 0.0))
+	var entry := {"schema": "ew_pending_observation.v1", "seq": _ew_obs_seq,
+		"observation_id": oid, "owner_id": owner_id,
+		"target_id": target, "sensor": sensor, "sensor_kind": kind,
+		"observed_t": float(obs_ev.get("t", now_s())),
+		"delay_s": delay, "arrive_t": float(obs_ev.get("t", now_s())) + delay,
+		"obs": obs_ev.duplicate(true),
+		"effect": snap.get("effect", {}) if snap.get("effect") is Dictionary else {},
+		"confidence_mult": float(snap.get("confidence_mult", 1.0)),
+		"quality_original": q0, "quality": q1,
+		"false_observations": (snap.get("false_observations", []) as Array).duplicate(true) \
+			if snap.get("false_observations") is Array else [],
+		"truth_regenerated": false}
+	if delay > 1.0e-9:
+		(_ew_obs_queue as Array).append(entry)
+		return {"queued": true, "arrive_t": entry["arrive_t"], "sample": sample}
+	_deliver_ew_observation(entry)
+	return {"queued": false, "arrive_t": entry["observed_t"], "sample": sample}
+
+
+## 投递：owner 情报 + TrackTable + 当前测量质量 + 欺骗候选；不使用后来真值。
+func _deliver_ew_observation(entry: Dictionary) -> void:
+	var owner_id := String(entry.get("owner_id", ""))
+	var target := String(entry.get("target_id", ""))
+	var obs: Dictionary = (entry.get("obs", {}) as Dictionary).duplicate(true)
+	var observed_t := float(entry.get("observed_t", now_s()))
+	var received_t := now_s()
+	var delay := maxf(0.0, received_t - observed_t)
+	var q := float(entry.get("quality", 0.0))
+	# R2：接纳/幂等必须覆盖整个新增消费者边界；底层已去重时不写任何副作用
+	var accepted := true
+	var reject_reason := ""
+	if _authority_enabled and authority_intel != null and owner_id != "":
+		var ar: Dictionary = authority_intel.receive_observation(owner_id, {
+			"observation_id": String(entry.get("observation_id", "")),
+			"observer_id": String(obs.get("observer_id", "")),
+			"target_id": target,
+			"sensor": String(obs.get("sensor", "")),
+			"source": String(obs.get("sensor", "")),
+			"observed_t": observed_t, "received_t": received_t,
+			"delay_s": delay, "path": "ew_delayed" if delay > 1.0e-9 else "direct",
+			"quality": q,
+			"range_km": float(obs.get("range_km", -1.0)),
+			"bearing_deg": float(obs.get("bearing_deg", -1.0))})
+		if not bool(ar.get("ok", false)):
+			accepted = false
+			reject_reason = String(ar.get("reason", "owner_rejected"))
+		elif bool(ar.get("duplicated", false)):
+			accepted = false
+			reject_reason = "duplicate_delivery"
+	# R2：owner 拒绝/去重项不得再写全局 TrackTable 与映射（窄守卫）
+	if not accepted:
+		(_ew_rejected_deliveries as Array).append({
+			"observation_id": String(entry.get("observation_id", "")),
+			"owner_id": owner_id, "target_id": target,
+			"reason": reject_reason, "t": now_s()})
+		return
+	if track_table != null:
+		# TrackTable 事件时间 = 到达时间；原始观测时刻/几何仍保留（不重生成旧观测）
+		var tbl_obs: Dictionary = obs.duplicate(true)
+		tbl_obs["observed_t"] = observed_t
+		tbl_obs["t"] = received_t
+		var r: Dictionary = track_table.handle_observation(tbl_obs, _track_writer)
+		if not bool(r.get("ok", false)):
+			accepted = false
+			reject_reason = String(r.get("reason", "track_rejected"))
+		else:
+			var tr = r.get("track", {})
+			if tr is Dictionary and String((tr as Dictionary).get("id", "")) != "":
+				_sensor_track_map[target] = String((tr as Dictionary).get("id", ""))
+	if not accepted:
+		(_ew_rejected_deliveries as Array).append({
+			"observation_id": String(entry.get("observation_id", "")),
+			"owner_id": owner_id, "target_id": target,
+			"reason": reject_reason, "t": now_s()})
+		return
+	if authority_intel != null and owner_id != "":
+		var agg := _ew_quality_aggregate(owner_id, target, q)
+		authority_intel.apply_measurement(owner_id, target, {
+			"measurement_quality": q,
+			"measurement_original": float(entry.get("quality_original", q)),
+			"measurement_t": observed_t,
+			"measurement_source": String(obs.get("sensor", "")),
+			"measurement_degraded": float(entry.get("confidence_mult", 1.0)) < 0.999,
+			"measurement_effect": entry.get("effect", {}),
+			"aggregate_quality": agg})
+	if owner_id == _identity_own_owner():
+		_ew_update_combat_quality(target, q, observed_t, entry)
+	# 欺骗候选：只在被影响 owner 内走普通证据验证，不自动确认
+	for raw_c in (entry.get("false_observations", []) as Array):
+		if not (raw_c is Dictionary):
+			continue
+		var c: Dictionary = raw_c
+		var rec := {"owner_id": owner_id, "target_id": target,
+			"candidate_id": String(c.get("candidate_id", "")),
+			"identity": "unknown", "confidence": float(c.get("confidence", 0.0)),
+			"received_t": received_t, "observed_t": observed_t}
+		(_ew_candidates as Array).append(rec)
+		if _identity_enabled and _identity_owner_ok(owner_id):
+			identity_ingest(owner_id, {
+				"target_id": target, "source": "sensor",
+				"identity": "unknown",
+				"confidence": float(c.get("confidence", 0.0)),
+				"category": "sensor", "evidence_type": "deception_candidate",
+				"event_id": String(c.get("candidate_id", "")),
+				"observed_t": observed_t, "received_t": received_t,
+				"note": "ew_deception_candidate"})
+	(_ew_delivered as Array).append({"observation_id": String(
+		entry.get("observation_id", "")), "owner_id": owner_id,
+		"target_id": target, "observed_t": observed_t,
+		"received_t": received_t, "delay_s": delay,
+		"quality": q, "quality_original": float(entry.get("quality_original", q)),
+		"confidence_mult": float(entry.get("confidence_mult", 1.0)),
+		"truth_regenerated": false})
+	while (_ew_delivered as Array).size() > 400:
+		(_ew_delivered as Array).pop_front()
+
+
+func _deliver_due_ew_observations() -> int:
+	if _ew_obs_queue.is_empty():
+		return 0
+	var due: Array = []
+	var kept: Array = []
+	for raw in (_ew_obs_queue as Array):
+		if not (raw is Dictionary):
+			continue
+		var e: Dictionary = raw
+		if float(e.get("arrive_t", 0.0)) <= now_s() + 1.0e-9:
+			due.append(e)
+		else:
+			kept.append(e)
+	_ew_obs_queue = kept
+	# 稳定次序：arrive_t 优先，其次 seq
+	due.sort_custom(func(a, b):
+		var ta := float((a as Dictionary).get("arrive_t", 0.0))
+		var tb := float((b as Dictionary).get("arrive_t", 0.0))
+		if absf(ta - tb) > 1.0e-9:
+			return ta < tb
+		return int((a as Dictionary).get("seq", 0)) < int((b as Dictionary).get("seq", 0)))
+	for raw2 in due:
+		_deliver_ew_observation(raw2)
+	return due.size()
+
+
+func _ew_update_combat_quality(target_id: String, quality: float, observed_t: float,
+		entry: Dictionary) -> void:
+	if combat_service == null:
+		return
+	var patch := {"measurement_quality": quality,
+		"measurement_original": float(entry.get("quality_original", quality)),
+		"measurement_t": observed_t,
+		"measurement_source": String(entry.get("sensor", "")),
+		"measurement_degraded": float(entry.get("confidence_mult", 1.0)) < 0.999}
+	_ew_combat_quality[target_id] = {"quality": quality, "t": observed_t,
+		"source": String(entry.get("sensor", ""))}
+	var keys: Array = [target_id]
+	var mapped := String(_sensor_track_map.get(target_id, ""))
+	if mapped != "" and mapped != target_id:
+		keys.append(mapped)
+	var ent := _entity_for_track(target_id)
+	if ent != "" and ent != target_id:
+		keys.append(ent)
+	for k in keys:
+		var tr = combat_service.track(String(k))
+		if tr is Dictionary and not (tr as Dictionary).is_empty():
+			combat_service.update_track(String(k), patch)
+
+
+## 火控边界：把 owner 当前测量质量投影到实际 combat 航迹（缺省 1.0 兼容）。
+func _sync_ew_quality_to_combat(target_id: String) -> void:
+	var owner := _identity_own_owner()
+	var key := target_id
+	var mq: Dictionary = owner_measurement_quality(owner, target_id)
+	if not bool(mq.get("ok", false)):
+		var res: Dictionary = _identity_resolve_target(owner, target_id)
+		if bool(res.get("ok", false)):
+			key = String(res.get("target_id", target_id))
+			mq = owner_measurement_quality(owner, key)
+	if not bool(mq.get("ok", false)):
+		return
+	var patch := {"measurement_quality": float(mq.get("measurement_quality", 1.0)),
+		"measurement_original": float(mq.get("measurement_original", 1.0)),
+		"measurement_t": float(mq.get("measurement_t", 0.0)),
+		"measurement_source": String(mq.get("measurement_source", "")),
+		"measurement_degraded": bool(mq.get("degraded", false)),
+		"measurement_aggregate": float(mq.get("aggregate_quality", 1.0))}
+	for k2 in [target_id, key]:
+		var tr = combat_service.track(String(k2)) if combat_service != null else null
+		if tr is Dictionary and not (tr as Dictionary).is_empty():
+			combat_service.update_track(String(k2), patch)
+
+
+# ── 只读访问器（探针/审计/HUD 诊断）────────────────────────────
+func ew_observation_samples() -> Array:
+	return (_ew_samples as Array).duplicate(true)
+
+
+func ew_delivery_queue() -> Array:
+	return (_ew_obs_queue as Array).duplicate(true)
+
+
+func ew_delivered_observations() -> Array:
+	return (_ew_delivered as Array).duplicate(true)
+
+
+func ew_rejected_deliveries() -> Array:
+	return (_ew_rejected_deliveries as Array).duplicate(true)
+
+
+func ew_candidate_evidence(owner_id: String) -> Array:
+	var out: Array = []
+	for raw in (_ew_candidates as Array):
+		if raw is Dictionary and String((raw as Dictionary).get(
+				"owner_id", "")) == owner_id:
+			out.append((raw as Dictionary).duplicate(true))
+	return out
+
+
+func ew_visible_tracks(owner_id: String) -> Array:
+	var v: Dictionary = intel_view(owner_id)
+	return (v.get("tracks", []) as Array).duplicate(true) \
+		if v.get("tracks") is Array else []
+
+
+func owner_measurement_quality(owner_id: String, target_id: String) -> Dictionary:
+	if authority_intel == null:
+		return {"ok": false, "reason": "no_authority_intel"}
+	return authority_intel.measurement_quality(owner_id, target_id)
+
+
+func combat_measurement_quality(target_id: String) -> Dictionary:
+	var key := target_id
+	var res: Dictionary = _identity_resolve_target(_identity_own_owner(), target_id) \
+		if _identity_enabled else {"ok": false}
+	if bool(res.get("ok", false)):
+		key = String(res.get("target_id", target_id))
+	if combat_service == null:
+		return {"ok": false, "reason": "no_combat_service"}
+	var tr = combat_service.track(key)
+	if not (tr is Dictionary) or (tr as Dictionary).is_empty():
+		return {"ok": false, "reason": "no_combat_track", "target_id": key}
+	if not (tr as Dictionary).has("measurement_quality"):
+		return {"ok": false, "reason": "no_measurement_quality",
+			"target_id": key}
+	return {"ok": true, "target_id": key,
+		"measurement_quality": float((tr as Dictionary).get("measurement_quality", 1.0)),
+		"measurement_original": float((tr as Dictionary).get(
+			"measurement_original", 1.0)),
+		"measurement_t": float((tr as Dictionary).get("measurement_t", 0.0)),
+		"degraded": bool((tr as Dictionary).get("measurement_degraded", false)),
+		"aggregate_quality": float((tr as Dictionary).get(
+			"measurement_aggregate", 1.0)),
+		"source": String((tr as Dictionary).get("measurement_source", ""))}
+
+
+## JC-A03：EW 观测状态恢复（旧档缺省为空 → EW=0 兼容）
+## JC-A03/R3：新 EW 段类型/必要字段校验；present-invalid 明确失败，
+## 只有真正缺段（旧档）才按空段兼容。
+## JC-A03/R3：新 EW 段验证——present-invalid 明确失败；可选字段缺失给出
+## 可解释的 partial 模式（有意兼容默认），不全缺（旧档）才算 legacy_absent。
+
+## R3：清除 EW 运行态；用于旧档覆盖/新会话初始化。
+func _ew_reset_runtime() -> void:
+	_ew_samples = []
+	_ew_obs_queue = []
+	_ew_delivered = []
+	_ew_candidates = []
+	_ew_rejected_deliveries = []
+	_ew_obs_seq = 0
+	_ew_quality_history = {}
+	_ew_combat_quality = {}
+
+func _ew_restore_state(data: Dictionary) -> Dictionary:
+	_ew_restore_missing = []
+	var array_fields := ["ew_observation_samples", "ew_observation_queue",
+		"ew_delivered_observations", "ew_candidates",
+		"ew_rejected_deliveries"]
+	var dict_fields := ["ew_quality_history", "ew_combat_quality"]
+	var all_fields := array_fields + dict_fields + ["ew_observation_seq"]
+	var present := 0
+	for k in all_fields:
+		if data.has(k):
+			present += 1
+	if present == 0:
+		# R3：旧档覆盖时清除加载前的 EW 运行态，fresh/active 语义一致
+		_ew_reset_runtime()
+		_ew_restore_mode = "legacy_absent"
+		return {"ok": true, "mode": _ew_restore_mode}
+	for k2 in array_fields:
+		if data.has(k2) and not (data.get(k2) is Array):
+			_ew_restore_mode = "invalid"
+			return {"ok": false, "reason": "invalid_ew_state",
+				"field": k2, "detail": "必须是数组"}
+	for k3 in dict_fields:
+		if data.has(k3) and not (data.get(k3) is Dictionary):
+			_ew_restore_mode = "invalid"
+			return {"ok": false, "reason": "invalid_ew_state",
+				"field": k3, "detail": "必须是对象"}
+	if data.has("ew_observation_seq"):
+		var seq_v = data.get("ew_observation_seq")
+		if not (seq_v is int or seq_v is float) or float(seq_v) < 0.0 \
+				or not is_finite(float(seq_v)):
+			_ew_restore_mode = "invalid"
+			return {"ok": false, "reason": "invalid_ew_state",
+				"field": "ew_observation_seq", "detail": "必须是非负有限数"}
+	# 队列条目必要值与类型（只有 present 时才校验）
+	if data.has("ew_observation_queue"):
+		for raw in (data.get("ew_observation_queue") as Array):
+			if not (raw is Dictionary):
+				_ew_restore_mode = "invalid"
+				return {"ok": false, "reason": "invalid_ew_state",
+					"field": "ew_observation_queue", "detail": "条目必须是对象"}
+			var e: Dictionary = raw
+			for req in ["observation_id", "owner_id", "target_id", "observed_t",
+					"arrive_t", "obs"]:
+				if not e.has(req):
+					_ew_restore_mode = "invalid"
+					return {"ok": false, "reason": "invalid_ew_state",
+						"field": "ew_observation_queue",
+						"detail": "条目缺少 " + req}
+			if not (e.get("obs") is Dictionary):
+				_ew_restore_mode = "invalid"
+				return {"ok": false, "reason": "invalid_ew_state",
+					"field": "ew_observation_queue", "detail": "obs 必须是对象"}
+			for tf in ["observed_t", "arrive_t"]:
+				var tv = e.get(tf)
+				if not (tv is int or tv is float) or not is_finite(float(tv)):
+					_ew_restore_mode = "invalid"
+					return {"ok": false, "reason": "invalid_ew_state",
+						"field": "ew_observation_queue", "detail": tf + " 非法"}
+	# 未出现的字段：有意兼容默认并记录（partial），不触发未处理转换异常
+	for k4 in all_fields:
+		if not data.has(k4):
+			_ew_restore_missing.append(k4)
+	_ew_samples = (data.get("ew_observation_samples", []) as Array).duplicate(true) \
+		if data.has("ew_observation_samples") else []
+	_ew_obs_queue = (data.get("ew_observation_queue", []) as Array).duplicate(true) \
+		if data.has("ew_observation_queue") else []
+	_ew_delivered = (data.get("ew_delivered_observations", []) as Array) \
+		.duplicate(true) if data.has("ew_delivered_observations") else []
+	_ew_candidates = (data.get("ew_candidates", []) as Array).duplicate(true) \
+		if data.has("ew_candidates") else []
+	_ew_rejected_deliveries = (data.get("ew_rejected_deliveries", []) as Array) \
+		.duplicate(true) if data.has("ew_rejected_deliveries") else []
+	if data.has("ew_observation_seq"):
+		_ew_obs_seq = int(data.get("ew_observation_seq"))
+	else:
+		_ew_obs_seq = 0
+	_ew_quality_history = (data.get("ew_quality_history") as Dictionary) \
+		.duplicate(true) if data.has("ew_quality_history") else {}
+	_ew_combat_quality = (data.get("ew_combat_quality") as Dictionary) \
+		.duplicate(true) if data.has("ew_combat_quality") else {}
+	_ew_restore_mode = "full" if _ew_restore_missing.is_empty() else "partial"
+	return {"ok": true, "mode": _ew_restore_mode,
+		"missing": _ew_restore_missing.duplicate(),
+		"queue": (_ew_obs_queue as Array).size()}
 # ── EWService 包装（可选；效果只读接口 + 显式 apply/emcon）──────
 
 func ew_vm() -> Dictionary:
@@ -2930,6 +3349,8 @@ func combat_register_track(track_id: String, data := {}) -> Dictionary:
 func combat_request_solution(target_id: String, weapon_id: String, confirmed := false) -> Dictionary:
 	if combat_service == null:
 		return {"ok": false, "reason": "no_combat_service"}
+	# JC-A03：火控消费 owner 当前测量质量（消费者边界投影）
+	_sync_ew_quality_to_combat(target_id)
 	var res: Dictionary = combat_service.request_solution(target_id, weapon_id, confirmed)
 	if bool(res.get("ok", false)):
 		_record({"op": "combat_request_solution", "target_id": target_id,
@@ -3007,6 +3428,8 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 	# JC-A02：火控读取 owner 操作性身份（消费者边界投影，不新建真值）
 	# 真实 HUD 航迹键可能无实体字段，故带上 request_fire 已合法解析出的目标实体
 	_sync_combat_identity(target_id, entity)
+	# JC-A03：火控消费 owner 当前测量质量（消费者边界投影）
+	_sync_ew_quality_to_combat(target_id)
 	var gate: Dictionary = combat_service.request_fire(target_id, weapon_id, confirmed, o)
 	if not bool(gate.get("ok", false)):
 		return gate
@@ -3040,6 +3463,9 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 		"salvo": int(gate.get("salvo", 1)),
 		"profile": o.get("profile", {}),
 		"intent": String(o.get("intent", "direct")),
+		"measurement_quality": float(gate.get("measurement_quality", 1.0)),
+		"error_km": float(gate.get("error_km", 0.0)),
+		"quality_accuracy_mult": float(gate.get("quality_accuracy_mult", 1.0)),
 	}
 	# 规划辅助：显式 plan 优先，否则按 intent 现场规划（direct 不规划）
 	if o.get("plan") is Dictionary:
@@ -3079,7 +3505,11 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 		res["ok"] = false
 		res["reason"] = String(lr.get("reason", "launch_failed"))
 		return res
-	res["prediction"] = _ballistics_predict(shooter, entity, weapon_id)
+	res["prediction"] = _ballistics_predict(shooter, entity, weapon_id, {
+		"measurement_quality": float(gate.get("measurement_quality", 1.0)),
+		"error_km": float(gate.get("error_km", 0.0)),
+		"quality": float(gate.get("quality", -1.0)),
+		"quality_accuracy_mult": float(gate.get("quality_accuracy_mult", 1.0))})
 	var cap: Dictionary = _apply_combat_time_cap()
 	res["time_cap"] = cap
 	return res
@@ -3105,7 +3535,38 @@ func combat_predict_track(target_id: String, weapon_id: String) -> Dictionary:
 	if shooter == "" or entity == "" or not states.has(entity):
 		return {"ok": false, "reason": "no_physics_state",
 			"shooter": shooter, "target_entity": entity}
-	return combat_ballistics.predict(states[shooter], states[entity], weapon_id)
+	# R1：正常发射前路径按 owner 合法映射读同一质量（实体键/匿名 HUD 航迹键）
+	var owner := _identity_own_owner()
+	var mq_pred: Dictionary = owner_measurement_quality(owner, entity)
+	if not bool(mq_pred.get("ok", false)):
+		mq_pred = owner_measurement_quality(owner, target_id)
+	if not bool(mq_pred.get("ok", false)) and _identity_enabled:
+		var rr: Dictionary = _identity_resolve_target(owner, target_id)
+		if bool(rr.get("ok", false)):
+			mq_pred = owner_measurement_quality(owner, String(rr.get("target_id", "")))
+	var popts: Dictionary = {}
+	if bool(mq_pred.get("ok", false)):
+		popts["measurement_quality"] = float(mq_pred.get("measurement_quality", 1.0))
+		# 与接口层同一冻结规则：显式 quality/error 供弹道预测直接采用
+		var ckey := String(mq_pred.get("target_id", entity))
+		var ctr = combat_service.track(ckey) if combat_service != null else null
+		if not (ctr is Dictionary) or (ctr as Dictionary).is_empty():
+			ctr = combat_service.track(entity) if combat_service != null else null
+		var wdef: Dictionary = combat_service.weapon_def(weapon_id) \
+			if combat_service != null else {}
+		if ctr is Dictionary and not (ctr as Dictionary).is_empty() \
+				and not wdef.is_empty():
+			var rng := float((ctr as Dictionary).get("range_km", 0.0))
+			var qbase := clampf(float(wdef.get("accuracy", 0.5)) * (1.0 - clampf(
+				rng / maxf(1.0, float(wdef.get("range_km", 1.0))), 0.0, 1.0) * 0.25),
+				0.0, 1.0)
+			var mqv := float(popts["measurement_quality"])
+			var mult := 0.85 if mqv < 0.9 - 1.0e-9 else 1.0
+			var qif := clampf(qbase * mult, 0.0, 1.0)
+			popts["quality"] = qif
+			popts["quality_accuracy_mult"] = mult
+			popts["error_km"] = maxf(0.0, rng * (1.0 - qif) * 0.01)
+	return combat_ballistics.predict(states[shooter], states[entity], weapon_id, popts)
 
 
 ## 交战规划辅助：把意图翻译成巡航剖面，并给出 Δv 预算/可行性（发射前可预演）。
@@ -3197,13 +3658,14 @@ func _own_ballistics_entity(states: Dictionary) -> String:
 
 
 ## 物理层预测（真实积分，替代 CombatService 的接口层估算）。
-func _ballistics_predict(shooter: String, entity: String, weapon_id: String) -> Dictionary:
+func _ballistics_predict(shooter: String, entity: String,
+		weapon_id: String, opts := {}) -> Dictionary:
 	if combat_ballistics == null:
 		return {"ok": false, "reason": "no_ballistics"}
 	var states: Dictionary = _ballistics_states()
 	if not states.has(shooter) or not states.has(entity):
 		return {"ok": false, "reason": "no_physics_state"}
-	return combat_ballistics.predict(states[shooter], states[entity], weapon_id)
+	return combat_ballistics.predict(states[shooter], states[entity], weapon_id, opts)
 
 
 ## 交战时间膨胀：有弹在飞时把时间倍速压到 COMBAT_SCALE_CAP，交战结束恢复。
@@ -5598,6 +6060,24 @@ func save_state() -> String:
 		"identity_pending_queries": JSON.parse_string(JSON.stringify(_identity_pending_queries)),
 		"identity_query_queue": JSON.parse_string(JSON.stringify(_identity_query_queue)),
 		"identity_seen_events": JSON.parse_string(JSON.stringify(_identity_seen_events)),
+		# JC-A03：EW 观测采样/延迟队列/投递审计/候选/质量历史随档
+		"ew_observation_samples": JSON.parse_string(JSON.stringify(
+			_ew_samples.slice(maxi(0, (_ew_samples as Array).size() - 200),
+				(_ew_samples as Array).size()))),
+		"ew_observation_queue": JSON.parse_string(JSON.stringify(_ew_obs_queue)),
+		"ew_delivered_observations": JSON.parse_string(JSON.stringify(
+			_ew_delivered.slice(maxi(0, (_ew_delivered as Array).size() - 200),
+				(_ew_delivered as Array).size()))),
+		"ew_candidates": JSON.parse_string(JSON.stringify(
+			_ew_candidates.slice(maxi(0, (_ew_candidates as Array).size() - 200),
+				(_ew_candidates as Array).size()))),
+		"ew_observation_seq": _ew_obs_seq,
+		"ew_quality_history": JSON.parse_string(JSON.stringify(_ew_quality_history)),
+		"ew_combat_quality": JSON.parse_string(JSON.stringify(_ew_combat_quality)),
+		"ew_rejected_deliveries": JSON.parse_string(JSON.stringify(
+			(_ew_rejected_deliveries as Array).slice(maxi(0,
+				(_ew_rejected_deliveries as Array).size() - 100),
+				(_ew_rejected_deliveries as Array).size()))),
 		"legal_status_service": legal_status_service.save_state() if legal_status_service != null else "",
 		"traffic_control": traffic_control.save_state() if traffic_control != null else "",
 		"combat_ballistics": combat_ballistics.save_state() if combat_ballistics != null else "",
@@ -5766,6 +6246,11 @@ func load_state(json_text: String) -> Dictionary:
 				replay_errors.append("identification_service 快照恢复失败：" + str(idr.get("errors", [])))
 	# JC-A02：owner 身份管道恢复（旧档只有单实例 → legacy_single_owner 迁移）
 	_identity_restore_identity(data)
+	# JC-A03：EW 观测采样/延迟队列/投递/候选/质量状态恢复
+	var ewr: Dictionary = _ew_restore_state(data)
+	if not bool(ewr.get("ok", false)):
+		replay_errors.append("EW 状态恢复失败：" + String(ewr.get("reason", ""))
+			+ " field=" + String(ewr.get("field", "")))
 	var saved_legal = data.get("legal_status_service", null)
 	if saved_legal != null and String(saved_legal) != "":
 		if legal_status_service == null:
@@ -6074,6 +6559,8 @@ func load_state(json_text: String) -> Dictionary:
 		"authority_restore_mode": _authority_restore_mode,
 		"authority_restore_reasons": _authority_restore_reasons.duplicate(),
 		"identity_restore_mode": _identity_restore_mode,
+		"ew_restore_mode": _ew_restore_mode,
+		"ew_restore_missing": _ew_restore_missing.duplicate(),
 		"pending_intel_shares": _pending_intel_shares.size()}
 
 
