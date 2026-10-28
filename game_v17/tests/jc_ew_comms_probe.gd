@@ -66,66 +66,6 @@ func _info(text: String) -> void:
 
 # ── helpers ───────────────────────────────────────────────────────
 
-	_step("S8 确定性失败/成功臂 + 真实文件恢复 ≥10tick + 下一消息 PRNG 一致")
-	var fail_seed := _find_ew_seed(true)
-	var ok_seed := _find_ew_seed(false)
-	_ok(fail_seed >= 0, "找到确定性失败 seed", str(fail_seed))
-	_ok(ok_seed >= 0, "找到确定性成功 seed", str(ok_seed))
-	if fail_seed >= 0:
-		_restore_arm(fail_seed, true)
-	if ok_seed >= 0:
-		_restore_arm(ok_seed, false)
-
-	_step("S9 篡改与旧残留：篡改 EW 字段拒绝、legacy 残留不冒充 delivered、发送端 EW 生效")
-	var t9 = _new()
-	_apply_jam(t9, "ally_ship", 0.5)
-	var s9: Dictionary = t9.send_comms("own_ship", "ally_ship", "LD", "COMMS_SENT", {}, {})
-	var text9: String = t9.save_state()
-	var doc9: Dictionary = JSON.parse_string(text9)
-	# 篡改 outcome.ew.draw（重放应按发送时冻结值检测 divergence）
-	var tam: Dictionary = doc9.duplicate(true)
-	for raw_op in (tam.get("log", []) as Array):
-		if raw_op is Dictionary and String((raw_op as Dictionary).get("op", "")) == "send_comms":
-			var oc = (raw_op as Dictionary).get("outcome", null)
-			if oc is Dictionary and (oc as Dictionary).get("ew") is Dictionary:
-				((oc as Dictionary).get("ew") as Dictionary)["draw"] = 0.77
-	var t9b = _new()
-	var lr9: Dictionary = t9b.load_state(JSON.stringify(tam))
-	_ok(bool(lr9.get("ok", true)) == false, "篡改 outcome.ew.draw 被拒绝")
-	_ok(JSON.stringify(lr9.get("errors", [])).contains("comms_replay_diverged"),
-		"篡改 EW outcome 报 replay divergence", JSON.stringify(lr9.get("errors", [])))
-	# 篡改在途 pending.ew.draw（冻结结果一致性）
-	var tam2: Dictionary = doc9.duplicate(true)
-	var pend9 = (tam2.get("comms", {}) as Dictionary).get("pending", []) \
-		if tam2.get("comms") is Dictionary else []
-	if pend9 is Array and (pend9 as Array).size() > 0:
-		var p0: Dictionary = (pend9 as Array)[0]
-		if p0.get("ew") is Dictionary:
-			((p0 as Dictionary).get("ew") as Dictionary)["draw"] = 0.01
-	var t9c = _new()
-	var lr9c: Dictionary = t9c.load_state(JSON.stringify(tam2))
-	_ok(bool(lr9c.get("ok", true)) == false, "篡改 pending.ew.draw 被拒绝")
-	_ok(JSON.stringify(lr9c.get("errors", [])).contains("pending.ew"),
-		"篡改在途 EW 字段原因明确", JSON.stringify(lr9c.get("errors", [])))
-	# 旧残留 standalone：无真实结果时不得发布假 delivered
-	var t9d = _new()
-	t9d._standalone["C-LEGACY"] = {"from": "own_ship", "to": "ally_ship",
-		"mode": "LD", "text_key": "COMMS_SENT", "sent_t": 0.0}
-	var ev9: Array = _advance(t9d, 2.0)
-	var types9: Array = []
-	for raw_ev in _comms_events(ev9):
-		types9.append(String((raw_ev as Dictionary).get("type", "")))
-	_ok("comms.unknown_outcome" in types9, "旧残留显式 unknown_outcome", str(types9))
-	_ok(not ("comms.delivered" in types9), "旧残留不冒充 delivered")
-	# 发送端 EW 也生效（链路两端都采样）
-	var t9e = _new()
-	_apply_jam(t9e, "own_ship", 0.5)
-	var se9: Dictionary = t9e.send_comms("own_ship", "ally_ship", "LD",
-		"COMMS_SENT", {}, {})
-	var ewe9: Dictionary = _ew_of(se9)
-	_near(float(ewe9.get("jam_severity", -1.0)), 0.5, TOL, "发送端 EW 采样 jam=.5")
-	_near(float(se9.get("latency_ew_add_s", -1.0)), 20.0, T_TOL, "发送端 EW 附加 20s")
-
 func _new(seed_override := {}) -> Variant:
 	var sd: Dictionary = _seed()
 	for k in seed_override.keys():
@@ -242,6 +182,19 @@ func _send_ops(s) -> Array:
 			out.append(raw)
 	return out
 
+func _ctx(domain: String) -> Dictionary:
+	if domain == "player":
+		return {"actor_id": "player_ctrl", "controller_id": "player_ctrl",
+			"domain_id": "player", "fleet_id": "own_fleet",
+			"owner_id": "player_intel", "intel_owner_id": "player_intel"}
+	if domain == "ally":
+		return {"actor_id": "ally_ai", "controller_id": "ally_ai",
+			"domain_id": "ally", "fleet_id": "ally_fleet",
+			"owner_id": "ally_intel", "intel_owner_id": "ally_intel"}
+	return {"actor_id": "opfor_ai", "controller_id": "opfor_ai",
+		"domain_id": "opfor", "fleet_id": "enemy_fleet",
+		"owner_id": "opfor_intel", "intel_owner_id": "opfor_intel"}
+
 func _apply_jam(s, target := "ally_ship", sev := 0.5) -> Dictionary:
 	return s.apply_ew({"effect": "comms_jam", "target_id": target,
 		"severity": sev, "duration_s": 120.0, "source_id": "EW-A04"})
@@ -352,39 +305,65 @@ func _run() -> void:
 		if od2 is Dictionary:
 			o_reason = String((od2 as Dictionary).get("reason", ""))
 	_ok(o_reason.begins_with("comms_"), "订单失败原因来自 comms", o_reason)
-	# 情报共享入口：失败不融合
+	# 情报共享入口：正式成功正例（合法 owner + fresh row）与失败不融合
+	var legal_row := {"observer_id": "ally_ship", "target_id": "enemy_ship",
+		"sensor": "radar", "observed_t": float(s3.now_s()),
+		"quality": 0.7, "range_km": 400.0, "bearing_deg": 0.0,
+		"share_authorized_by": "ally_intel"}
+	var t_share_send := float(s3.now_s())
 	_force_draw(s3, 0.1)
-	var share_row := {"observer_id": "own_ship", "target_id": "enemy_ship",
-		"sensor": "radar", "observed_t": 0.0, "received_t": 0.0,
-		"quality": 1.0, "range_km": 400.0, "bearing_deg": 0.0,
-		"share_authorized_by": "player_ctrl"}
-	var before_obs: int = 0
+	var sh_bad: Dictionary = s3.queue_intel_share("ally_ship", "own_ship",
+		"player_intel", legal_row, "COMMS_SENT", _ctx("ally"))
+	var obs_before: int = 0
 	if s3.authority_intel != null:
-		before_obs = (s3.authority_intel.intel_view("ally_intel").get(
+		obs_before = (s3.authority_intel.intel_view("player_intel").get(
 			"observations", []) as Array).size()
-	var sh_bad: Dictionary = s3.queue_intel_share("own_ship", "ally_ship",
-		"ally_intel", share_row)
-	var sh_ev: Array = _advance(s3, 25.0)
-	var after_obs_bad: int = 0
+	_eq(obs_before, 0, "共享失败臂到达前接收 owner 观测 0")
+	var sh_ev: Array = _advance(s3, 22.0)
+	var obs_bad_after: int = 0
 	if s3.authority_intel != null:
-		after_obs_bad = (s3.authority_intel.intel_view("ally_intel").get(
+		obs_bad_after = (s3.authority_intel.intel_view("player_intel").get(
 			"observations", []) as Array).size()
-	_eq(after_obs_bad, before_obs, "共享失败不融合到接收 owner")
+	_eq(obs_bad_after, 0, "EW 失败共享到达后仍不融合（0）")
 	_eq((s3._pending_intel_shares as Dictionary).size(), 0, "共享失败清除待融合")
-	# 成功臂：成功共享到达后融合一次
+	_info("failed share at t=%s delivered=%d failed=%d" % [
+		str(t_share_send), _delivered_ids(sh_ev).size(), _failed_events(sh_ev).size()])
+	# 成功臂：合法 owner player_intel + fresh row；到达前不可见，到达后 0→1，后续不增
+	var fresh_row: Dictionary = legal_row.duplicate(true)
+	fresh_row["observed_t"] = float(s3.now_s())
+	fresh_row["observation_id"] = "OBS-A04-SHARE-OK"
+	var t_ok_send := float(s3.now_s())
 	_force_draw(s3, 0.9)
-	var sh_ok: Dictionary = s3.queue_intel_share("own_ship", "ally_ship",
-		"ally_intel", share_row)
-	var sh_ok_ev: Array = _advance(s3, 25.0)
-	var after_obs_ok: int = 0
+	var sh_ok: Dictionary = s3.queue_intel_share("ally_ship", "own_ship",
+		"player_intel", fresh_row, "COMMS_SENT", _ctx("ally"))
+	_ok(bool(sh_ok.get("ok", false)), "合法 fresh 共享成功入链",
+		str(sh_ok.get("reason", "")))
+	var obs_pre: int = 0
 	if s3.authority_intel != null:
-		after_obs_ok = (s3.authority_intel.intel_view("ally_intel").get(
+		obs_pre = (s3.authority_intel.intel_view("player_intel").get(
 			"observations", []) as Array).size()
-	_ok(bool(sh_ok.get("ok", false)), "共享成功入链", str(sh_ok.get("reason", "")))
+	_eq(obs_pre, 0, "共享到达前接收 owner 观测仍 0")
+	var sh_ok_ev: Array = _advance(s3, 21.0)
+	var obs_mid: int = 0
+	if s3.authority_intel != null:
+		obs_mid = (s3.authority_intel.intel_view("player_intel").get(
+			"observations", []) as Array).size()
+	_eq(obs_mid, 0, "精确 due 之前不融合")
+	sh_ok_ev.append_array(_advance(s3, 1.0))
+	var obs_after: int = 0
+	if s3.authority_intel != null:
+		obs_after = (s3.authority_intel.intel_view("player_intel").get(
+			"observations", []) as Array).size()
+	_eq(obs_after, 1, "到期 tick 融合一次（0→1）")
+	sh_ok_ev.append_array(_advance(s3, 5.0))
+	var obs_stable: int = 0
+	if s3.authority_intel != null:
+		obs_stable = (s3.authority_intel.intel_view("player_intel").get(
+			"observations", []) as Array).size()
+	_eq(obs_stable, 1, "后续 tick 不重复融合（保持 1）")
 	_ok(_delivered_ids(sh_ok_ev).size() >= 1, "共享成功产生真实 delivered")
-	_eq((s3._pending_intel_shares as Dictionary).size(), 0, "共享成功清除待融合")
-	_info("share success obs before/after=%d/%d（A01 负责融合授权语义）" % [
-		before_obs, after_obs_ok])
+	_info("share success t_send=%s t_arrive≈%s obs=%d→%d→%d" % [
+		str(t_ok_send), str(t_ok_send + 22.0), obs_pre, obs_after, obs_stable])
 
 	_step("S4 同 seed 确定性与真实文件恢复：读档不重新抽样")
 	var a4 = _new()
@@ -467,6 +446,7 @@ func _run() -> void:
 	var lr6: Dictionary = s6b.load_state(JSON.stringify(mig))
 	_ok(bool(lr6.get("ok", false)), "v1 outcome/state 旧档可恢复",
 		str(lr6.get("errors", [])))
+	_info("v1 restore ops: " + JSON.stringify((s6b.comms_restore_report() as Dictionary).get("ops", [])))
 	var rep6: Dictionary = s6b.comms_restore_report() if s6b.has_method(
 		"comms_restore_report") else {}
 	_ok(int(rep6.get("legacy_outcome_v1", 0)) >= 1, "报告标记 legacy_outcome_v1",
@@ -521,6 +501,163 @@ func _run() -> void:
 	_near(float(n8.get("latency_s", -1.0)), 2.0, T_TOL, "旧 seed 总时延=基础 2s")
 	var ev8: Array = _advance(s8, 3.0)
 	_eq(_delivered_ids(ev8).size(), 1, "旧 seed 正常投递一次")
+	_step("S8 确定性失败/成功臂 + 真实文件恢复 ≥10tick + 下一消息 PRNG 一致")
+	var fail_seed := _find_ew_seed(true)
+	var ok_seed := _find_ew_seed(false)
+	_ok(fail_seed >= 0, "找到确定性失败 seed", str(fail_seed))
+	_ok(ok_seed >= 0, "找到确定性成功 seed", str(ok_seed))
+	if fail_seed >= 0:
+		_restore_arm(fail_seed, true)
+	if ok_seed >= 0:
+		_restore_arm(ok_seed, false)
+
+	_step("S9 篡改与旧残留：篡改 EW 字段拒绝、legacy 残留不冒充 delivered、发送端 EW 生效")
+	var t9 = _new()
+	_apply_jam(t9, "ally_ship", 0.5)
+	var s9: Dictionary = t9.send_comms("own_ship", "ally_ship", "LD", "COMMS_SENT", {}, {})
+	var text9: String = t9.save_state()
+	var doc9: Dictionary = JSON.parse_string(text9)
+	# 篡改 outcome.ew.draw（重放应按发送时冻结值检测 divergence）
+	var tam: Dictionary = doc9.duplicate(true)
+	for raw_op in (tam.get("log", []) as Array):
+		if raw_op is Dictionary and String((raw_op as Dictionary).get("op", "")) == "send_comms":
+			var oc = (raw_op as Dictionary).get("outcome", null)
+			if oc is Dictionary and (oc as Dictionary).get("ew") is Dictionary:
+				((oc as Dictionary).get("ew") as Dictionary)["draw"] = 0.77
+	var t9b = _new()
+	var lr9: Dictionary = t9b.load_state(JSON.stringify(tam))
+	_ok(bool(lr9.get("ok", true)) == false, "篡改 outcome.ew.draw 被拒绝")
+	_ok(JSON.stringify(lr9.get("errors", [])).contains("comms_replay_diverged"),
+		"篡改 EW outcome 报 replay divergence", JSON.stringify(lr9.get("errors", [])))
+	# 篡改在途 pending.ew.draw（冻结结果一致性）
+	var tam2: Dictionary = doc9.duplicate(true)
+	var pend9 = (tam2.get("comms", {}) as Dictionary).get("pending", []) \
+		if tam2.get("comms") is Dictionary else []
+	if pend9 is Array and (pend9 as Array).size() > 0:
+		var p0: Dictionary = (pend9 as Array)[0]
+		if p0.get("ew") is Dictionary:
+			((p0 as Dictionary).get("ew") as Dictionary)["draw"] = 0.01
+	var t9c = _new()
+	var lr9c: Dictionary = t9c.load_state(JSON.stringify(tam2))
+	_ok(bool(lr9c.get("ok", true)) == false, "篡改 pending.ew.draw 被拒绝")
+	_ok(JSON.stringify(lr9c.get("errors", [])).contains("pending.ew"),
+		"篡改在途 EW 字段原因明确", JSON.stringify(lr9c.get("errors", [])))
+	# 旧残留 standalone：无真实结果时不得发布假 delivered
+	var t9d = _new()
+	t9d._standalone["C-LEGACY"] = {"from": "own_ship", "to": "ally_ship",
+		"mode": "LD", "text_key": "COMMS_SENT", "sent_t": 0.0}
+	var ev9: Array = _advance(t9d, 2.0)
+	var types9: Array = []
+	for raw_ev in _comms_events(ev9):
+		types9.append(String((raw_ev as Dictionary).get("type", "")))
+	_ok("comms.unknown_outcome" in types9, "旧残留显式 unknown_outcome", str(types9))
+	_ok(not ("comms.delivered" in types9), "旧残留不冒充 delivered")
+	# 发送端 EW 也生效（链路两端都采样）
+	var t9e = _new()
+	_apply_jam(t9e, "own_ship", 0.5)
+	var se9: Dictionary = t9e.send_comms("own_ship", "ally_ship", "LD",
+		"COMMS_SENT", {}, {})
+	var ewe9: Dictionary = _ew_of(se9)
+	_near(float(ewe9.get("jam_severity", -1.0)), 0.5, TOL, "发送端 EW 采样 jam=.5")
+	_near(float(se9.get("latency_ew_add_s", -1.0)), 20.0, T_TOL, "发送端 EW 附加 20s")
+
+	_step("S10 R1/R2/R4：sender 上下文错配拒绝、普通 EW 旁路禁止、v2 严格校验")
+	# R1：合法上下文正例 + 已登记 sender 错配拒绝（三入口）
+	var c10 = _new()
+	var legal_own: Dictionary = c10.send_comms("own_ship", "ally_ship", "LD",
+		"COMMS_SENT", {"content": "own/player"}, _ctx("player"))
+	_ok(bool(legal_own.get("ok", false)), "own/player 合法上下文可发送",
+		str(legal_own.get("reason", "")))
+	var legal_ally: Dictionary = c10.send_comms("ally_ship", "own_ship", "LD",
+		"COMMS_SENT", {"content": "ally/ally"}, _ctx("ally"))
+	_ok(bool(legal_ally.get("ok", false)), "ally/ally 合法独立上下文可发送",
+		str(legal_ally.get("reason", "")))
+	for mismatch in [
+		{"from": "ally_ship", "ctx": "player", "label": "ally/player"},
+		{"from": "enemy_ship", "ctx": "player", "label": "enemy/player"},
+		{"from": "own_ship", "ctx": "opfor", "label": "own/opfor"}]:
+		var mm: Dictionary = c10.send_comms(String(mismatch["from"]), "own_ship",
+			"LD", "COMMS_SENT", {}, _ctx(String(mismatch["ctx"])))
+		_eq(String(mm.get("reason", "")), "sender_context_mismatch",
+			"已登记 sender 上下文错配拒绝:" + String(mismatch["label"]))
+	# 订单入口：enemy→own 带 player 上下文拒绝；own/player 正例进入正常订单流
+	var bad_ctx: Dictionary = _ctx("player")
+	bad_ctx["mode"] = "LD"
+	var order_bad: Dictionary = c10.issue_order("hold", "enemy_ship",
+		["own_ship"], {}, bad_ctx)
+	_eq(String(order_bad.get("reason", "")), "sender_context_mismatch",
+		"订单 sender/player 上下文错配拒绝")
+	var good_ctx: Dictionary = _ctx("player")
+	good_ctx["mode"] = "LD"
+	var order_ok: Dictionary = c10.issue_order("hold", "own_ship",
+		["ally_ship"], {}, good_ctx)
+	_ok(bool(order_ok.get("ok", false)), "own/player 合法订单可发出",
+		str(order_ok.get("reason", "")))
+	var ev10: Array = _advance(c10, 3.0)
+	_ok(ev10.size() >= 0, "合法订单按真实投递推进")
+	# 共享入口：sender 上下文错配与 owner 错配均拒绝
+	var row10 := {"observer_id": "ally_ship", "target_id": "enemy_ship",
+		"sensor": "radar", "observed_t": float(c10.now_s()),
+		"quality": 0.7, "range_km": 400.0, "bearing_deg": 0.0,
+		"share_authorized_by": "ally_intel"}
+	var share_ctx_bad: Dictionary = c10.queue_intel_share("ally_ship",
+		"own_ship", "player_intel", row10, "COMMS_SENT", _ctx("player"))
+	_eq(String(share_ctx_bad.get("reason", "")), "sender_context_mismatch",
+		"共享入口 sender 上下文错配拒绝")
+	var share_owner_bad: Dictionary = c10.queue_intel_share("ally_ship",
+		"own_ship", "ally_intel", row10, "COMMS_SENT", _ctx("ally"))
+	_eq(String(share_owner_bad.get("reason", "")), "owner_context_mismatch",
+		"共享入口 owner 与接收域错配拒绝")
+	# R2：普通 opts.ignore_ew 不能绕过 active jam（只有 v1 内部迁移可达）
+	var c10j = _new()
+	_apply_jam(c10j, "ally_ship", 0.5)
+	_force_draw(c10j, 0.1)
+	var bypass_opts: Dictionary = _ctx("player")
+	bypass_opts["ignore_ew"] = true
+	var bypass: Dictionary = c10j.send_comms("own_ship", "ally_ship", "LD",
+		"COMMS_SENT", {}, bypass_opts)
+	_eq(String(bypass.get("reason", "")), "ew_bypass_forbidden",
+		"普通 ignore_ew 被明确拒绝")
+	_eq((c10j.comms_pending() as Array).size(), 0, "普通旁路不产生在途消息")
+	var normal_j: Dictionary = c10j.send_comms("own_ship", "ally_ship", "LD",
+		"COMMS_SENT", {}, _ctx("player"))
+	_near(float(normal_j.get("latency_s", -1.0)), 22.0, T_TOL,
+		"正常发送仍冻结 22s")
+	_eq(bool(_ew_of(normal_j).get("will_fail", false)), true,
+		"正常发送仍冻结失败 draw")
+	# R4：v2 缺 pending.ew 拒绝；非整数版本拒绝且服务状态不变
+	var c10s = _new()
+	_apply_jam(c10s, "ally_ship", 0.5)
+	c10s.send_comms("own_ship", "ally_ship", "LD", "COMMS_SENT", {}, _ctx("player"))
+	var doc10: Dictionary = JSON.parse_string(c10s.save_state())
+	var miss_ew: Dictionary = doc10.duplicate(true)
+	var pend10 = (miss_ew.get("comms", {}) as Dictionary).get("pending", []) \
+		if miss_ew.get("comms") is Dictionary else []
+	if pend10 is Array and (pend10 as Array).size() > 0:
+		((pend10 as Array)[0] as Dictionary).erase("ew")
+	var c10d = _new()
+	var lr10d: Dictionary = c10d.load_state(JSON.stringify(miss_ew))
+	_ok(bool(lr10d.get("ok", true)) == false, "v2 缺 pending.ew 明确拒绝")
+	_ok(JSON.stringify(lr10d.get("errors", [])).contains("pending.ew"),
+		"缺 pending.ew 原因明确", JSON.stringify(lr10d.get("errors", [])))
+	var ver25: Dictionary = doc10.duplicate(true)
+	if ver25.get("comms") is Dictionary:
+		(ver25.get("comms") as Dictionary)["version"] = 2.5
+	var c10e = _new()
+	var lr10e: Dictionary = c10e.load_state(JSON.stringify(ver25))
+	_ok(bool(lr10e.get("ok", true)) == false, "state version 2.5 明确拒绝")
+	_ok(JSON.stringify(lr10e.get("errors", [])).contains("invalid_version"),
+		"state version 2.5 原因 invalid_version")
+	var c10f = _new()
+	var state10: Dictionary = c10f.comms.export_state()
+	state10["version"] = 2.5
+	var svc10: Dictionary = c10f.comms.load_state(state10)
+	_ok(bool(svc10.get("ok", true)) == false, "服务级 version 2.5 拒绝")
+	_eq((c10f.comms.pending as Array).size(), 0, "版本拒绝不改变服务状态")
+	var ver20: Dictionary = c10f.comms.export_state()
+	ver20["version"] = 2.0
+	_ok(bool(c10f.comms.load_state(ver20).get("ok", false)),
+		"整数等价 version 2.0 可接受")
 func _find_ew_seed(want_fail: bool) -> int:
 	for k in range(0, 120):
 		var s = _new({"comms_ew_seed": k})

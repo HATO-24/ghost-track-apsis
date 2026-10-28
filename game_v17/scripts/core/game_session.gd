@@ -304,6 +304,7 @@ func boot(config := {}) -> Dictionary:
 		comms.set_ew_service(ew_service)
 	if comms != null:
 		comms.set_ew_rng(int(_seed.get("comms_ew_seed", 0)))
+		comms.set_sender_authorizer(Callable(self, "_authorize_comms_sender"))
 	if orders != null:
 		orders.set_comms_event_sink(Callable(self, "_on_comms_events"))
 	var extra_ok := true
@@ -3030,6 +3031,11 @@ func issue_order(action: String, issuer_id: String, target_ids, params := {},
 		opts := {}) -> Dictionary:
 	if not ready:
 		return {"ok": false, "reason": "not_ready"}
+	# R1：订单入口同样校验真实 sender 与 actor/controller/fleet/owner 上下文。
+	var auth_issuer: Dictionary = _authorize_comms_sender(issuer_id, opts)
+	if not bool(auth_issuer.get("ok", false)):
+		return {"ok": false, "reason": String(auth_issuer.get("reason", "")),
+			"context": auth_issuer, "order_id": "", "events": []}
 	_tick_events = []
 	var p_norm = _json_norm(params)
 	var o_norm = _json_norm(opts)
@@ -3106,12 +3112,22 @@ func order(order_id: String) -> Dictionary:
 
 func send_comms(from_id: String, to_id: String, mode := "LD",
 		text_key := "COMMS_SENT", payload := {}, opts := {}) -> Dictionary:
+	return _send_comms_impl(from_id, to_id, mode, text_key, payload, opts, false)
+
+
+## R2：仅用于 v1 outcome 内部迁移/重放的固定路径；普通调用方不可达。
+func _send_comms_impl(from_id: String, to_id: String, mode: String,
+		text_key: String, payload, opts, legacy_ew: bool) -> Dictionary:
 	if not ready:
 		return {"ok": false, "reason": "not_ready"}
 	_tick_events = []
 	var pl_norm = _json_norm(payload)
 	var po_norm = _json_norm(opts)
-	var res: Dictionary = comms.send(from_id, to_id, mode, text_key, pl_norm, po_norm)
+	var res: Dictionary = {}
+	if legacy_ew:
+		res = comms.send_legacy_v1(from_id, to_id, mode, text_key, pl_norm, po_norm)
+	else:
+		res = comms.send(from_id, to_id, mode, text_key, pl_norm, po_norm)
 	# A-06：操作记录带**版本化 outcome**。原始失败（例如 orbital_sim 无 LR 链 → no_route）
 	# 必须在读档重放后仍是同一失败，而不能被当成恢复错误。
 	# 先执行再记录，保证 outcome 是原始执行的实测值。
@@ -3237,6 +3253,55 @@ func _pending_ids() -> Dictionary:
 		if raw is Dictionary:
 			out[String((raw as Dictionary).get("delivery_id", ""))] = true
 	return out
+
+# R1：校验真实 sender 与 actor/controller/domain/fleet/owner 上下文。
+# 无上下文（旧 seed/旧日志）保持 legacy；已知节点不等于授权；未知 sender 交给
+# Comms 的 unknown_from 明确拒绝。只在 authority 组件可用时校验。
+func _authorize_comms_sender(from_id: String, opts := {}) -> Dictionary:
+	if not _authority_enabled or authority_intel == null:
+		return {"ok": true, "legacy": true}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var ctx_fields := ["actor_id", "controller_id", "domain_id", "fleet_id",
+		"owner_id", "intel_owner_id"]
+	var has_ctx := false
+	for cf in ctx_fields:
+		if o.has(cf):
+			has_ctx = true
+	if not has_ctx:
+		return {"ok": true, "legacy": true}
+	var instances: Dictionary = authority_intel.instances if \
+		authority_intel.instances is Dictionary else {}
+	if not instances.has(from_id):
+		# 未登记 sender：不是合法授权身份；由 Comms unknown_from 拒绝。
+		return {"ok": true, "unregistered": true}
+	var inst: Dictionary = instances[from_id] if instances[from_id] is Dictionary else {}
+	var dom_id := String(inst.get("domain_id", ""))
+	var domains: Dictionary = authority_intel.domains if \
+		authority_intel.domains is Dictionary else {}
+	if not domains.has(dom_id):
+		return {"ok": true, "legacy": true}
+	var dom: Dictionary = domains[dom_id] if domains[dom_id] is Dictionary else {}
+	var expected := {
+		"domain_id": dom_id,
+		"fleet_id": String(inst.get("fleet_id", dom.get("fleet_id", ""))),
+		"controller_id": String(dom.get("controller_id", "")),
+		"owner_id": String(dom.get("intel_owner_id", "")),
+		"intel_owner_id": String(dom.get("intel_owner_id", "")),
+	}
+	for fld in expected.keys():
+		if o.has(fld) and String(o.get(fld, "")) != String(expected[fld]):
+			return {"ok": false, "reason": "sender_context_mismatch",
+				"field": String(fld), "sender": from_id,
+				"expected": String(expected[fld]),
+				"actual": String(o.get(fld, ""))}
+	if o.has("actor_id"):
+		var actors: Array = dom.get("authorized_actors", []) \
+			if dom.get("authorized_actors") is Array else []
+		if actors.size() > 0 and not actors.has(String(o.get("actor_id", ""))):
+			return {"ok": false, "reason": "sender_context_mismatch",
+				"field": "actor_id", "sender": from_id,
+				"expected": str(actors), "actual": String(o.get("actor_id", ""))}
+	return {"ok": true, "domain_id": dom_id}
 
 # JC-A04：真实 comms 结果回调（由 OrderService.tick 在唯一 Comms 推进后转发）。
 # delivered/failed 决定 session 事件、共享融合与成功只消费一次；pending 消失不再当送达。
@@ -6680,10 +6745,9 @@ func _replay_send_comms(op: Dictionary) -> Dictionary:
 			legacy_v1 = true
 	var replay_opts: Dictionary = (opts as Dictionary).duplicate(true) \
 		if opts is Dictionary else {}
-	if legacy_v1:
-		replay_opts["ignore_ew"] = true
-	var res: Dictionary = send_comms(from_id, to_id, mode, text_key,
-		payload if payload is Dictionary else {}, replay_opts)
+	# R2：普通 opts.ignore_ew 已被禁止；此处只通过内部 impl 走 v1 迁移。
+	var res: Dictionary = _send_comms_impl(from_id, to_id, mode, text_key,
+		payload if payload is Dictionary else {}, replay_opts, legacy_v1)
 	var row: Dictionary = {
 		"from": from_id, "to": to_id, "mode": mode, "text_key": text_key,
 		"replay_ok": bool(res.get("ok", false)),
@@ -7327,16 +7391,36 @@ func receive_intel_observation(owner_id: String, row: Dictionary,
 
 ## 经既有 Comms 链路发起一次情报共享（发出→未到达不可见→到达仅接收方融合）。
 func queue_intel_share(from_id: String, to_id: String, owner_id: String,
-		row: Dictionary, text_key := "COMMS_SENT") -> Dictionary:
+		row: Dictionary, text_key := "COMMS_SENT", opts := {}) -> Dictionary:
 	if comms == null:
 		return {"ok": false, "reason": "no_comms"}
+	# R1：共享入口同样校验 sender 上下文；接收 owner 必须是 to 实体的合法 owner。
+	var auth_share: Dictionary = _authorize_comms_sender(from_id, opts)
+	if not bool(auth_share.get("ok", false)):
+		return {"ok": false, "reason": String(auth_share.get("reason", "")),
+			"context": auth_share}
+	if _authority_enabled and authority_intel != null:
+		var insts: Dictionary = authority_intel.instances if \
+			authority_intel.instances is Dictionary else {}
+		if insts.has(to_id):
+			var ti: Dictionary = insts[to_id] if insts[to_id] is Dictionary else {}
+			var tdom := String(ti.get("domain_id", ""))
+			var doms: Dictionary = authority_intel.domains if \
+				authority_intel.domains is Dictionary else {}
+			if doms.has(tdom):
+				var td: Dictionary = doms[tdom] if doms[tdom] is Dictionary else {}
+				var expect_owner := String(td.get("intel_owner_id", ""))
+				if expect_owner != "" and owner_id != "" and owner_id != expect_owner:
+					return {"ok": false, "reason": "owner_context_mismatch",
+						"expected": expect_owner, "actual": owner_id,
+						"receiver": to_id}
 	var payload := {"intel_share": {
 		"owner_id": owner_id,
 		"row": row.duplicate(true),
 		"share_authorized_by": String(row.get("observer_id", "")) \
 			if false else String(row.get("share_authorized_by", "")),
 	}}
-	var sr: Dictionary = comms.send(from_id, to_id, "LD", text_key, payload, {})
+	var sr: Dictionary = comms.send(from_id, to_id, "LD", text_key, payload, opts)
 	if not bool(sr.get("ok", false)):
 		return sr
 	var did := String(sr.get("delivery_id", ""))

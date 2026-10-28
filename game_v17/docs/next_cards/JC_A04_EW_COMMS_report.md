@@ -47,3 +47,10 @@ Full strict: 91 = 84 PASS / 7 历史 FAIL（new_fail=0、drift=0、complete=true
 - 真实 RF/光学传播、完整军用通信协议、AI 任务接受策略（B2）未接；
 - 不把测试 seed 的抽样成功率当作真实 RF 统计；
 - Linux/macOS、非 headless 渲染、>1000 tick 成本 NOT RUN。
+
+## 7. PR72 第二轮复核返修（R1/R2/R4；R3 已关闭）
+
+- **R1 sender 上下文**：Session 在 boot 注入 comms.set_sender_authorizer；send_comms、issue_order、queue_intel_share 三入口按真实 sender 的登记域/舰队/controller/owner/authorized_actors 校验调用方上下文。已登记 ally/player、enemy/player、own/opfor 错配拒绝（sender_context_mismatch 带字段），共享接收 owner 与接收域错配拒绝（owner_context_mismatch）；own/player、ally/ally 正例、旧 seed 无上下文 legacy、未知 sender 的 unknown_from 保留，不把已知节点当授权。
+- **R2 EW 旁路**：普通 opts.ignore_ew 明确拒绝（ew_bypass_forbidden）且不产生在途；仅 v1 outcome 内部迁移/重放经 _send_comms_impl(legacy) 调用 Comms.send_legacy_v1 保持接线前语义（不消耗 draw），旧档兼容保留。
+- **R4 严格恢复/正式正例**：v2 在途项必须携带 ew 冻结块（缺失 pending.ew 明确拒绝）；comms state version 先严格判整数再提交（2.5 拒绝、2.0 等价接受，拒绝不改服务状态）；正式成功共享改用合法 owner（player_intel）+ fresh observation row：到达前 receiver observations 0、精确 due tick 0→1、后续/重复保持 1；EW 失败共享仍不融合。
+- **探针**：106→131/0；卡指定专项 8/8、门禁 6/6+3/3、全量 91=84/7 new_fail=0。

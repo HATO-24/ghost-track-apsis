@@ -1,8 +1,8 @@
 {
   "schema": "test_summary.v1",
-  "run_id": "20261029-003340-1de99a85",
-  "started_at": "2026-10-29T00:33:40+08:00",
-  "ended_at": "2026-10-29T00:34:04+08:00",
+  "run_id": "20261029-013806-bc0b8bb2",
+  "started_at": "2026-10-29T01:38:05+08:00",
+  "ended_at": "2026-10-29T01:38:31+08:00",
   "invocation": {
     "script": "run_tests.ps1",
     "matrix": "game_v17/tests/probe_matrix.json",
@@ -56,8 +56,8 @@
   "godot_version": "4.7.2.stable.official.ed1daf0bf",
   "git": {
     "branch": "jc/a04-ew-comms",
-    "commit": "1de99a85c4f69dca706509648450487197523ab5",
-    "commit_short": "1de99a85",
+    "commit": "bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72",
+    "commit_short": "bc0b8bb2",
     "worktree_dirty": true,
     "modified_tracked": [
       "M game_v17/scripts/core/comms_service.gd",
@@ -67,7 +67,7 @@
     "read_error": ""
   },
   "git_branch": "jc/a04-ew-comms",
-  "git_commit": "1de99a85c4f69dca706509648450487197523ab5",
+  "git_commit": "bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72",
   "host": {
     "os": "Microsoft Windows NT 10.0.26200.0",
     "os_name": "Windows_NT",
@@ -120,7 +120,7 @@
         "BUILD PROFILE PROBE RESULT:"
       ],
       "marker_ok": true,
-      "log_path": ".test-results/JC-A04/g0d/20261029-003340-1de99a85/logs/profile.build_profile_probe.log",
+      "log_path": ".test-results/JC-A04/g0e/20261029-013806-bc0b8bb2/logs/profile.build_profile_probe.log",
       "reason": "",
       "attempts": 1,
       "blocked": false,
@@ -139,14 +139,14 @@
       "command": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game_v17 --script res://tests/e2e_orbital_sim_probe.gd",
       "exit_code": 0,
       "status": "PASS",
-      "duration_s": 6.63,
+      "duration_s": 6.49,
       "pass_count": 149,
       "fail_count": 0,
       "expected_markers": [
         "E2E ORBITAL SIM PROBE RESULT:"
       ],
       "marker_ok": true,
-      "log_path": ".test-results/JC-A04/g0d/20261029-003340-1de99a85/logs/e2e.orbital_sim.log",
+      "log_path": ".test-results/JC-A04/g0e/20261029-013806-bc0b8bb2/logs/e2e.orbital_sim.log",
       "reason": "",
       "attempts": 1,
       "blocked": false,
@@ -168,7 +168,7 @@
       "command": "DSH_BUILD=full DSH_FLOW_SMOKE=1 D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game_v17 res://v1_hud.tscn --quit-after 5000",
       "exit_code": 0,
       "status": "PASS",
-      "duration_s": 3.94,
+      "duration_s": 4.24,
       "pass_count": 3,
       "fail_count": 0,
       "expected_markers": [
@@ -177,7 +177,7 @@
         "[V1 HUD] FLOW SMOKE COMPLETE"
       ],
       "marker_ok": true,
-      "log_path": ".test-results/JC-A04/g0d/20261029-003340-1de99a85/logs/boot.full.log",
+      "log_path": ".test-results/JC-A04/g0e/20261029-013806-bc0b8bb2/logs/boot.full.log",
       "reason": "",
       "attempts": 1,
       "blocked": false,
@@ -199,7 +199,7 @@
       "command": "DSH_BUILD=combat_sim DSH_FLOW_SMOKE=1 D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game_v17 --quit-after 5000",
       "exit_code": 0,
       "status": "PASS",
-      "duration_s": 4.04,
+      "duration_s": 4.15,
       "pass_count": 3,
       "fail_count": 0,
       "expected_markers": [
@@ -208,7 +208,7 @@
         "[V1 HUD] FLOW SMOKE COMPLETE"
       ],
       "marker_ok": true,
-      "log_path": ".test-results/JC-A04/g0d/20261029-003340-1de99a85/logs/boot.legacy_combat_sim.log",
+      "log_path": ".test-results/JC-A04/g0e/20261029-013806-bc0b8bb2/logs/boot.legacy_combat_sim.log",
       "reason": "",
       "attempts": 1,
       "blocked": false,
@@ -230,7 +230,7 @@
       "command": "DSH_BUILD=orbital_sim DSH_FLOW_SMOKE=1 D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game_v17 --quit-after 5000",
       "exit_code": 0,
       "status": "PASS",
-      "duration_s": 4.32,
+      "duration_s": 4.23,
       "pass_count": 3,
       "fail_count": 0,
       "expected_markers": [
@@ -239,7 +239,7 @@
         "[V1 HUD] FLOW SMOKE COMPLETE"
       ],
       "marker_ok": true,
-      "log_path": ".test-results/JC-A04/g0d/20261029-003340-1de99a85/logs/boot.orbital_sim.log",
+      "log_path": ".test-results/JC-A04/g0e/20261029-013806-bc0b8bb2/logs/boot.orbital_sim.log",
       "reason": "",
       "attempts": 1,
       "blocked": false,
@@ -261,7 +261,7 @@
       "command": "DSH_BUILD=sandbox DSH_FLOW_SMOKE=1 D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game_v17 --quit-after 5000",
       "exit_code": 0,
       "status": "PASS",
-      "duration_s": 4.13,
+      "duration_s": 4.24,
       "pass_count": 3,
       "fail_count": 0,
       "expected_markers": [
@@ -270,7 +270,7 @@
         "[V1 HUD] FLOW SMOKE COMPLETE"
       ],
       "marker_ok": true,
-      "log_path": ".test-results/JC-A04/g0d/20261029-003340-1de99a85/logs/boot.sandbox.log",
+      "log_path": ".test-results/JC-A04/g0e/20261029-013806-bc0b8bb2/logs/boot.sandbox.log",
       "reason": "",
       "attempts": 1,
       "blocked": false,
@@ -287,7 +287,7 @@
     "not_run_expected": 0,
     "not_run_unexpected": 0,
     "ran": 6,
-    "duration_s": 24.96,
+    "duration_s": 25.81,
     "known_fail": null,
     "new_fail": null,
     "baseline_drift": null,

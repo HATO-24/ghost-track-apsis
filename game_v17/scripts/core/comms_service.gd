@@ -232,6 +232,7 @@ var ew_service = null
 var _ew_seed := 0
 var _ew_seq := 0
 var _ew_forced_draw := -1.0   # 测试注入：一次性覆盖下一条 draw；不进存档/公开玩家选项
+var _sender_authorizer = null  # Session 注入：校验 sender 与 actor/controller/fleet/owner 上下文
 
 var _event_out: Array = []        # 兼容别名
 
@@ -506,6 +507,11 @@ func set_ew_service(obj) -> void:
 	ew_service = obj
 
 
+# R1：Session 注入的 sender↔actor/controller/fleet/owner 校验器。
+func set_sender_authorizer(fn) -> void:
+	_sender_authorizer = fn
+
+
 # 确定性抽样：同 seed + 发送顺序 → 同 draw；真实文件恢复保留 seed/seq。
 func set_ew_rng(seed_value: int) -> void:
 	_ew_seed = int(seed_value)
@@ -566,6 +572,21 @@ func _sample_ew_for_send(to_id: String, delivery_id: String, from_id: String,
 
 func send(from_id: String, to_id: String, mode: String, text_key: String,
 		payload := {}, opts := {}) -> Dictionary:
+	# R2：普通发送不得请求 EW 旁路；只有 v1 迁移路径可走 send_legacy_v1。
+	if opts is Dictionary and (opts as Dictionary).has("ignore_ew"):
+		return _fail_send(from_id, to_id, String(mode).to_upper(), text_key,
+			"ew_bypass_forbidden")
+	return _send_core(from_id, to_id, mode, text_key, payload, opts, false)
+
+
+## 仅供 v1 outcome 内部迁移/重放：保持 EW 接线前的语义，不接受普通 opts 旁路。
+func send_legacy_v1(from_id: String, to_id: String, mode: String,
+		text_key: String, payload := {}, opts := {}) -> Dictionary:
+	return _send_core(from_id, to_id, mode, text_key, payload, opts, true)
+
+
+func _send_core(from_id: String, to_id: String, mode: String, text_key: String,
+		payload := {}, opts := {}, legacy_ignore_ew := false) -> Dictionary:
 	var m := String(mode).to_upper()
 	if not (m in MODES):
 		return _fail_send(from_id, to_id, m, text_key, "invalid_mode")
@@ -575,6 +596,15 @@ func send(from_id: String, to_id: String, mode: String, text_key: String,
 		return _fail_send(from_id, to_id, m, text_key, "unknown_to")
 	var p: Dictionary = payload if payload is Dictionary else {}
 	var o: Dictionary = opts if opts is Dictionary else {}
+	# R1：真实 sender 与调用方 actor/controller/fleet/owner 上下文必须一致；
+	# v1 内部迁移重放不重新鉴权。
+	if not legacy_ignore_ew and _sender_authorizer != null \
+			and _sender_authorizer is Callable \
+			and (_sender_authorizer as Callable).is_valid():
+		var auth: Dictionary = (_sender_authorizer as Callable).call(from_id, o)
+		if not bool(auth.get("ok", false)):
+			return _fail_send(from_id, to_id, m, text_key,
+				String(auth.get("reason", "sender_context_mismatch")))
 	var from_node: Dictionary = nodes[from_id]
 	var to_node: Dictionary = nodes[to_id]
 	var content := String(p.get("content", p.get("text", o.get("content", ""))))
@@ -603,7 +633,7 @@ func send(from_id: String, to_id: String, mode: String, text_key: String,
 	# JC-A04：在**发送时刻**冻结 EW 采样与确定性 draw；到达时只按记录结果执行，
 	# 读档/重放不得重新抽样改变结果。
 	var ew_snap: Dictionary = _sample_ew_for_send(to_id, delivery_id, from_id,
-		bool(o.get("ignore_ew", false)))
+		legacy_ignore_ew)
 	var ew_add := float(ew_snap.get("latency_add_s", 0.0))
 	var latency := base_latency + ew_add
 	var arrive_t := t + latency
@@ -856,9 +886,18 @@ func load_state(st) -> Dictionary:
 	var s: Dictionary = st
 	if String(s.get("schema", "")) != STATE_SCHEMA:
 		return {"ok": false, "reason": "invalid_schema"}
-	var st_ver := int(s.get("version", 0))
+	# R4：先严格确认整数版本，再转换/提交；2.5 等非整数版本拒绝。
+	var raw_ver = s.get("version", null)
+	var ver_int := false
+	var ver_num := -1.0
+	if raw_ver is int or raw_ver is float:
+		ver_num = float(raw_ver)
+		ver_int = is_finite(ver_num) and absf(ver_num - roundf(ver_num)) <= 0.0
+	if not ver_int:
+		return {"ok": false, "reason": "invalid_version", "version": raw_ver}
+	var st_ver := int(roundf(ver_num))
 	if st_ver != STATE_VERSION and st_ver != STATE_VERSION_LEGACY:
-		return {"ok": false, "reason": "invalid_version", "version": st_ver}
+		return {"ok": false, "reason": "invalid_version", "version": raw_ver}
 	var legacy_v1 := st_ver == STATE_VERSION_LEGACY
 	var new_ew_seed := _ew_seed
 	var new_ew_seq := _ew_seq
@@ -900,7 +939,8 @@ func load_state(st) -> Dictionary:
 		if not (at is int or at is float) or not is_finite(float(at)):
 			return {"ok": false, "reason": "invalid_state",
 				"errors": ["pending.arrive_t"]}
-		if not legacy_v1 and rec.has("ew"):
+		# R4：v2 必须携带冻结 EW 块；真正 v1 才允许缺省（迁移语义）。
+		if not legacy_v1:
 			if not (rec.get("ew") is Dictionary):
 				return {"ok": false, "reason": "invalid_state",
 					"errors": ["pending.ew"]}
