@@ -1,0 +1,17 @@
+{
+  "head": "db3bef90420178ba246a54b13efd7a342bb6c013",
+  "root_targeted": "1/1 PASS,83/0,exit0,39.4s incl30.7s import",
+  "entry_audit_runs": 1,
+  "entry_audit_exit": 0,
+  "command": [
+    "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+    "--headless",
+    "--path",
+    "./game_v17",
+    "--script",
+    "C:\\Users\\ASUS\\.codex\\worktrees\\jc-b01a-r4-validation\\GHOST TRACK_APSIS\\.test-results\\sol-b01a-r4\\entry_audit.gd"
+  ],
+  "root_original_C": "NOT RUN due remaining original R4/R5",
+  "root_nonheadless": "NOT RUN; executor screenshot viewed",
+  "production_formal_matrix_baseline_modified": false
+}
