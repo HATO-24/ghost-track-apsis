@@ -807,6 +807,7 @@
       "timeout_s": 420
     },
     {
+      "id": "integration.jc_identity_pipeline",
       "category": "integration",
       "profile": "",
       "entry": "script",

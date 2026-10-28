@@ -561,10 +561,15 @@ func predict_shot(target_id: String, weapon_id: String) -> Dictionary:
 	var tof := range_km / speed if speed > 0.0 else -1.0
 	var acc := float(w.get("accuracy", 0.5))
 	var q := clampf(acc * (1.0 - clampf(range_km / maxf(1.0, float(w.get("range_km", 1.0))), 0.0, 1.0) * 0.25), 0.0, 1.0)
+	# JC-A03：预测同样消费当前测量质量（moderate 精度×0.85）
+	var mq := _track_quality(tr)
+	var acc_mult := QUALITY_ACC_MULT if mq < QUALITY_FULL - 1.0e-9 else 1.0
+	q = clampf(q * acc_mult, 0.0, 1.0)
 	return {"ok": true, "reason": "", "schema": "combat_prediction.v1",
 		"no_physics": true, "trajectory": "interface_only",
 		"target_id": target_id, "weapon_id": weapon_id, "range_km": range_km,
 		"time_of_flight_s": tof, "hit_probability": q,
+		"measurement_quality": mq, "quality_accuracy_mult": acc_mult,
 		"error_km": maxf(0.0, range_km * (1.0 - q) * 0.01),
 		"guidance": String(w.get("guidance", "")),
 		"interceptable": bool(w.get("interceptable", false))}
@@ -592,6 +597,22 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 	var sol := _find_ready_solution(target_id, weapon_id)
 	if sol.is_empty():
 		return {"ok": false, "reason": "no_ready_solution"}
+	# JC-A03/R1（修订）：不新增硬禁射。沿用既有解算时，实际射击消费当前测量
+	# 质量的精度/误差并记录所用数据时刻与有效性，由调用方解释策略。
+	var fire_mq := _track_quality(tr)
+	var fire_mt := float(tr.get("measurement_t", t))
+	var fire_base := clampf(float(w.get("accuracy", 0.5)) * (1.0 - clampf(
+		float(tr.get("range_km", 0.0)) / maxf(1.0, float(w.get("range_km", 1.0))),
+		0.0, 1.0) * 0.25), 0.0, 1.0)
+	var fire_acc_mult := QUALITY_ACC_MULT if fire_mq < QUALITY_FULL - 1.0e-9 else 1.0
+	var fire_quality := clampf(fire_base * fire_acc_mult, 0.0, 1.0)
+	sol["quality"] = fire_quality
+	sol["measurement_quality"] = fire_mq
+	sol["measurement_t"] = fire_mt
+	sol["quality_accuracy_mult"] = fire_acc_mult
+	sol["quality_valid"] = fire_mq >= QUALITY_MIN - 1.0e-9
+	sol["quality_sufficient"] = fire_mq >= QUALITY_MIN - 1.0e-9
+	sol["error_km"] = maxf(0.0, float(tr.get("range_km", 0.0)) * (1.0 - fire_quality) * 0.01)
 	var range_km := float(tr.get("range_km", 999999.0))
 	if range_km > float(w.get("range_km", 0.0)) + 1.0e-9:
 		return {"ok": false, "reason": "out_of_range"}
@@ -627,6 +648,11 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 		"salvo": salvo, "ammo_left": int(ws["ammo"]), "prediction": pred.duplicate(true)})
 	return {"ok": true, "reason": "", "shot_id": shot_id, "salvo": salvo,
 		"weapon_id": weapon_id, "target_id": target_id,
+		"measurement_quality": fire_mq, "quality": fire_quality,
+		"quality_accuracy_mult": fire_acc_mult, "measurement_t": fire_mt,
+		"quality_valid": bool(sol.get("quality_valid", false)),
+		"quality_sufficient": bool(sol.get("quality_sufficient", false)),
+		"error_km": float(sol.get("error_km", -1.0)),
 		"ammo_left": int(ws["ammo"]), "cooldown_until": float(ws["cooldown_until"]),
 		"solution": sol.duplicate(true), "prediction": pred,
 		"physics": "deferred", "no_physics": false,
@@ -818,11 +844,25 @@ func tick(dt: float) -> Dictionary:
 			continue
 		var acc := float(w.get("accuracy", 0.5))
 		var q := clampf(acc * (1.0 - clampf(float(tr.get("range_km", 0.0)) / maxf(1.0, float(w.get("range_km", 1.0))), 0.0, 1.0) * 0.25), 0.0, 1.0)
+		# JC-A03/R1（修订）：READY 消费当前测量质量的精度/误差并记录有效性；
+		# 不新增硬禁射（旧解算仍可继续，由调用方解释所用数据时刻与质量）。
+		var mq := _track_quality(tr)
+		var acc_mult := QUALITY_ACC_MULT if mq < QUALITY_FULL - 1.0e-9 else 1.0
+		q = clampf(q * acc_mult, 0.0, 1.0)
 		s["status"] = "READY"
 		s["quality"] = q
+		s["measurement_quality"] = mq
+		s["measurement_t"] = float(tr.get("measurement_t", t))
+		s["quality_accuracy_mult"] = acc_mult
+		s["quality_valid"] = mq >= QUALITY_MIN - 1.0e-9
+		s["quality_sufficient"] = mq >= QUALITY_MIN - 1.0e-9
+		s["ready_measurement_quality"] = mq
+		s["ready_measurement_t"] = float(tr.get("measurement_t", t))
 		s["error_km"] = maxf(0.0, float(tr.get("range_km", 0.0)) * (1.0 - q) * 0.01)
 		s["fire_ready"] = true
 		_push_event("solution_ready", {"solution_id": sid, "quality": q,
+			"measurement_quality": mq, "quality_accuracy_mult": acc_mult,
+			"quality_valid": bool(s["quality_valid"]),
 			"error_km": float(s["error_km"])})
 	# 跟进中的 incoming + 点防御
 	_process_incoming()

@@ -225,6 +225,7 @@ func _run() -> void:
 	for i7 in range(2):
 		se.tick(TICK_DT)
 	_ok((se.ew_delivery_queue() as Array).size() > 0, "保存前存在在途观测")
+	_ok((se.ew_delivery_queue() as Array).size() > 0, "保存前存在在途观测")
 	var path := "user://jc_a03_ew_save.json"
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(se.save_state())
@@ -234,6 +235,13 @@ func _run() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	_ok(bool(lr.get("ok", false)), "真实文件恢复成功", str(lr.get("errors", [])))
 	_ok((sf.ew_delivery_queue() as Array).size() > 0, "在途观测队列随档恢复")
+	# 全量比较：队列条目、捕获观测几何/质量、投递审计、owner 质量与实际解算
+	_register_combat_track(se, "raider_2")
+	_register_combat_track(sf, "raider_2")
+	se.grant_authorization("FIRE", "target", "raider_2")
+	sf.grant_authorization("FIRE", "target", "raider_2")
+	var sol_e: Dictionary = se.combat_request_solution("raider_2", "missile", true)
+	var sol_f: Dictionary = sf.combat_request_solution("raider_2", "missile", true)
 	var vis_ok := true
 	var first_bad := ""
 	for i8 in range(10):
@@ -247,6 +255,31 @@ func _run() -> void:
 			vis_ok = false
 			if first_bad == "":
 				first_bad = "t=%s ids_e=%s ids_f=%s" % [str(se.now_s()), str(ids_e), str(ids_f)]
+		# 完整队列（ID/双时间/捕获观测几何与质量）
+		var q_e: Array = _queue_sig(se.ew_delivery_queue())
+		var q_f: Array = _queue_sig(sf.ew_delivery_queue())
+		if JSON.stringify(q_e) != JSON.stringify(q_f):
+			vis_ok = false
+			if first_bad == "":
+				first_bad = "t=%s queue_e=%s queue_f=%s" % [str(se.now_s()),
+					str(q_e), str(q_f)]
+		# 投递审计（计数与末尾捕获值）
+		var d_e: Array = se.ew_delivered_observations()
+		var d_f: Array = sf.ew_delivered_observations()
+		if d_e.size() != d_f.size():
+			vis_ok = false
+			if first_bad == "":
+				first_bad = "t=%s delivered_e=%d delivered_f=%d" % [
+					str(se.now_s()), d_e.size(), d_f.size()]
+		elif d_e.size() > 0:
+			var le := _delivered_sig(d_e[d_e.size() - 1] as Dictionary)
+			var lf := _delivered_sig(d_f[d_f.size() - 1] as Dictionary)
+			if JSON.stringify(le) != JSON.stringify(lf):
+				vis_ok = false
+				if first_bad == "":
+					first_bad = "t=%s delivered_e=%s delivered_f=%s" % [
+						str(se.now_s()), str(le), str(lf)]
+		# owner 当前测量质量
 		var mqe: Dictionary = se.owner_measurement_quality("player_intel", "raider_2")
 		var mqf: Dictionary = sf.owner_measurement_quality("player_intel", "raider_2")
 		if bool(mqe.get("ok", false)) != bool(mqf.get("ok", false)):
@@ -261,10 +294,19 @@ func _run() -> void:
 				vis_ok = false
 				if first_bad == "":
 					first_bad = "t=%s q_e=%s q_f=%s" % [str(se.now_s()), str(qe), str(qf)]
+		# 实际解算状态/质量/误差一致（在途解算继续）
+		var se_sol: Dictionary = _solution_sig(se, String((sol_e.get(
+			"solution", {}) as Dictionary).get("solution_id", "")))
+		var sf_sol: Dictionary = _solution_sig(sf, String((sol_f.get(
+			"solution", {}) as Dictionary).get("solution_id", "")))
+		if JSON.stringify(se_sol) != JSON.stringify(sf_sol):
+			vis_ok = false
+			if first_bad == "":
+				first_bad = "t=%s sol_e=%s sol_f=%s" % [str(se.now_s()),
+					str(se_sol), str(sf_sol)]
 	_info("W7 first mismatch: " + first_bad)
-	_ok(vis_ok, "恢复后 10 tick 可见集合/质量与连续运行逐 tick 一致", first_bad)
-	_eq((se.ew_delivery_queue() as Array).size(),
-		(sf.ew_delivery_queue() as Array).size(), "恢复后队列长度一致")
+	_ok(vis_ok, "恢复后 10 tick 可见/队列/捕获值/质量/实际解算逐 tick 一致",
+		first_bad)
 	var de: Array = se.ew_delivered_observations()
 	var df: Array = sf.ew_delivered_observations()
 	_eq(de.size(), df.size(), "恢复后投递数量一致")
@@ -272,6 +314,14 @@ func _run() -> void:
 		_eq(String((de[de.size() - 1] as Dictionary).get("observation_id", "")),
 			String((df[df.size() - 1] as Dictionary).get("observation_id", "")),
 			"恢复后末尾观测 ID 一致")
+	var qe_final: Array = _queue_sig(se.ew_delivery_queue())
+	var qf_final: Array = _queue_sig(sf.ew_delivery_queue())
+	_eq(JSON.stringify(qe_final), JSON.stringify(qf_final), "恢复后完整队列一致")
+	var se_final: Dictionary = _solution_sig(se, String((sol_e.get(
+		"solution", {}) as Dictionary).get("solution_id", "")))
+	var sf_final: Dictionary = _solution_sig(sf, String((sol_f.get(
+		"solution", {}) as Dictionary).get("solution_id", "")))
+	_eq(JSON.stringify(se_final), JSON.stringify(sf_final), "恢复后实际解算行一致")
 
 	_step("W8 EW=0 兼容与未支持效果限制")
 	var sg = _new()
@@ -294,6 +344,174 @@ func _run() -> void:
 		"comms_jam 不影响雷达观测质量（明确限制）")
 	_near(float(eff_u.get("delay_s", -1.0)), 0.0, TIME_TOL,
 		"comms_jam 不产生观测延迟")
+
+	_step("R17 修订R1：解算/射击消费当前精度与误差，记录数据时刻与有效性（不硬禁射）")
+	# 例1：干净解算 → 降质到达后旧 READY 仍可发射（观察口径），但输出必须解释质量/数据时刻
+	var sl = _new()
+	for i17 in range(2):
+		sl.tick(TICK_DT)
+	_register_combat_track(sl, "raider_2")
+	_ok(bool(sl.grant_authorization("FIRE", "target", "raider_2").get("ok", false)),
+		"合法 FIRE 授权")
+	var sol_l: Dictionary = sl.combat_request_solution("raider_2", "missile", true)
+	_ok(bool(sol_l.get("ok", false)), "干净质量下创建解算",
+		str(sol_l.get("reason", "")))
+	for i17b in range(12):
+		sl.tick(TICK_DT)
+	var sid_l := String((sol_l.get("solution", {}) as Dictionary).get(
+		"solution_id", ""))
+	var ready_l: Dictionary = sl.combat_service.solution_status(sid_l)
+	_eq(String(ready_l.get("status", "")), "READY", "解算先到 READY")
+	var ready_q0 := float(ready_l.get("quality", 0.0))
+	var ammo_before := _ammo(sl, "missile")
+	sl.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
+		"severity": 1.0, "duration_s": 120.0, "source_id": "EW-L"})
+	for i17c in range(10):
+		sl.tick(TICK_DT)
+	var mq_l: Dictionary = sl.owner_measurement_quality("player_intel", "raider_2")
+	var current_low := float(mq_l.get("measurement_quality", 1.0))
+	_ok(current_low < 0.5, "降质观测确已到达（q<0.5）", str(current_low))
+	var fire_l: Dictionary = sl.request_fire("raider_2", "missile", true,
+		{"target_entity": "raider_2", "actor_id": "player_ctrl",
+			"controller_id": "player_ctrl", "domain_id": "player",
+			"fleet_id": "own_fleet"})
+	# 修订后口径：不硬禁射；发射仅作观察，但结果必须说明质量/有效性/数据时刻
+	_ok(bool(fire_l.get("ok", false)), "旧解算低质量下仍可发射（修订口径观察）",
+		str(fire_l.get("reason", "")))
+	if bool(fire_l.get("ok", false)):
+		_near(float(fire_l.get("measurement_quality", -1.0)), current_low,
+			CONF_TOL, "发射结果记录当前测量质量")
+		_eq(bool(fire_l.get("quality_valid", true)), false,
+			"发射结果标记质量不足（有效性字段）")
+		_eq(bool(fire_l.get("quality_sufficient", true)), false,
+			"发射结果标记 quality_sufficient=false")
+		_near(float(fire_l.get("quality_accuracy_mult", -1.0)), 0.85,
+			CONF_TOL, "低质量发射仍消费精度因子 0.85")
+		var fire_q := float(fire_l.get("quality", -1.0))
+		var base_low := _clean_solution_quality(sl, "raider_2", "missile")
+		_near(fire_q, base_low * 0.85, CONF_TOL,
+			"低质量发射质量 = clean 基准 × 0.85")
+		_ok(absf(float(fire_l.get("measurement_t", -9.0))
+			- float(ready_l.get("measurement_t", -8.0))) >= 0.0,
+			"发射结果带测量数据时刻", str(fire_l.get("measurement_t", null)))
+		_eq(_ammo(sl, "missile"), ammo_before - 1, "观察口径发射消耗 1 发（记录不判失败）")
+	# 例2：COMPUTING 期间降质 → READY 消费当前质量而非创建时质量
+	var sc2 = _new()
+	for i17d in range(2):
+		sc2.tick(TICK_DT)
+	_register_combat_track(sc2, "raider_2")
+	sc2.grant_authorization("FIRE", "target", "raider_2")
+	var sol_c: Dictionary = sc2.combat_request_solution("raider_2", "missile", true)
+	_ok(bool(sol_c.get("ok", false)), "COMPUTING 用例创建解算")
+	sc2.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
+		"severity": 0.2, "duration_s": 120.0, "source_id": "EW-C"})
+	for i17e in range(20):
+		sc2.tick(TICK_DT)
+	var sid_c := String((sol_c.get("solution", {}) as Dictionary).get(
+		"solution_id", ""))
+	var ready_c: Dictionary = sc2.combat_service.solution_status(sid_c)
+	_eq(String(ready_c.get("status", "")), "READY", "COMPUTING 用例到达 READY")
+	var mq_c := float(ready_c.get("measurement_quality", 1.0))
+	_ok(mq_c < 0.9, "READY 记录的是当前（降质后）测量质量", str(mq_c))
+	_near(float(ready_c.get("quality_accuracy_mult", -1.0)), 0.85, CONF_TOL,
+		"READY 消费中等精度因子 0.85")
+	var base_c := _clean_solution_quality(sc2, "raider_2", "missile")
+	_near(float(ready_c.get("quality", -1.0)), base_c * 0.85, CONF_TOL,
+		"READY 质量 = clean 基准 × 0.85（非创建时质量）")
+	_ok(float(ready_c.get("error_km", -1.0)) > 0.0, "READY 记录误差",
+		str(ready_c.get("error_km", null)))
+	_ok(float(ready_c.get("ready_measurement_t", -1.0))
+		>= float((sol_c.get("solution", {}) as Dictionary).get(
+			"start_t", -1.0)), "READY 记录测量数据时刻", str(
+			ready_c.get("ready_measurement_t", null)))
+	# 例3：持续 moderate 的 clean 对照（同 range 输出差异）
+	var sm = _new()
+	for i17f in range(2):
+		sm.tick(TICK_DT)
+	sm.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
+		"severity": 0.2, "duration_s": 120.0, "source_id": "EW-M"})
+	for i17g in range(4):
+		sm.tick(TICK_DT)
+	_register_combat_track(sm, "raider_2")
+	sm.grant_authorization("FIRE", "target", "raider_2")
+	var sol_m: Dictionary = sm.combat_request_solution("raider_2", "missile", true)
+	for i17h in range(20):
+		sm.tick(TICK_DT)
+	var sid_m := String((sol_m.get("solution", {}) as Dictionary).get(
+		"solution_id", ""))
+	var ready_m: Dictionary = sm.combat_service.solution_status(sid_m)
+	_eq(String(ready_m.get("status", "")), "READY", "持续 moderate 解算到达 READY")
+	_ok(float(ready_m.get("measurement_quality", 1.0)) < 0.9,
+		"持续 moderate 测量质量 <0.9")
+	var base_clean := _clean_solution_quality(sm, "raider_2", "missile")
+	_near(float(ready_m.get("quality", -1.0)), base_clean * 0.85, CONF_TOL,
+		"中等质量解算质量 = clean 基准 × 0.85")
+
+	_step("R18 重投同一观测快照：整个新增消费者边界幂等，不回滚已恢复质量")
+	var sr = _new()
+	sr.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
+		"severity": 0.4, "duration_s": 120.0, "source_id": "EW-R"})
+	var q18: Array = []
+	for i18b in range(30):
+		sr.tick(TICK_DT)
+		q18 = sr.ew_delivery_queue()
+		if q18.size() > 0:
+			break
+	_ok(q18.size() > 0, "存在可重投的在途观测快照")
+	if q18.size() > 0:
+		var entry18: Dictionary = q18[0]
+		sr._deliver_ew_observation(entry18)
+		var mq18a: Dictionary = sr.owner_measurement_quality("player_intel",
+			"raider_2")
+		var del18a: int = (sr.ew_delivered_observations() as Array).size()
+		sr._deliver_ew_observation(entry18)
+		var mq18b: Dictionary = sr.owner_measurement_quality("player_intel",
+			"raider_2")
+		var del18b: int = (sr.ew_delivered_observations() as Array).size()
+		_near(float(mq18b.get("measurement_quality", -1.0)),
+			float(mq18a.get("measurement_quality", -2.0)), CONF_TOL,
+			"重投不覆盖当前测量质量")
+		_eq(del18b, del18a, "重投不增加正常投递审计")
+		_ok((sr.ew_rejected_deliveries() as Array).size() >= 1,
+			"重投被记录为拒绝/去重审计")
+
+	_step("R19 损坏的新 EW 段明确失败；有效新段与真正缺段分别兼容")
+	var ss = _new()
+	ss.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
+		"severity": 0.3, "duration_s": 60.0, "source_id": "EW-S"})
+	for i19 in range(2):
+		ss.tick(TICK_DT)
+	var good_text: String = ss.save_state()
+	var good_doc: Dictionary = JSON.parse_string(good_text)
+	_ok(good_doc.get("ew_observation_queue") is Array, "有效新段含 EW 队列")
+	var bad_doc: Dictionary = JSON.parse_string(good_text)
+	bad_doc["ew_observation_queue"] = null
+	var ss2 = _new()
+	var bad_lr: Dictionary = ss2.load_state(JSON.stringify(bad_doc))
+	_ok(bool(bad_lr.get("ok", true)) == false, "损坏的新 EW 队列明确失败",
+		str(bad_lr.get("errors", [])))
+	_eq(String(bad_lr.get("ew_restore_mode", "")), "invalid",
+		"损坏新段恢复模式为 invalid")
+	var ss3 = _new()
+	var good_lr: Dictionary = ss3.load_state(good_text)
+	_ok(bool(good_lr.get("ok", false)), "有效新段仍可恢复",
+		str(good_lr.get("errors", [])))
+	_eq(String(good_lr.get("ew_restore_mode", "")), "full", "有效新段模式 full")
+	_ok((ss3.ew_delivery_queue() as Array).size() >= 1, "有效新段队列恢复")
+	var old_doc: Dictionary = JSON.parse_string(good_text)
+	for k19 in ["ew_observation_samples", "ew_observation_queue",
+			"ew_delivered_observations", "ew_candidates", "ew_observation_seq",
+			"ew_quality_history", "ew_combat_quality",
+			"ew_rejected_deliveries"]:
+		old_doc.erase(k19)
+	var ss4 = _new()
+	var old_lr: Dictionary = ss4.load_state(JSON.stringify(old_doc))
+	_ok(bool(old_lr.get("ok", false)), "真正缺 EW 段的旧档可加载",
+		str(old_lr.get("errors", [])))
+	_eq(String(old_lr.get("ew_restore_mode", "")), "legacy_absent",
+		"旧档恢复模式 legacy_absent")
+
+
 
 	_step("总结")
 	_info("A03 验收：真实 sensor 采样→质量/延迟→owner 航迹→火控→文件恢复")
@@ -385,3 +603,68 @@ func _seed() -> Dictionary:
 					"rcs_m2": 100.0, "side": "hostile", "batch": "OCU-07"}],
 			"options": {"radar_enabled": true, "emcon": false}},
 	}
+func _ammo(s, weapon: String) -> int:
+	if s == null or s.combat_service == null:
+		return -1
+	var vm: Dictionary = s.combat_service.vm()
+	for raw in (vm.get("weapons", []) as Array):
+		if raw is Dictionary and String((raw as Dictionary).get("id", "")) == weapon:
+			return int((raw as Dictionary).get("ammo", -1))
+	return -1
+
+
+func _clean_solution_quality(s, target: String, weapon: String) -> float:
+	if s == null or s.combat_service == null:
+		return -1.0
+	var w: Dictionary = s.combat_service.weapon_def(weapon)
+	var tr = s.combat_service.track(target)
+	if w.is_empty() or not (tr is Dictionary):
+		return -1.0
+	var range_km := float((tr as Dictionary).get("range_km", 0.0))
+	var acc := float(w.get("accuracy", 0.5))
+	var wr := maxf(1.0, float(w.get("range_km", 1.0)))
+	return clampf(acc * (1.0 - clampf(range_km / wr, 0.0, 1.0) * 0.25),
+		0.0, 1.0)
+func _queue_sig(rows: Array) -> Array:
+	var out: Array = []
+	for raw in rows:
+		if not (raw is Dictionary):
+			continue
+		var e: Dictionary = raw
+		var obs: Dictionary = e.get("obs", {}) if e.get("obs") is Dictionary else {}
+		out.append({"id": String(e.get("observation_id", "")),
+			"owner": String(e.get("owner_id", "")),
+			"target": String(e.get("target_id", "")),
+			"observed_t": float(e.get("observed_t", 0.0)),
+			"arrive_t": float(e.get("arrive_t", 0.0)),
+			"delay_s": float(e.get("delay_s", 0.0)),
+			"quality": float(e.get("quality", 0.0)),
+			"pos": (obs.get("pos_km", []) as Array).duplicate() if obs.get("pos_km") is Array else [],
+			"range_km": float(obs.get("range_km", -1.0)),
+			"bearing_deg": float(obs.get("bearing_deg", -1.0))})
+	return out
+
+
+func _delivered_sig(rec: Dictionary) -> Dictionary:
+	return {"id": String(rec.get("observation_id", "")),
+		"owner": String(rec.get("owner_id", "")),
+		"target": String(rec.get("target_id", "")),
+		"observed_t": float(rec.get("observed_t", 0.0)),
+		"received_t": float(rec.get("received_t", 0.0)),
+		"delay_s": float(rec.get("delay_s", 0.0)),
+		"quality": float(rec.get("quality", 0.0)),
+		"quality_original": float(rec.get("quality_original", 0.0))}
+
+
+func _solution_sig(s, sid: String) -> Dictionary:
+	if s == null or s.combat_service == null:
+		return {}
+	var row: Dictionary = s.combat_service.solution_status(sid)
+	if row.is_empty():
+		return {}
+	return {"id": String(row.get("solution_id", "")),
+		"status": String(row.get("status", "")),
+		"quality": float(row.get("quality", 0.0)),
+		"error_km": float(row.get("error_km", -1.0)),
+		"measurement_quality": float(row.get("measurement_quality", -1.0)),
+		"measurement_t": float(row.get("measurement_t", -1.0))}
