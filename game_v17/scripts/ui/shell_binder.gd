@@ -1548,6 +1548,11 @@ func fleet_builder_data() -> Dictionary:
 	out["validate"] = session.fleet_formation.validate()
 	out["stats"] = session.fleet_stats()
 	out["summary"] = session.fleet_formation.summary()
+	if session.has_method("fleet_deployment_vm"):
+		out["deployment"] = session.fleet_deployment_vm()
+	else:
+		out["deployment"] = {"enabled": false, "deployed": false,
+			"reason": "no_deployment"}
 	out["source"] = "FLEET FORMATION · SESSION 5G"
 	print("[SHELL BINDER] fleet_builder ready=true ships=", (out["roster"] as Array).size(), " slots=", ((out["slots"] as Dictionary).get("slots", {}) as Dictionary).size(), " valid=", str((out["stats"] as Dictionary).get("valid", false)), " totals=", str((out["stats"] as Dictionary).get("totals", {})))
 	return out
@@ -1565,7 +1570,25 @@ func fleet_builder_op(kind: String, ship_id := "", slot := "") -> Dictionary:
 			return session.fleet_move(ship_id, slot)
 		"VALIDATE":
 			return session.fleet_validate()
+		"DEPLOY_PLAN":
+			return session.fleet_deployment_plan(_deploy_selection())
+		"DEPLOY":
+			return session.fleet_deploy(_deploy_selection(), {"confirm": true})
 	return {"ok": false, "reason": "unknown_action"}
+
+
+## 最小部署选择：取自当前 Formation assignments（UI 只做确认/结果展示）。
+func _deploy_selection() -> Dictionary:
+	var ships: Array = []
+	if session != null and session.fleet_formation != null:
+		var ass: Dictionary = session.fleet_formation.assignments \
+			if session.fleet_formation.assignments is Dictionary else {}
+		var keys: Array = ass.keys()
+		keys.sort()
+		for sid in keys:
+			ships.append({"ship_id": String(sid),
+				"slot": String(ass[sid])})
+	return {"ships": ships}
 
 
 func fleet_refit_data() -> Dictionary:
