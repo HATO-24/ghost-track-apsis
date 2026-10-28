@@ -1,0 +1,411 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE3A PROBE · StoryState
+════════════════════════════════════════════════════════════
+
+── 1 初始/VM ──
+[PASS] story state ready  []
+[PASS] 无 errors  actual=0 expected=0
+[PASS] schema  actual=v17.story_state.v1 expected=v17.story_state.v1
+[PASS] version  actual=1.0.0 expected=1.0.0
+[PASS] 初始 flags 空  actual=0 expected=0
+[PASS] 初始 evidence 空  actual=0 expected=0
+[PASS] 初始 choices 空  actual=0 expected=0
+[PASS] trust 默认 50  actual=50.000000 expected=50.000000
+[PASS] morality 默认 0  actual=0.000000 expected=0.000000
+[PASS] reputation 默认 50  actual=50.000000 expected=50.000000
+[PASS] threat 默认 1  actual=1.000000 expected=1.000000
+[PASS] chapter 默认 prelude  actual=prelude expected=prelude
+[PASS] phase 默认 prelude  actual=prelude expected=prelude
+[PASS] revision 初始 1  actual=1 expected=1
+[PASS] VM ranges
+[PASS] VM 分支 5  actual=5 expected=5
+[PASS] 初始 contracts ok
+[PASS] VM flags 深拷贝
+[PASS] VM 修改不影响内部
+[PASS] to_json 可回读
+[PASS] to_json 与 snapshot 一致  actual={"branches":[{"branch_id":"aeug","branch_name":"AEUG","condition_count":2.0,"details":{"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"errors":[],"failed":["flag_missing:aeug_contact","trust_below_min"],"ok":true,"passed":false},{"branch_id":"ghost_track","branch_name":"GHOST TRACK","condition_count":2.0,"details":{"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"errors":[],"failed":["flag_missing:ghost_track_found","evidence_missing:ev_ghost_track"],"ok":true,"passed":false},{"branch_id":"procedural_justice","branch_name":"程序正义","condition_count":2.0,"details":{"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"errors":[],"failed":["flag_missing:procedural_justice","reputation_below_min"],"ok":true,"passed":false},{"branch_id":"misplaced_trust","branch_name":"错付","condition_count":2.0,"details":{"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"errors":[],"failed":["flag_missing:misplaced_trust","trust_below_min"],"ok":true,"passed":false},{"branch_id":"silence","branch_name":"守口如瓶","condition_count":2.0,"details":{"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"errors":[],"failed":["flag_missing:silence_pact"],"ok":true,"passed":false}],"chapter":"prelude","choices":[],"contract_errors":[],"contracts":{"ok":true,"schema":"v17.story_state.v1","violations":[]},"errors":[],"evidence_ids":[],"flags":{},"morality":0.0,"phase":"prelude","ranges":{"morality":[-100.0,100.0],"reputation":[0.0,100.0],"threat":[0.0,5.0],"trust":[0.0,100.0]},"ready":true,"reputation":50.0,"revision":1.0,"schema":"v17.story_state.v1","t_s":0.0,"threat":1.0,"trust":50.0,"version":"1.0.0","warnings":[]} expected={"branches":[{"branch_id":"aeug","branch_name":"AEUG","condition_count":2.0,"details":{"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"errors":[],"failed":["flag_missing:aeug_contact","trust_below_min"],"ok":true,"passed":false},{"branch_id":"ghost_track","branch_name":"GHOST TRACK","condition_count":2.0,"details":{"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"errors":[],"failed":["flag_missing:ghost_track_found","evidence_missing:ev_ghost_track"],"ok":true,"passed":false},{"branch_id":"procedural_justice","branch_name":"程序正义","condition_count":2.0,"details":{"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"errors":[],"failed":["flag_missing:procedural_justice","reputation_below_min"],"ok":true,"passed":false},{"branch_id":"misplaced_trust","branch_name":"错付","condition_count":2.0,"details":{"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"errors":[],"failed":["flag_missing:misplaced_trust","trust_below_min"],"ok":true,"passed":false},{"branch_id":"silence","branch_name":"守口如瓶","condition_count":2.0,"details":{"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"errors":[],"failed":["flag_missing:silence_pact"],"ok":true,"passed":false}],"chapter":"prelude","choices":[],"contract_errors":[],"contracts":{"ok":true,"schema":"v17.story_state.v1","violations":[]},"errors":[],"evidence_ids":[],"flags":{},"morality":0.0,"phase":"prelude","ranges":{"morality":[-100.0,100.0],"reputation":[0.0,100.0],"threat":[0.0,5.0],"trust":[0.0,100.0]},"ready":true,"reputation":50.0,"revision":1.0,"schema":"v17.story_state.v1","t_s":0.0,"threat":1.0,"trust":50.0,"version":"1.0.0","warnings":[]}
+
+── 2 flags ──
+[PASS] story state ready  []
+[PASS] set_flag ok  actual=true expected=true
+[PASS] has_flag true
+[PASS] flag value true  actual=true expected=true
+[PASS] set_flag 增加 revision
+[PASS] flag 数值 ok  actual=true expected=true
+[PASS] flag 数值 3  actual=3 expected=3
+[PASS] 覆盖 flag  actual=true expected=true
+[PASS] 覆盖后仍存在  actual=true expected=true
+[PASS] clear_flag ok  actual=true expected=true
+[PASS] clear 后不存在
+[PASS] 未知 flag 清除拒绝  actual=false expected=false
+[PASS] unknown_flag reason  actual=unknown_flag expected=unknown_flag
+[PASS] 非法 flag 名拒绝  actual=false expected=false
+[PASS] 非标量 flag 值拒绝  actual=false expected=false
+[PASS] 非法值不写入
+[PASS] flags 操作 contracts ok
+
+── 3 evidence ──
+[PASS] story state ready  []
+[PASS] add_evidence ok  actual=true expected=true
+[PASS] has_evidence true
+[PASS] evidence 数量 1  actual=1 expected=1
+[PASS] 重复证据拒绝  actual=false expected=false
+[PASS] duplicate reason  actual=duplicate_evidence expected=duplicate_evidence
+[PASS] 重复不增加  actual=1 expected=1
+[PASS] 非法 evidence id 拒绝  actual=false expected=false
+[PASS] has_evidence 未知 false
+[PASS] add ev_a  actual=true expected=true
+[PASS] add ev_b  actual=true expected=true
+[PASS] evidence 3  actual=3 expected=3
+[PASS] evidence contracts ok
+
+── 4 choices ──
+[PASS] story state ready  []
+[PASS] record_choice ok  actual=true expected=true
+[PASS] has_choice true
+[PASS] choices 1  actual=1 expected=1
+[PASS] choice id  actual=ch_help expected=ch_help
+[PASS] choice t_s  actual=10.000000 expected=10.000000
+[PASS] choice chapter  actual=prelude expected=prelude
+[PASS] choice phase  actual=prelude expected=prelude
+[PASS] choice meta  actual=apsis expected=apsis
+[PASS] 重复 choice 拒绝  actual=false expected=false
+[PASS] duplicate choice reason  actual=duplicate_choice expected=duplicate_choice
+[PASS] 非法 choice id 拒绝  actual=false expected=false
+[PASS] 非法 choice 不写入
+[PASS] choices 仍 1  actual=1 expected=1
+[PASS] choices contracts ok
+
+── 5 数值边界 ──
+[PASS] story state ready  []
+[PASS] adjust_trust +10  actual=true expected=true
+[PASS] trust=60  actual=60.000000 expected=60.000000
+[PASS] trust 上限 100  actual=100.000000 expected=100.000000
+[PASS] trust clamped  actual=true expected=true
+[PASS] trust 下限 0  actual=0.000000 expected=0.000000
+[PASS] trust 下限 clamped  actual=true expected=true
+[PASS] morality 下限 -100  actual=-100.000000 expected=-100.000000
+[PASS] morality 上限 100  actual=100.000000 expected=100.000000
+[PASS] reputation 下限 0  actual=0.000000 expected=0.000000
+[PASS] reputation 上限 100  actual=100.000000 expected=100.000000
+[PASS] threat +0.5  actual=1.500000 expected=1.500000
+[PASS] threat 上限 5  actual=5.000000 expected=5.000000
+[PASS] threat 下限 0  actual=0.000000 expected=0.000000
+[PASS] NaN delta 拒绝  actual=false expected=false
+[PASS] NaN 不改变数值  actual=0.000000 expected=0.000000
+[PASS] INF delta 拒绝  actual=false expected=false
+[PASS] revision 单调
+[PASS] 数值后 contracts ok
+
+── 6 chapter/phase/time ──
+[PASS] story state ready  []
+[PASS] set_chapter ok  actual=true expected=true
+[PASS] chapter 更新  actual=ch1_l1 expected=ch1_l1
+[PASS] set_phase decision  actual=true expected=true
+[PASS] phase 更新  actual=decision expected=decision
+[PASS] 非法 phase 拒绝  actual=false expected=false
+[PASS] invalid_phase reason  actual=invalid_phase expected=invalid_phase
+[PASS] 非法 phase 不变  actual=decision expected=decision
+[PASS] 空 chapter 拒绝  actual=false expected=false
+[PASS] set_time 100  actual=true expected=true
+[PASS] t_s=100  actual=100.000000 expected=100.000000
+[PASS] 时间回退拒绝  actual=false expected=false
+[PASS] time_backwards reason  actual=time_backwards expected=time_backwards
+[PASS] 回退不改变 t_s  actual=100.000000 expected=100.000000
+[PASS] 负时间拒绝  actual=false expected=false
+[PASS] NaN 时间拒绝  actual=false expected=false
+[PASS] 时间后 contracts ok
+
+── 7 gate ──
+[PASS] story state ready  []
+[PASS] gate 评估 ok  actual=true expected=true
+[PASS] gate flags+trust 通过  actual=true expected=true
+[PASS] gate failed 空  actual=0 expected=0
+[PASS] trust_min 61 不通过  actual=false expected=false
+[PASS] 失败有 failed 原因
+[PASS] 缺失 flag 不通过  actual=false expected=false
+[PASS] 缺失 flag 原因
+[PASS] flags_any 通过  actual=true expected=true
+[PASS] flags_any 全无失败  actual=false expected=false
+[PASS] flags_not 通过  actual=true expected=true
+[PASS] flags_not 存在失败  actual=false expected=false
+[PASS] evidence 通过  actual=true expected=true
+[PASS] 缺证据失败  actual=false expected=false
+[PASS] choice 通过  actual=true expected=true
+[PASS] chapter+phase 通过  actual=true expected=true
+[PASS] chapter_in/phase_in 通过  actual=true expected=true
+[PASS] chapter_in 失败  actual=false expected=false
+[PASS] 数值范围通过  actual=true expected=true
+[PASS] threat_max 0.5 失败  actual=false expected=false
+[PASS] 未知 gate 条件拒绝  actual=false expected=false
+[PASS] unknown_condition reason  actual=unknown_condition expected=unknown_condition
+[PASS] 非对象 conditions 拒绝  actual=false expected=false
+[PASS] gate contracts ok
+
+── 8 分支 ──
+[PASS] story state ready  []
+[PASS] 分支 5  actual=5 expected=5
+[PASS] 分支存在: aeug
+[PASS] 分支存在: ghost_track
+[PASS] 分支存在: procedural_justice
+[PASS] 分支存在: misplaced_trust
+[PASS] 分支存在: silence
+[PASS] evaluate_branches 5  actual=5 expected=5
+[PASS] 分支评估 ok: aeug
+[PASS] 初始分支不通过: aeug
+[PASS] 分支有 name
+[PASS] 分支评估 ok: ghost_track
+[PASS] 初始分支不通过: ghost_track
+[PASS] 分支有 name
+[PASS] 分支评估 ok: procedural_justice
+[PASS] 初始分支不通过: procedural_justice
+[PASS] 分支有 name
+[PASS] 分支评估 ok: misplaced_trust
+[PASS] 初始分支不通过: misplaced_trust
+[PASS] 分支有 name
+[PASS] 分支评估 ok: silence
+[PASS] 初始分支不通过: silence
+[PASS] 分支有 name
+[PASS] AEUG 条件通过  actual=true expected=true
+[PASS] AEUG name  actual=AEUG expected=AEUG
+[PASS] GHOST TRACK 通过  actual=true expected=true
+[PASS] 程序正义 通过  actual=true expected=true
+[PASS] 错付 通过  actual=true expected=true
+[PASS] 守口如瓶 通过  actual=true expected=true
+[PASS] 未知分支拒绝  actual=false expected=false
+[PASS] unknown_branch reason  actual=unknown_branch expected=unknown_branch
+[PASS] story state ready  []
+[PASS] 空状态 AEUG 不通过  actual=false expected=false
+[PASS] 失败分支有 failed 明细
+[PASS] 分支后 contracts ok
+
+── 9 存档 ──
+[PASS] story state ready  []
+[PASS] save_state 长度  len=342
+[PASS] save_state JSON 可解析
+[PASS] save schema  actual=v17.story_state.v1 expected=v17.story_state.v1
+[PASS] save version  actual=1.0.0 expected=1.0.0
+[PASS] load ok  actual=true expected=true · []
+[PASS] load 后 snapshot 一致  actual={"branches":[{"branch_id":"aeug","branch_name":"AEUG","condition_count":2.0,"details":{"flag:aeug_contact":true,"morality":-5.0,"reputation":50.0,"threat":1.0,"trust":60.0},"errors":[],"failed":[],"ok":true,"passed":true},{"branch_id":"ghost_track","branch_name":"GHOST TRACK","condition_count":2.0,"details":{"morality":-5.0,"reputation":50.0,"threat":1.0,"trust":60.0},"errors":[],"failed":["flag_missing:ghost_track_found"],"ok":true,"passed":false},{"branch_id":"procedural_justice","branch_name":"程序正义","condition_count":2.0,"details":{"morality":-5.0,"reputation":50.0,"threat":1.0,"trust":60.0},"errors":[],"failed":["flag_missing:procedural_justice","reputation_below_min"],"ok":true,"passed":false},{"branch_id":"misplaced_trust","branch_name":"错付","condition_count":2.0,"details":{"morality":-5.0,"reputation":50.0,"threat":1.0,"trust":60.0},"errors":[],"failed":["flag_missing:misplaced_trust","trust_below_min"],"ok":true,"passed":false},{"branch_id":"silence","branch_name":"守口如瓶","condition_count":2.0,"details":{"morality":-5.0,"reputation":50.0,"threat":1.0,"trust":60.0},"errors":[],"failed":["flag_missing:silence_pact"],"ok":true,"passed":false}],"chapter":"ch1","choices":[{"chapter":"prelude","choice_id":"ch_help","meta":{"a":1.0},"phase":"prelude","t_s":0.0}],"contract_errors":[],"contracts":{"ok":true,"schema":"v17.story_state.v1","violations":[]},"errors":[],"evidence_ids":["ev_ghost_track"],"flags":{"aeug_contact":true,"count":2.0},"morality":-5.0,"phase":"decision","ranges":{"morality":[-100.0,100.0],"reputation":[0.0,100.0],"threat":[0.0,5.0],"trust":[0.0,100.0]},"ready":true,"reputation":50.0,"revision":10.0,"schema":"v17.story_state.v1","t_s":42.0,"threat":1.0,"trust":60.0,"version":"1.0.0","warnings":[]} expected={"branches":[{"branch_id":"aeug","branch_name":"AEUG","condition_count":2.0,"details":{"flag:aeug_contact":true,"morality":-5.0,"reputation":50.0,"threat":1.0,"trust":60.0},"errors":[],"failed":[],"ok":true,"passed":true},{"branch_id":"ghost_track","branch_name":"GHOST TRACK","condition_count":2.0,"details":{"morality":-5.0,"reputation":50.0,"threat":1.0,"trust":60.0},"errors":[],"failed":["flag_missing:ghost_track_found"],"ok":true,"passed":false},{"branch_id":"procedural_justice","branch_name":"程序正义","condition_count":2.0,"details":{"morality":-5.0,"reputation":50.0,"threat":1.0,"trust":60.0},"errors":[],"failed":["flag_missing:procedural_justice","reputation_below_min"],"ok":true,"passed":false},{"branch_id":"misplaced_trust","branch_name":"错付","condition_count":2.0,"details":{"morality":-5.0,"reputation":50.0,"threat":1.0,"trust":60.0},"errors":[],"failed":["flag_missing:misplaced_trust","trust_below_min"],"ok":true,"passed":false},{"branch_id":"silence","branch_name":"守口如瓶","condition_count":2.0,"details":{"morality":-5.0,"reputation":50.0,"threat":1.0,"trust":60.0},"errors":[],"failed":["flag_missing:silence_pact"],"ok":true,"passed":false}],"chapter":"ch1","choices":[{"chapter":"prelude","choice_id":"ch_help","meta":{"a":1.0},"phase":"prelude","t_s":0.0}],"contract_errors":[],"contracts":{"ok":true,"schema":"v17.story_state.v1","violations":[]},"errors":[],"evidence_ids":["ev_ghost_track"],"flags":{"aeug_contact":true,"count":2.0},"morality":-5.0,"phase":"decision","ranges":{"morality":[-100.0,100.0],"reputation":[0.0,100.0],"threat":[0.0,5.0],"trust":[0.0,100.0]},"ready":true,"reputation":50.0,"revision":10.0,"schema":"v17.story_state.v1","t_s":42.0,"threat":1.0,"trust":60.0,"version":"1.0.0","warnings":[]}
+[PASS] load flags 数量  actual=2 expected=2
+[PASS] load evidence  actual=["ev_ghost_track"] expected=["ev_ghost_track"]
+[PASS] load choices  actual=1 expected=1
+[PASS] load trust  actual=60.000000 expected=60.000000
+[PASS] load morality  actual=-5.000000 expected=-5.000000
+[PASS] load chapter  actual=ch1 expected=ch1
+[PASS] load phase  actual=decision expected=decision
+[PASS] load t_s  actual=42.000000 expected=42.000000
+[PASS] load revision  actual=10 expected=10
+[PASS] load 后可写  actual=true expected=true
+[PASS] story state ready  []
+[PASS] reset flags 空  actual=0 expected=0
+[PASS] reset trust 50  actual=50.000000 expected=50.000000
+[PASS] seed 初始化 ready  []
+[PASS] seed flag
+[PASS] seed trust  actual=70.000000 expected=70.000000
+[PASS] seed evidence
+[PASS] seed chapter  actual=ch2 expected=ch2
+[PASS] seed phase  actual=decision expected=decision
+
+── 10 非法/JSON/确定性 ──
+[PASS] story state ready  []
+[PASS] 非法 load 拒绝：invalid_json  actual=false expected=false · invalid_json
+[PASS] 非法 load 不改变状态：invalid_json  actual={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0} expected={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0}
+[PASS] 非法 load 拒绝：invalid_schema  actual=false expected=false · invalid_schema
+[PASS] 非法 load 不改变状态：invalid_schema  actual={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0} expected={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0}
+[PASS] 非法 load 拒绝：future  actual=false expected=false · unsupported_future_version
+[PASS] 非法 load 不改变状态：future  actual={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0} expected={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0}
+[PASS] 非法 load 拒绝：old  actual=false expected=false · unsupported_version
+[PASS] 非法 load 不改变状态：old  actual={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0} expected={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0}
+[PASS] 非法 load 拒绝：bad_trust  actual=false expected=false · invalid_state
+[PASS] 非法 load 不改变状态：bad_trust  actual={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0} expected={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0}
+[PASS] 非法 load 拒绝：bad_phase  actual=false expected=false · invalid_state
+[PASS] 非法 load 不改变状态：bad_phase  actual={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0} expected={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0}
+[PASS] 非法 load 拒绝：dup_evidence  actual=false expected=false · invalid_state
+[PASS] 非法 load 不改变状态：dup_evidence  actual={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0} expected={"chapter":"prelude","choices":[],"evidence_ids":[],"flags":{"aeug_contact":true},"morality":0.0,"phase":"prelude","reputation":50.0,"revision":2.0,"t_s":0.0,"threat":1.0,"trust":50.0}
+[PASS] 非 JSON/对象 load 拒绝  actual=false expected=false
+[PASS] 拒绝操作不增加 revision  actual=2 expected=2
+[PASS] 拒绝记录 errors
+[PASS] 拒绝记录 contract_errors
+[PASS] 拒绝后 contracts ok
+[PASS] story state ready  []
+[PASS] story state ready  []
+[PASS] 两次同操作 snapshot 一致
+[PASS] 两次同操作 save_state 一致
+[PASS] VM JSON 可解析
+[PASS] VM JSON 长度
+────────────────────────────────────────────────────────────
+[DATA] init = defaults trust50/mor0/rep50/threat1 · branches5 · VM 只读
+[DATA] flags = set/覆盖/清/未知拒绝/非法名/非法值
+[DATA] evidence = 唯一/重复拒绝/非法 id 拒绝/排序
+[DATA] choices = 唯一/重复拒绝/非法 id 拒绝/t-chapter-phase-meta 记录
+[DATA] stats = trust[0,100]/morality[-100,100]/rep[0,100]/threat[0,5] clamp
+[DATA] chapter_phase_time = chapter/phase 校验 · 时间单调
+[DATA] gate = flags/any/not/evidence/choices/chapter/phase/数值范围 · 未知条件拒绝
+[DATA] branches = AEUG/GHOST TRACK/程序正义/错付/守口如瓶 最小条件通过 · 未知分支拒绝
+[DATA] save_load = save/load snapshot 一致 · reset/seed
+[DATA] errors_json = 非法 load 不改变状态 · 拒绝无副作用 · 确定性一致
+────────────────────────────────────────────────────────────
+V17 STORY STATE PROBE RESULT: PASS=213 FAIL=0
+V17 STORY STATE PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: StoryState: precondition: 未知 flag 不能清除：no_such_flag
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] clear_flag (res://scripts/core/story_state.gd:193)
+       [2] _test_flags (res://tests/story_state_probe.gd:155)
+       [3] _initialize (res://tests/story_state_probe.gd:25)
+ERROR: StoryState: precondition: flag 名非法：Bad-Name
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] set_flag (res://scripts/core/story_state.gd:179)
+       [2] _test_flags (res://tests/story_state_probe.gd:159)
+       [3] _initialize (res://tests/story_state_probe.gd:25)
+ERROR: StoryState: precondition: flag 值必须是标量
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] set_flag (res://scripts/core/story_state.gd:181)
+       [2] _test_flags (res://tests/story_state_probe.gd:161)
+       [3] _initialize (res://tests/story_state_probe.gd:25)
+ERROR: StoryState: precondition: 证据已存在：ev_ghost_track
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] add_evidence (res://scripts/core/story_state.gd:213)
+       [2] _test_evidence (res://tests/story_state_probe.gd:178)
+       [3] _initialize (res://tests/story_state_probe.gd:26)
+ERROR: StoryState: precondition: evidence id 非法：Bad-ID
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] add_evidence (res://scripts/core/story_state.gd:211)
+       [2] _test_evidence (res://tests/story_state_probe.gd:182)
+       [3] _initialize (res://tests/story_state_probe.gd:26)
+ERROR: StoryState: precondition: choice 已记录：ch_help
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] record_choice (res://scripts/core/story_state.gd:232)
+       [2] _test_choices (res://tests/story_state_probe.gd:209)
+       [3] _initialize (res://tests/story_state_probe.gd:27)
+ERROR: StoryState: precondition: choice_id 非法：Bad Choice
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] record_choice (res://scripts/core/story_state.gd:230)
+       [2] _test_choices (res://tests/story_state_probe.gd:212)
+       [3] _initialize (res://tests/story_state_probe.gd:27)
+ERROR: StoryState: precondition: delta 必须是有限数
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] _adjust (res://scripts/core/story_state.gd:264)
+       [2] adjust_trust (res://scripts/core/story_state.gd:249)
+       [3] _test_stats (res://tests/story_state_probe.gd:251)
+       [4] _initialize (res://tests/story_state_probe.gd:28)
+ERROR: StoryState: precondition: delta 必须是有限数
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] _adjust (res://scripts/core/story_state.gd:264)
+       [2] adjust_morality (res://scripts/core/story_state.gd:252)
+       [3] _test_stats (res://tests/story_state_probe.gd:255)
+       [4] _initialize (res://tests/story_state_probe.gd:28)
+ERROR: StoryState: precondition: phase 非法：no_such_phase
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] set_phase (res://scripts/core/story_state.gd:288)
+       [2] _test_chapter_phase_time (res://tests/story_state_probe.gd:272)
+       [3] _initialize (res://tests/story_state_probe.gd:29)
+ERROR: StoryState: precondition: chapter 不能为空
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] set_chapter (res://scripts/core/story_state.gd:279)
+       [2] _test_chapter_phase_time (res://tests/story_state_probe.gd:276)
+       [3] _initialize (res://tests/story_state_probe.gd:29)
+ERROR: StoryState: precondition: 时间不允许回退
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] set_time (res://scripts/core/story_state.gd:300)
+       [2] _test_chapter_phase_time (res://tests/story_state_probe.gd:281)
+       [3] _initialize (res://tests/story_state_probe.gd:29)
+ERROR: StoryState: precondition: t_s 必须有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] set_time (res://scripts/core/story_state.gd:298)
+       [2] _test_chapter_phase_time (res://tests/story_state_probe.gd:285)
+       [3] _initialize (res://tests/story_state_probe.gd:29)
+ERROR: StoryState: precondition: t_s 必须有限且 >=0
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] set_time (res://scripts/core/story_state.gd:298)
+       [2] _test_chapter_phase_time (res://tests/story_state_probe.gd:287)
+       [3] _initialize (res://tests/story_state_probe.gd:29)
+ERROR: StoryState: precondition: 未知 gate 条件：["no_such_condition"]
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] gate (res://scripts/core/story_state.gd:328)
+       [2] _test_gate (res://tests/story_state_probe.gd:339)
+       [3] _initialize (res://tests/story_state_probe.gd:30)
+ERROR: StoryState: precondition: conditions 必须是对象
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] gate (res://scripts/core/story_state.gd:315)
+       [2] _test_gate (res://tests/story_state_probe.gd:342)
+       [3] _initialize (res://tests/story_state_probe.gd:30)
+ERROR: StoryState: precondition: 未知分支：no_such_branch
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] evaluate_branch (res://scripts/core/story_state.gd:411)
+       [2] _test_branches (res://tests/story_state_probe.gd:387)
+       [3] _initialize (res://tests/story_state_probe.gd:31)
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load (res://scripts/core/story_state.gd:514)
+       [1] _test_errors_json (res://tests/story_state_probe.gd:475)
+       [2] _initialize (res://tests/story_state_probe.gd:33)
+ERROR: StoryState: precondition: 未知 flag 不能清除：no_such
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] clear_flag (res://scripts/core/story_state.gd:193)
+       [2] _test_errors_json (res://tests/story_state_probe.gd:483)
+       [3] _initialize (res://tests/story_state_probe.gd:33)
+ERROR: StoryState: precondition: evidence id 非法：Bad-ID
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] add_evidence (res://scripts/core/story_state.gd:211)
+       [2] _test_errors_json (res://tests/story_state_probe.gd:484)
+       [3] _initialize (res://tests/story_state_probe.gd:33)
+ERROR: StoryState: precondition: choice_id 非法：Bad ID
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] record_choice (res://scripts/core/story_state.gd:230)
+       [2] _test_errors_json (res://tests/story_state_probe.gd:485)
+       [3] _initialize (res://tests/story_state_probe.gd:33)
+ERROR: StoryState: precondition: delta 必须是有限数
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _fail (res://scripts/core/story_state.gd:593)
+       [1] _adjust (res://scripts/core/story_state.gd:264)
+       [2] adjust_trust (res://scripts/core/story_state.gd:249)
+       [3] _test_errors_json (res://tests/story_state_probe.gd:486)
+       [4] _initialize (res://tests/story_state_probe.gd:33)

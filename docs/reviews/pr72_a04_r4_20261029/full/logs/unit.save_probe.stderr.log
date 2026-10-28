@@ -1,0 +1,35 @@
+ERROR: Parse JSON failed. Error at line 0: Expected 'true', 'false', or 'null', got 'abc'
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] decode_file (res://scripts/core/save_service.gd:123)
+       [1] _read_slot_raw (res://scripts/core/save_service.gd:291)
+       [2] load_metadata (res://scripts/core/save_service.gd:340)
+       [3] list_slots (res://scripts/core/save_service.gd:371)
+       [4] _test_corruption (res://tests/save_probe.gd:338)
+       [5] _initialize (res://tests/save_probe.gd:34)
+ERROR: Parse JSON failed. Error at line 0: Expected 'true', 'false', or 'null', got 'abc'
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] decode_file (res://scripts/core/save_service.gd:123)
+       [1] _read_slot_raw (res://scripts/core/save_service.gd:291)
+       [2] load_metadata (res://scripts/core/save_service.gd:340)
+       [3] save_session (res://scripts/core/save_service.gd:250)
+       [4] _test_corruption (res://tests/save_probe.gd:347)
+       [5] _initialize (res://tests/save_probe.gd:34)
+ERROR: Parse JSON failed. Error at line 0: Expected '}'
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] decode_file (res://scripts/core/save_service.gd:123)
+       [1] _read_slot_raw (res://scripts/core/save_service.gd:291)
+       [2] load_session (res://scripts/core/save_service.gd:307)
+       [3] _test_corruption (res://tests/save_probe.gd:349)
+       [4] _initialize (res://tests/save_probe.gd:34)
+ERROR: Parse JSON failed. Error at line 0: Expected '}'
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] decode_file (res://scripts/core/save_service.gd:123)
+       [1] _read_slot_raw (res://scripts/core/save_service.gd:291)
+       [2] load_metadata (res://scripts/core/save_service.gd:340)
+       [3] list_slots (res://scripts/core/save_service.gd:371)
+       [4] _test_errors_json (res://tests/save_probe.gd:465)
+       [5] _initialize (res://tests/save_probe.gd:36)

@@ -1,0 +1,39 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE3U PROBE · CeresChain
+════════════════════════════════════════════════════════════
+
+── 1 setup/文本 ──
+
+── 2 happy path ──
+
+── 3 乱序/矩阵 ──
+
+── 4 证据输入 ──
+
+── 5 note ──
+
+── 6 save/load ──
+
+── 7 非法/确定性 ──
+────────────────────────────────────────────────────────────
+[DATA] setup/texts = 9 状态 · 9 文本逐字匹配 docs/44 · 应答机/灯语/VIS/救援是/否 · en 空
+[DATA] happy = L1→L2→L3→LIGHT_READ→L4→RESCUE_PROMPT→RESCUED/IGNORED→COMPLETE · 声望/触发
+[DATA] matrix = 9 状态 × 8 动作乱序拒绝 · state 不变 · 手动不自动
+[DATA] evidence = L2 需数据链/多传感器 · L3 需 level 证据 · 灯语码校验 · 非法 ingest
+[DATA] note = 9 文本可 note · 未知 key 拒绝 · 不改变状态/flags/evidence/reputation
+[DATA] save = mid/final save-load VM/state 一致 · load 后继续 · 非法存档原子拒绝
+[DATA] invalid = 非法 action/内容拒绝 · 不存在文件拒绝 · 同路径确定
+────────────────────────────────────────────────────────────
+V17 CERES CHAIN PROBE RESULT: PASS=510 FAIL=0
+V17 CERES CHAIN PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/ceres_chain.gd:509)
+       [1] _test_save_load (res://tests/ceres_chain_probe.gd:451)
+       [2] _initialize (res://tests/ceres_chain_probe.gd:36)

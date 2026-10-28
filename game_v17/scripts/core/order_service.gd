@@ -57,6 +57,7 @@ var comms = null
 var _order_seq := 0
 var _event_seq := 0
 var _auth_hook = null
+var _comms_event_sink = null   # JC-A04：真实 DELIVERED/FAILED 结果旁路给 Session 回调
 var _entities: Dictionary = {}
 var _text_keys: Dictionary = {}
 var _default_mode := "LD"
@@ -91,6 +92,7 @@ func setup(cfg := {}) -> bool:
 	_default_delay_s = maxf(0.0, float(config.get("delivery_delay_s", 1.0)))
 	_require_authorizer = bool(config.get("require_authorizer", false))
 	_auth_hook = config.get("auth_check", null)
+	_comms_event_sink = config.get("comms_event_sink", null)
 	if config.get("comms") is Object and (config.get("comms") as Object).has_method("send"):
 		comms = config.get("comms")
 	else:
@@ -342,6 +344,11 @@ func _find_delivery_events(comms_events: Array) -> Dictionary:
 	return out
 
 
+# JC-A04：设置真实 comms 结果回调（Session 侧分发 delivered/failed/共享）。
+func set_comms_event_sink(fn) -> void:
+	if fn is Callable or fn == null:
+		_comms_event_sink = fn
+
 func tick(dt: float) -> Dictionary:
 	var d := maxf(0.0, float(dt))
 	t += d
@@ -353,6 +360,11 @@ func tick(dt: float) -> Dictionary:
 		comms.tick(d)
 		if comms.has_method("take_events"):
 			comms_ev = comms.take_events()
+		# JC-A04：Session 需要同一批真实结果（成功只投递一次/失败不冒充）；
+		# 仍由 OrderService.tick 唯一推进 Comms，不另加 Session 推进。
+		if _comms_event_sink != null and _comms_event_sink is Callable \
+				and (_comms_event_sink as Callable).is_valid():
+			(_comms_event_sink as Callable).call(comms_ev.duplicate(true))
 	var deliv := _find_delivery_events(comms_ev)
 	for oid in orders.keys():
 		var order: Dictionary = orders[oid]

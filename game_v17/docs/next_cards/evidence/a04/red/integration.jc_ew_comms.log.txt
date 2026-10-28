@@ -1,0 +1,137 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[JC-A04] START
+
+[A04] STEP S1 EW=0 保持旧路由：发送/到达/成功只一次
+[A04] PASS EW=0 session 就绪  []
+[A04] PASS EW=0 LD 发送成功
+[A04] PASS EW=0 jam_severity=0   actual=0.000000000000 expected=0.000000000000 tol=0.000000001
+[A04] PASS EW=0 latency_add_s=0   actual=0.000000000000 expected=0.000000000000 tol=0.000000001
+[A04] PASS EW=0 failure_chance=0   actual=0.000000000000 expected=0.000000000000 tol=0.000000001
+[A04] FAIL EW=0 不因 EW 失败
+[A04] FAIL EW=0 基础时延=2s  (detail:  actual=-1.000000000000 expected=2.000000000000 tol=0.000001)
+[A04] FAIL EW=0 EW 附加=0  (detail:  actual=-1.000000000000 expected=0.000000000000 tol=0.000001)
+[A04] PASS EW=0 总时延=2s   actual=2.000000000000 expected=2.000000000000 tol=0.000001
+[A04] PASS EW=0 arrive_t=2   actual=2.000000000000 expected=2.000000000000 tol=0.000001
+[A04] PASS EW=0 在途 1  (actual=1 expected=1)
+[A04] PASS 到达前无 delivered  (actual=0 expected=0)
+[A04] PASS 到达前仍在途  (actual=1 expected=1)
+[A04] PASS 恰好到达 tick 投递一次  (actual=1 expected=1)
+[A04] PASS delivered id 一致  (actual=C-000001 expected=C-000001)
+[A04] PASS 到达后清空  (actual=0 expected=0)
+[A04] PASS 后续 tick 不重复投递  (actual=0 expected=0)
+[A04] PASS EW=0 记录 1 次真实 send  (actual=1 expected=1)
+
+[A04] STEP S2 固定 fixture：jam=.5 → extra=20s / failure=.4；draw 两边界
+[A04] PASS 应用 comms_jam=.5
+[A04] FAIL 采样 jam_severity=.5  (detail:  actual=-1.000000000000 expected=0.500000000000 tol=0.000000001)
+[A04] FAIL 采样 extra_latency=20s  (detail:  actual=-1.000000000000 expected=20.000000000000 tol=0.000001)
+[A04] FAIL 采样 failure_chance=.4  (detail:  actual=-1.000000000000 expected=0.400000000000 tol=0.000000001)
+[A04] FAIL 冻结 draw=.1  (detail:  actual=-1.000000000000 expected=0.100000000000 tol=0.000001)
+[A04] FAIL draw<.4 → 预定失败  (detail: (actual=false expected=true))
+[A04] FAIL 总时延=2+20  (detail:  actual=2.000000000000 expected=22.000000000000 tol=0.000001)
+[A04] FAIL EW 附加=20  (detail:  actual=-1.000000000000 expected=20.000000000000 tol=0.000001)
+[A04] FAIL arrive_t=22  (detail:  actual=2.000000000000 expected=22.000000000000 tol=0.000001)
+[A04] PASS 到达前无失败  (actual=0 expected=0)
+[A04] FAIL 失败预定仍在途  (detail: (actual=0 expected=1))
+[A04] FAIL 到达 tick 产生 FAILED 一次  (detail: (actual=0 expected=1))
+[A04] FAIL FAILED 原因为 comms_jam  (detail: (actual= expected=comms_jam))
+[A04] FAIL EW 失败不产生假 delivered  (detail: (actual=1 expected=0))
+[A04] PASS 失败后清空在途  (actual=0 expected=0)
+[A04] FAIL 冻结 draw=.9  (detail:  actual=-1.000000000000 expected=0.900000000000 tol=0.000001)
+[A04] FAIL draw>.4 → 预定成功  (detail: (actual=true expected=false))
+[A04] PASS 成功臂无 FAILED  (actual=0 expected=0)
+[A04] PASS 成功臂 DELIVERED 一次  (actual=1 expected=1)
+[A04] FAIL 成功臂同样 +20s  (detail:  actual=24.000000000000 expected=22.000000000000 tol=0.000001)
+
+[A04] STEP S3 三条真实入口都消费 EW：send_comms / issue_order / queue_intel_share
+[A04] FAIL send_comms 真实失败回调  (detail: (actual=0 expected=1))
+[A04] FAIL send_comms 失败不冒充送达  (detail: (actual=1 expected=0))
+[A04] PASS 订单真实发送成功入链
+[A04] FAIL EW 失败订单 REJECTED 而非 DELIVERED  (detail: (actual=QUEUED expected=REJECTED))
+[A04] FAIL 订单失败原因来自 comms
+[A04] PASS 共享失败不融合到接收 owner  (actual=0 expected=0)
+[A04] FAIL 共享失败清除待融合  (detail: (actual=1 expected=0))
+[A04] PASS 共享成功臂 tick 可推进
+[A04] FAIL 共享成功融合一次  (detail: (actual=0 expected=1))
+[A04] PASS 共享成功入链
+
+[A04] STEP S4 同 seed 确定性与真实文件恢复：读档不重新抽样
+[A04] FAIL 同 seed 首条消息 draw 相同  (detail:  actual=-1.000000000000 expected=-2.000000000000 tol=0.000001)
+[A04] FAIL 同 seed 失败判定相同  (detail: (actual=false expected=true))
+[A04] PASS 真实文件恢复成功  []
+[A04] PASS 恢复保留在途 1  (actual=1 expected=1)
+[A04] PASS 恢复后失败回调数量一致  (actual=0 expected=0)
+[A04] FAIL 恢复后不把失败当送达  (detail: (actual=1 expected=0))
+[A04] FAIL 恢复后失败原因保持  (detail: (actual= expected=comms_jam))
+[A04] FAIL 恢复后后续 PRNG draw 一致  (detail:  actual=-1.000000000000 expected=-2.000000000000 tol=0.000001)
+[A04] FAIL 恢复后 EW 抽样序号一致  (detail: (actual=-1 expected=-2))
+
+[A04] STEP S5 版本化：outcome v2 / v1 迁移 / 未知版本拒绝 / state v2 迁移
+[A04] PASS 存在 send_comms 日志操作
+[A04] FAIL outcome 版本 v2  (detail: (actual=1 expected=2))
+[A04] FAIL outcome 带 EW 采样块
+[A04] FAIL comms state 版本 v2  (detail: (actual=1 expected=2))
+[A04] FAIL state 带确定抽样状态
+[A04] PASS v1 outcome/state 旧档可恢复  []
+[A04] FAIL 报告标记 legacy_outcome_v1  (detail: <null>)
+[A04] PASS 未知 outcome version 拒绝
+[A04] FAIL 未知版本原因 comms_outcome_invalid  (detail: (actual= expected=comms_outcome_invalid))
+[A04] PASS 未知 comms state version 拒绝
+
+[A04] STEP S6 原失败原因/鉴权边界不因 EW 接线被绕过
+[A04] PASS 无 LR 链路保持 no_route  (actual=no_route expected=no_route)
+[A04] PASS 未知模式保持 invalid_mode  (actual=invalid_mode expected=invalid_mode)
+[A04] PASS 未知目标保持 unknown_to  (actual=unknown_to expected=unknown_to)
+[A04] PASS 禁用链路发送失败
+[A04] FAIL 禁用链路原因 no_route  (detail: (actual=link_disabled expected=no_route))
+[A04] FAIL 非法 sender 订单被拒
+
+[A04] STEP S7 EW=0 旧 seed（无 ew_service）兼容
+[A04] PASS 无 ew_service 旧 seed 可启动  []
+[A04] PASS 旧 seed 正常发送
+[A04] FAIL 旧 seed jam=0  (detail:  actual=-1.000000000000 expected=0.000000000000 tol=0.000000001)
+[A04] PASS 旧 seed 总时延=基础 2s   actual=2.000000000000 expected=2.000000000000 tol=0.000001
+[A04] PASS 旧 seed 正常投递一次  (actual=1 expected=1)
+────────────────────────────────────────────────────────────────
+JC-A04 EW COMMS PROBE RESULT: PASS=39 FAIL=39
+[A04] FAILED: EW=0 不因 EW 失败
+[A04] FAILED: EW=0 基础时延=2s  (detail:  actual=-1.000000000000 expected=2.000000000000 tol=0.000001)
+[A04] FAILED: EW=0 EW 附加=0  (detail:  actual=-1.000000000000 expected=0.000000000000 tol=0.000001)
+[A04] FAILED: 采样 jam_severity=.5  (detail:  actual=-1.000000000000 expected=0.500000000000 tol=0.000000001)
+[A04] FAILED: 采样 extra_latency=20s  (detail:  actual=-1.000000000000 expected=20.000000000000 tol=0.000001)
+[A04] FAILED: 采样 failure_chance=.4  (detail:  actual=-1.000000000000 expected=0.400000000000 tol=0.000000001)
+[A04] FAILED: 冻结 draw=.1  (detail:  actual=-1.000000000000 expected=0.100000000000 tol=0.000001)
+[A04] FAILED: draw<.4 → 预定失败  (detail: (actual=false expected=true))
+[A04] FAILED: 总时延=2+20  (detail:  actual=2.000000000000 expected=22.000000000000 tol=0.000001)
+[A04] FAILED: EW 附加=20  (detail:  actual=-1.000000000000 expected=20.000000000000 tol=0.000001)
+[A04] FAILED: arrive_t=22  (detail:  actual=2.000000000000 expected=22.000000000000 tol=0.000001)
+[A04] FAILED: 失败预定仍在途  (detail: (actual=0 expected=1))
+[A04] FAILED: 到达 tick 产生 FAILED 一次  (detail: (actual=0 expected=1))
+[A04] FAILED: FAILED 原因为 comms_jam  (detail: (actual= expected=comms_jam))
+[A04] FAILED: EW 失败不产生假 delivered  (detail: (actual=1 expected=0))
+[A04] FAILED: 冻结 draw=.9  (detail:  actual=-1.000000000000 expected=0.900000000000 tol=0.000001)
+[A04] FAILED: draw>.4 → 预定成功  (detail: (actual=true expected=false))
+[A04] FAILED: 成功臂同样 +20s  (detail:  actual=24.000000000000 expected=22.000000000000 tol=0.000001)
+[A04] FAILED: send_comms 真实失败回调  (detail: (actual=0 expected=1))
+[A04] FAILED: send_comms 失败不冒充送达  (detail: (actual=1 expected=0))
+[A04] FAILED: EW 失败订单 REJECTED 而非 DELIVERED  (detail: (actual=QUEUED expected=REJECTED))
+[A04] FAILED: 订单失败原因来自 comms
+[A04] FAILED: 共享失败清除待融合  (detail: (actual=1 expected=0))
+[A04] FAILED: 共享成功融合一次  (detail: (actual=0 expected=1))
+[A04] FAILED: 同 seed 首条消息 draw 相同  (detail:  actual=-1.000000000000 expected=-2.000000000000 tol=0.000001)
+[A04] FAILED: 同 seed 失败判定相同  (detail: (actual=false expected=true))
+[A04] FAILED: 恢复后不把失败当送达  (detail: (actual=1 expected=0))
+[A04] FAILED: 恢复后失败原因保持  (detail: (actual= expected=comms_jam))
+[A04] FAILED: 恢复后后续 PRNG draw 一致  (detail:  actual=-1.000000000000 expected=-2.000000000000 tol=0.000001)
+[A04] FAILED: 恢复后 EW 抽样序号一致  (detail: (actual=-1 expected=-2))
+[A04] FAILED: outcome 版本 v2  (detail: (actual=1 expected=2))
+[A04] FAILED: outcome 带 EW 采样块
+[A04] FAILED: comms state 版本 v2  (detail: (actual=1 expected=2))
+[A04] FAILED: state 带确定抽样状态
+[A04] FAILED: 报告标记 legacy_outcome_v1  (detail: <null>)
+[A04] FAILED: 未知版本原因 comms_outcome_invalid  (detail: (actual= expected=comms_outcome_invalid))
+[A04] FAILED: 禁用链路原因 no_route  (detail: (actual=link_disabled expected=no_route))
+[A04] FAILED: 非法 sender 订单被拒
+[A04] FAILED: 旧 seed jam=0  (detail:  actual=-1.000000000000 expected=0.000000000000 tol=0.000000001)
+AUDIO OK files=36 headless=true muted=false

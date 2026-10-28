@@ -1,0 +1,231 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+A0-T2 SENSOR GEOMETRY PROBE · real entry main_menu → v1_hud
+Godot 4.7.2-stable (official) · profile=orbital_sim
+════════════════════════════════════════════════════════════════
+
+[A0-T2] STEP 1. real entry main_menu → v1_hud (change_scene_to_file)
+[A0-T2] PASS change_scene_to_file(main_menu) == OK  err=0
+AUDIO OK files=36 headless=true muted=false
+[MAIN MENU] BUILD=orbital_sim → skip to res://v1_hud.tscn
+[BUILD PROFILE] id=orbital_sim mode=simulator scene=res://v1_hud.tscn scenario=res://framework/content/scenario_orbital_sim.json save_root=user://saves_sim
+[BUILD PROFILE] SYSTEM story=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM prelude=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM triggers=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM identification=ON
+[BUILD PROFILE] SYSTEM traffic=ON
+[BUILD PROFILE] SYSTEM port=ON
+[BUILD PROFILE] SYSTEM signal=ON
+[BUILD PROFILE] SYSTEM combat=ON
+[BUILD PROFILE] SYSTEM ballistics=ON
+[BUILD PROFILE] SYSTEM damage=ON
+[BUILD PROFILE] SYSTEM physics_world=ON
+[BUILD PROFILE] SYSTEM sandbox=OFF reason=非测试剖面
+[BUILD PROFILE] SYSTEM ship_catalog=ON
+[BUILD PROFILE] SYSTEM refit=ON
+[BUILD PROFILE][LIMITATION] 轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。
+[BUILD PROFILE][LIMITATION] EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。
+[BUILD PROFILE][LIMITATION] UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。
+[SHELL BINDER] BUILD profile=orbital_sim mode=simulator label=GHOST TRACK // APSIS — ORBITAL SIM save_root=user://saves_sim
+[SHELL BINDER] SANDBOX entities=7 scenario=res://framework/content/scenario_orbital_sim.json
+[SHELL BINDER] SYSTEMS physics=true sensors=true track_table=true combat=true ballistics=true damage=true ew=true identification=true traffic=true port=true ship_catalog=true refit=true story=disabled
+[SHELL BINDER] CeresChain ready state=L1 entity=ceres_2 texts=9 code=7600
+[SHELL BINDER] ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0
+[SHELL BINDER] AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=19 threat=0 trust=0
+[SHELL BINDER] AfterActionReport ready branches=6 templates=3
+[SHELL BINDER] TrafficControl source=session ready=true lanes=18 otc=19 npc=6
+[SHELL BINDER] physics ready=true plot_source=intel positions=0 facilities=12 facility_source=facility_registry_l1
+[SHELL BINDER] fleet_data ready=true friendly=8 enemy=24 total=32
+[SHELL BINDER] refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL
+[SHELL BINDER] CICView ready=true truth=false tracks=2 levels={ "1": 0, "2": 2, "3": 0, "4": 0 } facilities=110
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[V1 HUD] binder boot=true errors=[] contacts=2 orders=0
+[V1 HUD] COMMS seed LD=true LR=false events=2
+[V1 HUD] COMBAT source=session sandbox={ "unlimited_ammo": false, "auto_authorize": false }
+[V1 HUD] COMBAT tracks=2 weapons=5 target=T0001 weapon=missile
+[V1 HUD] damage_model=true sections=7 combat=true roe=TIGHT roe_locked=true
+[SHELL BINDER] plot_bodies source=physics earth=[-326389.684568483, -0.0, 0.0] moon=[58010.3154315171, -0.0, 0.0]
+[SHELL BINDER] plot_sensors ready=true rings=4 obs=4 tws=2 emcon=false ew_ready=true
+[SHELL BINDER] plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=2 solutions=0 grants=0 incoming=0 pred=true
+[SHELL BINDER] plot_commands ready=true orders=0 pending=0 transmitted=0 executed=0
+[V1 PLOT3D] labels=18 conflicts=6 hidden_facility=8 bodies=physics
+[A0-T2] PASS real entry passed main_menu  saw=true frames=3
+[A0-T2] PASS current_scene is V1HUD with v1_hud.gd  res://v1_hud.tscn
+[A0-T2] PASS ShellBinder ready
+[A0-T2] PASS GameSession available
+[A0-T2] PASS SensorService enabled in orbital_sim
+[A0-T2] PASS PhysicsWorld enabled in orbital_sim
+
+[A0-T2] STEP 2. scenario truth + static config baseline (pre-fix geometry evidence)
+[A0-T2] PASS scenario entity count  actual=7 expected=7
+[A0-T2] PASS sensor config has static targets  ids=["harmattan", "l1_station"]
+[A0-T2] INFO static observer apsis pos_km=[0.0, 0.0, 0.0]
+[A0-T2] INFO static target harmattan pos_km=[20.0, 0.0, 0.0]
+[A0-T2] INFO static target l1_station pos_km=[0.0, 0.0, 10.0]
+[A0-T2] PASS static config position differs from physics: harmattan  static=[20.0, 0.0, 0.0] physics=[322139.000000001, 0.002, 0.0] diff_km=322119.000000
+[A0-T2] INFO A0-T2 GEOMETRY GAP harmattan: static vs physics = 322119.000 km
+[A0-T2] PASS static config position differs from physics: l1_station  static=[0.0, 0.0, 10.0] physics=[321719.0, 89.9999999999867, 0.0] diff_km=321719.012744
+[A0-T2] INFO A0-T2 GEOMETRY GAP l1_station: static vs physics = 321719.013 km
+[A0-T2] INFO scenario harmattan pos_km=[322139.0, 0.0, 0.0] (physics bary_rot absolute)
+
+[A0-T2] STEP 3. geometry source after boot: physics_world / bary_rot / km
+[A0-T2] PASS GameSession.sensor_geometry_status() API exists
+[A0-T2] PASS geometry source physics_world  actual=physics_world expected=physics_world
+[A0-T2] PASS geometry marked authoritative  actual=true expected=true
+[A0-T2] PASS geometry frame bary_rot  actual=bary_rot expected=bary_rot
+[A0-T2] PASS geometry length unit km  actual=km expected=km
+[A0-T2] PASS geometry velocity unit km/s  actual=km/s expected=km/s
+[A0-T2] PASS geometry time unit s  actual=s expected=s
+[A0-T2] PASS boot geometry bind ok  { "ok": true, "source": "physics_world", "frame": "bary_rot", "t": 0.1, "provider_t": 0.1, "time_ok": true, "bound": 2, "missing": [], "skipped": [], "mismatched_frame": [], "observer_id": "apsis", "observer_bound": true, "usable": true, "reason": "", "seq": 2 }
+[A0-T2] PASS boot geometry time_ok  actual=true expected=true
+[A0-T2] PASS boot geometry bound target count  actual=2 expected=2
+[A0-T2] PASS boot geometry observer bound  actual=true expected=true
+[A0-T2] PASS no missing geometry targets  []
+[A0-T2] PASS no frame-mismatched targets  []
+
+[A0-T2] STEP 4. after target maneuver (10×60s): sensor geometry == physics same instant
+[A0-T2] PASS tick 1 ok  reason=
+[A0-T2] PASS tick 2 ok  reason=
+[A0-T2] PASS tick 3 ok  reason=
+[A0-T2] PASS tick 4 ok  reason=
+[A0-T2] PASS tick 5 ok  reason=
+[A0-T2] PASS tick 6 ok  reason=
+[A0-T2] PASS tick 7 ok  reason=
+[A0-T2] PASS tick 8 ok  reason=
+[A0-T2] PASS tick 9 ok  reason=
+[A0-T2] PASS tick 10 ok  reason=
+[A0-T2] PASS physics time == session time after ticks  actual=600.100000000 expected=600.100000000 tol=0.000001
+[A0-T2] PASS sensor time == session time after ticks  actual=600.100000000 expected=600.100000000 tol=0.000001
+[A0-T2] PASS post-tick geometry source physics_world  actual=physics_world expected=physics_world
+[A0-T2] PASS geometry t == session t  actual=600.100000000 expected=600.100000000 tol=0.000001
+[A0-T2] PASS post-tick geometry bind ok  { "ok": true, "source": "physics_world", "frame": "bary_rot", "t": 600.1, "provider_t": 600.1, "time_ok": true, "bound": 2, "missing": [], "skipped": [], "mismatched_frame": [], "observer_id": "apsis", "observer_bound": true, "usable": true, "reason": "", "seq": 12 }
+[A0-T2] PASS post-tick geometry time_ok  actual=true expected=true
+[A0-T2] PASS geometry provider_t == session t  actual=600.100000000 expected=600.100000000 tol=0.000001
+[A0-T2] INFO A0-T2 MOVED harmattan: 12.000 km since boot
+[A0-T2] INFO A0-T2 MOVED l1_station: 0.001 km since boot
+[A0-T2] PASS at least one target moved since boot  moved=1
+[A0-T2] PASS sensor observer pos == physics observer pos  sensor=[321718.999011987, 0.00000105209203, 0.0] physics=[321718.999011987, 0.00000105209203, 0.0]
+[A0-T2] PASS sensor target pos == physics pos: harmattan  sensor=[322139.024289241, 12.0019525223206, 0.0] physics=[322139.024289241, 12.0019525223206, 0.0]
+[A0-T2] PASS sensor target geometry_source marked: harmattan  actual=physics_world expected=physics_world
+[A0-T2] PASS sensor target geometry_t == session t: harmattan  actual=600.100000000 expected=600.100000000 tol=0.000001
+[A0-T2] PASS sensor target geometry_frame bary_rot: harmattan  actual=bary_rot expected=bary_rot
+[A0-T2] PASS sensor target keeps static metadata rcs_m2: harmattan  keys=["area_m2", "batch", "classification", "crypto_epoch", "entity_id", "faction", "id", "iff_code", "illum", "pos_km", "rcs_m2", "registered", "side", "size_m", "target_id", "temp_k", "transponder", "vel_kmps", "geometry_source", "geometry_t", "geometry_frame"]
+[A0-T2] PASS sensor target keeps static metadata side: harmattan  keys=["area_m2", "batch", "classification", "crypto_epoch", "entity_id", "faction", "id", "iff_code", "illum", "pos_km", "rcs_m2", "registered", "side", "size_m", "target_id", "temp_k", "transponder", "vel_kmps", "geometry_source", "geometry_t", "geometry_frame"]
+[A0-T2] PASS sensor target keeps static metadata iff_code: harmattan  keys=["area_m2", "batch", "classification", "crypto_epoch", "entity_id", "faction", "id", "iff_code", "illum", "pos_km", "rcs_m2", "registered", "side", "size_m", "target_id", "temp_k", "transponder", "vel_kmps", "geometry_source", "geometry_t", "geometry_frame"]
+[A0-T2] PASS sensor target keeps static metadata classification: harmattan  keys=["area_m2", "batch", "classification", "crypto_epoch", "entity_id", "faction", "id", "iff_code", "illum", "pos_km", "rcs_m2", "registered", "side", "size_m", "target_id", "temp_k", "transponder", "vel_kmps", "geometry_source", "geometry_t", "geometry_frame"]
+[A0-T2] PASS sensor target keeps static metadata batch: harmattan  keys=["area_m2", "batch", "classification", "crypto_epoch", "entity_id", "faction", "id", "iff_code", "illum", "pos_km", "rcs_m2", "registered", "side", "size_m", "target_id", "temp_k", "transponder", "vel_kmps", "geometry_source", "geometry_t", "geometry_frame"]
+[A0-T2] PASS sensor target pos == physics pos: l1_station  sensor=[321718.999010607, 89.9995230951631, 0.0] physics=[321718.999010607, 89.9995230951631, 0.0]
+[A0-T2] PASS sensor target geometry_source marked: l1_station  actual=physics_world expected=physics_world
+[A0-T2] PASS sensor target geometry_t == session t: l1_station  actual=600.100000000 expected=600.100000000 tol=0.000001
+[A0-T2] PASS sensor target geometry_frame bary_rot: l1_station  actual=bary_rot expected=bary_rot
+[A0-T2] PASS sensor target keeps static metadata rcs_m2: l1_station  keys=["area_m2", "batch", "classification", "crypto_epoch", "entity_id", "faction", "id", "iff_code", "illum", "pos_km", "rcs_m2", "registered", "side", "size_m", "target_id", "temp_k", "transponder", "vel_kmps", "geometry_source", "geometry_t", "geometry_frame"]
+[A0-T2] PASS sensor target keeps static metadata side: l1_station  keys=["area_m2", "batch", "classification", "crypto_epoch", "entity_id", "faction", "id", "iff_code", "illum", "pos_km", "rcs_m2", "registered", "side", "size_m", "target_id", "temp_k", "transponder", "vel_kmps", "geometry_source", "geometry_t", "geometry_frame"]
+[A0-T2] PASS sensor target keeps static metadata iff_code: l1_station  keys=["area_m2", "batch", "classification", "crypto_epoch", "entity_id", "faction", "id", "iff_code", "illum", "pos_km", "rcs_m2", "registered", "side", "size_m", "target_id", "temp_k", "transponder", "vel_kmps", "geometry_source", "geometry_t", "geometry_frame"]
+[A0-T2] PASS sensor target keeps static metadata classification: l1_station  keys=["area_m2", "batch", "classification", "crypto_epoch", "entity_id", "faction", "id", "iff_code", "illum", "pos_km", "rcs_m2", "registered", "side", "size_m", "target_id", "temp_k", "transponder", "vel_kmps", "geometry_source", "geometry_t", "geometry_frame"]
+[A0-T2] PASS sensor target keeps static metadata batch: l1_station  keys=["area_m2", "batch", "classification", "crypto_epoch", "entity_id", "faction", "id", "iff_code", "illum", "pos_km", "rcs_m2", "registered", "side", "size_m", "target_id", "temp_k", "transponder", "vel_kmps", "geometry_source", "geometry_t", "geometry_frame"]
+
+[A0-T2] STEP 5. observation geometry == physics geometry (not static, not stale seed)
+[A0-T2] PASS sensor produced observations  n=44
+[A0-T2] PASS observation range is NOT the static config geometry: l1_station  obs=90.000 static=10.000
+[A0-T2] PASS observation range is NOT the static config geometry: harmattan  obs=420.203 static=20.000
+[A0-T2] PASS observation range is NOT the static config geometry: l1_station  obs=90.000 static=10.000
+[A0-T2] PASS observation range is NOT the static config geometry: harmattan  obs=420.203 static=20.000
+[A0-T2] PASS checked at least one observation against physics geometry  checked=4
+[A0-T2] PASS observation range/bearing tracks physics geometry (within sensor noise)  mismatches=[]
+[A0-T2] PASS observation t == physics t (same simulation instant)  mismatches=[]
+[A0-T2] PASS observations carry observation attributes (support/quality/sensor/range/bearing)
+[A0-T2] PASS observations tagged with sensor kind  ["radar"]
+[A0-T2] PASS observation support levels within L0/L1/L2  []
+
+[A0-T2] STEP 6. observation semantics preserved: TrackTable range_km stays an OBSERVATION
+[A0-T2] PASS TrackTable has fused tracks  n=2
+[A0-T2] PASS track has observation sources (not truth): harmattan  ["radar"]
+[A0-T2] PASS track keeps evidence-derived identity: harmattan  identity=unknown
+[A0-T2] PASS track range_km comes from observation (observation semantics): harmattan  track=420.202698 obs=420.202698
+[A0-T2] PASS track has observation sources (not truth): l1_station  ["radar"]
+[A0-T2] PASS track keeps evidence-derived identity: l1_station  identity=unknown
+[A0-T2] PASS track range_km comes from observation (observation semantics): l1_station  track=89.999519 obs=89.999519
+[A0-T2] PASS CombatService track rows do not carry sensor/truth positions  keys=["id", "batch", "identity", "threat", "range_km", "in_arc", "destroyed", "damage_taken", "ship_id", "entity_id", "measurement_quality", "measurement_original", "measurement_t", "measurement_source", "measurement_degraded"]
+[A0-T2] PASS CombatService track rows do not carry sensor/truth positions  keys=["id", "batch", "identity", "threat", "range_km", "in_arc", "destroyed", "damage_taken", "ship_id", "entity_id", "measurement_quality", "measurement_original", "measurement_t", "measurement_source", "measurement_degraded"]
+[A0-T2] PASS HUD contact has no truth position field: TRACK-001
+[A0-T2] PASS HUD contact uses safe display fields: TRACK-001
+[A0-T2] PASS HUD contact has no truth position field: TRACK-002
+[A0-T2] PASS HUD contact uses safe display fields: TRACK-002
+
+[A0-T2] STEP 7. degraded modes: no physics / frame mismatch → explicit static, no silent truth
+[A0-T2] PASS sensor-only session ready  []
+[A0-T2] PASS no-physics geometry source static  actual=static expected=static
+[A0-T2] PASS no-physics geometry not authoritative  actual=false expected=false
+[A0-T2] PASS no-physics session keeps configured static targets
+[A0-T2] PASS frame-converted session ready  []
+[A0-T2] PASS frame-converted seed applied  actual=true expected=true
+[A0-T2] PASS frame-mismatch geometry source static  actual=static expected=static
+[A0-T2] PASS frame-mismatch geometry not authoritative  actual=false expected=false
+[A0-T2] PASS frame-mismatch public reason exact  actual=frame_mismatch expected=frame_mismatch
+[A0-T2] PASS frame-mismatch geometry not complete  actual=false expected=false
+[A0-T2] PASS frame-mismatch geometry not available  actual=false expected=false
+[A0-T2] PASS frame-mismatch last.reason exact  actual=frame_mismatch expected=frame_mismatch
+[A0-T2] PASS frame-mismatch last.ok false  actual=false expected=false
+[A0-T2] PASS frame-mismatch last.time_ok false  actual=false expected=false
+[A0-T2] PASS no-physics public reason exact  actual=no_physics_world expected=no_physics_world
+[A0-T2] PASS no-physics geometry not complete  actual=false expected=false
+
+[A0-T2] STEP 9. time mismatch: no observations from stale geometry
+[A0-T2] PASS time-mismatch session ready  []
+[A0-T2] PASS fake provider bound at t=0  { "ok": true, "source": "physics_world", "frame": "bary_rot", "t": 0.0, "provider_t": 0.0, "time_ok": true, "bound": 1, "missing": [], "skipped": [], "mismatched_frame": [], "observer_id": "apsis", "observer_bound": true, "usable": true, "reason": "", "seq": 2 }
+[A0-T2] PASS baseline observation generated with aligned geometry  n=2
+[A0-T2] PASS time-mismatch public reason  actual=time_mismatch expected=time_mismatch
+[A0-T2] PASS time-mismatch not authoritative  actual=false expected=false
+[A0-T2] PASS time-mismatch not complete  actual=false expected=false
+[A0-T2] PASS time-mismatch not available  actual=false expected=false
+[A0-T2] PASS time-mismatch last.time_ok false  actual=false expected=false
+[A0-T2] PASS no NEW observation generated on time mismatch  before=2 after=2
+[A0-T2] PASS suppressed_steps counted for time mismatch  suppressed=1
+[A0-T2] PASS geometry recovers when time aligns  actual=true expected=true
+[A0-T2] PASS observations resume after time realigns  n=3
+
+[A0-T2] STEP 10. partial binding failure: observer missing / target missing are not authoritative
+[A0-T2] PASS observer-missing session ready  []
+[A0-T2] PASS observer-missing not authoritative  actual=false expected=false
+[A0-T2] PASS observer-missing not complete  actual=false expected=false
+[A0-T2] PASS observer-missing public reason  actual=observer_missing expected=observer_missing
+[A0-T2] PASS observer-missing observer_bound false  actual=false expected=false
+[A0-T2] PASS observer-missing records missing id  ["ghost_ship"]
+[A0-T2] PASS observer-missing generates NO observations from stale geometry  actual=0 expected=0
+[A0-T2] PASS target-missing session ready  []
+[A0-T2] PASS target-missing not authoritative  actual=false expected=false
+[A0-T2] PASS target-missing not complete  actual=false expected=false
+[A0-T2] PASS target-missing public reason  actual=target_missing expected=target_missing
+[A0-T2] PASS target-missing records skipped id  ["missing_target"]
+[A0-T2] PASS target-missing generates NO observations (mixed geometry suppressed)  actual=0 expected=0
+[A0-T2] PASS missing target row marked unavailable  actual=unavailable expected=unavailable
+[A0-T2] PASS missing target row has cleared pos_km (no stale coords)  actual=0 expected=0
+
+[A0-T2] STEP 11. determinism of failure paths
+[A0-T2] PASS identical failure-path geometry status across runs  len_a=814 len_b=814
+[A0-T2] PASS identical suppressed observation count across runs  actual=0 expected=0
+
+[A0-T2] STEP 12. determinism: same operation sequence yields identical geometry + observations
+[A0-T2] PASS identical geometry status across identical runs  len_a=799 len_b=799
+[A0-T2] PASS identical observations across identical runs  len_a=3595 len_b=3595
+[A0-T2] PASS identical TrackTable across identical runs
+────────────────────────────────────────────────────────────────
+A0-T2 SENSOR GEOMETRY PROBE RESULT: PASS=133 FAIL=0
+A0-T2 SENSOR GEOMETRY PROBE OK
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+
+--- STDERR ---
+WARNING: 126 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 31 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

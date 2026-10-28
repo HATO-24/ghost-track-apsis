@@ -2,7 +2,13 @@
 
 执行Issue：[JC-A04 #61](https://github.com/HATO-24/ghost-track-apsis/issues/61)。
 
-状态：RETURNED，第三轮仅剩R1现代缺省上下文入口；R2/R3/R4关闭，A4未冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：DONE（第四轮独立放行）；A4已冻结并合入，#61完成。下一张既有卡B01A/#62已备好，未自动启动实现。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-29 PR72第四轮：PASS，A4放行
+
+A4冻结`af924d09f5c1d763f8d2556cd94062134ef3c456`，PR72合入main`1b483e0f2f2a9bfdaa100caf2ee6742091193204`，完整tree与被审候选一致。[独立证据与交接](../../reviews/pr72_a04_r4_20261029/review.md)。原R1现代缺省新发送已拒绝非本方无上下文请求，同时保留现代own默认、独立ally合法上下文和真正旧seed/日志；R1显式子项/R2/R3/R4及真实callback关闭结论均保留，不再派发。
+
+根8专项8/8、新141/0；原C Phase0 6/6、PhaseA3/3、full91=84PASS/7历史FAIL、new_fail0/drift0/complete=true、退出0，同head CI三个job成功。七历史baseline未刷新。#61完成，下一张既有[B01A/#62](JC-B01A_deployment.md)准备好，从包含上述A4合入的最新main开始；本轮不自动启动下一实现。下面前三轮为复核历史，以本轮放行表为准。
 
 ## 2026-10-29 PR72第三轮：R2/R4关闭，仅现代缺省发送一处
 

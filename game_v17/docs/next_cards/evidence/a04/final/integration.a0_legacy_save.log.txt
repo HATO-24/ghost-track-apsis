@@ -1,0 +1,98 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+A0-A04 LEGACY SAVE PROBE · baseline I3
+Godot 4.7.2-stable (official)
+════════════════════════════════════════════════════════════════
+
+[A0-A04] STEP 1. fixture provenance and the evicted-early-id boundary
+[A0-A04] PASS fixture_meta.json readable  res://tests/fixtures/legacy_saves/fixture_meta.json
+[A0-A04] PASS fixture records the generating implementation head  f842b3db6158d08bb6da5221252745882a2cc858
+[A0-A04] PASS fixture op log contains the early explicit id  actual=true expected=true
+[A0-A04] PASS fixture op log length >= 1000  1006.0
+[A0-A04] PASS fixture visible history is capped at 1000  actual=1000 expected=1000
+[A0-A04] PASS shows the boundary: the early id is NOT in the visible history  actual=false expected=false
+[A0-A04] PASS fixture used-id set is larger than the visible history  seen=1011.0 visible=1000.0
+[A0-A04] PASS shape B derived by removing exactly the v2 optional fields  ["schema", "version", "id_seq", "seen_ids", "max_events"]
+[A0-A04] PASS shape A derived by removing the whole bus section  actual=bus expected=bus
+
+[A0-A04] STEP 2. shape B (legacy bus seq/events): migration merges replay set UNION history
+[A0-A04] PASS shape B load ok  []
+[A0-A04] PASS shape B: migration marked applied  actual=true expected=true
+[A0-A04] PASS shape B: migration shape reported  actual=legacy_bus_seq_events expected=legacy_bus_seq_events
+[A0-A04] PASS shape B: migration version 2 adopted  actual=2 expected=2
+[A0-A04] PASS shape B: restored used-id set covers the original set  restored=1011 original=1011
+[A0-A04] PASS shape B: used-id set includes ids recovered from the op-log replay  from_replay=1011
+[A0-A04] PASS shape B: used-id set is strictly larger than the visible history (not a tail replacement)  seen=1011 visible=1000
+[A0-A04] PASS shape B: early id is absent from the restored visible history
+[A0-A04] PASS shape B: re-publishing the evicted early id is REJECTED  invalid_event
+[A0-A04] PASS shape B: rejected re-publish did not advance seq  actual=1011 expected=1011
+[A0-A04] PASS shape B: rejected re-publish did not advance the allocator  actual=1010 expected=1010
+[A0-A04] PASS shape B: new publish after migration ok
+[A0-A04] PASS shape B: new seq continues monotonically (+1)  actual=1012 expected=1012
+[A0-A04] PASS shape B: new auto id does not collide with restored history  evt-001011
+[A0-A04] PASS shape B: auto-id allocator advanced past the restored high watermark  alloc=1011
+
+[A0-A04] STEP 3. shape A (no bus section): replay-only recovery, honestly labelled
+[A0-A04] PASS shape A load ok  []
+[A0-A04] PASS shape A: migration marked applied  actual=true expected=true
+[A0-A04] PASS shape A: migration shape reported  actual=no_bus_section expected=no_bus_section
+[A0-A04] PASS shape A: migration version 1 adopted  actual=1 expected=1
+[A0-A04] PASS shape A: partial recovery is explicitly listed  ["no bus section: visible history rebuilt from seed+log replay only"]
+[A0-A04] PASS shape A: used-id set comes from the op-log replay  replay_seen=1011
+[A0-A04] PASS shape A: early id from the replayed op log is still rejected  invalid_event
+[A0-A04] PASS shape A: seq high watermark did not go backwards  restored=1011 fixture=1011
+
+[A0-A04] STEP 4. v2 reference save: full state, no migration needed
+[A0-A04] PASS v2 reference load ok  []
+[A0-A04] PASS v2 save: shape reported as new  actual=new expected=new
+[A0-A04] PASS v2 save: no migration applied  actual=false expected=false
+[A0-A04] PASS v2 save: full used-id set restored exactly  actual=1011 expected=1011
+[A0-A04] PASS v2 save: seq restored exactly  actual=1011 expected=1011
+[A0-A04] PASS v2 save: evicted early id still rejected  invalid_event
+
+[A0-A04] STEP 5. memory + file roundtrip: no re-dispatch, new events dispatch, +10 ticks
+[A0-A04] PASS restoring history dispatched 0 events to subscribers  actual=0 expected=0
+[A0-A04] PASS second-generation load (in-memory) ok  []
+[A0-A04] PASS second-generation load (real file) ok  []
+[A0-A04] PASS file roundtrip preserves seq  actual=1011 expected=1011
+[A0-A04] PASS file roundtrip preserves the full used-id set  actual=1011 expected=1011
+[A0-A04] PASS re-saved state is a v2 save (migration does not re-apply)  actual=new expected=new
+[A0-A04] PASS continued sessions have identical seq after 10 ticks  actual=1031 expected=1031
+[A0-A04] PASS continued sessions have identical auto-id allocator  actual=1030 expected=1030
+[A0-A04] PASS new events were produced by the ticks  seq 1011 -> 1031
+[A0-A04] PASS subscriber state after restore recorded  calls=20
+[A0-A04] INFO ROUNDTRIP: seq0=1011 now=1031 subscribers=20
+
+[A0-A04] STEP 6. catalog attribution by stable id (no friend fallback, no truth leak)
+[A0-A04] PASS legacy load rebuilds catalog attribution by stable id (provenance=seed)  violations=[]
+[A0-A04] PASS legacy migration leaks no truth-only fields to contacts  violations=[]
+
+[A0-A04] STEP 7. negatives: corrupt / unsupported / illegal inputs are rejected explicitly
+[A0-A04] PASS NEGATIVE: corrupt JSON rejected  invalid_json
+[A0-A04] PASS NEGATIVE: unknown save schema rejected  invalid_schema
+[A0-A04] PASS NEGATIVE: rejection carries a reason
+[A0-A04] PASS NEGATIVE: fractional bus seq rejected (no silent coercion)  ["bus legacy: seq 不是整数（1.5）", "bus legacy 迁移失败：[\"legacy bus 段校验失败，未导入（见上方具体原因）\"]"]
+[A0-A04] PASS NEGATIVE: duplicate event id rejected  ["bus legacy 迁移失败：[\"events[1]: duplicate id evt-000011\"]"]
+[A0-A04] PASS NEGATIVE: wrong field type rejected  ["bus legacy: events 必须是数组（实际 String）", "bus legacy 迁移失败：[\"legacy bus 段校验失败，未导入（见上方具体原因）\"]"]
+[A0-A04] PASS NEGATIVE: no log and no bus counters rejected (cannot reconstruct)  missing_log
+
+[A0-A04] STEP 8. honest partial-recovery labelling (no lossless claim)
+[A0-A04] PASS shape A report explicitly lists the unrecoverable sensor runtime state (DS-A-05 scope)  unrecoverable=["sensor_service runtime state (EMCON/radar/channels): absent from this save; restored from seed defaults — DS-A-05 scope, NOT a lossless restore", "entity_catalog additions: rebuilt from the old seed by stable id (fields unknown to the seed stay seed-default with source=seed)"]
+[A0-A04] PASS shape A report marks recovery as partial, not lossless
+[A0-A04] PASS shape A report states the adopted version and recovered ranges
+
+[A0-A04] STEP 9. A-04 summary
+[A0-A04] INFO A-04: real I3 fixtures with documented provenance; shape A/B/v2 all restore; replay-set UNION preserved (evicted early id still rejected); no re-dispatch; negatives rejected; partial recovery labelled honestly
+────────────────────────────────────────────────────────────────
+A0-A04 LEGACY SAVE PROBE RESULT: PASS=60 FAIL=0
+A0-A04 LEGACY SAVE PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/game_session.gd:6359)
+       [1] _run (res://tests/a0_legacy_save_probe.gd:318)
+       [2] _initialize (res://tests/a0_legacy_save_probe.gd:42)

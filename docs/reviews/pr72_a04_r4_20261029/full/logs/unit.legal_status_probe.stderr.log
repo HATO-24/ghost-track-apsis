@@ -1,0 +1,6 @@
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/legal_status_service.gd:372)
+       [1] _test_save_invalid (res://tests/legal_status_probe.gd:384)
+       [2] _initialize (res://tests/legal_status_probe.gd:31)

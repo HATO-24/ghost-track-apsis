@@ -1,0 +1,208 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+V17-CORE-3 PROBE · 清算者无线电 / 传感器权威边界
+════════════════════════════════════════════════════════════
+
+── 1 内容文件 ──
+[PASS] 内容文件存在: res://framework/content/reclaimer_radio_l1.json
+[PASS] state 已装载清算者无线电内容
+[PASS] schema  actual=reclaimer_radio.v1 expected=reclaimer_radio.v1
+[PASS] 内容 id（正式文件，非兜底）  actual=l1_reclaimer_radio_v1 expected=l1_reclaimer_radio_v1
+[PASS] trigger_phase=COMMAND  actual=COMMAND expected=COMMAND
+[PASS] 标题非空
+[PASS] exchange 至少 3 条  size=3
+[PASS] exchange from 非空
+[PASS] exchange to 非空
+[PASS] exchange mode 合法（LD/LR/RDO）  RDO
+[PASS] exchange text 非空
+[PASS] exchange from 非空
+[PASS] exchange to 非空
+[PASS] exchange mode 合法（LD/LR/RDO）  RDO
+[PASS] exchange text 非空
+[PASS] exchange from 非空
+[PASS] exchange to 非空
+[PASS] exchange mode 合法（LD/LR/RDO）  LD
+[PASS] exchange text 非空
+[PASS] 3 个回复选项  actual=3 expected=3
+[PASS] 选项 id 非空
+[PASS] 选项 label 非空
+[PASS] 选项含 reply 行  ack
+[PASS] 玩家回复 from=远地点号  actual=远地点号 expected=远地点号
+[PASS] 玩家回复 mode 合法
+[PASS] 选项 id 非空
+[PASS] 选项 label 非空
+[PASS] 选项含 reply 行  query
+[PASS] 玩家回复 from=远地点号  actual=远地点号 expected=远地点号
+[PASS] 玩家回复 mode 合法
+[PASS] 选项 id 非空
+[PASS] 选项 label 非空
+[PASS] 选项含 reply 行  decline
+[PASS] 玩家回复 from=远地点号  actual=远地点号 expected=远地点号
+[PASS] 玩家回复 mode 合法
+[PASS] 选项编号 A/B/C
+[PASS] guardrails.manual_only=true  actual=true expected=true
+[PASS] guardrails.auto_complete=false  actual=false expected=false
+[PASS] guardrails.changes_decision=false  actual=false expected=false
+
+── 2 阶段门控 / 无自动完成 ──
+[PASS] t=5 处于 READ 阶段  actual=READ expected=READ
+[PASS] READ 阶段不可发起  actual=false expected=false
+[PASS] READ 阶段 initiate 被拒绝  actual=false expected=false
+[PASS] 拒绝原因写明 COMMAND 阶段  仅 COMMAND 阶段可发起（当前 READ）
+[PASS] t=25 处于 COMMAND 阶段  actual=COMMAND expected=COMMAND
+[PASS] COMMAND 阶段可发起  actual=true expected=true
+[PASS] 未手动发起前 radio_feed 无教学流程通话（无自动完成）  actual=0 expected=0
+[PASS] 刷新/推进 3 次仍无教学流程通话（不自动完成）  actual=0 expected=0
+[PASS] 流程仍为 idle（需手动 initiate）  actual=idle expected=idle
+[PASS] 仍未发起，仍可手动发起  actual=true expected=true
+[PASS] state.available=true  actual=true expected=true
+[PASS] state.phase=COMMAND  actual=COMMAND expected=COMMAND
+[PASS] state.open=false  actual=false expected=false
+[PASS] state.options=3  actual=3 expected=3
+[PASS] 未开启时选项 disabled  actual=false expected=false
+[PASS] 未开启时选项给 reason
+[PASS] 未开启时选项 disabled  actual=false expected=false
+[PASS] 未开启时选项给 reason
+[PASS] 未开启时选项 disabled  actual=false expected=false
+[PASS] 未开启时选项给 reason
+
+── 3 initiate / 通信格式 / radio_feed ──
+[PASS] 标准格式 [from至to]-[mode]-[text]（docs/19 §1 示例）  actual=[哈马丹号至远地点号]-[LD]-[[9001] 敌我识别未应答，须进一步确认。完毕。] expected=[哈马丹号至远地点号]-[LD]-[[9001] 敌我识别未应答，须进一步确认。完毕。]
+[PASS] 日志窗口上限 6 条（既有行为）  size=6
+[PASS] COMMAND 阶段 initiate 成功  actual=true expected=true
+[PASS] initiate 后 stage=open  actual=open expected=open
+[PASS] 写入条目数=内容 exchange 数  actual=3 expected=3
+[PASS] radio_feed 增加对应条目  actual=10 expected=10
+[PASS] 日志非空
+[PASS] 日志更新  无线电教学：已发起与清算者的程序性通话（COMMAND 阶段手动触发）
+[PASS] 最新日志为教学流程  无线电教学：已发起与清算者的程序性通话（COMMAND 阶段手动触发）
+[PASS] initiate · flags 不变  actual={"prelude_skipped":true} expected={"prelude_skipped":true}
+[PASS] initiate · evidence 不变  actual={"elint_signature":false,"inspection_blackbox":false,"port_telemetry":false} expected={"elint_signature":false,"inspection_blackbox":false,"port_telemetry":false}
+[PASS] initiate · reputation 不变  actual={"meridian":0,"ocu":0,"outer":0,"reclaimers":0,"ueg_doves":0} expected={"meridian":0,"ocu":0,"outer":0,"reclaimers":0,"ueg_doves":0}
+[PASS] initiate · decision 不变  actual=false expected=false
+[PASS] initiate · consequence 不变  actual=false expected=false
+[PASS] initiate · report 不变  actual=false expected=false
+[PASS] initiate · end 不变  actual=false expected=false
+[PASS] initiate · 撤离状态不变  actual=false expected=false
+[PASS] initiate · 时钟不变  actual=785.8 expected=785.8
+[PASS] feed[0].from  actual=远地点号 expected=远地点号
+[PASS] feed[0].to  actual=AV-4412 传唤者 expected=AV-4412 传唤者
+[PASS] feed[0].mode  actual=RDO expected=RDO
+[PASS] feed[0].text  actual=AV-4412 传唤者，远地点号。ID13 请求确认第七号轨道紧急托管令对 Chronos 加注站与储罐区的适用范围，以及 50 km 检查边界的程序要求。ID13 当前仅执行人员与可移动资产保护任务，不寻求升级。完毕。 expected=AV-4412 传唤者，远地点号。ID13 请求确认第七号轨道紧急托管令对 Chronos 加注站与储罐区的适用范围，以及 50 km 检查边界的程序要求。ID13 当前仅执行人员与可移动资产保护任务，不寻求升级。完毕。
+[PASS] feed[0] mode ∈ LD/LR/RDO
+[PASS] feed[0] 格式前缀
+[PASS] feed[0] 格式链路段
+[PASS] feed[1].from  actual=AV-4412 传唤者 expected=AV-4412 传唤者
+[PASS] feed[1].to  actual=远地点号 expected=远地点号
+[PASS] feed[1].mode  actual=RDO expected=RDO
+[PASS] feed[1].text  actual=远地点号，AV-4412 传唤者。第七号轨道紧急托管令适用于 Chronos 加注站、储罐群与进港航道。检查边界依据第33轨道特别独立舰队执行通告设立，ID13 应于边界外待命，不得妨碍封存程序。ID13 可以提出程序性询问，询问不改变托管程序。完毕。 expected=远地点号，AV-4412 传唤者。第七号轨道紧急托管令适用于 Chronos 加注站、储罐群与进港航道。检查边界依据第33轨道特别独立舰队执行通告设立，ID13 应于边界外待命，不得妨碍封存程序。ID13 可以提出程序性询问，询问不改变托管程序。完毕。
+[PASS] feed[1] mode ∈ LD/LR/RDO
+[PASS] feed[1] 格式前缀
+[PASS] feed[1] 格式链路段
+[PASS] feed[2].from  actual=接管官 科尔 expected=接管官 科尔
+[PASS] feed[2].to  actual=远地点号 expected=远地点号
+[PASS] feed[2].mode  actual=LD expected=LD
+[PASS] feed[2].text  actual=ID13 指挥官，接管官科尔。本席补充：ID13 在 Chronos 没有执法权，本舰队依据第七号令执行临时托管。若 ID13 在边界外保持待命，双方无需进一步通信。完毕。 expected=ID13 指挥官，接管官科尔。本席补充：ID13 在 Chronos 没有执法权，本舰队依据第七号令执行临时托管。若 ID13 在边界外保持待命，双方无需进一步通信。完毕。
+[PASS] feed[2] mode ∈ LD/LR/RDO
+[PASS] feed[2] 格式前缀
+[PASS] feed[2] 格式链路段
+[PASS] 日志含标准格式通信行
+[PASS] 发起后 available=false  actual=false expected=false
+[PASS] 重复 initiate 被拒绝  actual=false expected=false
+[PASS] state.open=true  actual=true expected=true
+[PASS] state.options 仍 3 项  actual=3 expected=3
+[PASS] 开启时选项 enabled  actual=true expected=true
+[PASS] 开启时选项 enabled  actual=true expected=true
+[PASS] 开启时选项 enabled  actual=true expected=true
+
+── 4 reply / 无副作用 ──
+[PASS] initiate 成功  actual=true expected=true
+[PASS] 未知选项被拒绝  actual=false expected=false
+[PASS] 拒绝原因含未知选项  actual=true expected=true · 未知选项：Z
+[PASS] 无效回复后 stage 仍 open  actual=open expected=open
+[PASS] 有效回复 rep.ok  actual=true expected=true
+[PASS] 选择 id=ack  actual=ack expected=ack
+[PASS] 回复后 stage=done  actual=done expected=done
+[PASS] 回复写入 reply+ack 行  lines=2
+[PASS] radio_feed 增加回复条目  actual=12 expected=12
+[PASS] reply · flags 不变  actual={"prelude_skipped":true} expected={"prelude_skipped":true}
+[PASS] reply · evidence 不变  actual={"elint_signature":false,"inspection_blackbox":false,"port_telemetry":false} expected={"elint_signature":false,"inspection_blackbox":false,"port_telemetry":false}
+[PASS] reply · reputation 不变  actual={"meridian":0,"ocu":0,"outer":0,"reclaimers":0,"ueg_doves":0} expected={"meridian":0,"ocu":0,"outer":0,"reclaimers":0,"ueg_doves":0}
+[PASS] reply · decision 不变  actual=false expected=false
+[PASS] reply · consequence 不变  actual=false expected=false
+[PASS] reply · report 不变  actual=false expected=false
+[PASS] reply · end 不变  actual=false expected=false
+[PASS] reply · 撤离状态不变  actual=false expected=false
+[PASS] reply · 时钟不变  actual=785.8 expected=785.8
+[PASS] 首条 dir=tx（本舰发出）  actual=tx expected=tx
+[PASS] 回复 from=远地点号  actual=远地点号 expected=远地点号
+[PASS] 回复 mode 合法
+[PASS] 末条 dir=rx（清算者回应）  actual=rx expected=rx
+[PASS] done 后 available=false  actual=false expected=false
+[PASS] 通话结束后 reply 被拒绝  actual=false expected=false
+[PASS] 通话结束后不可再次 initiate（一次流程）  actual=false expected=false
+[PASS] 推进到裁决窗口（framework 未接时直接打开）  actual=true expected=true
+[PASS] DECIDE 阶段不可发起  actual=false expected=false
+
+── 5 transcript / state ──
+[PASS] state.stage=done  actual=done expected=done
+[PASS] state.choice=query  actual=query expected=query
+[PASS] state.open=false  actual=false expected=false
+[PASS] state.content_loaded  actual=true expected=true
+[PASS] state.content_id 非空
+[PASS] state.title 非空
+[PASS] transcript ≥5 条  size=5
+[PASS] formatted_transcript 等长  actual=5 expected=5
+[PASS] transcript 条目为标准格式  [远地点号至AV-4412 传唤者]-[RDO]-[AV-4412 传唤者，远地
+[PASS] transcript 条目为标准格式  [AV-4412 传唤者至远地点号]-[RDO]-[远地点号，AV-4412 传
+[PASS] transcript 条目为标准格式  [接管官 科尔至远地点号]-[LD]-[ID13 指挥官，接管官科尔。本席补充：
+[PASS] transcript 条目为标准格式  [远地点号至AV-4412 传唤者]-[RDO]-[AV-4412 传唤者，远地
+[PASS] transcript 条目为标准格式  [AV-4412 传唤者至远地点号]-[RDO]-[远地点号，AV-4412 传
+[PASS] transcript_lines 等长  actual=5 expected=5
+[PASS] transcript 含 tx/rx 方向
+
+── 6 传感器权威边界 ──
+[PASS] state.sensor_authority=legacy_v15  actual=legacy_v15 expected=legacy_v15
+[PASS] authority note 指明 V15 sensor_model  V15 sensor_model 决定接触等级/融合/威胁；V2 radar/TWS/optical 仅为数据/演示模型，V17 不切换、不伪造。
+[PASS] advisory.authority=legacy_v15  actual=legacy_v15 expected=legacy_v15
+[PASS] advisory.role=advisory_data_demo  actual=advisory_data_demo expected=advisory_data_demo
+[PASS] advisory.switching=false（不切换）  actual=false expected=false
+[PASS] 无 bridge 时 v2_ready=false  actual=false expected=false
+[PASS] v2_sources=radar/tws/optical  actual=3 expected=3
+[PASS] advisory 引用 V15 接触等级  actual=4 expected=4
+[PASS] 调用 advisory 不改变 V15 等级  actual=4 expected=4
+[PASS] advisory 不改变 V15 传感器选择  actual=0 expected=0
+[PASS] bridge boot
+[PASS] 接 bridge 时 v2_ready=true  actual=true expected=true
+[PASS] 接 bridge 后 authority 仍 legacy_v15  actual=legacy_v15 expected=legacy_v15
+[PASS] advisory 提供 V2 接触数（10）  actual=10 expected=10
+[PASS] 接 bridge 后仍不切换  actual=false expected=false
+[PASS] 接 bridge 后 V15 等级不变  actual=4 expected=4
+
+── 7 restart 复位 ──
+[PASS] 先完成一次通话  actual=done expected=done
+[PASS] restart 后 stage=idle  actual=idle expected=idle
+[PASS] restart 后 transcript 清空  actual=0 expected=0
+[PASS] restart 后 open=false  actual=false expected=false
+[PASS] restart 后内容重新装载
+[PASS] restart 后内容 id 非空
+[PASS] restart 后可再次发起（演示重开）  actual=true expected=true
+────────────────────────────────────────────────────────────
+[DATA] content = l1_reclaimer_radio_v1 · exchange=3 · options=3
+[DATA] gating = READ 拒绝 · COMMAND 可发起 · 0 次自动触发（3 次刷新验证）
+[DATA] initiate = feed +3 · 日志窗口更新 · 3 条均符合格式
+[DATA] reply = 未知选项拒绝 · A 回复写 2 条 · 无 flags/证据/声望/时钟副作用
+[DATA] transcript = 5 条（initiate 3 + reply/ack 2），含 tx/rx
+[DATA] authority = legacy_v15 · role=advisory_data_demo · switching=false · bridge 时 v2_contacts=10
+[DATA] restart = stage/transcript/open 复位，内容重载，可再次发起
+────────────────────────────────────────────────────────────
+V17 CORE3 PROBE RESULT: PASS=171 FAIL=0
+V17 CORE3 PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 39 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

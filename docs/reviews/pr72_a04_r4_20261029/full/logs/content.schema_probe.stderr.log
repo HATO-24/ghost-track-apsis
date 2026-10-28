@@ -1,0 +1,39 @@
+ERROR: ui_tokens: unknown token: palette.no_such
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _append_error (res://scripts/core/ui_tokens.gd:259)
+       [1] value (res://scripts/core/ui_tokens.gd:116)
+       [2] has (res://scripts/core/ui_tokens.gd:136)
+       [3] _test_token_queries (res://tests/schema_probe.gd:191)
+       [4] _initialize (res://tests/schema_probe.gd:32)
+ERROR: ui_tokens: unknown token: palette.no_such_color
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _append_error (res://scripts/core/ui_tokens.gd:259)
+       [1] value (res://scripts/core/ui_tokens.gd:116)
+       [2] color (res://scripts/core/ui_tokens.gd:195)
+       [3] _test_token_queries (res://tests/schema_probe.gd:196)
+       [4] _initialize (res://tests/schema_probe.gd:32)
+ERROR: ui_tokens: unknown token: panel_9slice.no_such_margin
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _append_error (res://scripts/core/ui_tokens.gd:259)
+       [1] value (res://scripts/core/ui_tokens.gd:116)
+       [2] has (res://scripts/core/ui_tokens.gd:136)
+       [3] margin (res://scripts/core/ui_tokens.gd:227)
+       [4] _test_token_queries (res://tests/schema_probe.gd:202)
+       [5] _initialize (res://tests/schema_probe.gd:32)
+ERROR: ui_tokens: unknown margin token: no_such_margin
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _append_error (res://scripts/core/ui_tokens.gd:259)
+       [1] margin (res://scripts/core/ui_tokens.gd:228)
+       [2] _test_token_queries (res://tests/schema_probe.gd:202)
+       [3] _initialize (res://tests/schema_probe.gd:32)
+ERROR: ui_tokens: unknown rect token: no_such_rect
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _append_error (res://scripts/core/ui_tokens.gd:259)
+       [1] rect (res://scripts/core/ui_tokens.gd:223)
+       [2] _test_token_queries (res://tests/schema_probe.gd:204)
+       [3] _initialize (res://tests/schema_probe.gd:32)
