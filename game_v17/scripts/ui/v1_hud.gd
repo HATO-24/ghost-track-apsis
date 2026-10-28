@@ -84,6 +84,7 @@ var _fleet_builder_msg := ""
 var _fleet_tested := false
 var _refit_quote: Dictionary = {}
 var _refit_tested := false
+var _b01a_tested := false
 var _near_view = null
 var _near_buttons: Array = []
 var _near_subject := "facility"
@@ -747,6 +748,26 @@ func _update_trigger_banner() -> void:
 				break
 
 
+func _b01a_deploy_selftest() -> void:
+	_overlay = "fleet_builder"
+	_fleet_builder_ship = 0
+	_fleet_builder_slot = 0
+	_fleet_builder_msg = ""
+	if binder == null:
+		print("[B01A DEPLOY SELFTEST] no binder")
+		return
+	var plan: Dictionary = binder.fleet_builder_op("DEPLOY_PLAN")
+	print("[B01A DEPLOY SELFTEST] plan ok=", bool(plan.get("ok", false)),
+		" revision=", String(plan.get("revision", "")),
+		" reason=", String(plan.get("reason", "")))
+	var dep: Dictionary = binder.fleet_builder_op("DEPLOY")
+	print("[B01A DEPLOY SELFTEST] deploy ok=", bool(dep.get("ok", false)),
+		" revision=", String(dep.get("revision", "")),
+		" reason=", String(dep.get("reason", "")))
+	_fleet_builder_msg = "DEPLOY · " + ("OK" if bool(dep.get("ok", false)) else "FAILED · " + String(dep.get("reason", "unknown"))) + (" · " + String(dep.get("revision", "")) if String(dep.get("revision", "")) != "" else "")
+	queue_redraw()
+
+
 func _fleet_selftest() -> void:
 	if binder == null:
 		return
@@ -851,6 +872,9 @@ func _process(delta: float) -> void:
 	if OS.get_environment("DSH_REFIT_TEST") == "1" and not _refit_tested:
 		_refit_tested = true
 		call_deferred("_refit_selftest")
+	if OS.get_environment("DSH_B01A_DEPLOY_TEST") == "1" and not _b01a_tested:
+		_b01a_tested = true
+		call_deferred("_b01a_deploy_selftest")
 	_t += delta
 	if binder != null:
 		binder.tick(delta)
@@ -3220,6 +3244,12 @@ func _fleet_builder_action(kind: String, index: int) -> void:
 		_fleet_builder_msg = ""
 		queue_redraw()
 		return
+	if kind in ["DEPLOY_PLAN", "DEPLOY"]:
+		var dep_res: Dictionary = binder.fleet_builder_op(kind) if binder != null else {"ok": false, "reason": "no_binder"}
+		var dep_rev := String(dep_res.get("revision", ""))
+		_fleet_builder_msg = kind + " · " + ("OK" if bool(dep_res.get("ok", false)) else "FAILED · " + String(dep_res.get("reason", "unknown"))) + ((" · " + dep_rev) if dep_rev != "" else "")
+		queue_redraw()
+		return
 	var ship_id := ""
 	if _fleet_builder_ship >= 0 and _fleet_builder_ship < roster.size():
 		ship_id = String((roster[_fleet_builder_ship] as Dictionary).get("ship_id", ""))
@@ -3239,7 +3269,8 @@ func _draw_fleet_builder_overlay(r: Rect2) -> void:
 	var footer: Rect2 = fr.footer
 	_fleet_builder_buttons.clear()
 	_fleet_builder_buttons.append_array(_button_bar(Rect2(footer.position, Vector2(footer.size.x, OV_BTN_H)),
-		[["ASSIGN", "ASSIGN / 编入"], ["UNASSIGN", "UNASSIGN / 撤编"], ["MOVE", "MOVE / 换槽"], ["VALIDATE", "VALIDATE / 校验"]]))
+		[["ASSIGN", "ASSIGN / 编入"], ["UNASSIGN", "UNASSIGN / 撤编"], ["MOVE", "MOVE / 换槽"], ["VALIDATE", "VALIDATE / 校验"],
+			["DEPLOY_PLAN", "DEPLOY PLAN / 部署检查"], ["DEPLOY", "DEPLOY / 确认部署"]]))
 	if not bool(fd.get("ready", false)):
 		Painter.label(_cv, body.position.x, body.position.y + 22, "FLEET FORMATION NOT READY", 12, P.AMBER)
 		Painter.label(_cv, body.position.x, body.position.y + 42, "session.fleet_formation 未启用/未 ready", 8, P.AMBER, true)
@@ -3347,6 +3378,18 @@ func _draw_fleet_builder_overlay(r: Rect2) -> void:
 		Painter.label(_cv, right_x, ey, "SLOT " + ("UNASSIGNED" if sh2.get("assigned_slot", null) == null else String(sh2.get("assigned_slot"))), 7, P.PH_DIM, true)
 	if _fleet_builder_msg != "":
 		Painter.label(_cv, body.position.x, body.end.y - 4.0, TM.fit(_fleet_builder_msg, body.size.x, true, 7), 7, P.PH if _fleet_builder_msg.contains("OK") else P.AMBER, true)
+	# 最小部署状态：真实 deployed/revision/实例数，不做假成功。
+	var dep_vm: Dictionary = fd.get("deployment", {}) if fd.get("deployment") is Dictionary else {}
+	var dep_txt := "DEPLOY · NOT DEPLOYED"
+	if bool(dep_vm.get("deployed", false)):
+		dep_txt = "DEPLOY · DEPLOYED rev=%s · %d instances" % [
+			String(dep_vm.get("revision", "")),
+			(dep_vm.get("instance_ids", []) as Array).size()]
+	elif dep_vm.has("reason"):
+		dep_txt = "DEPLOY · NOT AVAILABLE · " + String(dep_vm.get("reason", ""))
+	Painter.label(_cv, body.position.x, body.end.y - 18.0,
+		TM.fit(dep_txt, body.size.x, true, 7), 7, P.PH if bool(dep_vm.get(
+			"deployed", false)) else P.AMBER, true)
 
 
 func _fleet_action(kind: String, index: int) -> void:

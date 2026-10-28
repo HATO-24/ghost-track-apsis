@@ -342,9 +342,13 @@ func _run() -> void:
 	_eq(_physics_ids(b6), EXPECTED_A, "部署后 physics 无重复实体")
 	var pa0: Array = _positions(a6)
 	var pb0: Array = _positions(b6)
+	var ev_a: Array = []
+	var ev_b: Array = []
 	for i in range(10):
-		a6.tick(TICK_DT)
-		b6.tick(TICK_DT)
+		ev_a.append_array(_event_types(a6.tick(TICK_DT)))
+		ev_b.append_array(_event_types(b6.tick(TICK_DT)))
+	_eq(JSON.stringify(ev_a), JSON.stringify(ev_b),
+		"恢复后继续 10 tick 事件序列一致")
 	var pa1: Array = _positions(a6)
 	var pb1: Array = _positions(b6)
 	_eq(JSON.stringify(pa1), JSON.stringify(pb1),
@@ -413,6 +417,64 @@ func _run() -> void:
 		_own_domain(a))
 
 
+	# R4：实际玩家配置（FleetRefit 当前状态）进入冻结快照与 revision
+	var cfg_extra := {"deployment": {"scenario_id": "CFG",
+		"deployment_seed": 424242,
+		"selection": {"ships": SEL_A}, "auto": false}}
+	var cg0 = _new(SEL_A, "CFG", cfg_extra)
+	var vm0: Dictionary = _vm(cg0)
+	var opts_apsis: Array = cg0.fleet_options("APSIS") if cg0.has_method(
+		"fleet_options") else []
+	var mod_id := ""
+	if opts_apsis.size() > 0 and opts_apsis[0] is Dictionary:
+		mod_id = String((opts_apsis[0] as Dictionary).get("module_id",
+			(opts_apsis[0] as Dictionary).get("id", "")))
+	var rev_before := String((_plan(cg0, SEL_A)).get("revision", ""))
+	if mod_id != "":
+		var sel_r: Dictionary = cg0.fleet_select_ship("APSIS")
+		var ins_r: Dictionary = cg0.fleet_install(mod_id)
+		var com_r: Dictionary = cg0.fleet_commit("APSIS")
+		_info("refit install=%s commit=%s mod=%s" % [
+			str(ins_r.get("ok", false)), str(com_r.get("ok", false)), mod_id])
+	var p_after: Dictionary = _plan(cg0, SEL_A)
+	var rev_after := String(p_after.get("revision", ""))
+	_ok(rev_after != "", "实际配置存在时冻结 revision 非空")
+	_ok(rev_after != rev_before, "改实际配置后 revision 变化",
+		"before=%s after=%s" % [rev_before, rev_after])
+	var d_cfg: Dictionary = _deploy(cg0, SEL_A)
+	_ok(bool(d_cfg.get("ok", false)), "实际配置下 confirm 部署成功",
+		str(d_cfg.get("reason", "")))
+	var r_cfg: Dictionary = _resources(cg0, "apsis")
+	var cs: Dictionary = r_cfg.get("config_snapshot", {}) if \
+		r_cfg.get("config_snapshot") is Dictionary else {}
+	_ok(cs.has("refit_service_state"), "快照冻结 FleetRefit 当前状态字段")
+	_ok(String(cs.get("config_source", "")) in ["fleet_refit",
+		"roster_default"], "快照注明配置来源", str(cs.get("config_source", "")))
+	_ok(String(cs.get("ammo_state", "")) == "not_integrated_b1b"
+		and String(cs.get("command_state", "")) == "not_integrated_b1b",
+		"缺失装备/命令初态明确标注，不冒充已接通")
+	_ok(String(_vm(cg0).get("config_revision", "")) != "",
+		"vm 暴露实际配置版本")
+	# 原负例：重复命名舰 / 越预算 / 无授权控制者
+	var dup_named = _new([
+		{"ship_id": "APSIS", "slot": "command", "instance_id": "a1"},
+		{"ship_id": "APSIS", "slot": "logistics", "instance_id": "a2"}], "NEG")
+	_ok(dup_named != null and not bool(dup_named.ready),
+		"重复命名舰 boot 拒绝", str(dup_named.errors if dup_named != null else []))
+	var over_extra := {"deployment": {"scenario_id": "OVER",
+		"deployment_seed": 1, "selection": {"ships": SEL_A},
+		"limits_override": {"max_ships": 1}}}
+	var over = _new(SEL_A, "OVER", over_extra)
+	_ok(over != null and not bool(over.ready), "越预算 boot 拒绝",
+		str(over.errors if over != null else []))
+	var ctrl_sel: Array = SEL_A.duplicate(true)
+	(ctrl_sel[0] as Dictionary)["controller_id"] = "unregistered_controller"
+	var ctrl_sd: Dictionary = _seed(ctrl_sel, "CTRL")
+	var ctrl_s = GS.new(ctrl_sd)
+	_ok(not bool(ctrl_s.ready), "无授权控制者 boot 拒绝", str(ctrl_s.errors))
+	_info("ctrl errors=%s" % str(ctrl_s.errors))
+
+
 	_step("J6 旧单舰 seed 兼容与部署入口/UI 合同")
 	var legacy = GS.new({
 		"own_entity": "own_ship", "physics_world": true,
@@ -429,6 +491,14 @@ func _run() -> void:
 	_ok(_has_api(a, "fleet_deployment_plan"), "Session 暴露只读 plan 入口")
 	_ok(_has_api(a, "fleet_deployment_vm"), "Session 暴露 deployment vm")
 	_ok(_has_api(a, "deployment_resources"), "Session 暴露实例资源入口")
+
+func _event_types(tick_res: Dictionary) -> Array:
+	var out: Array = []
+	for raw in (tick_res.get("events", []) as Array):
+		if raw is Dictionary:
+			out.append(String((raw as Dictionary).get("type", "")))
+	return out
+
 
 func _advance(s, seconds: float) -> void:
 	var n := int(round(seconds / TICK_DT))

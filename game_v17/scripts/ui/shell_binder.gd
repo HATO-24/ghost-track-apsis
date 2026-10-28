@@ -415,7 +415,9 @@ func _sensor_config() -> Dictionary:
 ## 不启序章/剧情/触发器；系统按 build profile 开关装；story_state 只在
 ## profile 开启 story 时装（正式拟真剖面 orbital_sim 不装剧情状态）。
 func _scenario_seed(sensor_cfg: Dictionary) -> Dictionary:
-	var path := String(build_profile.scenario)
+	var path := String(OS.get_environment("DSH_B01A_SCENARIO"))
+	if path == "":
+		path = String(build_profile.scenario)
 	if path == "":
 		path = SANDBOX_DEFAULT_SCENARIO
 	var sc := _read_json(path)
@@ -487,6 +489,12 @@ func _scenario_seed(sensor_cfg: Dictionary) -> Dictionary:
 			"targets": sig_targets, "jam": 0.0, "max_range_km": 20000.0}
 	if build_profile.enabled("story"):
 		seed["story_state"] = true
+	# B01A：部署场景可显式提供 fleet/deployment 同源配置（非玩家随意选项）。
+	for dk in ["fleet_formation", "fleet_refit", "fleet_instances",
+			"command_domains", "deployment", "physics_world", "ship_catalog",
+			"ew_service", "identification_service"]:
+		if sc.has(dk):
+			seed[dk] = sc[dk]
 	return seed
 
 

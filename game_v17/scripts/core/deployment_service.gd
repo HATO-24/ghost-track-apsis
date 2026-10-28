@@ -29,6 +29,8 @@ var allowed_owners: Array = []
 var allowed_fleets: Array = []
 var allowed_domains: Array = []
 var config_revision := "cfg-1"
+var ship_configs: Dictionary = {}
+var config_source := "none"
 
 func _init(cfg := {}) -> void:
 	setup(cfg)
@@ -70,6 +72,9 @@ func setup(cfg := {}) -> bool:
 	allowed_fleets = (_cfg.get("authorized_fleets", []) as Array).duplicate() if _cfg.get("authorized_fleets") is Array else []
 	allowed_domains = (_cfg.get("authorized_domains", []) as Array).duplicate() if _cfg.get("authorized_domains") is Array else []
 	config_revision = String(_cfg.get("config_revision", "cfg-1"))
+	ship_configs = (_cfg.get("ship_configs", {}) as Dictionary).duplicate(true) if _cfg.get("ship_configs") is Dictionary else {}
+	config_source = String(_cfg.get("config_source", "none"))
+	_refresh_config_revision()
 	for raw in (roster.get("ships", []) as Array):
 		if raw is Dictionary:
 			var sid := String((raw as Dictionary).get("ship_id", ""))
@@ -206,15 +211,18 @@ func plan(selection) -> Dictionary:
 			result["errors"].append("unauthorized_domain:" + domain)
 			continue
 		var cls_full: Dictionary = catalog.classes_by_id[class_id] if catalog.classes_by_id[class_id] is Dictionary else {}
+		var scfg: Dictionary = ship_configs.get(ship_id, {}) if ship_configs.get(ship_id) is Dictionary else {}
 		var config_snap := {"class_id": class_id, "ship_id": ship_id,
 			"hull_code": String(r.get("hull_code", "")),
-			"refit_state": (r.get("refit_state", {}) as Dictionary).duplicate(true) if r.get("refit_state") is Dictionary else {},
+			"refit_state": (scfg.get("refit_state", r.get("refit_state", {})) as Dictionary).duplicate(true) if (scfg.get("refit_state", r.get("refit_state", {})) is Dictionary) else {},
+			"refit_service_state": (scfg.get("state", {}) as Dictionary).duplicate(true) if scfg.get("state") is Dictionary else {},
+			"config_source": String(scfg.get("source", config_source)),
 			"class_mass_t": float(cls_full.get("displacement_t", mass_t)),
 			"class_dv_kmps": float(cls_full.get("dv_kmps", 0.0)),
 			"class_role": String(cls_full.get("role", "")),
-			"weapon_loadout": (cls_full.get("weapons", []) as Array).duplicate(true) if cls_full.get("weapons") is Array else [],
-			"ammo_state": "not_integrated_b1b",
-			"command_state": "not_integrated_b1b"}
+			"weapon_loadout": (scfg.get("weapon_loadout", cls_full.get("weapons", [])) as Array).duplicate(true) if (scfg.get("weapon_loadout", cls_full.get("weapons", [])) is Array) else [],
+			"ammo_state": String(scfg.get("ammo_state", "not_integrated_b1b")),
+			"command_state": String(scfg.get("command_state", "not_integrated_b1b"))}
 		var ent := {
 			"id": inst_id, "kind": "ship", "name": String(r.get("name_en", ship_id)),
 			"class_id": class_id, "ship_id": ship_id, "hull_code":
@@ -262,6 +270,8 @@ func plan(selection) -> Dictionary:
 			String((b as Dictionary).get("id", "")))
 	var rev_payload := {"scenario_id": scenario_id,
 		"deployment_seed": deployment_seed, "config_revision": config_revision,
+		"config_source": config_source,
+		"ship_configs_hash": hash(JSON.stringify(ship_configs)),
 		"instances": instances.duplicate(true)}
 	result["revision"] = "rev-%08x" % (hash(JSON.stringify(rev_payload)) & 0xffffffff)
 	result["instance_ids"] = _ids(instances)
@@ -308,6 +318,31 @@ func deploy(selection, opts := {}) -> Dictionary:
 	return {"ok": true, "reason": "", "revision": rev,
 		"deployment": _committed.duplicate(true), "already": false}
 
+func matches_selection(selection) -> bool:
+	if _committed.is_empty():
+		return false
+	var rows: Array = normalize_selection(selection)
+	var want: Array = []
+	for r in rows:
+		if not (r is Dictionary):
+			continue
+		want.append({"ship_id": String((r as Dictionary).get("ship_id", "")),
+			"slot": String((r as Dictionary).get("slot", "")),
+			"instance_id": String((r as Dictionary).get("instance_id",
+				String((r as Dictionary).get("ship_id", "")).to_lower()))})
+	want.sort_custom(func(a, b):
+		return JSON.stringify(a) < JSON.stringify(b))
+	var have: Array = []
+	for raw in (_committed.get("instances", []) as Array):
+		if raw is Dictionary:
+			have.append({"ship_id": String((raw as Dictionary).get("ship_id", "")),
+				"slot": String((raw as Dictionary).get("slot", "")),
+				"instance_id": String((raw as Dictionary).get("instance_id", ""))})
+	have.sort_custom(func(a, b):
+		return JSON.stringify(a) < JSON.stringify(b))
+	return JSON.stringify(want) == JSON.stringify(have)
+
+
 func committed() -> Dictionary:
 	return _committed.duplicate(true)
 
@@ -350,6 +385,7 @@ func vm() -> Dictionary:
 		inst_rows.append(_resources.get(String(iid), {}).duplicate(true))
 	return {"schema": SCHEMA, "ok": true, "enabled": true,
 		"scenario_id": scenario_id, "deployment_seed": deployment_seed,
+		"config_revision": config_revision, "config_source": config_source,
 		"revision": String(_committed.get("revision", "")),
 		"deployed": not _committed.is_empty(),
 		"instance_ids": (_committed.get("instance_ids", []) as Array).duplicate(),
@@ -400,6 +436,18 @@ func load_state(data) -> Dictionary:
 	_resources = (res as Dictionary).duplicate(true)
 	return {"ok": true, "restore_mode": "full",
 		"revision": String(_committed.get("revision", ""))}
+
+func set_ship_configs(cfgs: Dictionary, source := "fleet_refit") -> void:
+	ship_configs = cfgs.duplicate(true)
+	config_source = source
+	_refresh_config_revision()
+
+
+func _refresh_config_revision() -> void:
+	var keys: Array = ship_configs.keys()
+	keys.sort()
+	config_revision = "cfgs-%08x" % (hash(JSON.stringify({"source": config_source, "configs": ship_configs})) & 0xffffffff)
+
 
 func _in_list(arr: Array, v: String) -> bool:
 	for x in arr:

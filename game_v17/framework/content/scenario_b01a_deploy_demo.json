@@ -1,0 +1,115 @@
+{
+  "schema": "v17.scenario.v1",
+  "id": "b01a_deploy_demo",
+  "title": "B01A 部署演示",
+  "own_entity": "apsis",
+  "frame": "bary_rot",
+  "physics_world": true,
+  "ship_catalog": true,
+  "ew_service": true,
+  "identification_service": {
+    "auto": {
+      "enabled": false
+    }
+  },
+  "entities": [
+    {
+      "id": "legacy_ship",
+      "kind": "ship",
+      "name": "legacy",
+      "batch": "9000",
+      "pos_km": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "vel_kmps": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "apsis",
+      "name": "APSIS"
+    }
+  ],
+  "links": [],
+  "fleet_formation": {},
+  "fleet_refit": {},
+  "command_domains": [
+    {
+      "domain_id": "player",
+      "kind": "player",
+      "controller_id": "player_ctrl",
+      "intel_owner_id": "player_intel",
+      "fleet_id": "own_fleet",
+      "authorized_actors": [
+        "player_ctrl"
+      ]
+    },
+    {
+      "domain_id": "ally",
+      "kind": "ai_ally",
+      "controller_id": "ally_ai",
+      "intel_owner_id": "ally_intel",
+      "fleet_id": "ally_fleet",
+      "authorized_actors": [
+        "ally_ai"
+      ]
+    },
+    {
+      "domain_id": "opfor",
+      "kind": "ai_hostile",
+      "controller_id": "opfor_ai",
+      "intel_owner_id": "opfor_intel",
+      "fleet_id": "enemy_fleet",
+      "authorized_actors": [
+        "opfor_ai"
+      ]
+    }
+  ],
+  "fleet_instances": [
+    {
+      "entity_instance_id": "apsis",
+      "domain_id": "player",
+      "fleet_id": "own_fleet"
+    }
+  ],
+  "deployment": {
+    "scenario_id": "DEMO-A",
+    "deployment_seed": 424242,
+    "auto": true,
+    "selection": {
+      "ships": [
+        {
+          "slot": "command",
+          "ship_id": "APSIS",
+          "instance_id": "apsis"
+        },
+        {
+          "slot": "screen",
+          "ship_id": "HARMATTAN",
+          "instance_id": "harmattan"
+        },
+        {
+          "slot": "gun",
+          "ship_id": "FERRY",
+          "instance_id": "ferry"
+        },
+        {
+          "slot": "logistics",
+          "ship_id": "DEEPWELL",
+          "instance_id": "deepwell"
+        },
+        {
+          "slot": "relay",
+          "ship_id": "WATCHTOWER",
+          "instance_id": "watchtower"
+        }
+      ]
+    }
+  }
+}

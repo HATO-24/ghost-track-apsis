@@ -661,11 +661,46 @@ func _deployment_cfg_from_seed() -> Dictionary:
 		"authorized_domains": auth["domains"]}
 
 
+func _deployment_ship_configs() -> Dictionary:
+	var out: Dictionary = {}
+	if fleet_formation == null:
+		return out
+	var ships: Array = roster_ships_for_deploy() if has_method("roster_ships_for_deploy") else []
+	for raw in ((fleet_formation.ships if fleet_formation != null else []) as Array):
+		if not (raw is Dictionary):
+			continue
+		var row: Dictionary = raw
+		var sid := String(row.get("ship_id", ""))
+		if sid == "":
+			continue
+		var rstate: Dictionary = {}
+		if fleet_refit != null and fleet_refit.has_method("refit_state"):
+			rstate = fleet_refit.refit_state(sid)
+		out[sid] = {"refit_state": (row.get("refit_state", {}) as Dictionary).duplicate(true) \
+				if row.get("refit_state") is Dictionary else {},
+			"state": rstate.duplicate(true),
+			"source": "fleet_refit" if not rstate.is_empty() else "roster_default",
+			"refit_version": "refit_state_v1"}
+	return out
+
+
+func roster_ships_for_deploy() -> Array:
+	return []
+
+
+func _rebuild_catalog_from_deployment() -> void:
+	entity_catalog = EntityCatalogScript.new({
+		"entities": (_seed.get("entities", []) as Array).duplicate(true),
+		"source": "deployment"})
+	if not bool(entity_catalog.ready):
+		errors.append("deployment_catalog_invalid: " + str(entity_catalog.errors))
+
 func _setup_deployment_from_seed() -> void:
 	var cfg: Dictionary = _deployment_cfg_from_seed()
 	if cfg.is_empty():
 		return
 	deployment_service = DeploymentServiceScript.new(cfg)
+	deployment_service.set_ship_configs(_deployment_ship_configs())
 	if not bool(deployment_service.ready):
 		errors.append("deployment_invalid: " + str(deployment_service.errors))
 		_deployment_enabled = false
@@ -757,6 +792,7 @@ func _apply_deployment_runtime(plan: Dictionary) -> Dictionary:
 func fleet_deployment_plan(selection) -> Dictionary:
 	if deployment_service == null:
 		return {"ok": false, "reason": "no_deployment"}
+	deployment_service.set_ship_configs(_deployment_ship_configs())
 	return deployment_service.plan(selection)
 
 
@@ -766,6 +802,15 @@ func fleet_deploy(selection, opts := {}) -> Dictionary:
 	var o: Dictionary = opts if opts is Dictionary else {}
 	if not bool(o.get("confirm", false)):
 		return {"ok": false, "reason": "confirm_required"}
+	if deployment_service.is_committed():
+		var c0: Dictionary = deployment_service.committed()
+		if deployment_service.matches_selection(selection):
+			return {"ok": true, "reason": "already_deployed",
+				"revision": String(c0.get("revision", "")),
+				"deployment": c0, "already": true}
+		return {"ok": false, "reason": "deployment_locked",
+			"deployed_revision": String(c0.get("revision", ""))}
+	deployment_service.set_ship_configs(_deployment_ship_configs())
 	var p: Dictionary = deployment_service.plan(selection)
 	if not bool(p.get("ok", false)):
 		return {"ok": false, "reason": String(p.get("reason", "invalid_selection")),
