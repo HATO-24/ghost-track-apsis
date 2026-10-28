@@ -153,6 +153,8 @@ var _seed: Dictionary = {}
 var _log: Array = []
 var _replaying := false
 var _standalone: Dictionary = {}   # delivery_id -> {from,to,mode,text_key,sent_t}
+var _comms_event_ids: Dictionary = {}   # 本 tick 已收到真实结果的 delivery_id
+var _comms_legacy_unknown := 0
 var _tick_events: Array = []
 var _last_time_s := 0.0
 
@@ -297,6 +299,13 @@ func boot(config := {}) -> Dictionary:
 		"comms_text_key": String(_seed.get("comms_text_key", "COMMS_SENT")),
 	})
 	_setup_optional_components()
+	# JC-A04：三条真实发送入口共用同一 Comms；EW 采样/确定性 RNG 在此接线。
+	if comms != null and ew_service != null:
+		comms.set_ew_service(ew_service)
+	if comms != null:
+		comms.set_ew_rng(int(_seed.get("comms_ew_seed", 0)))
+	if orders != null:
+		orders.set_comms_event_sink(Callable(self, "_on_comms_events"))
 	var extra_ok := true
 	if _track_enabled and track_table != null and not bool(track_table.ready):
 		extra_ok = false
@@ -2263,8 +2272,11 @@ func _flush_identification_outputs() -> Dictionary:
 	return out
 
 # A-06：通信操作 outcome 记录版本（读档重放时逐项核对）
-const COMMS_OUTCOME_SCHEMA := "v17.comms_outcome.v1"
-const COMMS_OUTCOME_VERSION := 1
+# JC-A04：v2 增加发送时刻 EW 采样；v1 作为合法旧档迁移（EW 接线前语义）。
+const COMMS_OUTCOME_SCHEMA := "v17.comms_outcome.v2"
+const COMMS_OUTCOME_SCHEMA_V1 := "v17.comms_outcome.v1"
+const COMMS_OUTCOME_VERSION := 2
+const COMMS_OUTCOME_VERSION_LEGACY := 1
 
 const ROUTABLE_TYPES := ["story.flag", "story.evidence", "story.choice",
 	"track.observation", "track.evidence"]
@@ -3115,6 +3127,10 @@ func send_comms(from_id: String, to_id: String, mode := "LD",
 				if res.get("path") is Array else [],
 			"latency_s": float(res.get("latency_s", 0.0)),
 			"relay_count": int(res.get("relay_count", 0)),
+			"latency_base_s": float(res.get("latency_base_s", 0.0)),
+			"latency_ew_add_s": float(res.get("latency_ew_add_s", 0.0)),
+			"ew": (res.get("ew", {}) as Dictionary).duplicate(true) \
+				if res.get("ew") is Dictionary else {},
 			"arrive_t": float(res.get("arrive_t", -1.0)),
 			"sent_t": now_s(),
 		}})
@@ -3157,6 +3173,22 @@ func set_link(a: String, b: String, opts := {}) -> Dictionary:
 ## 直接查询通信 pending（只读；用于上层观察，不改变状态）。
 func comms_pending() -> Array:
 	return (comms.pending as Array).duplicate(true) if comms != null else []
+
+
+# JC-A04：确定性 EW 抽样状态（seed/seq）与测试注入入口（仅测试用，不公开）。
+func comms_ew_state() -> Dictionary:
+	return comms.ew_rng_state() if comms != null else {}
+
+
+func comms_debug_force_draw(x: float) -> bool:
+	if comms == null or not comms.has_method("debug_force_draw"):
+		return false
+	comms.debug_force_draw(x)
+	return true
+
+
+func comms_legacy_unknown_count() -> int:
+	return _comms_legacy_unknown
 
 # ── 事件发布 / 事件一致性 ───────────────────────────────────────
 
@@ -3206,6 +3238,51 @@ func _pending_ids() -> Dictionary:
 			out[String((raw as Dictionary).get("delivery_id", ""))] = true
 	return out
 
+# JC-A04：真实 comms 结果回调（由 OrderService.tick 在唯一 Comms 推进后转发）。
+# delivered/failed 决定 session 事件、共享融合与成功只消费一次；pending 消失不再当送达。
+func _on_comms_events(events: Array) -> void:
+	for raw in events:
+		if not (raw is Dictionary):
+			continue
+		var ev: Dictionary = raw
+		var kind := String(ev.get("kind", "")).to_lower()
+		var did := String(ev.get("delivery_id", ""))
+		if did == "":
+			continue
+		_comms_event_ids[did] = true
+		if not _standalone.has(did):
+			# 非 standalone 投递（订单）由 OrderService 自行按真实结果消费；
+			# 这里只清理可能残留的共享登记，且不发布假 delivered。
+			if kind == "failed":
+				_pending_intel_shares.erase(did)
+			continue
+		var info: Dictionary = _standalone[did]
+		if kind == "delivered":
+			_publish(_mk_event("comms.delivered", String(info.get("to", "")), {
+				"delivery_id": did, "from": String(info.get("from", "")),
+				"to": String(info.get("to", "")), "mode": String(info.get("mode", "")),
+				"text_key": String(info.get("text_key", "")),
+				"latency_s": float(info.get("latency_s", 0.0)),
+				"ew": (ev.get("ew", {}) as Dictionary).duplicate(true) \
+					if ev.get("ew") is Dictionary else {},
+			}))
+			# JC-A01/R4：共享只在**真实 delivered** 后融合一次。
+			_deliver_intel_share(did, info)
+		elif kind == "failed":
+			_publish(_mk_event("comms.failed", String(info.get("to", "")), {
+				"delivery_id": did, "from": String(info.get("from", "")),
+				"to": String(info.get("to", "")), "mode": String(info.get("mode", "")),
+				"text_key": String(info.get("text_key", "")),
+				"reason": String(ev.get("reason", "comms_failed")),
+				"ew": (ev.get("ew", {}) as Dictionary).duplicate(true) \
+					if ev.get("ew") is Dictionary else {},
+			}))
+			_pending_intel_shares.erase(did)
+		else:
+			continue
+		_standalone.erase(did)
+
+
 func _reconcile_standalone(before_ids: Array) -> void:
 	if comms == null:
 		return
@@ -3216,16 +3293,19 @@ func _reconcile_standalone(before_ids: Array) -> void:
 			continue
 		if pending_now.has(id):
 			continue
+		if _comms_event_ids.has(id):
+			continue
+		# 旧档/历史无真实结果：明确标记未验证，绝不发布假 delivered。
 		var info: Dictionary = _standalone[id]
-		_publish(_mk_event("comms.delivered", String(info.get("to", "")), {
+		_comms_legacy_unknown += 1
+		_publish(_mk_event("comms.unknown_outcome", String(info.get("to", "")), {
 			"delivery_id": id, "from": String(info.get("from", "")),
 			"to": String(info.get("to", "")), "mode": String(info.get("mode", "")),
-			"text_key": String(info.get("text_key", "")),
+			"reason": "no_delivery_outcome",
 		}))
+		_pending_intel_shares.erase(id)
 		_standalone.erase(id)
-		# JC-A01/R4：若该投递承载情报共享，则**到达后**才把它融合进接收 owner。
-		# 传 info 而非字符串时延，避免 String() 对非字符串字段的非法构造。
-		_deliver_intel_share(id, info)
+	_comms_event_ids.clear()
 
 # ── PortService 委托（可选）─────────────────────────────────────
 
@@ -6132,6 +6212,9 @@ func load_state(json_text: String) -> Dictionary:
 		return {"ok": false, "reason": "boot_failed", "errors": errors.duplicate()}
 	_replaying = true
 	_comms_restore = []
+	# JC-A04：重放从头开始确定抽样，seed 取存档 seed（默认 0），保证同档同序同 draw。
+	if comms != null and seed is Dictionary:
+		comms.reset_ew_rng(int((seed as Dictionary).get("comms_ew_seed", 0)))
 	var replay_errors: Array = []
 	for raw in (log as Array):
 		if not (raw is Dictionary):
@@ -6583,8 +6666,23 @@ func _replay_send_comms(op: Dictionary) -> Dictionary:
 	var text_key := String(op.get("text_key", "COMMS_SENT"))
 	var payload = op.get("payload", {})
 	var opts = op.get("opts", {})
+	# JC-A04：v1 outcome 是 EW 接线前的原始结果；重放须同样忽略 EW（迁移语义），
+	# 否则旧档会被新 EW 误解成 divergence。v2 才按冻结 EW 采样重放比较。
+	var early_out = op.get("outcome", null)
+	var legacy_v1 := false
+	if early_out is Dictionary:
+		var eo: Dictionary = early_out
+		var ever = eo.get("version", null)
+		if String(eo.get("schema", "")) == COMMS_OUTCOME_SCHEMA_V1 \
+				and (ever is int or ever is float) \
+				and int(roundf(float(ever))) == COMMS_OUTCOME_VERSION_LEGACY:
+			legacy_v1 = true
+	var replay_opts: Dictionary = (opts as Dictionary).duplicate(true) \
+		if opts is Dictionary else {}
+	if legacy_v1:
+		replay_opts["ignore_ew"] = true
 	var res: Dictionary = send_comms(from_id, to_id, mode, text_key,
-		payload if payload is Dictionary else {}, opts if opts is Dictionary else {})
+		payload if payload is Dictionary else {}, replay_opts)
 	var row: Dictionary = {
 		"from": from_id, "to": to_id, "mode": mode, "text_key": text_key,
 		"replay_ok": bool(res.get("ok", false)),
@@ -6604,13 +6702,40 @@ func _replay_send_comms(op: Dictionary) -> Dictionary:
 			oc_problems.append("outcome must be an object")
 		else:
 			var oc: Dictionary = rec_outcome
-			if String(oc.get("schema", "")) != COMMS_OUTCOME_SCHEMA:
-				oc_problems.append("outcome.schema unsupported: " + String(oc.get("schema", "")))
+			var oc_schema := String(oc.get("schema", ""))
 			var oc_ver = oc.get("version", null)
-			if not (oc_ver is int or oc_ver is float) or not is_finite(float(oc_ver)) \
-					or absf(float(oc_ver) - roundf(float(oc_ver))) > 0.0 \
-					or int(roundf(float(oc_ver))) != COMMS_OUTCOME_VERSION:
-				oc_problems.append("outcome.version unsupported: " + str(oc_ver))
+			var oc_ver_int := -1
+			if oc_ver is int or oc_ver is float:
+				if is_finite(float(oc_ver)) \
+						and absf(float(oc_ver) - roundf(float(oc_ver))) <= 0.0:
+					oc_ver_int = int(roundf(float(oc_ver)))
+			var oc_ok_v2 := oc_schema == COMMS_OUTCOME_SCHEMA \
+				and oc_ver_int == COMMS_OUTCOME_VERSION
+			var oc_ok_v1 := oc_schema == COMMS_OUTCOME_SCHEMA_V1 \
+				and oc_ver_int == COMMS_OUTCOME_VERSION_LEGACY
+			if not oc_ok_v2 and not oc_ok_v1:
+				oc_problems.append("outcome.schema/version unsupported: "
+					+ oc_schema + "@" + str(oc_ver))
+			if oc_ok_v2:
+				var ewv = oc.get("ew", null)
+				if not (ewv is Dictionary):
+					oc_problems.append("outcome.ew must be an object for v2")
+				else:
+					var ewdd: Dictionary = ewv
+					for ef in ["jam_severity", "latency_add_s", "failure_chance", "draw"]:
+						var evn = ewdd.get(ef, null)
+						if not (evn is int or evn is float) or not is_finite(float(evn)):
+							oc_problems.append("outcome.ew.%s must be a finite number" % ef)
+					if not (ewdd.get("will_fail", null) is bool):
+						oc_problems.append("outcome.ew.will_fail must be bool")
+				for lf in ["latency_base_s", "latency_ew_add_s"]:
+					var lv = oc.get(lf, null)
+					if not (lv is int or lv is float) or not is_finite(float(lv)):
+						oc_problems.append("outcome.%s must be a finite number" % lf)
+				row["legacy_outcome_v1"] = false
+			else:
+				# v1：EW 接线前的合法旧记录，明确标记迁移（不是 legacy_unverified）
+				row["legacy_outcome_v1"] = true
 			if not (oc.get("ok", null) is bool):
 				oc_problems.append("outcome.ok must be bool")
 			for sf in ["reason", "mode", "delivery_id"]:
@@ -6663,6 +6788,25 @@ func _replay_send_comms(op: Dictionary) -> Dictionary:
 			diverge.append("arrive_t")
 		if JSON.stringify(ro.get("path", [])) != JSON.stringify(row["replay_path"]):
 			diverge.append("path")
+		# JC-A04：v2 重放必须核对发送时刻冻结的 EW 采样（draw/will_fail/
+		# latency add），旧 v1 只核对迁移前的基础字段且显式标记 legacy。
+		if legacy_v1:
+			row["legacy_outcome_v1"] = true
+		else:
+			var rec_ew: Dictionary = ro.get("ew", {}) if ro.get("ew") is Dictionary else {}
+			var res_ew: Dictionary = res.get("ew", {}) \
+				if res.get("ew") is Dictionary else {}
+			for ek in ["jam_severity", "latency_add_s", "failure_chance", "draw"]:
+				if absf(float(rec_ew.get(ek, -1.0)) - float(res_ew.get(ek, -2.0))) \
+						> 1.0e-9:
+					diverge.append("ew." + ek)
+			if bool(rec_ew.get("will_fail", false)) \
+					!= bool(res_ew.get("will_fail", true)):
+				diverge.append("ew.will_fail")
+			for lk in ["latency_base_s", "latency_ew_add_s"]:
+				if absf(float(ro.get(lk, -1.0)) - float(res.get(lk, -2.0))) \
+						> 1.0e-6:
+					diverge.append(lk)
 		row["expected_failure"] = not rec_ok
 		row["divergence"] = diverge
 		row["matched"] = diverge.is_empty()
@@ -6684,11 +6828,14 @@ func comms_restore_report() -> Dictionary:
 	var matched := 0
 	var expected_failures := 0
 	var legacy := 0
+	var legacy_v1 := 0
 	var diverged := 0
 	for raw in _comms_restore:
 		if not (raw is Dictionary):
 			continue
 		var r: Dictionary = raw
+		if bool(r.get("legacy_outcome_v1", false)):
+			legacy_v1 += 1
 		if bool(r.get("legacy_unverified", false)):
 			legacy += 1
 			continue
@@ -6705,6 +6852,7 @@ func comms_restore_report() -> Dictionary:
 		"matched_success": matched,
 		"matched_expected_failure": expected_failures,
 		"legacy_unverified": legacy,
+		"legacy_outcome_v1": legacy_v1,
 		"diverged": diverged,
 		"losless_claim": false,
 		"note": "original failures are preserved as failures; only divergences are recovery errors",
@@ -7268,8 +7416,9 @@ func _deliver_intel_share(delivery_id: String, info := {}) -> void:
 		String(pend.get("owner_id", "")), row, delivery)
 	_last_intel_share_result = {"delivery_id": delivery_id,
 		"result": rr.duplicate(true), "delivery": delivery.duplicate(true)}
-	if bool(rr.get("ok", false)):
-		_pending_intel_shares.erase(delivery_id)
+	# JC-A04：真实 delivered 只消费一次；即使 owner 拒绝融合（授权/时间等原因）
+	# 也清除待融合，避免同一真实结果被重复消费或 pending 消失被误判为成功。
+	_pending_intel_shares.erase(delivery_id)
 
 
 ## R4 诊断：最近一次共享到达的判定结果
