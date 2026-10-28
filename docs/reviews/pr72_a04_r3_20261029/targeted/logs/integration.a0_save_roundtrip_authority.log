@@ -1,0 +1,136 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+A0-T3 SAVE ROUNDTRIP AUTHORITY PROBE · real entry main_menu → v1_hud
+Godot 4.7.2-stable (official) · profile=orbital_sim
+════════════════════════════════════════════════════════════════
+
+[A0-T3] STEP 1. real entry main_menu → v1_hud
+[A0-T3] PASS change_scene_to_file(main_menu) == OK  err=0
+AUDIO OK files=36 headless=true muted=false
+[MAIN MENU] BUILD=orbital_sim → skip to res://v1_hud.tscn
+[BUILD PROFILE] id=orbital_sim mode=simulator scene=res://v1_hud.tscn scenario=res://framework/content/scenario_orbital_sim.json save_root=user://saves_sim
+[BUILD PROFILE] SYSTEM story=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM prelude=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM triggers=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM identification=ON
+[BUILD PROFILE] SYSTEM traffic=ON
+[BUILD PROFILE] SYSTEM port=ON
+[BUILD PROFILE] SYSTEM signal=ON
+[BUILD PROFILE] SYSTEM combat=ON
+[BUILD PROFILE] SYSTEM ballistics=ON
+[BUILD PROFILE] SYSTEM damage=ON
+[BUILD PROFILE] SYSTEM physics_world=ON
+[BUILD PROFILE] SYSTEM sandbox=OFF reason=非测试剖面
+[BUILD PROFILE] SYSTEM ship_catalog=ON
+[BUILD PROFILE] SYSTEM refit=ON
+[BUILD PROFILE][LIMITATION] 轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。
+[BUILD PROFILE][LIMITATION] EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。
+[BUILD PROFILE][LIMITATION] UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。
+[SHELL BINDER] BUILD profile=orbital_sim mode=simulator label=GHOST TRACK // APSIS — ORBITAL SIM save_root=user://saves_sim
+[SHELL BINDER] SANDBOX entities=7 scenario=res://framework/content/scenario_orbital_sim.json
+[SHELL BINDER] SYSTEMS physics=true sensors=true track_table=true combat=true ballistics=true damage=true ew=true identification=true traffic=true port=true ship_catalog=true refit=true story=disabled
+[SHELL BINDER] CeresChain ready state=L1 entity=ceres_2 texts=9 code=7600
+[SHELL BINDER] ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0
+[SHELL BINDER] AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=19 threat=0 trust=0
+[SHELL BINDER] AfterActionReport ready branches=6 templates=3
+[SHELL BINDER] TrafficControl source=session ready=true lanes=18 otc=19 npc=6
+[SHELL BINDER] physics ready=true plot_source=intel positions=0 facilities=12 facility_source=facility_registry_l1
+[SHELL BINDER] fleet_data ready=true friendly=8 enemy=24 total=32
+[SHELL BINDER] refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL
+[SHELL BINDER] CICView ready=true truth=false tracks=2 levels={ "1": 0, "2": 2, "3": 0, "4": 0 } facilities=110
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[V1 HUD] binder boot=true errors=[] contacts=2 orders=0
+[V1 HUD] COMMS seed LD=true LR=false events=2
+[V1 HUD] COMBAT source=session sandbox={ "unlimited_ammo": false, "auto_authorize": false }
+[V1 HUD] COMBAT tracks=2 weapons=5 target=T0001 weapon=missile
+[V1 HUD] damage_model=true sections=7 combat=true roe=TIGHT roe_locked=true
+[SHELL BINDER] plot_bodies source=physics earth=[-326389.684568483, -0.0, 0.0] moon=[58010.3154315171, -0.0, 0.0]
+[SHELL BINDER] plot_sensors ready=true rings=4 obs=4 tws=2 emcon=false ew_ready=true
+[SHELL BINDER] plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=2 solutions=0 grants=0 incoming=0 pred=true
+[SHELL BINDER] plot_commands ready=true orders=0 pending=0 transmitted=0 executed=0
+[V1 PLOT3D] labels=18 conflicts=6 hidden_facility=8 bodies=physics
+[A0-T3] PASS real entry passed main_menu  saw=true frames=3
+[A0-T3] PASS current_scene is V1HUD with v1_hud.gd  res://v1_hud.tscn
+[A0-T3] PASS ShellBinder ready
+[A0-T3] PASS GameSession available
+[A0-T3] PASS PhysicsWorld enabled
+[A0-T3] PASS SensorService enabled
+[A0-T3] PASS TrackTable enabled
+[A0-T3] PASS scenario truth table has 7 entities  actual=7 expected=7
+
+[A0-T3] STEP 2. drive 5 ticks on the live HUD session, then save
+[A0-T3] PASS tick 1 ok  reason=
+[A0-T3] PASS tick 2 ok  reason=
+[A0-T3] PASS tick 3 ok  reason=
+[A0-T3] PASS tick 4 ok  reason=
+[A0-T3] PASS tick 5 ok  reason=
+[A0-T3] PASS live session save_state non-empty  len=240739
+
+[A0-T3] STEP 3. physics/world roundtrip: numeric error <= 0.000000001
+[A0-T3] PASS live HUD session save→load ok (real entry roundtrip)  errors=[]
+[A0-T3] INFO A0-T3 BASELINE: live session load ok=true errors=[]
+[A0-T3] PASS roundtrip fixture session ready  []
+[A0-T3] PASS fixture started an optical channel
+[A0-T3] PASS fixture started an ir channel
+[A0-T3] INFO A0-T3 SENSOR fixture: initial emcon=false radar=true
+[A0-T3] PASS EMCON actually toggled to the opposite state before save  initial=false mutated=true
+[A0-T3] PASS radar_enabled is the inverse of emcon after explicit toggle  emcon=true radar=false
+[A0-T3] PASS fixture produces non-empty sensor channels  n=3
+[A0-T3] INFO A0-T3 SENSOR fixture: mutated emcon=true radar=false channels=3
+[A0-T3] PASS fixture save_state non-empty  len=66752
+[A0-T3] INFO A0-T3 SENSOR fixture: save_has_sensor_service=true
+[A0-T3] PASS fixture load_state ok  errors=[]
+[A0-T3] PASS loaded session has PhysicsWorld
+[A0-T3] PASS physics r/v roundtrip within 1e-9  violations=[]
+[A0-T3] PASS world pos roundtrip within 1e-9  violations=[]
+
+[A0-T3] STEP 4. track roundtrip
+[A0-T3] PASS track count preserved  actual=1 expected=1
+[A0-T3] PASS track identity preserved: T0001  actual=unknown expected=unknown
+[A0-T3] PASS track numeric roundtrip within 1e-9  violations=[]
+
+[A0-T3] STEP 5. JSON numeric contract + restored runtime types (A-00 协调后口径)
+[A0-T3] PASS raw JSON bus/event seq are finite integral values within 0..2^53-1 (value semantics, not Variant type)  violations=[]
+[A0-T3] PASS raw JSON event seq strictly increasing  violations=[]
+[A0-T3] PASS restored runtime event seq is a real GDScript int (no type drift)  violations=[]
+[A0-T3] PASS NEGATIVE: illegal seq shapes are rejected by the numeric contract  violations=[]
+[A0-T3] PASS identification integer config stays int  violations=[]
+
+[A0-T3] STEP 6. SensorService runtime state persistence (EMCON / radar / channels)
+[A0-T3] PASS save payload contains sensor_service runtime snapshot
+[A0-T3] PASS SensorService runtime state persists across save/load (EMCON + radar + full channel content)  violations=[]
+[A0-T3] INFO A0-T3 BASELINE: saved emcon=true radar=false; loaded emcon=true radar=false; save_has_sensor=true
+
+[A0-T3] STEP 7. save → load → save canonical equality
+[A0-T3] PASS save→load→save canonical equality  diff_count=0 sample=[]
+
+[A0-T3] STEP 8. 1000-tick save performance (INFO evidence)
+[A0-T3] PASS perf session ready  []
+[A0-T3] INFO A0-T3 PERF: 1000 ticks=89ms save=10ms (27063 bytes) load=107ms ok=true
+[A0-T3] PASS 1000-tick save non-empty  len=27063
+[A0-T3] PASS 1000-tick load completed  ms=107
+[A0-T3] INFO A0-T3 PERF NOTE: 存档体积与读档时间随 tick 线性增长（A0 C4 已记录），本探针只记录实测值
+
+[A0-T3] STEP 9. A0-T3 baseline evidence summary (expected Phase A failures)
+[A0-T3] INFO A0-T3 BASELINE: physics_violations=0 world_violations=0 track_violations=0
+[A0-T3] INFO A0-T3 BASELINE: int_drift=0 ident_type_drift=0 sensor_persist_violations=0 canonical_diff=0
+────────────────────────────────────────────────────────────────
+A0-T3 SAVE ROUNDTRIP AUTHORITY PROBE RESULT: PASS=41 FAIL=0
+A0-T3 SAVE ROUNDTRIP AUTHORITY PROBE OK
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+
+--- STDERR ---
+WARNING: 169 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 31 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

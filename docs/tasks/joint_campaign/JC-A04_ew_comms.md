@@ -2,7 +2,52 @@
 
 执行Issue：[JC-A04 #61](https://github.com/HATO-24/ghost-track-apsis/issues/61)。
 
-状态：READY，A1/A3前置已满足；下一张核心实现卡，交付A4。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：DONE（第四轮独立放行）；A4已冻结并合入，#61完成。下一张既有卡B01A/#62已备好，未自动启动实现。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-29 PR72第四轮：PASS，A4放行
+
+A4冻结`af924d09f5c1d763f8d2556cd94062134ef3c456`，PR72合入main`1b483e0f2f2a9bfdaa100caf2ee6742091193204`，完整tree与被审候选一致。[独立证据与交接](../../reviews/pr72_a04_r4_20261029/review.md)。原R1现代缺省新发送已拒绝非本方无上下文请求，同时保留现代own默认、独立ally合法上下文和真正旧seed/日志；R1显式子项/R2/R3/R4及真实callback关闭结论均保留，不再派发。
+
+根8专项8/8、新141/0；原C Phase0 6/6、PhaseA3/3、full91=84PASS/7历史FAIL、new_fail0/drift0/complete=true、退出0，同head CI三个job成功。七历史baseline未刷新。#61完成，下一张既有[B01A/#62](JC-B01A_deployment.md)准备好，从包含上述A4合入的最新main开始；本轮不自动启动下一实现。下面前三轮为复核历史，以本轮放行表为准。
+
+## 2026-10-29 PR72第三轮：R2/R4关闭，仅现代缺省发送一处
+
+被审`563e97a61bc00d31104ad6db969edfe87f2fc25f`，[本轮关闭表与原始证据](../../reviews/pr72_a04_r3_20261029/review.md)。根8/8专项、新131/0、退出0；同head CI三个job成功，full91=84PASS/7历史FAIL、new_fail0/drift0/complete=true、退出0。
+
+**不再返工**：R1显式ally/player、enemy/player、own/opfor三错配与原非法订单已拒绝；R2普通ignore_ew拒绝且无pending，v1内部重放保持2s旧语义；R4缺pending.ew/version2.5拒绝不改服务状态，正式合法fresh共享精确due 0→1/后续不增；R3 RNG/seed/真实文件及所有已过callback继续关闭。
+
+仅原R1缺省分支：同一现代command_domains/fleet_instances seed下，ally_ship+opts{}、enemy_ship+省略opts仍成功并t2投递；没有load/replay。_authorize_comms_sender只凭缺ctx提前legacy放行。现代新发送应从可信本方锚点解析合法上下文或明确拒绝缺少所需上下文，不能因省略字段降为旧兼容。保留现代own默认、独立ally显式合法上下文、真正旧seed/已验证旧日志及v1迁移，不扩B2或全禁旧调用。
+
+补此入口的实际对照，最终同40位修复HEAD专项+原C；已关闭R1子项/R2/R3/R4与实际链路不重派，七历史baseline和旧ID不动。PR72暂缓合并、A4未冻结，B01A仍等A4。下面前两轮为历史，以最新关闭表为准；代码DeepSeek，任务/UI设计文档GPT/Sol。
+
+## 2026-10-29 PR72第二轮：关闭RNG恢复，仅三组原残项
+
+被审`bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72`（交付前加固版），[本轮关闭表与独立证据](../../reviews/pr72_a04_r2_20261029/review.md)。根8/8专项、新106/0、退出0；同head CI后续回读三个job成功、full91=84PASS/7历史FAIL、new_fail0/drift0/complete=true；独立实际残例仍阻止放行。
+
+**R3整组CLOSED，不再返工**：v2实际提交RNG，seed123/seq1恢复与下一draw一致；queue_intel_share无send日志的真实文件fresh load后seq1、下一draw.3099697774一致；配置seed已保留、v1实际migrated_v1。三入口/唯一推进/真实回调、失败订单不执行、合法fresh共享精确due只融合一次，以及已补的冻结字段/时延一致性校验全部保留。
+
+仅继续原三组：
+
+1. **R1**：已登记ally/player、enemy/player、own/opfor错配仍送达，enemy→own订单带player上下文仍QUEUED。校验sender对应actor/controller/fleet/owner，保留own/player、ally/ally与旧seed；不夸大自动执行、不扩B2策略。
+2. **R2**：普通ignore_ew仍把22s/.4改为2s/0成功；限制到已验证v1内部迁移/重放，保留旧outcome兼容。
+3. **R4剩余**：删除v2 pending.ew仍ok并将原失败改DELIVERED；version2.5仍接受。区分真正v1与损坏v2，严格版本拒绝不改该状态。正式success share改正确owner授权/fresh row并断言obs0→1与后续不增，实际生产融合已关闭，仅补验收。保留null/version99拒绝及已补单字段一致性校验。
+
+新S8/S9确实执行、正式106/0，不因它放在_info内另派缺陷。最终同40位修复HEAD专项+原C；七历史baseline和旧ID不刷新/删除。PR72暂缓合并、A4不冻结，继续原#61。下方首轮为历史，以本轮关闭表为准，R3不重派。代码DeepSeek，任务/UI设计文档GPT/Sol。
+
+## 2026-10-29 PR72首轮：保留真实链路，只补发送边界与恢复
+
+被审`1de99a85c4f69dca706509648450487197523ab5`，base/main`4e4f90f9eb4964503a61dd915cb1c445294b10a5`。[独立关闭表与原始证据](../../reviews/pr72_a04_20261029/review.md)。根8/8专项PASS、新probe79/0；同head合成merge CI full91=84PASS/7历史FAIL、new_fail0、drift0、complete=true。仍有真实API/文件反例，PR72暂缓合并、A4不冻结。
+
+**已关闭、不返工**：三入口共用Comms与唯一推进；纯jam=.5额外20s/.4及发送后effect消失不改冻结结果；真实失败回调；失败订单精确due后拒绝执行；合法新鲜共享精确due融合0→1且后续只一次；现有v1兼容、原no_route失败重放、null/未知版本的服务级拒绝正例。
+
+仅继续原卡四组：
+
+1. **R1 sender权限上下文**：已登记ally/player、enemy/player、own/opfor错配都accepted并实际送达，enemy发出的player上下文订单进QUEUED。校验真实sender与actor/controller/fleet/owner，不仅拒绝未知ghost；保留own/player、ally/ally与旧seed正例。不声称已自动执行或授开火权，不扩B2策略。
+2. **R2 迁移开关边界**：普通send opts.ignore_ew=true可将active jam的22s/.4失败消息变2s/0成功。限于已验证v1内部迁移/重放，普通请求不能绕过；保留旧outcome兼容。
+3. **R3 RNG实际恢复**：Comms.load_state计算新seed/seq未提交；queue_intel_share无send日志的真实文件保存seq1、load后seq0，下一draw .3099697774/.9283047560不一致；配置comms_ew_seed也被normalize丢弃。修实际状态提交/初始化与配置保留，覆盖不同入口，不靠send日志重放巧合通过。
+4. **R4 v2严格校验及正式正例**：删真实pending.ew仍ok/full，把冻结失败改DELIVERED；state version2.5也接受。区分真正v1与损坏v2，拒绝不改该状态。保留null/version99拒绝；正式success share改合法owner授权与fresh row，明确obs0→1/后续不增，不能只INFO 0→0。实际生产成功融合已关闭，只补验收。
+
+最终同40位修复HEAD专项+原C，原79绿项/注册ID保留，七历史baseline不刷新。交付报告须区分effect层spoof查询与未接真实消息，不虚称migrated_v1模式。下面A3开工交接与原八段合同保持，不新增AI/UI/RF/禁射范围。代码及返修DeepSeek，任务/UI设计文档GPT/Sol。
 
 ## 2026-10-28 A3放行后的开工交接
 

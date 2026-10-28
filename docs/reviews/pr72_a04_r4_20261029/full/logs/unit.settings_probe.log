@@ -1,0 +1,50 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE4E PROBE · SettingsService
+════════════════════════════════════════════════════════════
+
+── 1 默认值 ──
+
+── 2 get/set/范围 ──
+
+── 3 from_dict/to_dict ──
+
+── 4 save/load/atomic ──
+
+── 5 损坏/迁移 ──
+
+── 6 apply/reset ──
+────────────────────────────────────────────────────────────
+[DATA] defaults = 9 字段默认 · zh/0.8/0.7/0.8/true/1.0/1/windowed/1.0 · 缺文件 defaults
+[DATA] get/set = 9 字段 Object.get/set 兼容 · 边界 · 17 类非法原子拒绝 · 范围 0..1/.5..2/.8..1.5
+[DATA] dict = full/wrapper/partial · 5 类非法原子拒绝 · to_dict 副本/JSON
+[DATA] save = 原子写/tmp 清理/文件 schema · 第二次 save 备份 · load 一致 · 内容确定
+[DATA] corrupt/migrate = 损坏→bak→defaults · legacy/0.9 迁移 · 未来版本/非法字段回退 · save 拒绝
+[DATA] apply/reset = audio/display 接口值 · muted 边界 · reset 默认 · JSON 确定 · 不写 world/UI
+────────────────────────────────────────────────────────────
+V17 SETTINGS PROBE RESULT: PASS=179 FAIL=0
+V17 SETTINGS PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] _parse (res://scripts/core/settings_service.gd:180)
+       [1] load_settings (res://scripts/core/settings_service.gd:101)
+       [2] setup (res://scripts/core/settings_service.gd:75)
+       [3] _init (res://scripts/core/settings_service.gd:57)
+       [4] _svc (res://tests/settings_probe.gd:78)
+       [5] _test_corruption_migration (res://tests/settings_probe.gd:299)
+       [6] _initialize (res://tests/settings_probe.gd:33)
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] _parse (res://scripts/core/settings_service.gd:180)
+       [1] load_settings (res://scripts/core/settings_service.gd:101)
+       [2] setup (res://scripts/core/settings_service.gd:75)
+       [3] _init (res://scripts/core/settings_service.gd:57)
+       [4] _svc (res://tests/settings_probe.gd:78)
+       [5] _test_corruption_migration (res://tests/settings_probe.gd:307)
+       [6] _initialize (res://tests/settings_probe.gd:33)

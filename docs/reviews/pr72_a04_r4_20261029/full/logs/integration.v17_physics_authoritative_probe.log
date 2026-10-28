@@ -1,0 +1,205 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R6-AUTH-1 PROBE · authoritative 物理适配层
+════════════════════════════════════════════════════════════
+
+── 1 三模式 ──
+[PASS] bridge.boot  []
+[PASS] 默认 requested=authoritative  actual=authoritative expected=authoritative
+[PASS] 默认 mode=authoritative  actual=authoritative expected=authoritative
+[PASS] 默认 authoritative.ready=true  actual=true expected=true
+[PASS] 默认 view.mode=authoritative  actual=authoritative expected=authoritative
+[PASS] bridge.boot  []
+[PASS] shadow requested=shadow  actual=shadow expected=shadow
+[PASS] shadow mode=shadow  actual=shadow expected=shadow
+[PASS] shadow 下 authoritative.ready=false  actual=false expected=false
+[PASS] shadow 下 view.mode=shadow  actual=shadow expected=shadow
+[PASS] shadow 下 error 明示未启用  authoritative 未启用（mode=shadow；shadow 只读）
+[PASS] bridge.boot  []
+[PASS] requested=authoritative  actual=authoritative expected=authoritative
+[PASS] mode=authoritative  actual=authoritative expected=authoritative
+[PASS] authoritative ready  actual=true expected=true
+[PASS] authoritative view.ready=true  actual=true expected=true
+[PASS] view.authoritative=true  actual=true expected=true
+[PASS] display_switched=false（显示层未切换）  actual=false expected=false
+[PASS] authoritative 无回落原因  actual= expected=
+[PASS] authoritative view 含字段: schema
+[PASS] authoritative view 含字段: mode
+[PASS] authoritative view 含字段: requested_mode
+[PASS] authoritative view 含字段: ready
+[PASS] authoritative view 含字段: display_switched
+[PASS] authoritative view 含字段: source
+[PASS] authoritative view 含字段: frame
+[PASS] authoritative view 含字段: t
+[PASS] authoritative view 含字段: own
+[PASS] authoritative view 含字段: flagship
+[PASS] authoritative view 含字段: targets
+[PASS] authoritative view 含字段: flags
+[PASS] authoritative view 含字段: warnings
+[PASS] authoritative view 含字段: error
+
+── 2 相对板状态 ──
+[PASS] bridge.boot  []
+[PASS] own=harmattan  actual=harmattan expected=harmattan
+[PASS] own.role=own  actual=own expected=own
+[PASS] own board_r=0  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] own range=0  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] flagship=apsis  actual=apsis expected=apsis
+[PASS] flagship 有 ECI 状态
+[PASS] targets 含 summons_4471
+[PASS] target 存在: summons_4471
+[PASS] target 存在: ceres_2
+[PASS] target 存在: ferry
+[PASS] target 含字段: entity_id
+[PASS] target 含字段: role
+[PASS] target 含字段: source
+[PASS] target 含字段: age_s
+[PASS] target 含字段: state_earth_eci
+[PASS] target 含字段: state_earth_rot
+[PASS] target 含字段: board_r
+[PASS] target 含字段: board_v
+[PASS] target 含字段: range_km
+[PASS] target 含字段: bearing_deg
+[PASS] target 含字段: elevation_deg
+[PASS] target 含字段: finite
+[PASS] target range>0  319.177032470703
+[PASS] |board_r| = range_km  actual=319.177032 expected=319.177032 diff=0.000000
+[PASS] bearing 在 [0,360)  40.3705247772896
+[PASS] elevation 在 [-90,90]
+[PASS] board_r = target earth_rot - own earth_rot  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] frame.inertial  actual=earth_eci expected=earth_eci
+[PASS] frame.rotating  actual=earth_rot expected=earth_rot
+
+── 3 compare ──
+[PASS] bridge.boot  []
+[PASS] compare.ok  actual=true expected=true
+[PASS] compare.authoritative_ready  actual=true expected=true
+[PASS] compare.display_switched=false  actual=false expected=false
+[PASS] compare 含字段: schema
+[PASS] compare 含字段: mode
+[PASS] compare 含字段: requested_mode
+[PASS] compare 含字段: thresholds
+[PASS] compare 含字段: own
+[PASS] compare 含字段: tracks
+[PASS] compare 含字段: summary
+[PASS] compare 含字段: frame_mismatch_note
+[PASS] compare 含字段: source
+[PASS] compared>0  5
+[PASS] summary.compared=rows  actual=5 expected=5
+[PASS] 有对比行  5
+[PASS] 行含字段: track_id
+[PASS] 行含字段: entity_id
+[PASS] 行含字段: physics
+[PASS] 行含字段: v15
+[PASS] 行含字段: errors
+[PASS] errors 为 Dictionary
+[PASS] errors 含 range_km
+[PASS] errors.range_km >=0
+[PASS] errors 含 bearing_deg
+[PASS] errors.bearing_deg >=0
+[PASS] errors 含 position_km
+[PASS] errors.position_km >=0
+[PASS] summary 含 max 误差
+[PASS] within_threshold 为 bool
+[PASS] thresholds 含 range_km
+[PASS] thresholds 含 bearing_deg
+[PASS] thresholds 含 position_km
+[PASS] compare 明示坐标系未切换
+
+── 4 state 字段 ──
+[PASS] bridge.boot  []
+[PASS] state.fw_physics_authoritative 非空
+[PASS] fw_physics_authoritative.ready  actual=true expected=true
+[PASS] state.fw_physics_adapter 非空（fw_sync 自动对比）
+[PASS] fw_physics_adapter.ok  actual=true expected=true
+[PASS] fw_physics_adapter.compared>0
+[PASS] 旧 fw_physics_ready  actual=true expected=true
+[PASS] 旧 fw_nav_ready  actual=true expected=true
+[PASS] fw_physics_mode=authoritative  actual=authoritative expected=authoritative
+[PASS] fw_bridge_state 含 physics_authoritative
+[PASS] fw_bridge_state 含 physics_adapter
+
+── 5 导航 provider ──
+[PASS] bridge.boot  []
+[PASS] authoritative nav l1≈physics 326,381  actual=326380.875000 expected=326381.000000 diff=0.125000
+[PASS] authoritative nav geo=42,164  actual=42164.000000 expected=42164.000000 diff=0.000000
+[PASS] authoritative nav l4=384,400  actual=384400.000000 expected=384400.000000 diff=0.000000
+[PASS] provider 下路线规划仍正常（抽象成本）  actual=true expected=true
+[PASS] 不自动创建/执行机动  actual=0 expected=0
+
+── 6 V15 tracks 不变 ──
+[PASS] bridge.boot  []
+[PASS] V15 轨迹 r 不变  actual=(-190.0, 255.0, 62.0) expected=(-190.0, 255.0, 62.0)
+[PASS] V15 轨迹 v 不变  actual=(-0.05, -0.06, 0.01) expected=(-0.05, -0.06, 0.01)
+[PASS] V15 等级不变  actual=4 expected=4
+[PASS] V15 身份不变  actual=friend expected=friend
+[PASS] V15 clock 不变  actual=760.8 expected=760.8
+[PASS] V15 航迹数不变  actual=8 expected=8
+[PASS] authoritative 仍 ready
+[PASS] fw_sync 后 adapter 更新
+
+── 7 回退 ──
+[PASS] bridge.boot  []
+[PASS] requested=authoritative  actual=authoritative expected=authoritative
+[PASS] 初始化失败回落 mode=shadow  actual=shadow expected=shadow
+[PASS] fallback_reason 明示回落  authoritative 初始化失败（V17_PHYSICS_FORCE_FAIL=1 调试）→ 回落 shadow
+[PASS] 回退后 authoritative.ready=false  actual=false expected=false
+[PASS] 回退后 view.mode=shadow  actual=shadow expected=shadow
+[PASS] view 带 fallback_reason
+[PASS] 回退后 bridge 仍 ready
+[PASS] 回退后 nav 仍 ready
+[PASS] bridge.boot  []
+[PASS] 默认模式恢复 authoritative  actual=authoritative expected=authoritative
+
+── 8 off 模式 ──
+[PASS] bridge.boot  []
+[PASS] off mode  actual=off expected=off
+[PASS] off physics_ready=false  actual=false expected=false
+[PASS] off physics_view 空  actual=0 expected=0
+[PASS] off authoritative.ready=false  actual=false expected=false
+[PASS] off authoritative flag=false  actual=false expected=false
+[PASS] off nav l1 回退 abstract  actual=326283.000000 expected=326283.000000 diff=0.000000
+[PASS] off state.fw_physics_ready=false  actual=false expected=false
+[PASS] off state.fw_physics_mode=off  actual=off expected=off
+[PASS] off fw_physics_adapter 空  actual=0 expected=0
+
+── 9 JSON ──
+[PASS] bridge.boot  []
+[PASS] fw_physics_authoritative JSON  len=9030
+[PASS] authoritative JSON 回读
+[PASS] 回读 own
+[PASS] 回读 targets
+[PASS] 回读 flags
+[PASS] fw_physics_adapter JSON  len=3343
+[PASS] adapter JSON 回读
+[PASS] fw_bridge_state JSON  len=158463
+
+── 10 restart ──
+[PASS] bridge.boot  []
+[PASS] restart 前 physics t>0
+[PASS] restart 后仍 authoritative  actual=authoritative expected=authoritative
+[PASS] restart 后 authoritative ready  actual=true expected=true
+[PASS] restart 后 physics t=0  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] restart 后 nav provider 仍用 physics  actual=326380.875000 expected=326381.000000 diff=0.125000
+────────────────────────────────────────────────────────────
+[DATA] modes = authoritative（默认）/ shadow / off 三模式
+[DATA] relative = own/flagship=apsis/targets=5 · board=earth_rot 相对 own · bearing/elev/age
+[DATA] compare = compared=5 max_range_err=326.455 km · thresholds · 只读
+[DATA] state = fw_physics_authoritative/fw_physics_adapter 只读；旧字段不变
+[DATA] nav = authoritative：节点位置=physics（l1=326,381）；成本仍抽象；不自动执行
+[DATA] v15 = authoritative sync 120s：V15 tracks/等级/身份/clock 不变
+[DATA] fallback = authoritative 初始化失败 → shadow 回落，有 fallback_reason，不崩溃
+[DATA] off = off：无物理、导航回退 abstract、state 字段空，不崩溃
+[DATA] json = authoritative/adapter/bridge_state JSON 可回读
+[DATA] restart = authoritative t=0/ready/provider 重绑，不崩溃
+────────────────────────────────────────────────────────────
+V17 PHYSICS AUTH PROBE RESULT: PASS=159 FAIL=0
+V17 PHYSICS AUTH PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 399 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

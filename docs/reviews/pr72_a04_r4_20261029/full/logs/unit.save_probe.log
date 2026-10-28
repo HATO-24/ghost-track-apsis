@@ -1,0 +1,230 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE2E PROBE · SaveService 文件存档
+════════════════════════════════════════════════════════════
+
+── 1 setup/路径 ──
+[PASS] SaveService ready  []
+[PASS] 存档目录存在
+[PASS] root 在 OS 临时目录  C:/Users/ASUS/AppData/Local/Temp/v17_save_probe_2737095
+[PASS] root 非 user:// 真实目录
+[PASS] slot_path save  actual=C:/Users/ASUS/AppData/Local/Temp/v17_save_probe_2737095/save.json expected=C:/Users/ASUS/AppData/Local/Temp/v17_save_probe_2737095/save.json
+[PASS] backup_path save  actual=C:/Users/ASUS/AppData/Local/Temp/v17_save_probe_2737095/save.json.bak expected=C:/Users/ASUS/AppData/Local/Temp/v17_save_probe_2737095/save.json.bak
+[PASS] 合法槽位 4 个  actual=["save", "menu", "quit", "autosave"] expected=["save", "menu", "quit", "autosave"]
+[PASS] 初始无存档
+[PASS] 初始无备份
+[PASS] 初始 list_slots 空  actual=0 expected=0
+[PASS] 空目录 setup 失败
+
+── 2 保存/读取 ──
+[PASS] save_session ok  actual=true expected=true · []
+[PASS] save slot  actual=save expected=save
+[PASS] 文件存在
+[PASS] 写入字节数  11583
+[PASS] 返回 checksum
+[PASS] 首次保存无备份
+[PASS] 文件非空
+[PASS] 无残留 .tmp
+[PASS] 外层 JSON 可解析
+[PASS] 外层 schema  actual=v17.save_file.v1 expected=v17.save_file.v1
+[PASS] 外层 checksum
+[PASS] 外层 payload
+[PASS] payload version  actual=1.0.0 expected=1.0.0
+[PASS] payload slot  actual=save expected=save
+[PASS] created_at
+[PASS] updated_at
+[PASS] created_iso
+[PASS] chapter 元数据  actual=ch1 expected=ch1
+[PASS] location 元数据  actual=L1 expected=L1
+[PASS] meta 元数据  actual=normal expected=normal
+[PASS] session_save 字符串
+[PASS] has_slot
+[PASS] verify_slot ok
+[PASS] load_session ok  actual=true expected=true · []
+[PASS] load 返回 GameSession
+[PASS] 往返 snapshot 一致
+[PASS] loaded session ready
+[PASS] 当前版本非迁移  actual=false expected=false
+[PASS] 读取 chapter  actual=ch1 expected=ch1
+[PASS] 读取 location  actual=L1 expected=L1
+[PASS] 读取 version  actual=1.0.0 expected=1.0.0
+[PASS] 读取 created_at  actual=1793219214.403000 expected=1793219214.403000
+[PASS] 读取 order_count  actual=1 expected=1
+[PASS] load_metadata ok
+[PASS] load_metadata chapter  actual=ch1 expected=ch1
+[PASS] list_slots 1  actual=1 expected=1
+[PASS] list slot=save  actual=save expected=save
+[PASS] list slot ok
+
+── 3 覆盖/备份 ──
+[PASS] 首次（覆盖）保存 ok  actual=true expected=true
+[PASS] 覆盖后备份存在
+[PASS] 备份非空
+[PASS] 备份为旧内容  actual=1793219214.403000 expected=1793219214.403000
+[PASS] 二次保存 ok  actual=true expected=true
+[PASS] 覆盖保留 created_at  actual=1793219214.403000 expected=1793219214.403000
+[PASS] updated_at 更新
+[PASS] 无 .tmp
+[PASS] 主文件新 chapter  actual=ch2 expected=ch2
+[PASS] 备份仍是上一次  actual=ch1 expected=ch1
+[PASS] restore_backup ok  actual=true expected=true
+[PASS] 恢复后 chapter=ch1  actual=ch1 expected=ch1
+[PASS] 恢复后 load ok  actual=true expected=true
+[PASS] 恢复后 verify ok
+
+── 4 槽位/三色圆点 ──
+[PASS] 槽位保存 save  actual=true expected=true · []
+[PASS] 槽位文件存在 save
+[PASS] 返回 slot save  actual=save expected=save
+[PASS] 槽位保存 menu  actual=true expected=true · []
+[PASS] 槽位文件存在 menu
+[PASS] 返回 slot menu  actual=menu expected=menu
+[PASS] 槽位保存 quit  actual=true expected=true · []
+[PASS] 槽位文件存在 quit
+[PASS] 返回 slot quit  actual=quit expected=quit
+[PASS] 槽位保存 autosave  actual=true expected=true · []
+[PASS] 槽位文件存在 autosave
+[PASS] 返回 slot autosave  actual=autosave expected=autosave
+[PASS] list_slots 4  actual=4 expected=4
+[PASS] list slot ok: autosave
+[PASS] list slot ok: menu
+[PASS] list slot ok: quit
+[PASS] list slot ok: save
+[PASS] intent save ok  actual=true expected=true
+[PASS] intent save slot  actual=save expected=save
+[PASS] save 不退出  actual=false expected=false
+[PASS] save 不切菜单  actual=false expected=false
+[PASS] save_and_menu ok  actual=true expected=true
+[PASS] save_and_menu → menu 槽  actual=menu expected=menu
+[PASS] intent 记录  actual=save_and_menu expected=save_and_menu
+[PASS] save_and_menu 不退出  actual=false expected=false
+[PASS] save_and_menu 返回菜单意图  actual=true expected=true
+[PASS] save_and_quit ok  actual=true expected=true
+[PASS] save_and_quit → quit 槽  actual=quit expected=quit
+[PASS] save_and_quit 不直接退出  actual=false expected=false
+[PASS] note 说明不直接退出
+[PASS] 未知 intent 拒绝  actual=false expected=false
+[PASS] invalid_intent  actual=invalid_intent expected=invalid_intent
+[PASS] menu 槽内容 slot=menu  actual=menu expected=menu
+[PASS] menu 槽含 session_save
+[PASS] intent save 覆盖后 chapter 空  actual= expected=
+
+── 5 原子性 ──
+[PASS] 预置残留 tmp
+[PASS] 残留 tmp 时保存 ok  actual=true expected=true
+[PASS] 保存后 tmp 清理
+[PASS] 覆盖保存 ok  actual=true expected=true
+[PASS] 主文件已更新
+[PASS] 备份为旧状态  actual=1.000000 expected=1.000000
+[PASS] 覆盖后无 tmp
+[PASS] atomic_write_text ok  actual=true expected=true
+[PASS] atomic 写内容  actual=abc expected=abc
+[PASS] atomic 前备份旧内容
+
+── 6 损坏检测 ──
+[PASS] 构造篡改文本
+[PASS] 篡改后 load 失败  actual=false expected=false
+[PASS] 篡改 reason corrupted  actual=corrupted expected=corrupted
+[PASS] 篡改 errors 非空
+[PASS] 篡改不返回 session  actual=<null> expected=<null>
+[PASS] 篡改 verify false
+[PASS] 篡改 metadata 失败  actual=false expected=false
+[PASS] list 含 quit
+[PASS] list 标记 corrupted
+[PASS] 非法 JSON load 失败  actual=false expected=false
+[PASS] 空文件 load 失败  actual=false expected=false
+[PASS] 空文件 reason  actual=empty_file expected=empty_file
+[PASS] 缺槽位 load 失败  actual=false expected=false
+[PASS] 缺槽位 reason  actual=missing_slot expected=missing_slot
+[PASS] 外层 schema 错 load 失败  actual=false expected=false
+[PASS] 损坏无静默 session
+
+── 7 版本迁移 ──
+[PASS] 0.9 load_metadata ok  actual=true expected=true · []
+[PASS] 0.9 标记 migrated  actual=true expected=true
+[PASS] 迁移后 version 1.0.0  actual=1.0.0 expected=1.0.0
+[PASS] 0.9 load_session ok  actual=true expected=true · []
+[PASS] load 标记 migrated  actual=true expected=true
+[PASS] 0.9 返回 session
+[PASS] 0.9 迁移后 snapshot 一致
+[PASS] 迁移后可 verify
+[PASS] 未来版本 load 拒绝  actual=false expected=false
+[PASS] future reason  actual=unsupported_future_version expected=unsupported_future_version
+[PASS] 未来版本不返回 session  actual=<null> expected=<null>
+[PASS] 未知旧版本 load 拒绝  actual=false expected=false
+[PASS] old reason  actual=unsupported_old_version expected=unsupported_old_version
+[PASS] 缺 version 按 0.9 迁移 ok  actual=true expected=true
+[PASS] 缺 version 迁移一致
+
+── 8 错误/JSON ──
+[PASS] 非法槽位保存拒绝  actual=false expected=false
+[PASS] invalid_slot  actual=invalid_slot expected=invalid_slot
+[PASS] 非法槽位读取拒绝  actual=false expected=false
+[PASS] null session 保存拒绝  actual=false expected=false
+[PASS] 非 GameSession 保存拒绝  actual=false expected=false
+[PASS] 删除前保存 ok  actual=true expected=true
+[PASS] delete_slot ok  actual=true expected=true
+[PASS] 删除后无主文件
+[PASS] 删除后无备份
+[PASS] 删除后文件不存在
+[PASS] 无备份 restore 拒绝  actual=false expected=false
+[PASS] encode/decode ok  actual=true expected=true
+[PASS] 篡改 decode 失败  actual=false expected=false
+[PASS] list_slots JSON
+
+── 9 清理 ──
+[PASS] 清理后无槽位  actual=0 expected=0
+[PASS] 删除临时目录  err=0
+[PASS] 临时目录已不存在
+────────────────────────────────────────────────────────────
+[DATA] setup = root=OS temp · 槽位 save/menu/quit/autosave
+[DATA] save_load = bytes=11583 往返 snapshot 一致 · 元数据 chapter/location/meta
+[DATA] overwrite = created 保留/updated 更新/备份旧档/恢复备份 ok
+[DATA] slots_intents = 4 槽 · save/menu/quit 意图只写文件不退出
+[DATA] atomic = tmp 清理/回读校验/备份旧档/主文件新内容
+[DATA] corruption = 篡改/非法 JSON/空文件/缺槽位/外层 schema 均失败不静默
+[DATA] migration = 0.9→1.0 迁移 · 未来版本/未知旧版本拒绝 · 缺 version 骨架
+[DATA] errors_json = 非法槽位/无效 session/删除/无备份/encode-decode 校验
+[DATA] cleanup = 槽位删除 · 临时目录删除（不污染用户目录）
+────────────────────────────────────────────────────────────
+V17 SAVE PROBE RESULT: PASS=156 FAIL=0
+V17 SAVE PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected 'true', 'false', or 'null', got 'abc'
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] decode_file (res://scripts/core/save_service.gd:123)
+       [1] _read_slot_raw (res://scripts/core/save_service.gd:291)
+       [2] load_metadata (res://scripts/core/save_service.gd:340)
+       [3] list_slots (res://scripts/core/save_service.gd:371)
+       [4] _test_corruption (res://tests/save_probe.gd:338)
+       [5] _initialize (res://tests/save_probe.gd:34)
+ERROR: Parse JSON failed. Error at line 0: Expected 'true', 'false', or 'null', got 'abc'
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] decode_file (res://scripts/core/save_service.gd:123)
+       [1] _read_slot_raw (res://scripts/core/save_service.gd:291)
+       [2] load_metadata (res://scripts/core/save_service.gd:340)
+       [3] save_session (res://scripts/core/save_service.gd:250)
+       [4] _test_corruption (res://tests/save_probe.gd:347)
+       [5] _initialize (res://tests/save_probe.gd:34)
+ERROR: Parse JSON failed. Error at line 0: Expected '}'
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] decode_file (res://scripts/core/save_service.gd:123)
+       [1] _read_slot_raw (res://scripts/core/save_service.gd:291)
+       [2] load_session (res://scripts/core/save_service.gd:307)
+       [3] _test_corruption (res://tests/save_probe.gd:349)
+       [4] _initialize (res://tests/save_probe.gd:34)
+ERROR: Parse JSON failed. Error at line 0: Expected '}'
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] decode_file (res://scripts/core/save_service.gd:123)
+       [1] _read_slot_raw (res://scripts/core/save_service.gd:291)
+       [2] load_metadata (res://scripts/core/save_service.gd:340)
+       [3] list_slots (res://scripts/core/save_service.gd:371)
+       [4] _test_errors_json (res://tests/save_probe.gd:465)
+       [5] _initialize (res://tests/save_probe.gd:36)

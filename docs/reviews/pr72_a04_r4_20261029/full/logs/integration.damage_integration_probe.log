@@ -1,0 +1,253 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R2-DAMAGE-2 PROBE · 完整损管模型接入 V17 world
+════════════════════════════════════════════════════════════
+
+── 1 world 初始化 ──
+[PASS] 损管内容文件存在
+[PASS] 场景解析无错误  []
+[PASS] world.load_scenario  []
+[PASS] world 已装载 damage_l1.json  damage_l1
+[PASS] 内容 schema=damage.v1  actual=damage.v1 expected=damage.v1
+[PASS] 实体数 ≥9  9
+[PASS] harmattan.damage 已初始化
+[PASS] summons_4471.damage 已初始化
+[PASS] entity.has_damage_model()
+[PASS] world.damage_model_for(harmattan)
+[PASS] world.damage_model_for(summons_4471)
+[FAIL] ferry.damage 默认 null（无档案）  
+[FAIL] world.damage_model_for(ferry)=null  
+[PASS] 本舰完整模型 7 分区  actual=7 expected=7
+[PASS] 完整模型分区 id 与规范一致  actual=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"] expected=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"]
+[PASS] 完整 summary.total=7  actual=7 expected=7
+[PASS] world 统一日志非空（装载记录）
+
+── 2 旧字段兼容 ──
+[PASS] 场景解析无错误  []
+[PASS] world.load_scenario  []
+[PASS] vm_damage 保留旧字段: entity_id
+[PASS] vm_damage 保留旧字段: entity_name
+[PASS] vm_damage 保留旧字段: sections
+[PASS] vm_damage 保留旧字段: queue
+[PASS] vm_damage 保留旧字段: repair_rate_s
+[PASS] vm_damage 保留旧字段: summary
+[PASS] entity_id=harmattan  actual=harmattan expected=harmattan
+[PASS] 旧 sections 仍为 3 项（bridge probe 契约）  actual=3 expected=3
+[PASS] 旧 sections id 顺序不变  actual=["sensor_cal", "ir_false_alarm", "thermal"] expected=["sensor_cal", "ir_false_alarm", "thermal"]
+[PASS] 旧 summary.total=3  actual=3 expected=3
+[PASS] 旧 summary.damaged=1  actual=1 expected=1
+[PASS] 旧 summary.degraded=2  actual=2 expected=2
+[PASS] 旧 queue 为 Array
+[PASS] 旧 repair_rate_s=120  actual=120.000000 expected=120.000000 diff=0.000000
+[PASS] 兼容别名 damage_sections
+[PASS] 兼容别名 damage_queue
+[PASS] damage_sections 3 项  actual=3 expected=3
+[PASS] has_full_model=true  actual=true expected=true
+[PASS] model 非空（完整模型 vm）
+[PASS] model.sections=7  actual=7 expected=7
+[PASS] vm_damage 增完整字段: events
+[PASS] vm_damage 增完整字段: resources
+[PASS] vm_damage 增完整字段: summary_full
+[PASS] vm_damage 增完整字段: effects
+[PASS] vm_damage 增完整字段: units
+
+── 3 完整模型 vm ──
+[PASS] 场景解析无错误  []
+[PASS] world.load_scenario  []
+[PASS] full vm 含字段: schema
+[PASS] full vm 含字段: model
+[PASS] full vm 含字段: entity_id
+[PASS] full vm 含字段: sections
+[PASS] full vm 含字段: events
+[PASS] full vm 含字段: queue
+[PASS] full vm 含字段: resources
+[PASS] full vm 含字段: summary
+[PASS] full vm 含字段: effects
+[PASS] full vm 含字段: units
+[PASS] full vm 含字段: note
+[PASS] full schema  actual=damage.v1 expected=damage.v1
+[PASS] full model=V2DamageModel  actual=V2DamageModel expected=V2DamageModel
+[PASS] full entity_id  actual=harmattan expected=harmattan
+[PASS] full effects 含: power
+[PASS] full effects 含: sensors
+[PASS] full effects 含: comms
+[PASS] full effects 含: propulsion
+[PASS] full effects 含: docking
+[PASS] full effects 含: fire
+[PASS] full effects 含: decompression
+[PASS] full effects 含: unpowered_sections
+[PASS] full resources 含: teams_total
+[PASS] full resources 含: teams_busy
+[PASS] full resources 含: spares
+[PASS] full resources 含: power
+[PASS] full resources 含: power_max
+[PASS] full resources 含: personnel
+[PASS] full events 为 Array
+[PASS] 敌舰完整模型 7 分区  actual=7 expected=7
+[FAIL] 无档案实体 vm_damage_full 为空  
+
+── 4 伤害/advance/事件 ──
+[PASS] 场景解析无错误  []
+[PASS] world.load_scenario  []
+[PASS] world.damage_apply_hit 成功  actual=true expected=true
+[PASS] 完整模型记录 hit 事件
+[PASS] 完整模型 sensors 完整度下降
+[PASS] 完整模型 sensors=damaged  actual=damaged expected=damaged
+[PASS] 旧 sections 仍 3 项  actual=3 expected=3
+[PASS] 旧字段内容不变  actual=["sensor_cal", "ir_false_alarm", "thermal"] expected=["sensor_cal", "ir_false_alarm", "thermal"]
+[PASS] 统一损管事件日志非空
+[PASS] damage_events(limit) 可读
+[PASS] 统一事件含 entity_id
+[PASS] 事件 entity_id=harmattan  actual=harmattan expected=harmattan
+[PASS] advance 返回 damage_events
+[PASS] advance 保留旧 damage 返回
+[PASS] advance 推进完整模型 t
+[PASS] 完整模型有火灾事件  7
+[PASS] advance 期间产生完整模型事件  8
+[PASS] summary.on_fire 可读
+[PASS] world 统一日志含 damage 事件  20
+
+── 5 损管 API 转发 ──
+[PASS] 场景解析无错误  []
+[PASS] world.load_scenario  []
+[PASS] damage_assign_repair(sensors,3)  actual=true expected=true
+[PASS] damage_assign_repair(comms,1)  actual=true expected=true
+[PASS] 完整模型 queue=2  actual=2 expected=2
+[PASS] 队列按优先级：comms 先  actual=comms expected=comms
+[PASS] damage_set_priority(sensors,1)  actual=true expected=true
+[PASS] 同优先级按入队顺序：sensors 先  actual=sensors expected=sensors
+[PASS] damage_cancel_repair(comms)  actual=true expected=true
+[PASS] 取消后 queue=1  actual=1 expected=1
+[PASS] 修复后 sensors integrity=1.0  actual=1.000000 expected=1.000000 diff=0.000000
+[PASS] 修复后 sensors=nominal  actual=nominal expected=nominal
+
+── 6 旧维修链路 ──
+[PASS] 场景解析无错误  []
+[PASS] world.load_scenario  []
+[PASS] world.start_repair(sensor_cal) 仍可用  actual=true expected=true
+[PASS] advance_damage 完成 1 项（legacy）  actual=1 expected=1
+[PASS] legacy sensor_cal=repaired
+[PASS] legacy queue 清空  actual=0 expected=0
+[PASS] legacy 维修不推进完整模型 t  actual=0.0 expected=0.0
+[PASS] legacy 维修不进入完整模型 queue  actual=0 expected=0
+
+── 7 实体/懒加载/敌舰 ──
+[PASS] 场景解析无错误  []
+[PASS] world.load_scenario  []
+[PASS] 敌舰 damage_apply_hit 成功  actual=true expected=true
+[PASS] 敌舰 hull 受损
+[PASS] 敌舰受击不影响本舰  actual=1.0 expected=1.0
+[FAIL] 无档案实体命中被拒绝  actual=true expected=false
+[FAIL] 拒绝原因明确  
+[FAIL] ferry 懒加载仍为 null（无档案，不伪造）  actual=<RefCounted#-9223371995817703958> expected=<null>
+
+── 8 HUD 读取/JSON ──
+[PASS] 场景解析无错误  []
+[PASS] world.load_scenario  []
+[PASS] HUD 旧 sections 行字段齐全（不崩）  actual=0 expected=0
+[PASS] HUD summary 含 total
+[PASS] HUD summary 含 damaged
+[PASS] HUD summary 含 degraded
+[PASS] HUD summary 含 repairing
+[PASS] HUD summary 含 repaired
+[PASS] HUD summary 含 needs_attention
+[PASS] HUD queue 为 Array
+[PASS] 完整 section 含 id
+[PASS] 完整 section 含 label
+[PASS] 完整 section 含 state
+[PASS] 完整 section 含 integrity
+[PASS] 完整 section 含 fire
+[PASS] 完整 section 含 decompression
+[PASS] 完整 section 含 powered
+[PASS] 完整 section 含 repair
+[PASS] 完整 section 含 id
+[PASS] 完整 section 含 label
+[PASS] 完整 section 含 state
+[PASS] 完整 section 含 integrity
+[PASS] 完整 section 含 fire
+[PASS] 完整 section 含 decompression
+[PASS] 完整 section 含 powered
+[PASS] 完整 section 含 repair
+[PASS] 完整 section 含 id
+[PASS] 完整 section 含 label
+[PASS] 完整 section 含 state
+[PASS] 完整 section 含 integrity
+[PASS] 完整 section 含 fire
+[PASS] 完整 section 含 decompression
+[PASS] 完整 section 含 powered
+[PASS] 完整 section 含 repair
+[PASS] 完整 section 含 id
+[PASS] 完整 section 含 label
+[PASS] 完整 section 含 state
+[PASS] 完整 section 含 integrity
+[PASS] 完整 section 含 fire
+[PASS] 完整 section 含 decompression
+[PASS] 完整 section 含 powered
+[PASS] 完整 section 含 repair
+[PASS] 完整 section 含 id
+[PASS] 完整 section 含 label
+[PASS] 完整 section 含 state
+[PASS] 完整 section 含 integrity
+[PASS] 完整 section 含 fire
+[PASS] 完整 section 含 decompression
+[PASS] 完整 section 含 powered
+[PASS] 完整 section 含 repair
+[PASS] 完整 section 含 id
+[PASS] 完整 section 含 label
+[PASS] 完整 section 含 state
+[PASS] 完整 section 含 integrity
+[PASS] 完整 section 含 fire
+[PASS] 完整 section 含 decompression
+[PASS] 完整 section 含 powered
+[PASS] 完整 section 含 repair
+[PASS] 完整 section 含 id
+[PASS] 完整 section 含 label
+[PASS] 完整 section 含 state
+[PASS] 完整 section 含 integrity
+[PASS] 完整 section 含 fire
+[PASS] 完整 section 含 decompression
+[PASS] 完整 section 含 powered
+[PASS] 完整 section 含 repair
+[PASS] vm_damage JSON 输出  len=8069
+[PASS] JSON 回读 Dictionary
+[PASS] 回读 legacy sections=3  actual=3 expected=3
+[PASS] 回读完整 model.sections=7  actual=7 expected=7
+[PASS] 回读完整 effects
+[PASS] 回读 resources
+[PASS] vm 不含 weapons（模型无武器）
+
+── 9 V17 bridge 兼容 ──
+[PASS] bridge.boot  []
+[PASS] bridge.damage_view entity_id  actual=harmattan expected=harmattan
+[PASS] bridge 旧 sections=3（v17 HUD 不崩）  actual=3 expected=3
+[PASS] bridge 暴露 has_full_model  actual=true expected=true
+[PASS] bridge 暴露完整 model
+[PASS] bridge.sync 后旧 sections 仍 3 项  actual=3 expected=3
+[PASS] bridge 仍 ready
+────────────────────────────────────────────────────────────
+[DATA] init = entities=9 · damaged_models=harmattan+summons_4471 · full sections=7
+[DATA] legacy = sections=3（sensor_cal/ir_false_alarm/thermal）· summary.total=3 · 兼容别名齐全
+[DATA] full-vm = schema/model/entity/sections=7/events/queue/resources/summary/effects/units/note
+[DATA] hit/advance = hit→full model damaged；advance 推进；统一事件日志 entity_id=harmattan
+[DATA] repair-api = assign/set_priority/cancel 转发完整模型；advance 后修复完成
+[DATA] legacy-repair = start_repair/advance_damage 保持原行为；完整模型独立
+[DATA] entities = summons 可受击；ferry 无档案懒加载 null；本舰不受敌舰影响
+[DATA] hud/json = legacy 行字段齐全；完整模型字段可读；JSON 8069 字节可回读
+[DATA] bridge = damage_view 保留 legacy sections=3 + has_full_model/model
+────────────────────────────────────────────────────────────
+DAMAGE INTEGRATION PROBE RESULT: PASS=198 FAIL=6
+[FAILED] 1 world 初始化 · ferry.damage 默认 null（无档案）
+[FAILED] 1 world 初始化 · world.damage_model_for(ferry)=null
+[FAILED] 3 完整模型 vm · 无档案实体 vm_damage_full 为空
+[FAILED] 7 实体/懒加载/敌舰 · 无档案实体命中被拒绝  (actual=true expected=false)
+[FAILED] 7 实体/懒加载/敌舰 · 拒绝原因明确
+[FAILED] 7 实体/懒加载/敌舰 · ferry 懒加载仍为 null（无档案，不伪造）  (actual=<RefCounted#-9223371995817703958> expected=<null>)
+DAMAGE INTEGRATION PROBE FAILED
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 39 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

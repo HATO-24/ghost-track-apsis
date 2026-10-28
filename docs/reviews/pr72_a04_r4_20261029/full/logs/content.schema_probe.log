@@ -1,0 +1,494 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE0 PROBE · UI token / 数据 schema / loader
+════════════════════════════════════════════════════════════
+
+── 1 UI token 文件 ──
+[PASS] ui_tokens.json 存在
+[PASS] ui_tokens JSON 可解析
+[PASS] ui tokens schema  actual=v17.ui_tokens.v1 expected=v17.ui_tokens.v1
+[PASS] ui tokens version semver  1.0.0
+[PASS] ui tokens updated
+[PASS] font_files.sans
+[PASS] font_files.mono
+[PASS] font_files.cjk
+[PASS] font_sizes[7]  actual=7 expected=7
+[PASS] font_sizes[8]  actual=8 expected=8
+[PASS] font_sizes[9]  actual=9 expected=9
+[PASS] font_sizes[11]  actual=11 expected=11
+[PASS] font_sizes[14]  actual=14 expected=14
+[PASS] font_sizes[18]  actual=18 expected=18
+[PASS] font_sizes 恰好 6 档  actual=6 expected=6
+[PASS] line_heights[7] > 字号
+[PASS] line_heights[8] > 字号
+[PASS] line_heights[9] > 字号
+[PASS] line_heights[11] > 字号
+[PASS] line_heights[14] > 字号
+[PASS] line_heights[18] > 字号
+[PASS] baselines.cjk_font_size
+[PASS] baselines.mono_font_size
+[PASS] baselines.cjk_baseline_px
+[PASS] baselines.mono_baseline_px
+[PASS] cjk 基线 >0
+[PASS] 等宽基线 >0
+[PASS] spacing.panel_padding_x
+[PASS] spacing.panel_padding_y
+[PASS] spacing.content_gap
+[PASS] spacing.line_gap
+[PASS] spacing.section_gap
+[PASS] palette.bg
+[PASS] palette bg 为 hex
+[PASS] palette.panel
+[PASS] palette panel 为 hex
+[PASS] palette.panel_border
+[PASS] palette panel_border 为 hex
+[PASS] palette.text
+[PASS] palette text 为 hex
+[PASS] palette.text_dim
+[PASS] palette text_dim 为 hex
+[PASS] palette.accent
+[PASS] palette accent 为 hex
+[PASS] palette.warn
+[PASS] palette warn 为 hex
+[PASS] palette.danger
+[PASS] palette danger 为 hex
+[PASS] palette.ok
+[PASS] palette ok 为 hex
+[PASS] palette.selection
+[PASS] palette selection 为 hex
+[PASS] palette.transparent
+[PASS] palette transparent 为 hex
+[PASS] panel_9slice.margin_left
+[PASS] panel_9slice.margin_top
+[PASS] panel_9slice.margin_right
+[PASS] panel_9slice.margin_bottom
+[PASS] panel_9slice.content_margin
+[PASS] button.height
+[PASS] button.min_width
+[PASS] target_card 尺寸
+[PASS] list.row_height
+[PASS] dialog.padding
+[PASS] pointer.size
+
+── 2 UI token 查询 ──
+[PASS] ui_tokens ready  []
+[PASS] ui_tokens 无 errors  actual=0 expected=0
+[PASS] ui_tokens.version  actual=1.0.0 expected=1.0.0
+[PASS] font(sans)
+[PASS] font(mono)
+[PASS] font(cjk)
+[PASS] font_size(7)  actual=7 expected=7
+[PASS] line_height(7)
+[PASS] font_size(8)  actual=8 expected=8
+[PASS] line_height(8)
+[PASS] font_size(9)  actual=9 expected=9
+[PASS] line_height(9)
+[PASS] font_size(11)  actual=11 expected=11
+[PASS] line_height(11)
+[PASS] font_size(14)  actual=14 expected=14
+[PASS] line_height(14)
+[PASS] font_size(18)  actual=18 expected=18
+[PASS] line_height(18)
+[PASS] baseline(cjk)
+[PASS] baseline(mono)
+[PASS] line_gap(cjk)
+[PASS] padding(panel)
+[PASS] padding(button)
+[PASS] padding(dialog)
+[PASS] padding(card)
+[PASS] padding(list)
+[PASS] color(text) 非透明
+[PASS] color(transparent) alpha=0
+[PASS] rect(target_card)
+[PASS] rect(button)
+[PASS] rect(dialog)
+[PASS] rect(icon_normal)
+[PASS] margin(margin_left)
+[PASS] has(palette.text)
+[PASS] has(未知) false
+[PASS] value 点路径  actual=28 expected=28
+[PASS] 未知 color 返回透明
+[PASS] 未知 color 记录 error
+[PASS] last_error 说明未知 token  unknown token: palette.no_such_color
+[PASS] 未知 margin 返回 0  actual=0 expected=0
+[PASS] 未知 margin 记录 error
+[PASS] 未知 rect 返回空  actual=[P: (0.0, 0.0), S: (0.0, 0.0)] expected=[P: (0.0, 0.0), S: (0.0, 0.0)]
+[PASS] 未知 rect 记录 error
+[PASS] to_dict.ready
+
+── 3 schema 文件 ──
+[PASS] schema 文件数=10  actual=10 expected=10 · 10
+[PASS] schema 文件扩展名: comms.json
+[PASS] schema 存在: comms.json
+[PASS] schema 解析: comms.json
+[PASS] schema id 非空: comms.json
+[PASS] schema id 唯一: comms
+[PASS] comms format  actual=v17.schema.v1 expected=v17.schema.v1
+[PASS] comms version
+[PASS] comms title
+[PASS] comms properties
+[PASS] comms required
+[PASS] comms required 在 properties: id
+[PASS] comms required 在 properties: from
+[PASS] comms required 在 properties: to
+[PASS] comms required 在 properties: mode
+[PASS] comms required 在 properties: encrypted
+[PASS] comms example
+[PASS] schema 文件扩展名: entity.json
+[PASS] schema 存在: entity.json
+[PASS] schema 解析: entity.json
+[PASS] schema id 非空: entity.json
+[PASS] schema id 唯一: entity
+[PASS] entity format  actual=v17.schema.v1 expected=v17.schema.v1
+[PASS] entity version
+[PASS] entity title
+[PASS] entity properties
+[PASS] entity required
+[PASS] entity required 在 properties: id
+[PASS] entity required 在 properties: kind
+[PASS] entity required 在 properties: side
+[PASS] entity required 在 properties: name
+[PASS] entity example
+[PASS] schema 文件扩展名: frame.json
+[PASS] schema 存在: frame.json
+[PASS] schema 解析: frame.json
+[PASS] schema id 非空: frame.json
+[PASS] schema id 唯一: frame
+[PASS] frame format  actual=v17.schema.v1 expected=v17.schema.v1
+[PASS] frame version
+[PASS] frame title
+[PASS] frame properties
+[PASS] frame required
+[PASS] frame required 在 properties: id
+[PASS] frame required 在 properties: kind
+[PASS] frame required 在 properties: origin
+[PASS] frame required 在 properties: unit
+[PASS] frame example
+[PASS] schema 文件扩展名: order.json
+[PASS] schema 存在: order.json
+[PASS] schema 解析: order.json
+[PASS] schema id 非空: order.json
+[PASS] schema id 唯一: order
+[PASS] order format  actual=v17.schema.v1 expected=v17.schema.v1
+[PASS] order version
+[PASS] order title
+[PASS] order properties
+[PASS] order required
+[PASS] order required 在 properties: id
+[PASS] order required 在 properties: ship_id
+[PASS] order required 在 properties: kind
+[PASS] order required 在 properties: status
+[PASS] order example
+[PASS] schema 文件扩展名: save.json
+[PASS] schema 存在: save.json
+[PASS] schema 解析: save.json
+[PASS] schema id 非空: save.json
+[PASS] schema id 唯一: save
+[PASS] save format  actual=v17.schema.v1 expected=v17.schema.v1
+[PASS] save version
+[PASS] save title
+[PASS] save properties
+[PASS] save required
+[PASS] save required 在 properties: id
+[PASS] save required 在 properties: version
+[PASS] save required 在 properties: scenario_id
+[PASS] save required 在 properties: t_s
+[PASS] save required 在 properties: entities
+[PASS] save required 在 properties: tracks
+[PASS] save required 在 properties: ui
+[PASS] save example
+[PASS] schema 文件扩展名: sensor_observation.json
+[PASS] schema 存在: sensor_observation.json
+[PASS] schema 解析: sensor_observation.json
+[PASS] schema id 非空: sensor_observation.json
+[PASS] schema id 唯一: sensor_observation
+[PASS] sensor_observation format  actual=v17.schema.v1 expected=v17.schema.v1
+[PASS] sensor_observation version
+[PASS] sensor_observation title
+[PASS] sensor_observation properties
+[PASS] sensor_observation required
+[PASS] sensor_observation required 在 properties: id
+[PASS] sensor_observation required 在 properties: observer_id
+[PASS] sensor_observation required 在 properties: sensor
+[PASS] sensor_observation required 在 properties: t_s
+[PASS] sensor_observation example
+[PASS] schema 文件扩展名: story_state.json
+[PASS] schema 存在: story_state.json
+[PASS] schema 解析: story_state.json
+[PASS] schema id 非空: story_state.json
+[PASS] schema id 唯一: story_state
+[PASS] story_state format  actual=v17.schema.v1 expected=v17.schema.v1
+[PASS] story_state version
+[PASS] story_state title
+[PASS] story_state properties
+[PASS] story_state required
+[PASS] story_state required 在 properties: id
+[PASS] story_state required 在 properties: scenario_id
+[PASS] story_state required 在 properties: phase
+[PASS] story_state required 在 properties: flags
+[PASS] story_state required 在 properties: evidence
+[PASS] story_state required 在 properties: decisions
+[PASS] story_state example
+[PASS] schema 文件扩展名: time.json
+[PASS] schema 存在: time.json
+[PASS] schema 解析: time.json
+[PASS] schema id 非空: time.json
+[PASS] schema id 唯一: time
+[PASS] time format  actual=v17.schema.v1 expected=v17.schema.v1
+[PASS] time version
+[PASS] time title
+[PASS] time properties
+[PASS] time required
+[PASS] time required 在 properties: id
+[PASS] time required 在 properties: t_s
+[PASS] time required 在 properties: epoch
+[PASS] time required 在 properties: mode
+[PASS] time example
+[PASS] schema 文件扩展名: track.json
+[PASS] schema 存在: track.json
+[PASS] schema 解析: track.json
+[PASS] schema id 非空: track.json
+[PASS] schema id 唯一: track
+[PASS] track format  actual=v17.schema.v1 expected=v17.schema.v1
+[PASS] track version
+[PASS] track title
+[PASS] track properties
+[PASS] track required
+[PASS] track required 在 properties: id
+[PASS] track required 在 properties: batch
+[PASS] track required 在 properties: entity_id
+[PASS] track required 在 properties: level
+[PASS] track required 在 properties: identity
+[PASS] track required 在 properties: threat
+[PASS] track example
+[PASS] schema 文件扩展名: ui_field.json
+[PASS] schema 存在: ui_field.json
+[PASS] schema 解析: ui_field.json
+[PASS] schema id 非空: ui_field.json
+[PASS] schema id 唯一: ui_field
+[PASS] ui_field format  actual=v17.schema.v1 expected=v17.schema.v1
+[PASS] ui_field version
+[PASS] ui_field title
+[PASS] ui_field properties
+[PASS] ui_field required
+[PASS] ui_field required 在 properties: id
+[PASS] ui_field required 在 properties: token
+[PASS] ui_field required 在 properties: label
+[PASS] ui_field required 在 properties: value_type
+[PASS] ui_field required 在 properties: source
+[PASS] ui_field example
+[PASS] 必需 schema: entity
+[PASS] 必需 schema: time
+[PASS] 必需 schema: frame
+[PASS] 必需 schema: order
+[PASS] 必需 schema: comms
+[PASS] 必需 schema: sensor_observation
+[PASS] 必需 schema: track
+[PASS] 必需 schema: save
+[PASS] 必需 schema: story_state
+[PASS] 必需 schema: ui_field
+
+── 4 loader ──
+[PASS] loader ready  []
+[PASS] loader 无 errors  actual=0 expected=0
+[PASS] loader count=10  actual=10 expected=10
+[PASS] loader ids 与期望一致  actual=["comms", "entity", "frame", "order", "save", "sensor_observation", "story_state", "time", "track", "ui_field"] expected=["comms", "entity", "frame", "order", "save", "sensor_observation", "story_state", "time", "track", "ui_field"]
+[PASS] schema(entity)
+[PASS] schema entity id
+[PASS] example(entity)
+[PASS] 示例通过 entity  []
+[PASS] schema(time)
+[PASS] schema time id
+[PASS] example(time)
+[PASS] 示例通过 time  []
+[PASS] schema(frame)
+[PASS] schema frame id
+[PASS] example(frame)
+[PASS] 示例通过 frame  []
+[PASS] schema(order)
+[PASS] schema order id
+[PASS] example(order)
+[PASS] 示例通过 order  []
+[PASS] schema(comms)
+[PASS] schema comms id
+[PASS] example(comms)
+[PASS] 示例通过 comms  []
+[PASS] schema(sensor_observation)
+[PASS] schema sensor_observation id
+[PASS] example(sensor_observation)
+[PASS] 示例通过 sensor_observation  []
+[PASS] schema(track)
+[PASS] schema track id
+[PASS] example(track)
+[PASS] 示例通过 track  []
+[PASS] schema(save)
+[PASS] schema save id
+[PASS] example(save)
+[PASS] 示例通过 save  []
+[PASS] schema(story_state)
+[PASS] schema story_state id
+[PASS] example(story_state)
+[PASS] 示例通过 story_state  []
+[PASS] schema(ui_field)
+[PASS] schema ui_field id
+[PASS] example(ui_field)
+[PASS] 示例通过 ui_field  []
+[PASS] to_dict.allowed_units
+[PASS] allowed_units 含 km
+[PASS] allowed_units 含 km/s
+[PASS] allowed_units 含 deg
+
+── 5 loader 拒绝 ──
+[PASS] required 不在 properties 被拒
+[PASS] 数值字段缺 unit 被拒
+[PASS] 非法 unit 被拒
+[PASS] 空 enum 被拒
+[PASS] 合法示例 ok  actual=true expected=true
+[PASS] 缺字段实例被拒  actual=false expected=false
+[PASS] 非法枚举实例被拒  actual=false expected=false
+[PASS] 类型错误实例被拒  actual=false expected=false
+[PASS] 单位错配实例被拒  actual=false expected=false
+[PASS] 重复 schema id 被拒
+[PASS] 重复 example id 被拒
+[PASS] 格式/id/version/type 非法均报错  7
+
+── 6 关键示例 ──
+[PASS] entity 示例含 id
+[PASS] entity 示例含 kind
+[PASS] entity 示例含 side
+[PASS] entity 示例含 name
+[PASS] entity 示例通过校验  []
+[PASS] time 示例含 id
+[PASS] time 示例含 t_s
+[PASS] time 示例含 epoch
+[PASS] time 示例含 mode
+[PASS] time 示例通过校验  []
+[PASS] frame 示例含 id
+[PASS] frame 示例含 kind
+[PASS] frame 示例含 origin
+[PASS] frame 示例含 unit
+[PASS] frame 示例通过校验  []
+[PASS] order 示例含 id
+[PASS] order 示例含 ship_id
+[PASS] order 示例含 kind
+[PASS] order 示例含 status
+[PASS] order 示例通过校验  []
+[PASS] comms 示例含 id
+[PASS] comms 示例含 from
+[PASS] comms 示例含 to
+[PASS] comms 示例含 mode
+[PASS] comms 示例含 encrypted
+[PASS] comms 示例通过校验  []
+[PASS] sensor_observation 示例含 id
+[PASS] sensor_observation 示例含 observer_id
+[PASS] sensor_observation 示例含 sensor
+[PASS] sensor_observation 示例含 t_s
+[PASS] sensor_observation 示例通过校验  []
+[PASS] track 示例含 id
+[PASS] track 示例含 batch
+[PASS] track 示例含 entity_id
+[PASS] track 示例含 level
+[PASS] track 示例含 identity
+[PASS] track 示例含 threat
+[PASS] track 示例通过校验  []
+[PASS] save 示例含 id
+[PASS] save 示例含 version
+[PASS] save 示例含 scenario_id
+[PASS] save 示例含 t_s
+[PASS] save 示例含 entities
+[PASS] save 示例含 tracks
+[PASS] save 示例含 ui
+[PASS] save 示例通过校验  []
+[PASS] story_state 示例含 id
+[PASS] story_state 示例含 scenario_id
+[PASS] story_state 示例含 phase
+[PASS] story_state 示例含 flags
+[PASS] story_state 示例含 evidence
+[PASS] story_state 示例含 decisions
+[PASS] story_state 示例通过校验  []
+[PASS] ui_field 示例含 id
+[PASS] ui_field 示例含 token
+[PASS] ui_field 示例含 label
+[PASS] ui_field 示例含 value_type
+[PASS] ui_field 示例含 source
+[PASS] ui_field 示例通过校验  []
+[PASS] track.level unit=none  actual=none expected=none
+[PASS] track.age_s unit=s  actual=s expected=s
+[PASS] sensor.range unit=km  actual=km expected=km
+[PASS] sensor.bearing unit=deg  actual=deg expected=deg
+
+── 7 JSON ──
+[PASS] loader to_dict JSON  len=9661
+[PASS] loader JSON 回读
+[PASS] 回读 count=10  actual=10 expected=10
+[PASS] 回读 ids
+[PASS] 回读 schemas
+[PASS] 回读 examples
+[PASS] tokens to_dict JSON  len=1565
+[PASS] tokens JSON 回读
+[PASS] 回读 tokens
+[PASS] 回读 version  actual=1.0.0 expected=1.0.0
+[PASS] schema file JSON 回读: entity
+[PASS] schema file JSON 回读: time
+[PASS] schema file JSON 回读: frame
+[PASS] schema file JSON 回读: order
+[PASS] schema file JSON 回读: comms
+[PASS] schema file JSON 回读: sensor_observation
+[PASS] schema file JSON 回读: track
+[PASS] schema file JSON 回读: save
+[PASS] schema file JSON 回读: story_state
+[PASS] schema file JSON 回读: ui_field
+────────────────────────────────────────────────────────────
+[DATA] tokens_file = schema/version/fonts/palette/9slice/button/card/list/dialog/pointer 齐全
+[DATA] tokens_query = size/padding/line_height/baseline/color/rect/margin + 未知报错
+[DATA] schema_files = files=10 ids=["comms", "entity", "frame", "order", "save", "sensor_observation", "story_state", "time", "track", "ui_field"]
+[DATA] loader = ready/count=10/examples=10/allowed_units 就绪
+[DATA] rejections = 缺字段/unit/枚举/类型/单位错配/重复 id 均被拒
+[DATA] examples = 10 schema 示例全部通过 · 单位元数据正确
+[DATA] json = loader=9661 tokens=1565 全部 config JSON 可回读
+────────────────────────────────────────────────────────────
+V17 SCHEMA PROBE RESULT: PASS=422 FAIL=0
+V17 SCHEMA PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: ui_tokens: unknown token: palette.no_such
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _append_error (res://scripts/core/ui_tokens.gd:259)
+       [1] value (res://scripts/core/ui_tokens.gd:116)
+       [2] has (res://scripts/core/ui_tokens.gd:136)
+       [3] _test_token_queries (res://tests/schema_probe.gd:191)
+       [4] _initialize (res://tests/schema_probe.gd:32)
+ERROR: ui_tokens: unknown token: palette.no_such_color
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _append_error (res://scripts/core/ui_tokens.gd:259)
+       [1] value (res://scripts/core/ui_tokens.gd:116)
+       [2] color (res://scripts/core/ui_tokens.gd:195)
+       [3] _test_token_queries (res://tests/schema_probe.gd:196)
+       [4] _initialize (res://tests/schema_probe.gd:32)
+ERROR: ui_tokens: unknown token: panel_9slice.no_such_margin
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _append_error (res://scripts/core/ui_tokens.gd:259)
+       [1] value (res://scripts/core/ui_tokens.gd:116)
+       [2] has (res://scripts/core/ui_tokens.gd:136)
+       [3] margin (res://scripts/core/ui_tokens.gd:227)
+       [4] _test_token_queries (res://tests/schema_probe.gd:202)
+       [5] _initialize (res://tests/schema_probe.gd:32)
+ERROR: ui_tokens: unknown margin token: no_such_margin
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _append_error (res://scripts/core/ui_tokens.gd:259)
+       [1] margin (res://scripts/core/ui_tokens.gd:228)
+       [2] _test_token_queries (res://tests/schema_probe.gd:202)
+       [3] _initialize (res://tests/schema_probe.gd:32)
+ERROR: ui_tokens: unknown rect token: no_such_rect
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] _append_error (res://scripts/core/ui_tokens.gd:259)
+       [1] rect (res://scripts/core/ui_tokens.gd:223)
+       [2] _test_token_queries (res://tests/schema_probe.gd:204)
+       [3] _initialize (res://tests/schema_probe.gd:32)

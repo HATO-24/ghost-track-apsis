@@ -1,0 +1,54 @@
+{
+  "reviewed_head": "bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72",
+  "previous_head": "1de99a85c4f69dca706509648450487197523ab5",
+  "main": "4e4f90f9eb4964503a61dd915cb1c445294b10a5",
+  "source_game_tree": "cc883d0d8f39ac4e3cc27f760fff3684ac732dd3",
+  "root_targeted": {
+    "total": 8,
+    "pass": 8,
+    "fail": 0,
+    "timeout": 0,
+    "not_run": 0,
+    "not_run_expected": 0,
+    "not_run_unexpected": 0,
+    "ran": 8,
+    "duration_s": 57.52,
+    "known_fail": null,
+    "new_fail": null,
+    "baseline_drift": null,
+    "baseline_unverified": null,
+    "baseline_unselected": null,
+    "baseline_complete": null,
+    "known_phase_a": null,
+    "new_fail_phase_a": null,
+    "drift_phase_a": null,
+    "unverified_phase_a": null,
+    "unselected_phase_a": null,
+    "phase_a_baseline_complete": null
+  },
+  "root_exit": 0,
+  "CI": "40728509817 Phase0/PhaseA success; full in_progress at archived snapshot; no new full log claimed",
+  "baseline_sha256": "5fdfb46a27d8d0057b50d51b3ceed87ce1d126a933db6b93f803a11e6ab2c9e4",
+  "closed": [
+    "original R3 RNG state application",
+    "comms_ew_seed normalization",
+    "v1 migrated_v1 report"
+  ],
+  "remaining": [
+    "R1 registered sender/caller context mismatch",
+    "R2 ordinary ignore_ew bypass",
+    "R4 missing pending.ew and fractional version; formal success-share assertion"
+  ],
+  "ci_completed": {
+    "all_three": "SUCCESS",
+    "synthetic_merge": "e8494e0a5ff3cdba376198ea52e9605f212cdcf2",
+    "total": 91,
+    "pass": 84,
+    "known_fail": 7,
+    "new_fail": 0,
+    "drift": 0,
+    "complete": true,
+    "exit": 0,
+    "duration_s": 369.4
+  }
+}

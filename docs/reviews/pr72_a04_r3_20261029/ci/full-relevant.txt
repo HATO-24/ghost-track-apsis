@@ -1,0 +1,4 @@
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8447082Z HEAD is now at 8f20c95 Merge 563e97a61bc00d31104ad6db969edfe87f2fc25f into 4e4f90f9eb4964503a61dd915cb1c445294b10a5
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9448163Z total=91  pass=84  fail=7  timeout=0  not_run=0 (expected=0 unexpected=0)  duration=368.2s
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9460304Z BASELINE CHECK: known_fail=7 new_fail=0 drift=0 unverified=0 unselected=0 complete=true
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2148530Z FULL_MATRIX_EXIT=0

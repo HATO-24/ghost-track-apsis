@@ -1,0 +1,168 @@
+{
+  "head": "1de99a85c4f69dca706509648450487197523ab5",
+  "base": "4e4f90f9eb4964503a61dd915cb1c445294b10a5",
+  "diagnostic_runs": 1,
+  "exit_code": 0,
+  "formal_probes_run": 0,
+  "findings": [
+    {
+      "priority": 2,
+      "title": "Ordinary send opts.ignore_ew bypasses active EW",
+      "path": "game_v17/scripts/core/comms_service.gd",
+      "line": 599,
+      "normal": {
+        "draw": 0.1,
+        "failure_chance": 0.4,
+        "ignored": false,
+        "jam_severity": 0.5,
+        "latency_add_s": 20.0,
+        "sampled_t": 0.0,
+        "target_id": "ally_ship",
+        "will_fail": true
+      },
+      "normal_latency": 22.0,
+      "bypass": {
+        "draw": -1.0,
+        "failure_chance": 0.0,
+        "ignored": true,
+        "jam_severity": 0.0,
+        "latency_add_s": 0.0,
+        "sampled_t": 0.0,
+        "target_id": "ally_ship",
+        "will_fail": false
+      },
+      "bypass_latency": 2.0,
+      "events": [
+        {
+          "delivery_id": "C-000002",
+          "kind": "DELIVERED",
+          "t": 2.0,
+          "reason": "",
+          "latency_s": 2.0
+        },
+        {
+          "delivery_id": "C-000001",
+          "kind": "FAILED",
+          "t": 22.0,
+          "reason": "comms_jam",
+          "latency_s": 22.0
+        }
+      ]
+    },
+    {
+      "priority": 2,
+      "title": "Registered sender is accepted despite foreign caller context",
+      "path": "game_v17/scripts/core/game_session.gd",
+      "line": 3114,
+      "rows": [
+        {
+          "label": "own_sender_player_context",
+          "from": "own_ship",
+          "to": "ally_ship",
+          "actor": "player_ctrl",
+          "controller": "player_ctrl",
+          "fleet": "own_fleet",
+          "owner": "player_intel",
+          "ok": true,
+          "reason": "",
+          "delivery_id": "C-000001"
+        },
+        {
+          "label": "ally_sender_ally_context",
+          "from": "ally_ship",
+          "to": "own_ship",
+          "actor": "ally_ai",
+          "controller": "ally_ai",
+          "fleet": "ally_fleet",
+          "owner": "ally_intel",
+          "ok": true,
+          "reason": "",
+          "delivery_id": "C-000002"
+        },
+        {
+          "label": "ally_sender_player_context",
+          "from": "ally_ship",
+          "to": "own_ship",
+          "actor": "player_ctrl",
+          "controller": "player_ctrl",
+          "fleet": "own_fleet",
+          "owner": "player_intel",
+          "ok": true,
+          "reason": "",
+          "delivery_id": "C-000003"
+        },
+        {
+          "label": "enemy_sender_player_context",
+          "from": "enemy_ship",
+          "to": "own_ship",
+          "actor": "player_ctrl",
+          "controller": "player_ctrl",
+          "fleet": "own_fleet",
+          "owner": "player_intel",
+          "ok": true,
+          "reason": "",
+          "delivery_id": "C-000004"
+        },
+        {
+          "label": "own_sender_opfor_context",
+          "from": "own_ship",
+          "to": "ally_ship",
+          "actor": "opfor_ai",
+          "controller": "opfor_ai",
+          "fleet": "enemy_fleet",
+          "owner": "opfor_intel",
+          "ok": true,
+          "reason": "",
+          "delivery_id": "C-000005"
+        },
+        {
+          "label": "unknown_sender_player_context",
+          "from": "ghost_issuer",
+          "to": "own_ship",
+          "actor": "player_ctrl",
+          "controller": "player_ctrl",
+          "fleet": "own_fleet",
+          "owner": "player_intel",
+          "ok": false,
+          "reason": "unknown_from",
+          "delivery_id": ""
+        }
+      ],
+      "foreign_order": {
+        "input": {
+          "issuer": "enemy_ship",
+          "opts": {
+            "actor_id": "player_ctrl",
+            "controller_id": "player_ctrl",
+            "domain_id": "player",
+            "fleet_id": "own_fleet",
+            "intel_owner_id": "player_intel",
+            "mode": "LD",
+            "owner_id": "player_intel"
+          },
+          "target": "own_ship"
+        },
+        "issued_ok": true,
+        "order_id": "O-000001",
+        "status_after_due": "QUEUED",
+        "auto_execution_claim": false
+      }
+    }
+  ],
+  "passed": {
+    "pure_fixture": {
+      "severity": 0.5,
+      "extra_latency": 20,
+      "failure_chance": 0.4,
+      "draw": 0.1
+    },
+    "frozen_after_effect_expire": "C-000001 still FAILED at t22 after expire at t2",
+    "matching_sender_contexts": "own/player and ally/ally accepted + DELIVERED",
+    "unknown_sender_reason": "unknown_from"
+  },
+  "static_limits": {
+    "three_entry_wiring": "Session.send_comms, OrderService.issue, Session.queue_intel_share share Comms.send",
+    "single_advance": "OrderService.tick advances Comms once and forwards same events to Session",
+    "spoof": "Sample only retains jam/latency/failure/draw; no actual spoof-message or execution diagnostic was run here. Do not claim transport spoof handling validated."
+  }
+}

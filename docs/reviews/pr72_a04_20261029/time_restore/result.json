@@ -1,0 +1,18 @@
+{
+  "head": "1de99a85c4f69dca706509648450487197523ab5",
+  "diagnostic": "comms_state_edges.gd",
+  "engine": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+  "exit_code": 0,
+  "cases": [
+    {"case":"v2_pending_missing_ew", "original":{"draw":0.1,"failure_chance":0.4,"will_fail":true,"latency_add_s":20.0,"arrive_t":22.0}, "load_ok":true,"restore_mode":"full","due_events":["DELIVERED"],"failure_converted_to_delivery":true},
+    {"case":"fractional_state_version_2_5", "load_ok":true,"reason":"","state_version_read_as_int":2},
+    {"case":"state_v2_rng_restoration", "load_ok":true,"saved_rng":{"seed":0,"seq":1},"reported_after_load":{"seed":0,"seq":0},"next_source_draw":0.30996977738569,"next_restored_draw":0.928304756026857,"next_draw_matches":false},
+    {"case":"present_invalid_ew_atomic", "load_ok":false,"reason":"invalid_state","errors":["pending.ew"],"state_unchanged":true},
+    {"case":"unknown_state_version_atomic", "load_ok":false,"reason":"invalid_version","state_unchanged":true}
+  ],
+  "existing_formal_evidence": {
+    "comms_probe":"game_v17/docs/next_cards/evidence/a04/final/integration.jc_ew_comms.log.txt:67-78, 83-91",
+    "original_failure_replay":"game_v17/docs/next_cards/evidence/a04/final/integration.a0_comms_restore.log.txt:74-120"
+  },
+  "scope":"One bounded independent diagnostic only. No C/W7/full rerun; no production/probe/matrix/baseline edits. Existing formal real-file continuation and next-message match were not repeated."
+}

@@ -1,0 +1,108 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+STORY TRIGGER PROBE · 阶段2 TEXT-ENGINE-1
+════════════════════════════════════════════════════════════════
+
+── 1. story.triggers schema / 文本引用 ──
+[PASS] 场景/世界装载
+[PASS] 场景解析无错误  []
+[PASS] 触发器 18 条（6 events + 12 radio）  actual=18 expected=18
+[PASS] mission 触发器解析无错误  []
+[PASS] snapshot schema
+[PASS] snapshot JSON 可序列化
+[PASS] text_key 全部非空且无重复  keys=18
+[PASS] event_index/radio_index 全部有效
+[PASS] event 触发器 6  actual=6 expected=6
+[PASS] radio 触发器 12  actual=12 expected=12
+[PASS] 触发器 id 唯一
+[PASS] 初始无已触发文本（无自动播报）
+
+── 2. 时间推进不自动播报（前置未完成 → 冻结）──
+[PASS] 前置未完成 → advance frozen
+[PASS] 时间推进后 events 不增加  actual=2 expected=2
+[PASS] 时间推进后 radio 不增加  actual=0 expected=0
+[PASS] 时间推进不触发任何 story trigger  actual=0 expected=0
+[PASS] 前置后时间流动
+[PASS] 纯时间推进不新增动作触发器  actual=5 expected=5
+[PASS] 纯时间推进后 story radio 仍为抵达 4 条  actual=4 expected=4
+
+── 3. 世界动作驱动、顺序、once、失败不触发 ──
+[PASS] prelude_skip 成功
+[PASS] 抵达触发 5 条（1 event + 4 radio）  actual=5 expected=5
+[PASS] 抵达触发器 id 正确  ["TR-ARRIVE-NOTICE", "TR-ARRIVE-RADIO-GREENWICH", "TR-ARRIVE-RADIO-SEXTANT", "TR-ARRIVE-RADIO-APSIS", "TR-ARRIVE-RADIO-4412"]
+[PASS] 抵达 radio 触发器存在
+[PASS] 抵达 story radio 4 条（world.radio 另含 prelude done_comm）  actual=4 expected=4
+[PASS] 抵达 event 文本来自 story events[0]
+[PASS] select ceres_2 成功
+[PASS] 选择目标触发 TR-SELECT-CERES
+[PASS] select 后累计 6 条  actual=6 expected=6
+[PASS] issue_order radar_illum 成功
+[PASS] authorize_order 成功
+[PASS] 命令授权触发 TR-ORDER-RADAR-AUTH
+[PASS] enqueue_order 成功
+[PASS] transmit_order 成功
+[PASS] 命令传输触发 TR-ORDER-RADAR-TX
+[PASS] abort_order 成功
+[PASS] 撤销命令不新增/不伪造文本  actual=8 expected=8
+[PASS] crossfix 2001 成功
+[PASS] model_ident 2001 成功
+[PASS] 光学动作触发 event+radio
+[PASS] 光学动作新增 2 条  actual=10 expected=10
+[PASS] 重复 select 本身可执行
+[PASS] 重复动作不重复触发文本  actual=10 expected=10
+[PASS] 非法动作失败
+[PASS] 失败动作不触发文本  actual=10 expected=10
+[PASS] 不存在目标动作失败
+[PASS] 目标不存在不触发文本  actual=10 expected=10
+[PASS] trigger seq 单调递增  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+[PASS] 最新触发为光学 radio  TR-OPTICAL-RADIO
+
+── 4. 乱序 / 补触发 / 失败入口 ──
+[PASS] 乱序第1动作触发 2 条  actual=2 expected=2
+[PASS] 乱序第2动作触发 1 条  actual=1 expected=1
+[PASS] 乱序第3动作补触发 1 条  actual=1 expected=1
+[PASS] 乱序累计 4 条  actual=4 expected=4
+[PASS] 乱序后文本顺序跟随动作顺序  ["TR-OPTICAL-CLASS", "TR-OPTICAL-RADIO", "TR-SELECT-CERES", "TR-CROSSFIX-FALSE-ALARM"]
+[PASS] select 文本在光学之后  ["TR-OPTICAL-CLASS", "TR-OPTICAL-RADIO", "TR-SELECT-CERES", "TR-CROSSFIX-FALSE-ALARM"]
+[PASS] 补触发 crossfix 文本在最后
+[PASS] 重复动作入口 0 条  actual=0 expected=0
+[PASS] ok=false 入口 0 条  actual=0 expected=0
+[PASS] 重复/失败入口总数不变  actual=4 expected=4
+[PASS] 无匹配动作 0 条  actual=0 expected=0
+[PASS] prelude execute 触发 5 条  actual=5 expected=5
+[PASS] prelude 首条 event 在前  actual=TR-ARRIVE-NOTICE expected=TR-ARRIVE-NOTICE
+[PASS] prelude radio 按定义顺序  actual=TR-ARRIVE-RADIO-GREENWICH expected=TR-ARRIVE-RADIO-GREENWICH
+[PASS] prelude 末条 radio  actual=TR-ARRIVE-RADIO-4412 expected=TR-ARRIVE-RADIO-4412
+[PASS] 触发条目 JSON 可序列化
+[PASS] decision open 触发 3 条  actual=3 expected=3
+[PASS] evidence start 触发 1 条  actual=1 expected=1
+[PASS] order AUTHORIZED 触发 1 条  actual=1 expected=1
+[PASS] order ABORTED 无文本（不发明撤销文本）  actual=0 expected=0
+[PASS] order TRANSMITTED 触发 1 条  actual=1 expected=1
+[PASS] 多类型触发 snapshot JSON
+
+── 5. 世界接线 / 重开复位 / snapshot ──
+[PASS] 世界 events/radio 文本非空（无占位）
+[PASS] 世界接线触发 6 条（4 radio + 1 event + select radio）  actual=6 expected=6
+[PASS] world events 含 story events[0]
+[PASS] world radio 含 story radio[0]
+[PASS] world radio 含 select 触发 radio[4]
+[PASS] trigger_snapshot JSON
+[PASS] snapshot fired_count=6  actual=6 expected=6
+[PASS] snapshot trigger_count=18  actual=18 expected=18
+[PASS] world.restart 成功  []
+[PASS] restart 后 trigger_log 清空  actual=0 expected=0
+[PASS] restart 后 fired_triggers 清空  actual=0 expected=0
+[PASS] restart 后无 story radio
+[PASS] restart snapshot JSON
+────────────────────────────────────────────────────────────────
+STORY TRIGGER PROBE RESULT: PASS=83 FAIL=0
+STORY TRIGGER PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 253 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

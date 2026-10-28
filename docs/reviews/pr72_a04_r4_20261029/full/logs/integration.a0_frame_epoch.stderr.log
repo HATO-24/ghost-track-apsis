@@ -1,0 +1,12 @@
+ERROR: Invalid month value of: 13. See the Time.Month enum for valid values.
+   at: get_unix_time_from_datetime_string (core/os/time.cpp:302)
+   GDScript backtrace (most recent call first):
+       [0] _parse_utc_epoch (res://scripts/core/time_service.gd:226)
+       [1] setup (res://scripts/core/time_service.gd:65)
+       [2] _init (res://scripts/core/time_service.gd:50)
+       [3] _run (res://tests/a0_frame_epoch_probe.gd:405)
+       [4] _await_v1_hud (res://tests/a0_frame_epoch_probe.gd:567)
+WARNING: 121 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 31 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

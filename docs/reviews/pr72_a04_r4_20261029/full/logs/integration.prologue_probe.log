@@ -1,0 +1,314 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE3C PROBE · PrologueController
+════════════════════════════════════════════════════════════
+
+── 1 内容/舰队 ──
+[PASS] scenario 文件存在
+[PASS] fleet cache 文件存在
+[PASS] scenario JSON 可解析
+[PASS] fleet cache JSON 可解析
+[PASS] scenario schema  actual=scenario.v2 expected=scenario.v2
+[PASS] scenario id  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] scenario source  actual=l4_02_hammer expected=l4_02_hammer
+[PASS] scenario target  actual=l1_meridian_05 expected=l1_meridian_05
+[PASS] target_cluster
+[PASS] arrival_gate
+[PASS] cache schema  actual=v17_fleet_transfer_cache.v1 expected=v17_fleet_transfer_cache.v1
+[PASS] cache fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] cache TOF=6d  actual=518400.000000 expected=518400.000000
+[PASS] cache source display  actual=L4-02 Hammer expected=L4-02 Hammer
+[PASS] cache target display  actual=L1-Meridian-05 expected=L1-Meridian-05
+[PASS] cache 5 ships  actual=5 expected=5
+[PASS] dv avg_total  actual=1822.441351 expected=1822.441351
+[PASS] dv sum_total  actual=9112.206757 expected=9112.206757
+[PASS] dv max arrival  actual=969.567537 expected=969.567537
+[PASS] arrival all_within_gate  actual=true expected=true
+[PASS] gate radius  actual=3000.000000 expected=3000.000000
+[PASS] cache samples 11  actual=11 expected=11
+[PASS] prologue ready  []
+[PASS] runtime source id  actual=l4_02_hammer expected=l4_02_hammer
+[PASS] runtime target id  actual=l1_meridian_05 expected=l1_meridian_05
+[PASS] runtime source display  actual=L4-02 Hammer expected=L4-02 Hammer
+[PASS] runtime target display  actual=L1-Meridian-05 expected=L1-Meridian-05
+[PASS] runtime TOF  actual=518400.000000 expected=518400.000000
+[PASS] runtime fleet 5  actual=5 expected=5
+[PASS] fleet flagship apsis  actual=apsis expected=apsis
+[PASS] fleet total_dv
+[PASS] timeline 11 采样+4 里程碑  actual=15 expected=15
+[PASS] allowed destinations
+[PASS] 初始 NAME_INPUT
+[PASS] 初始 contracts ok
+[PASS] snapshot 非空
+
+── 2 setup/玩家名 ──
+[PASS] prologue ready  []
+[PASS] 无 errors  actual=0 expected=0
+[PASS] 初始状态 NAME_INPUT  actual=NAME_INPUT expected=NAME_INPUT
+[PASS] state_index 0  actual=0 expected=0
+[PASS] next_state BRIEFING  actual=BRIEFING expected=BRIEFING
+[PASS] 初始名字空  actual= expected=
+[PASS] 空名字拒绝  actual=false expected=false
+[PASS] empty_name  actual=empty_name expected=empty_name
+[PASS] 空白名字拒绝  actual=false expected=false
+[PASS] 空白 name 视为空  actual=empty_name expected=empty_name
+[PASS] 超长名字拒绝  actual=false expected=false
+[PASS] name_too_long  actual=name_too_long expected=name_too_long
+[PASS] 控制字符名字拒绝  actual=false expected=false
+[PASS] control invalid_chars  actual=invalid_chars expected=invalid_chars
+[PASS] 首尾空白拒绝  actual=false expected=false
+[PASS] 非法名字不写入  actual= expected=
+[PASS] 非法名字不改变状态  actual=NAME_INPUT expected=NAME_INPUT
+[PASS] 合法名字提交 ok  actual=true expected=true
+[PASS] 名字保存  actual=远地点 expected=远地点
+[PASS] player_name  actual=远地点 expected=远地点
+[PASS] 提交名字 → BRIEFING  actual=BRIEFING expected=BRIEFING
+[PASS] next HANDOVER  actual=HANDOVER expected=HANDOVER
+[PASS] history 1
+[PASS] history 记录 ime  actual=true expected=true
+[PASS] 事件 1
+[PASS] name_submitted 事件  actual=prologue.name_submitted expected=prologue.name_submitted
+[PASS] StoryState flag prologue_name_set
+[PASS] 重复提交拒绝  actual=false expected=false
+[PASS] 重复提交 wrong_state  actual=wrong_state expected=wrong_state
+[PASS] 重复不覆盖名字  actual=远地点 expected=远地点
+[PASS] prologue ready  []
+[PASS] ASCII 名字 ok  actual=true expected=true
+[PASS] ASCII 名字保存  actual=Commander_01 expected=Commander_01
+[PASS] prologue ready  []
+[PASS] 24 字符名字 ok  actual=true expected=true
+[PASS] prologue ready  []
+[PASS] 25 字符拒绝  actual=false expected=false
+
+── 3 乱序/wrong_state ──
+[PASS] prologue ready  []
+[PASS] NAME_INPUT confirm 拒绝  actual=wrong_state expected=wrong_state
+[PASS] NAME_INPUT handover 拒绝  actual=wrong_state expected=wrong_state
+[PASS] NAME_INPUT destination 拒绝  actual=wrong_state expected=wrong_state
+[PASS] NAME_INPUT request 拒绝  actual=wrong_state expected=wrong_state
+[PASS] NAME_INPUT authorize 拒绝  actual=wrong_state expected=wrong_state
+[PASS] NAME_INPUT ignite 拒绝  actual=wrong_state expected=wrong_state
+[PASS] NAME_INPUT arrive 拒绝  actual=wrong_state expected=wrong_state
+[PASS] NAME_INPUT complete 拒绝  actual=wrong_state expected=wrong_state
+[PASS] BRIEFING handover 拒绝  actual=wrong_state expected=wrong_state
+[PASS] BRIEFING request 拒绝  actual=wrong_state expected=wrong_state
+[PASS] HANDOVER destination 拒绝  actual=wrong_state expected=wrong_state
+[PASS] HANDOVER request 拒绝  actual=wrong_state expected=wrong_state
+[PASS] 无目的地 request 拒绝  actual=no_destination expected=no_destination
+[PASS] NAVIGATION authorize 拒绝  actual=wrong_state expected=wrong_state
+[PASS] NAVIGATION ignite 拒绝  actual=wrong_state expected=wrong_state
+[PASS] 非法目的地拒绝  actual=invalid_destination expected=invalid_destination
+[PASS] 合法目的地 set  actual=true expected=true
+[PASS] DEPARTURE_REQUEST authorize ok  actual=true expected=true
+[PASS] 重复 authorize 拒绝  actual=wrong_state expected=wrong_state
+[PASS] BURN_WINDOW arrive 拒绝  actual=wrong_state expected=wrong_state
+[PASS] BURN_WINDOW complete 拒绝  actual=wrong_state expected=wrong_state
+
+── 4 全流程 ──
+[PASS] prologue ready  []
+[PASS] 0 NAME_INPUT  actual=NAME_INPUT expected=NAME_INPUT
+[PASS] 1 BRIEFING  actual=BRIEFING expected=BRIEFING
+[PASS] 2 HANDOVER  actual=HANDOVER expected=HANDOVER
+[PASS] 3 NAVIGATION  actual=NAVIGATION expected=NAVIGATION
+[PASS] state_index 3  actual=3 expected=3
+[PASS] 目的地保存  actual=l1_meridian_05 expected=l1_meridian_05
+[PASS] flag destination_set
+[PASS] 4 DEPARTURE_REQUEST  actual=DEPARTURE_REQUEST expected=DEPARTURE_REQUEST
+[PASS] request_id 生成
+[PASS] 5 BURN_WINDOW  actual=BURN_WINDOW expected=BURN_WINDOW
+[PASS] burn_authorized  actual=true expected=true
+[PASS] flag burn_authorized
+[PASS] 初始窗口未开
+[PASS] 窗口前 ignite 拒绝  actual=window_not_open expected=window_not_open
+[PASS] advance_time ok  actual=true expected=true
+[PASS] advance_time 不自动改状态  actual=BURN_WINDOW expected=BURN_WINDOW
+[PASS] 窗口已开
+[PASS] ignite ok  actual=true expected=true
+[PASS] 6 CRUISE  actual=CRUISE expected=CRUISE
+[PASS] ignition_t=18h  actual=64800.000000 expected=64800.000000
+[PASS] arrival_t=ignition+TOF  actual=583200.000000 expected=583200.000000
+[PASS] flag burn_ignited
+[PASS] 提前 arrive 拒绝  actual=too_early expected=too_early
+[PASS] advance 到抵达时间不自动改状态  actual=CRUISE expected=CRUISE
+[PASS] arrival_ready true
+[PASS] arrive ok  actual=true expected=true
+[PASS] 7 ARRIVAL  actual=ARRIVAL expected=ARRIVAL
+[PASS] flag arrived_l1
+[PASS] evidence ev_arrival_l1
+[PASS] arrival_error <= gate
+[PASS] 到达后不自动 complete  actual=ARRIVAL expected=ARRIVAL
+[PASS] complete ok  actual=true expected=true
+[PASS] 8 COMPLETE  actual=COMPLETE expected=COMPLETE
+[PASS] flag prologue_complete
+[PASS] trust 50+2+3+5=60  actual=60.000000 expected=60.000000
+[PASS] COMPLETE 重复 complete 拒绝  actual=wrong_state expected=wrong_state
+[PASS] COMPLETE submit_name 拒绝  actual=wrong_state expected=wrong_state
+[PASS] history 9 步  9
+[PASS] events 9  9
+[PASS] 全流程 contracts ok
+
+── 5 窗口失败 ──
+[PASS] prologue ready  []
+[PASS] 窗口前 ignite  actual=window_not_open expected=window_not_open
+[PASS] 窗口关闭后 ignite  actual=window_closed expected=window_closed
+[PASS] 失败不改变状态  actual=BURN_WINDOW expected=BURN_WINDOW
+[PASS] 负 dt 拒绝  actual=invalid_dt expected=invalid_dt
+[PASS] NaN dt 拒绝  actual=invalid_dt expected=invalid_dt
+[PASS] prologue ready  []
+[PASS] 窗口 open 边界含
+[PASS] 窗口 open 可点火  actual=true expected=true
+[PASS] prologue ready  []
+[PASS] 窗口 close 边界含
+[PASS] 窗口 close 可点火  actual=true expected=true
+[PASS] prologue ready  []
+[PASS] 未 authorize ignite wrong_state  actual=wrong_state expected=wrong_state
+
+── 6 存档/中断 ──
+[PASS] prologue ready  []
+[PASS] save JSON 可解析：NAVIGATION
+[PASS] save schema：NAVIGATION  actual=v17.prologue_save.v1 expected=v17.prologue_save.v1
+[PASS] save state：NAVIGATION  actual=NAVIGATION expected=NAVIGATION
+[PASS] prologue ready  []
+[PASS] load ok：NAVIGATION  actual=true expected=true · []
+[PASS] load state：NAVIGATION  actual=NAVIGATION expected=NAVIGATION
+[PASS] load snapshot 一致：NAVIGATION
+[PASS] load StoryState 一致：NAVIGATION
+[PASS] load 后再次 save 一致：NAVIGATION
+[PASS] prologue ready  []
+[PASS] save JSON 可解析：BURN_WINDOW
+[PASS] save schema：BURN_WINDOW  actual=v17.prologue_save.v1 expected=v17.prologue_save.v1
+[PASS] save state：BURN_WINDOW  actual=BURN_WINDOW expected=BURN_WINDOW
+[PASS] prologue ready  []
+[PASS] load ok：BURN_WINDOW  actual=true expected=true · []
+[PASS] load state：BURN_WINDOW  actual=BURN_WINDOW expected=BURN_WINDOW
+[PASS] load snapshot 一致：BURN_WINDOW
+[PASS] load StoryState 一致：BURN_WINDOW
+[PASS] load 后再次 save 一致：BURN_WINDOW
+[PASS] prologue ready  []
+[PASS] save JSON 可解析：CRUISE
+[PASS] save schema：CRUISE  actual=v17.prologue_save.v1 expected=v17.prologue_save.v1
+[PASS] save state：CRUISE  actual=CRUISE expected=CRUISE
+[PASS] prologue ready  []
+[PASS] load ok：CRUISE  actual=true expected=true · []
+[PASS] load state：CRUISE  actual=CRUISE expected=CRUISE
+[PASS] load snapshot 一致：CRUISE
+[PASS] load StoryState 一致：CRUISE
+[PASS] load 后再次 save 一致：CRUISE
+[PASS] prologue ready  []
+[PASS] save JSON 可解析：ARRIVAL
+[PASS] save schema：ARRIVAL  actual=v17.prologue_save.v1 expected=v17.prologue_save.v1
+[PASS] save state：ARRIVAL  actual=ARRIVAL expected=ARRIVAL
+[PASS] prologue ready  []
+[PASS] load ok：ARRIVAL  actual=true expected=true · []
+[PASS] load state：ARRIVAL  actual=ARRIVAL expected=ARRIVAL
+[PASS] load snapshot 一致：ARRIVAL
+[PASS] load StoryState 一致：ARRIVAL
+[PASS] load 后再次 save 一致：ARRIVAL
+[PASS] prologue ready  []
+[PASS] prologue ready  []
+[PASS] load 后继续 ignite  actual=true expected=true
+[PASS] load 后继续 arrive  actual=true expected=true
+[PASS] load 后继续 complete  actual=true expected=true
+[PASS] 非法存档拒绝：  actual=false expected=false
+[PASS] 非法存档拒绝：{bad  actual=false expected=false
+[PASS] 非法存档拒绝：{"schema":"bad"}  actual=false expected=false
+[PASS] 非法存档拒绝：{"schema":"v17.prologue_save.v1","state"  actual=false expected=false
+[PASS] 非法存档拒绝：{"player_name":"","schema":"v17.prologue  actual=false expected=false
+[PASS] 非法存档拒绝：{"destination":"earth","player_name":"x"  actual=false expected=false
+[PASS] 非法存档不改状态  actual={"applied":{"evidence":["ev_arrival_l1"],"flags":{"arrived_l1":true,"briefing_confirmed":true,"burn_authorized":true,"burn_ignited":true,"departure_requested":true,"destination_set":true,"handover_done":true,"prologue_complete":true,"prologue_name_set":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":60.0},"arrival_t":583200.0,"burn_authorized":true,"destination":"l1_meridian_05","events":[{"detail":{"ime":false,"name":"远地点"},"kind":"prologue.name_submitted","schema":"prologue_event.v1","seq":1.0,"state":"BRIEFING","t":0.0,"writes_v15":false},{"detail":{},"kind":"prologue.briefing_confirmed","schema":"prologue_event.v1","seq":2.0,"state":"HANDOVER","t":0.0,"writes_v15":false},{"detail":{},"kind":"prologue.handover_accepted","schema":"prologue_event.v1","seq":3.0,"state":"NAVIGATION","t":0.0,"writes_v15":false},{"detail":{"destination":"l1_meridian_05"},"kind":"prologue.destination_set","schema":"prologue_event.v1","seq":4.0,"state":"NAVIGATION","t":0.0,"writes_v15":false},{"detail":{"destination":"l1_meridian_05","request_id":"REQ-000005"},"kind":"prologue.departure_requested","schema":"prologue_event.v1","seq":5.0,"state":"DEPARTURE_REQUEST","t":0.0,"writes_v15":false},{"detail":{"window_close_s":86400.0,"window_open_s":64800.0},"kind":"prologue.burn_authorized","schema":"prologue_event.v1","seq":6.0,"state":"BURN_WINDOW","t":0.0,"writes_v15":false},{"detail":{"arrival_t":583200.0,"destination":"l1_meridian_05","ignition_t":64800.0,"tof_s":518400.0},"kind":"prologue.burn_ignited","schema":"prologue_event.v1","seq":7.0,"state":"CRUISE","t":64800.0,"writes_v15":false},{"detail":{"arrival_gate":{"radius_km":3000.0,"relative_speed_kmps":3.0,"time_window_days":[1.0,15.0]},"arrival_t":583200.0,"destination":"l1_meridian_05","t_s":583200.0},"kind":"prologue.arrived","schema":"prologue_event.v1","seq":8.0,"state":"ARRIVAL","t":583200.0,"writes_v15":false},{"detail":{"destination":"l1_meridian_05","name":"远地点","t_s":583200.0},"kind":"prologue.completed","schema":"prologue_event.v1","seq":9.0,"state":"COMPLETE","t":583200.0,"writes_v15":false}],"history":[{"action":"submit_name","ime":false,"name":"远地点","state":"BRIEFING","t":0.0},{"action":"confirm_briefing","state":"HANDOVER","t":0.0},{"action":"accept_handover","state":"NAVIGATION","t":0.0},{"action":"set_destination","destination":"l1_meridian_05","state":"NAVIGATION","t":0.0},{"action":"request_departure","destination":"l1_meridian_05","request_id":"REQ-000005","state":"DEPARTURE_REQUEST","t":0.0},{"action":"authorize_burn","state":"BURN_WINDOW","t":0.0},{"action":"ignite","arrival_t":583200.0,"ignition_t":64800.0,"state":"CRUISE","t":64800.0},{"action":"arrive","arrival_t":583200.0,"state":"ARRIVAL","t":583200.0},{"action":"complete","state":"COMPLETE","t":583200.0}],"ignition_t":64800.0,"player_name":"远地点","request_id":"REQ-000005","state":"COMPLETE","t_s":583200.0} expected={"applied":{"evidence":["ev_arrival_l1"],"flags":{"arrived_l1":true,"briefing_confirmed":true,"burn_authorized":true,"burn_ignited":true,"departure_requested":true,"destination_set":true,"handover_done":true,"prologue_complete":true,"prologue_name_set":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":60.0},"arrival_t":583200.0,"burn_authorized":true,"destination":"l1_meridian_05","events":[{"detail":{"ime":false,"name":"远地点"},"kind":"prologue.name_submitted","schema":"prologue_event.v1","seq":1.0,"state":"BRIEFING","t":0.0,"writes_v15":false},{"detail":{},"kind":"prologue.briefing_confirmed","schema":"prologue_event.v1","seq":2.0,"state":"HANDOVER","t":0.0,"writes_v15":false},{"detail":{},"kind":"prologue.handover_accepted","schema":"prologue_event.v1","seq":3.0,"state":"NAVIGATION","t":0.0,"writes_v15":false},{"detail":{"destination":"l1_meridian_05"},"kind":"prologue.destination_set","schema":"prologue_event.v1","seq":4.0,"state":"NAVIGATION","t":0.0,"writes_v15":false},{"detail":{"destination":"l1_meridian_05","request_id":"REQ-000005"},"kind":"prologue.departure_requested","schema":"prologue_event.v1","seq":5.0,"state":"DEPARTURE_REQUEST","t":0.0,"writes_v15":false},{"detail":{"window_close_s":86400.0,"window_open_s":64800.0},"kind":"prologue.burn_authorized","schema":"prologue_event.v1","seq":6.0,"state":"BURN_WINDOW","t":0.0,"writes_v15":false},{"detail":{"arrival_t":583200.0,"destination":"l1_meridian_05","ignition_t":64800.0,"tof_s":518400.0},"kind":"prologue.burn_ignited","schema":"prologue_event.v1","seq":7.0,"state":"CRUISE","t":64800.0,"writes_v15":false},{"detail":{"arrival_gate":{"radius_km":3000.0,"relative_speed_kmps":3.0,"time_window_days":[1.0,15.0]},"arrival_t":583200.0,"destination":"l1_meridian_05","t_s":583200.0},"kind":"prologue.arrived","schema":"prologue_event.v1","seq":8.0,"state":"ARRIVAL","t":583200.0,"writes_v15":false},{"detail":{"destination":"l1_meridian_05","name":"远地点","t_s":583200.0},"kind":"prologue.completed","schema":"prologue_event.v1","seq":9.0,"state":"COMPLETE","t":583200.0,"writes_v15":false}],"history":[{"action":"submit_name","ime":false,"name":"远地点","state":"BRIEFING","t":0.0},{"action":"confirm_briefing","state":"HANDOVER","t":0.0},{"action":"accept_handover","state":"NAVIGATION","t":0.0},{"action":"set_destination","destination":"l1_meridian_05","state":"NAVIGATION","t":0.0},{"action":"request_departure","destination":"l1_meridian_05","request_id":"REQ-000005","state":"DEPARTURE_REQUEST","t":0.0},{"action":"authorize_burn","state":"BURN_WINDOW","t":0.0},{"action":"ignite","arrival_t":583200.0,"ignition_t":64800.0,"state":"CRUISE","t":64800.0},{"action":"arrive","arrival_t":583200.0,"state":"ARRIVAL","t":583200.0},{"action":"complete","state":"COMPLETE","t":583200.0}],"ignition_t":64800.0,"player_name":"远地点","request_id":"REQ-000005","state":"COMPLETE","t_s":583200.0}
+[PASS] 存档后 contracts ok
+
+── 7 事件/效果 ──
+[PASS] 事件 probe ready
+[PASS] 9 个 prologue 事件  actual=9 expected=9
+[PASS] 事件 schema
+[PASS] 事件不写 V15
+[PASS] 事件 schema
+[PASS] 事件不写 V15
+[PASS] 事件 schema
+[PASS] 事件不写 V15
+[PASS] 事件 schema
+[PASS] 事件不写 V15
+[PASS] 事件 schema
+[PASS] 事件不写 V15
+[PASS] 事件 schema
+[PASS] 事件不写 V15
+[PASS] 事件 schema
+[PASS] 事件不写 V15
+[PASS] 事件 schema
+[PASS] 事件不写 V15
+[PASS] 事件 schema
+[PASS] 事件不写 V15
+[PASS] 事件存在：prologue.name_submitted
+[PASS] 事件存在：prologue.briefing_confirmed
+[PASS] 事件存在：prologue.handover_accepted
+[PASS] 事件存在：prologue.destination_set
+[PASS] 事件存在：prologue.departure_requested
+[PASS] 事件存在：prologue.burn_authorized
+[PASS] 事件存在：prologue.burn_ignited
+[PASS] 事件存在：prologue.arrived
+[PASS] 事件存在：prologue.completed
+[PASS] EventBus 收到 9 事件  actual=9 expected=9
+[PASS] bus 收到 name_submitted
+[PASS] bus 收到 completed
+[PASS] events_since(5)=4
+[PASS] take_events 9  actual=9 expected=9
+[PASS] take 后 events 空  actual=0 expected=0
+[PASS] flag name_set
+[PASS] flag handover_done
+[PASS] flag destination_set
+[PASS] flag burn_authorized
+[PASS] flag burn_ignited
+[PASS] evidence arrival
+[PASS] flag complete
+[PASS] trust 60  actual=60.000000 expected=60.000000
+[PASS] prologue ready  []
+[PASS] 无 StoryState 仍推进  actual=BRIEFING expected=BRIEFING
+[PASS] 内部 flags 记录  ["prologue_name_set", "briefing_confirmed", "handover_done"]
+[PASS] prologue ready  []
+[PASS] apply_effects ok  actual=true expected=true
+[PASS] apply_effects flag
+[PASS] apply_effects evidence
+[PASS] apply_effects trust  actual=53.000000 expected=53.000000
+
+── 8 JSON/确定性 ──
+[PASS] prologue ready  []
+[PASS] runtime JSON 可解析
+[PASS] JSON schema  actual=v17.prologue.v1 expected=v17.prologue.v1
+[PASS] JSON state  actual=BURN_WINDOW expected=BURN_WINDOW
+[PASS] JSON fleet
+[PASS] JSON timeline
+[PASS] JSON window
+[PASS] JSON story
+[PASS] JSON contracts
+[PASS] prologue ready  []
+[PASS] prologue ready  []
+[PASS] 同操作 snapshot 一致
+[PASS] 同操作 save 一致
+[PASS] timeline 一致
+[PASS] fleet 一致
+[PASS] 9 状态  actual=9 expected=9
+[PASS] 首状态 NAME_INPUT  actual=NAME_INPUT expected=NAME_INPUT
+[PASS] 末状态 COMPLETE  actual=COMPLETE expected=COMPLETE
+────────────────────────────────────────────────────────────
+[DATA] content = source/target/TOF=6d/dv=1822.44 avg/fleet=5/samples=11
+[DATA] name = 空/空白/超长/控制字符拒绝 · CJK/ASCII/IME/24 字符通过
+[DATA] wrong_states = NAME/BRIEFING/HANDOVER/NAVIGATION/DEPARTURE/BURN 乱序均拒绝
+[DATA] full_flow = NAME→BRIEFING→HANDOVER→NAVIGATION→DEPARTURE→BURN→CRUISE→ARRIVAL→COMPLETE
+[DATA] window = 未开/已关/负 dt/NaN/边界 open-close/未授权
+[DATA] save_load = 各阶段中断 load snapshot+StoryState 一致 · 中途继续 · 非法拒绝
+[DATA] events = 9 prologue.* + EventBus 发布 + StoryState flags/evidence/trust
+[DATA] json_det = JSON 可解析 · 9 状态 · 同操作 snapshot/save/timeline 一致
+────────────────────────────────────────────────────────────
+V17 PROLOGUE PROBE RESULT: PASS=272 FAIL=0
+V17 PROLOGUE PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/prologue_controller.gd:726)
+       [1] _test_save_load (res://tests/prologue_probe.gd:455)
+       [2] _initialize (res://tests/prologue_probe.gd:34)

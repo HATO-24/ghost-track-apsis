@@ -1,0 +1,42 @@
+{
+  "reviewed_head": "563e97a61bc00d31104ad6db969edfe87f2fc25f",
+  "previous_head": "bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72",
+  "base_main": "4e4f90f9eb4964503a61dd915cb1c445294b10a5",
+  "source_game_tree": "0b68a2733c24bdbbd18fb8918cc7db4b59cca9d1",
+  "root_targeted": {
+    "total": 8,
+    "pass": 8,
+    "fail": 0,
+    "timeout": 0,
+    "not_run": 0,
+    "not_run_expected": 0,
+    "not_run_unexpected": 0,
+    "ran": 8,
+    "duration_s": 61.32,
+    "known_fail": null,
+    "new_fail": null,
+    "baseline_drift": null,
+    "baseline_unverified": null,
+    "baseline_unselected": null,
+    "baseline_complete": null,
+    "known_phase_a": null,
+    "new_fail_phase_a": null,
+    "drift_phase_a": null,
+    "unverified_phase_a": null,
+    "unselected_phase_a": null,
+    "phase_a_baseline_complete": null
+  },
+  "root_exit": 0,
+  "ci_run": 40738920608,
+  "ci_merge": "8f20c95a7687157d9bdb5299d57066c3bf443d44",
+  "ci_full": "91=84PASS/7known,new0/drift0/complete true,exit0,368.2s",
+  "baseline_sha256": "5fdfb46a27d8d0057b50d51b3ceed87ce1d126a933db6b93f803a11e6ab2c9e4",
+  "closed": [
+    "R1 explicit mismatches",
+    "R2 ordinary ignore_ew and v1 replay",
+    "R4 missing EW/fractional version and formal success fusion"
+  ],
+  "remaining": [
+    "R1 modern sender without context incorrectly classified legacy"
+  ]
+}

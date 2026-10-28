@@ -1,0 +1,232 @@
+{
+  "head": "af924d09f5c1d763f8d2556cd94062134ef3c456",
+  "run_count": 1,
+  "exit_code": 0,
+  "elapsed_s": 3.1818354,
+  "status": "R1 original modern no-context sender boundary CLOSED",
+  "explicit_rows": [
+    {
+      "label": "own_sender_player_context",
+      "from": "own_ship",
+      "ok": true,
+      "reason": "",
+      "delivery_id": "C-000001",
+      "delivered_count": 1,
+      "delivered_t": [
+        2.0
+      ]
+    },
+    {
+      "label": "ally_sender_ally_context",
+      "from": "ally_ship",
+      "ok": true,
+      "reason": "",
+      "delivery_id": "C-000002",
+      "delivered_count": 1,
+      "delivered_t": [
+        2.0
+      ]
+    },
+    {
+      "label": "ally_sender_player_context",
+      "from": "ally_ship",
+      "ok": false,
+      "reason": "sender_context_mismatch",
+      "delivery_id": "",
+      "delivered_count": 0,
+      "delivered_t": []
+    },
+    {
+      "label": "enemy_sender_player_context",
+      "from": "enemy_ship",
+      "ok": false,
+      "reason": "sender_context_mismatch",
+      "delivery_id": "",
+      "delivered_count": 0,
+      "delivered_t": []
+    },
+    {
+      "label": "own_sender_opfor_context",
+      "from": "own_ship",
+      "ok": false,
+      "reason": "sender_context_mismatch",
+      "delivery_id": "",
+      "delivered_count": 0,
+      "delivered_t": []
+    },
+    {
+      "label": "unknown_sender_player_context",
+      "from": "ghost_issuer",
+      "ok": false,
+      "reason": "unknown_from",
+      "delivery_id": "",
+      "delivered_count": 0,
+      "delivered_t": []
+    }
+  ],
+  "explicit_enemy_player_order": {
+    "ok": false,
+    "reason": "sender_context_mismatch",
+    "order_id": "",
+    "order_after_due": {}
+  },
+  "explicit_pending_at_send": [
+    {
+      "arrive_t": 2.0,
+      "content": "own_sender_player_context",
+      "delivery_id": "C-000001",
+      "ew": {
+        "draw": 0.896732279517098,
+        "failure_chance": 0.0,
+        "from_id": "own_ship",
+        "ignored": false,
+        "jam_severity": 0.0,
+        "latency_add_s": 0.0,
+        "sampled_t": 0.0,
+        "target_id": "ally_ship",
+        "will_fail": false
+      },
+      "from": "own_ship",
+      "latency_base_s": 2.0,
+      "latency_ew_add_s": 0.0,
+      "latency_s": 2.0,
+      "links": [
+        0
+      ],
+      "mode": "LD",
+      "packet_loss": 0.0,
+      "path": [
+        "own_ship",
+        "ally_ship"
+      ],
+      "relay_count": 0,
+      "sent_t": 0.0,
+      "text": "[OWN 至 ALLY]-[LD]-[own_sender_player_context]",
+      "text_key": "COMMS_SENT",
+      "to": "ally_ship"
+    },
+    {
+      "arrive_t": 2.0,
+      "content": "ally_sender_ally_context",
+      "delivery_id": "C-000002",
+      "ew": {
+        "draw": 0.445171588307792,
+        "failure_chance": 0.0,
+        "from_id": "ally_ship",
+        "ignored": false,
+        "jam_severity": 0.0,
+        "latency_add_s": 0.0,
+        "sampled_t": 0.0,
+        "target_id": "own_ship",
+        "will_fail": false
+      },
+      "from": "ally_ship",
+      "latency_base_s": 2.0,
+      "latency_ew_add_s": 0.0,
+      "latency_s": 2.0,
+      "links": [
+        0
+      ],
+      "mode": "LD",
+      "packet_loss": 0.0,
+      "path": [
+        "ally_ship",
+        "own_ship"
+      ],
+      "relay_count": 0,
+      "sent_t": 0.0,
+      "text": "[ALLY 至 OWN]-[LD]-[ally_sender_ally_context]",
+      "text_key": "COMMS_SENT",
+      "to": "own_ship"
+    }
+  ],
+  "explicit_pending_at_2": [],
+  "modern_rows": [
+    {
+      "label": "modern_own_sender_default_opts",
+      "from": "own_ship",
+      "ok": true,
+      "reason": "",
+      "delivery_id": "C-000001",
+      "delivered_count": 1,
+      "delivered_t": [
+        2.0
+      ]
+    },
+    {
+      "label": "modern_ally_sender_explicit_empty_opts",
+      "from": "ally_ship",
+      "ok": false,
+      "reason": "sender_context_required",
+      "delivery_id": "",
+      "delivered_count": 0,
+      "delivered_t": []
+    },
+    {
+      "label": "modern_enemy_sender_default_opts",
+      "from": "enemy_ship",
+      "ok": false,
+      "reason": "sender_context_required",
+      "delivery_id": "",
+      "delivered_count": 0,
+      "delivered_t": []
+    }
+  ],
+  "modern_has_command_domains": true,
+  "modern_has_fleet_instances": true,
+  "modern_pending_at_send": [
+    {
+      "arrive_t": 2.0,
+      "content": "modern own sender default opts",
+      "delivery_id": "C-000001",
+      "ew": {
+        "draw": 0.896732279517098,
+        "failure_chance": 0.0,
+        "from_id": "own_ship",
+        "ignored": false,
+        "jam_severity": 0.0,
+        "latency_add_s": 0.0,
+        "sampled_t": 0.0,
+        "target_id": "ally_ship",
+        "will_fail": false
+      },
+      "from": "own_ship",
+      "latency_base_s": 2.0,
+      "latency_ew_add_s": 0.0,
+      "latency_s": 2.0,
+      "links": [
+        0
+      ],
+      "mode": "LD",
+      "packet_loss": 0.0,
+      "path": [
+        "own_ship",
+        "ally_ship"
+      ],
+      "relay_count": 0,
+      "sent_t": 0.0,
+      "text": "[OWN 至 ALLY]-[LD]-[modern own sender default opts]",
+      "text_key": "COMMS_SENT",
+      "to": "ally_ship"
+    }
+  ],
+  "modern_pending_at_2": [],
+  "modern_foreign_sent_or_delivered_count": 0,
+  "legacy_seed": {
+    "explicit_command_domains": false,
+    "explicit_fleet_instances": false,
+    "ok": true,
+    "delivery_id": "C-000001",
+    "delivered_count": 1,
+    "delivered_t": [
+      2.0
+    ]
+  },
+  "limits": [
+    "Only original R1 sender scope",
+    "No new no-context order/share delivery test",
+    "No old-log replay test",
+    "No authorize/begin/complete or fire call",
+    "No R2/R3/R4 retest"
+  ]
+}

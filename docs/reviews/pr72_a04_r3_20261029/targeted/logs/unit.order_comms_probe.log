@@ -1,0 +1,160 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+ORDER COMMS PROBE · 完整游戏-阶段2B
+════════════════════════════════════════════════════════════════
+
+── 1. 独立文本库 / 动态 from-to-mode ──
+[PASS] 动态模板 select ok
+[PASS] from/to/mode/content 替换  actual=[ALPHA 至 BETA]-[LD]-[ping] expected=[ALPHA 至 BETA]-[LD]-[ping]
+[PASS] text from 字段  actual=ALPHA expected=ALPHA
+[PASS] text to 字段  actual=BETA expected=BETA
+[PASS] text mode 字段  actual=LD expected=LD
+[PASS] 动态 from/to 不硬编码
+[PASS] 动态 mode
+[PASS] 未知 text_key false
+[PASS] 缺变量 false
+[PASS] 角色模板命中
+[PASS] variants 轮换
+[PASS] text library JSON
+[PASS] text result JSON
+
+── 2. 通信节点/链路/延迟/中继 ──
+[PASS] comms ready  []
+[PASS] 3 节点  actual=3 expected=3
+[PASS] 4 链路  actual=4 expected=4
+[PASS] 直连发送 ok
+[PASS] 直连 route 起点 A  actual=A expected=A
+[PASS] 直连 latency>0  0.1
+[PASS] 发送文本动态 from/to
+[PASS] 发送文本 mode LD
+[PASS] SENT 事件
+[PASS] event schema  actual=comms_event.v1 expected=comms_event.v1
+[PASS] event 带动态文本
+[PASS] event 不写 V15
+[PASS] 延迟前未投递
+[PASS] pending=1
+[PASS] 延迟后 DELIVERED
+[PASS] 投递后 pending=0
+[PASS] 设置直连遮挡
+[PASS] 遮挡时经中继发送 ok
+[PASS] 中继 relay_count=1  actual=1 expected=1
+[PASS] 中继延迟更大
+[PASS] comms VM JSON
+[PASS] comms summary JSON
+[PASS] mode LD 发送 ok
+[PASS] mode LD 动态文本
+[PASS] mode LR 发送 ok
+[PASS] mode LR 动态文本
+[PASS] mode RDO 发送 ok
+[PASS] mode RDO 动态文本
+[PASS] mode IR 发送 ok
+[PASS] mode IR 动态文本
+[PASS] mode VIS 发送 ok
+[PASS] mode VIS 动态文本
+[PASS] VIS 超距失败
+[PASS] VIS 超距 reason  actual=out_of_range expected=out_of_range
+[PASS] LR 中继发送 ok
+[PASS] LR relay_count=1  actual=1 expected=1
+[PASS] comms 不写 V15
+[PASS] take_events 数组
+
+── 3. 通信失败原因 / 丢包 / 干扰 ──
+[PASS] 无链路 VIS 发送失败
+[PASS] 无路由 reason  actual=no_route expected=no_route
+[PASS] 未知 text_key 失败
+[PASS] 未知 text_key reason  actual=unknown_text_key expected=unknown_text_key
+[PASS] 非法 mode 失败
+[PASS] 非法 mode reason  actual=invalid_mode expected=invalid_mode
+[PASS] 超距发送失败
+[PASS] 超距 reason  actual=out_of_range expected=out_of_range
+[PASS] 遮挡无中继失败
+[PASS] 遮挡 reason  actual=occluded expected=occluded
+[PASS] 设置干扰
+[PASS] 高干扰发送失败
+[PASS] 干扰 reason  actual=jammed expected=jammed
+[PASS] 设置节点损坏
+[PASS] 节点损坏失败
+[PASS] 节点损坏 reason  actual=node_unavailable expected=node_unavailable
+[PASS] 丢包链路发送接受
+[PASS] 丢包到达失败事件
+[PASS] 丢包 reason=packet_lost
+[PASS] 失败 comms VM JSON
+[PASS] 失败场景 VM JSON
+
+── 4. OrderService 全状态 / 延迟 / 不自动执行 ──
+[PASS] order service ready
+[PASS] create_draft ok
+[PASS] order_id 存在
+[PASS] DRAFT  actual=DRAFT expected=DRAFT
+[PASS] DRAFTED event  actual=1 expected=1
+[PASS] DRAFTED 动态 from/to/mode  [ALPHA 至 BETA]-[RDO]-[命令草案：set_destination]
+[PASS] issue ok
+[PASS] ISSUED  actual=ISSUED expected=ISSUED
+[PASS] ISSUED event
+[PASS] DELAYED event
+[PASS] ISSUED 动态文本
+[PASS] tick(0) → TRANSMITTING  actual=TRANSMITTING expected=TRANSMITTING
+[PASS] tick 返回新事件
+[PASS] 延迟中仍 TRANSMITTING  actual=TRANSMITTING expected=TRANSMITTING
+[PASS] 送达后 exec_delay → PENDING_EFFECT  actual=PENDING_EFFECT expected=PENDING_EFFECT
+[PASS] DELIVERED event
+[PASS] exec_t 后 QUEUED（不自动执行）  actual=QUEUED expected=QUEUED
+[PASS] 100s 后不自动授权/执行  actual=QUEUED expected=QUEUED
+[PASS] authorize ok
+[PASS] AUTHORIZED  actual=AUTHORIZED expected=AUTHORIZED
+[PASS] begin_execute ok
+[PASS] EXECUTING  actual=EXECUTING expected=EXECUTING
+[PASS] EXECUTING 不自动 DONE  actual=EXECUTING expected=EXECUTING
+[PASS] complete ok
+[PASS] DONE  actual=DONE expected=DONE
+[PASS] 全状态序列  ["DRAFT", "ISSUED", "TRANSMITTING", "DELIVERED", "PENDING_EFFECT", "QUEUED", "AUTHORIZED", "EXECUTING", "DONE"]
+[PASS] DONE event
+[PASS] ISSUED 事件 from_state=DRAFT
+[PASS] order VM JSON
+[PASS] order 不写 V15
+[PASS] 已 DONE 不可再 issue
+[PASS] DONE 不可授权
+
+── 5. 命令拒绝 / 撤销 / 过期 / 失败 ──
+[PASS] 过期 → STALE  actual=STALE expected=STALE
+[PASS] STALE event
+[PASS] STALE 不执行  actual=STALE expected=STALE
+[PASS] abort ok
+[PASS] ABORTED  actual=ABORTED expected=ABORTED
+[PASS] ABORTED event
+[PASS] ABORTED 保持  actual=ABORTED expected=ABORTED
+[PASS] auth hook 拒绝 false
+[PASS] authority 拒绝 → REJECTED  actual=REJECTED expected=REJECTED
+[PASS] 拒绝 reason=roe_hold  actual=roe_hold expected=roe_hold
+[PASS] REJECTED event
+[PASS] require_authorizer 空授权人 false
+[PASS] 缺授权人 → REJECTED  actual=REJECTED expected=REJECTED
+[PASS] QUEUED 未授权不可执行
+[PASS] 拒绝/撤销 VM JSON
+
+── 6. OrderService ↔ CommsService 投递 ──
+[PASS] 带 comms issue ok
+[PASS] comms issue → ISSUED  actual=ISSUED expected=ISSUED
+[PASS] delivery_id 存在
+[PASS] comms tick → TRANSMITTING  actual=TRANSMITTING expected=TRANSMITTING
+[PASS] comms 送达 → QUEUED/PENDING  QUEUED
+[PASS] order DELIVERED event
+[PASS] 整合 VM JSON
+[PASS] comms 失败 issue false
+[PASS] comms 失败 → REJECTED  actual=REJECTED expected=REJECTED
+[PASS] 失败 reason comms_*
+[PASS] 失败整合 VM JSON
+
+── 7. JSON / 确定性 / 不写 ──
+[PASS] comms 确定性
+[PASS] comms VM JSON 2
+[PASS] comms events JSON
+[PASS] order 确定性
+[PASS] order VM JSON 2
+[PASS] 两个服务 ready
+[PASS] text library schema 公共接口
+────────────────────────────────────────────────────────────────
+ORDER COMMS PROBE RESULT: PASS=137 FAIL=0
+ORDER COMMS PROBE OK
+AUDIO OK files=36 headless=true muted=false

@@ -2,7 +2,19 @@
 
 执行Issue：[JC-B01A #62](https://github.com/HATO-24/ghost-track-apsis/issues/62)。
 
-状态：服务WAIT A1/K0，Session最终集成WAIT A4；交付D1，属于B1前半。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：READY，A1/K0/A4前置已满足；交付D1，属于B1部署前半。本卡已准备，须由用户安排启动，本轮未自动派发实现。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-29 A4放行后的开工交接
+
+A4冻结`af924d09f5c1d763f8d2556cd94062134ef3c456`，PR72获审合入main`1b483e0f2f2a9bfdaa100caf2ee6742091193204`，完整tree`7576df59d39feb86fff7073240d0f8bdcfc99587`与被审候选相同。[A4独立放行](../../reviews/pr72_a04_r4_20261029/review.md)。A1=`845584733df619feb3e372e8c06a7caa9f3fdaba`，G0/K0=`9d0f3b4380275b0a30fffb4a29fa5c44ef58165f`。开始时fetch最新main，确认包含上述A4合入，再记录实际40位执行HEAD；已有服务分支须先合入最终A4，不覆盖owner、身份、EW时序、发送权限或恢复合同。
+
+现有Formation只写assignments，Session fleet_assign/unassign/move只改选择/发事件，Binder仅ASSIGN/UNASSIGN/MOVE/VALIDATE，不是参战部署。沿原卡接完整的选择校验→配置revision/稳定实例/幂等冻结→同源deployment seed→catalog/world/physics/每实例资源，未选舰不得残留于任何一层。
+
+按实际boot顺序接线：catalog从seed注册；_setup_optional_components内初始化PhysicsWorld并seed物理实体；随后entity.spawn发布并apply到WorldState。不要另造顺序或在boot后仅upsert_physics_entity：该函数只写物理，而world_physics_sync对world不存在的ID跳过。physics_world.entities配置优先于seed.entities，部署时不能遗留旧全名册覆盖；质量/燃料t→kg只转换一次，坐标/速度/参考系/历元同源。
+
+部署实例同步接入own_entity/fleet_instances/command_domains及既有sensor/owner/EW链。生成实体不等于向玩家生成已知敌航迹；编制VALID不等于已出击。冻结选择与实例资源分开保存，恢复不重复生成、不在交战中重boot抹损伤；B1b前其他本方舰战斗运行态仍明确不可用。
+
+最小确认→部署结果/拒绝原因UI按[UI-04a原设计合同](../ui/UI-04_phase_b_views.md)和[61文案/组件排程](../../61_UI文案台账与实施队列.md)，核心与Binder共享文件串行，不扩全屏重写或协同页。保留本卡原最小非headless操作/截图验收，不能用headless probe替代实际可见入口。UI设计文档GPT/Sol，运行代码DeepSeek。舰池/预算/命名继续待B03P核对，旧13舰/8槽不是批准参数，不在本卡扩B1b/AI/目标结算。
 
 ## 1. 目标与缺口
 
@@ -10,7 +22,7 @@ C55的FleetFormation管理选择/名册，但尚未把自由组舰变成完整�
 
 ## 2. 基线与范围
 
-服务基于已审A1/K0；最终接线以A4精确SHA为底，按顺序集成，不同时重写GameSession。范围为既有Formation/ShipCatalog复用、deployment seed/实体映射、独立单舰初始运行态、必要部署入口/存档。舰池/点数/命名由B03P提案；旧13舰/8槽不是固定产品要求。
+服务的A1/K0依据保留；最终接线以顶部获审A4及其main合入为底，记录实际40位执行HEAD，按顺序集成，不同时重写GameSession。范围为既有Formation/ShipCatalog复用、deployment seed/实体映射、独立单舰初始运行态、必要部署入口/存档。舰池/点数/命名由B03P提案；旧13舰/8槽不是固定产品要求。
 
 本卡不开发完整Refit/港口、舰队AI、目标结算或多舰发射。其他本方舰在B1b逐舰火控账本完成前明确返回战斗运行态不可用；绝不能借旗舰service展示“多舰开火已完成”。
 

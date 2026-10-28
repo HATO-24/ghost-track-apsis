@@ -1,0 +1,18 @@
+{
+  "head": "1de99a85c4f69dca706509648450487197523ab5",
+  "additional_public_session_case": {
+    "script": "queue_share_file_rng.gd",
+    "exit_code": 0,
+    "queue_intel_share": {"ok": true, "delivery_id": "C-000001"},
+    "real_file_roundtrip": true,
+    "send_comms_log_count": 0,
+    "continuous_rng_before_save": {"seed": 0, "seq": 1},
+    "restored_rng_before_next_send": {"seed": 0, "seq": 0},
+    "next_continuous_draw": 0.30996977738569,
+    "next_restored_draw": 0.928304756026857,
+    "next_draw_matches": false,
+    "continuous_rng_after_send": {"seed": 0, "seq": 2},
+    "restored_rng_after_send": {"seed": 0, "seq": 1}
+  },
+  "scope": "One real user:// file save/read and public fresh.load_state; no 10-tick/version/C/W7 rerun."
+}

@@ -1,0 +1,15 @@
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+   at: V2DamageProfileService._resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+   GDScript backtrace (most recent call first):
+       [0] _resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+       [1] profile_for (res://scripts/core/damage_profile_service.gd:186)
+       [2] setup (res://scripts/core/damage_service.gd:128)
+       [3] _init (res://scripts/core/damage_service.gd:63)
+       [4] _test_setup (res://tests/damage_service_probe.gd:147)
+       [5] _initialize (res://tests/damage_service_probe.gd:28)
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/damage_service.gd:513)
+       [1] _test_save_load (res://tests/damage_service_probe.gd:460)
+       [2] _initialize (res://tests/damage_service_probe.gd:34)

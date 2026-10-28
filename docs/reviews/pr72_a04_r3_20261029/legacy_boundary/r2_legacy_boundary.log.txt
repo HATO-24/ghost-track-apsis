@@ -1,0 +1,4 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+A04_R3_LEGACY_BOUNDARY_JSON={"ordinary":{"ok":false,"pending":0,"reason":"ew_bypass_forbidden"},"v1":{"jam_ok":true,"live_ew":{"draw":0.896732279517098,"failure_chance":0.4,"from_id":"own_ship","ignored":false,"jam_severity":0.5,"latency_add_s":20.0,"sampled_t":0.0,"target_id":"ally_ship","will_fail":false},"live_latency":22.0,"live_send_ok":true,"load_errors":[],"load_ok":true,"replay_delivery_id":"C-000001","replay_latency":2.0,"replay_ok":true,"report_legacy_v1":1,"restored_ew_state":{"seed":0,"seq":0},"row_divergence":[],"row_legacy":true,"row_matched":true}}
+AUDIO OK files=36 headless=true muted=false

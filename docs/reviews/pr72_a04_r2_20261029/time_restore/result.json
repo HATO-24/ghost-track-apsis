@@ -1,0 +1,29 @@
+{
+  "head": "bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72",
+  "engine": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+  "runs": [
+    {
+      "script": "comms_state_edges.gd",
+      "exit_code": 0,
+      "cases": [
+        {"case":"v2_pending_missing_ew", "original_will_fail":true, "load_ok":true, "restore_mode":"full", "due_event_kinds":["DELIVERED"], "converted_failure_to_delivery":true},
+        {"case":"fractional_state_version_2_5", "load_ok":true, "int_parsed_version":2},
+        {"case":"state_v2_rng_restoration", "saved_rng":{"seed":123,"seq":1}, "after_load":{"seed":123,"seq":1}, "next_draw_matches":true, "draw":0.285678160509876},
+        {"case":"present_invalid_ew_atomic", "load_ok":false, "reason":"invalid_state", "errors":["pending.ew"], "state_unchanged":true},
+        {"case":"unknown_state_version_atomic", "load_ok":false, "reason":"invalid_version", "state_unchanged":true}
+      ]
+    },
+    {
+      "script": "queue_share_file_rng.gd",
+      "exit_code": 0,
+      "case": "queue_intel_share real user:// save/read + fresh.load_state, no send_comms log replay",
+      "send_comms_log_count": 0,
+      "continuous_before_save": {"seed":0,"seq":1},
+      "restored_before_next": {"seed":0,"seq":1},
+      "next_continuous_draw": 0.30996977738569,
+      "next_restored_draw": 0.30996977738569,
+      "next_draw_matches": true
+    }
+  ],
+  "scope": "Single rerun of two prior narrow diagnostics. No C/full/callback/W7 rerun and no production/formal-probe/matrix/baseline edits."
+}

@@ -1,0 +1,389 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE3B PROBE · StoryRuntime
+════════════════════════════════════════════════════════════
+
+── 1 内容文件 ──
+[PASS] story content 存在
+[PASS] teaching content 存在
+[PASS] story JSON 可解析
+[PASS] teaching JSON 可解析
+[PASS] story schema  actual=v17.story_content.v1 expected=v17.story_content.v1
+[PASS] story version  actual=1.0.0 expected=1.0.0
+[PASS] scenario_id  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] manual_only=true  actual=true expected=true
+[PASS] auto_complete=false  actual=false expected=false
+[PASS] title_key 非空
+[PASS] teaching_file 引用
+[PASS] chapters 4  actual=4 expected=4
+[PASS] steps 8  actual=8 expected=8
+[PASS] endings 2  actual=2 expected=2
+[PASS] chapter id 类型
+[PASS] chapter phase 非空
+[PASS] chapter title_key
+[PASS] chapter id 类型
+[PASS] chapter phase 非空
+[PASS] chapter title_key
+[PASS] chapter id 类型
+[PASS] chapter phase 非空
+[PASS] chapter title_key
+[PASS] chapter id 类型
+[PASS] chapter phase 非空
+[PASS] chapter title_key
+[PASS] step id 非空
+[PASS] step id 唯一: S1
+[PASS] step chapter 存在: S1
+[PASS] step actions 非空: S1
+[PASS] step title_key: S1
+[PASS] step 引用 teaching id: S1
+[PASS] step text_keys: S1
+[PASS] action id: S1
+[PASS] action 名: S1
+[PASS] action label_key: S1
+[PASS] action gate 对象: S1
+[PASS] action effects 对象: S1
+[PASS] step id 非空
+[PASS] step id 唯一: S2
+[PASS] step chapter 存在: S2
+[PASS] step actions 非空: S2
+[PASS] step title_key: S2
+[PASS] step 引用 teaching id: S2
+[PASS] step text_keys: S2
+[PASS] action id: S2
+[PASS] action 名: S2
+[PASS] action label_key: S2
+[PASS] action gate 对象: S2
+[PASS] action effects 对象: S2
+[PASS] action id: S2
+[PASS] action 名: S2
+[PASS] action label_key: S2
+[PASS] action gate 对象: S2
+[PASS] action effects 对象: S2
+[PASS] step id 非空
+[PASS] step id 唯一: S3
+[PASS] step chapter 存在: S3
+[PASS] step actions 非空: S3
+[PASS] step title_key: S3
+[PASS] step 引用 teaching id: S3
+[PASS] step text_keys: S3
+[PASS] action id: S3
+[PASS] action 名: S3
+[PASS] action label_key: S3
+[PASS] action gate 对象: S3
+[PASS] action effects 对象: S3
+[PASS] step id 非空
+[PASS] step id 唯一: S4
+[PASS] step chapter 存在: S4
+[PASS] step actions 非空: S4
+[PASS] step title_key: S4
+[PASS] step 引用 teaching id: S4
+[PASS] step text_keys: S4
+[PASS] action id: S4
+[PASS] action 名: S4
+[PASS] action label_key: S4
+[PASS] action gate 对象: S4
+[PASS] action effects 对象: S4
+[PASS] step id 非空
+[PASS] step id 唯一: S5
+[PASS] step chapter 存在: S5
+[PASS] step actions 非空: S5
+[PASS] step title_key: S5
+[PASS] step 引用 teaching id: S5
+[PASS] step text_keys: S5
+[PASS] action id: S5
+[PASS] action 名: S5
+[PASS] action label_key: S5
+[PASS] action gate 对象: S5
+[PASS] action effects 对象: S5
+[PASS] step id 非空
+[PASS] step id 唯一: S6
+[PASS] step chapter 存在: S6
+[PASS] step actions 非空: S6
+[PASS] step title_key: S6
+[PASS] step 引用 teaching id: S6
+[PASS] step text_keys: S6
+[PASS] action id: S6
+[PASS] action 名: S6
+[PASS] action label_key: S6
+[PASS] action gate 对象: S6
+[PASS] action effects 对象: S6
+[PASS] step id 非空
+[PASS] step id 唯一: S7
+[PASS] step chapter 存在: S7
+[PASS] step actions 非空: S7
+[PASS] step title_key: S7
+[PASS] step 引用 teaching id: S7
+[PASS] step text_keys: S7
+[PASS] action id: S7
+[PASS] action 名: S7
+[PASS] action label_key: S7
+[PASS] action gate 对象: S7
+[PASS] action effects 对象: S7
+[PASS] action id: S7
+[PASS] action 名: S7
+[PASS] action label_key: S7
+[PASS] action gate 对象: S7
+[PASS] action effects 对象: S7
+[PASS] action id: S7
+[PASS] action 名: S7
+[PASS] action label_key: S7
+[PASS] action gate 对象: S7
+[PASS] action effects 对象: S7
+[PASS] step id 非空
+[PASS] step id 唯一: S8
+[PASS] step chapter 存在: S8
+[PASS] step actions 非空: S8
+[PASS] step title_key: S8
+[PASS] step 引用 teaching id: S8
+[PASS] step text_keys: S8
+[PASS] action id: S8
+[PASS] action 名: S8
+[PASS] action label_key: S8
+[PASS] action gate 对象: S8
+[PASS] action effects 对象: S8
+[PASS] 所有 teaching_step_ids 存在
+[PASS] text_keys 数量  4
+
+── 2 setup/start/菜单 ──
+[PASS] runtime ready  []
+[PASS] runtime 无 errors  actual=0 expected=0
+[PASS] runtime 无 warnings  actual=0 expected=0
+[PASS] 初始 idle  actual=idle expected=idle
+[PASS] 初始 chapter 空  actual= expected=
+[PASS] 初始 step 空  actual= expected=
+[PASS] snapshot schema  actual=v17.story_runtime.v1 expected=v17.story_runtime.v1
+[PASS] snapshot version  actual=1.0.0 expected=1.0.0
+[PASS] snapshot scenario  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] 初始 contracts ok
+[PASS] 未 start note 拒绝  actual=false expected=false
+[PASS] not_started reason  actual=not_started expected=not_started
+[PASS] 未知 chapter start 拒绝  actual=false expected=false
+[PASS] start ok  actual=true expected=true
+[PASS] start 后 running  actual=running expected=running
+[PASS] 起始 chapter  actual=ch_prologue expected=ch_prologue
+[PASS] 起始 phase  actual=prelude expected=prelude
+[PASS] 起始 step S1  actual=S1 expected=S1
+[PASS] step_index 0  actual=0 expected=0
+[PASS] history 空  actual=0 expected=0
+[PASS] text_keys 输出
+[PASS] current_step S1  actual=S1 expected=S1
+[PASS] teaching id 关联  actual=T07-G1-S1 expected=T07-G1-S1
+[PASS] chapter_list() 4
+[PASS] step_list() 8
+[PASS] S1 菜单 1 项  actual=1 expected=1
+[PASS] S1 action  actual=acknowledge_brief expected=acknowledge_brief
+[PASS] S1 action available  actual=true expected=true
+[PASS] S1 action 未锁  actual=false expected=false
+[PASS] menu label_key
+[PASS] available_actions 1  actual=1 expected=1
+[PASS] runtime ready  []
+[PASS] 按 chapter start ok  actual=true expected=true
+[PASS] ch_contact 起始 S4  actual=S4 expected=S4
+[PASS] ch_contact phase read  actual=read expected=read
+[PASS] runtime ready  []
+[PASS] 无 StoryState runtime
+[PASS] 无 StoryState start ok  actual=true expected=true
+
+── 3 步骤/效果 ──
+[PASS] runtime ready  []
+[PASS] note acknowledge_brief ok  actual=true expected=true
+[PASS] note acknowledge_brief next step  actual=S2 expected=S2
+[PASS] note acknowledge_brief contracts
+[PASS] note set_course ok  actual=true expected=true
+[PASS] note set_course next step  actual=S3 expected=S3
+[PASS] note set_course contracts
+[PASS] note order_burn ok  actual=true expected=true
+[PASS] note order_burn next step  actual=S4 expected=S4
+[PASS] note order_burn contracts
+[PASS] note open_contact_list ok  actual=true expected=true
+[PASS] note open_contact_list next step  actual=S5 expected=S5
+[PASS] note open_contact_list contracts
+[PASS] note identify_contact ok  actual=true expected=true
+[PASS] note identify_contact next step  actual=S6 expected=S6
+[PASS] note identify_contact contracts
+[PASS] note order_radar ok  actual=true expected=true
+[PASS] note order_radar next step  actual=S7 expected=S7
+[PASS] note order_radar contracts
+[PASS] note decide ok  actual=true expected=true
+[PASS] note decide next step  actual=S8 expected=S8
+[PASS] note decide contracts
+[PASS] note submit_report ok  actual=true expected=true
+[PASS] note submit_report next step  actual= expected=
+[PASS] note submit_report contracts
+[PASS] flag prelude_acked
+[PASS] flag course_set
+[PASS] flag burn_ordered
+[PASS] flag contacts_open
+[PASS] flag contact_identified
+[PASS] flag radar_ordered
+[PASS] flag choice_hold
+[PASS] flag report_submitted
+[PASS] evidence ev_contact_2001
+[PASS] choice choice_hold
+[PASS] trust 50+5+2+5=62  actual=62.000000 expected=62.000000
+[PASS] 最后 note 后 awaiting_complete（不自动完成）  actual=awaiting_complete expected=awaiting_complete
+[PASS] 显式 complete ok  actual=true expected=true
+[PASS] status complete  actual=complete expected=complete
+[PASS] ending END_HOLD  actual=END_HOLD expected=END_HOLD
+[PASS] history 8  actual=8 expected=8
+[PASS] 结束后菜单不再推进
+[PASS] 完成后 contracts ok
+[PASS] 终态 note 拒绝  actual=false expected=false
+[PASS] 终态 skip 拒绝  actual=false expected=false
+[PASS] 终态 fail 拒绝  actual=false expected=false
+[PASS] snapshot history
+
+── 4 乱序/重复/locked ──
+[PASS] runtime ready  []
+[PASS] 错误 action 拒绝  actual=false expected=false
+[PASS] wrong_action reason  actual=wrong_action expected=wrong_action
+[PASS] 错误 action 不改状态  actual={"applied":{"choices":[],"evidence":[],"flags":{},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"chapter":"ch_prologue","ending":"","history":[],"phase":"prelude","status":"running","step_id":"S1","step_index":0.0} expected={"applied":{"choices":[],"evidence":[],"flags":{},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"chapter":"ch_prologue","ending":"","history":[],"phase":"prelude","status":"running","step_id":"S1","step_index":0.0}
+[PASS] 乱序 action 拒绝  actual=false expected=false
+[PASS] 乱序不改状态  actual={"applied":{"choices":[],"evidence":[],"flags":{},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"chapter":"ch_prologue","ending":"","history":[],"phase":"prelude","status":"running","step_id":"S1","step_index":0.0} expected={"applied":{"choices":[],"evidence":[],"flags":{},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"chapter":"ch_prologue","ending":"","history":[],"phase":"prelude","status":"running","step_id":"S1","step_index":0.0}
+[PASS] 重复 action 拒绝  actual=false expected=false
+[PASS] 重复不改状态  actual={"applied":{"choices":[],"evidence":[],"flags":{"prelude_acked":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"chapter":"ch_departure","ending":"","history":[{"action":"acknowledge_brief","choice":"a_ack","effects":{"flags":["prelude_acked"]},"step_id":"S1","t":0.0,"target":"","text_keys":["TXT-0001","TXT-0257"]}],"phase":"command","status":"running","step_id":"S2","step_index":1.0} expected={"applied":{"choices":[],"evidence":[],"flags":{"prelude_acked":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"chapter":"ch_departure","ending":"","history":[{"action":"acknowledge_brief","choice":"a_ack","effects":{"flags":["prelude_acked"]},"step_id":"S1","t":0.0,"target":"","text_keys":["TXT-0001","TXT-0257"]}],"phase":"command","status":"running","step_id":"S2","step_index":1.0}
+[PASS] 目标不匹配拒绝  actual=false expected=false
+[PASS] target_mismatch  actual=target_mismatch expected=target_mismatch
+[PASS] 目标不匹配不改状态  actual={"applied":{"choices":[],"evidence":[],"flags":{"prelude_acked":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"chapter":"ch_departure","ending":"","history":[{"action":"acknowledge_brief","choice":"a_ack","effects":{"flags":["prelude_acked"]},"step_id":"S1","t":0.0,"target":"","text_keys":["TXT-0001","TXT-0257"]}],"phase":"command","status":"running","step_id":"S2","step_index":1.0} expected={"applied":{"choices":[],"evidence":[],"flags":{"prelude_acked":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"chapter":"ch_departure","ending":"","history":[{"action":"acknowledge_brief","choice":"a_ack","effects":{"flags":["prelude_acked"]},"step_id":"S1","t":0.0,"target":"","text_keys":["TXT-0001","TXT-0257"]}],"phase":"command","status":"running","step_id":"S2","step_index":1.0}
+[PASS] S2 菜单含 locked fire
+[PASS] fire locked
+[PASS] fire locked reason  ["flag_missing:fire_authorized"]
+[PASS] fire reason 指向 gate
+[PASS] locked action note 拒绝  actual=false expected=false
+[PASS] action_locked reason  actual=action_locked expected=action_locked
+[PASS] locked action 不改状态  actual={"applied":{"choices":[],"evidence":[],"flags":{"prelude_acked":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"chapter":"ch_departure","ending":"","history":[{"action":"acknowledge_brief","choice":"a_ack","effects":{"flags":["prelude_acked"]},"step_id":"S1","t":0.0,"target":"","text_keys":["TXT-0001","TXT-0257"]}],"phase":"command","status":"running","step_id":"S2","step_index":1.0} expected={"applied":{"choices":[],"evidence":[],"flags":{"prelude_acked":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":50.0},"chapter":"ch_departure","ending":"","history":[{"action":"acknowledge_brief","choice":"a_ack","effects":{"flags":["prelude_acked"]},"step_id":"S1","t":0.0,"target":"","text_keys":["TXT-0001","TXT-0257"]}],"phase":"command","status":"running","step_id":"S2","step_index":1.0}
+[PASS] locked 后正确 action 可推进  actual=true expected=true
+[PASS] start 重置到 S1  actual=S1 expected=S1
+[PASS] start 重置 history  actual=0 expected=0
+
+── 5 分支 ──
+[PASS] runtime ready  []
+[PASS] S7 菜单 3 项  actual=3 expected=3
+[PASS] hold available
+[PASS] expose available（trust>=55）
+[PASS] evacuate locked
+[PASS] 分支 hold note ok  actual=true expected=true
+[PASS] hold ending  actual=END_HOLD expected=END_HOLD
+[PASS] hold flag
+[PASS] hold complete  actual=true expected=true
+[PASS] hold 完成 ending  actual=END_HOLD expected=END_HOLD
+[PASS] runtime ready  []
+[PASS] expose note ok  actual=true expected=true
+[PASS] expose ending  actual=END_EXPOSE expected=END_EXPOSE
+[PASS] expose flag
+[PASS] expose complete  actual=true expected=true
+[PASS] expose 完成 ending  actual=END_EXPOSE expected=END_EXPOSE
+[PASS] 两条分支 flags 不同
+[PASS] StoryState hold choice
+[PASS] StoryState expose choice
+[PASS] hold trust 62  actual=62.000000 expected=62.000000
+[PASS] expose trust 57（-5）  actual=57.000000 expected=57.000000
+[PASS] runtime ready  []
+[PASS] 同分支 snapshot 一致
+
+── 6 跳过/失败 ──
+[PASS] runtime ready  []
+[PASS] 提前 complete 拒绝  actual=false expected=false
+[PASS] complete_not_ready  actual=complete_not_ready expected=complete_not_ready
+[PASS] skip ok  actual=true expected=true
+[PASS] status skipped  actual=skipped expected=skipped
+[PASS] skip reason  actual=player_skip expected=player_skip
+[PASS] skipped 后 note 拒绝  actual=false expected=false
+[PASS] skipped 后 complete 拒绝  actual=false expected=false
+[PASS] runtime ready  []
+[PASS] fail ok  actual=true expected=true
+[PASS] status failed  actual=failed expected=failed
+[PASS] fail reason  actual=range_fail expected=range_fail
+[PASS] failed 后 skip 拒绝  actual=false expected=false
+[PASS] runtime ready  []
+[PASS] 未 start skip 拒绝  actual=false expected=false
+[PASS] reset ok  actual=true expected=true
+[PASS] reset 后 idle  actual=idle expected=idle
+[PASS] reset 后无 step  actual= expected=
+
+── 7 存档 ──
+[PASS] runtime ready  []
+[PASS] save JSON 可解析
+[PASS] save schema  actual=v17.story_runtime_save.v1 expected=v17.story_runtime_save.v1
+[PASS] save version  actual=1.0.0 expected=1.0.0
+[PASS] save 含 story_save
+[PASS] save step S4  actual=S4 expected=S4
+[PASS] runtime ready  []
+[PASS] load ok  actual=true expected=true · []
+[PASS] load step 一致  actual=S4 expected=S4
+[PASS] load status 一致  actual=running expected=running
+[PASS] load snapshot 一致
+[PASS] load StoryState 一致
+[PASS] load 后再次 save 一致
+[PASS] load 后 contracts ok
+[PASS] load 后继续推进 S5  actual=S5 expected=S5
+[PASS] runtime ready  []
+[PASS] 无 StoryState load ok  actual=true expected=true
+[PASS] 无 StoryState load step 一致  actual=S4 expected=S4
+[PASS] 空存档拒绝  actual=false expected=false
+[PASS] 空存档不改状态  actual={"applied":{"choices":[],"evidence":[],"flags":{"burn_ordered":true,"contacts_open":true,"course_set":true,"prelude_acked":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":55.0},"chapter":"ch_contact","ending":"","history":[{"action":"acknowledge_brief","choice":"a_ack","effects":{"flags":["prelude_acked"]},"step_id":"S1","t":0.0,"target":"","text_keys":["TXT-0001","TXT-0257"]},{"action":"set_course","choice":"a_course","effects":{"flags":["course_set"]},"step_id":"S2","t":0.0,"target":"l1_meridian","text_keys":["TXT-0004","TXT-0257"]},{"action":"order_burn","choice":"a_burn","effects":{"flags":["burn_ordered"],"trust":5.0},"step_id":"S3","t":0.0,"target":"l1_meridian","text_keys":["TXT-0004"]},{"action":"open_contact_list","choice":"a_contacts","effects":{"flags":["contacts_open"]},"step_id":"S4","t":0.0,"target":"","text_keys":["TXT-0011"]}],"phase":"read","status":"running","step_id":"S5","step_index":4.0} expected={"applied":{"choices":[],"evidence":[],"flags":{"burn_ordered":true,"contacts_open":true,"course_set":true,"prelude_acked":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":55.0},"chapter":"ch_contact","ending":"","history":[{"action":"acknowledge_brief","choice":"a_ack","effects":{"flags":["prelude_acked"]},"step_id":"S1","t":0.0,"target":"","text_keys":["TXT-0001","TXT-0257"]},{"action":"set_course","choice":"a_course","effects":{"flags":["course_set"]},"step_id":"S2","t":0.0,"target":"l1_meridian","text_keys":["TXT-0004","TXT-0257"]},{"action":"order_burn","choice":"a_burn","effects":{"flags":["burn_ordered"],"trust":5.0},"step_id":"S3","t":0.0,"target":"l1_meridian","text_keys":["TXT-0004"]},{"action":"open_contact_list","choice":"a_contacts","effects":{"flags":["contacts_open"]},"step_id":"S4","t":0.0,"target":"","text_keys":["TXT-0011"]}],"phase":"read","status":"running","step_id":"S5","step_index":4.0}
+[PASS] 坏 schema 拒绝  actual=false expected=false
+[PASS] 非法 status 拒绝  actual=false expected=false
+[PASS] 非法 step 拒绝  actual=false expected=false
+[PASS] 非法存档不改状态  actual={"applied":{"choices":[],"evidence":[],"flags":{"burn_ordered":true,"contacts_open":true,"course_set":true,"prelude_acked":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":55.0},"chapter":"ch_contact","ending":"","history":[{"action":"acknowledge_brief","choice":"a_ack","effects":{"flags":["prelude_acked"]},"step_id":"S1","t":0.0,"target":"","text_keys":["TXT-0001","TXT-0257"]},{"action":"set_course","choice":"a_course","effects":{"flags":["course_set"]},"step_id":"S2","t":0.0,"target":"l1_meridian","text_keys":["TXT-0004","TXT-0257"]},{"action":"order_burn","choice":"a_burn","effects":{"flags":["burn_ordered"],"trust":5.0},"step_id":"S3","t":0.0,"target":"l1_meridian","text_keys":["TXT-0004"]},{"action":"open_contact_list","choice":"a_contacts","effects":{"flags":["contacts_open"]},"step_id":"S4","t":0.0,"target":"","text_keys":["TXT-0011"]}],"phase":"read","status":"running","step_id":"S5","step_index":4.0} expected={"applied":{"choices":[],"evidence":[],"flags":{"burn_ordered":true,"contacts_open":true,"course_set":true,"prelude_acked":true},"morality":0.0,"reputation":50.0,"threat":1.0,"trust":55.0},"chapter":"ch_contact","ending":"","history":[{"action":"acknowledge_brief","choice":"a_ack","effects":{"flags":["prelude_acked"]},"step_id":"S1","t":0.0,"target":"","text_keys":["TXT-0001","TXT-0257"]},{"action":"set_course","choice":"a_course","effects":{"flags":["course_set"]},"step_id":"S2","t":0.0,"target":"l1_meridian","text_keys":["TXT-0004","TXT-0257"]},{"action":"order_burn","choice":"a_burn","effects":{"flags":["burn_ordered"],"trust":5.0},"step_id":"S3","t":0.0,"target":"l1_meridian","text_keys":["TXT-0004"]},{"action":"open_contact_list","choice":"a_contacts","effects":{"flags":["contacts_open"]},"step_id":"S4","t":0.0,"target":"","text_keys":["TXT-0011"]}],"phase":"read","status":"running","step_id":"S5","step_index":4.0}
+
+── 8 Session 集成 ──
+[PASS] session ready
+[PASS] runtime ready  []
+[PASS] bind_session ok  actual=true expected=true
+[PASS] bind_session 自动绑定 story_state
+[PASS] 绑定同一 StoryState
+[PASS] 效果写入 session.story_state
+[PASS] runtime 时间取 session  actual=2.000000 expected=2.000000
+[PASS] runtime ready  []
+[PASS] session runtime load ok  actual=true expected=true · []
+[PASS] load 恢复 session.story_state
+[PASS] session load step 一致  actual=S3 expected=S3
+[PASS] session load snapshot 一致
+[PASS] runtime ready  []
+[PASS] bind null session 拒绝  actual=false expected=false
+
+── 9 内容校验 ──
+[PASS] runtime ready  []
+[PASS] 合法内容通过  actual=true expected=true · []
+[PASS] manual_only=false 拒绝  actual=false expected=false
+[PASS] auto_complete=true 拒绝  actual=false expected=false
+[PASS] 空 steps 拒绝  actual=false expected=false
+[PASS] 重复 step id 拒绝  actual=false expected=false
+[PASS] step 无 actions 拒绝  actual=false expected=false
+[PASS] 非法 chapter phase 拒绝  actual=false expected=false
+[PASS] 坏 teaching schema 拒绝  actual=false expected=false
+[PASS] 未知 teaching 引用仅 warning  actual=true expected=true
+[PASS] warning 记录
+
+── 10 JSON/确定性 ──
+[PASS] runtime ready  []
+[PASS] runtime JSON 可解析
+[PASS] JSON schema  actual=v17.story_runtime.v1 expected=v17.story_runtime.v1
+[PASS] JSON menu
+[PASS] JSON applied
+[PASS] JSON story 快照
+[PASS] JSON text_keys
+[PASS] snapshot contracts
+[PASS] runtime ready  []
+[PASS] runtime ready  []
+[PASS] 同操作 snapshot 一致
+[PASS] 同操作 save 一致
+[PASS] 同操作 menu 一致
+[PASS] 同操作 text_keys 一致
+────────────────────────────────────────────────────────────
+[DATA] content = chapters=4 steps=8 endings=2 text_keys>=3 teaching refs ok
+[DATA] setup = start/default/chapter/step/menu/text_keys · 无 StoryState 可用
+[DATA] steps = S1→S8 · flags/evidence/choice/trust · awaiting→complete(END_HOLD)
+[DATA] locked = 错误/乱序/重复/目标不匹配/locked 均拒绝且不改状态
+[DATA] branch = hold→END_HOLD · expose→END_EXPOSE · trust/choice 差异 · 同心确定性
+[DATA] skip_fail = skip→skipped · fail→failed · 提前 complete 拒绝 · reset
+[DATA] save_load = save/load snapshot+StoryState 一致 · 继续推进 · 非法拒绝
+[DATA] session = bind_session 自动绑定 story_state · 时间取 session · 效果/存档一致
+[DATA] content_validation = manual_only/auto_complete/steps/重复/action/phase/schema 校验
+[DATA] json_det = JSON 可解析 · 同操作 snapshot/save/menu 一致
+────────────────────────────────────────────────────────────
+V17 STORY RUNTIME PROBE RESULT: PASS=349 FAIL=0
+V17 STORY RUNTIME PROBE OK
+AUDIO OK files=36 headless=true muted=false

@@ -1,0 +1,102 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R5-AUTO-SENSOR-1 PROBE · 自动光学/对接数据（最小）
+════════════════════════════════════════════════════════════
+
+── 1 默认 auto ──
+[PASS] bridge.boot  []
+[PASS] 默认 optical auto=true  actual=true expected=true
+[PASS] 默认 docking auto=true  actual=true expected=true
+[PASS] auto step 初值 0  actual=0 expected=0
+[PASS] sync 后 optical auto steps>0  1
+[PASS] sync 后 docking auto steps>0  1
+[PASS] auto 选择光学目标  1000
+[PASS] auto channels ≥2  2
+[PASS] auto 通道 acquiring/staring/locked  ["locked", "locked"]
+[PASS] optical writes.v15=false  actual=false expected=false
+[PASS] auto docking 状态合法  far
+[PASS] docking last range>0  277.699462890625
+[PASS] auto 选择对接端口  chronos-dock-a
+[PASS] docking writes.v15=false  actual=false expected=false
+[PASS] bridge_state 含 optical_ir_auto
+[PASS] bridge_state 含 docking_auto
+[PASS] bridge_state 含 optical_ir_auto_step_count
+[PASS] bridge_state 含 docking_auto_step_count
+
+── 2 手动覆盖 ──
+[PASS] bridge.boot  []
+[PASS] stop 后 auto 抑制  actual=true expected=true
+[PASS] 抑制后 optical auto 不步进  actual=1 expected=1
+[PASS] start 后 auto 恢复  actual=false expected=false
+[PASS] 恢复后 optical auto 继续步进
+[PASS] 手动 update 后 docking auto 抑制  actual=true expected=true
+[PASS] 抑制后 docking auto 不步进  actual=3 expected=3
+[PASS] reset 后 docking auto 恢复  actual=false expected=false
+[PASS] 恢复后 docking auto 继续步进
+
+── 3 state / V15 不变 ──
+[PASS] bridge.boot  []
+[PASS] state.fw_optical_ir_auto=true  actual=true expected=true
+[PASS] state.fw_docking_auto=true  actual=true expected=true
+[PASS] state.fw_optical_ir 非空
+[PASS] state.fw_docking 非空
+[PASS] state fw_optical_ir auto channels 已刷新
+[PASS] state fw_docking.last 已刷新
+[PASS] V15 轨迹 r 不变  actual=(-190.0, 255.0, 62.0) expected=(-190.0, 255.0, 62.0)
+[PASS] V15 轨迹 v 不变  actual=(-0.05, -0.06, 0.01) expected=(-0.05, -0.06, 0.01)
+[PASS] V15 等级不变  actual=4 expected=4
+[PASS] V15 身份不变  actual=friend expected=friend
+[PASS] V15 clock 不变  actual=760.8 expected=760.8
+[PASS] V15 tracks 未被写
+[PASS] fw_bridge_state 含 optical_ir_auto
+[PASS] fw_bridge_state 含 docking_auto
+
+── 4 显式 on ──
+[PASS] bridge.boot  []
+[PASS] on 模式 auto=false  actual=false expected=false
+[PASS] on 模式 docking auto=false  actual=false expected=false
+[PASS] on 模式 optical ready  actual=true expected=true
+[PASS] on 模式 auto 不启动通道  actual=0 expected=0
+[PASS] on 模式 auto 不 update  actual=0 expected=0
+[PASS] on 模式显式 select 可用
+
+── 5 off 降级 ──
+[PASS] bridge.boot  []
+[PASS] off optical enabled=false  actual=false expected=false
+[PASS] off optical auto=false  actual=false expected=false
+[PASS] off docking enabled=false  actual=false expected=false
+[PASS] off docking auto=false  actual=false expected=false
+[PASS] off optical auto steps=0  actual=0 expected=0
+[PASS] off docking auto steps=0  actual=0 expected=0
+[PASS] off optical view 空  actual=0 expected=0
+[PASS] off docking view 空  actual=0 expected=0
+[PASS] off state fw_optical_ir_auto=false  actual=false expected=false
+[PASS] off state fw_docking_auto=false  actual=false expected=false
+[PASS] off state optical 空  actual=0 expected=0
+
+── 6 JSON ──
+[PASS] bridge.boot  []
+[PASS] auto optical JSON  len=5327
+[PASS] optical JSON 回读
+[PASS] auto docking JSON  len=4926
+[PASS] docking JSON 回读
+[PASS] fw_bridge_state JSON  len=206351
+[PASS] fw_bridge_state 回读
+────────────────────────────────────────────────────────────
+[DATA] auto = steps optical=1 docking=1 · channels=["locked", "locked"] · docking=far range=277.7km
+[DATA] override = stop/update 抑制 auto；start/reset 恢复；不写 V15
+[DATA] state/v15 = fw_optical_ir/fw_docking 每帧刷新；fw_*_auto=true；V15 不变
+[DATA] on = 显式 on：auto=false，不自动起通道/update；显式 API 可用
+[DATA] off = off：auto 全停、view/state 空、不崩溃
+[DATA] json = auto optical/docking/fw_bridge_state JSON 可回读
+────────────────────────────────────────────────────────────
+V17 OPTICAL DOCKING AUTO PROBE RESULT: PASS=68 FAIL=0
+V17 OPTICAL DOCKING AUTO PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 189 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

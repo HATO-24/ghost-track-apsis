@@ -1,0 +1,37 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE5E PROBE · ShipCatalog variants/derive/audit
+════════════════════════════════════════════════════════════
+
+── 1 加载/数量 ──
+
+── 2 友军 8 型 ──
+
+── 3 33OSID 审计 ──
+
+── 4 ORBFLT/共享变体 ──
+
+── 5 自动推算 ──
+
+── 6 API ──
+
+── 6b 操作性推算/对齐 ──
+
+── 7 校验/失败 ──
+
+── 8 确定性 ──
+────────────────────────────────────────────────────────────
+[DATA] counts = base 32（友8+33OSID18+ORBFLT6）· variant 18（UEOF 7/3 各6 + fleet6）
+[DATA] friendly = 8 型保持 · APSIS 001/HARMATTAN 114 · 字段/成本值不变
+[DATA] 33osid = 18（6 base+12 变体）· CA-4471 batch null+batch_source · AV 2001 · audit findings
+[DATA] orbflt/variants = ORBFLT 6 base · operator 2/base（覆盖7/3）· fleet 1/base · 共18
+[DATA] derive = 18 变体 base×倍率推算 mass/dv/accel/crew + sensors/weapons add · 无 TBD
+[DATA] api = variants_of/resolve_variant/resolve/class_of/name_pool/summary/to_json
+[DATA] 5H = operational_tbd=0 · 50 auto-derived · 8友军+18 33OSID 模板/推算/armor profile · 18变体 profile 对齐
+[DATA] validation = variant_id/derive/operator覆盖/ORBFLT TBD/CA batch/audit/UEOF独立 class 均拒绝
+[DATA] determinism = JSON/summary/classes/variants/enemy 一致 · variant 排序
+────────────────────────────────────────────────────────────
+V17 SHIP CATALOG PROBE RESULT: PASS=1488 FAIL=0
+V17 SHIP CATALOG PROBE OK
+AUDIO OK files=36 headless=true muted=false

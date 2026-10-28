@@ -1,0 +1,15 @@
+{
+  "head": "563e97a61bc00d31104ad6db969edfe87f2fc25f",
+  "script": "comms_state_edges.gd",
+  "engine": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+  "exit_code": 0,
+  "cases": [
+    {"case":"v2_pending_missing_ew", "original_will_fail":true, "load_ok":false, "errors":["pending.ew"], "state_unchanged":true},
+    {"case":"fractional_state_version_2_5", "load_ok":false, "reason":"invalid_version", "state_unchanged":true},
+    {"case":"valid_v2_rng_state", "saved":{"seed":123,"seq":1}, "restored":{"seed":123,"seq":1}, "next_draw_matches":true},
+    {"case":"v1_state_without_pending_ew", "load_ok":true, "restore_mode":"migrated_v1", "pending":1},
+    {"case":"present_invalid_pending_ew_null", "load_ok":false, "reason":"invalid_state", "errors":["pending.ew"], "state_unchanged":true},
+    {"case":"unknown_state_version_99", "load_ok":false, "reason":"invalid_version", "state_unchanged":true}
+  ],
+  "scope": "One bounded service-state diagnostic; no queue-share real-file rerun, 10-tick/C/W7/formal probe rerun."
+}

@@ -1,0 +1,12 @@
+WARNING: `NaN` ("Not a Number") found in argument passed to JSON.stringify(). `NaN` cannot be represented in JSON, so the value has been replaced with `null`. This warning will not be printed for any later NaN occurrences.
+   at: _stringify (core/io/json.cpp:86)
+   GDScript backtrace (most recent call first):
+       [0] _json_ok (res://tests/cislunar_physics_probe.gd:98)
+       [1] _test_nan_json (res://tests/cislunar_physics_probe.gd:652)
+       [2] _initialize (res://tests/cislunar_physics_probe.gd:37)
+WARNING: Exponent too high
+   at: built_in_strtod (core/string/ustring.cpp:2553)
+   GDScript backtrace (most recent call first):
+       [0] _json_ok (res://tests/cislunar_physics_probe.gd:101)
+       [1] _test_nan_json (res://tests/cislunar_physics_probe.gd:652)
+       [2] _initialize (res://tests/cislunar_physics_probe.gd:37)
