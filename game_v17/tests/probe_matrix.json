@@ -1258,6 +1258,19 @@
       ],
       "result": "markers",
       "timeout_s": 240
-    }
+    },
+    {
+      "id": "integration.jc_deployment",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "JC-B01A (#62): selection -> validate -> frozen deployment -> real entities. Two legal formations produce exactly the selected entity sets in catalog/physics/world (unselected hulls absent); stable instance ids/revision/deployment seed; per-instance independent resources with t->kg conversion once; invalid selections reject atomically with reasons; same-selection deployment idempotent and changing formation after deployment is deployment_locked; save/load before/after keeps mapping, no duplicates, 10 ticks identical; legacy single-ship seed compatible; session exposes plan/deploy/vm/resources entry points.",
+      "script": "res://tests/jc_deployment_probe.gd",
+      "expected_markers": [
+        "JC-B01A DEPLOYMENT PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 420
+    },
   ]
 }
