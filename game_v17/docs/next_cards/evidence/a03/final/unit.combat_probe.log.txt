@@ -1,0 +1,290 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+COMBAT PROBE · 完整游戏-阶段3G
+════════════════════════════════════════════════════════════════
+
+── 1. 内容驱动武器 / setup ──
+[PASS] ready  []
+[PASS] content 无错误
+[PASS] content schema  actual=weapons.v1 expected=weapons.v1
+[PASS] 5 武器  actual=5 expected=5
+[PASS] 武器存在 railgun
+[PASS] 武器存在 missile
+[PASS] 武器存在 pd
+[PASS] 武器存在 jammer
+[PASS] 武器存在 decoy
+[PASS] railgun kinetic
+[PASS] missile guided
+[PASS] pd kind
+[PASS] jammer kind
+[PASS] decoy kind
+[PASS] railgun range
+[PASS] missile range
+[PASS] missile ammo
+[PASS] solution_s
+[PASS] ROE 四档
+[PASS] ROE DEFEND
+[PASS] ROE HOLD
+[PASS] ROE TIGHT
+[PASS] ROE FREE
+[PASS] 默认 ROE TIGHT  actual=TIGHT expected=TIGHT
+[PASS] ROE label
+[PASS] ROE label_en
+[PASS] VM roe_label_en
+[PASS] VM weapons
+[PASS] VM tracks
+[PASS] VM JSON
+[PASS] summary JSON
+[PASS] 不写 world
+[PASS] 不写 TrackTable
+[PASS] 不写 V15
+[PASS] 不写 UI
+[PASS] content JSON
+[PASS] content units
+[PASS] content 三级授权
+[PASS] content 四种 scope
+[PASS] 武器授权级别 railgun
+[PASS] 武器授权级别 missile
+[PASS] 武器授权级别 pd
+[PASS] 武器授权级别 jammer
+[PASS] 武器授权级别 decoy
+[PASS] missile 可拦截标记
+[PASS] decoy duration
+[PASS] 初始无授权
+
+── 2. ROE 四档 / TRACK-SOLUTION 自动/确认 ──
+[PASS] DEFEND TRACK hostile auto  { "ok": true, "reason": "roe_auto", "target_id": "T-hostile", "auto": true, "roe": "DEFEND" }
+[PASS] DEFEND SOLUTION hostile auto/允许
+[PASS] DEFEND TRACK suspect auto  { "ok": true, "reason": "roe_auto", "target_id": "T-suspect", "auto": true, "roe": "DEFEND" }
+[PASS] DEFEND SOLUTION suspect 需确认  needs_confirmation
+[PASS] DEFEND TRACK unknown auto  { "ok": true, "reason": "roe_auto", "target_id": "T-unknown", "auto": true, "roe": "DEFEND" }
+[PASS] DEFEND SOLUTION unknown 需确认  needs_confirmation
+[PASS] DEFEND TRACK neutral auto  { "ok": true, "reason": "roe_auto", "target_id": "T-neutral", "auto": true, "roe": "DEFEND" }
+[PASS] DEFEND SOLUTION neutral 需确认  needs_confirmation
+[PASS] ROE 设置为 DEFEND  actual=DEFEND expected=DEFEND
+[PASS] 切 FREE
+[PASS] 切 DEFEND
+[PASS] 非法 ROE false
+[PASS] HOLD TRACK hostile auto  { "ok": true, "reason": "roe_auto", "target_id": "T-hostile", "auto": true, "roe": "HOLD" }
+[PASS] HOLD SOLUTION hostile 需确认  needs_confirmation
+[PASS] HOLD TRACK suspect auto  { "ok": true, "reason": "roe_auto", "target_id": "T-suspect", "auto": true, "roe": "HOLD" }
+[PASS] HOLD SOLUTION suspect 需确认  needs_confirmation
+[PASS] HOLD TRACK unknown auto  { "ok": true, "reason": "roe_auto", "target_id": "T-unknown", "auto": true, "roe": "HOLD" }
+[PASS] HOLD SOLUTION unknown 需确认  needs_confirmation
+[PASS] HOLD TRACK neutral auto  { "ok": true, "reason": "roe_auto", "target_id": "T-neutral", "auto": true, "roe": "HOLD" }
+[PASS] HOLD SOLUTION neutral 需确认  needs_confirmation
+[PASS] ROE 设置为 HOLD  actual=HOLD expected=HOLD
+[PASS] 切 FREE
+[PASS] 切 DEFEND
+[PASS] 非法 ROE false
+[PASS] TIGHT TRACK hostile auto  { "ok": true, "reason": "roe_auto", "target_id": "T-hostile", "auto": true, "roe": "TIGHT" }
+[PASS] TIGHT SOLUTION hostile auto/允许
+[PASS] TIGHT TRACK suspect auto  { "ok": true, "reason": "roe_auto", "target_id": "T-suspect", "auto": true, "roe": "TIGHT" }
+[PASS] TIGHT SOLUTION suspect 需确认  needs_confirmation
+[PASS] TIGHT TRACK unknown 需确认/授权  needs_confirmation
+[PASS] TIGHT SOLUTION unknown 需确认  needs_confirmation
+[PASS] TIGHT TRACK neutral 需确认/授权  needs_confirmation
+[PASS] TIGHT SOLUTION neutral 需确认  needs_confirmation
+[PASS] ROE 设置为 TIGHT  actual=TIGHT expected=TIGHT
+[PASS] 切 FREE
+[PASS] 切 DEFEND
+[PASS] 非法 ROE false
+[PASS] FREE TRACK hostile auto  { "ok": true, "reason": "roe_auto", "target_id": "T-hostile", "auto": true, "roe": "FREE" }
+[PASS] FREE SOLUTION hostile auto/允许
+[PASS] FREE TRACK suspect 需确认/授权  needs_authorization
+[PASS] FREE SOLUTION suspect 需确认  needs_confirmation
+[PASS] FREE TRACK unknown 需确认/授权  needs_confirmation
+[PASS] FREE SOLUTION unknown 需确认  needs_confirmation
+[PASS] FREE TRACK neutral 需确认/授权  needs_confirmation
+[PASS] FREE SOLUTION neutral 需确认  needs_confirmation
+[PASS] ROE 设置为 FREE  actual=FREE expected=FREE
+[PASS] 切 FREE
+[PASS] 切 DEFEND
+[PASS] 非法 ROE false
+[PASS] ROE VM JSON
+
+── 3. TRACK/SOLUTION/FIRE 授权 / scope / 时限 ──
+[PASS] target FIRE grant
+[PASS] target grant 匹配
+[PASS] target grant 不匹配其他 target
+[PASS] level 隔离
+[PASS] weapon_group grant
+[PASS] weapon_group 匹配
+[PASS] weapon_group 不匹配 railgun
+[PASS] ship grant
+[PASS] fleet grant
+[PASS] fleet grant 匹配
+[PASS] 非法 scope false
+[PASS] 非法 level false
+[PASS] 空 scope_id false
+[PASS] duration grant
+[PASS] duration 未到期匹配
+[PASS] duration 到期不匹配
+[PASS] 到期事件
+[PASS] until_destroyed grant
+[PASS] 摧毁后 until_destroyed 失效
+[PASS] revoke fixture grant
+[PASS] revoke grant
+[PASS] revoke 后不匹配
+[PASS] 再次 grant
+[PASS] revoke all
+[PASS] revoke all 后不匹配
+[PASS] DEFEND suspect solution 需确认
+[PASS] SOLUTION grant
+[PASS] SOLUTION grant 允许
+[PASS] auth VM JSON
+
+── 4. 火控解算 / 授权 / 发射 / 命中损伤 ──
+[PASS] TIGHT TRACK auto
+[PASS] TIGHT SOLUTION auto
+[PASS] solution COMPUTING  actual=COMPUTING expected=COMPUTING
+[PASS] solution ready_t
+[PASS] fire 未确认 false
+[PASS] fire 未授权 false
+[PASS] solution_started event
+[PASS] 解算未完  actual=COMPUTING expected=COMPUTING
+[PASS] solution READY  actual=READY expected=READY
+[PASS] solution quality
+[PASS] solution error_km
+[PASS] solution_ready event
+[PASS] FIRE grant
+[PASS] predict_shot ok
+[PASS] predict 不执行物理
+[PASS] trajectory 接口标记
+[PASS] 预测飞行时间
+[PASS] 预测命中概率
+[PASS] fire 成功
+[PASS] 发射消耗弹药  actual=7 expected=7
+[PASS] 开火不返回同步命中（命中异步）
+[PASS] 返回 launch_spec + salvo
+[PASS] physics 延迟到弹道服务  actual=deferred expected=deferred
+[PASS] weapon_launch event
+[PASS] 冷却/无解阻止发射  no_ready_solution
+[PASS] 冷却后/仍冷却状态合法
+[PASS] 未知/非进攻目标武器解算拒绝  actual=4 expected=4
+[PASS] 超距解算拒绝
+[PASS] fire control VM JSON
+[PASS] weapon_group FIRE grant
+[PASS] weapon_group 允许发射
+
+── 4b. 齐射参数 / 弹药不足拒绝发射 ──
+[PASS] missile 默认齐射 1  actual=1 expected=1
+[PASS] 武器行暴露 salvo/salvo_max/salvo_setting
+[PASS] missile salvo_max=4  actual=4 expected=4
+[PASS] railgun salvo_max=1  actual=1 expected=1
+[PASS] set_salvo 3 ok
+[PASS] 齐射设为 3  actual=3 expected=3
+[PASS] 超上限钳到 salvo_max  actual=4 expected=4
+[PASS] railgun 钳到 1  actual=1 expected=1
+[PASS] 未知武器 set_salvo 拒绝
+[PASS] unknown_weapon reason  actual=unknown_weapon expected=unknown_weapon
+[PASS] salvo_set event
+[PASS] missile 有初始弹药  8
+[PASS] 弹药不足拒绝发射
+[PASS] 拒绝理由  actual=insufficient_ammo_for_salvo expected=insufficient_ammo_for_salvo
+[PASS] 要求重新设置齐射
+[PASS] salvo_max 收到弹药上限  actual=2 expected=2
+[PASS] 给出可读提示
+[PASS] 拒绝时不扣弹药  actual=2 expected=2
+[PASS] 下调齐射后可发射
+[PASS] 按齐射 2 发射  actual=2 expected=2
+[PASS] 齐射扣 2 发弹药  actual=0 expected=0
+[PASS] launch_spec 带实体 id
+[PASS] launch_spec 透传齐射数  actual=2 expected=2
+[PASS] 弹药耗尽拒绝
+[PASS] no_ammo reason  actual=no_ammo expected=no_ammo
+[PASS] 齐射 VM JSON
+
+── 4c. 沙盒便利项：无限弹药 / 免授权 ──
+[PASS] 默认 unlimited_ammo=false
+[PASS] 默认 auto_authorize=false
+[PASS] vm().sandbox.unlimited_ammo=false  actual=false expected=false
+[PASS] vm().sandbox.auto_authorize=false  actual=false expected=false
+[PASS] auto_authorize setup ready  []
+[PASS] 免授权仍要求 confirmed
+[PASS] 免授权 confirmed=false 理由  actual=needs_confirmation expected=needs_confirmation
+[PASS] 免授权后可直接发射
+[PASS] 免授权发射解算置 FIRED  actual=FIRED expected=FIRED
+[PASS] unlimited_ammo setup ready  []
+[PASS] 无限弹药不判定弹药耗尽
+[PASS] 库存 0 仍可发射
+[PASS] 无限弹药不扣减  actual=0 expected=0
+[PASS] ammo_left 如实回报 0  actual=0 expected=0
+[PASS] 无限弹药仍受冷却限制
+[PASS] 冷却 reason  actual=cooldown expected=cooldown
+[PASS] 未知航迹仍拒绝  actual=unknown_track expected=unknown_track
+[PASS] 对照：本体库存 0 报 no_ammo  actual=no_ammo expected=no_ammo
+[PASS] 沙盒 VM JSON
+
+── 5. 点防御 / 诱饵 / 干扰 / incoming ──
+[PASS] incoming_missile 注册
+[PASS] incoming_detected event
+[PASS] 点防御事件
+[PASS] 点防御消耗弹药
+[PASS] 拦截或命中事件
+[PASS] launch_decoy
+[PASS] 诱饵消耗  actual=11 expected=11
+[PASS] 诱饵激活窗口
+[PASS] 诱饵冷却阻止连发
+[PASS] decoy event
+[PASS] activate_jammer
+[PASS] 干扰消耗  actual=5 expected=5
+[PASS] 干扰窗口
+[PASS] 干扰冷却阻止
+[PASS] jammer event
+[PASS] PD/decoy/jammer JSON
+[PASS] 不可拦截 incoming 命中
+[PASS] incoming 不写 world
+
+── 6. 自动降级 ──
+[PASS] set FREE
+[PASS] 传感器损坏 → HOLD  HOLD
+[PASS] 降级事件
+[PASS] set_sensor_damage 返回 roe
+[PASS] link lost
+[PASS] 链路丢失 → HOLD  actual=HOLD expected=HOLD
+[PASS] update neutral in arc
+[PASS] 中立进入射界 → HOLD  actual=HOLD expected=HOLD
+[PASS] 弹药耗尽 → HOLD  actual=HOLD expected=HOLD
+[PASS] 已 HOLD 不再降级  actual=HOLD expected=HOLD
+[PASS] TIGHT 损坏 → HOLD  actual=HOLD expected=HOLD
+[PASS] downgrade VM JSON
+
+── 7. save/load / JSON / 确定性 ──
+[PASS] 存档前 decoy
+[PASS] save_state JSON
+[PASS] save schema
+[PASS] save version
+[PASS] save weapons
+[PASS] load_state ok
+[PASS] load roe  actual=TIGHT expected=TIGHT
+[PASS] load ammo  actual=8 expected=8
+[PASS] load track
+[PASS] load grant
+[PASS] load t
+[PASS] load decoy
+[PASS] load events
+[PASS] loaded VM JSON
+[PASS] save 确定性
+[PASS] 拒绝存档: empty
+[PASS] 拒绝存档: bad json
+[PASS] 拒绝存档: bad schema
+[PASS] 拒绝存档: future
+[PASS] 拒绝存档: old
+[PASS] 确定性 VM
+[PASS] summary JSON
+[PASS] 最终不写 world
+[PASS] 最终不写 V15
+────────────────────────────────────────────────────────────────
+COMBAT PROBE RESULT: PASS=255 FAIL=0
+COMBAT PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/combat_service.gd:1041)
+       [1] _test_save_load_json (res://tests/combat_probe.gd:586)
+       [2] _initialize (res://tests/combat_probe.gd:30)

@@ -25,6 +25,11 @@ const SAVE_VERSION := "1.0.0"
 const WEAPON_KINDS := ["kinetic", "guided", "point_defense", "ew", "decoy"]
 const ROE_ORDER := ["DEFEND", "HOLD", "TIGHT", "FREE"]
 const AUTH_LEVELS := ["TRACK", "SOLUTION", "FIRE"]
+# JC-A03：当前测量质量→解算可用性/耗时（冻结 fixture；缺省 1.0 兼容旧行为）
+const QUALITY_MIN := 0.5
+const QUALITY_FULL := 0.9
+const QUALITY_TIME_MULT := 1.5
+const QUALITY_ACC_MULT := 0.85
 const SCOPE_TYPES := ["target", "weapon_group", "ship", "fleet"]
 const IDENTITIES := ["unknown", "assumed_friend", "friend", "neutral", "suspect", "hostile"]
 const MAX_EVENTS := 500
@@ -415,7 +420,10 @@ func update_track(id: String, data := {}) -> Dictionary:
 	var d: Dictionary = data if data is Dictionary else {}
 	var old_identity := String(tr.get("identity", "unknown"))
 	for k in ["batch", "identity", "threat", "range_km", "in_arc", "destroyed", "damage_taken",
-			"ship_id", "entity_id"]:
+			"ship_id", "entity_id",
+			# JC-A03：当前测量质量/误差由火控消费者读取
+			"measurement_quality", "measurement_original", "measurement_t",
+			"measurement_source", "measurement_degraded", "measurement_aggregate"]:
 		if d.has(k):
 			tr[k] = d[k]
 	var new_identity := String(tr.get("identity", "unknown"))
@@ -459,6 +467,10 @@ func request_track(target_id: String, confirmed := false) -> Dictionary:
 		"auto": bool(a.get("auto", false)), "roe": roe}
 
 
+## 当前测量质量（current measurement）；缺省 1.0 保持旧行为。
+func _track_quality(tr: Dictionary) -> float:
+	return clampf(float(tr.get("measurement_quality", 1.0)), 0.0, 1.0)
+
 func request_solution(target_id: String, weapon_id: String, confirmed := false) -> Dictionary:
 	var tr := _get_track(target_id)
 	if tr.is_empty():
@@ -476,6 +488,12 @@ func request_solution(target_id: String, weapon_id: String, confirmed := false) 
 		return {"ok": false, "reason": "inside_min_range"}
 	if bool(tr.get("destroyed", false)):
 		return {"ok": false, "reason": "target_destroyed"}
+	# JC-A03：当前测量质量不足 → 明确拒绝；0.5<=q<0.9 解算耗时 ×1.5
+	var q_consume := _track_quality(tr)
+	if q_consume < QUALITY_MIN - 1.0e-9:
+		return {"ok": false, "reason": "insufficient_quality",
+			"quality": q_consume, "target_id": target_id,
+			"weapon_id": weapon_id}
 	var a := _action_allowed("SOLUTION", tr, weapon_id, confirmed)
 	if not bool(a.get("ok", false)):
 		return {"ok": false, "reason": String(a.get("reason", "")),
@@ -490,18 +508,25 @@ func request_solution(target_id: String, weapon_id: String, confirmed := false) 
 				and String(s.get("status", "")) in ["COMPUTING", "READY"]:
 			return {"ok": true, "reason": "existing", "solution": s.duplicate(true)}
 	_solution_seq += 1
+	var base_s := maxf(0.0, float(w.get("solution_s", 0.0)))
+	var time_mult := QUALITY_TIME_MULT if q_consume < QUALITY_FULL - 1.0e-9 else 1.0
+	var eff_s := base_s * time_mult
 	var so := {
 		"solution_id": "SOL-%06d" % _solution_seq,
 		"target_id": target_id, "weapon_id": weapon_id,
 		"status": "COMPUTING", "start_t": t,
-		"ready_t": t + maxf(0.0, float(w.get("solution_s", 0.0))),
+		"ready_t": t + eff_s,
 		"quality": 0.0, "error_km": -1.0, "reason": "",
 		"fire_ready": false,
+		"measurement_quality": q_consume,
+		"base_solution_s": base_s, "solution_s": eff_s,
+		"quality_time_mult": time_mult,
 	}
 	solutions[so["solution_id"]] = so
 	_push_event("solution_started", {"solution_id": so["solution_id"],
 		"target_id": target_id, "weapon_id": weapon_id})
-	return {"ok": true, "reason": "", "solution": so.duplicate(true)}
+	return {"ok": true, "reason": "", "solution": so.duplicate(true),
+		"base_solution_s": base_s, "measurement_quality": q_consume}
 
 
 func solution_status(solution_id: String) -> Dictionary:
@@ -536,10 +561,15 @@ func predict_shot(target_id: String, weapon_id: String) -> Dictionary:
 	var tof := range_km / speed if speed > 0.0 else -1.0
 	var acc := float(w.get("accuracy", 0.5))
 	var q := clampf(acc * (1.0 - clampf(range_km / maxf(1.0, float(w.get("range_km", 1.0))), 0.0, 1.0) * 0.25), 0.0, 1.0)
+	# JC-A03：预测同样消费当前测量质量（moderate 精度×0.85）
+	var mq := _track_quality(tr)
+	var acc_mult := QUALITY_ACC_MULT if mq < QUALITY_FULL - 1.0e-9 else 1.0
+	q = clampf(q * acc_mult, 0.0, 1.0)
 	return {"ok": true, "reason": "", "schema": "combat_prediction.v1",
 		"no_physics": true, "trajectory": "interface_only",
 		"target_id": target_id, "weapon_id": weapon_id, "range_km": range_km,
 		"time_of_flight_s": tof, "hit_probability": q,
+		"measurement_quality": mq, "quality_accuracy_mult": acc_mult,
 		"error_km": maxf(0.0, range_km * (1.0 - q) * 0.01),
 		"guidance": String(w.get("guidance", "")),
 		"interceptable": bool(w.get("interceptable", false))}
@@ -567,6 +597,22 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 	var sol := _find_ready_solution(target_id, weapon_id)
 	if sol.is_empty():
 		return {"ok": false, "reason": "no_ready_solution"}
+	# JC-A03/R1（修订）：不新增硬禁射。沿用既有解算时，实际射击消费当前测量
+	# 质量的精度/误差并记录所用数据时刻与有效性，由调用方解释策略。
+	var fire_mq := _track_quality(tr)
+	var fire_mt := float(tr.get("measurement_t", t))
+	var fire_base := clampf(float(w.get("accuracy", 0.5)) * (1.0 - clampf(
+		float(tr.get("range_km", 0.0)) / maxf(1.0, float(w.get("range_km", 1.0))),
+		0.0, 1.0) * 0.25), 0.0, 1.0)
+	var fire_acc_mult := QUALITY_ACC_MULT if fire_mq < QUALITY_FULL - 1.0e-9 else 1.0
+	var fire_quality := clampf(fire_base * fire_acc_mult, 0.0, 1.0)
+	sol["quality"] = fire_quality
+	sol["measurement_quality"] = fire_mq
+	sol["measurement_t"] = fire_mt
+	sol["quality_accuracy_mult"] = fire_acc_mult
+	sol["quality_valid"] = fire_mq >= QUALITY_MIN - 1.0e-9
+	sol["quality_sufficient"] = fire_mq >= QUALITY_MIN - 1.0e-9
+	sol["error_km"] = maxf(0.0, float(tr.get("range_km", 0.0)) * (1.0 - fire_quality) * 0.01)
 	var range_km := float(tr.get("range_km", 999999.0))
 	if range_km > float(w.get("range_km", 0.0)) + 1.0e-9:
 		return {"ok": false, "reason": "out_of_range"}
@@ -602,6 +648,11 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 		"salvo": salvo, "ammo_left": int(ws["ammo"]), "prediction": pred.duplicate(true)})
 	return {"ok": true, "reason": "", "shot_id": shot_id, "salvo": salvo,
 		"weapon_id": weapon_id, "target_id": target_id,
+		"measurement_quality": fire_mq, "quality": fire_quality,
+		"quality_accuracy_mult": fire_acc_mult, "measurement_t": fire_mt,
+		"quality_valid": bool(sol.get("quality_valid", false)),
+		"quality_sufficient": bool(sol.get("quality_sufficient", false)),
+		"error_km": float(sol.get("error_km", -1.0)),
 		"ammo_left": int(ws["ammo"]), "cooldown_until": float(ws["cooldown_until"]),
 		"solution": sol.duplicate(true), "prediction": pred,
 		"physics": "deferred", "no_physics": false,
@@ -793,11 +844,25 @@ func tick(dt: float) -> Dictionary:
 			continue
 		var acc := float(w.get("accuracy", 0.5))
 		var q := clampf(acc * (1.0 - clampf(float(tr.get("range_km", 0.0)) / maxf(1.0, float(w.get("range_km", 1.0))), 0.0, 1.0) * 0.25), 0.0, 1.0)
+		# JC-A03/R1（修订）：READY 消费当前测量质量的精度/误差并记录有效性；
+		# 不新增硬禁射（旧解算仍可继续，由调用方解释所用数据时刻与质量）。
+		var mq := _track_quality(tr)
+		var acc_mult := QUALITY_ACC_MULT if mq < QUALITY_FULL - 1.0e-9 else 1.0
+		q = clampf(q * acc_mult, 0.0, 1.0)
 		s["status"] = "READY"
 		s["quality"] = q
+		s["measurement_quality"] = mq
+		s["measurement_t"] = float(tr.get("measurement_t", t))
+		s["quality_accuracy_mult"] = acc_mult
+		s["quality_valid"] = mq >= QUALITY_MIN - 1.0e-9
+		s["quality_sufficient"] = mq >= QUALITY_MIN - 1.0e-9
+		s["ready_measurement_quality"] = mq
+		s["ready_measurement_t"] = float(tr.get("measurement_t", t))
 		s["error_km"] = maxf(0.0, float(tr.get("range_km", 0.0)) * (1.0 - q) * 0.01)
 		s["fire_ready"] = true
 		_push_event("solution_ready", {"solution_id": sid, "quality": q,
+			"measurement_quality": mq, "quality_accuracy_mult": acc_mult,
+			"quality_valid": bool(s["quality_valid"]),
 			"error_km": float(s["error_km"])})
 	# 跟进中的 incoming + 点防御
 	_process_incoming()
