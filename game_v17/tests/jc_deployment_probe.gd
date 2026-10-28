@@ -20,11 +20,12 @@ const SEL_A := [
 	{"ship_id": "HARMATTAN", "slot": "screen", "instance_id": "harmattan"},
 ]
 const SEL_B := [
+	{"ship_id": "PERIGEE", "slot": "command", "instance_id": "perigee"},
 	{"ship_id": "FERRY", "slot": "gun", "instance_id": "ferry"},
 	{"ship_id": "WATCHTOWER", "slot": "relay", "instance_id": "watchtower"},
 ]
 const EXPECTED_A := ["apsis", "harmattan"]
-const EXPECTED_B := ["ferry", "watchtower"]
+const EXPECTED_B := ["ferry", "perigee", "watchtower"]
 
 func _initialize() -> void:
 	print("[B01A] START")
@@ -206,10 +207,10 @@ func _run() -> void:
 	_ok(not vb.is_empty(), "B deployment vm 可读", str(vb.get("reason", "")))
 	_eq(_ev_ids(va), EXPECTED_A, "A 实例 id 集合 = 选择")
 	_eq(_ev_ids(vb), EXPECTED_B, "B 实例 id 集合 = 选择")
-	_ok(String(va.get("selection_revision", "")) != "",
-		"A 冻结 revision 非空", str(va.get("selection_revision", "")))
-	_ok(String(va.get("selection_revision", ""))
-		!= String(vb.get("selection_revision", "")),
+	_ok(String(va.get("revision", "")) != "",
+		"A 冻结 revision 非空", str(va.get("revision", "")))
+	_ok(String(va.get("revision", ""))
+		!= String(vb.get("revision", "")),
 		"A/B 不同编制 revision 不同")
 	_eq(int(va.get("deployment_seed", -1)), 424242,
 		"部署 seed 与 seed 配置同源")
@@ -351,6 +352,66 @@ func _run() -> void:
 			str(pa1), str(pb1)])
 	_ok(pa0.size() == pb0.size(), "部署实例位置集合可读")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+	# 预部署阶段（auto=false）：pending 不生成实体；恢复后确认→真实生成；资源持久化
+	var pre_extra := {"deployment": {"scenario_id": "PRE",
+		"deployment_seed": 424242,
+		"selection": {"ships": SEL_A}, "auto": false}}
+	var a7 = _new(SEL_A, "PRE", pre_extra)
+	_ok(a7 != null and bool(a7.ready), "预部署 auto=false boot ready",
+		str(a7.errors if a7 != null else []))
+	_eq(_ev_ids(_vm(a7)), [], "预部署阶段尚无冻结实例")
+	_eq(_meta_ids(a7), ["legacy_ship"], "预部署阶段不生成参战实体")
+	var pre_path := "user://jc_b01a_predeploy.json"
+	var fp := FileAccess.open(pre_path, FileAccess.WRITE)
+	fp.store_string(a7.save_state())
+	fp.close()
+	var a7b = _new(SEL_A, "PRE", pre_extra)
+	var lrp: Dictionary = a7b.load_state(FileAccess.get_file_as_string(pre_path))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(pre_path))
+	_ok(bool(lrp.get("ok", false)), "预部署阶段真实文件恢复成功",
+		str(lrp.get("errors", [])))
+	_eq(_ev_ids(_vm(a7b)), [], "预部署恢复不提前生成实例")
+	var dep_pre: Dictionary = _deploy(a7b, SEL_A)
+	_ok(bool(dep_pre.get("ok", false)), "预部署恢复后 confirm 部署成功",
+		str(dep_pre.get("reason", "")))
+	_eq(_ev_ids(_vm(a7b)), EXPECTED_A, "部署后实例集合 = 选择")
+	_eq(_meta_ids(a7b), EXPECTED_A, "部署后 catalog = 选择")
+	_advance(a7b, 1.0)
+	var dep_lock: Dictionary = _deploy(a7b, SEL_B)
+	_eq(String(dep_lock.get("reason", "")), "deployment_locked",
+		"运行开始后换编制 deployment_locked")
+	# 资源随真实文件恢复
+	var a8 = _new(SEL_A, "RES")
+	var r8: Dictionary = _resources(a8, "apsis")
+	var fuel8 := float(((r8.get("resources", {}) as Dictionary)).get(
+		"fuel_kg", 0.0))
+	_patch(a8, "apsis", {"resources": {"fuel_kg": fuel8 + 4321.0,
+		"damage_taken": 0.4}})
+	var res_path := "user://jc_b01a_res.json"
+	var fr := FileAccess.open(res_path, FileAccess.WRITE)
+	fr.store_string(a8.save_state())
+	fr.close()
+	var a8b = _new(SEL_A, "RES")
+	var lrr: Dictionary = a8b.load_state(FileAccess.get_file_as_string(res_path))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(res_path))
+	_ok(bool(lrr.get("ok", false)), "部署资源真实文件恢复成功",
+		str(lrr.get("errors", [])))
+	var r8b: Dictionary = _resources(a8b, "apsis")
+	_near(float(((r8b.get("resources", {}) as Dictionary)).get(
+		"fuel_kg", -1.0)), fuel8 + 4321.0, TOL, "恢复后实例燃料保持")
+	_near(float(((r8b.get("resources", {}) as Dictionary)).get(
+		"damage_taken", -1.0)), 0.4, TOL, "恢复后实例损伤保持")
+	_eq(_meta_ids(a8b), EXPECTED_A, "资源恢复不生成重复实体")
+	# 部署实例同步 own/fleet_instances/owner
+	var fim: Dictionary = _fleet_instance_map(a)
+	_ok(fim.has("apsis") and fim.has("harmattan"),
+		"部署实例进入 fleet_instances", str(fim.keys()))
+	_ok(String(a._seed.get("own_entity", "")) in EXPECTED_A,
+		"own_entity 指向已部署旗舰", str(a._seed.get("own_entity", "")))
+	_ok(_own_domain(a) == "player", "部署旗舰 owner 域为 player",
+		_own_domain(a))
+
 
 	_step("J6 旧单舰 seed 兼容与部署入口/UI 合同")
 	var legacy = GS.new({
