@@ -257,6 +257,9 @@ func boot(config := {}) -> Dictionary:
 	_refit_enabled = false
 	_fleet_refit_enabled = false
 	_fleet_formation_enabled = false
+	# R3：boot/load 完整清理上一局部署生命周期。
+	deployment_service = null
+	_deployment_enabled = false
 	_physics_enabled = false
 	_physics_frame_meta = {}
 	_world_sync_mode = WORLD_SYNC_MODE_NO_PHYSICS
@@ -625,6 +628,22 @@ func _deployment_cfg_from_seed() -> Dictionary:
 	var roster := String(ff.get("roster", ff.get("roster_path",
 		"res://framework/content/fleet_roster.json")))
 	var selection = d.get("selection", d.get("assignments", {}))
+	# R2：从既有 command_domains/fleet_instances 推导部署授权边界。
+	var auth: Dictionary = {"controllers": [], "owners": [], "fleets": [],
+		"domains": []}
+	for raw_d in (_seed.get("command_domains", []) as Array):
+		if not (raw_d is Dictionary):
+			continue
+		var d0: Dictionary = raw_d
+		if String(d0.get("domain_id", "")) != "player":
+			continue
+		(auth["controllers"] as Array).append(String(d0.get("controller_id", "")))
+		(auth["owners"] as Array).append(String(d0.get("intel_owner_id", "")))
+		(auth["fleets"] as Array).append(String(d0.get("fleet_id", "")))
+		(auth["domains"] as Array).append("player")
+		for a in (d0.get("authorized_actors", []) as Array):
+			if not (String(a) in (auth["controllers"] as Array)):
+				(auth["controllers"] as Array).append(String(a))
 	return {"ship_catalog": _seed.get("ship_catalog", {}),
 		"roster": roster, "scenario_id": String(d.get("scenario_id", "default")),
 		"deployment_seed": int(d.get("deployment_seed", 0)),
@@ -632,7 +651,14 @@ func _deployment_cfg_from_seed() -> Dictionary:
 		"controller_id": String(d.get("controller_id", "player_ctrl")),
 		"owner_id": String(d.get("owner_id", "player_intel")),
 		"fleet_id": String(d.get("fleet_id", "own_fleet")),
-		"domain_id": String(d.get("domain_id", "player"))}
+		"domain_id": String(d.get("domain_id", "player")),
+		"config_revision": String(d.get("config_revision", "cfg-1")),
+		"limits_override": (d.get("limits_override", {}) as Dictionary).duplicate(true) \
+			if d.get("limits_override") is Dictionary else {},
+		"authorized_controllers": auth["controllers"],
+		"authorized_owners": auth["owners"],
+		"authorized_fleets": auth["fleets"],
+		"authorized_domains": auth["domains"]}
 
 
 func _setup_deployment_from_seed() -> void:
@@ -1276,7 +1302,11 @@ func _seed_physics_entities(pwcfg: Dictionary) -> void:
 		return
 	var source: Array = []
 	var source_is_seed := false
-	if pwcfg.get("entities") is Array:
+	# R1：部署态必须覆盖显式 physics 旧名单；物理 seed 与实际部署同源。
+	if _deployment_enabled:
+		source = (_seed.get("entities", []) as Array)
+		source_is_seed = true
+	elif pwcfg.get("entities") is Array:
 		source = (pwcfg.get("entities") as Array)
 	elif bool(pwcfg.get("auto_seed", true)):
 		source = (_seed.get("entities", []) as Array)
