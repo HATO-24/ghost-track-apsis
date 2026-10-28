@@ -2,7 +2,20 @@
 
 执行Issue：[JC-A03 #60](https://github.com/HATO-24/ghost-track-apsis/issues/60)。
 
-状态：RETURNED，PR70第二轮仅R1/R2/R3各一处窄收尾；R4关闭，A2已完成，A3不冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：RETURNED，第三轮只剩R1发射前预测与R3旧档覆盖两处；R2/R4关闭，A2已完成，A3不冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-28 PR70第三轮：真实发射/R2/partial已好，仅两处入口
+
+被审 `022a7e0e6b0ab2ce65f228f98b4a1146d18792f8`，main `3845852bd78821ee6b3c70c4d8f9c81a23dca5d6`。[本轮关闭表与真实入口证据](../../reviews/pr70_a03_r3_20261028/review.md)。根11/11 PASS、新EW102/0、A02 122/0、A1 90/0；CI同head合成merge full90=83PASS/7历史FAIL、new_fail0、drift0、complete=true，根未重复本地全量。
+
+**不再返工**：射后真实prediction/launch已消费规范化误差；非共线同seed正例实际velocity和后续position发生差异，不能用原+Y共线退化把它判成无效，不新增完整制导/禁射模型。R2 owner拒绝不再写TT/map、原重投/候选及正常新观测全部关闭。R3 partial/missing、null拒绝、完整full加载已过。R4注册/W7继续关闭。低质量仍能发射本身不算问题。
+
+只剩：
+
+1. **原R1 [P2] 发射前普通预测**：实际HUD走combat_predict_track(T0001)，owner质量未映射到raider_2而回默认1。实体键虽收到q=.7994745/mult.85，仅mq分支仍给旧probability=.8775/error=.735；射后完整opts已经正确.745875/1.52475。统一合法内部键，补mq-only实际计算；显式quality/error不重复乘.85，保留射后/旧无字段正例。只读预测入口验收，不重做已过实际发射链。
+2. **原R3 [P2] 旧档覆盖活跃会话**：真实pending实例t2 queue/samples=1/1，load同一无EW旧文件后now=0、ok/legacy_absent却仍1/1；fresh实例load相同文件是0/0。初始化/覆盖时清除先前会话EW运行态，再按同档字段/default规则恢复，fresh/active语义一致。保留正常full在途、partial/missing和invalid拒绝，不以清空合法新档来通过。
+
+保留本轮非退化实际运动正例，补两个入口对照，最终同40位HEAD专项+原C，七历史baseline不刷新。PR70暂缓合并，继续原#60；A04/B01A核心接入仍等待A3，代码DeepSeek，UI设计/任务文档GPT/Sol。下方前轮为历史，以本轮关闭/剩余表优先。
 
 ## 2026-10-28 PR70第二轮：关闭大部分原反例，只剩三个连接/错误边界
 

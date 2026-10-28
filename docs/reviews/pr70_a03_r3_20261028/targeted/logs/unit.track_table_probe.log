@@ -1,0 +1,193 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+TRACK TABLE PROBE · 完整游戏-阶段2F
+════════════════════════════════════════════════════════════════
+
+── 1. 单写者 / 只读 UI ──
+[PASS] ready  []
+[PASS] writer_id  actual=fusion expected=fusion
+[PASS] 同 writer claim ok
+[PASS] 第二 writer 冲突
+[PASS] 冲突 reason  actual=writer_conflict expected=writer_conflict
+[PASS] 未授权写拒绝
+[PASS] 未授权 reason  actual=unauthorized_writer expected=unauthorized_writer
+[PASS] 未授权不创建 track
+[PASS] find 只读空
+[PASS] subscribe
+[PASS] 授权写 ok
+[PASS] 订阅收到事件
+[PASS] unsubscribe
+[PASS] 取消订阅后不再增长（仍 >=1）
+
+── 2. L1→L4 融合 / 证据追溯 ──
+[PASS] 单观测创建 track
+[PASS] track id
+[PASS] 单观测 L1  actual=1 expected=1
+[PASS] 默认 identity=unknown  actual=unknown expected=unknown
+[PASS] 默认 threat=none  actual=none expected=none
+[PASS] source=radar
+[PASS] evidence 非空
+[PASS] created_t
+[PASS] 同 batch 合并同 track  actual=T0001 expected=T0001
+[PASS] 多源观测 L2  actual=2 expected=2
+[PASS] sources 合并
+[PASS] 光学 Evidence ok
+[PASS] 光学 Evidence L3  actual=3 expected=3
+[PASS] L3 不自动身份  actual=unknown expected=unknown
+[PASS] 证据可追溯  ["level", "observation", "level", "observation", "level", "optical"]
+[PASS] IFF Evidence ok
+[PASS] IFF Evidence L4  actual=4 expected=4
+[PASS] IFF friend → friend  actual=friend expected=friend
+[PASS] 身份 label  actual=友方 expected=友方
+[PASS] evidence_ids
+[PASS] track JSON
+
+── 3. 身份六级 / 不明不判敌 / TrackUpdate ──
+[PASS] IFF no_reply 接受
+[PASS] no_reply → unknown  actual=unknown expected=unknown
+[PASS] no_reply 不自动 threat  actual=none expected=none
+[PASS] 非授权 hostile 拒绝
+[PASS] hostile 拒绝 reason  actual=hostile_requires_authority expected=hostile_requires_authority
+[PASS] 拒绝后身份不变  actual=unknown expected=unknown
+[PASS] 低等级 hostile 拒绝
+[PASS] 拒绝后等级未部分写入  actual=1 expected=1
+[PASS] 拒绝后身份未部分写入  actual=unknown expected=unknown
+[PASS] authoritative manual hostile 接受
+[PASS] 显式 hostile  actual=hostile expected=hostile
+[PASS] TrackUpdate 接受
+[PASS] TrackUpdate identity  actual=neutral expected=neutral
+[PASS] TrackUpdate threat  actual=suspect expected=suspect
+[PASS] TrackUpdate 等级保持  actual=4 expected=4
+[PASS] 等级倒退拒绝
+[PASS] 倒退 reason  actual=level_regression expected=level_regression
+[PASS] 等级仍 L4  actual=4 expected=4
+[PASS] 非法身份拒绝
+[PASS] 身份六级常量
+[PASS] 六级含 assumed_friend/hostile
+
+── 4. 去重 / 同批合并 / 过期 ──
+[PASS] event_id 去重拒绝
+[PASS] event_id reason  actual=duplicate_event expected=duplicate_event
+[PASS] 重复事件不增 track  actual=1 expected=1
+[PASS] 同 batch 同 track  actual=T0001 expected=T0001
+[PASS] 同 batch 不重复 track  actual=1 expected=1
+[PASS] 夹具重复航迹 2  actual=2 expected=2
+[PASS] merge 后 1 track  actual=1 expected=1
+[PASS] merge 记录 1  actual=1 expected=1
+[PASS] merge 取高等级
+[PASS] merged_from 记录
+[PASS] merge VM JSON
+[PASS] 过期前 L1  actual=1 expected=1
+[PASS] tick 标记 stale  actual=1 expected=1
+[PASS] track stale=true
+[PASS] 过期不降级  actual=1 expected=1
+[PASS] forget 移除
+[PASS] 移除后 find 空
+[PASS] 过期 VM JSON
+[PASS] 时间回归拒绝
+[PASS] 时间回归 reason  actual=time_regression expected=time_regression
+[PASS] 未知 track update 拒绝
+[PASS] unknown track reason  actual=unknown_track expected=unknown_track
+
+── 5. DbC 非法事件拒绝 ──
+[PASS] 拒绝: missing schema  missing_schema
+[PASS] 拒绝: unknown schema  unknown_event_schema
+[PASS] 拒绝: no identity  missing_track_identity
+[PASS] 拒绝: bad sensor  invalid_sensor
+[PASS] 拒绝: bad support  invalid_support
+[PASS] 拒绝: observation L3  observation_level_too_high
+[PASS] 拒绝: bad evidence type  invalid_evidence_type
+[PASS] 拒绝: unknown evidence track  unknown_track
+[PASS] 拒绝: nonfinite t  time_regression
+[PASS] 非法事件不产生 track
+[PASS] DbC errors 记录
+[PASS] 非法 setup 不 ready
+[PASS] 非法 setup errors
+[PASS] read-only copy 不影响内部  actual=1 expected=1
+[PASS] advance 负时间拒绝
+
+── 6. 只读 VM / filter / selected / JSON / 确定性 ──
+[PASS] VM schema
+[PASS] VM mode single_writer
+[PASS] VM writer  actual=fusion expected=fusion
+[PASS] VM tracks 1
+[PASS] VM selected
+[PASS] selected id
+[PASS] summary by_level
+[PASS] 不写 TrackTable
+[PASS] 不写 V15
+[PASS] VM JSON
+[PASS] summary JSON
+[PASS] filter level_min
+[PASS] filter identity
+[PASS] filter source
+[PASS] filter stale
+[PASS] selected 只读
+[PASS] selected unknown 空
+[PASS] 确定性 VM
+[PASS] 确定性 events
+[PASS] events JSON
+
+── 7. save/load 快照 / 版本 / 去重 / 过期 ──
+[PASS] 保存前 stale
+[PASS] save_state 是 JSON
+[PASS] save schema  actual=v17.fused_track_table_save.v1 expected=v17.fused_track_table_save.v1
+[PASS] save version  actual=1.0.0 expected=1.0.0
+[PASS] table_schema  actual=fused_track_table.v1 expected=fused_track_table.v1
+[PASS] save tracks
+[PASS] save events
+[PASS] save dedup keys
+[PASS] save payload JSON
+[PASS] snapshot() 返回 payload
+[PASS] save_payload 别名
+[PASS] load_state ok  []
+[PASS] load 后 VM 一致
+[PASS] load 后 save_state 一致
+[PASS] stale 状态保留
+[PASS] evidence 保留
+[PASS] level 保留
+[PASS] writer 保留
+[PASS] t 保留
+[PASS] load 后 event_id 去重保留  actual=duplicate_event expected=duplicate_event
+[PASS] load 后继续写
+[PASS] 新 track id 不冲突
+[PASS] load_state(dict)
+[PASS] load_save_payload
+[PASS] save_state 确定性
+[PASS] load/save 往返确定性
+[PASS] SaveService encode/decode 兼容
+[PASS] SaveService payload 保留 track state
+[PASS] 恢复后 stale 继续
+[PASS] 恢复后 forget 继续
+[PASS] 拒绝快照: empty  empty_state
+[PASS] 拒绝快照: bad json  invalid_json
+[PASS] 拒绝快照: bad schema  invalid_payload
+[PASS] 拒绝快照: future version  invalid_payload
+[PASS] 拒绝快照: old version  invalid_payload
+[PASS] 拒绝快照: missing tracks  invalid_payload
+[PASS] 非法快照不破坏当前状态  actual=2 expected=2
+[PASS] 非法 level 快照拒绝
+[PASS] 重复 track id 快照拒绝
+[PASS] 恢复后 VM JSON
+[PASS] R01: 观测写入成功
+[PASS] R01: VM 有航迹
+[PASS] R01: VM tracks 不泄漏 truth-only 字段  []
+[PASS] R01: VM selected 分支遵守同一策略（不得返回 batch）  []
+[PASS] R01: selected 分支仍返回可用的稳定 id/命令入口  T0001
+[PASS] R01: VM events 嵌套分支遵守同一策略  []
+[PASS] R01: 内部 selected() 仍保留 batch（去重/存档权威）
+[PASS] R01: 内部 all_tracks() 仍保留 batch  1
+[R01] INFO internal batch=SECRET-9001 | player selected keys=21
+────────────────────────────────────────────────────────────────
+TRACK TABLE PROBE RESULT: PASS=161 FAIL=0
+TRACK TABLE PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/track_table.gd:962)
+       [1] _test_save_load (res://tests/track_table_probe.gd:443)
+       [2] _initialize (res://tests/track_table_probe.gd:29)
