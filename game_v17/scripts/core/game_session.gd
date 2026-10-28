@@ -792,6 +792,15 @@ func _apply_deployment_runtime(plan: Dictionary) -> Dictionary:
 func fleet_deployment_plan(selection) -> Dictionary:
 	if deployment_service == null:
 		return {"ok": false, "reason": "no_deployment"}
+	if deployment_service.is_committed() \
+			and deployment_service.matches_selection(selection):
+		var c0: Dictionary = deployment_service.committed()
+		return {"ok": true, "reason": "already_deployed",
+			"revision": String(c0.get("revision", "")),
+			"instance_ids": (c0.get("instance_ids", []) as Array).duplicate(),
+			"entities": (c0.get("entities", []) as Array).duplicate(true),
+			"instances": (c0.get("instances", []) as Array).duplicate(true),
+			"frozen": true}
 	deployment_service.set_ship_configs(_deployment_ship_configs())
 	return deployment_service.plan(selection)
 
@@ -824,15 +833,22 @@ func fleet_deploy(selection, opts := {}) -> Dictionary:
 		return {"ok": false, "reason": "deployment_locked",
 			"deployed_revision": String(c.get("revision", "")),
 			"revision": String(p.get("revision", ""))}
-	if now_s() > 1.0e-9:
-		return {"ok": false, "reason": "deployment_locked"}
-	var dres: Dictionary = deployment_service.deploy(selection, {"confirm": true})
+	# 首次部署：预部署阶段允许在真实 UI 任意帧确认（已部署后换编制才锁定）。
+	var dres: Dictionary = deployment_service.deploy(selection,
+		{"confirm": true}, p)
 	if not bool(dres.get("ok", false)):
 		return dres
+	var committed: Dictionary = deployment_service.committed()
+	if String(committed.get("revision", "")) != String(p.get("revision", "")):
+		return {"ok": false, "reason": "deploy_revision_mismatch",
+			"plan_revision": String(p.get("revision", "")),
+			"committed_revision": String(committed.get("revision", ""))}
 	var ar: Dictionary = _apply_deployment_runtime(p)
 	if not bool(ar.get("ok", false)):
 		return {"ok": false, "reason": String(ar.get("reason", "apply_failed"))}
-	return {"ok": true, "reason": "", "revision": String(p.get("revision", ""))}
+	return {"ok": true, "reason": "",
+		"revision": String(committed.get("revision", "")),
+		"plan_revision": String(p.get("revision", ""))}
 
 
 func fleet_deployment_vm() -> Dictionary:

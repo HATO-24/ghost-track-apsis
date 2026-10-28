@@ -281,11 +281,12 @@ func plan(selection) -> Dictionary:
 	result["ok"] = true
 	return result
 
-func deploy(selection, opts := {}) -> Dictionary:
+func deploy(selection, opts := {}, plan_override := {}) -> Dictionary:
 	var o: Dictionary = opts if opts is Dictionary else {}
 	if not bool(o.get("confirm", false)):
 		return {"ok": false, "reason": "confirm_required"}
-	var p: Dictionary = plan(selection)
+	var p: Dictionary = plan_override if not plan_override.is_empty() \
+		else plan(selection)
 	if not bool(p.get("ok", false)):
 		return {"ok": false, "reason": String(p.get("reason", "invalid_selection")),
 			"errors": (p.get("errors", []) as Array).duplicate()}

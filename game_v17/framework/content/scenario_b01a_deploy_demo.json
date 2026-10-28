@@ -81,7 +81,7 @@
   "deployment": {
     "scenario_id": "DEMO-A",
     "deployment_seed": 424242,
-    "auto": true,
+    "auto": false,
     "selection": {
       "ships": [
         {
