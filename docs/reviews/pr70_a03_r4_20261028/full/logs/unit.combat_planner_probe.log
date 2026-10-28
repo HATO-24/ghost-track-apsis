@@ -1,0 +1,119 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+COMBAT PLANNER PROBE · 完整游戏-阶段4H
+════════════════════════════════════════════════════════════════
+
+── 1. setup / 意图集合 ──
+[PASS] summary schema  actual=combat_planner.v1 expected=combat_planner.v1
+[PASS] 四种意图  actual=4 expected=4
+[PASS] 意图 direct
+[PASS] 意图 silent
+[PASS] 意图 offset
+[PASS] 意图 multi_axis
+[PASS] 不写 world
+[PASS] 不写 track_table
+[PASS] 不写 ui
+[PASS] summary JSON 安全
+[PASS] 未知意图拒绝
+[PASS] 未知意图 reason  actual=unknown_intent expected=unknown_intent
+[PASS] 无弹道服务拒绝
+[PASS] no_ballistics reason  actual=no_ballistics expected=no_ballistics
+
+── 2. direct 直射 ──
+[PASS] direct ok
+[PASS] plan schema  actual=combat_plan.v1 expected=combat_plan.v1
+[PASS] intent 回填  actual=direct expected=direct
+[PASS] weapon 回填  actual=missile expected=missile
+[PASS] direct 无航路点  actual=0 expected=0
+[PASS] direct 零 Δv  actual=0.0 expected=0.0
+[PASS] direct 可行
+[PASS] 射程回填
+[PASS] TOF 回填
+[PASS] profile 无航路点
+[PASS] direct 不关引导头  actual=0.0 expected=0.0
+[PASS] notes 有内容
+[PASS] direct JSON 安全
+[PASS] railgun direct ok
+
+── 3. silent 静默接近 ──
+[PASS] silent ok
+[PASS] 静默段距离 > 0  200.0 km
+[PASS] 静默段小于射程  200.0 < 400.0
+[PASS] silent 不加航路点  actual=0 expected=0
+[PASS] silent 零 Δv  actual=0.0 expected=0.0
+[PASS] silent 可行
+[PASS] silent_km 覆盖生效  actual=123.0 expected=123.0
+[PASS] silent JSON 安全
+
+── 4. offset 侧向迂回 / multi_axis 多轴 ──
+[PASS] offset ok
+[PASS] offset 两个 Δv 脉冲  actual=2 expected=2
+[PASS] 首脉冲 t=0  actual=0.0 expected=0.0
+[PASS] 次脉冲 t>0
+[PASS] 首脉冲 Δv > 0  1.6000 km/s
+[PASS] 次脉冲与首脉冲等值反向
+[PASS] offset Δv 记账 > 0  3.2000
+[PASS] Δv = 两脉冲之和
+[PASS] Δv 预算来自弹道服务
+[PASS] 小横偏默认可行
+[PASS] multi_axis ok
+[PASS] multi_axis 两个脉冲  actual=2 expected=2
+[PASS] bearing 改变横偏方向  diff=2.26274
+[PASS] 横偏越大 Δv 越大
+[PASS] offset/multi_axis JSON 安全
+
+── 5. Δv 预算不可行 ──
+[PASS] 超大横偏仍产出方案
+[PASS] 标记不可行
+[PASS] Δv 超预算  100000.0 > 36.0
+[PASS] notes 明确提示不可行
+[PASS] 不可行方案 JSON 安全
+
+── 6. plan_salvo 齐射逐发剖面 ──
+[PASS] plan_salvo ok
+[PASS] plan_set schema  actual=combat_plan_set.v1 expected=combat_plan_set.v1
+[PASS] count=4  actual=4 expected=4
+[PASS] 四发方案  actual=4 expected=4
+[PASS] 单发方案 ok
+[PASS] 每发两个脉冲  actual=2 expected=2
+[PASS] 单发方案 ok
+[PASS] 每发两个脉冲  actual=2 expected=2
+[PASS] 单发方案 ok
+[PASS] 每发两个脉冲  actual=2 expected=2
+[PASS] 单发方案 ok
+[PASS] 每发两个脉冲  actual=2 expected=2
+[PASS] 逐发方位不同  unique=4
+[PASS] max_dv 记账
+[PASS] 齐射方案可行
+[PASS] plan_set JSON 安全
+[PASS] n=1 单发方案  actual=1 expected=1
+[PASS] direct 齐射 ok
+[PASS] direct 齐射无航路点  actual=0 expected=0
+[PASS] direct 齐射无航路点  actual=0 expected=0
+[PASS] direct 齐射无航路点  actual=0 expected=0
+
+── 7. to_launch_opts → launch() 剖面覆盖 ──
+[PASS] 单发 → profile
+[PASS] intent 透传  actual=silent expected=silent
+[PASS] 按规划发射 ok
+[PASS] 剖面写入弹丸（静默段）  200.0
+[PASS] 齐射 → profiles
+[PASS] profiles 四份  actual=4 expected=4
+[PASS] 齐射发射 ok
+[PASS] 齐射四发全部出管  actual=4 expected=4
+[PASS] 在飞四发  actual=4 expected=4
+[PASS] 四发都带两段航路点  { 2: 4 }
+[PASS] 齐射逐发横偏方向不同  unique=4
+
+── 8. 确定性 / JSON ──
+[PASS] 同输入同剖面（确定性）  actual=[{"dv_kmps":[0.0,-1.60000002384186,0.0],"t_s":0.0},{"dv_kmps":[0.0,1.60000002384186,0.0],"t_s":20.0}] expected=[{"dv_kmps":[0.0,-1.60000002384186,0.0],"t_s":0.0},{"dv_kmps":[0.0,1.60000002384186,0.0],"t_s":20.0}]
+[PASS] 同输入同 Δv  actual=3.20000004768372 expected=3.20000004768372
+[PASS] 齐射方案确定性  actual=[{"aim_km":[400.0,0.0,0.0],"dv_budget_kmps":36.0,"dv_planned_kmps":3.20000004768372,"feasible":true,"intent":"multi_axis","notes":["多轴同时到达：压缩点防通道，齐射效率最高","Δv 预算 36.00 km/s，本方案 3.20 km/s（9%）","航路点 2 个（Δv 时序脉冲）"],"ok":true,"profile":{"seeker_off_until_km":0.0,"terminal_acquire_km":0.0,"waypoints":[{"dv_kmps":[0.0,-1.60000002384186,0.0],"t_s":0.0},{"dv_kmps":[0.0,1.60000002384186,0.0],"t_s":20.0}]},"range_km":400.0,"reason":"","schema":"combat_plan.v1","seeker":{"acquire_s":2.5,"break_margin":0.85,"break_s":1.5,"fov_deg":60.0,"home_on_jam":false,"range_km":400.0,"type":"radar_active"},"time_of_flight_s":40.0,"waypoints":[{"dv_kmps":[0.0,-1.60000002384186,0.0],"t_s":0.0},{"dv_kmps":[0.0,1.60000002384186,0.0],"t_s":20.0}],"weapon_id":"missile"},{"aim_km":[400.0,0.0,0.0],"dv_budget_kmps":36.0,"dv_planned_kmps":3.20000004768372,"feasible":true,"intent":"multi_axis","notes":["多轴同时到达：压缩点防通道，齐射效率最高","Δv 预算 36.00 km/s，本方案 3.20 km/s（9%）","航路点 2 个（Δv 时序脉冲）"],"ok":true,"profile":{"seeker_off_until_km":0.0,"terminal_acquire_km":0.0,"waypoints":[{"dv_kmps":[0.0,0.800000131130219,-1.3856406211853],"t_s":0.0},{"dv_kmps":[0.0,-0.800000131130219,1.3856406211853],"t_s":20.0}]},"range_km":400.0,"reason":"","schema":"combat_plan.v1","seeker":{"acquire_s":2.5,"break_margin":0.85,"break_s":1.5,"fov_deg":60.0,"home_on_jam":false,"range_km":400.0,"type":"radar_active"},"time_of_flight_s":40.0,"waypoints":[{"dv_kmps":[0.0,0.800000131130219,-1.3856406211853],"t_s":0.0},{"dv_kmps":[0.0,-0.800000131130219,1.3856406211853],"t_s":20.0}],"weapon_id":"missile"},{"aim_km":[400.0,0.0,0.0],"dv_budget_kmps":36.0,"dv_planned_kmps":3.20000004768372,"feasible":true,"intent":"multi_axis","notes":["多轴同时到达：压缩点防通道，齐射效率最高","Δv 预算 36.00 km/s，本方案 3.20 km/s（9%）","航路点 2 个（Δv 时序脉冲）"],"ok":true,"profile":{"seeker_off_until_km":0.0,"terminal_acquire_km":0.0,"waypoints":[{"dv_kmps":[0.0,0.799999892711639,1.38564074039459],"t_s":0.0},{"dv_kmps":[0.0,-0.799999892711639,-1.38564074039459],"t_s":20.0}]},"range_km":400.0,"reason":"","schema":"combat_plan.v1","seeker":{"acquire_s":2.5,"break_margin":0.85,"break_s":1.5,"fov_deg":60.0,"home_on_jam":false,"range_km":400.0,"type":"radar_active"},"time_of_flight_s":40.0,"waypoints":[{"dv_kmps":[0.0,0.799999892711639,1.38564074039459],"t_s":0.0},{"dv_kmps":[0.0,-0.799999892711639,-1.38564074039459],"t_s":20.0}],"weapon_id":"missile"}] expected=[{"aim_km":[400.0,0.0,0.0],"dv_budget_kmps":36.0,"dv_planned_kmps":3.20000004768372,"feasible":true,"intent":"multi_axis","notes":["多轴同时到达：压缩点防通道，齐射效率最高","Δv 预算 36.00 km/s，本方案 3.20 km/s（9%）","航路点 2 个（Δv 时序脉冲）"],"ok":true,"profile":{"seeker_off_until_km":0.0,"terminal_acquire_km":0.0,"waypoints":[{"dv_kmps":[0.0,-1.60000002384186,0.0],"t_s":0.0},{"dv_kmps":[0.0,1.60000002384186,0.0],"t_s":20.0}]},"range_km":400.0,"reason":"","schema":"combat_plan.v1","seeker":{"acquire_s":2.5,"break_margin":0.85,"break_s":1.5,"fov_deg":60.0,"home_on_jam":false,"range_km":400.0,"type":"radar_active"},"time_of_flight_s":40.0,"waypoints":[{"dv_kmps":[0.0,-1.60000002384186,0.0],"t_s":0.0},{"dv_kmps":[0.0,1.60000002384186,0.0],"t_s":20.0}],"weapon_id":"missile"},{"aim_km":[400.0,0.0,0.0],"dv_budget_kmps":36.0,"dv_planned_kmps":3.20000004768372,"feasible":true,"intent":"multi_axis","notes":["多轴同时到达：压缩点防通道，齐射效率最高","Δv 预算 36.00 km/s，本方案 3.20 km/s（9%）","航路点 2 个（Δv 时序脉冲）"],"ok":true,"profile":{"seeker_off_until_km":0.0,"terminal_acquire_km":0.0,"waypoints":[{"dv_kmps":[0.0,0.800000131130219,-1.3856406211853],"t_s":0.0},{"dv_kmps":[0.0,-0.800000131130219,1.3856406211853],"t_s":20.0}]},"range_km":400.0,"reason":"","schema":"combat_plan.v1","seeker":{"acquire_s":2.5,"break_margin":0.85,"break_s":1.5,"fov_deg":60.0,"home_on_jam":false,"range_km":400.0,"type":"radar_active"},"time_of_flight_s":40.0,"waypoints":[{"dv_kmps":[0.0,0.800000131130219,-1.3856406211853],"t_s":0.0},{"dv_kmps":[0.0,-0.800000131130219,1.3856406211853],"t_s":20.0}],"weapon_id":"missile"},{"aim_km":[400.0,0.0,0.0],"dv_budget_kmps":36.0,"dv_planned_kmps":3.20000004768372,"feasible":true,"intent":"multi_axis","notes":["多轴同时到达：压缩点防通道，齐射效率最高","Δv 预算 36.00 km/s，本方案 3.20 km/s（9%）","航路点 2 个（Δv 时序脉冲）"],"ok":true,"profile":{"seeker_off_until_km":0.0,"terminal_acquire_km":0.0,"waypoints":[{"dv_kmps":[0.0,0.799999892711639,1.38564074039459],"t_s":0.0},{"dv_kmps":[0.0,-0.799999892711639,-1.38564074039459],"t_s":20.0}]},"range_km":400.0,"reason":"","schema":"combat_plan.v1","seeker":{"acquire_s":2.5,"break_margin":0.85,"break_s":1.5,"fov_deg":60.0,"home_on_jam":false,"range_km":400.0,"type":"radar_active"},"time_of_flight_s":40.0,"waypoints":[{"dv_kmps":[0.0,0.799999892711639,1.38564074039459],"t_s":0.0},{"dv_kmps":[0.0,-0.799999892711639,-1.38564074039459],"t_s":20.0}],"weapon_id":"missile"}]
+[PASS] 全字段 JSON 安全（无 Vector3/Object）
+[PASS] estimate_dv 与手工求和一致
+[PASS] 空航路点 Δv=0
+────────────────────────────────────────────────────────────────
+COMBAT PLANNER PROBE RESULT: PASS=94 FAIL=0
+COMBAT PLANNER PROBE OK
+AUDIO OK files=36 headless=true muted=false

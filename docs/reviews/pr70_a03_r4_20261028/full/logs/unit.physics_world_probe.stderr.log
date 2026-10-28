@@ -1,0 +1,11 @@
+WARNING: `NaN` ("Not a Number") found in argument passed to JSON.stringify(). `NaN` cannot be represented in JSON, so the value has been replaced with `null`. This warning will not be printed for any later NaN occurrences.
+   at: _stringify (core/io/json.cpp:86)
+   GDScript backtrace (most recent call first):
+       [0] _test_save_load (res://tests/physics_world_probe.gd:478)
+       [1] _initialize (res://tests/physics_world_probe.gd:31)
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/physics_world.gd:732)
+       [1] _test_save_load (res://tests/physics_world_probe.gd:498)
+       [2] _initialize (res://tests/physics_world_probe.gd:31)

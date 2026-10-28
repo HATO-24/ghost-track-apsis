@@ -1,0 +1,11 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+B-35 · FACILITY MODEL FACTORY PROBE
+════════════════════════════════════════════════════════════
+[DATA] registry total=110 base=29 otc=19 fuel=62
+[DATA] mapped=110 classes=20 models={ "port": 12, "depot": 8, "otc": 21, "research": 4, "tank": 34, "fuel": 31 }
+[DATA] checks=1697 fails=0 fallbacks=0
+────────────────────────────────────────────────────────────
+FACILITY MODEL PROBE OK · checks=1697 (>=300)
+AUDIO OK files=36 headless=true muted=false

@@ -1,0 +1,14 @@
+{
+  "head": "022a7e0e6b0ab2ce65f228f98b4a1146d18792f8",
+  "diagnostic": "r3_legacy_runtime_restore.gd",
+  "engine": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+  "exit_code": 0,
+  "cases": [
+    {"name": "full", "ok": true, "ew_restore_mode": "full", "queue_after_load": 1},
+    {"name": "partial_missing_ew_combat_quality", "ok": true, "ew_restore_mode": "partial", "missing": ["ew_combat_quality"], "queue_after_load": 1},
+    {"name": "present_queue_null", "ok": false, "ew_restore_mode": "invalid", "errors": ["EW 状态恢复失败：invalid_ew_state field=ew_observation_queue"]},
+    {"name": "legacy_all_ew_absent_into_fresh_session", "ok": true, "ew_restore_mode": "legacy_absent", "queue": 0, "samples": 0, "now": 0.0},
+    {"name": "legacy_all_ew_absent_into_pending_session", "before": {"queue": 1, "samples": 1, "now": 2.0}, "after": {"ok": true, "ew_restore_mode": "legacy_absent", "queue": 1, "samples": 1, "now": 0.0}, "same_state_as_fresh": false}
+  ],
+  "notes": ["Legacy file was written to user:// and read back before public load_state calls.", "Same-session legacy load resets session clock to 0 but retains prior EW queue/sample runtime; fresh-session load has empty EW state.", "AUDIO OK; exit leak/resource warnings were present and retained in the log; no production/formal/matrix/baseline edits."]
+}

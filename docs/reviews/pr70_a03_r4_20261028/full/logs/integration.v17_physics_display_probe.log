@@ -1,0 +1,240 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R6-DISPLAY-CORE-1 PROBE · 物理显示数据接口（state 只读）
+════════════════════════════════════════════════════════════
+
+── 1 available / enabled ──
+[PASS] bridge.boot  []
+[PASS] authoritative 且 ready → available=true  actual=true expected=true
+[PASS] 默认 enabled=true  actual=true expected=true
+[PASS] state.fw_physics_display 非空（fw_sync 刷新）
+[PASS] frame 含字段: schema
+[PASS] frame 含字段: available
+[PASS] frame 含字段: enabled
+[PASS] frame 含字段: mode
+[PASS] frame 含字段: requested_mode
+[PASS] frame 含字段: display_switched
+[PASS] frame 含字段: source
+[PASS] frame 含字段: frame
+[PASS] frame 含字段: tau
+[PASS] frame 含字段: physics_t
+[PASS] frame 含字段: delta_t_s
+[PASS] frame 含字段: replay_ok
+[PASS] frame 含字段: note
+[PASS] frame 含字段: mapping_note
+[PASS] frame 含字段: own
+[PASS] frame 含字段: flagship
+[PASS] frame 含字段: entries
+[PASS] frame 含字段: missing
+[PASS] frame 含字段: warnings
+[PASS] schema  actual=v17_physics_display.v1 expected=v17_physics_display.v1
+[PASS] frame.mode=authoritative  actual=authoritative expected=authoritative
+[PASS] display_switched=false（未切换）  actual=false expected=false
+[PASS] replay_ok=false（不用于回放）  actual=false expected=false
+[PASS] note 明示不用于回放
+[PASS] mapping_note 说明缺失
+[PASS] frame.frame 坐标系信息
+[PASS] tau 有效
+[PASS] physics_t 存在
+
+── 2 own / flagship ──
+[PASS] bridge.boot  []
+[PASS] own track_id=1001  actual=1001 expected=1001
+[PASS] own entity_id=harmattan  actual=harmattan expected=harmattan
+[PASS] own role  actual=own expected=own
+[PASS] own board_r=(0,0,0)  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] own board_v=0  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] own range=0  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] flagship track_id=1000  actual=1000 expected=1000
+[PASS] flagship entity=apsis  actual=apsis expected=apsis
+[PASS] flagship role  actual=flagship expected=flagship
+[PASS] flagship board_r 与 authoritative view 一致  actual=0.000000 expected=0.000000 diff=0.000000
+
+── 3 targets / helpers ──
+[PASS] bridge.boot  []
+[PASS] entries ≥3  9
+[PASS] entries 含 2001(summons_4471)
+[PASS] 2001 entity_id=summons_4471  actual=summons_4471 expected=summons_4471
+[PASS] 2001 role=target  actual=target expected=target
+[PASS] 2001 batch  actual=2001 expected=2001
+[PASS] 2001 board_r 与 view 一致  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] 2001 range 与 view 一致  actual=319.177032 expected=319.177032 diff=0.000000
+[PASS] |board_r|=range  actual=319.177032 expected=319.177032 diff=0.000000
+[PASS] 2001 bearing∈[0,360)  40.3705247772896
+[PASS] physics_display_board_for(2001)  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] physics_display_velocity_for(2001)  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] board_for(entity_id) 同样可取  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] board_for(1001) 本舰=0  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] board_for(apsis) 可用
+[PASS] entry_for(apsis).role=flagship  actual=flagship expected=flagship
+
+── 4 固定站体 ──
+[PASS] bridge.boot  []
+[PASS] frame.fixed 列表 ≥2（站体+储罐）  2
+[PASS] fixed 含 chronos_station
+[PASS] fixed 含 tank_farm
+[PASS] chronos_station track_id=0100  actual=0100 expected=0100
+[PASS] tank_farm track_id=0101  actual=0101 expected=0101
+[PASS] chronos_station kind=station  actual=station expected=station
+[PASS] tank_farm kind=tank  actual=tank expected=tank
+[PASS] station role=fixed  actual=fixed expected=fixed
+[PASS] tank role=fixed  actual=fixed expected=fixed
+[PASS] station.fixed=true  actual=true expected=true
+[PASS] fixed entry 含字段: track_id
+[PASS] fixed entry 含字段: batch
+[PASS] fixed entry 含字段: entity_id
+[PASS] fixed entry 含字段: role
+[PASS] fixed entry 含字段: entity_kind
+[PASS] fixed entry 含字段: name
+[PASS] fixed entry 含字段: fixed
+[PASS] fixed entry 含字段: board_r
+[PASS] fixed entry 含字段: board_v
+[PASS] fixed entry 含字段: range_km
+[PASS] fixed entry 含字段: bearing_deg
+[PASS] fixed entry 含字段: elevation_deg
+[PASS] fixed entry 含字段: age_s
+[PASS] fixed entry 含字段: source
+[PASS] fixed entry 含字段: filled
+[PASS] station board_r 有效
+[PASS] station range>0
+[PASS] station |board_r| = range  actual=277.699463 expected=277.699463 diff=0.000000
+[PASS] station bearing∈[0,360)
+[PASS] entries 含 fixed track 0100
+[PASS] entries 含 fixed track 0101
+[PASS] entries[0100].entity_id  actual=chronos_station expected=chronos_station
+[PASS] 0100 不在 missing
+[PASS] board_for(0100) 可取
+[PASS] board_for(0100)=fixed entry board_r  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] velocity_for(tank_farm) 可取
+[PASS] fixed_for(0100).entity_id  actual=chronos_station expected=chronos_station
+[PASS] fixed_for(tank_farm).track_id  actual=0101 expected=0101
+[PASS] fixed_for(非固定 2001) 空  actual={  } expected={  }
+[PASS] fixed_for(未知) 空  actual={  } expected={  }
+[PASS] chronos_station board_r 与 authoritative view 一致  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] chronos_station range 与 view 一致  actual=277.699463 expected=277.699463 diff=0.000000
+[PASS] tank_farm board_r 与 authoritative view 一致  actual=0.000000 expected=0.000000 diff=0.000000
+[PASS] tank_farm range 与 view 一致  actual=282.051422 expected=282.051422 diff=0.000000
+[PASS] fixed 读取后 V15 轨迹 r 不变  actual=(-190.0, 255.0, 62.0) expected=(-190.0, 255.0, 62.0)
+[PASS] fixed 读取后 V15 等级不变  actual=4 expected=4
+[PASS] fixed 列表 JSON 可序列化  len=904
+[PASS] fixed 列表 JSON 回读 Array
+[PASS] disabled 时 frame 空  actual={  } expected={  }
+[PASS] disabled 时 fixed_for 空  actual={  } expected={  }
+
+── 5 映射 / 缺失 ──
+[PASS] bridge.boot  []
+[PASS] track 1000 有映射或明确缺失
+[PASS] track 1001 有映射或明确缺失
+[PASS] track 2001 有映射或明确缺失
+[PASS] 存在明确缺失条目（不伪造）  ["9002"]
+[PASS] 固定站体（0100/0101）已映射进 entries
+[PASS] 0100 不再 missing（固定站体已映射）
+[PASS] fixed_for(0100) 可用
+[PASS] 9002 不伪造（缺失/无对应）
+[PASS] board_for(9002) 空  actual=[] expected=[]
+[PASS] velocity_for(9002) 空  actual=[] expected=[]
+[PASS] entry_for(未知) 空  actual={  } expected={  }
+[PASS] board_for(未知) 空  actual=[] expected=[]
+[PASS] entry.track_id 非空
+[PASS] entry.entity_id 非空
+[PASS] entry.role 合法
+[PASS] entry.track_id 非空
+[PASS] entry.entity_id 非空
+[PASS] entry.role 合法
+[PASS] entry.track_id 非空
+[PASS] entry.entity_id 非空
+[PASS] entry.role 合法
+[PASS] entry.track_id 非空
+[PASS] entry.entity_id 非空
+[PASS] entry.role 合法
+[PASS] entry.track_id 非空
+[PASS] entry.entity_id 非空
+[PASS] entry.role 合法
+[PASS] entry.track_id 非空
+[PASS] entry.entity_id 非空
+[PASS] entry.role 合法
+[PASS] entry.track_id 非空
+[PASS] entry.entity_id 非空
+[PASS] entry.role 合法
+[PASS] entry.track_id 非空
+[PASS] entry.entity_id 非空
+[PASS] entry.role 合法
+[PASS] entry.track_id 非空
+[PASS] entry.entity_id 非空
+[PASS] entry.role 合法
+
+── 6 显示开关覆盖 ──
+[PASS] bridge.boot  []
+[PASS] override=0 时 available 仍 true  actual=true expected=true
+[PASS] DSH_PHYSICS_DISPLAY=0 → enabled=false  actual=false expected=false
+[PASS] disabled 时 frame 为空  actual={  } expected={  }
+[PASS] disabled 时 fw_physics_display 为空  actual=0 expected=0
+[PASS] disabled 时 board_for 空  actual=[] expected=[]
+[PASS] status.enabled=false  actual=false expected=false
+[PASS] status.reason 说明关闭  DSH_PHYSICS_DISPLAY=0 关闭物理显示
+[PASS] DSH_PHYSICS_DISPLAY=1 → enabled=true  actual=true expected=true
+[PASS] 重新启用后 fw_physics_display 非空
+[PASS] 重新启用后 board_for 可用
+
+── 7 模式 ──
+[PASS] bridge.boot  []
+[PASS] shadow → available=false  actual=false expected=false
+[PASS] shadow → enabled=false  actual=false expected=false
+[PASS] shadow frame 空  actual={  } expected={  }
+[PASS] shadow fw_physics_display 空  actual=0 expected=0
+[PASS] shadow status.reason 说明需要 authoritative
+[PASS] bridge.boot  []
+[PASS] off → available=false  actual=false expected=false
+[PASS] off → enabled=false  actual=false expected=false
+[PASS] off frame 空  actual={  } expected={  }
+
+── 8 刷新 / V15 不变 ──
+[PASS] bridge.boot  []
+[PASS] fw_sync 后 physics_t=60（frame 刷新）  actual=60.000000 expected=60.000000 diff=0.000000
+[PASS] frame 随时间刷新
+[PASS] fw_physics_display 刷新
+[PASS] V15 轨迹 r 不变  actual=(-190.0, 255.0, 62.0) expected=(-190.0, 255.0, 62.0)
+[PASS] V15 轨迹 v 不变  actual=(-0.05, -0.06, 0.01) expected=(-0.05, -0.06, 0.01)
+[PASS] V15 等级不变  actual=4 expected=4
+[PASS] V15 clock 不变  actual=760.8 expected=760.8
+[PASS] V15 航迹数不变  actual=8 expected=8
+
+── 9 JSON / status ──
+[PASS] bridge.boot  []
+[PASS] frame JSON 输出  len=6455
+[PASS] frame JSON 回读
+[PASS] 回读 own
+[PASS] 回读 entries
+[PASS] 回读 missing
+[PASS] 回读 frame
+[PASS] status 含 available
+[PASS] status 含 enabled
+[PASS] status 含 mode
+[PASS] status 含 requested_mode
+[PASS] status 含 display_switched
+[PASS] status 含 override
+[PASS] status 含 reason
+[PASS] fw_bridge_state JSON  len=158463
+[PASS] fw_bridge_state 回读
+[PASS] fw_bridge_state 含 physics_display.entries
+────────────────────────────────────────────────────────────
+[DATA] available = authoritative ready → available/enabled=true；frame 字段齐全
+[DATA] own/flagship = own 1001(harmattan) board=0；flagship 1000(apsis) 与 view 一致
+[DATA] targets = 2001(summons_4471) board/range/bearing 与 view 一致；board_for/velocity_for/entry_for
+[DATA] fixed = fixed=2（0100 chronos_station / 0101 tank_farm）· board/range/bearing · view 一致 · disabled 空
+[DATA] mapping = entries=9 missing=1（9002 等不伪造）
+[DATA] override = 0 关闭（空/[]/reason）/ 1 重新开启；available 与开关解耦
+[DATA] modes = shadow/off 均 available/enabled=false、frame 空、不崩溃
+[DATA] refresh/v15 = frame/字段随时间刷新；V15 tracks/等级/clock 不变
+[DATA] json/status = frame/status/fw_bridge_state JSON 可回读
+────────────────────────────────────────────────────────────
+V17 PHYSICS DISPLAY PROBE RESULT: PASS=197 FAIL=0
+V17 PHYSICS DISPLAY PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 309 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

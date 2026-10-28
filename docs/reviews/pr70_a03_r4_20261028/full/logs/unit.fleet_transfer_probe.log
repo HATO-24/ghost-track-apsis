@@ -1,0 +1,618 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE2-FLEET-ORBIT-1 PROBE · 5 舰独立 CR3BP 传播
+════════════════════════════════════════════════════════════
+
+── 1 缓存 JSON ──
+[PASS] 缓存文件存在
+[PASS] 缓存文本较大  len=49509
+[PASS] 缓存 JSON 可解析
+[PASS] cache schema  actual=v17_fleet_transfer_cache.v1 expected=v17_fleet_transfer_cache.v1
+[PASS] cache fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] cache source_port  actual=L4-02 Hammer expected=L4-02 Hammer
+[PASS] cache target_port  actual=L1-Meridian-05 expected=L1-Meridian-05
+[PASS] cache TOF=6 天  actual=518400.000000 expected=518400.000000 tol=0.000001
+[PASS] cache deterministic
+[PASS] cache 5 舰  actual=5 expected=5
+[PASS] cache 11 采样  actual=11 expected=11
+[PASS] cache 舰: apsis
+[PASS] cache apsis batch  actual=1000 expected=1000
+[PASS] cache apsis initial 有限
+[PASS] cache apsis departure 有限
+[PASS] cache apsis arrival 有限
+[PASS] cache apsis independent
+[PASS] cache apsis arrival_error
+[PASS] cache apsis arrival_speed
+[PASS] cache apsis within_gate
+[PASS] cache 舰: harmattan
+[PASS] cache harmattan batch  actual=1001 expected=1001
+[PASS] cache harmattan initial 有限
+[PASS] cache harmattan departure 有限
+[PASS] cache harmattan arrival 有限
+[PASS] cache harmattan independent
+[PASS] cache harmattan arrival_error
+[PASS] cache harmattan arrival_speed
+[PASS] cache harmattan within_gate
+[PASS] cache 舰: ferry
+[PASS] cache ferry batch  actual=1002 expected=1002
+[PASS] cache ferry initial 有限
+[PASS] cache ferry departure 有限
+[PASS] cache ferry arrival 有限
+[PASS] cache ferry independent
+[PASS] cache ferry arrival_error
+[PASS] cache ferry arrival_speed
+[PASS] cache ferry within_gate
+[PASS] cache 舰: watchtower
+[PASS] cache watchtower batch  actual=1003 expected=1003
+[PASS] cache watchtower initial 有限
+[PASS] cache watchtower departure 有限
+[PASS] cache watchtower arrival 有限
+[PASS] cache watchtower independent
+[PASS] cache watchtower arrival_error
+[PASS] cache watchtower arrival_speed
+[PASS] cache watchtower within_gate
+[PASS] cache 舰: deepwell
+[PASS] cache deepwell batch  actual=1004 expected=1004
+[PASS] cache deepwell initial 有限
+[PASS] cache deepwell departure 有限
+[PASS] cache deepwell arrival 有限
+[PASS] cache deepwell independent
+[PASS] cache deepwell arrival_error
+[PASS] cache deepwell arrival_speed
+[PASS] cache deepwell within_gate
+[PASS] cache 采样 t 有限
+[PASS] cache 采样 5 舰  actual=5 expected=5
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 t 有限
+[PASS] cache 采样 5 舰  actual=5 expected=5
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 t 有限
+[PASS] cache 采样 5 舰  actual=5 expected=5
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 t 有限
+[PASS] cache 采样 5 舰  actual=5 expected=5
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 t 有限
+[PASS] cache 采样 5 舰  actual=5 expected=5
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 t 有限
+[PASS] cache 采样 5 舰  actual=5 expected=5
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 t 有限
+[PASS] cache 采样 5 舰  actual=5 expected=5
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 t 有限
+[PASS] cache 采样 5 舰  actual=5 expected=5
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 t 有限
+[PASS] cache 采样 5 舰  actual=5 expected=5
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 t 有限
+[PASS] cache 采样 5 舰  actual=5 expected=5
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 t 有限
+[PASS] cache 采样 5 舰  actual=5 expected=5
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+[PASS] cache 采样 pos 有限
+[PASS] cache 采样相对旗舰
+
+── 2 缓存 plan ──
+[PASS] cache plan ok  []
+[PASS] cache plan ready
+[PASS] cache plan 5 舰  actual=5 expected=5
+[PASS] cache plan 11 采样  actual=11 expected=11
+[PASS] cache plan TOF  actual=518400.000000 expected=518400.000000 tol=0.000001
+[PASS] cache plan has apsis
+[PASS] cache plan no unknown
+[PASS] row_for apsis
+[PASS] row_for 未知空  actual=0 expected=0
+[PASS] cache sample ok
+[PASS] cache sample phase  actual=cruise expected=cruise
+
+── 3 现算 plan ──
+[PASS] fresh plan ok  []
+[PASS] fresh ready
+[PASS] fresh 无 errors  actual=0 expected=0
+[PASS] fresh 5 舰行  actual=5 expected=5
+[PASS] fresh 11 采样  actual=11 expected=11
+[PASS] fresh TOF=6d  actual=518400.000000 expected=518400.000000 tol=0.000001
+[PASS] fresh 舰 id 唯一
+[PASS] fresh 舰 apsis
+[PASS] fresh apsis batch  actual=1000 expected=1000
+[PASS] fresh apsis role
+[PASS] fresh apsis offset
+[PASS] fresh apsis offset_v
+[PASS] fresh apsis initial
+[PASS] fresh apsis departure
+[PASS] fresh apsis arrival
+[PASS] fresh apsis independent
+[PASS] fresh apsis propagated_steps>0
+[PASS] fresh apsis departure_dv>0
+[PASS] fresh apsis arrival_dv>0
+[PASS] fresh apsis total_dv>0
+[PASS] fresh apsis 到达误差<=3000  0.8 km
+[PASS] fresh apsis 到达速度<=3  0.969 km/s
+[PASS] fresh apsis within_gate
+[PASS] fresh 舰 harmattan
+[PASS] fresh harmattan batch  actual=1001 expected=1001
+[PASS] fresh harmattan role
+[PASS] fresh harmattan offset
+[PASS] fresh harmattan offset_v
+[PASS] fresh harmattan initial
+[PASS] fresh harmattan departure
+[PASS] fresh harmattan arrival
+[PASS] fresh harmattan independent
+[PASS] fresh harmattan propagated_steps>0
+[PASS] fresh harmattan departure_dv>0
+[PASS] fresh harmattan arrival_dv>0
+[PASS] fresh harmattan total_dv>0
+[PASS] fresh harmattan 到达误差<=3000  244.3 km
+[PASS] fresh harmattan 到达速度<=3  0.970 km/s
+[PASS] fresh harmattan within_gate
+[PASS] fresh 舰 ferry
+[PASS] fresh ferry batch  actual=1002 expected=1002
+[PASS] fresh ferry role
+[PASS] fresh ferry offset
+[PASS] fresh ferry offset_v
+[PASS] fresh ferry initial
+[PASS] fresh ferry departure
+[PASS] fresh ferry arrival
+[PASS] fresh ferry independent
+[PASS] fresh ferry propagated_steps>0
+[PASS] fresh ferry departure_dv>0
+[PASS] fresh ferry arrival_dv>0
+[PASS] fresh ferry total_dv>0
+[PASS] fresh ferry 到达误差<=3000  316.1 km
+[PASS] fresh ferry 到达速度<=3  0.969 km/s
+[PASS] fresh ferry within_gate
+[PASS] fresh 舰 watchtower
+[PASS] fresh watchtower batch  actual=1003 expected=1003
+[PASS] fresh watchtower role
+[PASS] fresh watchtower offset
+[PASS] fresh watchtower offset_v
+[PASS] fresh watchtower initial
+[PASS] fresh watchtower departure
+[PASS] fresh watchtower arrival
+[PASS] fresh watchtower independent
+[PASS] fresh watchtower propagated_steps>0
+[PASS] fresh watchtower departure_dv>0
+[PASS] fresh watchtower arrival_dv>0
+[PASS] fresh watchtower total_dv>0
+[PASS] fresh watchtower 到达误差<=3000  609.3 km
+[PASS] fresh watchtower 到达速度<=3  0.970 km/s
+[PASS] fresh watchtower within_gate
+[PASS] fresh 舰 deepwell
+[PASS] fresh deepwell batch  actual=1004 expected=1004
+[PASS] fresh deepwell role
+[PASS] fresh deepwell offset
+[PASS] fresh deepwell offset_v
+[PASS] fresh deepwell initial
+[PASS] fresh deepwell departure
+[PASS] fresh deepwell arrival
+[PASS] fresh deepwell independent
+[PASS] fresh deepwell propagated_steps>0
+[PASS] fresh deepwell departure_dv>0
+[PASS] fresh deepwell arrival_dv>0
+[PASS] fresh deepwell total_dv>0
+[PASS] fresh deepwell 到达误差<=3000  744.0 km
+[PASS] fresh deepwell 到达速度<=3  0.969 km/s
+[PASS] fresh deepwell within_gate
+[PASS] 现算 rows 与缓存一致（容差/确定性）
+[PASS] 现算 samples 与缓存一致（容差）
+[PASS] 现算 summary 与缓存一致（容差）
+[PASS] summary schema  actual=v17_fleet_transfer.v1 expected=v17_fleet_transfer.v1
+[PASS] summary fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] summary ship_count=5  actual=5 expected=5
+[PASS] summary sample_count=11  actual=11 expected=11
+[PASS] summary all_within_gate
+[PASS] summary max_error<3000
+[PASS] summary ships 5  actual=5 expected=5
+
+── 4 独立轨迹 ──
+[PASS] baseline planner ok
+[PASS] baseline timeline 11  actual=11 expected=11
+[PASS] 旗舰采样与 baseline timeline 一致  max=0.000 km
+[PASS] harmattan 轨迹偏离 baseline+常量偏移 >1km  max_dev=244.9 km
+[PASS] harmattan 有独立传播差异
+[PASS] ferry 轨迹偏离 baseline+常量偏移 >1km  max_dev=315.5 km
+[PASS] ferry 有独立传播差异
+[PASS] watchtower 轨迹偏离 baseline+常量偏移 >1km  max_dev=609.7 km
+[PASS] watchtower 有独立传播差异
+[PASS] deepwell 轨迹偏离 baseline+常量偏移 >1km  max_dev=743.5 km
+[PASS] deepwell 有独立传播差异
+[PASS] harmattan rel_to_flagship 非负
+[PASS] harmattan 采样 relative 非零
+[PASS] ferry rel_to_flagship 非负
+[PASS] ferry 采样 relative 非零
+[PASS] watchtower rel_to_flagship 非负
+[PASS] watchtower 采样 relative 非零
+[PASS] deepwell rel_to_flagship 非负
+[PASS] deepwell 采样 relative 非零
+[PASS] harmattan rel_to_flagship 非负
+[PASS] harmattan 采样 relative 非零
+[PASS] ferry rel_to_flagship 非负
+[PASS] ferry 采样 relative 非零
+[PASS] watchtower rel_to_flagship 非负
+[PASS] watchtower 采样 relative 非零
+[PASS] deepwell rel_to_flagship 非负
+[PASS] deepwell 采样 relative 非零
+[PASS] harmattan rel_to_flagship 非负
+[PASS] harmattan 采样 relative 非零
+[PASS] ferry rel_to_flagship 非负
+[PASS] ferry 采样 relative 非零
+[PASS] watchtower rel_to_flagship 非负
+[PASS] watchtower 采样 relative 非零
+[PASS] deepwell rel_to_flagship 非负
+[PASS] deepwell 采样 relative 非零
+[PASS] 初始偏移 harmattan 有效
+[PASS] mid rel harmattan
+[PASS] harmattan mid 偏移 != 初始常量
+[PASS] 初始偏移 ferry 有效
+[PASS] mid rel ferry
+[PASS] ferry mid 偏移 != 初始常量
+[PASS] 初始偏移 watchtower 有效
+[PASS] mid rel watchtower
+[PASS] watchtower mid 偏移 != 初始常量
+[PASS] 初始偏移 deepwell 有效
+[PASS] mid rel deepwell
+[PASS] deepwell mid 偏移 != 初始常量
+[PASS] 末采样=arrival: apsis  actual=0.000000 expected=0.000000 tol=1.000000
+[PASS] 末采样=arrival: harmattan  actual=0.000000 expected=0.000000 tol=1.000000
+[PASS] 末采样=arrival: ferry  actual=0.000000 expected=0.000000 tol=1.000000
+[PASS] 末采样=arrival: watchtower  actual=0.000000 expected=0.000000 tol=1.000000
+[PASS] 末采样=arrival: deepwell  actual=0.000000 expected=0.000000 tol=1.000000
+
+── 5 sample(t) ──
+[PASS] sample(0) departure  actual=departure expected=departure
+[PASS] sample(0) progress=0  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] sample(0) 5 舰  actual=5 expected=5
+[PASS] sample(mid) cruise  actual=cruise expected=cruise
+[PASS] sample(mid) progress  actual=0.500000 expected=0.500000 tol=0.000000
+[PASS] sample(tof) arrival  actual=arrival expected=arrival
+[PASS] sample(tof) progress  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] sample 超时 clamp  actual=true expected=true
+[PASS] clamp phase=arrival  actual=arrival expected=arrival
+[PASS] sample 负时间 clamp  actual=true expected=true
+[PASS] clamp phase=departure  actual=departure expected=departure
+[PASS] sample t=0 ok
+[PASS] sample pos 有限 apsis
+[PASS] sample vel 有限
+[PASS] sample rel>=0 apsis
+[PASS] sample pos 有限 harmattan
+[PASS] sample vel 有限
+[PASS] sample rel>=0 harmattan
+[PASS] sample pos 有限 ferry
+[PASS] sample vel 有限
+[PASS] sample rel>=0 ferry
+[PASS] sample pos 有限 watchtower
+[PASS] sample vel 有限
+[PASS] sample rel>=0 watchtower
+[PASS] sample pos 有限 deepwell
+[PASS] sample vel 有限
+[PASS] sample rel>=0 deepwell
+[PASS] sample t=51840 ok
+[PASS] sample pos 有限 apsis
+[PASS] sample vel 有限
+[PASS] sample rel>=0 apsis
+[PASS] sample pos 有限 harmattan
+[PASS] sample vel 有限
+[PASS] sample rel>=0 harmattan
+[PASS] sample pos 有限 ferry
+[PASS] sample vel 有限
+[PASS] sample rel>=0 ferry
+[PASS] sample pos 有限 watchtower
+[PASS] sample vel 有限
+[PASS] sample rel>=0 watchtower
+[PASS] sample pos 有限 deepwell
+[PASS] sample vel 有限
+[PASS] sample rel>=0 deepwell
+[PASS] sample t=103680 ok
+[PASS] sample pos 有限 apsis
+[PASS] sample vel 有限
+[PASS] sample rel>=0 apsis
+[PASS] sample pos 有限 harmattan
+[PASS] sample vel 有限
+[PASS] sample rel>=0 harmattan
+[PASS] sample pos 有限 ferry
+[PASS] sample vel 有限
+[PASS] sample rel>=0 ferry
+[PASS] sample pos 有限 watchtower
+[PASS] sample vel 有限
+[PASS] sample rel>=0 watchtower
+[PASS] sample pos 有限 deepwell
+[PASS] sample vel 有限
+[PASS] sample rel>=0 deepwell
+[PASS] sample t=155520 ok
+[PASS] sample pos 有限 apsis
+[PASS] sample vel 有限
+[PASS] sample rel>=0 apsis
+[PASS] sample pos 有限 harmattan
+[PASS] sample vel 有限
+[PASS] sample rel>=0 harmattan
+[PASS] sample pos 有限 ferry
+[PASS] sample vel 有限
+[PASS] sample rel>=0 ferry
+[PASS] sample pos 有限 watchtower
+[PASS] sample vel 有限
+[PASS] sample rel>=0 watchtower
+[PASS] sample pos 有限 deepwell
+[PASS] sample vel 有限
+[PASS] sample rel>=0 deepwell
+[PASS] sample t=207360 ok
+[PASS] sample pos 有限 apsis
+[PASS] sample vel 有限
+[PASS] sample rel>=0 apsis
+[PASS] sample pos 有限 harmattan
+[PASS] sample vel 有限
+[PASS] sample rel>=0 harmattan
+[PASS] sample pos 有限 ferry
+[PASS] sample vel 有限
+[PASS] sample rel>=0 ferry
+[PASS] sample pos 有限 watchtower
+[PASS] sample vel 有限
+[PASS] sample rel>=0 watchtower
+[PASS] sample pos 有限 deepwell
+[PASS] sample vel 有限
+[PASS] sample rel>=0 deepwell
+[PASS] sample t=259200 ok
+[PASS] sample pos 有限 apsis
+[PASS] sample vel 有限
+[PASS] sample rel>=0 apsis
+[PASS] sample pos 有限 harmattan
+[PASS] sample vel 有限
+[PASS] sample rel>=0 harmattan
+[PASS] sample pos 有限 ferry
+[PASS] sample vel 有限
+[PASS] sample rel>=0 ferry
+[PASS] sample pos 有限 watchtower
+[PASS] sample vel 有限
+[PASS] sample rel>=0 watchtower
+[PASS] sample pos 有限 deepwell
+[PASS] sample vel 有限
+[PASS] sample rel>=0 deepwell
+[PASS] sample t=311040 ok
+[PASS] sample pos 有限 apsis
+[PASS] sample vel 有限
+[PASS] sample rel>=0 apsis
+[PASS] sample pos 有限 harmattan
+[PASS] sample vel 有限
+[PASS] sample rel>=0 harmattan
+[PASS] sample pos 有限 ferry
+[PASS] sample vel 有限
+[PASS] sample rel>=0 ferry
+[PASS] sample pos 有限 watchtower
+[PASS] sample vel 有限
+[PASS] sample rel>=0 watchtower
+[PASS] sample pos 有限 deepwell
+[PASS] sample vel 有限
+[PASS] sample rel>=0 deepwell
+[PASS] sample t=362880 ok
+[PASS] sample pos 有限 apsis
+[PASS] sample vel 有限
+[PASS] sample rel>=0 apsis
+[PASS] sample pos 有限 harmattan
+[PASS] sample vel 有限
+[PASS] sample rel>=0 harmattan
+[PASS] sample pos 有限 ferry
+[PASS] sample vel 有限
+[PASS] sample rel>=0 ferry
+[PASS] sample pos 有限 watchtower
+[PASS] sample vel 有限
+[PASS] sample rel>=0 watchtower
+[PASS] sample pos 有限 deepwell
+[PASS] sample vel 有限
+[PASS] sample rel>=0 deepwell
+[PASS] sample t=414720 ok
+[PASS] sample pos 有限 apsis
+[PASS] sample vel 有限
+[PASS] sample rel>=0 apsis
+[PASS] sample pos 有限 harmattan
+[PASS] sample vel 有限
+[PASS] sample rel>=0 harmattan
+[PASS] sample pos 有限 ferry
+[PASS] sample vel 有限
+[PASS] sample rel>=0 ferry
+[PASS] sample pos 有限 watchtower
+[PASS] sample vel 有限
+[PASS] sample rel>=0 watchtower
+[PASS] sample pos 有限 deepwell
+[PASS] sample vel 有限
+[PASS] sample rel>=0 deepwell
+[PASS] sample t=466560 ok
+[PASS] sample pos 有限 apsis
+[PASS] sample vel 有限
+[PASS] sample rel>=0 apsis
+[PASS] sample pos 有限 harmattan
+[PASS] sample vel 有限
+[PASS] sample rel>=0 harmattan
+[PASS] sample pos 有限 ferry
+[PASS] sample vel 有限
+[PASS] sample rel>=0 ferry
+[PASS] sample pos 有限 watchtower
+[PASS] sample vel 有限
+[PASS] sample rel>=0 watchtower
+[PASS] sample pos 有限 deepwell
+[PASS] sample vel 有限
+[PASS] sample rel>=0 deepwell
+[PASS] sample t=518400 ok
+[PASS] sample pos 有限 apsis
+[PASS] sample vel 有限
+[PASS] sample rel>=0 apsis
+[PASS] sample pos 有限 harmattan
+[PASS] sample vel 有限
+[PASS] sample rel>=0 harmattan
+[PASS] sample pos 有限 ferry
+[PASS] sample vel 有限
+[PASS] sample rel>=0 ferry
+[PASS] sample pos 有限 watchtower
+[PASS] sample vel 有限
+[PASS] sample rel>=0 watchtower
+[PASS] sample pos 有限 deepwell
+[PASS] sample vel 有限
+[PASS] sample rel>=0 deepwell
+[PASS] sample 采样点含 apsis
+[PASS] sample 采样点 pos 一致: apsis  actual=0.000000 expected=0.000000 tol=1.000000
+[PASS] sample 采样点含 harmattan
+[PASS] sample 采样点 pos 一致: harmattan  actual=0.000000 expected=0.000000 tol=1.000000
+[PASS] sample 采样点含 ferry
+[PASS] sample 采样点 pos 一致: ferry  actual=0.000000 expected=0.000000 tol=1.000000
+[PASS] sample 采样点含 watchtower
+[PASS] sample 采样点 pos 一致: watchtower  actual=0.000000 expected=0.000000 tol=1.000000
+[PASS] sample 采样点含 deepwell
+[PASS] sample 采样点 pos 一致: deepwell  actual=0.000000 expected=0.000000 tol=1.000000
+[PASS] 5 舰 mid 位置各不相同  actual=5 expected=5
+
+── 6 summary/JSON/Δv ──
+[PASS] summary ok
+[PASS] arrival.rows 数组
+[PASS] arrival rows 5  actual=5 expected=5
+[PASS] arrival all_within_gate
+[PASS] arrival max_error<3000
+[PASS] arrival max_speed<3
+[PASS] dv rows 5  actual=5 expected=5
+[PASS] dv sum total=dep+arr  actual=9112.206757 expected=9112.206757 tol=0.000001
+[PASS] dv avg=sum/5  actual=1822.441351 expected=1822.441351 tol=0.000001
+[PASS] dv max departure
+[PASS] dv max arrival
+[PASS] dv apsis total>0
+[PASS] dv harmattan total>0
+[PASS] dv ferry total>0
+[PASS] dv watchtower total>0
+[PASS] dv deepwell total>0
+[PASS] fleet() 5  actual=5 expected=5
+[PASS] samples_data 11
+[PASS] to_json 长度  len=33709
+[PASS] to_json 回读
+[PASS] 回读 schema  actual=v17_fleet_transfer.v1 expected=v17_fleet_transfer.v1
+[PASS] 回读 ships 5  actual=5 expected=5
+[PASS] 回读 arrival
+[PASS] 回读 dv
+[PASS] cache() JSON  len=27130
+[PASS] row_for apsis arrival
+[PASS] row_for harmattan arrival
+[PASS] row_for ferry arrival
+[PASS] row_for watchtower arrival
+[PASS] row_for deepwell arrival
+
+── 7 边界 ──
+[PASS] 未 plan sample ok=false  actual=false expected=false
+[PASS] 未 plan fleet 空  actual=0 expected=0
+[PASS] 缓存不存在 load 失败
+[PASS] load 失败记录 error  actual=1 expected=1
+[PASS] 错误 schema load 失败
+[PASS] 无效 TOF plan 失败  actual=false expected=false
+[PASS] 失败 plan 不 ready
+[PASS] 失败不伪造舰行  actual=0 expected=0
+[PASS] 失败不伪造采样  actual=0 expected=0
+[PASS] reset 后未 ready
+[PASS] reset summary ok=false  actual=false expected=false
+────────────────────────────────────────────────────────────
+[DATA] cache = ships=5 samples=11 tof=6d bytes=49509
+[DATA] cache_plan = ready/cache rows=5 samples=11
+[DATA] fresh = ms=18243 arrival_errs=["1", "244", "316", "609", "744"] total_dv=["1823", "1823", "1822", "1823", "1821"]
+[DATA] independence = 旗舰=baseline；4 舰偏离 baseline+常量偏移（真实独立传播）
+[DATA] samples = phases departure/cruise/arrival clamp · 5 舰位置可区分
+[DATA] summary = max_error=744.0km max_speed=0.970km/s avg_dv=1822.4m/s
+[DATA] boundaries = 未 plan/缓存缺失/错误 schema/无效 TOF 均安全失败不伪造
+────────────────────────────────────────────────────────────
+V17 FLEET TRANSFER PROBE RESULT: PASS=587 FAIL=0
+V17 FLEET TRANSFER PROBE OK
+AUDIO OK files=36 headless=true muted=false

@@ -1,0 +1,108 @@
+{
+  "head": "6bd919aa19898bbf31f5dd7c3287befc47392877",
+  "comparison": "Recursive comparison of raw result JSON; numeric fields compared within 1e-9, all strings/booleans/array order/keys exact.",
+  "queue_before_vs_loaded": {
+    "strict_gdscript_equality": false,
+    "numeric_tolerant_equal": true,
+    "semantic_mismatch_count": 0,
+    "note": "JSON load normalized integer-valued support/seq/effect fields to floating values, e.g. 2 to 2.0."
+  },
+  "tick_trace": {
+    "ticks": 10,
+    "session_times": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "strict_gdscript_equality": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "numeric_tolerant_equal": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "semantic_mismatch_count": 0,
+    "compared_fields": [
+      "full pending queue entries and captured obs geometry/effect/quality",
+      "EW sample rows",
+      "SensorService captured observation geometry",
+      "delivered observation IDs and dual times",
+      "owner visible track",
+      "owner current measurement quality",
+      "actual combat track",
+      "actual solution status rows"
+    ]
+  },
+  "initial_pending": {
+    "id": "OBS-000001",
+    "observed_t": 1.0,
+    "delay_s": 3.0,
+    "arrive_t": 4.0,
+    "quality_original": 1.0,
+    "quality": 0.7,
+    "range_km": 600.400024414063,
+    "bearing_deg": 0.0,
+    "position_km": [],
+    "truth_regenerated": false
+  },
+  "delivered_ids": [
+    "OBS-000001",
+    "OBS-000008",
+    "OBS-000009",
+    "OBS-000010",
+    "OBS-000011"
+  ],
+  "solution": {
+    "id": "SOL-000001",
+    "requested_t": 4.0,
+    "ready_t": 19.0,
+    "final_snapshot_t": 12.0,
+    "status_at_final_snapshot": "COMPUTING",
+    "source_equals_restored_each_tick": true
+  },
+  "old_archive": {
+    "load_ok": true,
+    "removed_sections": [
+      "ew_observation_samples",
+      "ew_observation_queue",
+      "ew_delivered_observations",
+      "ew_candidates",
+      "ew_observation_seq",
+      "ew_quality_history",
+      "ew_combat_quality"
+    ],
+    "load_errors": [],
+    "after_one_tick_queue_empty": true,
+    "after_one_tick_quality_history_empty": true,
+    "after_one_tick_combat_quality_empty": true
+  },
+  "expiry_sample": {
+    "dynamically_tested": false,
+    "fixture_duration_s": 120.0,
+    "interpretation": "Static only: sensors sample before EW step; EW step advances time and marks effects expired. No expiry-boundary conclusion is made."
+  }
+}

@@ -1,0 +1,150 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R5-INFO-BRIDGE-1 PROBE · 信息作战 shadow（bridge/state，最小）
+════════════════════════════════════════════════════════════
+
+── 1 boot ──
+[PASS] bridge.boot  []
+[PASS] 默认 mode=shadow  actual=shadow expected=shadow
+[PASS] requested=shadow  actual=shadow expected=shadow
+[PASS] info_warfare_ready  actual=true expected=true
+[PASS] IW 实例存在
+[PASS] view 含字段: schema
+[PASS] view 含字段: mode
+[PASS] view 含字段: authoritative
+[PASS] view 含字段: ready
+[PASS] view 含字段: t
+[PASS] view 含字段: observer
+[PASS] view 含字段: iff
+[PASS] view 含字段: elint
+[PASS] view 含字段: comint
+[PASS] view 含字段: ew
+[PASS] view 含字段: events
+[PASS] view 含字段: alerts
+[PASS] view 含字段: summary
+[PASS] view 含字段: writes
+[PASS] view 含字段: shadow
+[PASS] schema  actual=information_warfare.v1 expected=information_warfare.v1
+[PASS] view.mode=shadow  actual=shadow expected=shadow
+[PASS] view.authoritative=false  actual=false expected=false
+[PASS] view.ready=true  actual=true expected=true
+[PASS] writes.track_table=false  actual=false expected=false
+[PASS] writes.v15=false  actual=false expected=false
+[PASS] shadow.never_auto_hostile=true  actual=true expected=true
+[PASS] summary 含 iff
+[PASS] summary 含 iff_identity_friend
+[PASS] summary 含 iff_identity_unknown
+[PASS] summary 含 iff_identity_hostile
+[PASS] summary 含 signals
+[PASS] summary 含 fix_candidates
+[PASS] summary 含 comint
+[PASS] summary 含 effects
+[PASS] summary 含 events
+[PASS] summary 含 alerts
+[PASS] summary 含 phantom_active
+[PASS] summary 含 suspicious_commands
+[PASS] summary 含 hostile_auto_determination
+[PASS] summary.hostile_auto_determination=false  actual=false expected=false
+[PASS] view.elint 含 signals
+[PASS] view.iff 含 results
+[PASS] view.comint 含 events
+[PASS] view.ew 含 effects
+[PASS] recent events ≤8  8
+[PASS] recent alerts ≤8  0
+
+── 2 事件 ──
+[PASS] bridge.boot  []
+[PASS] ELINT signals>0  16
+[PASS] ELINT 产生 emitter.signal 事件
+[PASS] IFF interrogate_iff 成功  reply_ok
+[PASS] IFF 产生 iff.reply 事件  1
+[PASS] IFF summary 可读
+[PASS] EW inject_noise_jamming 成功
+[PASS] EW 产生 ew.effect 事件  1
+[PASS] EW active effects>0  1
+[PASS] EW/IFF 产生 alerts
+[PASS] COMINT summary 可读
+[PASS] bridge_state 含 info_warfare
+[PASS] bridge_state 含 info_warfare_summary
+[PASS] bridge_state 含 info_warfare_ready
+[PASS] bridge_state 含 info_warfare_mode
+[PASS] bridge_state 含 info_warfare_requested_mode
+[PASS] bridge_state 含 info_warfare_fallback_reason
+[PASS] bridge_state 含 info_warfare_recent_events
+[PASS] bridge_state 含 info_warfare_recent_alerts
+[PASS] recent events 非空
+
+── 3 state / V15 不变 ──
+[PASS] bridge.boot  []
+[PASS] state.fw_info_warfare_ready  actual=true expected=true
+[PASS] state.fw_info_warfare 非空
+[PASS] state.fw_info_warfare_summary 非空
+[PASS] state summary.hostile_auto_determination=false  actual=false expected=false
+[PASS] 旧 fw_sensor_shadow_ready 不变  actual=true expected=true
+[PASS] 旧 fw_sensor_shadow 非空
+[PASS] V15 轨迹 r 不变  actual=(-190.0, 255.0, 62.0) expected=(-190.0, 255.0, 62.0)
+[PASS] V15 轨迹 v 不变  actual=(-0.05, -0.06, 0.01) expected=(-0.05, -0.06, 0.01)
+[PASS] V15 等级不变  actual=4 expected=4
+[PASS] V15 身份不变  actual=friend expected=friend
+[PASS] V15 clock 不变  actual=760.8 expected=760.8
+[PASS] V15 tracks 未被写
+[PASS] V2 vm_tracks 可读
+[PASS] V2 vm_tracks 基线可读
+[PASS] fw_sync 后 info ready
+[PASS] recent events 缓存
+[PASS] recent alerts 缓存
+[PASS] fw_bridge_state 含 info_warfare
+[PASS] fw_bridge_state 含 info_warfare_ready
+[PASS] fw_bridge_state 含 info_warfare_summary
+
+── 4 authoritative 请求 ──
+[PASS] bridge.boot  []
+[PASS] requested=authoritative  actual=authoritative expected=authoritative
+[PASS] 有效模式仍 shadow（未实现）  actual=shadow expected=shadow
+[PASS] fallback_reason 明示未实现  authoritative 未实现：保持 shadow advisory（不伪称 authoritative）
+[PASS] view.authoritative=false（不伪称）  actual=false expected=false
+[PASS] view.mode=shadow  actual=shadow expected=shadow
+[PASS] shadow 仍 ready  actual=true expected=true
+
+── 5 off 降级 ──
+[PASS] bridge.boot  []
+[PASS] mode=off  actual=off expected=off
+[PASS] ready=false  actual=false expected=false
+[PASS] view 空  actual=0 expected=0
+[PASS] summary 空  actual=0 expected=0
+[PASS] recent events 空  actual=0 expected=0
+[PASS] state.fw_info_warfare_ready=false  actual=false expected=false
+[PASS] state.fw_info_warfare 空  actual=0 expected=0
+[PASS] state summary 空  actual=0 expected=0
+[PASS] off 时 sensor shadow 不受影响
+
+── 6 JSON ──
+[PASS] bridge.boot  []
+[PASS] info_warfare_view JSON  len=42105
+[PASS] view JSON 回读
+[PASS] 回读 iff
+[PASS] 回读 elint
+[PASS] 回读 ew
+[PASS] 回读 events
+[PASS] state summary JSON  len=239
+[PASS] summary JSON 回读
+[PASS] fw_bridge_state JSON  len=158463
+[PASS] fw_bridge_state 回读
+────────────────────────────────────────────────────────────
+[DATA] boot = mode=shadow ready · events=16 alerts=0 · writes=false
+[DATA] events = types=["emitter.signal", "iff.reply", "exposure.fix", "ew.effect"] · IFF/ELINT/EW 各≥1 次 · alerts=1
+[DATA] state/v15 = fw_info_warfare/summary 只读；V15 tracks/等级/身份/clock 不变
+[DATA] authoritative = 请求 authoritative → 仍 shadow + fallback_reason（不伪称）
+[DATA] off = V17_INFO_WARFARE=off：无 IW；state 空；不崩溃
+[DATA] json = view/summary/bridge_state JSON 可回读
+────────────────────────────────────────────────────────────
+V17 INFO WARFARE PROBE RESULT: PASS=116 FAIL=0
+V17 INFO WARFARE PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 189 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

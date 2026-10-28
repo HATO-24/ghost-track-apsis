@@ -1,0 +1,12 @@
+{
+  "head": "6bd919aa19898bbf31f5dd7c3287befc47392877",
+  "base": "3845852bd78821ee6b3c70c4d8f9c81a23dca5d6",
+  "base_a02_id": "integration.jc_identity_pipeline",
+  "head_a02_id": null,
+  "head_a02_has_id": false,
+  "head_count": 90,
+  "base_count": 89,
+  "id_list_exit": 0,
+  "id_list_selects_zero": true,
+  "unchanged_baseline": true
+}

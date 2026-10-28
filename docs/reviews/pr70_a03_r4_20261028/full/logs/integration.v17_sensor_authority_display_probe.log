@@ -1,0 +1,111 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R5-AUTHORITY-DISPLAY-1 PROBE · 传感器权威显示（最小）
+════════════════════════════════════════════════════════════
+
+── 1 shadow 不写 ──
+[PASS] bridge.boot  []
+[PASS] 默认 authority=shadow  actual=shadow expected=shadow
+[PASS] shadow display.active=false  actual=false expected=false
+[PASS] display 不写 TrackTable  actual=false expected=false
+[PASS] shadow fw_sensor_authority=legacy_v15  actual=legacy_v15 expected=legacy_v15
+[PASS] shadow diff 为空  actual=0 expected=0
+[PASS] shadow 显示字段未被写
+
+── 2 authoritative 显示 ──
+[PASS] bridge.boot  []
+[PASS] requested=authoritative  actual=authoritative expected=authoritative
+[PASS] authority=authoritative  actual=authoritative expected=authoritative
+[PASS] 模型仍 shadow（显示层权威）  actual=shadow expected=shadow
+[PASS] display.active=true  actual=true expected=true
+[PASS] display 不写 TrackTable  actual=false expected=false
+[PASS] display_only=true  actual=true expected=true
+[PASS] authoritative fw_sensor_authority=v2_display  actual=v2_display expected=v2_display
+[PASS] diff.applied>0  5
+[PASS] diff.changed>0  5
+[PASS] diff 不写 TrackTable
+[PASS] 找到可映射 track  1000
+[FAIL] track 1000 level 映射  actual=4 expected=2
+[FAIL] track 1000 identity 映射  actual=friend expected=unknown
+[FAIL] track 1000 sources(sensor) 映射  actual=[] expected=["YW-R9"]
+[PASS] track 1000 r 不变  actual=(-190.0, 255.0, 62.0) expected=(-190.0, 255.0, 62.0)
+[PASS] track 1000 v 不变  actual=(-0.05, -0.06, 0.01) expected=(-0.05, -0.06, 0.01)
+[PASS] track 1000 threat 不变  actual=none expected=none
+[PASS] track 1000 side 不变  actual=friend expected=friend
+[PASS] track 1000 role 不变  actual=船坞舰 expected=船坞舰
+[PASS] 二次 fw_sync 仍 applied>0
+[PASS] 二次 fw_sync changed=0（已映射）  actual=0 expected=0
+
+── 3 缺失 / rv 保护 ──
+[PASS] bridge.boot  []
+[PASS] 存在缺失跳过（不伪造）  2
+[PASS] 缺失 track 列表  ["1001", "9002"]
+[PASS] 缺失 track 1001 level 不变  actual=4 expected=4
+[PASS] 缺失 track 1001 identity 不变  actual=friend expected=friend
+[PASS] 缺失 track 9002 level 不变  actual=1 expected=1
+[PASS] 缺失 track 9002 identity 不变  actual=pending expected=pending
+[PASS] track 1000 r 不变  actual=(-190.0, 255.0, 62.0) expected=(-190.0, 255.0, 62.0)
+[PASS] track 1000 v 不变  actual=(-0.05, -0.06, 0.01) expected=(-0.05, -0.06, 0.01)
+[PASS] track 1001 r 不变  actual=(2.0, -3.0, 0.0) expected=(2.0, -3.0, 0.0)
+[PASS] track 1001 v 不变  actual=(0.22, -0.12, 0.03) expected=(0.22, -0.12, 0.03)
+[PASS] track 1002 r 不变  actual=(-31.914, 60.045, -4.0) expected=(-31.914, 60.045, -4.0)
+[PASS] track 1002 v 不变  actual=(-0.0607, -0.0775, 0.0074) expected=(-0.0607, -0.0775, 0.0074)
+[PASS] track 1003 r 不变  actual=(19.957, 93.902, 38.0) expected=(19.957, 93.902, 38.0)
+[PASS] track 1003 v 不变  actual=(-0.1174, 0.025, 0.02) expected=(-0.1174, 0.025, 0.02)
+[PASS] track 1004 r 不变  actual=(205.0, -270.0, -26.0) expected=(205.0, -270.0, -26.0)
+[PASS] track 1004 v 不变  actual=(0.045, 0.06, -0.005) expected=(0.045, 0.06, -0.005)
+[PASS] track 2001 r 不变  actual=(208.602, 240.0, 12.0) expected=(208.602, 240.0, 12.0)
+[PASS] track 2001 v 不变  actual=(-1.1683, -0.5067, -0.0634) expected=(-1.1683, -0.5067, -0.0634)
+[PASS] track 9001 r 不变  actual=(229.598, -122.086, -6.0) expected=(229.598, -122.086, -6.0)
+[PASS] track 9001 v 不变  actual=(0.0505, 0.0524, -0.0005) expected=(0.0505, 0.0524, -0.0005)
+[PASS] track 9002 r 不变  actual=(0.0, 0.0, 0.0) expected=(0.0, 0.0, 0.0)
+[PASS] track 9002 v 不变  actual=(0.0, 0.0, 0.0) expected=(0.0, 0.0, 0.0)
+
+── 4 off 回退 ──
+[PASS] bridge.boot  []
+[PASS] off authority=off  actual=off expected=off
+[PASS] off fw_sensor_authority=off  actual=off expected=off
+[PASS] off diff 空  actual=0 expected=0
+[PASS] off 不写显示字段
+
+── 5 UNDOCK ──
+[PASS] bridge.boot  []
+[PASS] select chronos-dock-a
+[PASS] bridge.docking_undock 返回 ok 字段  not_docked
+[PASS] state.fw_docking_undock 返回 ok 字段  not_docked
+[PASS] undock 后 fw_docking 仍刷新
+[PASS] bridge.boot  []
+[PASS] docking=off 时 undock ok=false  actual=false expected=false
+[PASS] docking=off 时 state undock ok=false  actual=false expected=false
+
+── 6 JSON ──
+[PASS] bridge.boot  []
+[PASS] diff JSON  len=1419
+[PASS] diff JSON 回读
+[PASS] authority display JSON  len=2116
+[PASS] authority display JSON 回读
+[PASS] fw_bridge_state JSON  len=159880
+[PASS] fw_bridge_state 回读
+[PASS] bridge_state sensor_authority=v2_display
+[PASS] bridge_state sensor_authority_diff
+────────────────────────────────────────────────────────────
+[DATA] shadow = 默认 shadow：不写 V15 显示字段，authority=legacy_v15，diff 空
+[DATA] authoritative = applied=5 changed=5 skipped=2；level/identity/sources 映射；r/v/threat/side/role 不变
+[DATA] missing = skipped_missing=2（缺失不写）；全 track r/v 不变
+[DATA] off = off：不写、diff 空、authority=off；不崩溃
+[DATA] undock = 有实例返回模型结果（not_docked 时 ok=false+state）；无实例 ok=false；不崩溃
+[DATA] json = diff/authority display/fw_bridge_state JSON 可回读
+────────────────────────────────────────────────────────────
+V17 SENSOR AUTHORITY DISPLAY PROBE RESULT: PASS=71 FAIL=3
+[FAILED] 2 authoritative 显示 · track 1000 level 映射  (actual=4 expected=2)
+[FAILED] 2 authoritative 显示 · track 1000 identity 映射  (actual=friend expected=unknown)
+[FAILED] 2 authoritative 显示 · track 1000 sources(sensor) 映射  (actual=[] expected=["YW-R9"])
+V17 SENSOR AUTHORITY DISPLAY PROBE FAILED
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 219 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

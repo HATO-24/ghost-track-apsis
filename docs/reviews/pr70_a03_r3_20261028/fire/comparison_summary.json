@@ -1,0 +1,724 @@
+[
+  {
+    "file": "quality_motion_comparison.json",
+    "head": "022a7e0e6b0ab2ce65f228f98b4a1146d18792f8",
+    "trace": [
+      {
+        "t": 25.0,
+        "position_equal": true,
+        "velocity_equal": true,
+        "clean_pos": [
+          321719.0,
+          8.14999961853027,
+          0.0
+        ],
+        "moderate_pos": [
+          321719.0,
+          8.14999961853027,
+          0.0
+        ]
+      },
+      {
+        "t": 26.0,
+        "position_equal": true,
+        "velocity_equal": true,
+        "clean_pos": [
+          321719.0,
+          16.5999984741211,
+          0.0
+        ],
+        "moderate_pos": [
+          321719.0,
+          16.5999984741211,
+          0.0
+        ]
+      },
+      {
+        "t": 27.0,
+        "position_equal": true,
+        "velocity_equal": true,
+        "clean_pos": [
+          321719.0,
+          25.3499984741211,
+          0.0
+        ],
+        "moderate_pos": [
+          321719.0,
+          25.3499984741211,
+          0.0
+        ]
+      }
+    ],
+    "cases": [
+      {
+        "case": "clean",
+        "owner_quality": 0.90849375,
+        "prefire_entity": {
+          "aim_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "applied_error_km": 0.735,
+          "dv_budget_kmps": 36.0,
+          "error_km": 0.735,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.8775,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "lead_point_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "measurement_quality": 0.90849375,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 1.0,
+          "range_km": 600.0,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 60.0,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "prefire_hud": {
+          "aim_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "applied_error_km": 0.735,
+          "dv_budget_kmps": 36.0,
+          "error_km": 0.735,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.8775,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "lead_point_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "measurement_quality": 1.0,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 1.0,
+          "range_km": 600.0,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 60.0,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "postfire_prediction": {
+          "aim_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "applied_error_km": 0.735,
+          "dv_budget_kmps": 36.0,
+          "error_km": 0.735,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.8775,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "lead_point_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "measurement_quality": 0.90849375,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 1.0,
+          "range_km": 600.0,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 60.0,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "launch_velocity": [
+          0.0,
+          8.0,
+          0.0
+        ],
+        "applied_error": 0.735
+      },
+      {
+        "case": "moderate",
+        "owner_quality": 0.7994745,
+        "prefire_entity": {
+          "aim_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "applied_error_km": 0.735,
+          "dv_budget_kmps": 36.0,
+          "error_km": 0.735,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.8775,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "lead_point_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "measurement_quality": 0.7994745,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 0.85,
+          "range_km": 600.0,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 60.0,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "prefire_hud": {
+          "aim_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "applied_error_km": 0.735,
+          "dv_budget_kmps": 36.0,
+          "error_km": 0.735,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.8775,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "lead_point_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "measurement_quality": 1.0,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 1.0,
+          "range_km": 600.0,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 60.0,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "postfire_prediction": {
+          "aim_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "applied_error_km": 1.52475,
+          "dv_budget_kmps": 36.0,
+          "error_km": 1.52475,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.745875,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "lead_point_km": [
+            321719.0,
+            600.0,
+            0.0
+          ],
+          "measurement_quality": 0.7994745,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 0.85,
+          "range_km": 600.0,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 60.0,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "launch_velocity": [
+          0.0,
+          8.0,
+          0.0
+        ],
+        "applied_error": 1.52475
+      }
+    ]
+  },
+  {
+    "file": "quality_motion_offaxis.json",
+    "head": "022a7e0e6b0ab2ce65f228f98b4a1146d18792f8",
+    "trace": [
+      {
+        "t": 25.0,
+        "position_equal": false,
+        "velocity_equal": false,
+        "clean_pos": [
+          321724.75,
+          5.76798534393311,
+          0.0
+        ],
+        "moderate_pos": [
+          321724.75,
+          5.77332782745361,
+          0.0
+        ]
+      },
+      {
+        "t": 26.0,
+        "position_equal": false,
+        "velocity_equal": false,
+        "clean_pos": [
+          321730.71875,
+          11.7482576370239,
+          0.0
+        ],
+        "moderate_pos": [
+          321730.71875,
+          11.7591390609741,
+          0.0
+        ]
+      },
+      {
+        "t": 27.0,
+        "position_equal": false,
+        "velocity_equal": false,
+        "clean_pos": [
+          321736.90625,
+          17.9408149719238,
+          0.0
+        ],
+        "moderate_pos": [
+          321736.90625,
+          17.9574317932129,
+          0.0
+        ]
+      }
+    ],
+    "cases": [
+      {
+        "case": "clean",
+        "owner_quality": 0.90849375,
+        "prefire_entity": {
+          "aim_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "applied_error_km": 0.734985485877417,
+          "dv_budget_kmps": 36.0,
+          "error_km": 0.734985485877417,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.877500375366211,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            -3.0517578125E-05,
+            0.0
+          ],
+          "lead_point_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "measurement_quality": 0.90849375,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 1.0,
+          "range_km": 599.989990234375,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 59.9989990234375,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "prefire_hud": {
+          "aim_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "applied_error_km": 0.734985485877417,
+          "dv_budget_kmps": 36.0,
+          "error_km": 0.734985485877417,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.877500375366211,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            -3.0517578125E-05,
+            0.0
+          ],
+          "lead_point_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "measurement_quality": 1.0,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 1.0,
+          "range_km": 599.989990234375,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 59.9989990234375,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "postfire_prediction": {
+          "aim_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "applied_error_km": 0.735,
+          "dv_budget_kmps": 36.0,
+          "error_km": 0.735,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.8775,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            -3.0517578125E-05,
+            0.0
+          ],
+          "lead_point_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "measurement_quality": 0.90849375,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 1.0,
+          "range_km": 599.989990234375,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 59.9989990234375,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "launch_velocity": [
+          5.65186309814453,
+          5.66184091567993,
+          0.0
+        ],
+        "applied_error": 0.735
+      },
+      {
+        "case": "moderate",
+        "owner_quality": 0.7994745,
+        "prefire_entity": {
+          "aim_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "applied_error_km": 0.734985485877417,
+          "dv_budget_kmps": 36.0,
+          "error_km": 0.734985485877417,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.877500375366211,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            -3.0517578125E-05,
+            0.0
+          ],
+          "lead_point_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "measurement_quality": 0.7994745,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 0.85,
+          "range_km": 599.989990234375,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 59.9989990234375,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "prefire_hud": {
+          "aim_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "applied_error_km": 0.734985485877417,
+          "dv_budget_kmps": 36.0,
+          "error_km": 0.734985485877417,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.877500375366211,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            -3.0517578125E-05,
+            0.0
+          ],
+          "lead_point_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "measurement_quality": 1.0,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 1.0,
+          "range_km": 599.989990234375,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 59.9989990234375,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "postfire_prediction": {
+          "aim_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "applied_error_km": 1.52475,
+          "dv_budget_kmps": 36.0,
+          "error_km": 1.52475,
+          "fuel_s": 120.0,
+          "guidance": "guided",
+          "hit_probability": 0.745875,
+          "interceptable": true,
+          "lead_offset_km": [
+            0.0,
+            -3.0517578125E-05,
+            0.0
+          ],
+          "lead_point_km": [
+            322143.25,
+            424.263977050781,
+            0.0
+          ],
+          "measurement_quality": 0.7994745,
+          "mode": "guided",
+          "model": "cr3bp_rk4",
+          "no_physics": false,
+          "ok": true,
+          "quality_accuracy_mult": 0.85,
+          "range_km": 599.989990234375,
+          "reason": "",
+          "residual_km": 0.0,
+          "schema": "ballistic_prediction.v1",
+          "seeker": {
+            "acquire_s": 2.5,
+            "break_margin": 0.85,
+            "break_s": 1.5,
+            "fov_deg": 60.0,
+            "home_on_jam": false,
+            "range_km": 400.0,
+            "type": "radar_active"
+          },
+          "substep_max_s": 1.0,
+          "target_id": "raider_2",
+          "time_of_flight_s": 59.9989990234375,
+          "trajectory": "cr3bp_pn",
+          "weapon_id": "missile"
+        },
+        "launch_velocity": [
+          5.64660501480103,
+          5.66708469390869,
+          0.0
+        ],
+        "applied_error": 1.52475
+      }
+    ]
+  }
+]

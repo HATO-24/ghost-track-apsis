@@ -1,0 +1,13 @@
+{
+  "head": "ea29da7138ad353c4198f76547f57c4e0b07142d",
+  "diagnostic": "r3_restore_validation.gd",
+  "engine": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+  "exit_code": 0,
+  "cases": [
+    {"name": "full_file", "input": "save_state written to user:// then read back; public load_state", "ok": true, "ew_restore_mode": "full"},
+    {"name": "legacy_all_ew_absent", "input": "remove every A03 EW key from full serialized session; public load_state", "ok": true, "ew_restore_mode": "legacy_absent"},
+    {"name": "present_queue_null", "input": "ew_observation_queue=null; public load_state", "ok": false, "ew_restore_mode": "invalid", "reason": "invalid_ew_state field=ew_observation_queue"},
+    {"name": "partial_missing_combat_quality", "input": "remove ew_combat_quality only; public load_state", "ok": false, "ew_restore_mode": "absent", "reason": "Godot SCRIPT ERROR Invalid cast at game_session.gd:2925; returned error text has blank reason/field"}
+  ],
+  "scope": "Did not rerun W7 10-tick full continuation; existing formal review2 W7 evidence inspected. No schema fuzz or production/formal/matrix/baseline edits."
+}

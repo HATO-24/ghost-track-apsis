@@ -1,0 +1,235 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R4-CORE-2 PROBE · 导航/交通管制/机动 + 完整损管 接入
+════════════════════════════════════════════════════════════
+
+── 1 bridge 启动 ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] bridge.ready
+[PASS] bridge.nav 实例存在
+[PASS] bridge.nav_ready=true
+[PASS] bridge.errors 为空  []
+[PASS] nav schema=navigation.v1  actual=navigation.v1 expected=navigation.v1
+[PASS] nav vm ready=true  actual=true expected=true
+[PASS] nav authoritative=false（规划抽象）  actual=false expected=false
+
+── 2 导航 vm ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] vm_navigation 含字段: schema
+[PASS] vm_navigation 含字段: id
+[PASS] vm_navigation 含字段: title
+[PASS] vm_navigation 含字段: ready
+[PASS] vm_navigation 含字段: t
+[PASS] vm_navigation 含字段: nodes
+[PASS] vm_navigation 含字段: routes
+[PASS] vm_navigation 含字段: selected
+[PASS] vm_navigation 含字段: clearance
+[PASS] vm_navigation 含字段: clearances
+[PASS] vm_navigation 含字段: queue
+[PASS] vm_navigation 含字段: planned_maneuvers
+[PASS] vm_navigation 含字段: budget
+[PASS] vm_navigation 含字段: limits
+[PASS] vm_navigation 含字段: events
+[PASS] vm_navigation 含字段: summary
+[PASS] nodes=8  actual=8 expected=8
+[PASS] budget 含 dv_total_ms
+[PASS] budget 含 dv_reserve_ms
+[PASS] budget 含 dv_used_ms
+[PASS] budget 含 dv_committed_ms
+[PASS] budget 含 dv_available_ms
+[PASS] budget total=1600  actual=1600.00000 expected=1600.00000 diff=0.00000
+[PASS] 初始 available=1500  actual=1500.00000 expected=1500.00000 diff=0.00000
+[PASS] summary.nodes=8  actual=8 expected=8
+[PASS] summary.edges=15  actual=15 expected=15
+[PASS] limits 字段
+[PASS] events 为 Array
+[PASS] bridge.navigation_summary()
+
+── 3 路线规划/选择 ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] nav_plan_routes(l1→geo)  actual=true expected=true
+[PASS] 3 类候选  3
+[PASS] 候选有 candidate_id
+[PASS] 候选字段 dv/duration/exposure/feasible
+[PASS] 候选有 candidate_id
+[PASS] 候选字段 dv/duration/exposure/feasible
+[PASS] 候选有 candidate_id
+[PASS] 候选字段 dv/duration/exposure/feasible
+[PASS] 候选含 fast
+[PASS] 候选含 economy
+[PASS] 候选含 covert
+[PASS] 有推荐候选  actual=true expected=true · RTE-0001
+[PASS] nav_select_route(candidate_id)  actual=true expected=true
+[PASS] vm.selected 更新  actual=RTE-0001 expected=RTE-0001
+[PASS] 规划不消耗 Δv  actual=1500.00000 expected=1500.00000 diff=0.00000
+[PASS] 规划不自动创建机动  actual=0 expected=0
+[PASS] 未知节点规划被拒绝  actual=false expected=false
+
+── 4 交通许可 ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] 请求许可（fast 路线）ok  actual=true expected=true
+[PASS] 高暴露路线进入 hold（复核）  actual=hold expected=hold
+[PASS] clearances 记录 hold  actual=hold expected=hold
+[PASS] hold 进入 queue  actual=1 expected=1
+[PASS] nav_grant(hold)  actual=true expected=true
+[PASS] grant 后 granted  actual=granted expected=granted
+[PASS] 请求许可（economy）ok  actual=true expected=true
+[PASS] 低暴露/无需许可 → granted  actual=granted expected=granted
+[PASS] nav_deny  actual=true expected=true
+[PASS] deny 后 denied  actual=denied expected=denied
+[PASS] nav_hold  actual=true expected=true
+[PASS] hold 后 hold  actual=hold expected=hold
+[PASS] 优先级越界被拒绝  actual=denied expected=denied
+[PASS] 拒绝原因 priority_range  actual=priority_range expected=priority_range
+[PASS] 时间窗过期原因 window_in_past  actual=window_in_past expected=window_in_past
+[PASS] 许可不自动创建/执行机动  actual=0 expected=0
+
+── 5 机动 ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] plan_maneuver(hold)  actual=true expected=true
+[PASS] 计划初始 PRE_ORDER  actual=PRE_ORDER expected=PRE_ORDER
+[PASS] 规划不消耗/预留 Δv  actual=1500.0 expected=1500.0
+[PASS] nav_authorize  actual=true expected=true
+[PASS] 授权后 AUTHORIZED  actual=AUTHORIZED expected=AUTHORIZED
+[PASS] 授权预留 Δv（committed）
+[PASS] 未排队直接 execute 被拒绝  actual=false expected=false
+[PASS] nav_queue_maneuver  actual=true expected=true
+[PASS] 排队后 QUEUED  actual=QUEUED expected=QUEUED
+[PASS] nav_execute  actual=true expected=true
+[PASS] 执行后 EXECUTING  actual=EXECUTING expected=EXECUTING
+[PASS] 步进 130s 后 DONE（hold duration 120）  actual=DONE expected=DONE
+[PASS] 完成后消耗 Δv≥40
+[PASS] plan_maneuver(approach, geo)  actual=true expected=true
+[PASS] approach 无许可排队被拒绝  actual=false expected=false
+[PASS] 原因 clearance_required  actual=clearance_required expected=clearance_required
+[PASS] approach 持许可排队成功  actual=true expected=true
+[PASS] nav_abort(EXECUTING)  actual=true expected=true
+[PASS] abort 后 ABORTED  actual=ABORTED expected=ABORTED
+[PASS] 执行中 abort 有部分 Δv 消耗
+
+── 6 不自动执行 ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] 授权 hold
+[PASS] 授权后步进不自动执行（仍 AUTHORIZED）  actual=AUTHORIZED expected=AUTHORIZED
+[PASS] 未执行不消耗 Δv（available>0）
+[PASS] 规划/许可不自动新增机动  actual=1 expected=1
+
+── 7 完整损管 bridge ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] bridge.damage_model_ready=true  actual=true expected=true
+[PASS] damage_full sections=7  actual=7 expected=7
+[PASS] damage_full entity_id  actual=harmattan expected=harmattan
+[PASS] damage_full 含 events
+[PASS] damage_full 含 queue
+[PASS] damage_full 含 resources
+[PASS] damage_full 含 summary
+[PASS] damage_full 含 effects
+[PASS] 旧 damage_view sections=3  actual=3 expected=3
+[PASS] bridge.damage_apply_hit  actual=true expected=true
+[PASS] damage_full.sensors 受损  integrity=0.640
+[PASS] 命中后旧 damage 仍 3 项  actual=3 expected=3
+[PASS] bridge.damage_assign_repair  actual=true expected=true
+[PASS] damage_full.queue 有任务
+[PASS] bridge.damage_cancel_repair  actual=true expected=true
+[FAIL] 无档案实体命中被拒绝  actual=true expected=false
+
+── 8 state 字段 ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] state.fw_ready  actual=true expected=true
+[PASS] state.fw_nav_ready  actual=true expected=true
+[PASS] state.fw_nav 非空
+[PASS] fw_nav.nodes=8  actual=8 expected=8
+[PASS] fw_nav_summary.edges=15  actual=15 expected=15
+[PASS] state.fw_damage_model=true  actual=true expected=true
+[PASS] state.fw_damage_full sections=7  actual=7 expected=7
+[PASS] 旧 state.fw_damage 仍 3 项（兼容）  actual=3 expected=3
+[PASS] fw_bridge_state 含 nav
+[PASS] fw_bridge_state 含 nav_ready
+[PASS] fw_bridge_state 含 nav_summary
+[PASS] fw_bridge_state 含 damage_full
+[PASS] fw_bridge_state 含 damage_model
+
+── 9 state 导航 API ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] state.fw_nav_plan_routes  actual=true expected=true
+[PASS] state.fw_nav_select_route  actual=true expected=true
+[PASS] state.fw_nav_request_clearance  hold
+[PASS] state.fw_nav_grant  actual=true expected=true
+[PASS] state.fw_nav_plan_maneuver  actual=true expected=true
+[PASS] state.fw_nav_authorize  actual=true expected=true
+[PASS] state.fw_nav_queue_maneuver  actual=true expected=true
+[PASS] state.fw_nav_execute  actual=true expected=true
+[PASS] fw_nav 反映机动 DONE（bridge.sync 后）
+[PASS] state.fw_nav_abort  actual=true expected=true
+[PASS] fw_nav 非空
+
+── 10 state 损管 API ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] state.fw_damage_apply_hit  actual=true expected=true
+[PASS] fw_damage_full.sensors 受损
+[PASS] 旧 fw_damage 仍 3 项  actual=3 expected=3
+[PASS] state.fw_damage_assign_repair  actual=true expected=true
+[PASS] state.fw_damage_set_priority  actual=true expected=true
+[PASS] state.fw_damage_cancel_repair  actual=true expected=true
+
+── 11 restart 复位 ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] restart 前有导航状态
+[PASS] restart 后 nav 仍 ready  actual=true expected=true
+[PASS] restart 后机动清空  actual=0 expected=0
+[PASS] restart 后候选清空  actual=0 expected=0
+[PASS] restart 后 Δv 复位  actual=0.0 expected=0.0
+[PASS] restart 后 damage_model 仍 ready  actual=true expected=true
+[PASS] restart 后 damage_full 7 分区  actual=7 expected=7
+[PASS] restart 后 damage_full t=0  actual=0.00000 expected=0.00000 diff=0.00000
+
+── 12 JSON/旧字段 ──
+[PASS] bridge.boot  []
+[PASS] bridge.nav_ready  []
+[PASS] fw_bridge_state JSON 输出  len=169306
+[PASS] JSON 回读 Dictionary
+[PASS] 回读 nav
+[PASS] 回读 nav.nodes=8
+[PASS] 回读 damage_full
+[PASS] 回读 damage_full.sections=7  actual=7 expected=7
+[PASS] 回读旧 damage.sections=3  actual=3 expected=3
+[PASS] 回读 nav_summary
+[PASS] bridge 旧 damage sections=3  actual=3 expected=3
+[PASS] bridge 旧 damage entity_id  actual=harmattan expected=harmattan
+[PASS] bridge.summary 旧字段
+────────────────────────────────────────────────────────────
+[DATA] boot = bridge/nav ready · schema=navigation.v1 · authoritative=false
+[DATA] nav-vm = nodes=8 edges=15 budget=1600/1500 · sizes/limits/events/summary 齐全
+[DATA] routes = l1→geo 候选=3 profiles=["fast", "economy", "covert"] recommended=RTE-0001
+[DATA] clearance = hold→grant · economy→granted · deny/hold/priority/window 拒绝原因 · 无自动执行
+[DATA] maneuver = hold 完成 · approach 无许可拒绝/持许可排队 · burn 执行中 abort 部分消耗
+[DATA] no-auto = 授权后 sync 100s 仍 AUTHORIZED；规划/许可不自动执行
+[DATA] damage-full = bridge damage_full sections=7 + 旧 sections=3 兼容 · 写 API 转发
+[DATA] state-fields = fw_nav/fw_nav_ready/fw_nav_summary/fw_damage_model/fw_damage_full + 旧 fw_damage
+[DATA] state-nav = plan/select/request/grant/plan_maneuver/authorize/queue/execute/abort 全链路
+[DATA] state-damage = fw_damage_apply_hit/assign/set_priority/cancel 转发；旧 fw_damage 兼容
+[DATA] restart = nav 机动/候选/预算复位；damage_full 重置；旧字段保持
+[DATA] json/legacy = fw_bridge_state JSON 可回读；旧 damage sections=3 契约保持
+────────────────────────────────────────────────────────────
+V17 NAV INTEGRATION PROBE RESULT: PASS=181 FAIL=1
+[FAILED] 7 完整损管 bridge · 无档案实体命中被拒绝  (actual=true expected=false)
+V17 NAV INTEGRATION PROBE FAILED
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 369 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

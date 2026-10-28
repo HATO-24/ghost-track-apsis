@@ -1,0 +1,84 @@
+{
+  "head": "022a7e0e6b0ab2ce65f228f98b4a1146d18792f8",
+  "previous_head": "ea29da7138ad353c4198f76547f57c4e0b07142d",
+  "R2": "CLOSED",
+  "diagnostic_runs": 1,
+  "diagnostic_exit_code": 0,
+  "formal_probes_run": 0,
+  "all_operational_fields_unchanged": true,
+  "original_replay_unchanged_fields": {
+    "player_measurement": true,
+    "combat_track": true,
+    "combat_quality_cache": true,
+    "candidates": true,
+    "identity_evidence": true,
+    "delivered": true,
+    "player_observations": true,
+    "ally_observations": true,
+    "sensor_track_map": true,
+    "global_track_vm": true
+  },
+  "candidate_replay_unchanged_fields": {
+    "player_measurement": true,
+    "combat_track": true,
+    "combat_quality_cache": true,
+    "candidates": true,
+    "identity_evidence": true,
+    "delivered": true,
+    "player_observations": true,
+    "ally_observations": true,
+    "sensor_track_map": true,
+    "global_track_vm": true
+  },
+  "owner_reject_unchanged_fields": {
+    "player_measurement": true,
+    "combat_track": true,
+    "combat_quality_cache": true,
+    "candidates": true,
+    "identity_evidence": true,
+    "delivered": true,
+    "player_observations": true,
+    "ally_observations": true,
+    "sensor_track_map": true,
+    "global_track_vm": true
+  },
+  "rejects": {
+    "original": {
+      "observation_id": "OBS-000008",
+      "owner_id": "player_intel",
+      "reason": "duplicate_delivery",
+      "t": 21.0,
+      "target_id": "raider_2"
+    },
+    "candidate": {
+      "observation_id": "OBS-000001",
+      "owner_id": "player_intel",
+      "reason": "duplicate_delivery",
+      "t": 4.0,
+      "target_id": "raider_2"
+    },
+    "owner": {
+      "observation_id": "OBS-000008",
+      "owner_id": "ally_intel",
+      "reason": "share_not_authorized",
+      "t": 7.0,
+      "target_id": "raider_2"
+    }
+  },
+  "normal_new_observations": {
+    "own_before": 10,
+    "own_after": 19,
+    "ally_before": 1,
+    "ally_after": 4,
+    "player_observations_in_ally_control": 0
+  },
+  "owner_rejection": {
+    "global_tracks_before": 0,
+    "global_tracks_after": 0,
+    "map_before": {},
+    "map_after": {},
+    "normal_delivery_before": 0,
+    "normal_delivery_after": 0
+  },
+  "remaining": []
+}

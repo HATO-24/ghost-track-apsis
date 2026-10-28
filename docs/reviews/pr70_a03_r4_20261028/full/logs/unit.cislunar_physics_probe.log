@@ -1,0 +1,326 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R6-PHYS-1 PROBE · 地月物理核心（CR3BP / RK4 / 相对运动 / 对接）
+════════════════════════════════════════════════════════════
+
+── 1 常数 / 归一化 ──
+[PASS] μ_earth=398600.4418  actual=398600.4418 expected=398600.4418 diff=0.0 tol_eff=0.07972018836
+[PASS] μ_moon=4902.800118  actual=4902.800118 expected=4902.800118 diff=0.0 tol_eff=0.0009806600236
+[PASS] 地月距离 384,400 km  actual=384400.0 expected=384400.0 diff=0.0 tol_eff=0.0768801
+[PASS] 月球恒星周期 2,360,591.51 s  actual=2360591.5104 expected=2360591.51 diff=0.00040000025183 tol_eff=0.472118402
+[PASS] μ = μ_moon/(μ_e+μ_m)  actual=0.01215058420521 expected=0.012150585 diff=0.00000000079479 tol_eff=0.00000010243012
+[PASS] ω=2π/T_moon  actual=0.00000266169953 expected=0.00000266169953 diff=0.0 tol_eff=0.00000010000053
+[PASS] 归一化时间 T_c 与 T_moon/(2π) 一致（<1%；GM 常数与观测周期舍入）
+[PASS] 归一化速度 V_c=D/T_c  actual=1.02454685539109 expected=1.02454685539109 diff=0.0 tol_eff=0.00000030490937
+[PASS] T_c 量级 ~3.75e5 s
+[PASS] V_c 量级 ~1.0245 km/s
+[PASS] 归一化位置量级
+[PASS] 归一化往返位置一致  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 归一化往返速度一致  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] state_to_array_dict r[3]
+[PASS] as_state 回读 r  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 合法状态 finite
+[PASS] NaN 状态 finite=false
+[PASS] validate_state 合法
+[PASS] validate_state 拒绝零半径
+
+── 2 参考系 / 转换 ──
+[PASS] 地球旋转系 x=-μD  actual=-4670.6845703125 expected=-4670.68456848284 diff=0.00000182966141 tol_eff=0.0009342369137
+[PASS] 月球旋转系 x=(1-μ)D  actual=379729.3125 expected=379729.315431517 diff=0.00293151714141 tol_eff=0.0759459630863
+[PASS] 地月旋转系距离 D  actual=384400.0 expected=384400.0 diff=0.0 tol_eff=0.0768801
+[PASS] 月球 t=0 在 +x  actual=384400.0 expected=384400.0 diff=0.0 tol_eff=0.0768801
+[PASS] 月球 t=0 速度 +y  actual=1.02315723896027 expected=1.02315729826147 diff=0.00000005930121 tol_eff=0.00000030463146
+[PASS] 月球圆轨道速度 ωD  actual=1.02315723896027 expected=1.02315729826147 diff=0.00000005930121 tol_eff=0.00000030463146
+[PASS] 月球距离 D  actual=384400.0 expected=384400.0 diff=0.0 tol_eff=0.0768801
+[PASS] 月球地心旋转系 x=D  actual=384400.0 expected=384400.0 diff=0.0 tol_eff=0.0768801
+[PASS] 地心旋转↔bary 旋转往返  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 月球 rot→eci t=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.000001
+[PASS] 月球 rot→eci 速度 t=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 月球 eci→rot 往返 t=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.01
+[PASS] 月球 rot→eci t=12345  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.000001
+[PASS] 月球 rot→eci 速度 t=12345  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 月球 eci→rot 往返 t=12345  actual=0.0004892705474 expected=0.0 diff=0.0004892705474 tol_eff=0.01
+[PASS] 月球 rot→eci t=1180296  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.000001
+[PASS] 月球 rot→eci 速度 t=1180296  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 月球 eci→rot 往返 t=1180296  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.01
+[PASS] 任意状态 eci→rot 位置往返 t=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.000001
+[PASS] 任意状态 eci→rot 速度往返 t=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 任意状态 eci→rot 位置往返 t=5000  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.000001
+[PASS] 任意状态 eci→rot 速度往返 t=5000  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 任意状态 eci→rot 位置往返 t=50000  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.000001
+[PASS] 任意状态 eci→rot 速度往返 t=50000  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 地球 ECI t=0 x=-μD  actual=-4670.6845703125 expected=-4670.68456848284 diff=0.00000182966141 tol_eff=0.0009342369137
+[PASS] 地球 ECI 速度 ω·μD  actual=0.01243195869029 expected=0.0124319589077 diff=0.00000000021742 tol_eff=0.00000010248639
+
+── 3 平衡点 L1–L5 / Jacobi ──
+[PASS] 返回 5 个 L 点  actual=5 expected=5
+[PASS] 含 L1
+[PASS] L1 位置有限
+[PASS] L1 Jacobi 有限
+[PASS] L1 平衡点加速度≈0  |a|=0.00000000619389 km/s²
+[PASS] L1 3600 s 静止漂移 <1 m  actual=0.00025638527586 expected=0.0 diff=0.00025638527586 tol_eff=0.001
+[PASS] L1 静止 Jacobi 漂移极小
+[PASS] 含 L2
+[PASS] L2 位置有限
+[PASS] L2 Jacobi 有限
+[PASS] L2 平衡点加速度≈0  |a|=0.00000000855334 km/s²
+[PASS] L2 3600 s 静止漂移 <1 m  actual=0.00035405388917 expected=0.0 diff=0.00035405388917 tol_eff=0.001
+[PASS] L2 静止 Jacobi 漂移极小
+[PASS] 含 L3
+[PASS] L3 位置有限
+[PASS] L3 Jacobi 有限
+[PASS] L3 平衡点加速度≈0  |a|=0.00000000743967 km/s²
+[PASS] L3 3600 s 静止漂移 <1 m  actual=0.00030795799103 expected=0.0 diff=0.00030795799103 tol_eff=0.001
+[PASS] L3 静止 Jacobi 漂移极小
+[PASS] 含 L4
+[PASS] L4 位置有限
+[PASS] L4 Jacobi 有限
+[PASS] L4 平衡点加速度≈0  |a|=0.00000000735776 km/s²
+[PASS] L4 3600 s 静止漂移 <1 m  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.001
+[PASS] L4 静止 Jacobi 漂移极小
+[PASS] 含 L5
+[PASS] L5 位置有限
+[PASS] L5 Jacobi 有限
+[PASS] L5 平衡点加速度≈0  |a|=0.00000000735776 km/s²
+[PASS] L5 3600 s 静止漂移 <1 m  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.001
+[PASS] L5 静止 Jacobi 漂移极小
+[PASS] L1 距月球 ~58,000 km  actual=58019.125 expected=58100.0 diff=80.875 tol_eff=4000.0
+[PASS] L1 距地球 320k–335k km
+[PASS] L2 距月球 60k–70k km
+[PASS] L3 在月球反侧（x<0）
+[PASS] L1 y=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] L2 y=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] L4 距地球 = D  actual=384400.0 expected=384400.0 diff=0.0 tol_eff=0.0768801
+[PASS] L4 距月球 = D  actual=384400.0 expected=384400.0 diff=0.0 tol_eff=0.0768801
+[PASS] L5 距地球 = D  actual=384400.0 expected=384400.0 diff=0.0 tol_eff=0.0768801
+[PASS] L4 y=+√3/2 D  actual=332900.15625 expected=332900.165214738 diff=0.00896473816829 tol_eff=0.06658013304295
+[PASS] L5 y=-√3/2 D  actual=-332900.15625 expected=-332900.165214738 diff=0.00896473816829 tol_eff=0.06658013304295
+[PASS] L4 kind=triangular  actual=triangular expected=triangular
+[PASS] L1 kind=collinear  actual=collinear expected=collinear
+[PASS] L1 Jacobi > L4 Jacobi（稳定性差异）
+[PASS] L4 Jacobi ≈3-μ(1-μ)  C=2.993433
+[PASS] L4/L5 x 对称  actual=187529.3125 expected=187529.3125 diff=0.0 tol_eff=0.0375059625
+[PASS] L1 偏移初始化  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] L1 偏移速度初始化  actual=0.00999999977648 expected=0.01 diff=0.00000000022352 tol_eff=0.000001
+[PASS] 未知 L 点返回空
+[PASS] Jacobi 与能量代理一致  actual=2.993427841008 expected=2.993427841008 diff=0.0 tol_eff=0.00000069868557
+[PASS] 非法状态 Jacobi=NAN
+[PASS] ECI→Jacobi 与旋转系一致  actual=2.99343312172539 expected=2.99343312172539 diff=0.0 tol_eff=0.00000069868662
+
+── 4 CR3BP / RK4 / Jacobi / NaN ──
+[PASS] CR3BP 传播成功
+[PASS] 1800 s / 30 s = 60 步  actual=60 expected=60
+[PASS] step_s=30  actual=30.0 expected=30.0 diff=0.0 tol_eff=0.0000061
+[PASS] Jacobi 守恒（漂移 <1e-6）  drift=0.00000015210385
+[PASS] 传播后 Jacobi 有限
+[PASS] 传播后状态有限
+[PASS] 无漂移告警
+[PASS] dt=0 steps=0  actual=0 expected=0
+[PASS] dt=0 状态不变  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] step_s 被 clamp 到 ≤60 s  step_s=59.091
+[PASS] 650 s 按 60 s 上限 → 11 步  actual=11 expected=11
+[PASS] 正向+反向传播回到起点附近（<10 km）  error=0.000 km
+[PASS] max_steps 限制触发失败
+[PASS] reason=max_steps_exceeded  actual=max_steps_exceeded expected=max_steps_exceeded
+[PASS] NaN 状态传播被拒绝
+[PASS] reason=invalid_state  actual=invalid_state expected=invalid_state
+[PASS] 非法输入 finite=false
+[PASS] 零半径状态被拒绝
+[PASS] sanitize 标记 changed
+[PASS] sanitize 后 finite
+[PASS] sanitize NaN→0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 批量传播 2 条  actual=2 expected=2
+[PASS] 批量[0] ok
+[PASS] 批量[1] ok
+[PASS] 传播结果 JSON 可序列化
+[PASS] 有效势梯度 = 引力+离心（数值校验）  err=0.00000224535665
+
+── 5 两体 RK4 / 轨道闭合 ──
+[PASS] LEO 圆轨道速度 √(μ/r)  actual=7.66855817540706 expected=7.66855817540706 diff=0.0 tol_eff=0.00000163371164
+[PASS] LEO 速度 ≈7.669 km/s  actual=7.66855817540706 expected=7.669 diff=0.00044182459294 tol_eff=0.01
+[PASS] LEO 周期 ≈5,553 s  actual=5553.62427125223 expected=5553.5 diff=0.12427125222803 tol_eff=2.0
+[PASS] LEO 两体传播成功
+[PASS] LEO 一周期闭合误差 <100 m  err=0.005009 km
+[PASS] LEO 步数 >500
+[PASS] GEO 半径 42,164 km  actual=42164.0 expected=42164.0 diff=0.0 tol_eff=0.0084329
+[PASS] GEO 速度 √(μ/r)  actual=3.07466626167297 expected=3.07466628412768 diff=0.00000002245471 tol_eff=0.00000071493326
+[PASS] GEO 周期 ≈86,164 s  actual=86163.5705505783 expected=86163.6 diff=0.02944942173781 tol_eff=5.0
+[PASS] GEO 周期≈地球恒星日  actual=86163.5705505783 expected=86164.0905 diff=0.51994942173769 tol_eff=5.0
+[PASS] GEO 一周期闭合误差 <5 km  err=2.263 km
+[PASS] LLO 半径=R_moon+100 km  actual=1837.40625 expected=1837.4 diff=0.00624999999991 tol_eff=0.02
+[PASS] LLO 绕月速度 √(μ_moon/r)  actual=1.63350427150726 expected=1.63350413405033 diff=0.00000013745694 tol_eff=0.00000042670083
+[PASS] LLO 周期 ≈7,067 s  actual=7067.45972829971 expected=7067.5 diff=0.04027170029167 tol_eff=5.0
+[PASS] LLO 一周期闭合误差 <500 m  err=0.152227 km
+[PASS] 极轨 LLO 半径一致  actual=1837.40002441406 expected=1837.4 diff=0.00002441406241 tol_eff=0.02
+[PASS] 极轨 LLO 有 z 分量
+[PASS] 转移轨道 ν=0 在近地点  actual=6778.0 expected=6778.0 diff=0.0 tol_eff=0.0013557
+[PASS] 转移轨道高偏心率
+[PASS] 转移轨道近地点速度 vis-viva  actual=10.7507209777832 expected=10.7507207693115 diff=0.00000020847174 tol_eff=0.00000225014415
+[PASS] 转移轨道周期 >0
+[PASS] μ_total+D 反推月球周期与 T_moon 一致（<1%）  calc=2357389.9 s T=2360591.5 s
+
+── 6 月球 / 时间 ──
+[PASS] t=T/4 月球相位 π/2  actual=1.5707963267949 expected=1.5707963267949 diff=0.0 tol_eff=0.00000041415927
+[PASS] t=T/4 月球在 +y  actual=384400.0 expected=384400.0 diff=0.0 tol_eff=0.0768801
+[PASS] t=T 月球回到 t=0 位置（<10 m）  err=0.000000 km
+[PASS] moon_phase(0)=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] moon_phase(T)=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 月球轨道速度 ≈1.023 km/s  actual=1.02315723896027 expected=1.0228 diff=0.00035723896027 tol_eff=0.01
+[PASS] 月球旋转系速度 0  actual=0.0 expected=0.0
+[PASS] 月球周期字段  actual=2360591.5104 expected=2360591.5104 diff=0.0 tol_eff=0.47211840208
+
+── 7 相对运动 / LVLH / CW ──
+[PASS] Δr x=1 km  actual=1.0 expected=1.0 diff=0.0 tol_eff=0.0000003
+[PASS] range=1 km  actual=1.0 expected=1.0 diff=0.0 tol_eff=0.0000003
+[PASS] range_rate=-0.1 km/s  actual=-0.10000000149012 expected=-0.1 diff=0.00000000149012 tol_eff=0.00000012
+[PASS] closing=0.1 km/s  actual=0.10000000149012 expected=0.1 diff=0.00000000149012 tol_eff=0.00000012
+[PASS] TCA=10 s（线性近似）  actual=9.99999985098839 expected=10.0 diff=0.00000014901161 tol_eff=0.0000021
+[PASS] 相对速度 0.1 km/s  actual=0.10000000149012 expected=0.1 diff=0.00000000149012 tol_eff=0.00000012
+[PASS] LOS +x  actual=1.0 expected=1.0 diff=0.0 tol_eff=0.0000003
+[PASS] 同点 range=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] 同点无 TCA  actual=-1.0 expected=-1.0 diff=0.0 tol_eff=0.0000003
+[PASS] LVLH R=+x  actual=1.0 expected=1.0 diff=0.0 tol_eff=0.0000003
+[PASS] LVLH S=+y  actual=1.0 expected=1.0 diff=0.0 tol_eff=0.0000003
+[PASS] LVLH W=+z  actual=1.0 expected=1.0 diff=0.0 tol_eff=0.0000003
+[PASS] R·S=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] R·W=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] S 单位长度  actual=1.0 expected=1.0 diff=0.0 tol_eff=0.0000003
+[PASS] to_lvlh x  actual=1.0 expected=1.0 diff=0.0 tol_eff=0.0000003
+[PASS] to_lvlh y  actual=2.0 expected=2.0 diff=0.0 tol_eff=0.0000005
+[PASS] to_lvlh z  actual=3.0 expected=3.0 diff=0.0 tol_eff=0.0000007
+[PASS] CW 矩阵 t=0 为单位阵
+[PASS] CW 矩阵 6 行  actual=6 expected=6
+[PASS] CW 矩阵 6 列  actual=6 expected=6
+[PASS] CW 零状态 → x=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] CW 零状态 → y=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] CW 圆相对运动一周期 x 闭合  actual=1.0 expected=1.0 diff=0.0 tol_eff=0.0000003
+[PASS] CW 圆相对运动一周期 y 闭合  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] CW 圆相对运动一周期 vx 闭合  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] CW 圆相对运动一周期 vy 闭合  actual=-0.00226278394064 expected=-0.00226278394064 diff=0.0 tol_eff=0.00000010045256
+[PASS] CW t=0 保持 x  actual=1.0 expected=1.0 diff=0.0 tol_eff=0.0000003
+[PASS] CW t=0 保持 vy  actual=-0.00226278394064 expected=-0.00226278394064 diff=0.0 tol_eff=0.00000010045256
+
+── 8 接近走廊 / 对接几何 ──
+[PASS] 默认走廊有半角
+[PASS] 默认走廊长度 >0
+[PASS] 走廊内/对齐/减速 → ok
+[PASS] 走廊 inside
+[PASS] along=50 km  actual=50.0 expected=50.0 diff=0.0 tol_eff=0.0000101
+[PASS] lateral=0  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] closing=20 m/s  actual=20.0 expected=20.0 diff=0.0 tol_eff=0.0000041
+[PASS] 对齐角≈0
+[PASS] status=in_corridor  actual=in_corridor expected=in_corridor
+[PASS] 横向 20 km → 走廊外
+[PASS] 走廊外有 warning
+[PASS] 角度偏差 >15°
+[PASS] 角度超限 angle_ok=false
+[PASS] 接近速度 100 m/s → speed_ok=false
+[PASS] closing > 50 m/s
+[PASS] 超出走廊长度
+[PASS] 自定义 +y 走廊通过
+[PASS] 自定义 along=30  actual=30.0 expected=30.0 diff=0.0 tol_eff=0.0000061
+[PASS] 对接对齐 → aligned  actual=aligned expected=aligned
+[PASS] aligned ok
+[PASS] 轴向 5 km  actual=5.0 expected=5.0 diff=0.0 tol_eff=0.0000011
+[PASS] 接近速度 10 m/s  actual=9.99999940395355 expected=10.0 diff=0.00000059604645 tol_eff=0.0000021
+[PASS] 接触范围/低速 → docked  actual=docked expected=docked
+[PASS] docked ok
+[PASS] 高速 → too_fast  actual=too_fast expected=too_fast
+[PASS] 横向偏移 → misaligned  actual=misaligned expected=misaligned
+[PASS] misaligned lateral>0.2 km
+[PASS] 角度偏差 → misaligned  actual=misaligned expected=misaligned
+[PASS] 对接序列 3 点  actual=3 expected=3
+[PASS] 序列[0] aligned  actual=aligned expected=aligned
+[PASS] 序列[2] docked  actual=docked expected=docked
+[PASS] 对接序列 JSON 可序列化
+
+── 9 实例实体 / sample_entity ──
+[PASS] 实例 step_s clamp ≤60
+[PASS] add_entity 成功
+[PASS] entity_ids=1  actual=1 expected=1
+[PASS] 非法实体 add 失败
+[PASS] 非法实体未加入  actual=1 expected=1
+[PASS] 实体推进 3600 s 成功
+[PASS] 3600/60 = 60 步  actual=60 expected=60
+[PASS] sample_entity 返回
+[PASS] sample 字段 id
+[PASS] sample 字段 t
+[PASS] sample 字段 state_rot
+[PASS] sample 字段 state_earth_eci
+[PASS] sample 字段 state_earth_rot
+[PASS] sample 字段 jacobi
+[PASS] sample 字段 energy
+[PASS] sample 字段 finite
+[PASS] sample 字段 earth_distance_km
+[PASS] sample 字段 moon_distance_km
+[PASS] sample finite
+[PASS] sample Jacobi 有限
+[PASS] state_rot.r[3]  actual=3 expected=3
+[PASS] 实体 Jacobi 量级合理
+[PASS] sample 可重复  actual=2.99343102460016 expected=2.99343102460016 diff=0.0 tol_eff=0.0000006986862
+[PASS] 未知实体 sample 为空
+[PASS] remove_entity 成功
+[PASS] 移除后实体 0  actual=0 expected=0
+[PASS] to_dict 字段 schema
+[PASS] to_dict 字段 model
+[PASS] to_dict 字段 authoritative
+[PASS] to_dict 字段 t
+[PASS] to_dict 字段 config
+[PASS] to_dict 字段 entities
+[PASS] to_dict 字段 constants
+[PASS] to_dict authoritative=false
+[PASS] 实例 to_dict JSON 可序列化/回读
+[PASS] model 标识  actual=cr3bp_rk4_circular expected=cr3bp_rk4_circular
+[PASS] max_steps 超限 → 实例推进失败
+[PASS] sample_all 2 实体  actual=2 expected=2
+[PASS] sample_all JSON 可序列化
+[PASS] 实体旋转/ECI 状态 r[3]
+
+── 10 NaN / JSON ──
+[PASS] 传播结果 JSON 可序列化
+[PASS] 非有限输入失败
+[PASS] 失败结果 JSON 可序列化
+[PASS] 非有限速度 Jacobi=NAN
+[PASS] 有效势接口对 Inf 返回非有限
+[PASS] sanitize 后 finite
+[PASS] sanitize 状态 JSON
+[PASS] state JSON
+[PASS] state JSON 回读 r  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+[PASS] state JSON 回读 v  actual=0.0 expected=0.0 diff=0.0 tol_eff=0.0000001
+
+── 11 确定性 ──
+[PASS] 同输入传播结果逐位一致  actual={ "r": [321835.0625, -44.1037826538086, 19.9997024536133], "v": [0.0020081596449, 0.00099158636294, -0.0000006608937] } expected={ "r": [321835.0625, -44.1037826538086, 19.9997024536133], "v": [0.0020081596449, 0.00099158636294, -0.0000006608937] }
+[PASS] Jacobi 确定性  actual=3.1950982631394 expected=3.1950982631394 diff=0.0 tol_eff=0.00000073901965
+[PASS] 实例推进确定性
+[PASS] 两体传播确定性  actual={ "r": [4089.95361328125, 5680.86767578125, 0.0], "v": [-6.12402009963989, 4.40900230407715, 0.0] } expected={ "r": [4089.95361328125, 5680.86767578125, 0.0], "v": [-6.12402009963989, 4.40900230407715, 0.0] }
+────────────────────────────────────────────────────────────
+[DATA] constants = μ=0.012150585 D=384400 T=2360591.51 Tc=375190.3 Vc=1.024547
+[DATA] frames = bary rotating ↔ earth rotating ↔ earth ECI 位置/速度往返一致
+[DATA] L-points = L1 dM=58019 km C=3.195103 · L4 C=2.993433
+[DATA] cr3bp = 1800 s / 30 s 步：Jacobi 漂移 0.00000015210385；RK4 四阶；step ≤60 s
+[DATA] orbit-closure = LEO 0.005 km · GEO 2.263 km · LLO 0.152 km（RK4 一周期）
+[DATA] moon = T=2360591.51 s · r=384400.0 km · v=1.0232 km/s
+[DATA] relative = Δr/Δv/closing/TCA/LVLH/CW（一周期闭合 <1e-9）
+[DATA] corridor/docking = 走廊 inside/angle/speed；对接 aligned/docked/too_fast/misaligned
+[DATA] instance = 实体推进/采样；step≤60 s；JSON/多实体/移除/未知实体
+[DATA] nan/json = NaN/Inf 输入拒绝；sanitize；状态/实例/传播 JSON 安全
+[DATA] determinism = CR3BP/两体/实体推进同输入逐位一致
+────────────────────────────────────────────────────────────
+PHYSICS PROBE RESULT: PASS=269 FAIL=0
+PHYSICS PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: `NaN` ("Not a Number") found in argument passed to JSON.stringify(). `NaN` cannot be represented in JSON, so the value has been replaced with `null`. This warning will not be printed for any later NaN occurrences.
+   at: _stringify (core/io/json.cpp:86)
+   GDScript backtrace (most recent call first):
+       [0] _json_ok (res://tests/cislunar_physics_probe.gd:98)
+       [1] _test_nan_json (res://tests/cislunar_physics_probe.gd:652)
+       [2] _initialize (res://tests/cislunar_physics_probe.gd:37)
+WARNING: Exponent too high
+   at: built_in_strtod (core/string/ustring.cpp:2553)
+   GDScript backtrace (most recent call first):
+       [0] _json_ok (res://tests/cislunar_physics_probe.gd:101)
+       [1] _test_nan_json (res://tests/cislunar_physics_probe.gd:652)
+       [2] _initialize (res://tests/cislunar_physics_probe.gd:37)

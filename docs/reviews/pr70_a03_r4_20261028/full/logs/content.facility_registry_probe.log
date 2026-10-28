@@ -1,0 +1,28 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE3O PROBE · FacilityRegistry
+════════════════════════════════════════════════════════════
+
+── 1 覆盖/名称 ──
+
+── 1b 扩展/OTC/燃料/节点 ──
+
+── 2 schema/唯一/物理/港口 ──
+
+── 3 查询/transponder/card ──
+
+── 4 非法内容/原子 ──
+
+── 5 JSON/确定性 ──
+────────────────────────────────────────────────────────────
+[DATA] coverage = base 7 cluster/29 facility/57 ports · total 9/110/138 · OTC19+fuel62+orbital2
+[DATA] extension = OTC 19 · TNK31+FUL31=62 · LEO/FAR 节点 · 旧29/57回归 · 扩展 entity_ids · merged
+[DATA] schema = required 全过 · code/transponder 110 唯一 · port 138 唯一 · 物理字段 · entity/port 绑定
+[DATA] queries = id/code/transponder(大小写)/card/classify/cluster 排序/base+extension 查询/未知拒绝
+[DATA] invalid = 21 类坏数据（含扩展重复/非法）原子拒绝 · 非对象/不存在文件拒绝 · 旧状态不变
+[DATA] json = to_dict 基础+扩展 · 往返 ids110/summary/OTC/FUL · 两次加载/card 确定 · contracts
+────────────────────────────────────────────────────────────
+V17 FACILITY REGISTRY PROBE RESULT: PASS=6059 FAIL=0
+V17 FACILITY REGISTRY PROBE OK
+AUDIO OK files=36 headless=true muted=false

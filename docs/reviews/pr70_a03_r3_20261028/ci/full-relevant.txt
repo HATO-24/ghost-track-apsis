@@ -1,0 +1,5 @@
+2026-10-28T13:19:54.5020497Z HEAD is now at aad544e Merge 022a7e0e6b0ab2ce65f228f98b4a1146d18792f8 into 3845852bd78821ee6b3c70c4d8f9c81a23dca5d6
+2026-10-28T13:25:57.2545544Z total=90  pass=83  fail=7  timeout=0  not_run=0 (expected=0 unexpected=0)  duration=355.5s
+2026-10-28T13:25:57.2559495Z BASELINE CHECK: known_fail=7 new_fail=0 drift=0 unverified=0 unselected=0 complete=true
+2026-10-28T13:25:57.3867161Z FULL_MATRIX_EXIT=0
+2026-10-28T13:26:10.2048925Z ARTIFACT ASSERT OK run_dir=20261028-132002-aad544e3 cases=90 logs=149

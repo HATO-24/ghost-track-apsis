@@ -1,0 +1,148 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+JC-A03 EW OBSERVATION PROBE · 采样/质量/延迟/航迹/火控/恢复
+════════════════════════════════════════════════════════════════
+
+[A03] STEP W1 同 seed EW 关/开：真实 sensor 观测质量与 effect 采样
+[A03] PASS EW noise_jam=0.5 经真实 API 生效
+[A03] PASS 真实观测产生 EW effect 采样  n=1
+[A03] PASS raider_2 观测有采样记录
+[A03] PASS effect.delay_s = 6×0.5 = 3s（真实采样）  actual=3.0 expected=3.0 tol=0.000001
+[A03] PASS 采样记录原始质量  1.0
+[A03] PASS 观测质量 = 原质量 × 0.7  actual=0.7 expected=0.7 tol=0.000000001
+[A03] PASS 采样传感器类型 radar  actual=radar expected=radar
+[A03] PASS 采样标记录受干扰  actual=true expected=true
+[A03] PASS EW 关时观测进入 owner 航迹
+[A03] PASS EW 关测量质量不降  actual=1.0 expected=1.0 tol=0.000000001
+
+[A03] STEP W2/W3 延迟队列：到达前不可见、到达后可见且时间一致
+[A03] PASS 延迟期间 owner 情报不可见（不提前显示）  t=2.0
+[A03] PASS 真实延迟队列非空
+[A03] PASS 到达后 owner 情报可见
+[A03] PASS 真实投递记录增长
+[A03] PASS raider_2 投递记录存在
+[A03] PASS 投递 delay = effect.delay_s（1e-6s）  actual=3.0 expected=3.0 tol=0.000001
+[A03] PASS received_t = observed_t + delay  actual=4.0 expected=4.0 tol=0.000001
+[A03] PASS 投递不使用后来真值重生成  actual=false expected=false
+[A03] PASS owner 当前测量质量可读
+[A03] PASS owner 航迹当前测量质量 = 0.7  actual=0.7 expected=0.7 tol=0.000000001
+
+[A03] STEP W4 当前测量质量进入实际火控（冻结 fixture 规则）
+[A03] PASS 火控边界读到当前测量质量
+[A03] PASS 火控边界测量质量 = 0.7  actual=0.7 expected=0.7 tol=0.000000001
+[A03] PASS 降质后解算仍可执行（0.5<=q<0.9）
+[A03] PASS 解算结果记录消费质量 0.7  actual=0.7 expected=0.7 tol=0.000000001
+[A03] PASS 低质量解算耗时增加  base=10.0 eff=15.0
+[A03] PASS 解算耗时为基准 ×1.5  actual=15.0 expected=15.0 tol=0.000001
+[A03] PASS q<0.5 时解算被拒绝  insufficient_quality
+[A03] PASS 拒绝原因明确为质量不足  actual=insufficient_quality expected=insufficient_quality
+
+[A03] STEP W5 历史聚合不吞当前退化
+[A03] PASS 当前测量质量等于最近一次真实采样（受干扰后）  actual=0.48825 expected=0.48825 tol=0.000000001
+[A03] PASS 历史聚合质量保留较高值（与当前测量分开）  agg=1.0 max_sample=1.0
+[A03] PASS 未注册 combat 航迹时火控质量显式不可用  no_combat_track
+
+[A03] STEP W6 欺骗候选：只进被影响 owner、identity=unknown、不自动成确认目标
+[A03] PASS 欺骗候选进入被影响 owner 的普通证据流  n=1
+[A03] PASS 候选证据 identity 保持 unknown（不自动确认）
+[A03] PASS 候选不泄漏给其他 owner  actual=0 expected=0
+
+[A03] STEP W7 真实文件在途恢复：队列/可见/质量/解算继续 ≥10 tick 一致
+[A03] PASS 保存前存在在途观测
+[A03] PASS 保存前存在在途观测
+[A03] PASS 真实文件恢复成功  []
+[A03] PASS 在途观测队列随档恢复
+[A03] INFO W7 first mismatch: 
+[A03] PASS 恢复后 10 tick 可见/队列/捕获值/质量/实际解算逐 tick 一致
+[A03] PASS 恢复后投递数量一致  actual=5 expected=5
+[A03] PASS 恢复后末尾观测 ID 一致  actual=OBS-000011 expected=OBS-000011
+[A03] PASS 恢复后完整队列一致  actual=[{"arrive_t":13.0,"bearing_deg":0.0,"delay_s":3.0,"id":"OBS-000012","observed_t":10.0,"owner":"player_intel","pos":[],"quality":0.48825,"range_km":602.799987792969,"target":"raider_2"},{"arrive_t":14.0,"bearing_deg":0.0,"delay_s":3.0,"id":"OBS-000013","observed_t":11.0,"owner":"player_intel","pos":[],"quality":0.48825,"range_km":602.799987792969,"target":"raider_2"},{"arrive_t":15.0,"bearing_deg":0.0,"delay_s":3.0,"id":"OBS-000014","observed_t":12.0,"owner":"player_intel","pos":[],"quality":0.48825,"range_km":602.799987792969,"target":"raider_2"}] expected=[{"arrive_t":13.0,"bearing_deg":0.0,"delay_s":3.0,"id":"OBS-000012","observed_t":10.0,"owner":"player_intel","pos":[],"quality":0.48825,"range_km":602.799987792969,"target":"raider_2"},{"arrive_t":14.0,"bearing_deg":0.0,"delay_s":3.0,"id":"OBS-000013","observed_t":11.0,"owner":"player_intel","pos":[],"quality":0.48825,"range_km":602.799987792969,"target":"raider_2"},{"arrive_t":15.0,"bearing_deg":0.0,"delay_s":3.0,"id":"OBS-000014","observed_t":12.0,"owner":"player_intel","pos":[],"quality":0.48825,"range_km":602.799987792969,"target":"raider_2"}]
+[A03] PASS 恢复后实际解算行一致  actual={"error_km":1.2546875,"id":"SOL-000001","measurement_quality":0.48825,"measurement_t":9.0,"quality":0.7490625,"status":"READY"} expected={"error_km":1.2546875,"id":"SOL-000001","measurement_quality":0.48825,"measurement_t":9.0,"quality":0.7490625,"status":"READY"}
+
+[A03] STEP W8 EW=0 兼容与未支持效果限制
+[A03] PASS EW=0 时测量质量可读
+[A03] PASS EW=0 不降质  actual=false expected=false
+[A03] PASS EW=0 无延迟队列项  actual=0 expected=0
+[A03] PASS 未支持效果下仍有观测采样
+[A03] PASS comms_jam 不影响雷达观测质量（明确限制）  actual=1.0 expected=1.0 tol=0.000000001
+[A03] PASS comms_jam 不产生观测延迟  actual=0.0 expected=0.0 tol=0.000001
+
+[A03] STEP R17 修订R1：解算/射击消费当前精度与误差，记录数据时刻与有效性（不硬禁射）
+[A03] PASS 合法 FIRE 授权
+[A03] PASS 干净质量下创建解算
+[A03] PASS 解算先到 READY  actual=READY expected=READY
+[A03] PASS 降质观测确已到达（q<0.5）  0.33345
+[A03] PASS 旧解算低质量下仍可发射（修订口径观察）
+[A03] PASS 发射结果记录当前测量质量  actual=0.33345 expected=0.33345 tol=0.000000001
+[A03] PASS 发射结果标记质量不足（有效性字段）  actual=false expected=false
+[A03] PASS 发射结果标记 quality_sufficient=false  actual=false expected=false
+[A03] PASS 低质量发射仍消费精度因子 0.85  actual=0.85 expected=0.85 tol=0.000000001
+[A03] PASS 低质量发射质量 = clean 基准 × 0.85  actual=0.7490625 expected=0.7490625 tol=0.000000001
+[A03] PASS 发射结果带测量数据时刻  18.0
+[A03] PASS 观察口径发射消耗 1 发（记录不判失败）  actual=7 expected=7
+[A03] PASS COMPUTING 用例创建解算
+[A03] PASS COMPUTING 用例到达 READY  actual=READY expected=READY
+[A03] PASS READY 记录的是当前（降质后）测量质量  0.6138
+[A03] PASS READY 消费中等精度因子 0.85  actual=0.85 expected=0.85 tol=0.000000001
+[A03] PASS READY 质量 = clean 基准 × 0.85（非创建时质量）  actual=0.7490625 expected=0.7490625 tol=0.000000001
+[A03] PASS READY 记录误差  1.2546875
+[A03] PASS READY 记录测量数据时刻  10.0
+[A03] PASS 持续 moderate 解算到达 READY  actual=READY expected=READY
+[A03] PASS 持续 moderate 测量质量 <0.9
+[A03] PASS 中等质量解算质量 = clean 基准 × 0.85  actual=0.7490625 expected=0.7490625 tol=0.000000001
+
+[A03] STEP R18 重投同一观测快照：整个新增消费者边界幂等，不回滚已恢复质量
+[A03] PASS 存在可重投的在途观测快照
+[A03] PASS 重投不覆盖当前测量质量  actual=0.76 expected=0.76 tol=0.000000001
+[A03] PASS 重投不增加正常投递审计  actual=1 expected=1
+[A03] PASS 重投被记录为拒绝/去重审计
+
+[A03] STEP R19 损坏的新 EW 段明确失败；有效新段与真正缺段分别兼容
+[A03] PASS 有效新段含 EW 队列
+[A03] PASS 损坏的新 EW 队列明确失败  ["EW 状态恢复失败：invalid_ew_state field=ew_observation_queue"]
+[A03] PASS 损坏新段恢复模式为 invalid  actual=invalid expected=invalid
+[A03] PASS 有效新段仍可恢复  []
+[A03] PASS 有效新段模式 full  actual=full expected=full
+[A03] PASS 有效新段队列恢复
+[A03] PASS 真正缺 EW 段的旧档可加载  []
+[A03] PASS 旧档恢复模式 legacy_absent  actual=legacy_absent expected=legacy_absent
+
+[A03] STEP R20 真实弹道消费者：测量精度/误差进入预测与弹体（含无测量对照）
+[A03] PASS moderate 实际发射成功
+[A03] PASS clean 实际发射成功
+[A03] PASS 无测量对照实际发射成功
+[A03] PASS moderate 预测误差 = 接口误差  actual=1.87802083333333 expected=1.87802083333333 tol=0.000000001
+[A03] PASS clean 预测误差 = 接口误差  actual=1.87802083333333 expected=1.87802083333333 tol=0.000000001
+[A03] PASS 无测量对照预测误差 = 接口误差  actual=1.32708333333333 expected=1.32708333333333 tol=0.000000001
+[A03] PASS moderate 弹体采用误差 = 接口误差  actual=1.87802083333333 expected=1.87802083333333 tol=0.000000001
+[A03] PASS clean 弹体采用误差 = 接口误差  actual=1.87802083333333 expected=1.87802083333333 tol=0.000000001
+[A03] PASS 无测量对照弹体采用误差 = 接口误差  actual=1.32708333333333 expected=1.32708333333333 tol=0.000000001
+[A03] PASS 有测量 vs 无测量：接口误差不同（输入被使用）  1.87802083333333 vs 1.32708333333333
+[A03] PASS 有测量 vs 无测量：弹体实际误差不同（真实消费者）  1.87802083333333 vs 1.32708333333333
+[A03] PASS 有测量 vs 无测量：弹体初始瞄准不同
+[A03] INFO moderate/clean interface errors: 1.87802083333333 / 1.87802083333333
+
+[A03] STEP R21 owner 拒绝项不得写全局 TrackTable/映射
+[A03] PASS 捕获到真实投递快照
+[A03] PASS owner 拒绝项不写全局 TrackTable  actual=1 expected=1
+[A03] PASS owner 拒绝项不更新 sensor 映射  actual=1 expected=1
+[A03] PASS owner 拒绝项记录 rejected 审计
+
+[A03] STEP R22 部分新 EW 段：可解释 partial，不触发转换异常
+[A03] PASS 部分新段仍可恢复  []
+[A03] PASS 部分新段恢复模式 partial  actual=partial expected=partial
+[A03] PASS missing 列出缺失字段  ["ew_combat_quality"]
+
+[A03] STEP 总结
+[A03] INFO A03 验收：真实 sensor 采样→质量/延迟→owner 航迹→火控→文件恢复
+────────────────────────────────────────────────────────────────
+JC-A03 EW OBSERVATION PROBE RESULT: PASS=102 FAIL=0
+JC-A03 EW OBSERVATION PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 722 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 22 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

@@ -1,0 +1,178 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+V17-CORE-1 BRIDGE PROBE · V15 视觉 + framework V2 core
+════════════════════════════════════════════════════════════
+
+── 1 boot ──
+[PASS] bridge.boot 成功  actual=true expected=true · []
+[PASS] ready=true  actual=true expected=true
+[PASS] 场景 id  actual=l1_supervision_v2 expected=l1_supervision_v2
+[PASS] 实体 9  actual=9 expected=9
+[PASS] 接触 10  actual=10 expected=10
+[PASS] own=harmattan  actual=harmattan expected=harmattan
+[PASS] 默认跳过 V2 prelude（V15 自管 PRELUDE）  actual=true expected=true
+[PASS] V2 flow.prelude.open=false  actual=false expected=false
+[PASS] sync 计数  2
+[PASS] sync 后 contacts 10  actual=10 expected=10
+
+── 2 接触/站体 ──
+[PASS] contacts 10  actual=10 expected=10
+[PASS] 接触存在: 1001
+[PASS] 接触存在: 2001
+[PASS] 接触存在: 9001
+[PASS] 接触存在: 9002
+[PASS] 接触存在: 0100
+[PASS] 接触存在: 0101
+[PASS] 0100 kind=station  actual=station expected=station
+[PASS] 0100 icon  actual=station expected=station
+[PASS] 0100 fixed  actual=true expected=true
+[PASS] 0100 orbit_source=fixed  actual=fixed expected=fixed
+[PASS] 0101 kind=tank  actual=tank expected=tank
+[PASS] 0101 fixed  actual=true expected=true
+[PASS] 9002 无实体回波  actual= expected=
+
+── 3 教学门控 / 动作 ──
+[PASS] tutorial.enabled（env skip 时 false）  actual=true expected=true
+[PASS] 初始未 ready  actual=false expected=false
+[PASS] required_actions 4  actual=4 expected=4
+[PASS] need=2  actual=2 expected=2
+[PASS] decision_gate_reason 非空: 教学门控：识别不足（0/2）— 决策打开前至少完成 {need} 项关键识别：交叉定位 / 雷达照射 / 型号识别 / 敌我识别问答。  len=67
+[PASS] 门控原因写明教学
+[PASS] tutorial_allowed=false  actual=false expected=false
+[PASS] actions_for(2001) 返回动作  10
+[PASS] L1 crossfix 可用  actual=true expected=true
+[PASS] iff_query 被等级门控  actual=level expected=level
+[PASS] 武器类 unsupported  actual=unsupported expected=unsupported
+[PASS] fw/bridge perform_action crossfix  actual=true expected=true
+[PASS] crossfix → L2  actual=2 expected=2
+[PASS] actor=harmattan  actual=harmattan expected=harmattan
+[PASS] 教学完成 1/2  actual=1 expected=1
+[PASS] 1 项不够  actual=false expected=false
+[PASS] perform_action model_ident  actual=true expected=true
+[PASS] model_ident → L3  actual=3 expected=3
+[PASS] 2 项后 tutorial ready  actual=true expected=true
+[PASS] 教学完成 2/2  actual=2 expected=2
+[PASS] ready 后 decision_reason 清空  actual= expected=
+[PASS] 动作返回 detail  actual=true expected=true
+
+── 4 flow / 执行窗口 ──
+[PASS] open_decision（教学已满足）  actual=true expected=true
+[PASS] flow.decision.open  actual=true expected=true
+[PASS] exec_window_s=360  actual=360.0 expected=360.0
+[PASS] exec_left 在 [0,360]  left=359.0
+[PASS] flow 提供 exec_pct/reputation
+[PASS] 五方声望 key: ocu
+[PASS] 五方声望 key: meridian
+[PASS] 五方声望 key: ueg_doves
+[PASS] 五方声望 key: outer
+[PASS] 五方声望 key: reclaimers
+[PASS] flow 字段: prelude
+[PASS] flow 字段: decision
+[PASS] flow 字段: report
+[PASS] flow 字段: end
+[PASS] flow 字段: mission
+[PASS] flow 字段: tutorial
+[PASS] flow 字段: damage
+[PASS] flow 字段: replay
+[PASS] bridge.exec_window_s  actual=360.0 expected=360.0
+[PASS] bridge.exec_left  left=359.0
+
+── 5 损管 ──
+[PASS] 损管归属本舰  actual=harmattan expected=harmattan
+[PASS] 本舰损管 3 项  actual=3 expected=3
+[PASS] 含 sensor_cal  needle=sensor_cal arr=["sensor_cal", "ir_false_alarm", "thermal"]
+[PASS] 含 ir_false_alarm  needle=ir_false_alarm arr=["sensor_cal", "ir_false_alarm", "thermal"]
+[PASS] 含 thermal  needle=thermal arr=["sensor_cal", "ir_false_alarm", "thermal"]
+[PASS] summary.total=3
+[PASS] start_repair(sensor_cal)  actual=true expected=true
+[PASS] sensor_cal 维修完成（advance 自动推进）
+[PASS] 维修队列清空  actual=0 expected=0
+
+── 6 回放 ──
+[PASS] recording=true
+[PASS] replay 帧数  total=6
+[PASS] sync 后帧数增长  6 → 7
+[PASS] 帧字段: t
+[PASS] 帧字段: own
+[PASS] 帧字段: contacts
+[PASS] 帧字段: flow
+[PASS] 帧字段: orders
+[PASS] 帧字段: evidence
+[PASS] 帧字段: damage
+[PASS] 帧字段: exec_left
+[PASS] 帧不含武器数据
+[PASS] replay_start  actual=true expected=true
+[PASS] replay_seek
+[PASS] replay_pause  actual=true expected=true
+[PASS] seek 后 pinned=true
+[PASS] replay 提供 frame_t（当前帧时间）
+[PASS] 录制追加帧不移动回放查看头  actual=4 expected=4
+[PASS] 固定帧内容不变
+[PASS] replay_stop  actual=false expected=false
+[PASS] replay_stop 解除固定  actual=false expected=false
+
+── 7 state.fw_* 归一字段 ──
+[PASS] state.fw_ready  actual=true expected=true
+[PASS] state.fw_contacts 10  actual=10 expected=10
+[PASS] state.fw_tutorial 非空
+[PASS] state.fw_flow 非空
+[PASS] state.fw_damage 非空
+[PASS] state.fw_replay 非空
+[PASS] fw_selected_batch 非空  1000
+[PASS] fw_actions_target 跟随选中  1000
+[PASS] state.fw_actions_for(2001)  10
+[PASS] fw_bridge_state 字段: ready
+[PASS] fw_bridge_state 字段: tutorial
+[PASS] fw_bridge_state 字段: flow
+[PASS] fw_bridge_state 字段: damage
+[PASS] fw_bridge_state 字段: replay
+[PASS] fw_bridge_state 字段: contacts
+[PASS] fw_bridge_state 字段: actions
+[PASS] fw_bridge_state 字段: decision_reason
+[PASS] fw_bridge_state 字段: exec_window_s
+[PASS] fw_bridge_state 字段: exec_left
+[PASS] fw_bridge_state 字段: reputation
+[PASS] fw_bridge_state 字段: last_action
+[PASS] state.fw_start_repair(ir_false_alarm)  actual=true expected=true
+[PASS] state.fw_replay_start  actual=true expected=true
+[PASS] state.fw_replay_seek_index(1)
+[PASS] state.fw_replay 帧号同步  actual=1 expected=1
+
+── 8 V15 决策门控 / 流程镜像 ──
+[PASS] 新 bridge boot
+[PASS] state 桥接 ready  actual=true expected=true
+[PASS] 教学未完成 → V15 决策被阻塞  actual=false expected=false
+[PASS] fw_decision_deferred=true  actual=true expected=true
+[PASS] fw_decision_reason: 教学门控：识别不足（0/2）— 决策打开前至少完成 {need} 项关键识别：交叉定位 / 雷达照射 / 型号识别 / 敌我识别问答。  len=67
+[PASS] fw_perform_action crossfix  actual=true expected=true
+[PASS] 1 项识别仍不打开决策  actual=false expected=false
+[PASS] fw_perform_action model_ident  actual=true expected=true
+[PASS] tutorial ready  actual=true expected=true
+[PASS] 教学完成后挂起的 V15 决策自动打开  actual=true expected=true
+[PASS] decision_reason 清空  actual= expected=
+[PASS] V15 choose_ending HOLD  actual=HOLD expected=HOLD
+[PASS] V15 report_open  actual=true expected=true
+[PASS] V2 镜像 decision=HOLD  actual=HOLD expected=HOLD
+[PASS] V15 submit_report → END  actual=true expected=true
+[PASS] V2 镜像 reputation_settled  actual=true expected=true
+[PASS] V2 end_summary.ok  actual=true expected=true
+────────────────────────────────────────────────────────────
+[DATA] boot = ready=true entities=9 contacts=10 own=harmattan skipped_v2_prelude=true
+[DATA] contacts = 10 条（7 舰 + 无实体 9002 + 站体 0100 + 储罐 0101）
+[DATA] tutorial/action = crossfix→L2, model_ident→L3, gate 0→1→2 ready
+[DATA] flow = decision.open, exec_window_s=360, exec_left=359.0
+[DATA] damage = 3 项；sensor_cal repari 120s → repaired
+[DATA] replay = recording/帧增长/seek/pause/stop/seek 固定查看头，只读
+[DATA] state.fw_* = ready/contacts=10/tutorial/flow/damage/replay/actions/actions_target/decision_reason/bridge_state/replay_seek_index
+[DATA] V15 gate = gate 阻塞→跨 2 动作后自动开决策→HOLD/TRUTH 镜像到 V2
+────────────────────────────────────────────────────────────
+V17 BRIDGE PROBE RESULT: PASS=138 FAIL=0
+V17 BRIDGE PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 74 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

@@ -1,0 +1,1567 @@
+{
+	"after_ticks": 3,
+	"cases": {
+		"clean": {
+			"ammo_after_ticks": 7,
+			"combat_entity_track_at_fire": {
+				"batch": "raider_2",
+				"damage_taken": 0.0,
+				"destroyed": false,
+				"entity_id": "raider_2",
+				"id": "raider_2",
+				"identity": "hostile",
+				"in_arc": true,
+				"measurement_aggregate": 1.0,
+				"measurement_degraded": false,
+				"measurement_original": 0.9496715625,
+				"measurement_quality": 0.9496715625,
+				"measurement_source": "radar",
+				"measurement_t": 27.0,
+				"range_km": 600.0,
+				"ship_id": "",
+				"threat": "hostile"
+			},
+			"combat_hud_track_at_fire": {
+				"batch": "T0001",
+				"damage_taken": 0.0,
+				"destroyed": false,
+				"entity_id": "",
+				"id": "T0001",
+				"identity": "hostile",
+				"in_arc": true,
+				"measurement_aggregate": 1.0,
+				"measurement_degraded": false,
+				"measurement_original": 0.9496715625,
+				"measurement_quality": 0.9496715625,
+				"measurement_source": "radar",
+				"measurement_t": 27.0,
+				"range_km": 600.0,
+				"ship_id": "",
+				"threat": "hostile"
+			},
+			"combat_service_prediction_entity": {
+				"error_km": 0.735,
+				"guidance": "guided",
+				"hit_probability": 0.8775,
+				"interceptable": true,
+				"measurement_quality": 0.90849375,
+				"no_physics": true,
+				"ok": true,
+				"quality_accuracy_mult": 1.0,
+				"range_km": 600.0,
+				"reason": "",
+				"schema": "combat_prediction.v1",
+				"target_id": "raider_2",
+				"time_of_flight_s": 75.0,
+				"trajectory": "interface_only",
+				"weapon_id": "missile"
+			},
+			"combat_service_prediction_hud": {
+				"error_km": 0.735,
+				"guidance": "guided",
+				"hit_probability": 0.8775,
+				"interceptable": true,
+				"measurement_quality": 0.90849375,
+				"no_physics": true,
+				"ok": true,
+				"quality_accuracy_mult": 1.0,
+				"range_km": 600.0,
+				"reason": "",
+				"schema": "combat_prediction.v1",
+				"target_id": "T0001",
+				"time_of_flight_s": 75.0,
+				"trajectory": "interface_only",
+				"weapon_id": "missile"
+			},
+			"fire_result": {
+				"ammo_left": 7,
+				"authority_context": {
+					"actor_id": "player_ctrl",
+					"context_source": "explicit",
+					"controller_id": "player_ctrl",
+					"domain_id": "player",
+					"fleet_id": "own_fleet",
+					"legacy_context": "",
+					"shooter_id": "own_ship",
+					"t_s": 24.0
+				},
+				"controller_id": "player_ctrl",
+				"cooldown_until": 44.0,
+				"domain_id": "player",
+				"error_km": 0.735,
+				"launch": {
+					"kind": "missile",
+					"ok": true,
+					"projectile": {
+						"active": true,
+						"age_s": 0.0,
+						"aim_km": [
+							322143.25,
+							424.998962402344,
+							0.0
+						],
+						"applied_error_km": 0.735,
+						"attitude": [
+							0.706482887268066,
+							0.707730114459991,
+							0.0
+						],
+						"boost_s": 8.0,
+						"closest_km": 599.989990234375,
+						"damage": 0.55,
+						"damage_kind": "explosive",
+						"decoyed": false,
+						"dv_budget_kmps": 36.0,
+						"dv_remaining_kmps": 36.0,
+						"dv_used_kmps": 0.0,
+						"frag_damage": 0.35,
+						"fuel_remaining_s": 120.0,
+						"fuel_s": 120.0,
+						"guidance_lost": false,
+						"guided": true,
+						"hit": false,
+						"hit_radius_km": 0.15,
+						"interceptable": true,
+						"intercepted": false,
+						"kind": "missile",
+						"launch_t": 24.0,
+						"lifetime_s": 900.0,
+						"max_accel_kmps2": 0.3,
+						"max_speed_kmps": 12.0,
+						"measurement_quality": 0.90849375,
+						"opts_force_decoy": false,
+						"opts_force_jam": false,
+						"opts_force_pd": false,
+						"penetration": 0.8,
+						"phase": "BOOST",
+						"planned_tof_s": 59.9989990234375,
+						"pos_km": [
+							321719.0,
+							0.0000000000673002070739059,
+							0.0
+						],
+						"prev_pos_km": [
+							321719.0,
+							0.0000000000673002070739059,
+							0.0
+						],
+						"profile": {
+							"seeker_off_until_km": 0.0,
+							"terminal_acquire_km": 800.0,
+							"waypoints": []
+						},
+						"projectile_id": "PRJ-00001",
+						"proximity_fuse_km": 0.35,
+						"quality_accuracy_mult": 1.0,
+						"salvo_index": 0,
+						"salvo_total": 1,
+						"schema": "ballistic_projectile.v1",
+						"seeker": {
+							"acquire_elapsed_s": 0.0,
+							"acquire_s": 2.5,
+							"break_margin": 0.85,
+							"break_s": 1.5,
+							"eff_range_km": 0.0,
+							"fov_deg": 60.0,
+							"home_on_jam": false,
+							"jam_ratio": 0.0,
+							"lock_id": "",
+							"lock_kind": "",
+							"lost_elapsed_s": 0.0,
+							"margin": 0.0,
+							"quality": 0.0,
+							"range_km": 400.0,
+							"state": "SEARCH",
+							"type": "radar_active"
+						},
+						"seeker_silent": false,
+						"shooter_id": "own_ship",
+						"solve_residual_km": 0.0,
+						"speed_kmps": 8.0,
+						"status": "FLIGHT",
+						"target_id": "raider_2",
+						"target_last_km": [
+							322143.25,
+							424.264007568359,
+							0.0
+						],
+						"target_last_vel": [
+							0.000000687886654304748,
+							-0.000000305578907955351,
+							0.0
+						],
+						"thrusting": false,
+						"turn_rate_dps": 45.0,
+						"vel_kmps": [
+							5.65186309814453,
+							5.66184091567993,
+							0.0
+						],
+						"waypoints": [],
+						"weapon_id": "missile",
+						"wp_index": 0
+					},
+					"projectile_id": "PRJ-00001",
+					"reason": ""
+				},
+				"launch_spec": {
+					"entity_id": "",
+					"salvo": 1,
+					"shooter_id": "own_ship",
+					"target_id": "T0001",
+					"weapon_id": "missile"
+				},
+				"launched": 1,
+				"measurement_quality": 0.90849375,
+				"measurement_t": 24.0,
+				"no_physics": false,
+				"ok": true,
+				"physics": "ballistics",
+				"prediction": {
+					"aim_km": [
+						322143.25,
+						424.263977050781,
+						0.0
+					],
+					"applied_error_km": 0.735,
+					"dv_budget_kmps": 36.0,
+					"error_km": 0.735,
+					"fuel_s": 120.0,
+					"guidance": "guided",
+					"hit_probability": 0.8775,
+					"interceptable": true,
+					"lead_offset_km": [
+						0.0,
+						-0.000030517578125,
+						0.0
+					],
+					"lead_point_km": [
+						322143.25,
+						424.263977050781,
+						0.0
+					],
+					"measurement_quality": 0.90849375,
+					"mode": "guided",
+					"model": "cr3bp_rk4",
+					"no_physics": false,
+					"ok": true,
+					"quality_accuracy_mult": 1.0,
+					"range_km": 599.989990234375,
+					"reason": "",
+					"residual_km": 0.0,
+					"schema": "ballistic_prediction.v1",
+					"seeker": {
+						"acquire_s": 2.5,
+						"break_margin": 0.85,
+						"break_s": 1.5,
+						"fov_deg": 60.0,
+						"home_on_jam": false,
+						"range_km": 400.0,
+						"type": "radar_active"
+					},
+					"substep_max_s": 1.0,
+					"target_id": "raider_2",
+					"time_of_flight_s": 59.9989990234375,
+					"trajectory": "cr3bp_pn",
+					"weapon_id": "missile"
+				},
+				"projectile_ids": [
+					"PRJ-00001"
+				],
+				"quality": 0.8775,
+				"quality_accuracy_mult": 1.0,
+				"quality_sufficient": true,
+				"quality_valid": true,
+				"reason": "",
+				"salvo": 1,
+				"shooter_id": "own_ship",
+				"shot_id": "SHOT-000001",
+				"solution": {
+					"base_solution_s": 10.0,
+					"error_km": 0.735,
+					"fire_ready": true,
+					"fired_t": 24.0,
+					"measurement_quality": 0.90849375,
+					"measurement_t": 24.0,
+					"quality": 0.8775,
+					"quality_accuracy_mult": 1.0,
+					"quality_sufficient": true,
+					"quality_time_mult": 1.5,
+					"quality_valid": true,
+					"ready_measurement_quality": 0.90849375,
+					"ready_measurement_t": 24.0,
+					"ready_t": 24.0,
+					"reason": "",
+					"solution_id": "SOL-000001",
+					"solution_s": 15.0,
+					"start_t": 9.0,
+					"status": "FIRED",
+					"target_id": "T0001",
+					"weapon_id": "missile"
+				},
+				"target_entity": "raider_2",
+				"target_id": "T0001",
+				"time_cap": {
+					"capped": false,
+					"ok": true,
+					"scale": 1.0
+				},
+				"weapon_id": "missile"
+			},
+			"grant": {
+				"grant": {
+					"duration_s": 90.0,
+					"expires_t": 92.0,
+					"grant_id": "GR-000001",
+					"granted_t": 2.0,
+					"level": "FIRE",
+					"scope_id": "T0001",
+					"scope_type": "target",
+					"until_destroyed": false
+				},
+				"ok": true,
+				"reason": ""
+			},
+			"jammed": false,
+			"noise_jam": {},
+			"owner_entity_quality_at_fire": {
+				"aggregate_quality": 1.0,
+				"degraded": false,
+				"effect": {
+					"chaff_severity": 0.0,
+					"confidence_degraded": false,
+					"confidence_mult": 1.0,
+					"dazzled": false,
+					"deception_severity": 0.0,
+					"decoy_severity": 0.0,
+					"delay_s": 0.0,
+					"emcon": false,
+					"false_candidate_count": 0,
+					"false_observations": [],
+					"false_target_severity": 0.0,
+					"jammed": false,
+					"laser_dazzle_severity": 0.0,
+					"lwr_alert": false,
+					"no_reply_chance": 0.0,
+					"noise_severity": 0.0,
+					"ok": true,
+					"produces_contact": false,
+					"requires_confirmation": false,
+					"schema": "ew_observation_effect.v1",
+					"sensor_kind": "radar",
+					"target_id": "raider_2",
+					"writes_track_table": false
+				},
+				"measurement_original": 0.90849375,
+				"measurement_quality": 0.90849375,
+				"measurement_source": "radar",
+				"measurement_t": 24.0,
+				"ok": true,
+				"owner_id": "player_intel",
+				"target_id": "raider_2"
+			},
+			"owner_hud_quality_at_fire": {
+				"ok": false,
+				"reason": "unknown_target"
+			},
+			"physical_states_at_fire": {
+				"shooter": {
+					"has_pd": true,
+					"id": "own_ship",
+					"ir_signature": 0.0,
+					"kind": "ship",
+					"metadata_found": true,
+					"pos_km": [
+						321718.99999842,
+						0.0000000000673002071396246,
+						0.0
+					],
+					"radius_km": 0.06,
+					"radius_source": "default",
+					"rcs_m2": 0.0,
+					"side": "",
+					"vel_kmps": [
+						-0.000000131691015504134,
+						0.00000000000841252589607229,
+						0.0
+					]
+				},
+				"target": {
+					"has_pd": false,
+					"id": "raider_2",
+					"ir_signature": 0.0,
+					"kind": "ship",
+					"metadata_found": true,
+					"pos_km": [
+						322143.264008255,
+						424.263996333229,
+						0.0
+					],
+					"radius_km": 0.06,
+					"radius_source": "default",
+					"rcs_m2": 0.0,
+					"side": "",
+					"vel_kmps": [
+						0.000000687886658155622,
+						-0.000000305578900162719,
+						0.0
+					]
+				}
+			},
+			"pre_fire_prediction_entity_route": {
+				"aim_km": [
+					322143.25,
+					424.263977050781,
+					0.0
+				],
+				"applied_error_km": 0.734985485877417,
+				"dv_budget_kmps": 36.0,
+				"error_km": 0.734985485877417,
+				"fuel_s": 120.0,
+				"guidance": "guided",
+				"hit_probability": 0.877500375366211,
+				"interceptable": true,
+				"lead_offset_km": [
+					0.0,
+					-0.000030517578125,
+					0.0
+				],
+				"lead_point_km": [
+					322143.25,
+					424.263977050781,
+					0.0
+				],
+				"measurement_quality": 0.90849375,
+				"mode": "guided",
+				"model": "cr3bp_rk4",
+				"no_physics": false,
+				"ok": true,
+				"quality_accuracy_mult": 1.0,
+				"range_km": 599.989990234375,
+				"reason": "",
+				"residual_km": 0.0,
+				"schema": "ballistic_prediction.v1",
+				"seeker": {
+					"acquire_s": 2.5,
+					"break_margin": 0.85,
+					"break_s": 1.5,
+					"fov_deg": 60.0,
+					"home_on_jam": false,
+					"range_km": 400.0,
+					"type": "radar_active"
+				},
+				"substep_max_s": 1.0,
+				"target_id": "raider_2",
+				"time_of_flight_s": 59.9989990234375,
+				"trajectory": "cr3bp_pn",
+				"weapon_id": "missile"
+			},
+			"pre_fire_prediction_hud_route": {
+				"aim_km": [
+					322143.25,
+					424.263977050781,
+					0.0
+				],
+				"applied_error_km": 0.734985485877417,
+				"dv_budget_kmps": 36.0,
+				"error_km": 0.734985485877417,
+				"fuel_s": 120.0,
+				"guidance": "guided",
+				"hit_probability": 0.877500375366211,
+				"interceptable": true,
+				"lead_offset_km": [
+					0.0,
+					-0.000030517578125,
+					0.0
+				],
+				"lead_point_km": [
+					322143.25,
+					424.263977050781,
+					0.0
+				],
+				"measurement_quality": 1.0,
+				"mode": "guided",
+				"model": "cr3bp_rk4",
+				"no_physics": false,
+				"ok": true,
+				"quality_accuracy_mult": 1.0,
+				"range_km": 599.989990234375,
+				"reason": "",
+				"residual_km": 0.0,
+				"schema": "ballistic_prediction.v1",
+				"seeker": {
+					"acquire_s": 2.5,
+					"break_margin": 0.85,
+					"break_s": 1.5,
+					"fov_deg": 60.0,
+					"home_on_jam": false,
+					"range_km": 400.0,
+					"type": "radar_active"
+				},
+				"substep_max_s": 1.0,
+				"target_id": "raider_2",
+				"time_of_flight_s": 59.9989990234375,
+				"trajectory": "cr3bp_pn",
+				"weapon_id": "missile"
+			},
+			"projectile_at_launch": {
+				"age_s": 0.0,
+				"aim_km": [
+					322143.25,
+					424.998962402344,
+					0.0
+				],
+				"applied_error_km": 0.735,
+				"closest_km": 599.989990234375,
+				"count": 1,
+				"exists": true,
+				"hit": false,
+				"launch_t": 24.0,
+				"measurement_quality": 0.90849375,
+				"pos_km": [
+					321719.0,
+					0.0000000000673002070739059,
+					0.0
+				],
+				"projectile_id": "PRJ-00001",
+				"quality_accuracy_mult": 1.0,
+				"status": "FLIGHT",
+				"target_last_km": [
+					322143.25,
+					424.264007568359,
+					0.0
+				],
+				"vel_kmps": [
+					5.65186309814453,
+					5.66184091567993,
+					0.0
+				]
+			},
+			"projectiles_after_ticks": [
+				{
+					"age_s": 1.0,
+					"aim_km": [
+						322143.25,
+						424.998962402344,
+						0.0
+					],
+					"applied_error_km": 0.735,
+					"closest_km": 591.845581054688,
+					"count": 1,
+					"exists": true,
+					"hit": false,
+					"launch_t": 24.0,
+					"measurement_quality": 0.90849375,
+					"pos_km": [
+						321724.75,
+						5.76798534393311,
+						0.0
+					],
+					"projectile_id": "PRJ-00001",
+					"quality_accuracy_mult": 1.0,
+					"session_t": 25.0,
+					"status": "FLIGHT",
+					"target_last_km": [
+						322143.25,
+						424.264007568359,
+						0.0
+					],
+					"vel_kmps": [
+						5.86383867263794,
+						5.87412929534912,
+						0.0
+					]
+				},
+				{
+					"age_s": 2.0,
+					"aim_km": [
+						322143.25,
+						424.998962402344,
+						0.0
+					],
+					"applied_error_km": 0.735,
+					"closest_km": 583.396301269531,
+					"count": 1,
+					"exists": true,
+					"hit": false,
+					"launch_t": 24.0,
+					"measurement_quality": 0.90849375,
+					"pos_km": [
+						321730.71875,
+						11.7482576370239,
+						0.0
+					],
+					"projectile_id": "PRJ-00001",
+					"quality_accuracy_mult": 1.0,
+					"session_t": 26.0,
+					"status": "FLIGHT",
+					"target_last_km": [
+						322143.25,
+						424.264007568359,
+						0.0
+					],
+					"vel_kmps": [
+						6.07581663131714,
+						6.08641529083252,
+						0.0
+					]
+				},
+				{
+					"age_s": 3.0,
+					"aim_km": [
+						322143.25,
+						424.998962402344,
+						0.0
+					],
+					"applied_error_km": 0.735,
+					"closest_km": 574.642333984375,
+					"count": 1,
+					"exists": true,
+					"hit": false,
+					"launch_t": 24.0,
+					"measurement_quality": 0.90849375,
+					"pos_km": [
+						321736.90625,
+						17.9408149719238,
+						0.0
+					],
+					"projectile_id": "PRJ-00001",
+					"quality_accuracy_mult": 1.0,
+					"session_t": 27.0,
+					"status": "FLIGHT",
+					"target_last_km": [
+						322143.25,
+						424.264007568359,
+						0.0
+					],
+					"vel_kmps": [
+						6.28779649734497,
+						6.29869937896729,
+						0.0
+					]
+				}
+			],
+			"quality_at_solution_creation": {
+				"aggregate_quality": 1.0,
+				"degraded": false,
+				"effect": {
+					"chaff_severity": 0.0,
+					"confidence_degraded": false,
+					"confidence_mult": 1.0,
+					"dazzled": false,
+					"deception_severity": 0.0,
+					"decoy_severity": 0.0,
+					"delay_s": 0.0,
+					"emcon": false,
+					"false_candidate_count": 0,
+					"false_observations": [],
+					"false_target_severity": 0.0,
+					"jammed": false,
+					"laser_dazzle_severity": 0.0,
+					"lwr_alert": false,
+					"no_reply_chance": 0.0,
+					"noise_severity": 0.0,
+					"ok": true,
+					"produces_contact": false,
+					"requires_confirmation": false,
+					"schema": "ew_observation_effect.v1",
+					"sensor_kind": "radar",
+					"target_id": "raider_2",
+					"writes_track_table": false
+				},
+				"measurement_original": 0.6975,
+				"measurement_quality": 0.6975,
+				"measurement_source": "radar",
+				"measurement_t": 9.0,
+				"ok": true,
+				"owner_id": "player_intel",
+				"target_id": "raider_2"
+			},
+			"registered_entity": {
+				"ok": true,
+				"reason": "",
+				"track": {
+					"batch": "raider_2",
+					"damage_taken": 0.0,
+					"destroyed": false,
+					"entity_id": "raider_2",
+					"id": "raider_2",
+					"identity": "hostile",
+					"in_arc": true,
+					"range_km": 600.0,
+					"ship_id": "",
+					"threat": "hostile"
+				}
+			},
+			"registered_hud": {
+				"ok": true,
+				"reason": "",
+				"track": {
+					"batch": "T0001",
+					"damage_taken": 0.0,
+					"destroyed": false,
+					"entity_id": "",
+					"id": "T0001",
+					"identity": "hostile",
+					"in_arc": true,
+					"range_km": 600.0,
+					"ship_id": "",
+					"threat": "hostile"
+				}
+			},
+			"sensor_track_map_at_fire": {
+				"raider_2": "T0001"
+			},
+			"solution_ready_before_fire": {
+				"base_solution_s": 10.0,
+				"error_km": 0.735,
+				"fire_ready": true,
+				"measurement_quality": 0.90849375,
+				"measurement_t": 24.0,
+				"quality": 0.8775,
+				"quality_accuracy_mult": 1.0,
+				"quality_sufficient": true,
+				"quality_time_mult": 1.5,
+				"quality_valid": true,
+				"ready_measurement_quality": 0.90849375,
+				"ready_measurement_t": 24.0,
+				"ready_t": 24.0,
+				"reason": "",
+				"solution_id": "SOL-000001",
+				"solution_s": 15.0,
+				"start_t": 9.0,
+				"status": "READY",
+				"target_id": "T0001",
+				"weapon_id": "missile"
+			},
+			"solution_request": {
+				"base_solution_s": 10.0,
+				"measurement_quality": 0.6975,
+				"ok": true,
+				"reason": "",
+				"solution": {
+					"base_solution_s": 10.0,
+					"error_km": -1.0,
+					"fire_ready": false,
+					"measurement_quality": 0.6975,
+					"quality": 0.0,
+					"quality_time_mult": 1.5,
+					"ready_t": 24.0,
+					"reason": "",
+					"solution_id": "SOL-000001",
+					"solution_s": 15.0,
+					"start_t": 9.0,
+					"status": "COMPUTING",
+					"target_id": "T0001",
+					"weapon_id": "missile"
+				}
+			},
+			"target_vel_seed_kmps": [
+				0.0,
+				0.0,
+				0.0
+			]
+		},
+		"moderate": {
+			"ammo_after_ticks": 7,
+			"combat_entity_track_at_fire": {
+				"batch": "raider_2",
+				"damage_taken": 0.0,
+				"destroyed": false,
+				"entity_id": "raider_2",
+				"id": "raider_2",
+				"identity": "hostile",
+				"in_arc": true,
+				"measurement_aggregate": 1.0,
+				"measurement_degraded": true,
+				"measurement_original": 0.9496715625,
+				"measurement_quality": 0.835710975,
+				"measurement_source": "radar",
+				"measurement_t": 25.0,
+				"range_km": 600.0,
+				"ship_id": "",
+				"threat": "hostile"
+			},
+			"combat_hud_track_at_fire": {
+				"batch": "T0001",
+				"damage_taken": 0.0,
+				"destroyed": false,
+				"entity_id": "",
+				"id": "T0001",
+				"identity": "hostile",
+				"in_arc": true,
+				"measurement_aggregate": 1.0,
+				"measurement_degraded": true,
+				"measurement_original": 0.9496715625,
+				"measurement_quality": 0.835710975,
+				"measurement_source": "radar",
+				"measurement_t": 25.0,
+				"range_km": 600.0,
+				"ship_id": "",
+				"threat": "hostile"
+			},
+			"combat_service_prediction_entity": {
+				"error_km": 1.52475,
+				"guidance": "guided",
+				"hit_probability": 0.745875,
+				"interceptable": true,
+				"measurement_quality": 0.7994745,
+				"no_physics": true,
+				"ok": true,
+				"quality_accuracy_mult": 0.85,
+				"range_km": 600.0,
+				"reason": "",
+				"schema": "combat_prediction.v1",
+				"target_id": "raider_2",
+				"time_of_flight_s": 75.0,
+				"trajectory": "interface_only",
+				"weapon_id": "missile"
+			},
+			"combat_service_prediction_hud": {
+				"error_km": 1.52475,
+				"guidance": "guided",
+				"hit_probability": 0.745875,
+				"interceptable": true,
+				"measurement_quality": 0.7994745,
+				"no_physics": true,
+				"ok": true,
+				"quality_accuracy_mult": 0.85,
+				"range_km": 600.0,
+				"reason": "",
+				"schema": "combat_prediction.v1",
+				"target_id": "T0001",
+				"time_of_flight_s": 75.0,
+				"trajectory": "interface_only",
+				"weapon_id": "missile"
+			},
+			"fire_result": {
+				"ammo_left": 7,
+				"authority_context": {
+					"actor_id": "player_ctrl",
+					"context_source": "explicit",
+					"controller_id": "player_ctrl",
+					"domain_id": "player",
+					"fleet_id": "own_fleet",
+					"legacy_context": "",
+					"shooter_id": "own_ship",
+					"t_s": 24.0
+				},
+				"controller_id": "player_ctrl",
+				"cooldown_until": 44.0,
+				"domain_id": "player",
+				"error_km": 1.52475,
+				"launch": {
+					"kind": "missile",
+					"ok": true,
+					"projectile": {
+						"active": true,
+						"age_s": 0.0,
+						"aim_km": [
+							322143.25,
+							425.788726806641,
+							0.0
+						],
+						"applied_error_km": 1.52475,
+						"attitude": [
+							0.705825626850128,
+							0.708385586738586,
+							0.0
+						],
+						"boost_s": 8.0,
+						"closest_km": 599.989990234375,
+						"damage": 0.55,
+						"damage_kind": "explosive",
+						"decoyed": false,
+						"dv_budget_kmps": 36.0,
+						"dv_remaining_kmps": 36.0,
+						"dv_used_kmps": 0.0,
+						"frag_damage": 0.35,
+						"fuel_remaining_s": 120.0,
+						"fuel_s": 120.0,
+						"guidance_lost": false,
+						"guided": true,
+						"hit": false,
+						"hit_radius_km": 0.15,
+						"interceptable": true,
+						"intercepted": false,
+						"kind": "missile",
+						"launch_t": 24.0,
+						"lifetime_s": 900.0,
+						"max_accel_kmps2": 0.3,
+						"max_speed_kmps": 12.0,
+						"measurement_quality": 0.7994745,
+						"opts_force_decoy": false,
+						"opts_force_jam": false,
+						"opts_force_pd": false,
+						"penetration": 0.8,
+						"phase": "BOOST",
+						"planned_tof_s": 59.9989990234375,
+						"pos_km": [
+							321719.0,
+							0.0000000000673002070739059,
+							0.0
+						],
+						"prev_pos_km": [
+							321719.0,
+							0.0000000000673002070739059,
+							0.0
+						],
+						"profile": {
+							"seeker_off_until_km": 0.0,
+							"terminal_acquire_km": 800.0,
+							"waypoints": []
+						},
+						"projectile_id": "PRJ-00001",
+						"proximity_fuse_km": 0.35,
+						"quality_accuracy_mult": 0.85,
+						"salvo_index": 0,
+						"salvo_total": 1,
+						"schema": "ballistic_projectile.v1",
+						"seeker": {
+							"acquire_elapsed_s": 0.0,
+							"acquire_s": 2.5,
+							"break_margin": 0.85,
+							"break_s": 1.5,
+							"eff_range_km": 0.0,
+							"fov_deg": 60.0,
+							"home_on_jam": false,
+							"jam_ratio": 0.0,
+							"lock_id": "",
+							"lock_kind": "",
+							"lost_elapsed_s": 0.0,
+							"margin": 0.0,
+							"quality": 0.0,
+							"range_km": 400.0,
+							"state": "SEARCH",
+							"type": "radar_active"
+						},
+						"seeker_silent": false,
+						"shooter_id": "own_ship",
+						"solve_residual_km": 0.0,
+						"speed_kmps": 8.0,
+						"status": "FLIGHT",
+						"target_id": "raider_2",
+						"target_last_km": [
+							322143.25,
+							424.264007568359,
+							0.0
+						],
+						"target_last_vel": [
+							0.000000687886654304748,
+							-0.000000305578907955351,
+							0.0
+						],
+						"thrusting": false,
+						"turn_rate_dps": 45.0,
+						"vel_kmps": [
+							5.64660501480103,
+							5.66708469390869,
+							0.0
+						],
+						"waypoints": [],
+						"weapon_id": "missile",
+						"wp_index": 0
+					},
+					"projectile_id": "PRJ-00001",
+					"reason": ""
+				},
+				"launch_spec": {
+					"entity_id": "",
+					"salvo": 1,
+					"shooter_id": "own_ship",
+					"target_id": "T0001",
+					"weapon_id": "missile"
+				},
+				"launched": 1,
+				"measurement_quality": 0.7994745,
+				"measurement_t": 22.0,
+				"no_physics": false,
+				"ok": true,
+				"physics": "ballistics",
+				"prediction": {
+					"aim_km": [
+						322143.25,
+						424.263977050781,
+						0.0
+					],
+					"applied_error_km": 1.52475,
+					"dv_budget_kmps": 36.0,
+					"error_km": 1.52475,
+					"fuel_s": 120.0,
+					"guidance": "guided",
+					"hit_probability": 0.745875,
+					"interceptable": true,
+					"lead_offset_km": [
+						0.0,
+						-0.000030517578125,
+						0.0
+					],
+					"lead_point_km": [
+						322143.25,
+						424.263977050781,
+						0.0
+					],
+					"measurement_quality": 0.7994745,
+					"mode": "guided",
+					"model": "cr3bp_rk4",
+					"no_physics": false,
+					"ok": true,
+					"quality_accuracy_mult": 0.85,
+					"range_km": 599.989990234375,
+					"reason": "",
+					"residual_km": 0.0,
+					"schema": "ballistic_prediction.v1",
+					"seeker": {
+						"acquire_s": 2.5,
+						"break_margin": 0.85,
+						"break_s": 1.5,
+						"fov_deg": 60.0,
+						"home_on_jam": false,
+						"range_km": 400.0,
+						"type": "radar_active"
+					},
+					"substep_max_s": 1.0,
+					"target_id": "raider_2",
+					"time_of_flight_s": 59.9989990234375,
+					"trajectory": "cr3bp_pn",
+					"weapon_id": "missile"
+				},
+				"projectile_ids": [
+					"PRJ-00001"
+				],
+				"quality": 0.745875,
+				"quality_accuracy_mult": 0.85,
+				"quality_sufficient": true,
+				"quality_valid": true,
+				"reason": "",
+				"salvo": 1,
+				"shooter_id": "own_ship",
+				"shot_id": "SHOT-000001",
+				"solution": {
+					"base_solution_s": 10.0,
+					"error_km": 1.52475,
+					"fire_ready": true,
+					"fired_t": 24.0,
+					"measurement_quality": 0.7994745,
+					"measurement_t": 22.0,
+					"quality": 0.745875,
+					"quality_accuracy_mult": 0.85,
+					"quality_sufficient": true,
+					"quality_time_mult": 1.5,
+					"quality_valid": true,
+					"ready_measurement_quality": 0.7994745,
+					"ready_measurement_t": 22.0,
+					"ready_t": 24.0,
+					"reason": "",
+					"solution_id": "SOL-000001",
+					"solution_s": 15.0,
+					"start_t": 9.0,
+					"status": "FIRED",
+					"target_id": "T0001",
+					"weapon_id": "missile"
+				},
+				"target_entity": "raider_2",
+				"target_id": "T0001",
+				"time_cap": {
+					"capped": false,
+					"ok": true,
+					"scale": 1.0
+				},
+				"weapon_id": "missile"
+			},
+			"grant": {
+				"grant": {
+					"duration_s": 90.0,
+					"expires_t": 92.0,
+					"grant_id": "GR-000001",
+					"granted_t": 2.0,
+					"level": "FIRE",
+					"scope_id": "T0001",
+					"scope_type": "target",
+					"until_destroyed": false
+				},
+				"ok": true,
+				"reason": ""
+			},
+			"jammed": true,
+			"noise_jam": {
+				"effect": {
+					"active": true,
+					"age_s": 0.0,
+					"authoritative": false,
+					"band": "",
+					"category": "radar",
+					"decay_per_s": 0.0,
+					"duration_s": 60.0,
+					"effect": "noise_jam",
+					"id": "EW-00001",
+					"initial_severity": 0.2,
+					"params": {},
+					"remaining_severity": 0.2,
+					"requires_confirmation": false,
+					"schema": "ew_effect.v1",
+					"severity": 0.2,
+					"source_id": "DIAG-R3-QUALITY",
+					"t_end": 62.0,
+					"t_start": 2.0,
+					"target_id": "raider_2",
+					"target_kinds": [
+						"radar"
+					],
+					"visible_to": [
+						"own",
+						"enemy_elint"
+					],
+					"writes_v15": false
+				},
+				"ok": true,
+				"reason": "",
+				"writes": {
+					"track_table": false,
+					"v15": false,
+					"world": false
+				}
+			},
+			"owner_entity_quality_at_fire": {
+				"aggregate_quality": 1.0,
+				"degraded": true,
+				"effect": {
+					"chaff_severity": 0.0,
+					"confidence_degraded": true,
+					"confidence_mult": 0.88,
+					"dazzled": false,
+					"deception_severity": 0.0,
+					"decoy_severity": 0.0,
+					"delay_s": 1.2,
+					"emcon": false,
+					"false_candidate_count": 0,
+					"false_observations": [],
+					"false_target_severity": 0.0,
+					"jammed": true,
+					"laser_dazzle_severity": 0.0,
+					"lwr_alert": false,
+					"no_reply_chance": 0.1,
+					"noise_severity": 0.2,
+					"ok": true,
+					"produces_contact": false,
+					"requires_confirmation": false,
+					"schema": "ew_observation_effect.v1",
+					"sensor_kind": "radar",
+					"target_id": "raider_2",
+					"writes_track_table": false
+				},
+				"measurement_original": 0.90849375,
+				"measurement_quality": 0.7994745,
+				"measurement_source": "radar",
+				"measurement_t": 22.0,
+				"ok": true,
+				"owner_id": "player_intel",
+				"target_id": "raider_2"
+			},
+			"owner_hud_quality_at_fire": {
+				"ok": false,
+				"reason": "unknown_target"
+			},
+			"physical_states_at_fire": {
+				"shooter": {
+					"has_pd": true,
+					"id": "own_ship",
+					"ir_signature": 0.0,
+					"kind": "ship",
+					"metadata_found": true,
+					"pos_km": [
+						321718.99999842,
+						0.0000000000673002071396246,
+						0.0
+					],
+					"radius_km": 0.06,
+					"radius_source": "default",
+					"rcs_m2": 0.0,
+					"side": "",
+					"vel_kmps": [
+						-0.000000131691015504134,
+						0.00000000000841252589607229,
+						0.0
+					]
+				},
+				"target": {
+					"has_pd": false,
+					"id": "raider_2",
+					"ir_signature": 0.0,
+					"kind": "ship",
+					"metadata_found": true,
+					"pos_km": [
+						322143.264008255,
+						424.263996333229,
+						0.0
+					],
+					"radius_km": 0.06,
+					"radius_source": "default",
+					"rcs_m2": 0.0,
+					"side": "",
+					"vel_kmps": [
+						0.000000687886658155622,
+						-0.000000305578900162719,
+						0.0
+					]
+				}
+			},
+			"pre_fire_prediction_entity_route": {
+				"aim_km": [
+					322143.25,
+					424.263977050781,
+					0.0
+				],
+				"applied_error_km": 0.734985485877417,
+				"dv_budget_kmps": 36.0,
+				"error_km": 0.734985485877417,
+				"fuel_s": 120.0,
+				"guidance": "guided",
+				"hit_probability": 0.877500375366211,
+				"interceptable": true,
+				"lead_offset_km": [
+					0.0,
+					-0.000030517578125,
+					0.0
+				],
+				"lead_point_km": [
+					322143.25,
+					424.263977050781,
+					0.0
+				],
+				"measurement_quality": 0.7994745,
+				"mode": "guided",
+				"model": "cr3bp_rk4",
+				"no_physics": false,
+				"ok": true,
+				"quality_accuracy_mult": 0.85,
+				"range_km": 599.989990234375,
+				"reason": "",
+				"residual_km": 0.0,
+				"schema": "ballistic_prediction.v1",
+				"seeker": {
+					"acquire_s": 2.5,
+					"break_margin": 0.85,
+					"break_s": 1.5,
+					"fov_deg": 60.0,
+					"home_on_jam": false,
+					"range_km": 400.0,
+					"type": "radar_active"
+				},
+				"substep_max_s": 1.0,
+				"target_id": "raider_2",
+				"time_of_flight_s": 59.9989990234375,
+				"trajectory": "cr3bp_pn",
+				"weapon_id": "missile"
+			},
+			"pre_fire_prediction_hud_route": {
+				"aim_km": [
+					322143.25,
+					424.263977050781,
+					0.0
+				],
+				"applied_error_km": 0.734985485877417,
+				"dv_budget_kmps": 36.0,
+				"error_km": 0.734985485877417,
+				"fuel_s": 120.0,
+				"guidance": "guided",
+				"hit_probability": 0.877500375366211,
+				"interceptable": true,
+				"lead_offset_km": [
+					0.0,
+					-0.000030517578125,
+					0.0
+				],
+				"lead_point_km": [
+					322143.25,
+					424.263977050781,
+					0.0
+				],
+				"measurement_quality": 1.0,
+				"mode": "guided",
+				"model": "cr3bp_rk4",
+				"no_physics": false,
+				"ok": true,
+				"quality_accuracy_mult": 1.0,
+				"range_km": 599.989990234375,
+				"reason": "",
+				"residual_km": 0.0,
+				"schema": "ballistic_prediction.v1",
+				"seeker": {
+					"acquire_s": 2.5,
+					"break_margin": 0.85,
+					"break_s": 1.5,
+					"fov_deg": 60.0,
+					"home_on_jam": false,
+					"range_km": 400.0,
+					"type": "radar_active"
+				},
+				"substep_max_s": 1.0,
+				"target_id": "raider_2",
+				"time_of_flight_s": 59.9989990234375,
+				"trajectory": "cr3bp_pn",
+				"weapon_id": "missile"
+			},
+			"projectile_at_launch": {
+				"age_s": 0.0,
+				"aim_km": [
+					322143.25,
+					425.788726806641,
+					0.0
+				],
+				"applied_error_km": 1.52475,
+				"closest_km": 599.989990234375,
+				"count": 1,
+				"exists": true,
+				"hit": false,
+				"launch_t": 24.0,
+				"measurement_quality": 0.7994745,
+				"pos_km": [
+					321719.0,
+					0.0000000000673002070739059,
+					0.0
+				],
+				"projectile_id": "PRJ-00001",
+				"quality_accuracy_mult": 0.85,
+				"status": "FLIGHT",
+				"target_last_km": [
+					322143.25,
+					424.264007568359,
+					0.0
+				],
+				"vel_kmps": [
+					5.64660501480103,
+					5.66708469390869,
+					0.0
+				]
+			},
+			"projectiles_after_ticks": [
+				{
+					"age_s": 1.0,
+					"aim_km": [
+						322143.25,
+						425.788726806641,
+						0.0
+					],
+					"applied_error_km": 1.52475,
+					"closest_km": 591.841796875,
+					"count": 1,
+					"exists": true,
+					"hit": false,
+					"launch_t": 24.0,
+					"measurement_quality": 0.7994745,
+					"pos_km": [
+						321724.75,
+						5.77332782745361,
+						0.0
+					],
+					"projectile_id": "PRJ-00001",
+					"quality_accuracy_mult": 0.85,
+					"session_t": 25.0,
+					"status": "FLIGHT",
+					"target_last_km": [
+						322143.25,
+						424.264007568359,
+						0.0
+					],
+					"vel_kmps": [
+						5.8583836555481,
+						5.87957000732422,
+						0.0
+					]
+				},
+				{
+					"age_s": 2.0,
+					"aim_km": [
+						322143.25,
+						425.788726806641,
+						0.0
+					],
+					"applied_error_km": 1.52475,
+					"closest_km": 583.388671875,
+					"count": 1,
+					"exists": true,
+					"hit": false,
+					"launch_t": 24.0,
+					"measurement_quality": 0.7994745,
+					"pos_km": [
+						321730.71875,
+						11.7591390609741,
+						0.0
+					],
+					"projectile_id": "PRJ-00001",
+					"quality_accuracy_mult": 0.85,
+					"session_t": 26.0,
+					"status": "FLIGHT",
+					"target_last_km": [
+						322143.25,
+						424.264007568359,
+						0.0
+					],
+					"vel_kmps": [
+						6.0701642036438,
+						6.09205293655396,
+						0.0
+					]
+				},
+				{
+					"age_s": 3.0,
+					"aim_km": [
+						322143.25,
+						425.788726806641,
+						0.0
+					],
+					"applied_error_km": 1.52475,
+					"closest_km": 574.630554199219,
+					"count": 1,
+					"exists": true,
+					"hit": false,
+					"launch_t": 24.0,
+					"measurement_quality": 0.7994745,
+					"pos_km": [
+						321736.90625,
+						17.9574317932129,
+						0.0
+					],
+					"projectile_id": "PRJ-00001",
+					"quality_accuracy_mult": 0.85,
+					"session_t": 27.0,
+					"status": "FLIGHT",
+					"target_last_km": [
+						322143.25,
+						424.264007568359,
+						0.0
+					],
+					"vel_kmps": [
+						6.28194713592529,
+						6.3045334815979,
+						0.0
+					]
+				}
+			],
+			"quality_at_solution_creation": {
+				"aggregate_quality": 1.0,
+				"degraded": true,
+				"effect": {
+					"chaff_severity": 0.0,
+					"confidence_degraded": true,
+					"confidence_mult": 0.88,
+					"dazzled": false,
+					"deception_severity": 0.0,
+					"decoy_severity": 0.0,
+					"delay_s": 1.2,
+					"emcon": false,
+					"false_candidate_count": 0,
+					"false_observations": [],
+					"false_target_severity": 0.0,
+					"jammed": true,
+					"laser_dazzle_severity": 0.0,
+					"lwr_alert": false,
+					"no_reply_chance": 0.1,
+					"noise_severity": 0.2,
+					"ok": true,
+					"produces_contact": false,
+					"requires_confirmation": false,
+					"schema": "ew_observation_effect.v1",
+					"sensor_kind": "radar",
+					"target_id": "raider_2",
+					"writes_track_table": false
+				},
+				"measurement_original": 0.6975,
+				"measurement_quality": 0.6138,
+				"measurement_source": "radar",
+				"measurement_t": 7.0,
+				"ok": true,
+				"owner_id": "player_intel",
+				"target_id": "raider_2"
+			},
+			"registered_entity": {
+				"ok": true,
+				"reason": "",
+				"track": {
+					"batch": "raider_2",
+					"damage_taken": 0.0,
+					"destroyed": false,
+					"entity_id": "raider_2",
+					"id": "raider_2",
+					"identity": "hostile",
+					"in_arc": true,
+					"range_km": 600.0,
+					"ship_id": "",
+					"threat": "hostile"
+				}
+			},
+			"registered_hud": {
+				"ok": true,
+				"reason": "",
+				"track": {
+					"batch": "T0001",
+					"damage_taken": 0.0,
+					"destroyed": false,
+					"entity_id": "",
+					"id": "T0001",
+					"identity": "hostile",
+					"in_arc": true,
+					"range_km": 600.0,
+					"ship_id": "",
+					"threat": "hostile"
+				}
+			},
+			"sensor_track_map_at_fire": {
+				"raider_2": "T0001"
+			},
+			"solution_ready_before_fire": {
+				"base_solution_s": 10.0,
+				"error_km": 1.52475,
+				"fire_ready": true,
+				"measurement_quality": 0.7994745,
+				"measurement_t": 22.0,
+				"quality": 0.745875,
+				"quality_accuracy_mult": 0.85,
+				"quality_sufficient": true,
+				"quality_time_mult": 1.5,
+				"quality_valid": true,
+				"ready_measurement_quality": 0.7994745,
+				"ready_measurement_t": 22.0,
+				"ready_t": 24.0,
+				"reason": "",
+				"solution_id": "SOL-000001",
+				"solution_s": 15.0,
+				"start_t": 9.0,
+				"status": "READY",
+				"target_id": "T0001",
+				"weapon_id": "missile"
+			},
+			"solution_request": {
+				"base_solution_s": 10.0,
+				"measurement_quality": 0.6138,
+				"ok": true,
+				"reason": "",
+				"solution": {
+					"base_solution_s": 10.0,
+					"error_km": -1.0,
+					"fire_ready": false,
+					"measurement_quality": 0.6138,
+					"quality": 0.0,
+					"quality_time_mult": 1.5,
+					"ready_t": 24.0,
+					"reason": "",
+					"solution_id": "SOL-000001",
+					"solution_s": 15.0,
+					"start_t": 9.0,
+					"status": "COMPUTING",
+					"target_id": "T0001",
+					"weapon_id": "missile"
+				}
+			},
+			"target_vel_seed_kmps": [
+				0.0,
+				0.0,
+				0.0
+			]
+		}
+	},
+	"fire_t": 24.0,
+	"head": "022a7e0e6b0ab2ce65f228f98b4a1146d18792f8",
+	"purpose": "Non-degenerate off-axis real clean/moderate Sensor same-seed same-geometry fire comparison; HUD T0001 fire route and 3 postlaunch ticks."
+}

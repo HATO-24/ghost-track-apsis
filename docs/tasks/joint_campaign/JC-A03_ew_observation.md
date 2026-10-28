@@ -2,7 +2,61 @@
 
 执行Issue：[JC-A03 #60](https://github.com/HATO-24/ghost-track-apsis/issues/60)。
 
-状态：READY，A2独立放行且已合入；交付A3。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：DONE（第四轮独立放行）；A3已冻结并合入，#60完成，下一张核心卡A04/#61。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-28 PR70第四轮：PASS，A3放行
+
+A3冻结 `5d372ea2df7c49badeea3846c16b839b1f6faef1`，PR70合入main `c3fca1c52a4158f374661f1906b32103dab5360c`，整个tree等于被审候选。[本轮独立证据与交接](../../reviews/pr70_a03_r4_20261028/review.md)。普通实体/HUD匿名键的发射前预测现在读取同一owner质量，mq-only实际应用既定因子，显式规范化输入不双重惩罚；旧档覆盖会清除前会话EW运行态，正式pending反例与独立真实文件fresh/active对照均关闭。原R2/R4及射后真实运动/partial/full/null结论保留，不再返工。
+
+根专项11/11、新EW126/0、A02 122/0；原C Phase0 6/6、PhaseA 3/3、full90=83PASS/7历史FAIL、new_fail0、drift0、complete=true、退出0。七历史baseline未刷新。低质量仍能发射本身不是缺陷，硬禁射推断不恢复。
+
+#60完成，下一张核心卡为[A04/#61](JC-A04_ew_comms.md)，从包含上述main合入提交的最新main开始。UI设计/文档GPT/Sol，主要代码DeepSeek，核心A04→B01A。下方前三轮是复核历史，以本轮放行与关闭表为准，不重复派发已关闭工作。
+
+## 2026-10-28 PR70第三轮：真实发射/R2/partial已好，仅两处入口
+
+被审 `022a7e0e6b0ab2ce65f228f98b4a1146d18792f8`，main `3845852bd78821ee6b3c70c4d8f9c81a23dca5d6`。[本轮关闭表与真实入口证据](../../reviews/pr70_a03_r3_20261028/review.md)。根11/11 PASS、新EW102/0、A02 122/0、A1 90/0；CI同head合成merge full90=83PASS/7历史FAIL、new_fail0、drift0、complete=true，根未重复本地全量。
+
+**不再返工**：射后真实prediction/launch已消费规范化误差；非共线同seed正例实际velocity和后续position发生差异，不能用原+Y共线退化把它判成无效，不新增完整制导/禁射模型。R2 owner拒绝不再写TT/map、原重投/候选及正常新观测全部关闭。R3 partial/missing、null拒绝、完整full加载已过。R4注册/W7继续关闭。低质量仍能发射本身不算问题。
+
+只剩：
+
+1. **原R1 [P2] 发射前普通预测**：实际HUD走combat_predict_track(T0001)，owner质量未映射到raider_2而回默认1。实体键虽收到q=.7994745/mult.85，仅mq分支仍给旧probability=.8775/error=.735；射后完整opts已经正确.745875/1.52475。统一合法内部键，补mq-only实际计算；显式quality/error不重复乘.85，保留射后/旧无字段正例。只读预测入口验收，不重做已过实际发射链。
+2. **原R3 [P2] 旧档覆盖活跃会话**：真实pending实例t2 queue/samples=1/1，load同一无EW旧文件后now=0、ok/legacy_absent却仍1/1；fresh实例load相同文件是0/0。初始化/覆盖时清除先前会话EW运行态，再按同档字段/default规则恢复，fresh/active语义一致。保留正常full在途、partial/missing和invalid拒绝，不以清空合法新档来通过。
+
+保留本轮非退化实际运动正例，补两个入口对照，最终同40位HEAD专项+原C，七历史baseline不刷新。PR70暂缓合并，继续原#60；A04/B01A核心接入仍等待A3，代码DeepSeek，UI设计/任务文档GPT/Sol。下方前轮为历史，以本轮关闭/剩余表优先。
+
+## 2026-10-28 PR70第二轮：关闭大部分原反例，只剩三个连接/错误边界
+
+被审 `ea29da7138ad353c4198f76547f57c4e0b07142d`，main `3845852bd78821ee6b3c70c4d8f9c81a23dca5d6`。[本轮关闭表与原始数据](../../reviews/pr70_a03_r2_20261028/review.md)。根11/11专项PASS，新EW83/0、A02 122/0、A1 90/0；CI同head合成merge full90=83PASS/7历史FAIL、new_fail0、drift0、complete=true，根未重复本地全量。PR70暂缓合并，继续原#60。
+
+**保留已过**：CombatService READY/预测/射击字段的精度因子和measurement时刻/状态；真实原观测/非空候选重投幂等及正常own/ally新观测；完整文件full、null队列invalid且有字段原因、全EW缺段legacy_absent；A02注册恢复、90个ID非空唯一和W7真实文件10tick队列/捕获几何质量/投递/owner/实际解算对照。原R4完全关闭，不再派发。低质量仍可发射本身不是缺陷，硬禁射推断不恢复。
+
+只补原三组的剩余边界：
+
+1. **R1 [P2] 真实Ballistics输入**：同seed、同t24/600km几何，clean q=.90849375、moderate q=.7994745；CombatService已正确.8775/.735→.745875/1.52475，但最终Ballistics prediction仍双方.8775/.735，弹体初始aim/velocity也相同。Session launch_opts/真实predict没有传测量质量或误差。把既有抽象精度/误差接入真正发射/弹道路径，保持风险返回与实际输入一致；不要求单发必然脱靶、完整制导或禁射新策略，已过接口层不重做。
+2. **R2 [P2] owner拒绝前拦写者**：原重投已不回滚。仅错投接收owner的真实条目被share_not_authorized拒绝，measurement/owner observations无写入，却仍在拒绝return前创建全局TrackTable 0→1和map。拦住这些写入，保留已过重投/候选及新观测；不扩通用事务架构。
+3. **R3 [P2] 部分新段规范化**：原queue=null已明确拒绝。只缺ew_combat_quality仍触发Dictionary转换SCRIPT ERROR；公开load虽失败，但mode=absent、错误field空。按字段必需/可选合同给明确缺失拒绝或有意兼容默认，避免运行时异常并解释字段原因；不重写存档或重做正常10tick。
+
+补上述真实残例和原正例，最终同40位HEAD专项+原C，七历史baseline不刷新。A04/B01A核心接入仍等A3；UI设计文档GPT/Sol，代码DeepSeek。下面首轮/口径纠正为历史，优先按本轮关闭/剩余表执行。
+
+## 2026-10-28 PR70首轮：保留正常链路，只补实际消费者边界
+
+**产品口径纠正**：原卡要求情报质量影响解算/耗时/误差，不等于低质量一律禁射。q<0.5拒绝新建解算是本候选fixture，不能自行外推为已有解算必须禁止发射。原R1的P1硬禁射推断撤回，收窄为P2精度消费与解算语义；下面以此修订后的R1为准。是否自动禁射/强制射击尚未获用户确认，本卡不新增这些产品规则。
+
+被审 `6bd919aa19898bbf31f5dd7c3287befc47392877`，base/main `3845852bd78821ee6b3c70c4d8f9c81a23dca5d6`。[独立复核与真实反例](../../reviews/pr70_a03_20261028/review.md)。PR70暂缓合并，继续原#60，不新开功能卡。
+
+保留：真实采样乘数/延迟；own/ally正常owner路由、未登记observer拒绝归入玩家、错误target/kind排除；current与历史max分离；真实文件在途队列及完整状态/几何/解算行10tick语义一致；缺七新段旧档可load。JSON数字2与2.0的表示差异不当作恢复失败，不做全局转int。
+
+仅四组返修：
+
+1. **R1 [P2] 精度消费与解算语义**：持续moderate READY当前q=.7994745时，已声明精度×.85未进入实际输出，补实际精度/误差消费。三例低质量下旧解算仍发射仅保留为观察，不作为失败标准；明确继续用历史解算时所用数据时刻、质量、误差及有效性，保持新建与既有解算策略一致可解释。保留正常授权、高质量、恢复和旧字段兼容，不新增硬禁射、强制射击或完整盲射功能。
+2. **R2 [P2] 全消费者投递幂等**：真实旧OBS-000008原样重投，底层去重但measurement从.90849375@21回滚.7@7。把接纳/去重覆盖measurement、combat及候选副作用；明确接纳结果，保留正常新观测。此为一次明确重投，不声称自然阶段自行重复。
+3. **R3 [P2] 新EW坏段拒绝**：真实在途1项存档仅将已有ew_observation_queue改null，load却ok/errors=[]且队列清空。区分present-invalid与真正缺段旧档，验证新EW字段必要类型/值并明确拒绝；保留有效文件10tick继续，不重写存档体系。
+4. **R4 [P2] 注册与等强验收**：插入新EW case时丢失旧A02的integration.jc_identity_pipeline，旧脚本虽匿名122/0仍运行，按原ID选择已0项。恢复旧ID，保留EW唯一ID及总90项；补R1真实COMPUTING/READY/射击的精度/误差策略消费，以及W7完整队列/捕获值/实际解算对照，不以还能发射判失败，不只看末尾ID/质量或自报字段。七历史baseline不刷新。
+
+根专项11执行行PASS（含匿名A02问题），新EW47/0、A2脚本122/0、A1 90/0。CI同head合成merge full90=83PASS/7历史FAIL、new_fail0、drift0、complete=true；根本轮未重复本地全量。最终同40位变更HEAD专项+原C，逐项关闭，不重做上列正常服务。
+
+采样相位按候选先采后步记录，不把t_end边界单列新增bug。错target/kind已测，独立接收方/频段上下文未定义；报告应明确支持的抽象作用域负例与限制，不把band标签切换说成已验错频，也不扩真实RF/完整接收机。A04/B01A核心接入继续等待A3；UI设计文档GPT/Sol，代码DeepSeek。下方A2开工交接与八段合同继续有效。
 
 ## 2026-10-28 A2放行后的开工交接
 

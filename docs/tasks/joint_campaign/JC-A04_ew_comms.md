@@ -2,7 +2,17 @@
 
 执行Issue：[JC-A04 #61](https://github.com/HATO-24/ghost-track-apsis/issues/61)。
 
-状态：服务可在A1后开发，Session集成WAIT A3；交付A4。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：READY，A1/A3前置已满足；下一张核心实现卡，交付A4。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-28 A3放行后的开工交接
+
+A3冻结 `5d372ea2df7c49badeea3846c16b839b1f6faef1`，PR70已审合入main `c3fca1c52a4158f374661f1906b32103dab5360c`，完整tree `25c0fc001934a09371e61ccf3d5d484374d9683d` 与被审候选一致。A1=`845584733df619feb3e372e8c06a7caa9f3fdaba`，G0/K0=`9d0f3b4380275b0a30fffb4a29fa5c44ef58165f`。[A3独立放行](../../reviews/pr70_a03_r4_20261028/review.md)。先fetch最新main、确认包含上述A3合入提交，记录实际40位执行HEAD；已有服务分支须合入最终A3再接Session，不能用旧A1/C55覆盖A2/A3的owner、质量、幂等或恢复改动。
+
+当前真实发送入口有三条：`GameSession.send_comms`、`OrderService.issue`、`GameSession.queue_intel_share`均会调用`Comms.send`。EW采样与结果冻结须覆盖三条，不只接Session包装。保持现有`OrderService.tick`对Comms的唯一推进，避免另加一次Session推进造成重复投递。
+
+`Comms.tick`已有DELIVERED/FAILED结果，订单消费两者；`GameSession._reconcile_standalone`目前用pending消失推断送达。接入EW失败后须按实际结果分发回调，失败订单不执行、失败共享不融合、不发布假delivered；保留成功只消费一次、合法sender/controller/fleet/owner及原失败原因。此为原卡实际投递/失败合同的接线说明，不扩AI/UI。
+
+固定fixture仍为comms_jam=.5→额外20s、failure_chance=.4，draw=.1失败/.9成功；是抽象测试合同，不冒充真实RF统计。先以三条真实入口的EW开/关/固定draw保存红例，再接发送冻结、outcome版本和真实文件继续。主要代码DeepSeek；GPT/Sol维护卡与UI设计，核心A04→B01A串行。
 
 ## 1. 目标与缺口
 
@@ -10,7 +20,7 @@ C55已有真实Comms投递和版本化outcome恢复，但EW通信effect未被消
 
 ## 2. 基线与范围
 
-服务开发基于已审A1/K0；最终接入以A3整链SHA为底。记录两个精确SHA与合并差异，按A03→A04的Session顺序集成。范围为EW链路适配、确定性随机、消息/结果版本与恢复；不开发AI任务/目标系统或新通信UI，不重写A03观测队列。
+服务开发的A1/K0依据保留；最终接入基于顶部已放行A3及其main合入提交。记录实际40位执行HEAD、服务开发基线与合并差异，按A03→A04的Session顺序集成。范围为EW链路适配、确定性随机、消息/结果版本与恢复；不开发AI任务/目标系统或新通信UI，不重写A03观测队列。
 
 ## 3. 写者、时间与安全边界
 
@@ -23,7 +33,7 @@ Comms写路由/在途消息/投递状态，EW提供发送时刻链路effect；�
 1. 先写EW开/关未影响实际Comms的红例和固定抽样fixture。
 2. 接发送时effect与确定性抽样，保留no_route等原失败原因；不要每个tick或读档时重新抽样。
 3. 明确outcome所需EW字段/版本。新增版本须提供严格校验与既有v1迁移；缺outcome的旧日志才标legacy_unverified，未知版本仍拒绝。保存发送上下文、sent_t/arrive_t、path、latency、outcome及必要PRNG态。
-4. 独立提交服务、版本/重放、Session接线、证据；同一消息成功投递只一次，due边界规则清楚，恢复不重发历史成功事件。
+4. 独立提交服务、版本/重放、Session接线、证据；同一消息成功投递只一次，due边界规则清楚，恢复不重发历史成功事件；独立消息按实际DELIVERED/FAILED回调，pending消失不能代替成功结果。
 
 ## 5. 验收
 

@@ -1,0 +1,405 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+TRANSIT SENSOR PROBE · 阶段2-TRANSIT-SENSOR-1
+════════════════════════════════════════════════════════════════
+
+── 1. 转场数据 / 5 舰 / 4 港 ──
+[PASS] ready  []
+[PASS] setup 无错误  []
+[PASS] transfer_planner ok
+[PASS] tof_s > 0  518400.0
+[PASS] tof 为真实多日转移  518400.0 s
+[PASS] 5 舰  actual=5 expected=5
+[PASS] 4 港  actual=4 expected=4
+[PASS] 舰 apsis 存在
+[PASS] 舰 harmattan 存在
+[PASS] 舰 ferry 存在
+[PASS] 舰 watchtower 存在
+[PASS] 舰 deepwell 存在
+[PASS] 批号 1000 存在
+[PASS] 批号 1001 存在
+[PASS] 批号 1002 存在
+[PASS] 批号 1003 存在
+[PASS] 批号 1004 存在
+[PASS] 港 l4_02_hammer 存在
+[PASS] 港 l1_meridian_05 存在
+[PASS] 港 l1_anchorage_02 存在
+[PASS] 港 l1_drydock_01 存在
+[PASS] L4/L1 港群都在
+[PASS] VM schema
+[PASS] mode=shadow
+[PASS] VM JSON
+[PASS] 默认 8 目标（4 舰 + 4 港）  actual=8 expected=8
+[PASS] 默认 target=apsis
+[PASS] 默认 observer=harmattan  actual=harmattan expected=harmattan
+[PASS] warnings 非空
+[PASS] writes.track_table=false
+[PASS] writes.v15=false
+
+── 2. 雷达 / TWS / VIS / IR（默认 harmattan→apsis）──
+[PASS] step VM JSON
+[PASS] phase 有效  cruise
+[PASS] step_count=1
+[PASS] 雷达产生 ≥5 contacts  5
+[PASS] channels ≥6（TWS+VIS+IR）  7
+[PASS] TWS 通道 ≥5  5
+[PASS] VIS 通道存在
+[PASS] IR 通道存在
+[PASS] VIS locked  locked
+[PASS] IR locked  locked
+[PASS] VIS L3  actual=3 expected=3
+[PASS] IR L1  actual=1 expected=1
+[PASS] VIS FOV >0
+[PASS] VIS IFOV >0
+[PASS] VIS SNR >0
+[PASS] IR FOV >0
+[PASS] IR SNR >0
+[PASS] VIS 无遮挡
+[PASS] VIS backend=optical_ir
+[PASS] VIS off-axis 字段
+[PASS] target 行 apsis
+[PASS] apsis 聚合 L3  actual=3 expected=3
+[PASS] apsis 近距离  14.5688348945575
+[PASS] L4 港 target 行
+[PASS] L4 港雷达接触  2
+[PASS] levels by_target apsis
+[PASS] levels.max_level≥3  3
+[PASS] levels counts 有 L3
+[PASS] optical.backend=optical_ir
+[PASS] optical.channels=2
+[PASS] events[]
+[PASS] warnings 完整
+[PASS] L1 港 target 行
+[PASS] 起飞段 L1 港超远  359531.398600562
+[PASS] 起飞段 L1 港无接触
+[PASS] 超距目标可建通道（随后失败）
+[PASS] 超距 channel 存在
+[PASS] 超距 VIS lost  lost
+[PASS] 超距原因明确  out_of_range
+
+── 3. 逐舰 fleet_transfer.sample(t) 位置 ──
+[PASS] fleet_transfer.plan(use_cache) ok  []
+[PASS] transit_sensors fleet_ready
+[PASS] VM fleet_source  actual=fleet_transfer.sample expected=fleet_transfer.sample
+[PASS] VM fleet.ready
+[PASS] VM fleet.tof_s
+[PASS] VM fleet.cache 字段
+[PASS] fleet sample 5 舰  actual=5 expected=5
+[PASS] VM 舰行 apsis
+[PASS] fleet sample 有 apsis
+[PASS] 位置与 fleet_transfer 一致 apsis
+[PASS] source=fleet_transfer apsis
+[PASS] arrival_error 字段 apsis
+[PASS] arrival_speed 字段 apsis
+[PASS] within_gate apsis
+[PASS] fleet_vel 字段 apsis
+[PASS] VM 舰行 harmattan
+[PASS] fleet sample 有 harmattan
+[PASS] 位置与 fleet_transfer 一致 harmattan
+[PASS] source=fleet_transfer harmattan
+[PASS] arrival_error 字段 harmattan
+[PASS] arrival_speed 字段 harmattan
+[PASS] within_gate harmattan
+[PASS] fleet_vel 字段 harmattan
+[PASS] VM 舰行 ferry
+[PASS] fleet sample 有 ferry
+[PASS] 位置与 fleet_transfer 一致 ferry
+[PASS] source=fleet_transfer ferry
+[PASS] arrival_error 字段 ferry
+[PASS] arrival_speed 字段 ferry
+[PASS] within_gate ferry
+[PASS] fleet_vel 字段 ferry
+[PASS] VM 舰行 watchtower
+[PASS] fleet sample 有 watchtower
+[PASS] 位置与 fleet_transfer 一致 watchtower
+[PASS] source=fleet_transfer watchtower
+[PASS] arrival_error 字段 watchtower
+[PASS] arrival_speed 字段 watchtower
+[PASS] within_gate watchtower
+[PASS] fleet_vel 字段 watchtower
+[PASS] VM 舰行 deepwell
+[PASS] fleet sample 有 deepwell
+[PASS] 位置与 fleet_transfer 一致 deepwell
+[PASS] source=fleet_transfer deepwell
+[PASS] arrival_error 字段 deepwell
+[PASS] arrival_speed 字段 deepwell
+[PASS] within_gate deepwell
+[PASS] fleet_vel 字段 deepwell
+[PASS] 独立位置可区分 #1  d=14.569
+[PASS] 独立位置可区分 #2  d=18.287
+[PASS] 独立位置可区分 #3  d=18.342
+[PASS] 独立位置可区分 #4  d=23.869
+[PASS] 旗舰 rel_to_flagship≈0
+[PASS] harmattan 与 fleet sample 相对旗舰距离  14.5903997421265
+[PASS] 目标行位置随 fleet sample 更新
+[PASS] apsis target 行
+[PASS] 逐舰相对距离真实  14.5688348945575
+[PASS] L4 港行
+[PASS] L4 港位仍按 planner source
+[PASS] 抵达 arrival_error apsis
+[PASS] 抵达 arrival_error harmattan
+[PASS] 抵达 arrival_error ferry
+[PASS] 抵达 arrival_error watchtower
+[PASS] 抵达 arrival_error deepwell
+[PASS] 抵达段 5 舰位置与 fleet sample 一致
+[PASS] fleet arrival VM JSON
+[PASS] fleet VM JSON
+[PASS] fleet 不写 TrackTable
+[PASS] fleet 不写 V15
+
+── 3. 5 舰 observer / capability fallback ──
+[PASS] apsis select_ship ok
+[PASS] apsis observer 字段  actual=apsis expected=apsis
+[PASS] apsis fallback 数量  actual=1 expected=1
+[PASS] apsis fallback search_radar
+[PASS] apsis set_target harmattan
+[PASS] apsis VM ready
+[PASS] apsis VM observer  actual=apsis expected=apsis
+[PASS] apsis 5 ships  actual=5 expected=5
+[PASS] apsis 4 ports  actual=4 expected=4
+[PASS] apsis 8 targets  actual=8 expected=8
+[PASS] apsis contacts
+[PASS] apsis channels
+[PASS] apsis optical channels
+[PASS] apsis VM JSON
+[PASS] apsis VIS 自动通道
+[PASS] harmattan select_ship ok
+[PASS] harmattan observer 字段  actual=harmattan expected=harmattan
+[PASS] harmattan fallback 数量  actual=0 expected=0
+[PASS] harmattan set_target apsis
+[PASS] harmattan VM ready
+[PASS] harmattan VM observer  actual=harmattan expected=harmattan
+[PASS] harmattan 5 ships  actual=5 expected=5
+[PASS] harmattan 4 ports  actual=4 expected=4
+[PASS] harmattan 8 targets  actual=8 expected=8
+[PASS] harmattan contacts
+[PASS] harmattan channels
+[PASS] harmattan optical channels
+[PASS] harmattan VM JSON
+[PASS] harmattan VIS 自动通道
+[PASS] ferry select_ship ok
+[PASS] ferry observer 字段  actual=ferry expected=ferry
+[PASS] ferry fallback 数量  actual=2 expected=2
+[PASS] ferry fallback search_radar
+[PASS] ferry fallback ir
+[PASS] ferry set_target apsis
+[PASS] ferry VM ready
+[PASS] ferry VM observer  actual=ferry expected=ferry
+[PASS] ferry 5 ships  actual=5 expected=5
+[PASS] ferry 4 ports  actual=4 expected=4
+[PASS] ferry 8 targets  actual=8 expected=8
+[PASS] ferry contacts
+[PASS] ferry channels
+[PASS] ferry optical channels
+[PASS] ferry VM JSON
+[PASS] ferry VIS 自动通道
+[PASS] watchtower select_ship ok
+[PASS] watchtower observer 字段  actual=watchtower expected=watchtower
+[PASS] watchtower fallback 数量  actual=3 expected=3
+[PASS] watchtower fallback search_radar
+[PASS] watchtower fallback optical
+[PASS] watchtower fallback ir
+[PASS] watchtower set_target apsis
+[PASS] watchtower VM ready
+[PASS] watchtower VM observer  actual=watchtower expected=watchtower
+[PASS] watchtower 5 ships  actual=5 expected=5
+[PASS] watchtower 4 ports  actual=4 expected=4
+[PASS] watchtower 8 targets  actual=8 expected=8
+[PASS] watchtower contacts
+[PASS] watchtower channels
+[PASS] watchtower optical channels
+[PASS] watchtower VM JSON
+[PASS] watchtower VIS 自动通道
+[PASS] deepwell select_ship ok
+[PASS] deepwell observer 字段  actual=deepwell expected=deepwell
+[PASS] deepwell fallback 数量  actual=3 expected=3
+[PASS] deepwell fallback search_radar
+[PASS] deepwell fallback optical
+[PASS] deepwell fallback ir
+[PASS] deepwell set_target apsis
+[PASS] deepwell VM ready
+[PASS] deepwell VM observer  actual=deepwell expected=deepwell
+[PASS] deepwell 5 ships  actual=5 expected=5
+[PASS] deepwell 4 ports  actual=4 expected=4
+[PASS] deepwell 8 targets  actual=8 expected=8
+[PASS] deepwell contacts
+[PASS] deepwell channels
+[PASS] deepwell optical channels
+[PASS] deepwell VM JSON
+[PASS] deepwell VIS 自动通道
+
+── 4. set_target / 光学失败 / 遮挡 / stop ──
+[PASS] set_target 未知目标 false
+[PASS] set_target ferry true
+[PASS] selected_target 更新  actual=ferry expected=ferry
+[PASS] set_target 港 l4_02_hammer
+[PASS] set_target 港 l1_meridian_05
+[PASS] set_target 港 l1_anchorage_02
+[PASS] set_target 港 l1_drydock_01
+[PASS] start optical l4 港
+[PASS] apsis VIS 状态可读  lost
+[PASS] l4 VIS 存在
+[PASS] l4 VIS 已推进  lost
+[PASS] VIS 失败/成功 reason 合法  fov_miss
+[PASS] start_optical 未知目标 false
+[PASS] start_optical 非法 kind false
+[PASS] stop_optical 无匹配 false
+[PASS] stop_optical 全部成功
+[PASS] stop 后 optical channels 空
+[PASS] 地球遮挡 reason=occluded
+[PASS] 地球遮挡 occluded=true
+
+── 5. 抵达 L1 / 港群观测 ──
+[PASS] seek 到 arrival  arrival
+[PASS] arrival VM JSON
+[PASS] arrival 4 港  actual=4 expected=4
+[PASS] arrival 港行 l4_02_hammer
+[PASS] arrival 港行 l1_meridian_05
+[PASS] arrival 港行 l1_anchorage_02
+[PASS] arrival 港行 l1_drydock_01
+[PASS] L1 Meridian 近距离  244.253125617909
+[PASS] L4 港远距  359712.606740851
+[PASS] 抵达段 L1 港雷达接触 ≥2  3
+[PASS] 抵达 set_target L1 港
+[PASS] 抵达 start optical L1 港
+[PASS] 抵达 L1 港 VIS channel
+[PASS] 抵达 L1 港 VIS 状态  lost
+[PASS] 抵达 VIS FOV
+[PASS] 抵达 VIS SNR
+
+── 7. 雷达/EMCON 开关 + 真实 IFF ──
+[PASS] 初始 radar_enabled=true
+[PASS] 初始 EMCON=false
+[PASS] 初始雷达 contact ≥5
+[PASS] 雷达开机 → exposed=true  ["exposed", "emission_level", "emission_class", "exposure_kind", "elint_intercept_range_km", "fix_after_s", "fix_progress", "fixed", "bearing_sigma_deg", "seconds_on", "warning", "lpi", "radar_on", "emcon", "shadow", "writes_v15"]
+[PASS] 暴露 distance 字段
+[PASS] set_radar_enabled(false) ok
+[PASS] 返回 radar_enabled=false
+[PASS] 关雷达 → EMCON=true
+[PASS] 关雷达 reason
+[PASS] off exposure=false
+[PASS] off VM radar_enabled=false
+[PASS] off VM emcon=true
+[PASS] off VM 无主动 contacts  actual=0 expected=0
+[PASS] off VM 无暴露
+[PASS] EMCON 下 IFF blocked  actual=blocked expected=blocked
+[PASS] blocked never_hostile
+[PASS] set_radar_enabled(true) ok
+[PASS] 返回 radar_enabled=true
+[PASS] 开雷达 EMCON=false
+[PASS] 开雷达后 contact 恢复
+[PASS] 开雷达后 exposed=true
+[PASS] IFF apsis 查询 ok  friend
+[PASS] IFF apsis schema
+[PASS] IFF apsis never_hostile
+[PASS] IFF apsis 无 hostile
+[PASS] IFF apsis 不产生 contact
+[PASS] IFF apsis 不产生位置等级
+[PASS] IFF apsis 不写 V15
+[PASS] IFF ferry 查询 ok  friend
+[PASS] IFF ferry schema
+[PASS] IFF ferry never_hostile
+[PASS] IFF ferry 无 hostile
+[PASS] IFF ferry 不产生 contact
+[PASS] IFF ferry 不产生位置等级
+[PASS] IFF ferry 不写 V15
+[PASS] IFF watchtower 查询 ok  faulty
+[PASS] IFF watchtower schema
+[PASS] IFF watchtower never_hostile
+[PASS] IFF watchtower 无 hostile
+[PASS] IFF watchtower 不产生 contact
+[PASS] IFF watchtower 不产生位置等级
+[PASS] IFF watchtower 不写 V15
+[PASS] IFF deepwell 查询 ok  no_reply
+[PASS] IFF deepwell schema
+[PASS] IFF deepwell never_hostile
+[PASS] IFF deepwell 无 hostile
+[PASS] IFF deepwell 不产生 contact
+[PASS] IFF deepwell 不产生位置等级
+[PASS] IFF deepwell 不写 V15
+[PASS] IFF l4_02_hammer 查询 ok  friend
+[PASS] IFF l4_02_hammer schema
+[PASS] IFF l4_02_hammer never_hostile
+[PASS] IFF l4_02_hammer 无 hostile
+[PASS] IFF l4_02_hammer 不产生 contact
+[PASS] IFF l4_02_hammer 不产生位置等级
+[PASS] IFF l4_02_hammer 不写 V15
+[PASS] IFF l1_meridian_05 查询 ok  out_of_range
+[PASS] IFF l1_meridian_05 schema
+[PASS] IFF l1_meridian_05 never_hostile
+[PASS] IFF l1_meridian_05 无 hostile
+[PASS] IFF l1_meridian_05 不产生 contact
+[PASS] IFF l1_meridian_05 不产生位置等级
+[PASS] IFF l1_meridian_05 不写 V15
+[PASS] IFF l1_anchorage_02 查询 ok  out_of_range
+[PASS] IFF l1_anchorage_02 schema
+[PASS] IFF l1_anchorage_02 never_hostile
+[PASS] IFF l1_anchorage_02 无 hostile
+[PASS] IFF l1_anchorage_02 不产生 contact
+[PASS] IFF l1_anchorage_02 不产生位置等级
+[PASS] IFF l1_anchorage_02 不写 V15
+[PASS] IFF l1_drydock_01 查询 ok  out_of_range
+[PASS] IFF l1_drydock_01 schema
+[PASS] IFF l1_drydock_01 never_hostile
+[PASS] IFF l1_drydock_01 无 hostile
+[PASS] IFF l1_drydock_01 不产生 contact
+[PASS] IFF l1_drydock_01 不产生位置等级
+[PASS] IFF l1_drydock_01 不写 V15
+[PASS] apsis IFF friend
+[PASS] ferry IFF friend
+[PASS] watchtower IFF faulty
+[PASS] deepwell IFF no_reply
+[PASS] L4 港 IFF friend
+[PASS] 起飞段 L1 港 IFF out_of_range
+[PASS] 起飞段 Anchorage IFF out_of_range
+[PASS] 起飞段 Drydock IFF out_of_range
+[PASS] IFF 不增删 contacts  actual=5 expected=5
+[PASS] VM iff 字段存在
+[PASS] VM iff schema
+[PASS] VM iff hostile=0
+[PASS] VM iff never_hostile
+[PASS] VM iff produces_contact=false
+[PASS] VM iff friend count
+[PASS] VM iff total≥8
+[PASS] VM iff by_target apsis
+[PASS] VM iff JSON
+[PASS] IFF 未知目标  actual=unknown_target expected=unknown_target
+[PASS] IFF 自身目标拒绝  actual=unknown_target expected=unknown_target
+[PASS] 重复 IFF never_hostile
+[PASS] 重复 IFF status 合法  cooldown
+[PASS] controls VM JSON
+[PASS] controls 不写 TrackTable
+[PASS] controls 不写 V15
+
+── 6. JSON / 确定性 / 只读 ──
+[PASS] A VM JSON
+[PASS] B VM JSON
+[PASS] 确定性：同输入两实例 VM 逐字节一致
+[PASS] VM key contacts
+[PASS] VM key channels
+[PASS] VM key optical
+[PASS] VM key levels
+[PASS] VM key events
+[PASS] VM key warnings
+[PASS] VM key writes
+[PASS] VM key targets
+[PASS] VM key ships
+[PASS] VM key ports
+[PASS] A 不写 TrackTable
+[PASS] A 不写 V15
+[PASS] A schema
+[PASS] A contacts[]
+[PASS] A channels[]
+[PASS] A levels.by_target
+[PASS] A events[]
+[PASS] A warnings[]
+[PASS] summary JSON
+[PASS] summary writes_track_table=false
+[PASS] summary writes_v15=false
+[PASS] summary observer
+[PASS] summary ready
+────────────────────────────────────────────────────────────────
+TRANSIT SENSOR PROBE RESULT: PASS=380 FAIL=0
+TRANSIT SENSOR PROBE OK
+AUDIO OK files=36 headless=true muted=false

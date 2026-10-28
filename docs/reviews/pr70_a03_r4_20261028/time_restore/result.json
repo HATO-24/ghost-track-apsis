@@ -1,0 +1,18 @@
+{
+  "head": "5d372ea2df7c49badeea3846c16b839b1f6faef1",
+  "diagnostic": "r3_legacy_runtime_restore.gd",
+  "engine": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+  "exit_code": 0,
+  "legacy_same_file_comparison": {
+    "same_state_as_fresh": true,
+    "same_session_load": {"ok": true, "mode": "legacy_absent", "before": {"samples": 1, "queue": 0, "delivered": 1, "rejected": 0, "seq": 1, "quality_history": {"player_intel|raider_2": 0.7}, "combat_quality": {}, "candidates": []}, "after": {"samples": 0, "queue": 0, "delivered": 0, "rejected": 0, "seq": 0, "quality_history": {}, "combat_quality": {}, "candidates": []}},
+    "fresh_load": {"ok": true, "mode": "legacy_absent", "after": {"samples": 0, "queue": 0, "delivered": 0, "rejected": 0, "seq": 0, "quality_history": {}, "combat_quality": {}, "candidates": []}}
+  },
+  "controls": [
+    {"name": "full_inflight", "ok": true, "mode": "full", "queue": 1, "samples": 1, "seq": 1},
+    {"name": "partial_missing_ew_combat_quality", "ok": true, "mode": "partial", "missing": ["ew_combat_quality"], "queue": 1},
+    {"name": "present_queue_null", "ok": false, "mode": "invalid", "errors": ["EW 状态恢复失败：invalid_ew_state field=ew_observation_queue"]}
+  ],
+  "scope_note": "This custom active-session legacy load was after 6 ticks; its pending queue had already delivered (queue=0 before load). Formal R24 in jc_ew_observation_probe.gd separately asserts a nonempty queue before active-session legacy load and empty queue after. W7 was not rerun.",
+  "process_notes": ["AUDIO OK", "ObjectDB and resource-in-use exit warnings retained in log; exit code 0"]
+}

@@ -1,0 +1,335 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+BALLISTICS PROBE · 完整游戏-阶段4G
+════════════════════════════════════════════════════════════════
+
+── 1. setup / 内容复用 / predict ──
+[PASS] ready  []
+[PASS] setup 无错误
+[PASS] 复用 5 武器  actual=5 expected=5
+[PASS] 武器 railgun
+[PASS] 武器 missile
+[PASS] 武器 pd
+[PASS] 武器 decoy
+[PASS] 武器 jammer
+[PASS] content schema  actual=weapons.v1 expected=weapons.v1
+[PASS] PD state
+[PASS] PD 初始弹药 80  actual=80 expected=80
+[PASS] predict railgun
+[PASS] predict mode ballistic  actual=ballistic expected=ballistic
+[PASS] predict TOF
+[PASS] predict lead point
+[PASS] predict lead offset
+[PASS] predict hit prob
+[PASS] railgun not interceptable
+[PASS] railgun 有物理
+[PASS] 移动目标 lead offset
+[PASS] 提前量 >0
+[PASS] predict missile
+[PASS] predict mode guided  actual=guided expected=guided
+[PASS] missile TOF
+[PASS] missile interceptable
+[PASS] missile fuel
+[PASS] decoy predict false
+[PASS] 未知武器 predict false
+[PASS] 坏 shooter 状态 false
+[PASS] 坏 target 状态 false
+[PASS] VM JSON
+[PASS] summary JSON
+[PASS] 不写 world
+[PASS] 不写 TrackTable
+[PASS] 不写 V15
+[PASS] 不写 UI
+[PASS] 武器 id railgun
+[PASS] 武器 kind railgun
+[PASS] 武器 range railgun
+[PASS] 武器 ammo railgun
+[PASS] 武器 cooldown railgun
+[PASS] 武器 accuracy railgun
+[PASS] 武器 damage railgun
+[PASS] 武器 auth railgun
+[PASS] 武器 id missile
+[PASS] 武器 kind missile
+[PASS] 武器 range missile
+[PASS] 武器 ammo missile
+[PASS] 武器 cooldown missile
+[PASS] 武器 accuracy missile
+[PASS] 武器 damage missile
+[PASS] 武器 auth missile
+[PASS] 武器 id pd
+[PASS] 武器 kind pd
+[PASS] 武器 range pd
+[PASS] 武器 ammo pd
+[PASS] 武器 cooldown pd
+[PASS] 武器 accuracy pd
+[PASS] 武器 damage pd
+[PASS] 武器 auth pd
+[PASS] 武器 id decoy
+[PASS] 武器 kind decoy
+[PASS] 武器 range decoy
+[PASS] 武器 ammo decoy
+[PASS] 武器 cooldown decoy
+[PASS] 武器 accuracy decoy
+[PASS] 武器 damage decoy
+[PASS] 武器 auth decoy
+[PASS] 武器 id jammer
+[PASS] 武器 kind jammer
+[PASS] 武器 range jammer
+[PASS] 武器 ammo jammer
+[PASS] 武器 cooldown jammer
+[PASS] 武器 accuracy jammer
+[PASS] 武器 damage jammer
+[PASS] 武器 auth jammer
+
+── 2. railgun 直线弹道 / 提前量 / 命中 ──
+[PASS] railgun launch
+[PASS] projectile_id
+[PASS] projectile kind  actual=railgun expected=railgun
+[PASS] weapon_id  actual=railgun expected=railgun
+[PASS] active
+[PASS] speed 15
+[PASS] damage
+[PASS] penetration
+[PASS] lifetime
+[PASS] not interceptable
+[PASS] launch event
+[PASS] active 1
+[PASS] 飞行中 active
+[PASS] railgun impact  actual=1 expected=1
+[PASS] impact schema  actual=ballistic_impact.v1 expected=ballistic_impact.v1
+[PASS] impact target  actual=T1 expected=T1
+[PASS] impact weapon  actual=railgun expected=railgun
+[PASS] impact miss distance
+[PASS] impact event
+[PASS] damage event schema  actual=combat_damage_event.v1 expected=combat_damage_event.v1
+[PASS] damage applied=false
+[PASS] damage value
+[PASS] penetration value
+[PASS] damage weapon  actual=railgun expected=railgun
+[PASS] damage 不写 V15
+[PASS] hit 后 active 0
+[PASS] 移动目标 launch
+[PASS] 移动目标命中/impacts
+[PASS] miss launch
+[PASS] aim error 不命中
+[PASS] miss 后无 active
+[PASS] miss expired event
+[PASS] miss event
+[PASS] closest 记录
+[PASS] 空 shooter false
+[PASS] 空 target false
+[PASS] 未知武器 false
+[PASS] 坏 shooter 状态 false
+[PASS] 坏 target 状态 false
+[PASS] 超距 launch false
+[PASS] 多弹 1
+[PASS] 多弹 2
+[PASS] 两枚 active
+[PASS] multi VM JSON
+[PASS] railgun 场景 launch 200.0
+[PASS] railgun 场景命中 200.0
+[PASS] railgun 场景结束 200.0
+[PASS] event schema 200.0  actual=ballistics_event.v1 expected=ballistics_event.v1
+[PASS] event seq 200.0
+[PASS] event t 200.0
+[PASS] event 不写 V15 200.0
+[PASS] impact event 200.0
+[PASS] railgun 场景 launch 400.0
+[PASS] railgun 场景命中 400.0
+[PASS] railgun 场景结束 400.0
+[PASS] event schema 400.0  actual=ballistics_event.v1 expected=ballistics_event.v1
+[PASS] event seq 400.0
+[PASS] event t 400.0
+[PASS] event 不写 V15 400.0
+[PASS] impact event 400.0
+[PASS] railgun 场景 launch 600.0
+[PASS] railgun 场景命中 600.0
+[PASS] railgun 场景结束 600.0
+[PASS] event schema 600.0  actual=ballistics_event.v1 expected=ballistics_event.v1
+[PASS] event seq 600.0
+[PASS] event t 600.0
+[PASS] event 不写 V15 600.0
+[PASS] impact event 600.0
+[PASS] railgun 场景 launch 800.0
+[PASS] railgun 场景命中 800.0
+[PASS] railgun 场景结束 800.0
+[PASS] event schema 800.0  actual=ballistics_event.v1 expected=ballistics_event.v1
+[PASS] event seq 800.0
+[PASS] event t 800.0
+[PASS] event 不写 V15 800.0
+[PASS] impact event 800.0
+[PASS] railgun 场景 launch 1000.0
+[PASS] railgun 场景命中 1000.0
+[PASS] railgun 场景结束 1000.0
+[PASS] event schema 1000.0  actual=ballistics_event.v1 expected=ballistics_event.v1
+[PASS] event seq 1000.0
+[PASS] event t 1000.0
+[PASS] event 不写 V15 1000.0
+[PASS] impact event 1000.0
+[PASS] railgun 场景 launch 300.0
+[PASS] railgun 场景命中 300.0
+[PASS] railgun 场景结束 300.0
+[PASS] event schema 300.0  actual=ballistics_event.v1 expected=ballistics_event.v1
+[PASS] event seq 300.0
+[PASS] event t 300.0
+[PASS] event 不写 V15 300.0
+[PASS] impact event 300.0
+[PASS] railgun 场景 launch 700.0
+[PASS] railgun 场景命中 700.0
+[PASS] railgun 场景结束 700.0
+[PASS] event schema 700.0  actual=ballistics_event.v1 expected=ballistics_event.v1
+[PASS] event seq 700.0
+[PASS] event t 700.0
+[PASS] event 不写 V15 700.0
+[PASS] impact event 700.0
+
+── 3. missile 制导 / 燃料 / 寿命 / 命中 ──
+[PASS] missile launch
+[PASS] missile kind  actual=missile expected=missile
+[PASS] missile kind2  actual=missile expected=missile
+[PASS] guided
+[PASS] interceptable
+[PASS] fuel
+[PASS] lifetime
+[PASS] max accel
+[PASS] turn rate
+[PASS] hit radius
+[PASS] missile damage
+[PASS] 燃料消耗
+[PASS] missile 飞行中
+[PASS] missile 命中  actual=1 expected=1
+[PASS] 无 PD 拦截
+[PASS] missile damage schema  actual=combat_damage_event.v1 expected=combat_damage_event.v1
+[PASS] missile damage applied=false
+[PASS] missile damage value
+[PASS] 移动导弹 launch
+[PASS] 移动目标导弹命中
+[PASS] 远距发射
+[PASS] 远距已消耗 Δv
+[PASS] 远距保留末段机动 Δv
+[PASS] 400s 仍在飞（寿命 900s）
+[PASS] 远距已失效/命中
+[PASS] 远距失效/命中事件
+[PASS] missile predict TOF2
+[PASS] missile VM JSON
+[PASS] missile 场景 launch 300.0
+[PASS] missile 场景 fuel 300.0
+[PASS] missile 场景命中 300.0
+[PASS] missile 场景结束 300.0
+[PASS] missile 场景 launch 500.0
+[PASS] missile 场景 fuel 500.0
+[PASS] missile 场景命中 500.0
+[PASS] missile 场景结束 500.0
+[PASS] missile 场景 launch 800.0
+[PASS] missile 场景 fuel 800.0
+[PASS] missile 场景命中 800.0
+[PASS] missile 场景结束 800.0
+[PASS] missile 场景 launch 1200.0
+[PASS] missile 场景 fuel 1200.0
+[PASS] missile 场景命中 1200.0
+[PASS] missile 场景结束 1200.0
+
+── 4. PD 自动拦截 / 射程 / 弹药 / 冷却 ──
+[PASS] enemy missile launch
+[PASS] PD 拦截记录
+[PASS] intercept schema  actual=ballistic_intercept.v1 expected=ballistic_intercept.v1
+[PASS] intercept weapon  actual=pd expected=pd
+[PASS] intercept target  actual=own expected=own
+[PASS] force PD intercepted
+[PASS] PD 消耗弹药
+[PASS] PD 冷却设置
+[PASS] 拦截后无 impact
+[PASS] pd_launch event
+[PASS] projectile_intercepted event
+[PASS] 冷却内不新增拦截  actual=1 expected=1
+[PASS] PD 射程外不拦截
+[PASS] 无 has_pd 不拦截
+[PASS] PD 弹药覆盖 1
+[PASS] PD 弹药耗尽
+[PASS] 无弹药不再拦截  actual=1 expected=1
+[PASS] PD 概率流程
+[PASS] PD 距离拦截 60.0
+[PASS] PD 距离弹药 60.0
+[PASS] PD 距离冷却 60.0
+[PASS] PD 距离无 impact 60.0
+[PASS] PD 距离拦截 100.0
+[PASS] PD 距离弹药 100.0
+[PASS] PD 距离冷却 100.0
+[PASS] PD 距离无 impact 100.0
+[PASS] PD 距离拦截 140.0
+[PASS] PD 距离弹药 140.0
+[PASS] PD 距离冷却 140.0
+[PASS] PD 距离无 impact 140.0
+[PASS] PD 距离拦截 179.0
+[PASS] PD 距离弹药 179.0
+[PASS] PD 距离冷却 179.0
+[PASS] PD 距离无 impact 179.0
+[PASS] PD VM JSON
+
+── 5. decoy / jammer 诱偏 / 降锁定 ──
+[PASS] decoy launch
+[PASS] countermeasure 1
+[PASS] countermeasure kind decoy  actual=decoy expected=decoy
+[PASS] decoy active_until
+[PASS] decoy active
+[PASS] decoy event
+[PASS] missile decoyed
+[PASS] decoy VM JSON
+[PASS] jammer launch
+[PASS] jammer countermeasure
+[PASS] countermeasure kind jammer  actual=jammer expected=jammer
+[PASS] jammer lock loss prob
+[PASS] missile guidance_lost
+[PASS] jammer event
+[PASS] decoy 过期
+[PASS] countermeasure 过期事件
+[PASS] jammer VM JSON
+
+── 6. save/load / reset / JSON / 确定性 ──
+[PASS] save JSON
+[PASS] save schema
+[PASS] save version
+[PASS] save projectiles
+[PASS] save countermeasures
+[PASS] save events
+[PASS] save intercepts
+[PASS] save impacts
+[PASS] save PD
+[PASS] save seq
+[PASS] save projectiles array
+[PASS] load_state ok
+[PASS] load projectiles  actual=1 expected=1
+[PASS] load countermeasures  actual=1 expected=1
+[PASS] load events  actual=3 expected=3
+[PASS] load t
+[PASS] load PD ammo  actual=80 expected=80
+[PASS] loaded VM JSON
+[PASS] save 确定性
+[PASS] reset ok
+[PASS] reset projectiles
+[PASS] reset countermeasures
+[PASS] reset PD ammo  actual=80 expected=80
+[PASS] reset t  actual=0.0 expected=0.0
+[PASS] 拒绝快照: empty
+[PASS] 拒绝快照: bad json
+[PASS] 拒绝快照: bad schema
+[PASS] 拒绝快照: future
+[PASS] 拒绝快照: missing
+[PASS] 确定性 VM
+[PASS] summary JSON
+[PASS] events JSON
+[PASS] 最终不写 world
+[PASS] 最终不写 TrackTable
+────────────────────────────────────────────────────────────────
+BALLISTICS PROBE RESULT: PASS=306 FAIL=0
+BALLISTICS PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/combat_ballistics.gd:1589)
+       [1] _test_save_reset_json (res://tests/ballistics_probe.gd:520)
+       [2] _initialize (res://tests/ballistics_probe.gd:29)

@@ -1,0 +1,19 @@
+{
+  "headRevision": "022a7e0e6b0ab2ce65f228f98b4a1146d18792f8",
+  "base": "3845852bd78821ee6b3c70c4d8f9c81a23dca5d6",
+  "actualCheckout": "aad544e3e6e538c3f126009ecbabb24f7f29bc47",
+  "runId": 40695377143,
+  "fullJob": 122840629616,
+  "phase0Job": 122840630116,
+  "phaseAJob": 122840630125,
+  "allConclusions": "success",
+  "total": 90,
+  "pass": 83,
+  "fail": 7,
+  "new_fail": 0,
+  "drift": 0,
+  "complete": true,
+  "fullExit": 0,
+  "duration_s": 355.5,
+  "fullCompletedAt": "2026-10-28T13:26:17Z"
+}

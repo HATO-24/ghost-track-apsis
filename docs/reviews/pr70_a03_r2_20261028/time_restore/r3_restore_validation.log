@@ -1,0 +1,11 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+SCRIPT ERROR: Invalid cast: could not convert value to 'Dictionary'.
+   at: _ew_restore_state (res://scripts/core/game_session.gd:2925)
+   GDScript backtrace (most recent call first):
+       [0] _ew_restore_state (res://scripts/core/game_session.gd:2925)
+       [1] load_state (res://scripts/core/game_session.gd:6173)
+       [2] _case (C:/Users/ASUS/.codex/worktrees/jc-a03-r2-validation/GHOST TRACK_APSIS/.test-results/sol-a03-r2/time_restore/r3_restore_validation.gd:32)
+       [3] _initialize (C:/Users/ASUS/.codex/worktrees/jc-a03-r2-validation/GHOST TRACK_APSIS/.test-results/sol-a03-r2/time_restore/r3_restore_validation.gd:26)
+A03_R2_TIME_RESTORE_DIAG={"base_readback_bytes":4030,"cases":[{"case":"full_file","errors":[],"mode":"full","ok":true,"queue_size":0},{"case":"legacy_all_ew_absent","errors":[],"mode":"legacy_absent","ok":true,"queue_size":0},{"case":"present_queue_null","errors":["EW 状态恢复失败：invalid_ew_state field=ew_observation_queue"],"mode":"invalid","ok":false,"queue_size":0},{"case":"partial_missing_combat_quality","errors":["EW 状态恢复失败： field="],"mode":"absent","ok":false,"queue_size":0}]}
+AUDIO OK files=36 headless=true muted=false

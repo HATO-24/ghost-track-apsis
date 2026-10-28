@@ -1,0 +1,9 @@
+GHOST TRACK // APSIS - V17 headless regression matrix
+repo:   .
+matrix: game_v17/tests/probe_matrix.json v1.0.0 (90 cases total)
+gates:  phase0, phaseA
+filter: gate=(none); baseline=(none); category=all; only=^integration\.jc_identity_pipeline$; import=on; timeout=per-case
+
+CASE                                 CATEGORY     PROFILE    ENTRY    TIMEOUT GATES          TARGET
+
+0 case(s) selected, 0 blocked by matrix precondition.
