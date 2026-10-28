@@ -25,6 +25,11 @@ const SAVE_VERSION := "1.0.0"
 const WEAPON_KINDS := ["kinetic", "guided", "point_defense", "ew", "decoy"]
 const ROE_ORDER := ["DEFEND", "HOLD", "TIGHT", "FREE"]
 const AUTH_LEVELS := ["TRACK", "SOLUTION", "FIRE"]
+# JC-A03：当前测量质量→解算可用性/耗时（冻结 fixture；缺省 1.0 兼容旧行为）
+const QUALITY_MIN := 0.5
+const QUALITY_FULL := 0.9
+const QUALITY_TIME_MULT := 1.5
+const QUALITY_ACC_MULT := 0.85
 const SCOPE_TYPES := ["target", "weapon_group", "ship", "fleet"]
 const IDENTITIES := ["unknown", "assumed_friend", "friend", "neutral", "suspect", "hostile"]
 const MAX_EVENTS := 500
@@ -415,7 +420,10 @@ func update_track(id: String, data := {}) -> Dictionary:
 	var d: Dictionary = data if data is Dictionary else {}
 	var old_identity := String(tr.get("identity", "unknown"))
 	for k in ["batch", "identity", "threat", "range_km", "in_arc", "destroyed", "damage_taken",
-			"ship_id", "entity_id"]:
+			"ship_id", "entity_id",
+			# JC-A03：当前测量质量/误差由火控消费者读取
+			"measurement_quality", "measurement_original", "measurement_t",
+			"measurement_source", "measurement_degraded", "measurement_aggregate"]:
 		if d.has(k):
 			tr[k] = d[k]
 	var new_identity := String(tr.get("identity", "unknown"))
@@ -459,6 +467,10 @@ func request_track(target_id: String, confirmed := false) -> Dictionary:
 		"auto": bool(a.get("auto", false)), "roe": roe}
 
 
+## 当前测量质量（current measurement）；缺省 1.0 保持旧行为。
+func _track_quality(tr: Dictionary) -> float:
+	return clampf(float(tr.get("measurement_quality", 1.0)), 0.0, 1.0)
+
 func request_solution(target_id: String, weapon_id: String, confirmed := false) -> Dictionary:
 	var tr := _get_track(target_id)
 	if tr.is_empty():
@@ -476,6 +488,12 @@ func request_solution(target_id: String, weapon_id: String, confirmed := false) 
 		return {"ok": false, "reason": "inside_min_range"}
 	if bool(tr.get("destroyed", false)):
 		return {"ok": false, "reason": "target_destroyed"}
+	# JC-A03：当前测量质量不足 → 明确拒绝；0.5<=q<0.9 解算耗时 ×1.5
+	var q_consume := _track_quality(tr)
+	if q_consume < QUALITY_MIN - 1.0e-9:
+		return {"ok": false, "reason": "insufficient_quality",
+			"quality": q_consume, "target_id": target_id,
+			"weapon_id": weapon_id}
 	var a := _action_allowed("SOLUTION", tr, weapon_id, confirmed)
 	if not bool(a.get("ok", false)):
 		return {"ok": false, "reason": String(a.get("reason", "")),
@@ -490,18 +508,25 @@ func request_solution(target_id: String, weapon_id: String, confirmed := false) 
 				and String(s.get("status", "")) in ["COMPUTING", "READY"]:
 			return {"ok": true, "reason": "existing", "solution": s.duplicate(true)}
 	_solution_seq += 1
+	var base_s := maxf(0.0, float(w.get("solution_s", 0.0)))
+	var time_mult := QUALITY_TIME_MULT if q_consume < QUALITY_FULL - 1.0e-9 else 1.0
+	var eff_s := base_s * time_mult
 	var so := {
 		"solution_id": "SOL-%06d" % _solution_seq,
 		"target_id": target_id, "weapon_id": weapon_id,
 		"status": "COMPUTING", "start_t": t,
-		"ready_t": t + maxf(0.0, float(w.get("solution_s", 0.0))),
+		"ready_t": t + eff_s,
 		"quality": 0.0, "error_km": -1.0, "reason": "",
 		"fire_ready": false,
+		"measurement_quality": q_consume,
+		"base_solution_s": base_s, "solution_s": eff_s,
+		"quality_time_mult": time_mult,
 	}
 	solutions[so["solution_id"]] = so
 	_push_event("solution_started", {"solution_id": so["solution_id"],
 		"target_id": target_id, "weapon_id": weapon_id})
-	return {"ok": true, "reason": "", "solution": so.duplicate(true)}
+	return {"ok": true, "reason": "", "solution": so.duplicate(true),
+		"base_solution_s": base_s, "measurement_quality": q_consume}
 
 
 func solution_status(solution_id: String) -> Dictionary:

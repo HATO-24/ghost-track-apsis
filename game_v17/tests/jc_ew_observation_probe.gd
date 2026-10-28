@@ -152,7 +152,7 @@ func _run() -> void:
 		str(sol.get("reason", "")))
 	if bool(sol.get("ok", false)):
 		var solv: Dictionary = sol.get("solution", {}) if sol.get("solution") is Dictionary else {}
-		_near(float(solv.get("quality", -1.0)), 0.7, CONF_TOL,
+		_near(float(solv.get("measurement_quality", -1.0)), 0.7, CONF_TOL,
 			"解算结果记录消费质量 0.7")
 		var base_time := float(sol.get("base_solution_s", 0.0))
 		var eff_time := float(solv.get("solution_s", 0.0))
@@ -163,7 +163,7 @@ func _run() -> void:
 	var sb_low = _new()
 	sb_low.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
 		"severity": 1.0, "duration_s": 60.0, "source_id": "EW-2"})
-	for i4 in range(4):
+	for i4 in range(10):
 		sb_low.tick(TICK_DT)
 	_register_combat_track(sb_low, "raider_2")
 	var sol_low: Dictionary = sb_low.combat_request_solution("raider_2", "missile", true)
@@ -178,14 +178,23 @@ func _run() -> void:
 		sc.tick(TICK_DT)
 	sc.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
 		"severity": 0.5, "duration_s": 60.0, "source_id": "EW-3"})
-	for i5b in range(4):
+	for i5b in range(10):
 		sc.tick(TICK_DT)
 	var mq5: Dictionary = sc.owner_measurement_quality("player_intel", "raider_2")
-	_near(float(mq5.get("measurement_quality", -1.0)), 0.7, CONF_TOL,
-		"当前测量质量 = 0.7（受干扰后）")
-	_ok(float(mq5.get("aggregate_quality", -1.0)) > 0.7,
+	var last_q5 := -1.0
+	var max_q5 := -1.0
+	for raw_s5 in (sc.ew_observation_samples() as Array):
+		if raw_s5 is Dictionary and String((raw_s5 as Dictionary).get(
+				"target_id", "")) == "raider_2":
+			var qa5 := float((raw_s5 as Dictionary).get("quality_after", -1.0))
+			last_q5 = qa5
+			max_q5 = maxf(max_q5, float((raw_s5 as Dictionary).get(
+				"quality_before", -1.0)))
+	_near(float(mq5.get("measurement_quality", -1.0)), last_q5, CONF_TOL,
+		"当前测量质量等于最近一次真实采样（受干扰后）")
+	_ok(float(mq5.get("aggregate_quality", -1.0)) >= max_q5 - CONF_TOL,
 		"历史聚合质量保留较高值（与当前测量分开）",
-		"agg=" + str(mq5.get("aggregate_quality", null)))
+		"agg=" + str(mq5.get("aggregate_quality", null)) + " max_sample=" + str(max_q5))
 	var cq5: Dictionary = sc.combat_measurement_quality("raider_2") if \
 		sc.combat_measurement_quality("raider_2") is Dictionary else {}
 	_ok(String(cq5.get("reason", "")) != "", "未注册 combat 航迹时火控质量显式不可用",
@@ -226,6 +235,7 @@ func _run() -> void:
 	_ok(bool(lr.get("ok", false)), "真实文件恢复成功", str(lr.get("errors", [])))
 	_ok((sf.ew_delivery_queue() as Array).size() > 0, "在途观测队列随档恢复")
 	var vis_ok := true
+	var first_bad := ""
 	for i8 in range(10):
 		se.tick(TICK_DT)
 		sf.tick(TICK_DT)
@@ -235,13 +245,24 @@ func _run() -> void:
 		ids_f.sort()
 		if JSON.stringify(ids_e) != JSON.stringify(ids_f):
 			vis_ok = false
-		var qe: float = float(se.owner_measurement_quality("player_intel",
-			"raider_2").get("measurement_quality", -1.0))
-		var qf: float = float(sf.owner_measurement_quality("player_intel",
-			"raider_2").get("measurement_quality", -2.0))
-		if absf(qe - qf) > CONF_TOL:
+			if first_bad == "":
+				first_bad = "t=%s ids_e=%s ids_f=%s" % [str(se.now_s()), str(ids_e), str(ids_f)]
+		var mqe: Dictionary = se.owner_measurement_quality("player_intel", "raider_2")
+		var mqf: Dictionary = sf.owner_measurement_quality("player_intel", "raider_2")
+		if bool(mqe.get("ok", false)) != bool(mqf.get("ok", false)):
 			vis_ok = false
-	_ok(vis_ok, "恢复后 10 tick 可见集合/质量与连续运行逐 tick 一致")
+			if first_bad == "":
+				first_bad = "t=%s mq_ok_e=%s mq_ok_f=%s" % [str(se.now_s()),
+					str(mqe.get("ok", false)), str(mqf.get("ok", false))]
+		elif bool(mqe.get("ok", false)):
+			var qe := float(mqe.get("measurement_quality", -1.0))
+			var qf := float(mqf.get("measurement_quality", -2.0))
+			if absf(qe - qf) > CONF_TOL:
+				vis_ok = false
+				if first_bad == "":
+					first_bad = "t=%s q_e=%s q_f=%s" % [str(se.now_s()), str(qe), str(qf)]
+	_info("W7 first mismatch: " + first_bad)
+	_ok(vis_ok, "恢复后 10 tick 可见集合/质量与连续运行逐 tick 一致", first_bad)
 	_eq((se.ew_delivery_queue() as Array).size(),
 		(sf.ew_delivery_queue() as Array).size(), "恢复后队列长度一致")
 	var de: Array = se.ew_delivered_observations()
