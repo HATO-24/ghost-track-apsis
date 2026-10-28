@@ -2,7 +2,11 @@
 
 执行Issue：[JC-B01A #62](https://github.com/HATO-24/ghost-track-apsis/issues/62)。
 
-状态：IN PROGRESS / 第二轮；原五个窄观察已关闭，R4配置与R5交付继续原#62收尾。D1整卡尚未放行，不启动下一卡。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：RETURNED / 第三轮；原R4冻结时机/版本与R5首次确认入口仍待修，第二轮已关闭窄项保持。D1未放行，继续原#62，不启动下一卡。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-29 第三轮：原R4/R5入口仍阻塞
+
+PR75候选`3ea9e8ceb9f247acd4a24641277c621146730d8f`，[独立复核与真实Binder记录](../../reviews/b01a_r3_20261029/review.md)。根专项7/7、新83/0，但交付auto=true只证明already_deployed；同场景auto=false在Binder.boot后已t0.1，首次DEPLOY立即deployment_locked。原auto冻结早于FleetRefit就绪，PLAN与DEPLOY返回不同revision，当前配置非空而冻结为空。继续原R4/R5；不重派第二轮已关闭子项，不以CI绿或83/0替代入口证明。交接由用户转发。
 
 ## 2026-10-29 第二轮：原五个窄观察关闭，继续R4配置与R5交付
 

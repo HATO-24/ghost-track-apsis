@@ -1,0 +1,1074 @@
+{
+  "delivered_scenario": {
+    "after": {
+      "current_refit_equals_frozen": false,
+      "current_refit_state": {
+        "installed": [],
+        "location": "L4_ANVIL",
+        "planned": [],
+        "platform": "APSIS",
+        "queue": [],
+        "resources": {
+          "credits": 300000,
+          "materials": 1000
+        },
+        "schema": "v17.refit_save.v1",
+        "t_days": 0.0,
+        "version": "1.0.0"
+      },
+      "deployment": {
+        "config_revision": "cfgs-3b55136e",
+        "config_source": "fleet_refit",
+        "deployed": true,
+        "deployment_seed": 424242,
+        "enabled": true,
+        "instance_ids": [
+          "apsis",
+          "deepwell",
+          "ferry",
+          "harmattan",
+          "watchtower"
+        ],
+        "instances": [
+          {
+            "class_id": "OCUVF-APOGEE",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 3.15,
+              "class_id": "OCUVF-APOGEE",
+              "class_mass_t": 9000.0,
+              "class_role": "depot",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "001",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "APSIS",
+              "weapon_loadout": []
+            },
+            "instance_id": "apsis",
+            "resources": {
+              "ammo": 0,
+              "damage_taken": 0.0,
+              "fuel_kg": 3000000.0,
+              "loadout": {}
+            },
+            "ship_id": "APSIS"
+          },
+          {
+            "class_id": "OCUVF-MOONPORT-4",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 10.63,
+              "class_id": "OCUVF-MOONPORT-4",
+              "class_mass_t": 2000.0,
+              "class_role": "tanker",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "401",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "DEEPWELL",
+              "weapon_loadout": []
+            },
+            "instance_id": "deepwell",
+            "resources": {
+              "ammo": 0,
+              "damage_taken": 0.0,
+              "fuel_kg": 4000000.0,
+              "loadout": {}
+            },
+            "ship_id": "DEEPWELL"
+          },
+          {
+            "class_id": "OCUVF-HEMATITE-6C",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 3.15,
+              "class_id": "OCUVF-HEMATITE-6C",
+              "class_mass_t": 1200.0,
+              "class_role": "gun",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "201",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "FERRY",
+              "weapon_loadout": [
+                "railgun",
+                "point_defense"
+              ]
+            },
+            "instance_id": "ferry",
+            "resources": {
+              "ammo": 0,
+              "damage_taken": 0.0,
+              "fuel_kg": 800000.0,
+              "loadout": {}
+            },
+            "ship_id": "FERRY"
+          },
+          {
+            "class_id": "OCUVF-PALLET-5C",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 2.54,
+              "class_id": "OCUVF-PALLET-5C",
+              "class_mass_t": 300.0,
+              "class_role": "picket",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "114",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "HARMATTAN",
+              "weapon_loadout": []
+            },
+            "instance_id": "harmattan",
+            "resources": {
+              "ammo": 0,
+              "damage_taken": 0.0,
+              "fuel_kg": 500000.0,
+              "loadout": {}
+            },
+            "ship_id": "HARMATTAN"
+          },
+          {
+            "class_id": "OCUVF-SAFEHARBOR-1",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 1.97,
+              "class_id": "OCUVF-SAFEHARBOR-1",
+              "class_mass_t": 500.0,
+              "class_role": "relay",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "501",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "WATCHTOWER",
+              "weapon_loadout": []
+            },
+            "instance_id": "watchtower",
+            "resources": {
+              "ammo": 0,
+              "damage_taken": 0.0,
+              "fuel_kg": 600000.0,
+              "loadout": {}
+            },
+            "ship_id": "WATCHTOWER"
+          }
+        ],
+        "limits": {
+          "fuel_capacity_t": 22000.0,
+          "max_crew": 1200.0,
+          "max_mass_t": 35000.0,
+          "max_ships": 13.0,
+          "max_total_dv_kmps": 120.0,
+          "min_total_dv_kmps": 5.0,
+          "repair_dock_capacity": 4.0
+        },
+        "ok": true,
+        "revision": "rev-91bf12e8",
+        "scenario_id": "DEMO-A",
+        "schema": "v17.deployment.v1",
+        "units": {
+          "dv": "km/s",
+          "fuel": "kg",
+          "mass": "kg",
+          "time": "s"
+        }
+      },
+      "errors": [],
+      "frozen_config": {
+        "ammo_state": "not_integrated_b1b",
+        "class_dv_kmps": 3.15,
+        "class_id": "OCUVF-APOGEE",
+        "class_mass_t": 9000.0,
+        "class_role": "depot",
+        "command_state": "not_integrated_b1b",
+        "config_source": "fleet_refit",
+        "hull_code": "001",
+        "refit_service_state": {},
+        "refit_state": {},
+        "ship_id": "APSIS",
+        "weapon_loadout": []
+      },
+      "ready": true,
+      "t": 0.1,
+      "world_ids": [
+        "apsis",
+        "deepwell",
+        "ferry",
+        "harmattan",
+        "watchtower"
+      ]
+    },
+    "before": {
+      "current_refit_equals_frozen": false,
+      "current_refit_state": {
+        "installed": [],
+        "location": "L4_ANVIL",
+        "planned": [],
+        "platform": "APSIS",
+        "queue": [],
+        "resources": {
+          "credits": 300000,
+          "materials": 1000
+        },
+        "schema": "v17.refit_save.v1",
+        "t_days": 0.0,
+        "version": "1.0.0"
+      },
+      "deployment": {
+        "config_revision": "cfgs-f4b44544",
+        "config_source": "fleet_refit",
+        "deployed": true,
+        "deployment_seed": 424242,
+        "enabled": true,
+        "instance_ids": [
+          "apsis",
+          "deepwell",
+          "ferry",
+          "harmattan",
+          "watchtower"
+        ],
+        "instances": [
+          {
+            "class_id": "OCUVF-APOGEE",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 3.15,
+              "class_id": "OCUVF-APOGEE",
+              "class_mass_t": 9000.0,
+              "class_role": "depot",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "001",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "APSIS",
+              "weapon_loadout": []
+            },
+            "instance_id": "apsis",
+            "resources": {
+              "ammo": 0,
+              "damage_taken": 0.0,
+              "fuel_kg": 3000000.0,
+              "loadout": {}
+            },
+            "ship_id": "APSIS"
+          },
+          {
+            "class_id": "OCUVF-MOONPORT-4",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 10.63,
+              "class_id": "OCUVF-MOONPORT-4",
+              "class_mass_t": 2000.0,
+              "class_role": "tanker",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "401",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "DEEPWELL",
+              "weapon_loadout": []
+            },
+            "instance_id": "deepwell",
+            "resources": {
+              "ammo": 0,
+              "damage_taken": 0.0,
+              "fuel_kg": 4000000.0,
+              "loadout": {}
+            },
+            "ship_id": "DEEPWELL"
+          },
+          {
+            "class_id": "OCUVF-HEMATITE-6C",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 3.15,
+              "class_id": "OCUVF-HEMATITE-6C",
+              "class_mass_t": 1200.0,
+              "class_role": "gun",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "201",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "FERRY",
+              "weapon_loadout": [
+                "railgun",
+                "point_defense"
+              ]
+            },
+            "instance_id": "ferry",
+            "resources": {
+              "ammo": 0,
+              "damage_taken": 0.0,
+              "fuel_kg": 800000.0,
+              "loadout": {}
+            },
+            "ship_id": "FERRY"
+          },
+          {
+            "class_id": "OCUVF-PALLET-5C",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 2.54,
+              "class_id": "OCUVF-PALLET-5C",
+              "class_mass_t": 300.0,
+              "class_role": "picket",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "114",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "HARMATTAN",
+              "weapon_loadout": []
+            },
+            "instance_id": "harmattan",
+            "resources": {
+              "ammo": 0,
+              "damage_taken": 0.0,
+              "fuel_kg": 500000.0,
+              "loadout": {}
+            },
+            "ship_id": "HARMATTAN"
+          },
+          {
+            "class_id": "OCUVF-SAFEHARBOR-1",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 1.97,
+              "class_id": "OCUVF-SAFEHARBOR-1",
+              "class_mass_t": 500.0,
+              "class_role": "relay",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "501",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "WATCHTOWER",
+              "weapon_loadout": []
+            },
+            "instance_id": "watchtower",
+            "resources": {
+              "ammo": 0,
+              "damage_taken": 0.0,
+              "fuel_kg": 600000.0,
+              "loadout": {}
+            },
+            "ship_id": "WATCHTOWER"
+          }
+        ],
+        "limits": {
+          "fuel_capacity_t": 22000.0,
+          "max_crew": 1200.0,
+          "max_mass_t": 35000.0,
+          "max_ships": 13.0,
+          "max_total_dv_kmps": 120.0,
+          "min_total_dv_kmps": 5.0,
+          "repair_dock_capacity": 4.0
+        },
+        "ok": true,
+        "revision": "rev-91bf12e8",
+        "scenario_id": "DEMO-A",
+        "schema": "v17.deployment.v1",
+        "units": {
+          "dv": "km/s",
+          "fuel": "kg",
+          "mass": "kg",
+          "time": "s"
+        }
+      },
+      "errors": [],
+      "frozen_config": {
+        "ammo_state": "not_integrated_b1b",
+        "class_dv_kmps": 3.15,
+        "class_id": "OCUVF-APOGEE",
+        "class_mass_t": 9000.0,
+        "class_role": "depot",
+        "command_state": "not_integrated_b1b",
+        "config_source": "fleet_refit",
+        "hull_code": "001",
+        "refit_service_state": {},
+        "refit_state": {},
+        "ship_id": "APSIS",
+        "weapon_loadout": []
+      },
+      "ready": true,
+      "t": 0.1,
+      "world_ids": [
+        "apsis",
+        "deepwell",
+        "ferry",
+        "harmattan",
+        "watchtower"
+      ]
+    },
+    "boot_ok": true,
+    "deploy": {
+      "already": true,
+      "deployment": {
+        "deployed_t": 0.0,
+        "deployment_seed": 424242,
+        "entities": [
+          {
+            "class_id": "OCUVF-APOGEE",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 3.15,
+              "class_id": "OCUVF-APOGEE",
+              "class_mass_t": 9000.0,
+              "class_role": "depot",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "001",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "APSIS",
+              "weapon_loadout": []
+            },
+            "controller_id": "player_ctrl",
+            "domain_id": "player",
+            "dv_kmps": 3.15,
+            "fleet_id": "own_fleet",
+            "fuel_kg": 3000000.0,
+            "fuel_t": 3000.0,
+            "hull_code": "001",
+            "id": "apsis",
+            "kind": "ship",
+            "mass_kg": 9000000.0,
+            "mass_t": 9000.0,
+            "name": "APSIS",
+            "owner_id": "player_intel",
+            "pos_km": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "ship_id": "APSIS",
+            "slot": "command",
+            "vel_kmps": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "class_id": "OCUVF-MOONPORT-4",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 10.63,
+              "class_id": "OCUVF-MOONPORT-4",
+              "class_mass_t": 2000.0,
+              "class_role": "tanker",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "401",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "DEEPWELL",
+              "weapon_loadout": []
+            },
+            "controller_id": "player_ctrl",
+            "domain_id": "player",
+            "dv_kmps": 10.63,
+            "fleet_id": "own_fleet",
+            "fuel_kg": 4000000.0,
+            "fuel_t": 4000.0,
+            "hull_code": "401",
+            "id": "deepwell",
+            "kind": "ship",
+            "mass_kg": 2000000.0,
+            "mass_t": 2000.0,
+            "name": "DEEPWELL",
+            "owner_id": "player_intel",
+            "pos_km": [
+              30.0,
+              0.0,
+              0.0
+            ],
+            "ship_id": "DEEPWELL",
+            "slot": "logistics",
+            "vel_kmps": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "class_id": "OCUVF-HEMATITE-6C",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 3.15,
+              "class_id": "OCUVF-HEMATITE-6C",
+              "class_mass_t": 1200.0,
+              "class_role": "gun",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "201",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "FERRY",
+              "weapon_loadout": [
+                "railgun",
+                "point_defense"
+              ]
+            },
+            "controller_id": "player_ctrl",
+            "domain_id": "player",
+            "dv_kmps": 3.15,
+            "fleet_id": "own_fleet",
+            "fuel_kg": 800000.0,
+            "fuel_t": 800.0,
+            "hull_code": "201",
+            "id": "ferry",
+            "kind": "ship",
+            "mass_kg": 1200000.0,
+            "mass_t": 1200.0,
+            "name": "FERRY",
+            "owner_id": "player_intel",
+            "pos_km": [
+              20.0,
+              0.0,
+              0.0
+            ],
+            "ship_id": "FERRY",
+            "slot": "gun",
+            "vel_kmps": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "class_id": "OCUVF-PALLET-5C",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 2.54,
+              "class_id": "OCUVF-PALLET-5C",
+              "class_mass_t": 300.0,
+              "class_role": "picket",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "114",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "HARMATTAN",
+              "weapon_loadout": []
+            },
+            "controller_id": "player_ctrl",
+            "domain_id": "player",
+            "dv_kmps": 2.54,
+            "fleet_id": "own_fleet",
+            "fuel_kg": 500000.0,
+            "fuel_t": 500.0,
+            "hull_code": "114",
+            "id": "harmattan",
+            "kind": "ship",
+            "mass_kg": 300000.0,
+            "mass_t": 300.0,
+            "name": "HARMATTAN",
+            "owner_id": "player_intel",
+            "pos_km": [
+              10.0,
+              0.0,
+              0.0
+            ],
+            "ship_id": "HARMATTAN",
+            "slot": "screen",
+            "vel_kmps": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "class_id": "OCUVF-SAFEHARBOR-1",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 1.97,
+              "class_id": "OCUVF-SAFEHARBOR-1",
+              "class_mass_t": 500.0,
+              "class_role": "relay",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "501",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "WATCHTOWER",
+              "weapon_loadout": []
+            },
+            "controller_id": "player_ctrl",
+            "domain_id": "player",
+            "dv_kmps": 1.97,
+            "fleet_id": "own_fleet",
+            "fuel_kg": 600000.0,
+            "fuel_t": 600.0,
+            "hull_code": "501",
+            "id": "watchtower",
+            "kind": "ship",
+            "mass_kg": 500000.0,
+            "mass_t": 500.0,
+            "name": "WATCHTOWER",
+            "owner_id": "player_intel",
+            "pos_km": [
+              40.0,
+              0.0,
+              0.0
+            ],
+            "ship_id": "WATCHTOWER",
+            "slot": "relay",
+            "vel_kmps": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "instance_ids": [
+          "apsis",
+          "deepwell",
+          "ferry",
+          "harmattan",
+          "watchtower"
+        ],
+        "instances": [
+          {
+            "class_id": "OCUVF-APOGEE",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 3.15,
+              "class_id": "OCUVF-APOGEE",
+              "class_mass_t": 9000.0,
+              "class_role": "depot",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "001",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "APSIS",
+              "weapon_loadout": []
+            },
+            "controller_id": "player_ctrl",
+            "domain_id": "player",
+            "fleet_id": "own_fleet",
+            "fuel_kg": 3000000.0,
+            "fuel_t": 3000.0,
+            "instance_id": "apsis",
+            "mass_kg": 9000000.0,
+            "mass_t": 9000.0,
+            "owner_id": "player_intel",
+            "pos_km": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "ship_id": "APSIS",
+            "slot": "command",
+            "vel_kmps": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "class_id": "OCUVF-MOONPORT-4",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 10.63,
+              "class_id": "OCUVF-MOONPORT-4",
+              "class_mass_t": 2000.0,
+              "class_role": "tanker",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "401",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "DEEPWELL",
+              "weapon_loadout": []
+            },
+            "controller_id": "player_ctrl",
+            "domain_id": "player",
+            "fleet_id": "own_fleet",
+            "fuel_kg": 4000000.0,
+            "fuel_t": 4000.0,
+            "instance_id": "deepwell",
+            "mass_kg": 2000000.0,
+            "mass_t": 2000.0,
+            "owner_id": "player_intel",
+            "pos_km": [
+              30.0,
+              0.0,
+              0.0
+            ],
+            "ship_id": "DEEPWELL",
+            "slot": "logistics",
+            "vel_kmps": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "class_id": "OCUVF-HEMATITE-6C",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 3.15,
+              "class_id": "OCUVF-HEMATITE-6C",
+              "class_mass_t": 1200.0,
+              "class_role": "gun",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "201",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "FERRY",
+              "weapon_loadout": [
+                "railgun",
+                "point_defense"
+              ]
+            },
+            "controller_id": "player_ctrl",
+            "domain_id": "player",
+            "fleet_id": "own_fleet",
+            "fuel_kg": 800000.0,
+            "fuel_t": 800.0,
+            "instance_id": "ferry",
+            "mass_kg": 1200000.0,
+            "mass_t": 1200.0,
+            "owner_id": "player_intel",
+            "pos_km": [
+              20.0,
+              0.0,
+              0.0
+            ],
+            "ship_id": "FERRY",
+            "slot": "gun",
+            "vel_kmps": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "class_id": "OCUVF-PALLET-5C",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 2.54,
+              "class_id": "OCUVF-PALLET-5C",
+              "class_mass_t": 300.0,
+              "class_role": "picket",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "114",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "HARMATTAN",
+              "weapon_loadout": []
+            },
+            "controller_id": "player_ctrl",
+            "domain_id": "player",
+            "fleet_id": "own_fleet",
+            "fuel_kg": 500000.0,
+            "fuel_t": 500.0,
+            "instance_id": "harmattan",
+            "mass_kg": 300000.0,
+            "mass_t": 300.0,
+            "owner_id": "player_intel",
+            "pos_km": [
+              10.0,
+              0.0,
+              0.0
+            ],
+            "ship_id": "HARMATTAN",
+            "slot": "screen",
+            "vel_kmps": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "class_id": "OCUVF-SAFEHARBOR-1",
+            "config_snapshot": {
+              "ammo_state": "not_integrated_b1b",
+              "class_dv_kmps": 1.97,
+              "class_id": "OCUVF-SAFEHARBOR-1",
+              "class_mass_t": 500.0,
+              "class_role": "relay",
+              "command_state": "not_integrated_b1b",
+              "config_source": "fleet_refit",
+              "hull_code": "501",
+              "refit_service_state": {},
+              "refit_state": {},
+              "ship_id": "WATCHTOWER",
+              "weapon_loadout": []
+            },
+            "controller_id": "player_ctrl",
+            "domain_id": "player",
+            "fleet_id": "own_fleet",
+            "fuel_kg": 600000.0,
+            "fuel_t": 600.0,
+            "instance_id": "watchtower",
+            "mass_kg": 500000.0,
+            "mass_t": 500.0,
+            "owner_id": "player_intel",
+            "pos_km": [
+              40.0,
+              0.0,
+              0.0
+            ],
+            "ship_id": "WATCHTOWER",
+            "slot": "relay",
+            "vel_kmps": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "revision": "rev-91bf12e8",
+        "scenario_id": "DEMO-A",
+        "schema": "v17.deployment.v1",
+        "total_mass_t": 13000.0
+      },
+      "ok": true,
+      "reason": "already_deployed",
+      "revision": "rev-91bf12e8"
+    },
+    "plan_ok": true,
+    "plan_revision": "rev-425754d2"
+  },
+  "head": "3ea9e8ceb9f247acd4a24641277c621146730d8f",
+  "predeploy_after_one_hud_tick": {
+    "after": {
+      "current_refit_equals_frozen": false,
+      "current_refit_state": {
+        "installed": [],
+        "location": "L4_ANVIL",
+        "planned": [],
+        "platform": "APSIS",
+        "queue": [],
+        "resources": {
+          "credits": 300000,
+          "materials": 1000
+        },
+        "schema": "v17.refit_save.v1",
+        "t_days": 0.0,
+        "version": "1.0.0"
+      },
+      "deployment": {
+        "config_revision": "cfgs-3b55136e",
+        "config_source": "fleet_refit",
+        "deployed": false,
+        "deployment_seed": 424242,
+        "enabled": true,
+        "instance_ids": [],
+        "instances": [],
+        "limits": {
+          "fuel_capacity_t": 22000.0,
+          "max_crew": 1200.0,
+          "max_mass_t": 35000.0,
+          "max_ships": 13.0,
+          "max_total_dv_kmps": 120.0,
+          "min_total_dv_kmps": 5.0,
+          "repair_dock_capacity": 4.0
+        },
+        "ok": true,
+        "revision": "",
+        "scenario_id": "DEMO-A",
+        "schema": "v17.deployment.v1",
+        "units": {
+          "dv": "km/s",
+          "fuel": "kg",
+          "mass": "kg",
+          "time": "s"
+        }
+      },
+      "errors": [],
+      "frozen_config": {},
+      "ready": true,
+      "t": 0.2,
+      "world_ids": [
+        "legacy_ship"
+      ]
+    },
+    "before": {
+      "current_refit_equals_frozen": false,
+      "current_refit_state": {
+        "installed": [],
+        "location": "L4_ANVIL",
+        "planned": [],
+        "platform": "APSIS",
+        "queue": [],
+        "resources": {
+          "credits": 300000,
+          "materials": 1000
+        },
+        "schema": "v17.refit_save.v1",
+        "t_days": 0.0,
+        "version": "1.0.0"
+      },
+      "deployment": {
+        "config_revision": "cfgs-f4b44544",
+        "config_source": "fleet_refit",
+        "deployed": false,
+        "deployment_seed": 424242,
+        "enabled": true,
+        "instance_ids": [],
+        "instances": [],
+        "limits": {
+          "fuel_capacity_t": 22000.0,
+          "max_crew": 1200.0,
+          "max_mass_t": 35000.0,
+          "max_ships": 13.0,
+          "max_total_dv_kmps": 120.0,
+          "min_total_dv_kmps": 5.0,
+          "repair_dock_capacity": 4.0
+        },
+        "ok": true,
+        "revision": "",
+        "scenario_id": "DEMO-A",
+        "schema": "v17.deployment.v1",
+        "units": {
+          "dv": "km/s",
+          "fuel": "kg",
+          "mass": "kg",
+          "time": "s"
+        }
+      },
+      "errors": [],
+      "frozen_config": {},
+      "ready": true,
+      "t": 0.1,
+      "world_ids": [
+        "legacy_ship"
+      ]
+    },
+    "boot_ok": true,
+    "deploy": {
+      "ok": false,
+      "reason": "deployment_locked"
+    },
+    "plan_ok": true,
+    "plan_revision": "rev-425754d2"
+  },
+  "predeploy_immediate_control": {
+    "after": {
+      "current_refit_equals_frozen": false,
+      "current_refit_state": {
+        "installed": [],
+        "location": "L4_ANVIL",
+        "planned": [],
+        "platform": "APSIS",
+        "queue": [],
+        "resources": {
+          "credits": 300000,
+          "materials": 1000
+        },
+        "schema": "v17.refit_save.v1",
+        "t_days": 0.0,
+        "version": "1.0.0"
+      },
+      "deployment": {
+        "config_revision": "cfgs-3b55136e",
+        "config_source": "fleet_refit",
+        "deployed": false,
+        "deployment_seed": 424242,
+        "enabled": true,
+        "instance_ids": [],
+        "instances": [],
+        "limits": {
+          "fuel_capacity_t": 22000.0,
+          "max_crew": 1200.0,
+          "max_mass_t": 35000.0,
+          "max_ships": 13.0,
+          "max_total_dv_kmps": 120.0,
+          "min_total_dv_kmps": 5.0,
+          "repair_dock_capacity": 4.0
+        },
+        "ok": true,
+        "revision": "",
+        "scenario_id": "DEMO-A",
+        "schema": "v17.deployment.v1",
+        "units": {
+          "dv": "km/s",
+          "fuel": "kg",
+          "mass": "kg",
+          "time": "s"
+        }
+      },
+      "errors": [],
+      "frozen_config": {},
+      "ready": true,
+      "t": 0.1,
+      "world_ids": [
+        "legacy_ship"
+      ]
+    },
+    "before": {
+      "current_refit_equals_frozen": false,
+      "current_refit_state": {
+        "installed": [],
+        "location": "L4_ANVIL",
+        "planned": [],
+        "platform": "APSIS",
+        "queue": [],
+        "resources": {
+          "credits": 300000,
+          "materials": 1000
+        },
+        "schema": "v17.refit_save.v1",
+        "t_days": 0.0,
+        "version": "1.0.0"
+      },
+      "deployment": {
+        "config_revision": "cfgs-f4b44544",
+        "config_source": "fleet_refit",
+        "deployed": false,
+        "deployment_seed": 424242,
+        "enabled": true,
+        "instance_ids": [],
+        "instances": [],
+        "limits": {
+          "fuel_capacity_t": 22000.0,
+          "max_crew": 1200.0,
+          "max_mass_t": 35000.0,
+          "max_ships": 13.0,
+          "max_total_dv_kmps": 120.0,
+          "min_total_dv_kmps": 5.0,
+          "repair_dock_capacity": 4.0
+        },
+        "ok": true,
+        "revision": "",
+        "scenario_id": "DEMO-A",
+        "schema": "v17.deployment.v1",
+        "units": {
+          "dv": "km/s",
+          "fuel": "kg",
+          "mass": "kg",
+          "time": "s"
+        }
+      },
+      "errors": [],
+      "frozen_config": {},
+      "ready": true,
+      "t": 0.1,
+      "world_ids": [
+        "legacy_ship"
+      ]
+    },
+    "boot_ok": true,
+    "deploy": {
+      "ok": false,
+      "reason": "deployment_locked"
+    },
+    "plan_ok": true,
+    "plan_revision": "rev-425754d2"
+  },
+  "scope": "Original R4 actual config and R5 first deployment via real Binder; no UI input or rendering by reviewer"
+}
