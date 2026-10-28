@@ -2,7 +2,22 @@
 
 执行Issue：[JC-A04 #61](https://github.com/HATO-24/ghost-track-apsis/issues/61)。
 
-状态：READY，A1/A3前置已满足；下一张核心实现卡，交付A4。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：RETURNED，PR72首轮继续原#61四组收尾；A3已完成，A4未冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-29 PR72首轮：保留真实链路，只补发送边界与恢复
+
+被审`1de99a85c4f69dca706509648450487197523ab5`，base/main`4e4f90f9eb4964503a61dd915cb1c445294b10a5`。[独立关闭表与原始证据](../../reviews/pr72_a04_20261029/review.md)。根8/8专项PASS、新probe79/0；同head合成merge CI full91=84PASS/7历史FAIL、new_fail0、drift0、complete=true。仍有真实API/文件反例，PR72暂缓合并、A4不冻结。
+
+**已关闭、不返工**：三入口共用Comms与唯一推进；纯jam=.5额外20s/.4及发送后effect消失不改冻结结果；真实失败回调；失败订单精确due后拒绝执行；合法新鲜共享精确due融合0→1且后续只一次；现有v1兼容、原no_route失败重放、null/未知版本的服务级拒绝正例。
+
+仅继续原卡四组：
+
+1. **R1 sender权限上下文**：已登记ally/player、enemy/player、own/opfor错配都accepted并实际送达，enemy发出的player上下文订单进QUEUED。校验真实sender与actor/controller/fleet/owner，不仅拒绝未知ghost；保留own/player、ally/ally与旧seed正例。不声称已自动执行或授开火权，不扩B2策略。
+2. **R2 迁移开关边界**：普通send opts.ignore_ew=true可将active jam的22s/.4失败消息变2s/0成功。限于已验证v1内部迁移/重放，普通请求不能绕过；保留旧outcome兼容。
+3. **R3 RNG实际恢复**：Comms.load_state计算新seed/seq未提交；queue_intel_share无send日志的真实文件保存seq1、load后seq0，下一draw .3099697774/.9283047560不一致；配置comms_ew_seed也被normalize丢弃。修实际状态提交/初始化与配置保留，覆盖不同入口，不靠send日志重放巧合通过。
+4. **R4 v2严格校验及正式正例**：删真实pending.ew仍ok/full，把冻结失败改DELIVERED；state version2.5也接受。区分真正v1与损坏v2，拒绝不改该状态。保留null/version99拒绝；正式success share改合法owner授权与fresh row，明确obs0→1/后续不增，不能只INFO 0→0。实际生产成功融合已关闭，只补验收。
+
+最终同40位修复HEAD专项+原C，原79绿项/注册ID保留，七历史baseline不刷新。交付报告须区分effect层spoof查询与未接真实消息，不虚称migrated_v1模式。下面A3开工交接与原八段合同保持，不新增AI/UI/RF/禁射范围。代码及返修DeepSeek，任务/UI设计文档GPT/Sol。
 
 ## 2026-10-28 A3放行后的开工交接
 

@@ -1,0 +1,491 @@
+{
+	"failed_order": {
+		"comms_pending_after": 0,
+		"complete_attempt_after_failure": {
+			"events": [],
+			"ok": false,
+			"reason": "not_executing",
+			"status": "REJECTED"
+		},
+		"delivery_id": "C-000001",
+		"done_event_observed": false,
+		"ew_sample": {
+			"draw": 0.1,
+			"failure_chance": 0.4,
+			"ignored": false,
+			"jam_severity": 0.5,
+			"latency_add_s": 20.0,
+			"sampled_t": 0.0,
+			"target_id": "ally_ship",
+			"will_fail": true
+		},
+		"execute_attempt_after_failure": {
+			"events": [],
+			"ok": false,
+			"reason": "not_authorized",
+			"status": "REJECTED"
+		},
+		"execute_attempt_t21": {
+			"events": [],
+			"ok": false,
+			"reason": "not_authorized",
+			"status": "TRANSMITTING"
+		},
+		"issue": {
+			"delivery_id": "C-000001",
+			"events": [
+				{
+					"id": "evt-000008",
+					"payload": {
+						"action": "hold",
+						"delivery_id": "",
+						"event": "DRAFTED",
+						"issuer_id": "own_ship",
+						"order_id": "O-000001",
+						"reason": "",
+						"status": "DRAFT"
+					},
+					"schema": "v17.event.v1",
+					"seq": 8,
+					"source": "order_service",
+					"t": 0.0,
+					"target": "ally_ship",
+					"text_key": "ORDER_DRAFTED",
+					"type": "order.drafted"
+				},
+				{
+					"id": "evt-000009",
+					"payload": {
+						"action": "hold",
+						"delivery_id": "C-000001",
+						"event": "ISSUED",
+						"issuer_id": "own_ship",
+						"order_id": "O-000001",
+						"reason": "",
+						"status": "ISSUED"
+					},
+					"schema": "v17.event.v1",
+					"seq": 9,
+					"source": "order_service",
+					"t": 0.0,
+					"target": "ally_ship",
+					"text_key": "ORDER_ISSUED",
+					"type": "order.issued"
+				},
+				{
+					"id": "evt-000010",
+					"payload": {
+						"action": "hold",
+						"delivery_id": "C-000001",
+						"event": "DELAYED",
+						"issuer_id": "own_ship",
+						"order_id": "O-000001",
+						"reason": "",
+						"status": "ISSUED"
+					},
+					"schema": "v17.event.v1",
+					"seq": 10,
+					"source": "order_service",
+					"t": 0.0,
+					"target": "ally_ship",
+					"text_key": "ORDER_DELAYED",
+					"type": "order.delayed"
+				}
+			],
+			"ok": true,
+			"order": {
+				"action": "hold",
+				"auth_required": true,
+				"authorized_by": "",
+				"deliver_t": 22.0,
+				"delivered_t": -1.0,
+				"delivery_delay_s": 1.0,
+				"delivery_id": "C-000001",
+				"dispatched_t": 0.0,
+				"ended_t": -1.0,
+				"exec_delay_s": 0.0,
+				"exec_t": -1.0,
+				"executed_t": -1.0,
+				"expire_in_s": 0.0,
+				"expire_t": -1.0,
+				"history": [
+					{
+						"from": "DRAFT",
+						"reason": "",
+						"t": 0.0,
+						"to": "DRAFT"
+					},
+					{
+						"from": "DRAFT",
+						"reason": "",
+						"t": 0.0,
+						"to": "ISSUED"
+					}
+				],
+				"issued_t": 0.0,
+				"issuer_id": "own_ship",
+				"mode": "LD",
+				"order_id": "O-000001",
+				"params": {},
+				"reason": "",
+				"relay_count": 0,
+				"result": {},
+				"schema": "order_record.v1",
+				"status": "ISSUED",
+				"target_ids": [
+					"ally_ship"
+				],
+				"text_key": ""
+			},
+			"order_id": "O-000001",
+			"reason": ""
+		},
+		"jam": {
+			"effect": {
+				"active": true,
+				"age_s": 0.0,
+				"authoritative": false,
+				"band": "",
+				"category": "comms",
+				"decay_per_s": 0.0,
+				"duration_s": 120.0,
+				"effect": "comms_jam",
+				"id": "EW-00001",
+				"initial_severity": 0.5,
+				"params": {},
+				"remaining_severity": 0.5,
+				"requires_confirmation": false,
+				"schema": "ew_effect.v1",
+				"severity": 0.5,
+				"source_id": "DIAG-A04-ORDER",
+				"t_end": 120.0,
+				"t_start": 0.0,
+				"target_id": "ally_ship",
+				"target_kinds": [
+					"comms"
+				],
+				"visible_to": [
+					"own",
+					"enemy_elint"
+				],
+				"writes_v15": false
+			},
+			"ok": true,
+			"reason": "",
+			"writes": {
+				"track_table": false,
+				"v15": false,
+				"world": false
+			}
+		},
+		"order_after_three_more_ticks": {
+			"action": "hold",
+			"auth_required": true,
+			"authorized_by": "",
+			"deliver_t": 22.0,
+			"delivered_t": -1.0,
+			"delivery_delay_s": 1.0,
+			"delivery_id": "C-000001",
+			"dispatched_t": 0.0,
+			"ended_t": -1.0,
+			"exec_delay_s": 0.0,
+			"exec_t": -1.0,
+			"executed_t": -1.0,
+			"expire_in_s": 0.0,
+			"expire_t": -1.0,
+			"history": [
+				{
+					"from": "DRAFT",
+					"reason": "",
+					"t": 0.0,
+					"to": "DRAFT"
+				},
+				{
+					"from": "DRAFT",
+					"reason": "",
+					"t": 0.0,
+					"to": "ISSUED"
+				},
+				{
+					"from": "ISSUED",
+					"reason": "",
+					"t": 1.0,
+					"to": "TRANSMITTING"
+				},
+				{
+					"from": "TRANSMITTING",
+					"reason": "comms_comms_jam",
+					"t": 22.0,
+					"to": "REJECTED"
+				}
+			],
+			"issued_t": 0.0,
+			"issuer_id": "own_ship",
+			"mode": "LD",
+			"order_id": "O-000001",
+			"params": {},
+			"reason": "comms_comms_jam",
+			"relay_count": 0,
+			"result": {},
+			"schema": "order_record.v1",
+			"status": "REJECTED",
+			"target_ids": [
+				"ally_ship"
+			],
+			"text_key": ""
+		},
+		"order_at_send": {
+			"action": "hold",
+			"auth_required": true,
+			"authorized_by": "",
+			"deliver_t": 22.0,
+			"delivered_t": -1.0,
+			"delivery_delay_s": 1.0,
+			"delivery_id": "C-000001",
+			"dispatched_t": 0.0,
+			"ended_t": -1.0,
+			"exec_delay_s": 0.0,
+			"exec_t": -1.0,
+			"executed_t": -1.0,
+			"expire_in_s": 0.0,
+			"expire_t": -1.0,
+			"history": [
+				{
+					"from": "DRAFT",
+					"reason": "",
+					"t": 0.0,
+					"to": "DRAFT"
+				},
+				{
+					"from": "DRAFT",
+					"reason": "",
+					"t": 0.0,
+					"to": "ISSUED"
+				}
+			],
+			"issued_t": 0.0,
+			"issuer_id": "own_ship",
+			"mode": "LD",
+			"order_id": "O-000001",
+			"params": {},
+			"reason": "",
+			"relay_count": 0,
+			"result": {},
+			"schema": "order_record.v1",
+			"status": "ISSUED",
+			"target_ids": [
+				"ally_ship"
+			],
+			"text_key": ""
+		},
+		"order_at_t21": {
+			"action": "hold",
+			"auth_required": true,
+			"authorized_by": "",
+			"deliver_t": 22.0,
+			"delivered_t": -1.0,
+			"delivery_delay_s": 1.0,
+			"delivery_id": "C-000001",
+			"dispatched_t": 0.0,
+			"ended_t": -1.0,
+			"exec_delay_s": 0.0,
+			"exec_t": -1.0,
+			"executed_t": -1.0,
+			"expire_in_s": 0.0,
+			"expire_t": -1.0,
+			"history": [
+				{
+					"from": "DRAFT",
+					"reason": "",
+					"t": 0.0,
+					"to": "DRAFT"
+				},
+				{
+					"from": "DRAFT",
+					"reason": "",
+					"t": 0.0,
+					"to": "ISSUED"
+				},
+				{
+					"from": "ISSUED",
+					"reason": "",
+					"t": 1.0,
+					"to": "TRANSMITTING"
+				}
+			],
+			"issued_t": 0.0,
+			"issuer_id": "own_ship",
+			"mode": "LD",
+			"order_id": "O-000001",
+			"params": {},
+			"reason": "",
+			"relay_count": 0,
+			"result": {},
+			"schema": "order_record.v1",
+			"status": "TRANSMITTING",
+			"target_ids": [
+				"ally_ship"
+			],
+			"text_key": ""
+		},
+		"order_at_t22": {
+			"action": "hold",
+			"auth_required": true,
+			"authorized_by": "",
+			"deliver_t": 22.0,
+			"delivered_t": -1.0,
+			"delivery_delay_s": 1.0,
+			"delivery_id": "C-000001",
+			"dispatched_t": 0.0,
+			"ended_t": -1.0,
+			"exec_delay_s": 0.0,
+			"exec_t": -1.0,
+			"executed_t": -1.0,
+			"expire_in_s": 0.0,
+			"expire_t": -1.0,
+			"history": [
+				{
+					"from": "DRAFT",
+					"reason": "",
+					"t": 0.0,
+					"to": "DRAFT"
+				},
+				{
+					"from": "DRAFT",
+					"reason": "",
+					"t": 0.0,
+					"to": "ISSUED"
+				},
+				{
+					"from": "ISSUED",
+					"reason": "",
+					"t": 1.0,
+					"to": "TRANSMITTING"
+				},
+				{
+					"from": "TRANSMITTING",
+					"reason": "comms_comms_jam",
+					"t": 22.0,
+					"to": "REJECTED"
+				}
+			],
+			"issued_t": 0.0,
+			"issuer_id": "own_ship",
+			"mode": "LD",
+			"order_id": "O-000001",
+			"params": {},
+			"reason": "comms_comms_jam",
+			"relay_count": 0,
+			"result": {},
+			"schema": "order_record.v1",
+			"status": "REJECTED",
+			"target_ids": [
+				"ally_ship"
+			],
+			"text_key": ""
+		},
+		"order_id": "O-000001"
+	},
+	"head": "1de99a85c4f69dca706509648450487197523ab5",
+	"purpose": "Bounded actual Session callback diagnostic: failed order exact due/execution rejection and fresh authorized share exact due/single fusion.",
+	"successful_share": {
+		"arrive_t": 22.0,
+		"comms_pending_after_repeat_ticks": 0,
+		"delivered_event_count_through_due_and_repeat_ticks": 1,
+		"ew_sample": {
+			"draw": 0.9,
+			"failure_chance": 0.4,
+			"ignored": false,
+			"jam_severity": 0.5,
+			"latency_add_s": 20.0,
+			"sampled_t": 0.0,
+			"target_id": "ally_ship",
+			"will_fail": false
+		},
+		"jam": {
+			"effect": {
+				"active": true,
+				"age_s": 0.0,
+				"authoritative": false,
+				"band": "",
+				"category": "comms",
+				"decay_per_s": 0.0,
+				"duration_s": 120.0,
+				"effect": "comms_jam",
+				"id": "EW-00001",
+				"initial_severity": 0.5,
+				"params": {},
+				"remaining_severity": 0.5,
+				"requires_confirmation": false,
+				"schema": "ew_effect.v1",
+				"severity": 0.5,
+				"source_id": "DIAG-A04-SHARE",
+				"t_end": 120.0,
+				"t_start": 0.0,
+				"target_id": "ally_ship",
+				"target_kinds": [
+					"comms"
+				],
+				"visible_to": [
+					"own",
+					"enemy_elint"
+				],
+				"writes_v15": false
+			},
+			"ok": true,
+			"reason": "",
+			"writes": {
+				"track_table": false,
+				"v15": false,
+				"world": false
+			}
+		},
+		"last_share_result": {
+			"delivery": {
+				"delay_s": 22.0,
+				"delivery_id": "C-000001",
+				"link_latency_s": 22.0,
+				"now_t": 22.0,
+				"path": "own_ship->ally_ship",
+				"received_t": 22.0,
+				"share_authorized_by": "player_intel"
+			},
+			"delivery_id": "C-000001",
+			"result": {
+				"observation_id": "",
+				"ok": true,
+				"owner_id": "ally_intel",
+				"track_id": "enemy_ship"
+			}
+		},
+		"obs_after_due": 1,
+		"obs_after_three_repeat_ticks": 1,
+		"obs_before": 0,
+		"obs_before_due": 0,
+		"owner_rows_after_due": [
+			{
+				"bearing_deg": 15.0,
+				"delivery_id": "C-000001",
+				"intel_owner_id": "ally_intel",
+				"observed_t": 0.0,
+				"observer_id": "own_ship",
+				"path": "own_ship->ally_ship",
+				"quality": 0.8,
+				"range_km": 400.0,
+				"received_t": 22.0,
+				"sensor": "radar",
+				"share_authorized_by": "player_intel",
+				"source": "DIAG-A04",
+				"target_id": "enemy_ship"
+			}
+		],
+		"pending_after_repeat_ticks": 0,
+		"pending_before_due": 1,
+		"send": {
+			"delivery_id": "C-000001",
+			"ok": true,
+			"pending": 1
+		},
+		"t_at_due": 22.0
+	}
+}

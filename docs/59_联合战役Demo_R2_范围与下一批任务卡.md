@@ -4,6 +4,12 @@
 
 延续[40号审计与原路线图](40_系统完成度复核与开发任务队列.md)的权威/测试契约；以下以56 R2更新产品范围，并用当前提交和本轮复核替换40号文档的历史状态判断。
 
+## 2026-10-29 JC-A04首轮：RETURNED，继续原#61
+
+[PR72独立复核与关闭表](reviews/pr72_a04_20261029/review.md)，head`1de99a85c4f69dca706509648450487197523ab5`。根通信专项8/8、新79/0；同head合成merge CI full91=84PASS/7历史FAIL、new_fail0、drift0、complete=true。但已登记sender上下文未校验、普通ignore_ew旁路、实际PRNG恢复以及v2删除冻结字段/版本等反例仍在，正式成功共享夹具也需补合法融合断言。继续[A04/#61](tasks/joint_campaign/JC-A04_ew_comms.md)，保留三入口/唯一推进/真实回调、失败订单不执行、合法共享只融合一次及其他兼容正例，不重做已关闭链路。
+
+PR72暂缓合并，A4未冻结；B01A最终集成仍等A4。A1/A2/A3/G0/K0完成不变，低质量仍能射击不作自动禁射缺陷。UI设计文档GPT/Sol，代码DeepSeek。最终修复HEAD专项+原C，七历史baseline不刷新。
+
 ## 2026-10-28 JC-A03第四轮：PASS，A3合入，A04解锁
 
 [独立放行与原始证据](reviews/pr70_a03_r4_20261028/review.md)：A3冻结 `5d372ea2df7c49badeea3846c16b839b1f6faef1`，PR70合入main `c3fca1c52a4158f374661f1906b32103dab5360c`，整个tree等于被审候选。原R1发射前实际HUD/实体键质量与误差消费、R3旧档覆盖活跃Session两项均关闭；此前真实射后运动、R2守卫/幂等、partial/null/full与R4/W7关闭结论保留。低质量仍能发射不作为缺陷，不恢复硬禁射推断。
@@ -169,7 +175,7 @@ G0、K0等是未来任务交付物的名字，当前不是有效SHA。每张卡�
 | [JC-A01](tasks/joint_campaign/JC-A01_authority_intel.md) · [#58](https://github.com/HATO-24/ghost-track-apsis/issues/58) | DONE（第五轮） | A1=84558473，main=f62e5e6f，完整SHA见上文 | 指挥权限及分方情报读写隔离 |
 | [JC-A02](tasks/joint_campaign/JC-A02_identity.md) · [#59](https://github.com/HATO-24/ghost-track-apsis/issues/59) | DONE（第三轮） | A2=755ab5ed，main=82bf6a53，完整SHA见上文 | 身份证据单一出口、IFF/ELINT/光学/人工一致性 |
 | [JC-A03](tasks/joint_campaign/JC-A03_ew_observation.md) · [#60](https://github.com/HATO-24/ghost-track-apsis/issues/60) | DONE（第四轮） | A3=5d372ea2，main=c3fca1c5，完整SHA见上文 | EW进入真实观测与火控消费者 |
-| [JC-A04](tasks/joint_campaign/JC-A04_ew_comms.md) · [#61](https://github.com/HATO-24/ghost-track-apsis/issues/61) | READY，下一张核心实现卡 | A1/A3已满足→A4 | EW进入实际通信，保留恢复与权限语义 |
+| [JC-A04](tasks/joint_campaign/JC-A04_ew_comms.md) · [#61](https://github.com/HATO-24/ghost-track-apsis/issues/61) | RETURNED（首轮，继续#61） | A1/A3已满足，A4未冻结 | EW进入实际通信，保留恢复与权限语义 |
 | [JC-B01A](tasks/joint_campaign/JC-B01A_deployment.md) · [#62](https://github.com/HATO-24/ghost-track-apsis/issues/62) | 独立服务前置已满足；最终集成WAIT A4 | →D1 | 两套合法编制转为独立、可恢复的部署实例；多舰发射仍属后续B1b |
 | [JC-B03P](tasks/joint_campaign/JC-B03P_scenario_proposal.md) · [#63](https://github.com/HATO-24/ghost-track-apsis/issues/63) | P0草案；产品核对前文字校正 | K0已冻结→待核对P0 | 具体战区、目标判据、简报/战报方案，交用户核对 |
 

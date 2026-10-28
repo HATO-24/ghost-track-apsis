@@ -1,0 +1,4 @@
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	Checkout	2026-10-28T16:29:34.0285297Z HEAD is now at dd29279 Merge 1de99a85c4f69dca706509648450487197523ab5 into 4e4f90f9eb4964503a61dd915cb1c445294b10a5
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	Run FULL regression matrix (baseline-aware)	2026-10-28T16:35:25.3313049Z total=91  pass=84  fail=7  timeout=0  not_run=0 (expected=0 unexpected=0)  duration=346.1s
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	Run FULL regression matrix (baseline-aware)	2026-10-28T16:35:25.3323644Z BASELINE CHECK: known_fail=7 new_fail=0 drift=0 unverified=0 unselected=0 complete=true
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	Run FULL regression matrix (baseline-aware)	2026-10-28T16:35:25.4537831Z FULL_MATRIX_EXIT=0
