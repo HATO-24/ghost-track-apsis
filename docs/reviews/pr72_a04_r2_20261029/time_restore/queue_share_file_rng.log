@@ -1,0 +1,4 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+A04_QUEUE_SHARE_FILE_RNG={"continuous_after_next":{"seed":0,"seq":2},"continuous_before_save":{"seed":0,"seq":1},"head":"bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72","load_errors":[],"load_ok":true,"next_continuous_draw":0.30996977738569,"next_draw_matches":true,"next_restored_draw":0.30996977738569,"restored_after_next":{"seed":0,"seq":2},"restored_before_next":{"seed":0,"seq":1},"save_file_bytes":10709,"send_comms_log_count":0,"share_delivery_id":"C-000001","share_ok":true}
+AUDIO OK files=36 headless=true muted=false

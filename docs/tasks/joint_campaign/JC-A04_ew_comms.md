@@ -2,7 +2,21 @@
 
 执行Issue：[JC-A04 #61](https://github.com/HATO-24/ghost-track-apsis/issues/61)。
 
-状态：RETURNED，PR72首轮继续原#61四组收尾；A3已完成，A4未冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：RETURNED，第二轮R3已关闭；仅继续原#61的R1/R2/R4，A4未冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-29 PR72第二轮：关闭RNG恢复，仅三组原残项
+
+被审`bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72`（交付前加固版），[本轮关闭表与独立证据](../../reviews/pr72_a04_r2_20261029/review.md)。根8/8专项、新106/0、退出0；同head CI归档时Phase0/PhaseA成功、full仍进行中，不把前版CI或交付自报替代本版结果。
+
+**R3整组CLOSED，不再返工**：v2实际提交RNG，seed123/seq1恢复与下一draw一致；queue_intel_share无send日志的真实文件fresh load后seq1、下一draw.3099697774一致；配置seed已保留、v1实际migrated_v1。三入口/唯一推进/真实回调、失败订单不执行、合法fresh共享精确due只融合一次，以及已补的冻结字段/时延一致性校验全部保留。
+
+仅继续原三组：
+
+1. **R1**：已登记ally/player、enemy/player、own/opfor错配仍送达，enemy→own订单带player上下文仍QUEUED。校验sender对应actor/controller/fleet/owner，保留own/player、ally/ally与旧seed；不夸大自动执行、不扩B2策略。
+2. **R2**：普通ignore_ew仍把22s/.4改为2s/0成功；限制到已验证v1内部迁移/重放，保留旧outcome兼容。
+3. **R4剩余**：删除v2 pending.ew仍ok并将原失败改DELIVERED；version2.5仍接受。区分真正v1与损坏v2，严格版本拒绝不改该状态。正式success share改正确owner授权/fresh row并断言obs0→1与后续不增，实际生产融合已关闭，仅补验收。保留null/version99拒绝及已补单字段一致性校验。
+
+新S8/S9确实执行、正式106/0，不因它放在_info内另派缺陷。最终同40位修复HEAD专项+原C；七历史baseline和旧ID不刷新/删除。PR72暂缓合并、A4不冻结，继续原#61。下方首轮为历史，以本轮关闭表为准，R3不重派。代码DeepSeek，任务/UI设计文档GPT/Sol。
 
 ## 2026-10-29 PR72首轮：保留真实链路，只补发送边界与恢复
 

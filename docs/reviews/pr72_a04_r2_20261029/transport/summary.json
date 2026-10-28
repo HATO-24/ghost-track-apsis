@@ -1,0 +1,157 @@
+{
+  "head": "bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72",
+  "previous_head": "1de99a85c4f69dca706509648450487197523ab5",
+  "diagnostic_runs": 1,
+  "exit_code": 0,
+  "formal_probes_run": 0,
+  "R1": {
+    "status": "OPEN",
+    "rows": [
+      {
+        "label": "own_sender_player_context",
+        "from": "own_ship",
+        "to": "ally_ship",
+        "context": {
+          "actor_id": "player_ctrl",
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "fleet_id": "own_fleet",
+          "intel_owner_id": "player_intel",
+          "owner_id": "player_intel"
+        },
+        "ok": true,
+        "reason": "",
+        "delivery_id": "C-000001"
+      },
+      {
+        "label": "ally_sender_ally_context",
+        "from": "ally_ship",
+        "to": "own_ship",
+        "context": {
+          "actor_id": "ally_ai",
+          "controller_id": "ally_ai",
+          "domain_id": "ally",
+          "fleet_id": "ally_fleet",
+          "intel_owner_id": "ally_intel",
+          "owner_id": "ally_intel"
+        },
+        "ok": true,
+        "reason": "",
+        "delivery_id": "C-000002"
+      },
+      {
+        "label": "ally_sender_player_context",
+        "from": "ally_ship",
+        "to": "own_ship",
+        "context": {
+          "actor_id": "player_ctrl",
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "fleet_id": "own_fleet",
+          "intel_owner_id": "player_intel",
+          "owner_id": "player_intel"
+        },
+        "ok": true,
+        "reason": "",
+        "delivery_id": "C-000003"
+      },
+      {
+        "label": "enemy_sender_player_context",
+        "from": "enemy_ship",
+        "to": "own_ship",
+        "context": {
+          "actor_id": "player_ctrl",
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "fleet_id": "own_fleet",
+          "intel_owner_id": "player_intel",
+          "owner_id": "player_intel"
+        },
+        "ok": true,
+        "reason": "",
+        "delivery_id": "C-000004"
+      },
+      {
+        "label": "own_sender_opfor_context",
+        "from": "own_ship",
+        "to": "ally_ship",
+        "context": {
+          "actor_id": "opfor_ai",
+          "controller_id": "opfor_ai",
+          "domain_id": "opfor",
+          "fleet_id": "enemy_fleet",
+          "intel_owner_id": "opfor_intel",
+          "owner_id": "opfor_intel"
+        },
+        "ok": true,
+        "reason": "",
+        "delivery_id": "C-000005"
+      },
+      {
+        "label": "unknown_sender_player_context",
+        "from": "ghost_issuer",
+        "to": "own_ship",
+        "context": {
+          "actor_id": "player_ctrl",
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "fleet_id": "own_fleet",
+          "intel_owner_id": "player_intel",
+          "owner_id": "player_intel"
+        },
+        "ok": false,
+        "reason": "unknown_from",
+        "delivery_id": ""
+      }
+    ],
+    "foreign_order_ok": true,
+    "foreign_order_status": "QUEUED",
+    "automatic_execution_claim": false
+  },
+  "R2": {
+    "status": "OPEN",
+    "normal_latency": 22.0,
+    "normal_ew": {
+      "draw": 0.1,
+      "failure_chance": 0.4,
+      "from_id": "own_ship",
+      "ignored": false,
+      "jam_severity": 0.5,
+      "latency_add_s": 20.0,
+      "sampled_t": 0.0,
+      "target_id": "ally_ship",
+      "will_fail": true
+    },
+    "bypass_latency": 2.0,
+    "bypass_ew": {
+      "draw": -1.0,
+      "failure_chance": 0.0,
+      "ignored": true,
+      "jam_severity": 0.0,
+      "latency_add_s": 0.0,
+      "sampled_t": 0.0,
+      "target_id": "ally_ship",
+      "will_fail": false
+    },
+    "actual_events": [
+      {
+        "delivery_id": "C-000002",
+        "kind": "DELIVERED",
+        "t": 2.0,
+        "reason": ""
+      },
+      {
+        "delivery_id": "C-000001",
+        "kind": "FAILED",
+        "t": 22.0,
+        "reason": "comms_jam"
+      }
+    ]
+  },
+  "retained_positives": [
+    "own/player and ally/ally contexts delivered at t2",
+    "unknown sender rejected unknown_from",
+    "normal +20s/.4 send remains FAILED at t22 after live EW expire at t2"
+  ],
+  "remaining_scope": "Only original R1 registered-sender context and R2 ordinary ignore_ew; no callback/share/due/restore rerun."
+}
