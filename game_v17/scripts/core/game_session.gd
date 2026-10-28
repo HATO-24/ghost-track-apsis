@@ -3005,7 +3005,8 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 			"missing": {"shooter": ss.is_empty(), "target": ts.is_empty(),
 				"target_entity": entity, "states": states.keys()}}
 	# JC-A02：火控读取 owner 操作性身份（消费者边界投影，不新建真值）
-	_sync_combat_identity(target_id)
+	# 真实 HUD 航迹键可能无实体字段，故带上 request_fire 已合法解析出的目标实体
+	_sync_combat_identity(target_id, entity)
 	var gate: Dictionary = combat_service.request_fire(target_id, weapon_id, confirmed, o)
 	if not bool(gate.get("ok", false)):
 		return gate
@@ -3137,6 +3138,11 @@ func combat_plan(target_id: String, weapon_id: String, intent := "direct", opts 
 ## 航迹 id → 物理实体 id（track.entity_id 优先，其次 ship_id，最后同名实体）。
 func _entity_for_track(track_id: String) -> String:
 	var cands: Array = []
+	# JC-A02/R3：真实 HUD 种入的 combat 行常无 entity_id/ship_id；
+	# 用已验证 sensor target→track 映射反查稳定实体（不读隐藏真值）。
+	for k in _sensor_track_map.keys():
+		if String(_sensor_track_map[k]) == track_id:
+			cands.append(String(k))
 	if combat_service != null:
 		var tr = combat_service.track(track_id)
 		if tr is Dictionary and not (tr as Dictionary).is_empty():
@@ -4222,9 +4228,15 @@ func identity_get_for(owner_id: String, target_id: String) -> Dictionary:
 
 
 ## owner 限定的内部 target/track/entity 解析（匿名显示 ID 不参与路由）。
-func _identity_resolve_target(owner_id: String, key: String) -> Dictionary:
+func _identity_resolve_target(owner_id: String, key: String,
+		entity_hint := "") -> Dictionary:
 	if key == "":
 		return {"ok": false, "reason": "empty_key"}
+	# request_fire 已合法解析出的目标实体优先（真实合法来源，非隐藏真值）
+	if entity_hint != "" and authority_intel != null \
+			and not authority_intel.identity_operational(owner_id,
+				entity_hint).is_empty():
+		return {"ok": true, "target_id": entity_hint, "via": "entity_hint"}
 	if authority_intel != null \
 			and not authority_intel.identity_operational(owner_id, key).is_empty():
 		return {"ok": true, "target_id": key, "via": "identity"}
@@ -4464,9 +4476,9 @@ func _identity_audit(owner_id: String, target_id: String, kind: String,
 	return String(_last_identity_audit_id)
 
 
-func combat_identity(target_id: String) -> Dictionary:
+func combat_identity(target_id: String, entity_hint := "") -> Dictionary:
 	var owner := _identity_own_owner()
-	var res: Dictionary = _identity_resolve_target(owner, target_id)
+	var res: Dictionary = _identity_resolve_target(owner, target_id, entity_hint)
 	var key := String(res.get("target_id", "")) if bool(res.get("ok", false)) \
 		else target_id
 	var op: Dictionary = identity_operational(owner, key)
@@ -4493,10 +4505,10 @@ func combat_identity(target_id: String) -> Dictionary:
 
 
 ## 火控消费者边界：把 owner 有效操作性身份投影到 combat track（不新增真值库）。
-func _sync_combat_identity(target_id: String) -> void:
+func _sync_combat_identity(target_id: String, entity_hint := "") -> void:
 	if combat_service == null:
 		return
-	var ci: Dictionary = combat_identity(target_id)
+	var ci: Dictionary = combat_identity(target_id, entity_hint)
 	if String(ci.get("source", "")) != "operational_identity":
 		return
 	var tr = combat_service.track(target_id)

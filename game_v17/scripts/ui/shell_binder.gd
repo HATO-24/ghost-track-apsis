@@ -619,6 +619,22 @@ func _build_contacts_from_intel(owner_id: String) -> Array:
 		var identity := String(tr.get("identity", "unknown")).to_lower()
 		var tside := identity
 		var ttype := "unknown"
+		# JC-A02/R4：普通联系人 display 也消费有效性；过期不显示为有效 friend
+		var opv: Dictionary = {}
+		if session.has_method("identity_operational"):
+			opv = session.identity_operational(owner_id, tid)
+		var validity := "valid"
+		var last_known := identity
+		if not opv.is_empty() and bool(opv.get("ok", false)):
+			validity = String(opv.get("validity", "valid"))
+			last_known = String(opv.get("identity", identity)).to_lower()
+			if validity == "expired":
+				identity = "unknown"
+				tside = "unknown"
+				ttype = "unknown"
+			elif validity == "stale":
+				identity = String(opv.get("effective_identity", identity)).to_lower()
+				tside = identity
 		# 证据管线已有的 track↔entity 映射（玩家已知证据），不读世界真值
 		var eid_map := ""
 		if session.has_method("_entity_for_track"):
@@ -643,6 +659,8 @@ func _build_contacts_from_intel(owner_id: String) -> Array:
 			"batch_internal": tid,
 			"intel_owner_id": owner_id,
 			"observed_t": float(tr.get("last_observed_t", 0.0)),
+			"validity": validity, "valid": validity == "valid",
+			"last_known_identity": last_known,
 			"pos_km": (tr.get("pos_km", []) as Array).duplicate() \
 				if tr.get("pos_km") is Array else [],
 		}
@@ -2023,7 +2041,6 @@ func ident_view(row: Dictionary, with_evidence := false) -> Dictionary:
 	if a.is_empty():
 		return out
 	out["known"] = true
-	out["known"] = true
 	out["valid"] = bool(a.get("valid", true))
 	out["validity"] = String(a.get("validity", "valid"))
 	out["effective_identity"] = String(a.get("effective_identity",
@@ -2062,6 +2079,21 @@ func ident_view(row: Dictionary, with_evidence := false) -> Dictionary:
 		tag = "M·" + tag
 	if bool(out["warn"]):
 		tag += " ⚠"
+	# JC-A02/R4：实际 HUD 显示消费有效性——过期不显示为有效 friend；
+	# 保留 last-known 供历史详情，普通显示用有效结果。
+	var vv := String(out.get("validity", "valid"))
+	if vv != "valid":
+		out["last_known_identity"] = String(out["identity"])
+		out["warn"] = true
+		if vv == "expired":
+			out["identity"] = "unknown"
+			tag = "EXPIRED·" + tag
+		else:
+			out["identity"] = String(a.get("effective_identity",
+				out["identity"]))
+			tag = "STALE·" + tag
+	else:
+		out["last_known_identity"] = String(out["identity"])
 	out["tag"] = tag
 	if with_evidence:
 		var ev: Array = session.identification_evidence(tid)

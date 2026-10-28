@@ -408,27 +408,46 @@ func _run() -> void:
 
 	_step("R12 实际 HUD 航迹键（T0001→raider_2）解析到同一 owner 身份")
 	var sR12 = _new()
-	_register_combat_track(sR12, "T0001", "raider_2")
+	# 真实 radar 6s → 形成 sensor target→track 映射（实际 HUD 种入来源）
+	for i12a in range(6):
+		sR12.tick(TICK_DT)
+	var real_tid := String(sR12._sensor_track_map.get("raider_2", ""))
+	_ok(real_tid != "", "真实 sensor 建立 raider_2→track 映射", real_tid)
+	if real_tid == "":
+		real_tid = "T0001"
+	# 实际 HUD._seed_combat_tracks 原样种入：只有 id/batch，无 entity_id/ship_id
+	sR12.combat_service.register_track(real_tid, {"id": real_tid, "batch": "OCU-07"})
 	var sm: Dictionary = sR12.identity_manual_confirm("player_intel",
 		"raider_2", "friend", {"authority": "command"})
 	_ok(bool(sm.get("ok", false)), "实体键人工 friend ok")
-	var ci12: Dictionary = sR12.combat_identity("T0001")
+	var ci12: Dictionary = sR12.combat_identity(real_tid)
 	_eq(String(ci12.get("identity", "")), "friend",
-		"HUD T0001 键解析到同一 owner 身份")
+		"实际 HUD 空映射字段航迹键解析到同一 owner 身份")
 	_eq(String(ci12.get("resolved_key", "")), "raider_2",
-		"HUD 航迹键解析出实体键")
-	var rf12: Dictionary = sR12.request_fire("T0001", "missile", true,
+		"实际 HUD 航迹键经 sensor 映射解析出实体键")
+	_eq(String(ci12.get("via", "")), "sensor_map",
+		"解析路径为已验证 sensor 映射")
+	var rf12: Dictionary = sR12.request_fire(real_tid, "missile", true,
 		{"target_entity": "raider_2", "actor_id": "player_ctrl",
 			"controller_id": "player_ctrl", "domain_id": "player",
 			"fleet_id": "own_fleet"})
-	var ctr12 = sR12.combat_service.track("T0001")
+	var ctr12 = sR12.combat_service.track(real_tid)
 	var ctr12_identity := ""
 	if ctr12 is Dictionary:
 		ctr12_identity = String((ctr12 as Dictionary).get("identity", ""))
-	_eq(ctr12_identity, "friend", "火控边界把同一身份投影到实际 T0001 航迹")
+	_eq(ctr12_identity, "friend", "火控边界把同一身份投影到实际 HUD 航迹")
 	_ok(String(rf12.get("reason", "")) != "unknown_track",
-		"实际 T0001 路径不再因未知身份停在 unknown_track",
+		"实际 HUD 路径不再因未知身份停在 unknown_track",
 		str(rf12.get("reason", "")))
+	# 兼容正例：预填字段的 combat 行与实体键仍可解析
+	var sR12b = _new()
+	_register_combat_track(sR12b, "T0009", "raider_2")
+	sR12b.identity_manual_confirm("player_intel", "raider_2", "friend",
+		{"authority": "command"})
+	_eq(String(sR12b.combat_identity("T0009").get("identity", "")), "friend",
+		"预填 entity_id 的兼容正例仍绿")
+	_eq(String(sR12b.combat_identity("raider_2").get("identity", "")), "friend",
+		"实体键兼容正例仍绿")
 
 	_step("R13 TTL 进入消费者：过期后 HUD 标记失效、火控不把 friend 当有效")
 	var sR13 = _new()
@@ -446,6 +465,25 @@ func _run() -> void:
 	var v13: Dictionary = b13.ident_view({"track_id": "ttl_cons"})
 	_eq(bool(v13.get("valid", true)), false, "HUD 消费过期有效性")
 	_eq(String(v13.get("validity", "")), "expired", "HUD 显示过期状态")
+	# R4：实际普通显示要消费有效结果，不能把过期 friend 当有效值显示
+	_eq(String(v13.get("identity", "")), "unknown", "HUD 普通显示用有效结果")
+	_eq(String(v13.get("last_known_identity", "")), "friend",
+		"HUD 保留最后已知身份作历史")
+	_ok(bool(v13.get("warn", false)), "HUD 标记失效告警")
+	_ok(String(v13.get("tag", "")).find("EXPIRED") >= 0, "HUD 标签区分失效",
+		String(v13.get("tag", "")))
+	# 普通联系人路径同样消费有效性
+	b13.refresh()
+	var c13: Dictionary = {}
+	for raw_c13 in (b13.contacts as Array):
+		if raw_c13 is Dictionary and String((raw_c13 as Dictionary).get(
+				"track_id", "")) == "ttl_cons":
+			c13 = raw_c13
+	_ok(not c13.is_empty(), "过期 owner 航迹仍出现在 contacts")
+	_eq(String(c13.get("identity", "")), "unknown", "联系人普通显示消费有效性")
+	_eq(String(c13.get("validity", "")), "expired", "联系人显示过期态")
+	_eq(String(c13.get("last_known_identity", "")), "friend",
+		"联系人保留最后已知身份")
 	var ci13: Dictionary = sR13.combat_identity("ttl_cons")
 	_eq(String(ci13.get("identity", "")), "unknown",
 		"火控不把过期 friend 当有效身份")

@@ -90,3 +90,29 @@ Full strict: 见证据目录 full-summary.json（期望 89 = 82 PASS / 7 历史 
 | R5 IFF 状态分离 | `identity_state`（assessment：valid/conflict/manual/unknown）与 `identity_iff_state`（传输：not_queried/pending/valid/no_reply/unavailable/jammed/expired）分开字段、分别写入；查询状态按实际 transponder 回复原因，请求 jam 不冒充实际阻断；实现真实延迟查询队列（pending→ETA 到达）并随档恢复 | 冲突不被 IFF 回复覆盖；occluded 记 no_reply/reason=occluded；延迟查询 pending→到达到结果；队列随档恢复后按 ETA 到达 |
 
 正式 probe 断言数：66 → **110**（新增 44 条真实入口断言）；`integration.jc_identity_pipeline` **110/0**。
+
+## 7. PR69 第二轮：两处实际 HUD 消费者收尾（R3/R4）
+
+### R3 真实 HUD 航迹键（空映射字段）
+
+- 根因：真实 `_seed_combat_tracks` 种入的 combat 行只有 `id/batch`，`entity_id/ship_id` 为空；原 `_entity_for_track` 未反查已验证 `_sensor_track_map`，新 resolver 只覆盖"字段预填"分支。
+- 最小修复：`_entity_for_track` 增加 sensor target→track 反查；`_identity_resolve_target` 增加 `entity_hint`（`request_fire` 已合法解析出的 `target_entity` 优先）；`_sync_combat_identity(target_id, entity)` 把解析结果用于实际 combat 键投影。
+- 正式断言（真实路径，无手工预填）：radar 6s → 真实 sensor 映射 → 实际 HUD 式 `register_track(T0001,{id,batch})` → 合法本舰人工 friend → `combat_identity(T0001)` 得 friend/resolved_key=raider_2/via=sensor_map；`request_fire(T0001,...)` 后实际 combat T0001 航迹被投影 friend，不再 unknown_track。预填字段行与实体键兼容正例保留。
+
+### R4 实际 HUD 显示消费有效性
+
+- 根因：`ident_view` 新增字段后，实际 HUD 普通显示仍读原始 `identity`；普通联系人路径也用 owner 原 identity 生成 side/type/ident。
+- 最小修复：
+  - `ident_view`：过期时普通 `identity=unknown`、`last_known_identity` 保留历史、`warn=true`、`tag=EXPIRED·…`；stale 用 `effective_identity` 并标记 STALE。
+  - 普通联系人 `_build_contacts_from_intel`：过期行 identity/side/type 归 unknown，保留 `validity/valid/last_known_identity` 字段供详情。
+- 正式断言：TTL5 到 t11 后 `ident_view.identity=unknown`、`last_known_identity=friend`、warn、tag 含 EXPIRED；`binder.contacts` 过期行 identity=unknown、validity=expired、last_known=friend；火控仍用 unknown（上轮已绿）。不重做 TTL/置信度算法，不强制 stale 一律 unknown（state 评估态与 validity 时效分离按新合同保留）。
+
+### 结果（同一 SHA）
+
+```
+专项 7/7 PASS：jc_identity_pipeline 122/0（新增真实 HUD/显示消费断言）
+  identification 310/0 · transponder 272/0 · track_table 161/0
+  sensor_persistence 86/0 · event_continuity 89/0 · save_roundtrip 41/0
+Phase 0: 6/6 PASS      Phase A: 3/3 PASS
+Full strict: 89 = 82 PASS / 7 历史 FAIL（new_fail=0、complete=true）
+```
