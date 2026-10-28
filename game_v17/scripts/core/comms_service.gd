@@ -544,14 +544,21 @@ func _sample_ew_for_send(to_id: String, delivery_id: String, from_id: String,
 	if ignore_ew:
 		return snap
 	if ew_service != null and ew_service.has_method("comms_effect"):
-		var eff: Dictionary = ew_service.comms_effect(to_id)
-		var jam := clampf(float(eff.get("jam_severity", 0.0)), 0.0, 1.0)
-		var add := maxf(0.0, float(eff.get("latency_add_s", 0.0)))
-		var fc := clampf(float(eff.get("failure_chance", 0.0)), 0.0, 1.0)
+		# 链路两端都可能是 EW 作用对象：取两端商业 effect 的最大 severity 组合，
+		# 一次发送只抽一次 draw（发送时刻冻结）。
+		var eff_to: Dictionary = ew_service.comms_effect(to_id)
+		var eff_from: Dictionary = ew_service.comms_effect(from_id)
+		var jam := maxf(clampf(float(eff_to.get("jam_severity", 0.0)), 0.0, 1.0),
+			clampf(float(eff_from.get("jam_severity", 0.0)), 0.0, 1.0))
+		var add := maxf(maxf(0.0, float(eff_to.get("latency_add_s", 0.0))),
+			maxf(0.0, float(eff_from.get("latency_add_s", 0.0))))
+		var fc := maxf(clampf(float(eff_to.get("failure_chance", 0.0)), 0.0, 1.0),
+			clampf(float(eff_from.get("failure_chance", 0.0)), 0.0, 1.0))
 		var draw := _ew_draw_next(delivery_id, from_id)
 		snap = {"jam_severity": jam, "latency_add_s": add,
 			"failure_chance": fc, "draw": draw, "will_fail": draw < fc,
-			"sampled_t": t, "target_id": to_id, "ignored": false}
+			"sampled_t": t, "target_id": to_id,
+			"from_id": from_id, "ignored": false}
 	return snap
 
 
@@ -901,10 +908,43 @@ func load_state(st) -> Dictionary:
 			if not (ewv.get("will_fail", false) is bool):
 				return {"ok": false, "reason": "invalid_state",
 					"errors": ["pending.ew.will_fail"]}
-			var dv = ewv.get("draw", -1.0)
-			if not (dv is int or dv is float) or not is_finite(float(dv)):
+			for ef in ["jam_severity", "latency_add_s", "failure_chance", "draw"]:
+				var ed = ewv.get(ef, null)
+				if not (ed is int or ed is float) or not is_finite(float(ed)):
+					return {"ok": false, "reason": "invalid_state",
+						"errors": ["pending.ew." + ef]}
+			var draw_v := float(ewv.get("draw", -1.0))
+			var fc_v := float(ewv.get("failure_chance", 0.0))
+			if draw_v < -1.0 - 1.0e-9 or draw_v > 1.0 + 1.0e-9 \
+					or fc_v < -1.0e-9 or fc_v > 1.0 + 1.0e-9:
 				return {"ok": false, "reason": "invalid_state",
-					"errors": ["pending.ew.draw"]}
+					"errors": ["pending.ew.range"]}
+			# 冻结结果一致性：will_fail 必须等于发送时刻 draw<failure_chance，
+			# 读档被篡改（改单字段）必须显式拒绝而不是改变结果。
+			if draw_v >= 0.0:
+				var expect_fail := draw_v < fc_v
+				if bool(ewv.get("will_fail", false)) != expect_fail:
+					return {"ok": false, "reason": "invalid_state",
+						"errors": ["pending.ew.frozen_result"]}
+			for lk in ["latency_base_s", "latency_ew_add_s", "latency_s"]:
+				var lv = rec.get(lk, null)
+				if not (lv is int or lv is float) or not is_finite(float(lv)) \
+						or float(lv) < 0.0:
+					return {"ok": false, "reason": "invalid_state",
+						"errors": ["pending." + lk]}
+			if absf(float(rec.get("latency_s", 0.0))
+					- (float(rec.get("latency_base_s", 0.0))
+						+ float(rec.get("latency_ew_add_s", 0.0)))) > 1.0e-6:
+				return {"ok": false, "reason": "invalid_state",
+					"errors": ["pending.latency_sum"]}
+			var st_t = rec.get("sent_t", null)
+			if not (st_t is int or st_t is float) or not is_finite(float(st_t)):
+				return {"ok": false, "reason": "invalid_state",
+					"errors": ["pending.sent_t"]}
+			if absf(float(rec.get("arrive_t", 0.0))
+					- (float(st_t) + float(rec.get("latency_s", 0.0)))) > 1.0e-6:
+				return {"ok": false, "reason": "invalid_state",
+					"errors": ["pending.arrive_t"]}
 		new_pending.append(rec)
 	# 提交
 	t = float(s.get("t", 0.0))
@@ -912,6 +952,8 @@ func load_state(st) -> Dictionary:
 	step_count = maxi(step_count, int(s.get("step_count", step_count)))
 	_delivery_seq = maxi(_delivery_seq, int(s.get("delivery_seq", _delivery_seq)))
 	_event_seq = maxi(_event_seq, int(s.get("event_seq", _event_seq)))
+	_ew_seed = new_ew_seed
+	_ew_seq = new_ew_seq
 	pending = new_pending
 	var raw_links = s.get("links", [])
 	if raw_links is Array:
@@ -937,5 +979,7 @@ func load_state(st) -> Dictionary:
 				n2["status"] = String(nr.get("status", n2.get("status", "ok")))
 				n2["enabled"] = bool(nr.get("enabled", n2.get("enabled", true)))
 				n2["damage"] = float(nr.get("damage", n2.get("damage", 0.0)))
-	return {"ok": true, "restore_mode": "full", "pending": pending.size(),
+	return {"ok": true,
+		"restore_mode": "migrated_v1" if legacy_v1 else "full",
+		"pending": pending.size(),
 		"t": t}

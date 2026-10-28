@@ -198,7 +198,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "fleet_refit", "fleet_formation", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity", "epoch", "command_domains", "fleet_instances", "own_fleet"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "fleet_refit", "fleet_formation", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity", "epoch", "command_domains", "fleet_instances", "own_fleet", "comms_ew_seed"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -6230,7 +6230,8 @@ func load_state(json_text: String) -> Dictionary:
 	if comms != null and data.has("comms"):
 		var cr: Dictionary = comms.load_state(data.get("comms"))
 		if not bool(cr.get("ok", false)):
-			replay_errors.append("comms 状态恢复失败：" + str(cr.get("reason", "")))
+			replay_errors.append("comms 状态恢复失败：" + str(cr.get("reason", ""))
+				+ " " + JSON.stringify(cr.get("errors", [])))
 	var saved_track = data.get("track_table", null)
 	var saved_story = data.get("story", null)
 	if saved_track != null:

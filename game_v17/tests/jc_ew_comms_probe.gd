@@ -66,6 +66,66 @@ func _info(text: String) -> void:
 
 # ── helpers ───────────────────────────────────────────────────────
 
+	_step("S8 确定性失败/成功臂 + 真实文件恢复 ≥10tick + 下一消息 PRNG 一致")
+	var fail_seed := _find_ew_seed(true)
+	var ok_seed := _find_ew_seed(false)
+	_ok(fail_seed >= 0, "找到确定性失败 seed", str(fail_seed))
+	_ok(ok_seed >= 0, "找到确定性成功 seed", str(ok_seed))
+	if fail_seed >= 0:
+		_restore_arm(fail_seed, true)
+	if ok_seed >= 0:
+		_restore_arm(ok_seed, false)
+
+	_step("S9 篡改与旧残留：篡改 EW 字段拒绝、legacy 残留不冒充 delivered、发送端 EW 生效")
+	var t9 = _new()
+	_apply_jam(t9, "ally_ship", 0.5)
+	var s9: Dictionary = t9.send_comms("own_ship", "ally_ship", "LD", "COMMS_SENT", {}, {})
+	var text9: String = t9.save_state()
+	var doc9: Dictionary = JSON.parse_string(text9)
+	# 篡改 outcome.ew.draw（重放应按发送时冻结值检测 divergence）
+	var tam: Dictionary = doc9.duplicate(true)
+	for raw_op in (tam.get("log", []) as Array):
+		if raw_op is Dictionary and String((raw_op as Dictionary).get("op", "")) == "send_comms":
+			var oc = (raw_op as Dictionary).get("outcome", null)
+			if oc is Dictionary and (oc as Dictionary).get("ew") is Dictionary:
+				((oc as Dictionary).get("ew") as Dictionary)["draw"] = 0.77
+	var t9b = _new()
+	var lr9: Dictionary = t9b.load_state(JSON.stringify(tam))
+	_ok(bool(lr9.get("ok", true)) == false, "篡改 outcome.ew.draw 被拒绝")
+	_ok(JSON.stringify(lr9.get("errors", [])).contains("comms_replay_diverged"),
+		"篡改 EW outcome 报 replay divergence", JSON.stringify(lr9.get("errors", [])))
+	# 篡改在途 pending.ew.draw（冻结结果一致性）
+	var tam2: Dictionary = doc9.duplicate(true)
+	var pend9 = (tam2.get("comms", {}) as Dictionary).get("pending", []) \
+		if tam2.get("comms") is Dictionary else []
+	if pend9 is Array and (pend9 as Array).size() > 0:
+		var p0: Dictionary = (pend9 as Array)[0]
+		if p0.get("ew") is Dictionary:
+			((p0 as Dictionary).get("ew") as Dictionary)["draw"] = 0.01
+	var t9c = _new()
+	var lr9c: Dictionary = t9c.load_state(JSON.stringify(tam2))
+	_ok(bool(lr9c.get("ok", true)) == false, "篡改 pending.ew.draw 被拒绝")
+	_ok(JSON.stringify(lr9c.get("errors", [])).contains("pending.ew"),
+		"篡改在途 EW 字段原因明确", JSON.stringify(lr9c.get("errors", [])))
+	# 旧残留 standalone：无真实结果时不得发布假 delivered
+	var t9d = _new()
+	t9d._standalone["C-LEGACY"] = {"from": "own_ship", "to": "ally_ship",
+		"mode": "LD", "text_key": "COMMS_SENT", "sent_t": 0.0}
+	var ev9: Array = _advance(t9d, 2.0)
+	var types9: Array = []
+	for raw_ev in _comms_events(ev9):
+		types9.append(String((raw_ev as Dictionary).get("type", "")))
+	_ok("comms.unknown_outcome" in types9, "旧残留显式 unknown_outcome", str(types9))
+	_ok(not ("comms.delivered" in types9), "旧残留不冒充 delivered")
+	# 发送端 EW 也生效（链路两端都采样）
+	var t9e = _new()
+	_apply_jam(t9e, "own_ship", 0.5)
+	var se9: Dictionary = t9e.send_comms("own_ship", "ally_ship", "LD",
+		"COMMS_SENT", {}, {})
+	var ewe9: Dictionary = _ew_of(se9)
+	_near(float(ewe9.get("jam_severity", -1.0)), 0.5, TOL, "发送端 EW 采样 jam=.5")
+	_near(float(se9.get("latency_ew_add_s", -1.0)), 20.0, T_TOL, "发送端 EW 附加 20s")
+
 func _new(seed_override := {}) -> Variant:
 	var sd: Dictionary = _seed()
 	for k in seed_override.keys():
@@ -461,4 +521,54 @@ func _run() -> void:
 	_near(float(n8.get("latency_s", -1.0)), 2.0, T_TOL, "旧 seed 总时延=基础 2s")
 	var ev8: Array = _advance(s8, 3.0)
 	_eq(_delivered_ids(ev8).size(), 1, "旧 seed 正常投递一次")
+func _find_ew_seed(want_fail: bool) -> int:
+	for k in range(0, 120):
+		var s = _new({"comms_ew_seed": k})
+		_apply_jam(s, "ally_ship", 0.5)
+		var r: Dictionary = s.send_comms("own_ship", "ally_ship", "LD",
+			"COMMS_SENT", {}, {})
+		var wf := bool(_ew_of(r).get("will_fail", false))
+		if wf == want_fail:
+			return k
+	return -1
 
+
+func _restore_arm(seed_k: int, want_fail: bool) -> void:
+	var a = _new({"comms_ew_seed": seed_k})
+	_apply_jam(a, "ally_ship", 0.5)
+	var sent: Dictionary = a.send_comms("own_ship", "ally_ship", "LD",
+		"COMMS_SENT", {}, {})
+	_eq(bool(_ew_of(sent).get("will_fail", not want_fail)), want_fail,
+		"确定性臂 %s 发送时冻结 will_fail" % ("fail" if want_fail else "ok"))
+	var save_text: String = a.save_state()
+	var b = _new({"comms_ew_seed": seed_k})
+	var lr: Dictionary = b.load_state(save_text)
+	_ok(bool(lr.get("ok", false)), "确定性臂恢复成功",
+		str(lr.get("errors", [])))
+	var ev_a: Array = _advance(a, 24.0)
+	var ev_b: Array = _advance(b, 24.0)
+	if want_fail:
+		_eq(_failed_events(ev_b).size(), 1, "恢复后失败恰好一次")
+		_eq(_delivered_ids(ev_b).size(), 0, "失败臂恢复后无 delivered")
+		var freason := ""
+		for raw_f in _failed_events(ev_b):
+			var plf: Dictionary = (raw_f as Dictionary).get("payload", {}) \
+				if (raw_f as Dictionary).get("payload") is Dictionary else {}
+			freason = String(plf.get("reason", ""))
+		_eq(freason, "comms_jam", "恢复后失败原因保持 comms_jam")
+	else:
+		_eq(_delivered_ids(ev_b).size(), 1, "恢复后成功恰好一次")
+		_eq(_failed_events(ev_b).size(), 0, "成功臂恢复后无 failed")
+	_eq(_failed_events(ev_b).size(), _failed_events(ev_a).size(),
+		"连续/恢复失败数一致")
+	_eq(_delivered_ids(ev_b).size(), _delivered_ids(ev_a).size(),
+		"连续/恢复送达数一致")
+	# 下一消息 PRNG 与连续运行一致
+	var na: Dictionary = a.send_comms("own_ship", "ally_ship", "LD",
+		"COMMS_SENT", {}, {})
+	var nb: Dictionary = b.send_comms("own_ship", "ally_ship", "LD",
+		"COMMS_SENT", {}, {})
+	_near(float(_ew_of(na).get("draw", -1.0)), float(_ew_of(nb).get("draw", -2.0)),
+		T_TOL, "恢复后下一消息 draw 一致")
+	_eq(int(_ew_state(a).get("seq", -1)), int(_ew_state(b).get("seq", -2)),
+		"恢复后下一消息抽样序号一致")

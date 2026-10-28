@@ -26,14 +26,14 @@
 | 阶段 | 结果 |
 |---|---|
 | 实现前红例（`4e4f90f` + 探针） | `integration.jc_ew_comms` **39 PASS / 39 FAIL**，退出 1（`evidence/a04/red/`） |
-| 实现后 | **79 PASS / 0 FAIL**，退出 0 |
+| 实现后（含交付前加固） | **106 PASS / 0 FAIL**，退出 0 |
 
 覆盖：EW=0 旧路由/时延/一次投递；jam=.5→+20s/.4；draw=.1 失败与 .9 成功边界；三条真实入口（send_comms/issue_order/queue_intel_share）；同 seed 确定性；真实文件 save→load→继续 tick 一致、不重抽样、下一条 PRNG 一致；outcome v2/v1 迁移/未知版本拒绝、state v2/v1 迁移；no_route/invalid_mode/unknown_to/禁用链路/非法 sender 明确原因；无 ew_service 旧 seed 兼容。
 
 ## 4. 运行结果
 
 ```
-卡指定通信专项: 8/8 PASS（jc_ew_comms 79/0、order_comms_probe、ew_probe、
+卡指定通信专项: 8/8 PASS（jc_ew_comms 106/0、order_comms_probe 137/0、ew_probe、
   a0_comms_restore 59/0、event_continuity 89/0、legacy_save 60/0、save_roundtrip 41/0）
 Phase 0: 6/6 PASS      Phase A: 3/3 PASS
 Full strict: 91 = 84 PASS / 7 历史 FAIL（new_fail=0、drift=0、complete=true）
@@ -41,7 +41,7 @@ Full strict: 91 = 84 PASS / 7 历史 FAIL（new_fail=0、drift=0、complete=true
 
 7 项历史失败未刷新 baseline；matrix 由 90→91（新增 `integration.jc_ew_comms`），未删旧 case。
 
-## 5. 未支持 / NOT RUN
+## 5. 交付前加固（第二轮自审）\n\n- 链路两端采样：发送方或接收方任一被 EW 干扰都按两端最大 severity 生效，每次发送仍只抽一次 draw。\n- 确定性双 seed 臂：真实文件保存→恢复→继续 24 tick，失败臂仍恰好失败一次、成功臂恰好送达一次；下一消息 draw/seq 与连续运行一致。\n- 篡改检测：改 `outcome.ew` → `comms_replay_diverged`；改 pending EW 冻结字段 → `invalid_state`（`pending.ew.frozen_result` 等）明确拒绝。\n- 旧残留：无真实结果的 standalone 明确发布 `comms.unknown_outcome`，不冒充 delivered。\n\n## 6. 未支持 / NOT RUN
 
 - `comms_spoof` 只形成不可信消息/待确认请求，不自动执行命令、不授开火权、不改身份；
 - 真实 RF/光学传播、完整军用通信协议、AI 任务接受策略（B2）未接；
