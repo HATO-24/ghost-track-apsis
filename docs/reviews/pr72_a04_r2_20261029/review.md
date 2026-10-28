@@ -6,7 +6,9 @@
 
 Windows / Godot4.7.2.stable.official.ed1daf0bf。根独立专项**8/8 PASS，新106/0，57.5s含31.6s import，退出0**；EW252/0、order137/0、CIC925/0、restore59/0、legacy60/0、event89/0、save41/0。[report](targeted/report.md) / [summary](targeted/summary.json)。
 
-[同head CI run40728509817](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40728509817)在归档快照中Phase0、PhaseA SUCCESS，**full仍IN_PROGRESS**；[checks](ci/checks.json)。不把交付报告自报91=84/7替代本轮CI完成状态。上轮1de99a85的CI完整91=84/7已归档，但不是本轮结果。根本轮未重复完整C，实际剩余反例仍阻止放行；最终修复HEAD须专项+原C。
+[同head CI run40728509817](https://github.com/HATO-24/ghost-track-apsis/actions/runs/40728509817)在归档快照中Phase0、PhaseA SUCCESS，**full仍IN_PROGRESS**；[checks](ci/checks.json)。不把交付报告自报91=84/7替代本轮CI完成状态。
+
+后续回读已确认本轮三个CI job全部SUCCESS；full checkout合成merge`e8494e0a5ff3cdba376198ea52e9605f212cdcf2`，**91=84PASS/7历史FAIL、new_fail0、drift0、unverified0、unselected0、complete=true、FULL_MATRIX_EXIT=0**，369.4s。[完整原始CI](ci/full.log) / [关键行](ci/full-relevant.txt) / [完成快照](ci/completed-checks.json)。上段保留审查时的时点，不能将CI全绿视为R1/R2/R4实际反例消失。上轮1de99a85的CI完整91=84/7已归档，但不是本轮结果。根本轮未重复完整C，实际剩余反例仍阻止放行；最终修复HEAD须专项+原C。
 
 三次有界诊断运行均exit0（transport一次、原两个恢复脚本各一次），exit0表示记录完成而非A04已通过。根未改生产、正式probe、matrix、baseline或退出码包装；导入元数据不交付。baseline SHA256 `5fdfb46a27d8d0057b50d51b3ceed87ce1d126a933db6b93f803a11e6ab2c9e4` 未刷新。耗时不是规模/性能验收。[机器记录](verification.json) / [原始字节校验](manifest.sha256)。
 

@@ -6,7 +6,7 @@
 
 ## 2026-10-29 PR72第二轮：关闭RNG恢复，仅三组原残项
 
-被审`bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72`（交付前加固版），[本轮关闭表与独立证据](../../reviews/pr72_a04_r2_20261029/review.md)。根8/8专项、新106/0、退出0；同head CI归档时Phase0/PhaseA成功、full仍进行中，不把前版CI或交付自报替代本版结果。
+被审`bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72`（交付前加固版），[本轮关闭表与独立证据](../../reviews/pr72_a04_r2_20261029/review.md)。根8/8专项、新106/0、退出0；同head CI后续回读三个job成功、full91=84PASS/7历史FAIL、new_fail0/drift0/complete=true；独立实际残例仍阻止放行。
 
 **R3整组CLOSED，不再返工**：v2实际提交RNG，seed123/seq1恢复与下一draw一致；queue_intel_share无send日志的真实文件fresh load后seq1、下一draw.3099697774一致；配置seed已保留、v1实际migrated_v1。三入口/唯一推进/真实回调、失败订单不执行、合法fresh共享精确due只融合一次，以及已补的冻结字段/时延一致性校验全部保留。
 

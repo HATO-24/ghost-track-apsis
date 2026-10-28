@@ -6,7 +6,7 @@
 
 ## 2026-10-29 JC-A04第二轮：R3关闭，继续原R1/R2/R4
 
-[本轮独立关闭表](reviews/pr72_a04_r2_20261029/review.md)，head`bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72`。根通信专项8/8、新106/0；归档时同head CI Phase0/PhaseA成功、full进行中。RNG实际恢复、无send日志共享的真实文件下一draw、配置seed与v1模式已关闭；真实callback/失败订单不执行/合法共享只一次等保留。只继续[A04/#61](tasks/joint_campaign/JC-A04_ew_comms.md)发送上下文、普通ignore_ew旁路、缺pending.ew/非整数版本和正式成功融合断言。R3不返工，不扩AI/UI/RF/禁射。
+[本轮独立关闭表](reviews/pr72_a04_r2_20261029/review.md)，head`bc0b8bb258ae78f4bcc5da87ee4ca0868a3aee72`。根通信专项8/8、新106/0；同head CI后续确认三个job成功、full91=84/7历史FAIL、new_fail0/drift0/complete=true。RNG实际恢复、无send日志共享的真实文件下一draw、配置seed与v1模式已关闭；真实callback/失败订单不执行/合法共享只一次等保留。只继续[A04/#61](tasks/joint_campaign/JC-A04_ew_comms.md)发送上下文、普通ignore_ew旁路、缺pending.ew/非整数版本和正式成功融合断言。R3不返工，不扩AI/UI/RF/禁射。
 
 PR72暂缓合并、A4未冻结；B01A最终接入仍等A4，既有A1/A2/A3/G0/K0不变。最终修复HEAD专项+原C，七历史baseline不刷新。下方首轮为历史，以最新关闭表为准。
 

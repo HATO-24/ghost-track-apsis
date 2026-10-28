@@ -38,5 +38,17 @@
     "R1 registered sender/caller context mismatch",
     "R2 ordinary ignore_ew bypass",
     "R4 missing pending.ew and fractional version; formal success-share assertion"
-  ]
+  ],
+  "ci_completed": {
+    "all_three": "SUCCESS",
+    "synthetic_merge": "e8494e0a5ff3cdba376198ea52e9605f212cdcf2",
+    "total": 91,
+    "pass": 84,
+    "known_fail": 7,
+    "new_fail": 0,
+    "drift": 0,
+    "complete": true,
+    "exit": 0,
+    "duration_s": 369.4
+  }
 }
