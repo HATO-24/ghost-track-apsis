@@ -1,0 +1,6 @@
+2026-10-28T06:31:33.9927850Z HEAD is now at 5cb245c Merge 755ab5ed629165656a566427523b01045775fc0f into 1738a5e41509c09e04dc34da382dc07f4b8982e9
+2026-10-28T06:37:57.2285861Z total=89  pass=82  fail=7  timeout=0  not_run=0 (expected=0 unexpected=0)  duration=377.1s
+2026-10-28T06:37:57.2298141Z BASELINE CHECK: known_fail=7 new_fail=0 drift=0 unverified=0 unselected=0 complete=true
+2026-10-28T06:37:57.3476806Z FULL_MATRIX_EXIT=0
+2026-10-28T06:38:10.5267884Z [36;1mWrite-Host "ARTIFACT ASSERT OK run_dir=$($runDir.Name) cases=$caseCount logs=$($logs.Count)"[0m
+2026-10-28T06:38:11.1579042Z ARTIFACT ASSERT OK run_dir=20261028-063141-5cb245cb cases=89 logs=147

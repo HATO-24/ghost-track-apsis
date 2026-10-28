@@ -1,0 +1,2180 @@
+{
+	"cases": {
+		"R4_late_continuity": {
+			"control_immediate": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.407,
+				"effective_identity": "suspect",
+				"evidence_count": 2,
+				"identity": "suspect",
+				"identity_age_s": 0.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.407,
+				"identity_effective": "suspect",
+				"identity_evidence_count": 2,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 2.0,
+				"identity_sources": [
+					"transponder",
+					"optical"
+				],
+				"identity_state": "conflict",
+				"identity_ttl_s": 20.0,
+				"identity_updated_t": 2.0,
+				"identity_validity": "valid",
+				"iff_reason": "",
+				"iff_reply_status": "",
+				"iff_state": "not_queried",
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"transponder",
+					"optical"
+				],
+				"state": "conflict",
+				"target_id": "control_target",
+				"valid": true,
+				"validity": "valid",
+				"write_seq": 2
+			},
+			"control_new_second": {
+				"assessment": {
+					"age": 0.0,
+					"authorized": false,
+					"auto": true,
+					"categories": [
+						"iff",
+						"sensor"
+					],
+					"confidence": 0.407,
+					"contradictions": [
+						"identity_conflict:hostile,friend"
+					],
+					"evidence_count": 2,
+					"identity": "suspect",
+					"last_update": 2.0,
+					"level": 3,
+					"level_name": "L3_CLASSIFIED",
+					"manual": false,
+					"manual_authority": "",
+					"manual_confidence": 0.0,
+					"manual_identity": "",
+					"manual_t": 0.0,
+					"notes": [],
+					"schema": "identity_assessment.v1",
+					"sources": [
+						"transponder",
+						"optical"
+					],
+					"spoof_suspicion": 0.2,
+					"target_id": "control_target",
+					"trigger_hint": "suspect_identity",
+					"writes_v15": false
+				},
+				"duplicate": false,
+				"evidence_id": "IEV-000002",
+				"late_ignored": false,
+				"ok": true,
+				"operational": {
+					"identity": "suspect",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.407,
+					"identity_evidence_count": 2,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 2.0,
+					"identity_sources": [
+						"transponder",
+						"optical"
+					],
+					"identity_state": "conflict",
+					"identity_ttl_s": 20.0,
+					"identity_updated_t": 2.0,
+					"owner_id": "player_intel",
+					"target_id": "control_target",
+					"write_seq": 2
+				},
+				"owner_id": "player_intel",
+				"target_id": "control_target"
+			},
+			"control_next_tick": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.386,
+				"effective_identity": "suspect",
+				"evidence_count": 2,
+				"identity": "suspect",
+				"identity_age_s": 1.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.386,
+				"identity_effective": "suspect",
+				"identity_evidence_count": 2,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 2.0,
+				"identity_sources": [
+					"transponder",
+					"optical"
+				],
+				"identity_state": "conflict",
+				"identity_ttl_s": 20.0,
+				"identity_updated_t": 3.0,
+				"identity_validity": "valid",
+				"iff_reason": "",
+				"iff_reply_status": "",
+				"iff_state": "not_queried",
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"transponder",
+					"optical"
+				],
+				"state": "conflict",
+				"target_id": "control_target",
+				"valid": true,
+				"validity": "valid",
+				"write_seq": 3
+			},
+			"control_old_first": {
+				"assessment": {
+					"age": 1.0,
+					"authorized": false,
+					"auto": true,
+					"categories": [
+						"iff"
+					],
+					"confidence": 0.639,
+					"contradictions": [
+						"iff_alone_no_hostile"
+					],
+					"evidence_count": 1,
+					"identity": "suspect",
+					"last_update": 1.0,
+					"level": 3,
+					"level_name": "L3_CLASSIFIED",
+					"manual": false,
+					"notes": [
+						"iff_alone_downgraded"
+					],
+					"schema": "identity_assessment.v1",
+					"sources": [
+						"transponder"
+					],
+					"spoof_suspicion": 0.15,
+					"target_id": "control_target",
+					"trigger_hint": "suspect_identity",
+					"writes_v15": false
+				},
+				"duplicate": false,
+				"evidence_id": "IEV-000001",
+				"late_ignored": false,
+				"ok": true,
+				"operational": {
+					"identity": "suspect",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.639,
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 1.0,
+					"identity_sources": [
+						"transponder"
+					],
+					"identity_state": "conflict",
+					"identity_ttl_s": 20.0,
+					"identity_updated_t": 2.0,
+					"owner_id": "player_intel",
+					"target_id": "control_target",
+					"write_seq": 1
+				},
+				"owner_id": "player_intel",
+				"target_id": "control_target"
+			},
+			"immediate_assessment": {
+				"age": 0.0,
+				"authorized": false,
+				"auto": true,
+				"categories": [
+					"sensor"
+				],
+				"confidence": 0.675,
+				"contradictions": [],
+				"evidence_count": 1,
+				"identity": "friend",
+				"last_update": 2.0,
+				"level": 3,
+				"level_name": "L3_CLASSIFIED",
+				"manual": false,
+				"notes": [],
+				"schema": "identity_assessment.v1",
+				"sources": [
+					"optical"
+				],
+				"spoof_suspicion": 0.0,
+				"target_id": "late_target",
+				"trigger_hint": "",
+				"writes_v15": false
+			},
+			"immediate_operational": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.675,
+				"effective_identity": "friend",
+				"evidence_count": 1,
+				"identity": "friend",
+				"identity_age_s": 0.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.675,
+				"identity_effective": "friend",
+				"identity_evidence_count": 1,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 2.0,
+				"identity_sources": [
+					"optical"
+				],
+				"identity_state": "valid",
+				"identity_ttl_s": 20.0,
+				"identity_updated_t": 2.0,
+				"identity_validity": "valid",
+				"iff_reason": "",
+				"iff_reply_status": "",
+				"iff_state": "not_queried",
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"optical"
+				],
+				"state": "valid",
+				"target_id": "late_target",
+				"valid": true,
+				"validity": "valid",
+				"write_seq": 1
+			},
+			"late_ingest": {
+				"assessment": {},
+				"duplicate": false,
+				"evidence_id": "",
+				"late_ignored": true,
+				"ok": true,
+				"operational": {
+					"identity": "friend",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.675,
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 2.0,
+					"identity_sources": [
+						"optical"
+					],
+					"identity_state": "valid",
+					"identity_ttl_s": 20.0,
+					"identity_updated_t": 2.0,
+					"owner_id": "player_intel",
+					"target_id": "late_target",
+					"write_seq": 1
+				},
+				"owner_id": "player_intel",
+				"target_id": "late_target"
+			},
+			"newer_ingest": {
+				"assessment": {
+					"age": 0.0,
+					"authorized": false,
+					"auto": true,
+					"categories": [
+						"sensor"
+					],
+					"confidence": 0.675,
+					"contradictions": [],
+					"evidence_count": 1,
+					"identity": "friend",
+					"last_update": 2.0,
+					"level": 3,
+					"level_name": "L3_CLASSIFIED",
+					"manual": false,
+					"notes": [],
+					"schema": "identity_assessment.v1",
+					"sources": [
+						"optical"
+					],
+					"spoof_suspicion": 0.0,
+					"target_id": "late_target",
+					"trigger_hint": "",
+					"writes_v15": false
+				},
+				"duplicate": false,
+				"evidence_id": "IEV-000001",
+				"late_ignored": false,
+				"ok": true,
+				"operational": {
+					"identity": "friend",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.675,
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 2.0,
+					"identity_sources": [
+						"optical"
+					],
+					"identity_state": "valid",
+					"identity_ttl_s": 20.0,
+					"identity_updated_t": 2.0,
+					"owner_id": "player_intel",
+					"target_id": "late_target",
+					"write_seq": 1
+				},
+				"owner_id": "player_intel",
+				"target_id": "late_target"
+			},
+			"next_tick_assessment": {
+				"age": 1.0,
+				"authorized": false,
+				"auto": true,
+				"categories": [
+					"sensor"
+				],
+				"confidence": 0.639,
+				"contradictions": [],
+				"evidence_count": 1,
+				"identity": "friend",
+				"last_update": 2.0,
+				"level": 3,
+				"level_name": "L3_CLASSIFIED",
+				"manual": false,
+				"manual_authority": "",
+				"manual_confidence": 0.0,
+				"manual_identity": "",
+				"manual_t": 0.0,
+				"notes": [],
+				"schema": "identity_assessment.v1",
+				"sources": [
+					"optical"
+				],
+				"spoof_suspicion": 0.0,
+				"target_id": "late_target",
+				"trigger_hint": "",
+				"writes_v15": false
+			},
+			"next_tick_operational": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.639,
+				"effective_identity": "friend",
+				"evidence_count": 1,
+				"identity": "friend",
+				"identity_age_s": 1.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.639,
+				"identity_effective": "friend",
+				"identity_evidence_count": 1,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 2.0,
+				"identity_sources": [
+					"optical"
+				],
+				"identity_state": "valid",
+				"identity_ttl_s": 20.0,
+				"identity_updated_t": 3.0,
+				"identity_validity": "valid",
+				"iff_reason": "",
+				"iff_reply_status": "",
+				"iff_state": "not_queried",
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"optical"
+				],
+				"state": "valid",
+				"target_id": "late_target",
+				"valid": true,
+				"validity": "valid",
+				"write_seq": 2
+			}
+		},
+		"R4_ttl_consumers_alias": {
+			"after": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.322,
+				"effective_identity": "unknown",
+				"evidence_count": 1,
+				"identity": "friend",
+				"identity_age_s": 11.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.322,
+				"identity_effective": "unknown",
+				"identity_evidence_count": 1,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 0.0,
+				"identity_sources": [
+					"transponder"
+				],
+				"identity_state": "expired",
+				"identity_ttl_s": 5.0,
+				"identity_updated_t": 11.0,
+				"identity_validity": "expired",
+				"iff_reason": "",
+				"iff_reply_status": "",
+				"iff_state": "not_queried",
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"transponder"
+				],
+				"state": "expired",
+				"target_id": "ttl_target",
+				"valid": false,
+				"validity": "expired",
+				"write_seq": 12
+			},
+			"alias_equal": true,
+			"before": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.675,
+				"effective_identity": "friend",
+				"evidence_count": 1,
+				"identity": "friend",
+				"identity_age_s": 0.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.675,
+				"identity_effective": "friend",
+				"identity_evidence_count": 1,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 0.0,
+				"identity_sources": [
+					"transponder"
+				],
+				"identity_state": "valid",
+				"identity_ttl_s": 5.0,
+				"identity_updated_t": 0.0,
+				"identity_validity": "valid",
+				"iff_reason": "",
+				"iff_reply_status": "",
+				"iff_state": "not_queried",
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"transponder"
+				],
+				"state": "valid",
+				"target_id": "ttl_target",
+				"valid": true,
+				"validity": "valid",
+				"write_seq": 1
+			},
+			"combat_identity": "unknown",
+			"combat_state": "expired",
+			"combat_track_identity": "unknown",
+			"delayed": {
+				"ingest": {
+					"assessment": {
+						"age": 8.0,
+						"authorized": false,
+						"auto": true,
+						"categories": [
+							"iff"
+						],
+						"confidence": 0.41,
+						"contradictions": [],
+						"evidence_count": 1,
+						"identity": "friend",
+						"last_update": 0.0,
+						"level": 3,
+						"level_name": "L3_CLASSIFIED",
+						"manual": false,
+						"notes": [],
+						"schema": "identity_assessment.v1",
+						"sources": [
+							"transponder"
+						],
+						"spoof_suspicion": 0.0,
+						"target_id": "delayed_target",
+						"trigger_hint": "",
+						"writes_v15": false
+					},
+					"duplicate": false,
+					"evidence_id": "IEV-000001",
+					"late_ignored": false,
+					"ok": true,
+					"operational": {
+						"identity": "friend",
+						"identity_audit_ids": [],
+						"identity_audited": false,
+						"identity_authorized": false,
+						"identity_confidence": 0.41,
+						"identity_evidence_count": 1,
+						"identity_level": 3,
+						"identity_manual": false,
+						"identity_observed_t": 0.0,
+						"identity_sources": [
+							"transponder"
+						],
+						"identity_state": "valid",
+						"identity_ttl_s": 5.0,
+						"identity_updated_t": 8.0,
+						"owner_id": "player_intel",
+						"target_id": "delayed_target",
+						"write_seq": 1
+					},
+					"owner_id": "player_intel",
+					"target_id": "delayed_target"
+				},
+				"operational": {
+					"audit_ids": [],
+					"audited": false,
+					"authorized": false,
+					"confidence": 0.41,
+					"effective_identity": "friend",
+					"evidence_count": 1,
+					"identity": "friend",
+					"identity_age_s": 8.0,
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.41,
+					"identity_effective": "friend",
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 0.0,
+					"identity_sources": [
+						"transponder"
+					],
+					"identity_state": "valid",
+					"identity_ttl_s": 5.0,
+					"identity_updated_t": 8.0,
+					"identity_validity": "stale",
+					"iff_reason": "",
+					"iff_reply_status": "",
+					"iff_state": "not_queried",
+					"manual": false,
+					"ok": true,
+					"owner_id": "player_intel",
+					"sources": [
+						"transponder"
+					],
+					"state": "valid",
+					"target_id": "delayed_target",
+					"valid": false,
+					"validity": "stale",
+					"write_seq": 1
+				}
+			},
+			"hud_effective_identity": "unknown",
+			"hud_identity": "friend",
+			"hud_state": "",
+			"hud_valid": false,
+			"hud_validity": "expired",
+			"ingest": {
+				"assessment": {
+					"age": 0.0,
+					"authorized": false,
+					"auto": true,
+					"categories": [
+						"iff"
+					],
+					"confidence": 0.675,
+					"contradictions": [],
+					"evidence_count": 1,
+					"identity": "friend",
+					"last_update": 0.0,
+					"level": 3,
+					"level_name": "L3_CLASSIFIED",
+					"manual": false,
+					"notes": [],
+					"schema": "identity_assessment.v1",
+					"sources": [
+						"transponder"
+					],
+					"spoof_suspicion": 0.0,
+					"target_id": "ttl_target",
+					"trigger_hint": "",
+					"writes_v15": false
+				},
+				"duplicate": false,
+				"evidence_id": "IEV-000001",
+				"late_ignored": false,
+				"ok": true,
+				"operational": {
+					"identity": "friend",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.675,
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 0.0,
+					"identity_sources": [
+						"transponder"
+					],
+					"identity_state": "valid",
+					"identity_ttl_s": 5.0,
+					"identity_updated_t": 0.0,
+					"owner_id": "player_intel",
+					"target_id": "ttl_target",
+					"write_seq": 1
+				},
+				"owner_id": "player_intel",
+				"target_id": "ttl_target"
+			},
+			"now": 11.0,
+			"t0": 0.0
+		},
+		"R5_natural_pending_file_10ticks": {
+			"ally_event_count_before_ticks": 4,
+			"load": {
+				"authority_restore_mode": "full",
+				"authority_restore_reasons": [],
+				"errors": [],
+				"identity_restore_mode": "full",
+				"ok": true,
+				"pending_intel_shares": 0,
+				"result_errors": [],
+				"sensor_partial_reasons": [],
+				"sensor_restore": {
+					"geometry_frame": "bary_rot",
+					"geometry_source": "physics_world",
+					"is_partial": false,
+					"partial_reasons": [],
+					"rebind": {
+						"bound": 1,
+						"frame": "bary_rot",
+						"mismatched_frame": [],
+						"missing": [],
+						"observer_bound": true,
+						"observer_id": "own_ship",
+						"ok": true,
+						"provider_t": 2.0,
+						"reason": "",
+						"seq": 4,
+						"skipped": [],
+						"source": "physics_world",
+						"t": 2.0,
+						"time_ok": true,
+						"usable": true
+					},
+					"restore_mode": "full",
+					"saved": true,
+					"schema": "v17.sensor_restore.v2",
+					"time_ok": true
+				},
+				"sensor_restore_mode": "full",
+				"world_sync": {
+					"compared": 5,
+					"enabled": true,
+					"failures": [],
+					"frame": "bary_rot",
+					"in_sync": true,
+					"mismatched": [],
+					"mode": "tick",
+					"ok": true,
+					"reason": "load",
+					"skipped": [],
+					"synced": 0,
+					"updated": []
+				}
+			},
+			"owner_ingest": {
+				"assessment": {
+					"age": 0.0,
+					"authorized": false,
+					"auto": true,
+					"categories": [
+						"sensor"
+					],
+					"confidence": 0.525,
+					"contradictions": [],
+					"evidence_count": 1,
+					"identity": "neutral",
+					"last_update": 0.0,
+					"level": 3,
+					"level_name": "L3_CLASSIFIED",
+					"manual": false,
+					"notes": [],
+					"schema": "identity_assessment.v1",
+					"sources": [
+						"optical"
+					],
+					"spoof_suspicion": 0.0,
+					"target_id": "restore_target",
+					"trigger_hint": "",
+					"writes_v15": false
+				},
+				"duplicate": false,
+				"evidence_id": "IEV-000001",
+				"late_ignored": false,
+				"ok": true,
+				"operational": {
+					"identity": "neutral",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.525,
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 0.0,
+					"identity_sources": [
+						"optical"
+					],
+					"identity_state": "valid",
+					"identity_ttl_s": 5.0,
+					"identity_updated_t": 0.0,
+					"owner_id": "ally_intel",
+					"target_id": "restore_target",
+					"write_seq": 1
+				},
+				"owner_id": "ally_intel",
+				"target_id": "restore_target"
+			},
+			"owner_restored": true,
+			"pending_fixture_kind": "natural_identity_iff_query_api",
+			"pending_operational_final": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.49,
+				"effective_identity": "unknown",
+				"evidence_count": 1,
+				"identity": "unknown",
+				"identity_age_s": 7.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.49,
+				"identity_effective": "unknown",
+				"identity_evidence_count": 1,
+				"identity_iff_mode": "",
+				"identity_iff_query_id": "IFFQ-000001",
+				"identity_iff_reason": "reply",
+				"identity_iff_reply_status": "normal",
+				"identity_iff_spoofed": false,
+				"identity_iff_state": "valid",
+				"identity_iff_t": 5.0,
+				"identity_level": 2,
+				"identity_manual": false,
+				"identity_observed_t": 5.0,
+				"identity_sources": [
+					"transponder"
+				],
+				"identity_state": "unknown",
+				"identity_ttl_s": 12.0,
+				"identity_updated_t": 12.0,
+				"identity_validity": "valid",
+				"iff_reason": "reply",
+				"iff_reply_status": "normal",
+				"iff_state": "valid",
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"transponder"
+				],
+				"state": "unknown",
+				"target_id": "probe_ship",
+				"valid": true,
+				"validity": "valid",
+				"write_seq": 10
+			},
+			"per_tick_equal": [
+				true,
+				true,
+				true,
+				true,
+				true,
+				true,
+				true,
+				true,
+				true,
+				true
+			],
+			"query": {
+				"arrive_t": 5.0,
+				"ok": true,
+				"owner_id": "player_intel",
+				"query_id": "IFFQ-000001",
+				"state": "pending",
+				"target_id": "probe_ship"
+			},
+			"query_state_at_creation": "pending",
+			"queue_after_load": [
+				{
+					"arrive_t": 5.0,
+					"mode": "",
+					"opts": {
+						"latency_s": 3.0
+					},
+					"owner_id": "player_intel",
+					"profile_id": "ueg_military:probe_ship",
+					"query_id": "IFFQ-000001",
+					"target_id": "probe_ship"
+				}
+			],
+			"queue_at_save": [
+				{
+					"arrive_t": 5.0,
+					"mode": "",
+					"opts": {
+						"latency_s": 3.0
+					},
+					"owner_id": "player_intel",
+					"profile_id": "ueg_military:probe_ship",
+					"query_id": "IFFQ-000001",
+					"target_id": "probe_ship"
+				}
+			],
+			"remaining_queue_restored": [],
+			"remaining_queue_source": [],
+			"restore_mode": "full",
+			"restored_trace": [
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.444,
+							"restore_identity": "neutral",
+							"restore_state": "valid"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "",
+							"query_iff_state": "pending",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [
+						{
+							"arrive_t": 5.0,
+							"mode": "",
+							"opts": {
+								"latency_s": 3.0
+							},
+							"owner_id": "player_intel",
+							"profile_id": "ueg_military:probe_ship",
+							"query_id": "IFFQ-000001",
+							"target_id": "probe_ship"
+						}
+					],
+					"query_result": {
+						"confidence": -1.0,
+						"identity": "",
+						"iff_state": "pending",
+						"state": ""
+					},
+					"t": 3.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.418,
+							"restore_identity": "neutral",
+							"restore_state": "valid"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "",
+							"query_iff_state": "pending",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [
+						{
+							"arrive_t": 5.0,
+							"mode": "",
+							"opts": {
+								"latency_s": 3.0
+							},
+							"owner_id": "player_intel",
+							"profile_id": "ueg_military:probe_ship",
+							"query_id": "IFFQ-000001",
+							"target_id": "probe_ship"
+						}
+					],
+					"query_result": {
+						"confidence": -1.0,
+						"identity": "",
+						"iff_state": "pending",
+						"state": ""
+					},
+					"t": 4.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.392,
+							"restore_identity": "neutral",
+							"restore_state": "valid"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007"
+							],
+							"query_confidence": 0.75,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.75,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 5.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.367,
+							"restore_identity": "neutral",
+							"restore_state": "stale"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008"
+							],
+							"query_confidence": 0.71,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.71,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 6.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.343,
+							"restore_identity": "neutral",
+							"restore_state": "stale"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009"
+							],
+							"query_confidence": 0.672,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.672,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 7.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.319,
+							"restore_identity": "neutral",
+							"restore_state": "stale"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010"
+							],
+							"query_confidence": 0.634,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.634,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 8.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.296,
+							"restore_identity": "neutral",
+							"restore_state": "stale"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011"
+							],
+							"query_confidence": 0.597,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.597,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 9.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.273,
+							"restore_identity": "neutral",
+							"restore_state": "stale"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012"
+							],
+							"query_confidence": 0.56,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.56,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 10.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012",
+								"ID-EV-000013"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.25,
+							"restore_identity": "neutral",
+							"restore_state": "expired"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012",
+								"ID-EV-000013"
+							],
+							"query_confidence": 0.525,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.525,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 11.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012",
+								"ID-EV-000013",
+								"ID-EV-000014"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.229,
+							"restore_identity": "neutral",
+							"restore_state": "expired"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012",
+								"ID-EV-000013",
+								"ID-EV-000014"
+							],
+							"query_confidence": 0.49,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.49,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 12.0
+				}
+			],
+			"save_file_removed_after_load": true,
+			"source_trace": [
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.444,
+							"restore_identity": "neutral",
+							"restore_state": "valid"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "",
+							"query_iff_state": "pending",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [
+						{
+							"arrive_t": 5.0,
+							"mode": "",
+							"opts": {
+								"latency_s": 3.0
+							},
+							"owner_id": "player_intel",
+							"profile_id": "ueg_military:probe_ship",
+							"query_id": "IFFQ-000001",
+							"target_id": "probe_ship"
+						}
+					],
+					"query_result": {
+						"confidence": -1.0,
+						"identity": "",
+						"iff_state": "pending",
+						"state": ""
+					},
+					"t": 3.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.418,
+							"restore_identity": "neutral",
+							"restore_state": "valid"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "",
+							"query_iff_state": "pending",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [
+						{
+							"arrive_t": 5.0,
+							"mode": "",
+							"opts": {
+								"latency_s": 3.0
+							},
+							"owner_id": "player_intel",
+							"profile_id": "ueg_military:probe_ship",
+							"query_id": "IFFQ-000001",
+							"target_id": "probe_ship"
+						}
+					],
+					"query_result": {
+						"confidence": -1.0,
+						"identity": "",
+						"iff_state": "pending",
+						"state": ""
+					},
+					"t": 4.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.392,
+							"restore_identity": "neutral",
+							"restore_state": "valid"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007"
+							],
+							"query_confidence": 0.75,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.75,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 5.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.367,
+							"restore_identity": "neutral",
+							"restore_state": "stale"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008"
+							],
+							"query_confidence": 0.71,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.71,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 6.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.343,
+							"restore_identity": "neutral",
+							"restore_state": "stale"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009"
+							],
+							"query_confidence": 0.672,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.672,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 7.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.319,
+							"restore_identity": "neutral",
+							"restore_state": "stale"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010"
+							],
+							"query_confidence": 0.634,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.634,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 8.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.296,
+							"restore_identity": "neutral",
+							"restore_state": "stale"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011"
+							],
+							"query_confidence": 0.597,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.597,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 9.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.273,
+							"restore_identity": "neutral",
+							"restore_state": "stale"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012"
+							],
+							"query_confidence": 0.56,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.56,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 10.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012",
+								"ID-EV-000013"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.25,
+							"restore_identity": "neutral",
+							"restore_state": "expired"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012",
+								"ID-EV-000013"
+							],
+							"query_confidence": 0.525,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.525,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 11.0
+				},
+				{
+					"owners": {
+						"ally_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012",
+								"ID-EV-000013",
+								"ID-EV-000014"
+							],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": 0.229,
+							"restore_identity": "neutral",
+							"restore_state": "expired"
+						},
+						"opfor_intel": {
+							"event_ids": [],
+							"query_confidence": -1.0,
+							"query_identity": "unknown",
+							"query_iff_state": "not_queried",
+							"query_state": "",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						},
+						"player_intel": {
+							"event_ids": [
+								"ID-EV-000001",
+								"ID-EV-000002",
+								"ID-EV-000003",
+								"ID-EV-000004",
+								"ID-EV-000005",
+								"ID-EV-000006",
+								"ID-EV-000007",
+								"ID-EV-000008",
+								"ID-EV-000009",
+								"ID-EV-000010",
+								"ID-EV-000011",
+								"ID-EV-000012",
+								"ID-EV-000013",
+								"ID-EV-000014"
+							],
+							"query_confidence": 0.49,
+							"query_identity": "unknown",
+							"query_iff_state": "valid",
+							"query_state": "unknown",
+							"restore_confidence": -1.0,
+							"restore_identity": "unknown",
+							"restore_state": ""
+						}
+					},
+					"pending_query_queue": [],
+					"query_result": {
+						"confidence": 0.49,
+						"identity": "unknown",
+						"iff_state": "valid",
+						"state": "unknown"
+					},
+					"t": 12.0
+				}
+			],
+			"traces_equal": true
+		}
+	},
+	"head": "4a658699868b8d046ec5472f9c4b9ea204af6be9"
+}

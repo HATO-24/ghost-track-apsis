@@ -1,0 +1,382 @@
+{
+	"cases": {
+		"actual_hud_track_key": {
+			"actual_hud_seed_called": true,
+			"actual_tracks": [
+				{
+					"bearing_deg": 0.0,
+					"created_t": 6.0,
+					"entity_id": "",
+					"evidence": [
+						{
+							"evidence_id": "E000001",
+							"level": 2,
+							"reason": "observation:radar",
+							"t": 6.0,
+							"type": "level"
+						},
+						{
+							"detail": "",
+							"evidence_id": "E000001",
+							"quality": 1.0,
+							"sensor": "radar",
+							"seq": 1,
+							"source": "radar",
+							"support": 2,
+							"t": 6.0,
+							"type": "observation"
+						}
+					],
+					"evidence_ids": [
+						"E000001"
+					],
+					"id": "T0001",
+					"identity": "unknown",
+					"identity_label": "未知",
+					"last_update": 6.0,
+					"level": 2,
+					"level_evidence": {
+						"2": 6.0
+					},
+					"level_name": "L2_POSITION",
+					"merged_from": [],
+					"quality": 1.0,
+					"range_km": 602.400024414063,
+					"schema": "fused_track.v1",
+					"sources": [
+						"radar"
+					],
+					"stale": false,
+					"threat": "none",
+					"track_id": "T0001",
+					"truth_fields_withheld": true
+				}
+			],
+			"combat_track": {
+				"batch": "T0001",
+				"damage_taken": 0.0,
+				"destroyed": false,
+				"entity_id": "",
+				"id": "T0001",
+				"identity": "friend",
+				"in_arc": false,
+				"range_km": 602.400024414063,
+				"ship_id": "",
+				"threat": "none"
+			},
+			"contacts": [
+				{
+					"badge": "TRACK",
+					"batch_internal": "raider_2",
+					"cls": "TRACK L0",
+					"display_class": "TRACK L0",
+					"display_id": "TRACK-001",
+					"display_name": "UNKNOWN TRACK",
+					"display_source": "intel_view",
+					"entity_id": "raider_2",
+					"id": "TRACK-001",
+					"ident": {
+						"confidence": 1.0,
+						"contradictions": 0,
+						"enabled": true,
+						"identity": "friend",
+						"known": true,
+						"manual": true,
+						"spoof": 0.0,
+						"tag": "M·— 1.00",
+						"warn": false
+					},
+					"identity": "friend",
+					"identity_source": "intel_view",
+					"intel_owner_id": "player_intel",
+					"last_known_identity": "friend",
+					"level": 0,
+					"name": "UNKNOWN TRACK",
+					"observed_t": 6.0,
+					"pos_km": [],
+					"range_km": 602.400024414063,
+					"side": "friend",
+					"side_source": "intel_view",
+					"sources": [
+						"radar"
+					],
+					"threat": "unknown",
+					"track_id": "raider_2",
+					"type": "friendly",
+					"valid": true,
+					"validity": "valid"
+				}
+			],
+			"entity_op": {
+				"audit_ids": [
+					"IDA-000001"
+				],
+				"audited": true,
+				"authorized": true,
+				"confidence": 1.0,
+				"effective_identity": "friend",
+				"evidence_count": 0,
+				"identity": "friend",
+				"identity_age_s": 0.0,
+				"identity_audit_ids": [
+					"IDA-000001"
+				],
+				"identity_audited": true,
+				"identity_authorized": true,
+				"identity_confidence": 1.0,
+				"identity_effective": "friend",
+				"identity_evidence_count": 0,
+				"identity_level": 4,
+				"identity_manual": true,
+				"identity_observed_t": 6.0,
+				"identity_sources": [],
+				"identity_state": "manual",
+				"identity_ttl_s": 0.0,
+				"identity_updated_t": 6.0,
+				"identity_validity": "valid",
+				"iff_reason": "",
+				"iff_reply_status": "",
+				"iff_state": "not_queried",
+				"manual": true,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [],
+				"state": "manual",
+				"target_id": "raider_2",
+				"valid": true,
+				"validity": "valid",
+				"write_seq": 1
+			},
+			"fire": {
+				"needs_authorization": true,
+				"ok": false,
+				"reason": "needs_authorization",
+				"target_id": "T0001",
+				"weapon_id": "missile"
+			},
+			"manual_control": {
+				"actor_id": "player_ctrl",
+				"assessment": {
+					"age": 6.0,
+					"authorized": true,
+					"auto": false,
+					"categories": [],
+					"confidence": 1.0,
+					"contradictions": [],
+					"evidence_count": 0,
+					"identity": "friend",
+					"last_update": 0.0,
+					"level": 4,
+					"level_name": "L4_IDENTIFIED",
+					"manual": true,
+					"manual_authority": "command",
+					"manual_confidence": 1.0,
+					"manual_identity": "friend",
+					"manual_t": 6.0,
+					"notes": [],
+					"schema": "identity_assessment.v1",
+					"sources": [],
+					"spoof_suspicion": 0.0,
+					"target_id": "raider_2",
+					"trigger_hint": "",
+					"writes_v15": false
+				},
+				"audit_ids": [
+					"IDA-000001"
+				],
+				"ok": true,
+				"operational": {
+					"identity": "friend",
+					"identity_audit_ids": [
+						"IDA-000001"
+					],
+					"identity_audited": true,
+					"identity_authorized": true,
+					"identity_confidence": 1.0,
+					"identity_evidence_count": 0,
+					"identity_level": 4,
+					"identity_manual": true,
+					"identity_observed_t": 6.0,
+					"identity_sources": [],
+					"identity_state": "manual",
+					"identity_ttl_s": 0.0,
+					"identity_updated_t": 6.0,
+					"owner_id": "player_intel",
+					"target_id": "raider_2",
+					"write_seq": 1
+				}
+			},
+			"pre_fire_combat_identity_no_hint": {
+				"identity": "friend",
+				"iff_state": "not_queried",
+				"last_known_identity": "friend",
+				"owner_id": "player_intel",
+				"resolved_key": "raider_2",
+				"source": "operational_identity",
+				"state": "manual",
+				"valid": true,
+				"validity": "valid",
+				"via": "sensor_map"
+			},
+			"pre_manual_combat_track": {
+				"batch": "T0001",
+				"damage_taken": 0.0,
+				"destroyed": false,
+				"entity_id": "",
+				"id": "T0001",
+				"identity": "unknown",
+				"in_arc": false,
+				"range_km": 602.400024414063,
+				"ship_id": "",
+				"threat": "none"
+			},
+			"radar_tick_s": 6.0,
+			"ready": true,
+			"same_id_control_fire": {
+				"needs_authorization": true,
+				"ok": false,
+				"reason": "needs_authorization",
+				"target_id": "raider_2",
+				"weapon_id": "missile"
+			},
+			"same_id_control_identity": {
+				"identity": "friend",
+				"iff_state": "not_queried",
+				"last_known_identity": "friend",
+				"owner_id": "player_intel",
+				"resolved_key": "raider_2",
+				"source": "operational_identity",
+				"state": "manual",
+				"valid": true,
+				"validity": "valid",
+				"via": "identity"
+			},
+			"same_id_control_track": {
+				"batch": "raider_2",
+				"damage_taken": 0.0,
+				"destroyed": false,
+				"entity_id": "raider_2",
+				"id": "raider_2",
+				"identity": "friend",
+				"in_arc": false,
+				"range_km": 600.0,
+				"ship_id": "",
+				"threat": "unknown"
+			},
+			"selected": "T0001",
+			"sensor_track_map": {
+				"raider_2": "T0001"
+			},
+			"track_combat_identity": {
+				"identity": "friend",
+				"iff_state": "not_queried",
+				"last_known_identity": "friend",
+				"owner_id": "player_intel",
+				"resolved_key": "raider_2",
+				"source": "operational_identity",
+				"state": "manual",
+				"valid": true,
+				"validity": "valid",
+				"via": "sensor_map"
+			}
+		},
+		"prefilled_compatibility": {
+			"combat_track": {
+				"batch": "T0009",
+				"damage_taken": 0.0,
+				"destroyed": false,
+				"entity_id": "raider_2",
+				"id": "T0009",
+				"identity": "friend",
+				"in_arc": true,
+				"range_km": 600.0,
+				"ship_id": "",
+				"threat": "unknown"
+			},
+			"entity_identity": {
+				"identity": "friend",
+				"iff_state": "not_queried",
+				"last_known_identity": "friend",
+				"owner_id": "player_intel",
+				"resolved_key": "raider_2",
+				"source": "operational_identity",
+				"state": "manual",
+				"valid": true,
+				"validity": "valid",
+				"via": "identity"
+			},
+			"fire": {
+				"needs_authorization": true,
+				"ok": false,
+				"reason": "needs_authorization",
+				"target_id": "T0009",
+				"weapon_id": "missile"
+			},
+			"identity": {
+				"identity": "friend",
+				"iff_state": "not_queried",
+				"last_known_identity": "friend",
+				"owner_id": "player_intel",
+				"resolved_key": "raider_2",
+				"source": "operational_identity",
+				"state": "manual",
+				"valid": true,
+				"validity": "valid",
+				"via": "combat_track"
+			},
+			"manual_control": {
+				"actor_id": "player_ctrl",
+				"assessment": {
+					"age": 0.0,
+					"authorized": true,
+					"auto": false,
+					"categories": [],
+					"confidence": 1.0,
+					"contradictions": [],
+					"evidence_count": 0,
+					"identity": "friend",
+					"last_update": 0.0,
+					"level": 4,
+					"level_name": "L4_IDENTIFIED",
+					"manual": true,
+					"manual_authority": "command",
+					"manual_confidence": 1.0,
+					"manual_identity": "friend",
+					"manual_t": 0.0,
+					"notes": [],
+					"schema": "identity_assessment.v1",
+					"sources": [],
+					"spoof_suspicion": 0.0,
+					"target_id": "raider_2",
+					"trigger_hint": "",
+					"writes_v15": false
+				},
+				"audit_ids": [
+					"IDA-000001"
+				],
+				"ok": true,
+				"operational": {
+					"identity": "friend",
+					"identity_audit_ids": [
+						"IDA-000001"
+					],
+					"identity_audited": true,
+					"identity_authorized": true,
+					"identity_confidence": 1.0,
+					"identity_evidence_count": 0,
+					"identity_level": 4,
+					"identity_manual": true,
+					"identity_observed_t": 0.0,
+					"identity_sources": [],
+					"identity_state": "manual",
+					"identity_ttl_s": 0.0,
+					"identity_updated_t": 0.0,
+					"owner_id": "player_intel",
+					"target_id": "raider_2",
+					"write_seq": 1
+				}
+			}
+		}
+	},
+	"head": "755ab5ed629165656a566427523b01045775fc0f"
+}

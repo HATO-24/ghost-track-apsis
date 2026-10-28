@@ -1,0 +1,953 @@
+{
+	"cases": {
+		"filesystem_restore_10_ticks": {
+			"event_count_before_ticks": 2,
+			"ingest": {
+				"assessment": {
+					"age": 0.0,
+					"authorized": false,
+					"auto": true,
+					"categories": [
+						"sensor"
+					],
+					"confidence": 0.525,
+					"contradictions": [],
+					"evidence_count": 1,
+					"identity": "neutral",
+					"last_update": 0.0,
+					"level": 3,
+					"level_name": "L3_CLASSIFIED",
+					"manual": false,
+					"notes": [],
+					"schema": "identity_assessment.v1",
+					"sources": [
+						"optical"
+					],
+					"spoof_suspicion": 0.0,
+					"target_id": "restore_target",
+					"trigger_hint": "",
+					"writes_v15": false
+				},
+				"duplicate": false,
+				"evidence_id": "IEV-000001",
+				"late_ignored": false,
+				"ok": true,
+				"operational": {
+					"identity": "neutral",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.525,
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 0.0,
+					"identity_sources": [
+						"optical"
+					],
+					"identity_state": "valid",
+					"identity_ttl_s": 5.0,
+					"identity_updated_t": 0.0,
+					"owner_id": "ally_intel",
+					"target_id": "restore_target",
+					"write_seq": 1
+				},
+				"owner_id": "ally_intel",
+				"target_id": "restore_target"
+			},
+			"load": {
+				"authority_restore_mode": "full",
+				"authority_restore_reasons": [],
+				"errors": [],
+				"identity_restore_mode": "full",
+				"ok": true,
+				"pending_intel_shares": 0,
+				"result_errors": [],
+				"sensor_partial_reasons": [],
+				"sensor_restore": {
+					"geometry_frame": "bary_rot",
+					"geometry_source": "physics_world",
+					"is_partial": false,
+					"partial_reasons": [],
+					"rebind": {
+						"bound": 1,
+						"frame": "bary_rot",
+						"mismatched_frame": [],
+						"missing": [],
+						"observer_bound": true,
+						"observer_id": "own_ship",
+						"ok": true,
+						"provider_t": 0.0,
+						"reason": "",
+						"seq": 2,
+						"skipped": [],
+						"source": "physics_world",
+						"t": 0.0,
+						"time_ok": true,
+						"usable": true
+					},
+					"restore_mode": "full",
+					"saved": true,
+					"schema": "v17.sensor_restore.v2",
+					"time_ok": true
+				},
+				"sensor_restore_mode": "full",
+				"world_sync": {
+					"compared": 5,
+					"enabled": true,
+					"failures": [],
+					"frame": "bary_rot",
+					"in_sync": true,
+					"mismatched": [],
+					"mode": "tick",
+					"ok": true,
+					"reason": "load",
+					"skipped": [],
+					"synced": 0,
+					"updated": []
+				}
+			},
+			"owner_restored": true,
+			"pending_fixture_kind": "manually_inserted_serialization_only",
+			"pending_restored": {
+				"ally_intel": [
+					{
+						"eta": 3.0,
+						"query_id": "Q-DIAG-1",
+						"target_id": "restore_target"
+					}
+				]
+			},
+			"restore_mode": "full",
+			"restored_trace": [
+				{
+					"confidence": 0.497,
+					"event_id": "ID-EV-000003",
+					"identity": "neutral",
+					"state": "valid",
+					"tick": 1
+				},
+				{
+					"confidence": 0.47,
+					"event_id": "ID-EV-000004",
+					"identity": "neutral",
+					"state": "valid",
+					"tick": 2
+				},
+				{
+					"confidence": 0.444,
+					"event_id": "ID-EV-000005",
+					"identity": "neutral",
+					"state": "valid",
+					"tick": 3
+				},
+				{
+					"confidence": 0.418,
+					"event_id": "ID-EV-000006",
+					"identity": "neutral",
+					"state": "valid",
+					"tick": 4
+				},
+				{
+					"confidence": 0.392,
+					"event_id": "ID-EV-000007",
+					"identity": "neutral",
+					"state": "valid",
+					"tick": 5
+				},
+				{
+					"confidence": 0.367,
+					"event_id": "ID-EV-000008",
+					"identity": "neutral",
+					"state": "stale",
+					"tick": 6
+				},
+				{
+					"confidence": 0.343,
+					"event_id": "ID-EV-000009",
+					"identity": "neutral",
+					"state": "stale",
+					"tick": 7
+				},
+				{
+					"confidence": 0.319,
+					"event_id": "ID-EV-000010",
+					"identity": "neutral",
+					"state": "stale",
+					"tick": 8
+				},
+				{
+					"confidence": 0.296,
+					"event_id": "ID-EV-000011",
+					"identity": "neutral",
+					"state": "stale",
+					"tick": 9
+				},
+				{
+					"confidence": 0.273,
+					"event_id": "ID-EV-000012",
+					"identity": "neutral",
+					"state": "stale",
+					"tick": 10
+				}
+			],
+			"source_trace": [
+				{
+					"confidence": 0.497,
+					"event_id": "ID-EV-000003",
+					"identity": "neutral",
+					"state": "valid",
+					"tick": 1
+				},
+				{
+					"confidence": 0.47,
+					"event_id": "ID-EV-000004",
+					"identity": "neutral",
+					"state": "valid",
+					"tick": 2
+				},
+				{
+					"confidence": 0.444,
+					"event_id": "ID-EV-000005",
+					"identity": "neutral",
+					"state": "valid",
+					"tick": 3
+				},
+				{
+					"confidence": 0.418,
+					"event_id": "ID-EV-000006",
+					"identity": "neutral",
+					"state": "valid",
+					"tick": 4
+				},
+				{
+					"confidence": 0.392,
+					"event_id": "ID-EV-000007",
+					"identity": "neutral",
+					"state": "valid",
+					"tick": 5
+				},
+				{
+					"confidence": 0.367,
+					"event_id": "ID-EV-000008",
+					"identity": "neutral",
+					"state": "stale",
+					"tick": 6
+				},
+				{
+					"confidence": 0.343,
+					"event_id": "ID-EV-000009",
+					"identity": "neutral",
+					"state": "stale",
+					"tick": 7
+				},
+				{
+					"confidence": 0.319,
+					"event_id": "ID-EV-000010",
+					"identity": "neutral",
+					"state": "stale",
+					"tick": 8
+				},
+				{
+					"confidence": 0.296,
+					"event_id": "ID-EV-000011",
+					"identity": "neutral",
+					"state": "stale",
+					"tick": 9
+				},
+				{
+					"confidence": 0.273,
+					"event_id": "ID-EV-000012",
+					"identity": "neutral",
+					"state": "stale",
+					"tick": 10
+				}
+			],
+			"traces_equal": true
+		},
+		"late_contamination": {
+			"after_one_tick_assessment": {
+				"age": 1.0,
+				"authorized": false,
+				"auto": true,
+				"categories": [
+					"sensor",
+					"iff"
+				],
+				"confidence": 0.386,
+				"contradictions": [
+					"identity_conflict:friend,hostile"
+				],
+				"evidence_count": 2,
+				"identity": "suspect",
+				"last_update": 2.0,
+				"level": 3,
+				"level_name": "L3_CLASSIFIED",
+				"manual": false,
+				"manual_authority": "",
+				"manual_confidence": 0.0,
+				"manual_identity": "",
+				"manual_t": 0.0,
+				"notes": [],
+				"schema": "identity_assessment.v1",
+				"sources": [
+					"optical",
+					"transponder"
+				],
+				"spoof_suspicion": 0.2,
+				"target_id": "late_target",
+				"trigger_hint": "suspect_identity",
+				"writes_v15": false
+			},
+			"after_one_tick_operational": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.386,
+				"evidence_count": 2,
+				"identity": "suspect",
+				"identity_age_s": 1.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.386,
+				"identity_evidence_count": 2,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 2.0,
+				"identity_sources": [
+					"optical",
+					"transponder"
+				],
+				"identity_state": "conflict",
+				"identity_ttl_s": 20.0,
+				"identity_updated_t": 3.0,
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"optical",
+					"transponder"
+				],
+				"state": "conflict",
+				"target_id": "late_target",
+				"write_seq": 2
+			},
+			"control_after_one_tick": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.386,
+				"evidence_count": 2,
+				"identity": "suspect",
+				"identity_age_s": 1.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.386,
+				"identity_evidence_count": 2,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 2.0,
+				"identity_sources": [
+					"transponder",
+					"optical"
+				],
+				"identity_state": "conflict",
+				"identity_ttl_s": 20.0,
+				"identity_updated_t": 3.0,
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"transponder",
+					"optical"
+				],
+				"state": "conflict",
+				"target_id": "order_target",
+				"write_seq": 3
+			},
+			"control_new_second": {
+				"assessment": {
+					"age": 0.0,
+					"authorized": false,
+					"auto": true,
+					"categories": [
+						"iff",
+						"sensor"
+					],
+					"confidence": 0.407,
+					"contradictions": [
+						"identity_conflict:hostile,friend"
+					],
+					"evidence_count": 2,
+					"identity": "suspect",
+					"last_update": 2.0,
+					"level": 3,
+					"level_name": "L3_CLASSIFIED",
+					"manual": false,
+					"manual_authority": "",
+					"manual_confidence": 0.0,
+					"manual_identity": "",
+					"manual_t": 0.0,
+					"notes": [],
+					"schema": "identity_assessment.v1",
+					"sources": [
+						"transponder",
+						"optical"
+					],
+					"spoof_suspicion": 0.2,
+					"target_id": "order_target",
+					"trigger_hint": "suspect_identity",
+					"writes_v15": false
+				},
+				"duplicate": false,
+				"evidence_id": "IEV-000002",
+				"late_ignored": false,
+				"ok": true,
+				"operational": {
+					"identity": "suspect",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.407,
+					"identity_evidence_count": 2,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 2.0,
+					"identity_sources": [
+						"transponder",
+						"optical"
+					],
+					"identity_state": "conflict",
+					"identity_ttl_s": 20.0,
+					"identity_updated_t": 2.0,
+					"owner_id": "player_intel",
+					"target_id": "order_target",
+					"write_seq": 2
+				},
+				"owner_id": "player_intel",
+				"target_id": "order_target"
+			},
+			"control_old_first": {
+				"assessment": {
+					"age": 1.0,
+					"authorized": false,
+					"auto": true,
+					"categories": [
+						"iff"
+					],
+					"confidence": 0.639,
+					"contradictions": [
+						"iff_alone_no_hostile"
+					],
+					"evidence_count": 1,
+					"identity": "suspect",
+					"last_update": 1.0,
+					"level": 3,
+					"level_name": "L3_CLASSIFIED",
+					"manual": false,
+					"notes": [
+						"iff_alone_downgraded"
+					],
+					"schema": "identity_assessment.v1",
+					"sources": [
+						"transponder"
+					],
+					"spoof_suspicion": 0.15,
+					"target_id": "order_target",
+					"trigger_hint": "suspect_identity",
+					"writes_v15": false
+				},
+				"duplicate": false,
+				"evidence_id": "IEV-000001",
+				"late_ignored": false,
+				"ok": true,
+				"operational": {
+					"identity": "suspect",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.639,
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 1.0,
+					"identity_sources": [
+						"transponder"
+					],
+					"identity_state": "conflict",
+					"identity_ttl_s": 20.0,
+					"identity_updated_t": 2.0,
+					"owner_id": "player_intel",
+					"target_id": "order_target",
+					"write_seq": 1
+				},
+				"owner_id": "player_intel",
+				"target_id": "order_target"
+			},
+			"control_operational": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.407,
+				"evidence_count": 2,
+				"identity": "suspect",
+				"identity_age_s": 0.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.407,
+				"identity_evidence_count": 2,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 2.0,
+				"identity_sources": [
+					"transponder",
+					"optical"
+				],
+				"identity_state": "conflict",
+				"identity_ttl_s": 20.0,
+				"identity_updated_t": 2.0,
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"transponder",
+					"optical"
+				],
+				"state": "conflict",
+				"target_id": "order_target",
+				"write_seq": 2
+			},
+			"immediate_operational": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.675,
+				"evidence_count": 1,
+				"identity": "friend",
+				"identity_age_s": 0.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.675,
+				"identity_evidence_count": 1,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 2.0,
+				"identity_sources": [
+					"optical"
+				],
+				"identity_state": "valid",
+				"identity_ttl_s": 20.0,
+				"identity_updated_t": 2.0,
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"optical"
+				],
+				"state": "valid",
+				"target_id": "late_target",
+				"write_seq": 1
+			},
+			"immediate_service_assessment": {
+				"age": 0.0,
+				"authorized": false,
+				"auto": true,
+				"categories": [
+					"sensor",
+					"iff"
+				],
+				"confidence": 0.407,
+				"contradictions": [
+					"identity_conflict:friend,hostile"
+				],
+				"evidence_count": 2,
+				"identity": "suspect",
+				"last_update": 2.0,
+				"level": 3,
+				"level_name": "L3_CLASSIFIED",
+				"manual": false,
+				"manual_authority": "",
+				"manual_confidence": 0.0,
+				"manual_identity": "",
+				"manual_t": 0.0,
+				"notes": [],
+				"schema": "identity_assessment.v1",
+				"sources": [
+					"optical",
+					"transponder"
+				],
+				"spoof_suspicion": 0.2,
+				"target_id": "late_target",
+				"trigger_hint": "suspect_identity",
+				"writes_v15": false
+			},
+			"late_ingest": {
+				"assessment": {
+					"age": 0.0,
+					"authorized": false,
+					"auto": true,
+					"categories": [
+						"sensor",
+						"iff"
+					],
+					"confidence": 0.407,
+					"contradictions": [
+						"identity_conflict:friend,hostile"
+					],
+					"evidence_count": 2,
+					"identity": "suspect",
+					"last_update": 2.0,
+					"level": 3,
+					"level_name": "L3_CLASSIFIED",
+					"manual": false,
+					"manual_authority": "",
+					"manual_confidence": 0.0,
+					"manual_identity": "",
+					"manual_t": 0.0,
+					"notes": [],
+					"schema": "identity_assessment.v1",
+					"sources": [
+						"optical",
+						"transponder"
+					],
+					"spoof_suspicion": 0.2,
+					"target_id": "late_target",
+					"trigger_hint": "suspect_identity",
+					"writes_v15": false
+				},
+				"duplicate": false,
+				"evidence_id": "IEV-000002",
+				"late_ignored": true,
+				"ok": true,
+				"operational": {
+					"identity": "friend",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.675,
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 2.0,
+					"identity_sources": [
+						"optical"
+					],
+					"identity_state": "valid",
+					"identity_ttl_s": 20.0,
+					"identity_updated_t": 2.0,
+					"owner_id": "player_intel",
+					"target_id": "late_target",
+					"write_seq": 1
+				},
+				"owner_id": "player_intel",
+				"target_id": "late_target"
+			},
+			"newer_ingest": {
+				"assessment": {
+					"age": 0.0,
+					"authorized": false,
+					"auto": true,
+					"categories": [
+						"sensor"
+					],
+					"confidence": 0.675,
+					"contradictions": [],
+					"evidence_count": 1,
+					"identity": "friend",
+					"last_update": 2.0,
+					"level": 3,
+					"level_name": "L3_CLASSIFIED",
+					"manual": false,
+					"notes": [],
+					"schema": "identity_assessment.v1",
+					"sources": [
+						"optical"
+					],
+					"spoof_suspicion": 0.0,
+					"target_id": "late_target",
+					"trigger_hint": "",
+					"writes_v15": false
+				},
+				"duplicate": false,
+				"evidence_id": "IEV-000001",
+				"late_ignored": false,
+				"ok": true,
+				"operational": {
+					"identity": "friend",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.675,
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 2.0,
+					"identity_sources": [
+						"optical"
+					],
+					"identity_state": "valid",
+					"identity_ttl_s": 20.0,
+					"identity_updated_t": 2.0,
+					"owner_id": "player_intel",
+					"target_id": "late_target",
+					"write_seq": 1
+				},
+				"owner_id": "player_intel",
+				"target_id": "late_target"
+			}
+		},
+		"ttl_consumer": {
+			"after": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.322,
+				"evidence_count": 1,
+				"identity": "friend",
+				"identity_age_s": 11.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.322,
+				"identity_evidence_count": 1,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 0.0,
+				"identity_sources": [
+					"transponder"
+				],
+				"identity_state": "expired",
+				"identity_ttl_s": 5.0,
+				"identity_updated_t": 11.0,
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"transponder"
+				],
+				"state": "expired",
+				"target_id": "ttl_target",
+				"write_seq": 12
+			},
+			"before": {
+				"audit_ids": [],
+				"audited": false,
+				"authorized": false,
+				"confidence": 0.675,
+				"evidence_count": 1,
+				"identity": "friend",
+				"identity_age_s": 0.0,
+				"identity_audit_ids": [],
+				"identity_audited": false,
+				"identity_authorized": false,
+				"identity_confidence": 0.675,
+				"identity_evidence_count": 1,
+				"identity_level": 3,
+				"identity_manual": false,
+				"identity_observed_t": 0.0,
+				"identity_sources": [
+					"transponder"
+				],
+				"identity_state": "valid",
+				"identity_ttl_s": 5.0,
+				"identity_updated_t": 0.0,
+				"manual": false,
+				"ok": true,
+				"owner_id": "player_intel",
+				"sources": [
+					"transponder"
+				],
+				"state": "valid",
+				"target_id": "ttl_target",
+				"write_seq": 1
+			},
+			"combat_identity": {
+				"confidence": 0.322,
+				"identity": "friend",
+				"owner_id": "player_intel",
+				"source": "operational_identity",
+				"state": "expired"
+			},
+			"combat_track_identity": "friend",
+			"delayed_arrival": {
+				"ingest": {
+					"assessment": {
+						"age": 8.0,
+						"authorized": false,
+						"auto": true,
+						"categories": [
+							"iff"
+						],
+						"confidence": 0.41,
+						"contradictions": [],
+						"evidence_count": 1,
+						"identity": "friend",
+						"last_update": 0.0,
+						"level": 3,
+						"level_name": "L3_CLASSIFIED",
+						"manual": false,
+						"notes": [],
+						"schema": "identity_assessment.v1",
+						"sources": [
+							"transponder"
+						],
+						"spoof_suspicion": 0.0,
+						"target_id": "delayed_target",
+						"trigger_hint": "",
+						"writes_v15": false
+					},
+					"duplicate": false,
+					"evidence_id": "IEV-000001",
+					"late_ignored": false,
+					"ok": true,
+					"operational": {
+						"identity": "friend",
+						"identity_audit_ids": [],
+						"identity_audited": false,
+						"identity_authorized": false,
+						"identity_confidence": 0.41,
+						"identity_evidence_count": 1,
+						"identity_level": 3,
+						"identity_manual": false,
+						"identity_observed_t": 0.0,
+						"identity_sources": [
+							"transponder"
+						],
+						"identity_state": "valid",
+						"identity_ttl_s": 5.0,
+						"identity_updated_t": 8.0,
+						"owner_id": "player_intel",
+						"target_id": "delayed_target",
+						"write_seq": 1
+					},
+					"owner_id": "player_intel",
+					"target_id": "delayed_target"
+				},
+				"now": 8.0,
+				"operational": {
+					"audit_ids": [],
+					"audited": false,
+					"authorized": false,
+					"confidence": 0.41,
+					"evidence_count": 1,
+					"identity": "friend",
+					"identity_age_s": 8.0,
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.41,
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 0.0,
+					"identity_sources": [
+						"transponder"
+					],
+					"identity_state": "stale",
+					"identity_ttl_s": 5.0,
+					"identity_updated_t": 8.0,
+					"manual": false,
+					"ok": true,
+					"owner_id": "player_intel",
+					"sources": [
+						"transponder"
+					],
+					"state": "valid",
+					"target_id": "delayed_target",
+					"write_seq": 1
+				}
+			},
+			"hud_identity": "friend",
+			"hud_known": true,
+			"ingest": {
+				"assessment": {
+					"age": 0.0,
+					"authorized": false,
+					"auto": true,
+					"categories": [
+						"iff"
+					],
+					"confidence": 0.675,
+					"contradictions": [],
+					"evidence_count": 1,
+					"identity": "friend",
+					"last_update": 0.0,
+					"level": 3,
+					"level_name": "L3_CLASSIFIED",
+					"manual": false,
+					"notes": [],
+					"schema": "identity_assessment.v1",
+					"sources": [
+						"transponder"
+					],
+					"spoof_suspicion": 0.0,
+					"target_id": "ttl_target",
+					"trigger_hint": "",
+					"writes_v15": false
+				},
+				"duplicate": false,
+				"evidence_id": "IEV-000001",
+				"late_ignored": false,
+				"ok": true,
+				"operational": {
+					"identity": "friend",
+					"identity_audit_ids": [],
+					"identity_audited": false,
+					"identity_authorized": false,
+					"identity_confidence": 0.675,
+					"identity_evidence_count": 1,
+					"identity_level": 3,
+					"identity_manual": false,
+					"identity_observed_t": 0.0,
+					"identity_sources": [
+						"transponder"
+					],
+					"identity_state": "valid",
+					"identity_ttl_s": 5.0,
+					"identity_updated_t": 0.0,
+					"owner_id": "player_intel",
+					"target_id": "ttl_target",
+					"write_seq": 1
+				},
+				"owner_id": "player_intel",
+				"target_id": "ttl_target"
+			},
+			"now": 11.0,
+			"svc_assessment": {
+				"age": 11.0,
+				"authorized": false,
+				"auto": true,
+				"categories": [
+					"iff"
+				],
+				"confidence": 0.322,
+				"contradictions": [],
+				"evidence_count": 1,
+				"identity": "friend",
+				"last_update": 0.0,
+				"level": 3,
+				"level_name": "L3_CLASSIFIED",
+				"manual": false,
+				"manual_authority": "",
+				"manual_confidence": 0.0,
+				"manual_identity": "",
+				"manual_t": 0.0,
+				"notes": [],
+				"schema": "identity_assessment.v1",
+				"sources": [
+					"transponder"
+				],
+				"spoof_suspicion": 0.0,
+				"target_id": "ttl_target",
+				"trigger_hint": "",
+				"writes_v15": false
+			},
+			"t0": 0.0
+		}
+	},
+	"head": "7293058d1c0d3cdedceff1fae6233523e7f8b313"
+}

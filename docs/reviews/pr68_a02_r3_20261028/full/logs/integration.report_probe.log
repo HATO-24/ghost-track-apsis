@@ -1,0 +1,39 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE4C PROBE · AfterActionReport
+════════════════════════════════════════════════════════════
+
+── 1 内容/schema ──
+
+── 2 ingest/choose ──
+
+── 3 程序正义 ──
+
+── 4 GHOST 分支 ──
+
+── 5 组合枚举 ──
+
+── 6 文本原文 ──
+
+── 7 save/reset ──
+────────────────────────────────────────────────────────────
+[DATA] content = 3 报告模板（含 TBD）/5 分支文本/6 分支描述/3 reuse notes · 原文关键句
+[DATA] ingest = base/别名/dict evidence/二次合并 · 13 类非法原子拒绝 · 未知键 warning · choose 别名
+[DATA] program = 完整→program_justice/原文 · 9 类缺失→standard/TBD · 未上报→GHOST
+[DATA] ghost = 6 政治/信任/证据组合 · GHOST/错付/守口 · core缺失/retreat→standard · 分支文本
+[DATA] combos = 128 行动组合 + 25 政治/信任网格 · branch 合法/PROLOGUE_COMPLETE/无结局
+[DATA] text = 报告/分支逐字匹配 docs/44 · TBD 明示 · reuse notes 原文 · 关键句
+[DATA] save/reset = save 字段/load VM/继续修改 · 非法存档原子拒绝 · reset · 同输入确定
+────────────────────────────────────────────────────────────
+V17 REPORT PROBE RESULT: PASS=965 FAIL=0
+V17 REPORT PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/after_action_report.gd:628)
+       [1] _test_save_reset (res://tests/report_probe.gd:526)
+       [2] _initialize (res://tests/report_probe.gd:33)

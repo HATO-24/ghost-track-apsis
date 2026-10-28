@@ -2,7 +2,42 @@
 
 执行Issue：[JC-A02 #59](https://github.com/HATO-24/ghost-track-apsis/issues/59)。
 
-状态：READY，A1已冻结并合入main；交付A2。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：DONE，第三轮独立放行，A2已冻结且PR68已合入。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-28 第三轮：PASS，A2合入并交接A03
+
+A2=`755ab5ed629165656a566427523b01045775fc0f`，main合入=`82bf6a531042961f0d5fe5d948c7004a15cd20cf`，整个tree与被审候选相同。[独立放行、实际消费者对照与原C全量证据](../../reviews/pr68_a02_r3_20261028/review.md)。
+
+原R3实际radar→Binder→实际HUD._seed_combat_tracks空字段T0001→合法manual→实际request_fire，身份现统一friend，实体键/预填兼容均过；开火仍受独立授权。原R4普通contact/详情过期显示unknown+EXPIRED并保留last-known，stale维度合同不变。原五组全部关闭，不再派发返工。
+
+根独立七专项7/7、identity122/0；原C Phase0 6/6、PhaseA3/3、full89=82PASS/7历史FAIL，new_fail0、drift0、complete=true、退出0。CI同head合成merge结果一致，七历史baseline未刷新。#59完成，下一张核心卡为[A03/#60](JC-A03_ew_observation.md)；UI文档仍GPT/Sol，代码DeepSeek。以下首二轮为历史。
+
+## 2026-10-28 PR68第二轮：关闭大部分残项，仅消费者收口
+
+候选 `4a658699868b8d046ec5472f9c4b9ea204af6be9`。[本轮关闭项与证据](../../reviews/pr68_a02_r2_20261028/review.md)。根七专项7/7、新110/0；CI合成merge full89=82/7、new_fail0、complete=true。继续原#59，PR68不合并。
+
+**不再重做**：R1来源owner/单次消费/ELINT类别；R2真实Binder与新旧人工权限/审计；R4合法迟到不污染、过期有效性与火控unknown、别名一致；R5冲突与IFF态分离、真实遮挡原因、自然API延迟队列实际文件恢复后10tick逐项一致。A1完成保留。
+
+仅剩：
+
+1. **原R3真实T0001映射**：实际HUD._seed_combat_tracks种入的T0001映射字段为空，entity raider_2已friend但fire仍unknown。_entity_for_track未反查sensor map，物理已解析的target_entity未供身份同步。正式R12手工预填映射没有覆盖原路径；须接真实映射并以实际HUD入口验收，保留预填字段/实体键正例。不声称已有真实发射。
+2. **原R4实际HUD有效性**：服务/火控已过，Binder有expired/valid=false/effective_unknown，但普通HUD仍取raw identity绘制FRIEND。接有效身份或明确最后已知/失效区分，历史原值可保留；不重做TTL算法或新开全屏UI。state评估态与validity时效可不同，不把stale保留friend单独当新问题。
+
+只补这两个消费者及真实入口回归，已关闭项不重派；最终同SHA原C和七历史baseline规则不变。#60继续WAIT A2。下方首轮五组为历史，以本轮关闭/剩余表为准。
+
+## 2026-10-27 PR68首轮复核：继续原#59五组收尾
+
+候选 `7293058d1c0d3cdedceff1fae6233523e7f8b313`，main `1738a5e41509c09e04dc34da382dc07f4b8982e9`。[复核与真实反例](../../reviews/pr68_a02_20261027/review.md)。根七专项7/7（新66/0）；CI合成merge full89=82PASS/7历史FAIL、new_fail0、complete=true。绿色probe未覆盖真实路径，PR68暂缓合并。
+
+保留：直接owner存储隔离、未知owner拒绝、真实本舰IFF/光学/ELINT已有接线、正常新人工正例；非本舰owner真实文件10tick身份/置信度/事件ID一致。手工pending行只证明序列化。A1完成不重开，不整项重做。
+
+1. **R1真实来源/owner/单次消费**：盟军IFF回复未共享却写player；默认mode同回复两条证据/confidence0.563，显式mode_s一条/0.75；ELINT类别变iff。保留可信owner、原始事件/实际mode/时间/TTL/类别，修同一来源链，不靠UI过滤。
+2. **R2人工权限/兼容/审计**：真实Binder走旧wrapper绕新门变authorized hostile、审计空；新口能自报command写盟军，撤销无actor，operator丢失。新旧入口/重放统一可信权限和审计，保留合法指挥员正例。
+3. **R3实际消费者键**：HUD为T0001、身份键为raider_2，HUD friend但火控unknown。按owner合法映射统一内部键，保留匿名显示/实体键兼容；当前请求停needs_authorization，不声称实际发射。
+4. **R4有效性/迟到**：TTL过期字段未被HUD/火控消费，state别名冲突；合法t2迟到证据即时late_ignored，下一tick仍改结论。修实际TTL/消费者策略和迟到接纳，不另设阈值或硬定过期皆unknown。
+5. **R5查询/评估状态**：IFF valid覆盖conflict，遮挡被请求jam改报；区分查询与评估/人工状态，按原卡补实际等待/过期及查询继续，不用手工容器冒充运行链。
+
+先真实红例再修，逐项对照，不只新API自比较；最终同SHA原C回归，七历史失败不刷新，不扩AI/EW/逐舰/真实RF。#60继续WAIT A2，UI接入与本卡共享文件串行。下方A1解锁是历史前置，原八段契约保留。
 
 ## 2026-10-27 A1独立放行后的开工交接
 

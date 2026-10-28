@@ -1,0 +1,16 @@
+{
+  "head": "7293058d1c0d3cdedceff1fae6233523e7f8b313",
+  "executed_at": "2026-10-27T21:22:39.9892245+08:00",
+  "engine": "Godot_v4.7.2-stable_win64_console.exe",
+  "exit_code": 0,
+  "diagnostic_completion_only": true,
+  "script": "source_consumer_audit.gd",
+  "json": "source_consumer_audit.json",
+  "log": "source_consumer_audit.log",
+  "findings": "source_consumer_findings.md",
+  "case_count": 8,
+  "production_modified_by_auditor": false,
+  "formal_tests_modified": false,
+  "baseline_modified": false,
+  "github_modified": false
+}

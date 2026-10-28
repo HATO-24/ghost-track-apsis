@@ -1,0 +1,17 @@
+{
+  "headRevision": "755ab5ed629165656a566427523b01045775fc0f",
+  "runId": 40644344521,
+  "actualCheckout": "5cb245cbaf295455115d32361d18255bcc3288fe",
+  "fullJob": 122669546432,
+  "phase0Job": 122669546758,
+  "phaseAJob": 122669546791,
+  "allConclusions": "success",
+  "fullTotal": 89,
+  "fullPass": 82,
+  "fullFail": 7,
+  "newFail": 0,
+  "drift": 0,
+  "complete": true,
+  "fullExit": 0,
+  "fullDurationSec": 377.1
+}

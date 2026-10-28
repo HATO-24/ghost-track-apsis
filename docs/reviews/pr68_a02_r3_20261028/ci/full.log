@@ -1,0 +1,698 @@
+2026-10-28T06:31:13.7083736Z Current runner version: '2.338.0'
+2026-10-28T06:31:13.7120389Z ##[group]Runner Image Provisioner
+2026-10-28T06:31:13.7121980Z Hosted Compute Agent
+2026-10-28T06:31:13.7122956Z Version: 20261021.618
+2026-10-28T06:31:13.7124004Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-10-28T06:31:13.7125401Z Build Date: 2026-10-21T00:45:21Z
+2026-10-28T06:31:13.7126710Z Worker ID: {ceb4b2d0-c151-47eb-9c10-011aff4ca8bb}
+2026-10-28T06:31:13.7127949Z Region: westus2
+2026-10-28T06:31:13.7128946Z Cloud: Azure
+2026-10-28T06:31:13.7129934Z ##[endgroup]
+2026-10-28T06:31:13.7132086Z ##[group]Operating System
+2026-10-28T06:31:13.7133250Z Microsoft Windows Server 2025
+2026-10-28T06:31:13.7135040Z 10.0.26100
+2026-10-28T06:31:13.7135883Z Datacenter
+2026-10-28T06:31:13.7136776Z ##[endgroup]
+2026-10-28T06:31:13.7137648Z ##[group]Runner Image
+2026-10-28T06:31:13.7138614Z Image: windows-2025-vs2026
+2026-10-28T06:31:13.7139605Z Version: 20261021.278.1
+2026-10-28T06:31:13.7142335Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20261021.278/images/windows/Windows2025-VS2026-Readme.md
+2026-10-28T06:31:13.7145494Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20261021.278
+2026-10-28T06:31:13.7147420Z ##[endgroup]
+2026-10-28T06:31:13.7149318Z ##[group]GITHUB_TOKEN Permissions
+2026-10-28T06:31:13.7151817Z Contents: read
+2026-10-28T06:31:13.7152816Z Metadata: read
+2026-10-28T06:31:13.7154044Z ##[endgroup]
+2026-10-28T06:31:13.7157043Z Secret source: Actions
+2026-10-28T06:31:13.7158553Z Cache mode: write
+2026-10-28T06:31:13.7159722Z Prepare workflow directory
+2026-10-28T06:31:13.7784275Z Prepare all required actions
+2026-10-28T06:31:13.7856543Z Getting action download info
+2026-10-28T06:31:14.1593177Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-28T06:31:14.3042710Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+2026-10-28T06:31:14.4533647Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-10-28T06:31:14.8138891Z Complete job name: Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)
+2026-10-28T06:31:14.9709827Z ##[group]Run actions/checkout@v4
+2026-10-28T06:31:14.9711097Z with:
+2026-10-28T06:31:14.9711563Z   repository: HATO-24/ghost-track-apsis
+2026-10-28T06:31:14.9715902Z   token: ***
+2026-10-28T06:31:14.9716336Z   ssh-strict: true
+2026-10-28T06:31:14.9716781Z   ssh-user: git
+2026-10-28T06:31:14.9717215Z   persist-credentials: true
+2026-10-28T06:31:14.9717693Z   clean: true
+2026-10-28T06:31:14.9718136Z   sparse-checkout-cone-mode: true
+2026-10-28T06:31:14.9718639Z   fetch-depth: 1
+2026-10-28T06:31:14.9719062Z   fetch-tags: false
+2026-10-28T06:31:14.9719494Z   show-progress: true
+2026-10-28T06:31:14.9719923Z   lfs: false
+2026-10-28T06:31:14.9720306Z   submodules: false
+2026-10-28T06:31:14.9720735Z   set-safe-directory: true
+2026-10-28T06:31:14.9721259Z   allow-unsafe-pr-checkout: false
+2026-10-28T06:31:14.9722010Z env:
+2026-10-28T06:31:14.9722405Z   GODOT_VERSION: 4.7.2-stable
+2026-10-28T06:31:14.9722938Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:31:14.9723797Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+2026-10-28T06:31:14.9725095Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:31:14.9726142Z   GODOT_DIR: tools/godot
+2026-10-28T06:31:14.9726742Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+2026-10-28T06:31:14.9727393Z ##[endgroup]
+2026-10-28T06:31:16.8929713Z Syncing repository: HATO-24/ghost-track-apsis
+2026-10-28T06:31:16.8932357Z ##[group]Getting Git version info
+2026-10-28T06:31:16.8933351Z Working directory is 'D:\a\ghost-track-apsis\ghost-track-apsis'
+2026-10-28T06:31:16.8934891Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-28T06:31:16.8938972Z git version 2.56.0.windows.2
+2026-10-28T06:31:16.8941729Z ##[endgroup]
+2026-10-28T06:31:16.8946590Z Temporarily overriding HOME='D:\a\_temp\7f947e94-bf6b-45df-83b2-912646331d1b' before making global git config changes
+2026-10-28T06:31:16.8947843Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-28T06:31:16.8949053Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\ghost-track-apsis\ghost-track-apsis
+2026-10-28T06:31:16.8951594Z Deleting the contents of 'D:\a\ghost-track-apsis\ghost-track-apsis'
+2026-10-28T06:31:16.8952786Z ##[group]Initializing the repository
+2026-10-28T06:31:16.8953780Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\ghost-track-apsis\ghost-track-apsis
+2026-10-28T06:31:16.8954926Z Initialized empty Git repository in D:/a/ghost-track-apsis/ghost-track-apsis/.git/
+2026-10-28T06:31:16.8957189Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/HATO-24/ghost-track-apsis
+2026-10-28T06:31:16.8959544Z ##[endgroup]
+2026-10-28T06:31:16.8960449Z ##[group]Disabling automatic garbage collection
+2026-10-28T06:31:16.8961291Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-10-28T06:31:16.8963394Z ##[endgroup]
+2026-10-28T06:31:16.8964215Z ##[group]Setting up auth
+2026-10-28T06:31:16.8965091Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-28T06:31:16.8967610Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-28T06:31:17.7518067Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-28T06:31:17.8186803Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-28T06:31:18.4767487Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-28T06:31:18.5335546Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-28T06:31:19.1268073Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-10-28T06:31:19.1657979Z ##[endgroup]
+2026-10-28T06:31:19.1659057Z ##[group]Fetching the repository
+2026-10-28T06:31:19.1673646Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +5cb245cbaf295455115d32361d18255bcc3288fe:refs/remotes/pull/68/merge
+2026-10-28T06:31:29.9369159Z From https://github.com/HATO-24/ghost-track-apsis
+2026-10-28T06:31:29.9473968Z  * [new ref]         5cb245cbaf295455115d32361d18255bcc3288fe -> pull/68/merge
+2026-10-28T06:31:29.9493249Z ##[endgroup]
+2026-10-28T06:31:29.9494076Z ##[group]Determining the checkout info
+2026-10-28T06:31:29.9494997Z ##[endgroup]
+2026-10-28T06:31:29.9495912Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-10-28T06:31:29.9992598Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-10-28T06:31:30.0385383Z ##[group]Checking out the ref
+2026-10-28T06:31:30.0395297Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force refs/remotes/pull/68/merge
+2026-10-28T06:31:31.1284031Z Updating files:  51% (1129/2185)
+2026-10-28T06:31:31.1356548Z Updating files:  52% (1137/2185)
+2026-10-28T06:31:31.1416029Z Updating files:  53% (1159/2185)
+2026-10-28T06:31:31.1472574Z Updating files:  54% (1180/2185)
+2026-10-28T06:31:31.1531324Z Updating files:  55% (1202/2185)
+2026-10-28T06:31:31.1594692Z Updating files:  56% (1224/2185)
+2026-10-28T06:31:31.1667563Z Updating files:  57% (1246/2185)
+2026-10-28T06:31:31.1862270Z Updating files:  58% (1268/2185)
+2026-10-28T06:31:31.1940942Z Updating files:  59% (1290/2185)
+2026-10-28T06:31:31.2051468Z Updating files:  60% (1311/2185)
+2026-10-28T06:31:31.2058817Z Updating files:  61% (1333/2185)
+2026-10-28T06:31:31.2143882Z Updating files:  62% (1355/2185)
+2026-10-28T06:31:31.2203816Z Updating files:  63% (1377/2185)
+2026-10-28T06:31:31.2283171Z Updating files:  64% (1399/2185)
+2026-10-28T06:31:31.2357644Z Updating files:  65% (1421/2185)
+2026-10-28T06:31:31.2426120Z Updating files:  66% (1443/2185)
+2026-10-28T06:31:31.2511602Z Updating files:  67% (1464/2185)
+2026-10-28T06:31:31.2608442Z Updating files:  68% (1486/2185)
+2026-10-28T06:31:31.2671884Z Updating files:  69% (1508/2185)
+2026-10-28T06:31:31.2741506Z Updating files:  70% (1530/2185)
+2026-10-28T06:31:31.2820231Z Updating files:  71% (1552/2185)
+2026-10-28T06:31:31.2908450Z Updating files:  72% (1574/2185)
+2026-10-28T06:31:31.2991073Z Updating files:  73% (1596/2185)
+2026-10-28T06:31:31.3070382Z Updating files:  74% (1617/2185)
+2026-10-28T06:31:31.3131997Z Updating files:  75% (1639/2185)
+2026-10-28T06:31:31.3242292Z Updating files:  76% (1661/2185)
+2026-10-28T06:31:31.3309287Z Updating files:  77% (1683/2185)
+2026-10-28T06:31:31.3389291Z Updating files:  78% (1705/2185)
+2026-10-28T06:31:31.3586586Z Updating files:  79% (1727/2185)
+2026-10-28T06:31:31.3587756Z Updating files:  80% (1748/2185)
+2026-10-28T06:31:31.4971887Z Updating files:  81% (1770/2185)
+2026-10-28T06:31:32.1851337Z Updating files:  82% (1792/2185)
+2026-10-28T06:31:32.3462385Z Updating files:  82% (1804/2185)
+2026-10-28T06:31:32.5067595Z Updating files:  83% (1814/2185)
+2026-10-28T06:31:32.6758559Z Updating files:  84% (1836/2185)
+2026-10-28T06:31:32.8780771Z Updating files:  85% (1858/2185)
+2026-10-28T06:31:33.0135896Z Updating files:  86% (1880/2185)
+2026-10-28T06:31:33.0779873Z Updating files:  87% (1901/2185)
+2026-10-28T06:31:33.1529372Z Updating files:  88% (1923/2185)
+2026-10-28T06:31:33.1986692Z Updating files:  88% (1937/2185)
+2026-10-28T06:31:33.2887967Z Updating files:  89% (1945/2185)
+2026-10-28T06:31:33.3660237Z Updating files:  90% (1967/2185)
+2026-10-28T06:31:33.4202326Z Updating files:  91% (1989/2185)
+2026-10-28T06:31:33.4447493Z Updating files:  92% (2011/2185)
+2026-10-28T06:31:33.4744170Z Updating files:  93% (2033/2185)
+2026-10-28T06:31:33.5020200Z Updating files:  94% (2054/2185)
+2026-10-28T06:31:33.6696567Z Updating files:  95% (2076/2185)
+2026-10-28T06:31:33.8619874Z Updating files:  96% (2098/2185)
+2026-10-28T06:31:33.9467167Z Updating files:  97% (2120/2185)
+2026-10-28T06:31:33.9720652Z Updating files:  98% (2142/2185)
+2026-10-28T06:31:33.9795682Z Updating files:  99% (2164/2185)
+2026-10-28T06:31:33.9796386Z Updating files: 100% (2185/2185)
+2026-10-28T06:31:33.9796835Z Updating files: 100% (2185/2185), done.
+2026-10-28T06:31:33.9916296Z Note: switching to 'refs/remotes/pull/68/merge'.
+2026-10-28T06:31:33.9916963Z 
+2026-10-28T06:31:33.9917522Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-28T06:31:33.9918644Z changes and commit them, and you can discard any commits you make in this
+2026-10-28T06:31:33.9919769Z state without impacting any branches by switching back to a branch.
+2026-10-28T06:31:33.9920499Z 
+2026-10-28T06:31:33.9921037Z If you want to create a new branch to retain commits you create, you may
+2026-10-28T06:31:33.9922090Z do so (now or later) by using -c with the switch command. Example:
+2026-10-28T06:31:33.9922776Z 
+2026-10-28T06:31:33.9923125Z   git switch -c <new-branch-name>
+2026-10-28T06:31:33.9923652Z 
+2026-10-28T06:31:33.9924023Z Or undo this operation with:
+2026-10-28T06:31:33.9924857Z 
+2026-10-28T06:31:33.9925214Z   git switch -
+2026-10-28T06:31:33.9925623Z 
+2026-10-28T06:31:33.9926207Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-28T06:31:33.9927016Z 
+2026-10-28T06:31:33.9927850Z HEAD is now at 5cb245c Merge 755ab5ed629165656a566427523b01045775fc0f into 1738a5e41509c09e04dc34da382dc07f4b8982e9
+2026-10-28T06:31:34.1436800Z ##[endgroup]
+2026-10-28T06:31:34.1438079Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-10-28T06:31:34.1438795Z 5cb245cbaf295455115d32361d18255bcc3288fe
+2026-10-28T06:31:34.1812576Z ##[group]Run actions/cache@v4
+2026-10-28T06:31:34.1812906Z with:
+2026-10-28T06:31:34.1813112Z   path: tools/godot
+2026-10-28T06:31:34.1813559Z   key: godot-Windows-4.7.2-stable-731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+2026-10-28T06:31:34.1814075Z   enableCrossOsArchive: false
+2026-10-28T06:31:34.1814335Z   fail-on-cache-miss: false
+2026-10-28T06:31:34.1814575Z   lookup-only: false
+2026-10-28T06:31:34.1814779Z   save-always: false
+2026-10-28T06:31:34.1814969Z env:
+2026-10-28T06:31:34.1815146Z   GODOT_VERSION: 4.7.2-stable
+2026-10-28T06:31:34.1815406Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:31:34.1815831Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+2026-10-28T06:31:34.1816564Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:31:34.1817146Z   GODOT_DIR: tools/godot
+2026-10-28T06:31:34.1817497Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+2026-10-28T06:31:34.1817833Z ##[endgroup]
+2026-10-28T06:31:34.3233676Z (node:2776) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-28T06:31:34.3234892Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-28T06:31:34.8119572Z (node:2776) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-28T06:31:35.6755683Z Cache hit for: godot-Windows-4.7.2-stable-731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+2026-10-28T06:31:36.1351690Z Received 20971520 of 83359648 (25.2%), 19.9 MBs/sec
+2026-10-28T06:31:37.0025849Z Received 83359648 of 83359648 (100.0%), 42.0 MBs/sec
+2026-10-28T06:31:37.0031141Z Cache Size: ~79 MB (83359648 B)
+2026-10-28T06:31:37.0135202Z [command]"C:\Program Files\Git\usr\bin\tar.exe" -xf D:/a/_temp/7cd88cf3-c0b5-4c24-8e96-a8a568ac0973/cache.tzst -P -C D:/a/ghost-track-apsis/ghost-track-apsis --force-local --use-compress-program "zstd -d"
+2026-10-28T06:31:37.5384168Z Cache restored successfully
+2026-10-28T06:31:37.5538174Z Cache restored from key: godot-Windows-4.7.2-stable-731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+2026-10-28T06:31:37.5906987Z ##[group]Run $ErrorActionPreference = 'Stop'
+2026-10-28T06:31:37.5907443Z [36;1m$ErrorActionPreference = 'Stop'[0m
+2026-10-28T06:31:37.5907849Z [36;1mif (-not (Test-Path -LiteralPath $env:GODOT_CONSOLE)) {[0m
+2026-10-28T06:31:37.5908363Z [36;1m  throw "Expected Godot console executable not found: $env:GODOT_CONSOLE"[0m
+2026-10-28T06:31:37.5908778Z [36;1m}[0m
+2026-10-28T06:31:37.5909070Z [36;1m$version = & $env:GODOT_CONSOLE --version 2>&1 | Out-String[0m
+2026-10-28T06:31:37.5909472Z [36;1mWrite-Host "Godot version: $version"[0m
+2026-10-28T06:31:37.5909830Z [36;1mif ($version -notmatch [regex]::Escape('4.7.2')) {[0m
+2026-10-28T06:31:37.5910191Z [36;1m  throw "Expected Godot 4.7.2, got: $version"[0m
+2026-10-28T06:31:37.5910489Z [36;1m}[0m
+2026-10-28T06:31:37.6581132Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-28T06:31:37.6581591Z env:
+2026-10-28T06:31:37.6581826Z   GODOT_VERSION: 4.7.2-stable
+2026-10-28T06:31:37.6582211Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:31:37.6582733Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+2026-10-28T06:31:37.6583604Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:31:37.6584550Z   GODOT_DIR: tools/godot
+2026-10-28T06:31:37.6585211Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+2026-10-28T06:31:37.6585634Z ##[endgroup]
+2026-10-28T06:31:38.9968547Z Godot version: 4.7.2.stable.official.ed1daf0bf
+2026-10-28T06:31:38.9969483Z 
+2026-10-28T06:31:39.0782249Z ##[group]Run $ErrorActionPreference = 'Stop'
+2026-10-28T06:31:39.0782722Z [36;1m$ErrorActionPreference = 'Stop'[0m
+2026-10-28T06:31:39.0783189Z [36;1m# All matrix cases are executed. Known pre-existing failures stay FAIL in the[0m
+2026-10-28T06:31:39.0783744Z [36;1m# output/report. Strict fail-closed semantics: exit 0 only when every[0m
+2026-10-28T06:31:39.0784266Z [36;1m# declared baseline entry ran as expected FAIL with matching counts, and[0m
+2026-10-28T06:31:39.0784784Z [36;1m# there is no NEW failure, drift, timeout, unexpected NOT RUN, unverified[0m
+2026-10-28T06:31:39.0785235Z [36;1m# baseline entry or unselected baseline entry.[0m
+2026-10-28T06:31:39.0785694Z [36;1m# DS-A-06: all Phase A slices are green, so the Phase A expected-failure baseline[0m
+2026-10-28T06:31:39.0786702Z [36;1m# was removed (an empty -BaselineExtra would be rejected). Only the Phase 0 legacy[0m
+2026-10-28T06:31:39.0787330Z [36;1m# baseline remains (7 entries after evidence-based green transitions).[0m
+2026-10-28T06:31:39.0788044Z [36;1mpwsh -NoProfile -File ./run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json -GodotBin $env:GODOT_CONSOLE[0m
+2026-10-28T06:31:39.0788694Z [36;1m# R6/D：必须把 runner 的真实退出码传给 job；旧写法未给 $code 赋值，[0m
+2026-10-28T06:31:39.0789023Z [36;1m# 导致 full 失败被吞成 job success。[0m
+2026-10-28T06:31:39.0789295Z [36;1m$code = $LASTEXITCODE[0m
+2026-10-28T06:31:39.0789567Z [36;1mWrite-Host "FULL_MATRIX_EXIT=$code"[0m
+2026-10-28T06:31:39.0789846Z [36;1mexit $code[0m
+2026-10-28T06:31:39.0858697Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-28T06:31:39.0859067Z env:
+2026-10-28T06:31:39.0859272Z   GODOT_VERSION: 4.7.2-stable
+2026-10-28T06:31:39.0859567Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:31:39.0859994Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+2026-10-28T06:31:39.0860720Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:31:39.0861297Z   GODOT_DIR: tools/godot
+2026-10-28T06:31:39.0861601Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+2026-10-28T06:31:39.0861940Z ##[endgroup]
+2026-10-28T06:31:40.1870649Z godot:  tools/godot/Godot_v4.7.2-stable_win64_console.exe
+2026-10-28T06:31:40.1885186Z         found via parameter
+2026-10-28T06:31:40.3106804Z version: 4.7.2.stable.official.ed1daf0bf
+2026-10-28T06:31:40.3131748Z         expected Godot 4.7.2: MATCH
+2026-10-28T06:31:41.7577670Z 
+2026-10-28T06:31:41.7592156Z GHOST TRACK // APSIS - V17 unified headless regression
+2026-10-28T06:31:41.7601541Z repo:    .
+2026-10-28T06:31:41.7613061Z matrix:  game_v17/tests/probe_matrix.json (89 cases selected / 89 total)
+2026-10-28T06:31:41.7621620Z filters: gate=(none); baseline=game_v17/tests/known_baseline_failures.json; partial-baseline=off (strict fail-closed); category=all; only=(none); import=on; timeout=per-case
+2026-10-28T06:31:41.7636238Z baseline: game_v17/tests/known_baseline_failures.json (commit 263e97e, mode=CHECK; statuses unchanged)
+2026-10-28T06:31:41.7644165Z baseline gate: STRICT fail-closed (every declared entry must be selected + executed + expected FAIL with matching counts)
+2026-10-28T06:31:41.7664903Z git:      @ 5cb245cb
+2026-10-28T06:31:41.7673617Z run dir: .test-results/20261028-063141-5cb245cb
+2026-10-28T06:31:41.7680766Z 
+2026-10-28T06:31:41.8015934Z env:     no inherited DSH_*/V17_* vars to clear
+2026-10-28T06:31:41.8024166Z import:  running headless import preflight ...
+2026-10-28T06:31:59.1424031Z import:  PASS exit=0 duration=17.3s warnings/errors=0 log=.test-results/20261028-063141-5cb245cb/import.log
+2026-10-28T06:31:59.1432773Z 
+2026-10-28T06:31:59.1443407Z CASE                                 CATEGORY     PROFILE    STATUS    EXIT     TIME PASS/FAIL LOG
+2026-10-28T06:31:59.2030819Z RUN [1/89] profile.build_profile_probe
+2026-10-28T06:32:00.0587497Z profile.build_profile_probe          profile      -          PASS         0     0.7s    553/0 .test-results/20261028-063141-5cb245cb/logs/profile.build_profile_probe.log
+2026-10-28T06:32:00.0614253Z RUN [2/89] content.damage_profile_probe
+2026-10-28T06:32:01.6797246Z content.damage_profile_probe         content      -          FAIL         1     1.6s    554/4 .test-results/20261028-063141-5cb245cb/logs/content.damage_profile_probe.log
+2026-10-28T06:32:01.6821413Z       FAIL: exit code 1
+2026-10-28T06:32:01.6847546Z       BASELINE: [KNOWN-BASELINE] Probe asserts 32 class damage profiles; ShipCatalog has grown to 36 classes, so the fixed expectation no longer matches content. Also carries 4 pre-existing engine-level SCRIPT ERROR lines from damage_profile_service.gd:208 (legacy String constructor) that do not change the exit/fail counts.
+2026-10-28T06:32:01.6868531Z RUN [3/89] content.ephemeris_compact_probe
+2026-10-28T06:32:02.4144414Z content.ephemeris_compact_probe      content      -          PASS         0     0.7s    138/0 .test-results/20261028-063141-5cb245cb/logs/content.ephemeris_compact_probe.log
+2026-10-28T06:32:02.4158751Z RUN [4/89] content.facility_model_probe
+2026-10-28T06:32:03.2341463Z content.facility_model_probe         content      -          PASS         0     0.8s   1697/0 .test-results/20261028-063141-5cb245cb/logs/content.facility_model_probe.log
+2026-10-28T06:32:03.2898662Z RUN [5/89] content.facility_registry_probe
+2026-10-28T06:32:04.4634363Z content.facility_registry_probe      content      -          PASS         0     1.1s   6059/0 .test-results/20261028-063141-5cb245cb/logs/content.facility_registry_probe.log
+2026-10-28T06:32:04.4647610Z RUN [6/89] content.prelude_scenario_probe
+2026-10-28T06:32:07.4776380Z content.prelude_scenario_probe       content      -          PASS         0     3.0s    411/0 .test-results/20261028-063141-5cb245cb/logs/content.prelude_scenario_probe.log
+2026-10-28T06:32:07.4786789Z RUN [7/89] content.schema_probe
+2026-10-28T06:32:07.9817455Z content.schema_probe                 content      -          PASS         0     0.5s    422/0 .test-results/20261028-063141-5cb245cb/logs/content.schema_probe.log
+2026-10-28T06:32:07.9826624Z RUN [8/89] content.ship_catalog_probe
+2026-10-28T06:32:08.7594925Z content.ship_catalog_probe           content      -          PASS         0     0.8s   1488/0 .test-results/20261028-063141-5cb245cb/logs/content.ship_catalog_probe.log
+2026-10-28T06:32:08.7607518Z RUN [9/89] content.story_text_probe
+2026-10-28T06:32:09.1806858Z content.story_text_probe             content      -          FAIL         1     0.4s   469/13 .test-results/20261028-063141-5cb245cb/logs/content.story_text_probe.log
+2026-10-28T06:32:09.1813365Z       FAIL: exit code 1
+2026-10-28T06:32:09.1819958Z       BASELINE: [KNOWN-BASELINE] 12 story text keys no longer match docs/44 verbatim because the story content evolved after docs/44 was written; the probe's verify_against_source check and one summary assertion fail.
+2026-10-28T06:32:09.1828680Z RUN [10/89] unit.ballistics_probe
+2026-10-28T06:32:09.9745425Z unit.ballistics_probe                unit         -          PASS         0     0.8s    306/0 .test-results/20261028-063141-5cb245cb/logs/unit.ballistics_probe.log
+2026-10-28T06:32:09.9757974Z RUN [11/89] unit.cislunar_physics_probe
+2026-10-28T06:32:10.4866002Z unit.cislunar_physics_probe          unit         -          PASS         0     0.5s    269/0 .test-results/20261028-063141-5cb245cb/logs/unit.cislunar_physics_probe.log
+2026-10-28T06:32:10.4877959Z RUN [12/89] unit.combat_planner_probe
+2026-10-28T06:32:11.0049292Z unit.combat_planner_probe            unit         -          PASS         0     0.5s     94/0 .test-results/20261028-063141-5cb245cb/logs/unit.combat_planner_probe.log
+2026-10-28T06:32:11.5886959Z RUN [13/89] unit.combat_probe
+2026-10-28T06:32:11.5888197Z unit.combat_probe                    unit         -          PASS         0     0.4s    255/0 .test-results/20261028-063141-5cb245cb/logs/unit.combat_probe.log
+2026-10-28T06:32:11.5890544Z RUN [14/89] unit.core_time_event_probe
+2026-10-28T06:32:11.9545745Z unit.core_time_event_probe           unit         -          PASS         0     0.5s    197/0 .test-results/20261028-063141-5cb245cb/logs/unit.core_time_event_probe.log
+2026-10-28T06:32:11.9557349Z RUN [15/89] unit.damage_probe
+2026-10-28T06:32:12.5649465Z unit.damage_probe                    unit         -          PASS         0     0.6s    219/0 .test-results/20261028-063141-5cb245cb/logs/unit.damage_probe.log
+2026-10-28T06:32:12.5658749Z RUN [16/89] unit.damage_service_probe
+2026-10-28T06:32:14.1438613Z unit.damage_service_probe            unit         -          PASS         0     1.6s    319/0 .test-results/20261028-063141-5cb245cb/logs/unit.damage_service_probe.log
+2026-10-28T06:32:14.1453393Z RUN [17/89] unit.docking_probe
+2026-10-28T06:32:14.7158375Z unit.docking_probe                   unit         -          PASS         0     0.6s    318/0 .test-results/20261028-063141-5cb245cb/logs/unit.docking_probe.log
+2026-10-28T06:32:14.7170171Z RUN [18/89] unit.ew_probe
+2026-10-28T06:32:16.7296129Z unit.ew_probe                        unit         -          PASS         0     2.0s    252/0 .test-results/20261028-063141-5cb245cb/logs/unit.ew_probe.log
+2026-10-28T06:32:16.7312947Z RUN [19/89] unit.fleet_probe
+2026-10-28T06:32:17.6054336Z unit.fleet_probe                     unit         -          PASS         0     0.9s    511/0 .test-results/20261028-063141-5cb245cb/logs/unit.fleet_probe.log
+2026-10-28T06:32:17.6128043Z RUN [20/89] unit.fleet_transfer_probe
+2026-10-28T06:33:04.4642985Z unit.fleet_transfer_probe            unit         -          PASS         0    46.9s    587/0 .test-results/20261028-063141-5cb245cb/logs/unit.fleet_transfer_probe.log
+2026-10-28T06:33:04.4654073Z RUN [21/89] unit.identification_probe
+2026-10-28T06:33:04.9003225Z unit.identification_probe            unit         -          PASS         0     0.4s    310/0 .test-results/20261028-063141-5cb245cb/logs/unit.identification_probe.log
+2026-10-28T06:33:04.9011403Z RUN [22/89] unit.ime_probe
+2026-10-28T06:33:05.3096569Z unit.ime_probe                       unit         -          PASS         0     0.4s     64/0 .test-results/20261028-063141-5cb245cb/logs/unit.ime_probe.log
+2026-10-28T06:33:05.3106294Z RUN [23/89] unit.incident_record_probe
+2026-10-28T06:33:06.6763573Z unit.incident_record_probe           unit         -          FAIL         1     1.4s   2761/1 .test-results/20261028-063141-5cb245cb/logs/unit.incident_record_probe.log
+2026-10-28T06:33:06.6765143Z       FAIL: exit code 1
+2026-10-28T06:33:06.6771851Z       BASELINE: [KNOWN-BASELINE] One incident-record generator assertion drifted with later content/schedule changes; the remaining 2761 assertions pass.
+2026-10-28T06:33:06.6778730Z RUN [24/89] unit.info_warfare_probe
+2026-10-28T06:33:07.3093724Z unit.info_warfare_probe              unit         -          PASS         0     0.6s    456/0 .test-results/20261028-063141-5cb245cb/logs/unit.info_warfare_probe.log
+2026-10-28T06:33:07.3121390Z RUN [25/89] unit.legal_status_probe
+2026-10-28T06:33:07.7460899Z unit.legal_status_probe              unit         -          PASS         0     0.4s    342/0 .test-results/20261028-063141-5cb245cb/logs/unit.legal_status_probe.log
+2026-10-28T06:33:07.7471249Z RUN [26/89] unit.nav_probe
+2026-10-28T06:33:08.3033213Z unit.nav_probe                       unit         -          PASS         0     0.6s    372/0 .test-results/20261028-063141-5cb245cb/logs/unit.nav_probe.log
+2026-10-28T06:33:08.3044848Z RUN [27/89] unit.optical_ir_probe
+2026-10-28T06:33:08.9316938Z unit.optical_ir_probe                unit         -          PASS         0     0.6s    149/0 .test-results/20261028-063141-5cb245cb/logs/unit.optical_ir_probe.log
+2026-10-28T06:33:08.9326159Z RUN [28/89] unit.order_comms_probe
+2026-10-28T06:33:09.4315280Z unit.order_comms_probe               unit         -          PASS         0     0.5s    137/0 .test-results/20261028-063141-5cb245cb/logs/unit.order_comms_probe.log
+2026-10-28T06:33:09.4327285Z RUN [29/89] unit.physics_world_probe
+2026-10-28T06:33:10.0636923Z unit.physics_world_probe             unit         -          PASS         0     0.6s    217/0 .test-results/20261028-063141-5cb245cb/logs/unit.physics_world_probe.log
+2026-10-28T06:33:10.0647457Z RUN [30/89] unit.port_service_probe
+2026-10-28T06:33:10.5851061Z unit.port_service_probe              unit         -          PASS         0     0.5s    212/0 .test-results/20261028-063141-5cb245cb/logs/unit.port_service_probe.log
+2026-10-28T06:33:10.6064132Z RUN [31/89] unit.refit_probe
+2026-10-28T06:33:11.2249814Z unit.refit_probe                     unit         -          PASS         0     0.6s    977/0 .test-results/20261028-063141-5cb245cb/logs/unit.refit_probe.log
+2026-10-28T06:33:11.2259970Z RUN [32/89] unit.save_probe
+2026-10-28T06:33:13.4256726Z unit.save_probe                      unit         -          PASS         0     2.2s    156/0 .test-results/20261028-063141-5cb245cb/logs/unit.save_probe.log
+2026-10-28T06:33:13.4341605Z RUN [33/89] unit.sensor_authority_probe
+2026-10-28T06:33:16.4173077Z unit.sensor_authority_probe          unit         -          PASS         0     2.9s    333/0 .test-results/20261028-063141-5cb245cb/logs/unit.sensor_authority_probe.log
+2026-10-28T06:33:16.4183143Z RUN [34/89] unit.sensor_service_probe
+2026-10-28T06:33:17.2028620Z unit.sensor_service_probe            unit         -          PASS         0     0.8s    128/0 .test-results/20261028-063141-5cb245cb/logs/unit.sensor_service_probe.log
+2026-10-28T06:33:17.2084095Z RUN [35/89] unit.settings_probe
+2026-10-28T06:33:17.6198765Z unit.settings_probe                  unit         -          PASS         0     0.4s    179/0 .test-results/20261028-063141-5cb245cb/logs/unit.settings_probe.log
+2026-10-28T06:33:17.6209730Z RUN [36/89] unit.signal_probe
+2026-10-28T06:33:18.3399198Z unit.signal_probe                    unit         -          PASS         0     0.7s    257/0 .test-results/20261028-063141-5cb245cb/logs/unit.signal_probe.log
+2026-10-28T06:33:18.3401284Z RUN [37/89] unit.story_runtime_probe
+2026-10-28T06:33:20.4467268Z unit.story_runtime_probe             unit         -          PASS         0     2.1s    349/0 .test-results/20261028-063141-5cb245cb/logs/unit.story_runtime_probe.log
+2026-10-28T06:33:20.4475074Z RUN [38/89] unit.story_state_probe
+2026-10-28T06:33:20.8728738Z unit.story_state_probe               unit         -          PASS         0     0.4s    213/0 .test-results/20261028-063141-5cb245cb/logs/unit.story_state_probe.log
+2026-10-28T06:33:20.8737980Z RUN [39/89] unit.story_trigger_probe
+2026-10-28T06:33:21.6694051Z unit.story_trigger_probe             unit         -          PASS         0     0.8s     83/0 .test-results/20261028-063141-5cb245cb/logs/unit.story_trigger_probe.log
+2026-10-28T06:33:21.6702048Z RUN [40/89] unit.teaching_probe
+2026-10-28T06:33:22.0787907Z unit.teaching_probe                  unit         -          PASS         0     0.4s    385/0 .test-results/20261028-063141-5cb245cb/logs/unit.teaching_probe.log
+2026-10-28T06:33:22.0795460Z RUN [41/89] unit.track_table_probe
+2026-10-28T06:33:24.0944389Z unit.track_table_probe               unit         -          PASS         0     2.0s    161/0 .test-results/20261028-063141-5cb245cb/logs/unit.track_table_probe.log
+2026-10-28T06:33:24.0955113Z RUN [42/89] unit.traffic_control_probe
+2026-10-28T06:33:24.6971200Z unit.traffic_control_probe           unit         -          PASS         0     0.6s    396/0 .test-results/20261028-063141-5cb245cb/logs/unit.traffic_control_probe.log
+2026-10-28T06:33:24.6979261Z RUN [43/89] unit.transfer_probe
+2026-10-28T06:34:16.7028687Z unit.transfer_probe                  unit         -          PASS         0    52.0s    451/0 .test-results/20261028-063141-5cb245cb/logs/unit.transfer_probe.log
+2026-10-28T06:34:16.7036342Z RUN [44/89] unit.transit_damage_probe
+2026-10-28T06:34:17.2090406Z unit.transit_damage_probe            unit         -          PASS         0     0.5s    644/0 .test-results/20261028-063141-5cb245cb/logs/unit.transit_damage_probe.log
+2026-10-28T06:34:17.2097951Z RUN [45/89] unit.transit_sensors_probe
+2026-10-28T06:34:18.4538740Z unit.transit_sensors_probe           unit         -          PASS         0     1.2s    380/0 .test-results/20261028-063141-5cb245cb/logs/unit.transit_sensors_probe.log
+2026-10-28T06:34:18.4546404Z RUN [46/89] unit.transponder_probe
+2026-10-28T06:34:19.0573561Z unit.transponder_probe               unit         -          PASS         0     0.6s    272/0 .test-results/20261028-063141-5cb245cb/logs/unit.transponder_probe.log
+2026-10-28T06:34:19.0579277Z RUN [47/89] integration.a1_entity_metadata_authority
+2026-10-28T06:34:23.0385869Z integration.a1_entity_metadata_authority integration  -          PASS         0     4.0s    359/0 .test-results/20261028-063141-5cb245cb/logs/integration.a1_entity_metadata_authority.log
+2026-10-28T06:34:23.0396807Z RUN [48/89] integration.a0_world_physics_sync
+2026-10-28T06:34:26.8328989Z integration.a0_world_physics_sync    integration  -          PASS         0     3.8s    107/0 .test-results/20261028-063141-5cb245cb/logs/integration.a0_world_physics_sync.log
+2026-10-28T06:34:26.8336977Z RUN [49/89] integration.a0_sensor_geometry
+2026-10-28T06:34:30.2477082Z integration.a0_sensor_geometry       integration  -          PASS         0     3.4s    133/0 .test-results/20261028-063141-5cb245cb/logs/integration.a0_sensor_geometry.log
+2026-10-28T06:34:30.2483793Z RUN [50/89] integration.av4412_probe
+2026-10-28T06:34:30.6536529Z integration.av4412_probe             integration  -          PASS         0     0.4s    752/0 .test-results/20261028-063141-5cb245cb/logs/integration.av4412_probe.log
+2026-10-28T06:34:30.6543350Z RUN [51/89] integration.ceres_chain_probe
+2026-10-28T06:34:31.0810953Z integration.ceres_chain_probe        integration  -          PASS         0     0.4s    510/0 .test-results/20261028-063141-5cb245cb/logs/integration.ceres_chain_probe.log
+2026-10-28T06:34:31.0818727Z RUN [52/89] integration.chronos_chain_probe
+2026-10-28T06:34:31.4853171Z integration.chronos_chain_probe      integration  -          PASS         0     0.4s    616/0 .test-results/20261028-063141-5cb245cb/logs/integration.chronos_chain_probe.log
+2026-10-28T06:34:31.4862178Z RUN [53/89] integration.cic_view_probe
+2026-10-28T06:34:32.0010040Z integration.cic_view_probe           integration  -          PASS         0     0.5s    925/0 .test-results/20261028-063141-5cb245cb/logs/integration.cic_view_probe.log
+2026-10-28T06:34:32.0015383Z RUN [54/89] integration.damage_integration_probe
+2026-10-28T06:34:33.4321415Z integration.damage_integration_probe integration  -          FAIL         1     1.4s    198/6 .test-results/20261028-063141-5cb245cb/logs/integration.damage_integration_probe.log
+2026-10-28T06:34:33.4323864Z       FAIL: exit code 1
+2026-10-28T06:34:33.4330546Z       BASELINE: [KNOWN-BASELINE] Six assertions for the full damage model wired into the V17 world drifted from current world/damage state contracts.
+2026-10-28T06:34:33.4337298Z RUN [55/89] integration.plot_tws_probe
+2026-10-28T06:34:34.7678915Z integration.plot_tws_probe           integration  -          FAIL         1     0.9s     58/1 .test-results/20261028-063141-5cb245cb/logs/integration.plot_tws_probe.log
+2026-10-28T06:34:34.7680131Z       FAIL: exit code 1
+2026-10-28T06:34:34.7681786Z       BASELINE: [KNOWN-BASELINE] One TWS-bridge assertion drifted. This probe uses a non-standard [SUMMARY] pass=/fail= result line; the runner's explicit 'summary' parser correctly reports FAIL 58/1 (it must never be misclassified as PASS).
+2026-10-28T06:34:34.7683602Z RUN [56/89] integration.prologue_probe
+2026-10-28T06:34:34.8275892Z integration.prologue_probe           integration  -          PASS         0     0.5s    272/0 .test-results/20261028-063141-5cb245cb/logs/integration.prologue_probe.log
+2026-10-28T06:34:34.8286212Z RUN [57/89] integration.report_probe
+2026-10-28T06:34:35.3264227Z integration.report_probe             integration  -          PASS         0     0.5s    965/0 .test-results/20261028-063141-5cb245cb/logs/integration.report_probe.log
+2026-10-28T06:34:35.3273529Z RUN [58/89] integration.jc_a00_sensor_state
+2026-10-28T06:34:44.6960946Z integration.jc_a00_sensor_state      integration  -          PASS         0     9.4s     45/0 .test-results/20261028-063141-5cb245cb/logs/integration.jc_a00_sensor_state.log
+2026-10-28T06:34:44.6971704Z RUN [59/89] integration.jc_identity_pipeline
+2026-10-28T06:34:47.4871286Z integration.jc_identity_pipeline     integration  -          PASS         0     2.8s    122/0 .test-results/20261028-063141-5cb245cb/logs/integration.jc_identity_pipeline.log
+2026-10-28T06:34:47.4907862Z RUN [60/89] integration.jc_authority_intel
+2026-10-28T06:34:52.3053157Z integration.jc_authority_intel       integration  -          PASS         0     4.8s     90/0 .test-results/20261028-063141-5cb245cb/logs/integration.jc_authority_intel.log
+2026-10-28T06:34:52.3064177Z RUN [61/89] integration.jc_scenario_spec
+2026-10-28T06:34:52.7288380Z integration.jc_scenario_spec         integration  -          PASS         0     0.4s    269/0 .test-results/20261028-063141-5cb245cb/logs/integration.jc_scenario_spec.log
+2026-10-28T06:34:52.7357647Z RUN [62/89] integration.jc_contracts
+2026-10-28T06:34:53.1385804Z integration.jc_contracts             integration  -          PASS         0     0.4s     84/0 .test-results/20261028-063141-5cb245cb/logs/integration.jc_contracts.log
+2026-10-28T06:34:53.1394353Z RUN [63/89] integration.a0_comms_restore
+2026-10-28T06:34:56.5080900Z integration.a0_comms_restore         integration  -          PASS         0     3.3s     59/0 .test-results/20261028-063141-5cb245cb/logs/integration.a0_comms_restore.log
+2026-10-28T06:34:56.5090189Z RUN [64/89] integration.a0_sensor_persistence
+2026-10-28T06:34:58.7803357Z integration.a0_sensor_persistence    integration  -          PASS         0     2.3s     86/0 .test-results/20261028-063141-5cb245cb/logs/integration.a0_sensor_persistence.log
+2026-10-28T06:34:58.7810622Z RUN [65/89] integration.a0_legacy_save
+2026-10-28T06:35:01.9170273Z integration.a0_legacy_save           integration  -          PASS         0     3.1s     60/0 .test-results/20261028-063141-5cb245cb/logs/integration.a0_legacy_save.log
+2026-10-28T06:35:01.9175312Z RUN [66/89] integration.a0_event_continuity
+2026-10-28T06:35:04.2059068Z integration.a0_event_continuity      integration  -          PASS         0     2.3s     89/0 .test-results/20261028-063141-5cb245cb/logs/integration.a0_event_continuity.log
+2026-10-28T06:35:04.2066558Z RUN [67/89] integration.a0_frame_epoch
+2026-10-28T06:35:07.7069444Z integration.a0_frame_epoch           integration  -          PASS         0     3.5s     61/0 .test-results/20261028-063141-5cb245cb/logs/integration.a0_frame_epoch.log
+2026-10-28T06:35:07.7076791Z RUN [68/89] integration.a0_integration_authority
+2026-10-28T06:35:11.3246654Z integration.a0_integration_authority integration  -          PASS         0     3.6s     65/0 .test-results/20261028-063141-5cb245cb/logs/integration.a0_integration_authority.log
+2026-10-28T06:35:11.3250357Z RUN [69/89] integration.a0_track_truth_authority
+2026-10-28T06:35:14.5573955Z integration.a0_track_truth_authority integration  -          PASS         0     3.2s     45/0 .test-results/20261028-063141-5cb245cb/logs/integration.a0_track_truth_authority.log
+2026-10-28T06:35:14.5600689Z RUN [70/89] integration.a0_entity_metadata_pipeline
+2026-10-28T06:35:17.8014994Z integration.a0_entity_metadata_pipeline integration  -          PASS         0     3.2s     31/0 .test-results/20261028-063141-5cb245cb/logs/integration.a0_entity_metadata_pipeline.log
+2026-10-28T06:35:17.8022459Z RUN [71/89] integration.a0_save_roundtrip_authority
+2026-10-28T06:35:21.7011033Z integration.a0_save_roundtrip_authority integration  -          PASS         0     3.7s     41/0 .test-results/20261028-063141-5cb245cb/logs/integration.a0_save_roundtrip_authority.log
+2026-10-28T06:35:21.7012854Z RUN [72/89] integration.session_probe
+2026-10-28T06:35:27.5250130Z integration.session_probe            integration  -          PASS         0     5.9s   1545/0 .test-results/20261028-063141-5cb245cb/logs/integration.session_probe.log
+2026-10-28T06:35:27.5251981Z RUN [73/89] integration.v17_bridge_probe
+2026-10-28T06:35:30.3157970Z integration.v17_bridge_probe         integration  -          PASS         0     2.8s    138/0 .test-results/20261028-063141-5cb245cb/logs/integration.v17_bridge_probe.log
+2026-10-28T06:35:30.3166034Z RUN [74/89] integration.v17_core3_probe
+2026-10-28T06:35:32.5216428Z integration.v17_core3_probe          integration  -          PASS         0     2.2s    171/0 .test-results/20261028-063141-5cb245cb/logs/integration.v17_core3_probe.log
+2026-10-28T06:35:32.5224246Z RUN [75/89] integration.v17_info_warfare_probe
+2026-10-28T06:35:34.1651002Z integration.v17_info_warfare_probe   integration  -          PASS         0     1.6s    116/0 .test-results/20261028-063141-5cb245cb/logs/integration.v17_info_warfare_probe.log
+2026-10-28T06:35:34.1658551Z RUN [76/89] integration.v17_nav_integration_probe
+2026-10-28T06:35:36.1899639Z integration.v17_nav_integration_probe integration  -          FAIL         1     2.0s    181/1 .test-results/20261028-063141-5cb245cb/logs/integration.v17_nav_integration_probe.log
+2026-10-28T06:35:36.1901762Z       FAIL: exit code 1
+2026-10-28T06:35:36.1908113Z       BASELINE: [KNOWN-BASELINE] One navigation-integration assertion drifted from the current V17 bridge/state contract.
+2026-10-28T06:35:36.1916297Z RUN [77/89] integration.v17_optical_docking_auto_probe
+2026-10-28T06:35:37.9249947Z integration.v17_optical_docking_auto_probe integration  -          PASS         0     1.7s     68/0 .test-results/20261028-063141-5cb245cb/logs/integration.v17_optical_docking_auto_probe.log
+2026-10-28T06:35:37.9265538Z RUN [78/89] integration.v17_optical_docking_probe
+2026-10-28T06:35:39.5700534Z integration.v17_optical_docking_probe integration  -          PASS         0     1.6s    128/0 .test-results/20261028-063141-5cb245cb/logs/integration.v17_optical_docking_probe.log
+2026-10-28T06:35:39.5709392Z RUN [79/89] integration.v17_physics_authoritative_probe
+2026-10-28T06:35:41.3876863Z integration.v17_physics_authoritative_probe integration  -          PASS         0     1.8s    159/0 .test-results/20261028-063141-5cb245cb/logs/integration.v17_physics_authoritative_probe.log
+2026-10-28T06:35:41.3885785Z RUN [80/89] integration.v17_physics_display_probe
+2026-10-28T06:35:43.4563374Z integration.v17_physics_display_probe integration  -          PASS         0     2.1s    197/0 .test-results/20261028-063141-5cb245cb/logs/integration.v17_physics_display_probe.log
+2026-10-28T06:35:43.4571424Z RUN [81/89] integration.v17_physics_shadow_probe
+2026-10-28T06:35:45.5845324Z integration.v17_physics_shadow_probe integration  -          PASS         0     2.1s    277/0 .test-results/20261028-063141-5cb245cb/logs/integration.v17_physics_shadow_probe.log
+2026-10-28T06:35:45.5852371Z RUN [82/89] integration.v17_sensor_authority_display_probe
+2026-10-28T06:35:47.4640273Z integration.v17_sensor_authority_display_probe integration  -          FAIL         1     1.9s     71/3 .test-results/20261028-063141-5cb245cb/logs/integration.v17_sensor_authority_display_probe.log
+2026-10-28T06:35:47.4642342Z       FAIL: exit code 1
+2026-10-28T06:35:47.4649423Z       BASELINE: [KNOWN-BASELINE] Three sensor-authority display assertions drifted from the current display/contract path.
+2026-10-28T06:35:47.4657358Z RUN [83/89] integration.v17_sensor_shadow_probe
+2026-10-28T06:35:49.1911853Z integration.v17_sensor_shadow_probe  integration  -          PASS         0     1.7s    108/0 .test-results/20261028-063141-5cb245cb/logs/integration.v17_sensor_shadow_probe.log
+2026-10-28T06:35:49.1921433Z RUN [84/89] integration.v17_transit_bridge_probe
+2026-10-28T06:37:38.8670698Z integration.v17_transit_bridge_probe integration  -          PASS         0   109.7s    136/0 .test-results/20261028-063141-5cb245cb/logs/integration.v17_transit_bridge_probe.log
+2026-10-28T06:37:38.8678882Z RUN [85/89] e2e.orbital_sim
+2026-10-28T06:37:45.1924431Z e2e.orbital_sim                      e2e          orbital_sim PASS         0     5.9s    153/0 .test-results/20261028-063141-5cb245cb/logs/e2e.orbital_sim.log
+2026-10-28T06:37:46.2341024Z RUN [86/89] boot.full
+2026-10-28T06:37:47.7698001Z boot.full                            boot         full       PASS         0     3.0s      3/0 .test-results/20261028-063141-5cb245cb/logs/boot.full.log
+2026-10-28T06:37:47.7714631Z RUN [87/89] boot.legacy_combat_sim
+2026-10-28T06:37:50.8463070Z boot.legacy_combat_sim               boot         combat_sim PASS         0     3.1s      3/0 .test-results/20261028-063141-5cb245cb/logs/boot.legacy_combat_sim.log
+2026-10-28T06:37:50.8471905Z RUN [88/89] boot.orbital_sim
+2026-10-28T06:37:53.9702600Z boot.orbital_sim                     boot         orbital_sim PASS         0     3.1s      3/0 .test-results/20261028-063141-5cb245cb/logs/boot.orbital_sim.log
+2026-10-28T06:37:53.9711352Z RUN [89/89] boot.sandbox
+2026-10-28T06:37:57.0811629Z boot.sandbox                         boot         sandbox    PASS         0     3.1s      3/0 .test-results/20261028-063141-5cb245cb/logs/boot.sandbox.log
+2026-10-28T06:37:57.2263265Z 
+2026-10-28T06:37:57.2269195Z -- TOTALS ------------------------------------------------------
+2026-10-28T06:37:57.2285861Z total=89  pass=82  fail=7  timeout=0  not_run=0 (expected=0 unexpected=0)  duration=377.1s
+2026-10-28T06:37:57.2291103Z -- BASELINE ----------------------------------------------------
+2026-10-28T06:37:57.2298141Z BASELINE CHECK: known_fail=7 new_fail=0 drift=0 unverified=0 unselected=0 complete=true
+2026-10-28T06:37:57.2303870Z coverage: required=7 selected=7 executed=7 verified=7
+2026-10-28T06:37:57.2309480Z baseline file: game_v17/tests/known_baseline_failures.json (commit 263e97e, sha256 5fdfb46a27d8d0057b50d51b3ceed87ce1d126a933db6b93f803a11e6ab2c9e4)
+2026-10-28T06:37:57.2316105Z summary: .test-results/20261028-063141-5cb245cb/summary.json
+2026-10-28T06:37:57.2321491Z report:  .test-results/20261028-063141-5cb245cb/report.md
+2026-10-28T06:37:57.2327141Z RESULT: BASELINE MATCH - all 7 baseline entries executed as expected FAIL with matching counts (known_fail=7, new_fail=0, drift=0, unverified=0, unselected=0, complete=true)
+2026-10-28T06:37:57.3476806Z FULL_MATRIX_EXIT=0
+2026-10-28T06:37:57.3909967Z ##[group]Run $ErrorActionPreference = 'Stop'
+2026-10-28T06:37:57.3910621Z [36;1m$ErrorActionPreference = 'Stop'[0m
+2026-10-28T06:37:57.3911269Z [36;1mpwsh -NoProfile -File ./game_v17/tests/baseline_gate_selftest.ps1 -NoImport -GodotBin $env:GODOT_CONSOLE[0m
+2026-10-28T06:37:57.3911874Z [36;1m$code = $LASTEXITCODE[0m
+2026-10-28T06:37:57.3912293Z [36;1mWrite-Host "BASELINE_GATE_SELFTEST_EXIT=$code"[0m
+2026-10-28T06:37:57.3912664Z [36;1mexit $code[0m
+2026-10-28T06:37:57.3988137Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-28T06:37:57.3988577Z env:
+2026-10-28T06:37:57.3988842Z   GODOT_VERSION: 4.7.2-stable
+2026-10-28T06:37:57.3989517Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:37:57.3990045Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+2026-10-28T06:37:57.3991177Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:37:57.3991820Z   GODOT_DIR: tools/godot
+2026-10-28T06:37:57.3992186Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+2026-10-28T06:37:57.3992621Z ##[endgroup]
+2026-10-28T06:37:58.4078833Z 
+2026-10-28T06:37:58.4086971Z GHOST TRACK // APSIS - baseline gate fail-closed self-test
+2026-10-28T06:37:58.4096645Z repo:        D:\a\ghost-track-apsis\ghost-track-apsis
+2026-10-28T06:37:58.4103858Z runner:      D:\a\ghost-track-apsis\ghost-track-apsis\run_tests.ps1
+2026-10-28T06:37:58.4107570Z shell:       C:\Program Files\PowerShell\7\pwsh.exe
+2026-10-28T06:37:58.4126112Z godot:       tools/godot/Godot_v4.7.2-stable_win64_console.exe
+2026-10-28T06:37:58.4130967Z import:      SKIPPED in runner calls (-NoImport; fast default)
+2026-10-28T06:37:58.4134546Z temp root:   C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-063758_577005
+2026-10-28T06:37:58.4138244Z scenarios:   A, B, C (D skipped: pass -IncludeFullRun to enable)
+2026-10-28T06:37:58.4142113Z 
+2026-10-28T06:37:58.4149234Z === Scenario A: declared baseline case blocked (NOT RUN) => strict fail-closed exit 1 ===
+2026-10-28T06:37:58.4808267Z     $ pwsh.exe -NoProfile -File D:\a\ghost-track-apsis\ghost-track-apsis\run_tests.ps1 -GodotBin tools/godot/Godot_v4.7.2-stable_win64_console.exe -Matrix C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-063758_577005\matrix_blocked_baseline_case.json -Baseline C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-063758_577005\baseline_one_entry.json -Only ^content\.damage_profile_probe$ -NoImport -Ci -ResultsDir C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-063758_577005\results_A
+2026-10-28T06:37:59.9739874Z     expected exit=1 actual exit=1 duration=1.5s
+2026-10-28T06:37:59.9845058Z     | BASELINE CHECK: known_fail=0 new_fail=0 drift=0 unverified=1 unselected=0 complete=false
+2026-10-28T06:37:59.9849631Z     | baseline entry NOT VERIFIED (not executed): content.damage_profile_probe status=NOT RUN reason=declared baseline case was NOT RUN (blocked / not executed / missing target); cannot verify the expected FAIL
+2026-10-28T06:37:59.9853041Z     | RESULT: BASELINE CHECK FAILED - new_fail=0 drift=0 unverified=1 unselected=0 timeout=0 unexpected_not_run=0
+2026-10-28T06:37:59.9910887Z   [PASS] A: strict run exits 1 when a declared baseline entry is NOT RUN
+2026-10-28T06:37:59.9982773Z   [PASS] A: output reports unverified>0
+2026-10-28T06:38:00.0028205Z   [PASS] A: output reports exactly unverified=1 (single-entry baseline)
+2026-10-28T06:38:00.0037771Z   [PASS] A: blocked baseline case is shown as NOT RUN
+2026-10-28T06:38:00.0046549Z   [PASS] A: output reports complete=false
+2026-10-28T06:38:00.0071482Z   [PASS] A: output never claims BASELINE MATCH
+2026-10-28T06:38:00.0081180Z   [PASS] A: strict run is not labelled partial
+2026-10-28T06:38:00.0088361Z 
+2026-10-28T06:38:00.0096407Z === Scenario B: strict run with 7/8 declared baseline entries filtered out => exit 1 ===
+2026-10-28T06:38:00.0218900Z     $ pwsh.exe -NoProfile -File D:\a\ghost-track-apsis\ghost-track-apsis\run_tests.ps1 -GodotBin tools/godot/Godot_v4.7.2-stable_win64_console.exe -Baseline D:\a\ghost-track-apsis\ghost-track-apsis\game_v17\tests\known_baseline_failures.json -Only ^unit\.save_probe$ -NoImport -Ci -ResultsDir C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-063758_577005\results_B
+2026-10-28T06:38:06.0795462Z     expected exit=1 actual exit=1 duration=6.1s
+2026-10-28T06:38:06.0828770Z     | BASELINE CHECK: known_fail=0 new_fail=0 drift=0 unverified=0 unselected=7 complete=false
+2026-10-28T06:38:06.0837392Z     | baseline entries NOT SELECTED by filters: 7 of 7: content.damage_profile_probe, content.story_text_probe, integration.damage_integration_probe, integration.plot_tws_probe, integration.v17_nav_integration_probe, integration.v17_sensor_authority_display_probe, unit.incident_record_probe
+2026-10-28T06:38:06.0841783Z     | RESULT: BASELINE CHECK FAILED - new_fail=0 drift=0 unverified=0 unselected=7 timeout=0 unexpected_not_run=0
+2026-10-28T06:38:06.0850673Z   [PASS] B: strict filtered run exits 1 when declared baseline entries are unselected
+2026-10-28T06:38:06.0859359Z   [PASS] B: output reports unselected=7
+2026-10-28T06:38:06.0869659Z   [PASS] B: output reports BASELINE CHECK FAILED
+2026-10-28T06:38:06.0880281Z   [PASS] B: unselected baseline entries are listed explicitly
+2026-10-28T06:38:06.0888624Z   [PASS] B: output never claims BASELINE MATCH
+2026-10-28T06:38:06.0897309Z   [PASS] B: strict run is not labelled partial
+2026-10-28T06:38:06.0903323Z 
+2026-10-28T06:38:06.0910677Z === Scenario C: filtered run + -AllowPartialBaseline => exit 0 but explicitly PARTIAL ===
+2026-10-28T06:38:06.0951783Z     $ pwsh.exe -NoProfile -File D:\a\ghost-track-apsis\ghost-track-apsis\run_tests.ps1 -GodotBin tools/godot/Godot_v4.7.2-stable_win64_console.exe -Baseline D:\a\ghost-track-apsis\ghost-track-apsis\game_v17\tests\known_baseline_failures.json -Only ^unit\.save_probe$ -AllowPartialBaseline -NoImport -Ci -ResultsDir C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-063758_577005\results_C
+2026-10-28T06:38:10.3338550Z     expected exit=0 actual exit=0 duration=4.2s
+2026-10-28T06:38:10.3339956Z     | BASELINE CHECK: known_fail=0 new_fail=0 drift=0 unverified=0 unselected=7 complete=false
+2026-10-28T06:38:10.3342586Z     | baseline entries NOT SELECTED by filters: 7 of 7: content.damage_profile_probe, content.story_text_probe, integration.damage_integration_probe, integration.plot_tws_probe, integration.v17_nav_integration_probe, integration.v17_sensor_authority_display_probe, unit.incident_record_probe
+2026-10-28T06:38:10.3345798Z     | RESULT: BASELINE PARTIAL - NOT a complete baseline verification (unselected=7, unverified=0)
+2026-10-28T06:38:10.3347337Z   [PASS] C: -AllowPartialBaseline allows exit 0 for a clean selected subset
+2026-10-28T06:38:10.3348556Z   [PASS] C: output is explicitly labelled BASELINE PARTIAL
+2026-10-28T06:38:10.3349619Z   [PASS] C: output states it is NOT a complete verification
+2026-10-28T06:38:10.3350609Z   [PASS] C: partial run never claims BASELINE MATCH
+2026-10-28T06:38:10.3544102Z   [PASS] C: summary.json was written for the partial run
+2026-10-28T06:38:10.3595632Z   [PASS] C: summary baseline.complete=false
+2026-10-28T06:38:10.3609077Z   [PASS] C: summary baseline.verified=false
+2026-10-28T06:38:10.3622196Z   [PASS] C: summary baseline.partial=true
+2026-10-28T06:38:10.3665688Z   [PASS] C: summary totals.baseline_unselected>0
+2026-10-28T06:38:10.3681290Z   [PASS] C: summary totals.baseline_unverified present
+2026-10-28T06:38:10.3694816Z   [PASS] C: summary totals.baseline_complete=false
+2026-10-28T06:38:10.3831148Z 
+2026-10-28T06:38:10.3848157Z BASELINE GATE SELFTEST RESULT: PASS=24 FAIL=0 (assertions=24)
+2026-10-28T06:38:10.4785341Z BASELINE_GATE_SELFTEST_EXIT=0
+2026-10-28T06:38:10.5243696Z ##[group]Run $ErrorActionPreference = 'Stop'
+2026-10-28T06:38:10.5244586Z [36;1m$ErrorActionPreference = 'Stop'[0m
+2026-10-28T06:38:10.5245525Z [36;1m$dirs = @(Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |[0m
+2026-10-28T06:38:10.5246563Z [36;1m  Sort-Object LastWriteTime -Descending)[0m
+2026-10-28T06:38:10.5247213Z [36;1mif ($dirs.Count -eq 0) {[0m
+2026-10-28T06:38:10.5248028Z [36;1m  throw 'ARTIFACT ASSERT FAILED: no .test-results run directory was produced'[0m
+2026-10-28T06:38:10.5248855Z [36;1m}[0m
+2026-10-28T06:38:10.5249343Z [36;1m$runDir = $dirs[0][0m
+2026-10-28T06:38:10.5250005Z [36;1mforeach ($name in @('summary.json', 'report.md')) {[0m
+2026-10-28T06:38:10.5250756Z [36;1m  $p = Join-Path $runDir.FullName $name[0m
+2026-10-28T06:38:10.5251529Z [36;1m  if (-not (Test-Path -LiteralPath $p -PathType Leaf)) {[0m
+2026-10-28T06:38:10.5252520Z [36;1m    throw "ARTIFACT ASSERT FAILED: missing required file $p"[0m
+2026-10-28T06:38:10.5253369Z [36;1m  }[0m
+2026-10-28T06:38:10.5253932Z [36;1m  if ((Get-Item -LiteralPath $p).Length -le 0) {[0m
+2026-10-28T06:38:10.5254740Z [36;1m    throw "ARTIFACT ASSERT FAILED: empty required file $p"[0m
+2026-10-28T06:38:10.5255486Z [36;1m  }[0m
+2026-10-28T06:38:10.5256562Z [36;1m}[0m
+2026-10-28T06:38:10.5257154Z [36;1m$logDir = Join-Path $runDir.FullName 'logs'[0m
+2026-10-28T06:38:10.5258090Z [36;1m$logs = @(Get-ChildItem -LiteralPath $logDir -File -ErrorAction SilentlyContinue)[0m
+2026-10-28T06:38:10.5259018Z [36;1mif ($logs.Count -eq 0) {[0m
+2026-10-28T06:38:10.5259757Z [36;1m  throw "ARTIFACT ASSERT FAILED: no per-case logs under $logDir"[0m
+2026-10-28T06:38:10.5260788Z [36;1m}[0m
+2026-10-28T06:38:10.5261602Z [36;1m$s = Get-Content -LiteralPath (Join-Path $runDir.FullName 'summary.json') -Raw | ConvertFrom-Json[0m
+2026-10-28T06:38:10.5262711Z [36;1mif ([string]$s.run_id -ne [string]$runDir.Name) {[0m
+2026-10-28T06:38:10.5263706Z [36;1m  throw "ARTIFACT ASSERT FAILED: summary.run_id '$($s.run_id)' != run dir '$($runDir.Name)'"[0m
+2026-10-28T06:38:10.5264583Z [36;1m}[0m
+2026-10-28T06:38:10.5265028Z [36;1m$caseCount = @($s.cases).Count[0m
+2026-10-28T06:38:10.5265649Z [36;1mif ($caseCount -le 0) {[0m
+2026-10-28T06:38:10.5266384Z [36;1m  throw 'ARTIFACT ASSERT FAILED: summary.json contains no cases'[0m
+2026-10-28T06:38:10.5267123Z [36;1m}[0m
+2026-10-28T06:38:10.5267884Z [36;1mWrite-Host "ARTIFACT ASSERT OK run_dir=$($runDir.Name) cases=$caseCount logs=$($logs.Count)"[0m
+2026-10-28T06:38:10.5347502Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-28T06:38:10.5347951Z env:
+2026-10-28T06:38:10.5348209Z   GODOT_VERSION: 4.7.2-stable
+2026-10-28T06:38:10.5348576Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:38:10.5349131Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+2026-10-28T06:38:10.5349944Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:38:10.5350564Z   GODOT_DIR: tools/godot
+2026-10-28T06:38:10.5350934Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+2026-10-28T06:38:10.5351374Z ##[endgroup]
+2026-10-28T06:38:11.1579042Z ARTIFACT ASSERT OK run_dir=20261028-063141-5cb245cb cases=89 logs=147
+2026-10-28T06:38:11.2258737Z ##[group]Run $ErrorActionPreference = 'Stop'
+2026-10-28T06:38:11.2259283Z [36;1m$ErrorActionPreference = 'Stop'[0m
+2026-10-28T06:38:11.2259576Z [36;1m$lines = @([0m
+2026-10-28T06:38:11.2259959Z [36;1m  '## Full regression matrix (baseline-aware, NOT a claim that all tests pass)',[0m
+2026-10-28T06:38:11.2260393Z [36;1m  '',[0m
+2026-10-28T06:38:11.2260959Z [36;1m  'All matrix cases were executed. Known pre-existing failures below are still FAIL records — they are not skipped, renamed or silenced.',[0m
+2026-10-28T06:38:11.2262145Z [36;1m  'STRICT fail-closed: this check turns red if any declared baseline entry is NOT RUN / blocked / filtered out / missing / count-mismatched, or on NEW failures, drift, timeouts or unexpected NOT RUN.',[0m
+2026-10-28T06:38:11.2263202Z [36;1m  'The baseline gate self-test step must also be green (proves blocked and filtered-out baseline entries fail).',[0m
+2026-10-28T06:38:11.2263722Z [36;1m  ''[0m
+2026-10-28T06:38:11.2263955Z [36;1m)[0m
+2026-10-28T06:38:11.2264352Z [36;1m$runDir = Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |[0m
+2026-10-28T06:38:11.2264934Z [36;1m  Sort-Object LastWriteTime -Descending | Select-Object -First 1[0m
+2026-10-28T06:38:11.2265336Z [36;1mif ($null -eq $runDir) {[0m
+2026-10-28T06:38:11.2265746Z [36;1m  $lines += '**No `.test-results` output directory was produced by the runner.**'[0m
+2026-10-28T06:38:11.2266152Z [36;1m} else {[0m
+2026-10-28T06:38:11.2266439Z [36;1m  $summaryPath = Join-Path $runDir.FullName 'summary.json'[0m
+2026-10-28T06:38:11.2266844Z [36;1m  $lines += "Run directory: ``$($runDir.Name)``"[0m
+2026-10-28T06:38:11.2267195Z [36;1m  if (Test-Path -LiteralPath $summaryPath) {[0m
+2026-10-28T06:38:11.2267624Z [36;1m    $s = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json[0m
+2026-10-28T06:38:11.2268017Z [36;1m    $lines += ''[0m
+2026-10-28T06:38:11.2268594Z [36;1m    $lines += '| total | pass | FAIL | known-baseline | NEW | drift | unverified | unselected | baseline complete | timeout | not run | exit code |'[0m
+2026-10-28T06:38:11.2269308Z [36;1m    $lines += '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |'[0m
+2026-10-28T06:38:11.2270528Z [36;1m    $lines += "| $($s.totals.total) | $($s.totals.pass) | $($s.totals.fail) | $($s.totals.known_fail) | $($s.totals.new_fail) | $($s.totals.baseline_drift) | $($s.totals.baseline_unverified) | $($s.totals.baseline_unselected) | $($s.totals.baseline_complete) | $($s.totals.timeout) | $($s.totals.not_run) | $($s.exit_code) |"[0m
+2026-10-28T06:38:11.2272172Z [36;1m    $lines += ''[0m
+2026-10-28T06:38:11.2272385Z [36;1m    $known = @()[0m
+2026-10-28T06:38:11.2272741Z [36;1m    $new = @()[0m
+2026-10-28T06:38:11.2273054Z [36;1m    foreach ($c in @($s.cases)) {[0m
+2026-10-28T06:38:11.2273361Z [36;1m      if ($c.status -eq 'PASS') { continue }[0m
+2026-10-28T06:38:11.2273660Z [36;1m      $isKnown = $false[0m
+2026-10-28T06:38:11.2273912Z [36;1m      $baselineNote = ''[0m
+2026-10-28T06:38:11.2274176Z [36;1m      if ($null -ne $c.baseline) {[0m
+2026-10-28T06:38:11.2274471Z [36;1m        $isKnown = [bool]$c.baseline.known[0m
+2026-10-28T06:38:11.2274802Z [36;1m        $baselineNote = [string]$c.baseline.reason[0m
+2026-10-28T06:38:11.2275101Z [36;1m      }[0m
+2026-10-28T06:38:11.2275626Z [36;1m      $row = "| ``$($c.id)`` | $($c.status) | exit=$($c.exit_code) | pass/fail=$($c.pass_count)/$($c.fail_count) | known_baseline=$isKnown | $baselineNote |"[0m
+2026-10-28T06:38:11.2276265Z [36;1m      if ($isKnown) { $known += $row } else { $new += $row }[0m
+2026-10-28T06:38:11.2276578Z [36;1m    }[0m
+2026-10-28T06:38:11.2276958Z [36;1m    $lines += "### Known pre-existing failures (visible, NOT silently ignored): $($known.Count)"[0m
+2026-10-28T06:38:11.2277412Z [36;1m    $lines += ''[0m
+2026-10-28T06:38:11.2277636Z [36;1m    if ($known.Count -eq 0) {[0m
+2026-10-28T06:38:11.2279860Z [36;1m      $lines += '_None reported — check the baseline file or the runner output._'[0m
+2026-10-28T06:38:11.2280370Z [36;1m    } else {[0m
+2026-10-28T06:38:11.2280726Z [36;1m      $lines += '| case | status | exit | pass/fail | known_baseline | reason |'[0m
+2026-10-28T06:38:11.2281228Z [36;1m      $lines += '| --- | --- | --- | --- | --- | --- |'[0m
+2026-10-28T06:38:11.2281554Z [36;1m      $lines += $known[0m
+2026-10-28T06:38:11.2281791Z [36;1m    }[0m
+2026-10-28T06:38:11.2281980Z [36;1m    $lines += ''[0m
+2026-10-28T06:38:11.2282273Z [36;1m    $lines += "### NEW failures / regressions: $($new.Count)"[0m
+2026-10-28T06:38:11.2282602Z [36;1m    $lines += ''[0m
+2026-10-28T06:38:11.2282835Z [36;1m    if ($new.Count -eq 0) {[0m
+2026-10-28T06:38:11.2283182Z [36;1m      $lines += '_None detected: no new failures, no baseline drift._'[0m
+2026-10-28T06:38:11.2283535Z [36;1m    } else {[0m
+2026-10-28T06:38:11.2283860Z [36;1m      $lines += '| case | status | exit | pass/fail | known_baseline | reason |'[0m
+2026-10-28T06:38:11.2284302Z [36;1m      $lines += '| --- | --- | --- | --- | --- | --- |'[0m
+2026-10-28T06:38:11.2284608Z [36;1m      $lines += $new[0m
+2026-10-28T06:38:11.2284821Z [36;1m    }[0m
+2026-10-28T06:38:11.2285002Z [36;1m  } else {[0m
+2026-10-28T06:38:11.2285323Z [36;1m    $lines += '**summary.json missing — investigate the runner output.**'[0m
+2026-10-28T06:38:11.2285692Z [36;1m  }[0m
+2026-10-28T06:38:11.2285864Z [36;1m}[0m
+2026-10-28T06:38:11.2286192Z [36;1m$lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8[0m
+2026-10-28T06:38:11.2365369Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-28T06:38:11.2365749Z env:
+2026-10-28T06:38:11.2365942Z   GODOT_VERSION: 4.7.2-stable
+2026-10-28T06:38:11.2366252Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:38:11.2366690Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+2026-10-28T06:38:11.2367410Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:38:11.2367967Z   GODOT_DIR: tools/godot
+2026-10-28T06:38:11.2368269Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+2026-10-28T06:38:11.2368603Z ##[endgroup]
+2026-10-28T06:38:11.8783145Z ##[group]Run actions/upload-artifact@v4
+2026-10-28T06:38:11.8783725Z with:
+2026-10-28T06:38:11.8784206Z   name: full-matrix-results-40644344521-1
+2026-10-28T06:38:11.8784496Z   path: .test-results/
+2026-10-28T06:38:11.8784726Z   include-hidden-files: true
+2026-10-28T06:38:11.8784966Z   if-no-files-found: error
+2026-10-28T06:38:11.8785190Z   retention-days: 14
+2026-10-28T06:38:11.8785398Z   compression-level: 6
+2026-10-28T06:38:11.8785607Z   overwrite: false
+2026-10-28T06:38:11.8785790Z env:
+2026-10-28T06:38:11.8786017Z   GODOT_VERSION: 4.7.2-stable
+2026-10-28T06:38:11.8786442Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:38:11.8786893Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+2026-10-28T06:38:11.8787615Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+2026-10-28T06:38:11.8788173Z   GODOT_DIR: tools/godot
+2026-10-28T06:38:11.8788517Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+2026-10-28T06:38:11.8788856Z ##[endgroup]
+2026-10-28T06:38:12.1135571Z (node:6488) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-28T06:38:12.1146968Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-28T06:38:12.1866791Z With the provided path, there will be 150 files uploaded
+2026-10-28T06:38:12.1889574Z Artifact name is valid!
+2026-10-28T06:38:12.1925295Z Root directory input is valid!
+2026-10-28T06:38:12.6444495Z Beginning upload of artifact content to blob storage
+2026-10-28T06:38:12.9141113Z (node:6488) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-28T06:38:13.5744073Z Uploaded bytes 463625
+2026-10-28T06:38:13.6589841Z Finished uploading artifact content to blob storage!
+2026-10-28T06:38:13.6591655Z SHA256 digest of uploaded artifact zip is aeecb566822acd89b9db259af07978ff0a60fd642aff1c7bfd1299229d2034ac
+2026-10-28T06:38:13.6592899Z Finalizing artifact upload
+2026-10-28T06:38:14.1755748Z Artifact full-matrix-results-40644344521-1.zip successfully finalized. Artifact ID 12796962383
+2026-10-28T06:38:14.1758068Z Artifact full-matrix-results-40644344521-1 has been successfully uploaded! Final size is 463625 bytes. Artifact ID is 12796962383
+2026-10-28T06:38:14.1759742Z Artifact download URL: https://github.com/HATO-24/ghost-track-apsis/actions/runs/40644344521/artifacts/12796962383
+2026-10-28T06:38:14.2245022Z Post job cleanup.
+2026-10-28T06:38:14.3699635Z Cache hit occurred on the primary key godot-Windows-4.7.2-stable-731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953, not saving cache.
+2026-10-28T06:38:14.3702865Z (node:1088) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-28T06:38:14.3707739Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-28T06:38:14.4028811Z Post job cleanup.
+2026-10-28T06:38:14.7564555Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-28T06:38:14.7989163Z git version 2.56.0.windows.2
+2026-10-28T06:38:14.8066778Z Temporarily overriding HOME='D:\a\_temp\d9fb332f-e82f-470c-a774-afece6badb40' before making global git config changes
+2026-10-28T06:38:14.8070914Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-28T06:38:14.8081583Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\ghost-track-apsis\ghost-track-apsis
+2026-10-28T06:38:14.8475282Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-28T06:38:14.8867245Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-28T06:38:15.4965328Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-28T06:38:15.5318097Z http.https://github.com/.extraheader
+2026-10-28T06:38:15.5369927Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-10-28T06:38:15.5786163Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-28T06:38:16.2247110Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-28T06:38:16.2645287Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-28T06:38:16.8727490Z Cleaning up orphan processes
+2026-10-28T06:38:16.9902587Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/cache@v4, actions/checkout@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

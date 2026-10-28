@@ -1,0 +1,17 @@
+{
+  "candidate": "755ab5ed629165656a566427523b01045775fc0f",
+  "previous_reviewed_head": "4a658699868b8d046ec5472f9c4b9ea204af6be9",
+  "base": "1738a5e41509c09e04dc34da382dc07f4b8982e9",
+  "pull_request": "https://github.com/HATO-24/ghost-track-apsis/pull/68",
+  "main_merge": "82bf6a531042961f0d5fe5d948c7004a15cd20cf",
+  "merged_at_utc": "2026-10-28T09:17:41Z",
+  "candidate_tree": "cefff3064c078375764c38b59bf892959b7887b9",
+  "merge_tree": "cefff3064c078375764c38b59bf892959b7887b9",
+  "candidate_game_v17_tree": "af82e94883acfae7881b8861ad16fa21b4e33027",
+  "merge_game_v17_tree": "af82e94883acfae7881b8861ad16fa21b4e33027",
+  "whole_tree_equal": true,
+  "local_C": {"phase0": "6/6", "phaseA": "3/3", "full_total": 89, "full_pass": 82, "full_fail": 7, "new_fail": 0, "drift": 0, "complete": true, "exit": 0},
+  "ci_run": 40644344521,
+  "ci_checkout": "5cb245cbaf295455115d32361d18255bcc3288fe",
+  "merge_transport_response": "error; read-back confirmed MERGED before any retry"
+}

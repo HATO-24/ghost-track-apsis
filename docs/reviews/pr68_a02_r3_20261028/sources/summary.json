@@ -1,0 +1,35 @@
+{
+  "head": "755ab5ed629165656a566427523b01045775fc0f",
+  "previous_head": "4a658699868b8d046ec5472f9c4b9ea204af6be9",
+  "R3": "CLOSED",
+  "diagnostic_exit_code": 0,
+  "godot_runs": 1,
+  "formal_probes_run": 0,
+  "pass_count": 13,
+  "fail_count": 0,
+  "checks": {
+    "expected_head": true,
+    "actual_hud_seed_called": true,
+    "real_radar_6s": true,
+    "actual_track_selected": true,
+    "sensor_map": true,
+    "empty_mapping_precondition": true,
+    "manual_friend": true,
+    "no_hint_resolves_via_sensor": true,
+    "actual_fire_projects_friend": true,
+    "mapping_fields_remain_empty": true,
+    "entity_control": true,
+    "prefilled_control": true,
+    "independent_fire_grant_retained": true
+  },
+  "failures": [],
+  "formal_R12": "Now uses real radar map and empty combat identity fields, but still simulates the HUD row using register_track; this independent diagnostic calls actual HUD._seed_combat_tracks.",
+  "static_owner_boundary": "combat_identity selects own owner; resolver reads only that owner operational record; sensor map supplies entity routing, not identity",
+  "fire_result": {
+    "needs_authorization": true,
+    "ok": false,
+    "reason": "needs_authorization",
+    "target_id": "T0001",
+    "weapon_id": "missile"
+  }
+}

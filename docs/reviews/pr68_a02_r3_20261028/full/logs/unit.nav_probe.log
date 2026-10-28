@@ -1,0 +1,445 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R4-NAV-CORE-1 PROBE · 导航 / 交通管制 / 机动规划（规划模型，无物理）
+════════════════════════════════════════════════════════════
+
+── 1 内容文件 / schema / 校验 ──
+[PASS] 内容文件存在: res://framework/content/navigation_l1.json
+[PASS] JSON 可解析且为 Dictionary
+[PASS] schema=navigation.v1  actual=navigation.v1 expected=navigation.v1
+[PASS] id=navigation_l1  actual=navigation_l1 expected=navigation_l1
+[PASS] title 非空
+[PASS] 节点数 8  actual=8 expected=8
+[PASS] 含节点 earth_port
+[PASS] 含节点 geo
+[PASS] 含节点 l1
+[PASS] 含节点 l2
+[PASS] 含节点 l4
+[PASS] 含节点 l5
+[PASS] 含节点 moon_port
+[PASS] 含节点 lunar_leo
+[PASS] Earth Port name 非空
+[PASS] position_source 引用 cislunar  cislunar:earth_port
+[PASS] abstract_pos_km 为 3D 抽象坐标
+[PASS] 边数 15  actual=15 expected=15
+[PASS] 边字段 id
+[PASS] 边字段 from
+[PASS] 边字段 to
+[PASS] 边字段 transfer_type
+[PASS] 边字段 dv_ms
+[PASS] 边字段 duration_s
+[PASS] 边字段 exposure
+[PASS] 边字段 risk
+[PASS] 边字段 traffic_required
+[PASS] route_limits 3 类 profile  actual=3 expected=3
+[PASS] profile_weights 存在
+[PASS] traffic.max_queue ≥1
+[PASS] traffic.priority_range 两点
+[PASS] traffic.auto_grant=false
+[PASS] traffic.auto_execute=false
+[PASS] 机动 kind 6 种  actual=6 expected=6
+[PASS] 含机动 kind hold
+[PASS] 含机动 kind approach
+[PASS] 含机动 kind retreat
+[PASS] 含机动 kind evade
+[PASS] 含机动 kind point
+[PASS] 含机动 kind burn
+[PASS] state_order 含 PRE_ORDER
+[PASS] state_order 含 AUTHORIZED
+[PASS] state_order 含 QUEUED
+[PASS] state_order 含 EXECUTING
+[PASS] state_order 含 DONE
+[PASS] state_order 含 ABORTED
+[PASS] budget.dv_total_ms > 0
+[PASS] budget.dv_reserve_ms < total
+[PASS] 默认内容自检通过  actual=0 expected=0
+[PASS] 校验拒绝错误 schema
+[PASS] 校验拒绝空 nodes
+[PASS] 校验拒绝边引用未知节点
+[PASS] 校验拒绝重复边 id
+[PASS] 校验拒绝 duration_s=0
+[PASS] 校验拒绝 exposure>1
+[PASS] 校验拒绝 priority_range 反序
+[PASS] 校验拒绝缺 maneuver kind
+[PASS] 校验拒绝 budget=0
+[PASS] 校验拒绝缺 profile
+[PASS] 校验拒绝非 3D 抽象坐标
+[PASS] 校验拒绝缺 state
+
+── 2 初始化 / 节点 ──
+[PASS] setup 成功 ready=true  []
+[PASS] setup 无错误  actual=0 expected=0
+[PASS] 模型 nodes=8  actual=8 expected=8
+[PASS] 模型 edges=15  actual=15 expected=15
+[PASS] content id  actual=navigation_l1 expected=navigation_l1
+[PASS] summary 返回 Dictionary
+[PASS] summary.nodes=8  actual=8 expected=8
+[PASS] summary.edges=15  actual=15 expected=15
+[PASS] L1 节点有 3D 抽象位置
+[PASS] L1 抽象 x=326,283 km  actual=326283.00000 expected=326283.00000 diff=0.00000 tol=1.00000
+[PASS] 未知节点位置为空
+[PASS] 静态 node_ids=8  actual=8 expected=8
+[PASS] 静态 list_nodes=8  actual=8 expected=8
+[PASS] 未 setup 时 ready=false
+[PASS] 未初始化 plan_routes 返回失败
+[PASS] 非法内容 setup 失败
+[PASS] 非法内容 errors 非空
+
+── 3 位置 provider ──
+[PASS] provider 返回 3D  actual=3 expected=3
+[PASS] provider 覆盖 x  actual=111.00000 expected=111.00000 diff=0.00000 tol=0.00000
+[PASS] provider 覆盖 z  actual=333.00000 expected=333.00000 diff=0.00000 tol=0.00000
+[PASS] provider 被调用 1 次  actual=1 expected=1
+[PASS] resolve_positions 含 l1
+[PASS] clear 后回退抽象坐标  actual=326283.00000 expected=326283.00000 diff=0.00000 tol=1.00000
+[PASS] 原始抽象坐标一致  actual=326283.00000 expected=326283.00000 diff=0.00000 tol=1.00000
+
+── 4 路线候选 ──
+[PASS] plan_routes earth_port→moon_port 成功
+[PASS] 返回 3 类候选  actual=3 expected=3
+[PASS] profiles 含 fast  actual=true expected=true
+[PASS] 候选[0] profile=fast  actual=fast expected=fast
+[PASS] 候选[1] profile=economy  actual=economy expected=economy
+[PASS] 候选[2] profile=covert  actual=covert expected=covert
+[PASS] fast rank=1  actual=1 expected=1
+[PASS] economy rank=2  actual=2 expected=2
+[PASS] covert rank=3  actual=3 expected=3
+[PASS] RTE-0001 字段 candidate_id
+[PASS] RTE-0001 字段 profile
+[PASS] RTE-0001 字段 profile_label
+[PASS] RTE-0001 字段 from
+[PASS] RTE-0001 字段 to
+[PASS] RTE-0001 字段 path
+[PASS] RTE-0001 字段 edges
+[PASS] RTE-0001 字段 transfer_types
+[PASS] RTE-0001 字段 dv_ms
+[PASS] RTE-0001 字段 duration_s
+[PASS] RTE-0001 字段 exposure
+[PASS] RTE-0001 字段 risk
+[PASS] RTE-0001 字段 traffic_required
+[PASS] RTE-0001 字段 feasible
+[PASS] RTE-0001 字段 violations
+[PASS] RTE-0001 字段 score
+[PASS] 候选路径至少 2 节点
+[PASS] 候选至少 1 条边
+[PASS] 候选 dv_ms > 0
+[PASS] 候选 duration_s > 0
+[PASS] 候选 exposure 0..1
+[PASS] 候选 risk 0..1
+[PASS] 候选路径与边连通一致
+[PASS] RTE-0002 字段 candidate_id
+[PASS] RTE-0002 字段 profile
+[PASS] RTE-0002 字段 profile_label
+[PASS] RTE-0002 字段 from
+[PASS] RTE-0002 字段 to
+[PASS] RTE-0002 字段 path
+[PASS] RTE-0002 字段 edges
+[PASS] RTE-0002 字段 transfer_types
+[PASS] RTE-0002 字段 dv_ms
+[PASS] RTE-0002 字段 duration_s
+[PASS] RTE-0002 字段 exposure
+[PASS] RTE-0002 字段 risk
+[PASS] RTE-0002 字段 traffic_required
+[PASS] RTE-0002 字段 feasible
+[PASS] RTE-0002 字段 violations
+[PASS] RTE-0002 字段 score
+[PASS] 候选路径至少 2 节点
+[PASS] 候选至少 1 条边
+[PASS] 候选 dv_ms > 0
+[PASS] 候选 duration_s > 0
+[PASS] 候选 exposure 0..1
+[PASS] 候选 risk 0..1
+[PASS] 候选路径与边连通一致
+[PASS] RTE-0003 字段 candidate_id
+[PASS] RTE-0003 字段 profile
+[PASS] RTE-0003 字段 profile_label
+[PASS] RTE-0003 字段 from
+[PASS] RTE-0003 字段 to
+[PASS] RTE-0003 字段 path
+[PASS] RTE-0003 字段 edges
+[PASS] RTE-0003 字段 transfer_types
+[PASS] RTE-0003 字段 dv_ms
+[PASS] RTE-0003 字段 duration_s
+[PASS] RTE-0003 字段 exposure
+[PASS] RTE-0003 字段 risk
+[PASS] RTE-0003 字段 traffic_required
+[PASS] RTE-0003 字段 feasible
+[PASS] RTE-0003 字段 violations
+[PASS] RTE-0003 字段 score
+[PASS] 候选路径至少 2 节点
+[PASS] 候选至少 1 条边
+[PASS] 候选 dv_ms > 0
+[PASS] 候选 duration_s > 0
+[PASS] 候选 exposure 0..1
+[PASS] 候选 risk 0..1
+[PASS] 候选路径与边连通一致
+[PASS] fast 候选时间最短  fast=30600 econ=615600 covert=734400
+[PASS] economy 候选 Δv 最小  fast=5520 econ=3760 covert=5450
+[PASS] covert 候选暴露最低  fast=0.450 econ=0.227 covert=0.063
+[PASS] 候选集合最小时间=fast
+[PASS] 候选集合最小 Δv=economy
+[PASS] 候选集合最小暴露=covert
+[PASS] recommended 非空
+[PASS] last_routes 缓存 3 条
+[PASS] 未知起点失败
+[PASS] 未知终点失败
+[PASS] 同节点失败
+
+── 5 路线约束 ──
+[PASS] max_dv_ms=4000 至少 1 可行
+[PASS] max_dv 4000 可行候选均不超限
+[PASS] max_dv=1 全部候选标记 max_dv_ms 违背
+[PASS] max_duration 60,000 s 下 fast 可行
+[PASS] max_exposure=0.30 可行候选均不超限
+[PASS] avoid_traffic 可行候选均不需交通许可
+[PASS] exclude low_energy 可行候选均不使用该类型
+[PASS] max_hops=1 返回 ≤3 条候选
+[PASS] max_hops=1 候选跳数 ≤1
+[PASS] 约束回显 constraints 字段
+
+── 6 规划无自动执行 ──
+[PASS] plan_routes 不改时间  actual=0.0 expected=0.0
+[PASS] plan_routes 不改已用 Δv  actual=0.00000 expected=0.00000 diff=0.00000 tol=0.00000
+[PASS] plan_routes 不创建机动  actual=0 expected=0
+[PASS] plan_routes 不改执行状态签名  actual=0.0|0.000|0.000|0|0|0| expected=0.0|0.000|0.000|0|0|0|
+[PASS] select_route 不改时间  actual=0.0 expected=0.0
+[PASS] select_route 不创建机动  actual=0 expected=0
+[PASS] selected_route 更新  actual=RTE-0004 expected=RTE-0004
+[PASS] 重复规划仍返回候选
+
+── 7 交通许可基础 ──
+[PASS] 高暴露 fast → hold  actual=hold expected=hold
+[PASS] hold 请求返回 ok=true
+[PASS] hold 队列位置 1  actual=1 expected=1
+[PASS] 队列长度 1  actual=1 expected=1
+[PASS] 请求记录 status=hold  actual=hold expected=hold
+[PASS] hold 原因 exposure_review
+[PASS] 许可带时间窗
+[PASS] 低暴露 economy → granted  actual=granted expected=granted
+[PASS] granted 有有效期
+[PASS] 1 个活动许可  actual=1 expected=1
+[PASS] active_clearance 返回最近批准  actual=CLR-0002 expected=CLR-0002
+[PASS] covert（无需交通）→ granted  actual=granted expected=granted
+[PASS] 无需许可路由 reason=traffic_not_required  actual=traffic_not_required expected=traffic_not_required
+[PASS] requests 记录 3 条
+[PASS] 事件含 clearance_granted
+[PASS] 事件含 clearance_hold
+[PASS] vm.clearance 可序列化
+
+── 8 优先级队列 ──
+[PASS] 队列 3 条  actual=3 expected=3
+[PASS] 队列首 = 优先级 1  actual=CLR-0002 expected=CLR-0002
+[PASS] 队列次 = 优先级 3  actual=CLR-0001 expected=CLR-0001
+[PASS] 队列尾 = 优先级 4  actual=CLR-0003 expected=CLR-0003
+[PASS] vm.queue 3 条  actual=3 expected=3
+[PASS] vm.queue[0].position=1  actual=1 expected=1
+[PASS] priority 1 标签 EMERGENCY  actual=EMERGENCY expected=EMERGENCY
+[PASS] 队列末优先级 4
+[PASS] record.queue_position=1  actual=1 expected=1
+
+── 9 拒绝原因 ──
+[PASS] priority 0 → denied  actual=denied expected=denied
+[PASS] priority 0 原因 priority_range  actual=priority_range expected=priority_range
+[PASS] priority 6 原因 priority_range  actual=priority_range expected=priority_range
+[PASS] 过去窗口 → window_in_past  actual=window_in_past expected=window_in_past
+[PASS] 过近窗口 → window_closed  actual=window_closed expected=window_closed
+[PASS] 未知路线 → unknown_route  actual=unknown_route expected=unknown_route
+[PASS] 取到不可行候选（max_dv=1）
+[PASS] 候选 feasible=false
+[PASS] 不可行路线 → route_infeasible  actual=route_infeasible expected=route_infeasible
+[PASS] 事件含 clearance_denied
+
+── 10 管制员手动动作 ──
+[PASS] 手动 grant 前队列 1  actual=1 expected=1
+[PASS] grant_clearance → granted  actual=granted expected=granted
+[PASS] 批准后队列清空  actual=0 expected=0
+[PASS] 批准后 1 个活动许可  actual=1 expected=1
+[PASS] 重复批准失败
+[PASS] deny_clearance → denied  actual=denied expected=denied
+[PASS] 拒绝原因 authority_denied  actual=authority_denied expected=authority_denied
+[PASS] 拒绝后队列清空  actual=0 expected=0
+[PASS] 重复拒绝失败
+[PASS] hold_clearance → hold  actual=hold expected=hold
+[PASS] hold_until_t=900  actual=900.00000 expected=900.00000 diff=0.00000 tol=0.00000
+[PASS] 记录 hold_until_t=900  actual=900.00000 expected=900.00000 diff=0.00000 tol=0.00000
+[PASS] grant 未知请求失败
+
+── 11 许可过期 ──
+[PASS] hold 入队  actual=1 expected=1
+[PASS] hold 超时 → expired  actual=expired expected=expired
+[PASS] hold 过期后队列清空  actual=0 expected=0
+[PASS] 事件含 clearance_expired
+[PASS] step 返回 t
+[PASS] economy 批准  actual=granted expected=granted
+[PASS] 过期前活动许可 1  actual=1 expected=1
+[PASS] granted 超时 → 无活动许可  actual=0 expected=0
+[PASS] granted 记录 expired  actual=expired expected=expired
+[PASS] 重复过期无新增  actual=0 expected=0
+
+── 12 队列容量 ──
+[PASS] max_queue=1 内容 setup 成功  []
+[PASS] 第一条 hold 入队  actual=hold expected=hold
+[PASS] 队列满 → queue_full  actual=queue_full expected=queue_full
+[PASS] 队列仍为 1  actual=1 expected=1
+
+── 13 机动计划 ──
+[PASS] plan hold 成功
+[PASS] plan_id 形如 MNV-xxxx
+[PASS] plan approach(target) 成功
+[PASS] approach 缺 target → target_required  actual=target_required expected=target_required
+[PASS] point 缺 target → target_required  actual=target_required expected=target_required
+[PASS] plan retreat 成功
+[PASS] plan evade 成功
+[PASS] plan burn(dv=120) 成功
+[PASS] burn opts.dv_ms 覆盖为 120  actual=120.00000 expected=120.00000 diff=0.00000 tol=0.00000
+[PASS] hold 默认 Δv=40  actual=40.00000 expected=40.00000 diff=0.00000 tol=0.00000
+[PASS] 新计划 state=PRE_ORDER  actual=PRE_ORDER expected=PRE_ORDER
+[PASS] 已计划 5 个机动（失败计划不入列）  actual=5 expected=5
+[PASS] 未知 kind → unknown_kind  actual=unknown_kind expected=unknown_kind
+
+── 14 机动状态机 ──
+[PASS] authorize → AUTHORIZED  actual=AUTHORIZED expected=AUTHORIZED
+[PASS] authorize 预留 40 m/s  actual=40.00000 expected=40.00000 diff=0.00000 tol=0.00000
+[PASS] committed=40  actual=40.00000 expected=40.00000 diff=0.00000 tol=0.00000
+[PASS] queue → QUEUED  actual=QUEUED expected=QUEUED
+[PASS] execute → EXECUTING  actual=EXECUTING expected=EXECUTING
+[PASS] 60 s 未完成  actual=0 expected=0
+[PASS] progress=0.5  actual=0.50000 expected=0.50000 diff=0.00000 tol=0.00000
+[PASS] 120 s 完成 1 个  actual=1 expected=1
+[PASS] 终态 DONE  actual=DONE expected=DONE
+[PASS] 消耗 40 m/s  actual=40.00000 expected=40.00000 diff=0.00000 tol=0.00000
+[PASS] used=40  actual=40.00000 expected=40.00000 diff=0.00000 tol=0.00000
+[PASS] committed 归零  actual=0.00000 expected=0.00000 diff=0.00000 tol=0.00000
+[PASS] available=1460  actual=1460.00000 expected=1460.00000 diff=0.00000 tol=0.00000
+[PASS] 未授权 queue → wrong_state  actual=wrong_state expected=wrong_state
+[PASS] 未排队 execute → wrong_state  actual=wrong_state expected=wrong_state
+[PASS] 重复授权 → wrong_state  actual=wrong_state expected=wrong_state
+[PASS] 已有机动计划可查询
+[PASS] DONE 后 abort → wrong_state  actual=wrong_state expected=wrong_state
+[PASS] 事件含 maneuver_done
+
+── 15 机动中断 ──
+[PASS] 排队中 abort → ABORTED  actual=ABORTED expected=ABORTED
+[PASS] 排队中中断无消耗  actual=0.00000 expected=0.00000 diff=0.00000 tol=0.00000
+[PASS] used 仍 0  actual=0.00000 expected=0.00000 diff=0.00000 tol=0.00000
+[PASS] committed 释放  actual=0.00000 expected=0.00000 diff=0.00000 tol=0.00000
+[PASS] 执行中 abort → ABORTED  actual=ABORTED expected=ABORTED
+[PASS] 执行 50% → 消耗 20 m/s  actual=20.00000 expected=20.00000 diff=0.00000 tol=0.00000
+[PASS] used=20  actual=20.00000 expected=20.00000 diff=0.00000 tol=0.00000
+[PASS] committed 释放  actual=0.00000 expected=0.00000 diff=0.00000 tol=0.00000
+[PASS] 事件含 maneuver_aborted
+[PASS] abort_reason 记录  actual=tactical_abort expected=tactical_abort
+
+── 16 机动 × 交通许可 ──
+[PASS] 无许可 queue burn → clearance_required  actual=clearance_required expected=clearance_required
+[PASS] economy 许可 granted  actual=granted expected=granted
+[PASS] 带许可 queue 成功  actual=QUEUED expected=QUEUED
+[PASS] burn 完成  actual=1 expected=1
+[PASS] burn 消耗 84 m/s  actual=84.00000 expected=84.00000 diff=0.00000 tol=0.00000
+[PASS] 许可记录可查
+[PASS] 许可过期后 queue → clearance_required  actual=clearance_required expected=clearance_required
+
+── 17 Δv 预算 ──
+[PASS] total=1600  actual=1600.00000 expected=1600.00000 diff=0.00000 tol=0.00000
+[PASS] reserve=100  actual=100.00000 expected=100.00000 diff=0.00000 tol=0.00000
+[PASS] available=1500  actual=1500.00000 expected=1500.00000 diff=0.00000 tol=0.00000
+[PASS] 授权 40 → available 1460  actual=1460.00000 expected=1460.00000 diff=0.00000 tol=0.00000
+[PASS] 再授权 40 → available 1420  actual=1420.00000 expected=1420.00000 diff=0.00000 tol=0.00000
+[PASS] budget.committed 累计
+[PASS] 80/1500 未到 warn 阈值
+[PASS] 小预算内容 setup 成功
+[PASS] 小预算第 1 次授权成功
+[PASS] 小预算第 2 次授权成功
+[PASS] 第 3 次授权 → dv_budget  actual=dv_budget expected=dv_budget
+[PASS] 小预算 available=20  actual=20.00000 expected=20.00000 diff=0.00000 tol=0.00000
+[PASS] burn Δv clamp 到 total=1600  actual=1600.00000 expected=1600.00000 diff=0.00000 tol=0.00000
+[PASS] 超预算 burn 授权失败  actual=dv_budget expected=dv_budget
+
+── 18 vm_navigation / JSON ──
+[PASS] vm 字段 schema
+[PASS] vm 字段 id
+[PASS] vm 字段 ready
+[PASS] vm 字段 t
+[PASS] vm 字段 nodes
+[PASS] vm 字段 routes
+[PASS] vm 字段 selected
+[PASS] vm 字段 clearance
+[PASS] vm 字段 clearances
+[PASS] vm 字段 queue
+[PASS] vm 字段 planned_maneuvers
+[PASS] vm 字段 budget
+[PASS] vm 字段 limits
+[PASS] vm 字段 events
+[PASS] vm 字段 summary
+[PASS] vm.nodes=8  actual=8 expected=8
+[PASS] vm.routes=3  actual=3 expected=3
+[PASS] vm.selected 为选中候选  actual=RTE-0002 expected=RTE-0002
+[PASS] vm.clearance 有活动许可
+[PASS] vm.queue=1（hold）  actual=1 expected=1
+[PASS] vm.planned_maneuvers=1  actual=1 expected=1
+[PASS] vm.budget.dv_total_ms
+[PASS] vm.budget.dv_reserve_ms
+[PASS] vm.budget.dv_used_ms
+[PASS] vm.budget.dv_committed_ms
+[PASS] vm.budget.dv_available_ms
+[PASS] vm.limits.max_hops
+[PASS] vm.limits.max_queue
+[PASS] vm.limits.priority_range
+[PASS] vm.limits.profiles
+[PASS] vm.limits.maneuver_states
+[PASS] vm.events 非空
+[PASS] vm.summary 有 nodes
+[PASS] vm JSON 可序列化/回读
+[PASS] JSON 含 candidate id
+[PASS] JSON 含 schema
+[PASS] vm 机动状态 AUTHORIZED  actual=AUTHORIZED expected=AUTHORIZED
+
+── 19 只读 / 无物理副作用 ──
+[PASS] 修改 vm 不影响模型 budget  actual=1600.00000 expected=1600.00000 diff=0.00000 tol=0.00000
+[PASS] vm 返回新副本（routes 原为空）  actual=0 expected=0
+[PASS] vm 调用不改状态签名  actual=0.0|0.000|0.000|0|0|0| expected=0.0|0.000|0.000|0|0|0|
+[PASS] 规划/许可/授权不改变节点位置（无物理）  actual={ "earth_port": [6378.13720703125, 0.0, 0.0], "geo": [42164.0, 0.0, 0.0], "l1": [326283.0, 0.0, 0.0], "l2": [448000.0, 0.0, 0.0], "l4": [192200.0, 333000.0, 0.0], "l5": [192200.0, -333000.0, 0.0], "moon_port": [382600.0, 0.0, 0.0], "lunar_leo": [384500.0, 0.0, 0.0] } expected={ "earth_port": [6378.13720703125, 0.0, 0.0], "geo": [42164.0, 0.0, 0.0], "l1": [326283.0, 0.0, 0.0], "l2": [448000.0, 0.0, 0.0], "l4": [192200.0, 333000.0, 0.0], "l5": [192200.0, -333000.0, 0.0], "moon_port": [382600.0, 0.0, 0.0], "lunar_leo": [384500.0, 0.0, 0.0] }
+[PASS] 默认无 position provider
+[PASS] 规划流程不调用 position provider（不改几何）  actual=0 expected=0
+
+── 20 确定性 ──
+[PASS] 相同序列 → 相同 vm JSON（确定性）
+[PASS] 相同状态签名  actual=121.0|40.000|0.000|1|0|1|RTE-0002|MNV-0001:DONE expected=121.0|40.000|0.000|1|0|1|RTE-0002|MNV-0001:DONE
+[PASS] 相同请求数  actual=1 expected=1
+
+── 21 内容驱动 ──
+[PASS] 内容驱动 setup 成功  []
+[PASS] 节点名称来自内容  actual=自定义 L1 名称 expected=自定义 L1 名称
+[PASS] 节点抽象坐标来自内容  actual=1.00000 expected=1.00000 diff=0.00000 tol=0.00000
+[PASS] 边 Δv 来自内容  actual=123.00000 expected=123.00000 diff=0.00000 tol=0.00000
+[PASS] 预算 total 来自内容  actual=500.00000 expected=500.00000 diff=0.00000 tol=0.00000
+[PASS] hold 成本来自内容  actual=7.00000 expected=7.00000 diff=0.00000 tol=0.00000
+[PASS] vm.limits.max_queue 来自内容  actual=2 expected=2
+[PASS] 自定义内容仍可规划路线
+────────────────────────────────────────────────────────────
+[DATA] content = nodes=8 edges=15 kinds=6 profiles=["fast", "economy", "covert"]
+[DATA] provider = 位置 provider 可绑定/清除；只影响 node_position_km，不改内容
+[DATA] routes = fast=5520 m/s/30600 s · economy=3760 m/s/615600 s · covert=5450 m/s/734400 s
+[DATA] routes.from_to = earth_port→moon_port 3 类候选，路径可由边连通验证
+[DATA] constraints = max_dv/max_duration/max_exposure/avoid_traffic/exclude_type/max_hops 均生效
+[DATA] no-exec = 规划/选择路线不产生机动、不耗预算、不改时间
+[DATA] traffic = fast=hold · economy=granted · covert=granted（traffic_not_required）
+[DATA] queue = priority 1 → 3 → 4（先进先出 + 优先级）
+[DATA] denials = priority_range / window_in_past / window_closed / unknown_route / route_infeasible
+[DATA] manual = grant/deny/hold 均不自动执行机动
+[DATA] expiry = hold_until/validity 到期 → expired，队列移除
+[DATA] queue_full = max_queue=1：第二条请求被拒绝且不占队列
+[DATA] maneuvers.plan = hold/approach/retreat/evade/point/burn；缺 target/未知 kind 拒绝
+[DATA] maneuver.fsm = PRE_ORDER→AUTHORIZED→QUEUED→EXECUTING→DONE，非法迁移拒绝
+[DATA] maneuver.abort = 排队中断 0 消耗；执行中断按 progress 部分消耗
+[DATA] maneuver.clearance = burn/evade 必须持有效 granted 许可；过期许可失效
+[DATA] budget = total=1600 reserve=100；授权预留、执行消耗；不足拒绝
+[DATA] vm = nodes=8 routes=3 queue=1 maneuvers=1 budget/limits/events 完整 JSON
+[DATA] readonly = vm 返回副本；规划/许可/授权不改位置/预算/时间
+[DATA] determinism = 两次独立运行路线/许可/机动/预算完全一致
+[DATA] content-driven = 节点/边/预算/机动成本/交通规则均可由 JSON 覆盖
+────────────────────────────────────────────────────────────
+NAV PROBE RESULT: PASS=372 FAIL=0
+NAV PROBE OK
+AUDIO OK files=36 headless=true muted=false

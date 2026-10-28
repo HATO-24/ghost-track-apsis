@@ -1,0 +1,6 @@
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/transponder_service.gd:750)
+       [1] _test_management_save (res://tests/transponder_probe.gd:502)
+       [2] _initialize (res://tests/transponder_probe.gd:32)
