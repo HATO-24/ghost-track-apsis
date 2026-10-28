@@ -1,0 +1,172 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+A0-A02 FRAME EPOCH PROBE · baseline I1 · profile=orbital_sim
+Godot 4.7.2-stable (official)
+════════════════════════════════════════════════════════════════
+
+[A0-A02] STEP 1. real entry main_menu → v1_hud
+[A0-A02] PASS change_scene_to_file(main_menu) == OK  err=0
+AUDIO OK files=36 headless=true muted=false
+[MAIN MENU] BUILD=orbital_sim → skip to res://v1_hud.tscn
+[BUILD PROFILE] id=orbital_sim mode=simulator scene=res://v1_hud.tscn scenario=res://framework/content/scenario_orbital_sim.json save_root=user://saves_sim
+[BUILD PROFILE] SYSTEM story=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM prelude=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM triggers=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM identification=ON
+[BUILD PROFILE] SYSTEM traffic=ON
+[BUILD PROFILE] SYSTEM port=ON
+[BUILD PROFILE] SYSTEM signal=ON
+[BUILD PROFILE] SYSTEM combat=ON
+[BUILD PROFILE] SYSTEM ballistics=ON
+[BUILD PROFILE] SYSTEM damage=ON
+[BUILD PROFILE] SYSTEM physics_world=ON
+[BUILD PROFILE] SYSTEM sandbox=OFF reason=非测试剖面
+[BUILD PROFILE] SYSTEM ship_catalog=ON
+[BUILD PROFILE] SYSTEM refit=ON
+[BUILD PROFILE][LIMITATION] 轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。
+[BUILD PROFILE][LIMITATION] EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。
+[BUILD PROFILE][LIMITATION] UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。
+[SHELL BINDER] BUILD profile=orbital_sim mode=simulator label=GHOST TRACK // APSIS — ORBITAL SIM save_root=user://saves_sim
+[SHELL BINDER] SANDBOX entities=7 scenario=res://framework/content/scenario_orbital_sim.json
+[SHELL BINDER] SYSTEMS physics=true sensors=true track_table=true combat=true ballistics=true damage=true ew=true identification=true traffic=true port=true ship_catalog=true refit=true story=disabled
+[SHELL BINDER] CeresChain ready state=L1 entity=ceres_2 texts=9 code=7600
+[SHELL BINDER] ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0
+[SHELL BINDER] AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=19 threat=0 trust=0
+[SHELL BINDER] AfterActionReport ready branches=6 templates=3
+[SHELL BINDER] TrafficControl source=session ready=true lanes=18 otc=19 npc=6
+[SHELL BINDER] physics ready=true plot_source=intel positions=0 facilities=12 facility_source=facility_registry_l1
+[SHELL BINDER] fleet_data ready=true friendly=8 enemy=24 total=32
+[SHELL BINDER] refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL
+[SHELL BINDER] CICView ready=true truth=false tracks=2 levels={ "1": 0, "2": 2, "3": 0, "4": 0 } facilities=110
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[V1 HUD] binder boot=true errors=[] contacts=2 orders=0
+[V1 HUD] COMMS seed LD=true LR=false events=2
+[V1 HUD] COMBAT source=session sandbox={ "unlimited_ammo": false, "auto_authorize": false }
+[V1 HUD] COMBAT tracks=2 weapons=5 target=T0001 weapon=missile
+[V1 HUD] damage_model=true sections=7 combat=true roe=TIGHT roe_locked=true
+[SHELL BINDER] plot_bodies source=physics earth=[-326389.684568483, -0.0, 0.0] moon=[58010.3154315171, -0.0, 0.0]
+[SHELL BINDER] plot_sensors ready=true rings=4 obs=4 tws=2 emcon=false ew_ready=true
+[SHELL BINDER] plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=2 solutions=0 grants=0 incoming=0 pred=true
+[SHELL BINDER] plot_commands ready=true orders=0 pending=0 transmitted=0 executed=0
+[V1 PLOT3D] labels=18 conflicts=6 hidden_facility=8 bodies=physics
+[A0-A02] PASS ShellBinder ready
+[A0-A02] PASS GameSession available
+[A0-A02] PASS TimeService present
+[A0-A02] PASS PhysicsWorld present
+
+[A0-A02] STEP 2. scenario UTC epoch is the single calendar source
+[A0-A02] PASS scenario declares a UTC epoch  2193-04-11T08:00:00Z
+[A0-A02] PASS calendar epoch source is the scenario (single source)  actual=scenario expected=scenario
+[A0-A02] PASS calendar epoch is known  actual=true expected=true
+[A0-A02] PASS calendar epoch not marked unknown  actual=false expected=false
+[A0-A02] PASS calendar epoch UTC matches the scenario exactly  actual=2193-04-11 08:00:00 expected=2193-04-11 08:00:00
+[A0-A02] PASS calendar epoch unix seconds exactly match the UTC string  actual=7045948800.000000000000 expected=7045948800.000000000000 tol=0.0
+[A0-A02] INFO EPOCH: utc=2193-04-11T08:00:00Z unix=7045948800.0
+
+[A0-A02] STEP 3. CR3BP phase basis is explicit and NOT the calendar epoch
+[A0-A02] PASS phase basis is explicitly labelled cr3bp_phase_s  actual=cr3bp_phase_s expected=cr3bp_phase_s
+[A0-A02] PASS phase epoch keeps the existing 760.8 (not replaced by UTC seconds)  actual=760.800000000000 expected=760.800000000000 tol=0.000000000001
+[A0-A02] PASS raw epoch_s is explicitly NOT a Unix epoch  actual=false expected=false
+[A0-A02] PASS phase_abs = phase_epoch + t_s (dynamics basis consistent)  phase_abs=760.900000
+[A0-A02] PASS dynamics phase time is NOT the calendar time (no silent mixing)  phase_abs=760.900 cal_unix=7045948800.000
+
+[A0-A02] STEP 4. absolute calendar time = epoch + relative seconds (exact)
+[A0-A02] PASS calendar_now == epoch + t_s (exact UTC string)  actual=2193-04-11 08:00:00 expected=2193-04-11 08:00:00
+[A0-A02] PASS tick(+60s) ok
+[A0-A02] PASS relative time advanced by exactly 60 s  actual=60.000000000000 expected=60.000000000000 tol=0.000001
+[A0-A02] PASS calendar after +60 s is exactly the epoch + new t_s  actual=2193-04-11 08:01:00 expected=2193-04-11 08:01:00
+
+[A0-A02] STEP 5. physics t == session t_s (<=1e-6 s) and frame table
+[A0-A02] PASS physics t equals session t_s within 1e-6 s  physics_t=0.1 t_s=0.1
+[A0-A02] PASS runtime frame is bary_rot  actual=bary_rot expected=bary_rot
+[A0-A02] PASS runtime length unit km  actual=km expected=km
+[A0-A02] PASS runtime velocity unit km/s  actual=km/s expected=km/s
+[A0-A02] PASS runtime time unit s  actual=s expected=s
+[A0-A02] PASS all physics-chain consumers declare frame=bary_rot and a source  violations=[]
+[A0-A02] INFO CONSUMERS: {"ballistics":{"frame":"bary_rot","source":"physics_world"},"physics":{"frame":"bary_rot","source":"physics_world","t_s":0.1},"sensor_geometry":{"frame":"bary_rot","source":"physics_world"},"snapshot":{"frame":"bary_rot","source":"session.snapshot"},"world_projection":{"frame":"bary_rot","source":"physics_world(copy)"}}
+
+[A0-A02] STEP 6. L1 seed conversion happens exactly once and is marked applied/source
+[A0-A02] PASS L1-frame session ready  []
+[A0-A02] PASS L1 seed conversion marked applied  actual=true expected=true
+[A0-A02] PASS conversion source marked as seed  actual=seed expected=seed
+[A0-A02] PASS L1 seed conversion happened exactly once (no duplicate init)  actual=1 expected=1
+[A0-A02] PASS runtime frame stays bary_rot after L1 conversion  actual=bary_rot expected=bary_rot
+[A0-A02] INFO L1 CONVERSION: {"applied":true,"conversion_count":1,"converted":2,"origin":"l1","reason":"seed_frame_l1","skipped":0,"source":"seed"}
+
+[A0-A02] STEP 7. frame conversion roundtrip near origin and at EML1 large coords
+[A0-A02] PASS central converter roundtrips bary_rot<->earth_eci in double precision (1e-6 km / 1e-9 km/s; origin+near+EML1)  violations=[]
+[A0-A02] PASS central converter roundtrips bary_rot<->earth_rot in double precision  violations=[]
+
+[A0-A02] STEP 8. save / load preserves epoch, relative time, frame and source
+[A0-A02] INFO REAL HUD SESSION LIMIT (DS-A-06 scope): load ok=true errors=[]
+[A0-A02] PASS epoch save/load fixture ready  []
+[A0-A02] PASS save_state non-empty  len=7816
+[A0-A02] PASS load_state ok  []
+[A0-A02] PASS load preserves the calendar epoch UTC string  actual=2193-04-11T08:00:00Z expected=2193-04-11T08:00:00Z
+[A0-A02] PASS load preserves the epoch source label  actual=scenario expected=scenario
+[A0-A02] PASS load preserves the epoch unix seconds exactly  actual=7045948800.000000000000 expected=7045948800.000000000000 tol=0.0
+[A0-A02] PASS load preserves relative time t_s  actual=180.000000000000 expected=180.000000000000 tol=0.000001
+[A0-A02] PASS load preserves runtime frame  actual=bary_rot expected=bary_rot
+[A0-A02] PASS load preserves seed frame  actual=bary_rot expected=bary_rot
+[A0-A02] PASS post-load 10 ticks advance relative time by exactly 600 s  actual=600.000000000000 expected=600.000000000000 tol=0.000001
+
+[A0-A02] STEP 9. repeatability: same seed + same commands → same time/frame metadata
+[A0-A02] PASS repeated runs have identical relative time  actual=300.000000000000 expected=300.000000000000 tol=0.0
+[A0-A02] PASS repeated runs have identical epoch metadata  actual={"calendar_epoch_unix_s":7045948800.0,"calendar_epoch_utc":"2193-04-11T08:00:00Z","calendar_now_utc":"2193-04-11 08:05:00","calendar_vs_phase_note":"date = calendar_epoch + t_s；CR3BP 相位 = phase_epoch_s + t_s；两者互不替换","epoch_known":true,"epoch_source":"scenario","epoch_unknown":false,"phase_abs_s":1060.8,"phase_basis":"cr3bp_phase_s","phase_epoch_s":760.8,"raw_epoch_s_is_unix":false,"schema":"v17.time_epoch.v2","t_s":300.0} expected={"calendar_epoch_unix_s":7045948800.0,"calendar_epoch_utc":"2193-04-11T08:00:00Z","calendar_now_utc":"2193-04-11 08:05:00","calendar_vs_phase_note":"date = calendar_epoch + t_s；CR3BP 相位 = phase_epoch_s + t_s；两者互不替换","epoch_known":true,"epoch_source":"scenario","epoch_unknown":false,"phase_abs_s":1060.8,"phase_basis":"cr3bp_phase_s","phase_epoch_s":760.8,"raw_epoch_s_is_unix":false,"schema":"v17.time_epoch.v2","t_s":300.0}
+[A0-A02] PASS repeated runs have identical frame conversion metadata  actual={"applied":false,"conversion_count":0,"converted":0,"origin":"bary_rot","reason":"explicit_bary_rot","skipped":0,"source":"seed"} expected={"applied":false,"conversion_count":0,"converted":0,"origin":"bary_rot","reason":"explicit_bary_rot","skipped":0,"source":"seed"}
+
+[A0-A02] STEP 10. time is monotonic under pause and scale
+[A0-A02] PASS pause/scale fixture ready  []
+[A0-A02] PASS paused session does not advance t_s  actual=0.000000000000 expected=0.000000000000 tol=0.000001
+[A0-A02] PASS scale=2 advances t_s by exactly 120 s  actual=120.000000000000 expected=120.000000000000 tol=0.000001
+[A0-A02] PASS relative time remains monotonic under scale
+
+[A0-A02] STEP 11. negative: invalid UTC epoch is explicitly rejected (no fabricated date)
+[A0-A02] PASS invalid UTC epoch makes TimeService NOT ready  actual=false expected=false
+[A0-A02] PASS invalid UTC epoch reports an explicit reason  ["precondition: 非法 UTC 历元 \'2193-13-45T99:99:99Z\'"]
+[A0-A02] PASS invalid epoch is labelled invalid, not silently defaulted  actual=invalid expected=invalid
+
+[A0-A02] STEP 12. negative: legacy seed without epoch keeps time but marks epoch_unknown
+[A0-A02] PASS legacy TimeService still ready (time behaviour kept)  actual=true expected=true
+[A0-A02] PASS legacy seed marks epoch_source=legacy_unknown  actual=legacy_unknown expected=legacy_unknown
+[A0-A02] PASS legacy seed marks epoch_unknown  actual=true expected=true
+[A0-A02] PASS legacy seed does NOT fabricate a calendar date  actual= expected=
+[A0-A02] PASS legacy seed keeps the original phase epoch  actual=760.800000000000 expected=760.800000000000 tol=0.000000000001
+
+[A0-A02] STEP 13. negative: unknown frame is rejected, not silently treated as bary_rot
+[A0-A02] PASS unknown frame conversion is rejected  actual=false expected=false
+[A0-A02] PASS unknown frame rejection carries a reason  unknown_frame:not_a_frame
+
+[A0-A02] STEP 14. negative: unknown player target gains no truth coordinates
+[A0-A02] PASS no truth position leaked to unknown targets  violations=[]
+
+[A0-A02] STEP 15. A-02 summary
+[A0-A02] INFO A-02: calendar epoch single-source + phase basis separated; consumer frame table complete; L1 conversion once; converter roundtrip ok; save/load metadata preserved; negatives enforced
+────────────────────────────────────────────────────────────────
+A0-A02 FRAME EPOCH PROBE RESULT: PASS=61 FAIL=0
+A0-A02 FRAME EPOCH PROBE OK
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+
+--- STDERR ---
+ERROR: Invalid month value of: 13. See the Time.Month enum for valid values.
+   at: get_unix_time_from_datetime_string (core/os/time.cpp:302)
+   GDScript backtrace (most recent call first):
+       [0] _parse_utc_epoch (res://scripts/core/time_service.gd:226)
+       [1] setup (res://scripts/core/time_service.gd:65)
+       [2] _init (res://scripts/core/time_service.gd:50)
+       [3] _run (res://tests/a0_frame_epoch_probe.gd:405)
+       [4] _await_v1_hud (res://tests/a0_frame_epoch_probe.gd:567)
+WARNING: 121 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 31 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

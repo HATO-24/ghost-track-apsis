@@ -442,7 +442,11 @@ func export_state() -> Dictionary:
 		"intel": JSON.parse_string(JSON.stringify(intel)),
 		"observations": JSON.parse_string(JSON.stringify(observations)),
 		"seen_deliveries": JSON.parse_string(JSON.stringify(seen_deliveries)),
-		"audit": JSON.parse_string(JSON.stringify(audit))}
+		"audit": JSON.parse_string(JSON.stringify(audit)),
+		# JC-A02：owner 操作性身份（旧档缺省 → 空）
+		"identity_store": JSON.parse_string(JSON.stringify(identity_store)),
+		"identity_writes": JSON.parse_string(JSON.stringify(identity_writes)),
+		"identity_audit": JSON.parse_string(JSON.stringify(identity_audit))}
 
 
 ## 恢复：owner 航迹与 context 一致；真正旧档只迁入本舰域，不复制到盟军。
@@ -493,6 +497,26 @@ func import_state(st) -> Dictionary:
 		if raw_seen is Dictionary else {}
 	var raw_audit = s.get("audit", [])
 	audit = (raw_audit as Array).duplicate(true) if raw_audit is Array else []
+	# JC-A02：恢复 owner 操作性身份（只保留当前已登记 owner，不串域）
+	identity_store = {}
+	var raw_ist = s.get("identity_store", {})
+	if raw_ist is Dictionary:
+		for owner4 in (raw_ist as Dictionary).keys():
+			if not intel.has(String(owner4)):
+				continue
+			var m4 = (raw_ist as Dictionary)[owner4]
+			if m4 is Dictionary:
+				identity_store[String(owner4)] = (m4 as Dictionary).duplicate(true)
+	identity_writes = {}
+	var raw_iw = s.get("identity_writes", {})
+	if raw_iw is Dictionary:
+		for owner5 in (raw_iw as Dictionary).keys():
+			if intel.has(String(owner5)):
+				identity_writes[String(owner5)] = int(raw_iw[owner5])
+	identity_audit = []
+	var raw_ia = s.get("identity_audit", [])
+	if raw_ia is Array:
+		identity_audit = (raw_ia as Array).duplicate(true)
 	return {"ok": true, "restore_mode": "full",
 		"owners": intel.keys(), "audit": audit.size()}
 
@@ -522,3 +546,101 @@ func advance(t_now: float) -> Dictionary:
 			forgotten += 1
 	return {"ok": true, "t": float(t_now), "aged": aged, "forgotten": forgotten,
 		"stale_after_s": stale_after_s, "forget_after_s": forget_after_s}
+
+# ── JC-A02：每个 owner 的操作性身份（唯一写者 = Session 路由）─────────
+var identity_store: Dictionary = {}    # owner -> target -> identity patch
+var identity_writes: Dictionary = {}   # owner -> 写入计数
+var identity_audit: Array = []         # 审计（人工确认/撤销等）
+
+
+func owner_known(owner_id: String) -> bool:
+	return intel.has(owner_id) or identity_store.has(owner_id)
+
+
+## 唯一写者入口：只允许已登记 owner；返回写入后的规范化操作性身份。
+func apply_identity(owner_id: String, target_id: String, patch: Dictionary) -> Dictionary:
+	if not intel.has(owner_id) and not identity_store.has(owner_id):
+		return {"ok": false, "reason": "unknown_owner", "owner_id": owner_id}
+	if target_id == "":
+		return {"ok": false, "reason": "empty_target"}
+	if not identity_store.has(owner_id):
+		identity_store[owner_id] = {}
+	var m: Dictionary = identity_store[owner_id]
+	var prev: Dictionary = m.get(target_id, {}) if m.get(target_id) is Dictionary else {}
+	var cur: Dictionary = prev.duplicate(true)
+	for k in patch.keys():
+		cur[str(k)] = patch[k]
+	cur["owner_id"] = owner_id
+	cur["target_id"] = target_id
+	cur["write_seq"] = int(prev.get("write_seq", 0)) + 1
+	m[target_id] = cur
+	identity_writes[owner_id] = int(identity_writes.get(owner_id, 0)) + 1
+	# 投影到该 owner 的航迹（intel_view 直接可读；不复制到其他 owner）
+	# 无观测航迹时也建立最小 owner 航迹（身份本身是 owner 证据，不是隐藏真值）
+	if intel.has(owner_id) and not (intel[owner_id] as Dictionary).has(target_id):
+		(intel[owner_id] as Dictionary)[target_id] = {"id": target_id,
+			"intel_owner_id": owner_id, "source": "identity",
+			"identity": "unknown", "range_km": -1.0, "pos_km": [],
+			"last_observed_t": float(cur.get("identity_observed_t", 0.0)),
+			"stale": false, "age_s": 0.0}
+	# 投影到该 owner 的航迹（intel_view 直接可读；不复制到其他 owner）
+	if intel.has(owner_id) and (intel[owner_id] as Dictionary).has(target_id):
+		var trk: Dictionary = (intel[owner_id] as Dictionary)[target_id]
+		for fld in ["identity", "identity_confidence", "identity_state",
+				"identity_manual", "identity_authorized", "identity_sources",
+				"identity_evidence_count", "identity_observed_t", "identity_ttl_s",
+				"identity_updated_t"]:
+			if cur.has(fld):
+				trk[fld] = cur[fld]
+	return {"ok": true, "owner_id": owner_id, "target_id": target_id,
+		"writer_count": int(identity_writes[owner_id]),
+		"operational": cur.duplicate(true)}
+
+
+func identity_operational(owner_id: String, target_id: String) -> Dictionary:
+	if not identity_store.has(owner_id):
+		return {}
+	var m: Dictionary = identity_store[owner_id]
+	if not m.has(target_id):
+		return {}
+	return (m[target_id] as Dictionary).duplicate(true)
+
+
+## TTL/状态推进：owner 身份随时间过期；不改写 still-valid 结论。
+func identity_advance(t_now: float) -> Dictionary:
+	var expired := 0
+	var stale := 0
+	for owner_id in identity_store.keys():
+		var m: Dictionary = identity_store[owner_id]
+		for target_id in m.keys():
+			var rec: Dictionary = m[target_id]
+			var obs_t := float(rec.get("identity_observed_t",
+				rec.get("observed_t", 0.0)))
+			var ttl := float(rec.get("identity_ttl_s", rec.get("ttl_s", 0.0)))
+			if ttl <= 0.0:
+				continue
+			var age := maxf(0.0, float(t_now) - obs_t)
+			var new_state := String(rec.get("identity_state", "valid"))
+			if age > ttl * 2.0 + 1.0e-9:
+				new_state = "expired"
+			elif age > ttl + 1.0e-9:
+				new_state = "stale"
+			elif new_state in ["stale", "expired"]:
+				new_state = "expired"
+			if new_state != String(rec.get("identity_state", "")):
+				rec["identity_state"] = new_state
+				if new_state == "expired":
+					expired += 1
+				else:
+					stale += 1
+			rec["identity_age_s"] = age
+	return {"ok": true, "stale": stale, "expired": expired}
+
+
+func identity_report() -> Dictionary:
+	var owners: Dictionary = {}
+	for owner_id in identity_store.keys():
+		owners[owner_id] = {"targets": (identity_store[owner_id] as Dictionary).size(),
+			"writes": int(identity_writes.get(owner_id, 0))}
+	return {"ok": true, "owners": owners, "writes": identity_writes.duplicate(true),
+		"audit": identity_audit.size(), "schema": SCHEMA}

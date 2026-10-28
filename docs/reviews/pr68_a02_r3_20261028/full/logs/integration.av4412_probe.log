@@ -1,0 +1,39 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE3W PROBE · Av4412Chain
+════════════════════════════════════════════════════════════
+
+── 1 setup/文本 ──
+
+── 2 轨道/窗口/雷达 ──
+
+── 3 四选项 ──
+
+── 4 乱序矩阵 ──
+
+── 5 退让劝阻 ──
+
+── 6 note/save ──
+
+── 7 非法/确定性 ──
+────────────────────────────────────────────────────────────
+[DATA] setup/texts = 12 状态/4 选项 · 19 文本（11 原文+8 TBD）· 开场/强硬/标准/质疑/退让 · TBD 不伪造
+[DATA] orbit = 真实轨道原样/非法拒绝 · 窗口开/关 · early/passive 互斥 · detected/window_closed
+[DATA] options = strong ROE TIGHT/火控 no-fire · standard 威胁 · question 证据/叫停 · retreat 死亡/trust
+[DATA] matrix = 12 状态 × 12 动作乱序拒绝 · state 不变 · 手动不自动
+[DATA] retreat = 需 5 次劝阻 · TBD 文本 key · trust 降低 · death/demo_end · 仅一次
+[DATA] note/save = note 原文/TBD · mid/final/retreat save-load VM 一致 · 非法存档原子拒绝
+[DATA] invalid = 非法 action/内容/不存在文件拒绝 · 同路径确定 · 无自动开火
+────────────────────────────────────────────────────────────
+V17 AV4412 CHAIN PROBE RESULT: PASS=752 FAIL=0
+V17 AV4412 CHAIN PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/av4412_chain.gd:628)
+       [1] _test_notes_save (res://tests/av4412_probe.gd:504)
+       [2] _initialize (res://tests/av4412_probe.gd:45)

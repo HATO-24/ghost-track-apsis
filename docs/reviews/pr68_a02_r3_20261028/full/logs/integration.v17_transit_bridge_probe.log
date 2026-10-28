@@ -1,0 +1,168 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE2-CORE-B PROBE · transit 场景 + 转移接 bridge/state
+════════════════════════════════════════════════════════════
+
+── 1 legacy 默认 ──
+[PASS] bridge.boot  []
+[PASS] 默认 scenario_mode=legacy  actual=legacy expected=legacy
+[PASS] requested=legacy  actual=legacy expected=legacy
+[PASS] legacy 无回落 reason  actual= expected=
+[PASS] legacy 场景对象存在
+[PASS] legacy 场景 id 不变  actual=l1_supervision_v2 expected=l1_supervision_v2
+[PASS] legacy transfer_ready=false  actual=false expected=false
+[PASS] legacy 无 transfer 计划  actual=0 expected=0
+[PASS] legacy transfer_tick ok=false  actual=false expected=false
+[PASS] scenario_view.mode=legacy  actual=legacy expected=legacy
+[PASS] scenario_view id  actual=l1_supervision_v2 expected=l1_supervision_v2
+[PASS] legacy entities >0  9
+[PASS] legacy stations >0  2
+[PASS] legacy own=harmattan  actual=harmattan expected=harmattan
+[PASS] legacy own batch=1001  actual=1001 expected=1001
+[PASS] state fw_transfer_ready=false  actual=false expected=false
+[PASS] state fw_transfer 空  actual=0 expected=0
+[PASS] state fw_scenario 非空
+[PASS] state fw_scenario.mode=legacy  actual=legacy expected=legacy
+[PASS] state fw_scenario_entities 非空
+[PASS] state fw_scenario_stations 非空
+[PASS] legacy 旧 sensor 字段正常
+[PASS] legacy 旧 physics 字段正常
+
+── 2 transit ──
+[PASS] bridge.boot  []
+[PASS] transit scenario_mode  actual=transit expected=transit
+[PASS] requested=transit  actual=transit expected=transit
+[PASS] transit 场景 id  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] transit transfer_ready=true  actual=true expected=true
+[PASS] transfer plan 非空
+[PASS] transfer schema  actual=v17_transfer_l4_l1.v1 expected=v17_transfer_l4_l1.v1
+[PASS] transfer plan.ok  actual=true expected=true
+[PASS] tof_days>0
+[PASS] total_dv>0
+[PASS] method  actual=lambert_seed_cr3bp_shooting expected=lambert_seed_cr3bp_shooting
+[PASS] timeline 11 点
+[PASS] fleet 5 舰
+[PASS] arrival 字段
+[PASS] arrival.ok  actual=true expected=true
+[PASS] scenario_view.mode=transit  actual=transit expected=transit
+[PASS] scenario_view id  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] datum=L4  actual=L4 expected=L4
+[PASS] own=apsis  actual=apsis expected=apsis
+[PASS] entities ≥9  9
+[PASS] stations ≥4  5
+[PASS] source_port  actual=l4_02_hammer expected=l4_02_hammer
+[PASS] target_port  actual=l1_meridian_05 expected=l1_meridian_05
+[PASS] own_reference own=apsis  actual=apsis expected=apsis
+[PASS] own_reference batch=1000  actual=1000 expected=1000
+[PASS] own_reference mode  actual=transit expected=transit
+[PASS] own_reference source  actual=l4_02_hammer expected=l4_02_hammer
+[PASS] own_reference target  actual=l1_meridian_05 expected=l1_meridian_05
+[PASS] scenario entity: apsis
+[PASS] scenario entity: harmattan
+[PASS] scenario entity: ferry
+[PASS] scenario entity: watchtower
+[PASS] scenario entity: deepwell
+[PASS] scenario entity: l4_02_hammer
+[PASS] scenario entity: l1_meridian_05
+[PASS] scenario entity: l1_anchorage_02
+[PASS] scenario entity: l1_drydock_01
+[PASS] transit 无旧实体: summons_4471
+[PASS] transit 无旧实体: ceres_2
+[PASS] transit 无旧实体: chronos_station
+[PASS] transit 无旧实体: tank_farm
+[PASS] station 列表 ≥4
+[PASS] state fw_transfer 非空
+[PASS] state fw_transfer_ready=true  actual=true expected=true
+[PASS] state transfer schema  actual=v17_transfer_l4_l1.v1 expected=v17_transfer_l4_l1.v1
+[PASS] state fw_scenario.mode  actual=transit expected=transit
+[PASS] state scenario id  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] state own_reference  actual=apsis expected=apsis
+[PASS] state scenario_entities ≥9
+[PASS] state scenario_stations ≥4
+[PASS] V15 轨迹 r 不变  actual=(-190.0, 255.0, 62.0) expected=(-190.0, 255.0, 62.0)
+[PASS] V15 轨迹 v 不变  actual=(-0.05, -0.06, 0.01) expected=(-0.05, -0.06, 0.01)
+[PASS] V15 等级不变  actual=4 expected=4
+[PASS] V15 clock 不变  actual=760.8 expected=760.8
+[PASS] V15 tracks 未被写（transit）
+[PASS] bridge_state 含 scenario_mode
+[PASS] bridge_state 含 scenario
+[PASS] bridge_state 含 own_reference
+[PASS] bridge_state 含 scenario_entities
+[PASS] bridge_state 含 scenario_stations
+[PASS] bridge_state 含 transfer
+[PASS] bridge_state 含 transfer_ready
+
+── 3 transfer_tick ──
+[PASS] bridge.boot  []
+[PASS] tof>0
+[PASS] tick(0) ok  actual=true expected=true
+[PASS] tick(0) phase=departure  actual=departure expected=departure
+[PASS] tick(0) progress=0  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] tick(0) pos 有限
+[PASS] tick(0) vel 有限
+[PASS] tick(0) = timeline[0]  actual=0.000000 expected=0.000000 tol=0.000001
+[PASS] tick(mid) phase=cruise  actual=cruise expected=cruise
+[PASS] tick(mid) progress=0.5  actual=0.500000 expected=0.500000 tol=0.000000
+[PASS] mid range>0
+[PASS] mid pos 有限
+[PASS] tick(tof) phase=arrival  actual=arrival expected=arrival
+[PASS] tick(tof) progress=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] arrival range<3000km
+[PASS] 超时 clamp=true  actual=true expected=true
+[PASS] 超时 phase=arrival  actual=arrival expected=arrival
+[PASS] 超时 clamp 到 tof  actual=518400.000000 expected=518400.000000 tol=0.000001
+[PASS] 负时间 clamp=true  actual=true expected=true
+[PASS] 负时间 phase=departure  actual=departure expected=departure
+[PASS] 负时间 clamp 到 0  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] 采样点 progress  actual=0.300000 expected=0.300000 tol=0.000001
+[PASS] 采样点位置一致  actual=0.000000 expected=0.000000 tol=0.000001
+[PASS] state fw_transfer_tick phase  actual=cruise expected=cruise
+[PASS] state tick = bridge tick  actual=259200.000000 expected=259200.000000 tol=0.000001
+[PASS] tick JSON  len=443
+[PASS] tick JSON 回读
+
+── 4 legacy / 回退 ──
+[PASS] bridge.boot  []
+[PASS] 显式 legacy  actual=legacy expected=legacy
+[PASS] 显式 legacy transfer_ready=false  actual=false expected=false
+[PASS] 显式 legacy 场景 id  actual=l1_supervision_v2 expected=l1_supervision_v2
+[PASS] bridge.boot  []
+[PASS] 未知 V17_SCENARIO → legacy  actual=legacy expected=legacy
+[PASS] 未知值 transfer_ready=false  actual=false expected=false
+[PASS] 未知值场景 id=legacy  actual=l1_supervision_v2 expected=l1_supervision_v2
+
+── 5 JSON ──
+[PASS] bridge.boot  []
+[PASS] fw_transfer JSON  len=8192
+[PASS] fw_transfer 回读
+[PASS] 回读 timeline
+[PASS] 回读 fleet
+[PASS] 回读 arrival
+[PASS] fw_scenario JSON  len=327
+[PASS] fw_scenario 回读
+[PASS] fw_own_reference JSON  len=220
+[PASS] fw_own_reference 回读
+[PASS] fw_bridge_state JSON  len=77127
+[PASS] fw_bridge_state 回读
+[PASS] 回读 scenario.mode  actual=transit expected=transit
+[PASS] 回读 transfer
+[PASS] 回读 own_reference
+[PASS] 回读 scenario_entities
+────────────────────────────────────────────────────────────
+[DATA] legacy = id=l1_supervision_v2 own=harmattan(1001) transfer_ready=false entities=9 stations=2
+[DATA] transit = TOF=6.00d Δv=1822.6m/s 入轨=0.771km/0.969km/s entities=9 stations=5
+[DATA] tick = tof=518400.0s phases departure/cruise/arrival clamp ok
+[DATA] fallback = legacy/未知值 → legacy 场景，transfer_ready=false
+[DATA] json = transfer=8192 scenario=327 own=220 bridge=77127
+────────────────────────────────────────────────────────────
+probe elapsed_ms=69666
+V17 TRANSIT BRIDGE PROBE RESULT: PASS=136 FAIL=0
+V17 TRANSIT BRIDGE PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 156 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

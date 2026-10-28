@@ -2,7 +2,23 @@
 
 执行Issue：[JC-A03 #60](https://github.com/HATO-24/ghost-track-apsis/issues/60)。
 
-状态：WAIT A2；交付A3。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：READY，A2独立放行且已合入；交付A3。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-28 A2放行后的开工交接
+
+执行基线：A2冻结 `755ab5ed629165656a566427523b01045775fc0f`，已审main合入提交 `82bf6a531042961f0d5fe5d948c7004a15cd20cf`，整个tree等于被审候选。A1=`845584733df619feb3e372e8c06a7caa9f3fdaba`，G0/K0=`9d0f3b4380275b0a30fffb4a29fa5c44ef58165f`。先fetch main，确认包含本卡顶部记录的A2合入提交，再记录实际40位执行SHA；不可用C55或旧A1覆盖已落A2。
+
+这是下一张核心实现卡，代码交DeepSeek；Astra保留需求权，GPT/Sol维护任务卡与UI设计文档。核心接入继续A03→A04→B01A，HUD/Binder共享文件与UI-01串行；A04通信和B01A部署仅按原依赖准备独立服务。
+
+当前真实缺口仍在：GameSession.tick先_advance_sensors后_advance_ew；_advance_sensors调用SensorService.step并即时送owner情报和TrackTable，authority.receive_observation当前received_t=t、delay_s=0。_advance_ew仅推进和发事件；ew_observation_effect是查询包装，尚未接实际采样。CombatService.request_solution/tick的质量仍主要来自武器精度和距离。先用真实API同seed开/关对照保存这些缺口，不能只断effect字典。
+
+按现有链路分提交：明确同tick的effect采样时刻/一次推进→真实观测质量与延迟→owner航迹当前measurement quality→实际解算/射击结果→真实文件在途继续。复用原_sensor_track_map与A2统一身份出口。纯测量质量/航迹观测走Sensor→TrackTable；只有产生身份判断证据的欺骗候选走A2 identity_ingest及普通证据验证，保留owner/source/event/observed_t/received_t/TTL及单次消费，不直接改身份、权限或隐藏side。保留实际HUD航迹键（如T0001）到实体键解析、实体键兼容、过期显示/火控及A2来源/审计回归，不重做已落算法。
+
+在首个实现提交前交写者/读者及时序/单位表，并冻结当前fixture的质量→解算可用性/耗时/误差规则。按原0.7乘数、effect实际delay与1e-9/1e-6容差验收；延迟期间不提前可见，保存再从真实文件恢复后至少10tick队列/ID/质量/解算与连续运行一致。最终A03变更HEAD的同一40位SHA跑专项和原C，七历史baseline不刷新；不新增Comms接入、AI、真实RF/光学传播或完整军用协议。
+
+以下八段原合同继续有效；C55仅为缺口历史来源，当前行为以上述A2基线为准。
+
+放行依据：[A2第三轮独立报告及完整C](../../reviews/pr68_a02_r3_20261028/review.md)。
 
 ## 1. 目标与缺口
 

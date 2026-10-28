@@ -2,7 +2,15 @@
 
 执行Issue：[JC-A02 #59](https://github.com/HATO-24/ghost-track-apsis/issues/59)。
 
-状态：RETURNED，PR68第二轮仅剩实际消费者两处；A1已完成，A2不冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：DONE，第三轮独立放行，A2已冻结且PR68已合入。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-28 第三轮：PASS，A2合入并交接A03
+
+A2=`755ab5ed629165656a566427523b01045775fc0f`，main合入=`82bf6a531042961f0d5fe5d948c7004a15cd20cf`，整个tree与被审候选相同。[独立放行、实际消费者对照与原C全量证据](../../reviews/pr68_a02_r3_20261028/review.md)。
+
+原R3实际radar→Binder→实际HUD._seed_combat_tracks空字段T0001→合法manual→实际request_fire，身份现统一friend，实体键/预填兼容均过；开火仍受独立授权。原R4普通contact/详情过期显示unknown+EXPIRED并保留last-known，stale维度合同不变。原五组全部关闭，不再派发返工。
+
+根独立七专项7/7、identity122/0；原C Phase0 6/6、PhaseA3/3、full89=82PASS/7历史FAIL，new_fail0、drift0、complete=true、退出0。CI同head合成merge结果一致，七历史baseline未刷新。#59完成，下一张核心卡为[A03/#60](JC-A03_ew_observation.md)；UI文档仍GPT/Sol，代码DeepSeek。以下首二轮为历史。
 
 ## 2026-10-28 PR68第二轮：关闭大部分残项，仅消费者收口
 

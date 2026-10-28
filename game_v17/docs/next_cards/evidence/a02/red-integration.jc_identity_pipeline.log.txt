@@ -1,0 +1,144 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+JC-A02 IDENTITY PIPELINE PROBE · 四来源/单一写者/owner隔离/IFF/消费者/恢复
+════════════════════════════════════════════════════════════════
+
+[A02] STEP R1 单一写者与重复证据抑制
+[A02] PASS session ready  []
+[A02] FAIL 首次证据 ingest ok  (not_implemented)
+[A02] FAIL 完全相同证据判重  ({ "ok": false, "reason": "not_implemented", "owner_id": "player_intel" })
+[A02] PASS 操作性身份可读  not_implemented
+[A02] PASS 操作性身份有写入计数  1
+[A02] PASS 一次有效证据只产生一次身份写入（重复不放大）  writes_before=0 after=0
+[A02] FAIL owner 情报轨迹存在
+[A02] FAIL owner 轨迹身份来自唯一写者  (actual= expected=friend)
+
+[A02] STEP R2 四来源各自有效（IFF/ELINT/光学/人工）
+[A02] FAIL IFF 来源 ingest ok  (not_implemented)
+[A02] FAIL ELINT 来源 ingest ok  (not_implemented)
+[A02] FAIL 光学来源 ingest ok  (not_implemented)
+[A02] FAIL 人工来源（带授权）ok  (not_implemented)
+[A02] FAIL IFF 单源 friend  (actual= expected=friend)
+[A02] FAIL ELINT 单源 suspect  (actual= expected=suspect)
+[A02] FAIL 光学单源 neutral  (actual= expected=neutral)
+[A02] FAIL 人工权威 hostile  (actual= expected=hostile)
+[A02] FAIL 置信度与证据一致（容差1e-9）  (<null>)
+[A02] FAIL 操作性身份带 IFF/身份状态
+
+[A02] STEP R3 冲突：IFF friend + 光学 hostile 不得维持 friend
+[A02] PASS 冲突后不维持 friend
+[A02] FAIL 冲突状态可读  (actual= expected=conflict)
+[A02] FAIL 冲突证据被记录
+
+[A02] STEP R4 TTL / 同 tick 边界 / 迟到证据
+[A02] FAIL TTL 内状态 valid  (actual= expected=valid)
+[A02] FAIL 超过 TTL 后不再 valid
+[A02] FAIL 新证据刷新 TTL  (actual= expected=valid)
+[A02] FAIL 迟到证据被接受但不主导  (not_implemented)
+[A02] FAIL 迟到旧证据不覆盖较新结论  (actual= expected=hostile)
+
+[A02] STEP R5 IFF 查询状态：有效回应/无回应/缺配置/受干扰
+[A02] FAIL 有配置目标可查询  (not_implemented)
+[A02] FAIL IFF 状态属于合法枚举  (unavailable)
+[A02] PASS 无应答配置给明确 unavailable  unavailable
+[A02] FAIL 受干扰/遮挡有明确状态  (unavailable)
+[A02] PASS 无回应未被解成敌对/友军
+
+[A02] STEP R6 人工确认：未授权拒绝/授权审计/撤销恢复/不越权
+[A02] PASS 未授权人工确认被拒绝  not_implemented
+[A02] FAIL 拒绝原因明确  (not_implemented)
+[A02] PASS 未授权确认不改变操作性身份
+[A02] FAIL 授权人工确认 ok  (not_implemented)
+[A02] FAIL 人工确认成为操作性身份  (actual= expected=friend)
+[A02] FAIL 操作性身份标记 manual
+[A02] FAIL 操作性身份标记 authorized
+[A02] FAIL 人工确认可审计
+[A02] PASS 人工确认不覆写隐藏真值 side  actual= expected=
+[A02] FAIL 撤销人工确认 ok  (not_implemented)
+[A02] FAIL 撤销后恢复推断  (actual= expected=hostile)
+
+[A02] STEP R7 两个 owner 同一目标不同证据不串域
+[A02] FAIL player owner 身份独立  (actual= expected=friend)
+[A02] FAIL ally owner 身份独立  (actual= expected=hostile)
+[A02] PASS 未知 owner 被拒绝  not_implemented
+
+[A02] STEP R8 HUD 与火控读同一操作性身份
+[A02] FAIL 火控读到与 owner 相同的操作性身份  (actual=unknown expected=)
+[A02] FAIL HUD ident_view 读到同一操作性身份  (actual=unknown expected=)
+[SHELL BINDER] CICView ready=true truth=false tracks=0 levels={ "1": 0, "2": 0, "3": 0, "4": 0 } facilities=0
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[A02] FAIL HUD 反映人工 friend  (actual=unknown expected=friend)
+[A02] PASS 友军身份不自动给开火许可  context_domain_mismatch
+[A02] FAIL 拒绝原因来自身份/ROE 而非授权缺失  (context_domain_mismatch)
+
+[A02] STEP R9 旧单实例存档迁移 + 真实文件恢复 + 继续 10 tick
+[A02] PASS 真实文件恢复成功  []
+[A02] FAIL 恢复模式公开可读
+[A02] FAIL player owner 身份恢复  (actual= expected=friend)
+[A02] FAIL ally owner 身份恢复  (actual= expected=hostile)
+[A02] PASS 10 tick 后身份一致  actual= expected=
+[A02] PASS 10 tick 后 TTL/状态一致  actual= expected=
+[A02] FAIL 10 tick 后置信度一致（容差1e-9）
+[A02] PASS 旧单实例存档可加载  []
+[A02] FAIL 旧档恢复模式明确
+
+[A02] STEP 总结
+[A02] INFO A02 验收：四来源/冲突/TTL/迟到/IFF/人工/owner隔离/消费者/恢复
+────────────────────────────────────────────────────────────────
+JC-A02 IDENTITY PIPELINE PROBE RESULT: PASS=16 FAIL=43
+[A02] FAILED: 首次证据 ingest ok  (not_implemented)
+[A02] FAILED: 完全相同证据判重  ({ "ok": false, "reason": "not_implemented", "owner_id": "player_intel" })
+[A02] FAILED: owner 情报轨迹存在
+[A02] FAILED: owner 轨迹身份来自唯一写者  (actual= expected=friend)
+[A02] FAILED: IFF 来源 ingest ok  (not_implemented)
+[A02] FAILED: ELINT 来源 ingest ok  (not_implemented)
+[A02] FAILED: 光学来源 ingest ok  (not_implemented)
+[A02] FAILED: 人工来源（带授权）ok  (not_implemented)
+[A02] FAILED: IFF 单源 friend  (actual= expected=friend)
+[A02] FAILED: ELINT 单源 suspect  (actual= expected=suspect)
+[A02] FAILED: 光学单源 neutral  (actual= expected=neutral)
+[A02] FAILED: 人工权威 hostile  (actual= expected=hostile)
+[A02] FAILED: 置信度与证据一致（容差1e-9）  (<null>)
+[A02] FAILED: 操作性身份带 IFF/身份状态
+[A02] FAILED: 冲突状态可读  (actual= expected=conflict)
+[A02] FAILED: 冲突证据被记录
+[A02] FAILED: TTL 内状态 valid  (actual= expected=valid)
+[A02] FAILED: 超过 TTL 后不再 valid
+[A02] FAILED: 新证据刷新 TTL  (actual= expected=valid)
+[A02] FAILED: 迟到证据被接受但不主导  (not_implemented)
+[A02] FAILED: 迟到旧证据不覆盖较新结论  (actual= expected=hostile)
+[A02] FAILED: 有配置目标可查询  (not_implemented)
+[A02] FAILED: IFF 状态属于合法枚举  (unavailable)
+[A02] FAILED: 受干扰/遮挡有明确状态  (unavailable)
+[A02] FAILED: 拒绝原因明确  (not_implemented)
+[A02] FAILED: 授权人工确认 ok  (not_implemented)
+[A02] FAILED: 人工确认成为操作性身份  (actual= expected=friend)
+[A02] FAILED: 操作性身份标记 manual
+[A02] FAILED: 操作性身份标记 authorized
+[A02] FAILED: 人工确认可审计
+[A02] FAILED: 撤销人工确认 ok  (not_implemented)
+[A02] FAILED: 撤销后恢复推断  (actual= expected=hostile)
+[A02] FAILED: player owner 身份独立  (actual= expected=friend)
+[A02] FAILED: ally owner 身份独立  (actual= expected=hostile)
+[A02] FAILED: 火控读到与 owner 相同的操作性身份  (actual=unknown expected=)
+[A02] FAILED: HUD ident_view 读到同一操作性身份  (actual=unknown expected=)
+[A02] FAILED: HUD 反映人工 friend  (actual=unknown expected=friend)
+[A02] FAILED: 拒绝原因来自身份/ROE 而非授权缺失  (context_domain_mismatch)
+[A02] FAILED: 恢复模式公开可读
+[A02] FAILED: player owner 身份恢复  (actual= expected=friend)
+[A02] FAILED: ally owner 身份恢复  (actual= expected=hostile)
+[A02] FAILED: 10 tick 后置信度一致（容差1e-9）
+[A02] FAILED: 旧档恢复模式明确
+JC-A02 IDENTITY PIPELINE PROBE FAILED
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 334 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 22 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

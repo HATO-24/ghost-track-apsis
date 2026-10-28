@@ -1,0 +1,354 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R6-DOCKING-1 PROBE · 交会 / 对接几何控制器
+════════════════════════════════════════════════════════════
+
+── 1 setup / ports ──
+[PASS] setup 默认端口
+[PASS] 默认端口无错误
+[PASS] 默认端口数=4
+[PASS] 初始 state=far
+[PASS] 初始无目标端口
+[PASS] vm schema
+[PASS] vm writes
+[PASS] 不写 world
+[PASS] 不写 physics
+[PASS] vm ports 数
+[PASS] port schema
+[PASS] port owner_kind
+[PASS] port axis 3D
+[PASS] port A open
+[PASS] port A radius
+[PASS] port A kind
+[PASS] port A compatible ship
+[PASS] fresh state far
+[PASS] fresh target empty
+
+── 2 port selection ──
+[PASS] controller setup
+[PASS] 显式选择 A
+[PASS] target A
+[PASS] 选端口后 far
+[PASS] target A name
+[PASS] occupied B 拒绝
+[PASS] occupied reason
+[PASS] damaged berth 拒绝
+[PASS] damaged reason
+[PASS] unknown 拒绝
+[PASS] unknown reason
+[PASS] owner 过滤选择 A
+[PASS] owner 选择 A
+[PASS] 无 owner 端口
+[PASS] no_open_port
+[PASS] incompatible setup
+[PASS] incompatible 拒绝
+[PASS] incompatible reason
+[PASS] 兼容 tanker 通过
+[PASS] remove target port
+[PASS] remove 后 target 清空
+[PASS] remove 后 far
+[PASS] controller setup
+[PASS] docked 时选端口拒绝
+[PASS] docked reason
+
+── 3 invalid ports / setup ──
+[PASS] invalid ports setup=false
+[PASS] invalid ports errors
+[PASS] invalid ports 不加入
+[PASS] single valid port setup
+[PASS] duplicate port 拒绝
+[PASS] duplicate reason
+[PASS] add port
+[PASS] add port 后数=2
+[PASS] invalid add 拒绝
+[PASS] invalid add reason
+
+── 4 far/approach/corridor ──
+[PASS] controller setup
+[PASS] 300 km → far
+[PASS] far range
+[PASS] far guidance
+[PASS] 43° lateral → approach
+[PASS] outside corridor
+[PASS] corridor not ok
+[PASS] 50 km/1 km lateral → corridor
+[PASS] corridor range
+[PASS] corridor inside
+[PASS] corridor ok
+[PASS] corridor speed ok
+[PASS] corridor angle ok
+[PASS] corridor closing 10 m/s
+
+── 5 hold/resume ──
+[PASS] controller setup
+[PASS] 100 m/s inside 5 km → hold
+[PASS] hold speed_ok=false
+[PASS] manual hold
+[PASS] hold_requested
+[PASS] resume clears hold
+[PASS] resume 离开 hold
+[PASS] docked hold 拒绝
+[PASS] docked hold reason
+
+── 6 alignment/final/docked ──
+[PASS] controller setup
+[PASS] 1 km aligned → alignment
+[PASS] alignment align_ready
+[PASS] alignment not final
+[PASS] 0.2 km → final
+[PASS] final ready
+[PASS] final not docked
+[PASS] 0.03 km/0.05 m/s → docked
+[PASS] docking_ok
+[PASS] chaser aligned
+[PASS] docking_geometry docked
+[PASS] controller state docked
+[PASS] docked_t 记录
+[PASS] docked latch
+[PASS] controller setup
+[PASS] 无 chaser 姿态不 dock
+[PASS] 无姿态 docking_ok=false
+[PASS] 姿态错 90° → failed（硬失败）
+
+── 7 undock/abort/fail ──
+[PASS] controller setup
+[PASS] undock → approach
+[PASS] undock 时间记录
+[PASS] undock 清 docked_t
+[PASS] 非 docked undock 拒绝
+[PASS] controller setup
+[PASS] abort → aborted
+[PASS] abort reason
+[PASS] aborted 再 abort 拒绝
+[PASS] aborted 终态
+[PASS] controller setup
+[PASS] contact speed 5 m/s → failed
+[PASS] failed reason contact_speed
+[PASS] fail terminal
+[PASS] controller setup
+[PASS] explicit fail
+[PASS] explicit fail reason
+[PASS] controller setup
+[PASS] invalid rel ok=false
+[PASS] invalid rel reason
+
+── 8 guidance ──
+[PASS] controller setup
+[PASS] guidance schema
+[PASS] guidance available
+[PASS] guidance range
+[PASS] guidance standoff
+[PASS] closing_desired>0
+[PASS] closing gate
+[PASS] dv array
+[PASS] dv 3D
+[PASS] dv magnitude
+[PASS] dv <= max
+[PASS] attitude available
+[PASS] desired chaser axis -X
+[PASS] attitude error <5°
+[PASS] guidance gates
+[PASS] gate far 250
+[PASS] gate dock speed
+[PASS] 横向修正向 -y
+[PASS] 无姿态 attitude_available=false
+[PASS] 无姿态 error=-1
+[PASS] TGO>=0
+
+── 9 corridor/failure ──
+[PASS] controller setup
+[PASS] lateral 40 outside
+[PASS] corridor warning
+[PASS] behind target outside
+[PASS] along negative
+[PASS] closing 100 m/s speed fail
+[PASS] 45° angle fail
+[PASS] controller setup
+[PASS] contact 10 m/s → failed
+[PASS] hard_fail contact_speed
+[PASS] controller setup
+[PASS] lateral 0.6 km close → failed
+[PASS] hard_fail lateral
+[PASS] controller setup
+[PASS] attitude hard fail/invalid angle
+[PASS] failure reason 非空
+
+── 10 JSON/determinism ──
+[PASS] controller setup
+[PASS] vm 含 schema
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 state
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 state_order
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 t
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 target_port_id
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 target_port
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 ports
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 config
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 last
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 events
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 hold_requested
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 hold_reason
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 failure_reason
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 docked_t
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 undocked_t
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 writes
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] vm 含 authoritative
+[PASS] vm JSON
+[PASS] vm JSON 回读
+[PASS] JSON schema
+[PASS] JSON state
+[PASS] JSON last
+[PASS] JSON guidance/last
+[PASS] JSON events
+[PASS] JSON docked_t
+[PASS] state_signature 确定
+[PASS] controller setup
+[PASS] controller setup
+[PASS] 同输入两实例签名一致
+[PASS] 同输入 range 一致
+[PASS] reset state=far
+[PASS] reset target empty
+[PASS] reset events 清空
+[PASS] reset docked_t
+[PASS] 不写 track_table
+[PASS] 不写 v15
+[PASS] authoritative=false
+────────────────────────────────────────────────────────────
+[DATA] default ports = 4（chronos-dock-a/b, chronos-berth-1, harmattan-port）
+[DATA] far/approach/corridor = 300 km far · lateral 40 km approach · 50 km/1 km corridor
+[DATA] alignment/final/docked = 1 km alignment · 0.2 km final · 0.03 km docked · latch · 无姿态不 dock
+[DATA] guidance = range/closure/Δt/attitude/gates 全部输出；无姿态显式 -1
+[DATA] failure = corridor out/speed/angle；接触速度、横向、姿态硬失败
+[DATA] json = vm/signature/reset/writes；两实例同输入确定
+────────────────────────────────────────────────────────────
+R6 DOCKING PROBE RESULT: PASS=318 FAIL=0
+R6 DOCKING PROBE OK
+AUDIO OK files=36 headless=true muted=false

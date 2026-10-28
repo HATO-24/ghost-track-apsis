@@ -1,0 +1,31 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE5B PROBE · RefitService
+════════════════════════════════════════════════════════════
+
+── 1 setup/基础 ──
+
+── 2 模块字段 ──
+
+── 3 槽位/约束 ──
+
+── 4 安装/提交/时间 ──
+
+── 5 约束 ──
+
+── 6 移除/存档 ──
+
+── 7 确定性 ──
+────────────────────────────────────────────────────────────
+[DATA] setup = APSIS 远地点级 · 30 模块 · 20 槽位 · 2 维修坞 · 9000t/3.15/0.02g/240人/400kW
+[DATA] modules = 30 模块 / 6 类 · 字段/成本/效果/地点/冲突/requires 齐全 · quote
+[DATA] slots/quote = 20 槽位/计划占用/quote stats_after · 重复/未知原子拒绝
+[DATA] install/commit/tick = 计划→commit 扣资源/queue→tick 完成派生 stats · 多计划 · immediate
+[DATA] constraints = 槽位/成本/依赖/冲突/地点/availability/功率/质量上限 · 失败原子
+[DATA] save/remove = planned/installed/queue 移除 · 依赖保护 · save/load 字符串/dict · 非法/坏 options 原子
+[DATA] determinism = 同操作 save/stats/summary 一致 · contracts · JSON · 长流程
+────────────────────────────────────────────────────────────
+V17 REFIT PROBE RESULT: PASS=977 FAIL=0
+V17 REFIT PROBE OK
+AUDIO OK files=36 headless=true muted=false

@@ -1,0 +1,9 @@
+ERROR: String formatting error: not all arguments converted during string formatting.
+   at: validated_evaluate (core/variant/variant_op.h:770)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://tests/a0_sensor_persistence_probe.gd:235)
+       [1] _initialize (res://tests/a0_sensor_persistence_probe.gd:41)
+WARNING: 430 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 18 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

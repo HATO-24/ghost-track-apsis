@@ -1,0 +1,370 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE2K PROBE · DamageService
+════════════════════════════════════════════════════════════
+
+── 1 setup/内容 ──
+[PASS] 默认全部舰船 ready  []
+[PASS] 默认 6 舰  actual=6 expected=6
+[PASS] 含 apsis
+[PASS] 含 harmattan
+[PASS] 默认 default_ship 首舰  actual=apsis expected=apsis
+[PASS] 初始 contracts ok
+[PASS] VM schema  actual=v17.damage_service.v1 expected=v17.damage_service.v1
+[PASS] 不写 v15  actual=false expected=false
+[PASS] 不写 world  actual=false expected=false
+[PASS] 不做物理  actual=false expected=false
+[PASS] VM 6 舰  actual=6 expected=6
+[PASS] VM summary
+[PASS] DamageService ready  []
+[PASS] 子集 2 舰  actual=2 expected=2
+[PASS] 指定 default_ship  actual=harmattan expected=harmattan
+[PASS] model(apsis)
+[PASS] 未配置舰模型为空
+[PASS] 初始 operational
+[PASS] 空内容拒绝
+[PASS] 未知舰船拒绝
+[PASS] default_ship 不在 ships 拒绝
+[PASS] 不存在内容拒绝
+[PASS] validate_content 坏内容
+[PASS] ship apsis 7 分区  actual=7 expected=7
+[PASS] ship apsis 初始无火
+[PASS] ship deepwell 7 分区  actual=7 expected=7
+[PASS] ship deepwell 初始无火
+[PASS] ship ferry 7 分区  actual=7 expected=7
+[PASS] ship ferry 初始无火
+[PASS] ship harmattan 7 分区  actual=7 expected=7
+[PASS] ship harmattan 初始无火
+[PASS] ship summons_4471 7 分区  actual=7 expected=7
+[PASS] ship summons_4471 初始无火
+[PASS] ship watchtower 7 分区  actual=7 expected=7
+[PASS] ship watchtower 初始无火
+
+── 2 伤害事件 ──
+[PASS] DamageService ready  []
+[PASS] apply_combat_damage ok  actual=true expected=true
+[PASS] applied=true  actual=true expected=true
+[PASS] ship_id  actual=apsis expected=apsis
+[PASS] section  actual=hull expected=hull
+[PASS] integrity 下降
+[PASS] hit integrity_after
+[PASS] applied_damage 1  actual=1 expected=1
+[PASS] applied 记录 ship  actual=apsis expected=apsis
+[PASS] summary damaged
+[PASS] 伤害后 contracts ok
+[PASS] power 伤害  actual=power expected=power
+[PASS] power integrity 下降
+[PASS] energy→sensors 映射  actual=sensors expected=sensors
+[PASS] 未知 target→default_ship  actual=apsis expected=apsis
+[PASS] opts.ship_id 指定舰  actual=harmattan expected=harmattan
+[PASS] apply_hit ok  actual=true expected=true
+[PASS] apply_hit comms 下降
+[PASS] 非法伤害事件拒绝：{  }  actual=false expected=false
+[PASS] 非法伤害事件拒绝：{ "schema": "bad", "kind": "damage", "da  actual=false expected=false
+[PASS] 非法伤害事件拒绝：{ "schema": "combat_damage_event.v1", "k  actual=false expected=false
+[PASS] 非法伤害事件拒绝：{ "schema": "combat_damage_event.v1", "k  actual=false expected=false
+[PASS] 非法伤害事件拒绝：{ "schema": "combat_damage_event.v1", "k  actual=false expected=false
+[PASS] 非法伤害事件拒绝：{ "schema": "combat_damage_event.v1", "k  actual=false expected=false
+[PASS] 拒绝不记录 applied  actual=6 expected=6
+[PASS] 拒绝不改 integrity  actual=0.4354 expected=0.4354
+[PASS] NaN damage 拒绝  actual=false expected=false
+
+── 3 火灾/失压/断电 ──
+[PASS] DamageService ready  []
+[PASS] section hull 可受伤  actual=true expected=true
+[PASS] section hull integrity
+[PASS] section power 可受伤  actual=true expected=true
+[PASS] section power integrity
+[PASS] section propulsion 可受伤  actual=true expected=true
+[PASS] section propulsion integrity
+[PASS] section sensors 可受伤  actual=true expected=true
+[PASS] section sensors integrity
+[PASS] section comms 可受伤  actual=true expected=true
+[PASS] section comms integrity
+[PASS] section tanks 可受伤  actual=true expected=true
+[PASS] section tanks integrity
+[PASS] section docking 可受伤  actual=true expected=true
+[PASS] section docking integrity
+[PASS] tanks 高能命中 ok  actual=true expected=true
+[PASS] tanks 起火  fire=1
+[PASS] 失压触发  dec=1
+[PASS] effects fire count
+[PASS] tick ok  actual=true expected=true
+[PASS] 火灾期间 integrity 继续下降
+[PASS] DamageService ready  []
+[PASS] power 被击毁
+[PASS] power unavailable  actual=false expected=false
+[PASS] 存在 unpowered sections
+[PASS] power 毁坏后非 operational
+[PASS] 毁坏分区维修拒绝  actual=false expected=false
+
+── 4 维修 ──
+[PASS] DamageService ready  []
+[PASS] 受伤后 <1
+[PASS] repair 指派 ok  actual=true expected=true
+[PASS] job queued  actual=queued expected=queued
+[PASS] priority 1  actual=1 expected=1
+[PASS] required_s
+[PASS] queued 未占 team  actual=0 expected=0
+[PASS] 重复维修拒绝  actual=已在维修队列 expected=已在维修队列
+[PASS] 未知舰拒绝  actual=unknown_ship expected=unknown_ship
+[PASS] 未知分区拒绝  actual=未知分区：bad expected=未知分区：bad
+[PASS] queue 1
+[PASS] 维修 active  actual=active expected=active
+[PASS] team busy
+[PASS] 维修最终完成
+[PASS] 维修恢复 integrity 1.0  actual=1.000000 expected=1.000000
+[PASS] 维修清火
+[PASS] DamageService ready  []
+[PASS] cancel 前 queue 1  actual=1 expected=1
+[PASS] cancel_repair ok  actual=true expected=true
+[PASS] cancel 后 queue 空  actual=0 expected=0
+[PASS] 重复 cancel 拒绝  actual=不在维修队列 expected=不在维修队列
+[PASS] fix 别名 ok  actual=true expected=true
+
+── 5 优先级/资源 ──
+[PASS] DamageService ready  []
+[PASS] queue 3  actual=3 expected=3
+[PASS] set_priority ok  actual=true expected=true
+[PASS] 队列仍 3
+[PASS] 未知 job 优先级拒绝  actual=不在维修队列 expected=不在维修队列
+[PASS] active 维修不超过 teams  2
+[PASS] teams_busy>=0
+[PASS] spares_used>=0
+[PASS] personnel_used>=0
+[PASS] 资源 contracts ok
+[PASS] priority clamp 仍 ok  actual=true expected=true
+
+── 6 tick 推进 ──
+[PASS] DamageService ready  []
+[PASS] tick ok  actual=true expected=true
+[PASS] service t 推进  actual=2.500000 expected=2.500000
+[PASS] model t 同步  actual=2.500000 expected=2.500000
+[PASS] 负 dt 拒绝  actual=invalid_dt expected=invalid_dt
+[PASS] NaN dt 拒绝  actual=invalid_dt expected=invalid_dt
+[PASS] 起火
+[PASS] 失压存在
+[PASS] 火灾继续损害
+[PASS] tick0 不推进  actual=12.500000 expected=12.500000
+[PASS] DamageService ready  []
+[PASS] apsis model t  actual=3.000000 expected=3.000000
+[PASS] harmattan model t  actual=3.000000 expected=3.000000
+[PASS] 多舰 contracts ok
+
+── 7 存档 ──
+[PASS] DamageService ready  []
+[PASS] save JSON 可解析
+[PASS] save schema  actual=v17.damage_service_save.v1 expected=v17.damage_service_save.v1
+[PASS] save ships
+[PASS] save 5 舰  actual=5 expected=5
+[PASS] load ok  actual=true expected=true · []
+[PASS] load 后 VM 一致
+[PASS] load 后再次 save 一致
+[PASS] load 后 model t 同步  actual=5.000000 expected=5.000000
+[PASS] load 后 damaged 一致  actual=1 expected=1
+[PASS] load 后 on_fire 一致  actual=1 expected=1
+[PASS] load 后继续 tick
+[PASS] load 后 contracts ok
+[PASS] 非法存档拒绝：  actual=false expected=false
+[PASS] 非法存档拒绝：{bad  actual=false expected=false
+[PASS] 非法存档拒绝：{"schema":"bad"}  actual=false expected=false
+[PASS] 非法存档拒绝：{"schema":"v17.damage_service_save.v  actual=false expected=false
+[PASS] 非法存档拒绝：{"schema":"v17.damage_service_save.v  actual=false expected=false
+[PASS] 非法存档拒绝：{"schema":"v17.damage_service_save.v  actual=false expected=false
+[PASS] 非法存档不改状态  actual={"applied_damage":[{"applied":true,"damage":0.5,"effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":1.0,"sections":["hull"]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":0.0,"sections":[]},"power":{"available":true,"fraction":0.964,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir","iff","elint"]},"unpowered_sections":[]},"hit":{"damage":0.448,"direction":"fore","energy":0.5,"hit_id":1.0,"integrity_after":0.552,"integrity_before":1.0,"penetration":0.4,"section":"hull","source":"manual","state":"damaged"},"new_events":4.0,"penetration":0.4,"section":"hull","ship_id":"apsis","shot_id":"","summary":{"critical":0.0,"damaged":1.0,"decompressed":1.0,"degraded":0.0,"destroyed":0.0,"integrity_avg":0.925714285714286,"needs_attention":2.0,"nominal":6.0,"on_fire":0.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":0.0,"target_id":"","weapon_id":""},{"applied":true,"damage":0.9,"effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":2.0,"sections":["hull","tanks"]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":1.0,"sections":["tanks"]},"power":{"available":true,"fraction":0.964,"state":"nominal"},"propulsion":{"available":true,"dv_mult":0.8,"state":"degraded","turn_mult":0.8},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir","iff","elint"]},"unpowered_sections":[]},"hit":{"damage":0.8208,"direction":"fore","energy":0.9,"hit_id":2.0,"integrity_after":0.1792,"integrity_before":1.0,"penetration":0.8,"section":"tanks","source":"manual","state":"critical"},"new_events":5.0,"penetration":0.8,"section":"tanks","ship_id":"apsis","shot_id":"","summary":{"critical":1.0,"damaged":1.0,"decompressed":2.0,"degraded":1.0,"destroyed":0.0,"integrity_avg":0.771428571428571,"needs_attention":5.0,"nominal":4.0,"on_fire":1.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":0.0,"target_id":"","weapon_id":""},{"applied":true,"damage":0.3,"effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":1.0,"sections":["sensors"]},"power":{"available":true,"fraction":0.9892,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":0.6,"state":"degraded","systems":["radar","optical","ir","iff","elint"]},"unpowered_sections":[]},"hit":{"damage":0.2664,"direction":"fore","energy":0.3,"hit_id":1.0,"integrity_after":0.7336,"integrity_before":1.0,"penetration":0.2,"section":"sensors","source":"manual","state":"degraded"},"new_events":4.0,"penetration":0.2,"section":"sensors","ship_id":"harmattan","shot_id":"","summary":{"critical":0.0,"damaged":0.0,"decompressed":0.0,"degraded":1.0,"destroyed":0.0,"integrity_avg":0.958857142857143,"needs_attention":1.0,"nominal":6.0,"on_fire":1.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":0.0,"target_id":"","weapon_id":""}],"ships":[{"ship_id":"apsis","vm":{"class":"远地点级 船坞舰","class_id":"","content_id":"damage_l1","effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":0.0,"sections":[]},"power":{"available":true,"fraction":0.964,"state":"nominal"},"propulsion":{"available":true,"dv_mult":0.8,"state":"degraded","turn_mult":0.8},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir","iff","elint"]},"unpowered_sections":[]},"entity_id":"apsis","events":[{"damage":0.448,"direction":"fore","energy":0.5,"hit_id":1.0,"integrity_after":0.552,"integrity_before":1.0,"penetration":0.4,"section":"hull","seq":1.0,"source":"manual","state":"damaged","t":0.0,"text":"命中 舰体 / HULL：能量 0.50 · 穿透 0.40 · 完整度 55% → damaged","type":"hit"},{"damage":0.036,"from":"hull","section":"power","seq":2.0,"source_energy":0.08,"t":0.0,"text":"穿透溢出 → 动力/配电 / POWER：-3.6% 完整度（nominal）","type":"penetration"},{"damage":0.036,"from":"hull","section":"propulsion","seq":3.0,"source_energy":0.08,"t":0.0,"text":"穿透溢出 → 推进 / PROPULSION：-3.6% 完整度（nominal）","type":"penetration"},{"intensity":0.5,"section":"hull","seq":4.0,"t":0.0,"text":"失压：舰体 / HULL 出现失压（强度 0.50）","type":"decompression"},{"damage":0.8208,"direction":"fore","energy":0.9,"hit_id":2.0,"integrity_after":0.1792,"integrity_before":1.0,"penetration":0.8,"section":"tanks","seq":5.0,"source":"manual","state":"critical","t":0.0,"text":"命中 储罐/燃料 / TANKS：能量 0.90 · 穿透 0.80 · 完整度 18% → critical","type":"hit"},{"damage":0.1296,"from":"tanks","section":"hull","seq":6.0,"source_energy":0.288,"t":0.0,"text":"穿透溢出 → 舰体 / HULL：-13.0% 完整度（damaged）","type":"penetration"},{"damage":0.1296,"from":"tanks","section":"propulsion","seq":7.0,"source_energy":0.288,"t":0.0,"text":"穿透溢出 → 推进 / PROPULSION：-13.0% 完整度（degraded）","type":"penetration"},{"intensity":0.72,"section":"tanks","seq":8.0,"t":0.0,"text":"火灾：储罐/燃料 / TANKS 起火（强度 0.72）","type":"fire"},{"intensity":0.9,"section":"tanks","seq":9.0,"t":0.0,"text":"失压：储罐/燃料 / TANKS 出现失压（强度 0.90）","type":"decompression"},{"priority":1.0,"section":"hull","seq":10.0,"t":0.0,"text":"损管：指派维修 舰体 / HULL（优先级 1）","type":"repair_queued"},{"priority":1.0,"section":"hull","seq":11.0,"t":5.0,"text":"开始维修 舰体 / HULL（第 1 组）","type":"repair_start"},{"section":"hull","seq":12.0,"t":5.0,"text":"失压封堵：舰体 / HULL","type":"sealed"},{"section":"tanks","seq":13.0,"t":35.0,"text":"分区毁坏：储罐/燃料 / TANKS（不可现场修复）","type":"destroyed"}],"model":"V2DamageModel","name":"远地点号 / APSIS","note":"只读 view-model；伤害输入由 apply_hit 提供（模型不生成武器/命中）。","profile_source":"damage_l1","queue":[{"priority":1.0,"progress_pct":14.6,"progress_s":35.0,"reason":"","remaining_s":205.0,"required_s":240.0,"section":"hull","status":"active","team":1.0}],"resources":{"personnel":12.0,"personnel_used":2.0,"power":185.0,"power_max":200.0,"spares":2.0,"spares_used":1.0,"teams_busy":1.0,"teams_total":2.0},"schema":"damage.v1","sections":[{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"hull","integrity":0.4024,"integrity_pct":40.2,"kind":"hull","label":"舰体 / HULL","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{"priority":1.0,"progress_s":35.0,"reason":"","remaining_s":205.0,"required_s":240.0,"status":"active"},"requires_power":false,"state":"damaged","systems":["structure"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"power","integrity":0.964,"integrity_pct":96.4,"kind":"power","label":"动力/配电 / POWER","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["power"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"propulsion","integrity":0.8344,"integrity_pct":83.4,"kind":"propulsion","label":"推进 / PROPULSION","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"degraded","systems":["dv","turn"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"sensors","integrity":1.0,"integrity_pct":100.0,"kind":"sensors","label":"传感器 / SENSORS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["radar","optical","ir","iff","elint"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"comms","integrity":1.0,"integrity_pct":100.0,"kind":"comms","label":"通信 / COMMS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["comms","command"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"tanks","integrity":0.0,"integrity_pct":0.0,"kind":"tanks","label":"储罐/燃料 / TANKS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"destroyed","systems":["fuel","cargo"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"docking","integrity":1.0,"integrity_pct":100.0,"kind":"docking","label":"对接口 / DOCKING","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["docking"]}],"summary":{"critical":0.0,"damaged":1.0,"decompressed":0.0,"degraded":1.0,"destroyed":1.0,"integrity_avg":0.742971428571429,"needs_attention":2.0,"nominal":4.0,"on_fire":0.0,"queued":0.0,"repairing":1.0,"total":7.0,"unpowered":0.0},"t":35.0,"units":{"energy":"0..1","integrity":"0..1","time":"s"}}},{"ship_id":"deepwell","vm":{"class":"月港-4 油船","class_id":"","content_id":"damage_l1","effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":0.0,"sections":[]},"power":{"available":true,"fraction":1.0,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir"]},"unpowered_sections":[]},"entity_id":"deepwell","events":[],"model":"V2DamageModel","name":"深井号 / DEEPWELL","note":"只读 view-model；伤害输入由 apply_hit 提供（模型不生成武器/命中）。","profile_source":"damage_l1","queue":[],"resources":{"personnel":12.0,"personnel_used":0.0,"power":200.0,"power_max":200.0,"spares":3.0,"spares_used":0.0,"teams_busy":0.0,"teams_total":2.0},"schema":"damage.v1","sections":[{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"hull","integrity":1.0,"integrity_pct":100.0,"kind":"hull","label":"舰体 / HULL","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["structure"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"power","integrity":1.0,"integrity_pct":100.0,"kind":"power","label":"动力/配电 / POWER","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["power"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"propulsion","integrity":1.0,"integrity_pct":100.0,"kind":"propulsion","label":"推进 / PROPULSION","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["dv","turn"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"sensors","integrity":1.0,"integrity_pct":100.0,"kind":"sensors","label":"传感器 / SENSORS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["radar","optical","ir"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"comms","integrity":1.0,"integrity_pct":100.0,"kind":"comms","label":"通信 / COMMS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["comms"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"tanks","integrity":1.0,"integrity_pct":100.0,"kind":"tanks","label":"储罐/燃料 / TANKS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["fuel","cargo","ballast"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"docking","integrity":1.0,"integrity_pct":100.0,"kind":"docking","label":"对接口 / DOCKING","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["docking","transfer"]}],"summary":{"critical":0.0,"damaged":0.0,"decompressed":0.0,"degraded":0.0,"destroyed":0.0,"integrity_avg":1.0,"needs_attention":0.0,"nominal":7.0,"on_fire":0.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":35.0,"units":{"energy":"0..1","integrity":"0..1","time":"s"}}},{"ship_id":"ferry","vm":{"class":"赤铁-6 改 炮舰","class_id":"","content_id":"damage_l1","effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":0.0,"sections":[]},"power":{"available":true,"fraction":1.0,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir"]},"unpowered_sections":[]},"entity_id":"ferry","events":[],"model":"V2DamageModel","name":"渡口号 / FERRY","note":"只读 view-model；伤害输入由 apply_hit 提供（模型不生成武器/命中）。","profile_source":"damage_l1","queue":[],"resources":{"personnel":12.0,"personnel_used":0.0,"power":200.0,"power_max":200.0,"spares":3.0,"spares_used":0.0,"teams_busy":0.0,"teams_total":2.0},"schema":"damage.v1","sections":[{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"hull","integrity":1.0,"integrity_pct":100.0,"kind":"hull","label":"舰体 / HULL","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["structure"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"power","integrity":1.0,"integrity_pct":100.0,"kind":"power","label":"动力/配电 / POWER","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["power"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"propulsion","integrity":1.0,"integrity_pct":100.0,"kind":"propulsion","label":"推进 / PROPULSION","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["dv","turn"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"sensors","integrity":1.0,"integrity_pct":100.0,"kind":"sensors","label":"传感器 / SENSORS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["radar","optical","ir"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"comms","integrity":1.0,"integrity_pct":100.0,"kind":"comms","label":"通信 / COMMS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["comms"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"tanks","integrity":1.0,"integrity_pct":100.0,"kind":"tanks","label":"弹药/储罐 / TANKS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["fuel","magazine"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"docking","integrity":1.0,"integrity_pct":100.0,"kind":"docking","label":"对接口 / DOCKING","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["docking"]}],"summary":{"critical":0.0,"damaged":0.0,"decompressed":0.0,"degraded":0.0,"destroyed":0.0,"integrity_avg":1.0,"needs_attention":0.0,"nominal":7.0,"on_fire":0.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":35.0,"units":{"energy":"0..1","integrity":"0..1","time":"s"}}},{"ship_id":"harmattan","vm":{"class":"ch-l1 哨舰","class_id":"","content_id":"damage_l1","effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":2.0,"sections":["hull","sensors"]},"power":{"available":true,"fraction":0.9892,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":0.3,"state":"damaged","systems":["radar","optical","ir","iff","elint"]},"unpowered_sections":[]},"entity_id":"harmattan","events":[{"damage":0.2664,"direction":"fore","energy":0.3,"hit_id":1.0,"integrity_after":0.7336,"integrity_before":1.0,"penetration":0.2,"section":"sensors","seq":1.0,"source":"manual","state":"degraded","t":0.0,"text":"命中 传感器 / SENSORS：能量 0.30 · 穿透 0.20 · 完整度 73% → degraded","type":"hit"},{"damage":0.0108,"from":"sensors","section":"hull","seq":2.0,"source_energy":0.024,"t":0.0,"text":"穿透溢出 → 舰体 / HULL：-1.1% 完整度（nominal）","type":"penetration"},{"damage":0.0108,"from":"sensors","section":"power","seq":3.0,"source_energy":0.024,"t":0.0,"text":"穿透溢出 → 动力/配电 / POWER：-1.1% 完整度（nominal）","type":"penetration"},{"intensity":0.24,"section":"sensors","seq":4.0,"t":0.0,"text":"火灾：传感器 / SENSORS 起火（强度 0.24）","type":"fire"},{"section":"hull","seq":5.0,"t":35.0,"text":"火灾蔓延：传感器 / SENSORS → 舰体 / HULL","type":"fire_spread"}],"model":"V2DamageModel","name":"哈马丹号 / HAMATTAN","note":"只读 view-model；伤害输入由 apply_hit 提供（模型不生成武器/命中）。","profile_source":"damage_l1","queue":[],"resources":{"personnel":12.0,"personnel_used":0.0,"power":200.0,"power_max":200.0,"spares":3.0,"spares_used":0.0,"teams_busy":0.0,"teams_total":2.0},"schema":"damage.v1","sections":[{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":true,"intensity":0.35},"id":"hull","integrity":0.9892,"integrity_pct":98.9,"kind":"hull","label":"舰体 / HULL","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["structure"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"power","integrity":0.9892,"integrity_pct":98.9,"kind":"power","label":"动力/配电 / POWER","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["power"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"propulsion","integrity":1.0,"integrity_pct":100.0,"kind":"propulsion","label":"推进 / PROPULSION","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["dv","turn"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":true,"intensity":1.0},"id":"sensors","integrity":0.3322,"integrity_pct":33.2,"kind":"sensors","label":"传感器 / SENSORS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"damaged","systems":["radar","optical","ir","iff","elint"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"comms","integrity":1.0,"integrity_pct":100.0,"kind":"comms","label":"通信 / COMMS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["comms","command"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"tanks","integrity":1.0,"integrity_pct":100.0,"kind":"tanks","label":"储罐/燃料 / TANKS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["fuel","cargo"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"docking","integrity":1.0,"integrity_pct":100.0,"kind":"docking","label":"对接口 / DOCKING","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["docking"]}],"summary":{"critical":0.0,"damaged":1.0,"decompressed":0.0,"degraded":0.0,"destroyed":0.0,"integrity_avg":0.901514285714286,"needs_attention":3.0,"nominal":6.0,"on_fire":2.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":35.0,"units":{"energy":"0..1","integrity":"0..1","time":"s"}}},{"ship_id":"watchtower","vm":{"class":"安海-1 中继舰","class_id":"","content_id":"damage_l1","effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":0.0,"sections":[]},"power":{"available":true,"fraction":1.0,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir","elint"]},"unpowered_sections":[]},"entity_id":"watchtower","events":[],"model":"V2DamageModel","name":"望楼号 / WATCHTOWER","note":"只读 view-model；伤害输入由 apply_hit 提供（模型不生成武器/命中）。","profile_source":"damage_l1","queue":[],"resources":{"personnel":12.0,"personnel_used":0.0,"power":200.0,"power_max":200.0,"spares":3.0,"spares_used":0.0,"teams_busy":0.0,"teams_total":2.0},"schema":"damage.v1","sections":[{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"hull","integrity":1.0,"integrity_pct":100.0,"kind":"hull","label":"舰体 / HULL","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["structure"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"power","integrity":1.0,"integrity_pct":100.0,"kind":"power","label":"动力/配电 / POWER","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["power"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"propulsion","integrity":1.0,"integrity_pct":100.0,"kind":"propulsion","label":"推进 / PROPULSION","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["dv","turn"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"sensors","integrity":1.0,"integrity_pct":100.0,"kind":"sensors","label":"传感器 / SENSORS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["radar","optical","ir","elint"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"comms","integrity":1.0,"integrity_pct":100.0,"kind":"comms","label":"通信 / COMMS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["comms","command","laser"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"tanks","integrity":1.0,"integrity_pct":100.0,"kind":"tanks","label":"储罐/燃料 / TANKS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["fuel"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"docking","integrity":1.0,"integrity_pct":100.0,"kind":"docking","label":"对接口 / DOCKING","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["docking"]}],"summary":{"critical":0.0,"damaged":0.0,"decompressed":0.0,"degraded":0.0,"destroyed":0.0,"integrity_avg":1.0,"needs_attention":0.0,"nominal":7.0,"on_fire":0.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":35.0,"units":{"energy":"0..1","integrity":"0..1","time":"s"}}}],"t":35.0} expected={"applied_damage":[{"applied":true,"damage":0.5,"effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":1.0,"sections":["hull"]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":0.0,"sections":[]},"power":{"available":true,"fraction":0.964,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir","iff","elint"]},"unpowered_sections":[]},"hit":{"damage":0.448,"direction":"fore","energy":0.5,"hit_id":1.0,"integrity_after":0.552,"integrity_before":1.0,"penetration":0.4,"section":"hull","source":"manual","state":"damaged"},"new_events":4.0,"penetration":0.4,"section":"hull","ship_id":"apsis","shot_id":"","summary":{"critical":0.0,"damaged":1.0,"decompressed":1.0,"degraded":0.0,"destroyed":0.0,"integrity_avg":0.925714285714286,"needs_attention":2.0,"nominal":6.0,"on_fire":0.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":0.0,"target_id":"","weapon_id":""},{"applied":true,"damage":0.9,"effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":2.0,"sections":["hull","tanks"]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":1.0,"sections":["tanks"]},"power":{"available":true,"fraction":0.964,"state":"nominal"},"propulsion":{"available":true,"dv_mult":0.8,"state":"degraded","turn_mult":0.8},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir","iff","elint"]},"unpowered_sections":[]},"hit":{"damage":0.8208,"direction":"fore","energy":0.9,"hit_id":2.0,"integrity_after":0.1792,"integrity_before":1.0,"penetration":0.8,"section":"tanks","source":"manual","state":"critical"},"new_events":5.0,"penetration":0.8,"section":"tanks","ship_id":"apsis","shot_id":"","summary":{"critical":1.0,"damaged":1.0,"decompressed":2.0,"degraded":1.0,"destroyed":0.0,"integrity_avg":0.771428571428571,"needs_attention":5.0,"nominal":4.0,"on_fire":1.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":0.0,"target_id":"","weapon_id":""},{"applied":true,"damage":0.3,"effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":1.0,"sections":["sensors"]},"power":{"available":true,"fraction":0.9892,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":0.6,"state":"degraded","systems":["radar","optical","ir","iff","elint"]},"unpowered_sections":[]},"hit":{"damage":0.2664,"direction":"fore","energy":0.3,"hit_id":1.0,"integrity_after":0.7336,"integrity_before":1.0,"penetration":0.2,"section":"sensors","source":"manual","state":"degraded"},"new_events":4.0,"penetration":0.2,"section":"sensors","ship_id":"harmattan","shot_id":"","summary":{"critical":0.0,"damaged":0.0,"decompressed":0.0,"degraded":1.0,"destroyed":0.0,"integrity_avg":0.958857142857143,"needs_attention":1.0,"nominal":6.0,"on_fire":1.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":0.0,"target_id":"","weapon_id":""}],"ships":[{"ship_id":"apsis","vm":{"class":"远地点级 船坞舰","class_id":"","content_id":"damage_l1","effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":0.0,"sections":[]},"power":{"available":true,"fraction":0.964,"state":"nominal"},"propulsion":{"available":true,"dv_mult":0.8,"state":"degraded","turn_mult":0.8},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir","iff","elint"]},"unpowered_sections":[]},"entity_id":"apsis","events":[{"damage":0.448,"direction":"fore","energy":0.5,"hit_id":1.0,"integrity_after":0.552,"integrity_before":1.0,"penetration":0.4,"section":"hull","seq":1.0,"source":"manual","state":"damaged","t":0.0,"text":"命中 舰体 / HULL：能量 0.50 · 穿透 0.40 · 完整度 55% → damaged","type":"hit"},{"damage":0.036,"from":"hull","section":"power","seq":2.0,"source_energy":0.08,"t":0.0,"text":"穿透溢出 → 动力/配电 / POWER：-3.6% 完整度（nominal）","type":"penetration"},{"damage":0.036,"from":"hull","section":"propulsion","seq":3.0,"source_energy":0.08,"t":0.0,"text":"穿透溢出 → 推进 / PROPULSION：-3.6% 完整度（nominal）","type":"penetration"},{"intensity":0.5,"section":"hull","seq":4.0,"t":0.0,"text":"失压：舰体 / HULL 出现失压（强度 0.50）","type":"decompression"},{"damage":0.8208,"direction":"fore","energy":0.9,"hit_id":2.0,"integrity_after":0.1792,"integrity_before":1.0,"penetration":0.8,"section":"tanks","seq":5.0,"source":"manual","state":"critical","t":0.0,"text":"命中 储罐/燃料 / TANKS：能量 0.90 · 穿透 0.80 · 完整度 18% → critical","type":"hit"},{"damage":0.1296,"from":"tanks","section":"hull","seq":6.0,"source_energy":0.288,"t":0.0,"text":"穿透溢出 → 舰体 / HULL：-13.0% 完整度（damaged）","type":"penetration"},{"damage":0.1296,"from":"tanks","section":"propulsion","seq":7.0,"source_energy":0.288,"t":0.0,"text":"穿透溢出 → 推进 / PROPULSION：-13.0% 完整度（degraded）","type":"penetration"},{"intensity":0.72,"section":"tanks","seq":8.0,"t":0.0,"text":"火灾：储罐/燃料 / TANKS 起火（强度 0.72）","type":"fire"},{"intensity":0.9,"section":"tanks","seq":9.0,"t":0.0,"text":"失压：储罐/燃料 / TANKS 出现失压（强度 0.90）","type":"decompression"},{"priority":1.0,"section":"hull","seq":10.0,"t":0.0,"text":"损管：指派维修 舰体 / HULL（优先级 1）","type":"repair_queued"},{"priority":1.0,"section":"hull","seq":11.0,"t":5.0,"text":"开始维修 舰体 / HULL（第 1 组）","type":"repair_start"},{"section":"hull","seq":12.0,"t":5.0,"text":"失压封堵：舰体 / HULL","type":"sealed"},{"section":"tanks","seq":13.0,"t":35.0,"text":"分区毁坏：储罐/燃料 / TANKS（不可现场修复）","type":"destroyed"}],"model":"V2DamageModel","name":"远地点号 / APSIS","note":"只读 view-model；伤害输入由 apply_hit 提供（模型不生成武器/命中）。","profile_source":"damage_l1","queue":[{"priority":1.0,"progress_pct":14.6,"progress_s":35.0,"reason":"","remaining_s":205.0,"required_s":240.0,"section":"hull","status":"active","team":1.0}],"resources":{"personnel":12.0,"personnel_used":2.0,"power":185.0,"power_max":200.0,"spares":2.0,"spares_used":1.0,"teams_busy":1.0,"teams_total":2.0},"schema":"damage.v1","sections":[{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"hull","integrity":0.4024,"integrity_pct":40.2,"kind":"hull","label":"舰体 / HULL","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{"priority":1.0,"progress_s":35.0,"reason":"","remaining_s":205.0,"required_s":240.0,"status":"active"},"requires_power":false,"state":"damaged","systems":["structure"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"power","integrity":0.964,"integrity_pct":96.4,"kind":"power","label":"动力/配电 / POWER","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["power"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"propulsion","integrity":0.8344,"integrity_pct":83.4,"kind":"propulsion","label":"推进 / PROPULSION","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"degraded","systems":["dv","turn"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"sensors","integrity":1.0,"integrity_pct":100.0,"kind":"sensors","label":"传感器 / SENSORS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["radar","optical","ir","iff","elint"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"comms","integrity":1.0,"integrity_pct":100.0,"kind":"comms","label":"通信 / COMMS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["comms","command"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"tanks","integrity":0.0,"integrity_pct":0.0,"kind":"tanks","label":"储罐/燃料 / TANKS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"destroyed","systems":["fuel","cargo"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"docking","integrity":1.0,"integrity_pct":100.0,"kind":"docking","label":"对接口 / DOCKING","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["docking"]}],"summary":{"critical":0.0,"damaged":1.0,"decompressed":0.0,"degraded":1.0,"destroyed":1.0,"integrity_avg":0.742971428571429,"needs_attention":2.0,"nominal":4.0,"on_fire":0.0,"queued":0.0,"repairing":1.0,"total":7.0,"unpowered":0.0},"t":35.0,"units":{"energy":"0..1","integrity":"0..1","time":"s"}}},{"ship_id":"deepwell","vm":{"class":"月港-4 油船","class_id":"","content_id":"damage_l1","effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":0.0,"sections":[]},"power":{"available":true,"fraction":1.0,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir"]},"unpowered_sections":[]},"entity_id":"deepwell","events":[],"model":"V2DamageModel","name":"深井号 / DEEPWELL","note":"只读 view-model；伤害输入由 apply_hit 提供（模型不生成武器/命中）。","profile_source":"damage_l1","queue":[],"resources":{"personnel":12.0,"personnel_used":0.0,"power":200.0,"power_max":200.0,"spares":3.0,"spares_used":0.0,"teams_busy":0.0,"teams_total":2.0},"schema":"damage.v1","sections":[{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"hull","integrity":1.0,"integrity_pct":100.0,"kind":"hull","label":"舰体 / HULL","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["structure"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"power","integrity":1.0,"integrity_pct":100.0,"kind":"power","label":"动力/配电 / POWER","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["power"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"propulsion","integrity":1.0,"integrity_pct":100.0,"kind":"propulsion","label":"推进 / PROPULSION","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["dv","turn"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"sensors","integrity":1.0,"integrity_pct":100.0,"kind":"sensors","label":"传感器 / SENSORS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["radar","optical","ir"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"comms","integrity":1.0,"integrity_pct":100.0,"kind":"comms","label":"通信 / COMMS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["comms"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"tanks","integrity":1.0,"integrity_pct":100.0,"kind":"tanks","label":"储罐/燃料 / TANKS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["fuel","cargo","ballast"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"docking","integrity":1.0,"integrity_pct":100.0,"kind":"docking","label":"对接口 / DOCKING","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["docking","transfer"]}],"summary":{"critical":0.0,"damaged":0.0,"decompressed":0.0,"degraded":0.0,"destroyed":0.0,"integrity_avg":1.0,"needs_attention":0.0,"nominal":7.0,"on_fire":0.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":35.0,"units":{"energy":"0..1","integrity":"0..1","time":"s"}}},{"ship_id":"ferry","vm":{"class":"赤铁-6 改 炮舰","class_id":"","content_id":"damage_l1","effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":0.0,"sections":[]},"power":{"available":true,"fraction":1.0,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir"]},"unpowered_sections":[]},"entity_id":"ferry","events":[],"model":"V2DamageModel","name":"渡口号 / FERRY","note":"只读 view-model；伤害输入由 apply_hit 提供（模型不生成武器/命中）。","profile_source":"damage_l1","queue":[],"resources":{"personnel":12.0,"personnel_used":0.0,"power":200.0,"power_max":200.0,"spares":3.0,"spares_used":0.0,"teams_busy":0.0,"teams_total":2.0},"schema":"damage.v1","sections":[{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"hull","integrity":1.0,"integrity_pct":100.0,"kind":"hull","label":"舰体 / HULL","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["structure"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"power","integrity":1.0,"integrity_pct":100.0,"kind":"power","label":"动力/配电 / POWER","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["power"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"propulsion","integrity":1.0,"integrity_pct":100.0,"kind":"propulsion","label":"推进 / PROPULSION","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["dv","turn"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"sensors","integrity":1.0,"integrity_pct":100.0,"kind":"sensors","label":"传感器 / SENSORS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["radar","optical","ir"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"comms","integrity":1.0,"integrity_pct":100.0,"kind":"comms","label":"通信 / COMMS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["comms"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"tanks","integrity":1.0,"integrity_pct":100.0,"kind":"tanks","label":"弹药/储罐 / TANKS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["fuel","magazine"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"docking","integrity":1.0,"integrity_pct":100.0,"kind":"docking","label":"对接口 / DOCKING","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["docking"]}],"summary":{"critical":0.0,"damaged":0.0,"decompressed":0.0,"degraded":0.0,"destroyed":0.0,"integrity_avg":1.0,"needs_attention":0.0,"nominal":7.0,"on_fire":0.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":35.0,"units":{"energy":"0..1","integrity":"0..1","time":"s"}}},{"ship_id":"harmattan","vm":{"class":"ch-l1 哨舰","class_id":"","content_id":"damage_l1","effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":2.0,"sections":["hull","sensors"]},"power":{"available":true,"fraction":0.9892,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":0.3,"state":"damaged","systems":["radar","optical","ir","iff","elint"]},"unpowered_sections":[]},"entity_id":"harmattan","events":[{"damage":0.2664,"direction":"fore","energy":0.3,"hit_id":1.0,"integrity_after":0.7336,"integrity_before":1.0,"penetration":0.2,"section":"sensors","seq":1.0,"source":"manual","state":"degraded","t":0.0,"text":"命中 传感器 / SENSORS：能量 0.30 · 穿透 0.20 · 完整度 73% → degraded","type":"hit"},{"damage":0.0108,"from":"sensors","section":"hull","seq":2.0,"source_energy":0.024,"t":0.0,"text":"穿透溢出 → 舰体 / HULL：-1.1% 完整度（nominal）","type":"penetration"},{"damage":0.0108,"from":"sensors","section":"power","seq":3.0,"source_energy":0.024,"t":0.0,"text":"穿透溢出 → 动力/配电 / POWER：-1.1% 完整度（nominal）","type":"penetration"},{"intensity":0.24,"section":"sensors","seq":4.0,"t":0.0,"text":"火灾：传感器 / SENSORS 起火（强度 0.24）","type":"fire"},{"section":"hull","seq":5.0,"t":35.0,"text":"火灾蔓延：传感器 / SENSORS → 舰体 / HULL","type":"fire_spread"}],"model":"V2DamageModel","name":"哈马丹号 / HAMATTAN","note":"只读 view-model；伤害输入由 apply_hit 提供（模型不生成武器/命中）。","profile_source":"damage_l1","queue":[],"resources":{"personnel":12.0,"personnel_used":0.0,"power":200.0,"power_max":200.0,"spares":3.0,"spares_used":0.0,"teams_busy":0.0,"teams_total":2.0},"schema":"damage.v1","sections":[{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":true,"intensity":0.35},"id":"hull","integrity":0.9892,"integrity_pct":98.9,"kind":"hull","label":"舰体 / HULL","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["structure"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"power","integrity":0.9892,"integrity_pct":98.9,"kind":"power","label":"动力/配电 / POWER","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["power"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"propulsion","integrity":1.0,"integrity_pct":100.0,"kind":"propulsion","label":"推进 / PROPULSION","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["dv","turn"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":true,"intensity":1.0},"id":"sensors","integrity":0.3322,"integrity_pct":33.2,"kind":"sensors","label":"传感器 / SENSORS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"damaged","systems":["radar","optical","ir","iff","elint"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"comms","integrity":1.0,"integrity_pct":100.0,"kind":"comms","label":"通信 / COMMS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["comms","command"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"tanks","integrity":1.0,"integrity_pct":100.0,"kind":"tanks","label":"储罐/燃料 / TANKS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["fuel","cargo"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"docking","integrity":1.0,"integrity_pct":100.0,"kind":"docking","label":"对接口 / DOCKING","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["docking"]}],"summary":{"critical":0.0,"damaged":1.0,"decompressed":0.0,"degraded":0.0,"destroyed":0.0,"integrity_avg":0.901514285714286,"needs_attention":3.0,"nominal":6.0,"on_fire":2.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":35.0,"units":{"energy":"0..1","integrity":"0..1","time":"s"}}},{"ship_id":"watchtower","vm":{"class":"安海-1 中继舰","class_id":"","content_id":"damage_l1","effects":{"comms":{"available":true,"command_delay_s":0.0,"state":"nominal"},"decompression":{"count":0.0,"sections":[]},"docking":{"available":true,"integrity":1.0,"min_integrity":0.5},"fire":{"count":0.0,"sections":[]},"power":{"available":true,"fraction":1.0,"state":"nominal"},"propulsion":{"available":true,"dv_mult":1.0,"state":"nominal","turn_mult":1.0},"sensors":{"available":true,"mult":1.0,"state":"nominal","systems":["radar","optical","ir","elint"]},"unpowered_sections":[]},"entity_id":"watchtower","events":[],"model":"V2DamageModel","name":"望楼号 / WATCHTOWER","note":"只读 view-model；伤害输入由 apply_hit 提供（模型不生成武器/命中）。","profile_source":"damage_l1","queue":[],"resources":{"personnel":12.0,"personnel_used":0.0,"power":200.0,"power_max":200.0,"spares":3.0,"spares_used":0.0,"teams_busy":0.0,"teams_total":2.0},"schema":"damage.v1","sections":[{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"hull","integrity":1.0,"integrity_pct":100.0,"kind":"hull","label":"舰体 / HULL","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["structure"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"power","integrity":1.0,"integrity_pct":100.0,"kind":"power","label":"动力/配电 / POWER","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["power"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"propulsion","integrity":1.0,"integrity_pct":100.0,"kind":"propulsion","label":"推进 / PROPULSION","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["dv","turn"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"sensors","integrity":1.0,"integrity_pct":100.0,"kind":"sensors","label":"传感器 / SENSORS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["radar","optical","ir","elint"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"comms","integrity":1.0,"integrity_pct":100.0,"kind":"comms","label":"通信 / COMMS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["comms","command","laser"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"tanks","integrity":1.0,"integrity_pct":100.0,"kind":"tanks","label":"储罐/燃料 / TANKS","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":false,"state":"nominal","systems":["fuel"]},{"armor_energy":-1.0,"armor_kinetic":-1.0,"critical_systems":[],"decompression":{"active":false,"intensity":0.0},"fire":{"active":false,"intensity":0.0},"id":"docking","integrity":1.0,"integrity_pct":100.0,"kind":"docking","label":"对接口 / DOCKING","mass_fraction":0.0,"material":"","power_loss":false,"powered":true,"repair":{},"requires_power":true,"state":"nominal","systems":["docking"]}],"summary":{"critical":0.0,"damaged":0.0,"decompressed":0.0,"degraded":0.0,"destroyed":0.0,"integrity_avg":1.0,"needs_attention":0.0,"nominal":7.0,"on_fire":0.0,"queued":0.0,"repairing":0.0,"total":7.0,"unpowered":0.0},"t":35.0,"units":{"energy":"0..1","integrity":"0..1","time":"s"}}}],"t":35.0}
+
+── 9 批量矩阵 ──
+[PASS] 全部内容 6 舰  actual=6 expected=6
+[PASS] ship apsis 7 分区  actual=7 expected=7
+[PASS] ship apsis 初始 needs_attention=0  actual=0 expected=0
+[PASS] ship apsis 初始 operational
+[PASS] ship apsis 可受伤  actual=true expected=true
+[PASS] ship apsis hull<1
+[PASS] ship apsis integrity_avg<1
+[PASS] ship apsis 可维修
+[PASS] ship apsis 维修队列 1  actual=1 expected=1
+[PASS] ship apsis vm sections 有效
+[PASS] ship deepwell 7 分区  actual=7 expected=7
+[PASS] ship deepwell 初始 needs_attention=0  actual=0 expected=0
+[PASS] ship deepwell 初始 operational
+[PASS] ship deepwell 可受伤  actual=true expected=true
+[PASS] ship deepwell hull<1
+[PASS] ship deepwell integrity_avg<1
+[PASS] ship deepwell 可维修
+[PASS] ship deepwell 维修队列 1  actual=1 expected=1
+[PASS] ship deepwell vm sections 有效
+[PASS] ship ferry 7 分区  actual=7 expected=7
+[PASS] ship ferry 初始 needs_attention=0  actual=0 expected=0
+[PASS] ship ferry 初始 operational
+[PASS] ship ferry 可受伤  actual=true expected=true
+[PASS] ship ferry hull<1
+[PASS] ship ferry integrity_avg<1
+[PASS] ship ferry 可维修
+[PASS] ship ferry 维修队列 1  actual=1 expected=1
+[PASS] ship ferry vm sections 有效
+[PASS] ship harmattan 7 分区  actual=7 expected=7
+[PASS] ship harmattan 初始 needs_attention=0  actual=0 expected=0
+[PASS] ship harmattan 初始 operational
+[PASS] ship harmattan 可受伤  actual=true expected=true
+[PASS] ship harmattan hull<1
+[PASS] ship harmattan integrity_avg<1
+[PASS] ship harmattan 可维修
+[PASS] ship harmattan 维修队列 1  actual=1 expected=1
+[PASS] ship harmattan vm sections 有效
+[PASS] ship summons_4471 7 分区  actual=7 expected=7
+[PASS] ship summons_4471 初始 needs_attention=0  actual=0 expected=0
+[PASS] ship summons_4471 初始 operational
+[PASS] ship summons_4471 可受伤  actual=true expected=true
+[PASS] ship summons_4471 hull<1
+[PASS] ship summons_4471 integrity_avg<1
+[PASS] ship summons_4471 可维修
+[PASS] ship summons_4471 维修队列 1  actual=1 expected=1
+[PASS] ship summons_4471 vm sections 有效
+[PASS] ship watchtower 7 分区  actual=7 expected=7
+[PASS] ship watchtower 初始 needs_attention=0  actual=0 expected=0
+[PASS] ship watchtower 初始 operational
+[PASS] ship watchtower 可受伤  actual=true expected=true
+[PASS] ship watchtower hull<1
+[PASS] ship watchtower integrity_avg<1
+[PASS] ship watchtower 可维修
+[PASS] ship watchtower 维修队列 1  actual=1 expected=1
+[PASS] ship watchtower vm sections 有效
+[PASS] 全舰受伤后 contracts ok
+[PASS] VM 6 舰  actual=6 expected=6
+[PASS] 全舰维修队列/进行中
+[PASS] 分区 hull 伤害 ok  actual=true expected=true
+[PASS] 分区 hull integrity 下降
+[PASS] 分区 hull 后仍 7 分区  actual=7 expected=7
+[PASS] 分区 hull contracts ok
+[PASS] 分区 hull 可维修
+[PASS] 分区 hull 维修队列 1  actual=1 expected=1
+[PASS] 分区 hull 维修目标一致  actual=hull expected=hull
+[PASS] 分区 power 伤害 ok  actual=true expected=true
+[PASS] 分区 power integrity 下降
+[PASS] 分区 power 后仍 7 分区  actual=7 expected=7
+[PASS] 分区 power contracts ok
+[PASS] 分区 power 可维修
+[PASS] 分区 power 维修队列 1  actual=1 expected=1
+[PASS] 分区 power 维修目标一致  actual=power expected=power
+[PASS] 分区 propulsion 伤害 ok  actual=true expected=true
+[PASS] 分区 propulsion integrity 下降
+[PASS] 分区 propulsion 后仍 7 分区  actual=7 expected=7
+[PASS] 分区 propulsion contracts ok
+[PASS] 分区 propulsion 可维修
+[PASS] 分区 propulsion 维修队列 1  actual=1 expected=1
+[PASS] 分区 propulsion 维修目标一致  actual=propulsion expected=propulsion
+[PASS] 分区 sensors 伤害 ok  actual=true expected=true
+[PASS] 分区 sensors integrity 下降
+[PASS] 分区 sensors 后仍 7 分区  actual=7 expected=7
+[PASS] 分区 sensors contracts ok
+[PASS] 分区 sensors 可维修
+[PASS] 分区 sensors 维修队列 1  actual=1 expected=1
+[PASS] 分区 sensors 维修目标一致  actual=sensors expected=sensors
+[PASS] 分区 comms 伤害 ok  actual=true expected=true
+[PASS] 分区 comms integrity 下降
+[PASS] 分区 comms 后仍 7 分区  actual=7 expected=7
+[PASS] 分区 comms contracts ok
+[PASS] 分区 comms 可维修
+[PASS] 分区 comms 维修队列 1  actual=1 expected=1
+[PASS] 分区 comms 维修目标一致  actual=comms expected=comms
+[PASS] 分区 tanks 伤害 ok  actual=true expected=true
+[PASS] 分区 tanks integrity 下降
+[PASS] 分区 tanks 后仍 7 分区  actual=7 expected=7
+[PASS] 分区 tanks contracts ok
+[PASS] 分区 tanks 可维修
+[PASS] 分区 tanks 维修队列 1  actual=1 expected=1
+[PASS] 分区 tanks 维修目标一致  actual=tanks expected=tanks
+[PASS] 分区 docking 伤害 ok  actual=true expected=true
+[PASS] 分区 docking integrity 下降
+[PASS] 分区 docking 后仍 7 分区  actual=7 expected=7
+[PASS] 分区 docking contracts ok
+[PASS] 分区 docking 可维修
+[PASS] 分区 docking 维修队列 1  actual=1 expected=1
+[PASS] 分区 docking 维修目标一致  actual=docking expected=docking
+[PASS] kind kinetic apply ok  actual=true expected=true
+[PASS] kind kinetic → hull  actual=hull expected=hull
+[PASS] kind kinetic 对应分区受损
+[PASS] kind kinetic applied 记录  actual=1 expected=1
+[PASS] kind explosive apply ok  actual=true expected=true
+[PASS] kind explosive → power  actual=power expected=power
+[PASS] kind explosive 对应分区受损
+[PASS] kind explosive applied 记录  actual=1 expected=1
+[PASS] kind energy apply ok  actual=true expected=true
+[PASS] kind energy → sensors  actual=sensors expected=sensors
+[PASS] kind energy 对应分区受损
+[PASS] kind energy applied 记录  actual=1 expected=1
+[PASS] kind thermal apply ok  actual=true expected=true
+[PASS] kind thermal → tanks  actual=tanks expected=tanks
+[PASS] kind thermal 对应分区受损
+[PASS] kind thermal applied 记录  actual=1 expected=1
+[PASS] kind fire apply ok  actual=true expected=true
+[PASS] kind fire → tanks  actual=tanks expected=tanks
+[PASS] kind fire 对应分区受损
+[PASS] kind fire applied 记录  actual=1 expected=1
+[PASS] kind fragmentation apply ok  actual=true expected=true
+[PASS] kind fragmentation → hull  actual=hull expected=hull
+[PASS] kind fragmentation 对应分区受损
+[PASS] kind fragmentation applied 记录  actual=1 expected=1
+[PASS] DamageService ready  []
+[PASS] 多舰 save/load ok  actual=true expected=true · []
+[PASS] 多舰 load VM 一致
+[PASS] 多舰 load t 一致  actual=2.000000 expected=2.000000
+[PASS] 多舰 load ship apsis 一致
+[PASS] 多舰 ship apsis 7 分区
+[PASS] 多舰 load ship harmattan 一致
+[PASS] 多舰 ship harmattan 7 分区
+[PASS] 多舰 load ship ferry 一致
+[PASS] 多舰 ship ferry 7 分区
+[PASS] 多舰 load ship watchtower 一致
+[PASS] 多舰 ship watchtower 7 分区
+[PASS] 多舰 load ship deepwell 一致
+[PASS] 多舰 ship deepwell 7 分区
+[PASS] 多舰 load contracts ok
+[PASS] 多舰 content_id  actual=damage_l1 expected=damage_l1
+[PASS] 多舰 vm 5 舰
+[PASS] 多舰 content_id  actual=damage_l1 expected=damage_l1
+[PASS] 多舰 vm 5 舰
+[PASS] 多分区维修指派 hull
+[PASS] 多分区维修指派 power
+[PASS] 多分区维修指派 propulsion
+[PASS] 多分区维修指派 sensors
+[PASS] 多分区维修指派 comms
+[PASS] 多分区维修指派 tanks
+[PASS] 多分区维修指派 docking
+[PASS] 7 维修队列  actual=7 expected=7
+[PASS] active<=teams_total(2)  2
+[PASS] teams_busy=active  actual=2 expected=2
+[PASS] 多维修 contracts ok
+[PASS] 取消排队维修 ok  actual=true expected=true
+[PASS] 取消后队列 6  actual=6 expected=6
+────────────────────────────────────────────────────────────
+[DATA] setup = 默认6舰/子集/default_ship/内容校验/每舰7分区
+[DATA] damage_event = 分区/映射/default/opts/非法拒绝/applied 记录
+[DATA] fire_power = tanks 起火/失压/火灾推进 · power 毁坏→断电/不可运作
+[DATA] repair = 指派/重复拒绝/资源/队列/tick 完成/恢复/cancel/fix
+[DATA] priority = 3 队列/优先级/teams 上限/资源非负/clamp
+[DATA] tick = t 推进/model 同步/负 NaN 拒绝/火灾失压推进/multi-ship 同步
+[DATA] save_load = save/load VM 一致 · 继续 tick · 非法拒绝
+[DATA] matrix = 6舰/7分区/6 damage_kind/5舰存档/7维修队列/teams 上限
+────────────────────────────────────────────────────────────
+V17 DAMAGE SERVICE PROBE RESULT: PASS=319 FAIL=0
+V17 DAMAGE SERVICE PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+   at: V2DamageProfileService._resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+   GDScript backtrace (most recent call first):
+       [0] _resolve_catalog_class (res://scripts/core/damage_profile_service.gd:208)
+       [1] profile_for (res://scripts/core/damage_profile_service.gd:186)
+       [2] setup (res://scripts/core/damage_service.gd:128)
+       [3] _init (res://scripts/core/damage_service.gd:63)
+       [4] _test_setup (res://tests/damage_service_probe.gd:147)
+       [5] _initialize (res://tests/damage_service_probe.gd:28)
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/damage_service.gd:513)
+       [1] _test_save_load (res://tests/damage_service_probe.gd:460)
+       [2] _initialize (res://tests/damage_service_probe.gd:34)

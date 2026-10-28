@@ -619,6 +619,22 @@ func _build_contacts_from_intel(owner_id: String) -> Array:
 		var identity := String(tr.get("identity", "unknown")).to_lower()
 		var tside := identity
 		var ttype := "unknown"
+		# JC-A02/R4：普通联系人 display 也消费有效性；过期不显示为有效 friend
+		var opv: Dictionary = {}
+		if session.has_method("identity_operational"):
+			opv = session.identity_operational(owner_id, tid)
+		var validity := "valid"
+		var last_known := identity
+		if not opv.is_empty() and bool(opv.get("ok", false)):
+			validity = String(opv.get("validity", "valid"))
+			last_known = String(opv.get("identity", identity)).to_lower()
+			if validity == "expired":
+				identity = "unknown"
+				tside = "unknown"
+				ttype = "unknown"
+			elif validity == "stale":
+				identity = String(opv.get("effective_identity", identity)).to_lower()
+				tside = identity
 		# 证据管线已有的 track↔entity 映射（玩家已知证据），不读世界真值
 		var eid_map := ""
 		if session.has_method("_entity_for_track"):
@@ -643,6 +659,8 @@ func _build_contacts_from_intel(owner_id: String) -> Array:
 			"batch_internal": tid,
 			"intel_owner_id": owner_id,
 			"observed_t": float(tr.get("last_observed_t", 0.0)),
+			"validity": validity, "valid": validity == "valid",
+			"last_known_identity": last_known,
 			"pos_km": (tr.get("pos_km", []) as Array).duplicate() \
 				if tr.get("pos_km") is Array else [],
 		}
@@ -1990,10 +2008,45 @@ func ident_view(row: Dictionary, with_evidence := false) -> Dictionary:
 		"auto_on": ident_auto_on(), "evidence": [], "tag": "—", "warn": false}
 	if not ident_enabled() or tid == "":
 		return out
-	var a: Dictionary = session.identification_get(tid)
+	# JC-A02：HUD 优先读该 owner 的操作性身份（与火控同一结果）
+	var owner_hint := _intel_owner()
+	var op: Dictionary = {}
+	if session.has_method("identity_operational"):
+		op = session.identity_operational(owner_hint, tid)
+	var a: Dictionary = {}
+	if not op.is_empty() and bool(op.get("ok", false)):
+		var contradictions: Array = []
+		if String(op.get("identity_state", "")) == "conflict":
+			contradictions.append("conflict")
+		a = {"identity": String(op.get("identity", "unknown")),
+			"confidence": float(op.get("identity_confidence", 0.0)),
+			"level": int(op.get("identity_level", 1)),
+			"level_name": "L%d_OPERATIONAL" % int(op.get("identity_level", 1)),
+			"sources": (op.get("identity_sources", []) as Array).duplicate() \
+				if op.get("identity_sources") is Array else [],
+			"evidence_count": int(op.get("identity_evidence_count", 0)),
+			"manual": bool(op.get("identity_manual", false)),
+			"authorized": bool(op.get("identity_authorized", false)),
+			"manual_identity": String(op.get("identity", "")) \
+				if bool(op.get("identity_manual", false)) else "",
+			"contradictions": contradictions,
+			"valid": bool(op.get("valid", false)),
+			"validity": String(op.get("validity", "valid")),
+			"effective_identity": String(op.get("effective_identity", "unknown")),
+			"iff_state": String(op.get("iff_state", "not_queried")),
+			"iff_reason": String(op.get("iff_reason", "")),
+			"manual_t": float(op.get("identity_updated_t", 0.0))}
+	else:
+		a = session.identification_get(tid)
 	if a.is_empty():
 		return out
 	out["known"] = true
+	out["valid"] = bool(a.get("valid", true))
+	out["validity"] = String(a.get("validity", "valid"))
+	out["effective_identity"] = String(a.get("effective_identity",
+		a.get("identity", "unknown")))
+	out["iff_state"] = String(a.get("iff_state", "not_queried"))
+	out["iff_reason"] = String(a.get("iff_reason", ""))
 	out["identity"] = String(a.get("identity", "unknown"))
 	out["confidence"] = float(a.get("confidence", 0.0))
 	out["level"] = int(a.get("level", 1))
@@ -2026,6 +2079,21 @@ func ident_view(row: Dictionary, with_evidence := false) -> Dictionary:
 		tag = "M·" + tag
 	if bool(out["warn"]):
 		tag += " ⚠"
+	# JC-A02/R4：实际 HUD 显示消费有效性——过期不显示为有效 friend；
+	# 保留 last-known 供历史详情，普通显示用有效结果。
+	var vv := String(out.get("validity", "valid"))
+	if vv != "valid":
+		out["last_known_identity"] = String(out["identity"])
+		out["warn"] = true
+		if vv == "expired":
+			out["identity"] = "unknown"
+			tag = "EXPIRED·" + tag
+		else:
+			out["identity"] = String(a.get("effective_identity",
+				out["identity"]))
+			tag = "STALE·" + tag
+	else:
+		out["last_known_identity"] = String(out["identity"])
 	out["tag"] = tag
 	if with_evidence:
 		var ev: Array = session.identification_evidence(tid)
@@ -2073,7 +2141,7 @@ func ident_clear(row: Dictionary) -> Dictionary:
 	var tid := ident_target_id(row)
 	if session == null:
 		return {"ok": false, "reason": "no_session", "target_id": tid}
-	var res: Dictionary = session.identification_clear_manual(tid)
+	var res: Dictionary = session.identification_clear_manual(tid, {"authority": "cic_operator"})
 	return {"ok": bool(res.get("ok", false)), "target_id": tid,
 		"reason": String(res.get("reason", ""))}
 
