@@ -1,0 +1,310 @@
+{
+	"cases": {
+		"ew_zero_first_tick": {
+			"post": {
+				"active_effects": [],
+				"delivered": [
+					{
+						"confidence_mult": 1.0,
+						"delay_s": 0.0,
+						"observation_id": "OBS-000001",
+						"observed_t": 1.0,
+						"owner_id": "player_intel",
+						"quality": 1.0,
+						"quality_original": 1.0,
+						"received_t": 1.0,
+						"target_id": "raider_2",
+						"truth_regenerated": false
+					}
+				],
+				"ew_step_count": 1,
+				"ew_t": 1.0,
+				"queue": [],
+				"session_now": 1.0
+			},
+			"pre": {
+				"active_effects": [],
+				"ew_step_count": 0,
+				"ew_t": 0.0,
+				"session_now": 0.0
+			},
+			"target_samples": [
+				{
+					"chaff_severity": 0.0,
+					"confidence_mult": 1.0,
+					"deception_severity": 0.0,
+					"delay_s": 0.0,
+					"effect": {
+						"chaff_severity": 0.0,
+						"confidence_degraded": false,
+						"confidence_mult": 1.0,
+						"dazzled": false,
+						"deception_severity": 0.0,
+						"decoy_severity": 0.0,
+						"delay_s": 0.0,
+						"emcon": false,
+						"false_candidate_count": 0,
+						"false_observations": [],
+						"false_target_severity": 0.0,
+						"jammed": false,
+						"laser_dazzle_severity": 0.0,
+						"lwr_alert": false,
+						"no_reply_chance": 0.0,
+						"noise_severity": 0.0,
+						"ok": true,
+						"produces_contact": false,
+						"requires_confirmation": false,
+						"schema": "ew_observation_effect.v1",
+						"sensor_kind": "radar",
+						"target_id": "raider_2",
+						"writes_track_table": false
+					},
+					"false_observations": [],
+					"jammed": false,
+					"noise_severity": 0.0,
+					"observed_t": 1.0,
+					"quality_after": 1.0,
+					"quality_before": 1.0,
+					"sampled_t": 1.0,
+					"schema": "ew_observation_sample.v1",
+					"sensor_kind": "radar",
+					"target_id": "raider_2"
+				}
+			]
+		},
+		"noise_half_duration_1s": {
+			"apply": {
+				"effect": {
+					"active": true,
+					"age_s": 0.0,
+					"authoritative": false,
+					"band": "radar",
+					"category": "radar",
+					"decay_per_s": 0.0,
+					"duration_s": 1.0,
+					"effect": "noise_jam",
+					"id": "EW-00001",
+					"initial_severity": 0.5,
+					"params": {},
+					"remaining_severity": 0.5,
+					"requires_confirmation": false,
+					"schema": "ew_effect.v1",
+					"severity": 0.5,
+					"source_id": "EXPIRY-BOUNDARY",
+					"t_end": 1.0,
+					"t_start": 0.0,
+					"target_id": "raider_2",
+					"target_kinds": [
+						"radar"
+					],
+					"visible_to": [
+						"own",
+						"enemy_elint"
+					],
+					"writes_v15": false
+				},
+				"ok": true,
+				"reason": "",
+				"writes": {
+					"track_table": false,
+					"v15": false,
+					"world": false
+				}
+			},
+			"effect_initial": [
+				{
+					"active": true,
+					"age_s": 0.0,
+					"authoritative": false,
+					"band": "radar",
+					"category": "radar",
+					"decay_per_s": 0.0,
+					"duration_s": 1.0,
+					"effect": "noise_jam",
+					"id": "EW-00001",
+					"initial_severity": 0.5,
+					"params": {},
+					"remaining_severity": 0.5,
+					"requires_confirmation": false,
+					"schema": "ew_effect.v1",
+					"severity": 0.5,
+					"source_id": "EXPIRY-BOUNDARY",
+					"t_end": 1.0,
+					"t_start": 0.0,
+					"target_id": "raider_2",
+					"target_kinds": [
+						"radar"
+					],
+					"visible_to": [
+						"own",
+						"enemy_elint"
+					],
+					"writes_v15": false
+				}
+			],
+			"sample_semantics": "observational only; sample is before EW step within each GameSession tick",
+			"sample_vs_end": [
+				{
+					"confidence_mult": 0.7,
+					"delay_s": 3.0,
+					"ew_t_before_sample": 0.0,
+					"jammed": true,
+					"observed_t": 1.0,
+					"quality_after": 0.7,
+					"quality_before": 1.0,
+					"sampled_t": 1.0,
+					"session_t": 1.0
+				}
+			],
+			"ticks": [
+				{
+					"new_target_samples": [
+						{
+							"chaff_severity": 0.0,
+							"confidence_mult": 0.7,
+							"deception_severity": 0.0,
+							"delay_s": 3.0,
+							"effect": {
+								"chaff_severity": 0.0,
+								"confidence_degraded": true,
+								"confidence_mult": 0.7,
+								"dazzled": false,
+								"deception_severity": 0.0,
+								"decoy_severity": 0.0,
+								"delay_s": 3.0,
+								"emcon": false,
+								"false_candidate_count": 0,
+								"false_observations": [],
+								"false_target_severity": 0.0,
+								"jammed": true,
+								"laser_dazzle_severity": 0.0,
+								"lwr_alert": false,
+								"no_reply_chance": 0.25,
+								"noise_severity": 0.5,
+								"ok": true,
+								"produces_contact": false,
+								"requires_confirmation": false,
+								"schema": "ew_observation_effect.v1",
+								"sensor_kind": "radar",
+								"target_id": "raider_2",
+								"writes_track_table": false
+							},
+							"false_observations": [],
+							"jammed": true,
+							"noise_severity": 0.5,
+							"observed_t": 1.0,
+							"quality_after": 0.7,
+							"quality_before": 1.0,
+							"sampled_t": 1.0,
+							"schema": "ew_observation_sample.v1",
+							"sensor_kind": "radar",
+							"target_id": "raider_2"
+						}
+					],
+					"post": {
+						"active_effects": [],
+						"ew_effect_rows": [],
+						"ew_step_count": 1,
+						"ew_t": 1.0,
+						"owner_measurement": {
+							"ok": false,
+							"reason": "unknown_target"
+						},
+						"session_now": 1.0
+					},
+					"pre": {
+						"active_effects": [
+							{
+								"active": true,
+								"age_s": 0.0,
+								"authoritative": false,
+								"band": "radar",
+								"category": "radar",
+								"decay_per_s": 0.0,
+								"duration_s": 1.0,
+								"effect": "noise_jam",
+								"id": "EW-00001",
+								"initial_severity": 0.5,
+								"params": {},
+								"remaining_severity": 0.5,
+								"requires_confirmation": false,
+								"schema": "ew_effect.v1",
+								"severity": 0.5,
+								"source_id": "EXPIRY-BOUNDARY",
+								"t_end": 1.0,
+								"t_start": 0.0,
+								"target_id": "raider_2",
+								"target_kinds": [
+									"radar"
+								],
+								"visible_to": [
+									"own",
+									"enemy_elint"
+								],
+								"writes_v15": false
+							}
+						],
+						"ew_effect_rows": [
+							{
+								"active": true,
+								"age_s": 0.0,
+								"authoritative": false,
+								"band": "radar",
+								"category": "radar",
+								"decay_per_s": 0.0,
+								"duration_s": 1.0,
+								"effect": "noise_jam",
+								"id": "EW-00001",
+								"initial_severity": 0.5,
+								"params": {},
+								"remaining_severity": 0.5,
+								"requires_confirmation": false,
+								"schema": "ew_effect.v1",
+								"severity": 0.5,
+								"source_id": "EXPIRY-BOUNDARY",
+								"t_end": 1.0,
+								"t_start": 0.0,
+								"target_id": "raider_2",
+								"target_kinds": [
+									"radar"
+								],
+								"visible_to": [
+									"own",
+									"enemy_elint"
+								],
+								"writes_v15": false
+							}
+						],
+						"ew_step_count": 0,
+						"ew_t": 0.0,
+						"sample_count": 0,
+						"session_now": 0.0
+					}
+				},
+				{
+					"new_target_samples": [],
+					"post": {
+						"active_effects": [],
+						"ew_effect_rows": [],
+						"ew_step_count": 2,
+						"ew_t": 2.0,
+						"owner_measurement": {
+							"ok": false,
+							"reason": "unknown_target"
+						},
+						"session_now": 2.0
+					},
+					"pre": {
+						"active_effects": [],
+						"ew_effect_rows": [],
+						"ew_step_count": 1,
+						"ew_t": 1.0,
+						"sample_count": 1,
+						"session_now": 1.0
+					}
+				}
+			]
+		}
+	},
+	"head": "6bd919aa19898bbf31f5dd7c3287befc47392877"
+}

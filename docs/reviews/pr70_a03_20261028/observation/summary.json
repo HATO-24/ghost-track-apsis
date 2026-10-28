@@ -1,0 +1,375 @@
+{
+  "head": "6bd919aa19898bbf31f5dd7c3287befc47392877",
+  "base": "3845852bd78821ee6b3c70c4d8f9c81a23dca5d6",
+  "diagnostic_runs": 2,
+  "diagnostic_exit_codes": [
+    0,
+    0
+  ],
+  "formal_probes_run": 0,
+  "confirmed_findings": [
+    {
+      "priority": 2,
+      "title": "Duplicate EW delivery rewrites current measurement after lower-layer dedup",
+      "path": "game_v17/scripts/core/game_session.gd",
+      "line": 2657,
+      "observation_id": "OBS-000008",
+      "observation_t": 7.0,
+      "before_quality": 0.90849375,
+      "before_t": 21.0,
+      "after_quality": 0.7,
+      "after_t": 7.0,
+      "owner_observations_before": 19,
+      "owner_observations_after": 19,
+      "delivery_audit_before": 19,
+      "delivery_audit_after": 20,
+      "lower_track_reason": "duplicate_event"
+    }
+  ],
+  "natural_delivery_count": 10,
+  "natural_unique_ids": 10,
+  "controls": {
+    "ally_noise": {
+      "sample_quality": 0.7,
+      "multiplier": 0.7,
+      "delay_s": 3.0,
+      "delivered_owner": "ally_intel",
+      "player_measurement": {
+        "ok": false,
+        "reason": "unknown_target"
+      },
+      "ally_measurement": {
+        "aggregate_quality": 0.7,
+        "degraded": true,
+        "effect": {
+          "chaff_severity": 0.0,
+          "confidence_degraded": true,
+          "confidence_mult": 0.7,
+          "dazzled": false,
+          "deception_severity": 0.0,
+          "decoy_severity": 0.0,
+          "delay_s": 3.0,
+          "emcon": false,
+          "false_candidate_count": 0,
+          "false_observations": [],
+          "false_target_severity": 0.0,
+          "jammed": true,
+          "laser_dazzle_severity": 0.0,
+          "lwr_alert": false,
+          "no_reply_chance": 0.25,
+          "noise_severity": 0.5,
+          "ok": true,
+          "produces_contact": false,
+          "requires_confirmation": false,
+          "schema": "ew_observation_effect.v1",
+          "sensor_kind": "radar",
+          "target_id": "raider_2",
+          "writes_track_table": false
+        },
+        "measurement_original": 1.0,
+        "measurement_quality": 0.7,
+        "measurement_source": "radar",
+        "measurement_t": 1.0,
+        "ok": true,
+        "owner_id": "ally_intel",
+        "target_id": "raider_2"
+      }
+    },
+    "band_S": {
+      "sample_quality": 0.7,
+      "multiplier": 0.7,
+      "delay_s": 3.0,
+      "delivered_owner": "player_intel",
+      "player_measurement": {
+        "aggregate_quality": 0.7,
+        "degraded": true,
+        "effect": {
+          "chaff_severity": 0.0,
+          "confidence_degraded": true,
+          "confidence_mult": 0.7,
+          "dazzled": false,
+          "deception_severity": 0.0,
+          "decoy_severity": 0.0,
+          "delay_s": 3.0,
+          "emcon": false,
+          "false_candidate_count": 0,
+          "false_observations": [],
+          "false_target_severity": 0.0,
+          "jammed": true,
+          "laser_dazzle_severity": 0.0,
+          "lwr_alert": false,
+          "no_reply_chance": 0.25,
+          "noise_severity": 0.5,
+          "ok": true,
+          "produces_contact": false,
+          "requires_confirmation": false,
+          "schema": "ew_observation_effect.v1",
+          "sensor_kind": "radar",
+          "target_id": "raider_2",
+          "writes_track_table": false
+        },
+        "measurement_original": 1.0,
+        "measurement_quality": 0.7,
+        "measurement_source": "radar",
+        "measurement_t": 1.0,
+        "ok": true,
+        "owner_id": "player_intel",
+        "target_id": "raider_2"
+      },
+      "ally_measurement": {
+        "ok": false,
+        "reason": "unknown_target"
+      }
+    },
+    "band_X": {
+      "sample_quality": 0.7,
+      "multiplier": 0.7,
+      "delay_s": 3.0,
+      "delivered_owner": "player_intel",
+      "player_measurement": {
+        "aggregate_quality": 0.7,
+        "degraded": true,
+        "effect": {
+          "chaff_severity": 0.0,
+          "confidence_degraded": true,
+          "confidence_mult": 0.7,
+          "dazzled": false,
+          "deception_severity": 0.0,
+          "decoy_severity": 0.0,
+          "delay_s": 3.0,
+          "emcon": false,
+          "false_candidate_count": 0,
+          "false_observations": [],
+          "false_target_severity": 0.0,
+          "jammed": true,
+          "laser_dazzle_severity": 0.0,
+          "lwr_alert": false,
+          "no_reply_chance": 0.25,
+          "noise_severity": 0.5,
+          "ok": true,
+          "produces_contact": false,
+          "requires_confirmation": false,
+          "schema": "ew_observation_effect.v1",
+          "sensor_kind": "radar",
+          "target_id": "raider_2",
+          "writes_track_table": false
+        },
+        "measurement_original": 1.0,
+        "measurement_quality": 0.7,
+        "measurement_source": "radar",
+        "measurement_t": 1.0,
+        "ok": true,
+        "owner_id": "player_intel",
+        "target_id": "raider_2"
+      },
+      "ally_measurement": {
+        "ok": false,
+        "reason": "unknown_target"
+      }
+    },
+    "off": {
+      "sample_quality": 1.0,
+      "multiplier": 1.0,
+      "delay_s": 0.0,
+      "delivered_owner": "player_intel",
+      "player_measurement": {
+        "aggregate_quality": 1.0,
+        "degraded": false,
+        "effect": {
+          "chaff_severity": 0.0,
+          "confidence_degraded": false,
+          "confidence_mult": 1.0,
+          "dazzled": false,
+          "deception_severity": 0.0,
+          "decoy_severity": 0.0,
+          "delay_s": 0.0,
+          "emcon": false,
+          "false_candidate_count": 0,
+          "false_observations": [],
+          "false_target_severity": 0.0,
+          "jammed": false,
+          "laser_dazzle_severity": 0.0,
+          "lwr_alert": false,
+          "no_reply_chance": 0.0,
+          "noise_severity": 0.0,
+          "ok": true,
+          "produces_contact": false,
+          "requires_confirmation": false,
+          "schema": "ew_observation_effect.v1",
+          "sensor_kind": "radar",
+          "target_id": "raider_2",
+          "writes_track_table": false
+        },
+        "measurement_original": 1.0,
+        "measurement_quality": 1.0,
+        "measurement_source": "radar",
+        "measurement_t": 1.0,
+        "ok": true,
+        "owner_id": "player_intel",
+        "target_id": "raider_2"
+      },
+      "ally_measurement": {
+        "ok": false,
+        "reason": "unknown_target"
+      }
+    },
+    "own_noise": {
+      "sample_quality": 0.7,
+      "multiplier": 0.7,
+      "delay_s": 3.0,
+      "delivered_owner": "player_intel",
+      "player_measurement": {
+        "aggregate_quality": 0.7,
+        "degraded": true,
+        "effect": {
+          "chaff_severity": 0.0,
+          "confidence_degraded": true,
+          "confidence_mult": 0.7,
+          "dazzled": false,
+          "deception_severity": 0.0,
+          "decoy_severity": 0.0,
+          "delay_s": 3.0,
+          "emcon": false,
+          "false_candidate_count": 0,
+          "false_observations": [],
+          "false_target_severity": 0.0,
+          "jammed": true,
+          "laser_dazzle_severity": 0.0,
+          "lwr_alert": false,
+          "no_reply_chance": 0.25,
+          "noise_severity": 0.5,
+          "ok": true,
+          "produces_contact": false,
+          "requires_confirmation": false,
+          "schema": "ew_observation_effect.v1",
+          "sensor_kind": "radar",
+          "target_id": "raider_2",
+          "writes_track_table": false
+        },
+        "measurement_original": 1.0,
+        "measurement_quality": 0.7,
+        "measurement_source": "radar",
+        "measurement_t": 1.0,
+        "ok": true,
+        "owner_id": "player_intel",
+        "target_id": "raider_2"
+      },
+      "ally_measurement": {
+        "ok": false,
+        "reason": "unknown_target"
+      }
+    },
+    "unregistered_observer": {
+      "sample_quality": 0.7,
+      "multiplier": 0.7,
+      "delay_s": 3.0,
+      "delivered_owner": "",
+      "player_measurement": {
+        "ok": false,
+        "reason": "unknown_target"
+      },
+      "ally_measurement": {
+        "ok": false,
+        "reason": "unknown_target"
+      }
+    },
+    "wrong_sensor_kind": {
+      "sample_quality": 1.0,
+      "multiplier": 1.0,
+      "delay_s": 0.0,
+      "delivered_owner": "player_intel",
+      "player_measurement": {
+        "aggregate_quality": 1.0,
+        "degraded": false,
+        "effect": {
+          "chaff_severity": 0.0,
+          "confidence_degraded": false,
+          "confidence_mult": 1.0,
+          "dazzled": false,
+          "deception_severity": 0.0,
+          "decoy_severity": 0.0,
+          "delay_s": 0.0,
+          "emcon": false,
+          "false_candidate_count": 0,
+          "false_observations": [],
+          "false_target_severity": 0.0,
+          "jammed": false,
+          "laser_dazzle_severity": 0.0,
+          "lwr_alert": false,
+          "no_reply_chance": 0.0,
+          "noise_severity": 0.0,
+          "ok": true,
+          "produces_contact": false,
+          "requires_confirmation": false,
+          "schema": "ew_observation_effect.v1",
+          "sensor_kind": "radar",
+          "target_id": "raider_2",
+          "writes_track_table": false
+        },
+        "measurement_original": 1.0,
+        "measurement_quality": 1.0,
+        "measurement_source": "radar",
+        "measurement_t": 1.0,
+        "ok": true,
+        "owner_id": "player_intel",
+        "target_id": "raider_2"
+      },
+      "ally_measurement": {
+        "ok": false,
+        "reason": "unknown_target"
+      }
+    },
+    "wrong_target": {
+      "sample_quality": 1.0,
+      "multiplier": 1.0,
+      "delay_s": 0.0,
+      "delivered_owner": "player_intel",
+      "player_measurement": {
+        "aggregate_quality": 1.0,
+        "degraded": false,
+        "effect": {
+          "chaff_severity": 0.0,
+          "confidence_degraded": false,
+          "confidence_mult": 1.0,
+          "dazzled": false,
+          "deception_severity": 0.0,
+          "decoy_severity": 0.0,
+          "delay_s": 0.0,
+          "emcon": false,
+          "false_candidate_count": 0,
+          "false_observations": [],
+          "false_target_severity": 0.0,
+          "jammed": false,
+          "laser_dazzle_severity": 0.0,
+          "lwr_alert": false,
+          "no_reply_chance": 0.0,
+          "noise_severity": 0.0,
+          "ok": true,
+          "produces_contact": false,
+          "requires_confirmation": false,
+          "schema": "ew_observation_effect.v1",
+          "sensor_kind": "radar",
+          "target_id": "raider_2",
+          "writes_track_table": false
+        },
+        "measurement_original": 1.0,
+        "measurement_quality": 1.0,
+        "measurement_source": "radar",
+        "measurement_t": 1.0,
+        "ok": true,
+        "owner_id": "player_intel",
+        "target_id": "raider_2"
+      },
+      "ally_measurement": {
+        "ok": false,
+        "reason": "unknown_target"
+      }
+    }
+  },
+  "current_vs_history": {
+    "current": 0.48825,
+    "raw_original": 0.6975,
+    "aggregate": 1.0
+  },
+  "observer_band_scope": "NOT PROVEN: adapter/effect API only matches target + sensor kind, with no receiver observer/owner/band context. X vs S labels both produce q=.7/delay3; no supported receiver-band declaration exists, so do not call this an independently measured mismatched-band bug."
+}

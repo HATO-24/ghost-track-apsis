@@ -1,0 +1,14 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+REPLAY_AUDIT_JSON=C:/Users/ASUS/.codex/worktrees/jc-a03-validation/GHOST TRACK_APSIS/game_v17/../.test-results/sol-a03/observation/replay_audit.json
+CAPTURED_ID=OBS-000008
+BEFORE_MEASUREMENT={"aggregate_quality":1.0,"degraded":false,"effect":{"chaff_severity":0.0,"confidence_degraded":false,"confidence_mult":1.0,"dazzled":false,"deception_severity":0.0,"decoy_severity":0.0,"delay_s":0.0,"emcon":false,"false_candidate_count":0,"false_observations":[],"false_target_severity":0.0,"jammed":false,"laser_dazzle_severity":0.0,"lwr_alert":false,"no_reply_chance":0.0,"noise_severity":0.0,"ok":true,"produces_contact":false,"requires_confirmation":false,"schema":"ew_observation_effect.v1","sensor_kind":"radar","target_id":"raider_2","writes_track_table":false},"measurement_original":0.90849375,"measurement_quality":0.90849375,"measurement_source":"radar","measurement_t":21.0,"ok":true,"owner_id":"player_intel","target_id":"raider_2"}
+AFTER_MEASUREMENT={"aggregate_quality":1.0,"degraded":true,"effect":{"chaff_severity":0.0,"confidence_degraded":true,"confidence_mult":0.7,"dazzled":false,"deception_severity":0.0,"decoy_severity":0.0,"delay_s":3.0,"emcon":false,"false_candidate_count":0,"false_observations":[],"false_target_severity":0.0,"jammed":true,"laser_dazzle_severity":0.0,"lwr_alert":false,"no_reply_chance":0.25,"noise_severity":0.5,"ok":true,"produces_contact":false,"requires_confirmation":false,"schema":"ew_observation_effect.v1","sensor_kind":"radar","target_id":"raider_2","writes_track_table":false},"measurement_original":1.0,"measurement_quality":0.7,"measurement_source":"radar","measurement_t":7.0,"ok":true,"owner_id":"player_intel","target_id":"raider_2"}
+OWNER_OBSERVATIONS=19->19
+DELIVERY_AUDIT=19->20
+TRACK_EVENTS=[{"action":"track_updated","detail":"","evidence_id":"E000025","identity":"unknown","input":"observation","level":2,"level_after":2,"reason":"","schema":"fused_track_event.v1","seq":26,"shadow":true,"t":21.0,"threat":"none","track_id":"T0001","writes_track_table":false,"writes_v15":false},{"action":"rejected","detail":"event_id 已处理","evidence_id":"","identity":"unknown","input":"observation","level":0,"level_after":0,"reason":"duplicate_event","schema":"fused_track_event.v1","seq":27,"shadow":true,"t":21.0,"threat":"none","track_id":"","writes_track_table":false,"writes_v15":false}]
+AUDIO OK files=36 headless=true muted=false
+WARNING: 55 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 22 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

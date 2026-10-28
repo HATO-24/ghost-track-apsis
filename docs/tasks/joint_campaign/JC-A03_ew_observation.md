@@ -2,7 +2,24 @@
 
 执行Issue：[JC-A03 #60](https://github.com/HATO-24/ghost-track-apsis/issues/60)。
 
-状态：READY，A2独立放行且已合入；交付A3。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：RETURNED，PR70首轮四组收尾；A2已完成，A3不冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-28 PR70首轮：保留正常链路，只补实际消费者边界
+
+被审 `6bd919aa19898bbf31f5dd7c3287befc47392877`，base/main `3845852bd78821ee6b3c70c4d8f9c81a23dca5d6`。[独立复核与真实反例](../../reviews/pr70_a03_20261028/review.md)。PR70暂缓合并，继续原#60，不新开功能卡。
+
+保留：真实采样乘数/延迟；own/ally正常owner路由、未登记observer拒绝归入玩家、错误target/kind排除；current与历史max分离；真实文件在途队列及完整状态/几何/解算行10tick语义一致；缺七新段旧档可load。JSON数字2与2.0的表示差异不当作恢复失败，不做全局转int。
+
+仅四组返修：
+
+1. **R1 [P1] 火控生命周期与精度**：实际当前q=.279时新解算拒绝，但旧COMPUTING/READY仍能合法request_fire发射，三例均ammo8→7且PRJ处于FLIGHT。让实际tick/已有解算/射击都消费当前质量门槛，按冻结规则失效/重算/降级；持续moderate READY当前q=.7994745时精度×.85也未进入实际输出。补真实生命周期反例，保留高质量与恢复正例，不靠放宽授权变绿。
+2. **R2 [P2] 全消费者投递幂等**：真实旧OBS-000008原样重投，底层去重但measurement从.90849375@21回滚.7@7。把接纳/去重覆盖measurement、combat及候选副作用；明确接纳结果，保留正常新观测。此为一次明确重投，不声称自然阶段自行重复。
+3. **R3 [P2] 新EW坏段拒绝**：真实在途1项存档仅将已有ew_observation_queue改null，load却ok/errors=[]且队列清空。区分present-invalid与真正缺段旧档，验证新EW字段必要类型/值并明确拒绝；保留有效文件10tick继续，不重写存档体系。
+4. **R4 [P2] 注册与等强验收**：插入新EW case时丢失旧A02的integration.jc_identity_pipeline，旧脚本虽匿名122/0仍运行，按原ID选择已0项。恢复旧ID，保留EW唯一ID及总90项；补R1真实COMPUTING/READY/射击/精度，以及W7完整队列/捕获值/实际解算对照，不只末尾ID/质量或自报字段。七历史baseline不刷新。
+
+根专项11执行行PASS（含匿名A02问题），新EW47/0、A2脚本122/0、A1 90/0。CI同head合成merge full90=83PASS/7历史FAIL、new_fail0、drift0、complete=true；根本轮未重复本地全量。最终同40位变更HEAD专项+原C，逐项关闭，不重做上列正常服务。
+
+采样相位按候选先采后步记录，不把t_end边界单列新增bug。错target/kind已测，独立接收方/频段上下文未定义；报告应明确支持的抽象作用域负例与限制，不把band标签切换说成已验错频，也不扩真实RF/完整接收机。A04/B01A核心接入继续等待A3；UI设计文档GPT/Sol，代码DeepSeek。下方A2开工交接与八段合同继续有效。
 
 ## 2026-10-28 A2放行后的开工交接
 

@@ -1,0 +1,5 @@
+2026-10-28T09:48:04.2065664Z HEAD is now at 438b6f1 Merge 6bd919aa19898bbf31f5dd7c3287befc47392877 into 3845852bd78821ee6b3c70c4d8f9c81a23dca5d6
+2026-10-28T09:52:26.0917773Z total=90  pass=83  fail=7  timeout=0  not_run=0 (expected=0 unexpected=0)  duration=255.7s
+2026-10-28T09:52:26.0925974Z BASELINE CHECK: known_fail=7 new_fail=0 drift=0 unverified=0 unselected=0 complete=true
+2026-10-28T09:52:26.1888961Z FULL_MATRIX_EXIT=0
+2026-10-28T09:52:35.3653901Z ARTIFACT ASSERT OK run_dir=20261028-094810-438b6f1a cases=90 logs=149
