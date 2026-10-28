@@ -2547,6 +2547,30 @@ func query_iff(target_id := "") -> Dictionary:
 	_record({"op": "query_iff", "target_id": String(res.get("target_id", target_id))})
 	return res
 
+## ── JC-A03 EW 观测/延迟/质量 API（骨架：先保存断言级红例）────────
+func ew_observation_samples() -> Array:
+	return []
+
+func ew_delivery_queue() -> Array:
+	return []
+
+func ew_delivered_observations() -> Array:
+	return []
+
+func owner_measurement_quality(owner_id: String, target_id: String) -> Dictionary:
+	return {"ok": false, "reason": "not_implemented", "owner_id": owner_id,
+		"target_id": target_id}
+
+func combat_measurement_quality(target_id: String) -> Dictionary:
+	return {"ok": false, "reason": "not_implemented", "target_id": target_id}
+
+func ew_candidate_evidence(owner_id: String) -> Array:
+	return []
+
+func ew_visible_tracks(owner_id: String) -> Array:
+	var v: Dictionary = intel_view(owner_id) if has_method("intel_view") else {}
+	return (v.get("tracks", []) as Array).duplicate(true) if v.get("tracks") is Array else []
+
 # ── EWService 包装（可选；效果只读接口 + 显式 apply/emcon）──────
 
 func ew_vm() -> Dictionary:

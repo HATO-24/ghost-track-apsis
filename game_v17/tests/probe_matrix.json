@@ -794,7 +794,19 @@
       "timeout_s": 300
     },
     {
-      "id": "integration.jc_identity_pipeline",
+      "id": "integration.jc_ew_observation",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "JC-A03 (#60): EW actually affects observation, tracks and fire control. Same-seed on/off EW changes real sensor observation quality by the effect confidence multiplier and delays delivery by the effect delay; observations stay invisible during the delay and are delivered with observed/received times and the captured (not regenerated) truth; owner track current measurement quality is separate from historical aggregate; fire control consumes current quality with frozen rules (insufficient quality rejected); deception candidates enter only the affected owner as unknown evidence and never auto-confirm; in-flight observation queue survives a real file save/load and continues 10 ticks identically; unsupported EW effects do not alter radar observations and EW=0 keeps legacy behavior.",
+      "script": "res://tests/jc_ew_observation_probe.gd",
+      "expected_markers": [
+        "JC-A03 EW OBSERVATION PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 420
+    },
+    {
       "category": "integration",
       "profile": "",
       "entry": "script",
