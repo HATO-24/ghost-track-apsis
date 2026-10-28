@@ -24,6 +24,11 @@ var deployment_seed := 0
 var _committed: Dictionary = {}
 var _resources: Dictionary = {}
 var _cfg: Dictionary = {}
+var allowed_controllers: Array = []
+var allowed_owners: Array = []
+var allowed_fleets: Array = []
+var allowed_domains: Array = []
+var config_revision := "cfg-1"
 
 func _init(cfg := {}) -> void:
 	setup(cfg)
@@ -57,6 +62,14 @@ func setup(cfg := {}) -> bool:
 	roster = parsed
 	slot_defs = roster.get("slots", {}) if roster.get("slots") is Dictionary else {}
 	limits = roster.get("limits", {}) if roster.get("limits") is Dictionary else {}
+	if _cfg.get("limits_override") is Dictionary:
+		for k in (_cfg.get("limits_override") as Dictionary).keys():
+			limits[String(k)] = (_cfg.get("limits_override") as Dictionary)[k]
+	allowed_controllers = (_cfg.get("authorized_controllers", []) as Array).duplicate() if _cfg.get("authorized_controllers") is Array else []
+	allowed_owners = (_cfg.get("authorized_owners", []) as Array).duplicate() if _cfg.get("authorized_owners") is Array else []
+	allowed_fleets = (_cfg.get("authorized_fleets", []) as Array).duplicate() if _cfg.get("authorized_fleets") is Array else []
+	allowed_domains = (_cfg.get("authorized_domains", []) as Array).duplicate() if _cfg.get("authorized_domains") is Array else []
+	config_revision = String(_cfg.get("config_revision", "cfg-1"))
 	for raw in (roster.get("ships", []) as Array):
 		if raw is Dictionary:
 			var sid := String((raw as Dictionary).get("ship_id", ""))
@@ -176,6 +189,32 @@ func plan(selection) -> Dictionary:
 		if not _vec3_ok(vel):
 			result["errors"].append("invalid_velocity:" + ship_id)
 			continue
+		var ctrl := String(row.get("controller_id", _cfg.get("controller_id", "player_ctrl")))
+		var owner := String(row.get("owner_id", _cfg.get("owner_id", "player_intel")))
+		var fleet := String(row.get("fleet_id", _cfg.get("fleet_id", "own_fleet")))
+		var domain := String(row.get("domain_id", _cfg.get("domain_id", "player")))
+		if allowed_controllers.size() > 0 and not _in_list(allowed_controllers, ctrl):
+			result["errors"].append("unauthorized_controller:" + ctrl)
+			continue
+		if allowed_owners.size() > 0 and not _in_list(allowed_owners, owner):
+			result["errors"].append("unauthorized_owner:" + owner)
+			continue
+		if allowed_fleets.size() > 0 and not _in_list(allowed_fleets, fleet):
+			result["errors"].append("unauthorized_fleet:" + fleet)
+			continue
+		if allowed_domains.size() > 0 and not _in_list(allowed_domains, domain):
+			result["errors"].append("unauthorized_domain:" + domain)
+			continue
+		var cls_full: Dictionary = catalog.classes_by_id[class_id] if catalog.classes_by_id[class_id] is Dictionary else {}
+		var config_snap := {"class_id": class_id, "ship_id": ship_id,
+			"hull_code": String(r.get("hull_code", "")),
+			"refit_state": (r.get("refit_state", {}) as Dictionary).duplicate(true) if r.get("refit_state") is Dictionary else {},
+			"class_mass_t": float(cls_full.get("displacement_t", mass_t)),
+			"class_dv_kmps": float(cls_full.get("dv_kmps", 0.0)),
+			"class_role": String(cls_full.get("role", "")),
+			"weapon_loadout": (cls_full.get("weapons", []) as Array).duplicate(true) if cls_full.get("weapons") is Array else [],
+			"ammo_state": "not_integrated_b1b",
+			"command_state": "not_integrated_b1b"}
 		var ent := {
 			"id": inst_id, "kind": "ship", "name": String(r.get("name_en", ship_id)),
 			"class_id": class_id, "ship_id": ship_id, "hull_code":
@@ -184,20 +223,17 @@ func plan(selection) -> Dictionary:
 			"mass_kg": mass_t * MASS_T_TO_KG, "mass_t": mass_t,
 			"fuel_kg": fuel_t * MASS_T_TO_KG, "fuel_t": fuel_t,
 			"dv_kmps": float(cls.get("dv_kmps", 0.0)),
-			"controller_id": String(row.get("controller_id",
-				_cfg.get("controller_id", "player_ctrl"))),
-			"owner_id": String(row.get("owner_id",
-				_cfg.get("owner_id", "player_intel"))),
-			"fleet_id": String(row.get("fleet_id",
-				_cfg.get("fleet_id", "own_fleet"))),
-			"domain_id": String(row.get("domain_id",
-				_cfg.get("domain_id", "player"))),
+			"controller_id": ctrl, "owner_id": owner,
+			"fleet_id": fleet, "domain_id": domain,
+			"config_snapshot": config_snap,
 		}
 		entities.append(ent)
 		instances.append({"instance_id": inst_id, "ship_id": ship_id,
 			"class_id": class_id, "slot": slot,
 			"mass_t": mass_t, "mass_kg": mass_t * MASS_T_TO_KG,
 			"fuel_t": fuel_t, "fuel_kg": fuel_t * MASS_T_TO_KG,
+			"pos_km": pos.duplicate(), "vel_kmps": vel.duplicate(),
+			"config_snapshot": config_snap.duplicate(true),
 			"controller_id": String(ent["controller_id"]),
 			"owner_id": String(ent["owner_id"]),
 			"fleet_id": String(ent["fleet_id"]),
@@ -225,7 +261,7 @@ func plan(selection) -> Dictionary:
 		return String((a as Dictionary).get("id", "")) < \
 			String((b as Dictionary).get("id", "")))
 	var rev_payload := {"scenario_id": scenario_id,
-		"deployment_seed": deployment_seed,
+		"deployment_seed": deployment_seed, "config_revision": config_revision,
 		"instances": instances.duplicate(true)}
 	result["revision"] = "rev-%08x" % (hash(JSON.stringify(rev_payload)) & 0xffffffff)
 	result["instance_ids"] = _ids(instances)
@@ -265,6 +301,7 @@ func deploy(selection, opts := {}) -> Dictionary:
 		_resources[iid] = {"instance_id": iid,
 			"ship_id": String(ins.get("ship_id", "")),
 			"class_id": String(ins.get("class_id", "")),
+			"config_snapshot": (ins.get("config_snapshot", {}) as Dictionary).duplicate(true) if ins.get("config_snapshot") is Dictionary else {},
 			"resources": {"fuel_kg": float(ins.get("fuel_kg", 0.0)),
 				"ammo": int(ins.get("ammo", 0)),
 				"damage_taken": 0.0, "loadout": {}}}
@@ -348,10 +385,28 @@ func load_state(data) -> Dictionary:
 			return {"ok": false, "reason": "invalid_state", "errors": ["revision"]}
 		if not ((com as Dictionary).get("instance_ids", []) is Array):
 			return {"ok": false, "reason": "invalid_state", "errors": ["instance_ids"]}
+	var ids: Array = (com as Dictionary).get("instance_ids", []) if (com as Dictionary).get("instance_ids") is Array else []
+	for iid in ids:
+		var rr = (res as Dictionary).get(String(iid), null)
+		if not (rr is Dictionary):
+			return {"ok": false, "reason": "invalid_state",
+				"errors": ["resource_missing:" + String(iid)]}
+		var bucket = (rr as Dictionary).get("resources", null)
+		if not (bucket is Dictionary) or not (bucket as Dictionary).has("fuel_kg") \
+				or not (bucket as Dictionary).has("damage_taken"):
+			return {"ok": false, "reason": "invalid_state",
+				"errors": ["resource_incomplete:" + String(iid)]}
 	_committed = (com as Dictionary).duplicate(true)
 	_resources = (res as Dictionary).duplicate(true)
 	return {"ok": true, "restore_mode": "full",
 		"revision": String(_committed.get("revision", ""))}
+
+func _in_list(arr: Array, v: String) -> bool:
+	for x in arr:
+		if String(x) == v:
+			return true
+	return false
+
 
 func _ids(rows: Array) -> Array:
 	var out: Array = []
