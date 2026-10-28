@@ -82,3 +82,10 @@ Full strict: 90 = 83 PASS / 7 历史 FAIL（new_fail=0、complete=true）
 
 - 红例：`evidence/a03/red/`（summary + 原始 stdout）。
 - 最终：见提交后 `evidence/a03/final/`（专项 9 项、两门禁、全量 summary）。
+
+## 7. PR70 第二轮复核返修（R1/R2/R3，R4 关闭）
+
+- **R1 真实弹道消费**：GameSession.request_fire 把接口层的 measurement_quality/error_km/quality/quality_accuracy_mult 传入 launch_opts 与射后 _ballistics_predict；CombatBallistics.predict 采用同一规范化 quality/error（不双重惩罚）；_launch_projectile 以确定性方式把 rror_km 落到 aim 偏移，弹体记录 pplied_error_km/measurement_quality/quality_accuracy_mult。以「有测量 vs 无测量（同档同几何）」对照证明输入被真实消费者使用，且返回风险 = 实际采用误差（1e-9）。
+- **R2 拒绝守卫**：owner 接纳/去重拒绝在写全局 TrackTable/_sensor_track_map 之前直接返回，仅记录 rejected 审计；正常投递/重投语义保持。
+- **R3 部分新段**：新增 EW 字段缺失视为有意兼容默认并返回 w_restore_mode=partial + w_restore_missing（不再触发 null 转换异常）；present-invalid 明确 ok=false/invalid；有效新段 ull、真正缺段旧档 legacy_absent。
+- **探针**：83→102/0（新增 R20 真实弹道对照、R21 owner 拒绝不写全局、R22 partial 恢复）；专项 11/11、门禁 6/6+3/3、全量 90=83/7 new_fail=0。

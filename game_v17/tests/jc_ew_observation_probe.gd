@@ -513,6 +513,96 @@ func _run() -> void:
 
 
 
+
+	_step("R20 真实弹道消费者：测量精度/误差进入预测与弹体（含无测量对照）")
+	var f20a = _consumer_fixture("moderate")
+	var f20b = _consumer_fixture("none")
+	var f20c = _consumer_fixture("no_measure")
+	_ok(bool((f20a.get("fire", {}) as Dictionary).get("ok", false)),
+		"moderate 实际发射成功")
+	_ok(bool((f20b.get("fire", {}) as Dictionary).get("ok", false)),
+		"clean 实际发射成功")
+	_ok(bool((f20c.get("fire", {}) as Dictionary).get("ok", false)),
+		"无测量对照实际发射成功",
+		str((f20c.get("fire", {}) as Dictionary).get("reason", "")))
+	var fa20: Dictionary = f20a.get("fire", {}) if f20a.get("fire") is Dictionary else {}
+	var fb20: Dictionary = f20b.get("fire", {}) if f20b.get("fire") is Dictionary else {}
+	var fc20: Dictionary = f20c.get("fire", {}) if f20c.get("fire") is Dictionary else {}
+	var pa20: Dictionary = f20a.get("proj", {}) if f20a.get("proj") is Dictionary else {}
+	var pb20: Dictionary = f20b.get("proj", {}) if f20b.get("proj") is Dictionary else {}
+	var pc20: Dictionary = f20c.get("proj", {}) if f20c.get("proj") is Dictionary else {}
+	_near(float((fa20.get("prediction", {}) as Dictionary).get("error_km", -1.0)),
+		float(fa20.get("error_km", -2.0)), CONF_TOL, "moderate 预测误差 = 接口误差")
+	_near(float((fb20.get("prediction", {}) as Dictionary).get("error_km", -1.0)),
+		float(fb20.get("error_km", -2.0)), CONF_TOL, "clean 预测误差 = 接口误差")
+	_near(float((fc20.get("prediction", {}) as Dictionary).get("error_km", -1.0)),
+		float(fc20.get("error_km", -2.0)), CONF_TOL, "无测量对照预测误差 = 接口误差")
+	_near(float(pa20.get("applied_error_km", -1.0)),
+		float(fa20.get("error_km", -2.0)), CONF_TOL, "moderate 弹体采用误差 = 接口误差")
+	_near(float(pb20.get("applied_error_km", -1.0)),
+		float(fb20.get("error_km", -2.0)), CONF_TOL, "clean 弹体采用误差 = 接口误差")
+	_near(float(pc20.get("applied_error_km", -1.0)),
+		float(fc20.get("error_km", -2.0)), CONF_TOL, "无测量对照弹体采用误差 = 接口误差")
+	_ok(absf(float(fa20.get("error_km", 0.0))
+		- float(fc20.get("error_km", 0.0))) > CONF_TOL,
+		"有测量 vs 无测量：接口误差不同（输入被使用）",
+		"%s vs %s" % [str(fa20.get("error_km", null)), str(fc20.get("error_km", null))])
+	_ok(absf(float(pa20.get("applied_error_km", 0.0))
+		- float(pc20.get("applied_error_km", 0.0))) > CONF_TOL,
+		"有测量 vs 无测量：弹体实际误差不同（真实消费者）",
+		"%s vs %s" % [str(pa20.get("applied_error_km", null)),
+			str(pc20.get("applied_error_km", null))])
+	_ok(JSON.stringify(pa20.get("aim_km", [])) != JSON.stringify(
+		pc20.get("aim_km", [])), "有测量 vs 无测量：弹体初始瞄准不同")
+	_info("moderate/clean interface errors: %s / %s" % [
+		str(fa20.get("error_km", null)), str(fb20.get("error_km", null))])
+
+	_step("R21 owner 拒绝项不得写全局 TrackTable/映射")
+	var r21src = _new()
+	r21src.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
+		"severity": 0.5, "duration_s": 60.0, "source_id": "EW-R21"})
+	var entry21: Dictionary = {}
+	for i21 in range(6):
+		r21src.tick(TICK_DT)
+		var q21: Array = r21src.ew_delivery_queue()
+		if q21.size() > 0:
+			entry21 = (q21[0] as Dictionary).duplicate(true)
+			break
+	_ok(not entry21.is_empty(), "捕获到真实投递快照")
+	var s21 = _new()
+	for i21b in range(2):
+		s21.tick(TICK_DT)
+	var tracks_before := int(s21.track_table.tracks.size())
+	var map_before: int = (s21._sensor_track_map as Dictionary).size()
+	if not entry21.is_empty():
+		var wrong: Dictionary = entry21.duplicate(true)
+		wrong["owner_id"] = "ally_intel"
+		s21._deliver_ew_observation(wrong)
+	_eq(int(s21.track_table.tracks.size()), tracks_before,
+		"owner 拒绝项不写全局 TrackTable")
+	_eq((s21._sensor_track_map as Dictionary).size(), map_before,
+		"owner 拒绝项不更新 sensor 映射")
+	var rej21: Array = s21.ew_rejected_deliveries()
+	_ok(rej21.size() >= 1, "owner 拒绝项记录 rejected 审计")
+
+	_step("R22 部分新 EW 段：可解释 partial，不触发转换异常")
+	var sp = _new()
+	sp.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
+		"severity": 0.5, "duration_s": 60.0, "source_id": "EW-R22"})
+	for i22 in range(2):
+		sp.tick(TICK_DT)
+	var sp_doc: Dictionary = JSON.parse_string(sp.save_state())
+	sp_doc.erase("ew_combat_quality")
+	var sp2 = _new()
+	var sp_lr: Dictionary = sp2.load_state(JSON.stringify(sp_doc))
+	_ok(bool(sp_lr.get("ok", false)), "部分新段仍可恢复",
+		str(sp_lr.get("errors", [])))
+	_eq(String(sp_lr.get("ew_restore_mode", "")), "partial",
+		"部分新段恢复模式 partial")
+	var miss22: Array = sp_lr.get("ew_restore_missing", []) if \
+		sp_lr.get("ew_restore_missing") is Array else []
+	_ok("ew_combat_quality" in miss22, "missing 列出缺失字段", str(miss22))
+
 	_step("总结")
 	_info("A03 验收：真实 sensor 采样→质量/延迟→owner 航迹→火控→文件恢复")
 	_finish()
@@ -668,3 +758,44 @@ func _solution_sig(s, sid: String) -> Dictionary:
 		"error_km": float(row.get("error_km", -1.0)),
 		"measurement_quality": float(row.get("measurement_quality", -1.0)),
 		"measurement_t": float(row.get("measurement_t", -1.0))}
+func _consumer_fixture(mode: String) -> Dictionary:
+	var sd: Dictionary = JSON.parse_string(JSON.stringify(_seed()))
+	if mode == "no_measure":
+		sd["sensor_service"]["targets"] = []
+		sd["sensor_service"]["options"] = {"radar_enabled": false, "emcon": false}
+	var s = GS.new(sd)
+	for i in range(6):
+		s.tick(TICK_DT)
+	_register_combat_track(s, "raider_2")
+	s.grant_authorization("FIRE", "target", "raider_2")
+	var sol: Dictionary = s.combat_request_solution("raider_2", "railgun", true)
+	if not bool(sol.get("ok", false)):
+		return {"fire": {"ok": false, "reason": String(sol.get("reason", ""))}}
+	var sid := String((sol.get("solution", {}) as Dictionary).get("solution_id", ""))
+	for i2 in range(30):
+		s.tick(TICK_DT)
+		if String(s.combat_service.solution_status(sid).get("status", "")) == "READY":
+			break
+	if mode == "moderate":
+		s.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
+			"severity": 0.2, "duration_s": 120.0, "source_id": "EW-FIX"})
+	for i3 in range(2):
+		s.tick(TICK_DT)
+	var mq: Dictionary = s.owner_measurement_quality("player_intel", "raider_2")
+	var fire: Dictionary = s.request_fire("raider_2", "railgun", true,
+		{"target_entity": "raider_2", "actor_id": "player_ctrl",
+			"controller_id": "player_ctrl", "domain_id": "player",
+			"fleet_id": "own_fleet"})
+	var proj: Dictionary = {}
+	if bool(fire.get("ok", false)):
+		var pids: Array = fire.get("projectile_ids", []) if fire.get("projectile_ids") is Array else []
+		if pids.size() > 0:
+			var pid := String(pids[0])
+			for raw_p in (s.combat_ballistics.vm().get("projectiles", []) as Array):
+				if raw_p is Dictionary and String((raw_p as Dictionary).get(
+						"projectile_id", "")) == pid:
+					proj = (raw_p as Dictionary).duplicate(true)
+					break
+	return {"session": s, "fire": fire, "proj": proj,
+		"measurement_ok": bool(mq.get("ok", false)),
+		"measurement_quality": float(mq.get("measurement_quality", -1.0))}

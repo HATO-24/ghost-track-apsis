@@ -2538,6 +2538,7 @@ var _ew_delivered: Array = []
 var _ew_candidates: Array = []
 var _ew_obs_seq := 0
 var _ew_restore_mode := "absent"
+var _ew_restore_missing: Array = []
 var _ew_rejected_deliveries: Array = []
 var _ew_quality_history: Dictionary = {}   # "<owner>|<target>" -> max quality
 var _ew_combat_quality: Dictionary = {}    # target -> {quality, t, source}
@@ -2659,6 +2660,13 @@ func _deliver_ew_observation(entry: Dictionary) -> void:
 		elif bool(ar.get("duplicated", false)):
 			accepted = false
 			reject_reason = "duplicate_delivery"
+	# R2：owner 拒绝/去重项不得再写全局 TrackTable 与映射（窄守卫）
+	if not accepted:
+		(_ew_rejected_deliveries as Array).append({
+			"observation_id": String(entry.get("observation_id", "")),
+			"owner_id": owner_id, "target_id": target,
+			"reason": reject_reason, "t": now_s()})
+		return
 	if track_table != null:
 		# TrackTable 事件时间 = 到达时间；原始观测时刻/几何仍保留（不重生成旧观测）
 		var tbl_obs: Dictionary = obs.duplicate(true)
@@ -2860,13 +2868,18 @@ func combat_measurement_quality(target_id: String) -> Dictionary:
 ## JC-A03：EW 观测状态恢复（旧档缺省为空 → EW=0 兼容）
 ## JC-A03/R3：新 EW 段类型/必要字段校验；present-invalid 明确失败，
 ## 只有真正缺段（旧档）才按空段兼容。
+## JC-A03/R3：新 EW 段验证——present-invalid 明确失败；可选字段缺失给出
+## 可解释的 partial 模式（有意兼容默认），不全缺（旧档）才算 legacy_absent。
+
 func _ew_restore_state(data: Dictionary) -> Dictionary:
+	_ew_restore_missing = []
 	var array_fields := ["ew_observation_samples", "ew_observation_queue",
-		"ew_delivered_observations", "ew_candidates"]
+		"ew_delivered_observations", "ew_candidates",
+		"ew_rejected_deliveries"]
 	var dict_fields := ["ew_quality_history", "ew_combat_quality"]
+	var all_fields := array_fields + dict_fields + ["ew_observation_seq"]
 	var present := 0
-	for k in array_fields + dict_fields + ["ew_observation_seq",
-			"ew_rejected_deliveries"]:
+	for k in all_fields:
 		if data.has(k):
 			present += 1
 	if present == 0:
@@ -2875,13 +2888,13 @@ func _ew_restore_state(data: Dictionary) -> Dictionary:
 	for k2 in array_fields:
 		if data.has(k2) and not (data.get(k2) is Array):
 			_ew_restore_mode = "invalid"
-			return {"ok": false, "reason": "invalid_ew_state", "field": k2,
-				"detail": "必须是数组"}
+			return {"ok": false, "reason": "invalid_ew_state",
+				"field": k2, "detail": "必须是数组"}
 	for k3 in dict_fields:
 		if data.has(k3) and not (data.get(k3) is Dictionary):
 			_ew_restore_mode = "invalid"
-			return {"ok": false, "reason": "invalid_ew_state", "field": k3,
-				"detail": "必须是对象"}
+			return {"ok": false, "reason": "invalid_ew_state",
+				"field": k3, "detail": "必须是对象"}
 	if data.has("ew_observation_seq"):
 		var seq_v = data.get("ew_observation_seq")
 		if not (seq_v is int or seq_v is float) or float(seq_v) < 0.0 \
@@ -2889,8 +2902,8 @@ func _ew_restore_state(data: Dictionary) -> Dictionary:
 			_ew_restore_mode = "invalid"
 			return {"ok": false, "reason": "invalid_ew_state",
 				"field": "ew_observation_seq", "detail": "必须是非负有限数"}
-	# 队列项必要值与类型
-	if data.get("ew_observation_queue") is Array:
+	# 队列条目必要值与类型（只有 present 时才校验）
+	if data.has("ew_observation_queue"):
 		for raw in (data.get("ew_observation_queue") as Array):
 			if not (raw is Dictionary):
 				_ew_restore_mode = "invalid"
@@ -2914,20 +2927,30 @@ func _ew_restore_state(data: Dictionary) -> Dictionary:
 					_ew_restore_mode = "invalid"
 					return {"ok": false, "reason": "invalid_ew_state",
 						"field": "ew_observation_queue", "detail": tf + " 非法"}
-	_ew_samples = (data.get("ew_observation_samples", []) as Array).duplicate(true)
-	_ew_obs_queue = (data.get("ew_observation_queue", []) as Array).duplicate(true)
-	_ew_delivered = (data.get("ew_delivered_observations", []) as Array).duplicate(true)
-	_ew_candidates = (data.get("ew_candidates", []) as Array).duplicate(true)
+	# 未出现的字段：有意兼容默认并记录（partial），不触发未处理转换异常
+	for k4 in all_fields:
+		if not data.has(k4):
+			_ew_restore_missing.append(k4)
+	_ew_samples = (data.get("ew_observation_samples", []) as Array).duplicate(true) \
+		if data.has("ew_observation_samples") else []
+	_ew_obs_queue = (data.get("ew_observation_queue", []) as Array).duplicate(true) \
+		if data.has("ew_observation_queue") else []
+	_ew_delivered = (data.get("ew_delivered_observations", []) as Array) \
+		.duplicate(true) if data.has("ew_delivered_observations") else []
+	_ew_candidates = (data.get("ew_candidates", []) as Array).duplicate(true) \
+		if data.has("ew_candidates") else []
 	_ew_rejected_deliveries = (data.get("ew_rejected_deliveries", []) as Array) \
-		.duplicate(true) if data.get("ew_rejected_deliveries") is Array else []
-	_ew_obs_seq = int(data.get("ew_observation_seq", _ew_obs_seq))
-	_ew_quality_history = (data.get("ew_quality_history") as Dictionary).duplicate(true)
-	_ew_combat_quality = (data.get("ew_combat_quality") as Dictionary).duplicate(true)
-	_ew_restore_mode = "full"
+		.duplicate(true) if data.has("ew_rejected_deliveries") else []
+	if data.has("ew_observation_seq"):
+		_ew_obs_seq = int(data.get("ew_observation_seq"))
+	_ew_quality_history = (data.get("ew_quality_history") as Dictionary) \
+		.duplicate(true) if data.has("ew_quality_history") else {}
+	_ew_combat_quality = (data.get("ew_combat_quality") as Dictionary) \
+		.duplicate(true) if data.has("ew_combat_quality") else {}
+	_ew_restore_mode = "full" if _ew_restore_missing.is_empty() else "partial"
 	return {"ok": true, "mode": _ew_restore_mode,
+		"missing": _ew_restore_missing.duplicate(),
 		"queue": (_ew_obs_queue as Array).size()}
-
-
 # ── EWService 包装（可选；效果只读接口 + 显式 apply/emcon）──────
 
 func ew_vm() -> Dictionary:
@@ -3425,6 +3448,9 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 		"salvo": int(gate.get("salvo", 1)),
 		"profile": o.get("profile", {}),
 		"intent": String(o.get("intent", "direct")),
+		"measurement_quality": float(gate.get("measurement_quality", 1.0)),
+		"error_km": float(gate.get("error_km", 0.0)),
+		"quality_accuracy_mult": float(gate.get("quality_accuracy_mult", 1.0)),
 	}
 	# 规划辅助：显式 plan 优先，否则按 intent 现场规划（direct 不规划）
 	if o.get("plan") is Dictionary:
@@ -3464,7 +3490,11 @@ func request_fire(target_id: String, weapon_id: String, confirmed := false, opts
 		res["ok"] = false
 		res["reason"] = String(lr.get("reason", "launch_failed"))
 		return res
-	res["prediction"] = _ballistics_predict(shooter, entity, weapon_id)
+	res["prediction"] = _ballistics_predict(shooter, entity, weapon_id, {
+		"measurement_quality": float(gate.get("measurement_quality", 1.0)),
+		"error_km": float(gate.get("error_km", 0.0)),
+		"quality": float(gate.get("quality", -1.0)),
+		"quality_accuracy_mult": float(gate.get("quality_accuracy_mult", 1.0))})
 	var cap: Dictionary = _apply_combat_time_cap()
 	res["time_cap"] = cap
 	return res
@@ -3490,7 +3520,11 @@ func combat_predict_track(target_id: String, weapon_id: String) -> Dictionary:
 	if shooter == "" or entity == "" or not states.has(entity):
 		return {"ok": false, "reason": "no_physics_state",
 			"shooter": shooter, "target_entity": entity}
-	return combat_ballistics.predict(states[shooter], states[entity], weapon_id)
+	var mq_pred: Dictionary = owner_measurement_quality(_identity_own_owner(), target_id)
+	var popts: Dictionary = {}
+	if bool(mq_pred.get("ok", false)):
+		popts["measurement_quality"] = float(mq_pred.get("measurement_quality", 1.0))
+	return combat_ballistics.predict(states[shooter], states[entity], weapon_id, popts)
 
 
 ## 交战规划辅助：把意图翻译成巡航剖面，并给出 Δv 预算/可行性（发射前可预演）。
@@ -3582,13 +3616,14 @@ func _own_ballistics_entity(states: Dictionary) -> String:
 
 
 ## 物理层预测（真实积分，替代 CombatService 的接口层估算）。
-func _ballistics_predict(shooter: String, entity: String, weapon_id: String) -> Dictionary:
+func _ballistics_predict(shooter: String, entity: String,
+		weapon_id: String, opts := {}) -> Dictionary:
 	if combat_ballistics == null:
 		return {"ok": false, "reason": "no_ballistics"}
 	var states: Dictionary = _ballistics_states()
 	if not states.has(shooter) or not states.has(entity):
 		return {"ok": false, "reason": "no_physics_state"}
-	return combat_ballistics.predict(states[shooter], states[entity], weapon_id)
+	return combat_ballistics.predict(states[shooter], states[entity], weapon_id, opts)
 
 
 ## 交战时间膨胀：有弹在飞时把时间倍速压到 COMBAT_SCALE_CAP，交战结束恢复。
@@ -6483,6 +6518,7 @@ func load_state(json_text: String) -> Dictionary:
 		"authority_restore_reasons": _authority_restore_reasons.duplicate(),
 		"identity_restore_mode": _identity_restore_mode,
 		"ew_restore_mode": _ew_restore_mode,
+		"ew_restore_missing": _ew_restore_missing.duplicate(),
 		"pending_intel_shares": _pending_intel_shares.size()}
 
 
