@@ -1,0 +1,166 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+JC-A02 IDENTITY PIPELINE PROBE · 四来源/单一写者/owner隔离/IFF/消费者/恢复
+════════════════════════════════════════════════════════════════
+
+[A02] STEP R1 单一写者与重复证据抑制
+[A02] PASS session ready  []
+[A02] PASS 首次证据 ingest ok
+[A02] PASS 完全相同证据判重  { "ok": true, "owner_id": "player_intel", "target_id": "raider_2", "duplicate": true, "late_ignored": false, "evidence_id": "", "assessment": { "schema": "identity_assessment.v1", "target_id": "raider_2", "identity": "friend", "confidence": 0.675, "level": 3, "level_name": "L3_CLASSIFIED", "sources": ["transponder"], "categories": ["iff"], "contradictions": [], "spoof_suspicion": 0.0, "evidence_count": 1, "last_update": 0.0, "age": 0.0, "auto": true, "manual": false, "authorized": false, "trigger_hint": "", "notes": [], "writes_v15": false }, "operational": { "identity": "friend", "identity_confidence": 0.675, "identity_state": "valid", "identity_manual": false, "identity_authorized": false, "identity_sources": ["transponder"], "identity_evidence_count": 1, "identity_observed_t": 0.0, "identity_updated_t": 0.0, "identity_ttl_s": 12.0, "identity_level": 3, "identity_audited": false, "identity_audit_ids": [], "owner_id": "player_intel", "target_id": "raider_2", "write_seq": 1 } }
+[A02] PASS 操作性身份可读
+[A02] PASS 操作性身份有写入计数  1
+[A02] PASS 一次有效证据只产生一次身份写入（重复不放大）  writes_before=0 after=1
+[A02] PASS owner 情报轨迹存在
+[A02] PASS owner 轨迹身份来自唯一写者  actual=friend expected=friend
+
+[A02] STEP R2 四来源各自有效（IFF/ELINT/光学/人工）
+[A02] PASS IFF 来源 ingest ok
+[A02] PASS ELINT 来源 ingest ok
+[A02] PASS 光学来源 ingest ok
+[A02] PASS 人工来源（带授权）ok
+[A02] PASS IFF 单源 friend  actual=friend expected=friend
+[A02] PASS ELINT 单源 suspect  actual=suspect expected=suspect
+[A02] PASS 光学单源 neutral  actual=neutral expected=neutral
+[A02] PASS 人工权威 hostile  actual=hostile expected=hostile
+[A02] PASS 操作性身份置信度与评估一致（容差1e-9）  0.675 vs 0.675
+[A02] PASS 操作性身份带 IFF/身份状态  valid
+
+[A02] STEP R3 冲突：IFF friend + 光学 hostile 不得维持 friend
+[A02] PASS 冲突后不维持 friend  suspect
+[A02] PASS 冲突状态可读  actual=conflict expected=conflict
+[A02] PASS 冲突证据被记录
+
+[A02] STEP R4 TTL / 同 tick 边界 / 迟到证据
+[A02] PASS TTL 内状态 valid  actual=valid expected=valid
+[A02] PASS 超过 TTL 后不再 valid  stale
+[A02] PASS 新证据刷新 TTL  actual=valid expected=valid
+[A02] PASS 迟到证据被接受但不主导
+[A02] PASS 迟到旧证据被标记 late_ignored  true
+[A02] PASS 迟到证据不改变当前结论  suspect
+
+[A02] STEP R5 IFF 查询状态：有效回应/无回应/缺配置/受干扰
+[A02] PASS 有配置目标可查询  reply
+[A02] PASS IFF 状态属于合法枚举  valid
+[A02] PASS 回应声明不直接成敌对  friend
+[A02] PASS 无应答配置给明确 unavailable  unavailable
+[A02] PASS scenario 应答配置可查询  reply
+[A02] PASS scenario profile 有明确 valid 状态  actual=valid expected=valid
+[A02] PASS 应答声明未静默成友军  unknown
+[A02] PASS 受干扰/遮挡有明确状态  no_reply
+[A02] PASS 无回应未被解成敌对/友军
+
+[A02] STEP R6 人工确认：未授权拒绝/授权审计/撤销恢复/不越权
+[A02] PASS 未授权人工确认被拒绝  unauthorized
+[A02] PASS 拒绝原因明确  unauthorized
+[A02] PASS 未授权确认不改变操作性身份
+[A02] PASS 授权人工确认 ok
+[A02] PASS 人工确认成为操作性身份  actual=friend expected=friend
+[A02] PASS 操作性身份标记 manual
+[A02] PASS 操作性身份标记 authorized
+[A02] PASS 人工确认可审计
+[A02] PASS 人工确认不覆写隐藏真值 side  actual= expected=
+[A02] PASS 撤销人工确认 ok
+[A02] PASS 撤销后恢复推断  actual=suspect expected=suspect
+[A02] PASS 撤销后 manual 标记清除
+
+[A02] STEP R7 两个 owner 同一目标不同证据不串域
+[A02] PASS player owner 身份独立  actual=friend expected=friend
+[A02] PASS ally owner 身份独立（单源未授权 hostile→suspect）  actual=suspect expected=suspect
+[A02] PASS 两个 owner 结论不互相污染
+[A02] PASS 未知 owner 被拒绝  unknown_owner
+
+[A02] STEP R8 HUD 与火控读同一操作性身份
+[A02] PASS 火控读到与 owner 相同的操作性身份  actual=suspect expected=suspect
+[A02] PASS HUD ident_view 读到同一操作性身份  actual=suspect expected=suspect
+[SHELL BINDER] CICView ready=true truth=false tracks=0 levels={ "1": 0, "2": 0, "3": 0, "4": 0 } facilities=0
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=1 by_identity={ "friend": 1 } evidence={ "raider_2": 1 } auto=false
+[A02] PASS HUD 反映人工 friend  actual=friend expected=friend
+[A02] PASS 友军身份不自动给开火许可  needs_authorization
+[A02] PASS 拒绝原因来自身份/ROE 而非授权缺失  needs_authorization
+
+[A02] STEP R9 旧单实例存档迁移 + 真实文件恢复 + 继续 10 tick
+[A02] PASS 真实文件恢复成功  []
+[A02] PASS 恢复模式公开可读  full
+[A02] PASS player owner 身份恢复  actual=friend expected=friend
+[A02] PASS ally owner 身份恢复  actual=suspect expected=suspect
+[A02] PASS 10 tick 后身份一致  actual=friend expected=friend
+[A02] PASS 10 tick 后 TTL/状态一致  actual=valid expected=valid
+[A02] PASS 10 tick 后置信度一致（容差1e-9）
+[A02] PASS 旧单实例存档可加载  []
+[A02] PASS 旧档恢复模式明确  legacy_single_owner
+
+[A02] STEP R10 真实入口：盟军IFF查询不串本舰 / 默认与显式mode单事件 / 真实ELINT类别
+[A02] PASS ally 真实 IFF 查询 ok  reply
+[A02] PASS ally 查询状态合法  valid
+[A02] PASS 盟军查询回复不写本舰 owner（不串域）
+[A02] PASS 本舰默认 mode 查询 ok
+[A02] PASS 默认 mode 同一回复只形成一条证据  actual=1 expected=1
+[A02] PASS 显式 mode_s 同一回复只形成一条证据  actual=1 expected=1
+[A02] PASS 真实 ELINT 事件进入路由（TrackTable 可因无航迹拒绝）  unknown_track
+[A02] PASS ELINT 证据 source 保留  actual=elint expected=elint
+[A02] PASS ELINT 证据 category 不被改写成 iff  actual=elint expected=elint
+[A02] PASS ELINT 证据 evidence_type 保留  actual=elint expected=elint
+
+[A02] STEP R11 真实 Binder 旧入口：受信权限+审计；跨 owner 写入拒绝
+[A02] PASS Binder 旧确认入口可用（受信 cic_operator）
+[A02] PASS Binder 确认进入操作性身份  actual=friend expected=friend
+[A02] PASS Binder 确认标记 manual
+[A02] PASS Binder 确认产生审计记录  ["IDA-000001"]
+[A02] PASS 不可信 actor 不能向 ally owner 写人工确认  actor_not_authorized
+[A02] PASS Binder 撤销入口可用（受信权限）
+[A02] PASS Binder 撤销后 manual 清除
+
+[A02] STEP R12 实际 HUD 航迹键（T0001→raider_2）解析到同一 owner 身份
+[A02] PASS 实体键人工 friend ok
+[A02] PASS HUD T0001 键解析到同一 owner 身份  actual=friend expected=friend
+[A02] PASS HUD 航迹键解析出实体键  actual=raider_2 expected=raider_2
+[A02] PASS 火控边界把同一身份投影到实际 T0001 航迹  actual=friend expected=friend
+[A02] PASS 实际 T0001 路径不再因未知身份停在 unknown_track  needs_authorization
+
+[A02] STEP R13 TTL 进入消费者：过期后 HUD 标记失效、火控不把 friend 当有效
+[A02] PASS 过期后 validity=expired  actual=expired expected=expired
+[A02] PASS 过期后 valid=false  actual=false expected=false
+[A02] PASS 过期后 effective_identity=unknown（历史仍保留）  actual=unknown expected=unknown
+[A02] PASS HUD 消费过期有效性  actual=false expected=false
+[A02] PASS HUD 显示过期状态  actual=expired expected=expired
+[A02] PASS 火控不把过期 friend 当有效身份  actual=unknown expected=unknown
+[A02] PASS 火控仍保留最后已知身份作历史  actual=friend expected=friend
+
+[A02] STEP R14 合法迟到证据：审计保留且不污染下一 tick 重算
+[A02] PASS 迟到旧证据标记 late_ignored  true
+[A02] PASS 迟到证据不污染下一 tick 重算（结论不变）  actual=friend expected=friend
+
+[A02] STEP R15 IFF 传输状态与身份评估状态分离（冲突不被覆盖；遮挡不冒充 jammed）
+[A02] PASS 冲突后真实 IFF 查询 ok
+[A02] PASS IFF 传输状态不覆盖 assessment 冲突状态  actual=conflict expected=conflict
+[A02] PASS IFF 传输状态独立可读  valid
+[A02] PASS 遮挡按实际回复原因记为 no_reply  actual=no_reply expected=no_reply
+[A02] PASS 请求 jam 参数不冒充实际阻断原因  actual=occluded expected=occluded
+[A02] PASS 操作性身份读到实际 IFF 传输状态  actual=no_reply expected=no_reply
+
+[A02] STEP R16 真实延迟查询生命周期：pending → 到达后 valid；随档恢复
+[A02] PASS 延迟查询初始 pending  actual=pending expected=pending
+[A02] PASS 操作性身份可见 pending  actual=pending expected=pending
+[A02] PASS 延迟到达后状态转为实际结果  valid
+[A02] PASS 延迟查询存档恢复 ok  []
+[A02] PASS 队列计数在恢复结果中可读  actual=0 expected=0
+[A02] PASS 在途查询队列随档恢复
+[A02] PASS 恢复后延迟查询仍按 ETA 到达  valid
+
+[A02] STEP 总结
+[A02] INFO A02 验收：四来源/冲突/TTL/迟到/IFF/人工/owner隔离/消费者/恢复
+────────────────────────────────────────────────────────────────
+JC-A02 IDENTITY PIPELINE PROBE RESULT: PASS=110 FAIL=0
+JC-A02 IDENTITY PIPELINE PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 646 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 22 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)
