@@ -54,3 +54,12 @@ Full strict: 91 = 84 PASS / 7 历史 FAIL（new_fail=0、drift=0、complete=true
 - **R2 EW 旁路**：普通 opts.ignore_ew 明确拒绝（ew_bypass_forbidden）且不产生在途；仅 v1 outcome 内部迁移/重放经 _send_comms_impl(legacy) 调用 Comms.send_legacy_v1 保持接线前语义（不消耗 draw），旧档兼容保留。
 - **R4 严格恢复/正式正例**：v2 在途项必须携带 ew 冻结块（缺失 pending.ew 明确拒绝）；comms state version 先严格判整数再提交（2.5 拒绝、2.0 等价接受，拒绝不改服务状态）；正式成功共享改用合法 owner（player_intel）+ fresh observation row：到达前 receiver observations 0、精确 due tick 0→1、后续/重复保持 1；EW 失败共享仍不融合。
 - **探针**：106→131/0；卡指定专项 8/8、门禁 6/6+3/3、全量 91=84/7 new_fail=0。
+
+## 8. PR72 第三轮复核返修（R1 缺省分支收尾）
+
+- **现代 seed 缺省规则**：显式 `command_domains` + `fleet_instances` seed 下，无 load/replay 的新调用不再把「缺调用字段」当 legacy。
+  - own 域 sender 省略上下文：从可信本方锚点解析默认 domain/fleet/controller/owner 后放行（现代 own 默认保留）。
+  - ally/enemy 等非本方省略上下文：`sender_context_required` 明确拒绝，不产生在途；显式但缺必需字段：`sender_context_incomplete`。
+- **可信共享锚点**：`queue_intel_share` 缺省上下文时，若 `row.share_authorized_by` 等于发送域 owner，则从该授权锚点解析完整上下文（A01 生产共享路径保留）；无锚点仍拒绝。
+- **兼容边界**：真正旧 seed（无显式 `command_domains`/`fleet_instances`）缺省保持 legacy；已验证旧日志在 replay 中不重新鉴权；v1 内部迁移与普通 `ignore_ew` 禁止不变。
+- **探针**：131→141/0；卡指定专项 8/8、门禁 6/6+3/3、全量 91=84/7 new_fail=0。

@@ -658,6 +658,55 @@ func _run() -> void:
 	ver20["version"] = 2.0
 	_ok(bool(c10f.comms.load_state(ver20).get("ok", false)),
 		"整数等价 version 2.0 可接受")
+	# R1 缺省分支：现代显式 seed 下缺调用字段 ≠ 旧 seed/旧日志
+	var c10m = _new()
+	var own_default: Dictionary = c10m.send_comms("own_ship", "ally_ship", "LD",
+		"COMMS_SENT", {"content": "own default"}, {})
+	_ok(bool(own_default.get("ok", false)),
+		"现代 own 缺省上下文按可信本方锚点放行",
+		str(own_default.get("reason", "")))
+	var ally_missing: Dictionary = c10m.send_comms("ally_ship", "own_ship", "LD",
+		"COMMS_SENT", {}, {})
+	_eq(String(ally_missing.get("reason", "")), "sender_context_required",
+		"现代 ally 缺省上下文拒绝")
+	var enemy_missing: Dictionary = c10m.send_comms("enemy_ship", "own_ship",
+		"LD", "COMMS_SENT", {}, {})
+	_eq(String(enemy_missing.get("reason", "")), "sender_context_required",
+		"现代 enemy 缺省上下文拒绝")
+	var order_missing: Dictionary = c10m.issue_order("hold", "enemy_ship",
+		["own_ship"], {}, {"mode": "LD"})
+	_eq(String(order_missing.get("reason", "")), "sender_context_required",
+		"现代订单缺省上下文拒绝")
+	var row_no_anchor: Dictionary = row10.duplicate(true)
+	row_no_anchor["share_authorized_by"] = ""
+	var share_missing: Dictionary = c10m.queue_intel_share("ally_ship",
+		"own_ship", "player_intel", row_no_anchor, "COMMS_SENT", {})
+	_eq(String(share_missing.get("reason", "")), "sender_context_required",
+		"现代共享无锚点且缺上下文拒绝")
+	var share_anchor: Dictionary = c10m.queue_intel_share("ally_ship",
+		"own_ship", "player_intel", row10, "COMMS_SENT", {})
+	_ok(bool(share_anchor.get("ok", false)),
+		"合法来源 owner 授权锚点可解析共享缺省上下文",
+		str(share_anchor.get("reason", "")))
+	var ally_partial: Dictionary = c10m.send_comms("ally_ship", "own_ship",
+		"LD", "COMMS_SENT", {}, {"actor_id": "ally_ai"})
+	_eq(String(ally_partial.get("reason", "")), "sender_context_incomplete",
+		"现代 ally 显式上下文缺字段拒绝")
+	var ally_explicit: Dictionary = c10m.send_comms("ally_ship", "own_ship",
+		"LD", "COMMS_SENT", {"content": "ally explicit"}, _ctx("ally"))
+	_ok(bool(ally_explicit.get("ok", false)),
+		"现代 ally 显式合法上下文继续可用",
+		str(ally_explicit.get("reason", "")))
+	var ev10m: Array = _advance(c10m, 3.0)
+	_eq(_delivered_ids(ev10m).size(), 3,
+		"own 缺省、ally 显式与锚点共享三条实际送达")
+	# 真正旧 seed（无显式 command_domains/fleet_instances）：缺省保持 legacy
+	var c10old = _new({"command_domains": [], "fleet_instances": []})
+	var old_send: Dictionary = c10old.send_comms("ally_ship", "own_ship", "LD",
+		"COMMS_SENT", {}, {})
+	_ok(bool(old_send.get("ok", false)), "真正旧 seed 缺省调用保持 legacy 兼容",
+		str(old_send.get("reason", "")))
+
 func _find_ew_seed(want_fail: bool) -> int:
 	for k in range(0, 120):
 		var s = _new({"comms_ew_seed": k})

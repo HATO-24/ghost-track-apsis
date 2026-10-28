@@ -3254,10 +3254,55 @@ func _pending_ids() -> Dictionary:
 			out[String((raw as Dictionary).get("delivery_id", ""))] = true
 	return out
 
+# R1：合法来源 owner 授权（row.share_authorized_by == 发送域 owner）可作为
+# 可信锚点，解析现代缺省的共享 sender 上下文；普通 send/order 不走此锚点。
+func _derive_share_context(from_id: String, row: Dictionary,
+		opts: Dictionary) -> Dictionary:
+	if not _authority_enabled or authority_intel == null:
+		return {}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	for cf in ["actor_id", "controller_id", "domain_id", "fleet_id",
+			"owner_id", "intel_owner_id"]:
+		if o.has(cf):
+			return {}
+	if not _seed_has_modern_authority():
+		return {}
+	var instances: Dictionary = authority_intel.instances if \
+		authority_intel.instances is Dictionary else {}
+	if not instances.has(from_id):
+		return {}
+	var inst: Dictionary = instances[from_id] if instances[from_id] is Dictionary else {}
+	var dom_id := String(inst.get("domain_id", ""))
+	if dom_id == "" or dom_id == _own_domain_id():
+		return {}
+	var domains: Dictionary = authority_intel.domains if \
+		authority_intel.domains is Dictionary else {}
+	if not domains.has(dom_id):
+		return {}
+	var dom: Dictionary = domains[dom_id] if domains[dom_id] is Dictionary else {}
+	var share_auth := String(row.get("share_authorized_by", "")) if \
+		row is Dictionary else ""
+	if share_auth == "" or share_auth != String(dom.get("intel_owner_id", "")):
+		return {}
+	var actors: Array = dom.get("authorized_actors", []) \
+		if dom.get("authorized_actors") is Array else []
+	var actor := String(dom.get("controller_id", ""))
+	if actors.size() > 0:
+		actor = String(actors[0])
+	return {"actor_id": actor,
+		"controller_id": String(dom.get("controller_id", "")),
+		"domain_id": dom_id,
+		"fleet_id": String(inst.get("fleet_id", dom.get("fleet_id", ""))),
+		"owner_id": String(dom.get("intel_owner_id", "")),
+		"intel_owner_id": String(dom.get("intel_owner_id", ""))}
+
 # R1：校验真实 sender 与 actor/controller/domain/fleet/owner 上下文。
 # 无上下文（旧 seed/旧日志）保持 legacy；已知节点不等于授权；未知 sender 交给
 # Comms 的 unknown_from 明确拒绝。只在 authority 组件可用时校验。
 func _authorize_comms_sender(from_id: String, opts := {}) -> Dictionary:
+	if _replaying:
+		# 已验证旧日志的重放：恢复语义，不重新鉴权。
+		return {"ok": true, "replay": true}
 	if not _authority_enabled or authority_intel == null:
 		return {"ok": true, "legacy": true}
 	var o: Dictionary = opts if opts is Dictionary else {}
@@ -3267,23 +3312,62 @@ func _authorize_comms_sender(from_id: String, opts := {}) -> Dictionary:
 	for cf in ctx_fields:
 		if o.has(cf):
 			has_ctx = true
-	if not has_ctx:
-		return {"ok": true, "legacy": true}
 	var instances: Dictionary = authority_intel.instances if \
 		authority_intel.instances is Dictionary else {}
-	if not instances.has(from_id):
-		# 未登记 sender：不是合法授权身份；由 Comms unknown_from 拒绝。
-		return {"ok": true, "unregistered": true}
-	var inst: Dictionary = instances[from_id] if instances[from_id] is Dictionary else {}
-	var dom_id := String(inst.get("domain_id", ""))
 	var domains: Dictionary = authority_intel.domains if \
 		authority_intel.domains is Dictionary else {}
+	var modern := _seed_has_modern_authority()
+	var registered := instances.has(from_id)
+	var dom_id := ""
+	if registered:
+		var inst0: Dictionary = instances[from_id] if \
+			instances[from_id] is Dictionary else {}
+		dom_id = String(inst0.get("domain_id", ""))
+	if not has_ctx:
+		# 缺调用字段 ≠ 旧 seed/旧日志：现代显式 seed 下只允许可信本方缺省，
+		# 非本方请求必须显式携带合法上下文，否则明确拒绝。
+		if not modern:
+			return {"ok": true, "legacy": true}
+		if not registered:
+			# 未登记节点交给 Comms 的 unknown_from 明确拒绝，不当授权。
+			return {"ok": true, "unregistered": true}
+		var own_dom_0 := _own_domain_id()
+		if dom_id == own_dom_0:
+			var d0: Dictionary = domains.get(dom_id, {}) if \
+				domains.get(dom_id) is Dictionary else {}
+			var i0: Dictionary = instances[from_id] if \
+				instances[from_id] is Dictionary else {}
+			return {"ok": true, "default_own": true, "domain_id": dom_id,
+				"actor_id": String(d0.get("controller_id", "")),
+				"controller_id": String(d0.get("controller_id", "")),
+				"fleet_id": String(i0.get("fleet_id", d0.get("fleet_id", ""))),
+				"owner_id": String(d0.get("intel_owner_id", ""))}
+		return {"ok": false, "reason": "sender_context_required",
+			"sender": from_id, "domain_id": dom_id}
+	if not registered:
+		return {"ok": true, "unregistered": true}
 	if not domains.has(dom_id):
 		return {"ok": true, "legacy": true}
 	var dom: Dictionary = domains[dom_id] if domains[dom_id] is Dictionary else {}
+	var own_dom := _own_domain_id()
+	# 现代非本方的显式上下文必须完整（缺字段不能退化成 legacy）。
+	if modern and dom_id != own_dom:
+		var required := ["actor_id", "controller_id", "domain_id", "fleet_id",
+			"owner_id"]
+		var missing: Array = []
+		for rk in required:
+			if rk == "owner_id":
+				if not o.has("owner_id") and not o.has("intel_owner_id"):
+					missing.append(rk)
+			elif not o.has(rk):
+				missing.append(rk)
+		if missing.size() > 0:
+			return {"ok": false, "reason": "sender_context_incomplete",
+				"sender": from_id, "missing": missing}
 	var expected := {
 		"domain_id": dom_id,
-		"fleet_id": String(inst.get("fleet_id", dom.get("fleet_id", ""))),
+		"fleet_id": String(instances[from_id].get("fleet_id",
+			dom.get("fleet_id", ""))) if instances[from_id] is Dictionary else "",
 		"controller_id": String(dom.get("controller_id", "")),
 		"owner_id": String(dom.get("intel_owner_id", "")),
 		"intel_owner_id": String(dom.get("intel_owner_id", "")),
@@ -3303,8 +3387,26 @@ func _authorize_comms_sender(from_id: String, opts := {}) -> Dictionary:
 				"expected": str(actors), "actual": String(o.get("actor_id", ""))}
 	return {"ok": true, "domain_id": dom_id}
 
-# JC-A04：真实 comms 结果回调（由 OrderService.tick 在唯一 Comms 推进后转发）。
-# delivered/failed 决定 session 事件、共享融合与成功只消费一次；pending 消失不再当送达。
+
+func _seed_has_modern_authority() -> bool:
+	var cds = _seed.get("command_domains", [])
+	var fis = _seed.get("fleet_instances", [])
+	return cds is Array and (cds as Array).size() > 0 and fis is Array \
+		and (fis as Array).size() > 0
+
+
+func _own_domain_id() -> String:
+	if not _authority_enabled or authority_intel == null:
+		return "player"
+	var own_entity := String(_seed.get("own_entity", ""))
+	var insts: Dictionary = authority_intel.instances if \
+		authority_intel.instances is Dictionary else {}
+	if own_entity != "" and insts.has(own_entity):
+		var oi: Dictionary = insts[own_entity] if insts[own_entity] is Dictionary else {}
+		var d := String(oi.get("domain_id", ""))
+		if d != "":
+			return d
+	return "player"
 func _on_comms_events(events: Array) -> void:
 	for raw in events:
 		if not (raw is Dictionary):
@@ -7394,8 +7496,13 @@ func queue_intel_share(from_id: String, to_id: String, owner_id: String,
 		row: Dictionary, text_key := "COMMS_SENT", opts := {}) -> Dictionary:
 	if comms == null:
 		return {"ok": false, "reason": "no_comms"}
-	# R1：共享入口同样校验 sender 上下文；接收 owner 必须是 to 实体的合法 owner。
-	var auth_share: Dictionary = _authorize_comms_sender(from_id, opts)
+	# R1：共享入口同样校验 sender 上下文；合法来源 owner 授权可作可信锚点
+	# 解析现代缺省上下文（A01 生产共享路径），普通 send/order 的缺省仍拒绝。
+	var share_opts: Dictionary = opts if opts is Dictionary else {}
+	var anchor_opts: Dictionary = _derive_share_context(from_id, row, share_opts)
+	if not anchor_opts.is_empty():
+		share_opts = anchor_opts
+	var auth_share: Dictionary = _authorize_comms_sender(from_id, share_opts)
 	if not bool(auth_share.get("ok", false)):
 		return {"ok": false, "reason": String(auth_share.get("reason", "")),
 			"context": auth_share}
@@ -7420,7 +7527,7 @@ func queue_intel_share(from_id: String, to_id: String, owner_id: String,
 		"share_authorized_by": String(row.get("observer_id", "")) \
 			if false else String(row.get("share_authorized_by", "")),
 	}}
-	var sr: Dictionary = comms.send(from_id, to_id, "LD", text_key, payload, opts)
+	var sr: Dictionary = comms.send(from_id, to_id, "LD", text_key, payload, share_opts)
 	if not bool(sr.get("ok", false)):
 		return sr
 	var did := String(sr.get("delivery_id", ""))

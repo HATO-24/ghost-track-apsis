@@ -155,7 +155,17 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
 [A04] PASS 服务级 version 2.5 拒绝
 [A04] PASS 版本拒绝不改变服务状态  (actual=0 expected=0)
 [A04] PASS 整数等价 version 2.0 可接受
+[A04] PASS 现代 own 缺省上下文按可信本方锚点放行
+[A04] PASS 现代 ally 缺省上下文拒绝  (actual=sender_context_required expected=sender_context_required)
+[A04] PASS 现代 enemy 缺省上下文拒绝  (actual=sender_context_required expected=sender_context_required)
+[A04] PASS 现代订单缺省上下文拒绝  (actual=sender_context_required expected=sender_context_required)
+[A04] PASS 现代共享无锚点且缺上下文拒绝  (actual=sender_context_required expected=sender_context_required)
+[A04] PASS 合法来源 owner 授权锚点可解析共享缺省上下文
+[A04] PASS 现代 ally 显式上下文缺字段拒绝  (actual=sender_context_incomplete expected=sender_context_incomplete)
+[A04] PASS 现代 ally 显式合法上下文继续可用
+[A04] PASS own 缺省、ally 显式与锚点共享三条实际送达  (actual=3 expected=3)
+[A04] PASS 真正旧 seed 缺省调用保持 legacy 兼容
 ────────────────────────────────────────────────────────────────
-JC-A04 EW COMMS PROBE RESULT: PASS=131 FAIL=0
+JC-A04 EW COMMS PROBE RESULT: PASS=141 FAIL=0
 [A04] ALL PASS
 AUDIO OK files=36 headless=true muted=false
