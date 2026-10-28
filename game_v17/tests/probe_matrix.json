@@ -807,6 +807,19 @@
       "timeout_s": 420
     },
     {
+      "id": "integration.jc_ew_comms",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "JC-A04 (#61): EW enters the real comms chain and stays deterministic across restore: all three real send entries sample comms EW at send time (jam=.5 -> +20s, failure=.4) with a frozen deterministic draw; scheduled failure yields real FAILED (comms_jam) never fake delivered; orders reject from real results and pending disappearance is never delivery; intel shares fuse only on real delivered; same seed reproduces draws, file restore does not resample and continues tick-identically incl next-message PRNG; outcome v2 carries EW sample with v1 migration and unknown versions rejected; state v2 carries RNG state with v1 migration; EW=0 keeps legacy route/latency/reasons.",
+      "script": "res://tests/jc_ew_comms_probe.gd",
+      "expected_markers": [
+        "JC-A04 EW COMMS PROBE RESULT:"
+      ],
+      "result": "probe",
+      "timeout_s": 420
+    },
+    {
       "id": "integration.jc_identity_pipeline",
       "category": "integration",
       "profile": "",

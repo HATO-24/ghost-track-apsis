@@ -227,6 +227,12 @@ var config: Dictionary = {}
 var _delivery_seq := 0
 var _event_seq := 0
 var _jam_threshold := DEFAULT_JAM_THRESHOLD
+# JC-A04：发送时刻的 EW 链路 effect + 确定性抽样状态（随档保存）
+var ew_service = null
+var _ew_seed := 0
+var _ew_seq := 0
+var _ew_forced_draw := -1.0   # 测试注入：一次性覆盖下一条 draw；不进存档/公开玩家选项
+var _sender_authorizer = null  # Session 注入：校验 sender 与 actor/controller/fleet/owner 上下文
 
 var _event_out: Array = []        # 兼容别名
 
@@ -494,10 +500,93 @@ func _find_link_dir(a: String, b: String, mode: String) -> int:
 	return -1
 
 
+# ── EW 链路采样（JC-A04）─────────────────────────────────────────
+
+# 接线：EW 服务提供发送时刻链路 effect（纯读，不写 world/TrackTable）。
+func set_ew_service(obj) -> void:
+	ew_service = obj
+
+
+# R1：Session 注入的 sender↔actor/controller/fleet/owner 校验器。
+func set_sender_authorizer(fn) -> void:
+	_sender_authorizer = fn
+
+
+# 确定性抽样：同 seed + 发送顺序 → 同 draw；真实文件恢复保留 seed/seq。
+func set_ew_rng(seed_value: int) -> void:
+	_ew_seed = int(seed_value)
+
+
+func reset_ew_rng(seed_value := 0) -> void:
+	_ew_seed = int(seed_value)
+	_ew_seq = 0
+
+
+func ew_rng_state() -> Dictionary:
+	return {"seed": _ew_seed, "seq": _ew_seq}
+
+
+# 测试注入：仅影响下一条 draw；不保存、不公开为玩家选项。
+func debug_force_draw(x: float) -> void:
+	_ew_forced_draw = clampf(float(x), 0.0, 1.0)
+
+
+func _ew_draw_next(delivery_id: String, from_id: String) -> float:
+	_ew_seq += 1
+	if _ew_forced_draw >= 0.0:
+		var forced := _ew_forced_draw
+		_ew_forced_draw = -1.0
+		return forced
+	var hs := "%d|%d|%s|%s" % [_ew_seed, _ew_seq, delivery_id, from_id]
+	return float(hash(hs) & 0x7fffffff) / 2147483647.0
+
+
+# 发送时刻冻结：返回本次实际使用的 EW 采样（含确定性 draw/will_fail）。
+func _sample_ew_for_send(to_id: String, delivery_id: String, from_id: String,
+		ignore_ew := false) -> Dictionary:
+	var snap := {"jam_severity": 0.0, "latency_add_s": 0.0,
+		"failure_chance": 0.0, "draw": -1.0, "will_fail": false,
+		"sampled_t": t, "target_id": to_id, "ignored": ignore_ew}
+	if ignore_ew:
+		return snap
+	if ew_service != null and ew_service.has_method("comms_effect"):
+		# 链路两端都可能是 EW 作用对象：取两端商业 effect 的最大 severity 组合，
+		# 一次发送只抽一次 draw（发送时刻冻结）。
+		var eff_to: Dictionary = ew_service.comms_effect(to_id)
+		var eff_from: Dictionary = ew_service.comms_effect(from_id)
+		var jam := maxf(clampf(float(eff_to.get("jam_severity", 0.0)), 0.0, 1.0),
+			clampf(float(eff_from.get("jam_severity", 0.0)), 0.0, 1.0))
+		var add := maxf(maxf(0.0, float(eff_to.get("latency_add_s", 0.0))),
+			maxf(0.0, float(eff_from.get("latency_add_s", 0.0))))
+		var fc := maxf(clampf(float(eff_to.get("failure_chance", 0.0)), 0.0, 1.0),
+			clampf(float(eff_from.get("failure_chance", 0.0)), 0.0, 1.0))
+		var draw := _ew_draw_next(delivery_id, from_id)
+		snap = {"jam_severity": jam, "latency_add_s": add,
+			"failure_chance": fc, "draw": draw, "will_fail": draw < fc,
+			"sampled_t": t, "target_id": to_id,
+			"from_id": from_id, "ignored": false}
+	return snap
+
+
 # ── 发送 / 投递 ──────────────────────────────────────────────────
 
 func send(from_id: String, to_id: String, mode: String, text_key: String,
 		payload := {}, opts := {}) -> Dictionary:
+	# R2：普通发送不得请求 EW 旁路；只有 v1 迁移路径可走 send_legacy_v1。
+	if opts is Dictionary and (opts as Dictionary).has("ignore_ew"):
+		return _fail_send(from_id, to_id, String(mode).to_upper(), text_key,
+			"ew_bypass_forbidden")
+	return _send_core(from_id, to_id, mode, text_key, payload, opts, false)
+
+
+## 仅供 v1 outcome 内部迁移/重放：保持 EW 接线前的语义，不接受普通 opts 旁路。
+func send_legacy_v1(from_id: String, to_id: String, mode: String,
+		text_key: String, payload := {}, opts := {}) -> Dictionary:
+	return _send_core(from_id, to_id, mode, text_key, payload, opts, true)
+
+
+func _send_core(from_id: String, to_id: String, mode: String, text_key: String,
+		payload := {}, opts := {}, legacy_ignore_ew := false) -> Dictionary:
 	var m := String(mode).to_upper()
 	if not (m in MODES):
 		return _fail_send(from_id, to_id, m, text_key, "invalid_mode")
@@ -507,6 +596,15 @@ func send(from_id: String, to_id: String, mode: String, text_key: String,
 		return _fail_send(from_id, to_id, m, text_key, "unknown_to")
 	var p: Dictionary = payload if payload is Dictionary else {}
 	var o: Dictionary = opts if opts is Dictionary else {}
+	# R1：真实 sender 与调用方 actor/controller/fleet/owner 上下文必须一致；
+	# v1 内部迁移重放不重新鉴权。
+	if not legacy_ignore_ew and _sender_authorizer != null \
+			and _sender_authorizer is Callable \
+			and (_sender_authorizer as Callable).is_valid():
+		var auth: Dictionary = (_sender_authorizer as Callable).call(from_id, o)
+		if not bool(auth.get("ok", false)):
+			return _fail_send(from_id, to_id, m, text_key,
+				String(auth.get("reason", "sender_context_mismatch")))
 	var from_node: Dictionary = nodes[from_id]
 	var to_node: Dictionary = nodes[to_id]
 	var content := String(p.get("content", p.get("text", o.get("content", ""))))
@@ -529,10 +627,16 @@ func send(from_id: String, to_id: String, mode: String, text_key: String,
 	var route: Dictionary = find_route(from_id, to_id, m, o)
 	if not bool(route.get("ok", false)):
 		return _fail_send(from_id, to_id, m, text_key, String(route.get("reason", "no_route")))
-	var latency := float(route.get("latency_s", 0.0))
+	var base_latency := maxf(0.0, float(route.get("latency_s", 0.0)))
 	var delivery_id := "C-%06d" % (_delivery_seq + 1)
 	_delivery_seq += 1
-	var arrive_t := t + maxf(0.0, latency)
+	# JC-A04：在**发送时刻**冻结 EW 采样与确定性 draw；到达时只按记录结果执行，
+	# 读档/重放不得重新抽样改变结果。
+	var ew_snap: Dictionary = _sample_ew_for_send(to_id, delivery_id, from_id,
+		legacy_ignore_ew)
+	var ew_add := float(ew_snap.get("latency_add_s", 0.0))
+	var latency := base_latency + ew_add
+	var arrive_t := t + latency
 	var link_idxs: Array = (route.get("links", []) as Array).duplicate()
 	var loss := 0.0
 	for idx in link_idxs:
@@ -542,7 +646,9 @@ func send(from_id: String, to_id: String, mode: String, text_key: String,
 		"delivery_id": delivery_id, "from": from_id, "to": to_id, "mode": m,
 		"text_key": text_key, "text": String(selected.get("text", "")),
 		"content": content, "path": (route.get("path", []) as Array).duplicate(),
-		"latency_s": latency, "relay_count": int(route.get("relay_count", 0)),
+		"latency_s": latency, "latency_base_s": base_latency,
+		"latency_ew_add_s": ew_add, "ew": ew_snap.duplicate(true),
+		"relay_count": int(route.get("relay_count", 0)),
 		"packet_loss": loss, "arrive_t": arrive_t, "sent_t": t,
 		"links": link_idxs,
 	}
@@ -554,8 +660,10 @@ func send(from_id: String, to_id: String, mode: String, text_key: String,
 	return {"ok": true, "reason": "", "delivery_id": delivery_id,
 		"from": from_id, "to": to_id, "mode": m, "text_key": text_key,
 		"text": String(selected.get("text", "")), "path": (route.get("path", []) as Array).duplicate(),
-		"latency_s": latency, "relay_count": int(route.get("relay_count", 0)),
-		"arrive_t": arrive_t, "packet_loss": loss,
+		"latency_s": latency, "latency_base_s": base_latency,
+		"latency_ew_add_s": ew_add, "ew": ew_snap.duplicate(true),
+		"relay_count": int(route.get("relay_count", 0)),
+		"arrive_t": arrive_t, "sent_t": t, "packet_loss": loss,
 		"from_name": String(from_node.get("name", from_id)),
 		"to_name": String(to_node.get("name", to_id)),
 		"writes_v15": false}
@@ -580,7 +688,12 @@ func _fail_send(from_id: String, to_id: String, mode: String, text_key: String,
 		"text_key": text_key, "text": txt, "reason": reason, "path": []}
 	_emit("FAILED", ev, {"reason": reason, "text": txt, "path": []})
 	return {"ok": false, "reason": reason, "from": from_id, "to": to_id, "mode": mode,
-		"text_key": text_key, "text": txt, "delivery_id": "", "writes_v15": false}
+		"text_key": text_key, "text": txt, "delivery_id": "",
+		"latency_s": 0.0, "latency_base_s": 0.0, "latency_ew_add_s": 0.0,
+		"arrive_t": -1.0, "sent_t": t, "ew": {"jam_severity": 0.0,
+			"latency_add_s": 0.0, "failure_chance": 0.0, "draw": -1.0,
+			"will_fail": false, "sampled_t": t, "target_id": to_id,
+			"ignored": false}, "writes_v15": false}
 
 
 func tick(dt: float) -> Array:
@@ -612,6 +725,11 @@ func tick(dt: float) -> Array:
 						reason = "occluded"
 					elif float(l.get("jam", 0.0)) >= _jam_threshold:
 						reason = "jammed"
+		if reason == "":
+			# JC-A04：发送时刻已冻结的 EW 失败结果，到达时执行（不重新抽样）
+			var ew_rec: Dictionary = rec.get("ew", {}) if rec.get("ew") is Dictionary else {}
+			if bool(ew_rec.get("will_fail", false)):
+				reason = "comms_jam"
 		if reason == "":
 			var loss := float(rec.get("packet_loss", 0.0))
 			if loss > 0.0:
@@ -724,7 +842,9 @@ func to_json() -> String:
 # ── JC-A01/R4：在途投递与链路状态的存档/恢复 ─────────────────────
 # 旧实现只保存会话其他组件，Comms.pending 丢失会被误判为「已送达」。
 const STATE_SCHEMA := "v17.comms.state.v1"
-const STATE_VERSION := 1
+# JC-A04 v2：新增发送时刻 EW 采样与确定性 RNG 状态；v1 作为合法旧档迁移。
+const STATE_VERSION := 2
+const STATE_VERSION_LEGACY := 1
 
 
 func export_state() -> Dictionary:
@@ -752,6 +872,7 @@ func export_state() -> Dictionary:
 	return {"schema": STATE_SCHEMA, "version": STATE_VERSION,
 		"t": t, "dt_last": dt_last, "step_count": step_count,
 		"delivery_seq": _delivery_seq, "event_seq": _event_seq,
+		"ew_rng": ew_rng_state(),
 		"pending": JSON.parse_string(JSON.stringify(pend)),
 		"links": link_rows, "nodes": node_rows}
 
@@ -765,8 +886,35 @@ func load_state(st) -> Dictionary:
 	var s: Dictionary = st
 	if String(s.get("schema", "")) != STATE_SCHEMA:
 		return {"ok": false, "reason": "invalid_schema"}
-	if int(s.get("version", 0)) != STATE_VERSION:
-		return {"ok": false, "reason": "invalid_version"}
+	# R4：先严格确认整数版本，再转换/提交；2.5 等非整数版本拒绝。
+	var raw_ver = s.get("version", null)
+	var ver_int := false
+	var ver_num := -1.0
+	if raw_ver is int or raw_ver is float:
+		ver_num = float(raw_ver)
+		ver_int = is_finite(ver_num) and absf(ver_num - roundf(ver_num)) <= 0.0
+	if not ver_int:
+		return {"ok": false, "reason": "invalid_version", "version": raw_ver}
+	var st_ver := int(roundf(ver_num))
+	if st_ver != STATE_VERSION and st_ver != STATE_VERSION_LEGACY:
+		return {"ok": false, "reason": "invalid_version", "version": raw_ver}
+	var legacy_v1 := st_ver == STATE_VERSION_LEGACY
+	var new_ew_seed := _ew_seed
+	var new_ew_seq := _ew_seq
+	if not legacy_v1:
+		var raw_rng = s.get("ew_rng", null)
+		if not (raw_rng is Dictionary):
+			return {"ok": false, "reason": "invalid_state", "errors": ["ew_rng"]}
+		var rng: Dictionary = raw_rng
+		for rk in ["seed", "seq"]:
+			var rv = rng.get(rk, null)
+			if not (rv is int or rv is float) or not is_finite(float(rv)) \
+					or absf(float(rv) - roundf(float(rv))) > 0.0 \
+					or float(rv) < 0.0:
+				return {"ok": false, "reason": "invalid_state",
+					"errors": ["ew_rng." + rk]}
+		new_ew_seed = int(rng.get("seed", _ew_seed))
+		new_ew_seq = maxi(_ew_seq, int(rng.get("seq", _ew_seq)))
 	for fld in ["t", "dt_last"]:
 		var v = s.get(fld, null)
 		if not (v is int or v is float) or not is_finite(float(v)) or float(v) < 0.0:
@@ -791,6 +939,52 @@ func load_state(st) -> Dictionary:
 		if not (at is int or at is float) or not is_finite(float(at)):
 			return {"ok": false, "reason": "invalid_state",
 				"errors": ["pending.arrive_t"]}
+		# R4：v2 必须携带冻结 EW 块；真正 v1 才允许缺省（迁移语义）。
+		if not legacy_v1:
+			if not (rec.get("ew") is Dictionary):
+				return {"ok": false, "reason": "invalid_state",
+					"errors": ["pending.ew"]}
+			var ewv: Dictionary = rec.get("ew")
+			if not (ewv.get("will_fail", false) is bool):
+				return {"ok": false, "reason": "invalid_state",
+					"errors": ["pending.ew.will_fail"]}
+			for ef in ["jam_severity", "latency_add_s", "failure_chance", "draw"]:
+				var ed = ewv.get(ef, null)
+				if not (ed is int or ed is float) or not is_finite(float(ed)):
+					return {"ok": false, "reason": "invalid_state",
+						"errors": ["pending.ew." + ef]}
+			var draw_v := float(ewv.get("draw", -1.0))
+			var fc_v := float(ewv.get("failure_chance", 0.0))
+			if draw_v < -1.0 - 1.0e-9 or draw_v > 1.0 + 1.0e-9 \
+					or fc_v < -1.0e-9 or fc_v > 1.0 + 1.0e-9:
+				return {"ok": false, "reason": "invalid_state",
+					"errors": ["pending.ew.range"]}
+			# 冻结结果一致性：will_fail 必须等于发送时刻 draw<failure_chance，
+			# 读档被篡改（改单字段）必须显式拒绝而不是改变结果。
+			if draw_v >= 0.0:
+				var expect_fail := draw_v < fc_v
+				if bool(ewv.get("will_fail", false)) != expect_fail:
+					return {"ok": false, "reason": "invalid_state",
+						"errors": ["pending.ew.frozen_result"]}
+			for lk in ["latency_base_s", "latency_ew_add_s", "latency_s"]:
+				var lv = rec.get(lk, null)
+				if not (lv is int or lv is float) or not is_finite(float(lv)) \
+						or float(lv) < 0.0:
+					return {"ok": false, "reason": "invalid_state",
+						"errors": ["pending." + lk]}
+			if absf(float(rec.get("latency_s", 0.0))
+					- (float(rec.get("latency_base_s", 0.0))
+						+ float(rec.get("latency_ew_add_s", 0.0)))) > 1.0e-6:
+				return {"ok": false, "reason": "invalid_state",
+					"errors": ["pending.latency_sum"]}
+			var st_t = rec.get("sent_t", null)
+			if not (st_t is int or st_t is float) or not is_finite(float(st_t)):
+				return {"ok": false, "reason": "invalid_state",
+					"errors": ["pending.sent_t"]}
+			if absf(float(rec.get("arrive_t", 0.0))
+					- (float(st_t) + float(rec.get("latency_s", 0.0)))) > 1.0e-6:
+				return {"ok": false, "reason": "invalid_state",
+					"errors": ["pending.arrive_t"]}
 		new_pending.append(rec)
 	# 提交
 	t = float(s.get("t", 0.0))
@@ -798,6 +992,8 @@ func load_state(st) -> Dictionary:
 	step_count = maxi(step_count, int(s.get("step_count", step_count)))
 	_delivery_seq = maxi(_delivery_seq, int(s.get("delivery_seq", _delivery_seq)))
 	_event_seq = maxi(_event_seq, int(s.get("event_seq", _event_seq)))
+	_ew_seed = new_ew_seed
+	_ew_seq = new_ew_seq
 	pending = new_pending
 	var raw_links = s.get("links", [])
 	if raw_links is Array:
@@ -823,5 +1019,7 @@ func load_state(st) -> Dictionary:
 				n2["status"] = String(nr.get("status", n2.get("status", "ok")))
 				n2["enabled"] = bool(nr.get("enabled", n2.get("enabled", true)))
 				n2["damage"] = float(nr.get("damage", n2.get("damage", 0.0)))
-	return {"ok": true, "restore_mode": "full", "pending": pending.size(),
+	return {"ok": true,
+		"restore_mode": "migrated_v1" if legacy_v1 else "full",
+		"pending": pending.size(),
 		"t": t}

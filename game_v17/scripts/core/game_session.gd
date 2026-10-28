@@ -153,6 +153,8 @@ var _seed: Dictionary = {}
 var _log: Array = []
 var _replaying := false
 var _standalone: Dictionary = {}   # delivery_id -> {from,to,mode,text_key,sent_t}
+var _comms_event_ids: Dictionary = {}   # 本 tick 已收到真实结果的 delivery_id
+var _comms_legacy_unknown := 0
 var _tick_events: Array = []
 var _last_time_s := 0.0
 
@@ -196,7 +198,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "fleet_refit", "fleet_formation", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity", "epoch", "command_domains", "fleet_instances", "own_fleet"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "fleet_refit", "fleet_formation", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity", "epoch", "command_domains", "fleet_instances", "own_fleet", "comms_ew_seed"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -297,6 +299,14 @@ func boot(config := {}) -> Dictionary:
 		"comms_text_key": String(_seed.get("comms_text_key", "COMMS_SENT")),
 	})
 	_setup_optional_components()
+	# JC-A04：三条真实发送入口共用同一 Comms；EW 采样/确定性 RNG 在此接线。
+	if comms != null and ew_service != null:
+		comms.set_ew_service(ew_service)
+	if comms != null:
+		comms.set_ew_rng(int(_seed.get("comms_ew_seed", 0)))
+		comms.set_sender_authorizer(Callable(self, "_authorize_comms_sender"))
+	if orders != null:
+		orders.set_comms_event_sink(Callable(self, "_on_comms_events"))
 	var extra_ok := true
 	if _track_enabled and track_table != null and not bool(track_table.ready):
 		extra_ok = false
@@ -2263,8 +2273,11 @@ func _flush_identification_outputs() -> Dictionary:
 	return out
 
 # A-06：通信操作 outcome 记录版本（读档重放时逐项核对）
-const COMMS_OUTCOME_SCHEMA := "v17.comms_outcome.v1"
-const COMMS_OUTCOME_VERSION := 1
+# JC-A04：v2 增加发送时刻 EW 采样；v1 作为合法旧档迁移（EW 接线前语义）。
+const COMMS_OUTCOME_SCHEMA := "v17.comms_outcome.v2"
+const COMMS_OUTCOME_SCHEMA_V1 := "v17.comms_outcome.v1"
+const COMMS_OUTCOME_VERSION := 2
+const COMMS_OUTCOME_VERSION_LEGACY := 1
 
 const ROUTABLE_TYPES := ["story.flag", "story.evidence", "story.choice",
 	"track.observation", "track.evidence"]
@@ -3018,6 +3031,11 @@ func issue_order(action: String, issuer_id: String, target_ids, params := {},
 		opts := {}) -> Dictionary:
 	if not ready:
 		return {"ok": false, "reason": "not_ready"}
+	# R1：订单入口同样校验真实 sender 与 actor/controller/fleet/owner 上下文。
+	var auth_issuer: Dictionary = _authorize_comms_sender(issuer_id, opts)
+	if not bool(auth_issuer.get("ok", false)):
+		return {"ok": false, "reason": String(auth_issuer.get("reason", "")),
+			"context": auth_issuer, "order_id": "", "events": []}
 	_tick_events = []
 	var p_norm = _json_norm(params)
 	var o_norm = _json_norm(opts)
@@ -3094,12 +3112,22 @@ func order(order_id: String) -> Dictionary:
 
 func send_comms(from_id: String, to_id: String, mode := "LD",
 		text_key := "COMMS_SENT", payload := {}, opts := {}) -> Dictionary:
+	return _send_comms_impl(from_id, to_id, mode, text_key, payload, opts, false)
+
+
+## R2：仅用于 v1 outcome 内部迁移/重放的固定路径；普通调用方不可达。
+func _send_comms_impl(from_id: String, to_id: String, mode: String,
+		text_key: String, payload, opts, legacy_ew: bool) -> Dictionary:
 	if not ready:
 		return {"ok": false, "reason": "not_ready"}
 	_tick_events = []
 	var pl_norm = _json_norm(payload)
 	var po_norm = _json_norm(opts)
-	var res: Dictionary = comms.send(from_id, to_id, mode, text_key, pl_norm, po_norm)
+	var res: Dictionary = {}
+	if legacy_ew:
+		res = comms.send_legacy_v1(from_id, to_id, mode, text_key, pl_norm, po_norm)
+	else:
+		res = comms.send(from_id, to_id, mode, text_key, pl_norm, po_norm)
 	# A-06：操作记录带**版本化 outcome**。原始失败（例如 orbital_sim 无 LR 链 → no_route）
 	# 必须在读档重放后仍是同一失败，而不能被当成恢复错误。
 	# 先执行再记录，保证 outcome 是原始执行的实测值。
@@ -3115,6 +3143,10 @@ func send_comms(from_id: String, to_id: String, mode := "LD",
 				if res.get("path") is Array else [],
 			"latency_s": float(res.get("latency_s", 0.0)),
 			"relay_count": int(res.get("relay_count", 0)),
+			"latency_base_s": float(res.get("latency_base_s", 0.0)),
+			"latency_ew_add_s": float(res.get("latency_ew_add_s", 0.0)),
+			"ew": (res.get("ew", {}) as Dictionary).duplicate(true) \
+				if res.get("ew") is Dictionary else {},
 			"arrive_t": float(res.get("arrive_t", -1.0)),
 			"sent_t": now_s(),
 		}})
@@ -3157,6 +3189,22 @@ func set_link(a: String, b: String, opts := {}) -> Dictionary:
 ## 直接查询通信 pending（只读；用于上层观察，不改变状态）。
 func comms_pending() -> Array:
 	return (comms.pending as Array).duplicate(true) if comms != null else []
+
+
+# JC-A04：确定性 EW 抽样状态（seed/seq）与测试注入入口（仅测试用，不公开）。
+func comms_ew_state() -> Dictionary:
+	return comms.ew_rng_state() if comms != null else {}
+
+
+func comms_debug_force_draw(x: float) -> bool:
+	if comms == null or not comms.has_method("debug_force_draw"):
+		return false
+	comms.debug_force_draw(x)
+	return true
+
+
+func comms_legacy_unknown_count() -> int:
+	return _comms_legacy_unknown
 
 # ── 事件发布 / 事件一致性 ───────────────────────────────────────
 
@@ -3206,6 +3254,202 @@ func _pending_ids() -> Dictionary:
 			out[String((raw as Dictionary).get("delivery_id", ""))] = true
 	return out
 
+# R1：合法来源 owner 授权（row.share_authorized_by == 发送域 owner）可作为
+# 可信锚点，解析现代缺省的共享 sender 上下文；普通 send/order 不走此锚点。
+func _derive_share_context(from_id: String, row: Dictionary,
+		opts: Dictionary) -> Dictionary:
+	if not _authority_enabled or authority_intel == null:
+		return {}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	for cf in ["actor_id", "controller_id", "domain_id", "fleet_id",
+			"owner_id", "intel_owner_id"]:
+		if o.has(cf):
+			return {}
+	if not _seed_has_modern_authority():
+		return {}
+	var instances: Dictionary = authority_intel.instances if \
+		authority_intel.instances is Dictionary else {}
+	if not instances.has(from_id):
+		return {}
+	var inst: Dictionary = instances[from_id] if instances[from_id] is Dictionary else {}
+	var dom_id := String(inst.get("domain_id", ""))
+	if dom_id == "" or dom_id == _own_domain_id():
+		return {}
+	var domains: Dictionary = authority_intel.domains if \
+		authority_intel.domains is Dictionary else {}
+	if not domains.has(dom_id):
+		return {}
+	var dom: Dictionary = domains[dom_id] if domains[dom_id] is Dictionary else {}
+	var share_auth := String(row.get("share_authorized_by", "")) if \
+		row is Dictionary else ""
+	if share_auth == "" or share_auth != String(dom.get("intel_owner_id", "")):
+		return {}
+	var actors: Array = dom.get("authorized_actors", []) \
+		if dom.get("authorized_actors") is Array else []
+	var actor := String(dom.get("controller_id", ""))
+	if actors.size() > 0:
+		actor = String(actors[0])
+	return {"actor_id": actor,
+		"controller_id": String(dom.get("controller_id", "")),
+		"domain_id": dom_id,
+		"fleet_id": String(inst.get("fleet_id", dom.get("fleet_id", ""))),
+		"owner_id": String(dom.get("intel_owner_id", "")),
+		"intel_owner_id": String(dom.get("intel_owner_id", ""))}
+
+# R1：校验真实 sender 与 actor/controller/domain/fleet/owner 上下文。
+# 无上下文（旧 seed/旧日志）保持 legacy；已知节点不等于授权；未知 sender 交给
+# Comms 的 unknown_from 明确拒绝。只在 authority 组件可用时校验。
+func _authorize_comms_sender(from_id: String, opts := {}) -> Dictionary:
+	if _replaying:
+		# 已验证旧日志的重放：恢复语义，不重新鉴权。
+		return {"ok": true, "replay": true}
+	if not _authority_enabled or authority_intel == null:
+		return {"ok": true, "legacy": true}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	var ctx_fields := ["actor_id", "controller_id", "domain_id", "fleet_id",
+		"owner_id", "intel_owner_id"]
+	var has_ctx := false
+	for cf in ctx_fields:
+		if o.has(cf):
+			has_ctx = true
+	var instances: Dictionary = authority_intel.instances if \
+		authority_intel.instances is Dictionary else {}
+	var domains: Dictionary = authority_intel.domains if \
+		authority_intel.domains is Dictionary else {}
+	var modern := _seed_has_modern_authority()
+	var registered := instances.has(from_id)
+	var dom_id := ""
+	if registered:
+		var inst0: Dictionary = instances[from_id] if \
+			instances[from_id] is Dictionary else {}
+		dom_id = String(inst0.get("domain_id", ""))
+	if not has_ctx:
+		# 缺调用字段 ≠ 旧 seed/旧日志：现代显式 seed 下只允许可信本方缺省，
+		# 非本方请求必须显式携带合法上下文，否则明确拒绝。
+		if not modern:
+			return {"ok": true, "legacy": true}
+		if not registered:
+			# 未登记节点交给 Comms 的 unknown_from 明确拒绝，不当授权。
+			return {"ok": true, "unregistered": true}
+		var own_dom_0 := _own_domain_id()
+		if dom_id == own_dom_0:
+			var d0: Dictionary = domains.get(dom_id, {}) if \
+				domains.get(dom_id) is Dictionary else {}
+			var i0: Dictionary = instances[from_id] if \
+				instances[from_id] is Dictionary else {}
+			return {"ok": true, "default_own": true, "domain_id": dom_id,
+				"actor_id": String(d0.get("controller_id", "")),
+				"controller_id": String(d0.get("controller_id", "")),
+				"fleet_id": String(i0.get("fleet_id", d0.get("fleet_id", ""))),
+				"owner_id": String(d0.get("intel_owner_id", ""))}
+		return {"ok": false, "reason": "sender_context_required",
+			"sender": from_id, "domain_id": dom_id}
+	if not registered:
+		return {"ok": true, "unregistered": true}
+	if not domains.has(dom_id):
+		return {"ok": true, "legacy": true}
+	var dom: Dictionary = domains[dom_id] if domains[dom_id] is Dictionary else {}
+	var own_dom := _own_domain_id()
+	# 现代非本方的显式上下文必须完整（缺字段不能退化成 legacy）。
+	if modern and dom_id != own_dom:
+		var required := ["actor_id", "controller_id", "domain_id", "fleet_id",
+			"owner_id"]
+		var missing: Array = []
+		for rk in required:
+			if rk == "owner_id":
+				if not o.has("owner_id") and not o.has("intel_owner_id"):
+					missing.append(rk)
+			elif not o.has(rk):
+				missing.append(rk)
+		if missing.size() > 0:
+			return {"ok": false, "reason": "sender_context_incomplete",
+				"sender": from_id, "missing": missing}
+	var expected := {
+		"domain_id": dom_id,
+		"fleet_id": String(instances[from_id].get("fleet_id",
+			dom.get("fleet_id", ""))) if instances[from_id] is Dictionary else "",
+		"controller_id": String(dom.get("controller_id", "")),
+		"owner_id": String(dom.get("intel_owner_id", "")),
+		"intel_owner_id": String(dom.get("intel_owner_id", "")),
+	}
+	for fld in expected.keys():
+		if o.has(fld) and String(o.get(fld, "")) != String(expected[fld]):
+			return {"ok": false, "reason": "sender_context_mismatch",
+				"field": String(fld), "sender": from_id,
+				"expected": String(expected[fld]),
+				"actual": String(o.get(fld, ""))}
+	if o.has("actor_id"):
+		var actors: Array = dom.get("authorized_actors", []) \
+			if dom.get("authorized_actors") is Array else []
+		if actors.size() > 0 and not actors.has(String(o.get("actor_id", ""))):
+			return {"ok": false, "reason": "sender_context_mismatch",
+				"field": "actor_id", "sender": from_id,
+				"expected": str(actors), "actual": String(o.get("actor_id", ""))}
+	return {"ok": true, "domain_id": dom_id}
+
+
+func _seed_has_modern_authority() -> bool:
+	var cds = _seed.get("command_domains", [])
+	var fis = _seed.get("fleet_instances", [])
+	return cds is Array and (cds as Array).size() > 0 and fis is Array \
+		and (fis as Array).size() > 0
+
+
+func _own_domain_id() -> String:
+	if not _authority_enabled or authority_intel == null:
+		return "player"
+	var own_entity := String(_seed.get("own_entity", ""))
+	var insts: Dictionary = authority_intel.instances if \
+		authority_intel.instances is Dictionary else {}
+	if own_entity != "" and insts.has(own_entity):
+		var oi: Dictionary = insts[own_entity] if insts[own_entity] is Dictionary else {}
+		var d := String(oi.get("domain_id", ""))
+		if d != "":
+			return d
+	return "player"
+func _on_comms_events(events: Array) -> void:
+	for raw in events:
+		if not (raw is Dictionary):
+			continue
+		var ev: Dictionary = raw
+		var kind := String(ev.get("kind", "")).to_lower()
+		var did := String(ev.get("delivery_id", ""))
+		if did == "":
+			continue
+		_comms_event_ids[did] = true
+		if not _standalone.has(did):
+			# 非 standalone 投递（订单）由 OrderService 自行按真实结果消费；
+			# 这里只清理可能残留的共享登记，且不发布假 delivered。
+			if kind == "failed":
+				_pending_intel_shares.erase(did)
+			continue
+		var info: Dictionary = _standalone[did]
+		if kind == "delivered":
+			_publish(_mk_event("comms.delivered", String(info.get("to", "")), {
+				"delivery_id": did, "from": String(info.get("from", "")),
+				"to": String(info.get("to", "")), "mode": String(info.get("mode", "")),
+				"text_key": String(info.get("text_key", "")),
+				"latency_s": float(info.get("latency_s", 0.0)),
+				"ew": (ev.get("ew", {}) as Dictionary).duplicate(true) \
+					if ev.get("ew") is Dictionary else {},
+			}))
+			# JC-A01/R4：共享只在**真实 delivered** 后融合一次。
+			_deliver_intel_share(did, info)
+		elif kind == "failed":
+			_publish(_mk_event("comms.failed", String(info.get("to", "")), {
+				"delivery_id": did, "from": String(info.get("from", "")),
+				"to": String(info.get("to", "")), "mode": String(info.get("mode", "")),
+				"text_key": String(info.get("text_key", "")),
+				"reason": String(ev.get("reason", "comms_failed")),
+				"ew": (ev.get("ew", {}) as Dictionary).duplicate(true) \
+					if ev.get("ew") is Dictionary else {},
+			}))
+			_pending_intel_shares.erase(did)
+		else:
+			continue
+		_standalone.erase(did)
+
+
 func _reconcile_standalone(before_ids: Array) -> void:
 	if comms == null:
 		return
@@ -3216,16 +3460,19 @@ func _reconcile_standalone(before_ids: Array) -> void:
 			continue
 		if pending_now.has(id):
 			continue
+		if _comms_event_ids.has(id):
+			continue
+		# 旧档/历史无真实结果：明确标记未验证，绝不发布假 delivered。
 		var info: Dictionary = _standalone[id]
-		_publish(_mk_event("comms.delivered", String(info.get("to", "")), {
+		_comms_legacy_unknown += 1
+		_publish(_mk_event("comms.unknown_outcome", String(info.get("to", "")), {
 			"delivery_id": id, "from": String(info.get("from", "")),
 			"to": String(info.get("to", "")), "mode": String(info.get("mode", "")),
-			"text_key": String(info.get("text_key", "")),
+			"reason": "no_delivery_outcome",
 		}))
+		_pending_intel_shares.erase(id)
 		_standalone.erase(id)
-		# JC-A01/R4：若该投递承载情报共享，则**到达后**才把它融合进接收 owner。
-		# 传 info 而非字符串时延，避免 String() 对非字符串字段的非法构造。
-		_deliver_intel_share(id, info)
+	_comms_event_ids.clear()
 
 # ── PortService 委托（可选）─────────────────────────────────────
 
@@ -6132,6 +6379,9 @@ func load_state(json_text: String) -> Dictionary:
 		return {"ok": false, "reason": "boot_failed", "errors": errors.duplicate()}
 	_replaying = true
 	_comms_restore = []
+	# JC-A04：重放从头开始确定抽样，seed 取存档 seed（默认 0），保证同档同序同 draw。
+	if comms != null and seed is Dictionary:
+		comms.reset_ew_rng(int((seed as Dictionary).get("comms_ew_seed", 0)))
 	var replay_errors: Array = []
 	for raw in (log as Array):
 		if not (raw is Dictionary):
@@ -6147,7 +6397,8 @@ func load_state(json_text: String) -> Dictionary:
 	if comms != null and data.has("comms"):
 		var cr: Dictionary = comms.load_state(data.get("comms"))
 		if not bool(cr.get("ok", false)):
-			replay_errors.append("comms 状态恢复失败：" + str(cr.get("reason", "")))
+			replay_errors.append("comms 状态恢复失败：" + str(cr.get("reason", ""))
+				+ " " + JSON.stringify(cr.get("errors", [])))
 	var saved_track = data.get("track_table", null)
 	var saved_story = data.get("story", null)
 	if saved_track != null:
@@ -6583,8 +6834,22 @@ func _replay_send_comms(op: Dictionary) -> Dictionary:
 	var text_key := String(op.get("text_key", "COMMS_SENT"))
 	var payload = op.get("payload", {})
 	var opts = op.get("opts", {})
-	var res: Dictionary = send_comms(from_id, to_id, mode, text_key,
-		payload if payload is Dictionary else {}, opts if opts is Dictionary else {})
+	# JC-A04：v1 outcome 是 EW 接线前的原始结果；重放须同样忽略 EW（迁移语义），
+	# 否则旧档会被新 EW 误解成 divergence。v2 才按冻结 EW 采样重放比较。
+	var early_out = op.get("outcome", null)
+	var legacy_v1 := false
+	if early_out is Dictionary:
+		var eo: Dictionary = early_out
+		var ever = eo.get("version", null)
+		if String(eo.get("schema", "")) == COMMS_OUTCOME_SCHEMA_V1 \
+				and (ever is int or ever is float) \
+				and int(roundf(float(ever))) == COMMS_OUTCOME_VERSION_LEGACY:
+			legacy_v1 = true
+	var replay_opts: Dictionary = (opts as Dictionary).duplicate(true) \
+		if opts is Dictionary else {}
+	# R2：普通 opts.ignore_ew 已被禁止；此处只通过内部 impl 走 v1 迁移。
+	var res: Dictionary = _send_comms_impl(from_id, to_id, mode, text_key,
+		payload if payload is Dictionary else {}, replay_opts, legacy_v1)
 	var row: Dictionary = {
 		"from": from_id, "to": to_id, "mode": mode, "text_key": text_key,
 		"replay_ok": bool(res.get("ok", false)),
@@ -6604,13 +6869,40 @@ func _replay_send_comms(op: Dictionary) -> Dictionary:
 			oc_problems.append("outcome must be an object")
 		else:
 			var oc: Dictionary = rec_outcome
-			if String(oc.get("schema", "")) != COMMS_OUTCOME_SCHEMA:
-				oc_problems.append("outcome.schema unsupported: " + String(oc.get("schema", "")))
+			var oc_schema := String(oc.get("schema", ""))
 			var oc_ver = oc.get("version", null)
-			if not (oc_ver is int or oc_ver is float) or not is_finite(float(oc_ver)) \
-					or absf(float(oc_ver) - roundf(float(oc_ver))) > 0.0 \
-					or int(roundf(float(oc_ver))) != COMMS_OUTCOME_VERSION:
-				oc_problems.append("outcome.version unsupported: " + str(oc_ver))
+			var oc_ver_int := -1
+			if oc_ver is int or oc_ver is float:
+				if is_finite(float(oc_ver)) \
+						and absf(float(oc_ver) - roundf(float(oc_ver))) <= 0.0:
+					oc_ver_int = int(roundf(float(oc_ver)))
+			var oc_ok_v2 := oc_schema == COMMS_OUTCOME_SCHEMA \
+				and oc_ver_int == COMMS_OUTCOME_VERSION
+			var oc_ok_v1 := oc_schema == COMMS_OUTCOME_SCHEMA_V1 \
+				and oc_ver_int == COMMS_OUTCOME_VERSION_LEGACY
+			if not oc_ok_v2 and not oc_ok_v1:
+				oc_problems.append("outcome.schema/version unsupported: "
+					+ oc_schema + "@" + str(oc_ver))
+			if oc_ok_v2:
+				var ewv = oc.get("ew", null)
+				if not (ewv is Dictionary):
+					oc_problems.append("outcome.ew must be an object for v2")
+				else:
+					var ewdd: Dictionary = ewv
+					for ef in ["jam_severity", "latency_add_s", "failure_chance", "draw"]:
+						var evn = ewdd.get(ef, null)
+						if not (evn is int or evn is float) or not is_finite(float(evn)):
+							oc_problems.append("outcome.ew.%s must be a finite number" % ef)
+					if not (ewdd.get("will_fail", null) is bool):
+						oc_problems.append("outcome.ew.will_fail must be bool")
+				for lf in ["latency_base_s", "latency_ew_add_s"]:
+					var lv = oc.get(lf, null)
+					if not (lv is int or lv is float) or not is_finite(float(lv)):
+						oc_problems.append("outcome.%s must be a finite number" % lf)
+				row["legacy_outcome_v1"] = false
+			else:
+				# v1：EW 接线前的合法旧记录，明确标记迁移（不是 legacy_unverified）
+				row["legacy_outcome_v1"] = true
 			if not (oc.get("ok", null) is bool):
 				oc_problems.append("outcome.ok must be bool")
 			for sf in ["reason", "mode", "delivery_id"]:
@@ -6663,6 +6955,25 @@ func _replay_send_comms(op: Dictionary) -> Dictionary:
 			diverge.append("arrive_t")
 		if JSON.stringify(ro.get("path", [])) != JSON.stringify(row["replay_path"]):
 			diverge.append("path")
+		# JC-A04：v2 重放必须核对发送时刻冻结的 EW 采样（draw/will_fail/
+		# latency add），旧 v1 只核对迁移前的基础字段且显式标记 legacy。
+		if legacy_v1:
+			row["legacy_outcome_v1"] = true
+		else:
+			var rec_ew: Dictionary = ro.get("ew", {}) if ro.get("ew") is Dictionary else {}
+			var res_ew: Dictionary = res.get("ew", {}) \
+				if res.get("ew") is Dictionary else {}
+			for ek in ["jam_severity", "latency_add_s", "failure_chance", "draw"]:
+				if absf(float(rec_ew.get(ek, -1.0)) - float(res_ew.get(ek, -2.0))) \
+						> 1.0e-9:
+					diverge.append("ew." + ek)
+			if bool(rec_ew.get("will_fail", false)) \
+					!= bool(res_ew.get("will_fail", true)):
+				diverge.append("ew.will_fail")
+			for lk in ["latency_base_s", "latency_ew_add_s"]:
+				if absf(float(ro.get(lk, -1.0)) - float(res.get(lk, -2.0))) \
+						> 1.0e-6:
+					diverge.append(lk)
 		row["expected_failure"] = not rec_ok
 		row["divergence"] = diverge
 		row["matched"] = diverge.is_empty()
@@ -6684,11 +6995,14 @@ func comms_restore_report() -> Dictionary:
 	var matched := 0
 	var expected_failures := 0
 	var legacy := 0
+	var legacy_v1 := 0
 	var diverged := 0
 	for raw in _comms_restore:
 		if not (raw is Dictionary):
 			continue
 		var r: Dictionary = raw
+		if bool(r.get("legacy_outcome_v1", false)):
+			legacy_v1 += 1
 		if bool(r.get("legacy_unverified", false)):
 			legacy += 1
 			continue
@@ -6705,6 +7019,7 @@ func comms_restore_report() -> Dictionary:
 		"matched_success": matched,
 		"matched_expected_failure": expected_failures,
 		"legacy_unverified": legacy,
+		"legacy_outcome_v1": legacy_v1,
 		"diverged": diverged,
 		"losless_claim": false,
 		"note": "original failures are preserved as failures; only divergences are recovery errors",
@@ -7178,16 +7493,41 @@ func receive_intel_observation(owner_id: String, row: Dictionary,
 
 ## 经既有 Comms 链路发起一次情报共享（发出→未到达不可见→到达仅接收方融合）。
 func queue_intel_share(from_id: String, to_id: String, owner_id: String,
-		row: Dictionary, text_key := "COMMS_SENT") -> Dictionary:
+		row: Dictionary, text_key := "COMMS_SENT", opts := {}) -> Dictionary:
 	if comms == null:
 		return {"ok": false, "reason": "no_comms"}
+	# R1：共享入口同样校验 sender 上下文；合法来源 owner 授权可作可信锚点
+	# 解析现代缺省上下文（A01 生产共享路径），普通 send/order 的缺省仍拒绝。
+	var share_opts: Dictionary = opts if opts is Dictionary else {}
+	var anchor_opts: Dictionary = _derive_share_context(from_id, row, share_opts)
+	if not anchor_opts.is_empty():
+		share_opts = anchor_opts
+	var auth_share: Dictionary = _authorize_comms_sender(from_id, share_opts)
+	if not bool(auth_share.get("ok", false)):
+		return {"ok": false, "reason": String(auth_share.get("reason", "")),
+			"context": auth_share}
+	if _authority_enabled and authority_intel != null:
+		var insts: Dictionary = authority_intel.instances if \
+			authority_intel.instances is Dictionary else {}
+		if insts.has(to_id):
+			var ti: Dictionary = insts[to_id] if insts[to_id] is Dictionary else {}
+			var tdom := String(ti.get("domain_id", ""))
+			var doms: Dictionary = authority_intel.domains if \
+				authority_intel.domains is Dictionary else {}
+			if doms.has(tdom):
+				var td: Dictionary = doms[tdom] if doms[tdom] is Dictionary else {}
+				var expect_owner := String(td.get("intel_owner_id", ""))
+				if expect_owner != "" and owner_id != "" and owner_id != expect_owner:
+					return {"ok": false, "reason": "owner_context_mismatch",
+						"expected": expect_owner, "actual": owner_id,
+						"receiver": to_id}
 	var payload := {"intel_share": {
 		"owner_id": owner_id,
 		"row": row.duplicate(true),
 		"share_authorized_by": String(row.get("observer_id", "")) \
 			if false else String(row.get("share_authorized_by", "")),
 	}}
-	var sr: Dictionary = comms.send(from_id, to_id, "LD", text_key, payload, {})
+	var sr: Dictionary = comms.send(from_id, to_id, "LD", text_key, payload, share_opts)
 	if not bool(sr.get("ok", false)):
 		return sr
 	var did := String(sr.get("delivery_id", ""))
@@ -7268,8 +7608,9 @@ func _deliver_intel_share(delivery_id: String, info := {}) -> void:
 		String(pend.get("owner_id", "")), row, delivery)
 	_last_intel_share_result = {"delivery_id": delivery_id,
 		"result": rr.duplicate(true), "delivery": delivery.duplicate(true)}
-	if bool(rr.get("ok", false)):
-		_pending_intel_shares.erase(delivery_id)
+	# JC-A04：真实 delivered 只消费一次；即使 owner 拒绝融合（授权/时间等原因）
+	# 也清除待融合，避免同一真实结果被重复消费或 pending 消失被误判为成功。
+	_pending_intel_shares.erase(delivery_id)
 
 
 ## R4 诊断：最近一次共享到达的判定结果
