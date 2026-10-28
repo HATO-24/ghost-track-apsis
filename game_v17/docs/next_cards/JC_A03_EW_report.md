@@ -89,3 +89,9 @@ Full strict: 90 = 83 PASS / 7 历史 FAIL（new_fail=0、complete=true）
 - **R2 拒绝守卫**：owner 接纳/去重拒绝在写全局 TrackTable/_sensor_track_map 之前直接返回，仅记录 rejected 审计；正常投递/重投语义保持。
 - **R3 部分新段**：新增 EW 字段缺失视为有意兼容默认并返回 w_restore_mode=partial + w_restore_missing（不再触发 null 转换异常）；present-invalid 明确 ok=false/invalid；有效新段 ull、真正缺段旧档 legacy_absent。
 - **探针**：83→102/0（新增 R20 真实弹道对照、R21 owner 拒绝不写全局、R22 partial 恢复）；专项 11/11、门禁 6/6+3/3、全量 90=83/7 new_fail=0。
+
+## 8. PR70 第三轮复核返修（R1 发射前预测 / R3 旧档覆盖）
+
+- **R1 发射前普通预测**：真实 HUD 入口 session.combat_predict_track 现按 owner 合法映射读取质量：实体键直接用 owner 当前质量；匿名 HUD 航迹键经 _entity_for_track 与 identity 解析复用实体映射。存在 owner 质量时按接口同一冻结规则生成显式 quality/quality_accuracy_mult/error_km 传给弹道预测；CombatBallistics.predict 在只有 measurement_quality、没有显式 quality/error 时实际应用 ×0.85 并据此生成误差（不再只写附带字段）。探针 R23 验证实体键、HUD 匿名键、mq-only 三条路径均与 combat_service.predict_shot 接口值一致（1e-9），HUD 与实体键一致；射后完整 opts 直接采用的正例保留，不双重惩罚。
+- **R3 旧档覆盖会话**：_ew_restore_state 在整段 EW 字段缺失（legacy_absent）时先 _ew_reset_runtime() 清除加载前的队列/采样/投递/候选/seq/质量历史；同一旧档加载到活跃实例与新实例语义一致（队列/采样/投递均 0）。full 合法在途队列、partial/missing、present-invalid 行为不变。
+- **探针**：102→126/0（新增 R23 发射前预测三条路径、R24 旧档覆盖活跃会话）；专项 11/11、门禁 6/6+3/3、全量 90=83/7 new_fail=0。

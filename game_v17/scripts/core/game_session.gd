@@ -2871,6 +2871,17 @@ func combat_measurement_quality(target_id: String) -> Dictionary:
 ## JC-A03/R3：新 EW 段验证——present-invalid 明确失败；可选字段缺失给出
 ## 可解释的 partial 模式（有意兼容默认），不全缺（旧档）才算 legacy_absent。
 
+## R3：清除 EW 运行态；用于旧档覆盖/新会话初始化。
+func _ew_reset_runtime() -> void:
+	_ew_samples = []
+	_ew_obs_queue = []
+	_ew_delivered = []
+	_ew_candidates = []
+	_ew_rejected_deliveries = []
+	_ew_obs_seq = 0
+	_ew_quality_history = {}
+	_ew_combat_quality = {}
+
 func _ew_restore_state(data: Dictionary) -> Dictionary:
 	_ew_restore_missing = []
 	var array_fields := ["ew_observation_samples", "ew_observation_queue",
@@ -2883,6 +2894,8 @@ func _ew_restore_state(data: Dictionary) -> Dictionary:
 		if data.has(k):
 			present += 1
 	if present == 0:
+		# R3：旧档覆盖时清除加载前的 EW 运行态，fresh/active 语义一致
+		_ew_reset_runtime()
 		_ew_restore_mode = "legacy_absent"
 		return {"ok": true, "mode": _ew_restore_mode}
 	for k2 in array_fields:
@@ -2943,6 +2956,8 @@ func _ew_restore_state(data: Dictionary) -> Dictionary:
 		.duplicate(true) if data.has("ew_rejected_deliveries") else []
 	if data.has("ew_observation_seq"):
 		_ew_obs_seq = int(data.get("ew_observation_seq"))
+	else:
+		_ew_obs_seq = 0
 	_ew_quality_history = (data.get("ew_quality_history") as Dictionary) \
 		.duplicate(true) if data.has("ew_quality_history") else {}
 	_ew_combat_quality = (data.get("ew_combat_quality") as Dictionary) \
@@ -3520,10 +3535,37 @@ func combat_predict_track(target_id: String, weapon_id: String) -> Dictionary:
 	if shooter == "" or entity == "" or not states.has(entity):
 		return {"ok": false, "reason": "no_physics_state",
 			"shooter": shooter, "target_entity": entity}
-	var mq_pred: Dictionary = owner_measurement_quality(_identity_own_owner(), target_id)
+	# R1：正常发射前路径按 owner 合法映射读同一质量（实体键/匿名 HUD 航迹键）
+	var owner := _identity_own_owner()
+	var mq_pred: Dictionary = owner_measurement_quality(owner, entity)
+	if not bool(mq_pred.get("ok", false)):
+		mq_pred = owner_measurement_quality(owner, target_id)
+	if not bool(mq_pred.get("ok", false)) and _identity_enabled:
+		var rr: Dictionary = _identity_resolve_target(owner, target_id)
+		if bool(rr.get("ok", false)):
+			mq_pred = owner_measurement_quality(owner, String(rr.get("target_id", "")))
 	var popts: Dictionary = {}
 	if bool(mq_pred.get("ok", false)):
 		popts["measurement_quality"] = float(mq_pred.get("measurement_quality", 1.0))
+		# 与接口层同一冻结规则：显式 quality/error 供弹道预测直接采用
+		var ckey := String(mq_pred.get("target_id", entity))
+		var ctr = combat_service.track(ckey) if combat_service != null else null
+		if not (ctr is Dictionary) or (ctr as Dictionary).is_empty():
+			ctr = combat_service.track(entity) if combat_service != null else null
+		var wdef: Dictionary = combat_service.weapon_def(weapon_id) \
+			if combat_service != null else {}
+		if ctr is Dictionary and not (ctr as Dictionary).is_empty() \
+				and not wdef.is_empty():
+			var rng := float((ctr as Dictionary).get("range_km", 0.0))
+			var qbase := clampf(float(wdef.get("accuracy", 0.5)) * (1.0 - clampf(
+				rng / maxf(1.0, float(wdef.get("range_km", 1.0))), 0.0, 1.0) * 0.25),
+				0.0, 1.0)
+			var mqv := float(popts["measurement_quality"])
+			var mult := 0.85 if mqv < 0.9 - 1.0e-9 else 1.0
+			var qif := clampf(qbase * mult, 0.0, 1.0)
+			popts["quality"] = qif
+			popts["quality_accuracy_mult"] = mult
+			popts["error_km"] = maxf(0.0, rng * (1.0 - qif) * 0.01)
 	return combat_ballistics.predict(states[shooter], states[entity], weapon_id, popts)
 
 

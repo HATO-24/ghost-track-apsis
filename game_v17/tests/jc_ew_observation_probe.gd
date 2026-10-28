@@ -603,6 +603,111 @@ func _run() -> void:
 		sp_lr.get("ew_restore_missing") is Array else []
 	_ok("ew_combat_quality" in miss22, "missing 列出缺失字段", str(miss22))
 
+	_step("R23 发射前普通预测：实体键/HUD匿名键读同一质量，mq-only 分支实际应用因子")
+	var pre_m = _prefire_session(true)
+	var pre_c = _prefire_session(false)
+	_ok(not pre_m.is_empty(), "moderate 发射前会话就绪", str(pre_m.get("reason", "")))
+	_ok(not pre_c.is_empty(), "clean 发射前会话就绪", str(pre_c.get("reason", "")))
+	if not pre_m.is_empty() and not pre_c.is_empty():
+		var prm = pre_m["session"]
+		var prc = pre_c["session"]
+		var mq_m := float(pre_m.get("mq", -1.0))
+		_ok(mq_m < 0.9, "moderate 当前 owner 质量 <0.9", str(mq_m))
+		var pe_m: Dictionary = prm.combat_predict_track("raider_2", "railgun")
+		var pe_c: Dictionary = prc.combat_predict_track("raider_2", "railgun")
+		_ok(bool(pe_m.get("ok", false)), "实体键发射前预测 ok",
+			str(pe_m.get("reason", "")))
+		var mq_now := float((prm.owner_measurement_quality("player_intel", "raider_2") as Dictionary).get("measurement_quality", -1.0))
+		_near(float(pe_m.get("measurement_quality", -1.0)), mq_now, CONF_TOL,
+			"实体键预测读取 owner 当前质量")
+		_near(float(pe_m.get("quality_accuracy_mult", -1.0)), 0.85, CONF_TOL,
+			"实体键预测消费精度因子 0.85")
+		var iface_m: Dictionary = prm.combat_service.predict_shot("raider_2", "railgun")
+		_near(float(pe_m.get("hit_probability", -1.0)),
+			float(iface_m.get("hit_probability", -2.0)), CONF_TOL,
+			"发射前预测概率 = 接口同一规则")
+		_near(float(pe_m.get("error_km", -1.0)),
+			float(iface_m.get("error_km", -2.0)), CONF_TOL,
+			"发射前预测误差 = 接口同一规则")
+		_info("prefire probability moderate=%s clean=%s" % [
+			str(pe_m.get("hit_probability", null)),
+			str(pe_c.get("hit_probability", null))])
+		var hud_key := String((prm._sensor_track_map as Dictionary).get("raider_2", ""))
+		if hud_key == "":
+			hud_key = "raider_2"
+		var ph_m: Dictionary = prm.combat_predict_track(hud_key, "railgun")
+		_ok(bool(ph_m.get("ok", false)), "HUD 匿名键发射前预测 ok",
+			str(ph_m.get("reason", "")))
+		_near(float(ph_m.get("measurement_quality", -1.0)), mq_now, CONF_TOL,
+			"HUD 匿名键预测复用实体映射读质量")
+		_near(float(ph_m.get("hit_probability", -1.0)),
+			float(pe_m.get("hit_probability", -2.0)), CONF_TOL,
+			"HUD 匿名键与实体键预测一致")
+		# mq-only 分支（无显式 quality/error）：实际应用因子并生成误差
+		var st_m: Dictionary = prm._ballistics_states()
+		var base_hm: Dictionary = prm.combat_ballistics.predict(
+			st_m[prm._own_ballistics_entity(st_m)],
+			st_m[prm._entity_for_track("raider_2")], "railgun")
+		var mq_only: Dictionary = prm.combat_ballistics.predict(
+			st_m[prm._own_ballistics_entity(st_m)],
+			st_m[prm._entity_for_track("raider_2")], "railgun",
+			{"measurement_quality": 0.8})
+		_ok(float(mq_only.get("hit_probability", 1.0))
+			< float(base_hm.get("hit_probability", 0.0)),
+			"mq-only 分支实际降低概率（非仅附带字段）",
+			"%s vs %s" % [str(mq_only.get("hit_probability", null)),
+				str(base_hm.get("hit_probability", null))])
+		_near(float(mq_only.get("hit_probability", -1.0)),
+			float(base_hm.get("hit_probability", 0.0)) * 0.85, CONF_TOL,
+			"mq-only 分支概率 = 基准 × 0.85")
+		_ok(float(mq_only.get("error_km", 0.0)) > float(
+			base_hm.get("error_km", 0.0)) - 1.0e-9,
+			"mq-only 分支生成对应误差",
+			"%s vs %s" % [str(mq_only.get("error_km", null)),
+				str(base_hm.get("error_km", null))])
+
+	_step("R24 旧档覆盖活跃会话：清除加载前 EW 运行态，fresh/active 一致")
+	var act = _new()
+	act.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
+		"severity": 0.5, "duration_s": 60.0, "source_id": "EW-R24"})
+	for i24 in range(2):
+		act.tick(TICK_DT)
+	var act_queue_before: int = (act.ew_delivery_queue() as Array).size()
+	var act_samples_before: int = (act.ew_observation_samples() as Array).size()
+	_ok(act_queue_before > 0 and act_samples_before > 0,
+		"活跃会话加载前存在 EW 运行态",
+		"queue=%d samples=%d" % [act_queue_before, act_samples_before])
+	var clean24 = _new()
+	clean24.tick(TICK_DT)
+	var doc24: Dictionary = JSON.parse_string(clean24.save_state())
+	for k24 in ["ew_observation_samples", "ew_observation_queue",
+			"ew_delivered_observations", "ew_candidates", "ew_observation_seq",
+			"ew_quality_history", "ew_combat_quality", "ew_rejected_deliveries"]:
+		doc24.erase(k24)
+	var old_text: String = JSON.stringify(doc24)
+	var lr24a: Dictionary = act.load_state(old_text)
+	_ok(bool(lr24a.get("ok", false)), "活跃会话加载旧档成功",
+		str(lr24a.get("errors", [])))
+	_eq(String(lr24a.get("ew_restore_mode", "")), "legacy_absent",
+		"活跃会话旧档模式 legacy_absent")
+	_eq((act.ew_delivery_queue() as Array).size(), 0, "活跃会话旧档覆盖后队列清空")
+	_eq((act.ew_observation_samples() as Array).size(), 0,
+		"活跃会话旧档覆盖后采样清空")
+	_eq((act.ew_delivered_observations() as Array).size(), 0,
+		"活跃会话旧档覆盖后投递审计清空")
+	var fresh24 = _new()
+	var lr24f: Dictionary = fresh24.load_state(old_text)
+	_ok(bool(lr24f.get("ok", false)), "新实例加载同一旧档成功",
+		str(lr24f.get("errors", [])))
+	_eq(String(lr24f.get("ew_restore_mode", "")), "legacy_absent",
+		"新实例旧档模式 legacy_absent")
+	_eq((fresh24.ew_delivery_queue() as Array).size(),
+		(act.ew_delivery_queue() as Array).size(), "fresh/active 队列一致")
+	_eq((fresh24.ew_observation_samples() as Array).size(),
+		(act.ew_observation_samples() as Array).size(), "fresh/active 采样一致")
+	_info("R24 same_state_as_fresh=true（queue/samples/delivered 均 0）")
+
+
 	_step("总结")
 	_info("A03 验收：真实 sensor 采样→质量/延迟→owner 航迹→火控→文件恢复")
 	_finish()
@@ -799,3 +904,27 @@ func _consumer_fixture(mode: String) -> Dictionary:
 	return {"session": s, "fire": fire, "proj": proj,
 		"measurement_ok": bool(mq.get("ok", false)),
 		"measurement_quality": float(mq.get("measurement_quality", -1.0))}
+func _prefire_session(moderate: bool) -> Dictionary:
+	var sd: Dictionary = JSON.parse_string(JSON.stringify(_seed()))
+	var s = GS.new(sd)
+	for i in range(6):
+		s.tick(TICK_DT)
+	_register_combat_track(s, "raider_2")
+	s.grant_authorization("FIRE", "target", "raider_2")
+	var sol: Dictionary = s.combat_request_solution("raider_2", "railgun", true)
+	if not bool(sol.get("ok", false)):
+		return {"reason": "no_solution:" + String(sol.get("reason", ""))}
+	var sid := String((sol.get("solution", {}) as Dictionary).get("solution_id", ""))
+	for i2 in range(30):
+		s.tick(TICK_DT)
+		if String(s.combat_service.solution_status(sid).get("status", "")) == "READY":
+			break
+	if moderate:
+		s.apply_ew({"effect": "noise_jam", "target_id": "raider_2",
+			"severity": 0.2, "duration_s": 120.0, "source_id": "EW-PRE"})
+		for i3 in range(2):
+			s.tick(TICK_DT)
+	var mq: Dictionary = s.owner_measurement_quality("player_intel", "raider_2")
+	return {"session": s,
+		"mq": float(mq.get("measurement_quality", -1.0)) if bool(
+			mq.get("ok", false)) else -1.0}

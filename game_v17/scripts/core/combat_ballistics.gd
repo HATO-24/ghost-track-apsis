@@ -880,12 +880,15 @@ func predict(shooter_state: Dictionary, target_state: Dictionary, weapon_id: Str
 	# quality/error（接口层计算），直接采用同一值，避免双重惩罚。
 	var o_pred: Dictionary = opts if opts is Dictionary else {}
 	var mq_pred := clampf(float(o_pred.get("measurement_quality", 1.0)), 0.0, 1.0)
+	var acc_mult_pred := float(o_pred.get("quality_accuracy_mult",
+		0.85 if mq_pred < 0.9 - 1.0e-9 else 1.0))
 	var q_explicit = o_pred.get("quality", null)
 	if (q_explicit is int or q_explicit is float) \
 			and float(q_explicit) >= 0.0 and float(q_explicit) <= 1.0:
 		q = clampf(float(q_explicit), 0.0, 1.0)
-	var acc_mult_pred := float(o_pred.get("quality_accuracy_mult",
-		0.85 if mq_pred < 0.9 - 1.0e-9 else 1.0))
+	else:
+		# 仅 mq、无显式 quality/error：实际应用既定因子并据此生成误差
+		q = clampf(q * acc_mult_pred, 0.0, 1.0)
 	var err_final := maxf(0.0, range_km * (1.0 - q) * 0.01)
 	var err_explicit = o_pred.get("error_km", null)
 	if (err_explicit is int or err_explicit is float) and float(err_explicit) >= 0.0:
