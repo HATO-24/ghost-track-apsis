@@ -1,0 +1,697 @@
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	﻿2026-10-28T17:46:44.9775356Z Current runner version: '2.338.0'
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9851249Z ##[group]Runner Image Provisioner
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9852528Z Hosted Compute Agent
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9853324Z Version: 20261021.618
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9854251Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9855288Z Build Date: 2026-10-21T00:45:21Z
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9856802Z Worker ID: {3cec9315-3bba-4257-b4bf-af136f656679}
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9857933Z Region: westus3
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9858734Z Cloud: Azure
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9859540Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9861544Z ##[group]Operating System
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9862513Z Microsoft Windows Server 2025
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9863431Z 10.0.26100
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9864158Z Datacenter
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9864935Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9865715Z ##[group]Runner Image
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9866567Z Image: windows-2025-vs2026
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9867480Z Version: 20261021.278.1
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9870023Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20261021.278/images/windows/Windows2025-VS2026-Readme.md
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9872714Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20261021.278
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9874148Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9875870Z ##[group]GITHUB_TOKEN Permissions
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9879098Z Contents: read
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9879927Z Metadata: read
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9880650Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9883676Z Secret source: Actions
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9884966Z Cache mode: write
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:44.9886243Z Prepare workflow directory
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:45.0522180Z Prepare all required actions
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:45.0600410Z Getting action download info
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:45.4293079Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:45.5789430Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:45.7202498Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.0966092Z Complete job name: Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2648366Z ##[group]Run actions/checkout@v4
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2649729Z with:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2650189Z   repository: HATO-24/ghost-track-apsis
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2654889Z   token: ***
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2655317Z   ssh-strict: true
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2655736Z   ssh-user: git
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2656164Z   persist-credentials: true
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2656856Z   clean: true
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2657295Z   sparse-checkout-cone-mode: true
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2657817Z   fetch-depth: 1
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2658236Z   fetch-tags: false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2658671Z   show-progress: true
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2659099Z   lfs: false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2659495Z   submodules: false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2659966Z   set-safe-directory: true
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2660508Z   allow-unsafe-pr-checkout: false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2661390Z env:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2661787Z   GODOT_VERSION: 4.7.2-stable
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2662329Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2663237Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2664607Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2665699Z   GODOT_DIR: tools/godot
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2666309Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:46.2667287Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3258665Z Syncing repository: HATO-24/ghost-track-apsis
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3281365Z ##[group]Getting Git version info
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3292069Z Working directory is 'D:\a\ghost-track-apsis\ghost-track-apsis'
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3317513Z [command]"C:\Program Files\Git\bin\git.exe" version
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3323617Z git version 2.56.0.windows.2
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3327657Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3343519Z Temporarily overriding HOME='D:\a\_temp\c9e2cc2c-6a30-482f-9188-f105d79463b5' before making global git config changes
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3348603Z Adding repository directory to the temporary git global config as a safe directory
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3353334Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\ghost-track-apsis\ghost-track-apsis
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3367547Z Deleting the contents of 'D:\a\ghost-track-apsis\ghost-track-apsis'
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3371497Z ##[group]Initializing the repository
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3372843Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\ghost-track-apsis\ghost-track-apsis
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3376032Z Initialized empty Git repository in D:/a/ghost-track-apsis/ghost-track-apsis/.git/
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3394344Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/HATO-24/ghost-track-apsis
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3396685Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3397679Z ##[group]Disabling automatic garbage collection
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3398553Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3400535Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3401114Z ##[group]Setting up auth
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3401915Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:48.3404333Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:49.0759022Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:49.1360517Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:49.9088570Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:49.9289434Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:50.5571875Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:50.5970460Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:50.5971596Z ##[group]Fetching the repository
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:46:50.5988263Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +8f20c95a7687157d9bdb5299d57066c3bf443d44:refs/remotes/pull/72/merge
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:00.7237167Z From https://github.com/HATO-24/ghost-track-apsis
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:00.7260849Z  * [new ref]         8f20c95a7687157d9bdb5299d57066c3bf443d44 -> pull/72/merge
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:00.7293763Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:00.7294501Z ##[group]Determining the checkout info
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:00.7296252Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:00.7309301Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:00.7891246Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:00.8338270Z ##[group]Checking out the ref
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:00.8358484Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force refs/remotes/pull/72/merge
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.0527962Z Updating files:  56% (1656/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.0610743Z Updating files:  57% (1676/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.0682875Z Updating files:  58% (1705/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.0765825Z Updating files:  59% (1735/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.0843422Z Updating files:  60% (1764/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.0920042Z Updating files:  61% (1793/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.0988073Z Updating files:  62% (1823/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1050697Z Updating files:  63% (1852/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1116119Z Updating files:  64% (1881/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1185158Z Updating files:  65% (1911/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1252090Z Updating files:  66% (1940/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1326173Z Updating files:  67% (1970/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1423836Z Updating files:  68% (1999/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1508625Z Updating files:  69% (2028/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1610859Z Updating files:  70% (2058/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1683002Z Updating files:  71% (2087/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1744423Z Updating files:  72% (2117/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1812607Z Updating files:  73% (2146/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.1911862Z Updating files:  74% (2175/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.2007180Z Updating files:  75% (2205/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.2105960Z Updating files:  76% (2234/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.2160628Z Updating files:  77% (2264/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.2242339Z Updating files:  78% (2293/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.2336828Z Updating files:  79% (2322/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.2418026Z Updating files:  80% (2352/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.2476015Z Updating files:  81% (2381/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.2590921Z Updating files:  82% (2410/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.2679146Z Updating files:  83% (2440/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.2758650Z Updating files:  84% (2469/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.3139448Z Updating files:  85% (2499/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:02.7197147Z Updating files:  86% (2528/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:03.0073944Z Updating files:  87% (2557/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:03.0913682Z Updating files:  87% (2570/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:03.3509948Z Updating files:  88% (2587/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:03.6907284Z Updating files:  89% (2616/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:03.8053139Z Updating files:  90% (2646/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:03.9254647Z Updating files:  91% (2675/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.0114767Z Updating files:  91% (2694/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.1110086Z Updating files:  92% (2704/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.1892322Z Updating files:  93% (2734/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.2068916Z Updating files:  94% (2763/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.2486690Z Updating files:  95% (2793/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.4556355Z Updating files:  96% (2822/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.7740955Z Updating files:  97% (2851/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8210690Z Updating files:  98% (2881/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8291698Z Updating files:  99% (2910/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8292402Z Updating files: 100% (2939/2939)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8292780Z Updating files: 100% (2939/2939), done.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8439542Z Note: switching to 'refs/remotes/pull/72/merge'.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8439942Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8440589Z You are in 'detached HEAD' state. You can look around, make experimental
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8441329Z changes and commit them, and you can discard any commits you make in this
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8442806Z state without impacting any branches by switching back to a branch.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8443299Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8443587Z If you want to create a new branch to retain commits you create, you may
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8444278Z do so (now or later) by using -c with the switch command. Example:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8444969Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8445143Z   git switch -c <new-branch-name>
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8445600Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8445759Z Or undo this operation with:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8445999Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8446111Z   git switch -
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8446248Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8446450Z Turn off this advice by setting config variable advice.detachedHead to false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8446727Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.8447082Z HEAD is now at 8f20c95 Merge 563e97a61bc00d31104ad6db969edfe87f2fc25f into 4e4f90f9eb4964503a61dd915cb1c445294b10a5
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.9093404Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:04.9648036Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0013976Z 8f20c95a7687157d9bdb5299d57066c3bf443d44
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0523679Z ##[group]Run actions/cache@v4
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0524022Z with:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0524224Z   path: tools/godot
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0524658Z   key: godot-Windows-4.7.2-stable-731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0525144Z   enableCrossOsArchive: false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0525382Z   fail-on-cache-miss: false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0525601Z   lookup-only: false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0525802Z   save-always: false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0525991Z env:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0526164Z   GODOT_VERSION: 4.7.2-stable
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0526423Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0526848Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0527527Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0528067Z   GODOT_DIR: tools/godot
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0528416Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.0528817Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.1986014Z (node:6168) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.1987427Z (Use `node --trace-deprecation ...` to show where the warning was created)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.6368868Z Cache hit for: godot-Windows-4.7.2-stable-731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:05.6489457Z (node:6168) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:06.8733298Z Received 75497472 of 83359648 (90.6%), 71.4 MBs/sec
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:07.4225388Z Received 83359648 of 83359648 (100.0%), 50.7 MBs/sec
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:07.4230721Z Cache Size: ~79 MB (83359648 B)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:07.4362946Z [command]"C:\Program Files\Git\usr\bin\tar.exe" -xf D:/a/_temp/a4be00c6-bfc0-4f2f-a2d3-fb4ef31ce481/cache.tzst -P -C D:/a/ghost-track-apsis/ghost-track-apsis --force-local --use-compress-program "zstd -d"
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.0972523Z Cache restored successfully
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.1177319Z Cache restored from key: godot-Windows-4.7.2-stable-731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.1539609Z ##[group]Run $ErrorActionPreference = 'Stop'
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.1540158Z ^[[36;1m$ErrorActionPreference = 'Stop'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.1540559Z ^[[36;1mif (-not (Test-Path -LiteralPath $env:GODOT_CONSOLE)) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.1541035Z ^[[36;1m  throw "Expected Godot console executable not found: $env:GODOT_CONSOLE"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.1541431Z ^[[36;1m}^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.1541707Z ^[[36;1m$version = & $env:GODOT_CONSOLE --version 2>&1 | Out-String^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.1542071Z ^[[36;1mWrite-Host "Godot version: $version"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.1542411Z ^[[36;1mif ($version -notmatch [regex]::Escape('4.7.2')) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.1542799Z ^[[36;1m  throw "Expected Godot 4.7.2, got: $version"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.1543079Z ^[[36;1m}^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.2278596Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.2278991Z env:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.2279214Z   GODOT_VERSION: 4.7.2-stable
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.2279586Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.2280010Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.2280949Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.2281515Z   GODOT_DIR: tools/godot
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.2281823Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:08.2282157Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.5325726Z Godot version: 4.7.2.stable.official.ed1daf0bf
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.5326472Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6121502Z ##[group]Run $ErrorActionPreference = 'Stop'
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6121974Z ^[[36;1m$ErrorActionPreference = 'Stop'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6122432Z ^[[36;1m# All matrix cases are executed. Known pre-existing failures stay FAIL in the^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6122959Z ^[[36;1m# output/report. Strict fail-closed semantics: exit 0 only when every^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6123459Z ^[[36;1m# declared baseline entry ran as expected FAIL with matching counts, and^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6123952Z ^[[36;1m# there is no NEW failure, drift, timeout, unexpected NOT RUN, unverified^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6124390Z ^[[36;1m# baseline entry or unselected baseline entry.^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6124828Z ^[[36;1m# DS-A-06: all Phase A slices are green, so the Phase A expected-failure baseline^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6125380Z ^[[36;1m# was removed (an empty -BaselineExtra would be rejected). Only the Phase 0 legacy^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6125974Z ^[[36;1m# baseline remains (7 entries after evidence-based green transitions).^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6126654Z ^[[36;1mpwsh -NoProfile -File ./run_tests.ps1 -Ci -Baseline game_v17/tests/known_baseline_failures.json -GodotBin $env:GODOT_CONSOLE^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6127278Z ^[[36;1m# R6/D：必须把 runner 的真实退出码传给 job；旧写法未给 $code 赋值，^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6127603Z ^[[36;1m# 导致 full 失败被吞成 job success。^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6127870Z ^[[36;1m$code = $LASTEXITCODE^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6128151Z ^[[36;1mWrite-Host "FULL_MATRIX_EXIT=$code"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6128424Z ^[[36;1mexit $code^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6198031Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6198414Z env:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6198626Z   GODOT_VERSION: 4.7.2-stable
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6198897Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6199321Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6200069Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6200641Z   GODOT_DIR: tools/godot
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6200943Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:09.6201285Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:10.7004640Z godot:  tools/godot/Godot_v4.7.2-stable_win64_console.exe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:10.7020745Z         found via parameter
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:10.8489163Z version: 4.7.2.stable.official.ed1daf0bf
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:10.8517344Z         expected Godot 4.7.2: MATCH
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0004970Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0020819Z GHOST TRACK // APSIS - V17 unified headless regression
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0030196Z repo:    .
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0041340Z matrix:  game_v17/tests/probe_matrix.json (91 cases selected / 91 total)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0049055Z filters: gate=(none); baseline=game_v17/tests/known_baseline_failures.json; partial-baseline=off (strict fail-closed); category=all; only=(none); import=on; timeout=per-case
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0065763Z baseline: game_v17/tests/known_baseline_failures.json (commit 263e97e, mode=CHECK; statuses unchanged)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0072814Z baseline gate: STRICT fail-closed (every declared entry must be selected + executed + expected FAIL with matching counts)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0096322Z git:      @ 8f20c95a
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0105213Z run dir: .test-results/20261028-174711-8f20c95a
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0111304Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0460968Z env:     no inherited DSH_*/V17_* vars to clear
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:12.0469174Z import:  running headless import preflight ...
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:29.6639371Z import:  PASS exit=0 duration=17.6s warnings/errors=0 log=.test-results/20261028-174711-8f20c95a/import.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:32.3119807Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:32.3120322Z CASE                                 CATEGORY     PROFILE    STATUS    EXIT     TIME PASS/FAIL LOG
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:32.3121012Z RUN [1/91] profile.build_profile_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:32.3125576Z profile.build_profile_probe          profile      -          PASS         0     0.6s    553/0 .test-results/20261028-174711-8f20c95a/logs/profile.build_profile_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:32.3127789Z RUN [2/91] content.damage_profile_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:32.3128852Z content.damage_profile_probe         content      -          FAIL         1     1.7s    554/4 .test-results/20261028-174711-8f20c95a/logs/content.damage_profile_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:32.3129940Z       FAIL: exit code 1
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:32.3132029Z       BASELINE: [KNOWN-BASELINE] Probe asserts 32 class damage profiles; ShipCatalog has grown to 36 classes, so the fixed expectation no longer matches content. Also carries 4 pre-existing engine-level SCRIPT ERROR lines from damage_profile_service.gd:208 (legacy String constructor) that do not change the exit/fail counts.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:32.3134350Z RUN [3/91] content.ephemeris_compact_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:32.7182519Z content.ephemeris_compact_probe      content      -          PASS         0     0.7s    138/0 .test-results/20261028-174711-8f20c95a/logs/content.ephemeris_compact_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:32.7213316Z RUN [4/91] content.facility_model_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:34.3798652Z content.facility_model_probe         content      -          PASS         0     0.6s   1697/0 .test-results/20261028-174711-8f20c95a/logs/content.facility_model_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:34.3799852Z RUN [5/91] content.facility_registry_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:34.3800996Z content.facility_registry_probe      content      -          PASS         0     0.8s   6059/0 .test-results/20261028-174711-8f20c95a/logs/content.facility_registry_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:34.3802135Z RUN [6/91] content.prelude_scenario_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:37.3049118Z content.prelude_scenario_probe       content      -          PASS         0     3.1s    411/0 .test-results/20261028-174711-8f20c95a/logs/content.prelude_scenario_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:37.3060901Z RUN [7/91] content.schema_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:37.7421520Z content.schema_probe                 content      -          PASS         0     0.4s    422/0 .test-results/20261028-174711-8f20c95a/logs/content.schema_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:37.7430781Z RUN [8/91] content.ship_catalog_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:38.5334100Z content.ship_catalog_probe           content      -          PASS         0     0.8s   1488/0 .test-results/20261028-174711-8f20c95a/logs/content.ship_catalog_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:38.5384824Z RUN [9/91] content.story_text_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:39.0681657Z content.story_text_probe             content      -          FAIL         1     0.5s   469/13 .test-results/20261028-174711-8f20c95a/logs/content.story_text_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:39.0689146Z       FAIL: exit code 1
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:39.0695520Z       BASELINE: [KNOWN-BASELINE] 12 story text keys no longer match docs/44 verbatim because the story content evolved after docs/44 was written; the probe's verify_against_source check and one summary assertion fail.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:39.0706843Z RUN [10/91] unit.ballistics_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:40.1805812Z unit.ballistics_probe                unit         -          PASS         0     1.1s    306/0 .test-results/20261028-174711-8f20c95a/logs/unit.ballistics_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:40.1827925Z RUN [11/91] unit.cislunar_physics_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:41.0267453Z unit.cislunar_physics_probe          unit         -          PASS         0     0.8s    269/0 .test-results/20261028-174711-8f20c95a/logs/unit.cislunar_physics_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:41.0347400Z RUN [12/91] unit.combat_planner_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:41.8571980Z unit.combat_planner_probe            unit         -          PASS         0     0.8s     94/0 .test-results/20261028-174711-8f20c95a/logs/unit.combat_planner_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:41.8721925Z RUN [13/91] unit.combat_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:42.6585142Z unit.combat_probe                    unit         -          PASS         0     0.8s    255/0 .test-results/20261028-174711-8f20c95a/logs/unit.combat_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:42.6600446Z RUN [14/91] unit.core_time_event_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:43.4174304Z unit.core_time_event_probe           unit         -          PASS         0     0.7s    197/0 .test-results/20261028-174711-8f20c95a/logs/unit.core_time_event_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:43.4235648Z RUN [15/91] unit.damage_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:44.3675663Z unit.damage_probe                    unit         -          PASS         0     0.9s    219/0 .test-results/20261028-174711-8f20c95a/logs/unit.damage_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:44.3817453Z RUN [16/91] unit.damage_service_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:47.4432563Z unit.damage_service_probe            unit         -          PASS         0     3.0s    319/0 .test-results/20261028-174711-8f20c95a/logs/unit.damage_service_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:47.5906425Z RUN [17/91] unit.docking_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:48.2183874Z unit.docking_probe                   unit         -          PASS         0     0.6s    318/0 .test-results/20261028-174711-8f20c95a/logs/unit.docking_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:48.2196084Z RUN [18/91] unit.ew_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:50.6162656Z unit.ew_probe                        unit         -          PASS         0     2.4s    252/0 .test-results/20261028-174711-8f20c95a/logs/unit.ew_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:50.6169977Z RUN [19/91] unit.fleet_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:51.5965917Z unit.fleet_probe                     unit         -          PASS         0     1.0s    511/0 .test-results/20261028-174711-8f20c95a/logs/unit.fleet_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:47:51.6086109Z RUN [20/91] unit.fleet_transfer_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:41.1550387Z unit.fleet_transfer_probe            unit         -          PASS         0    49.5s    587/0 .test-results/20261028-174711-8f20c95a/logs/unit.fleet_transfer_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:41.1563802Z RUN [21/91] unit.identification_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:41.5962761Z unit.identification_probe            unit         -          PASS         0     0.4s    310/0 .test-results/20261028-174711-8f20c95a/logs/unit.identification_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:41.5970706Z RUN [22/91] unit.ime_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:42.0329076Z unit.ime_probe                       unit         -          PASS         0     0.4s     64/0 .test-results/20261028-174711-8f20c95a/logs/unit.ime_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:42.0338173Z RUN [23/91] unit.incident_record_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:43.5742987Z unit.incident_record_probe           unit         -          FAIL         1     1.5s   2761/1 .test-results/20261028-174711-8f20c95a/logs/unit.incident_record_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:43.5749417Z       FAIL: exit code 1
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:43.5754491Z       BASELINE: [KNOWN-BASELINE] One incident-record generator assertion drifted with later content/schedule changes; the remaining 2761 assertions pass.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:43.5761610Z RUN [24/91] unit.info_warfare_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:44.2941594Z unit.info_warfare_probe              unit         -          PASS         0     0.7s    456/0 .test-results/20261028-174711-8f20c95a/logs/unit.info_warfare_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:44.2949028Z RUN [25/91] unit.legal_status_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:44.7320997Z unit.legal_status_probe              unit         -          PASS         0     0.4s    342/0 .test-results/20261028-174711-8f20c95a/logs/unit.legal_status_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:44.7331113Z RUN [26/91] unit.nav_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:45.3570915Z unit.nav_probe                       unit         -          PASS         0     0.6s    372/0 .test-results/20261028-174711-8f20c95a/logs/unit.nav_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:45.3583943Z RUN [27/91] unit.optical_ir_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:46.0033592Z unit.optical_ir_probe                unit         -          PASS         0     0.6s    149/0 .test-results/20261028-174711-8f20c95a/logs/unit.optical_ir_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:46.0035406Z RUN [28/91] unit.order_comms_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:46.5526725Z unit.order_comms_probe               unit         -          PASS         0     0.5s    137/0 .test-results/20261028-174711-8f20c95a/logs/unit.order_comms_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:46.5641140Z RUN [29/91] unit.physics_world_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:47.2126058Z unit.physics_world_probe             unit         -          PASS         0     0.6s    217/0 .test-results/20261028-174711-8f20c95a/logs/unit.physics_world_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:47.2136692Z RUN [30/91] unit.port_service_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:47.7348579Z unit.port_service_probe              unit         -          PASS         0     0.5s    212/0 .test-results/20261028-174711-8f20c95a/logs/unit.port_service_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:47.7373477Z RUN [31/91] unit.refit_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:48.4744997Z unit.refit_probe                     unit         -          PASS         0     0.7s    977/0 .test-results/20261028-174711-8f20c95a/logs/unit.refit_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:48.4755132Z RUN [32/91] unit.save_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:51.0618965Z unit.save_probe                      unit         -          PASS         0     2.6s    156/0 .test-results/20261028-174711-8f20c95a/logs/unit.save_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:51.0702599Z RUN [33/91] unit.sensor_authority_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:54.3343545Z unit.sensor_authority_probe          unit         -          PASS         0     3.2s    333/0 .test-results/20261028-174711-8f20c95a/logs/unit.sensor_authority_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:54.3356451Z RUN [34/91] unit.sensor_service_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:55.2302580Z unit.sensor_service_probe            unit         -          PASS         0     0.9s    128/0 .test-results/20261028-174711-8f20c95a/logs/unit.sensor_service_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:55.2311650Z RUN [35/91] unit.settings_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:55.6863524Z unit.settings_probe                  unit         -          PASS         0     0.5s    179/0 .test-results/20261028-174711-8f20c95a/logs/unit.settings_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:55.6873518Z RUN [36/91] unit.signal_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:56.4034016Z unit.signal_probe                    unit         -          PASS         0     0.7s    257/0 .test-results/20261028-174711-8f20c95a/logs/unit.signal_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:56.4060624Z RUN [37/91] unit.story_runtime_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:58.9031860Z unit.story_runtime_probe             unit         -          PASS         0     2.5s    349/0 .test-results/20261028-174711-8f20c95a/logs/unit.story_runtime_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:58.9039646Z RUN [38/91] unit.story_state_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:59.3552586Z unit.story_state_probe               unit         -          PASS         0     0.4s    213/0 .test-results/20261028-174711-8f20c95a/logs/unit.story_state_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:48:59.3563461Z RUN [39/91] unit.story_trigger_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:00.2751867Z unit.story_trigger_probe             unit         -          PASS         0     0.9s     83/0 .test-results/20261028-174711-8f20c95a/logs/unit.story_trigger_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:00.2761991Z RUN [40/91] unit.teaching_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:00.6980622Z unit.teaching_probe                  unit         -          PASS         0     0.4s    385/0 .test-results/20261028-174711-8f20c95a/logs/unit.teaching_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:00.6988697Z RUN [41/91] unit.track_table_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:03.1023177Z unit.track_table_probe               unit         -          PASS         0     2.4s    161/0 .test-results/20261028-174711-8f20c95a/logs/unit.track_table_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:03.1033710Z RUN [42/91] unit.traffic_control_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:03.8044752Z unit.traffic_control_probe           unit         -          PASS         0     0.7s    396/0 .test-results/20261028-174711-8f20c95a/logs/unit.traffic_control_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:03.8053198Z RUN [43/91] unit.transfer_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:58.9023400Z unit.transfer_probe                  unit         -          PASS         0    55.1s    451/0 .test-results/20261028-174711-8f20c95a/logs/unit.transfer_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:58.9034617Z RUN [44/91] unit.transit_damage_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:59.4194926Z unit.transit_damage_probe            unit         -          PASS         0     0.5s    644/0 .test-results/20261028-174711-8f20c95a/logs/unit.transit_damage_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:49:59.4203244Z RUN [45/91] unit.transit_sensors_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:00.8836268Z unit.transit_sensors_probe           unit         -          PASS         0     1.5s    380/0 .test-results/20261028-174711-8f20c95a/logs/unit.transit_sensors_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:00.8843874Z RUN [46/91] unit.transponder_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:01.5374174Z unit.transponder_probe               unit         -          PASS         0     0.7s    272/0 .test-results/20261028-174711-8f20c95a/logs/unit.transponder_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:01.5417211Z RUN [47/91] integration.a1_entity_metadata_authority
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:06.4934005Z integration.a1_entity_metadata_authority integration  -          PASS         0     4.9s    359/0 .test-results/20261028-174711-8f20c95a/logs/integration.a1_entity_metadata_authority.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:06.4944901Z RUN [48/91] integration.a0_world_physics_sync
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:11.0380923Z integration.a0_world_physics_sync    integration  -          PASS         0     4.5s    107/0 .test-results/20261028-174711-8f20c95a/logs/integration.a0_world_physics_sync.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:11.0388411Z RUN [49/91] integration.a0_sensor_geometry
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:15.1244644Z integration.a0_sensor_geometry       integration  -          PASS         0     4.1s    133/0 .test-results/20261028-174711-8f20c95a/logs/integration.a0_sensor_geometry.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:15.1253084Z RUN [50/91] integration.av4412_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:15.6558542Z integration.av4412_probe             integration  -          PASS         0     0.5s    752/0 .test-results/20261028-174711-8f20c95a/logs/integration.av4412_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:15.6568993Z RUN [51/91] integration.ceres_chain_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:16.0898620Z integration.ceres_chain_probe        integration  -          PASS         0     0.4s    510/0 .test-results/20261028-174711-8f20c95a/logs/integration.ceres_chain_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:16.0906345Z RUN [52/91] integration.chronos_chain_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:16.6028261Z integration.chronos_chain_probe      integration  -          PASS         0     0.5s    616/0 .test-results/20261028-174711-8f20c95a/logs/integration.chronos_chain_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:16.6044087Z RUN [53/91] integration.cic_view_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:17.1140298Z integration.cic_view_probe           integration  -          PASS         0     0.5s    925/0 .test-results/20261028-174711-8f20c95a/logs/integration.cic_view_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:17.1145952Z RUN [54/91] integration.damage_integration_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:18.7576239Z integration.damage_integration_probe integration  -          FAIL         1     1.6s    198/6 .test-results/20261028-174711-8f20c95a/logs/integration.damage_integration_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:18.7578034Z       FAIL: exit code 1
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:18.7584503Z       BASELINE: [KNOWN-BASELINE] Six assertions for the full damage model wired into the V17 world drifted from current world/damage state contracts.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:18.7591378Z RUN [55/91] integration.plot_tws_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:19.7614880Z integration.plot_tws_probe           integration  -          FAIL         1     1.0s     58/1 .test-results/20261028-174711-8f20c95a/logs/integration.plot_tws_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:19.7621720Z       FAIL: exit code 1
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:19.7627983Z       BASELINE: [KNOWN-BASELINE] One TWS-bridge assertion drifted. This probe uses a non-standard [SUMMARY] pass=/fail= result line; the runner's explicit 'summary' parser correctly reports FAIL 58/1 (it must never be misclassified as PASS).
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:19.7642057Z RUN [56/91] integration.prologue_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:20.3698736Z integration.prologue_probe           integration  -          PASS         0     0.6s    272/0 .test-results/20261028-174711-8f20c95a/logs/integration.prologue_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:20.3709126Z RUN [57/91] integration.report_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:20.8804353Z integration.report_probe             integration  -          PASS         0     0.5s    965/0 .test-results/20261028-174711-8f20c95a/logs/integration.report_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:20.8816808Z RUN [58/91] integration.jc_a00_sensor_state
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:34.9316789Z integration.jc_a00_sensor_state      integration  -          PASS         0    14.1s     45/0 .test-results/20261028-174711-8f20c95a/logs/integration.jc_a00_sensor_state.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:34.9327930Z RUN [59/91] integration.jc_ew_observation
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:38.3100603Z integration.jc_ew_observation        integration  -          PASS         0     3.4s    126/0 .test-results/20261028-174711-8f20c95a/logs/integration.jc_ew_observation.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:38.3124724Z RUN [60/91] integration.jc_ew_comms
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:41.4023460Z integration.jc_ew_comms              integration  -          PASS         0     3.1s    131/0 .test-results/20261028-174711-8f20c95a/logs/integration.jc_ew_comms.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:41.4041892Z RUN [61/91] integration.jc_identity_pipeline
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:44.7836310Z integration.jc_identity_pipeline     integration  -          PASS         0     3.4s    122/0 .test-results/20261028-174711-8f20c95a/logs/integration.jc_identity_pipeline.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:44.7846675Z RUN [62/91] integration.jc_authority_intel
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:51.1343831Z integration.jc_authority_intel       integration  -          PASS         0     6.3s     90/0 .test-results/20261028-174711-8f20c95a/logs/integration.jc_authority_intel.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:51.1351925Z RUN [63/91] integration.jc_scenario_spec
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:51.5577901Z integration.jc_scenario_spec         integration  -          PASS         0     0.4s    269/0 .test-results/20261028-174711-8f20c95a/logs/integration.jc_scenario_spec.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:51.5588551Z RUN [64/91] integration.jc_contracts
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:52.0027339Z integration.jc_contracts             integration  -          PASS         0     0.4s     84/0 .test-results/20261028-174711-8f20c95a/logs/integration.jc_contracts.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:52.0033846Z RUN [65/91] integration.a0_comms_restore
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:56.0766835Z integration.a0_comms_restore         integration  -          PASS         0     4.1s     59/0 .test-results/20261028-174711-8f20c95a/logs/integration.a0_comms_restore.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:56.0774319Z RUN [66/91] integration.a0_sensor_persistence
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:58.8532981Z integration.a0_sensor_persistence    integration  -          PASS         0     2.8s     86/0 .test-results/20261028-174711-8f20c95a/logs/integration.a0_sensor_persistence.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:50:58.8540463Z RUN [67/91] integration.a0_legacy_save
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:02.5507867Z integration.a0_legacy_save           integration  -          PASS         0     3.7s     60/0 .test-results/20261028-174711-8f20c95a/logs/integration.a0_legacy_save.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:02.5515530Z RUN [68/91] integration.a0_event_continuity
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:05.2292515Z integration.a0_event_continuity      integration  -          PASS         0     2.7s     89/0 .test-results/20261028-174711-8f20c95a/logs/integration.a0_event_continuity.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:05.2303078Z RUN [69/91] integration.a0_frame_epoch
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:09.4227641Z integration.a0_frame_epoch           integration  -          PASS         0     4.2s     61/0 .test-results/20261028-174711-8f20c95a/logs/integration.a0_frame_epoch.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:09.4235734Z RUN [70/91] integration.a0_integration_authority
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:13.6826479Z integration.a0_integration_authority integration  -          PASS         0     4.3s     65/0 .test-results/20261028-174711-8f20c95a/logs/integration.a0_integration_authority.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:13.6834883Z RUN [71/91] integration.a0_track_truth_authority
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:17.6214627Z integration.a0_track_truth_authority integration  -          PASS         0     3.9s     45/0 .test-results/20261028-174711-8f20c95a/logs/integration.a0_track_truth_authority.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:17.6222233Z RUN [72/91] integration.a0_entity_metadata_pipeline
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:21.4512467Z integration.a0_entity_metadata_pipeline integration  -          PASS         0     3.8s     31/0 .test-results/20261028-174711-8f20c95a/logs/integration.a0_entity_metadata_pipeline.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:21.4518772Z RUN [73/91] integration.a0_save_roundtrip_authority
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:25.9349580Z integration.a0_save_roundtrip_authority integration  -          PASS         0     4.5s     41/0 .test-results/20261028-174711-8f20c95a/logs/integration.a0_save_roundtrip_authority.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:25.9357425Z RUN [74/91] integration.session_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:33.1518073Z integration.session_probe            integration  -          PASS         0     7.1s   1545/0 .test-results/20261028-174711-8f20c95a/logs/integration.session_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:33.1527079Z RUN [75/91] integration.v17_bridge_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:36.1049573Z integration.v17_bridge_probe         integration  -          PASS         0     3.0s    138/0 .test-results/20261028-174711-8f20c95a/logs/integration.v17_bridge_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:36.1056969Z RUN [76/91] integration.v17_core3_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:38.6278594Z integration.v17_core3_probe          integration  -          PASS         0     2.5s    171/0 .test-results/20261028-174711-8f20c95a/logs/integration.v17_core3_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:38.6285016Z RUN [77/91] integration.v17_info_warfare_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:40.4591204Z integration.v17_info_warfare_probe   integration  -          PASS         0     1.8s    116/0 .test-results/20261028-174711-8f20c95a/logs/integration.v17_info_warfare_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:40.4600439Z RUN [78/91] integration.v17_nav_integration_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:42.7844342Z integration.v17_nav_integration_probe integration  -          FAIL         1     2.3s    181/1 .test-results/20261028-174711-8f20c95a/logs/integration.v17_nav_integration_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:42.7846317Z       FAIL: exit code 1
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:42.7849398Z       BASELINE: [KNOWN-BASELINE] One navigation-integration assertion drifted from the current V17 bridge/state contract.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:42.7856872Z RUN [79/91] integration.v17_optical_docking_auto_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:44.8764893Z integration.v17_optical_docking_auto_probe integration  -          PASS         0     2.1s     68/0 .test-results/20261028-174711-8f20c95a/logs/integration.v17_optical_docking_auto_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:44.8772106Z RUN [80/91] integration.v17_optical_docking_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:46.8304660Z integration.v17_optical_docking_probe integration  -          PASS         0     1.9s    128/0 .test-results/20261028-174711-8f20c95a/logs/integration.v17_optical_docking_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:46.8312694Z RUN [81/91] integration.v17_physics_authoritative_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:49.0525394Z integration.v17_physics_authoritative_probe integration  -          PASS         0     2.2s    159/0 .test-results/20261028-174711-8f20c95a/logs/integration.v17_physics_authoritative_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:49.0532381Z RUN [82/91] integration.v17_physics_display_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:51.1531713Z integration.v17_physics_display_probe integration  -          PASS         0     2.1s    197/0 .test-results/20261028-174711-8f20c95a/logs/integration.v17_physics_display_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:51.1539289Z RUN [83/91] integration.v17_physics_shadow_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:53.3492149Z integration.v17_physics_shadow_probe integration  -          PASS         0     2.2s    277/0 .test-results/20261028-174711-8f20c95a/logs/integration.v17_physics_shadow_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:53.3500521Z RUN [84/91] integration.v17_sensor_authority_display_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:55.2574439Z integration.v17_sensor_authority_display_probe integration  -          FAIL         1     1.9s     71/3 .test-results/20261028-174711-8f20c95a/logs/integration.v17_sensor_authority_display_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:55.2576055Z       FAIL: exit code 1
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:55.2581988Z       BASELINE: [KNOWN-BASELINE] Three sensor-authority display assertions drifted from the current display/contract path.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:55.2590296Z RUN [85/91] integration.v17_sensor_shadow_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:57.0880526Z integration.v17_sensor_shadow_probe  integration  -          PASS         0     1.8s    108/0 .test-results/20261028-174711-8f20c95a/logs/integration.v17_sensor_shadow_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:51:57.0887067Z RUN [86/91] integration.v17_transit_bridge_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:52:53.7908313Z integration.v17_transit_bridge_probe integration  -          PASS         0    56.7s    136/0 .test-results/20261028-174711-8f20c95a/logs/integration.v17_transit_bridge_probe.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:52:53.7916289Z RUN [87/91] e2e.orbital_sim
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:52:58.9172136Z e2e.orbital_sim                      e2e          orbital_sim PASS         0     5.1s    149/0 .test-results/20261028-174711-8f20c95a/logs/e2e.orbital_sim.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:52:58.9192806Z RUN [88/91] boot.full
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:03.5353177Z boot.full                            boot         full       PASS         0     4.6s      3/0 .test-results/20261028-174711-8f20c95a/logs/boot.full.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:03.5374111Z RUN [89/91] boot.legacy_combat_sim
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:08.3534917Z boot.legacy_combat_sim               boot         combat_sim PASS         0     4.8s      3/0 .test-results/20261028-174711-8f20c95a/logs/boot.legacy_combat_sim.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:08.3544645Z RUN [90/91] boot.orbital_sim
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:13.2339160Z boot.orbital_sim                     boot         orbital_sim PASS         0     4.9s      3/0 .test-results/20261028-174711-8f20c95a/logs/boot.orbital_sim.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:13.2346986Z RUN [91/91] boot.sandbox
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.7914561Z boot.sandbox                         boot         sandbox    PASS         0     5.5s      3/0 .test-results/20261028-174711-8f20c95a/logs/boot.sandbox.log
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9420706Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9426724Z -- TOTALS ------------------------------------------------------
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9448163Z total=91  pass=84  fail=7  timeout=0  not_run=0 (expected=0 unexpected=0)  duration=368.2s
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9454611Z -- BASELINE ----------------------------------------------------
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9460304Z BASELINE CHECK: known_fail=7 new_fail=0 drift=0 unverified=0 unselected=0 complete=true
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9465547Z coverage: required=7 selected=7 executed=7 verified=7
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9470949Z baseline file: game_v17/tests/known_baseline_failures.json (commit 263e97e, sha256 5fdfb46a27d8d0057b50d51b3ceed87ce1d126a933db6b93f803a11e6ab2c9e4)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9478300Z summary: .test-results/20261028-174711-8f20c95a/summary.json
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9483353Z report:  .test-results/20261028-174711-8f20c95a/report.md
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:18.9489075Z RESULT: BASELINE MATCH - all 7 baseline entries executed as expected FAIL with matching counts (known_fail=7, new_fail=0, drift=0, unverified=0, unselected=0, complete=true)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2148530Z FULL_MATRIX_EXIT=0
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2638309Z ##[group]Run $ErrorActionPreference = 'Stop'
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2638913Z ^[[36;1m$ErrorActionPreference = 'Stop'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2639781Z ^[[36;1mpwsh -NoProfile -File ./game_v17/tests/baseline_gate_selftest.ps1 -NoImport -GodotBin $env:GODOT_CONSOLE^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2640416Z ^[[36;1m$code = $LASTEXITCODE^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2640767Z ^[[36;1mWrite-Host "BASELINE_GATE_SELFTEST_EXIT=$code"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2641138Z ^[[36;1mexit $code^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2723763Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2724198Z env:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2724494Z   GODOT_VERSION: 4.7.2-stable
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2724820Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2725305Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2726213Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2726822Z   GODOT_DIR: tools/godot
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2727187Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:19.2727615Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:21.8896428Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1667524Z GHOST TRACK // APSIS - baseline gate fail-closed self-test
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1668836Z repo:        D:\a\ghost-track-apsis\ghost-track-apsis
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1669606Z runner:      D:\a\ghost-track-apsis\ghost-track-apsis\run_tests.ps1
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1670357Z shell:       C:\Program Files\PowerShell\7\pwsh.exe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1671092Z godot:       tools/godot/Godot_v4.7.2-stable_win64_console.exe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1671837Z import:      SKIPPED in runner calls (-NoImport; fast default)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1672798Z temp root:   C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-175321_e4479f
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1674229Z scenarios:   A, B, C (D skipped: pass -IncludeFullRun to enable)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1674789Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1675283Z === Scenario A: declared baseline case blocked (NOT RUN) => strict fail-closed exit 1 ===
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1679010Z     $ pwsh.exe -NoProfile -File D:\a\ghost-track-apsis\ghost-track-apsis\run_tests.ps1 -GodotBin tools/godot/Godot_v4.7.2-stable_win64_console.exe -Matrix C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-175321_e4479f\matrix_blocked_baseline_case.json -Baseline C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-175321_e4479f\baseline_one_entry.json -Only ^content\.damage_profile_probe$ -NoImport -Ci -ResultsDir C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-175321_e4479f\results_A
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1682663Z     expected exit=1 actual exit=1 duration=2.9s
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1683518Z     | BASELINE CHECK: known_fail=0 new_fail=0 drift=0 unverified=1 unselected=0 complete=false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1685315Z     | baseline entry NOT VERIFIED (not executed): content.damage_profile_probe status=NOT RUN reason=declared baseline case was NOT RUN (blocked / not executed / missing target); cannot verify the expected FAIL
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1687318Z     | RESULT: BASELINE CHECK FAILED - new_fail=0 drift=0 unverified=1 unselected=0 timeout=0 unexpected_not_run=0
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1688424Z   [PASS] A: strict run exits 1 when a declared baseline entry is NOT RUN
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1689158Z   [PASS] A: output reports unverified>0
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1689914Z   [PASS] A: output reports exactly unverified=1 (single-entry baseline)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1690693Z   [PASS] A: blocked baseline case is shown as NOT RUN
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1691321Z   [PASS] A: output reports complete=false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1697455Z   [PASS] A: output never claims BASELINE MATCH
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1698164Z   [PASS] A: strict run is not labelled partial
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1698560Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1699013Z === Scenario B: strict run with 7/8 declared baseline entries filtered out => exit 1 ===
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:25.1705349Z     $ pwsh.exe -NoProfile -File D:\a\ghost-track-apsis\ghost-track-apsis\run_tests.ps1 -GodotBin tools/godot/Godot_v4.7.2-stable_win64_console.exe -Baseline D:\a\ghost-track-apsis\ghost-track-apsis\game_v17\tests\known_baseline_failures.json -Only ^unit\.save_probe$ -NoImport -Ci -ResultsDir C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-175321_e4479f\results_B
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1634364Z     expected exit=1 actual exit=1 duration=5.3s
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1650367Z     | BASELINE CHECK: known_fail=0 new_fail=0 drift=0 unverified=0 unselected=7 complete=false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1666749Z     | baseline entries NOT SELECTED by filters: 7 of 7: content.damage_profile_probe, content.story_text_probe, integration.damage_integration_probe, integration.plot_tws_probe, integration.v17_nav_integration_probe, integration.v17_sensor_authority_display_probe, unit.incident_record_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1669085Z     | RESULT: BASELINE CHECK FAILED - new_fail=0 drift=0 unverified=0 unselected=7 timeout=0 unexpected_not_run=0
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1670817Z   [PASS] B: strict filtered run exits 1 when declared baseline entries are unselected
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1671930Z   [PASS] B: output reports unselected=7
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1679948Z   [PASS] B: output reports BASELINE CHECK FAILED
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1686662Z   [PASS] B: unselected baseline entries are listed explicitly
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1693038Z   [PASS] B: output never claims BASELINE MATCH
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1699765Z   [PASS] B: strict run is not labelled partial
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1701895Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1708086Z === Scenario C: filtered run + -AllowPartialBaseline => exit 0 but explicitly PARTIAL ===
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:30.1738592Z     $ pwsh.exe -NoProfile -File D:\a\ghost-track-apsis\ghost-track-apsis\run_tests.ps1 -GodotBin tools/godot/Godot_v4.7.2-stable_win64_console.exe -Baseline D:\a\ghost-track-apsis\ghost-track-apsis\game_v17\tests\known_baseline_failures.json -Only ^unit\.save_probe$ -AllowPartialBaseline -NoImport -Ci -ResultsDir C:\Users\runneradmin\AppData\Local\Temp\gt_baseline_selftest_20261028-175321_e4479f\results_C
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3358058Z     expected exit=0 actual exit=0 duration=5.2s
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3369618Z     | BASELINE CHECK: known_fail=0 new_fail=0 drift=0 unverified=0 unselected=7 complete=false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3372434Z     | baseline entries NOT SELECTED by filters: 7 of 7: content.damage_profile_probe, content.story_text_probe, integration.damage_integration_probe, integration.plot_tws_probe, integration.v17_nav_integration_probe, integration.v17_sensor_authority_display_probe, unit.incident_record_probe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3374846Z     | RESULT: BASELINE PARTIAL - NOT a complete baseline verification (unselected=7, unverified=0)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3377561Z   [PASS] C: -AllowPartialBaseline allows exit 0 for a clean selected subset
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3383161Z   [PASS] C: output is explicitly labelled BASELINE PARTIAL
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3387841Z   [PASS] C: output states it is NOT a complete verification
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3392804Z   [PASS] C: partial run never claims BASELINE MATCH
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3591221Z   [PASS] C: summary.json was written for the partial run
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3649233Z   [PASS] C: summary baseline.complete=false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3664006Z   [PASS] C: summary baseline.verified=false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3677035Z   [PASS] C: summary baseline.partial=true
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3717252Z   [PASS] C: summary totals.baseline_unselected>0
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3732742Z   [PASS] C: summary totals.baseline_unverified present
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3746317Z   [PASS] C: summary totals.baseline_complete=false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3892513Z 
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.3916297Z BASELINE GATE SELFTEST RESULT: PASS=24 FAIL=0 (assertions=24)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5120698Z BASELINE_GATE_SELFTEST_EXIT=0
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5695246Z ##[group]Run $ErrorActionPreference = 'Stop'
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5696205Z ^[[36;1m$ErrorActionPreference = 'Stop'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5697113Z ^[[36;1m$dirs = @(Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5698092Z ^[[36;1m  Sort-Object LastWriteTime -Descending)^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5698703Z ^[[36;1mif ($dirs.Count -eq 0) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5699481Z ^[[36;1m  throw 'ARTIFACT ASSERT FAILED: no .test-results run directory was produced'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5700259Z ^[[36;1m}^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5700713Z ^[[36;1m$runDir = $dirs[0]^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5701298Z ^[[36;1mforeach ($name in @('summary.json', 'report.md')) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5701946Z ^[[36;1m  $p = Join-Path $runDir.FullName $name^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5702543Z ^[[36;1m  if (-not (Test-Path -LiteralPath $p -PathType Leaf)) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5703412Z ^[[36;1m    throw "ARTIFACT ASSERT FAILED: missing required file $p"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5704212Z ^[[36;1m  }^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5704732Z ^[[36;1m  if ((Get-Item -LiteralPath $p).Length -le 0) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5705496Z ^[[36;1m    throw "ARTIFACT ASSERT FAILED: empty required file $p"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5706170Z ^[[36;1m  }^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5706632Z ^[[36;1m}^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5707099Z ^[[36;1m$logDir = Join-Path $runDir.FullName 'logs'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5707960Z ^[[36;1m$logs = @(Get-ChildItem -LiteralPath $logDir -File -ErrorAction SilentlyContinue)^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5709472Z ^[[36;1mif ($logs.Count -eq 0) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5710197Z ^[[36;1m  throw "ARTIFACT ASSERT FAILED: no per-case logs under $logDir"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5710884Z ^[[36;1m}^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5711663Z ^[[36;1m$s = Get-Content -LiteralPath (Join-Path $runDir.FullName 'summary.json') -Raw | ConvertFrom-Json^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5712689Z ^[[36;1mif ([string]$s.run_id -ne [string]$runDir.Name) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5713498Z ^[[36;1m  throw "ARTIFACT ASSERT FAILED: summary.run_id '$($s.run_id)' != run dir '$($runDir.Name)'"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5714229Z ^[[36;1m}^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5714632Z ^[[36;1m$caseCount = @($s.cases).Count^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5715214Z ^[[36;1mif ($caseCount -le 0) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5715862Z ^[[36;1m  throw 'ARTIFACT ASSERT FAILED: summary.json contains no cases'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5716534Z ^[[36;1m}^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5717255Z ^[[36;1mWrite-Host "ARTIFACT ASSERT OK run_dir=$($runDir.Name) cases=$caseCount logs=$($logs.Count)"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5799217Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5800347Z env:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5800664Z   GODOT_VERSION: 4.7.2-stable
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5800996Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5801506Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5802278Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5803043Z   GODOT_DIR: tools/godot
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5803469Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:35.5803902Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.1579123Z ARTIFACT ASSERT OK run_dir=20261028-174711-8f20c95a cases=91 logs=150
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2283256Z ##[group]Run $ErrorActionPreference = 'Stop'
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2284275Z ^[[36;1m$ErrorActionPreference = 'Stop'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2284814Z ^[[36;1m$lines = @(^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2285526Z ^[[36;1m  '## Full regression matrix (baseline-aware, NOT a claim that all tests pass)',^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2286295Z ^[[36;1m  '',^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2287323Z ^[[36;1m  'All matrix cases were executed. Known pre-existing failures below are still FAIL records — they are not skipped, renamed or silenced.',^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2289893Z ^[[36;1m  'STRICT fail-closed: this check turns red if any declared baseline entry is NOT RUN / blocked / filtered out / missing / count-mismatched, or on NEW failures, drift, timeouts or unexpected NOT RUN.',^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2291806Z ^[[36;1m  'The baseline gate self-test step must also be green (proves blocked and filtered-out baseline entries fail).',^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2292738Z ^[[36;1m  ''^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2293260Z ^[[36;1m)^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2293985Z ^[[36;1m$runDir = Get-ChildItem -Path '.test-results' -Directory -ErrorAction SilentlyContinue |^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2295066Z ^[[36;1m  Sort-Object LastWriteTime -Descending | Select-Object -First 1^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2295850Z ^[[36;1mif ($null -eq $runDir) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2296587Z ^[[36;1m  $lines += '**No `.test-results` output directory was produced by the runner.**'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2297353Z ^[[36;1m} else {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2297951Z ^[[36;1m  $summaryPath = Join-Path $runDir.FullName 'summary.json'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2298749Z ^[[36;1m  $lines += "Run directory: ``$($runDir.Name)``"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2299446Z ^[[36;1m  if (Test-Path -LiteralPath $summaryPath) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2300271Z ^[[36;1m    $s = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2300983Z ^[[36;1m    $lines += ''^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2302091Z ^[[36;1m    $lines += '| total | pass | FAIL | known-baseline | NEW | drift | unverified | unselected | baseline complete | timeout | not run | exit code |'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2303850Z ^[[36;1m    $lines += '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2306104Z ^[[36;1m    $lines += "| $($s.totals.total) | $($s.totals.pass) | $($s.totals.fail) | $($s.totals.known_fail) | $($s.totals.new_fail) | $($s.totals.baseline_drift) | $($s.totals.baseline_unverified) | $($s.totals.baseline_unselected) | $($s.totals.baseline_complete) | $($s.totals.timeout) | $($s.totals.not_run) | $($s.exit_code) |"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2309569Z ^[[36;1m    $lines += ''^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2310068Z ^[[36;1m    $known = @()^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2310523Z ^[[36;1m    $new = @()^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2311060Z ^[[36;1m    foreach ($c in @($s.cases)) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2311683Z ^[[36;1m      if ($c.status -eq 'PASS') { continue }^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2312301Z ^[[36;1m      $isKnown = $false^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2312852Z ^[[36;1m      $baselineNote = ''^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2313447Z ^[[36;1m      if ($null -ne $c.baseline) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2314031Z ^[[36;1m        $isKnown = [bool]$c.baseline.known^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2314696Z ^[[36;1m        $baselineNote = [string]$c.baseline.reason^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2315284Z ^[[36;1m      }^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2316343Z ^[[36;1m      $row = "| ``$($c.id)`` | $($c.status) | exit=$($c.exit_code) | pass/fail=$($c.pass_count)/$($c.fail_count) | known_baseline=$isKnown | $baselineNote |"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2317479Z ^[[36;1m      if ($isKnown) { $known += $row } else { $new += $row }^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2318104Z ^[[36;1m    }^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2318828Z ^[[36;1m    $lines += "### Known pre-existing failures (visible, NOT silently ignored): $($known.Count)"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2319646Z ^[[36;1m    $lines += ''^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2320091Z ^[[36;1m    if ($known.Count -eq 0) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2324017Z ^[[36;1m      $lines += '_None reported — check the baseline file or the runner output._'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2324926Z ^[[36;1m    } else {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2325575Z ^[[36;1m      $lines += '| case | status | exit | pass/fail | known_baseline | reason |'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2326346Z ^[[36;1m      $lines += '| --- | --- | --- | --- | --- | --- |'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2326893Z ^[[36;1m      $lines += $known^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2327391Z ^[[36;1m    }^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2328066Z ^[[36;1m    $lines += ''^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2328587Z ^[[36;1m    $lines += "### NEW failures / regressions: $($new.Count)"^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2329175Z ^[[36;1m    $lines += ''^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2329639Z ^[[36;1m    if ($new.Count -eq 0) {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2330221Z ^[[36;1m      $lines += '_None detected: no new failures, no baseline drift._'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2330808Z ^[[36;1m    } else {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2331418Z ^[[36;1m      $lines += '| case | status | exit | pass/fail | known_baseline | reason |'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2332253Z ^[[36;1m      $lines += '| --- | --- | --- | --- | --- | --- |'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2332844Z ^[[36;1m      $lines += $new^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2333276Z ^[[36;1m    }^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2333659Z ^[[36;1m  } else {^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2334306Z ^[[36;1m    $lines += '**summary.json missing — investigate the runner output.**'^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2334946Z ^[[36;1m  }^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2335285Z ^[[36;1m}^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2335700Z ^[[36;1m$lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8^[[0m
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2407933Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2408777Z env:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2409146Z   GODOT_VERSION: 4.7.2-stable
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2409696Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2410458Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2411563Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2412470Z   GODOT_DIR: tools/godot
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2412870Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.2413256Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8379609Z ##[group]Run actions/upload-artifact@v4
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8380088Z with:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8380411Z   name: full-matrix-results-40738920608-1
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8380744Z   path: .test-results/
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8381024Z   include-hidden-files: true
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8381386Z   if-no-files-found: error
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8381856Z   retention-days: 14
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8382237Z   compression-level: 6
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8382508Z   overwrite: false
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8382761Z env:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8383028Z   GODOT_VERSION: 4.7.2-stable
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8383341Z   GODOT_ZIP: Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8383813Z   GODOT_ZIP_SHA256: 731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8384585Z   GODOT_ZIP_URL: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_win64.exe.zip
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8385791Z   GODOT_DIR: tools/godot
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8386272Z   GODOT_CONSOLE: tools/godot/Godot_v4.7.2-stable_win64_console.exe
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:36.8386656Z ##[endgroup]
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:37.0804404Z (node:9084) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:37.0808498Z (Use `node --trace-deprecation ...` to show where the warning was created)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:37.1920067Z With the provided path, there will be 153 files uploaded
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:37.1926506Z Artifact name is valid!
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:37.1928077Z Root directory input is valid!
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:37.5761154Z Beginning upload of artifact content to blob storage
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:37.8777264Z (node:9084) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:38.4678102Z Uploaded bytes 472903
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:38.5410738Z Finished uploading artifact content to blob storage!
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:38.5412251Z SHA256 digest of uploaded artifact zip is 31dcc325a47f7dd67b10e3f407e6d23d38b8436a46d5792664bb59a85f6cf969
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:38.5413641Z Finalizing artifact upload
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:39.0619084Z Artifact full-matrix-results-40738920608-1.zip successfully finalized. Artifact ID 12838917985
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:39.0801793Z Artifact full-matrix-results-40738920608-1 has been successfully uploaded! Final size is 472903 bytes. Artifact ID is 12838917985
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:39.0810945Z Artifact download URL: https://github.com/HATO-24/ghost-track-apsis/actions/runs/40738920608/artifacts/12838917985
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:39.1221694Z Post job cleanup.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:39.4768496Z (node:5676) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:39.4770453Z Cache hit occurred on the primary key godot-Windows-4.7.2-stable-731980f9608d61333e5baf54a2ef17210acc7a538446c0cb9969f002aca1e953, not saving cache.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:39.4807049Z (Use `node --trace-deprecation ...` to show where the warning was created)
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:39.5463711Z Post job cleanup.
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:40.0014280Z [command]"C:\Program Files\Git\bin\git.exe" version
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:40.0695129Z git version 2.56.0.windows.2
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:40.0827236Z Temporarily overriding HOME='D:\a\_temp\8bf92fa0-1ef4-4798-abcc-6f151feec510' before making global git config changes
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:40.0856603Z Adding repository directory to the temporary git global config as a safe directory
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:40.0879965Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\ghost-track-apsis\ghost-track-apsis
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:40.1480477Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:40.2111803Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:41.1768984Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:41.2253067Z http.https://github.com/.extraheader
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:41.2360894Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:41.2974628Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:42.2540836Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:42.3144693Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:43.0460872Z Cleaning up orphan processes
+Full matrix (baseline-aware; known legacy FAILs shown, red only on new regressions)	UNKNOWN STEP	2026-10-28T17:53:43.1159076Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/cache@v4, actions/checkout@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

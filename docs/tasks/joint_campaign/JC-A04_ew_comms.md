@@ -2,7 +2,17 @@
 
 执行Issue：[JC-A04 #61](https://github.com/HATO-24/ghost-track-apsis/issues/61)。
 
-状态：RETURNED，第二轮R3已关闭；仅继续原#61的R1/R2/R4，A4未冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：RETURNED，第三轮仅剩R1现代缺省上下文入口；R2/R3/R4关闭，A4未冻结。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+
+## 2026-10-29 PR72第三轮：R2/R4关闭，仅现代缺省发送一处
+
+被审`563e97a61bc00d31104ad6db969edfe87f2fc25f`，[本轮关闭表与原始证据](../../reviews/pr72_a04_r3_20261029/review.md)。根8/8专项、新131/0、退出0；同head CI三个job成功，full91=84PASS/7历史FAIL、new_fail0/drift0/complete=true、退出0。
+
+**不再返工**：R1显式ally/player、enemy/player、own/opfor三错配与原非法订单已拒绝；R2普通ignore_ew拒绝且无pending，v1内部重放保持2s旧语义；R4缺pending.ew/version2.5拒绝不改服务状态，正式合法fresh共享精确due 0→1/后续不增；R3 RNG/seed/真实文件及所有已过callback继续关闭。
+
+仅原R1缺省分支：同一现代command_domains/fleet_instances seed下，ally_ship+opts{}、enemy_ship+省略opts仍成功并t2投递；没有load/replay。_authorize_comms_sender只凭缺ctx提前legacy放行。现代新发送应从可信本方锚点解析合法上下文或明确拒绝缺少所需上下文，不能因省略字段降为旧兼容。保留现代own默认、独立ally显式合法上下文、真正旧seed/已验证旧日志及v1迁移，不扩B2或全禁旧调用。
+
+补此入口的实际对照，最终同40位修复HEAD专项+原C；已关闭R1子项/R2/R3/R4与实际链路不重派，七历史baseline和旧ID不动。PR72暂缓合并、A4未冻结，B01A仍等A4。下面前两轮为历史，以最新关闭表为准；代码DeepSeek，任务/UI设计文档GPT/Sol。
 
 ## 2026-10-29 PR72第二轮：关闭RNG恢复，仅三组原残项
 
