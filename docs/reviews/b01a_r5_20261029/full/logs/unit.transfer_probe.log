@@ -1,0 +1,489 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE2-CORE-A PROBE · L4-02 → L1 真实轨道转场
+════════════════════════════════════════════════════════════
+
+── 1 场景骨架 ──
+[PASS] scenario 文件存在
+[PASS] scenario 文本非空  len=6078
+[PASS] scenario JSON 可解析
+[PASS] schema=scenario.v2  actual=scenario.v2 expected=scenario.v2
+[PASS] id=transit_l4_l1  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] own_entity=apsis  actual=apsis expected=apsis
+[PASS] title 含 L4-02  阶段2 · L4-02 Hammer → L1 港群 · 真实轨道转场
+[PASS] epoch 有效
+[PASS] datum=L4  actual=L4 expected=L4
+[PASS] source_port  actual=l4_02_hammer expected=l4_02_hammer
+[PASS] target_port  actual=l1_meridian_05 expected=l1_meridian_05
+[PASS] L1 港群 3 个端口  actual=3 expected=3
+[PASS] planner 路径
+[PASS] method  actual=lambert_seed_cr3bp_shooting expected=lambert_seed_cr3bp_shooting
+[PASS] frame_rotating  actual=bary_rot expected=bary_rot
+[PASS] frame_inertial  actual=earth_eci expected=earth_eci
+[PASS] TOF 候选 ≥3
+[PASS] arrival_gate 字段齐全
+[PASS] entities ≥9  9
+[PASS] entity id 非空
+[PASS] entity apsis batch
+[PASS] entity apsis kind
+[PASS] entity apsis orbit.r 有限
+[PASS] entity apsis orbit.v 有限
+[PASS] entity id 非空
+[PASS] entity harmattan batch
+[PASS] entity harmattan kind
+[PASS] entity harmattan orbit.r 有限
+[PASS] entity harmattan orbit.v 有限
+[PASS] entity id 非空
+[PASS] entity ferry batch
+[PASS] entity ferry kind
+[PASS] entity ferry orbit.r 有限
+[PASS] entity ferry orbit.v 有限
+[PASS] entity id 非空
+[PASS] entity watchtower batch
+[PASS] entity watchtower kind
+[PASS] entity watchtower orbit.r 有限
+[PASS] entity watchtower orbit.v 有限
+[PASS] entity id 非空
+[PASS] entity deepwell batch
+[PASS] entity deepwell kind
+[PASS] entity deepwell orbit.r 有限
+[PASS] entity deepwell orbit.v 有限
+[PASS] entity id 非空
+[PASS] entity l4_02_hammer batch
+[PASS] entity l4_02_hammer kind
+[PASS] entity l4_02_hammer orbit.r 有限
+[PASS] entity l4_02_hammer orbit.v 有限
+[PASS] entity id 非空
+[PASS] entity l1_meridian_05 batch
+[PASS] entity l1_meridian_05 kind
+[PASS] entity l1_meridian_05 orbit.r 有限
+[PASS] entity l1_meridian_05 orbit.v 有限
+[PASS] entity id 非空
+[PASS] entity l1_anchorage_02 batch
+[PASS] entity l1_anchorage_02 kind
+[PASS] entity l1_anchorage_02 orbit.r 有限
+[PASS] entity l1_anchorage_02 orbit.v 有限
+[PASS] entity id 非空
+[PASS] entity l1_drydock_01 batch
+[PASS] entity l1_drydock_01 kind
+[PASS] entity l1_drydock_01 orbit.r 有限
+[PASS] entity l1_drydock_01 orbit.v 有限
+[PASS] fleet entity: apsis
+[PASS] fleet entity: harmattan
+[PASS] fleet entity: ferry
+[PASS] fleet entity: watchtower
+[PASS] fleet entity: deepwell
+[PASS] port entity: l4_02_hammer
+[PASS] port entity: l1_meridian_05
+[PASS] port entity: l1_anchorage_02
+[PASS] port entity: l1_drydock_01
+[PASS] 无旧关卡实体: summons_4471
+[PASS] 无旧关卡实体: ceres_2
+[PASS] 无旧关卡实体: chronos_station
+[PASS] 无旧关卡实体: tank_farm
+[PASS] fleet ships=5  actual=5 expected=5
+[PASS] ports entities=4  actual=4 expected=4
+[PASS] ports 数组 4 个  actual=4 expected=4
+[PASS] port_id 非空
+[PASS] port offset finite
+[PASS] port_id 非空
+[PASS] port offset finite
+[PASS] port_id 非空
+[PASS] port offset finite
+[PASS] port_id 非空
+[PASS] port offset finite
+[PASS] meta.stage  actual=stage2-core-A expected=stage2-core-A
+[PASS] meta.no_legacy_entities  actual=true expected=true
+[PASS] 不改默认启动  actual=false expected=false
+[PASS] scenario 可重新序列化
+
+── 2 L4/L1 位置 ──
+[PASS] 平衡点存在: L1
+[PASS] L L1 pos_rot 类型
+[PASS] L L1 kind
+[PASS] 平衡点存在: L2
+[PASS] L L2 pos_rot 类型
+[PASS] L L2 kind
+[PASS] 平衡点存在: L3
+[PASS] L L3 pos_rot 类型
+[PASS] L L3 kind
+[PASS] 平衡点存在: L4
+[PASS] L L4 pos_rot 类型
+[PASS] L L4 kind
+[PASS] 平衡点存在: L5
+[PASS] L L5 pos_rot 类型
+[PASS] L L5 kind
+[PASS] L1 地心距 ≈326,381 km  actual=326380.875000 expected=326381.000000 tol=30.000000
+[PASS] L4 地心距 = 384,400 km  actual=384400.000000 expected=384400.000000 tol=5.000000
+[PASS] L4 与 L1 间距 > 5 万 km
+[PASS] L4-02 母港状态有限
+[PASS] L1 港状态有限
+[PASS] L4-02 偏离 L4 点  606.7 km
+[PASS] L4-02 在 L4 附近  606.7 km
+[PASS] L1 港偏离 L1 点  184.2 km
+[PASS] L1 港在 L1 附近  184.2 km
+[PASS] L1 港群 offsets=3  actual=3 expected=3
+[PASS] 港群 port_id
+[PASS] 港 L1-Meridian-05 状态有限
+[PASS] 港群 port_id
+[PASS] 港 L1-Anchorage-02 状态有限
+[PASS] 港群 port_id
+[PASS] 港 L1-Drydock-01 状态有限
+[PASS] L4-02 地心距
+[PASS] L1 港地心距
+
+── 3 RK4 传播 ──
+[PASS] propagate 60s ok
+[PASS] propagate steps>=1  1
+[PASS] propagate finite
+[PASS] 推进后状态有限
+[PASS] 推进后位置变化  delta=0.695 km
+[PASS] Jacobi 有限
+[PASS] Jacobi 漂移小  actual=0.000000 expected=0.000000 tol=0.000100
+[PASS] propagate 0s ok
+[PASS] propagate 0s steps=0  actual=0 expected=0
+[PASS] 0s 位置不变  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] propagate_states 长度  actual=2 expected=2
+[PASS] 批量传播 ok
+[PASS] 批量传播 ok
+[PASS] 传播确定性  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] 前进 300s ok
+[PASS] 反向传播 ok
+[PASS] RK4 往返位置近似  err=0.000 km
+[PASS] 非有限初值拒绝
+[PASS] 能量代理有限
+
+── 4 Lambert / 脉冲 ──
+[PASS] Lambert prograde ok
+[PASS] Lambert v1 类型
+[PASS] Lambert v2 类型
+[PASS] v1 有限
+[PASS] v2 有限
+[PASS] 转移角 (0,360)  18.952°
+[PASS] Lambert z 有限
+[PASS] f/g/gdot 有限
+[PASS] g 非奇异
+[PASS] Lambert v1 可转旋转系
+[PASS] Lambert 种子确定性  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] Lambert retrograde 分支 ok
+[PASS] tof=0 拒绝
+[PASS] 同点几何拒绝
+[PASS] 零半径拒绝
+
+── 5 转移方案 ──
+[PASS] plan ok
+[PASS] plan schema  actual=v17_transfer_l4_l1.v1 expected=v17_transfer_l4_l1.v1
+[PASS] scenario_id  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] 无失败 reason  actual= expected=
+[PASS] frame.inertial  actual=earth_eci expected=earth_eci
+[PASS] frame.rotating  actual=bary_rot expected=bary_rot
+[PASS] source port  actual=L4-02 Hammer expected=L4-02 Hammer
+[PASS] source lpoint  actual=L4 expected=L4
+[PASS] target port  actual=L1-Meridian-05 expected=L1-Meridian-05
+[PASS] target lpoint  actual=L1 expected=L1
+[PASS] source pos 有限
+[PASS] target pos 有限
+[PASS] source 地心距
+[PASS] target 地心距
+[PASS] method  actual=lambert_seed_cr3bp_shooting expected=lambert_seed_cr3bp_shooting
+[PASS] TOF 在时间窗  6.00 days
+[PASS] tof_s = days*86400  actual=518400.000000 expected=518400.000000 tol=0.001000
+[PASS] TOF 来自候选  6.0
+[PASS] Lambert 种子 ok
+[PASS] Lambert 转移角>0
+[PASS] 打靶迭代≥1
+[PASS] 打靶收敛
+[PASS] 打靶误差≤3000km  0.771 km
+[PASS] depart 状态有限
+[PASS] arrival 状态有限
+[PASS] departure Δv 合理  853.4 m/s
+[PASS] arrival Δv 合理  969.2 m/s
+[PASS] MCC Δv≥0  0.000 m/s
+[PASS] total Δv = 分解和  actual=1822.623253 expected=1822.623253 tol=0.000001
+[PASS] 总 Δv < 10 km/s  1822.6 m/s
+[PASS] 候选数>0
+[PASS] mcc 字段
+[PASS] mcc.applied 字段
+[PASS] mcc.dv_mps 字段
+[PASS] arrival 字段齐全
+[PASS] 入轨半径达标  0.771 / 3000.0 km
+[PASS] 入轨相对速度达标  0.969 / 3.000 km/s
+[PASS] 时间窗达标  actual=true expected=true
+[PASS] arrival.ok  actual=true expected=true
+[PASS] budget.depart  actual=853.393197 expected=853.393197 tol=0.000001
+[PASS] budget.arrival  actual=969.230056 expected=969.230056 tol=0.000001
+[PASS] budget.mcc  actual=0.000000 expected=0.000000 tol=0.000001
+[PASS] budget.total  actual=1822.623253 expected=1822.623253 tol=0.000001
+[PASS] errors 空  actual=0 expected=0
+[PASS] warnings 数组
+
+── 6 时间线 ──
+[PASS] 时间线 11 个采样  actual=11 expected=11
+[PASS] 时间线至少 2 点
+[PASS] 首点 t=0  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] 末点 t=TOF  actual=518400.000000 expected=518400.000000 tol=1.000000
+[PASS] row 0 schema
+[PASS] row 0 t_s 有限
+[PASS] row 0 t_days>=0
+[PASS] row 0 t_days 换算  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] row 0 pos 有限
+[PASS] row 0 vel 有限
+[PASS] row 0 range 有限
+[PASS] row 0 alt 有限
+[PASS] row 0 range>=0
+[PASS] row 0 error=range  actual=359550.343750 expected=359550.343750 tol=0.000000
+[PASS] row 1 schema
+[PASS] row 1 t_s 有限
+[PASS] row 1 t_days>=0
+[PASS] row 1 t_days 换算  actual=0.600000 expected=0.600000 tol=0.000000
+[PASS] row 1 pos 有限
+[PASS] row 1 vel 有限
+[PASS] row 1 range 有限
+[PASS] row 1 alt 有限
+[PASS] row 1 range>=0
+[PASS] row 1 error=range  actual=341595.531250 expected=341595.531250 tol=0.000000
+[PASS] row 1 时间单调
+[PASS] row 2 schema
+[PASS] row 2 t_s 有限
+[PASS] row 2 t_days>=0
+[PASS] row 2 t_days 换算  actual=1.200000 expected=1.200000 tol=0.000000
+[PASS] row 2 pos 有限
+[PASS] row 2 vel 有限
+[PASS] row 2 range 有限
+[PASS] row 2 alt 有限
+[PASS] row 2 range>=0
+[PASS] row 2 error=range  actual=317969.031250 expected=317969.031250 tol=0.000000
+[PASS] row 2 时间单调
+[PASS] row 3 schema
+[PASS] row 3 t_s 有限
+[PASS] row 3 t_days>=0
+[PASS] row 3 t_days 换算  actual=1.800000 expected=1.800000 tol=0.000000
+[PASS] row 3 pos 有限
+[PASS] row 3 vel 有限
+[PASS] row 3 range 有限
+[PASS] row 3 alt 有限
+[PASS] row 3 range>=0
+[PASS] row 3 error=range  actual=289547.437500 expected=289547.437500 tol=0.000000
+[PASS] row 3 时间单调
+[PASS] row 4 schema
+[PASS] row 4 t_s 有限
+[PASS] row 4 t_days>=0
+[PASS] row 4 t_days 换算  actual=2.400000 expected=2.400000 tol=0.000000
+[PASS] row 4 pos 有限
+[PASS] row 4 vel 有限
+[PASS] row 4 range 有限
+[PASS] row 4 alt 有限
+[PASS] row 4 range>=0
+[PASS] row 4 error=range  actual=257085.953125 expected=257085.953125 tol=0.000000
+[PASS] row 4 时间单调
+[PASS] row 5 schema
+[PASS] row 5 t_s 有限
+[PASS] row 5 t_days>=0
+[PASS] row 5 t_days 换算  actual=3.000000 expected=3.000000 tol=0.000000
+[PASS] row 5 pos 有限
+[PASS] row 5 vel 有限
+[PASS] row 5 range 有限
+[PASS] row 5 alt 有限
+[PASS] row 5 range>=0
+[PASS] row 5 error=range  actual=221227.796875 expected=221227.796875 tol=0.000000
+[PASS] row 5 时间单调
+[PASS] row 6 schema
+[PASS] row 6 t_s 有限
+[PASS] row 6 t_days>=0
+[PASS] row 6 t_days 换算  actual=3.600000 expected=3.600000 tol=0.000000
+[PASS] row 6 pos 有限
+[PASS] row 6 vel 有限
+[PASS] row 6 range 有限
+[PASS] row 6 alt 有限
+[PASS] row 6 range>=0
+[PASS] row 6 error=range  actual=182483.296875 expected=182483.296875 tol=0.000000
+[PASS] row 6 时间单调
+[PASS] row 7 schema
+[PASS] row 7 t_s 有限
+[PASS] row 7 t_days>=0
+[PASS] row 7 t_days 换算  actual=4.200000 expected=4.200000 tol=0.000000
+[PASS] row 7 pos 有限
+[PASS] row 7 vel 有限
+[PASS] row 7 range 有限
+[PASS] row 7 alt 有限
+[PASS] row 7 range>=0
+[PASS] row 7 error=range  actual=141171.593750 expected=141171.593750 tol=0.000000
+[PASS] row 7 时间单调
+[PASS] row 8 schema
+[PASS] row 8 t_s 有限
+[PASS] row 8 t_days>=0
+[PASS] row 8 t_days 换算  actual=4.800000 expected=4.800000 tol=0.000000
+[PASS] row 8 pos 有限
+[PASS] row 8 vel 有限
+[PASS] row 8 range 有限
+[PASS] row 8 alt 有限
+[PASS] row 8 range>=0
+[PASS] row 8 error=range  actual=97264.226563 expected=97264.226563 tol=0.000000
+[PASS] row 8 时间单调
+[PASS] row 9 schema
+[PASS] row 9 t_s 有限
+[PASS] row 9 t_days>=0
+[PASS] row 9 t_days 换算  actual=5.400000 expected=5.400000 tol=0.000000
+[PASS] row 9 pos 有限
+[PASS] row 9 vel 有限
+[PASS] row 9 range 有限
+[PASS] row 9 alt 有限
+[PASS] row 9 range>=0
+[PASS] row 9 error=range  actual=50066.468750 expected=50066.468750 tol=0.000000
+[PASS] row 9 时间单调
+[PASS] row 10 schema
+[PASS] row 10 t_s 有限
+[PASS] row 10 t_days>=0
+[PASS] row 10 t_days 换算  actual=6.000000 expected=6.000000 tol=0.000000
+[PASS] row 10 pos 有限
+[PASS] row 10 vel 有限
+[PASS] row 10 range 有限
+[PASS] row 10 alt 有限
+[PASS] row 10 range>=0
+[PASS] row 10 error=range  actual=0.770605 expected=0.770605 tol=0.000000
+[PASS] row 10 时间单调
+[PASS] 末点范围=入轨半径  actual=0.770605 expected=0.770605 tol=0.001000
+[PASS] 首点距目标远
+[PASS] 末点到达 L1 附近
+
+── 7 舰队 ──
+[PASS] 舰队 5 舰  actual=5 expected=5
+[PASS] fleet[0] id 非空
+[PASS] fleet id 唯一: apsis
+[PASS] fleet apsis 在预期舰队
+[PASS] fleet apsis batch
+[PASS] fleet apsis role
+[PASS] fleet apsis offset
+[PASS] fleet apsis offset_v
+[PASS] fleet apsis initial 有限
+[PASS] fleet apsis depart 有限
+[PASS] fleet apsis arrival ok
+[PASS] fleet apsis arrival.r 有限
+[PASS] fleet apsis arrival.v 有限
+[PASS] fleet apsis 到达误差记录  0.8 km
+[PASS] fleet apsis 到达速度记录  0.969 km/s
+[PASS] fleet apsis 到达误差达标  0.8 / 3000.0 km
+[PASS] fleet apsis within_gate
+[PASS] fleet apsis batch 匹配
+[PASS] fleet[1] id 非空
+[PASS] fleet id 唯一: harmattan
+[PASS] fleet harmattan 在预期舰队
+[PASS] fleet harmattan batch
+[PASS] fleet harmattan role
+[PASS] fleet harmattan offset
+[PASS] fleet harmattan offset_v
+[PASS] fleet harmattan initial 有限
+[PASS] fleet harmattan depart 有限
+[PASS] fleet harmattan arrival ok
+[PASS] fleet harmattan arrival.r 有限
+[PASS] fleet harmattan arrival.v 有限
+[PASS] fleet harmattan 到达误差记录  543.8 km
+[PASS] fleet harmattan 到达速度记录  0.970 km/s
+[PASS] fleet harmattan 到达误差达标  543.8 / 3000.0 km
+[PASS] fleet harmattan within_gate
+[PASS] fleet harmattan batch 匹配
+[PASS] fleet[2] id 非空
+[PASS] fleet id 唯一: ferry
+[PASS] fleet ferry 在预期舰队
+[PASS] fleet ferry batch
+[PASS] fleet ferry role
+[PASS] fleet ferry offset
+[PASS] fleet ferry offset_v
+[PASS] fleet ferry initial 有限
+[PASS] fleet ferry depart 有限
+[PASS] fleet ferry arrival ok
+[PASS] fleet ferry arrival.r 有限
+[PASS] fleet ferry arrival.v 有限
+[PASS] fleet ferry 到达误差记录  592.0 km
+[PASS] fleet ferry 到达速度记录  0.968 km/s
+[PASS] fleet ferry 到达误差达标  592.0 / 3000.0 km
+[PASS] fleet ferry within_gate
+[PASS] fleet ferry batch 匹配
+[PASS] fleet[3] id 非空
+[PASS] fleet id 唯一: watchtower
+[PASS] fleet watchtower 在预期舰队
+[PASS] fleet watchtower batch
+[PASS] fleet watchtower role
+[PASS] fleet watchtower offset
+[PASS] fleet watchtower offset_v
+[PASS] fleet watchtower initial 有限
+[PASS] fleet watchtower depart 有限
+[PASS] fleet watchtower arrival ok
+[PASS] fleet watchtower arrival.r 有限
+[PASS] fleet watchtower arrival.v 有限
+[PASS] fleet watchtower 到达误差记录  1193.0 km
+[PASS] fleet watchtower 到达速度记录  0.970 km/s
+[PASS] fleet watchtower 到达误差达标  1193.0 / 3000.0 km
+[PASS] fleet watchtower within_gate
+[PASS] fleet watchtower batch 匹配
+[PASS] fleet[4] id 非空
+[PASS] fleet id 唯一: deepwell
+[PASS] fleet deepwell 在预期舰队
+[PASS] fleet deepwell batch
+[PASS] fleet deepwell role
+[PASS] fleet deepwell offset
+[PASS] fleet deepwell offset_v
+[PASS] fleet deepwell initial 有限
+[PASS] fleet deepwell depart 有限
+[PASS] fleet deepwell arrival ok
+[PASS] fleet deepwell arrival.r 有限
+[PASS] fleet deepwell arrival.v 有限
+[PASS] fleet deepwell 到达误差记录  1381.2 km
+[PASS] fleet deepwell 到达速度记录  0.968 km/s
+[PASS] fleet deepwell 到达误差达标  1381.2 / 3000.0 km
+[PASS] fleet deepwell within_gate
+[PASS] fleet deepwell batch 匹配
+[PASS] 首位=旗舰 apsis  actual=apsis expected=apsis
+[PASS] 旗舰 offset=0  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] 旗舰到达误差=全局到达半径  actual=0.770605 expected=0.770605 tol=0.001000
+[PASS] fleet JSON 可序列化
+[PASS] fleet JSON 回读
+
+── 8 JSON / 确定性 ──
+[PASS] plan JSON 较大  len=8192
+[PASS] plan JSON 回读
+[PASS] 回读 schema  actual=v17_transfer_l4_l1.v1 expected=v17_transfer_l4_l1.v1
+[PASS] 回读 timeline
+[PASS] 回读 fleet
+[PASS] 回读 transfer
+[PASS] 回读 arrival
+[PASS] 回读 budget
+[PASS] 回读 timeline 11 点
+[PASS] 单 TOF plan JSON  len=8192
+[PASS] 两次规划 JSON 完全一致（确定性）
+[PASS] 单 TOF plan ok
+[PASS] 单 TOF plan2 ok
+[PASS] 单 TOF 固定 6 天  actual=6.000000 expected=6.000000 tol=0.000000
+[PASS] to_json 输出  len=8192
+[PASS] to_json 可解析
+[PASS] to_json schema  actual=v17_transfer_l4_l1.v1 expected=v17_transfer_l4_l1.v1
+[PASS] 多 TOF 候选数 > 单 TOF
+
+── 9 边界 ──
+[PASS] 空 TOF 候选拒绝  actual=false expected=false
+[PASS] 空 TOF reason  actual=invalid_tof_days expected=invalid_tof_days
+[PASS] 负 TOF 拒绝  actual=false expected=false
+[PASS] 不可达门限 → ok=false（不伪造）  actual=false expected=false
+[PASS] 失败 reason  actual=arrival_gate_failed expected=arrival_gate_failed
+[PASS] include_mcc=false 仍可规划
+[PASS] no_mcc 时 mcc.applied=false  actual=false expected=false
+[PASS] no_mcc reason  actual=not_requested expected=not_requested
+[PASS] Lambert 非法输入拒绝  actual=false expected=false
+[PASS] 非法状态传播拒绝  actual=false expected=false
+[PASS] 边界测试无崩溃
+────────────────────────────────────────────────────────────
+[DATA] scenario = id=transit_l4_l1 entities=9 ports=4 fleet=5
+[DATA] positions = L1=326380.9km L4=384400.0km src_off=606.7 tgt_off=184.2
+[DATA] rk4 = 60s steps=1 jacobi_drift=0.00000002 roundtrip_err=0.0000 km
+[DATA] lambert = dnu=18.952° r1=384408.9 r2=326540.9
+[DATA] plan = TOF=6.00d Δv=1822.6m/s（dep 853.4 + arr 969.2 + mcc 0.00）候选=8 入轨=0.771km/0.969km/s
+[DATA] timeline = points=11 t=[0, 518400.0s] 首距=359550.3km 末距=0.771km
+[DATA] fleet = ships=5 errs=["1km", "544km", "592km", "1193km", "1381km"]
+[DATA] json = plan_json=8192 det_json=8192
+[DATA] edges = empty/negative tof、不可达门限、no_mcc、非法 Lambert/传播均安全拒绝
+────────────────────────────────────────────────────────────
+probe elapsed_ms=63829
+V17 TRANSFER PROBE RESULT: PASS=451 FAIL=0
+V17 TRANSFER PROBE OK
+AUDIO OK files=36 headless=true muted=false

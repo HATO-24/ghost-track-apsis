@@ -1,0 +1,171 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[JC-A04] START
+
+[A04] STEP S1 EW=0 保持旧路由：发送/到达/成功只一次
+[A04] PASS EW=0 session 就绪  []
+[A04] PASS EW=0 LD 发送成功
+[A04] PASS EW=0 jam_severity=0   actual=0.000000000000 expected=0.000000000000 tol=0.000000001
+[A04] PASS EW=0 latency_add_s=0   actual=0.000000000000 expected=0.000000000000 tol=0.000000001
+[A04] PASS EW=0 failure_chance=0   actual=0.000000000000 expected=0.000000000000 tol=0.000000001
+[A04] PASS EW=0 不因 EW 失败
+[A04] PASS EW=0 基础时延=2s   actual=2.000000000000 expected=2.000000000000 tol=0.000001
+[A04] PASS EW=0 EW 附加=0   actual=0.000000000000 expected=0.000000000000 tol=0.000001
+[A04] PASS EW=0 总时延=2s   actual=2.000000000000 expected=2.000000000000 tol=0.000001
+[A04] PASS EW=0 arrive_t=2   actual=2.000000000000 expected=2.000000000000 tol=0.000001
+[A04] PASS EW=0 在途 1  (actual=1 expected=1)
+[A04] PASS 到达前无 delivered  (actual=0 expected=0)
+[A04] PASS 到达前仍在途  (actual=1 expected=1)
+[A04] PASS 恰好到达 tick 投递一次  (actual=1 expected=1)
+[A04] PASS delivered id 一致  (actual=C-000001 expected=C-000001)
+[A04] PASS 到达后清空  (actual=0 expected=0)
+[A04] PASS 后续 tick 不重复投递  (actual=0 expected=0)
+[A04] PASS EW=0 记录 1 次真实 send  (actual=1 expected=1)
+
+[A04] STEP S2 固定 fixture：jam=.5 → extra=20s / failure=.4；draw 两边界
+[A04] PASS 应用 comms_jam=.5
+[A04] PASS 采样 jam_severity=.5   actual=0.500000000000 expected=0.500000000000 tol=0.000000001
+[A04] PASS 采样 extra_latency=20s   actual=20.000000000000 expected=20.000000000000 tol=0.000001
+[A04] PASS 采样 failure_chance=.4   actual=0.400000000000 expected=0.400000000000 tol=0.000000001
+[A04] PASS 冻结 draw=.1   actual=0.100000000000 expected=0.100000000000 tol=0.000001
+[A04] PASS draw<.4 → 预定失败  (actual=true expected=true)
+[A04] PASS 总时延=2+20   actual=22.000000000000 expected=22.000000000000 tol=0.000001
+[A04] PASS EW 附加=20   actual=20.000000000000 expected=20.000000000000 tol=0.000001
+[A04] PASS arrive_t=22   actual=22.000000000000 expected=22.000000000000 tol=0.000001
+[A04] PASS 到达前无失败  (actual=0 expected=0)
+[A04] PASS 失败预定仍在途  (actual=1 expected=1)
+[A04] PASS 到达 tick 产生 FAILED 一次  (actual=1 expected=1)
+[A04] PASS FAILED 原因为 comms_jam  (actual=comms_jam expected=comms_jam)
+[A04] PASS EW 失败不产生假 delivered  (actual=0 expected=0)
+[A04] PASS 失败后清空在途  (actual=0 expected=0)
+[A04] PASS 冻结 draw=.9   actual=0.900000000000 expected=0.900000000000 tol=0.000001
+[A04] PASS draw>.4 → 预定成功  (actual=false expected=false)
+[A04] PASS 成功臂无 FAILED  (actual=0 expected=0)
+[A04] PASS 成功臂 DELIVERED 一次  (actual=1 expected=1)
+[A04] PASS 成功臂同样 +20s（相对 sent_t）   actual=22.000000000000 expected=22.000000000000 tol=0.000001
+
+[A04] STEP S3 三条真实入口都消费 EW：send_comms / issue_order / queue_intel_share
+[A04] PASS send_comms 真实失败回调  (actual=1 expected=1)
+[A04] PASS send_comms 失败不冒充送达  (actual=0 expected=0)
+[A04] PASS 订单真实发送成功入链
+[A04] PASS EW 失败订单 REJECTED 而非 DELIVERED  (actual=REJECTED expected=REJECTED)
+[A04] PASS 订单失败原因来自 comms  comms_comms_jam
+[A04] PASS 共享失败臂到达前接收 owner 观测 0  (actual=0 expected=0)
+[A04] PASS EW 失败共享到达后仍不融合（0）  (actual=0 expected=0)
+[A04] PASS 共享失败清除待融合  (actual=0 expected=0)
+[A04] INFO failed share at t=50.0 delivered=0 failed=1
+[A04] PASS 合法 fresh 共享成功入链
+[A04] PASS 共享到达前接收 owner 观测仍 0  (actual=0 expected=0)
+[A04] PASS 精确 due 之前不融合  (actual=0 expected=0)
+[A04] PASS 到期 tick 融合一次（0→1）  (actual=1 expected=1)
+[A04] PASS 后续 tick 不重复融合（保持 1）  (actual=1 expected=1)
+[A04] PASS 共享成功产生真实 delivered
+[A04] INFO share success t_send=72.0 t_arrive≈94.0 obs=0→1→1
+
+[A04] STEP S4 同 seed 确定性与真实文件恢复：读档不重新抽样
+[A04] PASS 同 seed 首条消息 draw 相同   actual=0.896732279517 expected=0.896732279517 tol=0.000001
+[A04] PASS 同 seed 失败判定相同  (actual=false expected=false)
+[A04] PASS 真实文件恢复成功  []
+[A04] PASS 恢复保留在途 1  (actual=1 expected=1)
+[A04] PASS 恢复后失败回调数量一致  (actual=0 expected=0)
+[A04] PASS 恢复后成功回调数量一致  (actual=1 expected=1)
+[A04] PASS 预定成功恢复后只 delivered 一次  (actual=1 expected=1)
+[A04] PASS 恢复后后续 PRNG draw 一致   actual=0.309969777386 expected=0.309969777386 tol=0.000001
+[A04] PASS 恢复后 EW 抽样序号一致  (actual=2 expected=2)
+
+[A04] STEP S5 版本化：outcome v2 / v1 迁移 / 未知版本拒绝 / state v2 迁移
+[A04] PASS 存在 send_comms 日志操作
+[A04] PASS outcome 版本 v2  (actual=2 expected=2)
+[A04] PASS outcome 带 EW 采样块
+[A04] PASS comms state 版本 v2  (actual=2 expected=2)
+[A04] PASS state 带确定抽样状态
+[A04] PASS v1 outcome/state 旧档可恢复  []
+[A04] INFO v1 restore ops: [{"divergence":[],"expected_failure":false,"from":"own_ship","legacy_outcome_v1":true,"matched":true,"mode":"LD","recorded":{"delivery_id":"C-000001","latency_s":2.0,"ok":true,"path":["own_ship","ally_ship"],"reason":"","relay_count":0},"replay_delivery_id":"C-000001","replay_latency_s":2.0,"replay_ok":true,"replay_path":["own_ship","ally_ship"],"replay_reason":"","text_key":"COMMS_SENT","to":"ally_ship"}]
+[A04] PASS 报告标记 legacy_outcome_v1  1
+[A04] PASS 未知 outcome version 拒绝
+[A04] PASS 未知版本原因 comms_outcome_invalid  ["replay send_comms 失败：comms_outcome_invalid"]
+[A04] PASS 未知 comms state version 拒绝
+
+[A04] STEP S6 原失败原因/鉴权边界不因 EW 接线被绕过
+[A04] PASS 无 LR 链路保持 no_route  (actual=no_route expected=no_route)
+[A04] PASS 未知模式保持 invalid_mode  (actual=invalid_mode expected=invalid_mode)
+[A04] PASS 未知目标保持 unknown_to  (actual=unknown_to expected=unknown_to)
+[A04] PASS 禁用链路发送失败
+[A04] PASS 禁用链路原因明确  link_disabled
+[A04] PASS 非法 sender 订单被拒  comms_unknown_from
+[A04] PASS 非法 sender 有明确 comms 原因  comms_unknown_from
+
+[A04] STEP S7 EW=0 旧 seed（无 ew_service）兼容
+[A04] PASS 无 ew_service 旧 seed 可启动  []
+[A04] PASS 旧 seed 正常发送
+[A04] PASS 旧 seed jam=0   actual=0.000000000000 expected=0.000000000000 tol=0.000000001
+[A04] PASS 旧 seed 总时延=基础 2s   actual=2.000000000000 expected=2.000000000000 tol=0.000001
+[A04] PASS 旧 seed 正常投递一次  (actual=1 expected=1)
+
+[A04] STEP S8 确定性失败/成功臂 + 真实文件恢复 ≥10tick + 下一消息 PRNG 一致
+[A04] PASS 找到确定性失败 seed  2
+[A04] PASS 找到确定性成功 seed  0
+[A04] PASS 确定性臂 fail 发送时冻结 will_fail  (actual=true expected=true)
+[A04] PASS 确定性臂恢复成功  []
+[A04] PASS 恢复后失败恰好一次  (actual=1 expected=1)
+[A04] PASS 失败臂恢复后无 delivered  (actual=0 expected=0)
+[A04] PASS 恢复后失败原因保持 comms_jam  (actual=comms_jam expected=comms_jam)
+[A04] PASS 连续/恢复失败数一致  (actual=1 expected=1)
+[A04] PASS 连续/恢复送达数一致  (actual=0 expected=0)
+[A04] PASS 恢复后下一消息 draw 一致   actual=0.576386924170 expected=0.576386924170 tol=0.000001
+[A04] PASS 恢复后下一消息抽样序号一致  (actual=2 expected=2)
+[A04] PASS 确定性臂 ok 发送时冻结 will_fail  (actual=false expected=false)
+[A04] PASS 确定性臂恢复成功  []
+[A04] PASS 恢复后成功恰好一次  (actual=1 expected=1)
+[A04] PASS 成功臂恢复后无 failed  (actual=0 expected=0)
+[A04] PASS 连续/恢复失败数一致  (actual=0 expected=0)
+[A04] PASS 连续/恢复送达数一致  (actual=1 expected=1)
+[A04] PASS 恢复后下一消息 draw 一致   actual=0.309969777386 expected=0.309969777386 tol=0.000001
+[A04] PASS 恢复后下一消息抽样序号一致  (actual=2 expected=2)
+
+[A04] STEP S9 篡改与旧残留：篡改 EW 字段拒绝、legacy 残留不冒充 delivered、发送端 EW 生效
+[A04] PASS 篡改 outcome.ew.draw 被拒绝
+[A04] PASS 篡改 EW outcome 报 replay divergence  ["replay send_comms 失败：comms_replay_diverged"]
+[A04] PASS 篡改 pending.ew.draw 被拒绝
+[A04] PASS 篡改在途 EW 字段原因明确  ["comms 状态恢复失败：invalid_state [\"pending.ew.frozen_result\"]"]
+[A04] PASS 旧残留显式 unknown_outcome  ["comms.unknown_outcome"]
+[A04] PASS 旧残留不冒充 delivered
+[A04] PASS 发送端 EW 采样 jam=.5   actual=0.500000000000 expected=0.500000000000 tol=0.000000001
+[A04] PASS 发送端 EW 附加 20s   actual=20.000000000000 expected=20.000000000000 tol=0.000001
+
+[A04] STEP S10 R1/R2/R4：sender 上下文错配拒绝、普通 EW 旁路禁止、v2 严格校验
+[A04] PASS own/player 合法上下文可发送
+[A04] PASS ally/ally 合法独立上下文可发送
+[A04] PASS 已登记 sender 上下文错配拒绝:ally/player  (actual=sender_context_mismatch expected=sender_context_mismatch)
+[A04] PASS 已登记 sender 上下文错配拒绝:enemy/player  (actual=sender_context_mismatch expected=sender_context_mismatch)
+[A04] PASS 已登记 sender 上下文错配拒绝:own/opfor  (actual=sender_context_mismatch expected=sender_context_mismatch)
+[A04] PASS 订单 sender/player 上下文错配拒绝  (actual=sender_context_mismatch expected=sender_context_mismatch)
+[A04] PASS own/player 合法订单可发出
+[A04] PASS 合法订单按真实投递推进
+[A04] PASS 共享入口 sender 上下文错配拒绝  (actual=sender_context_mismatch expected=sender_context_mismatch)
+[A04] PASS 共享入口 owner 与接收域错配拒绝  (actual=owner_context_mismatch expected=owner_context_mismatch)
+[A04] PASS 普通 ignore_ew 被明确拒绝  (actual=ew_bypass_forbidden expected=ew_bypass_forbidden)
+[A04] PASS 普通旁路不产生在途消息  (actual=0 expected=0)
+[A04] PASS 正常发送仍冻结 22s   actual=22.000000000000 expected=22.000000000000 tol=0.000001
+[A04] PASS 正常发送仍冻结失败 draw  (actual=true expected=true)
+[A04] PASS v2 缺 pending.ew 明确拒绝
+[A04] PASS 缺 pending.ew 原因明确  ["comms 状态恢复失败：invalid_state [\"pending.ew\"]"]
+[A04] PASS state version 2.5 明确拒绝
+[A04] PASS state version 2.5 原因 invalid_version
+[A04] PASS 服务级 version 2.5 拒绝
+[A04] PASS 版本拒绝不改变服务状态  (actual=0 expected=0)
+[A04] PASS 整数等价 version 2.0 可接受
+[A04] PASS 现代 own 缺省上下文按可信本方锚点放行
+[A04] PASS 现代 ally 缺省上下文拒绝  (actual=sender_context_required expected=sender_context_required)
+[A04] PASS 现代 enemy 缺省上下文拒绝  (actual=sender_context_required expected=sender_context_required)
+[A04] PASS 现代订单缺省上下文拒绝  (actual=sender_context_required expected=sender_context_required)
+[A04] PASS 现代共享无锚点且缺上下文拒绝  (actual=sender_context_required expected=sender_context_required)
+[A04] PASS 合法来源 owner 授权锚点可解析共享缺省上下文
+[A04] PASS 现代 ally 显式上下文缺字段拒绝  (actual=sender_context_incomplete expected=sender_context_incomplete)
+[A04] PASS 现代 ally 显式合法上下文继续可用
+[A04] PASS own 缺省、ally 显式与锚点共享三条实际送达  (actual=3 expected=3)
+[A04] PASS 真正旧 seed 缺省调用保持 legacy 兼容
+────────────────────────────────────────────────────────────────
+JC-A04 EW COMMS PROBE RESULT: PASS=141 FAIL=0
+[A04] ALL PASS
+AUDIO OK files=36 headless=true muted=false

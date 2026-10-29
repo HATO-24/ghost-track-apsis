@@ -1,0 +1,139 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+A0-T1 TRACK TRUTH AUTHORITY PROBE · real entry main_menu → v1_hud
+Godot 4.7.2-stable (official) · profile=orbital_sim
+════════════════════════════════════════════════════════════════
+
+[A0-T1] STEP 1. real entry main_menu → v1_hud (change_scene_to_file)
+[A0-T1] PASS change_scene_to_file(main_menu) == OK  err=0
+AUDIO OK files=36 headless=true muted=false
+[MAIN MENU] BUILD=orbital_sim → skip to res://v1_hud.tscn
+[BUILD PROFILE] id=orbital_sim mode=simulator scene=res://v1_hud.tscn scenario=res://framework/content/scenario_orbital_sim.json save_root=user://saves_sim
+[BUILD PROFILE] SYSTEM story=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM prelude=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM triggers=OFF reason=剧情扩写暂停（Phase 0）
+[BUILD PROFILE] SYSTEM identification=ON
+[BUILD PROFILE] SYSTEM traffic=ON
+[BUILD PROFILE] SYSTEM port=ON
+[BUILD PROFILE] SYSTEM signal=ON
+[BUILD PROFILE] SYSTEM combat=ON
+[BUILD PROFILE] SYSTEM ballistics=ON
+[BUILD PROFILE] SYSTEM damage=ON
+[BUILD PROFILE] SYSTEM physics_world=ON
+[BUILD PROFILE] SYSTEM sandbox=OFF reason=非测试剖面
+[BUILD PROFILE] SYSTEM ship_catalog=ON
+[BUILD PROFILE] SYSTEM refit=ON
+[BUILD PROFILE][LIMITATION] 轨道为 CR3BP/RK4 近似，不是 JPL 星历；高阶摄动/星历修正尚未完成（Phase A #2）。
+[BUILD PROFILE][LIMITATION] EW 为抽象效果服务，不做 RF/波形/射频物理仿真（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 传感器/IFF/ELINT/EW 的证据写入者尚有 legacy 路径，唯一权威管线待收敛（Phase A #4）。
+[BUILD PROFILE][LIMITATION] 交会/对接为几何与业务模型，尚未与真实推进、质量、Δv 完全耦合（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 交通管制/OTC 为业务模型：许可/队列/窗口尚未消费完整真实 RF 与交通流物理（Phase C #6）。
+[BUILD PROFILE][LIMITATION] 舰船改装尚未完全影响权威物理/火控/战斗能力（Phase D #7）。
+[BUILD PROFILE][LIMITATION] UI 高密度四区态势图的部分历史图层尚未恢复并通过验收（Phase D #8）。
+[SHELL BINDER] BUILD profile=orbital_sim mode=simulator label=GHOST TRACK // APSIS — ORBITAL SIM save_root=user://saves_sim
+[SHELL BINDER] SANDBOX entities=7 scenario=res://framework/content/scenario_orbital_sim.json
+[SHELL BINDER] SYSTEMS physics=true sensors=true track_table=true combat=true ballistics=true damage=true ew=true identification=true traffic=true port=true ship_catalog=true refit=true story=disabled
+[SHELL BINDER] CeresChain ready state=L1 entity=ceres_2 texts=9 code=7600
+[SHELL BINDER] ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0
+[SHELL BINDER] AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=19 threat=0 trust=0
+[SHELL BINDER] AfterActionReport ready branches=6 templates=3
+[SHELL BINDER] TrafficControl source=session ready=true lanes=18 otc=19 npc=6
+[SHELL BINDER] physics ready=true plot_source=intel positions=0 facilities=12 facility_source=facility_registry_l1
+[SHELL BINDER] fleet_data ready=true friendly=8 enemy=24 total=32
+[SHELL BINDER] refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL
+[SHELL BINDER] CICView ready=true truth=false tracks=2 levels={ "1": 0, "2": 2, "3": 0, "4": 0 } facilities=110
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+[V1 HUD] binder boot=true errors=[] contacts=2 orders=0
+[V1 HUD] COMMS seed LD=true LR=false events=2
+[V1 HUD] COMBAT source=session sandbox={ "unlimited_ammo": false, "auto_authorize": false }
+[V1 HUD] COMBAT tracks=2 weapons=5 target=T0001 weapon=missile
+[V1 HUD] damage_model=true sections=7 combat=true roe=TIGHT roe_locked=true
+[SHELL BINDER] plot_bodies source=physics earth=[-326389.684568483, -0.0, 0.0] moon=[58010.3154315171, -0.0, 0.0]
+[SHELL BINDER] plot_sensors ready=true rings=4 obs=4 tws=2 emcon=false ew_ready=true
+[SHELL BINDER] plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=2 solutions=0 grants=0 incoming=0 pred=true
+[SHELL BINDER] plot_commands ready=true orders=0 pending=0 transmitted=0 executed=0
+[V1 PLOT3D] labels=18 conflicts=6 hidden_facility=8 bodies=physics
+[A0-T1] PASS real entry passed main_menu  saw=true frames=3
+[A0-T1] PASS current_scene is V1HUD with v1_hud.gd  res://v1_hud.tscn
+[A0-T1] PASS ShellBinder ready
+[A0-T1] PASS GameSession available
+[A0-T1] PASS PhysicsWorld enabled
+[A0-T1] PASS TrackTable enabled
+[A0-T1] PASS SensorService enabled
+
+[A0-T1] STEP 2. scenario truth table (read directly from scenario JSON)
+[A0-T1] PASS scenario entity count  actual=7 expected=7
+[A0-T1] PASS scenario truth table has 7 entities  ["apsis", "harmattan", "raider_2", "skiff", "l1_station", "watchtower", "ferry"]
+
+[A0-T1] STEP 3. same tick: track range vs PhysicsWorld truth range (tol ≤ 0.5 km)
+[A0-T1] PASS tick 1 ok  reason=
+[A0-T1] PASS tick 2 ok  reason=
+[A0-T1] PASS tick 3 ok  reason=
+[A0-T1] PASS tick 4 ok  reason=
+[A0-T1] PASS tick 5 ok  reason=
+[A0-T1] PASS tick 6 ok  reason=
+[A0-T1] PASS tick 7 ok  reason=
+[A0-T1] PASS tick 8 ok  reason=
+[A0-T1] PASS tick 9 ok  reason=
+[A0-T1] PASS tick 10 ok  reason=
+[A0-T1] PASS track_table.t == session now_s (same tick)  actual=600.100000000 expected=600.100000000 tol=0.000001
+[A0-T1] PASS physics.t == session now_s (same tick)  actual=600.100000000 expected=600.100000000 tol=0.000001
+[A0-T1] PASS track_table.t == physics.t (same tick)  actual=600.100000000 expected=600.100000000 tol=0.000001
+[A0-T1] PASS sensor produced observations  n=44
+[A0-T1] PASS latest observation batch present  n=4
+[A0-T1] PASS latest observation batch t == physics t (same tick, tol 1e-6 s)  violations=[]
+[A0-T1] PASS TrackTable has fused tracks  n=2
+[A0-T1] INFO RANGE harmattan: track=420.202698 physics=420.196716 err=0.005981 km
+[A0-T1] INFO RANGE l1_station: track=89.999519 physics=89.999522 err=0.000003 km
+[A0-T1] PASS at least one track compared against physics truth  compared=2
+[A0-T1] PASS track range matches physics truth within 0.5 km  violations=[]
+
+[A0-T1] STEP 4. identity/threat/side vs evidence & scenario semantics
+[A0-T1] INFO IDENTITY harmattan: track=unknown truth=hostile sources=["radar"] threat=none
+[A0-T1] INFO SIDE harmattan: contact side=unknown identity=unknown (truth side=hostile)
+[A0-T1] INFO IDENTITY l1_station: track=unknown truth=station sources=["radar"] threat=none
+[A0-T1] INFO SIDE l1_station: contact side=unknown identity=unknown (truth side=friend)
+[A0-T1] PASS identity checks applied to >=1 track  checked=2
+[A0-T1] PASS track identity is evidence-derived and not auto-copied from truth  violations=[]
+[A0-T1] PASS threat checks applied to >=1 track  checked=2
+[A0-T1] PASS track threat is consistent with evidence and identity (no unauthorized hostile)  violations=[]
+[A0-T1] PASS side checks applied to >=1 contact  checked=2
+[A0-T1] PASS contact side/identity do not contradict scenario side semantics  violations=[]
+
+[A0-T1] STEP 5. provenance: track sources / batch / entity_id traceable
+[A0-T1] INFO PROVENANCE track=T0001 entity=harmattan batch= sources=["radar"]
+[A0-T1] INFO PROVENANCE track=T0002 entity=l1_station batch= sources=["radar"]
+[A0-T1] PASS all tracks have traceable provenance (sources/entity_id)  violations=[]
+
+[A0-T1] STEP 6. TrackTable single writer
+[A0-T1] PASS TrackTable has a claimed writer  writer=session_fusion
+[A0-T1] PASS TrackTable rejects a second writer claim  actual=false expected=false
+[A0-T1] PASS TrackTable writer conflict reason  actual=writer_conflict expected=writer_conflict
+[A0-T1] PASS TrackTable writer unchanged after rejected claim  actual=session_fusion expected=session_fusion
+
+[A0-T1] STEP 7. frame and units from physics authority
+[A0-T1] PASS physics frame is bary_rot  actual=bary_rot expected=bary_rot
+[A0-T1] PASS physics length unit km  actual=km expected=km
+[A0-T1] PASS physics velocity unit km/s  actual=km/s expected=km/s
+[A0-T1] PASS physics time unit s  actual=s expected=s
+[A0-T1] PASS track range is positive km value  sample=420.203
+
+[A0-T1] STEP 8. A0 baseline evidence summary (expected Phase A failures, not hidden)
+[A0-T1] INFO A0-T1 BASELINE: 0/2 tracks have range != physics truth (>0.5 km)
+[A0-T1] INFO A0-T1 BASELINE: 0 identity violations, 0 provenance violations
+────────────────────────────────────────────────────────────────
+A0-T1 TRACK TRUTH AUTHORITY PROBE RESULT: PASS=45 FAIL=0
+A0-T1 TRACK TRUTH AUTHORITY PROBE OK
+[SHELL BINDER] signal targets synced added=0 updated=2 count=7
+
+--- STDERR ---
+WARNING: 78 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 31 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

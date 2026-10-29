@@ -1,0 +1,166 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+EPHEMERIS COMPACT PROBE · 完整游戏-阶段2D
+════════════════════════════════════════════════════════════════
+
+── 1. 无表 → available=false / analytic earth-moon ──
+[PASS] 初始化 ready
+[PASS] available=false
+[PASS] using_analytic=true
+[PASS] 无表不是错误（errors 空）
+[PASS] 无表 warning
+[PASS] bodies=earth/moon
+[PASS] earth/moon fallback
+[PASS] earth fallback ok
+[PASS] earth 位置原点
+[PASS] earth 速度 0
+[PASS] earth analytic_fallback 标记
+[PASS] earth available=false
+[PASS] earth frame  actual=earth_eci expected=earth_eci
+[PASS] moon fallback ok
+[PASS] moon 有速度  1.02315723896027
+[PASS] moon analytic_fallback 标记
+[PASS] moon 别名 301
+[PASS] 别名归一 moon  actual=moon expected=moon
+[PASS] 未知 body false
+[PASS] 未知 body reason  actual=unknown_body expected=unknown_body
+[PASS] 非有限 t false
+[PASS] fallback to_dict JSON
+[PASS] fallback summary JSON
+[PASS] fallback 不写 V15
+[PASS] 不存在路径 load false
+[PASS] 不存在路径 analytic fallback
+[PASS] 不存在路径 warning
+
+── 2. 非法表拒绝（schema/source/frame/units/window/bodies/interp）──
+[PASS] 拒绝表: 坏 schema
+[PASS] 错误记录: 坏 schema
+[PASS] available=false: 坏 schema
+[PASS] 回退 analytic: 坏 schema
+[PASS] 回退仍可查询: 坏 schema
+[PASS] 拒绝表: 缺 source
+[PASS] 错误记录: 缺 source
+[PASS] available=false: 缺 source
+[PASS] 回退 analytic: 缺 source
+[PASS] 回退仍可查询: 缺 source
+[PASS] 拒绝表: 缺 version
+[PASS] 错误记录: 缺 version
+[PASS] available=false: 缺 version
+[PASS] 回退 analytic: 缺 version
+[PASS] 回退仍可查询: 缺 version
+[PASS] 拒绝表: 坏 frame
+[PASS] 错误记录: 坏 frame
+[PASS] available=false: 坏 frame
+[PASS] 回退 analytic: 坏 frame
+[PASS] 回退仍可查询: 坏 frame
+[PASS] 拒绝表: 坏 units
+[PASS] 错误记录: 坏 units
+[PASS] available=false: 坏 units
+[PASS] 回退 analytic: 坏 units
+[PASS] 回退仍可查询: 坏 units
+[PASS] 拒绝表: 坏 time_window
+[PASS] 错误记录: 坏 time_window
+[PASS] available=false: 坏 time_window
+[PASS] 回退 analytic: 坏 time_window
+[PASS] 回退仍可查询: 坏 time_window
+[PASS] 拒绝表: 空 bodies
+[PASS] 错误记录: 空 bodies
+[PASS] available=false: 空 bodies
+[PASS] 回退 analytic: 空 bodies
+[PASS] 回退仍可查询: 空 bodies
+[PASS] 拒绝表: 坏 interpolation
+[PASS] 错误记录: 坏 interpolation
+[PASS] available=false: 坏 interpolation
+[PASS] 回退 analytic: 坏 interpolation
+[PASS] 回退仍可查询: 坏 interpolation
+[PASS] 拒绝表: cheb 缺 coeffs
+[PASS] 错误记录: cheb 缺 coeffs
+[PASS] available=false: cheb 缺 coeffs
+[PASS] 回退 analytic: cheb 缺 coeffs
+[PASS] 回退仍可查询: cheb 缺 coeffs
+[PASS] 拒绝表: cheb coeffs 过短
+[PASS] 错误记录: cheb coeffs 过短
+[PASS] available=false: cheb coeffs 过短
+[PASS] 回退 analytic: cheb coeffs 过短
+[PASS] 回退仍可查询: cheb coeffs 过短
+[PASS] 拒绝表: kepler 坏 e
+[PASS] 错误记录: kepler 坏 e
+[PASS] available=false: kepler 坏 e
+[PASS] 回退 analytic: kepler 坏 e
+[PASS] 回退仍可查询: kepler 坏 e
+[PASS] validate_table 非法 false
+[PASS] validate_table 错误列表
+[PASS] validate_table 合法 true  []
+[PASS] 缺 derived_from 的 JPL 表拒绝
+
+── 3. 合法 Chebyshev 表 / 插值 / 时间窗 ──
+[PASS] load_data 合法 true  []
+[PASS] available=true
+[PASS] using_analytic=false
+[PASS] version  actual=test-1 expected=test-1
+[PASS] frame  actual=earth_eci expected=earth_eci
+[PASS] source 记录 TEST_FIXTURE
+[PASS] 1 body
+[PASS] body_state moon 50
+[PASS] Chebyshev t=50 位置
+[PASS] Chebyshev t=50 速度(导数)
+[PASS] speed
+[PASS] table 非 analytic
+[PASS] table available
+[PASS] Chebyshev t=0 位置
+[PASS] Chebyshev t=100 位置（别名）
+[PASS] 时间窗上界外 false
+[PASS] 时间窗外 reason  actual=out_of_time_window expected=out_of_time_window
+[PASS] 时间窗下界外 false
+[PASS] 表中无 earth → unknown_body
+[PASS] unknown body reason  actual=unknown_body expected=unknown_body
+[PASS] body_state JSON
+[PASS] table to_dict JSON
+[PASS] table 不写 V15
+[PASS] Chebyshev 确定性
+
+── 4. Kepler 采样 / units / frame / 时间窗 ──
+[PASS] Kepler 表合法  []
+[PASS] 2 bodies
+[PASS] Kepler body_state ok
+[PASS] Kepler 半径在 a(1±e) 内  6930.35679064994
+[PASS] Kepler 速度 >0
+[PASS] interpolation=kepler  actual=kepler expected=kepler
+[PASS] Kepler state JSON
+[PASS] Kepler 确定性
+[PASS] 坏 units.time 拒绝
+[PASS] 坏 frame 拒绝
+[PASS] 零宽 time_window 拒绝
+
+── 5. 文件加载 / JSON / 确定性 ──
+[PASS] 写临时测试表
+[PASS] load(file) 合法 true  []
+[PASS] file available=true
+[PASS] file body_state ok
+[PASS] file to_dict JSON
+[PASS] 非法 JSON 文件拒绝
+[PASS] 非法 JSON errors
+[PASS] 非法文件回退 analytic
+[PASS] 仓库默认无表 available=false
+[PASS] 仓库默认 analytic
+[PASS] 默认 warning
+[PASS] 默认 source=analytic，不冒充 JPL
+[PASS] 确定性 t=0.0
+[PASS] 确定性 t=25.0
+[PASS] 确定性 t=50.0
+[PASS] 确定性 t=100.0
+[PASS] to_dict 确定性
+────────────────────────────────────────────────────────────────
+EPHEMERIS COMPACT PROBE RESULT: PASS=138 FAIL=0
+EPHEMERIS COMPACT PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] _load_file (res://framework/sim/ephemeris_compact.gd:107)
+       [1] load (res://framework/sim/ephemeris_compact.gd:66)
+       [2] _test_file_load_json_determinism (res://tests/ephemeris_compact_probe.gd:307)
+       [3] _initialize (res://tests/ephemeris_compact_probe.gd:31)

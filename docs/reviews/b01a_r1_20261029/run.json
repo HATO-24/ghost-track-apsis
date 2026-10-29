@@ -1,0 +1,23 @@
+{
+  "head": "7185b92e83482b731ca7d15da7765ae41eda7c4c",
+  "base": "4e75897ed32f8245f35c5ec584f0ec912ec919c6",
+  "engine": "Godot4.7.2.stable.official.ed1daf0bf",
+  "targeted_run": "20261029-064011-7185b92e",
+  "targeted_exit": 0,
+  "diagnostic_exit": 0,
+  "diagnostic_runs": 1,
+  "diagnostic_command": [
+    "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+    "--headless",
+    "--path",
+    "./game_v17",
+    "--script",
+    "C:\\Users\\ASUS\\.codex\\worktrees\\jc-b01a-validation\\GHOST TRACK_APSIS\\.test-results\\sol-b01a\\diagnostic.gd"
+  ],
+  "diagnostic_meaning": "exit0 means observations recorded, not all original card requirements passed",
+  "production_or_formal_edits": false,
+  "baseline_sha256": "5fdfb46a27d8d0057b50d51b3ceed87ce1d126a933db6b93f803a11e6ab2c9e4",
+  "original_C_at_final_head": "NOT RUN - original card still incomplete",
+  "non_headless": "NOT RUN - implementation/evidence pending",
+  "source_PR": "No B01A PR available at review start; PR72 is already merged A04"
+}

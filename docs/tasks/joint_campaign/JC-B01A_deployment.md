@@ -2,7 +2,29 @@
 
 执行Issue：[JC-B01A #62](https://github.com/HATO-24/ghost-track-apsis/issues/62)。
 
-状态：READY，A1/K0/A4前置已满足；交付D1，属于B1部署前半。本卡已准备，须由用户安排启动，本轮未自动派发实现。公共规则见[总队列](../../59_联合战役Demo_R2_范围与下一批任务卡.md)。
+状态：独立PASS / D1待合并；第五轮原R4/R5关闭，源码PR75、证据PR74待合并。
+
+## 2026-10-29 第五轮放行
+
+冻结`b7b1728b9aeec48223b291570ddc8ac7d6f731a7`，[原始专项、C与实际入口证据](../../reviews/b01a_r5_20261029/review.md)。原R4/R5关闭；根7/7、新94/0，原C6/6、3/3、92=85/7历史失败、无新增/漂移。待合并后冻结D1，不重做已闭项。
+
+## 2026-10-29 第四轮：关闭时钟/手动快照，只收尾原R4/R5两处
+
+候选`db3bef90420178ba246a54b13efd7a342bb6c013`，[本轮关闭表和实际三层集合](../../reviews/b01a_r4_20261029/review.md)。根部署probe83/0；首次确认成功、plan/commit一致、手动实际快照匹配均关闭。确认后catalog5舰、world6实体含legacy、physics仅legacy仍未通过；auto=true实际配置冻结仍为空。只修原运行接线target/seed应用及自动冻结顺序，已有关闭项不重派。用户转交，D1不放行。
+
+## 2026-10-29 第三轮：原R4/R5入口仍阻塞
+
+PR75候选`3ea9e8ceb9f247acd4a24641277c621146730d8f`，[独立复核与真实Binder记录](../../reviews/b01a_r3_20261029/review.md)。根专项7/7、新83/0，但交付auto=true只证明already_deployed；同场景auto=false在Binder.boot后已t0.1，首次DEPLOY立即deployment_locked。原auto冻结早于FleetRefit就绪，PLAN与DEPLOY返回不同revision，当前配置非空而冻结为空。继续原R4/R5；不重派第二轮已关闭子项，不以CI绿或83/0替代入口证明。交接由用户转发。
+
+## 2026-10-29 第二轮：原五个窄观察关闭，继续R4配置与R5交付
+
+候选`323018ac4c13c9815c6b56d7e32c14976000d38e`：[独立关闭表与证据](../../reviews/b01a_r2_20261029/review.md)。原R1物理名单、R2非法controller、R3旧seed覆盖与缺资源恢复、R4几何revision均由原诊断复测关闭；部署专项72/0。已关闭子项不重复派发。实际玩家装备配置冻结与原HUD/非headless/正式负例、事件连续性、最终同HEAD专项+原C及新B01A PR继续。D1未放行；下面首轮记录为历史，以本轮关闭表为准。交接由用户转发。
+
+## 2026-10-29 首轮：核心里程碑2，原卡继续
+
+核心候选`7185b92e83482b731ca7d15da7765ae41eda7c4c`，基线`4e75897ed32f8245f35c5ec584f0ec912ec919c6`。[独立复核与原始证据](../../reviews/b01a_r1_20261029/review.md)：根专项7/7、新72/0；显式旧physics名单、无授权controller、旧seed文件覆盖活跃部署、缺资源恢复和几何未进revision等窄反例仍在。已有默认部署/单位转换/资源独立/合法恢复正例保留。原Binder最小部署入口、非headless证据、完整负例/事件连续性、最终同HEAD专项+原C及新交付PR待完成。
+
+继续本卡返修收尾；七历史baseline不刷新，不扩B1b/AI/RF/预算产品参数。UI设计合同GPT/Sol，主要代码DeepSeek。下方A4交接与八节原验收均保留，本轮不冻结D1。
 
 ## 2026-10-29 A4放行后的开工交接
 

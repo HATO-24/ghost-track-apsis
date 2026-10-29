@@ -4,6 +4,26 @@
 
 延续[40号审计与原路线图](40_系统完成度复核与开发任务队列.md)的权威/测试契约；以下以56 R2更新产品范围，并用当前提交和本轮复核替换40号文档的历史状态判断。
 
+## 2026-10-29 D1独立放行与新产品评审
+
+[第五轮](reviews/b01a_r5_20261029/review.md)：冻结`b7b1728b9aeec48223b291570ddc8ac7d6f731a7`独立PASS，#62等待PR75/74合并。当前先执行[#63 R9](tasks/joint_campaign/JC-B03P_scenario_proposal.md)提案修订，具体参数未批准；随后#45毁伤依赖→B1b/B1c→B2→B3→B4。新[Astra评审](reviews/product_review_20261029/Astra_产品玩法与复古终端评审.md)补充决策密度与复古工业战术终端方向；UI规范先清晰版、再材质开关对照，UI文案由GPT/Sol维护。历史胜负提案不得覆盖R9新口径。
+
+## 2026-10-29 JC-B01A第四轮：首次确认有进展，原R4/R5仍收尾
+
+[实际三层集合与配置关闭表](reviews/b01a_r4_20261029/review.md)，候选`db3bef90420178ba246a54b13efd7a342bb6c013`。根83/0，时钟锁/手动版本/手动快照关闭；首次确认后的三层集合不一致、auto=true空配置冻结仍待修。D1不冻结，不启动下一卡；七历史baseline不刷新，用户转交。
+
+## 2026-10-29 JC-B01A第三轮：PR75原R4/R5继续
+
+[关闭表与实际Binder证据](reviews/b01a_r3_20261029/review.md)：候选`3ea9e8ceb9f247acd4a24641277c621146730d8f`，根专项7/7、新83/0。首次UI确认被boot推进后的部署锁阻塞，auto已部署路线的实际配置冻结/revision也不一致。D1不放行，#62继续原R4/R5；已关闭窄项保留，不启动下一卡、不刷新baseline。用户转交，Sol不操作DSH。
+
+## 2026-10-29 JC-B01A第二轮：原窄反例关闭，原#62继续
+
+[本轮关闭表](reviews/b01a_r2_20261029/review.md)，候选`323018ac4c13c9815c6b56d7e32c14976000d38e`，根部署专项72/0；原R1/R2/R3与R4几何窄观察已关闭，保留绿项不重做。R4实际装备配置与R5最小HUD/非headless/最终交付仍OPEN，D1不冻结、不启动下一卡。交接由用户转发，未直接操作DSH。
+
+## 2026-10-29 JC-B01A首轮：部署核心里程碑，原#62继续
+
+[独立复核](reviews/b01a_r1_20261029/review.md)：候选`7185b92e83482b731ca7d15da7765ae41eda7c4c`，根专项7/7、新72/0；原卡同源物理实体/授权/旧档清理/严格资源恢复/冻结配置有待修项，最小Binder与非headless交付等原收尾继续。已有绿项保留；#62仍IN PROGRESS，D1未冻结、实现未合入，不启动下一卡。A4既有放行结论保持，七历史baseline不刷新。
+
 ## 2026-10-29 JC-A04第四轮：PASS，A4合入，B01A交接备好
 
 [独立放行及原始证据](reviews/pr72_a04_r4_20261029/review.md)：A4冻结`af924d09f5c1d763f8d2556cd94062134ef3c456`，PR72合入main`1b483e0f2f2a9bfdaa100caf2ee6742091193204`，完整tree等于被审候选。原最后R1现代缺省入口关闭，其他原子项/真实callback/恢复结论保留；根8/8专项、新141/0，原C Phase0 6/6、PhaseA3/3、full91=84PASS/7历史FAIL、new_fail0/drift0/complete=true、退出0，同head CI成功。七历史baseline未刷新。
@@ -194,7 +214,7 @@ G0、K0等是未来任务交付物的名字，当前不是有效SHA。每张卡�
 | [JC-A02](tasks/joint_campaign/JC-A02_identity.md) · [#59](https://github.com/HATO-24/ghost-track-apsis/issues/59) | DONE（第三轮） | A2=755ab5ed，main=82bf6a53，完整SHA见上文 | 身份证据单一出口、IFF/ELINT/光学/人工一致性 |
 | [JC-A03](tasks/joint_campaign/JC-A03_ew_observation.md) · [#60](https://github.com/HATO-24/ghost-track-apsis/issues/60) | DONE（第四轮） | A3=5d372ea2，main=c3fca1c5，完整SHA见上文 | EW进入真实观测与火控消费者 |
 | [JC-A04](tasks/joint_campaign/JC-A04_ew_comms.md) · [#61](https://github.com/HATO-24/ghost-track-apsis/issues/61) | DONE（第四轮） | A4=af924d09，完整SHA及main合入见上文 | EW进入实际通信，保留恢复与权限语义 |
-| [JC-B01A](tasks/joint_campaign/JC-B01A_deployment.md) · [#62](https://github.com/HATO-24/ghost-track-apsis/issues/62) | READY，既有下一卡已备好（未启动） | A1/K0/A4已满足→D1 | 两套合法编制转为独立、可恢复的部署实例；多舰发射仍属后续B1b |
+| [JC-B01A](tasks/joint_campaign/JC-B01A_deployment.md) · [#62](https://github.com/HATO-24/ghost-track-apsis/issues/62) | 独立PASS，D1待合并 | A1/K0/A4已满足；D1未冻结 | 两套合法编制转为独立、可恢复的部署实例；多舰发射仍属后续B1b |
 | [JC-B03P](tasks/joint_campaign/JC-B03P_scenario_proposal.md) · [#63](https://github.com/HATO-24/ghost-track-apsis/issues/63) | P0草案；产品核对前文字校正 | K0已冻结→待核对P0 | 具体战区、目标判据、简报/战报方案，交用户核对 |
 
 ```mermaid

@@ -1,0 +1,117 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[B01A] START
+
+[B01A] STEP J0 合法 A/B 编制 boot 与冻结结果
+[B01A] PASS A 编制 boot ready  []
+[B01A] PASS B 编制 boot ready  []
+[B01A] PASS A deployment vm 可读
+[B01A] PASS B deployment vm 可读
+[B01A] PASS A 实例 id 集合 = 选择   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS B 实例 id 集合 = 选择   actual=["ferry", "perigee", "watchtower"] expected=["ferry", "perigee", "watchtower"]
+[B01A] PASS A 冻结 revision 非空  rev-aa529d3a
+[B01A] PASS A/B 不同编制 revision 不同
+[B01A] PASS 部署 seed 与 seed 配置同源   actual=424242 expected=424242
+
+[B01A] STEP J1 未选舰零残留：catalog / physics / world 恰好等于选择
+[B01A] PASS A catalog 实体 = 选择   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS A physics 实体 = 选择   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS A world 实体 = 选择   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS B catalog 实体 = 选择   actual=["ferry", "perigee", "watchtower"] expected=["ferry", "perigee", "watchtower"]
+[B01A] PASS B physics 实体 = 选择   actual=["ferry", "perigee", "watchtower"] expected=["ferry", "perigee", "watchtower"]
+[B01A] PASS B world 实体 = 选择   actual=["ferry", "perigee", "watchtower"] expected=["ferry", "perigee", "watchtower"]
+[B01A] PASS A 旧实体不残留
+[B01A] PASS A 未选 B 舰不残留
+[B01A] PASS A scenario 记录
+[B01A] INFO A meta/physics/world=["apsis", "harmattan"]/["apsis", "harmattan"]/["apsis", "harmattan"] B=["ferry", "perigee", "watchtower"]/["ferry", "perigee", "watchtower"]/["ferry", "perigee", "watchtower"]
+
+[B01A] STEP J2 实例独立资源与质量/燃料单位转换
+[B01A] PASS A 两实例资源账本可读
+[B01A] PASS 资源容器是独立 Dictionary
+[B01A] PASS 修改 A 实例燃料/损伤成功
+[B01A] PASS A 修改只影响 A 燃料  actual=3001000.000000000000 expected=3001000.000000000000 tol=0.000000001
+[B01A] PASS B 实例燃料不变  actual=500000.000000000000 expected=500000.000000000000 tol=0.000000001
+[B01A] PASS B 实例损伤不变
+[B01A] PASS 质量 t→kg 只转换一次（apsis）  actual=9000000.000000000000 expected=9000000.000000000000 tol=0.000001
+[B01A] PASS 质量 t→kg 只转换一次（harmattan）  actual=300000.000000000000 expected=300000.000000000000 tol=0.000001
+
+[B01A] STEP J3 负例：原子拒绝且原因明确
+[B01A] PASS 未知舰 id 拒绝  ready=false errors=["deployment_invalid: unknown_ship:NO_SUCH_SHIP"]
+[B01A] PASS 重复 instance id 拒绝  ready=false errors=["deployment_invalid: duplicate_instance_id:dup"]
+[B01A] PASS 槽位超限 拒绝  ready=false errors=["deployment_invalid: slot_overflow:command"]
+[B01A] PASS 空选择 拒绝  ready=false errors=["deployment_invalid: empty_selection"]
+[B01A] PASS 部署时未知舰拒绝
+[B01A] PASS unknown class/ship 原因明确  deployment_locked
+[B01A] PASS 失败部署不半生成（catalog 仍为原部署）   actual=2 expected=2
+[B01A] PASS 缺少 confirm 的部署拒绝
+[B01A] PASS confirm 缺失原因明确  confirm_required
+
+[B01A] STEP J4 幂等 / 部署锁
+[B01A] PASS 首次 confirm 部署成功  already_deployed
+[B01A] PASS 同选择重复部署幂等成功  already_deployed
+[B01A] PASS 重复部署实例集合不变   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 已部署后换编制拒绝
+[B01A] PASS 换编制原因 deployment_locked   actual=deployment_locked expected=deployment_locked
+
+[B01A] STEP J5 存档/恢复：部署前后、同 t 映射、10 tick 一致、无重复实体
+[B01A] PASS 部署前真实文件恢复成功  []
+[B01A] PASS 部署前恢复实例映射一致   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 部署前恢复 catalog 一致   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 部署后真实文件恢复成功  []
+[B01A] PASS 部署后恢复实例映射一致   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 部署后 catalog 无重复实体   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 部署后 physics 无重复实体   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 恢复后继续 10 tick 事件序列一致   actual=["physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step"] expected=["physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step","physics.step_started","physics.step_completed","identification.step"]
+[B01A] PASS 恢复后继续 10 tick 运动一致  cont=[{ "id": "apsis", "r": [-1.10551727129161, 0.00002157754324, 0.0], "v": [-0.20101900188871, 0.00000588487736, 0.0] }, { "id": "harmattan", "r": [8.89920199327493, 0.00002148543998, 0.0], "v": [-0.2001607850355, 0.0000058597573, 0.0] }] restored=[{ "id": "apsis", "r": [-1.10551727129161, 0.00002157754324, 0.0], "v": [-0.20101900188871, 0.00000588487736, 0.0] }, { "id": "harmattan", "r": [8.89920199327493, 0.00002148543998, 0.0], "v": [-0.2001607850355, 0.0000058597573, 0.0] }] actual=[{"id":"apsis","r":[-1.10551727129161,0.0000215775432369205,0.0],"v":[-0.201019001888713,0.00000588487735919392,0.0]},{"id":"harmattan","r":[8.89920199327493,0.0000214854399795688,0.0],"v":[-0.200160785035504,0.00000585975730161619,0.0]}] expected=[{"id":"apsis","r":[-1.10551727129161,0.0000215775432369205,0.0],"v":[-0.201019001888713,0.00000588487735919392,0.0]},{"id":"harmattan","r":[8.89920199327493,0.0000214854399795688,0.0],"v":[-0.200160785035504,0.00000585975730161619,0.0]}]
+[B01A] PASS 部署实例位置集合可读
+[B01A] PASS 预部署 auto=false boot ready  []
+[B01A] PASS 预部署阶段尚无冻结实例   actual=[] expected=[]
+[B01A] PASS 预部署阶段不生成参战实体   actual=["legacy_ship"] expected=["legacy_ship"]
+[B01A] PASS 预部署阶段真实文件恢复成功  []
+[B01A] PASS 预部署恢复不提前生成实例   actual=[] expected=[]
+[B01A] PASS 预部署恢复后 confirm 部署成功
+[B01A] PASS 部署后实例集合 = 选择   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 部署后 catalog = 选择   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 运行开始后换编制 deployment_locked   actual=deployment_locked expected=deployment_locked
+[B01A] PASS 部署资源真实文件恢复成功  []
+[B01A] PASS 恢复后实例燃料保持  actual=3004321.000000000000 expected=3004321.000000000000 tol=0.000000001
+[B01A] PASS 恢复后实例损伤保持  actual=0.400000000000 expected=0.400000000000 tol=0.000000001
+[B01A] PASS 资源恢复不生成重复实体   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 部署实例进入 fleet_instances  ["apsis", "harmattan"]
+[B01A] PASS own_entity 指向已部署旗舰  apsis
+[B01A] PASS 部署旗舰 owner 域为 player  player
+[B01A] INFO refit install=true commit=true mod=defense_armor_belt
+[B01A] PASS 实际配置存在时冻结 revision 非空
+[B01A] PASS 改实际配置后 revision 变化  before=rev-a42aefe9 after=rev-fcc7625a
+[B01A] PASS 实际配置下 confirm 部署成功
+[B01A] PASS 快照冻结 FleetRefit 当前状态字段
+[B01A] PASS 快照注明配置来源  fleet_refit
+[B01A] PASS 缺失装备/命令初态明确标注，不冒充已接通
+[B01A] PASS vm 暴露实际配置版本
+[B01A] PASS 重复命名舰 boot 拒绝  ["deployment_invalid: duplicate_named_hull:APSIS"]
+[B01A] PASS 越预算 boot 拒绝  ["deployment_invalid: over_max_ships:2>1"]
+[B01A] PASS 无授权控制者 boot 拒绝  ["deployment_invalid: unauthorized_controller:unregistered_controller"]
+[B01A] INFO ctrl errors=["deployment_invalid: unauthorized_controller:unregistered_controller"]
+[B01A] PASS 首次确认后 catalog = 选择   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 首次确认后 physics = 选择   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 首次确认后 world = 选择   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS 首次确认后旧舰不残留 world
+[B01A] PASS 首次确认后旧舰不残留 physics
+[B01A] PASS 首次确认后 world/physics 同步 ok  probe
+[B01A] PASS 10 tick 后 world 与 physics 集合一致   actual=["apsis", "harmattan"] expected=["apsis", "harmattan"]
+[B01A] PASS auto=true 冻结实际 FleetRefit 配置来源   actual=fleet_refit expected=fleet_refit
+[B01A] PASS auto=true 冻结快照包含非空实际 refit 状态  {"installed":[],"location":"L4_ANVIL","planned":[],"platform":"APSIS","queue":[],"resources":{"credits":300000,"materials":1000},"schema":"v17.refit_save.v1","t
+[B01A] PASS auto=true 后续 plan 成功
+[B01A] PASS auto=true plan revision = 已冻结 revision   actual=rev-c32aa172 expected=rev-c32aa172
+
+[B01A] STEP J6 旧单舰 seed 兼容与部署入口/UI 合同
+[B01A] PASS 旧单舰 seed 仍可 boot  []
+[B01A] PASS 旧 seed catalog 保持原实体   actual=["own_ship"] expected=["own_ship"]
+[B01A] PASS 无 deployment 配置时部署入口未启用/明确不可用
+[B01A] PASS Session 暴露 fleet_deploy 入口
+[B01A] PASS Session 暴露只读 plan 入口
+[B01A] PASS Session 暴露 deployment vm
+[B01A] PASS Session 暴露实例资源入口
+────────────────────────────────────────────────────────────────
+JC-B01A DEPLOYMENT PROBE RESULT: PASS=94 FAIL=0
+AUDIO OK files=36 headless=true muted=false

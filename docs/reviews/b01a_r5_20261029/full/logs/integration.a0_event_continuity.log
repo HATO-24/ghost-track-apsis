@@ -1,0 +1,121 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+A0-A03 EVENT CONTINUITY PROBE · baseline I2
+Godot 4.7.2-stable (official)
+════════════════════════════════════════════════════════════════
+
+[A0-A03] STEP 1. baseline reproduction: mixed IDs + non-integer time/payload roundtrip
+[A0-A03] PASS EventBus ready
+[A0-A03] PASS publish auto-id event
+[A0-A03] PASS publish explicit-id event
+[A0-A03] PASS two events recorded  n=2
+[A0-A03] PASS bus seq advanced to 2  2
+
+[A0-A03] STEP 2. export → JSON → import: content, int types and float fidelity
+[A0-A03] PASS export carries versioned schema  v17.event_bus.state.v2
+[A0-A03] PASS exported seq is 2  actual=2 expected=2
+[A0-A03] PASS exported auto-id allocator is 1  actual=1 expected=1
+[A0-A03] PASS export carries the full used-id set  n=2
+[A0-A03] PASS import after JSON roundtrip ok  []
+[A0-A03] PASS restored bus seq is 2  actual=2 expected=2
+[A0-A03] PASS restored bus seq is a real GDScript int  type=int
+[A0-A03] PASS restored allocator is a real GDScript int  type=int
+[A0-A03] PASS every restored event seq is a real GDScript int  violations=[]
+[A0-A03] PASS event t=0.125 preserved (1e-9)  actual=0.125000000000 expected=0.125000000000 tol=0.000000001
+[A0-A03] PASS payload 1.25 preserved (1e-9)  actual=1.250000000000 expected=1.250000000000 tol=0.000000001
+[A0-A03] PASS payload 0.001 preserved (1e-9)  actual=0.001000000000 expected=0.001000000000 tol=0.000000001
+[A0-A03] PASS payload bool preserved exactly  actual=true expected=true
+[A0-A03] PASS payload string preserved exactly  actual=alpha expected=alpha
+[A0-A03] PASS explicit id preserved exactly  actual=evt-explicit-1 expected=evt-explicit-1
+[A0-A03] PASS target id stays a string  actual=T2 expected=T2
+[A0-A03] PASS auto-generated id preserved exactly  violations=[]
+[A0-A03] PASS export→import→export normalized events identical  actual=[{"id":"evt-000001","payload":{"a":1.25,"b":0.001,"flag":true,"name":"alpha"},"schema":"v17.event.v1","seq":1.0,"source":"unit","t":0.125,"target":"T1","text_key":"","type":"test.auto"},{"id":"evt-explicit-1","payload":{"r":3.5},"schema":"v17.event.v1","seq":2.0,"source":"unit","t":0.25,"target":"T2","text_key":"","type":"test.explicit"}] expected=[{"id":"evt-000001","payload":{"a":1.25,"b":0.001,"flag":true,"name":"alpha"},"schema":"v17.event.v1","seq":1.0,"source":"unit","t":0.125,"target":"T1","text_key":"","type":"test.auto"},{"id":"evt-explicit-1","payload":{"r":3.5},"schema":"v17.event.v1","seq":2.0,"source":"unit","t":0.25,"target":"T2","text_key":"","type":"test.explicit"}]
+
+[A0-A03] STEP 3. import must NOT publish or dispatch history (0 subscriber calls)
+[A0-A03] PASS import into subscribed bus ok  []
+[A0-A03] PASS restoring history called subscribers 0 times  actual=0 expected=0
+[A0-A03] PASS publish after restore ok
+[A0-A03] PASS new publish dispatched exactly once  actual=1 expected=1
+[A0-A03] PASS first new seq is saved seq + 1  3
+
+[A0-A03] STEP 4. old explicit id re-publish rejected without advancing seq/allocator
+[A0-A03] PASS re-publishing an old explicit id is rejected  invalid_event
+[A0-A03] PASS rejected publish did not advance seq  actual=3 expected=3
+[A0-A03] PASS rejected publish did not advance allocator  actual=2 expected=2
+
+[A0-A03] STEP 5. >MAX_EVENTS: evicted ids stay used; allocator keeps increasing
+[A0-A03] PASS visible ring buffer capped at MAX_EVENTS=1000  1000
+[A0-A03] PASS full used-id set keeps all 1005 ids (not shrunk to 1000)  n=1005
+[A0-A03] PASS import oversized-history state ok  []
+[A0-A03] PASS restored used-id set is still 1005 (no shrink)  actual=1005 expected=1005
+[A0-A03] PASS id evicted from the visible ring is still rejected  invalid_event
+[A0-A03] PASS rejected evicted-id publish did not advance seq  actual=1005 expected=1005
+
+[A0-A03] STEP 6. negative: invalid seq / version / ordering are explicitly rejected
+[A0-A03] PASS NEGATIVE: negative seq is rejected  ["seq: below 0.0"]
+[A0-A03] PASS NEGATIVE: negative seq leaves bus untouched  actual=0 expected=0
+[A0-A03] PASS NEGATIVE: negative seq wrote no events  actual=0 expected=0
+[A0-A03] PASS NEGATIVE: fractional seq is rejected  ["seq: not an integer value (1.5)"]
+[A0-A03] PASS NEGATIVE: fractional seq leaves bus untouched  actual=0 expected=0
+[A0-A03] PASS NEGATIVE: fractional seq wrote no events  actual=0 expected=0
+[A0-A03] PASS NEGATIVE: string seq is rejected  ["seq: not a number (type String)"]
+[A0-A03] PASS NEGATIVE: string seq leaves bus untouched  actual=0 expected=0
+[A0-A03] PASS NEGATIVE: string seq wrote no events  actual=0 expected=0
+[A0-A03] PASS NEGATIVE: out-of-range seq is rejected  ["seq: above safe integer max 9007199254740990.0"]
+[A0-A03] PASS NEGATIVE: out-of-range seq leaves bus untouched  actual=0 expected=0
+[A0-A03] PASS NEGATIVE: out-of-range seq wrote no events  actual=0 expected=0
+[A0-A03] PASS NEGATIVE: version mismatch is rejected  ["unsupported version 99 (expected 2)"]
+[A0-A03] PASS NEGATIVE: version mismatch leaves bus untouched  actual=0 expected=0
+[A0-A03] PASS NEGATIVE: version mismatch wrote no events  actual=0 expected=0
+[A0-A03] PASS NEGATIVE: duplicate/descending event seq rejected  ["events[1].seq 非严格递增 (1 <= 1)"]
+[A0-A03] PASS NEGATIVE: seq smaller than history tail rejected  ["history tail seq 2 > current seq 0"]
+[A0-A03] PASS NEGATIVE: missing required fields rejected  ["v2 state 缺少必需字段：[\"seq\", \"id_seq\", \"events\", \"seen_ids\"]"]
+[A0-A03] PASS NEGATIVE: unknown state schema rejected (not treated as legacy)  ["unsupported event_bus state schema: v17.event_bus.state.v99"]
+[A0-A03] PASS failed import leaves the bus state byte-identical  actual={"events":[{"id":"evt-000001","payload":{"a":1.25,"b":0.001,"flag":true,"name":"alpha"},"schema":"v17.event.v1","seq":1.0,"source":"unit","t":0.125,"target":"T1","text_key":"","type":"test.auto"},{"id":"evt-explicit-1","payload":{"r":3.5},"schema":"v17.event.v1","seq":2.0,"source":"unit","t":0.25,"target":"T2","text_key":"","type":"test.explicit"},{"id":"evt-000002","payload":{},"schema":"v17.event.v1","seq":3.0,"source":"unit","t":1.0,"target":"T3","text_key":"","type":"test.after"}],"id_seq":2,"max_events":1000,"schema":"v17.event_bus.state.v2","seen_ids":["evt-000001","evt-000002","evt-explicit-1"],"seq":3,"version":2} expected={"events":[{"id":"evt-000001","payload":{"a":1.25,"b":0.001,"flag":true,"name":"alpha"},"schema":"v17.event.v1","seq":1.0,"source":"unit","t":0.125,"target":"T1","text_key":"","type":"test.auto"},{"id":"evt-explicit-1","payload":{"r":3.5},"schema":"v17.event.v1","seq":2.0,"source":"unit","t":0.25,"target":"T2","text_key":"","type":"test.explicit"},{"id":"evt-000002","payload":{},"schema":"v17.event.v1","seq":3.0,"source":"unit","t":1.0,"target":"T3","text_key":"","type":"test.after"}],"id_seq":2,"max_events":1000,"schema":"v17.event_bus.state.v2","seen_ids":["evt-000001","evt-000002","evt-explicit-1"],"seq":3,"version":2}
+
+[A0-A03] STEP 7. auto-id vs explicit evt-* collision is detected
+[A0-A03] PASS NEGATIVE: allocator below max used evt-* id is rejected  ["allocator collision: id_seq=0 < max used evt id 1"]
+[A0-A03] PASS R02: explicit evt-000001 accepted
+[A0-A03] PASS R02: auto publish after explicit id ok
+[A0-A03] PASS R02: auto id SKIPS the explicit id already in use  evt-000002
+[A0-A03] PASS R02: auto id after a later explicit id does not collide  evt-000006
+[A0-A03] PASS R02: every published id is unique  []
+[A0-A03] PASS R02: state with explicit evt-* ids imports ok  []
+[A0-A03] PASS R02: publish after restore produces a fresh unique id  evt-000007
+[A0-A03] PASS R02: source bus has the full used-id set  1005
+[A0-A03] PASS R02: baseline v2 state imports ok
+[A0-A03] PASS R02: v2 state missing seen_ids is REJECTED (not silently accepted)  invalid_state_missing_fields
+[A0-A03] PASS R02: rejection reason names the missing fields  invalid_state_missing_fields
+[A0-A03] PASS R02: failed import leaves the bus byte-identical (no half write)
+[A0-A03] PASS R02: existing dedup set was not damaged by the rejected import  1005
+[A0-A03] PASS R02: evicted early id is still rejected after the rejected import  invalid_event
+[A0-A03] PASS R02: boundary state (id_seq at safe max) imports  []
+[A0-A03] PASS R02: allocation at the safe-integer boundary is refused  id_exhausted
+[A0-A03] PASS R02: refused allocation did not advance seq  1
+
+[A0-A03] STEP 8. integration: real GameSession save→load→continue (same event stream)
+[A0-A03] PASS source session ready  []
+[A0-A03] PASS save_state non-empty  len=8812
+[A0-A03] PASS probe can write a real save file
+[A0-A03] PASS load_state from a real file ok  []
+[A0-A03] PASS restored bus seq matches the saved seq  actual=13 expected=13
+[A0-A03] PASS restored session event seq are real GDScript ints  violations=[]
+[A0-A03] PASS no subscriber calls immediately after load
+[A0-A03] PASS continued sessions have identical seq after 10 ticks  orig=33 restored=33
+[A0-A03] PASS continued sessions have identical auto-id allocator  orig=33 restored=33
+[A0-A03] PASS new events after restore dispatched to subscribers  n=20
+[A0-A03] PASS new seq continues past the saved value  saved=13 now=33
+[A0-A03] PASS no duplicate event ids after continuation  []
+[A0-A03] INFO INTEGRATION: seq saved=13 continued orig=33 restored=33 subscribers=20
+
+[A0-A03] STEP 9. integration: save→load→save normalized equality
+[A0-A03] PASS second-generation load ok  []
+[A0-A03] PASS save→load→save bus state normalized identical  actual={"events":[{"id":"evt-000001","payload":{"entity":{"id":"apsis","kind":"ship","pos_km":[321719.0,0.0,0.0],"vel_kmps":[0.0,0.0,0.0]}},"schema":"v17.event.v1","seq":1.0,"source":"session","t":0.0,"target":"","text_key":"","type":"entity.spawn"},{"id":"evt-000002","payload":{"entity":{"id":"harmattan","kind":"ship","pos_km":[322139.0,0.0,0.0],"vel_kmps":[0.0,1.02,0.0]}},"schema":"v17.event.v1","seq":2.0,"source":"session","t":0.0,"target":"","text_key":"","type":"entity.spawn"},{"id":"evt-000003","payload":{"frame":"bary_rot","step_s":60.0,"sun":false},"schema":"v17.event.v1","seq":3.0,"source":"physics_world","t":0.0,"target":"","text_key":"","type":"physics.world_ready"},{"id":"evt-000004","payload":{"id":"apsis"},"schema":"v17.event.v1","seq":4.0,"source":"physics_world","t":0.0,"target":"apsis","text_key":"","type":"physics.entity_added"},{"id":"evt-000005","payload":{"id":"harmattan"},"schema":"v17.event.v1","seq":5.0,"source":"physics_world","t":0.0,"target":"harmattan","text_key":"","type":"physics.entity_added"},{"id":"evt-000006","payload":{"dt":60.0,"entities":2.0,"t":0.0},"schema":"v17.event.v1","seq":6.0,"source":"physics_world","t":60.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000007","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":60.0},"schema":"v17.event.v1","seq":7.0,"source":"physics_world","t":60.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000008","payload":{"dt":60.0,"entities":2.0,"t":60.0},"schema":"v17.event.v1","seq":8.0,"source":"physics_world","t":120.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000009","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":120.0},"schema":"v17.event.v1","seq":9.0,"source":"physics_world","t":120.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000010","payload":{"dt":60.0,"entities":2.0,"t":120.0},"schema":"v17.event.v1","seq":10.0,"source":"physics_world","t":180.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000011","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":180.0},"schema":"v17.event.v1","seq":11.0,"source":"physics_world","t":180.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000012","payload":{"dt":60.0,"entities":2.0,"t":180.0},"schema":"v17.event.v1","seq":12.0,"source":"physics_world","t":240.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000013","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":240.0},"schema":"v17.event.v1","seq":13.0,"source":"physics_world","t":240.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000014","payload":{"dt":60.0,"entities":2.0,"t":240.0},"schema":"v17.event.v1","seq":14.0,"source":"physics_world","t":300.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000015","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":300.0},"schema":"v17.event.v1","seq":15.0,"source":"physics_world","t":300.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000016","payload":{"dt":60.0,"entities":2.0,"t":300.0},"schema":"v17.event.v1","seq":16.0,"source":"physics_world","t":360.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000017","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":360.0},"schema":"v17.event.v1","seq":17.0,"source":"physics_world","t":360.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000018","payload":{"dt":60.0,"entities":2.0,"t":360.0},"schema":"v17.event.v1","seq":18.0,"source":"physics_world","t":420.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000019","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":420.0},"schema":"v17.event.v1","seq":19.0,"source":"physics_world","t":420.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000020","payload":{"dt":60.0,"entities":2.0,"t":420.0},"schema":"v17.event.v1","seq":20.0,"source":"physics_world","t":480.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000021","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":480.0},"schema":"v17.event.v1","seq":21.0,"source":"physics_world","t":480.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000022","payload":{"dt":60.0,"entities":2.0,"t":480.0},"schema":"v17.event.v1","seq":22.0,"source":"physics_world","t":540.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000023","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":540.0},"schema":"v17.event.v1","seq":23.0,"source":"physics_world","t":540.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000024","payload":{"dt":60.0,"entities":2.0,"t":540.0},"schema":"v17.event.v1","seq":24.0,"source":"physics_world","t":600.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000025","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":600.0},"schema":"v17.event.v1","seq":25.0,"source":"physics_world","t":600.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000026","payload":{"dt":60.0,"entities":2.0,"t":600.0},"schema":"v17.event.v1","seq":26.0,"source":"physics_world","t":660.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000027","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":660.0},"schema":"v17.event.v1","seq":27.0,"source":"physics_world","t":660.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000028","payload":{"dt":60.0,"entities":2.0,"t":660.0},"schema":"v17.event.v1","seq":28.0,"source":"physics_world","t":720.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000029","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":720.0},"schema":"v17.event.v1","seq":29.0,"source":"physics_world","t":720.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000030","payload":{"dt":60.0,"entities":2.0,"t":720.0},"schema":"v17.event.v1","seq":30.0,"source":"physics_world","t":780.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000031","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":780.0},"schema":"v17.event.v1","seq":31.0,"source":"physics_world","t":780.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000032","payload":{"dt":60.0,"entities":2.0,"t":780.0},"schema":"v17.event.v1","seq":32.0,"source":"physics_world","t":840.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000033","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":840.0},"schema":"v17.event.v1","seq":33.0,"source":"physics_world","t":840.0,"target":"","text_key":"","type":"physics.step_completed"}],"id_seq":33.0,"max_events":1000.0,"schema":"v17.event_bus.state.v2","seen_ids":["evt-000001","evt-000002","evt-000003","evt-000004","evt-000005","evt-000006","evt-000007","evt-000008","evt-000009","evt-000010","evt-000011","evt-000012","evt-000013","evt-000014","evt-000015","evt-000016","evt-000017","evt-000018","evt-000019","evt-000020","evt-000021","evt-000022","evt-000023","evt-000024","evt-000025","evt-000026","evt-000027","evt-000028","evt-000029","evt-000030","evt-000031","evt-000032","evt-000033"],"seq":33.0,"version":2.0} expected={"events":[{"id":"evt-000001","payload":{"entity":{"id":"apsis","kind":"ship","pos_km":[321719.0,0.0,0.0],"vel_kmps":[0.0,0.0,0.0]}},"schema":"v17.event.v1","seq":1.0,"source":"session","t":0.0,"target":"","text_key":"","type":"entity.spawn"},{"id":"evt-000002","payload":{"entity":{"id":"harmattan","kind":"ship","pos_km":[322139.0,0.0,0.0],"vel_kmps":[0.0,1.02,0.0]}},"schema":"v17.event.v1","seq":2.0,"source":"session","t":0.0,"target":"","text_key":"","type":"entity.spawn"},{"id":"evt-000003","payload":{"frame":"bary_rot","step_s":60.0,"sun":false},"schema":"v17.event.v1","seq":3.0,"source":"physics_world","t":0.0,"target":"","text_key":"","type":"physics.world_ready"},{"id":"evt-000004","payload":{"id":"apsis"},"schema":"v17.event.v1","seq":4.0,"source":"physics_world","t":0.0,"target":"apsis","text_key":"","type":"physics.entity_added"},{"id":"evt-000005","payload":{"id":"harmattan"},"schema":"v17.event.v1","seq":5.0,"source":"physics_world","t":0.0,"target":"harmattan","text_key":"","type":"physics.entity_added"},{"id":"evt-000006","payload":{"dt":60.0,"entities":2.0,"t":0.0},"schema":"v17.event.v1","seq":6.0,"source":"physics_world","t":60.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000007","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":60.0},"schema":"v17.event.v1","seq":7.0,"source":"physics_world","t":60.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000008","payload":{"dt":60.0,"entities":2.0,"t":60.0},"schema":"v17.event.v1","seq":8.0,"source":"physics_world","t":120.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000009","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":120.0},"schema":"v17.event.v1","seq":9.0,"source":"physics_world","t":120.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000010","payload":{"dt":60.0,"entities":2.0,"t":120.0},"schema":"v17.event.v1","seq":10.0,"source":"physics_world","t":180.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000011","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":180.0},"schema":"v17.event.v1","seq":11.0,"source":"physics_world","t":180.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000012","payload":{"dt":60.0,"entities":2.0,"t":180.0},"schema":"v17.event.v1","seq":12.0,"source":"physics_world","t":240.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000013","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":240.0},"schema":"v17.event.v1","seq":13.0,"source":"physics_world","t":240.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000014","payload":{"dt":60.0,"entities":2.0,"t":240.0},"schema":"v17.event.v1","seq":14.0,"source":"physics_world","t":300.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000015","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":300.0},"schema":"v17.event.v1","seq":15.0,"source":"physics_world","t":300.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000016","payload":{"dt":60.0,"entities":2.0,"t":300.0},"schema":"v17.event.v1","seq":16.0,"source":"physics_world","t":360.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000017","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":360.0},"schema":"v17.event.v1","seq":17.0,"source":"physics_world","t":360.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000018","payload":{"dt":60.0,"entities":2.0,"t":360.0},"schema":"v17.event.v1","seq":18.0,"source":"physics_world","t":420.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000019","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":420.0},"schema":"v17.event.v1","seq":19.0,"source":"physics_world","t":420.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000020","payload":{"dt":60.0,"entities":2.0,"t":420.0},"schema":"v17.event.v1","seq":20.0,"source":"physics_world","t":480.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000021","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":480.0},"schema":"v17.event.v1","seq":21.0,"source":"physics_world","t":480.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000022","payload":{"dt":60.0,"entities":2.0,"t":480.0},"schema":"v17.event.v1","seq":22.0,"source":"physics_world","t":540.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000023","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":540.0},"schema":"v17.event.v1","seq":23.0,"source":"physics_world","t":540.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000024","payload":{"dt":60.0,"entities":2.0,"t":540.0},"schema":"v17.event.v1","seq":24.0,"source":"physics_world","t":600.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000025","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":600.0},"schema":"v17.event.v1","seq":25.0,"source":"physics_world","t":600.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000026","payload":{"dt":60.0,"entities":2.0,"t":600.0},"schema":"v17.event.v1","seq":26.0,"source":"physics_world","t":660.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000027","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":660.0},"schema":"v17.event.v1","seq":27.0,"source":"physics_world","t":660.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000028","payload":{"dt":60.0,"entities":2.0,"t":660.0},"schema":"v17.event.v1","seq":28.0,"source":"physics_world","t":720.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000029","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":720.0},"schema":"v17.event.v1","seq":29.0,"source":"physics_world","t":720.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000030","payload":{"dt":60.0,"entities":2.0,"t":720.0},"schema":"v17.event.v1","seq":30.0,"source":"physics_world","t":780.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000031","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":780.0},"schema":"v17.event.v1","seq":31.0,"source":"physics_world","t":780.0,"target":"","text_key":"","type":"physics.step_completed"},{"id":"evt-000032","payload":{"dt":60.0,"entities":2.0,"t":780.0},"schema":"v17.event.v1","seq":32.0,"source":"physics_world","t":840.0,"target":"","text_key":"","type":"physics.step_started"},{"id":"evt-000033","payload":{"dt":60.0,"step_s":60.0,"steps":1.0,"t":840.0},"schema":"v17.event.v1","seq":33.0,"source":"physics_world","t":840.0,"target":"","text_key":"","type":"physics.step_completed"}],"id_seq":33.0,"max_events":1000.0,"schema":"v17.event_bus.state.v2","seen_ids":["evt-000001","evt-000002","evt-000003","evt-000004","evt-000005","evt-000006","evt-000007","evt-000008","evt-000009","evt-000010","evt-000011","evt-000012","evt-000013","evt-000014","evt-000015","evt-000016","evt-000017","evt-000018","evt-000019","evt-000020","evt-000021","evt-000022","evt-000023","evt-000024","evt-000025","evt-000026","evt-000027","evt-000028","evt-000029","evt-000030","evt-000031","evt-000032","evt-000033"],"seq":33.0,"version":2.0}
+
+[A0-A03] STEP 10. A-03 summary
+[A0-A03] INFO A-03: versioned state, no-publish import, int contract, allocator/high-water dedup, oversized ring preservation, negative matrix, real-file continuation
+────────────────────────────────────────────────────────────────
+A0-A03 EVENT CONTINUITY PROBE RESULT: PASS=89 FAIL=0
+A0-A03 EVENT CONTINUITY PROBE OK
+AUDIO OK files=36 headless=true muted=false

@@ -1,0 +1,7 @@
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] _load_file (res://framework/sim/ephemeris_compact.gd:107)
+       [1] load (res://framework/sim/ephemeris_compact.gd:66)
+       [2] _test_file_load_json_determinism (res://tests/ephemeris_compact_probe.gd:307)
+       [3] _initialize (res://tests/ephemeris_compact_probe.gd:31)

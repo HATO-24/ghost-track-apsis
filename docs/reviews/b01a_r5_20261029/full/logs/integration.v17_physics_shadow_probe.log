@@ -1,0 +1,326 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+R6-SHADOW-1 PROBE · CR3BP/RK4 物理 shadow 接入
+════════════════════════════════════════════════════════════
+
+── 1 boot / 实体 ──
+[PASS] bridge.boot  []
+[PASS] bridge.physics_ready  []
+[PASS] physics_mode=shadow（默认）  actual=shadow expected=shadow
+[PASS] physics 实例存在
+[PASS] physics_view 含字段: schema
+[PASS] physics_view 含字段: model
+[PASS] physics_view 含字段: authoritative
+[PASS] physics_view 含字段: mode
+[PASS] physics_view 含字段: ready
+[PASS] physics_view 含字段: t
+[PASS] physics_view 含字段: step_s
+[PASS] physics_view 含字段: config
+[PASS] physics_view 含字段: entities
+[PASS] physics_view 含字段: reference
+[PASS] physics_view 含字段: warnings
+[PASS] physics_view 含字段: v15_orbit_source
+[PASS] physics_view 含字段: note
+[PASS] schema  actual=cislunar_physics.v1 expected=cislunar_physics.v1
+[PASS] authoritative=false（shadow）  actual=false expected=false
+[PASS] mode=shadow  actual=shadow expected=shadow
+[PASS] 固定步长 ≤60s  60.0
+[PASS] 实体数 ≥9  9
+[PASS] apsis 含 id
+[PASS] apsis 含 source
+[PASS] apsis 含 state_rot
+[PASS] apsis 含 state_earth_eci
+[PASS] apsis 含 state_earth_rot
+[PASS] apsis 含 jacobi
+[PASS] apsis 含 jacobi0
+[PASS] apsis 含 jacobi_drift
+[PASS] apsis 含 finite
+[PASS] apsis 含 earth_distance_km
+[PASS] apsis 含 moon_distance_km
+[PASS] apsis finite  actual=true expected=true
+[PASS] apsis state_earth_rot.r 有效
+[PASS] apsis state_earth_eci.r 有效
+[PASS] apsis source 非空
+[PASS] apsis source 明确标注近似/默认  V2 L1 局部近似 + 场景演示速度（非星历）
+[PASS] ceres_2 含 id
+[PASS] ceres_2 含 source
+[PASS] ceres_2 含 state_rot
+[PASS] ceres_2 含 state_earth_eci
+[PASS] ceres_2 含 state_earth_rot
+[PASS] ceres_2 含 jacobi
+[PASS] ceres_2 含 jacobi0
+[PASS] ceres_2 含 jacobi_drift
+[PASS] ceres_2 含 finite
+[PASS] ceres_2 含 earth_distance_km
+[PASS] ceres_2 含 moon_distance_km
+[PASS] ceres_2 finite  actual=true expected=true
+[PASS] ceres_2 state_earth_rot.r 有效
+[PASS] ceres_2 state_earth_eci.r 有效
+[PASS] ceres_2 source 非空
+[PASS] ceres_2 source 明确标注近似/默认  V2 L1 局部近似 + 场景演示速度（非星历）
+[PASS] chronos_station 含 id
+[PASS] chronos_station 含 source
+[PASS] chronos_station 含 state_rot
+[PASS] chronos_station 含 state_earth_eci
+[PASS] chronos_station 含 state_earth_rot
+[PASS] chronos_station 含 jacobi
+[PASS] chronos_station 含 jacobi0
+[PASS] chronos_station 含 jacobi_drift
+[PASS] chronos_station 含 finite
+[PASS] chronos_station 含 earth_distance_km
+[PASS] chronos_station 含 moon_distance_km
+[PASS] chronos_station finite  actual=true expected=true
+[PASS] chronos_station state_earth_rot.r 有效
+[PASS] chronos_station state_earth_eci.r 有效
+[PASS] chronos_station source 非空
+[PASS] chronos_station source 明确标注近似/默认  V2 L1 固定/站保持占位（非星历）
+[PASS] deepwell 含 id
+[PASS] deepwell 含 source
+[PASS] deepwell 含 state_rot
+[PASS] deepwell 含 state_earth_eci
+[PASS] deepwell 含 state_earth_rot
+[PASS] deepwell 含 jacobi
+[PASS] deepwell 含 jacobi0
+[PASS] deepwell 含 jacobi_drift
+[PASS] deepwell 含 finite
+[PASS] deepwell 含 earth_distance_km
+[PASS] deepwell 含 moon_distance_km
+[PASS] deepwell finite  actual=true expected=true
+[PASS] deepwell state_earth_rot.r 有效
+[PASS] deepwell state_earth_eci.r 有效
+[PASS] deepwell source 非空
+[PASS] deepwell source 明确标注近似/默认  V2 L1 局部近似 + 场景演示速度（非星历）
+[PASS] ferry 含 id
+[PASS] ferry 含 source
+[PASS] ferry 含 state_rot
+[PASS] ferry 含 state_earth_eci
+[PASS] ferry 含 state_earth_rot
+[PASS] ferry 含 jacobi
+[PASS] ferry 含 jacobi0
+[PASS] ferry 含 jacobi_drift
+[PASS] ferry 含 finite
+[PASS] ferry 含 earth_distance_km
+[PASS] ferry 含 moon_distance_km
+[PASS] ferry finite  actual=true expected=true
+[PASS] ferry state_earth_rot.r 有效
+[PASS] ferry state_earth_eci.r 有效
+[PASS] ferry source 非空
+[PASS] ferry source 明确标注近似/默认  V2 L1 局部近似 + 场景演示速度（非星历）
+[PASS] harmattan 含 id
+[PASS] harmattan 含 source
+[PASS] harmattan 含 state_rot
+[PASS] harmattan 含 state_earth_eci
+[PASS] harmattan 含 state_earth_rot
+[PASS] harmattan 含 jacobi
+[PASS] harmattan 含 jacobi0
+[PASS] harmattan 含 jacobi_drift
+[PASS] harmattan 含 finite
+[PASS] harmattan 含 earth_distance_km
+[PASS] harmattan 含 moon_distance_km
+[PASS] harmattan finite  actual=true expected=true
+[PASS] harmattan state_earth_rot.r 有效
+[PASS] harmattan state_earth_eci.r 有效
+[PASS] harmattan source 非空
+[PASS] harmattan source 明确标注近似/默认  V2 L1 局部近似 + 场景演示速度（非星历）
+[PASS] summons_4471 含 id
+[PASS] summons_4471 含 source
+[PASS] summons_4471 含 state_rot
+[PASS] summons_4471 含 state_earth_eci
+[PASS] summons_4471 含 state_earth_rot
+[PASS] summons_4471 含 jacobi
+[PASS] summons_4471 含 jacobi0
+[PASS] summons_4471 含 jacobi_drift
+[PASS] summons_4471 含 finite
+[PASS] summons_4471 含 earth_distance_km
+[PASS] summons_4471 含 moon_distance_km
+[PASS] summons_4471 finite  actual=true expected=true
+[PASS] summons_4471 state_earth_rot.r 有效
+[PASS] summons_4471 state_earth_eci.r 有效
+[PASS] summons_4471 source 非空
+[PASS] summons_4471 source 明确标注近似/默认  V2 L1 局部近似 + 场景演示速度（非星历）
+[PASS] tank_farm 含 id
+[PASS] tank_farm 含 source
+[PASS] tank_farm 含 state_rot
+[PASS] tank_farm 含 state_earth_eci
+[PASS] tank_farm 含 state_earth_rot
+[PASS] tank_farm 含 jacobi
+[PASS] tank_farm 含 jacobi0
+[PASS] tank_farm 含 jacobi_drift
+[PASS] tank_farm 含 finite
+[PASS] tank_farm 含 earth_distance_km
+[PASS] tank_farm 含 moon_distance_km
+[PASS] tank_farm finite  actual=true expected=true
+[PASS] tank_farm state_earth_rot.r 有效
+[PASS] tank_farm state_earth_eci.r 有效
+[PASS] tank_farm source 非空
+[PASS] tank_farm source 明确标注近似/默认  V2 L1 固定/站保持占位（非星历）
+[PASS] watchtower 含 id
+[PASS] watchtower 含 source
+[PASS] watchtower 含 state_rot
+[PASS] watchtower 含 state_earth_eci
+[PASS] watchtower 含 state_earth_rot
+[PASS] watchtower 含 jacobi
+[PASS] watchtower 含 jacobi0
+[PASS] watchtower 含 jacobi_drift
+[PASS] watchtower 含 finite
+[PASS] watchtower 含 earth_distance_km
+[PASS] watchtower 含 moon_distance_km
+[PASS] watchtower finite  actual=true expected=true
+[PASS] watchtower state_earth_rot.r 有效
+[PASS] watchtower state_earth_eci.r 有效
+[PASS] watchtower source 非空
+[PASS] watchtower source 明确标注近似/默认  V2 L1 局部近似 + 场景演示速度（非星历）
+[PASS] 实体存在: harmattan
+[PASS] 实体存在: apsis
+[PASS] 实体存在: summons_4471
+[PASS] 实体存在: chronos_station
+[PASS] 实体存在: tank_farm
+
+── 2 L1–L5 / GEO / LLO ──
+[PASS] bridge.boot  []
+[PASS] bridge.physics_ready  []
+[PASS] lagrange 5 点  actual=5 expected=5
+[PASS] L1 到地 ≈326,381 km  actual=326380.87500 expected=326381.00000 diff=0.12500 tol=5.00000
+[PASS] L2 到地 ≈448,915 km  actual=448914.93750 expected=448915.00000 diff=0.06250 tol=10.00000
+[PASS] L3 到地 ≈381,675 km  actual=381675.40625 expected=381675.00000 diff=0.40625 tol=5.00000
+[PASS] L3 在反月侧（earth_rot x<0）
+[PASS] L4 到地=384,400  actual=384400.00000 expected=384400.00000 diff=0.00000 tol=5.00000
+[PASS] L4 到月=384,400  actual=384400.00000 expected=384400.00000 diff=0.00000 tol=5.00000
+[PASS] L5 到地=384,400  actual=384400.00000 expected=384400.00000 diff=0.00000 tol=5.00000
+[PASS] GEO 半径=42,164  actual=42164.00000 expected=42164.00000 diff=0.00000 tol=0.00000
+[PASS] GEO 周期≈86164 s  86163.5705505783
+[PASS] GEO 位置半径 42,164  actual=42164.00000 expected=42164.00000 diff=0.00000 tol=2.00000
+[PASS] LLO 半径=R_moon+100  actual=1837.40000 expected=1837.40000 diff=0.00000 tol=0.00000
+[PASS] LLO 到月≈1,837.4  actual=1837.40625 expected=1837.40000 diff=0.00625 tol=5.00000
+[PASS] 月球距离=384,400  actual=384400.00000 expected=384400.00000 diff=0.00000 tol=0.00000
+
+── 3 step / Jacobi ──
+[PASS] bridge.boot  []
+[PASS] bridge.physics_ready  []
+[PASS] 初始 t=0  actual=0.00000 expected=0.00000 diff=0.00000 tol=0.00000
+[PASS] sync(300) 后 shadow t=300  actual=300.00000 expected=300.00000 diff=0.00000 tol=0.00000
+[PASS] 实体位置随时间变化  Δ=75.687 km
+[PASS] physics_summary.t=300  actual=300.00000 expected=300.00000 diff=0.00000 tol=0.00000
+[PASS] summary.entities≥9
+[PASS] summary.nav_position_provider=true
+[PASS] Jacobi 漂移 <1e-4  0.00000013
+[PASS] 无发散/失败 warnings  ["物理：实体初始状态来自 V2 场景 L1 局部近似/固定占位（非 JPL 星历）"]
+
+── 4 V15 数据不变 ──
+[PASS] bridge.boot  []
+[PASS] bridge.physics_ready  []
+[PASS] V15 选中航迹 id 不变  actual=1000 expected=1000
+[PASS] V15 轨道位置 r 不变  actual=(-190.0, 255.0, 62.0) expected=(-190.0, 255.0, 62.0)
+[PASS] V15 速度 v 不变  actual=(-0.05, -0.06, 0.01) expected=(-0.05, -0.06, 0.01)
+[PASS] V15 接触等级不变  actual=4 expected=4
+[PASS] V15 身份不变  actual=friend expected=friend
+[PASS] V15 传感器选择不变  actual=0 expected=0
+[PASS] V15 clock 不变  actual=760.8 expected=760.8
+[PASS] V15 决策状态不变  actual=false expected=false
+[PASS] V15 航迹数量不变  actual=8 expected=8
+[PASS] V2 world 实体 orbit 未被 physics 修改  actual={"frame":"L1","r":[2.0,-3.0,0.0],"v":[0.22,-0.12,0.03]} expected={"frame":"L1","r":[2.0,-3.0,0.0],"v":[0.22,-0.12,0.03]}
+[PASS] physics 声明 V15 位置源 unchanged  actual=true expected=true
+
+── 5 navigation 位置 provider ──
+[PASS] bridge.boot  []
+[PASS] bridge.physics_ready  []
+[PASS] nav l1 位置≈physics L1 326,381 km  actual=326380.87500 expected=326381.00000 diff=0.12500 tol=5.00000
+[PASS] nav l1 与 physics L1 一致（<1 km）  Δ=0.0000
+[PASS] nav l1 已替换 abstract 坐标  phys=326380.9 abstract=326283.0
+[PASS] nav geo 半径 42,164（physics）  actual=42164.00000 expected=42164.00000 diff=0.00000 tol=2.00000
+[PASS] nav l4 到地 384,400  actual=384400.00000 expected=384400.00000 diff=0.00000 tol=5.00000
+[PASS] nav l2 到地 448,915  actual=448914.93750 expected=448915.00000 diff=0.06250 tol=10.00000
+[PASS] nav moon_port 到月≈1,737.4  actual=1737.40625 expected=1737.40000 diff=0.00625 tol=5.00000
+[PASS] nav lunar_leo 到月≈LLO 半径  actual=1837.40625 expected=1837.40625 diff=0.00000 tol=5.00000
+[PASS] provider 绑定后路线规划正常  actual=true expected=true
+[PASS] 位置 provider 不自动创建机动  actual=0 expected=0
+
+── 6 state 字段 ──
+[PASS] bridge.boot  []
+[PASS] bridge.physics_ready  []
+[PASS] state.fw_physics_ready  actual=true expected=true
+[PASS] state.fw_physics_mode=shadow  actual=shadow expected=shadow
+[PASS] state.fw_physics 非空
+[PASS] fw_physics.entities≥9
+[PASS] fw_physics.authoritative=false  actual=false expected=false
+[PASS] fw_physics_summary.authoritative=false  actual=false expected=false
+[PASS] fw_physics_summary 有 t
+[PASS] 旧 fw_nav_ready 仍 true  actual=true expected=true
+[PASS] 旧 fw_damage_model 仍 true  actual=true expected=true
+[PASS] 旧 fw_damage 仍 3 项
+[PASS] 旧 fw_flow 非空
+[PASS] fw_bridge_state 含 physics
+[PASS] fw_bridge_state 含 physics_summary
+[PASS] fw_bridge_state 含 physics_ready
+[PASS] fw_bridge_state 含 physics_mode
+[PASS] fw_sync 刷新后 fw_physics 仍非空
+
+── 7 JSON ──
+[PASS] bridge.boot  []
+[PASS] bridge.physics_ready  []
+[PASS] fw_physics JSON 输出  len=9136
+[PASS] JSON 回读 Dictionary
+[PASS] 回读 entities
+[PASS] 回读 reference
+[PASS] 回读 reference.lagrange=5
+[PASS] 回读 warnings
+[PASS] fw_bridge_state JSON 输出  len=186811
+[PASS] fw_bridge_state 回读 Dictionary
+[PASS] fw_bridge_state 回读 physics.entities
+
+── 8 不自动执行 ──
+[PASS] bridge.boot  []
+[PASS] bridge.physics_ready  []
+[PASS] 授权 hold
+[PASS] physics 步进不会自动执行导航机动  actual=AUTHORIZED expected=AUTHORIZED
+[PASS] physics 确实在推进
+
+── 9 V17_PHYSICS=off ──
+[PASS] off 模式 bridge.boot 仍成功  actual=true expected=true
+[PASS] physics_mode=off  actual=off expected=off
+[PASS] physics_ready=false  actual=false expected=false
+[PASS] physics_view 空  actual=0 expected=0
+[PASS] off 模式导航仍 ready
+[PASS] off 模式 nav l1 回退 abstract 326,283  actual=326283.00000 expected=326283.00000 diff=0.00000 tol=2.00000
+[PASS] state.fw_physics_ready=false  actual=false expected=false
+[PASS] state.fw_physics_mode=off  actual=off expected=off
+
+── 10 restart 复位 ──
+[PASS] bridge.boot  []
+[PASS] bridge.physics_ready  []
+[PASS] restart 前 physics t>0
+[PASS] restart 后 physics 仍 ready  actual=true expected=true
+[PASS] restart 后 physics t=0  actual=0.00000 expected=0.00000 diff=0.00000 tol=0.00000
+[PASS] restart 后实体重载
+[PASS] restart 后 nav provider 仍为 physics 位置  actual=326380.87500 expected=326381.00000 diff=0.12500 tol=5.00000
+
+── 11 长程 ──
+[PASS] bridge.boot  []
+[PASS] bridge.physics_ready  []
+[PASS] sync(3600) 后 t=3600  actual=3600.00000 expected=3600.00000 diff=0.00000 tol=0.00000
+[PASS] 长程后所有实体 finite
+[PASS] 长程 Jacobi 漂移 <1e-3  0.00000055
+[PASS] 长程无发散/失败 warning
+────────────────────────────────────────────────────────────
+[DATA] boot = mode=shadow entities=9 step≤60s authoritative=false
+[DATA] reference = L1=326381 L2=448915 L3=381675 L4=384400 GEO=42164 LLO=1837.4
+[DATA] step = t=0→300s；位置变化；max_jacobi_drift=0.00000013；warnings=1
+[DATA] v15 = 选中轨迹/等级/身份/传感器/clock/决策/实体 orbit 全部不变；physics authoritative=false
+[DATA] nav-provider = l1=326381 l2=448915 l4=384400 geo=42164 moon_port→月=1737 km
+[DATA] state = fw_physics/fw_physics_ready/fw_physics_summary/fw_physics_mode；旧字段不变
+[DATA] json = fw_physics/fw_bridge_state JSON 可序列化/回读
+[DATA] no-auto = physics sync 200s：nav 计划仍 AUTHORIZED（不自动执行）
+[DATA] off = V17_PHYSICS=off：bridge 正常、physics 空、nav 回退 abstract
+[DATA] restart = physics t=0、实体重载、nav provider 重新绑定
+[DATA] long-run = 3600s 后 finite、max_jacobi_drift=0.00000055
+────────────────────────────────────────────────────────────
+V17 PHYSICS SHADOW PROBE RESULT: PASS=277 FAIL=0
+V17 PHYSICS SHADOW PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+WARNING: 339 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

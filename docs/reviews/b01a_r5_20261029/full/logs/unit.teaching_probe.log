@@ -1,0 +1,419 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE2-TEACHING-1 PROBE · 07 教学目标手动控制器
+════════════════════════════════════════════════════════════
+
+── 1 加载 / 初始 ──
+[PASS] controller ready  []
+[PASS] 无 load errors  actual=0 expected=0
+[PASS] goals=4  actual=4 expected=4
+[PASS] steps=20  actual=20 expected=20
+[PASS] manual_only=true  actual=true expected=true
+[PASS] auto_complete=false  actual=false expected=false
+[PASS] scenario_id=l1_supervision_v2  actual=l1_supervision_v2 expected=l1_supervision_v2
+[PASS] story_file 非空
+[PASS] status_vocabulary
+[PASS] goal G1 title
+[PASS] goal G1 step_ids 非空
+[PASS] goal G2 title
+[PASS] goal G2 step_ids 非空
+[PASS] goal G3 title
+[PASS] goal G3 step_ids 非空
+[PASS] goal G4 title
+[PASS] goal G4 step_ids 非空
+[PASS] goal 顺序 G1-G4  actual=["G1", "G2", "G3", "G4"] expected=["G1", "G2", "G3", "G4"]
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G1-S1
+[PASS] step T07-G1-S1 order>=1
+[PASS] order 唯一: 1
+[PASS] step T07-G1-S1 goal 合法
+[PASS] step T07-G1-S1 title
+[PASS] step T07-G1-S1 player_action
+[PASS] step T07-G1-S1 trigger
+[PASS] step T07-G1-S1 manual_only  actual=true expected=true
+[PASS] step T07-G1-S1 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G1-S2
+[PASS] step T07-G1-S2 order>=1
+[PASS] order 唯一: 2
+[PASS] step T07-G1-S2 goal 合法
+[PASS] step T07-G1-S2 title
+[PASS] step T07-G1-S2 player_action
+[PASS] step T07-G1-S2 trigger
+[PASS] step T07-G1-S2 manual_only  actual=true expected=true
+[PASS] step T07-G1-S2 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G1-S3
+[PASS] step T07-G1-S3 order>=1
+[PASS] order 唯一: 3
+[PASS] step T07-G1-S3 goal 合法
+[PASS] step T07-G1-S3 title
+[PASS] step T07-G1-S3 player_action
+[PASS] step T07-G1-S3 trigger
+[PASS] step T07-G1-S3 manual_only  actual=true expected=true
+[PASS] step T07-G1-S3 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G1-S4
+[PASS] step T07-G1-S4 order>=1
+[PASS] order 唯一: 4
+[PASS] step T07-G1-S4 goal 合法
+[PASS] step T07-G1-S4 title
+[PASS] step T07-G1-S4 player_action
+[PASS] step T07-G1-S4 trigger
+[PASS] step T07-G1-S4 manual_only  actual=true expected=true
+[PASS] step T07-G1-S4 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G1-S5
+[PASS] step T07-G1-S5 order>=1
+[PASS] order 唯一: 5
+[PASS] step T07-G1-S5 goal 合法
+[PASS] step T07-G1-S5 title
+[PASS] step T07-G1-S5 player_action
+[PASS] step T07-G1-S5 trigger
+[PASS] step T07-G1-S5 manual_only  actual=true expected=true
+[PASS] step T07-G1-S5 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G2-S1
+[PASS] step T07-G2-S1 order>=1
+[PASS] order 唯一: 6
+[PASS] step T07-G2-S1 goal 合法
+[PASS] step T07-G2-S1 title
+[PASS] step T07-G2-S1 player_action
+[PASS] step T07-G2-S1 trigger
+[PASS] step T07-G2-S1 manual_only  actual=true expected=true
+[PASS] step T07-G2-S1 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G2-S2
+[PASS] step T07-G2-S2 order>=1
+[PASS] order 唯一: 7
+[PASS] step T07-G2-S2 goal 合法
+[PASS] step T07-G2-S2 title
+[PASS] step T07-G2-S2 player_action
+[PASS] step T07-G2-S2 trigger
+[PASS] step T07-G2-S2 manual_only  actual=true expected=true
+[PASS] step T07-G2-S2 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G2-S3
+[PASS] step T07-G2-S3 order>=1
+[PASS] order 唯一: 8
+[PASS] step T07-G2-S3 goal 合法
+[PASS] step T07-G2-S3 title
+[PASS] step T07-G2-S3 player_action
+[PASS] step T07-G2-S3 trigger
+[PASS] step T07-G2-S3 manual_only  actual=true expected=true
+[PASS] step T07-G2-S3 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G2-S4
+[PASS] step T07-G2-S4 order>=1
+[PASS] order 唯一: 9
+[PASS] step T07-G2-S4 goal 合法
+[PASS] step T07-G2-S4 title
+[PASS] step T07-G2-S4 player_action
+[PASS] step T07-G2-S4 trigger
+[PASS] step T07-G2-S4 manual_only  actual=true expected=true
+[PASS] step T07-G2-S4 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G2-S5
+[PASS] step T07-G2-S5 order>=1
+[PASS] order 唯一: 10
+[PASS] step T07-G2-S5 goal 合法
+[PASS] step T07-G2-S5 title
+[PASS] step T07-G2-S5 player_action
+[PASS] step T07-G2-S5 trigger
+[PASS] step T07-G2-S5 manual_only  actual=true expected=true
+[PASS] step T07-G2-S5 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G3-S1
+[PASS] step T07-G3-S1 order>=1
+[PASS] order 唯一: 11
+[PASS] step T07-G3-S1 goal 合法
+[PASS] step T07-G3-S1 title
+[PASS] step T07-G3-S1 player_action
+[PASS] step T07-G3-S1 trigger
+[PASS] step T07-G3-S1 manual_only  actual=true expected=true
+[PASS] step T07-G3-S1 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G3-S2
+[PASS] step T07-G3-S2 order>=1
+[PASS] order 唯一: 12
+[PASS] step T07-G3-S2 goal 合法
+[PASS] step T07-G3-S2 title
+[PASS] step T07-G3-S2 player_action
+[PASS] step T07-G3-S2 trigger
+[PASS] step T07-G3-S2 manual_only  actual=true expected=true
+[PASS] step T07-G3-S2 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G3-S3
+[PASS] step T07-G3-S3 order>=1
+[PASS] order 唯一: 13
+[PASS] step T07-G3-S3 goal 合法
+[PASS] step T07-G3-S3 title
+[PASS] step T07-G3-S3 player_action
+[PASS] step T07-G3-S3 trigger
+[PASS] step T07-G3-S3 manual_only  actual=true expected=true
+[PASS] step T07-G3-S3 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G3-S4
+[PASS] step T07-G3-S4 order>=1
+[PASS] order 唯一: 14
+[PASS] step T07-G3-S4 goal 合法
+[PASS] step T07-G3-S4 title
+[PASS] step T07-G3-S4 player_action
+[PASS] step T07-G3-S4 trigger
+[PASS] step T07-G3-S4 manual_only  actual=true expected=true
+[PASS] step T07-G3-S4 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G4-S1
+[PASS] step T07-G4-S1 order>=1
+[PASS] order 唯一: 15
+[PASS] step T07-G4-S1 goal 合法
+[PASS] step T07-G4-S1 title
+[PASS] step T07-G4-S1 player_action
+[PASS] step T07-G4-S1 trigger
+[PASS] step T07-G4-S1 manual_only  actual=true expected=true
+[PASS] step T07-G4-S1 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G4-S2
+[PASS] step T07-G4-S2 order>=1
+[PASS] order 唯一: 16
+[PASS] step T07-G4-S2 goal 合法
+[PASS] step T07-G4-S2 title
+[PASS] step T07-G4-S2 player_action
+[PASS] step T07-G4-S2 trigger
+[PASS] step T07-G4-S2 manual_only  actual=true expected=true
+[PASS] step T07-G4-S2 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G4-S3
+[PASS] step T07-G4-S3 order>=1
+[PASS] order 唯一: 17
+[PASS] step T07-G4-S3 goal 合法
+[PASS] step T07-G4-S3 title
+[PASS] step T07-G4-S3 player_action
+[PASS] step T07-G4-S3 trigger
+[PASS] step T07-G4-S3 manual_only  actual=true expected=true
+[PASS] step T07-G4-S3 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G4-S4
+[PASS] step T07-G4-S4 order>=1
+[PASS] order 唯一: 18
+[PASS] step T07-G4-S4 goal 合法
+[PASS] step T07-G4-S4 title
+[PASS] step T07-G4-S4 player_action
+[PASS] step T07-G4-S4 trigger
+[PASS] step T07-G4-S4 manual_only  actual=true expected=true
+[PASS] step T07-G4-S4 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G4-S5
+[PASS] step T07-G4-S5 order>=1
+[PASS] order 唯一: 19
+[PASS] step T07-G4-S5 goal 合法
+[PASS] step T07-G4-S5 title
+[PASS] step T07-G4-S5 player_action
+[PASS] step T07-G4-S5 trigger
+[PASS] step T07-G4-S5 manual_only  actual=true expected=true
+[PASS] step T07-G4-S5 auto_complete=false  actual=false expected=false
+[PASS] step id 非空
+[PASS] step id 唯一: T07-G4-S6
+[PASS] step T07-G4-S6 order>=1
+[PASS] order 唯一: 20
+[PASS] step T07-G4-S6 goal 合法
+[PASS] step T07-G4-S6 title
+[PASS] step T07-G4-S6 player_action
+[PASS] step T07-G4-S6 trigger
+[PASS] step T07-G4-S6 manual_only  actual=true expected=true
+[PASS] step T07-G4-S6 auto_complete=false  actual=false expected=false
+[PASS] step id 总数 20  actual=20 expected=20
+[PASS] vm schema  actual=v17_teaching_controller.v1 expected=v17_teaching_controller.v1
+[PASS] vm.manual_only  actual=true expected=true
+[PASS] vm.auto_complete  actual=false expected=false
+[PASS] 初始 completed=0  actual=0 expected=0
+[PASS] 初始 skipped=0  actual=0 expected=0
+[PASS] 总步骤 20  actual=20 expected=20
+[PASS] 初始 goals_completed=0  actual=0 expected=0
+[PASS] 初始 current=T07-G1-S1  actual=T07-G1-S1 expected=T07-G1-S1
+[PASS] current 有 player_action
+[PASS] current 有 hint
+[PASS] 初始 hints=4  actual=4 expected=4
+[PASS] 初始 completed 数组空  actual=0 expected=0
+[PASS] 初始 skipped 数组空  actual=0 expected=0
+[PASS] 初始 last_event 空  actual=0 expected=0
+[PASS] 初始 goal pending  actual=pending expected=pending
+[PASS] 初始 goal pending  actual=pending expected=pending
+[PASS] 初始 goal pending  actual=pending expected=pending
+[PASS] 初始 goal pending  actual=pending expected=pending
+
+── 2 G1 轨道航行 ──
+[PASS] 错误目的地不触发  no_match
+[PASS] 错误目的地后 completed=0  actual=0 expected=0
+[PASS] 失败动作不触发  action_failed
+[PASS] 失败动作后 completed=0  actual=0 expected=0
+[PASS] fail_ 前缀不触发
+[PASS] 动作 open_prelude 成功
+[PASS] open_prelude→S1  actual=T07-G1-S1 expected=T07-G1-S1
+[PASS] 动作 set_destination 成功
+[PASS] destination→S2  actual=T07-G1-S2 expected=T07-G1-S2
+[PASS] 动作 select_window 成功
+[PASS] window→S3  actual=T07-G1-S3 expected=T07-G1-S3
+[PASS] 动作 confirm_burn 成功
+[PASS] burn→S4  actual=T07-G1-S4 expected=T07-G1-S4
+[PASS] 动作 arrive_l1 成功
+[PASS] arrive→S5  actual=T07-G1-S5 expected=T07-G1-S5
+[PASS] G1 完成后 completed=5  actual=5 expected=5
+[PASS] G1 completed
+[PASS] G1 status  actual=completed expected=completed
+[PASS] 当前 G2-S1  actual=T07-G2-S1 expected=T07-G2-S1
+[PASS] 重复动作 duplicate  actual=true expected=true
+[PASS] 重复动作不增加进度  actual=5 expected=5
+[PASS] 重复 arrive duplicate  actual=duplicate_action expected=duplicate_action
+[PASS] 未知动作 reason  actual=unknown_action expected=unknown_action
+[PASS] last_event 结构
+
+── 3 G2 接触身份 ──
+[PASS] G1 前置 open_prelude
+[PASS] G1 前置 set_destination
+[PASS] G1 前置 select_window
+[PASS] G1 前置 confirm_burn
+[PASS] G1 前置 arrive_l1
+[PASS] G2 前置后 completed=5  actual=5 expected=5
+[PASS] 动作 open_contact_list 成功
+[PASS] contact_list→S1  actual=T07-G2-S1 expected=T07-G2-S1
+[PASS] crossfix L1 不触发  no_match
+[PASS] 动作 crossfix 成功
+[PASS] crossfix L2→S2  actual=T07-G2-S2 expected=T07-G2-S2
+[PASS] model_ident L2 不触发
+[PASS] 动作 model_ident 成功
+[PASS] model_ident L3→S3  actual=T07-G2-S3 expected=T07-G2-S3
+[PASS] iff_query 9002 不匹配
+[PASS] 动作 iff_query 成功
+[PASS] iff 9001→S4  actual=T07-G2-S4 expected=T07-G2-S4
+[PASS] 动作 ack_identity 成功
+[PASS] ack_identity→S5  actual=T07-G2-S5 expected=T07-G2-S5
+[PASS] G2 completed
+[PASS] G2 后 completed=10  actual=10 expected=10
+[PASS] 当前 G3-S1  actual=T07-G3-S1 expected=T07-G3-S1
+
+── 4 G3 传感器 ──
+[PASS] 错误选舰不触发
+[PASS] 动作 select_ship 成功
+[PASS] select_ship→S1  actual=T07-G3-S1 expected=T07-G3-S1
+[PASS] sensor off 不触发
+[PASS] 动作 sensor_toggle 成功
+[PASS] sensor_toggle on→S2  actual=T07-G3-S2 expected=T07-G3-S2
+[PASS] 命令序列不完整不触发
+[PASS] 错误链路不触发
+[PASS] 动作 command_event 成功
+[PASS] command_event→S3  actual=T07-G3-S3 expected=T07-G3-S3
+[PASS] 暴露=false 不触发
+[PASS] 动作 state 成功
+[PASS] state exposed→S4  actual=T07-G3-S4 expected=T07-G3-S4
+[PASS] G3 completed
+[PASS] 仅 G3：completed=4（乱序补触发）  actual=4 expected=4
+[PASS] 乱序后 current 仍为最早 pending  actual=T07-G1-S1 expected=T07-G1-S1
+[PASS] hints 覆盖未完成 goals  3
+
+── 5 G4 政治红线 ──
+[PASS] 动作 open_roe_card 成功
+[PASS] roe_card→S1  actual=T07-G4-S1 expected=T07-G4-S1
+[PASS] EXPOSE 无证据被门控  actual=requirements_not_met expected=requirements_not_met
+[PASS] 被门控不增加进度  actual=1 expected=1
+[PASS] FIRE 未确认被门控  actual=requirements_not_met expected=requirements_not_met
+[PASS] 动作 decision 成功
+[PASS] HOLD→S2  actual=T07-G4-S2 expected=T07-G4-S2
+[PASS] HOLD 后跳过其余 3 决策分支  actual=3 expected=3
+[PASS] 互斥跳过: T07-G4-S3
+[PASS] 互斥跳过: T07-G4-S4
+[PASS] 互斥跳过: T07-G4-S5
+[PASS] skipped=3  actual=3 expected=3
+[PASS] 错误报告不触发
+[PASS] 动作 report_submit 成功
+[PASS] report→S6  actual=T07-G4-S6 expected=T07-G4-S6
+[PASS] G4 completed（互斥分支 skipped）
+[PASS] G4 pending_steps=0（互斥+完成）  actual=0 expected=0
+[PASS] 仅 G4：completed=3 skipped=3  actual=3 expected=3
+[PASS] G4 skipped=3  actual=3 expected=3
+[PASS] G4 完成后仍有 G1 pending  actual=T07-G1-S1 expected=T07-G1-S1
+
+── 6 手动边界 / reset ──
+[PASS] tick 不自动完成  actual=0 expected=0
+[PASS] tick 仅记录时间  actual=99999.0 expected=99999.0
+[PASS] 负 tick clamp 0  actual=0.0 expected=0.0
+[PASS] skip_step ok  actual=true expected=true
+[PASS] skip 后 skipped=1  actual=1 expected=1
+[PASS] skip 后 current 前进  actual=T07-G1-S2 expected=T07-G1-S2
+[PASS] goal in_progress  actual=in_progress expected=in_progress
+[PASS] 重复 skip 拒绝  actual=false expected=false
+[PASS] 未知 skip 拒绝  actual=false expected=false
+[PASS] 通关动作 open_prelude
+[PASS] 通关动作 set_destination
+[PASS] 通关动作 select_window
+[PASS] 通关动作 confirm_burn
+[PASS] 通关动作 arrive_l1
+[PASS] 通关动作 open_contact_list
+[PASS] 通关动作 crossfix
+[PASS] 通关动作 model_ident
+[PASS] 通关动作 iff_query
+[PASS] 通关动作 ack_identity
+[PASS] 通关动作 select_ship
+[PASS] 通关动作 sensor_toggle
+[PASS] 通关动作 command_event
+[PASS] 通关动作 state
+[PASS] 通关动作 open_roe_card
+[PASS] 通关动作 decision
+[PASS] 通关动作 report_submit
+[PASS] 通关 completed=17  actual=17 expected=17
+[PASS] 通关 skipped=3  actual=3 expected=3
+[PASS] 通关 resolved=20  actual=20 expected=20
+[PASS] 通关 pending=0  actual=0 expected=0
+[PASS] 通关 goals_completed=4  actual=4 expected=4
+[PASS] is_complete=true
+[PASS] current 空  actual=0 expected=0
+[PASS] hints 空  actual=0 expected=0
+[PASS] completed 数组 17  actual=17 expected=17
+[PASS] skipped 数组 3  actual=3 expected=3
+[PASS] reset completed=0  actual=0 expected=0
+[PASS] reset skipped=0  actual=0 expected=0
+[PASS] reset current 复位  actual=T07-G1-S1 expected=T07-G1-S1
+[PASS] reset 后未完成
+
+── 7 直接 trigger kind ──
+[PASS] ui_event 直接匹配  actual=T07-G1-S1 expected=T07-G1-S1
+[PASS] selection 直接匹配  actual=T07-G1-S2 expected=T07-G1-S2
+[PASS] player_action 直接匹配（乱序）  actual=T07-G1-S4 expected=T07-G1-S4
+[PASS] S4 completed  actual=completed expected=completed
+[PASS] S3 pending  actual=pending expected=pending
+[PASS] state 直接匹配  actual=T07-G1-S5 expected=T07-G1-S5
+[PASS] manual_ack 直接匹配（乱序）  actual=T07-G2-S5 expected=T07-G2-S5
+[PASS] report_submit 直接匹配  actual=T07-G4-S6 expected=T07-G4-S6
+[PASS] 错误 selection 不触发
+
+── 8 JSON ──
+[PASS] vm JSON 输出  len=15629
+[PASS] vm JSON 回读
+[PASS] 回读 schema  actual=v17_teaching_controller.v1 expected=v17_teaching_controller.v1
+[PASS] 回读 goals
+[PASS] 回读 steps
+[PASS] 回读 current
+[PASS] 回读 hints
+[PASS] 回读 progress
+[PASS] 回读 goals=4  actual=4 expected=4
+[PASS] 回读 steps=20  actual=20 expected=20
+[PASS] to_json 输出  len=15629
+[PASS] to_json 回读
+[PASS] 两个新实例初始 VM 完全一致（确定性）
+[PASS] events 记录
+[PASS] last_event 结构
+[PASS] last_event.action
+────────────────────────────────────────────────────────────
+[DATA] load = goals=4 steps=20 current=T07-G1-S1 progress=0/20
+[DATA] g1 = 5 步顺序完成 · 错误/失败/重复不增加进度 · goal completed
+[DATA] g2 = 接触/交叉定位/型号识别/IFF/图例 5 步完成 · 等级门限生效
+[DATA] g3 = 选舰/YW-R9 开关/命令序列/暴露 4 步 · 乱序补触发完成 G3
+[DATA] g4 = ROE→门控 EXPOSE/FIRE→HOLD（跳过3分支）→报告 · 互斥+需求门限
+[DATA] manual = tick 不自动推进；skip/reset 正常；手动通关 17 完成+3 互斥跳过=20
+[DATA] direct = ui_event/selection/player_action/state/manual_ack/report_submit 直接转发
+[DATA] json = vm=15629 bytes · goals/steps/current/hints/progress 可回读 · 确定性
+────────────────────────────────────────────────────────────
+V17 TEACHING PROBE RESULT: PASS=385 FAIL=0
+V17 TEACHING PROBE OK
+AUDIO OK files=36 headless=true muted=false

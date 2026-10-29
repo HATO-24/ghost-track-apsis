@@ -1,0 +1,724 @@
+{
+  "explicit_physics_roster": {
+    "errors": [],
+    "ids": {
+      "catalog": [
+        "apsis",
+        "harmattan"
+      ],
+      "physics": [
+        "apsis",
+        "harmattan"
+      ],
+      "world": [
+        "apsis",
+        "harmattan"
+      ]
+    },
+    "ready": true
+  },
+  "geometry_revision": {
+    "first": {
+      "deployed_t": 0.0,
+      "deployment_seed": 424242,
+      "entities": [
+        {
+          "class_id": "OCUVF-APOGEE",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 3.15,
+            "class_id": "OCUVF-APOGEE",
+            "class_mass_t": 9000.0,
+            "class_role": "depot",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "001",
+            "refit_state": {},
+            "ship_id": "APSIS",
+            "weapon_loadout": []
+          },
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "dv_kmps": 3.15,
+          "fleet_id": "own_fleet",
+          "fuel_kg": 3000000.0,
+          "fuel_t": 3000.0,
+          "hull_code": "001",
+          "id": "apsis",
+          "kind": "ship",
+          "mass_kg": 9000000.0,
+          "mass_t": 9000.0,
+          "name": "APSIS",
+          "owner_id": "player_intel",
+          "pos_km": [
+            100.0,
+            0.0,
+            0.0
+          ],
+          "ship_id": "APSIS",
+          "slot": "command",
+          "vel_kmps": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "class_id": "OCUVF-PALLET-5C",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 2.54,
+            "class_id": "OCUVF-PALLET-5C",
+            "class_mass_t": 300.0,
+            "class_role": "picket",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "114",
+            "refit_state": {},
+            "ship_id": "HARMATTAN",
+            "weapon_loadout": []
+          },
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "dv_kmps": 2.54,
+          "fleet_id": "own_fleet",
+          "fuel_kg": 500000.0,
+          "fuel_t": 500.0,
+          "hull_code": "114",
+          "id": "harmattan",
+          "kind": "ship",
+          "mass_kg": 300000.0,
+          "mass_t": 300.0,
+          "name": "HARMATTAN",
+          "owner_id": "player_intel",
+          "pos_km": [
+            10.0,
+            0.0,
+            0.0
+          ],
+          "ship_id": "HARMATTAN",
+          "slot": "screen",
+          "vel_kmps": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "instance_ids": [
+        "apsis",
+        "harmattan"
+      ],
+      "instances": [
+        {
+          "class_id": "OCUVF-APOGEE",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 3.15,
+            "class_id": "OCUVF-APOGEE",
+            "class_mass_t": 9000.0,
+            "class_role": "depot",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "001",
+            "refit_state": {},
+            "ship_id": "APSIS",
+            "weapon_loadout": []
+          },
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "fleet_id": "own_fleet",
+          "fuel_kg": 3000000.0,
+          "fuel_t": 3000.0,
+          "instance_id": "apsis",
+          "mass_kg": 9000000.0,
+          "mass_t": 9000.0,
+          "owner_id": "player_intel",
+          "pos_km": [
+            100.0,
+            0.0,
+            0.0
+          ],
+          "ship_id": "APSIS",
+          "slot": "command",
+          "vel_kmps": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "class_id": "OCUVF-PALLET-5C",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 2.54,
+            "class_id": "OCUVF-PALLET-5C",
+            "class_mass_t": 300.0,
+            "class_role": "picket",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "114",
+            "refit_state": {},
+            "ship_id": "HARMATTAN",
+            "weapon_loadout": []
+          },
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "fleet_id": "own_fleet",
+          "fuel_kg": 500000.0,
+          "fuel_t": 500.0,
+          "instance_id": "harmattan",
+          "mass_kg": 300000.0,
+          "mass_t": 300.0,
+          "owner_id": "player_intel",
+          "pos_km": [
+            10.0,
+            0.0,
+            0.0
+          ],
+          "ship_id": "HARMATTAN",
+          "slot": "screen",
+          "vel_kmps": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "revision": "rev-6fe680fe",
+      "scenario_id": "SAME",
+      "schema": "v17.deployment.v1",
+      "total_mass_t": 9300.0
+    },
+    "second": {
+      "deployed_t": 0.0,
+      "deployment_seed": 424242,
+      "entities": [
+        {
+          "class_id": "OCUVF-APOGEE",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 3.15,
+            "class_id": "OCUVF-APOGEE",
+            "class_mass_t": 9000.0,
+            "class_role": "depot",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "001",
+            "refit_state": {},
+            "ship_id": "APSIS",
+            "weapon_loadout": []
+          },
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "dv_kmps": 3.15,
+          "fleet_id": "own_fleet",
+          "fuel_kg": 3000000.0,
+          "fuel_t": 3000.0,
+          "hull_code": "001",
+          "id": "apsis",
+          "kind": "ship",
+          "mass_kg": 9000000.0,
+          "mass_t": 9000.0,
+          "name": "APSIS",
+          "owner_id": "player_intel",
+          "pos_km": [
+            200.0,
+            0.0,
+            0.0
+          ],
+          "ship_id": "APSIS",
+          "slot": "command",
+          "vel_kmps": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "class_id": "OCUVF-PALLET-5C",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 2.54,
+            "class_id": "OCUVF-PALLET-5C",
+            "class_mass_t": 300.0,
+            "class_role": "picket",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "114",
+            "refit_state": {},
+            "ship_id": "HARMATTAN",
+            "weapon_loadout": []
+          },
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "dv_kmps": 2.54,
+          "fleet_id": "own_fleet",
+          "fuel_kg": 500000.0,
+          "fuel_t": 500.0,
+          "hull_code": "114",
+          "id": "harmattan",
+          "kind": "ship",
+          "mass_kg": 300000.0,
+          "mass_t": 300.0,
+          "name": "HARMATTAN",
+          "owner_id": "player_intel",
+          "pos_km": [
+            10.0,
+            0.0,
+            0.0
+          ],
+          "ship_id": "HARMATTAN",
+          "slot": "screen",
+          "vel_kmps": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "instance_ids": [
+        "apsis",
+        "harmattan"
+      ],
+      "instances": [
+        {
+          "class_id": "OCUVF-APOGEE",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 3.15,
+            "class_id": "OCUVF-APOGEE",
+            "class_mass_t": 9000.0,
+            "class_role": "depot",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "001",
+            "refit_state": {},
+            "ship_id": "APSIS",
+            "weapon_loadout": []
+          },
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "fleet_id": "own_fleet",
+          "fuel_kg": 3000000.0,
+          "fuel_t": 3000.0,
+          "instance_id": "apsis",
+          "mass_kg": 9000000.0,
+          "mass_t": 9000.0,
+          "owner_id": "player_intel",
+          "pos_km": [
+            200.0,
+            0.0,
+            0.0
+          ],
+          "ship_id": "APSIS",
+          "slot": "command",
+          "vel_kmps": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "class_id": "OCUVF-PALLET-5C",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 2.54,
+            "class_id": "OCUVF-PALLET-5C",
+            "class_mass_t": 300.0,
+            "class_role": "picket",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "114",
+            "refit_state": {},
+            "ship_id": "HARMATTAN",
+            "weapon_loadout": []
+          },
+          "controller_id": "player_ctrl",
+          "domain_id": "player",
+          "fleet_id": "own_fleet",
+          "fuel_kg": 500000.0,
+          "fuel_t": 500.0,
+          "instance_id": "harmattan",
+          "mass_kg": 300000.0,
+          "mass_t": 300.0,
+          "owner_id": "player_intel",
+          "pos_km": [
+            10.0,
+            0.0,
+            0.0
+          ],
+          "ship_id": "HARMATTAN",
+          "slot": "screen",
+          "vel_kmps": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "revision": "rev-e712a0bf",
+      "scenario_id": "SAME",
+      "schema": "v17.deployment.v1",
+      "total_mass_t": 9300.0
+    }
+  },
+  "head": "323018ac4c13c9815c6b56d7e32c14976000d38e",
+  "legacy_file_over_active_deployment": {
+    "apsis_resources": {
+      "ok": false,
+      "reason": "no_deployment"
+    },
+    "ids": {
+      "catalog": [
+        "old_ship"
+      ],
+      "physics": [
+        "old_ship"
+      ],
+      "world": [
+        "old_ship"
+      ]
+    },
+    "load": {
+      "authority_restore_mode": "full",
+      "authority_restore_reasons": [],
+      "errors": [],
+      "ew_restore_missing": [],
+      "ew_restore_mode": "full",
+      "identity_restore_mode": "full",
+      "ok": true,
+      "pending_intel_shares": 0,
+      "result_errors": [],
+      "sensor_partial_reasons": [],
+      "sensor_restore": {
+        "geometry_frame": "",
+        "geometry_source": "",
+        "is_partial": false,
+        "partial_reasons": [],
+        "rebind": {
+          "ok": false,
+          "reason": "no_sensor_service",
+          "source": "static"
+        },
+        "restore_mode": "full",
+        "saved": false,
+        "schema": "v17.sensor_restore.v2",
+        "time_ok": true
+      },
+      "sensor_restore_mode": "full",
+      "world_sync": {
+        "compared": 1,
+        "enabled": true,
+        "failures": [],
+        "frame": "bary_rot",
+        "in_sync": true,
+        "mismatched": [],
+        "mode": "tick",
+        "ok": true,
+        "reason": "load",
+        "skipped": [],
+        "synced": 0,
+        "updated": []
+      }
+    },
+    "saved_deployment": null,
+    "vm": {
+      "deployed": false,
+      "enabled": false,
+      "instance_ids": [],
+      "ok": true,
+      "reason": "no_deployment"
+    }
+  },
+  "legal_control": {
+    "apsis_resources": {
+      "class_id": "OCUVF-APOGEE",
+      "config_snapshot": {
+        "ammo_state": "not_integrated_b1b",
+        "class_dv_kmps": 3.15,
+        "class_id": "OCUVF-APOGEE",
+        "class_mass_t": 9000.0,
+        "class_role": "depot",
+        "command_state": "not_integrated_b1b",
+        "hull_code": "001",
+        "refit_state": {},
+        "ship_id": "APSIS",
+        "weapon_loadout": []
+      },
+      "controller_id": "player_ctrl",
+      "domain_id": "player",
+      "fleet_id": "own_fleet",
+      "fuel_kg": 3000000.0,
+      "fuel_t": 3000.0,
+      "instance_id": "apsis",
+      "mass_kg": 9000000.0,
+      "mass_t": 9000.0,
+      "ok": true,
+      "owner_id": "player_intel",
+      "resources": {
+        "ammo": 0,
+        "damage_taken": 0.0,
+        "fuel_kg": 3000000.0,
+        "loadout": {}
+      },
+      "ship_id": "APSIS",
+      "slot": "command"
+    },
+    "ids": {
+      "catalog": [
+        "apsis",
+        "harmattan"
+      ],
+      "physics": [
+        "apsis",
+        "harmattan"
+      ],
+      "world": [
+        "apsis",
+        "harmattan"
+      ]
+    },
+    "ready": true,
+    "vm": {
+      "deployed": true,
+      "deployment_seed": 424242,
+      "enabled": true,
+      "instance_ids": [
+        "apsis",
+        "harmattan"
+      ],
+      "instances": [
+        {
+          "class_id": "OCUVF-APOGEE",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 3.15,
+            "class_id": "OCUVF-APOGEE",
+            "class_mass_t": 9000.0,
+            "class_role": "depot",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "001",
+            "refit_state": {},
+            "ship_id": "APSIS",
+            "weapon_loadout": []
+          },
+          "instance_id": "apsis",
+          "resources": {
+            "ammo": 0,
+            "damage_taken": 0.0,
+            "fuel_kg": 3000000.0,
+            "loadout": {}
+          },
+          "ship_id": "APSIS"
+        },
+        {
+          "class_id": "OCUVF-PALLET-5C",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 2.54,
+            "class_id": "OCUVF-PALLET-5C",
+            "class_mass_t": 300.0,
+            "class_role": "picket",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "114",
+            "refit_state": {},
+            "ship_id": "HARMATTAN",
+            "weapon_loadout": []
+          },
+          "instance_id": "harmattan",
+          "resources": {
+            "ammo": 0,
+            "damage_taken": 0.0,
+            "fuel_kg": 500000.0,
+            "loadout": {}
+          },
+          "ship_id": "HARMATTAN"
+        }
+      ],
+      "limits": {
+        "fuel_capacity_t": 22000.0,
+        "max_crew": 1200.0,
+        "max_mass_t": 35000.0,
+        "max_ships": 13.0,
+        "max_total_dv_kmps": 120.0,
+        "min_total_dv_kmps": 5.0,
+        "repair_dock_capacity": 4.0
+      },
+      "ok": true,
+      "revision": "rev-ea9ca79d",
+      "scenario_id": "SAME",
+      "schema": "v17.deployment.v1",
+      "units": {
+        "dv": "km/s",
+        "fuel": "kg",
+        "mass": "kg",
+        "time": "s"
+      }
+    }
+  },
+  "missing_instance_resources": {
+    "resources": {
+      "class_id": "OCUVF-APOGEE",
+      "config_snapshot": {
+        "ammo_state": "not_integrated_b1b",
+        "class_dv_kmps": 3.15,
+        "class_id": "OCUVF-APOGEE",
+        "class_mass_t": 9000.0,
+        "class_role": "depot",
+        "command_state": "not_integrated_b1b",
+        "hull_code": "001",
+        "refit_state": {},
+        "ship_id": "APSIS",
+        "weapon_loadout": []
+      },
+      "controller_id": "player_ctrl",
+      "domain_id": "player",
+      "fleet_id": "own_fleet",
+      "fuel_kg": 3000000.0,
+      "fuel_t": 3000.0,
+      "instance_id": "apsis",
+      "mass_kg": 9000000.0,
+      "mass_t": 9000.0,
+      "ok": true,
+      "owner_id": "player_intel",
+      "resources": {
+        "ammo": 0,
+        "damage_taken": 0.0,
+        "fuel_kg": 3000000.0,
+        "loadout": {}
+      },
+      "ship_id": "APSIS",
+      "slot": "command"
+    },
+    "restore": {
+      "errors": [
+        "resource_missing:apsis"
+      ],
+      "ok": false,
+      "reason": "invalid_state"
+    },
+    "vm": {
+      "deployed": true,
+      "deployment_seed": 424242,
+      "enabled": true,
+      "instance_ids": [
+        "apsis",
+        "harmattan"
+      ],
+      "instances": [
+        {
+          "class_id": "OCUVF-APOGEE",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 3.15,
+            "class_id": "OCUVF-APOGEE",
+            "class_mass_t": 9000.0,
+            "class_role": "depot",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "001",
+            "refit_state": {},
+            "ship_id": "APSIS",
+            "weapon_loadout": []
+          },
+          "instance_id": "apsis",
+          "resources": {
+            "ammo": 0,
+            "damage_taken": 0.0,
+            "fuel_kg": 3000000.0,
+            "loadout": {}
+          },
+          "ship_id": "APSIS"
+        },
+        {
+          "class_id": "OCUVF-PALLET-5C",
+          "config_snapshot": {
+            "ammo_state": "not_integrated_b1b",
+            "class_dv_kmps": 2.54,
+            "class_id": "OCUVF-PALLET-5C",
+            "class_mass_t": 300.0,
+            "class_role": "picket",
+            "command_state": "not_integrated_b1b",
+            "hull_code": "114",
+            "refit_state": {},
+            "ship_id": "HARMATTAN",
+            "weapon_loadout": []
+          },
+          "instance_id": "harmattan",
+          "resources": {
+            "ammo": 0,
+            "damage_taken": 0.0,
+            "fuel_kg": 500000.0,
+            "loadout": {}
+          },
+          "ship_id": "HARMATTAN"
+        }
+      ],
+      "limits": {
+        "fuel_capacity_t": 22000.0,
+        "max_crew": 1200.0,
+        "max_mass_t": 35000.0,
+        "max_ships": 13.0,
+        "max_total_dv_kmps": 120.0,
+        "min_total_dv_kmps": 5.0,
+        "repair_dock_capacity": 4.0
+      },
+      "ok": true,
+      "revision": "rev-ea9ca79d",
+      "scenario_id": "SAME",
+      "schema": "v17.deployment.v1",
+      "units": {
+        "dv": "km/s",
+        "fuel": "kg",
+        "mass": "kg",
+        "time": "s"
+      }
+    }
+  },
+  "scope": "Original #62 deployment contracts; one bounded reviewer diagnostic, not production/formal edits",
+  "unauthorized_controller": {
+    "domains": {
+      "ally": {
+        "authorized_actors": [
+          "ally_ai"
+        ],
+        "controller_id": "ally_ai",
+        "faction": "",
+        "fleet_id": "ally_fleet",
+        "intel_owner_id": "ally_intel",
+        "kind": "ai_ally"
+      },
+      "opfor": {
+        "authorized_actors": [
+          "opfor_ai"
+        ],
+        "controller_id": "opfor_ai",
+        "faction": "",
+        "fleet_id": "enemy_fleet",
+        "intel_owner_id": "opfor_intel",
+        "kind": "ai_hostile"
+      },
+      "player": {
+        "authorized_actors": [
+          "player_ctrl"
+        ],
+        "controller_id": "player_ctrl",
+        "faction": "",
+        "fleet_id": "own_fleet",
+        "intel_owner_id": "player_intel",
+        "kind": "player"
+      }
+    },
+    "errors": [
+      "deployment_invalid: unauthorized_controller:unregistered_controller"
+    ],
+    "ids": {
+      "catalog": [
+        "legacy_ship"
+      ],
+      "physics": [
+        "legacy_ship"
+      ],
+      "world": [
+        "legacy_ship"
+      ]
+    },
+    "ready": false,
+    "resources": {
+      "ok": false,
+      "reason": "no_deployment"
+    }
+  }
+}
