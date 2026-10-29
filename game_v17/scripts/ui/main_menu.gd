@@ -53,7 +53,8 @@ func _ready() -> void:
 	_profile = BuildProfile.new()
 	_profile.setup({})
 	_save_root = String(_profile.save_root)
-	if _profile.is_simulation() and _shot_path == "" \
+	var b01a_skip := OS.get_environment("DSH_B01A_DEPLOY_TEST") == "1"
+	if _profile.is_simulation() and (_shot_path == "" or b01a_skip) \
 			and OS.get_environment("DSH_NO_AUTOSKIP") != "1":
 		var target := String(_profile.entry_scene)
 		if target != "" and target != "res://main_menu.tscn":

@@ -16,6 +16,7 @@ const TimeService := preload("res://scripts/core/time_service.gd")
 const EventBus := preload("res://scripts/core/event_bus.gd")
 const WorldState := preload("res://scripts/core/world_state.gd")
 const EntityCatalogScript := preload("res://scripts/core/entity_catalog.gd")
+const DeploymentServiceScript := preload("res://scripts/core/deployment_service.gd")
 const OrderService := preload("res://scripts/core/order_service.gd")
 const CommsService := preload("res://scripts/core/comms_service.gd")
 const TrackTableScript := preload("res://scripts/core/track_table.gd")
@@ -131,6 +132,9 @@ var _ship_catalog_enabled := false
 var _refit_enabled := false
 var _fleet_refit_enabled := false
 var _fleet_formation_enabled := false
+# JC-B01A：部署选择→冻结→真实生成（boot 或预部署 t=0）
+var deployment_service = null
+var _deployment_enabled := false
 var _last_signal_route: Dictionary = {}
 var _signal_missing_meta_warned: Dictionary = {}
 var _damage_applied_shots: Dictionary = {}
@@ -198,7 +202,7 @@ func _normalize_seed(config: Dictionary) -> Dictionary:
 	var seed := _demo_seed()
 	for key in ["time", "writer", "entities", "nodes", "links", "orders",
 			"order_mode", "comms_text_key", "delivery_delay_s", "auth_required",
-			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "fleet_refit", "fleet_formation", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity", "epoch", "command_domains", "fleet_instances", "own_fleet", "comms_ew_seed"]:
+			"track_table", "story_state", "sensor_service", "port_service", "combat_service", "damage_service", "physics_world", "signal_service", "ew_service", "facility_registry", "transponder_service", "identification_service", "legal_status", "traffic_control", "combat_ballistics", "ship_catalog", "refit", "fleet_refit", "fleet_formation", "damage_profiles", "prelude", "seed_frame", "frame_origin", "own_entity", "epoch", "command_domains", "fleet_instances", "own_fleet", "comms_ew_seed", "deployment"]:
 		if config.has(key):
 			seed[key] = config[key]
 	return seed
@@ -253,6 +257,9 @@ func boot(config := {}) -> Dictionary:
 	_refit_enabled = false
 	_fleet_refit_enabled = false
 	_fleet_formation_enabled = false
+	# R3：boot/load 完整清理上一局部署生命周期。
+	deployment_service = null
+	_deployment_enabled = false
 	_physics_enabled = false
 	_physics_frame_meta = {}
 	_world_sync_mode = WORLD_SYNC_MODE_NO_PHYSICS
@@ -608,6 +615,287 @@ func world_physics_sync_status() -> Dictionary:
 	return out
 
 
+# ── JC-B01A：部署（选择→冻结→同源 seed）─────────────────────────
+func _deployment_cfg_from_seed() -> Dictionary:
+	var dep = _seed.get("deployment", null)
+	if not (dep is Dictionary):
+		return {}
+	var d: Dictionary = dep
+	var ff: Dictionary = _seed.get("fleet_formation", {}) \
+		if _seed.get("fleet_formation") is Dictionary else {}
+	var roster := String(ff.get("roster", ff.get("roster_path",
+		"res://framework/content/fleet_roster.json")))
+	var selection = d.get("selection", d.get("assignments", {}))
+	# R2：从既有 command_domains/fleet_instances 推导部署授权边界。
+	var auth: Dictionary = {"controllers": [], "owners": [], "fleets": [],
+		"domains": []}
+	for raw_d in (_seed.get("command_domains", []) as Array):
+		if not (raw_d is Dictionary):
+			continue
+		var d0: Dictionary = raw_d
+		if String(d0.get("domain_id", "")) != "player":
+			continue
+		(auth["controllers"] as Array).append(String(d0.get("controller_id", "")))
+		(auth["owners"] as Array).append(String(d0.get("intel_owner_id", "")))
+		(auth["fleets"] as Array).append(String(d0.get("fleet_id", "")))
+		(auth["domains"] as Array).append("player")
+		for a in (d0.get("authorized_actors", []) as Array):
+			if not (String(a) in (auth["controllers"] as Array)):
+				(auth["controllers"] as Array).append(String(a))
+	return {"ship_catalog": _seed.get("ship_catalog", {}),
+		"roster": roster, "scenario_id": String(d.get("scenario_id", "default")),
+		"deployment_seed": int(d.get("deployment_seed", 0)),
+		"selection": selection, "positions": d.get("positions", {}),
+		"controller_id": String(d.get("controller_id", "player_ctrl")),
+		"owner_id": String(d.get("owner_id", "player_intel")),
+		"fleet_id": String(d.get("fleet_id", "own_fleet")),
+		"domain_id": String(d.get("domain_id", "player")),
+		"config_revision": String(d.get("config_revision", "cfg-1")),
+		"limits_override": (d.get("limits_override", {}) as Dictionary).duplicate(true) \
+			if d.get("limits_override") is Dictionary else {},
+		"authorized_controllers": auth["controllers"],
+		"authorized_owners": auth["owners"],
+		"authorized_fleets": auth["fleets"],
+		"authorized_domains": auth["domains"]}
+
+
+func _deployment_ship_configs() -> Dictionary:
+	var out: Dictionary = {}
+	if fleet_formation == null:
+		return out
+	var ships: Array = roster_ships_for_deploy() if has_method("roster_ships_for_deploy") else []
+	for raw in ((fleet_formation.ships if fleet_formation != null else []) as Array):
+		if not (raw is Dictionary):
+			continue
+		var row: Dictionary = raw
+		var sid := String(row.get("ship_id", ""))
+		if sid == "":
+			continue
+		var rstate: Dictionary = {}
+		if fleet_refit != null and fleet_refit.has_method("refit_state"):
+			rstate = fleet_refit.refit_state(sid)
+		out[sid] = {"refit_state": (row.get("refit_state", {}) as Dictionary).duplicate(true) \
+				if row.get("refit_state") is Dictionary else {},
+			"state": rstate.duplicate(true),
+			"source": "fleet_refit" if not rstate.is_empty() else "roster_default",
+			"refit_version": "refit_state_v1"}
+	return out
+
+
+func roster_ships_for_deploy() -> Array:
+	return []
+
+
+func _rebuild_catalog_from_deployment() -> void:
+	entity_catalog = EntityCatalogScript.new({
+		"entities": (_seed.get("entities", []) as Array).duplicate(true),
+		"source": "deployment"})
+	if not bool(entity_catalog.ready):
+		errors.append("deployment_catalog_invalid: " + str(entity_catalog.errors))
+
+func _setup_deployment_from_seed() -> void:
+	var cfg: Dictionary = _deployment_cfg_from_seed()
+	if cfg.is_empty():
+		return
+	deployment_service = DeploymentServiceScript.new(cfg)
+	deployment_service.set_ship_configs(_deployment_ship_configs())
+	if not bool(deployment_service.ready):
+		errors.append("deployment_invalid: " + str(deployment_service.errors))
+		_deployment_enabled = false
+		deployment_service = null
+		return
+	_deployment_enabled = true
+	var d: Dictionary = _seed.get("deployment", {})
+	if not bool(d.get("auto", true)):
+		return
+	var plan: Dictionary = deployment_service.plan(cfg["selection"])
+	if not bool(plan.get("ok", false)):
+		errors.append("deployment_invalid: " + String(plan.get("reason", "")))
+		_deployment_enabled = false
+		deployment_service = null
+		return
+	var dres: Dictionary = deployment_service.deploy(cfg["selection"],
+		{"confirm": true})
+	if not bool(dres.get("ok", false)):
+		errors.append("deployment_invalid: " + String(dres.get("reason", "")))
+		_deployment_enabled = false
+		deployment_service = null
+		return
+	_deployment_sync_seed_instances(plan)
+
+
+func _deployment_sync_seed_instances(plan: Dictionary) -> void:
+	var ents: Array = (plan.get("entities", []) as Array).duplicate(true)
+	_seed["entities"] = ents
+	var instances: Array = []
+	var flagship := ""
+	for raw in (plan.get("instances", []) as Array):
+		if not (raw is Dictionary):
+			continue
+		var ins: Dictionary = raw
+		instances.append({"entity_instance_id": String(ins.get("instance_id", "")),
+			"domain_id": String(ins.get("domain_id", "player")),
+			"fleet_id": String(ins.get("fleet_id", "own_fleet"))})
+		if flagship == "" and String(ins.get("slot", "")) == "command":
+			flagship = String(ins.get("instance_id", ""))
+	if flagship == "" and instances.size() > 0:
+		flagship = String((instances[0] as Dictionary).get("entity_instance_id", ""))
+	if flagship != "":
+		_seed["own_entity"] = flagship
+	_seed["fleet_instances"] = instances
+
+
+func _apply_deployment_runtime(plan: Dictionary) -> Dictionary:
+	# 预部署阶段：按 catalog → physics(seed 新实体) → world 顺序真实重建三层。
+	var ents: Array = (plan.get("entities", []) as Array).duplicate(true)
+	var problems: Array = []
+	# 1) world 旧实体 despawn：WorldState 按 event.target 删除，必须带 target 并检查结果。
+	var old_world: Array = []
+	for eid in world.entities.keys():
+		old_world.append(String(eid))
+	for eid2 in old_world:
+		var ev: Dictionary = _mk_event("entity.despawn", eid2, {})
+		var pub: Dictionary = bus.publish(ev)
+		if not bool(pub.get("ok", false)):
+			problems.append("despawn_publish:" + eid2)
+			continue
+		var dres: Dictionary = world.apply(pub.get("event", {}), writer)
+		if not bool(dres.get("ok", false)):
+			problems.append("despawn_apply:%s:%s" % [eid2,
+				String(dres.get("reason", ""))])
+	if not problems.is_empty():
+		return {"ok": false, "reason": "despawn_failed", "errors": problems}
+	# 2) catalog 换成冻结实例。
+	entity_catalog = EntityCatalogScript.new({"entities": ents, "source": "deployment"})
+	if not bool(entity_catalog.ready):
+		return {"ok": false, "reason": "catalog_failed",
+			"errors": entity_catalog.errors.duplicate()}
+	# 3) physics 先清旧实体，再把新 seed 写入 _seed.entities 后按同一 seed 重建，
+	#    保证 _seed_physics_entities 的部署分支读取的是新实例而不是旧 seed。
+	if physics_world_service != null:
+		for pid in (physics_world_service.entity_ids() as Array):
+			var rr: Dictionary = physics_world_service.remove_entity(String(pid))
+			if not bool(rr.get("ok", false)):
+				problems.append("physics_remove:" + String(pid))
+		_seed["entities"] = ents.duplicate(true)
+		_seed_physics_entities({"entities": ents, "auto_seed": true})
+		if not problems.is_empty():
+			return {"ok": false, "reason": "physics_rebuild_failed",
+				"errors": problems}
+		var want_ids: Array = []
+		for rawp in ents:
+			if rawp is Dictionary:
+				want_ids.append(String((rawp as Dictionary).get("id", "")))
+		want_ids.sort()
+		var got_ids: Array = physics_world_service.entity_ids()
+		got_ids.sort()
+		if JSON.stringify(want_ids) != JSON.stringify(got_ids):
+			return {"ok": false, "reason": "physics_seed_mismatch",
+				"expected": want_ids, "actual": got_ids}
+	# 4) world 生成冻结实例。
+	for raw in ents:
+		if not (raw is Dictionary):
+			continue
+		var ent: Dictionary = (raw as Dictionary).duplicate(true)
+		var ev2: Dictionary = _mk_event("entity.spawn", "", {"entity": ent})
+		var pub2: Dictionary = bus.publish(ev2)
+		if not bool(pub2.get("ok", false)):
+			return {"ok": false, "reason": "spawn_publish_failed"}
+		var ap: Dictionary = world.apply(pub2.get("event", {}), writer)
+		if not bool(ap.get("ok", false)):
+			return {"ok": false, "reason": "spawn_apply_failed"}
+	_deployment_sync_seed_instances(plan)
+	if _authority_enabled and authority_intel != null:
+		for raw2 in (plan.get("instances", []) as Array):
+			if raw2 is Dictionary:
+				var ins2: Dictionary = raw2
+				var iid2 := String(ins2.get("instance_id", ""))
+				authority_intel.instances[iid2] = {
+					"domain_id": String(ins2.get("domain_id", "player")),
+					"fleet_id": String(ins2.get("fleet_id", "own_fleet"))}
+	return {"ok": true, "reason": ""}
+
+
+func fleet_deployment_plan(selection) -> Dictionary:
+	if deployment_service == null:
+		return {"ok": false, "reason": "no_deployment"}
+	if deployment_service.is_committed() \
+			and deployment_service.matches_selection(selection):
+		var c0: Dictionary = deployment_service.committed()
+		return {"ok": true, "reason": "already_deployed",
+			"revision": String(c0.get("revision", "")),
+			"instance_ids": (c0.get("instance_ids", []) as Array).duplicate(),
+			"entities": (c0.get("entities", []) as Array).duplicate(true),
+			"instances": (c0.get("instances", []) as Array).duplicate(true),
+			"frozen": true}
+	deployment_service.set_ship_configs(_deployment_ship_configs())
+	return deployment_service.plan(selection)
+
+
+func fleet_deploy(selection, opts := {}) -> Dictionary:
+	if deployment_service == null:
+		return {"ok": false, "reason": "no_deployment"}
+	var o: Dictionary = opts if opts is Dictionary else {}
+	if not bool(o.get("confirm", false)):
+		return {"ok": false, "reason": "confirm_required"}
+	if deployment_service.is_committed():
+		var c0: Dictionary = deployment_service.committed()
+		if deployment_service.matches_selection(selection):
+			return {"ok": true, "reason": "already_deployed",
+				"revision": String(c0.get("revision", "")),
+				"deployment": c0, "already": true}
+		return {"ok": false, "reason": "deployment_locked",
+			"deployed_revision": String(c0.get("revision", ""))}
+	deployment_service.set_ship_configs(_deployment_ship_configs())
+	var p: Dictionary = deployment_service.plan(selection)
+	if not bool(p.get("ok", false)):
+		return {"ok": false, "reason": String(p.get("reason", "invalid_selection")),
+			"errors": (p.get("errors", []) as Array).duplicate()}
+	if deployment_service.is_committed():
+		var c: Dictionary = deployment_service.committed()
+		if String(c.get("revision", "")) == String(p.get("revision", "")):
+			return {"ok": true, "reason": "already_deployed",
+				"revision": String(c.get("revision", "")),
+				"deployment": c, "already": true}
+		return {"ok": false, "reason": "deployment_locked",
+			"deployed_revision": String(c.get("revision", "")),
+			"revision": String(p.get("revision", ""))}
+	# 首次部署：预部署阶段允许在真实 UI 任意帧确认（已部署后换编制才锁定）。
+	var dres: Dictionary = deployment_service.deploy(selection,
+		{"confirm": true}, p)
+	if not bool(dres.get("ok", false)):
+		return dres
+	var committed: Dictionary = deployment_service.committed()
+	if String(committed.get("revision", "")) != String(p.get("revision", "")):
+		return {"ok": false, "reason": "deploy_revision_mismatch",
+			"plan_revision": String(p.get("revision", "")),
+			"committed_revision": String(committed.get("revision", ""))}
+	var ar: Dictionary = _apply_deployment_runtime(p)
+	if not bool(ar.get("ok", false)):
+		return {"ok": false, "reason": String(ar.get("reason", "apply_failed"))}
+	return {"ok": true, "reason": "",
+		"revision": String(committed.get("revision", "")),
+		"plan_revision": String(p.get("revision", ""))}
+
+
+func fleet_deployment_vm() -> Dictionary:
+	if deployment_service == null:
+		return {"ok": true, "enabled": false, "deployed": false,
+			"reason": "no_deployment", "instance_ids": []}
+	return deployment_service.vm()
+
+
+func deployment_resources(instance_id: String) -> Dictionary:
+	if deployment_service == null:
+		return {"ok": false, "reason": "no_deployment"}
+	return deployment_service.resources(instance_id)
+
+
+func deployment_test_patch(instance_id: String, patch_row: Dictionary) -> Dictionary:
+	if deployment_service == null:
+		return {"ok": false, "reason": "no_deployment"}
+	return deployment_service.patch(instance_id, patch_row)
+
 func _entities_map() -> Dictionary:
 	var out := {}
 	for raw in (_seed.get("entities", []) as Array):
@@ -794,6 +1082,12 @@ func _setup_optional_components() -> void:
 					errors.append("fleet_formation 未就绪：" + str(fleet_formation.errors))
 				else:
 					_fleet_formation_enabled = true
+	# JC-B01A：Formation/FleetRefit 初始化后再冻结部署（自动/手动同源），
+	# 随后用部署实体重建 catalog；physics/world 后续读同一 _seed.entities。
+	_setup_deployment_from_seed()
+	if _deployment_enabled and deployment_service != null \
+			and bool(deployment_service.is_committed()):
+		_rebuild_catalog_from_deployment()
 	var sig = _seed.get("signal_service", null)
 	var sig_on := (sig is Dictionary) or (sig is bool and bool(sig))
 	if sig_on:
@@ -1102,7 +1396,11 @@ func _seed_physics_entities(pwcfg: Dictionary) -> void:
 		return
 	var source: Array = []
 	var source_is_seed := false
-	if pwcfg.get("entities") is Array:
+	# R1：部署态必须覆盖显式 physics 旧名单；物理 seed 与实际部署同源。
+	if _deployment_enabled:
+		source = (_seed.get("entities", []) as Array)
+		source_is_seed = true
+	elif pwcfg.get("entities") is Array:
 		source = (pwcfg.get("entities") as Array)
 	elif bool(pwcfg.get("auto_seed", true)):
 		source = (_seed.get("entities", []) as Array)
@@ -6298,6 +6596,9 @@ func save_state() -> String:
 		"signal_service": signal_service.save_state() if signal_service != null else "",
 		# JC-A01/R4：Comms 在途队列/ETA/链路状态（恢复后不得把丢失当送达）
 		"comms": comms.export_state() if comms != null else null,
+		# JC-B01A：部署冻结 revision/实例映射/独立资源随档（恢复不重复生成实体）
+		"deployment": deployment_service.export_state() if \
+			deployment_service != null else null,
 		"ew_service": ew_service.save_state() if ew_service != null else "",
 		"facility_registry": facility_registry.to_dict() if facility_registry != null else null,
 		"transponder_service": transponder_service.save_state() if transponder_service != null else "",
@@ -6399,6 +6700,12 @@ func load_state(json_text: String) -> Dictionary:
 		if not bool(cr.get("ok", false)):
 			replay_errors.append("comms 状态恢复失败：" + str(cr.get("reason", ""))
 				+ " " + JSON.stringify(cr.get("errors", [])))
+	# JC-B01A：部署状态（冻结 revision/实例资源）；恢复不再生成实体。
+	if deployment_service != null and data.has("deployment"):
+		var dr: Dictionary = deployment_service.load_state(data.get("deployment"))
+		if not bool(dr.get("ok", false)):
+			replay_errors.append("deployment 状态恢复失败："
+				+ str(dr.get("reason", "")))
 	var saved_track = data.get("track_table", null)
 	var saved_story = data.get("story", null)
 	if saved_track != null:
