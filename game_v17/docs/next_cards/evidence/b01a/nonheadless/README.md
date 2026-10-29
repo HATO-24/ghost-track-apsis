@@ -25,3 +25,11 @@ V1 HUD SHOT size=(1600, 900) err=0
 - 真实点击/执行 `DEPLOY PLAN` → revision=rev-425754d2；`DEPLOY`（confirm=true）→ **首次生成成功**，deploy ok=true、revision 与 plan 完全一致（rev-425754d2），HUD 显示 `DEPLOY · DEPLOYED rev=rev-425754d2 · 5 instances`。
 - 截图：`fleet_builder_first_confirm.png`（1600x900，OpenGL3 真实窗口）。
 - 配置冻结时机：首次确认时读取当时 FleetRefit 实际配置并写入快照；部署后再改 refit 不改变已冻结快照；首次部署允许在真实 UI 任意帧确认，已部署后换编制仍 `deployment_locked`。
+
+## 第三轮：runtime apply target/顺序 + auto=true 实际配置冻结
+
+- 修复 runtime despawn：`entity.despawn` 使用 `event.target=实体id` 并检查 `world.apply` 返回值，失败不再静默；旧舰 `legacy_ship` 从 world 移除。
+- 修复 physics seed 顺序：重建 catalog 后先把新 instances 写入 `_seed.entities`，再物理清旧+按同一 seed 重建并校验 physics id 集合 == 选择；最后 spawn world。首次确认后 catalog/physics/world 三层均恰为 5 艘选择舰，10 tick 后 world 与 physics 集合一致。
+- 修复 auto=true 冻结时机：部署 setup 移到 Formation/FleetRefit 初始化之后，自动路径同样读取实际 FleetRefit 状态并写入快照；plan 返回已冻结 revision，快照 `refit_service_state` 非空。
+- 新实机样张：`fleet_builder_first_confirm.png`（auto=false 首次确认，plan==deploy rev-425754d2）、`fleet_builder_auto_config.png`（auto=true，rev-92dba852，HUD 显示 `cfg=fleet_refit`）。
+- 同 HEAD：jc_deployment 94/0、专项 7/7、Phase0 6/6、PhaseA 3/3、full 92=85/7 new_fail=0。

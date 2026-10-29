@@ -274,8 +274,6 @@ func boot(config := {}) -> Dictionary:
 	_sensor_target_meta = {}
 	_seed = _normalize_seed(config if config is Dictionary else {})
 	_seed = _json_norm(_seed)
-	# JC-B01A：部署选择→冻结→真实生成（在 catalog/physics/world 前接线）。
-	_setup_deployment_from_seed()
 	# Phase A1.1：静态元数据唯一权威（scenario/seed → EntityCatalog）。
 	# 只保存静态资料；位置/速度仍归 PhysicsWorld，world 保持既有职责。
 	entity_catalog = EntityCatalogScript.new({
@@ -748,29 +746,58 @@ func _deployment_sync_seed_instances(plan: Dictionary) -> void:
 
 
 func _apply_deployment_runtime(plan: Dictionary) -> Dictionary:
-	# 仅预部署 t==0：重建 catalog / world / physics 为冻结实例集合。
+	# 预部署阶段：按 catalog → physics(seed 新实体) → world 顺序真实重建三层。
 	var ents: Array = (plan.get("entities", []) as Array).duplicate(true)
+	var problems: Array = []
+	# 1) world 旧实体 despawn：WorldState 按 event.target 删除，必须带 target 并检查结果。
 	var old_world: Array = []
 	for eid in world.entities.keys():
 		old_world.append(String(eid))
 	for eid2 in old_world:
-		var ev: Dictionary = _mk_event("entity.despawn", "", {"entity_id": eid2})
+		var ev: Dictionary = _mk_event("entity.despawn", eid2, {})
 		var pub: Dictionary = bus.publish(ev)
-		if bool(pub.get("ok", false)):
-			world.apply(pub.get("event", {}), writer)
-	if physics_world_service != null:
-		for pid in (physics_world_service.entity_ids() as Array):
-			physics_world_service.remove_entity(String(pid))
-		_seed_physics_entities({"entities": ents, "auto_seed": true})
+		if not bool(pub.get("ok", false)):
+			problems.append("despawn_publish:" + eid2)
+			continue
+		var dres: Dictionary = world.apply(pub.get("event", {}), writer)
+		if not bool(dres.get("ok", false)):
+			problems.append("despawn_apply:%s:%s" % [eid2,
+				String(dres.get("reason", ""))])
+	if not problems.is_empty():
+		return {"ok": false, "reason": "despawn_failed", "errors": problems}
+	# 2) catalog 换成冻结实例。
 	entity_catalog = EntityCatalogScript.new({"entities": ents, "source": "deployment"})
 	if not bool(entity_catalog.ready):
-		return {"ok": false, "reason": "catalog_failed"}
+		return {"ok": false, "reason": "catalog_failed",
+			"errors": entity_catalog.errors.duplicate()}
+	# 3) physics 先清旧实体，再把新 seed 写入 _seed.entities 后按同一 seed 重建，
+	#    保证 _seed_physics_entities 的部署分支读取的是新实例而不是旧 seed。
+	if physics_world_service != null:
+		for pid in (physics_world_service.entity_ids() as Array):
+			var rr: Dictionary = physics_world_service.remove_entity(String(pid))
+			if not bool(rr.get("ok", false)):
+				problems.append("physics_remove:" + String(pid))
+		_seed["entities"] = ents.duplicate(true)
+		_seed_physics_entities({"entities": ents, "auto_seed": true})
+		if not problems.is_empty():
+			return {"ok": false, "reason": "physics_rebuild_failed",
+				"errors": problems}
+		var want_ids: Array = []
+		for rawp in ents:
+			if rawp is Dictionary:
+				want_ids.append(String((rawp as Dictionary).get("id", "")))
+		want_ids.sort()
+		var got_ids: Array = physics_world_service.entity_ids()
+		got_ids.sort()
+		if JSON.stringify(want_ids) != JSON.stringify(got_ids):
+			return {"ok": false, "reason": "physics_seed_mismatch",
+				"expected": want_ids, "actual": got_ids}
+	# 4) world 生成冻结实例。
 	for raw in ents:
 		if not (raw is Dictionary):
 			continue
 		var ent: Dictionary = (raw as Dictionary).duplicate(true)
-		var ev2: Dictionary = _mk_event("entity.spawn", "",
-			{"entity": ent})
+		var ev2: Dictionary = _mk_event("entity.spawn", "", {"entity": ent})
 		var pub2: Dictionary = bus.publish(ev2)
 		if not bool(pub2.get("ok", false)):
 			return {"ok": false, "reason": "spawn_publish_failed"}
@@ -1055,6 +1082,12 @@ func _setup_optional_components() -> void:
 					errors.append("fleet_formation 未就绪：" + str(fleet_formation.errors))
 				else:
 					_fleet_formation_enabled = true
+	# JC-B01A：Formation/FleetRefit 初始化后再冻结部署（自动/手动同源），
+	# 随后用部署实体重建 catalog；physics/world 后续读同一 _seed.entities。
+	_setup_deployment_from_seed()
+	if _deployment_enabled and deployment_service != null \
+			and bool(deployment_service.is_committed()):
+		_rebuild_catalog_from_deployment()
 	var sig = _seed.get("signal_service", null)
 	var sig_on := (sig is Dictionary) or (sig is bool and bool(sig))
 	if sig_on:

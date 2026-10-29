@@ -475,6 +475,36 @@ func _run() -> void:
 	_info("ctrl errors=%s" % str(ctrl_s.errors))
 
 
+	# R5：首次确认后三层实体集合必须同源（catalog/physics/world 都只含选择舰）
+	_eq(_meta_ids(a7b), EXPECTED_A, "首次确认后 catalog = 选择")
+	_eq(_physics_ids(a7b), EXPECTED_A, "首次确认后 physics = 选择")
+	_eq(_world_ids(a7b), EXPECTED_A, "首次确认后 world = 选择")
+	_ok(not ("legacy_ship" in _world_ids(a7b)), "首次确认后旧舰不残留 world")
+	_ok(not ("legacy_ship" in _physics_ids(a7b)), "首次确认后旧舰不残留 physics")
+	for i5 in range(10):
+		a7b.tick(TICK_DT)
+	var sync5: Dictionary = a7b.world_physics_sync("probe")
+	_ok(bool(sync5.get("ok", false)), "首次确认后 world/physics 同步 ok",
+		str(sync5.get("reason", "")))
+	_eq(_world_ids(a7b), _physics_ids(a7b), "10 tick 后 world 与 physics 集合一致")
+	# R4：auto=true 自动部署也必须冻结实际 FleetRefit 配置（非空）
+	var auto_s = _new(SEL_A, "AUTO")
+	_eq(String(_vm(auto_s).get("config_source", "")), "fleet_refit",
+		"auto=true 冻结实际 FleetRefit 配置来源")
+	var auto_res: Dictionary = _resources(auto_s, "apsis")
+	var auto_cs: Dictionary = auto_res.get("config_snapshot", {}) if \
+		auto_res.get("config_snapshot") is Dictionary else {}
+	_ok(auto_cs.get("refit_service_state") is Dictionary
+		and not (auto_cs.get("refit_service_state") as Dictionary).is_empty(),
+		"auto=true 冻结快照包含非空实际 refit 状态",
+		JSON.stringify(auto_cs.get("refit_service_state", {})).substr(0, 160))
+	_ok(bool((_plan(auto_s, SEL_A)).get("ok", false)),
+		"auto=true 后续 plan 成功")
+	_eq(String((_plan(auto_s, SEL_A)).get("revision", "")),
+		String(_vm(auto_s).get("revision", "")),
+		"auto=true plan revision = 已冻结 revision")
+
+
 	_step("J6 旧单舰 seed 兼容与部署入口/UI 合同")
 	var legacy = GS.new({
 		"own_entity": "own_ship", "physics_world": true,
