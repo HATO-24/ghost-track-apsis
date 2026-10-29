@@ -1,0 +1,47 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+AUDIO OK files=36 headless=true muted=false
+[BUILD PROFILE] id=full mode=prelude scene=res://main_menu.tscn scenario= save_root=user://saves
+[BUILD PROFILE] SYSTEM story=ON
+[BUILD PROFILE] SYSTEM prelude=ON
+[BUILD PROFILE] SYSTEM triggers=ON
+[BUILD PROFILE] SYSTEM identification=ON
+[BUILD PROFILE] SYSTEM traffic=ON
+[BUILD PROFILE] SYSTEM port=ON
+[BUILD PROFILE] SYSTEM signal=ON
+[BUILD PROFILE] SYSTEM combat=ON
+[BUILD PROFILE] SYSTEM ballistics=ON
+[BUILD PROFILE] SYSTEM damage=ON
+[BUILD PROFILE] SYSTEM physics_world=ON
+[BUILD PROFILE] SYSTEM sandbox=OFF reason=非测试剖面
+[BUILD PROFILE] SYSTEM ship_catalog=ON
+[BUILD PROFILE] SYSTEM refit=ON
+[SHELL BINDER] BUILD profile=full mode=prelude label=GHOST TRACK // APSIS save_root=user://saves
+[SHELL BINDER] prelude ready=true entities=9 triggers=3 used=true
+[SHELL BINDER] SYSTEMS physics=true sensors=true track_table=true combat=false ballistics=true damage=false ew=true identification=true traffic=true port=false ship_catalog=true refit=true story=ready
+[SHELL BINDER] CeresChain ready state=L1 entity=ceres_2 texts=9 code=7600
+[SHELL BINDER] ChronosChain ready state=WAIT_DOCK entity=chronos texts=9 trust=0
+[SHELL BINDER] AV4412Chain ready state=ORBIT_DEPARTURE entity=av_4412 texts=19 threat=0 trust=0
+[SHELL BINDER] AfterActionReport ready branches=6 templates=3
+[SHELL BINDER] TrafficControl source=session ready=true lanes=18 otc=19 npc=6
+[SHELL BINDER] physics ready=true plot_source=intel positions=0 facilities=12 facility_source=facility_registry_l1
+[SHELL BINDER] fleet_data ready=true friendly=8 enemy=24 total=32
+[SHELL BINDER] refit_data ready=true modules=30 installed=0 planned=0 location=L4_ANVIL
+[SHELL BINDER] fleet_builder ready=true ships=13 slots=8 valid=true totals={ "ships": 5, "mass_t": 13000.0, "dv_kmps": 21.44, "crew": 368, "fuel_t": 8900.0, "repair_slots_required": 1 }
+[SHELL BINDER] fleet_refit ready=true ships=13 selected=APSIS options=24
+[SHELL BINDER] CICView ready=true truth=false tracks=0 levels={ "1": 0, "2": 0, "3": 0, "4": 0 } facilities=110
+[SHELL BINDER] CIC SELFTEST truth=false L1_estimate=<null> L2_estimate=[50.0, 0.0, 0.0]
+[SHELL BINDER] IDENT SELFTEST conflict identity=suspect conf=0.41 contradictions=["identity_conflict:friend,hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof identity=suspect conf=0.70 spoof=0.40 contradictions=["iff_alone_no_hostile"]
+[SHELL BINDER] IDENT SELFTEST spoof_cap identity=suspect conf=0.60 spoof=0.50
+[SHELL BINDER] identification ready=true targets=0 by_identity={  } evidence={  } auto=false
+[V1 HUD] binder boot=true errors=[] contacts=0 orders=1
+[V1 HUD] COMBAT tracks=0 weapons=5 target= weapon=missile
+[V1 HUD] damage_model=true sections=7 combat=true roe=TIGHT roe_locked=true
+[SHELL BINDER] plot_bodies source=physics earth=[-326380.872068483, -0.0, 0.0] moon=[58019.1279315172, -0.0, 0.0]
+[SHELL BINDER] plot_sensors ready=true rings=4 obs=0 tws=0 emcon=false ew_ready=true
+[SHELL BINDER] plot_fire_control ready=true roe=WPN TIGHT weapons=5 tracks=0 solutions=0 grants=0 incoming=0 pred=false
+[SHELL BINDER] plot_commands ready=true orders=1 pending=1 transmitted=0 executed=0
+[V1 PLOT3D] labels=15 conflicts=4 hidden_facility=8 bodies=physics
+[V1 HUD] FLOW SMOKE COMPLETE name=指挥官 · 沧澜 contacts=1 commands=1
+[V1 HUD] IDENT SUMMARY enabled=true targets=0 by_identity={  } auto=false

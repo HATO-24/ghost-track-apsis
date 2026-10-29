@@ -1,0 +1,31 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE5F PROBE · FleetRefit / FleetFormation
+════════════════════════════════════════════════════════════
+
+── 1 roster ──
+
+── 2 FleetRefit 基础 ──
+
+── 3 多舰改装 ──
+
+── 4 Formation 基础 ──
+
+── 5 Formation 约束 ──
+
+── 6 存档/错误 ──
+
+── 7 确定性 ──
+────────────────────────────────────────────────────────────
+[DATA] roster = 13 艘/8 型覆盖/8 槽/8 policies · 现有5+预备8 · command required cap1
+[DATA] refit-base = 13 独立服务 · 默认 APSIS · 共享 300000cr/1000材 · 按 class 过滤模块/槽位
+[DATA] refit-multi = 计划不扣共享 · 逐舰 commit 扣共享 · tick 全部 · 各舰独立 mass/queue
+[DATA] formation = 13 艘 · 8 槽/总19 · 初始5 · 自由 assign/move/unassign · command 必需/角色/上限
+[DATA] constraints = mass/fuel/crew/dv/repair 拒绝 · refit 链接 stats · 存档/非法/回滚
+[DATA] save = 舰级独立状态/共享资源/planned 恢复 · 字符串/非法版本/未知舰/坏 roster/options 拒绝 · reset
+[DATA] determinism = refit/formation 同操作 save/stats/summary 一致 · contracts
+────────────────────────────────────────────────────────────
+V17 FLEET PROBE RESULT: PASS=511 FAIL=0
+V17 FLEET PROBE OK
+AUDIO OK files=36 headless=true muted=false

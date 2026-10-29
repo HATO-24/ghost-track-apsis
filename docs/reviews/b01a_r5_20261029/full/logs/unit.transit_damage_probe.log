@@ -1,0 +1,675 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE2-TRANSIT-DAMAGE-1 PROBE · 转场 5 舰损管数据层
+════════════════════════════════════════════════════════════
+
+── 1 内容档案 ──
+[PASS] damage_l1.json 可加载
+[PASS] 档案存在: apsis
+[PASS] 档案存在: harmattan
+[PASS] 档案存在: ferry
+[PASS] 档案存在: watchtower
+[PASS] 档案存在: deepwell
+[PASS] 旧档案保留: harmattan
+[PASS] 旧档案保留: summons_4471
+[PASS] 档案 apsis id  actual=apsis expected=apsis
+[PASS] 档案 apsis name
+[PASS] 档案 apsis class
+[PASS] 档案 apsis 分区数=7  actual=7 expected=7
+[PASS] 档案 apsis 分区 id 完整  actual=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"] expected=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"]
+[PASS] apsis.hull label
+[PASS] apsis.hull kind
+[PASS] apsis.hull integrity=1
+[PASS] apsis.hull repair_s>0
+[PASS] apsis.hull fire_risk
+[PASS] apsis.hull vacuum_risk
+[PASS] apsis.hull adjacent
+[PASS] apsis.power label
+[PASS] apsis.power kind
+[PASS] apsis.power integrity=1
+[PASS] apsis.power repair_s>0
+[PASS] apsis.power fire_risk
+[PASS] apsis.power vacuum_risk
+[PASS] apsis.power adjacent
+[PASS] apsis.propulsion label
+[PASS] apsis.propulsion kind
+[PASS] apsis.propulsion integrity=1
+[PASS] apsis.propulsion repair_s>0
+[PASS] apsis.propulsion fire_risk
+[PASS] apsis.propulsion vacuum_risk
+[PASS] apsis.propulsion adjacent
+[PASS] apsis.sensors label
+[PASS] apsis.sensors kind
+[PASS] apsis.sensors integrity=1
+[PASS] apsis.sensors repair_s>0
+[PASS] apsis.sensors fire_risk
+[PASS] apsis.sensors vacuum_risk
+[PASS] apsis.sensors adjacent
+[PASS] apsis.comms label
+[PASS] apsis.comms kind
+[PASS] apsis.comms integrity=1
+[PASS] apsis.comms repair_s>0
+[PASS] apsis.comms fire_risk
+[PASS] apsis.comms vacuum_risk
+[PASS] apsis.comms adjacent
+[PASS] apsis.tanks label
+[PASS] apsis.tanks kind
+[PASS] apsis.tanks integrity=1
+[PASS] apsis.tanks repair_s>0
+[PASS] apsis.tanks fire_risk
+[PASS] apsis.tanks vacuum_risk
+[PASS] apsis.tanks adjacent
+[PASS] apsis.docking label
+[PASS] apsis.docking kind
+[PASS] apsis.docking integrity=1
+[PASS] apsis.docking repair_s>0
+[PASS] apsis.docking fire_risk
+[PASS] apsis.docking vacuum_risk
+[PASS] apsis.docking adjacent
+[PASS] 档案 apsis batch  actual=1000 expected=1000
+[PASS] 档案 apsis fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] 档案 apsis role
+[PASS] 档案 harmattan id  actual=harmattan expected=harmattan
+[PASS] 档案 harmattan name
+[PASS] 档案 harmattan class
+[PASS] 档案 harmattan 分区数=7  actual=7 expected=7
+[PASS] 档案 harmattan 分区 id 完整  actual=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"] expected=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"]
+[PASS] harmattan.hull label
+[PASS] harmattan.hull kind
+[PASS] harmattan.hull integrity=1
+[PASS] harmattan.hull repair_s>0
+[PASS] harmattan.hull fire_risk
+[PASS] harmattan.hull vacuum_risk
+[PASS] harmattan.hull adjacent
+[PASS] harmattan.power label
+[PASS] harmattan.power kind
+[PASS] harmattan.power integrity=1
+[PASS] harmattan.power repair_s>0
+[PASS] harmattan.power fire_risk
+[PASS] harmattan.power vacuum_risk
+[PASS] harmattan.power adjacent
+[PASS] harmattan.propulsion label
+[PASS] harmattan.propulsion kind
+[PASS] harmattan.propulsion integrity=1
+[PASS] harmattan.propulsion repair_s>0
+[PASS] harmattan.propulsion fire_risk
+[PASS] harmattan.propulsion vacuum_risk
+[PASS] harmattan.propulsion adjacent
+[PASS] harmattan.sensors label
+[PASS] harmattan.sensors kind
+[PASS] harmattan.sensors integrity=1
+[PASS] harmattan.sensors repair_s>0
+[PASS] harmattan.sensors fire_risk
+[PASS] harmattan.sensors vacuum_risk
+[PASS] harmattan.sensors adjacent
+[PASS] harmattan.comms label
+[PASS] harmattan.comms kind
+[PASS] harmattan.comms integrity=1
+[PASS] harmattan.comms repair_s>0
+[PASS] harmattan.comms fire_risk
+[PASS] harmattan.comms vacuum_risk
+[PASS] harmattan.comms adjacent
+[PASS] harmattan.tanks label
+[PASS] harmattan.tanks kind
+[PASS] harmattan.tanks integrity=1
+[PASS] harmattan.tanks repair_s>0
+[PASS] harmattan.tanks fire_risk
+[PASS] harmattan.tanks vacuum_risk
+[PASS] harmattan.tanks adjacent
+[PASS] harmattan.docking label
+[PASS] harmattan.docking kind
+[PASS] harmattan.docking integrity=1
+[PASS] harmattan.docking repair_s>0
+[PASS] harmattan.docking fire_risk
+[PASS] harmattan.docking vacuum_risk
+[PASS] harmattan.docking adjacent
+[PASS] 档案 ferry id  actual=ferry expected=ferry
+[PASS] 档案 ferry name
+[PASS] 档案 ferry class
+[PASS] 档案 ferry 分区数=7  actual=7 expected=7
+[PASS] 档案 ferry 分区 id 完整  actual=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"] expected=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"]
+[PASS] ferry.hull label
+[PASS] ferry.hull kind
+[PASS] ferry.hull integrity=1
+[PASS] ferry.hull repair_s>0
+[PASS] ferry.hull fire_risk
+[PASS] ferry.hull vacuum_risk
+[PASS] ferry.hull adjacent
+[PASS] ferry.power label
+[PASS] ferry.power kind
+[PASS] ferry.power integrity=1
+[PASS] ferry.power repair_s>0
+[PASS] ferry.power fire_risk
+[PASS] ferry.power vacuum_risk
+[PASS] ferry.power adjacent
+[PASS] ferry.propulsion label
+[PASS] ferry.propulsion kind
+[PASS] ferry.propulsion integrity=1
+[PASS] ferry.propulsion repair_s>0
+[PASS] ferry.propulsion fire_risk
+[PASS] ferry.propulsion vacuum_risk
+[PASS] ferry.propulsion adjacent
+[PASS] ferry.sensors label
+[PASS] ferry.sensors kind
+[PASS] ferry.sensors integrity=1
+[PASS] ferry.sensors repair_s>0
+[PASS] ferry.sensors fire_risk
+[PASS] ferry.sensors vacuum_risk
+[PASS] ferry.sensors adjacent
+[PASS] ferry.comms label
+[PASS] ferry.comms kind
+[PASS] ferry.comms integrity=1
+[PASS] ferry.comms repair_s>0
+[PASS] ferry.comms fire_risk
+[PASS] ferry.comms vacuum_risk
+[PASS] ferry.comms adjacent
+[PASS] ferry.tanks label
+[PASS] ferry.tanks kind
+[PASS] ferry.tanks integrity=1
+[PASS] ferry.tanks repair_s>0
+[PASS] ferry.tanks fire_risk
+[PASS] ferry.tanks vacuum_risk
+[PASS] ferry.tanks adjacent
+[PASS] ferry.docking label
+[PASS] ferry.docking kind
+[PASS] ferry.docking integrity=1
+[PASS] ferry.docking repair_s>0
+[PASS] ferry.docking fire_risk
+[PASS] ferry.docking vacuum_risk
+[PASS] ferry.docking adjacent
+[PASS] 档案 ferry batch  actual=1002 expected=1002
+[PASS] 档案 ferry fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] 档案 ferry role
+[PASS] 档案 watchtower id  actual=watchtower expected=watchtower
+[PASS] 档案 watchtower name
+[PASS] 档案 watchtower class
+[PASS] 档案 watchtower 分区数=7  actual=7 expected=7
+[PASS] 档案 watchtower 分区 id 完整  actual=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"] expected=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"]
+[PASS] watchtower.hull label
+[PASS] watchtower.hull kind
+[PASS] watchtower.hull integrity=1
+[PASS] watchtower.hull repair_s>0
+[PASS] watchtower.hull fire_risk
+[PASS] watchtower.hull vacuum_risk
+[PASS] watchtower.hull adjacent
+[PASS] watchtower.power label
+[PASS] watchtower.power kind
+[PASS] watchtower.power integrity=1
+[PASS] watchtower.power repair_s>0
+[PASS] watchtower.power fire_risk
+[PASS] watchtower.power vacuum_risk
+[PASS] watchtower.power adjacent
+[PASS] watchtower.propulsion label
+[PASS] watchtower.propulsion kind
+[PASS] watchtower.propulsion integrity=1
+[PASS] watchtower.propulsion repair_s>0
+[PASS] watchtower.propulsion fire_risk
+[PASS] watchtower.propulsion vacuum_risk
+[PASS] watchtower.propulsion adjacent
+[PASS] watchtower.sensors label
+[PASS] watchtower.sensors kind
+[PASS] watchtower.sensors integrity=1
+[PASS] watchtower.sensors repair_s>0
+[PASS] watchtower.sensors fire_risk
+[PASS] watchtower.sensors vacuum_risk
+[PASS] watchtower.sensors adjacent
+[PASS] watchtower.comms label
+[PASS] watchtower.comms kind
+[PASS] watchtower.comms integrity=1
+[PASS] watchtower.comms repair_s>0
+[PASS] watchtower.comms fire_risk
+[PASS] watchtower.comms vacuum_risk
+[PASS] watchtower.comms adjacent
+[PASS] watchtower.tanks label
+[PASS] watchtower.tanks kind
+[PASS] watchtower.tanks integrity=1
+[PASS] watchtower.tanks repair_s>0
+[PASS] watchtower.tanks fire_risk
+[PASS] watchtower.tanks vacuum_risk
+[PASS] watchtower.tanks adjacent
+[PASS] watchtower.docking label
+[PASS] watchtower.docking kind
+[PASS] watchtower.docking integrity=1
+[PASS] watchtower.docking repair_s>0
+[PASS] watchtower.docking fire_risk
+[PASS] watchtower.docking vacuum_risk
+[PASS] watchtower.docking adjacent
+[PASS] 档案 watchtower batch  actual=1003 expected=1003
+[PASS] 档案 watchtower fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] 档案 watchtower role
+[PASS] 档案 deepwell id  actual=deepwell expected=deepwell
+[PASS] 档案 deepwell name
+[PASS] 档案 deepwell class
+[PASS] 档案 deepwell 分区数=7  actual=7 expected=7
+[PASS] 档案 deepwell 分区 id 完整  actual=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"] expected=["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"]
+[PASS] deepwell.hull label
+[PASS] deepwell.hull kind
+[PASS] deepwell.hull integrity=1
+[PASS] deepwell.hull repair_s>0
+[PASS] deepwell.hull fire_risk
+[PASS] deepwell.hull vacuum_risk
+[PASS] deepwell.hull adjacent
+[PASS] deepwell.power label
+[PASS] deepwell.power kind
+[PASS] deepwell.power integrity=1
+[PASS] deepwell.power repair_s>0
+[PASS] deepwell.power fire_risk
+[PASS] deepwell.power vacuum_risk
+[PASS] deepwell.power adjacent
+[PASS] deepwell.propulsion label
+[PASS] deepwell.propulsion kind
+[PASS] deepwell.propulsion integrity=1
+[PASS] deepwell.propulsion repair_s>0
+[PASS] deepwell.propulsion fire_risk
+[PASS] deepwell.propulsion vacuum_risk
+[PASS] deepwell.propulsion adjacent
+[PASS] deepwell.sensors label
+[PASS] deepwell.sensors kind
+[PASS] deepwell.sensors integrity=1
+[PASS] deepwell.sensors repair_s>0
+[PASS] deepwell.sensors fire_risk
+[PASS] deepwell.sensors vacuum_risk
+[PASS] deepwell.sensors adjacent
+[PASS] deepwell.comms label
+[PASS] deepwell.comms kind
+[PASS] deepwell.comms integrity=1
+[PASS] deepwell.comms repair_s>0
+[PASS] deepwell.comms fire_risk
+[PASS] deepwell.comms vacuum_risk
+[PASS] deepwell.comms adjacent
+[PASS] deepwell.tanks label
+[PASS] deepwell.tanks kind
+[PASS] deepwell.tanks integrity=1
+[PASS] deepwell.tanks repair_s>0
+[PASS] deepwell.tanks fire_risk
+[PASS] deepwell.tanks vacuum_risk
+[PASS] deepwell.tanks adjacent
+[PASS] deepwell.docking label
+[PASS] deepwell.docking kind
+[PASS] deepwell.docking integrity=1
+[PASS] deepwell.docking repair_s>0
+[PASS] deepwell.docking fire_risk
+[PASS] deepwell.docking vacuum_risk
+[PASS] deepwell.docking adjacent
+[PASS] 档案 deepwell batch  actual=1004 expected=1004
+[PASS] 档案 deepwell fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] 档案 deepwell role
+[PASS] harmattan 仍 7 分区  actual=7 expected=7
+[PASS] harmattan 原档案未覆盖  actual=180.000000 expected=180.000000 tol=0.000000
+[PASS] 档案总数 6（旧2+新4，harmattan 共用）  actual=6 expected=6
+
+── 2 初始化 ──
+[PASS] TransitDamage ready  []
+[PASS] 无初始化 errors  actual=0 expected=0
+[PASS] 5 舰模型  actual=5 expected=5
+[PASS] 舰顺序 apsis..deepwell  actual=["apsis", "harmattan", "ferry", "watchtower", "deepwell"] expected=["apsis", "harmattan", "ferry", "watchtower", "deepwell"]
+[PASS] has_ship apsis
+[PASS] batch_for apsis  actual=1000 expected=1000
+[PASS] role_for apsis
+[PASS] vm apsis ok  actual=true expected=true
+[PASS] vm apsis schema  actual=v17_transit_damage.v1 expected=v17_transit_damage.v1
+[PASS] vm apsis ship_id  actual=apsis expected=apsis
+[PASS] vm apsis batch  actual=1000 expected=1000
+[PASS] vm apsis fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] vm apsis name
+[PASS] vm apsis class
+[PASS] vm apsis 7 分区  actual=7 expected=7
+[PASS] vm apsis summary.total=7  actual=7 expected=7
+[PASS] vm apsis 全 nominal  actual=7 expected=7
+[PASS] vm apsis 无火  actual=0 expected=0
+[PASS] vm apsis 无失压  actual=0 expected=0
+[PASS] vm apsis teams_total
+[PASS] vm apsis spares
+[PASS] vm apsis effects.power
+[PASS] vm apsis effects.sensors
+[PASS] vm apsis effects.docking
+[PASS] vm apsis 分区 hull
+[PASS] apsis.hull nominal  actual=nominal expected=nominal
+[PASS] apsis.hull integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] apsis.hull powered  actual=true expected=true
+[PASS] vm apsis 分区 power
+[PASS] apsis.power nominal  actual=nominal expected=nominal
+[PASS] apsis.power integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] apsis.power powered  actual=true expected=true
+[PASS] vm apsis 分区 propulsion
+[PASS] apsis.propulsion nominal  actual=nominal expected=nominal
+[PASS] apsis.propulsion integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] apsis.propulsion powered  actual=true expected=true
+[PASS] vm apsis 分区 sensors
+[PASS] apsis.sensors nominal  actual=nominal expected=nominal
+[PASS] apsis.sensors integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] apsis.sensors powered  actual=true expected=true
+[PASS] vm apsis 分区 comms
+[PASS] apsis.comms nominal  actual=nominal expected=nominal
+[PASS] apsis.comms integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] apsis.comms powered  actual=true expected=true
+[PASS] vm apsis 分区 tanks
+[PASS] apsis.tanks nominal  actual=nominal expected=nominal
+[PASS] apsis.tanks integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] apsis.tanks powered  actual=true expected=true
+[PASS] vm apsis 分区 docking
+[PASS] apsis.docking nominal  actual=nominal expected=nominal
+[PASS] apsis.docking integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] apsis.docking powered  actual=true expected=true
+[PASS] has_ship harmattan
+[PASS] batch_for harmattan  actual=1001 expected=1001
+[PASS] role_for harmattan
+[PASS] vm harmattan ok  actual=true expected=true
+[PASS] vm harmattan schema  actual=v17_transit_damage.v1 expected=v17_transit_damage.v1
+[PASS] vm harmattan ship_id  actual=harmattan expected=harmattan
+[PASS] vm harmattan batch  actual=1001 expected=1001
+[PASS] vm harmattan fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] vm harmattan name
+[PASS] vm harmattan class
+[PASS] vm harmattan 7 分区  actual=7 expected=7
+[PASS] vm harmattan summary.total=7  actual=7 expected=7
+[PASS] vm harmattan 全 nominal  actual=7 expected=7
+[PASS] vm harmattan 无火  actual=0 expected=0
+[PASS] vm harmattan 无失压  actual=0 expected=0
+[PASS] vm harmattan teams_total
+[PASS] vm harmattan spares
+[PASS] vm harmattan effects.power
+[PASS] vm harmattan effects.sensors
+[PASS] vm harmattan effects.docking
+[PASS] vm harmattan 分区 hull
+[PASS] harmattan.hull nominal  actual=nominal expected=nominal
+[PASS] harmattan.hull integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] harmattan.hull powered  actual=true expected=true
+[PASS] vm harmattan 分区 power
+[PASS] harmattan.power nominal  actual=nominal expected=nominal
+[PASS] harmattan.power integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] harmattan.power powered  actual=true expected=true
+[PASS] vm harmattan 分区 propulsion
+[PASS] harmattan.propulsion nominal  actual=nominal expected=nominal
+[PASS] harmattan.propulsion integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] harmattan.propulsion powered  actual=true expected=true
+[PASS] vm harmattan 分区 sensors
+[PASS] harmattan.sensors nominal  actual=nominal expected=nominal
+[PASS] harmattan.sensors integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] harmattan.sensors powered  actual=true expected=true
+[PASS] vm harmattan 分区 comms
+[PASS] harmattan.comms nominal  actual=nominal expected=nominal
+[PASS] harmattan.comms integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] harmattan.comms powered  actual=true expected=true
+[PASS] vm harmattan 分区 tanks
+[PASS] harmattan.tanks nominal  actual=nominal expected=nominal
+[PASS] harmattan.tanks integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] harmattan.tanks powered  actual=true expected=true
+[PASS] vm harmattan 分区 docking
+[PASS] harmattan.docking nominal  actual=nominal expected=nominal
+[PASS] harmattan.docking integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] harmattan.docking powered  actual=true expected=true
+[PASS] has_ship ferry
+[PASS] batch_for ferry  actual=1002 expected=1002
+[PASS] role_for ferry
+[PASS] vm ferry ok  actual=true expected=true
+[PASS] vm ferry schema  actual=v17_transit_damage.v1 expected=v17_transit_damage.v1
+[PASS] vm ferry ship_id  actual=ferry expected=ferry
+[PASS] vm ferry batch  actual=1002 expected=1002
+[PASS] vm ferry fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] vm ferry name
+[PASS] vm ferry class
+[PASS] vm ferry 7 分区  actual=7 expected=7
+[PASS] vm ferry summary.total=7  actual=7 expected=7
+[PASS] vm ferry 全 nominal  actual=7 expected=7
+[PASS] vm ferry 无火  actual=0 expected=0
+[PASS] vm ferry 无失压  actual=0 expected=0
+[PASS] vm ferry teams_total
+[PASS] vm ferry spares
+[PASS] vm ferry effects.power
+[PASS] vm ferry effects.sensors
+[PASS] vm ferry effects.docking
+[PASS] vm ferry 分区 hull
+[PASS] ferry.hull nominal  actual=nominal expected=nominal
+[PASS] ferry.hull integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] ferry.hull powered  actual=true expected=true
+[PASS] vm ferry 分区 power
+[PASS] ferry.power nominal  actual=nominal expected=nominal
+[PASS] ferry.power integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] ferry.power powered  actual=true expected=true
+[PASS] vm ferry 分区 propulsion
+[PASS] ferry.propulsion nominal  actual=nominal expected=nominal
+[PASS] ferry.propulsion integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] ferry.propulsion powered  actual=true expected=true
+[PASS] vm ferry 分区 sensors
+[PASS] ferry.sensors nominal  actual=nominal expected=nominal
+[PASS] ferry.sensors integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] ferry.sensors powered  actual=true expected=true
+[PASS] vm ferry 分区 comms
+[PASS] ferry.comms nominal  actual=nominal expected=nominal
+[PASS] ferry.comms integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] ferry.comms powered  actual=true expected=true
+[PASS] vm ferry 分区 tanks
+[PASS] ferry.tanks nominal  actual=nominal expected=nominal
+[PASS] ferry.tanks integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] ferry.tanks powered  actual=true expected=true
+[PASS] vm ferry 分区 docking
+[PASS] ferry.docking nominal  actual=nominal expected=nominal
+[PASS] ferry.docking integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] ferry.docking powered  actual=true expected=true
+[PASS] has_ship watchtower
+[PASS] batch_for watchtower  actual=1003 expected=1003
+[PASS] role_for watchtower
+[PASS] vm watchtower ok  actual=true expected=true
+[PASS] vm watchtower schema  actual=v17_transit_damage.v1 expected=v17_transit_damage.v1
+[PASS] vm watchtower ship_id  actual=watchtower expected=watchtower
+[PASS] vm watchtower batch  actual=1003 expected=1003
+[PASS] vm watchtower fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] vm watchtower name
+[PASS] vm watchtower class
+[PASS] vm watchtower 7 分区  actual=7 expected=7
+[PASS] vm watchtower summary.total=7  actual=7 expected=7
+[PASS] vm watchtower 全 nominal  actual=7 expected=7
+[PASS] vm watchtower 无火  actual=0 expected=0
+[PASS] vm watchtower 无失压  actual=0 expected=0
+[PASS] vm watchtower teams_total
+[PASS] vm watchtower spares
+[PASS] vm watchtower effects.power
+[PASS] vm watchtower effects.sensors
+[PASS] vm watchtower effects.docking
+[PASS] vm watchtower 分区 hull
+[PASS] watchtower.hull nominal  actual=nominal expected=nominal
+[PASS] watchtower.hull integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] watchtower.hull powered  actual=true expected=true
+[PASS] vm watchtower 分区 power
+[PASS] watchtower.power nominal  actual=nominal expected=nominal
+[PASS] watchtower.power integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] watchtower.power powered  actual=true expected=true
+[PASS] vm watchtower 分区 propulsion
+[PASS] watchtower.propulsion nominal  actual=nominal expected=nominal
+[PASS] watchtower.propulsion integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] watchtower.propulsion powered  actual=true expected=true
+[PASS] vm watchtower 分区 sensors
+[PASS] watchtower.sensors nominal  actual=nominal expected=nominal
+[PASS] watchtower.sensors integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] watchtower.sensors powered  actual=true expected=true
+[PASS] vm watchtower 分区 comms
+[PASS] watchtower.comms nominal  actual=nominal expected=nominal
+[PASS] watchtower.comms integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] watchtower.comms powered  actual=true expected=true
+[PASS] vm watchtower 分区 tanks
+[PASS] watchtower.tanks nominal  actual=nominal expected=nominal
+[PASS] watchtower.tanks integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] watchtower.tanks powered  actual=true expected=true
+[PASS] vm watchtower 分区 docking
+[PASS] watchtower.docking nominal  actual=nominal expected=nominal
+[PASS] watchtower.docking integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] watchtower.docking powered  actual=true expected=true
+[PASS] has_ship deepwell
+[PASS] batch_for deepwell  actual=1004 expected=1004
+[PASS] role_for deepwell
+[PASS] vm deepwell ok  actual=true expected=true
+[PASS] vm deepwell schema  actual=v17_transit_damage.v1 expected=v17_transit_damage.v1
+[PASS] vm deepwell ship_id  actual=deepwell expected=deepwell
+[PASS] vm deepwell batch  actual=1004 expected=1004
+[PASS] vm deepwell fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] vm deepwell name
+[PASS] vm deepwell class
+[PASS] vm deepwell 7 分区  actual=7 expected=7
+[PASS] vm deepwell summary.total=7  actual=7 expected=7
+[PASS] vm deepwell 全 nominal  actual=7 expected=7
+[PASS] vm deepwell 无火  actual=0 expected=0
+[PASS] vm deepwell 无失压  actual=0 expected=0
+[PASS] vm deepwell teams_total
+[PASS] vm deepwell spares
+[PASS] vm deepwell effects.power
+[PASS] vm deepwell effects.sensors
+[PASS] vm deepwell effects.docking
+[PASS] vm deepwell 分区 hull
+[PASS] deepwell.hull nominal  actual=nominal expected=nominal
+[PASS] deepwell.hull integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] deepwell.hull powered  actual=true expected=true
+[PASS] vm deepwell 分区 power
+[PASS] deepwell.power nominal  actual=nominal expected=nominal
+[PASS] deepwell.power integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] deepwell.power powered  actual=true expected=true
+[PASS] vm deepwell 分区 propulsion
+[PASS] deepwell.propulsion nominal  actual=nominal expected=nominal
+[PASS] deepwell.propulsion integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] deepwell.propulsion powered  actual=true expected=true
+[PASS] vm deepwell 分区 sensors
+[PASS] deepwell.sensors nominal  actual=nominal expected=nominal
+[PASS] deepwell.sensors integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] deepwell.sensors powered  actual=true expected=true
+[PASS] vm deepwell 分区 comms
+[PASS] deepwell.comms nominal  actual=nominal expected=nominal
+[PASS] deepwell.comms integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] deepwell.comms powered  actual=true expected=true
+[PASS] vm deepwell 分区 tanks
+[PASS] deepwell.tanks nominal  actual=nominal expected=nominal
+[PASS] deepwell.tanks integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] deepwell.tanks powered  actual=true expected=true
+[PASS] vm deepwell 分区 docking
+[PASS] deepwell.docking nominal  actual=nominal expected=nominal
+[PASS] deepwell.docking integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] deepwell.docking powered  actual=true expected=true
+[PASS] summary schema  actual=v17_transit_damage.v1 expected=v17_transit_damage.v1
+[PASS] summary ships=5  actual=5 expected=5
+[PASS] summary nominal=35  actual=35 expected=35
+[PASS] summary 全 operational  actual=5 expected=5
+[PASS] summary ships 数组 5  actual=5 expected=5
+
+── 3 伤害/火灾/失压/断电 ──
+[PASS] apsis hull 命中 ok  actual=true expected=true
+[PASS] apsis hull integrity 下降  0.686
+[PASS] apsis needs_attention>0
+[PASS] apsis events 记录
+[PASS] apsis tanks 命中 ok  actual=true expected=true
+[PASS] apsis tanks 起火
+[PASS] 火灾强度>0
+[PASS] summary on_fire>=1
+[PASS] effects.fire count
+[PASS] 火灾随时间增长/保持  1.000
+[PASS] deepwell hull 命中 ok  actual=true expected=true
+[PASS] deepwell hull 失压
+[PASS] summary decompressed>=1
+[PASS] 失压持续损伤  0.283→0.191
+[PASS] watchtower power 命中 ok  actual=true expected=true
+[PASS] watchtower power<0.5  0.459
+[PASS] 断电传播 unpowered>=1  4
+[PASS] sensors 断电  actual=false expected=false
+[PASS] effects.sensors unavailable  actual=false expected=false
+[PASS] ferry hull 重度/毁坏  destroyed
+[PASS] 毁坏分区不可修  actual=false expected=false
+
+── 4 维修/资源 ──
+[PASS] assign_repair hull ok  actual=true expected=true
+[PASS] 维修优先级 1  actual=1 expected=1
+[PASS] 重复 assign 拒绝  actual=false expected=false
+[PASS] 重复 assign reason  actual=已在维修队列 expected=已在维修队列
+[PASS] set_priority ok  actual=true expected=true
+[PASS] priority=3  actual=3 expected=3
+[PASS] 维修队投入  1
+[PASS] 备件消耗  1
+[PASS] summary repairing>=1
+[PASS] queue 非空
+[PASS] 维修进度>0
+[PASS] cancel_repair ok  actual=true expected=true
+[PASS] 重复 cancel 拒绝  actual=false expected=false
+[PASS] 多舰维修中
+[PASS] 备件不超额
+[PASS] 维修队不超额
+[PASS] 备件不超额
+[PASS] 维修队不超额
+[PASS] 备件不超额
+[PASS] 维修队不超额
+[PASS] 备件不超额
+[PASS] 维修队不超额
+[PASS] 备件不超额
+[PASS] 维修队不超额
+[PASS] 未知舰维修拒绝  actual=false expected=false
+[PASS] 未知分区维修拒绝  actual=false expected=false
+
+── 5 step/summary/确定性 ──
+[PASS] step ok  actual=true expected=true
+[PASS] step t 推进
+[PASS] step_count=1  actual=1 expected=1
+[PASS] step 返回 summary
+[PASS] step(0) t 不变  actual=10.000000 expected=10.000000 tol=0.000000
+[PASS] summary JSON 较大
+[PASS] summary JSON 回读
+[PASS] 两实例 apsis VM 完全一致（确定性）
+[PASS] 两实例 summary 一致
+[PASS] ferry 确定性
+[PASS] summary fleet  actual=transit_l4_l1 expected=transit_l4_l1
+[PASS] totals.sections=35
+[PASS] totals.on_fire>=1
+[PASS] totals.needs_attention
+[PASS] summary 明示无武器来源
+[PASS] vm 含 hud_fields
+[PASS] hud_fields 数组
+
+── 6 错误/reset ──
+[PASS] 未知舰 vm ok=false  actual=false expected=false
+[PASS] 未知舰 reason  actual=unknown_ship expected=unknown_ship
+[PASS] 未知分区命中拒绝  actual=false expected=false
+[PASS] 未知分区 cancel 拒绝  actual=false expected=false
+[PASS] 未知舰 priority 拒绝  actual=false expected=false
+[PASS] reset 前 t>0
+[PASS] reset ok
+[PASS] reset 后 5 舰  actual=5 expected=5
+[PASS] reset 后 t=0  actual=0.000000 expected=0.000000 tol=0.000000
+[PASS] reset 后 hull integrity=1  actual=1.000000 expected=1.000000 tol=0.000000
+[PASS] reset 后 queue 空  actual=0 expected=0
+[PASS] reset 后全 nominal  actual=35 expected=35
+
+── 7 JSON ──
+[PASS] apsis VM JSON  len=4286
+[PASS] apsis VM JSON 回读
+[PASS] 回读 sections
+[PASS] 回读 resources
+[PASS] 回读 effects
+[PASS] 回读 queue
+[PASS] 回读 7 分区  actual=7 expected=7
+[PASS] vm apsis JSON 可序列化  len=4286
+[PASS] vm apsis JSON 回读
+[PASS] vm harmattan JSON 可序列化  len=4296
+[PASS] vm harmattan JSON 回读
+[PASS] vm ferry JSON 可序列化  len=4249
+[PASS] vm ferry JSON 回读
+[PASS] vm watchtower JSON 可序列化  len=4285
+[PASS] vm watchtower JSON 回读
+[PASS] vm deepwell JSON 可序列化  len=4274
+[PASS] vm deepwell JSON 回读
+[PASS] summary JSON  len=4383
+[PASS] summary JSON 回读
+[PASS] hud_fields 含 sections
+[PASS] hud_fields 含 queue
+[PASS] hud_fields 含 resources
+[PASS] hud_fields 含 summary
+[PASS] hud_fields 含 effects
+[PASS] hud_fields 含 ship_id
+[PASS] hud_fields 含 batch
+────────────────────────────────────────────────────────────
+[DATA] content = ships=["apsis", "deepwell", "ferry", "harmattan", "summons_4471", "watchtower"]
+[DATA] init = 5 舰 × 7 分区全 nominal · resources teams/spares 就绪
+[DATA] damage = 普通伤害/起火/失压/断电传播/重度毁坏 均正确记录
+[DATA] repair = assign/priority/step/cancel/多舰资源上限 正常
+[DATA] step = t=10.0 step_count=1 · 两实例 VM/summary 一致 · totals sections=35
+[DATA] errors/reset = 未知舰/分区安全拒绝 · reset 恢复 5 舰全 nominal
+[DATA] json = apsis VM=4286 summary=4383 · 5 舰 JSON 均可回读
+────────────────────────────────────────────────────────────
+V17 TRANSIT DAMAGE PROBE RESULT: PASS=644 FAIL=0
+V17 TRANSIT DAMAGE PROBE OK
+AUDIO OK files=36 headless=true muted=false

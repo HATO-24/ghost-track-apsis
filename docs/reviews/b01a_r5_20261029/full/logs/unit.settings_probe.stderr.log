@@ -1,0 +1,20 @@
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] _parse (res://scripts/core/settings_service.gd:180)
+       [1] load_settings (res://scripts/core/settings_service.gd:101)
+       [2] setup (res://scripts/core/settings_service.gd:75)
+       [3] _init (res://scripts/core/settings_service.gd:57)
+       [4] _svc (res://tests/settings_probe.gd:78)
+       [5] _test_corruption_migration (res://tests/settings_probe.gd:299)
+       [6] _initialize (res://tests/settings_probe.gd:33)
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] _parse (res://scripts/core/settings_service.gd:180)
+       [1] load_settings (res://scripts/core/settings_service.gd:101)
+       [2] setup (res://scripts/core/settings_service.gd:75)
+       [3] _init (res://scripts/core/settings_service.gd:57)
+       [4] _svc (res://tests/settings_probe.gd:78)
+       [5] _test_corruption_migration (res://tests/settings_probe.gd:307)
+       [6] _initialize (res://tests/settings_probe.gd:33)

@@ -1,0 +1,25 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════
+STAGE3S PROBE · PreludeScenario
+════════════════════════════════════════════════════════════
+
+── 1 entities ──
+
+── 2 profiles/refs ──
+
+── 3 codes/triggers ──
+
+── 4 facility/boot ──
+
+── 5 非法/JSON ──
+────────────────────────────────────────────────────────────
+[DATA] entities = 9 实体（含 ceres_2/av_4412/chronos） · batch/kind/side/identity/pos/vel/light_capable
+[DATA] profiles = 4 补充+6 外部=10 · ceres faulty · AV mode5/crypto/military · station beacon
+[DATA] codes/triggers = 13 合并码 · 谷神-2/通用询问确认 · 3 triggers（ceres/av4412/chronos）
+[DATA] facility/boot = L1-05 绑定 · boot 9 entities/10 profiles/9 targets · GameSession 可启动
+[DATA] invalid/json = 18 类非法内容原子拒绝 · to_dict/to_json 往返 · 两次加载/boot 确定
+────────────────────────────────────────────────────────────
+V17 PRELUDE SCENARIO PROBE RESULT: PASS=411 FAIL=0
+V17 PRELUDE SCENARIO PROBE OK
+AUDIO OK files=36 headless=true muted=false

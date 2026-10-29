@@ -1,0 +1,425 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+TRAFFIC CONTROL PROBE · 完整游戏-阶段3Z
+════════════════════════════════════════════════════════════════
+
+── 1. 设施扩展数据 / OTC / 储罐 / 加注 ──
+[PASS] service ready  []
+[PASS] setup 无错误
+[PASS] 合并设施 110  actual=110 expected=110
+[PASS] OTC 19  actual=19 expected=19
+[PASS] TNK+FUL 62  actual=62 expected=62
+[PASS] 旧 clusters 7  actual=7 expected=7
+[PASS] orbital nodes 2  actual=2 expected=2
+[PASS] 旧 facilities 29 保留  actual=29 expected=29
+[PASS] 旧 ports 57 保留  actual=57 expected=57
+[PASS] 旧设施 L1-01
+[PASS] 旧设施 L1-05
+[PASS] 旧设施 NESOSS-01
+[PASS] 旧设施 LUNSYNC-03
+[PASS] OTC 数量 L1_MERIDIAN  actual=2 expected=2
+[PASS] OTC 存在 L1_MERIDIAN
+[PASS] TNK L1_MERIDIAN  4
+[PASS] FUL L1_MERIDIAN  4
+[PASS] OTC 数量 L2_KARMAN  actual=2 expected=2
+[PASS] OTC 存在 L2_KARMAN
+[PASS] TNK L2_KARMAN  4
+[PASS] FUL L2_KARMAN  4
+[PASS] OTC 数量 L3_ALBORADA  actual=1 expected=1
+[PASS] OTC 存在 L3_ALBORADA
+[PASS] TNK L3_ALBORADA  4
+[PASS] FUL L3_ALBORADA  4
+[PASS] OTC 数量 L4_ANVIL  actual=2 expected=2
+[PASS] OTC 存在 L4_ANVIL
+[PASS] TNK L4_ANVIL  4
+[PASS] FUL L4_ANVIL  4
+[PASS] OTC 数量 L5_NEW_LAGOS  actual=2 expected=2
+[PASS] OTC 存在 L5_NEW_LAGOS
+[PASS] TNK L5_NEW_LAGOS  4
+[PASS] FUL L5_NEW_LAGOS  4
+[PASS] OTC 数量 NESOSS  actual=3 expected=3
+[PASS] OTC 存在 NESOSS
+[PASS] TNK NESOSS  6
+[PASS] FUL NESOSS  6
+[PASS] OTC 数量 LEO  actual=3 expected=3
+[PASS] OTC 存在 LEO
+[PASS] TNK LEO  1
+[PASS] FUL LEO  1
+[PASS] OTC 数量 FAR  actual=2 expected=2
+[PASS] OTC 存在 FAR
+[PASS] TNK FAR  1
+[PASS] FUL FAR  1
+[PASS] OTC 数量 LUNSYNC  actual=2 expected=2
+[PASS] OTC 存在 LUNSYNC
+[PASS] TNK LUNSYNC  3
+[PASS] FUL LUNSYNC  3
+[PASS] OTC class  actual=otc expected=otc
+[PASS] OTC transponder type  actual=otc expected=otc
+[PASS] OTC services
+[PASS] OTC port
+[PASS] OTC orbit
+[PASS] OTC period
+[PASS] OTC mass
+[PASS] OTC station_keeping
+[PASS] TNK sample
+[PASS] FUL sample
+[PASS] TNK services
+[PASS] FUL services
+[PASS] FUL tankfarm
+[PASS] TNK port
+[PASS] FUL port
+[PASS] TNK physical
+[PASS] orbital node LEO
+[PASS] node OTC LEO
+[PASS] orbital node FAR
+[PASS] node OTC FAR
+[PASS] ID/code/transponder/port 唯一  actual=0 expected=0
+[PASS] 设施 id 计数
+[PASS] 设施 code 计数
+[PASS] 应答机计数
+[PASS] 端口总数扩展
+[PASS] summary JSON
+[PASS] 不写 world
+[PASS] 不写 V15
+
+── 2. 航道 / 容量 / 窗口 / 方向 / OTC 监视 ──
+[PASS] 18 航道  actual=18 expected=18
+[PASS] 6 NPC  actual=6 expected=6
+[PASS] 6 NPC 占用示例  actual=6 expected=6
+[PASS] lane 存在 LANE-L1-IN-01
+[PASS] capacity LANE-L1-IN-01
+[PASS] direction LANE-L1-IN-01
+[PASS] priority LANE-L1-IN-01  1
+[PASS] windows LANE-L1-IN-01
+[PASS] monitor_otc LANE-L1-IN-01
+[PASS] from 端点 LANE-L1-IN-01
+[PASS] to 端点 LANE-L1-IN-01
+[PASS] monitor OTC 存在 LANE-L1-IN-01
+[PASS] occupancy capacity LANE-L1-IN-01  actual=2 expected=2
+[PASS] 初始 free LANE-L1-IN-01  actual=2 expected=2
+[PASS] lane 存在 LANE-L1-OUT-01
+[PASS] capacity LANE-L1-OUT-01
+[PASS] direction LANE-L1-OUT-01
+[PASS] priority LANE-L1-OUT-01  1
+[PASS] windows LANE-L1-OUT-01
+[PASS] monitor_otc LANE-L1-OUT-01
+[PASS] from 端点 LANE-L1-OUT-01
+[PASS] to 端点 LANE-L1-OUT-01
+[PASS] monitor OTC 存在 LANE-L1-OUT-01
+[PASS] occupancy capacity LANE-L1-OUT-01  actual=2 expected=2
+[PASS] 初始 free LANE-L1-OUT-01  actual=2 expected=2
+[PASS] lane 存在 LANE-L1-TNK-01
+[PASS] capacity LANE-L1-TNK-01
+[PASS] direction LANE-L1-TNK-01
+[PASS] priority LANE-L1-TNK-01  2
+[PASS] windows LANE-L1-TNK-01
+[PASS] monitor_otc LANE-L1-TNK-01
+[PASS] from 端点 LANE-L1-TNK-01
+[PASS] to 端点 LANE-L1-TNK-01
+[PASS] monitor OTC 存在 LANE-L1-TNK-01
+[PASS] occupancy capacity LANE-L1-TNK-01  actual=1 expected=1
+[PASS] 初始 free LANE-L1-TNK-01  actual=1 expected=1
+[PASS] lane 存在 LANE-L2-01
+[PASS] capacity LANE-L2-01
+[PASS] direction LANE-L2-01
+[PASS] priority LANE-L2-01  2
+[PASS] windows LANE-L2-01
+[PASS] monitor_otc LANE-L2-01
+[PASS] from 端点 LANE-L2-01
+[PASS] to 端点 LANE-L2-01
+[PASS] monitor OTC 存在 LANE-L2-01
+[PASS] occupancy capacity LANE-L2-01  actual=2 expected=2
+[PASS] 初始 free LANE-L2-01  actual=2 expected=2
+[PASS] lane 存在 LANE-L2-02
+[PASS] capacity LANE-L2-02
+[PASS] direction LANE-L2-02
+[PASS] priority LANE-L2-02  3
+[PASS] windows LANE-L2-02
+[PASS] monitor_otc LANE-L2-02
+[PASS] from 端点 LANE-L2-02
+[PASS] to 端点 LANE-L2-02
+[PASS] monitor OTC 存在 LANE-L2-02
+[PASS] occupancy capacity LANE-L2-02  actual=1 expected=1
+[PASS] 初始 free LANE-L2-02  actual=1 expected=1
+[PASS] lane 存在 LANE-L3-01
+[PASS] capacity LANE-L3-01
+[PASS] direction LANE-L3-01
+[PASS] priority LANE-L3-01  3
+[PASS] windows LANE-L3-01
+[PASS] monitor_otc LANE-L3-01
+[PASS] from 端点 LANE-L3-01
+[PASS] to 端点 LANE-L3-01
+[PASS] monitor OTC 存在 LANE-L3-01
+[PASS] occupancy capacity LANE-L3-01  actual=2 expected=2
+[PASS] 初始 free LANE-L3-01  actual=2 expected=2
+[PASS] lane 存在 LANE-L3-02
+[PASS] capacity LANE-L3-02
+[PASS] direction LANE-L3-02
+[PASS] priority LANE-L3-02  4
+[PASS] windows LANE-L3-02
+[PASS] monitor_otc LANE-L3-02
+[PASS] from 端点 LANE-L3-02
+[PASS] to 端点 LANE-L3-02
+[PASS] monitor OTC 存在 LANE-L3-02
+[PASS] occupancy capacity LANE-L3-02  actual=1 expected=1
+[PASS] 初始 free LANE-L3-02  actual=1 expected=1
+[PASS] lane 存在 LANE-L4-01
+[PASS] capacity LANE-L4-01
+[PASS] direction LANE-L4-01
+[PASS] priority LANE-L4-01  2
+[PASS] windows LANE-L4-01
+[PASS] monitor_otc LANE-L4-01
+[PASS] from 端点 LANE-L4-01
+[PASS] to 端点 LANE-L4-01
+[PASS] monitor OTC 存在 LANE-L4-01
+[PASS] occupancy capacity LANE-L4-01  actual=2 expected=2
+[PASS] 初始 free LANE-L4-01  actual=2 expected=2
+[PASS] lane 存在 LANE-L4-02
+[PASS] capacity LANE-L4-02
+[PASS] direction LANE-L4-02
+[PASS] priority LANE-L4-02  3
+[PASS] windows LANE-L4-02
+[PASS] monitor_otc LANE-L4-02
+[PASS] from 端点 LANE-L4-02
+[PASS] to 端点 LANE-L4-02
+[PASS] monitor OTC 存在 LANE-L4-02
+[PASS] occupancy capacity LANE-L4-02  actual=1 expected=1
+[PASS] 初始 free LANE-L4-02  actual=1 expected=1
+[PASS] lane 存在 LANE-L5-01
+[PASS] capacity LANE-L5-01
+[PASS] direction LANE-L5-01
+[PASS] priority LANE-L5-01  1
+[PASS] windows LANE-L5-01
+[PASS] monitor_otc LANE-L5-01
+[PASS] from 端点 LANE-L5-01
+[PASS] to 端点 LANE-L5-01
+[PASS] monitor OTC 存在 LANE-L5-01
+[PASS] occupancy capacity LANE-L5-01  actual=3 expected=3
+[PASS] 初始 free LANE-L5-01  actual=3 expected=3
+[PASS] lane 存在 LANE-L5-02
+[PASS] capacity LANE-L5-02
+[PASS] direction LANE-L5-02
+[PASS] priority LANE-L5-02  3
+[PASS] windows LANE-L5-02
+[PASS] monitor_otc LANE-L5-02
+[PASS] from 端点 LANE-L5-02
+[PASS] to 端点 LANE-L5-02
+[PASS] monitor OTC 存在 LANE-L5-02
+[PASS] occupancy capacity LANE-L5-02  actual=2 expected=2
+[PASS] 初始 free LANE-L5-02  actual=2 expected=2
+[PASS] lane 存在 LANE-NESOSS-01
+[PASS] capacity LANE-NESOSS-01
+[PASS] direction LANE-NESOSS-01
+[PASS] priority LANE-NESOSS-01  1
+[PASS] windows LANE-NESOSS-01
+[PASS] monitor_otc LANE-NESOSS-01
+[PASS] from 端点 LANE-NESOSS-01
+[PASS] to 端点 LANE-NESOSS-01
+[PASS] monitor OTC 存在 LANE-NESOSS-01
+[PASS] occupancy capacity LANE-NESOSS-01  actual=3 expected=3
+[PASS] 初始 free LANE-NESOSS-01  actual=3 expected=3
+[PASS] lane 存在 LANE-NESOSS-02
+[PASS] capacity LANE-NESOSS-02
+[PASS] direction LANE-NESOSS-02
+[PASS] priority LANE-NESOSS-02  2
+[PASS] windows LANE-NESOSS-02
+[PASS] monitor_otc LANE-NESOSS-02
+[PASS] from 端点 LANE-NESOSS-02
+[PASS] to 端点 LANE-NESOSS-02
+[PASS] monitor OTC 存在 LANE-NESOSS-02
+[PASS] occupancy capacity LANE-NESOSS-02  actual=2 expected=2
+[PASS] 初始 free LANE-NESOSS-02  actual=2 expected=2
+[PASS] lane 存在 LANE-LEO-01
+[PASS] capacity LANE-LEO-01
+[PASS] direction LANE-LEO-01
+[PASS] priority LANE-LEO-01  2
+[PASS] windows LANE-LEO-01
+[PASS] monitor_otc LANE-LEO-01
+[PASS] from 端点 LANE-LEO-01
+[PASS] to 端点 LANE-LEO-01
+[PASS] monitor OTC 存在 LANE-LEO-01
+[PASS] occupancy capacity LANE-LEO-01  actual=3 expected=3
+[PASS] 初始 free LANE-LEO-01  actual=3 expected=3
+[PASS] lane 存在 LANE-FAR-01
+[PASS] capacity LANE-FAR-01
+[PASS] direction LANE-FAR-01
+[PASS] priority LANE-FAR-01  2
+[PASS] windows LANE-FAR-01
+[PASS] monitor_otc LANE-FAR-01
+[PASS] from 端点 LANE-FAR-01
+[PASS] to 端点 LANE-FAR-01
+[PASS] monitor OTC 存在 LANE-FAR-01
+[PASS] occupancy capacity LANE-FAR-01  actual=2 expected=2
+[PASS] 初始 free LANE-FAR-01  actual=2 expected=2
+[PASS] lane 存在 LANE-LUNSYNC-01
+[PASS] capacity LANE-LUNSYNC-01
+[PASS] direction LANE-LUNSYNC-01
+[PASS] priority LANE-LUNSYNC-01  2
+[PASS] windows LANE-LUNSYNC-01
+[PASS] monitor_otc LANE-LUNSYNC-01
+[PASS] from 端点 LANE-LUNSYNC-01
+[PASS] to 端点 LANE-LUNSYNC-01
+[PASS] monitor OTC 存在 LANE-LUNSYNC-01
+[PASS] occupancy capacity LANE-LUNSYNC-01  actual=2 expected=2
+[PASS] 初始 free LANE-LUNSYNC-01  actual=2 expected=2
+[PASS] lane 存在 LANE-LUNSYNC-02
+[PASS] capacity LANE-LUNSYNC-02
+[PASS] direction LANE-LUNSYNC-02
+[PASS] priority LANE-LUNSYNC-02  3
+[PASS] windows LANE-LUNSYNC-02
+[PASS] monitor_otc LANE-LUNSYNC-02
+[PASS] from 端点 LANE-LUNSYNC-02
+[PASS] to 端点 LANE-LUNSYNC-02
+[PASS] monitor OTC 存在 LANE-LUNSYNC-02
+[PASS] occupancy capacity LANE-LUNSYNC-02  actual=1 expected=1
+[PASS] 初始 free LANE-LUNSYNC-02  actual=1 expected=1
+[PASS] lane 存在 LANE-L1-MAINT-01
+[PASS] capacity LANE-L1-MAINT-01
+[PASS] direction LANE-L1-MAINT-01
+[PASS] priority LANE-L1-MAINT-01  4
+[PASS] windows LANE-L1-MAINT-01
+[PASS] monitor_otc LANE-L1-MAINT-01
+[PASS] from 端点 LANE-L1-MAINT-01
+[PASS] to 端点 LANE-L1-MAINT-01
+[PASS] monitor OTC 存在 LANE-L1-MAINT-01
+[PASS] occupancy capacity LANE-L1-MAINT-01  actual=1 expected=1
+[PASS] 初始 free LANE-L1-MAINT-01  actual=1 expected=1
+[PASS] cluster lanes L1_MERIDIAN
+[PASS] cluster OTC L1_MERIDIAN
+[PASS] cluster lanes L2_KARMAN
+[PASS] cluster OTC L2_KARMAN
+[PASS] cluster lanes L3_ALBORADA
+[PASS] cluster OTC L3_ALBORADA
+[PASS] cluster lanes L4_ANVIL
+[PASS] cluster OTC L4_ANVIL
+[PASS] cluster lanes L5_NEW_LAGOS
+[PASS] cluster OTC L5_NEW_LAGOS
+[PASS] cluster lanes NESOSS
+[PASS] cluster OTC NESOSS
+[PASS] cluster lanes LEO
+[PASS] cluster OTC LEO
+[PASS] cluster lanes FAR
+[PASS] cluster OTC FAR
+[PASS] cluster lanes LUNSYNC
+[PASS] cluster OTC LUNSYNC
+[PASS] lanes VM JSON
+[PASS] VM schema
+[PASS] 不写 TrackTable
+
+── 3. 申请 / 许可 / 占用 / 释放 ──
+[PASS] request ok
+[PASS] request PENDING  actual=PENDING expected=PENDING
+[PASS] request_id
+[PASS] otc_event request
+[PASS] permit ok
+[PASS] clearance_id
+[PASS] CLEARED  actual=CLEARED expected=CLEARED
+[PASS] otc_event permit
+[PASS] occupy ok
+[PASS] occupancy_id
+[PASS] 占用 used=1  actual=1 expected=1
+[PASS] 占用 free=1  actual=1 expected=1
+[PASS] lane_record event
+[PASS] release ok
+[PASS] 释放 free=2  actual=2 expected=2
+[PASS] 重复 release false
+[PASS] 空 track false
+[PASS] 未知 lane false
+[PASS] 方向不匹配 false
+[PASS] 未知 facility false
+[PASS] 未知 transponder false
+[PASS] 未知 permit false
+[PASS] 无 clearance occupy false
+[PASS] 未知 reject false
+[PASS] reject ok
+[PASS] 合法 facility/transponder 请求
+[PASS] flow VM JSON
+
+── 4. 窗口 / 容量排队 / NPC 占用 ──
+[PASS] 窗口内请求
+[PASS] 窗口关闭 false
+[PASS] window_closed reason  actual=window_closed expected=window_closed
+[PASS] next_window
+[PASS] 窗口重开请求
+[PASS] 容量测试 permit 1
+[PASS] 容量测试 occupy 1
+[PASS] 容量满 permit false
+[PASS] capacity_full reason  actual=capacity_full expected=capacity_full
+[PASS] queue_pos  actual=1 expected=1
+[PASS] 释放容量
+[PASS] 释放后 permit 成功
+[PASS] NPC 定时激活
+[PASS] LANE-L1 NPC 占用
+[PASS] lane occupancy 含 NPC
+[PASS] npc_occupy ok
+[PASS] 未知 NPC false
+[PASS] NPC 容量/重复 false
+[PASS] npc_release ok
+[PASS] 重复 npc_release false
+[PASS] 过期 clearance occupy false
+[PASS] NPC VM JSON
+
+── 5. 伪装 / 识破 / 线索 ──
+[PASS] 合法伪装可记录
+[PASS] disguise_id
+[PASS] probability
+[PASS] roll
+[PASS] 合法无异常  []
+[PASS] 未知 transponder 记录
+[PASS] transponder_anomaly
+[PASS] facility_mismatch
+[PASS] route mismatch
+[PASS] force detected
+[PASS] DETECTED 状态  actual=DETECTED expected=DETECTED
+[PASS] 识破线索
+[PASS] ghost_track clue
+[PASS] clue 需调查
+[PASS] clue 不产生 contact
+[PASS] clue 不写 V15
+[PASS] clue_id
+[PASS] clues_for track
+[PASS] clue by id
+[PASS] history 1
+[PASS] 历史不一致异常
+[PASS] records_for track
+[PASS] disguise lane_record
+[PASS] disguise VM JSON
+[PASS] 不写 world
+[PASS] 不写 V15
+
+── 6. save/load / JSON / 确定性 ──
+[PASS] save JSON
+[PASS] save schema
+[PASS] save version
+[PASS] save requests
+[PASS] save clues
+[PASS] load_state ok
+[PASS] load requests
+[PASS] load occupancies
+[PASS] load clues
+[PASS] load records
+[PASS] load t
+[PASS] loaded VM JSON
+[PASS] save 确定性
+[PASS] 拒绝快照: empty
+[PASS] 拒绝快照: bad json
+[PASS] 拒绝快照: bad schema
+[PASS] 拒绝快照: future
+[PASS] 拒绝快照: missing
+[PASS] 确定性 VM
+[PASS] summary JSON
+[PASS] 最终不写 world
+[PASS] 最终不写 TrackTable
+────────────────────────────────────────────────────────────────
+TRAFFIC CONTROL PROBE RESULT: PASS=396 FAIL=0
+TRAFFIC CONTROL PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/traffic_control_service.gd:1090)
+       [1] _test_save_load_json (res://tests/traffic_control_probe.gd:442)
+       [2] _initialize (res://tests/traffic_control_probe.gd:27)

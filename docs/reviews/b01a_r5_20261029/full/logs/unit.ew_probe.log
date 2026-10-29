@@ -1,0 +1,285 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+════════════════════════════════════════════════════════════════
+EW PROBE · 完整游戏-阶段3Q
+════════════════════════════════════════════════════════════════
+
+── 1. setup / apply ──
+[PASS] ready  []
+[PASS] setup 无错误
+[PASS] observer
+[PASS] targets
+[PASS] apply noise_jam
+[PASS] effect schema  actual=ew_effect.v1 expected=ew_effect.v1
+[PASS] effect type  actual=noise_jam expected=noise_jam
+[PASS] effect category  actual=radar expected=radar
+[PASS] source  actual=jammer-1 expected=jammer-1
+[PASS] target  actual=T1 expected=T1
+[PASS] band  actual=X expected=X
+[PASS] severity
+[PASS] duration
+[PASS] t_start
+[PASS] t_end
+[PASS] effect id  actual=EW-00001 expected=EW-00001
+[PASS] active
+[PASS] target_kinds
+[PASS] 不写 V15
+[PASS] active 1
+[PASS] active target
+[PASS] active 其他 target 空
+[PASS] ew_applied event
+[PASS] query active
+[PASS] query severity
+[PASS] query effects
+[PASS] query reason empty
+[PASS] query T2 no effect
+[PASS] query 非法类型 false
+[PASS] VM JSON
+[PASS] 不写 world
+[PASS] 不写 TrackTable
+[PASS] 不写 UI
+[PASS] 非法 effect false
+[PASS] 缺 source false
+[PASS] 非有限 duration false
+[PASS] 非法 duration false
+[PASS] 非法 payload false
+
+── 2. 十种效果类型 ──
+[PASS] apply noise_jam
+[PASS] effect type noise_jam
+[PASS] active noise_jam
+[PASS] target_kinds noise_jam
+[PASS] t_end noise_jam
+[PASS] decay 字段 noise_jam
+[PASS] 不写 V15 noise_jam
+[PASS] apply deception
+[PASS] effect type deception
+[PASS] active deception
+[PASS] target_kinds deception
+[PASS] t_end deception
+[PASS] decay 字段 deception
+[PASS] 不写 V15 deception
+[PASS] apply chaff
+[PASS] effect type chaff
+[PASS] active chaff
+[PASS] target_kinds chaff
+[PASS] t_end chaff
+[PASS] decay 字段 chaff
+[PASS] 不写 V15 chaff
+[PASS] apply false_target
+[PASS] effect type false_target
+[PASS] active false_target
+[PASS] target_kinds false_target
+[PASS] t_end false_target
+[PASS] decay 字段 false_target
+[PASS] 不写 V15 false_target
+[PASS] apply comms_jam
+[PASS] effect type comms_jam
+[PASS] active comms_jam
+[PASS] target_kinds comms_jam
+[PASS] t_end comms_jam
+[PASS] decay 字段 comms_jam
+[PASS] 不写 V15 comms_jam
+[PASS] apply comms_spoof
+[PASS] effect type comms_spoof
+[PASS] active comms_spoof
+[PASS] target_kinds comms_spoof
+[PASS] t_end comms_spoof
+[PASS] decay 字段 comms_spoof
+[PASS] 不写 V15 comms_spoof
+[PASS] apply emcon
+[PASS] effect type emcon
+[PASS] active emcon
+[PASS] target_kinds emcon
+[PASS] t_end emcon
+[PASS] decay 字段 emcon
+[PASS] 不写 V15 emcon
+[PASS] apply lwr
+[PASS] effect type lwr
+[PASS] active lwr
+[PASS] target_kinds lwr
+[PASS] t_end lwr
+[PASS] decay 字段 lwr
+[PASS] 不写 V15 lwr
+[PASS] apply laser_dazzle
+[PASS] effect type laser_dazzle
+[PASS] active laser_dazzle
+[PASS] target_kinds laser_dazzle
+[PASS] t_end laser_dazzle
+[PASS] decay 字段 laser_dazzle
+[PASS] 不写 V15 laser_dazzle
+[PASS] apply decoy
+[PASS] effect type decoy
+[PASS] active decoy
+[PASS] target_kinds decoy
+[PASS] t_end decoy
+[PASS] decay 字段 decoy
+[PASS] 不写 V15 decoy
+[PASS] 十种 effect 均 active
+[PASS] query noise_jam
+[PASS] query deception
+[PASS] query chaff
+[PASS] query false_target
+[PASS] query comms_jam
+[PASS] query comms_spoof
+[PASS] query emcon
+[PASS] query lwr
+[PASS] query laser_dazzle
+[PASS] query decoy
+[PASS] all effects VM JSON
+[PASS] counts by_type
+[PASS] counts active 10  actual=10 expected=10
+[PASS] 10 ew_applied events
+
+── 3. 持续时间 / 衰减 / 过期 ──
+[PASS] decay fixture
+[PASS] 初始 active  actual=1 expected=1
+[PASS] decay 0.6 @4s  0.6
+[PASS] age 4s
+[PASS] 未过期 active
+[PASS] decay 到 0 后移除
+[PASS] ew_expired event
+[PASS] active 0
+[PASS] duration 到期移除
+[PASS] expire 单个
+[PASS] 单个 expire 后空
+[PASS] 重复 expire false
+[PASS] expire all
+[PASS] expire all 2
+[PASS] expire all 后空
+[PASS] duration=0 下一步过期
+[PASS] emcon active
+[PASS] emcon 持久
+[PASS] duration VM JSON
+
+── 4. 观测/识别影响 ──
+[PASS] obs effect schema  actual=ew_observation_effect.v1 expected=ew_observation_effect.v1
+[PASS] jammed
+[PASS] 置信度降级
+[PASS] 干扰延迟
+[PASS] 无应答概率
+[PASS] 不产生 contact
+[PASS] 不写 TrackTable
+[PASS] 纯干扰无假观测
+[PASS] deception severity
+[PASS] chaff severity
+[PASS] false_target severity
+[PASS] 假观测候选
+[PASS] 假候选需确认
+[PASS] 假候选不产生 contact
+[PASS] 候选计数一致
+[PASS] candidate fake
+[PASS] candidate identity unknown
+[PASS] candidate 不产生 contact
+[PASS] candidate 不写 track
+[PASS] candidate_id
+[PASS] chaff obs
+[PASS] chaff 假观测
+[PASS] dazzled
+[PASS] dazzle severity
+[PASS] lwr alert
+[PASS] dazzle 置信度降级
+[PASS] emcon observation
+[PASS] decoy severity
+[PASS] decoy 假候选
+[PASS] T2 不受 T1 干扰
+[PASS] obs effect JSON
+[PASS] deception JSON
+
+── 5. 通信干扰 / spoof ──
+[PASS] comms schema  actual=ew_comms_effect.v1 expected=ew_comms_effect.v1
+[PASS] comms jammed
+[PASS] 通信延迟
+[PASS] 通信失败率
+[PASS] 通信不写 V15
+[PASS] spoofed
+[PASS] spoof text  actual=FRIENDLY REQUEST DOCK expected=FRIENDLY REQUEST DOCK
+[PASS] suspicious
+[PASS] spoof 需确认
+[PASS] 不自动执行
+[PASS] spoof event
+[PASS] spoof event 不自动执行
+[PASS] spoof event suspicious
+[PASS] spoof 不产生 contact
+[PASS] T2 无 comms jam
+[PASS] 无 jam
+[PASS] 无 spoof
+[PASS] comms JSON
+[PASS] spoof JSON
+
+── 6. 应答机 / EMCON ──
+[PASS] transponder schema  actual=ew_transponder_effect.v1 expected=ew_transponder_effect.v1
+[PASS] reply forged
+[PASS] transponder 置信度降级
+[PASS] transponder 需确认
+[PASS] 不判 hostile
+[PASS] identity unknown
+[PASS] 不产生 contact
+[PASS] 不写 V15
+[PASS] deception/chaff 应答置信度
+[PASS] set_emcon(true)
+[PASS] emcon on
+[PASS] emcon passive_ok
+[PASS] emcon_active
+[PASS] emcon radar effect
+[PASS] set_emcon(false)
+[PASS] emcon_active false
+[PASS] emcon off 移除效果
+[PASS] transponder JSON
+[PASS] emcon JSON
+
+── 7. GameSession 接入 ──
+[PASS] session boot  []
+[PASS] session ew_service ready
+[PASS] snapshot ew
+[PASS] session apply_ew
+[PASS] session ew_active
+[PASS] session observation effect
+[PASS] session tick
+[PASS] tick ew enabled
+[PASS] tick ew events
+[PASS] tick components ew
+[PASS] EW 事件总线
+[PASS] session set_ew_emcon
+[PASS] session emcon active
+[PASS] session comms effect
+[PASS] session transponder effect
+[PASS] 无配置退化
+[PASS] 无 ew apply false
+[PASS] 无 ew emcon false
+[PASS] 无 ew active 空
+
+── 8. save/load / JSON / 确定性 ──
+[PASS] save JSON
+[PASS] save schema
+[PASS] save version
+[PASS] save effects
+[PASS] load ok
+[PASS] load effects count
+[PASS] load t
+[PASS] load emcon
+[PASS] load active
+[PASS] load observation effect
+[PASS] loaded VM JSON
+[PASS] save 确定性
+[PASS] 拒绝快照: empty
+[PASS] 拒绝快照: bad json
+[PASS] 拒绝快照: bad schema
+[PASS] 拒绝快照: future
+[PASS] 拒绝快照: old
+[PASS] 拒绝快照: no effects
+[PASS] 确定性 VM
+[PASS] summary JSON
+[PASS] 不写 world
+────────────────────────────────────────────────────────────────
+EW PROBE RESULT: PASS=252 FAIL=0
+EW PROBE OK
+AUDIO OK files=36 headless=true muted=false
+
+--- STDERR ---
+ERROR: Parse JSON failed. Error at line 0: Expected key
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] load_state (res://scripts/core/ew_service.gd:507)
+       [1] _test_save_load_json (res://tests/ew_probe.gd:456)
+       [2] _initialize (res://tests/ew_probe.gd:30)
