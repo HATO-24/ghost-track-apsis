@@ -1,3 +1,5 @@
+> **最新用户确认优先**：见[用户确认与后续执行](JC-B03P_用户确认与后续执行_20261029.md)。11舰中的3艘作战舰自由选炮/导组合（3:0、2:1、1:2、0:3）；原固定FERRY/ANVIL/VESUVIUS、D1–D3底池表为旧示例。APSIS首版战区后方、暂不冻结点数、M0无全局硬限已获用户确认；弹种拓展后延。下列待核对参数按该记录更新理解，其余数值未自动获批。
+
 # JC-B03P R10：ID13 满编核对、自由分组、时间预算与待核对参数表
 
 > 卡：JC-B03P [#63](https://github.com/HATO-24/ghost-track-apsis/issues/63)。本文件与 [P0-r10-1 提案](../../../game_v17/docs/contracts/jc_sector_01_proposal.md) 配套，按 Sol R10 交接执行。
