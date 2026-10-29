@@ -1,3 +1,5 @@
+> **历史文档（2026-10-29 R10 起已被取代）**：本 R9 表中的 45 点/3 舰/SENSOR/STRIKE/固定 HEMATITE 旗舰已被用户否定并暂停；不得据此迁移正式 fixture/K0/运行层。当前主案见 [`JC-B03P_scenario_proposal.md`](JC-B03P_scenario_proposal.md) 的 [P0-r10-1](../../../game_v17/docs/contracts/jc_sector_01_proposal.md) 与 [R10 对照表](JC-B03P_R10_review_tables.md)。R9-1..R9-4 的物理压制/OBJ-B 双链/truth-report/评价语义保留。
+
 # JC-B03P R9：两套策略/成本对照、纸面轨迹与待核对参数表
 
 > 卡：JC-B03P [#63](https://github.com/HATO-24/ghost-track-apsis/issues/63)。本文件是 R9 的对照表与待决定表，与 [P0-r9-1 提案](../../../game_v17/docs/contracts/jc_sector_01_proposal.md) 配套。
