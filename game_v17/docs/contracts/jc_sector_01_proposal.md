@@ -1,229 +1,264 @@
-# JC-B03P：阶段性战区行动内容提案（P0-r7-1 · 当前主案 · 待用户核对）
+# JC-B03P：阶段性战区行动内容提案（P0-r9-1 · 当前主案 · 待用户核对）
 
-> 卡：#63 · 设计起点 C55 = `30b8d33dae9787aadf89bb206757cafb2cad7bd3`
-> 状态：**提案，不是正典**。未获用户核对前不得作为默认剧情或默认胜利条件。
-> 机器可校验内容：`game_v17/tests/fixtures/jc_scenario/jc_sector_01_proposal.json`（schema `v17.jc.scenario_spec.v3`）
-> 校验探针：`integration.jc_scenario_spec`（`game_v17/tests/jc_scenario_spec_probe.gd`，当前 247/0）
-> 契约依赖：K0 见 `docs/contracts/joint_campaign_r2.md`（JC-B00）
-> 实现依赖：B1b（逐舰战斗账本）、B2（AI 协同）、B3a（目标运行层/裁决）、B3b（简报/战报）
+> 卡：JC-B03P [#63](https://github.com/HATO-24/ghost-track-apsis/issues/63)。本轮执行 R9，依据 [Astra 2026-10-29 评审](https://github.com/HATO-24/ghost-track-apsis/blob/05aaf861aa8c0913cb9d139c7771d94732d27698/docs/reviews/product_review_20261029/Astra_产品玩法与复古终端评审.md) 与 [Sol 玩法修订稿](https://github.com/HATO-24/ghost-track-apsis/blob/05aaf861aa8c0913cb9d139c7771d94732d27698/docs/reviews/product_review_20261029/sol/玩法决策与节奏修订提案.md)，以及 [R9 任务卡](https://github.com/HATO-24/ghost-track-apsis/blob/05aaf861aa8c0913cb9d139c7771d94732d27698/docs/tasks/joint_campaign/JC-B03P_scenario_proposal.md)。
 >
-> **本文档是唯一当前主案**。旧 62/70 点与 APOGEE 旗舰方案已废弃并移入文末「附录 A 历史方案」，
-> 仅存档对照，不再具有效力。
+> **状态：提案文档，不是正典，也未获产品批准。** 本轮只修改提案文档、对照表与待核对参数表；**未修改正式 fixture、probe、运行层或 AI**。具体数值在用户核对前不生效。
+>
+> 文档基线：`main` = `4e75897ed32f8245f35c5ec584f0ec912ec919c6`（不含 D1；获审 D1 候选为 `b7b1728b9aeec48223b291570ddc8ac7d6f731a7`，PR #75 待合并）。本文件与对照表的最终提交 SHA 由交付 PR/回执记录；文中类 ID、武器 ID 均来自该基线的正式 content。
+>
+> 机器可校验内容**暂未改动**：`game_v17/tests/fixtures/jc_scenario/jc_sector_01_proposal.json`（schema `v17.jc.scenario_spec.v3`，`P0-r7-1`）与 `integration.jc_scenario_spec`（当前 247/0）仍是旧提案；迁移清单见 [R9 对照与待核对表](../../../docs/tasks/joint_campaign/JC-B03P_R9_review_tables.md)。
 
-## 1. 三类信息分开列
+## 1. 本版改了什么（R9）
+
+| 项 | 旧提案（R7/R8，已不适用于新数值） | P0-r9-1 修订 | 依据 | 状态 |
+|---|---|---|---|---|
+| 预算/容量 | 100 点 / 3 舰；池内最贵 20 点，即使选满 3 艘最贵舰也仅 60 点，预算从不生效 | **45 点 / 3 舰**；保留 `round(displacement_t/60)`，用真实组合证明预算与容量各自约束 | Astra §2.1；真实 catalog 排水量 | 待产品核对；**未改 fixture** |
+| 两套编制 | SENSOR 30 / STRIKE 55（双 HEMATITE + GANTRY） | 主案 `FORM-SENSOR` **30**（HEMATITE + 2×PALLET）；备选 `FORM-STRIKE` **45**（2×HEMATITE + PALLET）；另列合法混合组合证明取舍 | 真实舰级能力/点数；两套均含 HEMATITE 旗舰 | 待产品核对 |
+| 友军 | 2 艘无武装（PALLET + SAFEHARBOR），只做侦察/中继/撤离 | **3 艘有限武装独立友军**：PALLET 侦察 + SAFEHARBOR 中继 + **HEMATITE 武装护航**；独立任务、可拒绝、一次有限火力任务 | Astra §2.2；catalog 中 HEMATITE 实有 railgun/PD | 舰数/舰型/火力额度待核对；不向无武装舰加武器 |
+| 结算 | 友军自主完成全部目标 → `stalemate` | **撤销该口径。** 权威目标全部达成即如实为 `victory`；玩家参与不足另列 `command_evaluation` 与战报，不把已完成目标改名为僵局 | Astra §2.3 | 规则提案；运行层未实现 |
+| 目标对象 | I-OP2 使用 `33OSID-REQUISITION` 却写“organic fire control”；该级无主炮，仅 PD/EW/boarding | 主案 I-OP2 改用 `33OSID-INTERDICT`（导弹 VLS、railgun-L、PD、EW，存在真实射击火控）；REQUISITION 方案列备选并标明能力不符风险 | 真实 `ships_enemy.json` | 待产品核对；平衡未测 |
+| 目标 C | `33OSID-SUMMONS` 被称 command node，但 catalog 无舰队指挥传感器 | 明确其“前哨指挥/中继 aviso”是**场景角色指派**，不是 catalog 传感器自证；永久失能依赖 A03/A04 + B1b，临时断链不计 | 真实 catalog + A03/A04 依赖 | 待核对；依赖未实现 |
+| 节奏 | 3600 模拟秒被当作已定战役长度 | 保留 3600 s 为**提案**；30–45 分钟是玩法试验目标，不是已测时长/留存承诺 | Astra §3.1；Sol §4 | 待试玩与产品核对 |
+
+## 2. 三类信息分开列
 
 | 类别 | 内容 |
 |---|---|
-| **用户已确认** | 阶段性战区行动（不宣告整个第33舰队去军事化）；自有舰队直控＋独立 AI 友军协同请求；有限弹药/燃料、正常授权、不完整且有延迟的情报；战役内存档 |
-| **本提案建议（待核对）** | 战区命名与架空日期；点数预算 100 / 指挥容量 3；两套编制 **FORM-SENSOR 30 点** / **FORM-STRIKE 55 点**；旗舰按编制内占位（HEMATITE，20 点）；敌方 3 个军事单位；3 必需目标 + 2 保护目标；时限 3600 s；五种终态；同 tick 优先级 `defeat > victory > withdrawal > stalemate` |
-| **仍待用户选择** | 战区名称与年月、参战单位命名、点数公式与预算、编制具体舰型、目标对象与失能阈值、结算口径（含零完成→defeat）、友军自主完成时按 stalemate 推荐是否认可 |
+| **用户已确认** | 阶段性战区行动（不宣告整个第33舰队去军事化）；自有舰队直控 + 独立 AI 友军协同请求；有限弹药/燃料、正常授权、不完整且有延迟的情报；战役内存档 |
+| **本提案建议（全部待核对）** | 预算 45 / 容量 3；主案 SENSOR 30 / 备选 STRIKE 45；有限武装友军 3 舰（PALLET + SAFEHARBOR + HEMATITE）；I-OP2 改用 INTERDICT；3 必需目标 + 2 保护目标；3600 s 提案时限；五终态 + `pending_report`；真实战区结果与 `command_evaluation` 分离 |
+| **仍待用户选择** | 战区名称/架空年月/单位命名；点数公式与预算/容量；两套编制的具体舰型与旗舰规则；友军舰数/舰级/火力任务额度；I-OP2 是否接受更重的 INTERDICT（或退回 REQUISITION 并改目标语义）；目标对象/失能阈值/证据；时限与终态口径；指挥评价阈值；全部数值是否要按试玩再调 |
 
-## 2. 战区与时间
+## 3. 真实 catalog 绑定与能力
 
-| 项 | 提案值 | 说明 |
+来源：`game_v17/framework/content/ships_friendly.json`、`ships_enemy.json`、`weapons_l1.json`（基线 main `4e75897`）。`APSIS`/`HARMATTAN` 等是**命名舰实例**，不是 `ship_class_id`；本场景继续使用**虚构实例** `I-A1`、`I-P1` 等，不覆盖既有命名映射。
+
+### 3.1 舰级（catalog 事实字段）
+
+| 舰级 | 角色 | 排水量 | 点数* | Δv km/s | 加速度 g | 乘员 | 传感器（catalog 名称） | 武器（catalog 名称） |
+|---|---|---:|---:|---:|---:|---:|---|---|
+| `OCUVF-PALLET-5C` | picket | 300 t | 5 | 2.54 | 0.15 | 12 | YW-R9, MS-OT2, CH-IR2, ELINT, CH-R0 | **[]** |
+| `OCUVF-SAFEHARBOR-1` | relay | 500 t | 8 | 1.97 | 0.12 | 30 | MS-L2, ELINT_array, CH-R0 | **[]** |
+| `OCUVF-GANTRY-3M` | missile | 900 t | 15 | 3.80 | 0.08 | 24 | basic_fire_control, CH-R0 | missile_48_cell, point_defense |
+| `OCUVF-HEMATITE-6C` | gun | 1200 t | 20 | 3.15 | 0.10 | 68 | LR-4, CH-IR2, CH-R0 | railgun, point_defense |
+| `OCUVF-APOGEE` | depot | 9000 t | 150 | 3.15 | 0.02 | 240 | fleet_command, repair_docks, comms | [] |
+
+\* 点数公式本轮仍为提案 `round(displacement_t / 60)`；不是已批准定价。APOGEE 仅作历史/对照，150 点超任何本轮预算，不作为旗舰。
+
+### 3.2 武器（`weapons_l1.json` 事实；用于说明代价，不是平衡结论）
+
+| 武器 | 关键事实 | 与舰级/提案的关系 |
 |---|---|---|
-| `scenario_id` | `jc_sector_01` | 独立架空模拟场景，复用既有舰型资产 |
-| 战区 | EML1-外侧 / 第33舰队前沿哨区 | 命名待用户核定 |
-| 架空日期 | `2193-04-11T08:00:00Z` | 仅记录历元；模拟时间用秒，UTC 不混进 tick |
-| 时限 | 3600 s | 提案值 |
-| story 依赖 | `story_independent: true` | 主线暂停，但战役裁决照常运行 |
+| `railgun` | 120 发、1200 km、6 s 冷却、4 s 解算、0.82 精度、0.35 伤害、弹道、不可拦截 | HEMATITE 主炮；两门 = 240 发；火力任务弹药消耗待 B1b/B4 实测 |
+| `point_defense` | 80 发、180 km、2 s 冷却、0.65 拦截、自动 | HEMATITE/GANTRY 防御层；别名与 `weapons_l1` 的 `pd` 映射待 B1b |
+| `missile` | 8 发/发射位、6000 km、20 s 冷却、10 s 解算、0.9 精度、0.55 伤害、可拦截、salvo_max 4 | GANTRY 的 `missile_48_cell` 是 catalog 名称，`weapons_l1` 条目为 `missile`；**别名/48 单元装填映射未实现，待 B1b** |
 
-## 3. 真实 catalog 绑定（舰级不是自造字符串）
+传感器型号在 catalog 中是能力标签；基线的统一 sensor range 表未在本卡取证，故本文**不写**未获证的探测距离。实际质量/时效/距离由 B1b/B4 运行验证。
 
-- 友军：`res://framework/content/ships_friendly.json`；敌方：`ships_enemy.json`。
-- `APSIS` / `HARMATTAN` **不是** `ship_class_id`，不能自证合法；探针会读取 catalog 逐一校验。
-- **R8 归一**：本场景使用**新的虚构实例**（`instance_bindings`：`I-A1 → OCUVF-HEMATITE-6C`、
-  `I-P1 → OCUVF-PALLET-5C`，均标 `fictional=true`），**不覆盖**既有命名舰映射
-  （目录原义 `apsis→APOGEE`、`harmattan→PALLET` 保持不变；本场景 `entity_bindings` 为空）。
+## 4. 舰池、预算、容量与两套方案
 
-## 4. 舰池、预算、容量与旗舰（已自洽）
+- **点数公式（提案）**：`round(displacement_t / 60)`；**预算 45**；**指挥容量 3**；点数与容量是两把不同的锁。
+- 池内数量沿用提案：PALLET ×4、HEMATITE ×3、GANTRY ×2、SAFEHARBOR ×1；允许重复选取。
+- **旗舰**：`I-A1` = HEMATITE（20 点），`deployment_rule = in_formation`，计入编制与容量，不额外部署；两套预设均含 HEMATITE，保证保护目标 `PROT-2` 有绑定实体。
 
-点数公式：`round(displacement_t / 60)`（提案，可调）；预算 **100**；指挥容量 **3**。
+### 4.1 两套方案（主案 + 至多一备选）
 
-| 舰级 | 角色 | 排水量 | 点数 |
+| | **主案 `FORM-SENSOR`（侦察引导）** | **备选 `FORM-STRIKE`（双击突击）** |
+|---|---|---|
+| 舰型 | HEMATITE + PALLET + PALLET | HEMATITE + HEMATITE + PALLET |
+| 点数 / 容量 | **30 / 3** | **45 / 3** |
+| 火力 | 1× railgun（120 发）+ PD | 2× railgun（240 发）+ 2× PD |
+| 传感/情报 | 2× PALLET（ELINT/YW-R9/MS-OT2/IR）+ HEMATITE LR-4/IR | 1× PALLET + HEMATITE LR-4/IR；侦察平台更少 |
+| 战术 | 先建立远距/被动观测，等可靠解算与友军情报，再进入 railgun 窗口；减少盲打与暴露 | 以双主炮更早承诺火力窗口，依赖 PALLET/友军提供定位；弹药/暴露/损伤压力更大 |
+| 主要代价 | 只有一门主炮，击杀节奏慢；若敌压迫近，火力不足；更依赖友军/时机 | 预算打满，无法再带中继/第二侦察；探测与链路短板更明显；两门炮会更快消耗弹药 |
+| 失败模式 | 观测够但火力窗口不足 → 超时或撤离；被敌 EW/导弹逼退 | 定位不足导致盲打/错过窗口；弹药与损伤先耗尽 → 撤离/失败 |
+| 后续验证 | 同一场景下，首次可靠情报、弹药消耗、请求友军次数、敌反应是否与 STRIKE 不同 | 是否能完成同一目标；是否有不同的失败模式；是否仍存在早打/等待/请求协同的选择 |
+
+两套都只是**纸面可行**；不声称已试玩或平衡。后续真实运行必须验证“互不支配”和不同失败模式。
+
+### 4.2 预算与容量各自约束什么（不再是空预算）
+
+| 组合 | 点数 | ≤45？ | ≤3 舰？ | 说明 |
+|---|---:|---|---|---|
+| 2×HEMATITE + GANTRY | 55 | **否** | 是 | 满火力三舰非法；预算阻止“双主炮 + 导弹” |
+| 2×HEMATITE + SAFEHARBOR | 48 | **否** | 是 | 双主炮 + 中继非法；要中继必须牺牲第二门炮 |
+| 2×HEMATITE + PALLET | 45 | 是 | 是 | **STRIKE**：第三格只能买侦察，不能再买导弹/中继 |
+| HEMATITE + GANTRY + PALLET | 40 | 是 | 是 | 合法混合例：导弹远火 + 单炮 + 侦察；导弹/侦察取代第二门炮 |
+| HEMATITE + GANTRY + SAFEHARBOR | 43 | 是 | 是 | 合法混合例：导弹 + 中继，无专用侦察 |
+| HEMATITE + 2×PALLET | 30 | 是 | 是 | **SENSOR**：把预算换成两套侦察；火力最低 |
+| 任意 4 舰 | — | — | **否** | 容量 3 阻止靠堆小舰补能力 |
+
+结论（提案论证，不是批准结论）：**容量 3** 限制舰数；**预算 45** 限制“第三格买什么”，并排除 55 点的满火力三舰和 48 点的双炮+中继。两把锁共同逼出 SENSOR / STRIKE / 混合取舍。45 的取值为“双主炮+侦察恰好可负担、双主炮+导弹/中继不可负担”的边界值，仍需试玩后核对；不是按进度条任意定价。
+
+## 5. 友军：有限武装、独立任务、可拒绝
+
+`F-ALLY-1`（域 `ally`，**不由玩家直控**）：
+
+| 舰级 | 任务角色 | 能力事实 | 成本/依赖 |
 |---|---|---|---|
-| `OCUVF-PALLET-5C` | picket | 300 t | 5 |
-| `OCUVF-HEMATITE-6C` | gun | 1200 t | 20 |
-| `OCUVF-GANTRY-3M` | missile | 900 t | 15 |
-| `OCUVF-SAFEHARBOR-1` | relay | 500 t | 8 |
+| PALLET | 前出侦察/ELINT | 无武器；ELINT/YW-R9/MS-OT2/IR 传感器 | +1 实体；B2 AI 侦察任务、链路与情报共享 |
+| SAFEHARBOR | 中继/撤离保障 | 无武器；MS-L2/ELINT_array | +1 实体；链路、延迟、失联处理 |
+| **HEMATITE** | **有限火力护航** | railgun（120 发）+ PD；无导弹、无 EW、无 boarding | 相对旧 2 舰友军 **+1 实体、+1 独立 AI actor、+2 武器系统**；弹药/燃料/损伤账本依赖 B1b，AI 决策依赖 B2，规模/帧成本待 B4 |
 
-| 编制 | 角色 | 舰型组合 | 点数 | 舰数 |
+- **独立任务**：走廊护航 + 保护民用中继 `SECTOR-RELAY-CIV`（与玩家保护目标部分重叠，但友军按自己的任务与 ROE 行动）。友军不因玩家请求取消自己的护航职责。
+- **可请求行动**：`OBSERVE`（侦察/ELINT）、`RELAY`（中继/链路）、`ESCORT_WITHDRAW`（撤离掩护）、`SUPPRESS`（**一次**有限火力任务，只打一个指定军事目标，railgun，不提供永久失能判定）。
+- **`SUPPRESS` 提案额度**：每场至多 1 次、至多 24 发 railgun、窗口 ≤120 s（均为**待核对提案**）；效果是迫使目标机动/开启 PD/降级火控解算，为玩家创造窗口，**不直接完成必需目标**；是否将友军命中计入玩家贡献由 B1b 账本与贡献规则决定，当前只写语义。
+- **拒绝/受限原因（明确、可解释，不随机）**：`ALLY_TASK_CONFLICT`（护航/民用中继受威胁）、`CIVILIAN_RISK`、`OUT_OF_RANGE`、`LINK_LOST`、`AMMO_RESERVE`、`DAMAGE_LIMIT`、`ROE_DENIED`、`BUSY`。拒绝时玩家仍有直控替代路线（自己打/换目标/等待/撤离）。
+- **不暗加武器**：PALLET/SAFEHARBOR catalog `weapons=[]` 保持不变；不把 HEMATITE 的武器复制给它们。
+- **若规模实测不允许 3 舰**：备选 `PALLET + HEMATITE`（有侦察、无中继）或 `SAFEHARBOR + HEMATITE`（有中继、无侦察）；失去的能力与请求种类明确列出，不把两舰方案伪装成同样能力。
+
+## 6. 敌方、目标与保护
+
+### 6.1 敌方（真实 catalog）
+
+| 单位 | 舰级 | 真实能力 | 场景职责 | 备注 |
 |---|---|---|---|---|
-| `FORM-SENSOR` | 传感型 | HEMATITE + PALLET + PALLET | **30** | 3 |
-| `FORM-STRIKE` | 突击型 | HEMATITE + HEMATITE + GANTRY | **55** | 3 |
+| `I-OP1` | `33OSID-RECOURSE`（destroyer） | UEG-RAILGUN-L、PD、EW jammer；UEG 传感器族 | 前沿守卫/主炮火力 | 目标 A |
+| `I-OP2` | `33OSID-INTERDICT`（light cruiser） | UEG-MISSILE-VLS-8、UEG-RAILGUN-L、PD、EW；16 000 t | 区域防空/导弹火力 | **提案改用**；REQUISITION 无主炮，不能诚实称“organic fire control”，仅作备选 |
+| `I-OP-C2` | `33OSID-SUMMONS`（aviso） | PD、UEG-ELINT/IFF；无舰队指挥传感器 | **场景指派**的前哨指挥/中继节点 | 目标 C；角色依赖场景，不冒充 catalog 能力 |
 
-**旗舰**：`own_flag.entity_instance_id = I-A1`，舰级 `OCUVF-HEMATITE-6C`（20 点），
-`deployment_rule = in_formation` —— **计入编制点数与指挥容量，不额外部署**；
-两套编制都包含该舰级，保证任一选择都有旗舰。旧方案用 APOGEE（9000 t → 150 点）超预算，
-已废弃（见附录 A）。
+- 行为提案：守卫（standoff）→ 被发现/进入目标包线后攻击 → 火控永久失能或任务不可持续时撤退；`I-OP-C2` 保持距离、维持中继/EW，护卫失能后试图脱离。**无 respawn/无脚本波次**；压迫来自真实武器、EW、导弹与时间。
+- 敌方攻击/撤退的具体阈值、ROE、导弹/干扰弹量均为待核对参数；本轮无 AI 实现。
 
-### 4.1 预设 vs 自由编制（R8/P0-2）
+### 6.2 目标（真实属性 + 明确依赖）
 
-- 上表两套是**推荐预设，不是唯一选择**：产品允许在池内**自由组合**；
-- 池内可用数量：PALLET ×4、HEMATITE ×3、GANTRY ×2、SAFEHARBOR ×1；允许重复选取；
-- 自由组合约束：`sum(points) ≤ 100`、`ships ≤ 3`、**必须包含旗舰舰级**（HEMATITE）；
-- 玩家可在合法池内任选一舰作旗舰，但必须与 `PROT-2` 绑定的 `I-A1` 一致；
-  **不擅自替用户选定产品旗舰**；
-- 本节不要求本轮完成编辑器/部署 UI。
+| 目标 | 对象 | 军事属性 | 完成条件（永久） | 子机制/替代 | 玩家可见 |
+|---|---|---|---|---|---|
+| `OBJ-A` | I-OP1 | railgun/PD 火控 | railgun 火控段不可恢复失能 | B1b 逐舰损伤账本（未实现）；替代：临时压制**不计永久** | 权威失能 + 报告延迟后显示 |
+| `OBJ-B` | I-OP2 | 导弹/railgun 火控 | 同上 | 同上；友军 `SUPPRESS` 只创造窗口，不直接完成 | 同上 |
+| `OBJ-C` | I-OP-C2 | 场景指派指挥/中继节点 | 无法继续指挥/中继战区部队（永久） | 依赖 A03/A04 EW+Comms + B1b；替代：断链 ≥300 s 仅临时，不计永久 | 同上；未知时不显示名称/坐标/损伤 |
 
-## 5. 友军：无武装，只能侦察/中继/协助撤离
+- `OBJ-C` **仅玩家直控可计贡献**（友军可中继情报/侦察，但不能永久打掉指挥节点）；这给玩家独有职责，但不改变“真实战果”原则。
+- 任务对象仍能战斗、只是通讯中断/EW 干扰 → **不计失能**；目标撤退但未失能 → 不完成；民用设施不得作攻击/胜利对象。
 
-`F-ALLY-1`（域 `ally`）：`OCUVF-PALLET-5C` + `OCUVF-SAFEHARBOR-1`。
-两个舰级在 catalog 中 **`weapons = []`**，因此：
+### 6.3 保护目标
 
-- `capability = unarmed_recon_relay_withdraw`；
-- 三类请求只写**侦察 / 中继 / 协助撤离**，回执**不得**出现「射击位 / 拦截 / 火控失能」；
-- 探针直接读 catalog 的 `weapons` 并断言回执无开火表述（负例变体 5 覆盖）。
+| 目标 | 绑定 | 约束 | 损失后果 |
+|---|---|---|---|
+| `PROT-1` | `SECTOR-RELAY-CIV` | 玩家不得攻击；友军护航任务也保护它 | 被毁 → 本场 `defeat` |
+| `PROT-2` | `I-A1` 旗舰 | 旗舰丧失 → 失败 | `defeat` |
 
-## 6. 敌方与目标
+## 7. 终态、真实战区结果与指挥评价
 
-| 目标 | 对象 | 舰级 | 军事属性 | 完成条件 | 本场可恢复 | 贡献口径 |
+### 7.1 终态（不再用玩家参与度改写战区结果）
+
+| 条件 | 终态 |
+|---|---|
+| 三个必需目标全部**永久**失能 | **victory**（无论谁造成，权威世界结果如实记录） |
+| 旗舰丧失 / 受保护民用被毁 / 时限到达且零完成 | **defeat** |
+| 玩家主动撤离且目标未全部完成 | **withdrawal** |
+| 时限到达且完成 1–2 个必需目标 | **stalemate** |
+| 权威已达成但报告未回 | 权威 `victory`；玩家视图 `pending_report`/unknown，**不重复结算** |
+
+- 同 tick 优先级：`defeat > victory > withdrawal > stalemate`；同一 tick 只结算一次；重复/迟到/读档不重复裁决。
+- 撤销旧 `contribution_exception`（“全友军完成→stalemate”）与 `ai_cannot_win_alone`；友军如果真实完成目标，战区结果就是完成。若玩家无贡献，另列 `command_evaluation = 未参与` 并在战报中说明。
+
+### 7.2 玩家贡献与指挥评价（与战区结果分开）
+
+| 评价（提案阈值，待核对） | 条件 |
+|---|---|
+| `主导` | 玩家直接/授权贡献 ≥2/3 必需目标，旗舰存活，无民用损失 |
+| `有效协同` | ≥1 目标有玩家直接或授权贡献，且 ≥1 次友军请求真实执行并改变条件 |
+| `有限参与` | 玩家有命令/请求但无目标贡献 |
+| `未参与` | 无玩家命令/请求且无目标贡献 |
+
+- `objective_credit`：玩家直控造成或玩家授权且友军执行成功的请求可计玩家贡献；友军自主造成 → 仅友军贡献。
+- 战区结果字段与 `command_evaluation` 分开；战报同时显示权威结果、玩家视图、各目标贡献、友军行动、未确认报告。
+- 防挂机不靠改名：依赖友军独立任务/有限火力、`OBJ-C` 玩家独有职责、敌方压迫与保护目标；“不操作”对照见 §9 纸面轨迹；真实实现后用 B3/B4 验证。
+
+## 8. 玩家决策循环（问题 → 行动 → 情报 → 代价 → 结果 → 反馈）
+
+| 环节 | 玩家要解决的问题 | 可选行动 | 情报 | 代价 | 结果 | 反馈 |
 |---|---|---|---|---|---|---|
-| `OBJ-A` | `I-OP1` | `33OSID-RECOURSE` | organic_fire_control | 火控失能且不可恢复 | 否 | 玩家直控或授权友军请求 |
-| `OBJ-B` | `I-OP2` | `33OSID-REQUISITION` | organic_fire_control | 同上 | 否 | 同上 |
-| `OBJ-C` | `I-OP-C2` | `33OSID-SUMMONS` | command_node | 无法继续指挥战区部队 | 否 | 仅玩家直控 |
+| 简报/组舰 | 三个军事目标与两个保护对象，如何分工 | 选 SENSOR / STRIKE / 合法混合；分配旗舰与第三格 | catalog 能力、任务摘要、估计威胁 | 点数/容量、失去的能力、弹药基数 | 合法编制/非法拒绝原因 | 缺什么能力、为何受限、预期风险 |
+| 首次探测 | 主动探测暴露，还是静默/请求友军观测 | 开雷达、被动 IR/ELINT、请求 `OBSERVE` | 初始仅有旧/不完整航迹；未知目标不显示真值 | 暴露、时间、友军延迟/拒绝 | 新航迹/质量/年龄；敌反应 | 来源、观测时刻、时效、未知/过期 |
+| 协同承诺 | 自己突破，还是请求牵制/掩护/撤离 | `SUPPRESS` / `ESCORT_WITHDRAW` / `RELAY` | 友军任务、弹药、链路、ROE、距离 | 请求延迟、友军资源、被拒风险 | 接受/拒绝/执行中/完成/失联/受损 | 状态、原因码、ETA、执行证据 |
+| 交战/调整 | 现在消耗弹药/Δv，还是等可靠解算/窗口 | 早打、等待、位置机动、换目标 | 火控质量、弹药、Δv、敌 PD/EW | 弹药、燃料、暴露、损伤 | 命中/未命中/失能；敌压力变化 | 可解释的命中/未中原因（只用已知证据） |
+| 撤离/结算 | 继续完成目标还是止损 | 继续、主动撤离、接受时限 | 目标完成、保护状态、剩余资源 | 损失、未完成目标 | 权威终态 + 指挥评价 | 战报：结果/贡献/友军/报告时效；不伪装 |
 
-每目标都给出 `disable_mechanism` + `mechanism_dependency` + `mechanism_alternative`：
-例如 OBJ-A 依赖 B1b 逐舰损伤账本（未实现），替代口径为「火力压制累计判定临时失能」——
-**临时失能可本场恢复，不计永久失能**。
+## 9. 纸面轨迹（内容逻辑，非真实战报/AI 证据）
 
-## 7. 保护目标（绑定实体 + 损失后果）
+详细时间线见 [R9 对照与待核对表](../../../docs/tasks/joint_campaign/JC-B03P_R9_review_tables.md) §6；这里只列唯一预期：
 
-| 目标 | 绑定实体 | 约束 | 损失后果 |
-|---|---|---|---|
-| `PROT-1` | `SECTOR-RELAY-CIV` | 玩家**不得**攻击民用中继 | 被毁 → 本场 **defeat** |
-| `PROT-2` | `I-A1`（旗舰） | — | 旗舰丧失 → **defeat** |
+| 轨迹 | 剧本 | 唯一预期终态 | 玩家贡献 | 指挥评价 |
+|---|---|---|---|---|
+| `PT-01` 正常/SENSOR | 侦察建图 → 请求侦察/中继 → 窗口内 railgun 打 A/B → 直控 C | `victory` | A/B/C 玩家直接 | `主导` |
+| `PT-02` 正常/STRIKE | 双炮快速窗口，依赖友军定位；A/B 更快但弹药/暴露更高 → C | `victory`（代价更高） | A/B/C 玩家直接 | `主导` |
+| `PT-03` 不操作 | 无命令/无请求；友军只护航；敌方发现并压迫直至旗舰丧失/超时零完成 | `defeat` | 无 | `未参与` |
+| `PT-04` 不请求友军 | 单独推进；无侦察/压制/中继；损伤/时间压力下主动撤离 | `withdrawal`（2/3 完成） | A/B 玩家直接 | `主导`/`有效协同`待核对 |
+| `PT-05` 友军拒绝/受限 | `SUPPRESS` 因 `ALLY_TASK_CONFLICT` 拒绝；玩家换混合火力/等待导致 B 超时 | `stalemate`（1–2 完成） | 部分 | `有限参与` |
+| `PT-06` 合成全友军（反事实） | 仅用于内容逻辑：友军完成 A/B（C 仍玩家专属） | 若三目标真实完成则 `victory`；当前友军能力**不能**达到三目标 | 无 | `未参与` |
 
-平民/民用设施明确不得作为攻击或胜利条件。
+`PT-06` 标注“合成/反事实防御测试”，不得当作当前 AI 战报；`PT-03` 是防挂机的纸面验证，不是运行时证据。
 
-## 8. 终态规则（含同 tick 优先级）
+## 10. 简报/回执/战报：只交语义字段
 
-| 条件 | 终态 |
-|---|---|
-| 三个必需目标全部完成 | **victory** |
-| 旗舰丧失 / 受保护民用被毁 / **时限到达且零完成** | **defeat** |
-| 玩家主动撤离且目标未达成 | **withdrawal** |
-| 时限到达且完成 1~2 个 | **stalemate** |
-| 已失能但报告未返回 | **pending_report**（玩家视图 unknown） |
+成品措辞由 Sol 统稿；以下只定义字段与技术样例，避免把提案文案当正式文本。
 
-- `timeout_never_yields_victory = true`；
-- **同 tick 优先级**：`defeat > victory > withdrawal > stalemate`，同一 tick 只结算一次。
-  例：`TR-CIVILIAN-LOSS-SAME-TICK-WITHDRAW` —— 同 tick 民用损失 + 撤离完成 → **defeat**
-  （修复前校验按事件顺序覆盖成 withdrawal，属规格矛盾，已修正）；
-- 零完成只在**时限到达**时判 defeat；主动撤离不算零完成失败；
-- 每条轨迹有唯一 `decision_id`；重复裁决幂等（两个裁决事件只结算一次）。
+### 10.1 简报字段
 
-### 8.1 贡献例外写进规则表（R8/P0-3）
-
-| 条件 | 终态 |
-|---|---|
-| 三个必需目标全部完成 **且玩家有直控/授权贡献** | victory |
-| 三个必需目标**全部由友军自主完成**（玩家无贡献） | **stalemate（贡献例外，推荐口径）** |
-| 旗舰丧失 / 受保护民用被毁 / 时限到达且零完成 | defeat |
-| 玩家主动撤离 | withdrawal |
-| 时限到达且完成 1~2 个 | stalemate |
-
-`terminal_rules.victory.exception` 与 `contribution_exception` 字段已写入同一规则表，
-不再出现「规则表说直接 victory、探针却判 stalemate」的双口径。
-
-## 9. 权威结果 vs 玩家报告视图（双视图样例）
-
-| 样例 | 权威 | 玩家视图 | 结算 |
-|---|---|---|---|
-| `DV-1` 全部目标已失能但报告未回 | `all_objectives_disabled` | `unknown` | `pending_report`（不得提前胜利） |
-| `DV-2` OBJ-A 已失能且报告已回 | `OBJ-A disabled` | `OBJ-A confirmed` | `in_progress` |
-
-未知目标在玩家视图中不显示名称/坐标/损伤。
-
-## 10. 贡献语义（目标完成与玩家贡献分开）
-
-- `objective_completion`：由权威裁决按**真实状态**判定；
-- `objective_credit`：仅当玩家直控造成、或玩家授权的友军请求执行成功，才计入**玩家贡献**；
-- 友军自主造成且未被请求覆盖 → 计入**友军贡献**；
-- **AI 不得包办首胜**：必需目标全部由友军自主完成时不得判 victory，
-  **推荐口径 = stalemate**（保留阶段性成果，不授予玩家胜利）；
-- 玩家无操作 → 按 timeout 口径结算，AI 不得代为完成必需目标。
-
-## 11. 简报与战报样例（R8/P0-4：具体文本，非提纲）
-
-### 11.1 简报（虚构样例）
-
-```
-【阶段简报 · 虚构样例】
-任务：对第33舰队前哨战区实施阶段性去军事化，解除其有组织作战能力；不要求整支舰队覆灭。
-必需目标：OBJ-A（I-OP1 火控）、OBJ-B（I-OP2 火控）、OBJ-C（I-OP-C2 指挥节点）；三者须不可本场恢复。
-保护目标：民用中继 SECTOR-RELAY-CIV（禁止攻击，被毁即失败）；本舰旗舰 I-A1（丧失即失败）。
-兵力：预算 100 点 / 指挥容量 3；建议预设 FORM-SENSOR（30 点）或 FORM-STRIKE（55 点），也可在池内自由组合。
-友军：F-ALLY-1 独立 AI，无武装，仅提供侦察、中继、协助撤离；可拒绝请求。
-时限：3600 模拟秒。零完成按失败结算；同 tick 冲突按 失败>胜利>撤离>僵局。
-情报：不完整且有延迟；未知目标不显示名称/坐标/损伤。
+```json
+{
+  "scenario_id": "jc_sector_01",
+  "briefing_version": "P0-r9-1",
+  "player_questions": ["需解除哪些军事能力", "哪些对象必须保护", "如何分担火力/侦察/撤离"],
+  "objectives": [{"id": "OBJ-A", "public": "敌方主炮火控", "evidence_needed": "权威失能+报告", "recoverable": false}],
+  "protection": [{"id": "PROT-1", "public": "民用中继", "loss": "defeat"}],
+  "ally": {"fleet_id": "F-ALLY-1", "task": "走廊护航/民用中继保护", "requests": ["OBSERVE", "RELAY", "ESCORT_WITHDRAW", "SUPPRESS"], "constraints": ["独立任务", "有限弹药", "可拒绝"]},
+  "fog": {"known": [], "unknown": "未探测目标不显示名称/坐标/损伤", "report_delay_s": "待定"},
+  "resource_envelope": {"points": 45, "capacity": 3, "ammo": "以舰级账本为准"},
+  "disclaimer": "所有数值待产品核对；友军不由玩家直控"
+}
 ```
 
-### 11.2 胜利战报（对应 `TR-FULL-VICTORY`）
+### 10.2 请求/回执语义样例
 
-```
-【阶段战报 · 虚构样例 · 对应 TR-FULL-VICTORY】
-结论：胜利（无重复结算，decision DEC-1000）。
-OBJ-A：240s 失能，判定依据＝火控段损伤且不可本场恢复，贡献＝玩家直控。
-OBJ-B：520s 失能，同上，贡献＝玩家直控。
-OBJ-C：700s 由玩家授权友军侦察中继定位后、本舰打击致指挥节点失能，贡献＝玩家授权行动。
-友军贡献：F-ALLY-1 提供 2 次中继（延迟 30s/55s），未开火。
-保护目标：SECTOR-RELAY-CIV 完好；旗舰 I-A1 完好。
-情报时效：OBJ-A 失能→报告 18s；OBJ-B 42s；OBJ-C 65s。
+```json
+{"request_id": "REQ-001", "type": "OBSERVE", "to": "F-ALLY-1", "sent_t": 180, "received_t": 210, "status": "accepted", "reason_code": "", "eta_s": 30, "execution_evidence": "track quality report at t=240"}
+{"request_id": "REQ-002", "type": "SUPPRESS", "to": "F-ALLY-1", "sent_t": 420, "received_t": 450, "status": "rejected", "reason_code": "ALLY_TASK_CONFLICT", "eta_s": null, "execution_evidence": null}
 ```
 
-### 11.3 友军自主完成战报（对应 `TR-ALLY-AUTONOMOUS-WIN`）
+状态至少覆盖：`pending`/`accepted`/`rejected`/`executing`/`completed`/`failed`/`lost`（失联）；另含 `damaged` 对执行中受损的语义。拒绝必须有原因码；不得出现无理由随机拒绝或“已收到”伪装完成。
 
+### 10.3 战报字段
+
+```json
+{
+  "authority_result": "victory",
+  "player_view": "victory",
+  "objective_results": [{"id": "OBJ-A", "truth": "disabled", "observed": "confirmed", "credit": "player_direct", "report_delay_s": 18}],
+  "ally_actions": [{"type": "OBSERVE", "status": "completed"}, {"type": "SUPPRESS", "status": "completed", "effect": "fire_control_degraded_window"}],
+  "command_evaluation": "有效协同",
+  "resource_costs": {"ammo": "以账本为准", "fuel": "以账本为准", "damage": "以账本为准"},
+  "unresolved": ["报告未回的临时状态"]
+}
 ```
-【阶段战报 · 虚构样例 · 对应 TR-ALLY-AUTONOMOUS-WIN】
-结论：僵局（推荐口径：必需目标全部由友军自主完成，不授予玩家胜利）。
-OBJ-A/B/C 均由友军自主造成，玩家未直控也未授权；玩家贡献＝无。
-友军贡献：全部三次失能。
-保护目标：均完好。
-提示：玩家未参与决胜，建议后续提高玩家参与度。
-```
-**战报（debrief）**：权威结算（唯一终态）、各目标终态与判定依据、玩家贡献（射击/授权/造成失能）、
-友军贡献（侦察/中继/撤离，不计玩家）、保护目标状态、情报时效（失能→报告延迟）。
 
-## 12. 事件轨迹（14 条，内容逻辑 fixture，非真实战报）
+## 11. 待核对参数、旧 fixture 迁移与检查证据
 
-覆盖：完整胜利、全部失能未报告（双视图）、单目标失能未报告、失败、撤离、僵局、零完成超时、
-EW 非永久失能、仍能战斗不计失能、友军拒绝替代路线、**友军自主完成（→stalemate）**、
-重复裁决幂等、民用损失、**同 tick 民用损失+撤离（→defeat）**。
+- **待核对参数表**：见 [R9 对照与待核对表](../../../docs/tasks/joint_campaign/JC-B03P_R9_review_tables.md) §7；所有数值状态均为“未批准”。
+- **旧 fixture/probe 迁移清单**：见同表 §8；本轮**不修改** `jc_sector_01_proposal.json`、`jc_scenario_spec_probe.gd`、matrix、baseline、运行层。
+- **文档检查**：本轮只做 Markdown 链接、JSON 解析、catalog 类/武器/点数交叉引用检查；不跑游戏全量（运行态未变）。命令与结果见同表 §9。
 
-## 13. 待用户核对清单
+## 12. 明确未实现 / NOT RUN
 
-1. 战区命名、架空年月、参战单位命名；
-2. 点数公式 `round(displacement_t/60)`、预算 100、指挥容量 3；
-3. 两套编制（当前 SENSOR 30 点 / STRIKE 55 点）与旗舰按编制内占位的规则；
-4. 三个目标对象（`I-OP1`/`I-OP2`/`I-OP-C2`）与失能阈值；
-5. 失能机制依赖未实现系统时的替代口径；
-6. 零完成 → **defeat** 是否认可；
-7. **友军自主完成必需目标时按 stalemate** 的推荐口径是否认可。
-
-## 14. 明确未实现 / NOT RUN
-
-- 真实 AI 行为、逐舰战斗账本、完整战役裁决、可玩首版 —— **未实现**；
-- 轨迹是内容逻辑 fixture，**不是真实战报**；
-- 运行态试玩、性能（AI 决策/帧耗时）—— **NOT RUN**；
-- 民用设施不得作为攻击或胜利对象（明确禁止）。
+- B1b 逐舰战斗/损伤/火控账本、导弹/PD 实际射击 → **未实现**；本文“失能”只有提案与内容逻辑。
+- B2 独立友军 AI、请求/回执、情报共享 → **未实现**；友军行动均为语义/纸面。
+- B3a 目标裁决运行层、B3b 简报/战报接入 → **未实现**。
+- 真实战役试玩、30–45 分钟节奏、平衡、性能（实体/AI/帧耗时） → **NOT RUN**。
+- 民用设施不作攻击/胜利对象；不扩多人/战争地图/经济/造船。
+- 本轮不改正式 fixture/probe/运行层/AI；具体数值待用户核对。
 
 ---
 
 ## 附录 A：历史方案（已废弃，仅存档对照）
 
-### A.1 P0-r6-1（已废弃）
+| 旧值/口径 | 问题 |
+|---|---|
+| 预算 100 / 容量 3 / 单舰最高 20 点 | 三艘最贵仅 60 点，预算从不限制；点数 UI 无决策价值（Astra §2.1） |
+| `FORM-STRIKE` = 2×HEMATITE + GANTRY（55 点） | 旧预算下仍无压力；新预算 45 下非法，现改为 2×HEMATITE + PALLET（45） |
+| 友军 PALLET + SAFEHARBOR 无武装，仅侦察/中继 | 无法呈现联合战斗；现增 HEMATITE 有限武装独立护航 |
+| 友军自主完成全部目标 → `stalemate` | 用玩家参与度改写真实战果；R9 撤销，改为真实结果 + `command_evaluation` |
+| I-OP2 = `33OSID-REQUISITION` 却称 organic fire control | 该级无主炮，仅 PD/EW/boarding；现改 INTERDICT 或作为备选并改写属性 |
+| 目标 C = SUMMONS 被称 command node | catalog 无舰队指挥传感器；现明确为场景指派的指挥/中继 aviso，依赖 A03/A04 |
 
-| 项 | 旧值 | 问题 |
-|---|---|---|
-| 编制点数 | FORM-SENSOR 25 / FORM-STRIKE 55 | 与旧正文 62/70 并存，读者无法判断哪个有效 |
-| 旗舰 | `OCUVF-APOGEE`（9000 t） | 按本提案公式 = **150 点，超预算 100**；且不在两套编制内，保护对象却绑定该旗舰 |
-| 友军 | PALLET + SAFEHARBOR | catalog `weapons=[]`，但回执写「射击位/拦截/火控失能」，与能力矛盾 |
-| 终态 | 零完成 → stalemate | 与"零完成即失败"的军事语义及本次归一后的口径不符 |
-| 同 tick | 未声明 | 校验按事件顺序覆盖，declared priority 与实现矛盾 |
-
-### A.2 更早的历史片段
-
-- 早期草案曾用 62/70 点编制与非 canonical 舰名（APSIS/HARMATTAN 直接当 class_id），
-  已被 §3 的 catalog 绑定取代。
-- 这些内容**不得**再被引用为当前提案的一部分；如需考古请看 git 历史。
+旧 fixture `P0-r7-1` 保留原样直到用户核对；迁移时按对照表 §8 逐项改，不把旧轨迹当当前提案证据。

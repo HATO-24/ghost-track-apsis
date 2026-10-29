@@ -4,6 +4,16 @@
 
 状态：P0草案技术可审；产品核对前两项文字校正，尚未批准。
 
+## 2026-10-29 R9 执行记录（只交提案/对照表，未改运行层）
+
+依据 [#63 R9 任务卡](https://github.com/HATO-24/ghost-track-apsis/blob/05aaf861aa8c0913cb9d139c7771d94732d27698/docs/tasks/joint_campaign/JC-B03P_scenario_proposal.md) 与 Astra/Sol 2026-10-29 评审：
+
+- 修订提案：`game_v17/docs/contracts/jc_sector_01_proposal.md` → **P0-r9-1**（预算 45/容量 3 的取舍证明、主案 SENSOR 30 + 备选 STRIKE 45、有限武装独立友军、撤销“全友军→stalemate”、真实战区结果与 `command_evaluation` 分离、I-OP2 能力修正）。
+- 对照/待核对表：`docs/tasks/joint_campaign/JC-B03P_R9_review_tables.md`（两套策略/成本、纸面轨迹、未批准参数表 P-01..P-23、旧 fixture/probe 迁移清单、文档检查）。
+- 基线：`main` = `4e75897ed32f8245f35c5ec584f0ec912ec919c6`（不含 D1；D1 获审候选 `b7b1728b9aeec48223b291570ddc8ac7d6f731a7`，PR #75 待合并）。
+- **本轮未修改**正式 fixture `jc_sector_01_proposal.json`、`jc_scenario_spec_probe.gd`、matrix/baseline、运行层或 AI；具体数值仍待用户核对，不能称战役可玩。
+- 状态：已交 Sol 技术核对；产品核对 §7 全部参数后再进入 fixture/probe 更新与 B3 实现。完成后代码下一项为原 #45，不启动 B2/B1b/B3。
+
 ## 2026-10-26 R8独立复核更新
 
 R8实例映射、自由组舰/预设、贡献例外和具体文案已补，技术可审。**本卡保持开放，产品尚未批准。** 产品核对前仅收尾两处：当前主案明确固定I-A1为HEMATITE、其余舰自由组合，或把任意舰级旗舰列为待选备选；全友军造成三个失能目标的轨迹/战报标为反事实防御测试与合成输出，不能冒充无武装友军在主案可达到的战果。不新增友军武器/AI，不阻断G0/K0/A01。预算、容量、舰型/目标/阈值/日期/终态仍待用户核对。见[本轮报告§3](../../reviews/pr65_r8_20261026/review.md)。
