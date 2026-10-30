@@ -1,8 +1,8 @@
 {
   "schema": "damage_profiles.v1",
   "version": "1.0.0",
-  "title": "完整游戏-阶段5C 36 型按舰级毁伤物理档案",
-  "source": "ShipCatalog 36 型（ships_friendly.json/ships_enemy.json）+ DamageModel 分区模型；装甲/材质/质量分数为等效提案值",
+  "title": "完整游戏-阶段5C 36 型（32 基础舰级 + 4 UEOF 变体原型）按舰级毁伤物理档案",
+  "source": "ShipCatalog 32 基础舰级（ships_friendly.json/ships_enemy.json）+ 4 UEOF 变体 archetype（ORBFLT U7/U3 变体引用）+ DamageModel 分区模型；装甲/材质/质量分数为等效提案值",
   "units": {
     "mass_fraction": "0..1",
     "armor": "0..1 resist",

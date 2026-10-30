@@ -11,6 +11,8 @@ extends SceneTree
 
 const BridgeScript := preload("res://scripts/framework_bridge.gd")
 const StateScript := preload("res://scripts/state.gd")
+const EntityScript := preload("res://framework/core/entity.gd")
+const UNREGISTERED_FIXTURE := "res://tests/fixtures/damage_profile/unregistered_entity.json"
 
 var _pass := 0
 var _fail := 0
@@ -83,11 +85,31 @@ func _near(actual: float, expected: float, tol: float, label: String) -> void:
 func _data_line(label: String, value: String) -> void:
 	_data.append(label + " = " + value)
 
+func _inject_unregistered(br) -> void:
+	# H01：真实未注册 fixture；不在 ShipCatalog/damage_l1/damage_profiles 中。
+	var f := FileAccess.open(UNREGISTERED_FIXTURE, FileAccess.READ)
+	if f == null or br == null or br.world == null:
+		return
+	var parsed = JSON.parse_string(f.get_as_text())
+	f.close()
+	if not (parsed is Dictionary):
+		return
+	var spec: Dictionary = (parsed as Dictionary).get("entity", {})
+	if spec.is_empty():
+		return
+	var e = EntityScript.from_dict(spec)
+	if e == null:
+		return
+	if not br.world.by_id.has(e.id):
+		br.world.by_id[e.id] = e
+		br.world.entities.append(e)
+
 func _make_bridge():
 	var br = BridgeScript.new()
 	var ok: bool = br.boot()
 	_ok(ok, "bridge.boot", str(br.errors))
 	_ok(br.nav_ready, "bridge.nav_ready", str(br.errors))
+	_inject_unregistered(br)
 	return br
 
 func _make_state(br):
@@ -371,9 +393,15 @@ func _test_damage_full_bridge() -> void:
 	_ok((br.damage_full_view().get("queue", []) as Array).size() > 0, "damage_full.queue 有任务")
 	var c: Dictionary = br.damage_cancel_repair("sensors")
 	_eq(bool(c.get("ok", false)), true, "bridge.damage_cancel_repair")
-	# 无档案实体
-	var bad: Dictionary = br.damage_apply_hit("hull", 0.5, 0.5, "fore", "probe", "ferry")
-	_eq(bool(bad.get("ok", true)), false, "无档案实体命中被拒绝")
+	# 缺档案负例改用未注册 fixture（FERRY 已有 HEMATITE 档案）
+	var bad: Dictionary = br.damage_apply_hit("hull", 0.5, 0.5, "fore", "probe", "unregistered_hulk")
+	_eq(bool(bad.get("ok", true)), false, "未注册 fixture 命中被拒绝")
+	_ok(String(bad.get("reason", "")).contains("无完整损管模型"), "拒绝原因明确",
+		String(bad.get("reason", "")))
+	_eq(br.world.damage_model_for("unregistered_hulk"), null,
+		"未注册 fixture 无模型（不伪造/不部分伤害）")
+	_ok(not br.world.vm_damage_full("unregistered_hulk").size() > 0,
+		"未注册 fixture vm 仍为空")
 	_data_line("damage-full", "bridge damage_full sections=7 + 旧 sections=3 兼容 · 写 API 转发")
 
 # ═══════════════════════════════════════════════════════════════════

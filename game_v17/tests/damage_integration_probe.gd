@@ -11,8 +11,10 @@ extends SceneTree
 
 const ScenarioScript := preload("res://framework/core/scenario.gd")
 const WorldScript := preload("res://framework/core/world.gd")
+const EntityScript := preload("res://framework/core/entity.gd")
 const BridgeScript := preload("res://scripts/framework_bridge.gd")
 const DAMAGE_CONTENT_PATH := "res://framework/content/damage_l1.json"
+const UNREGISTERED_FIXTURE := "res://tests/fixtures/damage_profile/unregistered_entity.json"
 const LEGACY_IDS := ["sensor_cal", "ir_false_alarm", "thermal"]
 const SECTION_IDS := ["hull", "power", "propulsion", "sensors", "comms", "tanks", "docking"]
 
@@ -84,6 +86,25 @@ func _near(actual: float, expected: float, tol: float, label: String) -> void:
 func _data_line(label: String, value: String) -> void:
 	_data.append(label + " = " + value)
 
+func _inject_unregistered(w) -> void:
+	# H01：真实未注册 fixture；不在 ShipCatalog/damage_l1/damage_profiles 中。
+	var f := FileAccess.open(UNREGISTERED_FIXTURE, FileAccess.READ)
+	if f == null:
+		return
+	var parsed = JSON.parse_string(f.get_as_text())
+	f.close()
+	if not (parsed is Dictionary):
+		return
+	var spec: Dictionary = (parsed as Dictionary).get("entity", {})
+	if spec.is_empty():
+		return
+	var e = EntityScript.from_dict(spec)
+	if e == null:
+		return
+	if not w.by_id.has(e.id):
+		w.by_id[e.id] = e
+		w.entities.append(e)
+
 func _make_world():
 	var sc = ScenarioScript.load_file("res://framework/content/scenario_l1_v2.json")
 	_ok(sc.errors.is_empty(), "场景解析无错误", str(sc.errors))
@@ -92,6 +113,8 @@ func _make_world():
 	_ok(ok, "world.load_scenario", str(w.errors))
 	if bool(w.prelude.get("open", false)) and not bool(w.prelude.get("executed", false)):
 		w.prelude_skip()
+	_inject_unregistered(w)
+	_ok(w.by_id.has("unregistered_hulk"), "未注册 fixture 已注入")
 	return w
 
 func _entity(w, eid: String):
@@ -134,10 +157,14 @@ func _test_world_init() -> void:
 	_ok(own.has_damage_model(), "entity.has_damage_model()")
 	_ok(w.damage_model_for("harmattan") != null, "world.damage_model_for(harmattan)")
 	_ok(w.damage_model_for("summons_4471") != null, "world.damage_model_for(summons_4471)")
-	# 其他舰懒加载/默认空
+	# FERRY=HEMATITE 已有档案（damage_l1+damage_profiles）；缺档案负例改用未注册 fixture。
 	var ferry = _entity(w, "ferry")
-	_ok(ferry.damage == null, "ferry.damage 默认 null（无档案）")
-	_ok(w.damage_model_for("ferry") == null, "world.damage_model_for(ferry)=null")
+	_ok(ferry.damage != null, "ferry.damage 已按 HEMATITE 档案初始化")
+	_ok(w.damage_model_for("ferry") != null, "world.damage_model_for(ferry)")
+	var hulk = _entity(w, "unregistered_hulk")
+	_ok(hulk != null and hulk.damage == null, "未注册 fixture 默认 null（缺档案）")
+	_ok(w.damage_model_for("unregistered_hulk") == null,
+		"world.damage_model_for(unregistered_hulk)=null")
 	var own_full: Dictionary = w.vm_damage_full("harmattan")
 	_eq((own_full.get("sections", []) as Array).size(), 7, "本舰完整模型 7 分区")
 	var ids: Array = []
@@ -207,7 +234,8 @@ func _test_full_vm() -> void:
 	_ok((full.get("events", []) as Array).size() >= 0, "full events 为 Array")
 	var enemy_full: Dictionary = w.vm_damage_full("summons_4471")
 	_eq((enemy_full.get("sections", []) as Array).size(), 7, "敌舰完整模型 7 分区")
-	_ok(not w.vm_damage_full("ferry").size() > 0, "无档案实体 vm_damage_full 为空")
+	_ok(not w.vm_damage_full("unregistered_hulk").size() > 0,
+		"未注册 fixture vm_damage_full 为空")
 	_data_line("full-vm", "schema/model/entity/sections=7/events/queue/resources/summary/effects/units/note")
 
 # ═══════════════════════════════════════════════════════════════════
@@ -336,12 +364,15 @@ func _test_entities_and_lazy() -> void:
 		"敌舰 hull 受损")
 	_eq((w.vm_damage_full("harmattan").get("sections", []) as Array)[0].get("integrity", 0.0), 1.0,
 		"敌舰受击不影响本舰")
-	var bad: Dictionary = w.damage_apply_hit("hull", 0.5, 0.5, "fore", "probe", "ferry")
-	_eq(bool(bad.get("ok", true)), false, "无档案实体命中被拒绝")
+	var bad: Dictionary = w.damage_apply_hit("hull", 0.5, 0.5, "fore", "probe", "unregistered_hulk")
+	_eq(bool(bad.get("ok", true)), false, "未注册 fixture 命中被拒绝")
 	_ok(String(bad.get("reason", "")).contains("无完整损管模型"), "拒绝原因明确",
 		String(bad.get("reason", "")))
-	_eq(w.damage_model_for("ferry"), null, "ferry 懒加载仍为 null（无档案，不伪造）")
-	_data_line("entities", "summons 可受击；ferry 无档案懒加载 null；本舰不受敌舰影响")
+	_eq(w.damage_model_for("unregistered_hulk"), null,
+		"拒绝后未注册 fixture 仍无模型（不伪造/不部分伤害）")
+	_ok(not w.vm_damage_full("unregistered_hulk").size() > 0,
+		"拒绝后未注册 fixture vm 仍为空")
+	_data_line("entities", "summons 可受击；未注册 fixture 缺档案拒绝且无部分状态；本舰不受敌舰影响")
 
 # ═══════════════════════════════════════════════════════════════════
 # 8. HUD 读取兼容 + JSON

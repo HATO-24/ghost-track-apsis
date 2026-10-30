@@ -29,15 +29,6 @@
   },
   "failures": [
     {
-      "id": "content.damage_profile_probe",
-      "probe": "res://tests/damage_profile_probe.gd",
-      "expected_exit": 1,
-      "expected_pass": 554,
-      "expected_fail": 4,
-      "reason": "Probe asserts 32 class damage profiles; ShipCatalog has grown to 36 classes, so the fixed expectation no longer matches content. Also carries 4 pre-existing engine-level SCRIPT ERROR lines from damage_profile_service.gd:208 (legacy String constructor) that do not change the exit/fail counts.",
-      "suggested_follow_up": "new content/contract-sync task (TBD); relates to #7 (refit platform config) / #9 (assets) and the ship-class catalog"
-    },
-    {
       "id": "content.story_text_probe",
       "probe": "res://tests/story_text_probe.gd",
       "expected_exit": 1,
@@ -56,15 +47,6 @@
       "suggested_follow_up": "new content/contract-sync task (TBD); incident record content"
     },
     {
-      "id": "integration.damage_integration_probe",
-      "probe": "res://tests/damage_integration_probe.gd",
-      "expected_exit": 1,
-      "expected_pass": 198,
-      "expected_fail": 6,
-      "reason": "Six assertions for the full damage model wired into the V17 world drifted from current world/damage state contracts.",
-      "suggested_follow_up": "new combat/damage integration sync task (TBD); related to #3 (sensor-to-damage combat loop)"
-    },
-    {
       "id": "integration.plot_tws_probe",
       "probe": "res://tests/plot_tws_probe.gd",
       "expected_exit": 1,
@@ -72,15 +54,6 @@
       "expected_fail": 1,
       "reason": "One TWS-bridge assertion drifted. This probe uses a non-standard [SUMMARY] pass=/fail= result line; the runner's explicit 'summary' parser correctly reports FAIL 58/1 (it must never be misclassified as PASS).",
       "suggested_follow_up": "new sensor/TWS bridge sync task (TBD); related to #4 (sensor/track authority)"
-    },
-    {
-      "id": "integration.v17_nav_integration_probe",
-      "probe": "res://tests/v17_nav_integration_probe.gd",
-      "expected_exit": 1,
-      "expected_pass": 181,
-      "expected_fail": 1,
-      "reason": "One navigation-integration assertion drifted from the current V17 bridge/state contract.",
-      "suggested_follow_up": "new nav/traffic integration sync task (TBD); related to #6 (maneuver/traffic/docking closure)"
     },
     {
       "id": "integration.v17_sensor_authority_display_probe",

@@ -1,0 +1,6 @@
+H01 red SCRIPT ERROR（修复前；共 4 条，均 damage_profile_service.gd:208 String(batch) 构造错误）
+
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
+SCRIPT ERROR: Invalid call 'String' constructor: 2001
