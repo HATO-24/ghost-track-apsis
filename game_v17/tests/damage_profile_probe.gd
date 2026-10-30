@@ -102,11 +102,18 @@ func _test_profiles_data() -> void:
 	for raw in (cat.classes() as Array):
 		if raw is Dictionary:
 			cat_ids.append(String((raw as Dictionary).get("class_id", "")))
+	# 5E 后 32 基础舰级 + 4 UEOF 变体 archetype（U7/U3 变体引用）共同构成 36 档案。
+	for rawv in (cat.variants_of("") as Array):
+		if rawv is Dictionary:
+			var dpc := String((rawv as Dictionary).get("damage_profile_class_id", ""))
+			if dpc != "" and not (dpc in cat_ids):
+				cat_ids.append(dpc)
 	cat_ids.sort()
 	var p_ids: Array = (p.class_ids as Array).duplicate()
 	p_ids.sort()
-	_eq(p_ids.size(), cat_ids.size(), "档案数=ShipCatalog 36")
-	_ok(p_ids == cat_ids, "class_id 与 ShipCatalog 一致")
+	_eq(p_ids.size(), cat_ids.size(), "档案数=ShipCatalog 36（32 基础+4 UEOF 变体原型）")
+	_ok(p_ids == cat_ids, "class_id 与 ShipCatalog/变体 archetype 一致",
+		"catalog+variant=%s profile=%s" % [str(cat_ids.size()), str(p_ids.size())])
 	for cid in p.class_ids:
 		var prof: Dictionary = p.profile_for(String(cid))
 		_ok(not bool(prof.get("fallback", true)), "档案存在 " + String(cid))
@@ -192,6 +199,21 @@ func _test_profile_service() -> void:
 	_ok(bool(p.profile_for_entity("apsis").get("class_id", "") == "OCUVF-APOGEE"),
 		"entity apsis→class")
 	_ok((p.profile_for("").get("fallback", false)), "空 query 回退")
+	# H01：真实未注册 fixture（不在 catalog/damage_l1/damage_profiles）→ 只读 fallback，不伪造档案。
+	var uf := FileAccess.open("res://tests/fixtures/damage_profile/unregistered_entity.json", FileAccess.READ)
+	if uf != null:
+		var up = JSON.parse_string(uf.get_as_text())
+		uf.close()
+		var uspec: Dictionary = (up as Dictionary).get("entity", {}) if up is Dictionary else {}
+		var uid := String(uspec.get("id", ""))
+		var uclass := String(uspec.get("class", ""))
+		_ok(uid != "" and uclass != "", "未注册 fixture 字段")
+		_ok(bool(p.profile_for(uid).get("fallback", false)), "未注册实体回退")
+		_ok(bool(p.profile_for(uclass).get("fallback", false)), "未注册 class 回退")
+		_eq(String(p.profile_for(uid).get("class_id", "")), p.default_class_id,
+			"未注册实体回退 default")
+	else:
+		_ok(false, "未注册 fixture 可读")
 	_ok((p.sections("33OSID-RECEIVERSHIP") as Array).size() == 7, "sections API")
 	_ok((p.section("33OSID-RECEIVERSHIP", "tanks") as Dictionary).get("id", "") == "tanks",
 		"section API")

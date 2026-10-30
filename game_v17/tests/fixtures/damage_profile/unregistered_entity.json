@@ -1,0 +1,17 @@
+{
+  "schema": "v17.damage_profile.unregistered_fixture.v1",
+  "note": "H01：仅测试用未注册实体；不在 ShipCatalog/damage_l1/damage_profiles 中，用于缺档案/未知 class 负例，不能进入正式内容。",
+  "entity": {
+    "id": "unregistered_hulk",
+    "batch": "9999",
+    "kind": "ship",
+    "side": "neutral",
+    "name": "未注册残骸",
+    "name_en": "UNREGISTERED HULK",
+    "class": "UNREGISTERED-TEST-HULL",
+    "role": "test_fixture",
+    "faction": "test_only",
+    "orbit": {"frame": "L1", "r": [0.0, 0.0, 0.0], "v": [0.0, 0.0, 0.0]},
+    "tags": ["test_fixture", "unregistered"]
+  }
+}

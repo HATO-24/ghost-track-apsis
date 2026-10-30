@@ -4,7 +4,7 @@ extends RefCounted
 # ═══════════════════════════════════════════════════════════════════
 # 完整游戏-阶段5C · 按舰级毁伤物理档案服务
 #
-# 内容：framework/content/damage_profiles.json（36 型，ShipCatalog class_id）
+# 内容：framework/content/damage_profiles.json（36 型：32 基础舰级 + 4 UEOF 变体原型，ShipCatalog class_id/变体 archetype）
 # 职责：load/validate/profile_for(class_id 或 entity)/sections/armor/effects/
 #       summary；未知 class 回退 default，不伪造舰级。
 # 只读；不写 world/TrackTable/UI；不改旧 damage_l1.ships 显式覆盖。
@@ -205,9 +205,10 @@ func _resolve_catalog_class(query: String) -> String:
 		if not (row is Dictionary):
 			continue
 		var r: Dictionary = row
-		var fields := [String(r.get("entity_id", "")), String(r.get("ship_id", "")),
-			String(r.get("batch", "")), String(r.get("hull", "")), String(r.get("hull_code", "")),
-			String(r.get("name", "")), String(r.get("name_en", ""))]
+		# 字段可能是数字（batch/hull_code），不能用 String(int)；用 str() 统一安全转换。
+		var fields := [str(r.get("entity_id", "")), str(r.get("ship_id", "")),
+			str(r.get("batch", "")), str(r.get("hull", "")), str(r.get("hull_code", "")),
+			str(r.get("name", "")), str(r.get("name_en", ""))]
 		for f in fields:
 			if f != "" and f.to_lower() == q:
 				var cid := String(r.get("class_id", ""))
