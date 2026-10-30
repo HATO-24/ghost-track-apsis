@@ -1,3 +1,10 @@
+## 2026-10-31 R11 迁移执行记录（fixture/probe/K0，仅规格）
+
+- 基线：main `042a5e5e03f38f7b7e4367ffb0b6f38834773503`（含 H01 PR77；开工重核）。
+- 迁移：`jc_sector_01_proposal.json` → `v17.jc.scenario_spec.v4` / `P0-r11-1`；`jc_scenario_spec_probe.gd` 重写为 v4 校验；`joint_campaign_r2.md` 增补 v4 字段/旧 v3 拒绝策略。
+- 内容：11 独立舰=8 支援+3 作战；APSIS 计入 8、战区后方/`PROT-2`/损失→defeat；四种 HEMATITE:GANTRY 组合；owned/deployed/reserve/task_groups 分离；M0 默认、M1 显式、truth/report/同 tick/幂等；R9 有限武装友军/真实弹道/OBJ-B 双链/唯一评价保留。
+- 范围：只做 fixture/probe/K0 规格迁移；未实现 B1b/B2/B3、AI/UI/真实部署、弹种/混装。paper 合法不等于可玩/平衡。
+- 交付：专项与共同 C 原始结果/报告、旧→新映射/断言覆盖表、PR；待 Sol 独立复核，不自行合并、不启动下一卡。
 ## 2026-10-29 R9：Astra评审后的当前任务（先提案，不改运行层）
 
 依据[Astra新评审](../../reviews/product_review_20261029/Astra_产品玩法与复古终端评审.md)与[玩法修订稿](../../reviews/product_review_20261029/sol/玩法决策与节奏修订提案.md)。以下取代旧R8中有冲突的设计口径；原始资料保留为历史。技术核对可用获审D1 `b7b1728b9aeec48223b291570ddc8ac7d6f731a7`，执行时记录实际40位HEAD及main是否包含D1。

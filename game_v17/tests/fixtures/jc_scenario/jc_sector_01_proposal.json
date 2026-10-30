@@ -1,116 +1,511 @@
 {
-  "schema": "v17.jc.scenario_spec.v3",
-  "version": 3,
-  "proposal_version": "P0-r7-1",
+  "schema": "v17.jc.scenario_spec.v4",
+  "version": 4,
+  "proposal_version": "P0-r11-1",
   "status": "proposal_pending_user_review",
   "scenario_id": "jc_sector_01",
-  "title": "第33舰队前哨战区 · 阶段性去军事化行动（当前主案）",
-  "supersedes": "P0-r6-1（旧 62/70 点与 APOGEE 旗舰方案已废弃，见 appendix_legacy）",
+  "title": "第33舰队前哨战区 · 11舰自由编组/部署规格（提案）",
+  "supersedes": "P0-r9-1/R10 提案；按 2026-10-29 用户确认的 11 舰、3 作战舰自由选型、APSIS 战区后方与 M0 迁移；旧 v3 fixture 不兼容",
   "confirmed_scope": [
-    "阶段性战区行动（不宣告整个第33舰队去军事化）",
-    "自有舰队直控 + 独立AI友军协同请求"
+    "阶段性战区行动（去军事化，不是整支第33舰队覆灭）",
+    "玩家自有舰队直控 + 独立 AI 友军协同请求",
+    "11 艘独立舰：8 旗舰/支援 + 3 作战舰；APSIS 计入 8，不占 3",
+    "3 艘作战舰在 HEMATITE 炮舰与 GANTRY 导弹舰之间自由选型：3:0/2:1/1:2/0:3",
+    "APSIS 首版进入战区后方，作为真实保护对象；损失判失败",
+    "首版 M0 无全局硬限；3600 模拟秒仅为观测窗口，不自动结算"
   ],
   "catalog_binding": {
     "friendly_catalog": "res://framework/content/ships_friendly.json",
     "enemy_catalog": "res://framework/content/ships_enemy.json",
     "entity_bindings": {},
-    "note": "舰级必须来自 canonical catalog；本场景使用**新的虚构实例**（I-A1/I-P1…），不覆盖既有命名舰映射（apsis→APOGEE、harmattan→PALLET 保持目录原义）",
     "instance_bindings": [
       {
-        "entity_instance_id": "I-A1",
-        "ship_class_id": "OCUVF-HEMATITE-6C",
-        "fictional": true,
-        "note": "本场景虚构旗舰实例，不覆盖既有 apsis 命名舰映射"
+        "entity_instance_id": "apsis",
+        "ship_class_id": "OCUVF-APOGEE",
+        "fictional": false,
+        "canonical": true,
+        "note": "support instance"
       },
       {
-        "entity_instance_id": "I-P1",
+        "entity_instance_id": "picket-1",
         "ship_class_id": "OCUVF-PALLET-5C",
         "fictional": true,
-        "note": "虚构哨舰实例"
+        "canonical": false,
+        "note": "support instance"
+      },
+      {
+        "entity_instance_id": "picket-2",
+        "ship_class_id": "OCUVF-PALLET-5C",
+        "fictional": true,
+        "canonical": false,
+        "note": "support instance"
+      },
+      {
+        "entity_instance_id": "relay-1",
+        "ship_class_id": "OCUVF-SAFEHARBOR-1",
+        "fictional": true,
+        "canonical": false,
+        "note": "support instance"
+      },
+      {
+        "entity_instance_id": "relay-2",
+        "ship_class_id": "OCUVF-SAFEHARBOR-1",
+        "fictional": true,
+        "canonical": false,
+        "note": "support instance"
+      },
+      {
+        "entity_instance_id": "tanker-1",
+        "ship_class_id": "OCUVF-MOONPORT-4",
+        "fictional": true,
+        "canonical": false,
+        "note": "support instance"
+      },
+      {
+        "entity_instance_id": "tanker-2",
+        "ship_class_id": "OCUVF-MOONPORT-4",
+        "fictional": true,
+        "canonical": false,
+        "note": "support instance"
+      },
+      {
+        "entity_instance_id": "tug-1",
+        "ship_class_id": "OCUVF-WINCH-2",
+        "fictional": true,
+        "canonical": false,
+        "note": "support instance"
+      },
+      {
+        "entity_instance_id": "C21-H1",
+        "ship_class_id": "OCUVF-HEMATITE-6C",
+        "fictional": true,
+        "canonical": false,
+        "note": "generated combat instance from approved class template; temporary callsign"
+      },
+      {
+        "entity_instance_id": "C21-H2",
+        "ship_class_id": "OCUVF-HEMATITE-6C",
+        "fictional": true,
+        "canonical": false,
+        "note": "generated combat instance from approved class template; temporary callsign"
+      },
+      {
+        "entity_instance_id": "C21-G1",
+        "ship_class_id": "OCUVF-GANTRY-3M",
+        "fictional": true,
+        "canonical": false,
+        "note": "generated combat instance from approved class template; temporary callsign"
       }
-    ]
+    ],
+    "note": "APSIS 使用既有命名实例；PALLET/SAFEHARBOR/MOONPORT/WINCH 支援实例与 3 艘作战实例使用临时呼号，不复制具名舰、不改变既有命名舰身份。"
   },
   "theater": {
-    "name": "EML1-外侧 / 第33舰队前沿哨区",
+    "name": "EML1-外侧 / 第33舰队前哨战区",
     "epoch_utc": "2193-04-11T08:00:00Z",
-    "duration_s": 3600,
-    "note": "日期仅为提案；模拟时间用秒，不把 UTC 混进 tick"
+    "note": "战区名/架空日期仍为提案，未获数值批准。",
+    "time_limit": {
+      "mode": "M0",
+      "window_s": 3600,
+      "window_is_auto_terminal": false,
+      "hard_limit_enabled": false,
+      "note": "M0 无全局硬倒计时；t=3600 只检查/观测，不自动结算。M1 仅显式配置才到期裁决。"
+    }
   },
-  "fleet_pool": {
-    "points_budget": 100,
-    "command_capacity": 3,
-    "points_formula": "round(displacement_t / 60)（提案公式，可调）",
-    "ships": [
+  "fleet_ownership": {
+    "independent_ship_count": 11,
+    "support_ship_count": 8,
+    "combat_ship_count": 3,
+    "apsis_instance_id": "apsis",
+    "apsis_counted_in_support": true,
+    "apsis_counted_in_combat": false,
+    "shuttles_are_independent": false,
+    "support_roster": [
       {
+        "instance_id": "apsis",
+        "ship_class_id": "OCUVF-APOGEE",
+        "callsign": "APSIS",
+        "role": "flagship",
+        "role_group": "support",
+        "owned": true,
+        "in_theater": true,
+        "deployment_group": "TG-CMD",
+        "fictional": false,
+        "canonical": true
+      },
+      {
+        "instance_id": "picket-1",
         "ship_class_id": "OCUVF-PALLET-5C",
+        "callsign": "PICKET-1",
         "role": "picket",
-        "displacement_t": 300,
-        "weapons": []
+        "role_group": "support",
+        "owned": true,
+        "in_theater": true,
+        "deployment_group": "TG-SCREEN",
+        "fictional": true,
+        "canonical": false
       },
       {
-        "ship_class_id": "OCUVF-HEMATITE-6C",
-        "role": "gun",
-        "displacement_t": 1200,
-        "weapons": [
-          "OCUVF-HEMATITE-6C 主炮"
-        ]
+        "instance_id": "picket-2",
+        "ship_class_id": "OCUVF-PALLET-5C",
+        "callsign": "PICKET-2",
+        "role": "picket",
+        "role_group": "support",
+        "owned": true,
+        "in_theater": true,
+        "deployment_group": "TG-SCREEN",
+        "fictional": true,
+        "canonical": false
       },
       {
-        "ship_class_id": "OCUVF-GANTRY-3M",
-        "role": "missile",
-        "displacement_t": 900,
-        "weapons": [
-          "OCUVF-GANTRY-3M 导弹发射架"
-        ]
-      },
-      {
+        "instance_id": "relay-1",
         "ship_class_id": "OCUVF-SAFEHARBOR-1",
+        "callsign": "RELAY-1",
         "role": "relay",
-        "displacement_t": 500,
-        "weapons": []
+        "role_group": "support",
+        "owned": true,
+        "in_theater": true,
+        "deployment_group": "TG-SCREEN",
+        "fictional": true,
+        "canonical": false
+      },
+      {
+        "instance_id": "relay-2",
+        "ship_class_id": "OCUVF-SAFEHARBOR-1",
+        "callsign": "RELAY-2",
+        "role": "relay",
+        "role_group": "support",
+        "owned": true,
+        "in_theater": true,
+        "deployment_group": "TG-SCREEN",
+        "fictional": true,
+        "canonical": false
+      },
+      {
+        "instance_id": "tanker-1",
+        "ship_class_id": "OCUVF-MOONPORT-4",
+        "callsign": "TANKER-1",
+        "role": "tanker",
+        "role_group": "support",
+        "owned": true,
+        "in_theater": true,
+        "deployment_group": "TG-CMD",
+        "fictional": true,
+        "canonical": false
+      },
+      {
+        "instance_id": "tanker-2",
+        "ship_class_id": "OCUVF-MOONPORT-4",
+        "callsign": "TANKER-2",
+        "role": "tanker",
+        "role_group": "support",
+        "owned": true,
+        "in_theater": true,
+        "deployment_group": "TG-CMD",
+        "fictional": true,
+        "canonical": false
+      },
+      {
+        "instance_id": "tug-1",
+        "ship_class_id": "OCUVF-WINCH-2",
+        "callsign": "TUG-1",
+        "role": "tug",
+        "role_group": "support",
+        "owned": true,
+        "in_theater": true,
+        "deployment_group": "TG-CMD",
+        "fictional": true,
+        "canonical": false
       }
-    ]
+    ],
+    "support_instance_ids": [
+      "apsis",
+      "picket-1",
+      "picket-2",
+      "relay-1",
+      "relay-2",
+      "tanker-1",
+      "tanker-2",
+      "tug-1"
+    ],
+    "owned_instance_ids": [
+      "apsis",
+      "picket-1",
+      "picket-2",
+      "relay-1",
+      "relay-2",
+      "tanker-1",
+      "tanker-2",
+      "tug-1",
+      "C21-H1",
+      "C21-H2",
+      "C21-G1"
+    ],
+    "attached_shuttles": [
+      {
+        "instance_id": "shuttle-1",
+        "ship_class_id": "OCUVF-ARIA-1",
+        "carried_by": "apsis",
+        "independent": false,
+        "fictional": true
+      }
+    ],
+    "note": "11 艘独立舰是玩家拥有上限；3 艘作战舰是当前选型，不是每种候选都额外拥有。穿梭机随旗舰，不占独立舰。"
+  },
+  "combat_selection": {
+    "slot_count": 3,
+    "allowed_classes": [
+      "OCUVF-HEMATITE-6C",
+      "OCUVF-GANTRY-3M"
+    ],
+    "four_legal_compositions": [
+      {
+        "composition_id": "COMBAT-3-0",
+        "ratio": {
+          "HEMATITE": 3,
+          "GANTRY": 0
+        },
+        "ships": [
+          {
+            "slot_id": "C1",
+            "instance_id": "C30-H1",
+            "ship_class_id": "OCUVF-HEMATITE-6C",
+            "callsign": "C30-H1",
+            "template_id": "hematite-gun-template",
+            "fictional": true,
+            "resource_ref": "res-C30-H1"
+          },
+          {
+            "slot_id": "C2",
+            "instance_id": "C30-H2",
+            "ship_class_id": "OCUVF-HEMATITE-6C",
+            "callsign": "C30-H2",
+            "template_id": "hematite-gun-template",
+            "fictional": true,
+            "resource_ref": "res-C30-H2"
+          },
+          {
+            "slot_id": "C3",
+            "instance_id": "C30-H3",
+            "ship_class_id": "OCUVF-HEMATITE-6C",
+            "callsign": "C30-H3",
+            "template_id": "hematite-gun-template",
+            "fictional": true,
+            "resource_ref": "res-C30-H3"
+          }
+        ]
+      },
+      {
+        "composition_id": "COMBAT-2-1",
+        "ratio": {
+          "HEMATITE": 2,
+          "GANTRY": 1
+        },
+        "ships": [
+          {
+            "slot_id": "C1",
+            "instance_id": "C21-H1",
+            "ship_class_id": "OCUVF-HEMATITE-6C",
+            "callsign": "C21-H1",
+            "template_id": "hematite-gun-template",
+            "fictional": true,
+            "resource_ref": "res-C21-H1"
+          },
+          {
+            "slot_id": "C2",
+            "instance_id": "C21-H2",
+            "ship_class_id": "OCUVF-HEMATITE-6C",
+            "callsign": "C21-H2",
+            "template_id": "hematite-gun-template",
+            "fictional": true,
+            "resource_ref": "res-C21-H2"
+          },
+          {
+            "slot_id": "C3",
+            "instance_id": "C21-G1",
+            "ship_class_id": "OCUVF-GANTRY-3M",
+            "callsign": "C21-G1",
+            "template_id": "gantry-missile-template",
+            "fictional": true,
+            "resource_ref": "res-C21-G1"
+          }
+        ]
+      },
+      {
+        "composition_id": "COMBAT-1-2",
+        "ratio": {
+          "HEMATITE": 1,
+          "GANTRY": 2
+        },
+        "ships": [
+          {
+            "slot_id": "C1",
+            "instance_id": "C12-H1",
+            "ship_class_id": "OCUVF-HEMATITE-6C",
+            "callsign": "C12-H1",
+            "template_id": "hematite-gun-template",
+            "fictional": true,
+            "resource_ref": "res-C12-H1"
+          },
+          {
+            "slot_id": "C2",
+            "instance_id": "C12-G1",
+            "ship_class_id": "OCUVF-GANTRY-3M",
+            "callsign": "C12-G1",
+            "template_id": "gantry-missile-template",
+            "fictional": true,
+            "resource_ref": "res-C12-G1"
+          },
+          {
+            "slot_id": "C3",
+            "instance_id": "C12-G2",
+            "ship_class_id": "OCUVF-GANTRY-3M",
+            "callsign": "C12-G2",
+            "template_id": "gantry-missile-template",
+            "fictional": true,
+            "resource_ref": "res-C12-G2"
+          }
+        ]
+      },
+      {
+        "composition_id": "COMBAT-0-3",
+        "ratio": {
+          "HEMATITE": 0,
+          "GANTRY": 3
+        },
+        "ships": [
+          {
+            "slot_id": "C1",
+            "instance_id": "C03-G1",
+            "ship_class_id": "OCUVF-GANTRY-3M",
+            "callsign": "C03-G1",
+            "template_id": "gantry-missile-template",
+            "fictional": true,
+            "resource_ref": "res-C03-G1"
+          },
+          {
+            "slot_id": "C2",
+            "instance_id": "C03-G2",
+            "ship_class_id": "OCUVF-GANTRY-3M",
+            "callsign": "C03-G2",
+            "template_id": "gantry-missile-template",
+            "fictional": true,
+            "resource_ref": "res-C03-G2"
+          },
+          {
+            "slot_id": "C3",
+            "instance_id": "C03-G3",
+            "ship_class_id": "OCUVF-GANTRY-3M",
+            "callsign": "C03-G3",
+            "template_id": "gantry-missile-template",
+            "fictional": true,
+            "resource_ref": "res-C03-G3"
+          }
+        ]
+      }
+    ],
+    "selected_composition_id": "COMBAT-2-1",
+    "not_owned_note": "四种组合是互斥选型；当前 owned_fleet 只含选中的 3 艘作战实例，未选组合不计当前 11 舰。"
+  },
+  "deployment": {
+    "mode": "owned_subset",
+    "deployed_instance_ids": [
+      "apsis",
+      "picket-1",
+      "picket-2",
+      "relay-1",
+      "relay-2",
+      "tanker-1",
+      "tanker-2",
+      "tug-1",
+      "C21-H1",
+      "C21-H2",
+      "C21-G1"
+    ],
+    "reserve_instance_ids": [],
+    "selected_composition_id": "COMBAT-2-1",
+    "task_groups": [
+      {
+        "group_id": "TG-CMD",
+        "role": "command/support",
+        "instance_ids": [
+          "apsis",
+          "tanker-1",
+          "tanker-2",
+          "tug-1"
+        ]
+      },
+      {
+        "group_id": "TG-SCREEN",
+        "role": "search/relay",
+        "instance_ids": [
+          "picket-1",
+          "picket-2",
+          "relay-1",
+          "relay-2"
+        ]
+      },
+      {
+        "group_id": "TG-STRIKE",
+        "role": "combat",
+        "instance_ids": [
+          "C21-H1",
+          "C21-H2",
+          "C21-G1"
+        ]
+      }
+    ],
+    "note": "owned/deployed/reserve/任务组分开表达；当前全部 11 舰部署，后备为空，不回到总共只能带 3 舰的旧预算。"
   },
   "own_flag": {
-    "entity_instance_id": "I-A1",
-    "ship_class_id": "OCUVF-HEMATITE-6C",
-    "points": 20,
-    "deployment_rule": "in_formation",
-    "note": "旗舰按编制内占位：计入点数与指挥容量，不额外部署；两套编制都包含该舰级，保证任一选择都有旗舰"
+    "entity_instance_id": "apsis",
+    "ship_class_id": "OCUVF-APOGEE",
+    "deployment_rule": "in_theater_rear_support",
+    "role": "flagship/support",
+    "is_protected_objective": "PROT-2",
+    "provides": [
+      "command",
+      "comms",
+      "repair"
+    ],
+    "loss_consequence": "defeat",
+    "in_combat_slot": false,
+    "note": "APSIS 在战区后方；不是免费战斗单位；场外指挥/继承本轮不实现。"
   },
-  "formations": [
-    {
-      "formation_id": "FORM-SENSOR",
-      "role": "sensor_heavy",
-      "ships": [
-        "OCUVF-HEMATITE-6C",
-        "OCUVF-PALLET-5C",
-        "OCUVF-PALLET-5C"
-      ],
-      "tactic_note": "旗舰居中 + 双哨舰远距探测，依赖情报共享质量"
-    },
-    {
-      "formation_id": "FORM-STRIKE",
-      "role": "strike_heavy",
-      "ships": [
-        "OCUVF-HEMATITE-6C",
-        "OCUVF-HEMATITE-6C",
-        "OCUVF-GANTRY-3M"
-      ],
-      "tactic_note": "双炮舰近距突击 + 弹舱饱和，依赖弹药与冷却管理"
-    }
-  ],
   "ally_force": {
     "fleet_id": "F-ALLY-1",
     "domain_id": "ally",
     "ships": [
       "OCUVF-PALLET-5C",
-      "OCUVF-SAFEHARBOR-1"
+      "OCUVF-SAFEHARBOR-1",
+      "OCUVF-HEMATITE-6C"
     ],
-    "capability": "unarmed_recon_relay_withdraw",
-    "request_rules": "accept_if_link_and_resource",
-    "independence": "独立AI友军；按任务/资源/链路接受或拒绝，不共享玩家直控",
-    "note": "PALLET/SAFEHARBOR 目录 weapons=[]，友军只能侦察、中继、协助撤离，不能开火或造成火控失能"
+    "capability": "limited_armed_independent_escort",
+    "requests": [
+      "OBSERVE",
+      "RELAY",
+      "ESCORT_WITHDRAW",
+      "SUPPRESS"
+    ],
+    "suppress": {
+      "weapon": "railgun",
+      "real_ballistics": true,
+      "max_missions": 1,
+      "max_rounds": 24,
+      "fixed_debuff_s": 0,
+      "identity_immunity": false,
+      "permanent_disable_not_guaranteed": true
+    },
+    "refusal_reasons": [
+      "ALLY_TASK_CONFLICT",
+      "CIVILIAN_RISK",
+      "OUT_OF_RANGE",
+      "LINK_LOST",
+      "AMMO_RESERVE",
+      "DAMAGE_LIMIT",
+      "ROE_DENIED",
+      "BUSY"
+    ],
+    "note": "有限武装、独立任务、可拒绝；HEMATITE 实际 railgun/PD；不向无武装舰加武器，不做固定减益。"
   },
   "opfor": {
     "fleet_id": "F-OPFOR-1",
@@ -120,22 +515,33 @@
         "entity_instance_id": "I-OP1",
         "ship_class_id": "33OSID-RECOURSE",
         "military_attribute": "organic_fire_control",
-        "protected": false
+        "protected": false,
+        "attack_chains": [
+          "railgun_fire_control"
+        ]
       },
       {
         "entity_instance_id": "I-OP2",
-        "ship_class_id": "33OSID-REQUISITION",
-        "military_attribute": "organic_fire_control",
-        "protected": false
+        "ship_class_id": "33OSID-INTERDICT",
+        "military_attribute": "offensive_fire_control_integration",
+        "protected": false,
+        "attack_chains": [
+          "missile_vls_fire_control",
+          "railgun_fire_control"
+        ]
       },
       {
         "entity_instance_id": "I-OP-C2",
         "ship_class_id": "33OSID-SUMMONS",
         "military_attribute": "command_node",
-        "protected": false
+        "protected": false,
+        "attack_chains": [
+          "command_relay"
+        ]
       }
     ],
-    "behavior": "guard_then_attack_then_retreat_if_disabled"
+    "behavior": "guard_then_attack_then_retreat_if_disabled",
+    "no_respawn": true
   },
   "objectives": [
     {
@@ -143,57 +549,62 @@
       "kind": "disable_fire_capability",
       "target_entity_instance_id": "I-OP1",
       "target_military_attribute": "organic_fire_control",
-      "enter_condition": "detected_or_engaged",
-      "complete_condition": "organic_fire_control_disabled_not_recoverable",
-      "fail_condition": "target_still_effective_at_timeout",
-      "evidence_source": "observation_track_and_damage_record",
+      "required_attack_chains": [
+        "railgun_fire_control"
+      ],
+      "complete_condition": "railgun_fire_control_permanently_disabled",
+      "fail_condition": "still_effective_at_explicit_hard_limit",
+      "evidence_source": "observation_and_damage_record",
       "recoverable_in_mission": false,
-      "player_visible_feedback": "authority_result_then_intel_report",
+      "player_visible_feedback": "authority_result_then_report",
       "terminal_state": "disabled",
       "priority": 1,
-      "disable_mechanism": "damage_to_fire_control_section",
-      "mechanism_dependency": "B1b 逐舰损伤账本（未实现）",
-      "mechanism_alternative": "以火力压制累计判定临时失能（可本场恢复，不计永久失能）",
-      "credit_policy": "player_direct_or_requested_ally_action",
-      "ally_capable": false
+      "disable_mechanism": "damage_to_railgun_fire_control_section",
+      "mechanism_dependency": "B1b_damage_ledger_not_implemented",
+      "mechanism_alternative": "temporary_suppression_does_not_count",
+      "credit_policy": "player_direct_or_authorized_ally"
     },
     {
       "objective_id": "OBJ-B",
-      "kind": "disable_fire_capability",
+      "kind": "disable_offensive_fire_integration",
       "target_entity_instance_id": "I-OP2",
-      "target_military_attribute": "organic_fire_control",
-      "enter_condition": "detected_or_engaged",
-      "complete_condition": "organic_fire_control_disabled_not_recoverable",
-      "fail_condition": "target_still_effective_at_timeout",
-      "evidence_source": "observation_track_and_damage_record",
+      "target_military_attribute": "offensive_fire_control_integration",
+      "required_attack_chains": [
+        "missile_vls_fire_control",
+        "railgun_fire_control"
+      ],
+      "complete_condition": "all_required_attack_chains_permanently_disabled",
+      "fail_condition": "any_attack_chain_still_effective_at_explicit_hard_limit",
+      "evidence_source": "observation_and_damage_record",
       "recoverable_in_mission": false,
-      "player_visible_feedback": "authority_result_then_intel_report",
+      "player_visible_feedback": "authority_result_then_report",
       "terminal_state": "disabled",
       "priority": 2,
-      "disable_mechanism": "damage_to_fire_control_section",
-      "mechanism_dependency": "B1b 逐舰损伤账本（未实现）",
-      "mechanism_alternative": "同上：临时压制不计永久失能",
-      "credit_policy": "player_direct_or_requested_ally_action",
-      "ally_capable": false
+      "disable_mechanism": "damage_to_missile_fire_control_and_railgun_fire_control",
+      "mechanism_dependency": "B1b_damage_ledger_not_implemented",
+      "mechanism_alternative": "one_chain_disabled_is_not_complete",
+      "credit_policy": "player_direct_or_authorized_ally"
     },
     {
       "objective_id": "OBJ-C",
       "kind": "disable_command_node",
       "target_entity_instance_id": "I-OP-C2",
       "target_military_attribute": "command_node",
-      "enter_condition": "detected_or_engaged",
-      "complete_condition": "command_node_unable_to_direct_sector_force",
-      "fail_condition": "command_node_still_directing_at_timeout",
+      "required_attack_chains": [
+        "command_relay"
+      ],
+      "complete_condition": "command_relay_permanently_disabled",
+      "fail_condition": "still_directing_at_explicit_hard_limit",
       "evidence_source": "comms_intercept_and_observation",
       "recoverable_in_mission": false,
-      "player_visible_feedback": "authority_result_then_intel_report",
+      "player_visible_feedback": "authority_result_then_report",
       "terminal_state": "disabled",
       "priority": 3,
-      "disable_mechanism": "destroy_comms_relay_of_command_node",
-      "mechanism_dependency": "A03/A04 EW+Comms（未实现）",
-      "mechanism_alternative": "切断其与下属单元的链路并保持 300s（可观测但不等于摧毁）",
-      "credit_policy": "player_direct_only",
-      "ally_capable": false
+      "disable_mechanism": "destroy_or_permanently_disable_command_relay",
+      "mechanism_dependency": "A03/A04_ew_comms_and_B1b",
+      "mechanism_alternative": "temporary_link_loss_does_not_count",
+      "credit_policy": "player_direct_or_authorized_ally",
+      "no_identity_immunity": true
     }
   ],
   "protection_objectives": [
@@ -202,33 +613,35 @@
       "kind": "protect_civilian_infrastructure",
       "bound_entity_instance_id": "SECTOR-RELAY-CIV",
       "player_must_not_attack": true,
-      "loss_consequence": "该目标被毁则本场结算为 defeat（任务失败）"
+      "loss_consequence": "defeat"
     },
     {
       "objective_id": "PROT-2",
-      "kind": "protect_own_fleet_core",
-      "bound_entity_instance_id": "I-A1",
+      "kind": "protect_own_flag",
+      "bound_entity_instance_id": "apsis",
       "player_must_not_attack": false,
-      "loss_consequence": "旗舰丧失即 defeat"
+      "loss_consequence": "defeat",
+      "binding": "apsis"
     }
   ],
   "terminal_rules": {
-    "authority_source": "战役裁决（B3a）",
-    "player_view_source": "intel_report（只含已获情报，未知目标不显示名称/坐标/损伤）",
+    "authority_source": "B3a_future_adjudicator",
+    "player_view_source": "intel_report_only_unknown_until_received",
     "victory": {
       "required_objectives": [
         "OBJ-A",
         "OBJ-B",
         "OBJ-C"
       ],
-      "min_completed": 3,
-      "exception": "必需目标全部由友军自主完成时不得判 victory，改判 stalemate（见 contribution_rules.ai_cannot_win_alone）"
+      "required_all": true,
+      "permanent_only": true,
+      "contribution_does_not_change_result": true
     },
     "defeat": {
       "any": [
-        "own_flag_disabled",
-        "zero_required_objectives_completed_at_timeout",
-        "protected_civilian_destroyed"
+        "apsis_disabled",
+        "protected_civilian_destroyed",
+        "zero_required_at_explicit_hard_limit"
       ]
     },
     "withdrawal": {
@@ -236,180 +649,141 @@
       "objectives_complete": false
     },
     "stalemate": {
-      "at_timeout_min_completed": 1,
-      "at_timeout_max_completed": 2,
-      "also_covers": "时限到达完成1~2目标；或必需目标全部由友军自主完成（贡献例外）"
+      "at_explicit_hard_limit_min_completed": 1,
+      "at_explicit_hard_limit_max_completed": 2
     },
-    "zero_completed_at_timeout_is": "defeat",
-    "timeout_never_yields_victory": true,
+    "time_limit_modes": {
+      "M0": {
+        "default": true,
+        "window_s": 3600,
+        "auto_terminal": false,
+        "note": "观测窗口，不是终态"
+      },
+      "M1": {
+        "explicit_enable_required": true,
+        "auto_terminal_on_expiry": true,
+        "note": "仅显式配置硬限时到期触发时限终态"
+      },
+      "M2": {
+        "adopted": false,
+        "note": "未定义软限不采用"
+      }
+    },
     "same_tick_priority": [
       "defeat",
       "victory",
       "withdrawal",
       "stalemate"
     ],
-    "same_tick_rule": "同一 tick 同时满足多个终态时按 same_tick_priority 取最高优先级，只结算一次；defeat 高于 withdrawal，故同 tick 撤离完成 + 民用损失 = defeat",
-    "contribution_exception": "ally_autonomous_all_required → stalemate（推荐口径，待用户核对）"
+    "same_tick_rule": "one_terminal_per_tick_by_priority",
+    "terminal_idempotent": true,
+    "truth_report_split": true,
+    "no_contribution_exception": true,
+    "zero_completed_at_explicit_hard_limit_is": "defeat",
+    "timeout_never_yields_victory": true
   },
   "contribution_rules": {
-    "objective_completion": "由权威裁决按真实状态判定，与玩家贡献分开统计",
-    "objective_credit": "仅当玩家直控单元造成该目标失能、或玩家授权的友军请求执行成功，才计入玩家贡献",
-    "ally_contribution": "友军自主造成而未被玩家请求覆盖的失能计入友军贡献，不计玩家贡献",
-    "ai_cannot_win_alone": "必需目标全部由友军自主完成时不得判 victory；推荐口径：改判 stalemate 并提示玩家未参与决胜",
-    "ai_autonomous_recommendation": "推荐：stalemate（保留阶段性成果，不授予玩家胜利）",
-    "player_no_action": "玩家无操作时 AI 不得代为完成必需目标；该场次按 timeout 口径结算"
+    "objective_completion": "authority evaluates real permanent state; separate from player credit",
+    "objective_credit": "player direct or authorized ally request execution; ally autonomous is ally credit",
+    "command_evaluation_order": [
+      "主导",
+      "有效协同",
+      "有限参与",
+      "未参与"
+    ],
+    "command_evaluation_unique": true,
+    "ally_autonomous": "truth victory remains victory; evaluation 未参与; no stalemate exception",
+    "player_no_action": "M0 no auto terminal at window; mission ongoing until objective/loss/withdrawal conditions",
+    "no_identity_immunity": true,
+    "delivery_vs_request_vs_execution": {
+      "delivered": "message arrived",
+      "accepted": "ally agreed",
+      "executing": "ally acting",
+      "objective_completed": "authority real state",
+      "note": "不可混用"
+    }
   },
   "dual_view_samples": [
     {
       "sample_id": "DV-1",
-      "situation": "全部目标已失能但报告尚未返回",
+      "situation": "全部目标永久失能，报告未回",
       "authority_state": "all_objectives_disabled",
       "player_view_state": "unknown",
-      "player_panel": "目标状态：未知（报告未返回）",
+      "player_panel": "目标状态未知，报告未回",
       "settlement": "pending_report",
-      "note": "权威已完成但玩家不可见，不得提前显示胜利或结算"
+      "no_truth_leak": true
     },
     {
       "sample_id": "DV-2",
-      "situation": "OBJ-A 已失能且报告已回",
-      "authority_state": "OBJ-A disabled / OBJ-B,OBJ-C active",
+      "situation": "OBJ-A 失能且报告已回",
+      "authority_state": "OBJ-A disabled",
       "player_view_state": "OBJ-A confirmed",
-      "player_panel": "目标 A：已确认失能；目标 B/C：疑似",
+      "player_panel": "OBJ-A 已确认",
       "settlement": "in_progress",
-      "note": "玩家视图只显示已获情报确认的部分"
+      "no_truth_leak": true
     }
   ],
   "briefing_sample": {
-    "title": "阶段性去军事化行动简报",
+    "title": "虚构样例（语义）",
     "sections": [
-      "任务：解除第33舰队某战区部队有组织作战能力（不等同整支舰队覆灭）",
-      "必需目标：I-OP1 火控失能、I-OP2 火控失能、I-OP-C2 指挥节点失能",
-      "保护目标：民用中继（禁止攻击）、本舰旗舰（丧失即失败）",
-      "兵力：预算 100 点 / 指挥容量 3；两套编制 FORM-SENSOR（30 点）或 FORM-STRIKE（55 点）",
-      "友军：1 支独立 AI 友军（无武装，可侦察/中继/协助撤离）",
-      "时限：3600 模拟秒；零完成按失败结算",
-      "情报：不完整且有延迟；未知目标不显示名称/坐标/损伤"
+      "目标",
+      "保护",
+      "11舰与3作战",
+      "APSIS后方",
+      "友军",
+      "时间M0",
+      "情报"
     ]
   },
   "debrief_sample": {
-    "title": "阶段战报",
+    "title": "虚构样例（语义）",
     "sections": [
-      "权威结算：victory / defeat / withdrawal / stalemate 之一（唯一）",
-      "目标结果：OBJ-A/B/C 各自终态与判定依据",
-      "玩家贡献：直控射击次数、授权友军请求次数与执行结果、造成失能的目标",
-      "友军贡献：自主侦察/中继/撤离支援次数与效果（不计入玩家贡献）",
-      "保护目标：民用中继状态、旗舰状态",
-      "情报时效：各目标从失能到报告的延迟"
+      "权威结果",
+      "truth_decided_t",
+      "report_received_t",
+      "玩家视图",
+      "目标贡献",
+      "友军行动",
+      "command_evaluation"
     ]
   },
-  "outcomes": {
-    "victory": "全部必需目标在时限内达到不可本场恢复的失能",
-    "defeat": "自有旗舰丧失 / 必需目标零完成 / 受保护民用设施被毁",
-    "withdrawal": "玩家主动撤离：保留舰力但目标未达成",
-    "stalemate": "时限到达且完成 1~2 个必需目标",
-    "timeout": "时限到达：按 terminal_rules 结算，等待时长本身不产生胜利"
-  },
-  "phases": [
-    {
-      "phase_id": "P1",
-      "name": "简报",
-      "player_action": "阅读目标/情报/时限"
-    },
-    {
-      "phase_id": "P2",
-      "name": "组舰",
-      "player_action": "从池中选择编制（受 command_capacity 限制）"
-    },
-    {
-      "phase_id": "P3",
-      "name": "部署",
-      "player_action": "实例化已选舰并部署"
-    },
-    {
-      "phase_id": "P4",
-      "name": "首次协同",
-      "player_action": "请求友军侦察/中继/协助撤离"
-    },
-    {
-      "phase_id": "P5",
-      "name": "交战/撤离",
-      "player_action": "直控自有舰队交战或撤离"
-    },
-    {
-      "phase_id": "P6",
-      "name": "裁决",
-      "player_action": "无（权威裁决）"
-    },
-    {
-      "phase_id": "P7",
-      "name": "战报",
-      "player_action": "查看玩家贡献与友军贡献分列"
-    }
-  ],
-  "comms_samples": [
-    {
-      "kind": "support_recon",
-      "request": "请求友军前出侦察 I-OP1 所在区域",
-      "accept": "已受理，预计 40s 后进入侦察位",
-      "reject": "拒绝：当前链路受阻",
-      "in_progress": "执行中：已进入侦察位并回传接触",
-      "lost_or_damaged": "中断：友军受损，接触中断",
-      "complete": "完成：已回传 I-OP1 航迹与识别",
-      "capability_note": "侦察支援，不含开火"
-    },
-    {
-      "kind": "relay_link",
-      "request": "请求友军建立中继链路",
-      "accept": "已受理，中继链路建立中",
-      "reject": "拒绝：功率不足",
-      "in_progress": "执行中：链路可用，延迟约 30s",
-      "lost_or_damaged": "中断：链路丢失",
-      "complete": "完成：中继链路稳定",
-      "capability_note": "通信中继，不含开火"
-    },
-    {
-      "kind": "assist_withdraw",
-      "request": "请求协助撤离",
-      "accept": "已受理，提供撤离走廊",
-      "reject": "拒绝：无法脱离当前交战",
-      "in_progress": "执行中：走廊建立",
-      "lost_or_damaged": "中断：走廊失效",
-      "complete": "完成：本舰组已脱离",
-      "capability_note": "撤离支援，不含开火"
-    }
-  ],
   "event_traces": [
     {
       "trace_id": "TR-FULL-VICTORY",
       "decision_id": "DEC-1000",
+      "time_mode": "M0",
       "events": [
         {
-          "t": 60,
-          "kind": "objective_enter",
-          "objective_id": "OBJ-A"
-        },
-        {
-          "t": 240,
+          "t": 80,
           "kind": "objective_disable",
           "objective_id": "OBJ-A",
-          "credited_to": "player"
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
         },
         {
-          "t": 300,
-          "kind": "objective_enter",
-          "objective_id": "OBJ-B"
-        },
-        {
-          "t": 520,
+          "t": 420,
           "kind": "objective_disable",
           "objective_id": "OBJ-B",
-          "credited_to": "player"
+          "chain": "missile_vls_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
         },
         {
-          "t": 700,
+          "t": 440,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
+        },
+        {
+          "t": 900,
           "kind": "objective_disable",
           "objective_id": "OBJ-C",
-          "credited_to": "player"
+          "chain": "command_relay",
+          "permanent": true,
+          "credited_to": "player_direct"
         },
         {
           "t": 1000,
@@ -418,197 +792,270 @@
         }
       ],
       "expected_terminal": "victory",
-      "expected_authority": "victory",
-      "expected_player_report": "victory_reported",
-      "player_contribution": "OBJ-A/B/C 均由玩家直控造成",
-      "terminal_events": 1
+      "expected_authority": "all_required_disabled",
+      "expected_player_report": "victory",
+      "player_contribution": "player_direct",
+      "command_evaluation": "主导",
+      "truth_decided_t": 1000,
+      "report_received_t": 1065,
+      "player_view_t": 1065,
+      "terminal_events": 1,
+      "no_truth_leak": false
     },
     {
       "trace_id": "TR-ALL-DISABLED-NO-REPORT",
       "decision_id": "DEC-1001",
+      "time_mode": "M0",
       "events": [
         {
-          "t": 240,
+          "t": 80,
           "kind": "objective_disable",
           "objective_id": "OBJ-A",
-          "credited_to": "player"
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
         },
         {
-          "t": 520,
+          "t": 420,
           "kind": "objective_disable",
           "objective_id": "OBJ-B",
-          "credited_to": "player"
+          "chain": "missile_vls_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
         },
         {
-          "t": 700,
+          "t": 440,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
+        },
+        {
+          "t": 900,
           "kind": "objective_disable",
           "objective_id": "OBJ-C",
-          "credited_to": "player"
+          "chain": "command_relay",
+          "permanent": true,
+          "credited_to": "player_direct"
         },
         {
-          "t": 720,
-          "kind": "report_delay",
-          "note": "全部报告未返回"
+          "t": 1000,
+          "kind": "adjudicate",
+          "decision_id": "DEC-1001"
         }
       ],
       "expected_terminal": "pending_report",
-      "expected_authority": "all_objectives_disabled",
+      "expected_authority": "all_required_disabled",
       "expected_player_report": "unknown",
-      "player_contribution": "已造成全部失能但玩家不可见",
-      "terminal_events": 0,
-      "note": "完整双视图样例：权威全达成，玩家仍 unknown，不得提前结算"
+      "player_contribution": "player_direct",
+      "command_evaluation": "主导",
+      "truth_decided_t": 1000,
+      "report_received_t": null,
+      "player_view_t": null,
+      "terminal_events": 1,
+      "no_truth_leak": true
     },
     {
       "trace_id": "TR-DISABLED-NOT-REPORTED",
-      "decision_id": "DEC-240",
+      "decision_id": "DEC-1002",
+      "time_mode": "M0",
       "events": [
         {
-          "t": 240,
+          "t": 80,
           "kind": "objective_disable",
           "objective_id": "OBJ-A",
-          "credited_to": "player"
-        },
-        {
-          "t": 300,
-          "kind": "report_delay",
-          "note": "报告未返回"
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
         }
       ],
       "expected_terminal": "pending_report",
       "expected_authority": "in_progress",
       "expected_player_report": "unknown",
-      "player_contribution": "OBJ-A 由玩家造成，但对玩家未知",
-      "terminal_events": 0
+      "player_contribution": "player_direct",
+      "command_evaluation": "有限参与",
+      "truth_decided_t": null,
+      "report_received_t": null,
+      "player_view_t": null,
+      "terminal_events": 0,
+      "no_truth_leak": true
     },
     {
       "trace_id": "TR-DEFEAT",
-      "decision_id": "DEC-900",
+      "decision_id": "DEC-1003",
+      "time_mode": "M0",
       "events": [
         {
-          "t": 900,
-          "kind": "own_flag_disabled"
+          "t": 300,
+          "kind": "apsis_disabled"
         },
         {
-          "t": 1000,
+          "t": 301,
           "kind": "adjudicate",
-          "decision_id": "DEC-900"
+          "decision_id": "DEC-1003"
         }
       ],
       "expected_terminal": "defeat",
-      "expected_authority": "defeat",
-      "expected_player_report": "defeat_reported",
+      "expected_authority": "apsis_disabled",
+      "expected_player_report": "defeat",
       "player_contribution": "none",
-      "terminal_events": 1
+      "command_evaluation": "未参与",
+      "truth_decided_t": 301,
+      "report_received_t": 350,
+      "player_view_t": 350,
+      "terminal_events": 1,
+      "no_truth_leak": false
     },
     {
       "trace_id": "TR-WITHDRAW",
-      "decision_id": "DEC-560",
+      "decision_id": "DEC-1004",
+      "time_mode": "M0",
       "events": [
         {
           "t": 500,
-          "kind": "withdraw_request"
-        },
-        {
-          "t": 560,
           "kind": "withdraw_complete"
         },
         {
-          "t": 1000,
+          "t": 501,
           "kind": "adjudicate",
-          "decision_id": "DEC-560"
+          "decision_id": "DEC-1004"
         }
       ],
       "expected_terminal": "withdrawal",
       "expected_authority": "withdrawal",
-      "expected_player_report": "withdrawal_reported",
-      "player_contribution": "主动撤离",
-      "terminal_events": 1
+      "expected_player_report": "withdrawal",
+      "player_contribution": "player_direct",
+      "command_evaluation": "有限参与",
+      "truth_decided_t": 501,
+      "report_received_t": 530,
+      "player_view_t": 530,
+      "terminal_events": 1,
+      "no_truth_leak": false
     },
     {
-      "trace_id": "TR-STALEMATE",
-      "decision_id": "DEC-3600",
+      "trace_id": "TR-M1-STALEMATE",
+      "decision_id": "DEC-1005",
+      "time_mode": "M1",
+      "hard_limit_enabled": true,
       "events": [
         {
-          "t": 700,
+          "t": 100,
           "kind": "objective_disable",
           "objective_id": "OBJ-A",
-          "credited_to": "player"
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
         },
         {
           "t": 3600,
           "kind": "time_limit_reached"
         },
         {
-          "t": 3600,
+          "t": 3601,
           "kind": "adjudicate",
-          "decision_id": "DEC-3600"
+          "decision_id": "DEC-1005"
         }
       ],
       "expected_terminal": "stalemate",
       "expected_authority": "stalemate",
-      "expected_player_report": "stalemate_reported",
-      "player_contribution": "OBJ-A 由玩家造成",
-      "terminal_events": 1
+      "expected_player_report": "stalemate",
+      "player_contribution": "player_direct",
+      "command_evaluation": "有限参与",
+      "truth_decided_t": 3600,
+      "report_received_t": 3665,
+      "player_view_t": 3665,
+      "terminal_events": 1,
+      "no_truth_leak": false
     },
     {
-      "trace_id": "TR-ZERO-COMPLETE-TIMEOUT",
-      "decision_id": "DEC-3601",
+      "trace_id": "TR-M1-ZERO-TIMEOUT",
+      "decision_id": "DEC-1006",
+      "time_mode": "M1",
+      "hard_limit_enabled": true,
       "events": [
         {
           "t": 3600,
           "kind": "time_limit_reached"
         },
         {
-          "t": 3600,
+          "t": 3601,
           "kind": "adjudicate",
-          "decision_id": "DEC-3601"
+          "decision_id": "DEC-1006"
         }
       ],
       "expected_terminal": "defeat",
-      "expected_authority": "defeat",
-      "expected_player_report": "defeat_reported",
+      "expected_authority": "zero_required_at_hard_limit",
+      "expected_player_report": "defeat",
       "player_contribution": "none",
+      "command_evaluation": "未参与",
+      "truth_decided_t": 3600,
+      "report_received_t": 3665,
+      "player_view_t": 3665,
       "terminal_events": 1,
-      "note": "零完成 + 时限 → defeat（不是 stalemate，也不是 victory）"
+      "no_truth_leak": false
+    },
+    {
+      "trace_id": "TR-M0-WINDOW-ONGOING",
+      "decision_id": "DEC-1007",
+      "time_mode": "M0",
+      "events": [
+        {
+          "t": 3600,
+          "kind": "time_window_reached"
+        }
+      ],
+      "expected_terminal": "ongoing",
+      "expected_authority": "ongoing",
+      "expected_player_report": "unknown",
+      "player_contribution": "none",
+      "command_evaluation": "有限参与",
+      "truth_decided_t": null,
+      "report_received_t": null,
+      "player_view_t": null,
+      "terminal_events": 0,
+      "no_truth_leak": true
     },
     {
       "trace_id": "TR-EW-NOT-PERMANENT",
-      "decision_id": "DEC-3602",
+      "decision_id": "DEC-1008",
+      "time_mode": "M0",
       "events": [
         {
-          "t": 200,
-          "kind": "ew_effect",
-          "duration_s": 20
+          "t": 300,
+          "kind": "temporary_ew",
+          "objective_id": "OBJ-A"
         },
         {
-          "t": 3600,
-          "kind": "time_limit_reached"
+          "t": 700,
+          "kind": "target_still_effective",
+          "objective_id": "OBJ-A"
         },
         {
-          "t": 3600,
-          "kind": "adjudicate",
-          "decision_id": "DEC-3602"
+          "t": 1500,
+          "kind": "temporary_link_loss",
+          "objective_id": "OBJ-C"
         }
       ],
-      "expected_terminal": "defeat",
-      "expected_authority": "defeat",
-      "expected_player_report": "defeat_reported",
+      "expected_terminal": "ongoing",
+      "expected_authority": "in_progress",
+      "expected_player_report": "unknown",
       "player_contribution": "none",
-      "terminal_events": 1,
-      "note": "单次 EW 不计永久失能 → 零完成 → defeat"
+      "command_evaluation": "有限参与",
+      "truth_decided_t": null,
+      "report_received_t": null,
+      "player_view_t": null,
+      "terminal_events": 0,
+      "no_truth_leak": true
     },
     {
       "trace_id": "TR-STILL-EFFECTIVE",
-      "decision_id": "DEC-3603",
+      "decision_id": "DEC-1009",
+      "time_mode": "M1",
+      "hard_limit_enabled": true,
       "events": [
         {
-          "t": 240,
-          "kind": "objective_disable",
-          "objective_id": "OBJ-A",
-          "credited_to": "player"
-        },
-        {
-          "t": 260,
+          "t": 500,
           "kind": "target_still_engaging",
           "objective_id": "OBJ-A"
         },
@@ -617,243 +1064,363 @@
           "kind": "time_limit_reached"
         },
         {
-          "t": 3600,
+          "t": 3601,
           "kind": "adjudicate",
-          "decision_id": "DEC-3603"
+          "decision_id": "DEC-1009"
         }
       ],
       "expected_terminal": "defeat",
-      "expected_authority": "defeat",
-      "expected_player_report": "defeat_reported",
-      "player_contribution": "none（该目标未真正失能）",
-      "terminal_events": 1
+      "expected_authority": "zero_required_at_hard_limit",
+      "expected_player_report": "defeat",
+      "player_contribution": "none",
+      "command_evaluation": "未参与",
+      "truth_decided_t": 3600,
+      "report_received_t": 3665,
+      "player_view_t": 3665,
+      "terminal_events": 1,
+      "no_truth_leak": false
+    },
+    {
+      "trace_id": "TR-OBJ-B-ONE-CHAIN",
+      "decision_id": "DEC-1010",
+      "time_mode": "M0",
+      "events": [
+        {
+          "t": 420,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
+        }
+      ],
+      "expected_terminal": "ongoing",
+      "expected_authority": "in_progress",
+      "expected_player_report": "unknown",
+      "player_contribution": "player_direct",
+      "command_evaluation": "有限参与",
+      "truth_decided_t": null,
+      "report_received_t": null,
+      "player_view_t": null,
+      "terminal_events": 0,
+      "no_truth_leak": true
     },
     {
       "trace_id": "TR-ALLY-REFUSE-ALTERNATIVE",
-      "decision_id": "DEC-3604",
+      "decision_id": "DEC-1011",
+      "time_mode": "M0",
       "events": [
         {
-          "t": 120,
-          "kind": "ally_reject",
-          "reason": "link_blocked"
-        },
-        {
-          "t": 700,
-          "kind": "objective_disable",
-          "objective_id": "OBJ-A",
-          "credited_to": "player"
-        },
-        {
-          "t": 3600,
-          "kind": "adjudicate",
-          "decision_id": "DEC-3604"
-        }
-      ],
-      "expected_terminal": "stalemate",
-      "expected_authority": "stalemate",
-      "expected_player_report": "stalemate_reported",
-      "player_contribution": "OBJ-A 由玩家造成；友军拒绝未阻断替代路线",
-      "terminal_events": 1
-    },
-    {
-      "trace_id": "TR-ALLY-AUTONOMOUS-WIN",
-      "decision_id": "DEC-3605",
-      "events": [
-        {
-          "t": 300,
-          "kind": "objective_disable",
-          "objective_id": "OBJ-A",
-          "credited_to": "ally_autonomous"
+          "t": 420,
+          "kind": "ally_request_rejected",
+          "reason": "ALLY_TASK_CONFLICT"
         },
         {
           "t": 600,
           "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
+        }
+      ],
+      "expected_terminal": "ongoing",
+      "expected_authority": "in_progress",
+      "expected_player_report": "OBJ-A confirmed",
+      "player_contribution": "player_direct",
+      "command_evaluation": "有限参与",
+      "truth_decided_t": null,
+      "report_received_t": 600,
+      "player_view_t": 600,
+      "terminal_events": 0,
+      "no_truth_leak": false
+    },
+    {
+      "trace_id": "TR-ALLY-AUTONOMOUS-WIN",
+      "decision_id": "DEC-1012",
+      "time_mode": "M0",
+      "events": [
+        {
+          "t": 80,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "ally_autonomous"
+        },
+        {
+          "t": 420,
+          "kind": "objective_disable",
           "objective_id": "OBJ-B",
+          "chain": "missile_vls_fire_control",
+          "permanent": true,
+          "credited_to": "ally_autonomous"
+        },
+        {
+          "t": 440,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "chain": "railgun_fire_control",
+          "permanent": true,
           "credited_to": "ally_autonomous"
         },
         {
           "t": 900,
           "kind": "objective_disable",
           "objective_id": "OBJ-C",
+          "chain": "command_relay",
+          "permanent": true,
           "credited_to": "ally_autonomous"
         },
         {
-          "t": 3600,
-          "kind": "adjudicate",
-          "decision_id": "DEC-3605"
-        }
-      ],
-      "expected_terminal": "stalemate",
-      "expected_authority": "stalemate",
-      "expected_player_report": "stalemate_reported",
-      "player_contribution": "none（全部由友军自主造成）",
-      "terminal_events": 1,
-      "note": "AI 不得包干首胜：必需目标全部友军自主完成时按推荐口径判 stalemate"
-    },
-    {
-      "trace_id": "TR-DUPLICATE-ADJUDICATION-GUARD",
-      "decision_id": "DEC-1001",
-      "events": [
-        {
-          "t": 240,
-          "kind": "objective_disable",
-          "objective_id": "OBJ-A",
-          "credited_to": "player"
-        },
-        {
-          "t": 520,
-          "kind": "objective_disable",
-          "objective_id": "OBJ-B",
-          "credited_to": "player"
-        },
-        {
-          "t": 700,
-          "kind": "objective_disable",
-          "objective_id": "OBJ-C",
-          "credited_to": "player"
-        },
-        {
           "t": 1000,
           "kind": "adjudicate",
-          "decision_id": "DEC-1000"
-        },
-        {
-          "t": 1001,
-          "kind": "adjudicate",
-          "decision_id": "DEC-1001"
+          "decision_id": "DEC-1012"
         }
       ],
       "expected_terminal": "victory",
-      "expected_authority": "victory",
-      "expected_player_report": "victory_reported",
-      "player_contribution": "OBJ-A/B/C 均由玩家直控造成",
+      "expected_authority": "all_required_disabled",
+      "expected_player_report": "victory",
+      "player_contribution": "none",
+      "command_evaluation": "未参与",
+      "truth_decided_t": 1000,
+      "report_received_t": 1065,
+      "player_view_t": 1065,
       "terminal_events": 1,
-      "note": "重复裁决必须幂等：两个裁决事件只结算一次"
+      "no_truth_leak": false,
+      "note": "合成输入；不判断当前 AI 可行性"
     },
     {
-      "trace_id": "TR-CIVILIAN-LOSS",
-      "decision_id": "DEC-800",
+      "trace_id": "TR-DUPLICATE-ADJUDICATION-GUARD",
+      "decision_id": "DEC-1013",
+      "time_mode": "M0",
       "events": [
         {
-          "t": 800,
-          "kind": "protected_target_destroyed",
-          "objective_id": "PROT-1"
+          "t": 80,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
+        },
+        {
+          "t": 420,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "chain": "missile_vls_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
+        },
+        {
+          "t": 440,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
+        },
+        {
+          "t": 900,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-C",
+          "chain": "command_relay",
+          "permanent": true,
+          "credited_to": "player_direct"
         },
         {
           "t": 1000,
           "kind": "adjudicate",
-          "decision_id": "DEC-800"
+          "decision_id": "DEC-1013"
+        },
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "decision_id": "DEC-1013"
         }
       ],
-      "expected_terminal": "defeat",
-      "expected_authority": "defeat",
-      "expected_player_report": "defeat_reported",
-      "player_contribution": "违反保护约束",
-      "terminal_events": 1
+      "expected_terminal": "victory",
+      "expected_authority": "all_required_disabled",
+      "expected_player_report": "victory",
+      "player_contribution": "player_direct",
+      "command_evaluation": "主导",
+      "truth_decided_t": 1000,
+      "report_received_t": 1065,
+      "player_view_t": 1065,
+      "terminal_events": 1,
+      "no_truth_leak": false
     },
     {
-      "trace_id": "TR-CIVILIAN-LOSS-SAME-TICK-WITHDRAW",
-      "decision_id": "DEC-801",
+      "trace_id": "TR-CIVILIAN-LOSS",
+      "decision_id": "DEC-1014",
+      "time_mode": "M0",
       "events": [
         {
-          "t": 800,
+          "t": 500,
           "kind": "protected_target_destroyed",
           "objective_id": "PROT-1"
         },
         {
-          "t": 800,
-          "kind": "withdraw_complete"
-        },
-        {
-          "t": 801,
+          "t": 501,
           "kind": "adjudicate",
-          "decision_id": "DEC-801"
+          "decision_id": "DEC-1014"
         }
       ],
       "expected_terminal": "defeat",
-      "expected_authority": "defeat",
-      "expected_player_report": "defeat_reported",
-      "player_contribution": "违反保护约束",
+      "expected_authority": "protected_civilian_destroyed",
+      "expected_player_report": "defeat",
+      "player_contribution": "none",
+      "command_evaluation": "未参与",
+      "truth_decided_t": 501,
+      "report_received_t": 530,
+      "player_view_t": 530,
       "terminal_events": 1,
-      "note": "同 tick 撤离完成 + 民用损失：按 same_tick_priority，defeat 高于 withdrawal → defeat"
+      "no_truth_leak": false
+    },
+    {
+      "trace_id": "TR-CIVILIAN-LOSS-SAME-TICK-WITHDRAW",
+      "decision_id": "DEC-1015",
+      "time_mode": "M0",
+      "events": [
+        {
+          "t": 500,
+          "kind": "withdraw_complete"
+        },
+        {
+          "t": 500,
+          "kind": "protected_target_destroyed",
+          "objective_id": "PROT-1"
+        },
+        {
+          "t": 501,
+          "kind": "adjudicate",
+          "decision_id": "DEC-1015"
+        }
+      ],
+      "expected_terminal": "defeat",
+      "expected_authority": "protected_civilian_destroyed",
+      "expected_player_report": "defeat",
+      "player_contribution": "none",
+      "command_evaluation": "未参与",
+      "truth_decided_t": 501,
+      "report_received_t": 530,
+      "player_view_t": 530,
+      "terminal_events": 1,
+      "no_truth_leak": false
+    },
+    {
+      "trace_id": "TR-REPORT-LEAK-GUARD",
+      "decision_id": "DEC-1016",
+      "time_mode": "M0",
+      "events": [
+        {
+          "t": 80,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-A",
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
+        },
+        {
+          "t": 420,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "chain": "missile_vls_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
+        },
+        {
+          "t": 440,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-B",
+          "chain": "railgun_fire_control",
+          "permanent": true,
+          "credited_to": "player_direct"
+        },
+        {
+          "t": 900,
+          "kind": "objective_disable",
+          "objective_id": "OBJ-C",
+          "chain": "command_relay",
+          "permanent": true,
+          "credited_to": "player_direct"
+        },
+        {
+          "t": 1000,
+          "kind": "adjudicate",
+          "decision_id": "DEC-1016"
+        }
+      ],
+      "expected_terminal": "pending_report",
+      "expected_authority": "all_required_disabled",
+      "expected_player_report": "unknown",
+      "player_contribution": "player_direct",
+      "command_evaluation": "主导",
+      "truth_decided_t": 1000,
+      "report_received_t": null,
+      "player_view_t": null,
+      "terminal_events": 1,
+      "no_truth_leak": true
+    }
+  ],
+  "comms_samples": [
+    {
+      "kind": "observation",
+      "type": "OBSERVE",
+      "sent_t": 180,
+      "received_t": 210,
+      "status": "accepted",
+      "reason_code": "",
+      "delivery": "delivered",
+      "execution": "track_report",
+      "target_completion": "not_an_objective_completion",
+      "no_truth_leak": true
+    },
+    {
+      "kind": "suppress",
+      "type": "SUPPRESS",
+      "sent_t": 420,
+      "received_t": 450,
+      "status": "completed",
+      "reason_code": "",
+      "weapon": "railgun",
+      "rounds_fired": 14,
+      "hits": 3,
+      "permanent_disables": 0,
+      "effect_basis": "real_ballistic_hits",
+      "fixed_debuff_s": 0,
+      "target_completion": "not_an_objective_completion",
+      "no_truth_leak": true,
+      "delivery": "delivered",
+      "execution": "real_ballistic_fire_mission"
     }
   ],
   "user_decisions_pending": [
-    "战区名称、架空年月与参战单位命名",
-    "点数公式 round(displacement_t/60) 与预算 100、指挥容量 3",
-    "两套编制的具体舰型组合（当前 SENSOR 30 点 / STRIKE 55 点）",
-    "三个目标对象（I-OP1/I-OP2/I-OP-C2）与失能阈值",
-    "失能机制依赖未实现系统时的替代口径",
-    "失败/撤离/僵局/超时结算口径（零完成→defeat 是否认可）",
-    "友军自主完成必需目标时按 stalemate 推荐的判定口径是否认可"
+    "战区名/架空日期/单位呼号",
+    "11 舰的辅助舰具体命名正典",
+    "3 作战舰四组合是否都需同难度（当前仅合法，不承诺平衡）",
+    "APSIS 战区后方具体支援范围",
+    "目标失能阈值与战报口径",
+    "M1 硬限与真实游玩时长"
   ],
   "b3_dependencies": [
-    "目标运行层与裁决（B3a）：失能判定与不可恢复性判定、同 tick 优先级",
-    "简报/阶段/战报（B3b）：玩家已知状态与贡献统计",
-    "AI 协同（B2）：友军接受/拒绝/失联回执依赖真实链路状态"
+    "target adjudication / permanent-disable evidence (B3a)",
+    "briefing/debrief and report delay (B3b)",
+    "B1b damage ledger; A03/A04 EW/comms for OBJ-C",
+    "B2 independent ally requests/receipts"
   ],
   "not_implemented": [
-    "真实 AI 行为、逐舰战斗账本、完整战役裁决",
-    "平民/民用设施强制攻击设定（明确禁止作为胜利条件）"
+    "B1b逐舰战斗/损伤账本",
+    "B2独立AI/请求回执",
+    "真实部署/裁决/可玩战役",
+    "弹种/混装（E-AMMO-00后延）"
   ],
-  "appendix_legacy": {
-    "note": "以下为已废弃的历史方案，仅存档对照，不得作为当前主案",
-    "P0-r6-1": {
-      "points": {
-        "FORM-SENSOR": 25,
-        "FORM-STRIKE": 55
-      },
-      "own_flag": "OCUVF-APOGEE（9000t → 150 点，超预算 100，已废弃）",
-      "ally_ships": [
-        "OCUVF-PALLET-5C",
-        "OCUVF-SAFEHARBOR-1"
-      ],
-      "problem": "旗舰超预算、友军无武器却写射击回执、旧正文与追加方案并存"
-    }
+  "old_schema_policy": {
+    "v17.jc.scenario_spec.v3": "rejected; requires explicit migration; not read as v4",
+    "v17.jc.scenario_spec.v4": "current",
+    "note": "本卡只迁移内容契约；不把旧 v3 的 45/100 点/3 舰数据自动当 v4。"
   },
-  "composition_rules": {
-    "presets_are_recommendations": true,
-    "free_composition": true,
-    "pool_quantities": {
-      "OCUVF-PALLET-5C": 4,
-      "OCUVF-HEMATITE-6C": 3,
-      "OCUVF-GANTRY-3M": 2,
-      "OCUVF-SAFEHARBOR-1": 1
-    },
-    "repeat_allowed": true,
-    "max_ships": 3,
-    "flagship_slot": "one_of_selected_ships_must_be_flag_class",
-    "custom_flagship_note": "玩家可在合法池内任选一舰作旗舰，但必须与 PROT-2 绑定的 I-A1 一致；不自选产品旗舰",
-    "validation": "sum(points) <= points_budget and ships <= command_capacity and flag_class in ships"
-  },
-  "text_samples": {
-    "briefing": [
-      "【阶段简报 · 虚构样例】",
-      "任务：对第33舰队前哨战区实施阶段性去军事化，解除其有组织作战能力；不要求整支舰队覆灭。",
-      "必需目标：OBJ-A（I-OP1 火控）、OBJ-B（I-OP2 火控）、OBJ-C（I-OP-C2 指挥节点）；三者须不可本场恢复。",
-      "保护目标：民用中继 SECTOR-RELAY-CIV（禁止攻击，被毁即失败）；本舰旗舰 I-A1（丧失即失败）。",
-      "兵力：预算 100 点 / 指挥容量 3；建议预设 FORM-SENSOR（30 点）或 FORM-STRIKE（55 点），也可在池内自由组合。",
-      "友军：F-ALLY-1 独立 AI，无武装，仅提供侦察、中继、协助撤离；可拒绝请求。",
-      "时限：3600 模拟秒。零完成按失败结算；同 tick 冲突按 失败>胜利>撤离>僵局。",
-      "情报：不完整且有延迟；未知目标不显示名称/坐标/损伤。"
-    ],
-    "debrief_victory": [
-      "【阶段战报 · 虚构样例 · 对应 TR-FULL-VICTORY】",
-      "结论：胜利（无重复结算，decision DEC-1000）。",
-      "OBJ-A：240s 失能，判定依据＝火控段损伤且不可本场恢复，贡献＝玩家直控。",
-      "OBJ-B：520s 失能，同上，贡献＝玩家直控。",
-      "OBJ-C：700s 由玩家授权友军侦察中继定位后、本舰打击致指挥节点失能，贡献＝玩家授权行动。",
-      "友军贡献：F-ALLY-1 提供 2 次中继（延迟 30s/55s），未开火。",
-      "保护目标：SECTOR-RELAY-CIV 完好；旗舰 I-A1 完好。",
-      "情报时效：OBJ-A 失能→报告 18s；OBJ-B 42s；OBJ-C 65s。"
-    ],
-    "debrief_stalemate": [
-      "【阶段战报 · 虚构样例 · 对应 TR-ALLY-AUTONOMOUS-WIN】",
-      "结论：僵局（推荐口径：必需目标全部由友军自主完成，不授予玩家胜利）。",
-      "OBJ-A/B/C 均由友军自主造成，玩家未直控也未授权；玩家贡献＝无。",
-      "友军贡献：全部三次失能。",
-      "保护目标：均完好。",
-      "提示：玩家未参与决胜，建议后续提高玩家参与度。"
-    ]
+  "legacy_notes": {
+    "budget": "R9/R10 的固定点数预算与 3 舰容量仅历史；当前不冻结新点数。",
+    "formations": "旧 SENSOR/STRIKE 预设不是当前唯一方案；由 11 舰选型/部署/任务组替代。"
   }
 }

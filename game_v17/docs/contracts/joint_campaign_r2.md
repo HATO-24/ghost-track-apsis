@@ -244,3 +244,18 @@
 ### 8.7 探针
 `integration.jc_contracts` 覆盖上述全部拒绝面，当前 **84/0**；负例 fixture **27 个**（含 R8 新增：
 缺 `seq`、未知 lifecycle 版本、缺 `received_by_intel_owner_id`）。
+
+## 9. JC-B03P v4 内容规格迁移（2026-10-31，H01 后）
+
+- **fixture**：`game_v17/tests/fixtures/jc_scenario/jc_sector_01_proposal.json`，schema `v17.jc.scenario_spec.v4`，version 4，proposal `P0-r11-1`。
+- **探针**：`integration.jc_scenario_spec`；只校验内容/引用/规则自洽，不实现运行态裁决、AI、战斗或真实部署。
+- **旧 v3 策略**：`v17.jc.scenario_spec.v3` **拒绝**为当前规格（`old_schema_policy` 明确 rejected/需迁移）；旧 45/100 点、3 舰、两套固定编制只作历史，不能自动当 v4。旧 fixture 留在 git 历史，不把旧数据硬塞进 v4。
+- **新增内容字段**（v4 fixture）：
+  - `fleet_ownership`：11 独立舰 = 8 支援（APSIS 1 + PALLET 2 + SAFEHARBOR 2 + MOONPORT 2 + WINCH 1）+ 3 作战；APSIS 计入 8、不占 3；ARIA-1 穿梭机随 APSIS 携带、不独立。
+  - `combat_selection.four_legal_compositions`：HEMATITE:GANTRY = 3:0 / 2:1 / 1:2 / 0:3；每舰唯一实例 + 独立 `resource_ref`；未选组合不计 owned。临时呼号不复制具名舰。
+  - `deployment`：`owned/deployed/reserve/task_groups` 分开表达，不回到 3 舰/硬预算。
+  - `own_flag`：APSIS / `OCUVF-APOGEE` / `in_theater_rear_support`；`PROT-2` 绑定 apsis，损失→defeat；场外指挥/继承不实现。
+  - `theater.time_limit` / `terminal_rules.time_limit_modes`：默认 **M0**，window 3600 仅观测、不自动终态；M1 仅显式启用/到期裁决；未定义 M2 不采用。
+  - `ally_force.suppress` / `objectives[OBJ-B]` / `contribution_rules`：保留 R9 的真实弹道/无固定减益/无身份免疫、导弹 VLS+railgun 双链均永久失能才完成、truth/report 分离、同 tick/幂等、唯一 `command_evaluation`。
+- **拒绝/负例**：4 作战舰、>11 或缺少必需支援、错误舰级、重复/错绑实例、APSIS 占作战位、M0 自动结算、OBJ-B 单链完成、无真实失能就 victory、报告未回却泄露真值、重复裁决/同 tick 优先级冲突、旧 v3 schema。
+- **边界**：不含 B1b 逐舰战斗/账本、B2 AI/请求回执、B3 运行态裁决、UI、补给生产/全球战争、弹种/混装（E-AMMO-00 后续）。纸面合法不等于平衡或可玩。
