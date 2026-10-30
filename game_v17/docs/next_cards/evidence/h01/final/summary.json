@@ -1,0 +1,203 @@
+{
+  "schema": "test_summary.v1",
+  "run_id": "20261030-143052-cd6883b0",
+  "started_at": "2026-10-30T14:30:52+08:00",
+  "ended_at": "2026-10-30T14:30:58+08:00",
+  "invocation": {
+    "script": "run_tests.ps1",
+    "matrix": "game_v17/tests/probe_matrix.json",
+    "project": "game_v17",
+    "filters": [
+      "gate=(none)",
+      "baseline=(none)",
+      "category=all",
+      "only=damage_profile|damage_integration|v17_nav_integration",
+      "import=skipped",
+      "timeout=per-case"
+    ],
+    "ci": true,
+    "no_import": true,
+    "timeout_sec": 0,
+    "gate": null,
+    "baseline": null,
+    "allow_partial_baseline": false
+  },
+  "gate": null,
+  "baseline": {
+    "mode": false,
+    "partial": false,
+    "complete": false,
+    "verified": false,
+    "path": null,
+    "schema": null,
+    "baseline_commit": null,
+    "file_sha256": null,
+    "evidence_provenance": null,
+    "environment": null,
+    "known_fail": null,
+    "new_fail": null,
+    "baseline_drift": null,
+    "baseline_unverified": null,
+    "baseline_unselected": null,
+    "entries_total": null,
+    "entries_not_selected": null,
+    "unselected_ids": [],
+    "unverified": [],
+    "coverage": null
+  },
+  "phase_a_baseline": null,
+  "godot": {
+    "path": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe",
+    "found_via": "parameter",
+    "version_raw": "4.7.2.stable.official.ed1daf0bf",
+    "version_expected": "4.7.2",
+    "version_match": true
+  },
+  "godot_version": "4.7.2.stable.official.ed1daf0bf",
+  "git": {
+    "branch": "jc/h01-damage-profiles",
+    "commit": "cd6883b0991d4aae0b6f1582f2cf63ccfb6f7263",
+    "commit_short": "cd6883b0",
+    "worktree_dirty": false,
+    "modified_tracked": null,
+    "read_error": ""
+  },
+  "git_branch": "jc/h01-damage-profiles",
+  "git_commit": "cd6883b0991d4aae0b6f1582f2cf63ccfb6f7263",
+  "host": {
+    "os": "Microsoft Windows NT 10.0.26200.0",
+    "os_name": "Windows_NT",
+    "ps_version": "7.6.6",
+    "pwsh": true
+  },
+  "host_os": "Microsoft Windows NT 10.0.26200.0",
+  "import": {
+    "status": "SKIPPED",
+    "reason": "-NoImport supplied",
+    "exit_code": null,
+    "duration_s": 0,
+    "log_path": "",
+    "error_line_count": 0,
+    "errors": null
+  },
+  "env_isolation": {
+    "cleared_prefixes": [
+      "DSH_",
+      "V17_"
+    ],
+    "cleared_vars": [
+      "DSH_HOME",
+      "DSH_PROFILE",
+      "DSH_PROFILE_DIR",
+      "DSH_SESSION_ID",
+      "DSH_SHELL",
+      "DSH_WEB_URL"
+    ]
+  },
+  "environment_blocked": false,
+  "blocked_reason": "",
+  "cases": [
+    {
+      "id": "content.damage_profile_probe",
+      "category": "content",
+      "profile": "",
+      "entry": "script",
+      "purpose": "36-class damage profiles: data, service mapping, fallback, legacy override",
+      "script": "res://tests/damage_profile_probe.gd",
+      "scene": null,
+      "env": {},
+      "command": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game_v17 --script res://tests/damage_profile_probe.gd",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_s": 1.23,
+      "pass_count": 562,
+      "fail_count": 0,
+      "expected_markers": [
+        "DAMAGE PROFILE PROBE RESULT:"
+      ],
+      "marker_ok": true,
+      "log_path": ".test-results/next-cards/H01/targeted-final/20261030-143052-cd6883b0/logs/content.damage_profile_probe.log",
+      "reason": "",
+      "attempts": 1,
+      "blocked": false,
+      "error_lines": 0,
+      "baseline": null
+    },
+    {
+      "id": "integration.damage_integration_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Damage model integration into V17 world state",
+      "script": "res://tests/damage_integration_probe.gd",
+      "scene": null,
+      "env": {},
+      "command": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game_v17 --script res://tests/damage_integration_probe.gd",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_s": 1.7,
+      "pass_count": 215,
+      "fail_count": 0,
+      "expected_markers": [
+        "DAMAGE INTEGRATION PROBE RESULT:"
+      ],
+      "marker_ok": true,
+      "log_path": ".test-results/next-cards/H01/targeted-final/20261030-143052-cd6883b0/logs/integration.damage_integration_probe.log",
+      "reason": "",
+      "attempts": 1,
+      "blocked": false,
+      "error_lines": 1,
+      "baseline": null
+    },
+    {
+      "id": "integration.v17_nav_integration_probe",
+      "category": "integration",
+      "profile": "",
+      "entry": "script",
+      "purpose": "Navigation/traffic/maneuver + damage integrated into V17 bridge/state",
+      "script": "res://tests/v17_nav_integration_probe.gd",
+      "scene": null,
+      "env": {},
+      "command": "D:/GHOST TRACK_APSIS/tools/godot/Godot_v4.7.2-stable_win64_console.exe --headless --path game_v17 --script res://tests/v17_nav_integration_probe.gd",
+      "exit_code": 0,
+      "status": "PASS",
+      "duration_s": 2.34,
+      "pass_count": 185,
+      "fail_count": 0,
+      "expected_markers": [
+        "V17 NAV INTEGRATION PROBE RESULT:"
+      ],
+      "marker_ok": true,
+      "log_path": ".test-results/next-cards/H01/targeted-final/20261030-143052-cd6883b0/logs/integration.v17_nav_integration_probe.log",
+      "reason": "",
+      "attempts": 1,
+      "blocked": false,
+      "error_lines": 1,
+      "baseline": null
+    }
+  ],
+  "totals": {
+    "total": 3,
+    "pass": 3,
+    "fail": 0,
+    "timeout": 0,
+    "not_run": 0,
+    "not_run_expected": 0,
+    "not_run_unexpected": 0,
+    "ran": 3,
+    "duration_s": 6.16,
+    "known_fail": null,
+    "new_fail": null,
+    "baseline_drift": null,
+    "baseline_unverified": null,
+    "baseline_unselected": null,
+    "baseline_complete": null,
+    "known_phase_a": null,
+    "new_fail_phase_a": null,
+    "drift_phase_a": null,
+    "unverified_phase_a": null,
+    "unselected_phase_a": null,
+    "phase_a_baseline_complete": null
+  },
+  "exit_code": 0
+}
