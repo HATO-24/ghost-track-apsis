@@ -1,13 +1,11 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://models/habitat_model.gd" id="1"]
+[ext_resource type="Script" path="res://models/oneill_island3_hi.gd" id="1"]
 
 [node name="OneillCylinder" type="Node3D"]
 script = ExtResource("1")
-habitat_type = "oneill"
 habitat_label = "L5-07 SAVANNAH"
 habitat_scale = 1.0
-rotation_speed = 0.28
 station_type = "port"
-module_count = 4
 station_scale = 1.0
+module_count = 4

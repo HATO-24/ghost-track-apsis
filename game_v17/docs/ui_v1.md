@@ -1383,6 +1383,8 @@ F5 PROBE RESULT: PASS
 
 ## 38　方案B-34：V1 HUD NEAR VIEW（task-210）
 
+> **B-48（task-228）已删除 NEAR VIEW 入口/overlay/输入与相关文件；本节保留为历史记录。**
+
 - 新增 `scripts/ui/near_view.gd`：SubViewport 3D（Camera3D/方向光/补光/WorldEnvironment/缓慢自转）。
 - V1 HUD 右侧 SENSOR CONTROLS 增加 `NEAR / 近景`；弹层显示 Earth/Moon/选中设施模型。
 - 设施 8 类可切换：station/depot/port/otc/tank/fuel/relay/research；由选中 contact 的 facility_class/name/radius 推导，无选中默认 L1 PORT。
@@ -1451,3 +1453,17 @@ F5 PROBE RESULT: PASS
 1. 编组/改装为 Session 5G 提案数据，不是物理编队动画。
 2. 共享资源只有 fleet_refit 分配的资源；失败显示 reason；不伪造。
 3. 未跑全量 regression；不改核心/旧 plot。
+
+
+---
+
+## 41　方案B-48：删除 NEAR VIEW + O'Neill 高精度外景（task-228）
+
+- HUD：移除 SENSOR CONTROLS 的 `NEAR / 近景` 入口、near overlay 绘制/命中、near 输入分发与 `_near_*` 状态；删除 `scripts/ui/near_view.gd`；`DSH_NEAR_*` 不再读取。
+- 内景文件删除：`models/oneill_interior_model.gd`、`oneill_interior.tscn`。
+- `scripts/ui/shell_binder.gd` 无 near 引用；`model_preview.gd` 删除 interior/exterior/oneill_island3 旧模式，新增 `oneill_hi`/`oneill_hi_detail`。
+- O'Neill 替换为高精度单圆柱：`models/oneill_island3_hi.gd` + `oneill_island3_hi.tscn`；`oneill_cylinder.tscn` / `oneill_island3.tscn` 指向 hi；`habitat_model.gd` 委托 hi；旧 `oneill_model.gd` 删除。
+- 截图：`mockups/models-oneill-hi-1920.png`、`models-oneill-hi-detail-1920.png`。
+- 验证：HUD boot `binder boot=true errors=[]`；FacilityModelFactory probe `checks=1697 fails=0`；model_preview hi loaded=1。
+- 历史 near 截图 `mockups/v1-hud-nearview-*.png` 保留但不再对应当前 HUD。
+- 边界：高精度外景仍为程序化低模/纯色材质，无贴图；不接物理/truth；不写 world/session。

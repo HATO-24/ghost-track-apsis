@@ -24,7 +24,7 @@ const ASTEROID_PLACEMENTS := [
 	{"path": "res://models/asteroid_fortress.tscn", "pos": Vector3(4.2, 0.0, 0.0), "label": "ASTEROID FORTRESS · UEG"},
 ]
 const HABITAT_PLACEMENTS := [
-	{"path": "res://models/oneill_cylinder.tscn", "pos": Vector3(-1.7, 0.0, 0.0), "label": "O'NEILL TWIN CYLINDER · 30×7.5 km"},
+	{"path": "res://models/oneill_cylinder.tscn", "pos": Vector3(-1.7, 0.0, 0.0), "label": "O'NEILL SINGLE CYLINDER · 30×7.5 km"},
 	{"path": "res://models/stanford_torus.tscn", "pos": Vector3(2.9, 0.0, 0.0), "label": "STANFORD TORUS · Ø1.8 km"},
 ]
 const STATION_PATHS := [
@@ -63,7 +63,7 @@ var _failed: Array[String] = []
 func _ready() -> void:
 	_shot_path = OS.get_environment("DSH_SHOT")
 	_preview_mode = OS.get_environment("DSH_PREVIEW_VIEW")
-	if _preview_mode not in ["stations", "habitats", "asteroid_habitats", "ships", "four_families"]:
+	if _preview_mode not in ["stations", "habitats", "asteroid_habitats", "ships", "four_families", "oneill_hi", "oneill_hi_detail", "oneill_hi_outboard", "oneill_hi_reflector_angle", "oneill_hi_reflector_mount"]:
 		_preview_mode = "default"
 	var target := Vector2i(1920, 1080)
 	var sz := OS.get_environment("DSH_HUD_SIZE")
@@ -122,6 +122,31 @@ func _build_world() -> void:
 		_camera.position = Vector3(0.0, 1.2, 12.0)
 		add_child(_camera)
 		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
+	elif _preview_mode == "oneill_hi":
+		_camera.size = 8.6
+		_camera.position = Vector3(6.8, 3.0, 10.5)
+		add_child(_camera)
+		_camera.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
+	elif _preview_mode == "oneill_hi_reflector_angle":
+		_camera.size = 9.0
+		_camera.position = Vector3(0.0, 0.8, 14.0)
+		add_child(_camera)
+		_camera.look_at(Vector3(0.0, 0.8, 0.0), Vector3.UP)
+	elif _preview_mode == "oneill_hi_reflector_mount":
+		_camera.size = 1.7
+		_camera.position = Vector3(5.6, 1.7, 3.2)
+		add_child(_camera)
+		_camera.look_at(Vector3(2.35, 0.30, 0.42), Vector3.UP)
+	elif _preview_mode == "oneill_hi_detail":
+		_camera.size = 2.8
+		_camera.position = Vector3(4.4, 2.0, 4.8)
+		add_child(_camera)
+		_camera.look_at(Vector3(1.9, 0.55, 0.0), Vector3.UP)
+	elif _preview_mode == "oneill_hi_outboard":
+		_camera.size = 3.2
+		_camera.position = Vector3(-5.4, 2.2, 5.2)
+		add_child(_camera)
+		_camera.look_at(Vector3(-1.9, 0.35, 0.0), Vector3.UP)
 	elif _preview_mode == "ships":
 		_camera.size = 6.6
 		_camera.position = Vector3(0.0, 1.0, 12.0)
@@ -156,7 +181,28 @@ func _build_world() -> void:
 	title.add_theme_color_override("font_color", Color(0.55, 0.82, 0.74))
 	layer.add_child(title)
 	var sub := Label.new()
-	sub.text = ("FOUR STATION FAMILIES · O'NEILL / STANFORD / ASTEROID HABITAT / UEG ASTEROID FORTRESS · PROCEDURAL · NO TEXTURES" if _preview_mode == "four_families" else ("ASTEROID HABITATS · A BAOA QU-STYLE ROCK SHELL + INNER O'NEILL/STANFORD · PROCEDURAL · NO TEXTURES" if _preview_mode == "asteroid_habitats" else ("HARD-SCIFI SHIPS · CDE/SFHD MODULES · 8 FRIENDLY + BB/CA/CL/DD/FF/AV · PROCEDURAL · NO TEXTURES" if _preview_mode == "ships" else ("HABITAT STRUCTURES · O'NEILL TWIN CYLINDER / STANFORD TORUS · VISUAL ROTATION · PROCEDURAL · NO TEXTURES" if _preview_mode == "habitats" else ("STATION STRUCTURES · T-CORE / TRUSS / SOLAR WINGS / RADIATORS / DOCKS · PROCEDURAL · NO TEXTURES" if _preview_mode == "stations" else "PROCEDURAL GEOMETRY · SOLID MATERIALS · NO TEXTURES · GL COMPATIBILITY")))))
+	var sub_text := "PROCEDURAL GEOMETRY · SOLID MATERIALS · NO TEXTURES · GL COMPATIBILITY"
+	if _preview_mode == "oneill_hi":
+		sub_text = "O'NEILL ISLAND THREE HI · SINGLE CYLINDER 30×7.5 km 4:1 · 128×48 SHELL · 3 WINDOW BANDS · 3 END-CAP REFLECTORS"
+	if _preview_mode == "oneill_hi_detail":
+		sub_text = "O'NEILL HI DETAIL · END-CAP RING / RADIAL RIBS / HUB · 3 REFLECTORS 120° SYMMETRIC · WINDOW RECESS"
+	if _preview_mode == "oneill_hi_outboard":
+		sub_text = "O'NEILL OUTBOARD · -X PORT/INDUSTRIAL RING · 4 SOLAR QUADRANTS · 5 MOORING + 5 SHUTTLE PORTS · 4 RADIATOR GROUPS EACH END"
+	if _preview_mode == "oneill_hi_reflector_angle":
+		sub_text = "O'NEILL REFLECTOR ANGLE · SIDE VIEW · 25° OPENING / LENGTH 1.06L / WIDTH 0.56D / 3×120° SYMMETRIC"
+	if _preview_mode == "oneill_hi_reflector_mount":
+		sub_text = "O'NEILL REFLECTOR MOUNT · END VIEW · DOUBLE HINGE SEATS / ROOT TORQUE TUBE / A-FRAME BACK SUPPORTS / 2 ACTUATORS / BEARING HOUSINGS"
+	if _preview_mode == "four_families":
+		sub_text = "FOUR STATION FAMILIES · O'NEILL / STANFORD / ASTEROID HABITAT / UEG ASTEROID FORTRESS · PROCEDURAL · NO TEXTURES"
+	if _preview_mode == "asteroid_habitats":
+		sub_text = "ASTEROID HABITATS · A BAOA QU-STYLE ROCK SHELL + INNER O'NEILL/STANFORD · PROCEDURAL · NO TEXTURES"
+	if _preview_mode == "ships":
+		sub_text = "HARD-SCIFI SHIPS · CDE/SFHD MODULES · 8 FRIENDLY + BB/CA/CL/DD/FF/AV · PROCEDURAL · NO TEXTURES"
+	if _preview_mode == "habitats":
+		sub_text = "HABITAT STRUCTURES · O'NEILL TWIN CYLINDER / STANFORD TORUS · VISUAL ROTATION · PROCEDURAL · NO TEXTURES"
+	if _preview_mode == "stations":
+		sub_text = "STATION STRUCTURES · T-CORE / TRUSS / SOLAR WINGS / RADIATORS / DOCKS · PROCEDURAL · NO TEXTURES"
+	sub.text = sub_text
 	sub.position = Vector2(38, 56)
 	sub.add_theme_font_size_override("font_size", 13)
 	sub.add_theme_color_override("font_color", Color(0.42, 0.52, 0.49))
@@ -231,6 +277,30 @@ func _build_models() -> void:
 	_pivot = Node3D.new()
 	_pivot.name = "ShowcasePivot"
 	add_child(_pivot)
+	if _preview_mode == "oneill_hi" or _preview_mode == "oneill_hi_detail" or _preview_mode == "oneill_hi_outboard" or _preview_mode == "oneill_hi_reflector_angle" or _preview_mode == "oneill_hi_reflector_mount":
+		var hidetail: bool = _preview_mode != "oneill_hi"
+		var hpath := "res://models/oneill_island3_hi.tscn"
+		var hpacked = load(hpath)
+		if hpacked is PackedScene:
+			var hnode = (hpacked as PackedScene).instantiate()
+			_pivot.add_child(hnode)
+			_loaded.append(hpath)
+			if _preview_mode in ["oneill_hi_reflector_angle", "oneill_hi_reflector_mount"]:
+				return
+			var hlbl := Label3D.new()
+			hlbl.text = ("O'NEILL ISLAND THREE · REFLECTOR ANGLE" if _preview_mode == "oneill_hi_reflector_angle" else ("O'NEILL ISLAND THREE · REFLECTOR MOUNT" if _preview_mode == "oneill_hi_reflector_mount" else ("O'NEILL ISLAND THREE · OUTBOARD -X" if _preview_mode == "oneill_hi_outboard" else ("O'NEILL ISLAND THREE · HI-DETAIL" if hidetail else "O'NEILL ISLAND THREE · SINGLE CYLINDER"))))
+			hlbl.font_size = 26
+			hlbl.pixel_size = 0.0030 if hidetail else 0.0034
+			hlbl.modulate = Color(0.58, 0.80, 0.72)
+			hlbl.outline_size = 7
+			hlbl.outline_modulate = Color(0.01, 0.02, 0.02, 0.9)
+			hlbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			hlbl.no_depth_test = true
+			hlbl.position = Vector3(0.0, 2.4, 0.0)
+			_pivot.add_child(hlbl)
+		else:
+			_failed.append(hpath)
+		return
 	if _preview_mode == "four_families":
 		for spec in FOUR_FAMILY_PLACEMENTS:
 			var fpath := String((spec as Dictionary).get("path", ""))

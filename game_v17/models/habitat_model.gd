@@ -1,7 +1,9 @@
 extends Node3D
 
-# 方案B-37：大型居住站程序化模型（奥尼尔双圆柱 / 斯坦福环面）。
+# 方案B-37/41：大型居住站程序化模型（奥尼尔 Island Three / 斯坦福环面）。
 # 纯色基础材质、无贴图；旋转仅视觉示意，不接物理。尺度为预览单位，不是真实 km。
+const OneillModel := preload("res://models/oneill_island3_hi.gd")
+
 @export_enum("oneill", "stanford") var habitat_type := "oneill"
 @export var habitat_label := "L5-07 SAVANNAH"
 @export var habitat_scale := 1.0
@@ -134,44 +136,14 @@ func _surface_strips(parent: Node3D, radius: float, length: float) -> void:
 
 
 func _build_oneill() -> void:
-	# 双圆柱：长 4.0 / 直径 1.0（对应设定 30km × 7.5km 的 4:1）
-	var length := 4.0
-	var rad := 0.50
-	_rotor_a = Node3D.new()
-	_rotor_a.name = "CylinderA"
-	_rotor_a.position = Vector3(0, 0.62, 0)
-	add_child(_rotor_a)
-	_rotor_b = Node3D.new()
-	_rotor_b.name = "CylinderB"
-	_rotor_b.position = Vector3(0, -0.62, 0)
-	add_child(_rotor_b)
-	for rotor in [_rotor_a, _rotor_b]:
-		var r: Node3D = rotor
-		_cyl(r, Vector3.ZERO, Vector3.RIGHT, rad, length, _hull, 28)
-		_surface_strips(r, rad, length)
-		# 端盖/轴承
-		for side in [-1.0, 1.0]:
-			_torus(r, Vector3(side * length * 0.5, 0, 0), Vector3(0, 0, PI * 0.5), rad * 0.92, rad * 1.04, _dark)
-			_cyl(r, Vector3(side * length * 0.5, 0, 0), Vector3.RIGHT, rad * 0.82, 0.08, _hull, 24)
-			_cyl(r, Vector3(side * (length * 0.5 + 0.10), 0, 0), Vector3.RIGHT, rad * 0.18, 0.16, _accent, 14)
-	# 中央对接枢纽/轴向轴
-	_cyl(self, Vector3.ZERO, Vector3.RIGHT, 0.10, 4.7, _dark, 12)
-	for x in [-2.35, 2.35]:
-		_cyl(self, Vector3(x, 0, 0), Vector3.RIGHT, 0.17, 0.24, _accent, 16)
-		_torus(self, Vector3(x + 0.12, 0, 0), Vector3(0, 0, PI * 0.5), 0.13, 0.19, _dark)
-		# 连接两圆柱的径向臂
-		for y in [-0.62, 0.62]:
-			_box(self, Vector3(x, y * 0.5, 0), Vector3(0.08, 0.62, 0.08), _dark)
-	# 太阳翼/电站（静态）
-	_box(self, Vector3(2.6, 0.90, 0), Vector3(0.90, 0.018, 0.46), _solar)
-	_box(self, Vector3(-2.6, 0.90, 0), Vector3(0.90, 0.018, 0.46), _solar)
-	_box(self, Vector3(2.6, -0.90, 0), Vector3(0.90, 0.018, 0.46), _solar)
-	_box(self, Vector3(-2.6, -0.90, 0), Vector3(0.90, 0.018, 0.46), _solar)
-	_cyl(self, Vector3(2.55, 0, 0), Vector3.UP, 0.025, 1.8, _dark, 6)
-	_cyl(self, Vector3(-2.55, 0, 0), Vector3.UP, 0.025, 1.8, _dark, 6)
-	# 端部散热片
-	for x2 in [-2.9, 2.9]:
-		_box(self, Vector3(x2, 0, 0), Vector3(0.42, 0.012, 1.2), _radiator)
+	# B-48：委托给高精度 oneill_island3_hi。
+	var om = OneillModel.new()
+	om.habitat_label = habitat_label
+	om.habitat_scale = 1.0
+	om.station_type = station_type
+	om.station_scale = station_scale
+	om.module_count = module_count
+	add_child(om)
 
 
 func _build_stanford() -> void:
