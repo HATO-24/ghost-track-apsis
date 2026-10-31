@@ -1,14 +1,16 @@
 # APSIS 文档入口
 
-设定正文见[《GHOST TRACK：地月圈设定集》](settings/GHOST_TRACK_地月圈设定集.md)。十一章连续书稿涵盖世界、组织、设施、工业、舰队、技术、人物与事件。原始文档和前版整理材料保留在[资料入口](settings/README.md)供查证。
+设定正文见[《GHOST TRACK · 世界设定全书》](settings/GHOST_TRACK_世界设定全书.md)。九章连续书稿涵盖历史、地理、势力、经济、人物、舰船、技术与命名，是当前**最新、最正式、最完全**的世界设定文档。
+
+旧设定文档（03–06、10、12、16、19–21、44、46–49）与历轮整合材料已归档至 [`archive/legacy_setting_20261101/`](archive/legacy_setting_20261101/)，仅作历史查证，不再作为设定依据。
 
 | 要查的内容 | 当前入口 |
 | --- | --- |
-| 世界观、组织、舰船、技术和人物 | [整合设定集](settings/README.md)；每章附来源和未决边界 |
+| 世界设定正文 | [世界设定全书](settings/README.md) |
 | 已确认的联合战役范围 | [用户确认与后续执行](tasks/joint_campaign/JC-B03P_用户确认与后续执行_20261029.md)；与主线剧情分域 |
 | HUD 设计与首批开发 | [HUD 首批映射与实施卡](ui/20261031_hud/README.md)；[UI 总规范](60_Astra_UI与文案设计规范_交Sol.md) |
 | 当前谁做什么、先后顺序 | [2026-10-31 执行队列](tasks/执行队列_20261031.md) |
 | 本地测试与证据要求 | [本地测试规则](tasks/joint_campaign/本地测试与交付规则_20261031.md) |
-| 历史文档为什么有不同说法 | [设定来源与冲突登记](settings/_registry/README.md)；[既有迁移规则](reviews/product_review_20261029/sol/当前文档入口与迁移规则.md) |
+| 历史文档为什么有不同说法 | [设定来源与冲突登记（已归档）](archive/legacy_setting_20261101/settings_work/_registry/README.md)；[既有迁移规则](reviews/product_review_20261029/sol/当前文档入口与迁移规则.md) |
 
 “整合正文”“设计已审校”“代码已实现”“独立实测通过”分别记录。未决日期、未冻结数值与尚未实现的玩法不会因进入本入口而升级为已确认或已完成。

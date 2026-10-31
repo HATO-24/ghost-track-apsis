@@ -1,0 +1,18 @@
+id,topic,layer,current_statement,historical_or_other_version,source,status,scope,engineering_link,remaining_check
+SET-01,首场编制,玩法,11艘等于8艘旗舰及支援舰加3个作战位置；作战舰可按炮导3:0或2:1或1:2或0:3组合,旧B03P写3舰总容量和100点及3600秒,GitHub main:docs/tasks/joint_campaign/JC-B03P_用户确认与后续执行_20261029.md；Astra_L03_S04_审查与裁定_20261030.md第1及3节,已确认产品口径未验运行,联合战役Demo,舰池与编制校验,核对11艘实例可用数量及部署行为
+SET-02,旗舰部署,玩法,远地点号计入8艘旗舰及支援舰且进入战区后方并承担真实风险；不占3个作战位置,旧提案可能将前线旗舰固定为作战单位,Astra_L03_S04_审查与裁定_20261030.md第2节R1及第3节,已确认产品口径未验运行,联合战役Demo,部署与指挥链,核对后方实体和战区边界及实际风险
+SET-03,预算与时间,玩法,暂不冻结点数且无全局硬倒计时,旧B03P有固定预算和3600模拟秒,同上第1节及docs/tasks/joint_campaign/JC-B03P_scenario_proposal.md旧提案,已确认方向,联合战役Demo,目标与UI时间显示,局部行动窗口仍可有但须单独设计
+SET-04,舰级与实例,世界观,厂商型号/舰级/舰种/舰名/舷号分层,旧稿可能混用型号和命名舰,origin/main:docs/04_舰船设定.md:43-47,已确认文档口径,舰船设定,ship_catalog与fleet_roster,具体命名舰库存由目录核对
+SET-05,炮舰角色,世界观及玩法,赤铁-6改为改装炮舰以轨道炮和火控承担单点打击,单体弹具体穿透数值未批准,origin/main:docs/04_舰船设定.md:403-411;ships_friendly.json:219-237,历史文档与目录可核,舰船/战役,HEMATITE class及weapon挂载,具体性能与逐舰库存待验证
+SET-06,弹舱舰角色,世界观及玩法,龙门-3M以导弹发射架承担远程打击且依赖外部搜索；同级可由合法舰级模板建独立场景实例,旧名册仅列VESUVIUS一艘具名导弹舰,origin/main:docs/04_舰船设定.md:413-421;game_v17/docs/fleet_system.md:19-40;ships_friendly.json:291-308;Astra_L03_S04_审查与裁定_20261030.md第3节,产品实例方案已裁定未验运行,舰船/战役,GANTRY class及roster,核对稳定唯一ID和独立库存燃料损伤及合法模板实例化
+SET-07,单体动能弹,玩法,保留单体动能穿甲弹作为比较基线,现有weapons_l1.json只有railgun基础项无本轮弹种选择,origin/main:game_v17/framework/content/weapons_l1.json:7-31;Astra交接第3节,本轮设计,战役弹药,CombatService/CombatBallistics,区分旧文档设计数值和当前实现
+SET-08,集束动能穿甲弹,玩法,轨道炮候选弹用有限覆盖换取单个命中作用降低且消耗真实资源；沿railgun不可拦截契约,旧技术手册无本轮集束弹批准参数,Astra交接第3节;Astra_L03_S04_审查与裁定_20261030.md第2节R3;origin/main:docs/05_技术手册.md:266-288,本轮设计未实现且数值待验证,战役弹药,弹体结算/损伤/存档/规模预算,平台兼容和首个可玩对照场景
+SET-09,航迹仿真诱饵,玩法与信息,实体/观测/判断分层且有限时限和可识破,旧W-05已有诱饵假目标概念但无本轮确证伪装规则,origin/main:docs/05_技术手册.md:373-392;docs/12_军语规范.md:96-97;Astra交接第3节,本轮设计数值待验证,战役信息战,EW/Observation/TrackTable/AI,导引头诱偏与战术航迹消费者分开
+SET-10,既有诱饵实现,实现,固定树的CombatBallistics有decoy对抗记录和寿命,不能推出战术航迹伪装已经实现,origin/main:game_v17/docs/combat_ballistics.md:13-70及Astra交接第1节,静态实现线索未独立验收,旧弹道服务,CombatBallistics,工程Sol以当前执行SHA验证实际行为
+SET-11,逐舰弹药,实现目标,首个新增主武器装载切片每舰单一主装载且舰间可不同；逐舰实例库存独立；既有PD及对抗设备保留,旧武器内容以weapon级ammo表示且名册仅一艘同级舰,origin/main:game_v17/framework/content/weapons_l1.json:7-55;game_v17/docs/fleet_system.md:19-40;Astra_L03_S04_审查与裁定_20261030.md第3节,本轮产品裁定未验运行,联合战役逐舰运行,实例库存/发射/读档/报告,同舰同一主发射系统有限混装后延；核对平台兼容及冻结规则
+SET-12,真假目标术语,玩家文案,诱饵是手段假目标是假航迹结果虚警是系统误报,旧文案若混称会泄露或误导,origin/main:docs/12_军语规范.md:88-98;Astra交接第3节,沿用术语规范并补本轮用途,信息战UI,安全显示/观测时效,界面应按观察者已知证据描述
+SET-13,旗舰占位,玩法,远地点号计入11艘中的8艘旗舰及支援舰且不占3作战位；后方部署仍承担真实风险,旧B03P曾强制HEMATITE作为作战旗舰且首版S-04误列编制外备选,GitHub main:docs/tasks/joint_campaign/JC-B03P_用户确认与后续执行_20261029.md；Astra_L03_S04_审查与裁定_20261030.md第1至3节；Luna-L03:conflicts.csv:C-04,已裁定并更正历史误列未验运行,联合战役编制,11舰总数/3作战位映射,核对内容实例与实际部署不再重选编制外节点
+SET-14,发射架与弹药ID,内容及实现,龙门-3M设定为48单元发射架,舰级目录写missile_48_cell而武器表写通用missile,Luna-L03:evidence.md:C-05;origin/main:ships_friendly.json:291-308;weapons_l1.json:33-55,多源差异待核,舰船弹药,launcher到ammo crosswalk,不能把发射架ID当弹药ID
+SET-15,来源筛除,来源,钴蓝与灰及格里芬等篇目不自动属APSIS,标题或武器词近似不足以证明正典归属,Luna-L03:sources.csv:PW-SCREENED-OTHER;PureWriter a-095/a-107/a-108/a-112-a-115,已排除本批事实用途,合集材料,无,不从未读篇推设定
+SET-16,旧主线资料,来源,a-080仅保留Chronos主线历史证据,第33舰队名称重合不代表战役年月事件或ROE共用,Luna-L03:sources.csv:PW-a080;S01用户D1=A,历史只读,剧情线,无,任何事实级复用需重新指定版本
+SET-17,质量与成本,玩法及实现,干重燃料比Δv位移量与点数分别保持单位含义,旧B03P用排水量推点数但当前点数未冻结,Luna-L03:conflicts.csv:C-09;origin/main:docs/04_舰船设定.md,方案待核,舰船/预算,质量字段与可能预算指标,不得从设定文字直接推成本公式
